@@ -1,0 +1,4 @@
+{
+  "heading": "Migrating old names",
+  "body": "Run ty migrate fix --write after reviewing your changes. Controller becomes RequestRoute. Client, WebCall and the Exchange names are retired. Use HTTPClient and the Request method annotations. RequestMapping becomes RequestRoute. GetMapping becomes GetRoute; the other verb mappings change the same way. GetRoute with Stream becomes StreamRoute, and a get method name starts with stream. Move Yon controllers into server/controllers/. Remove yon.* route markers and OPTIONS.schema.json after migrating their behavior. YonRequest and YonResponse are removed: ty migrate fix --write removes an unused YonRequest parameter and lists the rest, with the native request and response of each language (ADR 0062)."
+}

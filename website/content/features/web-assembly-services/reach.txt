@@ -1,0 +1,15 @@
+TallyService.rs  one small module, from rustc --target wasm32-unknown-unknown
+TallyService.go  one module with the Go runtime, about 2.7 MB, from GOOS=js GOARCH=wasm
+TallyService.cs  the .NET browser runtime, about 3 MB, cached once
+TallyService.fs  the same .NET browser runtime, plus a small F# library
+TallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc
+
+A service with several is Rust on the web, then Go, then C#, then F#: Rust's
+module is a small file, Go's carries the Go runtime, and C#'s is a
+runtime. On the web a service has no DOM and no platform;
+it is state and logic over the properties its tag passes, which may
+carry a data file of up to 1 MiB. ty doctor checks for the
+wasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,
+and, for Ruby, Emscripten 6.0.10 or newer and a C compiler.
+A release build also writes Brotli copies, so a browser downloads about
+a quarter to a third of these sizes (ty start sends them).

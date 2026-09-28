@@ -1,0 +1,47 @@
+{
+  "heading": "Signal-driven UI",
+  "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. A form declares an applicationEventPublisher and publishes a collection change through it. Panels that care about the change register with OnEvent. They do not need to know who sent it. Both services inject the single UsersClient that Tachyon discovers automatically in client/clients. Each service owns its cancellation lifetime (the signal that stops its work). HTTPClient handles the JSON request and response. After a successful submit, the form publishes a UsersChanged model, and the list listens for that model. Choose JavaScript or TypeScript. HTTPClient is the browser transport, and only JavaScript and TypeScript services use it.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/users/form/tac.html",
+      "code": { "file": "client/components/users/form/tac.html" }
+    },
+    {
+      "name": "client/components/users/list/tac.html",
+      "code": { "file": "client/components/users/list/tac.html" }
+    },
+    {
+      "name": "client/clients/UsersClient.js",
+      "code": { "file": "client/clients/UsersClient.js" }
+    },
+    {
+      "name": "client/services/UserFormService.js",
+      "code": { "file": "client/services/UserFormService.js" }
+    },
+    {
+      "name": "client/services/UserListService.js",
+      "code": { "file": "client/services/UserListService.js" }
+    },
+    {
+      "name": "client/clients/UsersClient.ts",
+      "code": { "file": "client/clients/UsersClient.ts" }
+    },
+    {
+      "name": "client/services/UserFormService.ts",
+      "code": { "file": "client/services/UserFormService.ts" }
+    },
+    {
+      "name": "client/services/UserListService.ts",
+      "code": { "file": "client/services/UserListService.ts" }
+    },
+    {
+      "name": "client/models/UsersChanged.ts",
+      "code": { "file": "client/models/UsersChanged.ts" }
+    }
+  ]
+}

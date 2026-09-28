@@ -1,0 +1,37 @@
+{
+  "id": "python",
+  "name": "Python",
+  "note": "Python keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+  "files": [
+    {
+      "name": "server/models/Order.py",
+      "code": {
+        "file": "server/models/Order.py"
+      }
+    },
+    {
+      "name": "server/models/OrderList.py",
+      "code": {
+        "file": "server/models/OrderList.py"
+      }
+    },
+    {
+      "name": "server/services/OrderService.py",
+      "code": {
+        "file": "server/services/OrderService.py"
+      }
+    },
+    {
+      "name": "server/stores/OrderStore.py",
+      "code": {
+        "file": "server/stores/OrderStore.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.py",
+      "code": {
+        "file": "server/controllers/OrdersController.py"
+      }
+    }
+  ]
+}

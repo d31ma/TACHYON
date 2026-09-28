@@ -1,0 +1,1 @@
+type Bill = { Total: int }

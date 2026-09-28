@@ -1,0 +1,7 @@
+{
+  "heading": "Route rules",
+  "body": "A route is a path that `RequestRoute` on the controller class and `GetRoute`, `PostRoute` and the other verb annotations on a method declare together. A part in braces, such as `{id}`, is a path variable (a part of the URL that can change). The method reads it with a `FromPath` argument, and its declared type is checked. Two controllers cannot answer the same verb on the same path. This works the same way in every language that Yon runs. Every route also says who may call it: `Public`, `SignedIn` or `Allow(Role)` on the controller class or on the method, and the method wins.",
+  "code": {
+    "file": "example.txt"
+  }
+}

@@ -1,0 +1,331 @@
+{
+  "heading": "Helpers, utilities and private methods",
+  "body": "GET /checkout returns {\"total\":42}. When two classes share code, or one class has a long job, ask one question: does this code need other classes (stores, clients, settings or other helpers), saved state, OnStart or OnStop, or a Fake in tests? If the answer is yes, write a helper. A helper is a class that other classes use for part of their work. Mark it with Helper, put it in client/helpers or server/helpers, and end its name with Helper. Tachyon creates it and gives it to each class that asks for it with Needs. A view or a controller does not call a helper directly: it calls a service, and the service calls the helper.\n\nIf the answer is no, you do not need a helper:\n\n| The code | Write it as |\n| --- | --- |\n| needs other classes, saved state, OnStart or OnStop, or a Fake in tests | a helper: Helper, in helpers, with a name that ends with Helper |\n| has only static methods and no state | a utility: a class named like PriceUtils in client/utils or server/utils, with no annotation (see Utilities) |\n| is used by one class only | a private method of that class |\n| is called by a view or a controller | a service |\n\nThe layers go in one order: a view or a controller calls a service, a service calls a helper, and a helper calls a store or a client. Any layer can call a utility. The build refuses a dependency that points up, such as a helper that needs a service (TY1327, see Dependencies point down).\n\nIn this example, CheckoutService adds the tax through TaxHelper. TaxHelper is a helper because it needs another class, TaxRateStore. Only CheckoutService uses the subtotal, so the subtotal is a private method of CheckoutService, not a helper and not a utility. The controller calls the service, never the helper.\n\nHelper was called Component before. The name changed because client/components holds views. The build refuses Component with its new name (TY1308) and a file in a delegates folder with the helpers folder (TY1310). `ty migrate fix --write` moves the files from delegates to helpers, renames each class from a name that ends with Component to a name that ends with Helper, and changes the Needs fields and types that use it.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/stores/TaxRateStore.js",
+      "code": {
+        "file": "server/stores/TaxRateStore.js"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.js",
+      "code": {
+        "file": "server/helpers/TaxHelper.js"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.js",
+      "code": {
+        "file": "server/services/CheckoutService.js"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.js",
+      "code": {
+        "file": "server/controllers/CheckoutController.js"
+      }
+    },
+    {
+      "name": "server/models/Receipt.ts",
+      "code": {
+        "file": "server/models/Receipt.ts"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.ts",
+      "code": {
+        "file": "server/stores/TaxRateStore.ts"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.ts",
+      "code": {
+        "file": "server/helpers/TaxHelper.ts"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.ts",
+      "code": {
+        "file": "server/services/CheckoutService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.ts",
+      "code": {
+        "file": "server/controllers/CheckoutController.ts"
+      }
+    },
+    {
+      "name": "server/models/Receipt.py",
+      "code": {
+        "file": "server/models/Receipt.py"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.py",
+      "code": {
+        "file": "server/stores/TaxRateStore.py"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.py",
+      "code": {
+        "file": "server/helpers/TaxHelper.py"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.py",
+      "code": {
+        "file": "server/services/CheckoutService.py"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.py",
+      "code": {
+        "file": "server/controllers/CheckoutController.py"
+      }
+    },
+    {
+      "name": "server/models/Receipt.php",
+      "code": {
+        "file": "server/models/Receipt.php"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.php",
+      "code": {
+        "file": "server/stores/TaxRateStore.php"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.php",
+      "code": {
+        "file": "server/helpers/TaxHelper.php"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.php",
+      "code": {
+        "file": "server/services/CheckoutService.php"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.php",
+      "code": {
+        "file": "server/controllers/CheckoutController.php"
+      }
+    },
+    {
+      "name": "server/models/Receipt.java",
+      "code": {
+        "file": "server/models/Receipt.java"
+      }
+    },
+    {
+      "name": "server/models/Receipt.groovy",
+      "code": {
+        "file": "server/models/Receipt.groovy"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.java",
+      "code": {
+        "file": "server/stores/TaxRateStore.java"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.groovy",
+      "code": {
+        "file": "server/stores/TaxRateStore.groovy"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.java",
+      "code": {
+        "file": "server/helpers/TaxHelper.java"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.groovy",
+      "code": {
+        "file": "server/helpers/TaxHelper.groovy"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.java",
+      "code": {
+        "file": "server/services/CheckoutService.java"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.groovy",
+      "code": {
+        "file": "server/services/CheckoutService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.java",
+      "code": {
+        "file": "server/controllers/CheckoutController.java"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.groovy",
+      "code": {
+        "file": "server/controllers/CheckoutController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Receipt.kt",
+      "code": {
+        "file": "server/models/Receipt.kt"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.kt",
+      "code": {
+        "file": "server/stores/TaxRateStore.kt"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.kt",
+      "code": {
+        "file": "server/helpers/TaxHelper.kt"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.kt",
+      "code": {
+        "file": "server/services/CheckoutService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.kt",
+      "code": {
+        "file": "server/controllers/CheckoutController.kt"
+      }
+    },
+    {
+      "name": "server/models/Receipt.cs",
+      "code": {
+        "file": "server/models/Receipt.cs"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.cs",
+      "code": {
+        "file": "server/stores/TaxRateStore.cs"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.cs",
+      "code": {
+        "file": "server/helpers/TaxHelper.cs"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.cs",
+      "code": {
+        "file": "server/services/CheckoutService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.cs",
+      "code": {
+        "file": "server/controllers/CheckoutController.cs"
+      }
+    },
+    {
+      "name": "server/models/Receipt.rs",
+      "code": {
+        "file": "server/models/Receipt.rs"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.rs",
+      "code": {
+        "file": "server/stores/TaxRateStore.rs"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.rs",
+      "code": {
+        "file": "server/helpers/TaxHelper.rs"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.rs",
+      "code": {
+        "file": "server/services/CheckoutService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.rs",
+      "code": {
+        "file": "server/controllers/CheckoutController.rs"
+      }
+    },
+    {
+      "name": "server/models/Receipt.go",
+      "code": {
+        "file": "server/models/Receipt.go"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.go",
+      "code": {
+        "file": "server/stores/TaxRateStore.go"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.go",
+      "code": {
+        "file": "server/helpers/TaxHelper.go"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.go",
+      "code": {
+        "file": "server/services/CheckoutService.go"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.go",
+      "code": {
+        "file": "server/controllers/CheckoutController.go"
+      }
+    },
+    {
+      "name": "server/models/Receipt.dart",
+      "code": {
+        "file": "server/models/Receipt.dart"
+      }
+    },
+    {
+      "name": "server/stores/TaxRateStore.dart",
+      "code": {
+        "file": "server/stores/TaxRateStore.dart"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.dart",
+      "code": {
+        "file": "server/helpers/TaxHelper.dart"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.dart",
+      "code": {
+        "file": "server/services/CheckoutService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.dart",
+      "code": {
+        "file": "server/controllers/CheckoutController.dart"
+      }
+    }
+  ]
+}

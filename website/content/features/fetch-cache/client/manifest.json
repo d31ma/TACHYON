@@ -1,0 +1,18 @@
+{
+  "tac": {
+    "cache": [
+      {
+        "path": "/api/products",
+        "policy": "cache-first"
+      },
+      {
+        "path": "/api/search/*",
+        "policy": "network-first"
+      },
+      {
+        "path": "/api/session",
+        "policy": "no-store"
+      }
+    ]
+  }
+}

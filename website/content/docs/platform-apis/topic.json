@@ -1,0 +1,21 @@
+{
+  "title": "Platform APIs",
+  "summary": "A platform API is a feature of the device, such as the tray or the file system. In a native host, the page is the same as in the browser. A service that is compiled for the platform uses the platform API directly.",
+  "before": [
+    "native-hosts"
+  ],
+  "sections": [
+    {
+      "include": "no-fixed-list-of-platform-actions/section.json"
+    },
+    {
+      "include": "what-the-host-injects/section.json"
+    },
+    {
+      "include": "the-same-service-shape-in-every-language/section.json"
+    },
+    {
+      "include": "what-the-host-records/section.json"
+    }
+  ]
+}

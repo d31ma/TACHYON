@@ -1,0 +1,13 @@
+// @Service
+type GoGreetingService struct {
+	Message string
+}
+
+// @OnStart
+func (greeting *GoGreetingService) Start() {
+	greeting.Message = "Hello from Go"
+}
+
+func (greeting *GoGreetingService) Greet() {
+	greeting.Message = "Go says hello again."
+}

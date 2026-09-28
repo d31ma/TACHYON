@@ -1,0 +1,18 @@
+{
+  "title": "Who may call a route",
+  "summary": "Every route says who may call it: anyone, any signed-in user, or only some roles. One identity provider class tells Tachyon who is signed in, and Tachyon answers 401 or 403 before your code runs.",
+  "before": [
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../yon/every-route-says-who-may-call-it/section.json"
+    },
+    {
+      "include": "../yon/tell-tachyon-who-is-signed-in/section.json"
+    },
+    {
+      "include": "../yon/who-may-call-a-route-in-every-yon-language/section.json"
+    }
+  ]
+}

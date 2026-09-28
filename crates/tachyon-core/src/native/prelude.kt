@@ -1,93 +1,280 @@
-// Appended to a tac.kt companion compiled into an Android host.
-//
-// The parser is `org.json`, which Android ships, so a companion adds no
-// dependency to the project — the same stance the generated host takes.
-
-/** One readable, optionally writable member of a companion. */
-
-// The browser's two lifetimes, on Android. `stored` writes through to the
-// platform's own settings store; `session` lasts this process, because a
-// native app has no tabs for a tab-scoped value to belong to.
-//
-// SharedPreferences rather than DataStore: a companion is a plain class with
-// no coroutine scope to suspend in, and this is exactly the "small collection
-// of key-values" SharedPreferences is for.
-private val tacSessionValues = HashMap<String, Any?>()
-
-object TacStore {
-    /** Set by the host before the companion is first reached. */
-    @JvmStatic
-    var preferences: android.content.SharedPreferences? = null
-
-    @JvmStatic
-    fun local(key: String, fallback: Any?): Any? {
-        val store = preferences ?: return fallback
-        return store.all["tachyon.$key"] ?: fallback
-    }
-
-    @JvmStatic
-    fun setLocal(key: String, value: Any?) {
-        val editor = preferences?.edit() ?: return
-        when (value) {
-            is Int -> editor.putInt("tachyon.$key", value)
-            is Long -> editor.putLong("tachyon.$key", value)
-            is Boolean -> editor.putBoolean("tachyon.$key", value)
-            is Float -> editor.putFloat("tachyon.$key", value)
-            else -> editor.putString("tachyon.$key", value?.toString())
-        }
-        editor.apply()
-    }
-
-    @JvmStatic
-    fun session(key: String, fallback: Any?): Any? = tacSessionValues[key] ?: fallback
-
-    @JvmStatic
-    fun setSession(key: String, value: Any?) {
-        tacSessionValues[key] = value
-    }
-}
-
 class TacField(val read: () -> Any?, val write: ((Any?) -> Unit)? = null)
 
-/** One callable member of a companion. */
 class TacMethod(val invoke: (List<Any?>) -> Any?)
 
-// Publishing to the page.
-//
-// Everything else here is the page asking a question. This is the other
-// direction, and the reason it exists: a companion watching something the
-// platform tells it about — a battery level, a connectivity change, a sensor —
-// has no question to answer, because nobody asked one.
-//
-// A SAM interface rather than a Kotlin function type, because the host that
-// installs it is the generated Java activity.
-fun interface TacEmit {
-    fun send(payload: String)
+class TacListener(
+    val events: List<String>,
+    val replay: Boolean,
+    val order: Int,
+    condition: String?,
+    models: String?,
+    val returns: String?,
+    val asynchronous: Boolean,
+    val invoke: (Any?) -> Any?,
+) {
+    val condition: Any? = tacParse(condition)
+    val models: Any? = tacParse(models)
+}
+class TacHook(val destroy: Boolean, val invoke: () -> Unit)
+
+class ApplicationEventPublisher {
+    fun <T : Any> publishEvent(value: T, retain: Boolean = false) {
+        val plain = tacPlain(value)
+        if (plain !is Map<*, *>) {
+            tacEventFailure()
+            return
+        }
+        tacEventPublish(value::class.simpleName ?: "", plain, retain)
+    }
 }
 
-object TacBridge {
-    /** Installed by the host before the page can reach the companion. */
-    @JvmStatic
-    var emit: TacEmit? = null
+private fun tacParse(text: String?): Any? {
+    if (text == null) return null
+    return try { tacParseJson(text) } catch (_: Exception) { null }
 }
 
-/**
- * Publishes a value to the page, where `@subscribe(name)` receives it.
- *
- * Safe to call from any thread: the host is what posts to the UI thread,
- * because it is the one holding the WebView.
- */
-fun tacPublish(name: String, value: Any? = null) {
-    val sink = TacBridge.emit ?: return
-    sink.send("{\"name\":${org.json.JSONObject.quote(name)},\"value\":${tacEncode(value)}}")
+private fun tacPlain(value: Any?): Any? =
+    when (value) {
+        null, is Unit -> null
+        is String, is Boolean, is Number -> value
+        is Enum<*> -> value.name
+        is Map<*, *> -> value.entries.associate { it.key.toString() to tacPlain(it.value) }
+        is Iterable<*> -> value.map { tacPlain(it) }
+        is Array<*> -> value.map { tacPlain(it) }
+        else -> tacPlainModel(value)
+    }
+
+private fun tacFits(models: Any?, shape: String, value: Any?): Boolean {
+    if (shape.startsWith("?")) return value == null || tacFits(models, shape.substring(1), value)
+    if (shape.startsWith("[]")) return value is List<*> && value.all { tacFits(models, shape.substring(2), it) }
+    when (shape) {
+        "any" -> return true
+        "string" -> return value is String
+        "integer" -> return value is Int || value is Long || tacIsBigWhole(value)
+        "number" -> return value is Number
+        "boolean" -> return value is Boolean
+    }
+    val model = (models as? Map<*, *>)?.get(shape) as? Map<*, *> ?: return false
+    val fields = model["fields"] as? Map<*, *> ?: return false
+    val objectValue = value as? Map<*, *> ?: return false
+    if (model["open"] != true && objectValue.keys.any { !fields.containsKey(it) }) return false
+    for ((name, declared) in fields) {
+        val field = declared as? String ?: return false
+        val required = field.startsWith("!")
+        if (!objectValue.containsKey(name)) {
+            if (required) return false
+            continue
+        }
+        if (!tacFits(models, if (required) field.substring(1) else field, objectValue[name])) return false
+    }
+    return true
 }
 
-/** Reads an argument or an assigned value as the type the author expects. */
+private class TacActivation(val route: String, val service: String, val owner: String, val members: Map<String, Any>) {
+    var disposed = false
+    val queue = ArrayDeque<Triple<String, String, Boolean>>()
+    val retained = linkedMapOf<String, String>()
+    val deferred = ArrayDeque<Pair<TacListener, String>>()
+    val sorted: List<Any> = members.entries.sortedBy { it.key }.map { it.value }
+    val listeners: List<TacListener> = sorted.filterIsInstance<TacListener>().sortedBy { it.order }
+}
+private object TacNativeState {
+    val activations = linkedMapOf<String, TacActivation>()
+    var executing: TacActivation? = null
+    var handling = false
+}
+private fun tacEventPublish(name: String, value: Any?, retain: Boolean) {
+    val owner = TacNativeState.executing
+    if (!tacOnOwnerThread() || owner == null || owner.disposed || TacNativeState.activations[owner.owner] !== owner || owner.queue.size >= 128) { tacEventFailure(); return }
+    try {
+        fun validate(value: Any?, depth: Int = 0) {
+            require(depth <= 64)
+            when (value) {
+                null, is Unit, is String, is Boolean, is Int, is Long, is Short, is Byte -> Unit
+                is Double -> require(value.isFinite())
+                is Float -> require(value.isFinite())
+                is Iterable<*> -> value.forEach { validate(it, depth + 1) }
+                is Map<*, *> -> value.forEach { (key, item) -> require(key is String); validate(item, depth + 1) }
+                else -> throw IllegalArgumentException("Non-JSON event value")
+            }
+        }
+        validate(value)
+        val json = tacEncode(value)
+        require(json.encodeToByteArray().size <= 65536)
+        owner.queue.add(Triple(name, json, retain))
+    } catch (_: Exception) { tacEventFailure() }
+}
+
+private object TacAbsent
+
+private fun tacOperand(node: Map<*, *>, value: Any?, event: String): Any? =
+    when (node["k"]) {
+        "lit" -> node["v"]
+        "event" -> event
+        else -> {
+            var current: Any? = value
+            for (segment in (node["path"] as? List<*> ?: emptyList<Any?>())) {
+                current = when (current) {
+                    is Map<*, *> -> {
+                        val key = when (segment) { is String -> segment; is Number -> tacInt(segment).toString(); else -> null }
+                        if (key != null && current.containsKey(key)) current[key] else TacAbsent
+                    }
+                    is List<*> -> {
+                        val index = when (segment) { is Number -> tacInt(segment); is String -> segment.toIntOrNull(); else -> null }
+                        if (index != null && index >= 0 && index < current.size) current[index] else TacAbsent
+                    }
+                    else -> TacAbsent
+                }
+                if (current === TacAbsent) break
+            }
+            current
+        }
+    }
+
+private fun tacNumber(value: Any?): Double? = if (value is Boolean) null else (value as? Number)?.toDouble()
+
+private fun tacTruthy(value: Any?): Boolean =
+    when (value) {
+        null, TacAbsent -> false
+        is Boolean -> value
+        is String -> value.isNotEmpty()
+        is Number -> value.toDouble() != 0.0 && !value.toDouble().isNaN()
+        else -> true
+    }
+
+private fun tacIdentical(left: Any?, right: Any?): Boolean {
+    if (left === TacAbsent || right === TacAbsent) return left === TacAbsent && right === TacAbsent
+    if (left == null || right == null) return left == null && right == null
+    if (left is Boolean || right is Boolean) return left is Boolean && right is Boolean && left == right
+    if (left is String || right is String) return left is String && right is String && left == right
+    val leftNumber = tacNumber(left)
+    val rightNumber = tacNumber(right)
+    if (leftNumber != null || rightNumber != null) return leftNumber != null && leftNumber == rightNumber
+    if (left is List<*> && right is List<*>) {
+        return left.size == right.size && left.indices.all { tacIdentical(left[it], right[it]) }
+    }
+    if (left is Map<*, *> && right is Map<*, *>) {
+        return left.size == right.size &&
+            left.entries.all { (key, value) -> right.containsKey(key) && tacIdentical(value, right[key]) }
+    }
+    return false
+}
+
+private fun tacOrders(operation: String, left: Any?, right: Any?): Boolean {
+    val comparison = when {
+        tacNumber(left) != null && tacNumber(right) != null -> tacNumber(left)!!.compareTo(tacNumber(right)!!)
+        left is String && right is String -> left.compareTo(right)
+        else -> return false
+    }
+    return when (operation) {
+        "lt" -> comparison < 0
+        "le" -> comparison <= 0
+        "gt" -> comparison > 0
+        else -> comparison >= 0
+    }
+}
+
+private fun tacMatches(matcher: Any?, value: Any?, event: String): Boolean {
+    val node = matcher as? Map<*, *> ?: return false
+    return when (node["k"]) {
+        "and" -> tacMatches(node["l"], value, event) && tacMatches(node["r"], value, event)
+        "or" -> tacMatches(node["l"], value, event) || tacMatches(node["r"], value, event)
+        "not" -> !tacMatches(node["e"], value, event)
+        "truthy" -> tacTruthy(tacOperand(node["e"] as? Map<*, *> ?: return false, value, event))
+        "cmp" -> {
+            val left = tacOperand(node["l"] as? Map<*, *> ?: return false, value, event)
+            val right = tacOperand(node["r"] as? Map<*, *> ?: return false, value, event)
+            when (node["op"]) {
+                "eq" -> tacIdentical(left, right)
+                "ne" -> !tacIdentical(left, right)
+                else -> tacOrders(node["op"] as? String ?: "", left, right)
+            }
+        }
+        else -> false
+    }
+}
+
+private fun tacRepublish(result: Any?, returns: String?) {
+    if (returns == null) return
+    val items = if (result is Iterable<*>) result.toList() else listOf(result)
+    for (item in items.take(32)) {
+        if (item == null || item is Unit) continue
+        tacEventPublish(returns, tacPlain(item), false)
+    }
+}
+
+private fun tacDeliver(listener: TacListener, json: String, republish: Boolean) {
+    try {
+        val result = listener.invoke(tacParseJson(json))
+        if (republish) tacRepublish(result, listener.returns)
+    } catch (_: Exception) { tacEventFailure() }
+}
+
+private fun tacSendEvent(owner: TacActivation, name: String, json: String, retain: Boolean) {
+    tacSend("{\"route\":${tacEncode(owner.route)},\"service\":${tacEncode(owner.service)},\"owner\":${tacEncode(owner.owner)},\"name\":${tacEncode(name)},\"value\":$json,\"retain\":$retain}")
+}
+
+private fun tacNotifyListeners(owner: TacActivation, name: String, json: String) {
+    val value = try { tacParseJson(json) } catch (_: Exception) { null }
+    owner.listeners.forEach { listener ->
+        if (listener.events.contains(name) && listener.models != null && !tacFits(listener.models, name, value)) {
+            tacEventFailure()
+        } else if (listener.events.contains(name)) {
+            if (listener.condition == null || tacMatches(listener.condition, value, name)) {
+                if (listener.asynchronous) {
+                    if (owner.deferred.size >= 128) tacEventFailure() else owner.deferred.add(listener to json)
+                } else tacDeliver(listener, json, true)
+            }
+        }
+    }
+}
+
+private fun tacDrain(owner: TacActivation) {
+    var delivered = 0
+    while (!owner.disposed) {
+        if (owner.deferred.isNotEmpty()) {
+            val pending = owner.deferred.toList()
+            owner.deferred.clear()
+            pending.forEach { (listener, json) -> tacDeliver(listener, json, false) }
+            continue
+        }
+        if (owner.queue.isEmpty()) return
+        if (delivered++ == 128) { owner.queue.clear(); tacEventFailure(); return }
+        val (name, json, retain) = owner.queue.removeFirst()
+        if (tacPageListeners) { tacSendEvent(owner, name, json, retain); continue }
+        if (retain) { if (!owner.retained.containsKey(name) && owner.retained.size == 32) { tacEventFailure(); continue }; owner.retained[name] = json }
+        tacNotifyListeners(owner, name, json)
+        tacSendEvent(owner, name, json, retain)
+    }
+}
+private fun tacDisposeActivation(owner: TacActivation) {
+    owner.disposed = true
+    owner.queue.clear(); owner.retained.clear(); owner.deferred.clear()
+    owner.sorted.forEach { if (it is TacHook && it.destroy) try { it.invoke() } catch (_: Exception) { tacEventFailure() } }
+}
+private fun tacDisposeOwner(id: String) {
+    val owner = TacNativeState.activations.remove(id) ?: return
+    if (TacNativeState.executing === owner) TacNativeState.executing = null
+    tacDisposeActivation(owner)
+}
+private fun tacDisposeAll() {
+    val owners = TacNativeState.activations.values.toList()
+    TacNativeState.activations.clear(); TacNativeState.executing = null
+    owners.forEach { tacDisposeActivation(it) }
+}
+
 fun tacInt(value: Any?): Int =
     when (value) {
         is Number -> value.toInt()
         is Boolean -> if (value) 1 else 0
         else -> value?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+    }
+
+fun tacLong(value: Any?): Long =
+    when (value) {
+        is Number -> value.toLong()
+        is Boolean -> if (value) 1L else 0L
+        else -> value?.toString()?.toDoubleOrNull()?.toLong() ?: 0L
     }
 
 fun tacDouble(value: Any?): Double =
@@ -107,38 +294,47 @@ fun tacBoolean(value: Any?): Boolean =
 
 fun tacString(value: Any?): String = value?.toString() ?: ""
 
+inline fun <reified T> tacRead(value: Any?): T = tacReadType(kotlin.reflect.typeOf<T>(), value) as T
+
+fun tacReadType(type: kotlin.reflect.KType, value: Any?): Any? {
+    if (value == null && type.isMarkedNullable) return null
+    val item = type.arguments.firstOrNull()?.type
+    return when (val kind = type.classifier) {
+        Int::class -> tacInt(value)
+        Long::class -> tacLong(value)
+        Double::class -> tacDouble(value)
+        Float::class -> tacDouble(value).toFloat()
+        Boolean::class -> tacBoolean(value)
+        String::class -> tacString(value)
+        List::class, MutableList::class, Collection::class, Iterable::class ->
+            (value as? List<*> ?: emptyList<Any?>()).map { if (item == null) it else tacReadType(item, it) }
+        Any::class, Map::class, MutableMap::class -> value
+        is kotlin.reflect.KClass<*> -> tacModel(kind, value)
+        else -> value
+    }
+}
+
+private fun tacText(value: Any?): String = if (value == null) "" else value.toString()
+
+private fun tacObject(value: Any?): Map<String, Any?>? =
+    (value as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }
+
 private fun tacEncode(value: Any?): String =
     when (value) {
         null, is Unit -> "null"
         is Boolean -> value.toString()
         is Int, is Long, is Short, is Byte -> value.toString()
-        is Double -> if (!value.isFinite()) "null" else if (value == Math.floor(value))
+        is Double -> if (!value.isFinite()) "null" else if (value == kotlin.math.floor(value))
             value.toLong().toString() else value.toString()
         is Float -> tacEncode(value.toDouble())
-        is String -> org.json.JSONObject.quote(value)
+        is String -> tacQuote(value)
         is Iterable<*> -> value.joinToString(",", "[", "]") { tacEncode(it) }
-        // Anything else crosses as its text, which is what a companion
-        // returning an unforeseen type would want to see on screen.
-        else -> org.json.JSONObject.quote(value.toString())
+        is Map<*, *> -> value.entries.joinToString(",", "{", "}") { tacEncode(it.key.toString()) + ":" + tacEncode(it.value) }
+        else -> tacQuote(value.toString())
     }
 
-/** The JSON value an author's closure expects, from one parsed node. */
-private fun tacValue(value: Any?): Any? =
-    when (value) {
-        null, org.json.JSONObject.NULL -> null
-        is org.json.JSONArray -> (0 until value.length()).map { tacValue(value.opt(it)) }
-        is org.json.JSONObject -> value.toString()
-        else -> value
-    }
-
-/**
- * Answers one route-scoped companion request (ADR 0019).
- *
- * The host calls this directly: the companion is compiled into the same APK,
- * so there is no module to instantiate and no memory to hand across.
- */
 private fun tacBoundedJSON(raw: String): Boolean {
-    if (raw.length > 65536 || raw.toByteArray(Charsets.UTF_8).size > 65536) return false
+    if (raw.length > 65536 || raw.encodeToByteArray().size > 65536) return false
     var depth = 0
     var quoted = false
     var escaped = false
@@ -156,46 +352,107 @@ private fun tacBoundedJSON(raw: String): Boolean {
     return depth == 0 && !quoted
 }
 
-fun tacNativeInvoke(request: String): String =
-    try {
+private fun tacOwnerId(owner: String): Boolean =
+    owner.length == 36 && owner.lowercase().withIndex().all { (index, character) ->
+        if (index == 8 || index == 13 || index == 18 || index == 23) character == '-' else character in "0123456789abcdef"
+    }
+
+private fun tacRequiredValue(props: Map<String, Any?>?, name: String): Any =
+    props?.get(name) ?: throw IllegalArgumentException(name)
+
+private fun tacAssignProperties(activation: TacActivation, props: Map<String, Any?>?) {
+    if (props == null) return
+    val required = tacServiceRequired(activation.service)
+    for ((property, value) in props) {
+        val field = activation.members[property]
+        if (("*" in required || property in required) && field is TacField) field.write?.invoke(value)
+    }
+}
+
+private fun tacDescribeListener(key: String, listener: TacListener): Map<String, Any?> =
+    linkedMapOf(
+        "models" to listener.models,
+        "key" to key,
+        "events" to listener.events,
+        "replay" to listener.replay,
+        "order" to listener.order,
+        "asynchronous" to listener.asynchronous,
+        "condition" to listener.condition,
+    )
+
+private fun tacDescribe(members: Map<String, Any>): String {
+    val fields = members.entries.filter { it.value is TacField }.map { it.key }
+    val methods = members.entries.filter { it.value is TacMethod }.map { it.key }
+    if (!tacPageListeners) return "{\"value\":{\"fields\":${tacEncode(fields)},\"methods\":${tacEncode(methods)}}}"
+    val listeners = members.entries.mapNotNull { (key, member) -> (member as? TacListener)?.let { tacDescribeListener(key, it) } }
+    return "{\"value\":{\"fields\":${tacEncode(fields)},\"methods\":${tacEncode(methods)},\"listeners\":${tacEncode(listeners)}}}"
+}
+
+private fun tacReceive(activation: TacActivation, key: String, value: Any?): String {
+    val listener = activation.members[key] as? TacListener
+        ?: return "{\"error\":${tacQuote("Unknown companion listener: $key")}}"
+    val result = try { listener.invoke(value) } catch (_: Exception) { return "{\"error\":\"Native event listener failed.\"}" }
+    if (!listener.asynchronous) tacRepublish(result, listener.returns)
+    return "{\"value\":null}"
+}
+
+private fun tacInvokeOwned(request: String): String {
+    if (TacNativeState.handling) return "{\"error\":\"Native owner is busy.\"}"
+    TacNativeState.handling = true
+    return try { tacHandle(request) } finally { TacNativeState.executing?.let { tacDrain(it) }; TacNativeState.executing = null; TacNativeState.handling = false }
+}
+private fun tacHandle(request: String): String {
+    return try {
         require(tacBoundedJSON(request)) { "Invalid or oversized companion request." }
-        val parsed = org.json.JSONObject(request)
-        val tac = tacRouteMembers(parsed.optString("route"))
-            ?: if (parsed.optString("op") == "init") emptyMap<String, Any>()
-               else throw IllegalArgumentException("Unknown companion route.")
-        when (val operation = parsed.optString("op")) {
-            "init" -> {
-                val fields = tac.entries.filter { it.value is TacField }.map { it.key }
-                val methods = tac.entries.filter { it.value is TacMethod }.map { it.key }
-                "{\"value\":{\"fields\":${tacEncode(fields)},\"methods\":${tacEncode(methods)}}}"
-            }
-            else -> {
-                val name = parsed.optString("name")
-                when (val member = tac[name]) {
-                    null -> "{\"error\":${org.json.JSONObject.quote(
-                        "Unknown companion member: $name")}}"
-                    is TacField -> when {
-                        operation == "get" -> "{\"value\":${tacEncode(member.read())}}"
-                        operation == "set" && member.write != null -> {
-                            member.write?.invoke(tacValue(parsed.opt("value")))
-                            "{\"value\":null}"
-                        }
-                        operation == "set" -> "{\"error\":${org.json.JSONObject.quote(
-                            "Companion field is read-only: $name")}}"
-                        else -> "{\"error\":${org.json.JSONObject.quote(
-                            "Companion member does not support $operation: $name")}}"
+        val parsed = tacObject(tacParseJson(request)) ?: throw IllegalArgumentException("Invalid companion request.")
+        val operation = tacText(parsed["op"])
+        if (operation == "host-dispose") { tacDisposeAll(); return "{\"value\":null}" }
+        val route = tacText(parsed["route"])
+        val owner = tacText(parsed["owner"])
+        require(tacOwnerId(owner)) { "Missing native owner identity." }
+        val service = tacText(parsed["service"])
+        require(service.isNotEmpty()) { "Missing companion name." }
+        val existing = TacNativeState.activations[owner]
+        if (operation == "init" && (existing == null || existing.route != route || existing.service != service)) {
+            if (existing != null) tacDisposeOwner(owner)
+            val props = tacObject(parsed["props"])
+            val members = try { tacServiceMembers(service, props) }
+                catch (_: Exception) { return "{\"error\":\"Native service is missing a required property or it has the wrong type.\",\"code\":\"TY_NATIVE_REQUIRED\"}" }
+                ?: return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"
+            require(TacNativeState.activations.size < 256) { "Too many native activations." }
+            val activation = TacActivation(route, service, owner, members)
+            TacNativeState.activations[owner] = activation; TacNativeState.executing = activation
+            try { tacAssignProperties(activation, props); activation.sorted.forEach { if (it is TacHook && !it.destroy) it.invoke() }; tacDrain(activation) }
+            catch (error: Exception) { tacDisposeOwner(owner); throw error }
+        }
+        val activation = TacNativeState.activations[owner]
+        require(activation != null && activation.route == route && activation.service == service) { "Stale native owner." }
+        if (operation == "dispose") { tacDisposeOwner(owner); return "{\"value\":null}" }
+        TacNativeState.executing = activation
+        val tac = activation.members
+        val name = tacText(parsed["name"])
+        when {
+            operation == "init" -> tacDescribe(tac)
+            operation == "event" && tacPageListeners -> tacReceive(activation, name, parsed["value"])
+            else -> when (val member = tac[name]) {
+                null -> "{\"error\":${tacQuote("Unknown companion member: $name")}}"
+                is TacField -> when {
+                    operation == "get" -> "{\"value\":${tacEncode(tacPlain(member.read()))}}"
+                    operation == "set" && member.write != null -> {
+                        member.write.invoke(parsed["value"])
+                        "{\"value\":null}"
                     }
-                    is TacMethod -> if (operation == "call") {
-                        val given = parsed.optJSONArray("args")
-                        val arguments =
-                            (0 until (given?.length() ?: 0)).map { tacValue(given?.opt(it)) }
-                        "{\"value\":${tacEncode(member.invoke(arguments))}}"
-                    } else "{\"error\":${org.json.JSONObject.quote(
-                        "Companion member does not support $operation: $name")}}"
-                    else -> "{\"error\":\"Unknown companion member kind.\"}"
+                    operation == "set" -> "{\"error\":${tacQuote("Companion field is read-only: $name")}}"
+                    else -> "{\"error\":${tacQuote("Companion member does not support $operation: $name")}}"
                 }
+                is TacMethod -> if (operation == "call") {
+                    val arguments = parsed["args"] as? List<*> ?: emptyList<Any?>()
+                    "{\"value\":${tacEncode(tacPlain(member.invoke(arguments)))}}"
+                } else "{\"error\":${tacQuote("Companion member does not support $operation: $name")}}"
+                else -> "{\"error\":\"Unknown companion member kind.\"}"
             }
         }
     } catch (error: Throwable) {
-        "{\"error\":${org.json.JSONObject.quote(error.message ?: "Companion failed.")}}"
+        tacFailureAnswer(error)
     }
+}

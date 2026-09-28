@@ -1,0 +1,14 @@
+#[Service]
+struct RustGreetingService {
+    message: String,
+}
+
+impl RustGreetingService {
+    fn new() -> Self {
+        Self { message: String::from("Hello from Rust") }
+    }
+
+    fn greet(&mut self) {
+        self.message = String::from("Rust says hello again.");
+    }
+}

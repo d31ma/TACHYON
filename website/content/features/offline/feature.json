@@ -1,0 +1,12 @@
+{
+  "id": "offline",
+  "title": "Offline assets",
+  "summary": "Tachyon generates a service worker (a browser script that can answer requests from a cache). For known public assets in the package, it uses cache-first: it tries the cache before the network. For page documents in the package, it uses network-first: it tries the network before the cache. It does not cache any other response that carries credentials. When the browser is idle, it loads service modules early for view branches that have not run yet. Storage and response sizes have limits.",
+  "group": "Browser storage",
+  "files": [
+    {
+      "name": "emitted",
+      "code": { "file": "emitted.txt" }
+    }
+  ]
+}

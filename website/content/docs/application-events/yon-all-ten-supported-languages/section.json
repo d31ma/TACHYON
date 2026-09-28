@@ -1,0 +1,265 @@
+{
+  "heading": "Yon: all eleven supported languages",
+  "body": "Choose one language. The roles below live in the shared server/services folder. The controller lives in server/controllers. Tachyon finds both automatically. PublishService injects the applicationEventPublisher provider through Needs. JavaScript matches it by field name. Every other language matches it by type. PublishService publishes a ProbeReady model during OnStart. ProbeService listens for ProbeReady and keeps the result, and GET returns it as JSON. Events belong only to this invocation (this one run of the route), unless the model is a Topic. A Topic event is also saved in the topic log, and Tachyon calls its listeners in the other files and languages once (see Topics). JavaScript, TypeScript and Python support async hooks, async listeners and InBackground. PHP, Java, Groovy, Kotlin, C#, Rust, Dart and Go use synchronous event listeners. They reject InBackground at compile time. Tachyon rejects compiled async methods, streaming event containers and transient event providers. The initialization and endpoint queues finish before serialization (turning the result into JSON). Then cleanup runs in reverse order, within the supervisor deadline (the time limit of the process that runs the route).",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/services/ProbeService.js",
+      "code": {
+        "file": "server/services/ProbeService.js"
+      }
+    },
+    {
+      "name": "server/services/PublishService.js",
+      "code": {
+        "file": "server/services/PublishService.js"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.js",
+      "code": {
+        "file": "server/controllers/ProbeController.js"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.ts",
+      "code": {
+        "file": "server/services/ProbeService.ts"
+      }
+    },
+    {
+      "name": "server/services/PublishService.ts",
+      "code": {
+        "file": "server/services/PublishService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.ts",
+      "code": {
+        "file": "server/controllers/ProbeController.ts"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.py",
+      "code": {
+        "file": "server/services/ProbeService.py"
+      }
+    },
+    {
+      "name": "server/services/PublishService.py",
+      "code": {
+        "file": "server/services/PublishService.py"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.py",
+      "code": {
+        "file": "server/controllers/ProbeController.py"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.php",
+      "code": {
+        "file": "server/services/ProbeService.php"
+      }
+    },
+    {
+      "name": "server/services/PublishService.php",
+      "code": {
+        "file": "server/services/PublishService.php"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.php",
+      "code": {
+        "file": "server/controllers/ProbeController.php"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.java",
+      "code": {
+        "file": "server/services/ProbeService.java"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.groovy",
+      "code": {
+        "file": "server/services/ProbeService.groovy"
+      }
+    },
+    {
+      "name": "server/services/PublishService.java",
+      "code": {
+        "file": "server/services/PublishService.java"
+      }
+    },
+    {
+      "name": "server/services/PublishService.groovy",
+      "code": {
+        "file": "server/services/PublishService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.java",
+      "code": {
+        "file": "server/controllers/ProbeController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.groovy",
+      "code": {
+        "file": "server/controllers/ProbeController.groovy"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.kt",
+      "code": {
+        "file": "server/services/ProbeService.kt"
+      }
+    },
+    {
+      "name": "server/services/PublishService.kt",
+      "code": {
+        "file": "server/services/PublishService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.kt",
+      "code": {
+        "file": "server/controllers/ProbeController.kt"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.cs",
+      "code": {
+        "file": "server/services/ProbeService.cs"
+      }
+    },
+    {
+      "name": "server/services/PublishService.cs",
+      "code": {
+        "file": "server/services/PublishService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.cs",
+      "code": {
+        "file": "server/controllers/ProbeController.cs"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.rs",
+      "code": {
+        "file": "server/services/ProbeService.rs"
+      }
+    },
+    {
+      "name": "server/services/PublishService.rs",
+      "code": {
+        "file": "server/services/PublishService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.rs",
+      "code": {
+        "file": "server/controllers/ProbeController.rs"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.go",
+      "code": {
+        "file": "server/services/ProbeService.go"
+      }
+    },
+    {
+      "name": "server/services/PublishService.go",
+      "code": {
+        "file": "server/services/PublishService.go"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.go",
+      "code": {
+        "file": "server/controllers/ProbeController.go"
+      }
+    },
+    {
+      "name": "server/services/ProbeService.dart",
+      "code": {
+        "file": "server/services/ProbeService.dart"
+      }
+    },
+    {
+      "name": "server/services/PublishService.dart",
+      "code": {
+        "file": "server/services/PublishService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ProbeController.dart",
+      "code": {
+        "file": "server/controllers/ProbeController.dart"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.ts",
+      "code": {
+        "file": "server/models/ProbeReady.ts"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.py",
+      "code": {
+        "file": "server/models/ProbeReady.py"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.php",
+      "code": {
+        "file": "server/models/ProbeReady.php"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.java",
+      "code": {
+        "file": "server/models/ProbeReady.java"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.groovy",
+      "code": {
+        "file": "server/models/ProbeReady.groovy"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.kt",
+      "code": {
+        "file": "server/models/ProbeReady.kt"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.cs",
+      "code": {
+        "file": "server/models/ProbeReady.cs"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.rs",
+      "code": {
+        "file": "server/models/ProbeReady.rs"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.go",
+      "code": {
+        "file": "server/models/ProbeReady.go"
+      }
+    },
+    {
+      "name": "server/models/ProbeReady.dart",
+      "code": {
+        "file": "server/models/ProbeReady.dart"
+      }
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+Options every command understands
+
+  --diagnostic-format human|json   machine-readable diagnostics on stderr
+  -v, --version                    the product version
+
+ty init [directory]                 asks questions in a terminal; each one is also an option
+  --name <name>                    the app name (TAC_APP_NAME also works)
+  --realm client|server|both       the parts to create (both)
+  --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, swift, kt (js)
+  --yon <l>[,<l>]                  js, ts, py, go, java, kt, cs, fs, php, rb, rs, dart (js)
+  --target <t>[,<t>]               web, macos, windows, linux, ios, android (web)
+  --features <f>[,<f>]             storage, sockets, topics, streams, http-client,
+                                   error-handlers
+  -y, --yes                        install every missing tool without asking
+  --interactive                    ask even when the input is not a terminal
+  --skip-tools                     do not check or install tools
+
+ty add language client|server <l>  add a language with its example and test
+ty add target <t>                  add a build target and check its tools
+ty add feature <f>                 add an example with its tests
+  --project <dir>, -y/--yes, --skip-tools
+
+ty preview
+  --static                         serve existing files; no build, no Yon
+  --watch                          rebuild the selected target on change
+  --target <target>                serve a built target's embedded web bundle
+  --out-dir <dir>                  project-relative output directory
+  --host, --port, --allow-non-loopback
+
+ty test
+  <project>                        project directory; the working directory by default
+  --coverage                       fail when no test* case called a public method
+                                   of an annotated class (ty preview refuses to
+                                   start on the same condition; TAC_ALLOW_UNTESTED=1
+                                   releases one run)
+
+ty bundle
+  --target <t>[,<t>]|all           web, macos, ios, android, linux, windows
+  --native                         stage one native host, skip the packager
+  --no-incremental                 disable verified incremental route reuse
+  --watch                          rebuild when sources change
+  --out-dir <dir>                  defaults to dist/web, or dist for native
+
+ty serve                            compatibility development server
+  --no-watch                       do not rebuild on change
+  --no-bundle                      serve the existing bundle as is
+
+ty start                            --host, --port, --allow-non-loopback, --out-dir
+ty doctor [project] --json          machine-readable toolchain report
+ty migrate check [project]          every construct not yet supported
+ty cache status | clean             where the runtime cache is, or remove it
+
+ty handler invoke <yon.js|yon.py>
+  --route / --method / --body / --header name=value
+  --timeout-ms <ms>                complete invocation deadline (30000)
+  --allow-env <NAME>               one inherited environment variable
+  --javascript-runtime, --python-runtime
+
+Automation may set TAC_BUNDLE_TARGET, TAC_PREVIEW_TARGET, TAC_TARGET
+and TAC_DIST_PATH instead of flags; YON_SKIP_BUNDLE serves without
+building. TAC_JAVASCRIPT_RUNTIME selects the executable that compiles
+TypeScript services (Node by default, Bun as fallback). Nothing here
+selects a rendering mode: --render-mode and TAC_RENDER_MODE are rejected.

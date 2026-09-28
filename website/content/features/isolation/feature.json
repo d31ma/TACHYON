@@ -1,0 +1,12 @@
+{
+  "id": "isolation",
+  "title": "Request isolation",
+  "summary": "By default, each request runs in one process with limits. With `YON_ISOLATION=firecracker`, Yon sends each supported request to a microVM control program. The deployment owns this program. A microVM is a small virtual machine. For now, this transport supports only JavaScript and Python controllers. A controller in another language fails before the driver starts. The handler protocol and the build do not change. Tachyon does not include the microVM program. It also does not yet claim that any microVM setup isolates requests safely.",
+  "group": "Yon server",
+  "files": [
+    {
+      "name": "isolation",
+      "code": { "file": "isolation.txt" }
+    }
+  ]
+}

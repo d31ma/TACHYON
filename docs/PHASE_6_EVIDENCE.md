@@ -1,7 +1,8 @@
 # Phase 6 Evidence
 
-This is the validation record for [`PHASE_6_SPEC.md`](PHASE_6_SPEC.md). The
-resulting feature-by-feature statement is [`PARITY_LEDGER.md`](PARITY_LEDGER.md).
+This document records the validation of [`PHASE_6_SPEC.md`](PHASE_6_SPEC.md).
+The resulting statement for each feature is in
+[`PARITY_LEDGER.md`](PARITY_LEDGER.md).
 
 Machine: macOS 26 (Darwin 25.5.0), Apple silicon, Rust 1.97.1, Bun 1.3.11,
 Node 24, Playwright Chromium 1217.
@@ -12,8 +13,8 @@ Node 24, Playwright Chromium 1217.
 
 | Suite | Coverage |
 | --- | --- |
-| `migrate` | clean projects, unsupported and changed classification with a required action, view-construct classification from source, exclusion of generated and vendored directories, closed failure on a missing target |
-| `phase6_cli` | `TY1702` on unsupported constructs, `--allow-unsupported`, byte-identical repeated JSON reports, Migration Report v1 shape, classification of the archived migration fixture, and a build plus clean migration check for every corpus project |
+| `migrate` | clean projects; `unsupported` and `changed` classification with a required action; classification of view constructs from source; exclusion of generated and vendored folders; failure when the target is missing |
+| `phase6_cli` | `TY1702` on unsupported constructs; `--allow-unsupported`; byte-identical JSON reports on repeated runs; the Migration Report v1 shape; classification of the archived migration fixture; a build and a clean migration check for every corpus project |
 
 ## 2. Differential Over the Shared Corpus
 
@@ -23,44 +24,52 @@ TAC_BIN=target/debug/ty \
 node scripts/compat/differential.mjs
 ```
 
-Result: `3/3 corpus projects match across implementations`. For `ty init`, 15
-retained files are byte-identical; four FYLO-facing files intentionally change
-and the three legacy `db/` files are intentionally removed.
+Result: `3/3 corpus projects match across implementations`.
+
+For `ty init`:
+
+- 15 kept files are byte-identical;
+- four files that relate to FYLO change on purpose;
+- the three legacy `db/` files are removed on purpose.
 
 | Project | Routes | Result |
 | --- | --- | --- |
 | `static-pages` | `/`, `/about` | Both build; both serve 200; semantic DOM identical on both routes |
-| `semantic-html` | `/`, `/about` | Both build; both serve 200; semantic DOM identical across headings, `nav`, lists, links, `img`, `hr`, `details`/`summary`, `table`, and `footer` |
-| `components-slots` | `/` | Both build; both serve 200; one declared divergence (below) |
+| `semantic-html` | `/`, `/about` | Both build; both serve 200; semantic DOM identical for headings, `nav`, lists, links, `img`, `hr`, `details`/`summary`, `table`, and `footer` |
+| `components-slots` | `/` | Both build; both serve 200; one declared divergence (see below) |
 
-Each route is served over HTTP and rendered in the same Chromium build. The
-legacy output is measured after its client runtime renders the DOM. Artifacts
-are never compared: the legacy build emits a
-single-page shell with a client router, a service worker, and per-page chunks,
-while the Rust build emits per-route bootstrap HTML, a compiled render plan,
-and the Tac client runtime.
+Each route is served over HTTP and rendered in the same Chromium build. We
+measure the legacy output after its client runtime renders the DOM. We never
+compare artifacts, because the two builds emit different files:
+
+- The legacy build emits a single-page shell with a client router, a service
+  worker, and one chunk per page.
+- The Rust build emits bootstrap HTML for each route, a compiled render plan,
+  and the Tac client runtime.
 
 ### 2.1 Declared Divergence
 
-`corpus/components-slots/parity.json` declares exactly one:
+`corpus/components-slots/parity.json` declares exactly one divergence:
 
 > `semantic dom /`: `<main>[1]: <product-card> vs <tachyon-component>`
 
-Both implementations keep a semantically neutral runtime component boundary.
-The legacy implementation uses the authored custom-element name, while the
-client-only Rust renderer uses its framework-owned `tachyon-component`
-boundary. Slotted content, accessible names, and roles are identical. An
-undeclared divergence fails the gate.
+Both implementations keep a runtime boundary element around each component.
+This element has no semantic meaning. The legacy implementation uses the
+custom-element name that the author wrote. The Rust renderer runs only on the
+client and uses its own `tachyon-component` element as the boundary. Slotted
+content, accessible names, and roles are identical. An undeclared divergence
+fails the gate.
 
 ## 3. Behavioral Differences Found by This Work
 
-These were discovered by running both implementations, not assumed.
+We found these differences by running both implementations. We did not
+assume them.
 
 | Finding | Direction |
 | --- | --- |
-| The legacy HTML parser rejects standard void elements — `<img>`, `<hr>`, `<br>`, and `<input>` all fail with "No end tag." — and requires the self-closing form. The Rust parser accepts both. | The Rust implementation is a strict superset. Corpus fixtures use the self-closing form so the shared surface stays comparable. |
-| The legacy implementation has no `yon.html` convention. It treats every file under `server/routes/**` as a handler and rejects `yon.html` outright. | The Rust rewrite also rejects `yon.html`; ADR 0016 defines Yon as REST-only. |
-| Tac components use their authored custom-element boundary in the legacy output and the framework-owned `tachyon-component` runtime boundary in the Rust client. | Intentional; declared and recorded. |
+| The legacy HTML parser rejects standard void elements. `<img>`, `<hr>`, `<br>`, and `<input>` all fail with "No end tag." The legacy parser requires the self-closing form. The Rust parser accepts both forms. | The Rust implementation accepts everything the legacy one accepts, and more. Corpus fixtures use the self-closing form so that both implementations can be compared on the same input. |
+| The legacy implementation has no `yon.html` convention. It treats every file under `server/routes/**` as a handler and rejects `yon.html`. | The Rust rewrite also rejects `yon.html`. ADR 0016 (architecture decision record 0016) defines Yon as REST endpoints only. |
+| In the legacy output, Tac components use the custom-element boundary that the author wrote. In the Rust client, they use the `tachyon-component` runtime boundary that the framework owns. | Intentional; declared and recorded. |
 
 ## 4. `ty migrate check` Against the Archived Migration Fixture
 
@@ -68,30 +77,42 @@ These were discovered by running both implementations, not assumed.
 ty migrate check crates/tachyon-cli/tests/fixtures/migration-fullstack
 ```
 
-`crates/tachyon-cli/tests/fixtures/migration-fullstack` preserves an archived
-full-stack project shape: polyglot handlers, services, and workers. It is test
-data for the Rust migration checker, not executable framework code.
+`crates/tachyon-cli/tests/fixtures/migration-fullstack` keeps the shape of an
+archived full-stack project: handlers in several languages, services, and
+workers. It is test data for the Rust migration checker. It is not framework
+code that runs.
 
 Result: **18 supported, 6 changed, 20 unsupported**, exit `TY1702`.
 
 | Classification | Examples |
 | --- | --- |
 | `supported` | Tac views and bindings, JavaScript/Python handlers, middleware, workers, and controller companions |
-| `changed` | Other handler languages without an interpreter registration; cross-document client navigation |
+| `changed` | Handlers in other languages that have no interpreter registration; client navigation between documents |
 | `unsupported` | Legacy handler dependency imports, `OPTIONS.schema.json`, and built-in server telemetry |
 
-Every non-supported finding carries a required action. The analysis reads the
-project and never executes it.
+Every finding that is not supported has a required action. The analysis
+reads the project and never runs it.
 
 ## 5. Continuous Gate
 
-The `compatibility` job in `.github/workflows/rust-ci.yml` builds the CLI,
-installs Chromium, runs the differential over the corpus, executes
-`scripts/compat/standalone-rust.mjs`, and classifies the migration fixture on every
-pull request. The standalone gate verifies the released command surface,
-scaffold, cache lifecycle, web build and server, source-only native bundle,
-literal page-state activation and assignment in real Chromium, and native
-controller state/capability behavior against the compiled Rust binary.
+The `compatibility` job in `.github/workflows/rust-ci.yml` runs on every pull
+request. It:
+
+- builds the CLI;
+- installs Chromium;
+- runs the differential over the corpus;
+- runs `scripts/compat/standalone-rust.mjs`;
+- classifies the migration fixture.
+
+The standalone gate tests the compiled Rust binary. It verifies:
+
+- the released set of commands;
+- the scaffold;
+- the cache lifecycle;
+- the web build and server;
+- the native bundle that contains only source;
+- literal page-state activation and assignment in real Chromium;
+- native controller state and capability behavior.
 
 ## 6. Released Standalone Workflow
 
@@ -101,25 +122,30 @@ TAC_BIN=target/debug/ty node scripts/compat/standalone-rust.mjs
 
 Result: `PASS: released standalone workflow matches Rust ty (macos)`.
 
-The gate clicks an assigning page binding and waits for `Count: 1`. The current
-regression contract requires every Tac route to emit a schema-versioned render
-plan and `/.tachyon/tac-client.js`, with no server-rendered authored subtree.
+The gate clicks a page binding that assigns a value and waits for `Count: 1`.
+The current regression contract requires every Tac route to emit:
 
-The in-tree JavaScript runtime and its implementation-coupled suite were
-removed at cutover. The archived 26.30.04 executable remains immutable and is
-used by the neutral differential; public workflows that do not need two
-implementations run directly against the Rust executable.
+- a render plan with a schema version;
+- `/.tachyon/tac-client.js`;
+- no authored subtree rendered by the server.
+
+The in-tree JavaScript runtime and its test suite, which depended on its
+implementation, were removed at cutover. The archived 26.30.04 executable
+never changes. The neutral differential uses it. Public workflows that do not
+need two implementations run directly against the Rust executable.
 
 ## 7. Open Gaps
 
 | Gap | What closes it |
 | --- | --- |
-| Corpus coverage of conditionals, iteration, and mounted components | Add neutral fixtures whose inputs come from literal client state accepted by both implementations; Yon route context is not available under ADR 0016. |
-| Handler behavior compared across implementations | A handler differential invoking the same `yon.js` and `yon.py` through both supervisors and comparing responses. |
-| Diagnostic parity | The legacy implementation raises untyped runtime errors, so only accept/reject agreement is compared today, not messages. |
+| Corpus coverage of conditionals, iteration, and mounted components | Add neutral fixtures whose inputs come from literal client state that both implementations accept. Yon route context is not available under ADR 0016. |
+| Comparison of handler behavior between implementations | A handler differential that calls the same `yon.js` and `yon.py` through both supervisors and compares the responses. |
+| Diagnostic parity | The legacy implementation raises runtime errors without types. Today we compare only whether both accept or both reject, not the messages. |
 
 The `compatibility` job passed on pull request run
-[30715759023](https://github.com/d31ma/Tachyon/actions/runs/30715759023),
-including the checksum-pinned released oracle and the standalone Rust workflow.
+[30715759023](https://github.com/d31ma/Tachyon/actions/runs/30715759023).
+That run included the released oracle, pinned by checksum, and the standalone
+Rust workflow.
 
-No row in the ledger is promoted without the evidence its status demands.
+No ledger row moves to a new status without the evidence that the status
+demands.

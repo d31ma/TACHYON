@@ -1,0 +1,12 @@
+@Test(NoteTestSetup, {"partition":"tests"})
+export default class NoteStoreTest {
+  @Fake
+  dataSource: DataSource;
+
+  async testCountNotesRunsOneQuery(): Promise<void> {
+    const queries: string[] = [];
+    this.dataSource = { query: async (sql: string) => { queries.push(sql); return []; } } as unknown as DataSource;
+    await this.construct(NoteStore).countNotes();
+    if (queries.length !== 1) throw Error(`queries are ${JSON.stringify(queries)}`);
+  }
+}

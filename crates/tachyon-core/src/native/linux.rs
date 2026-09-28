@@ -1,8 +1,3 @@
-//! Linux GTK4 host generation.
-//!
-//! A GTK4 window around one `WebKitGTK` view showing the application's own
-//! bundle; see `native/routes.rs` for why it is no longer a tree of widgets.
-
 use super::config::NativeApplication;
 use super::host::{
     GeneratedHost, c_string_escape, first_line, native_tool_failure, run_tool, stage_application,
@@ -12,22 +7,18 @@ use super::routes::NativeRouteIndex;
 use crate::Failure;
 use std::path::{Path, PathBuf};
 
-/// `pkg-config` modules required by the generated GTK4 host.
-/// `JavaScriptCore` ships with the `WebKitGTK` the host already links, so the
-/// engine the controller runs in is the platform's rather than one Tachyon
-/// ships. See ADR 0017.
-const PKG_CONFIG_MODULES: [&str; 5] = [
-    "gtk4",
-    "webkitgtk-6.0",
-    "javascriptcoregtk-6.0",
-    "gmodule-2.0",
-    "gio-unix-2.0",
-];
-
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct LinuxHostGenerator;
 
 impl LinuxHostGenerator {
+    const PKG_CONFIG_MODULES: [&str; 5] = [
+        "gtk4",
+        "webkitgtk-6.0",
+        "javascriptcoregtk-6.0",
+        "gmodule-2.0",
+        "gio-unix-2.0",
+    ];
+
     pub(super) async fn generate(
         application: &NativeApplication,
         index: &NativeRouteIndex,
@@ -49,32 +40,37 @@ impl LinuxHostGenerator {
         )?;
         stage_icon(application, web_bundle, &bundle)?;
         if !package {
-            return Ok(GeneratedHost {
-                application_bundle: PathBuf::from("project/tachyon_host.c"),
-                toolchain_name: String::from("source"),
-                toolchain_version: String::from("not-packaged"),
-            });
+            return Ok(GeneratedHost::not_packaged(PathBuf::from(
+                "project/tachyon_host.c",
+            )));
         }
 
         let executable = bundle.join("bin").join(&application.executable_name);
         let compiler_version = compile_c(&source_path, &executable).await?;
-        // Loaded beside the executable rather than linked, so a GTK host built
-        // without a companion needs no rebuild to gain one.
-        if let Some(source) = &rust_companion {
-            super::rust::compile(
-                source,
-                super::rust::Linkage::Shared,
-                None,
-                &bundle.join("bin").join("libtachyoncompanion.so"),
-            )
-            .await?;
-        }
+        compile_rust_companion(rust_companion.as_deref(), &bundle).await?;
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(&application.executable_name),
             toolchain_name: String::from("cc"),
             toolchain_version: compiler_version,
         })
     }
+}
+
+async fn compile_rust_companion(
+    rust_companion: Option<&Path>,
+    bundle: &Path,
+) -> Result<(), Failure> {
+    let Some(source) = rust_companion else {
+        return Ok(());
+    };
+    super::rust::compile(
+        source,
+        super::rust::Linkage::Shared,
+        None,
+        &bundle.join("bin").join("libtachyoncompanion.so"),
+    )
+    .await?;
+    Ok(())
 }
 
 async fn compile_c(source: &Path, executable: &Path) -> Result<String, Failure> {
@@ -91,7 +87,7 @@ async fn compile_c(source: &Path, executable: &Path) -> Result<String, Failure> 
     let mut flags = Vec::new();
     for stage in ["--cflags", "--libs"] {
         let mut arguments = vec![stage];
-        arguments.extend_from_slice(&PKG_CONFIG_MODULES);
+        arguments.extend_from_slice(&LinuxHostGenerator::PKG_CONFIG_MODULES);
         let output = run_tool("pkg-config", &arguments).await?;
         flags.extend(output.split_whitespace().map(String::from));
     }
@@ -101,8 +97,6 @@ async fn compile_c(source: &Path, executable: &Path) -> Result<String, Failure> 
     let executable = executable
         .to_str()
         .ok_or_else(|| native_tool_failure(1605, "Application path is not valid Unicode."))?;
-    // gnu17 rather than c17: the host uses POSIX `readlink` and the glibc
-    // `fopen` close-on-exec mode, and GLib headers assume GNU extensions.
     let mut arguments = vec!["-std=gnu17", "-O2", "-Wall", "-Wextra", "-Werror", source];
     arguments.extend(flags.iter().map(String::as_str));
     arguments.extend_from_slice(&["-o", executable]);
@@ -110,14 +104,11 @@ async fn compile_c(source: &Path, executable: &Path) -> Result<String, Failure> 
     Ok(version)
 }
 
-/// Returns a valid `GApplication` identifier for a reverse-DNS application id.
 fn gtk_application_id(application_id: &str) -> String {
     application_id.replace('-', "_")
 }
 
 fn desktop_entry(application: &NativeApplication) -> String {
-    // A desktop entry takes a path or a themed name; the manifest's icon is
-    // staged beside the binary, so the path is what it gets.
     let icon = application
         .largest_icon()
         .map_or_else(String::new, |_| String::from("Icon=share/icon.png\n"));
@@ -136,7 +127,6 @@ fn desktop_entry(application: &NativeApplication) -> String {
     )
 }
 
-/// Copies the manifest's icon to the path the desktop entry names.
 fn stage_icon(
     application: &NativeApplication,
     web_bundle: &Path,
@@ -160,7 +150,7 @@ fn stage_icon(
 }
 
 fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
-    C_HOST
+    LinuxHostGenerator::C_HOST
         .replace(
             "__LOCAL_BUNDLE_HELPERS__",
             &super::routes::c_local_bundle(index, &[], "tachyon://app"),
@@ -181,16 +171,13 @@ fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String
         )
 }
 
-/// The generated host source, for the capability-drift test.
-///
-/// The dispatch arms live in this string rather than in Rust, so the only way
-/// to assert that a host implements what the bundle advertises is to read it.
 #[cfg(test)]
 pub(super) const fn host_source() -> &'static str {
-    C_HOST
+    LinuxHostGenerator::C_HOST
 }
 
-const C_HOST: &str = r#"#include <gtk/gtk.h>
+impl LinuxHostGenerator {
+    const C_HOST: &str = r#"#include <gtk/gtk.h>
 #include <gio/gio.h>
 #include <gmodule.h>
 #include <libsoup/soup.h>
@@ -207,10 +194,6 @@ const C_HOST: &str = r#"#include <gtk/gtk.h>
 
 __LOCAL_BUNDLE_HELPERS__
 
-/* A GTK4 window around one WebKit view showing the application's own bundle.
-   This used to build GTK widgets from a lowered Native UI tree; see
-   native/routes.rs for why it does not any more. */
-
 #define TACHYON_APP_NAME "__APP_NAME__"
 #define TACHYON_BUNDLE_ID "__BUNDLE_ID__"
 #define TACHYON_ENTRY_ROUTE "__ENTRY_ROUTE__"
@@ -218,8 +201,6 @@ __LOCAL_BUNDLE_HELPERS__
 static const gchar *TACHYON_NATIVE_SHIM = "__NATIVE_SHIM__";
 
 static gchar *g_route = NULL;
-/* Held for the one thing that has no view to hand: a companion publishing on
-   its own schedule rather than answering the page. */
 static WebKitWebView *g_view = NULL;
 static int g_bundle_fd = -1;
 static gint g_pending_publishes = 0;
@@ -282,13 +263,11 @@ static void tachyon_scheme_request(WebKitURISchemeRequest *request, gpointer dat
   WebKitURISchemeResponse *response = webkit_uri_scheme_response_new(stream, info.st_size);
   webkit_uri_scheme_response_set_content_type(response, tachyon_content_type(relative));
   SoupMessageHeaders *headers = soup_message_headers_new(SOUP_MESSAGE_HEADERS_RESPONSE);
-  /* WebKit's stylesheet nosniff check reads the HTTP header, not mimeType. */
   soup_message_headers_append(headers, "Content-Type", tachyon_content_type(relative));
-  soup_message_headers_append(headers, "Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'none'; object-src 'none'; base-uri 'self'");
+  soup_message_headers_append(headers, "Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'none'; object-src 'none'; base-uri 'self'");
   soup_message_headers_append(headers, "X-Content-Type-Options", "nosniff");
   webkit_uri_scheme_response_set_http_headers(response, headers);
   webkit_uri_scheme_request_finish_with_response(request, response);
-  /* set_http_headers takes ownership of headers. */
   g_object_unref(response); g_object_unref(stream);
 }
 
@@ -329,9 +308,6 @@ static gchar *tachyon_resource_root(void) {
   return resources;
 }
 
-/* The native companion, loaded beside this executable and reached through two
-   ordinary C entry points. Looked up rather than linked, so an application
-   without one simply finds nothing. */
 typedef const gchar *(*TachyonCompanionInvoke)(const gchar *);
 typedef void (*TachyonCompanionFree)(const gchar *);
 typedef void (*TachyonCompanionEmit)(const gchar *);
@@ -340,7 +316,6 @@ typedef void (*TachyonCompanionSetEmit)(TachyonCompanionEmit);
 static TachyonCompanionInvoke g_companion_invoke = NULL;
 static TachyonCompanionFree g_companion_free = NULL;
 
-/* Delivers one publish on the main loop, where WebKit may be touched. */
 static gboolean tachyon_deliver_publish(gpointer payload) {
   gchar *text = payload;
   if (tachyon_trusted_view(g_view)) {
@@ -359,15 +334,6 @@ static gboolean tachyon_deliver_publish(gpointer payload) {
   return G_SOURCE_REMOVE;
 }
 
-/* The sink handed to the companion.
-
-   The other direction of the bridge: everything else is the page asking a
-   question, and a companion watching the platform has no question to answer
-   because nobody asked one.
-
-   Copied and queued rather than used where it arrives: a companion may publish
-   from a thread it started itself, the pointer is borrowed only for this call,
-   and g_idle_add is the thread-safe way onto the loop that owns the view. */
 static void tachyon_companion_emit(const gchar *payload) {
   if (payload == NULL || strnlen(payload, TACHYON_MESSAGE_LIMIT + 1) > TACHYON_MESSAGE_LIMIT) return;
   if (g_atomic_int_add(&g_pending_publishes, 1) >= 128) { g_atomic_int_add(&g_pending_publishes, -1); return; }
@@ -382,8 +348,6 @@ static void tachyon_companion_load(void) {
   if (module != NULL) {
     g_module_symbol(module, "tac_native_invoke", (gpointer *)&g_companion_invoke);
     g_module_symbol(module, "tac_native_free", (gpointer *)&g_companion_free);
-    /* Looked up rather than required: a companion built before this existed
-       loads and answers questions, it just never publishes. */
     TachyonCompanionSetEmit set_emit = NULL;
     g_module_symbol(module, "tac_native_set_emit", (gpointer *)&set_emit);
     if (set_emit != NULL) {
@@ -411,6 +375,11 @@ static gchar *tachyon_companion_invoke(const gchar *request) {
   return copy;
 }
 
+static void tachyon_companion_dispose(void) {
+  gchar *answer = tachyon_companion_invoke("{\"op\":\"host-dispose\"}");
+  g_free(answer);
+}
+
 static void tachyon_record(const gchar *event) {
   const gchar *state = g_get_user_state_dir();
   gchar *directory = g_build_filename(state, "tachyon", NULL);
@@ -428,8 +397,6 @@ static void tachyon_record(const gchar *event) {
   g_free(directory);
 }
 
-/* The capability is echoed into a JSON string, so anything that could close
-   that string early is dropped rather than escaped. */
 static gchar *tachyon_safe_name(const gchar *value) {
   GString *allowed = g_string_new(NULL);
   for (gsize index = 0; value[index] != '\0' && index < 64; index += 1) {
@@ -445,8 +412,6 @@ static gchar *tachyon_safe_name(const gchar *value) {
   return g_string_free(allowed, FALSE);
 }
 
-/* One function is the whole native surface. The page calls it; the answer goes
-   back as the promise WebKit resolves for the script message. */
 static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue *value,
                                      WebKitScriptMessageReply *reply, gpointer data) {
   (void)manager;
@@ -472,8 +437,13 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
 
   gchar *answer = NULL;
   if (g_strcmp0(capability, "companion.invoke") == 0) {
+    gboolean operation = tachyon_payload_string_matches(payload, "op", "init")
+      || tachyon_payload_string_matches(payload, "op", "get")
+      || tachyon_payload_string_matches(payload, "op", "set")
+      || tachyon_payload_string_matches(payload, "op", "call")
+      || tachyon_payload_string_matches(payload, "op", "dispose");
     const TachyonLocalRoute *route = tachyon_document_route(path);
-    answer = route != NULL && tachyon_payload_route_matches(payload, route->route)
+    answer = operation && route != NULL && tachyon_payload_route_matches(payload, route->route)
       ? tachyon_companion_invoke(payload) : g_strdup("{\"error\":\"Native route mismatch.\"}");
   } else {
     gchar *safe = tachyon_safe_name(capability);
@@ -494,6 +464,7 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
 static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer data) {
   (void)view;
   (void)data;
+  if (event == WEBKIT_LOAD_STARTED) tachyon_companion_dispose();
   if (event == WEBKIT_LOAD_FINISHED) {
     tachyon_record("controller.mounted");
     tachyon_record("controller.active");
@@ -530,9 +501,6 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   webkit_settings_set_allow_file_access_from_file_urls(settings, FALSE);
   webkit_settings_set_allow_universal_access_from_file_urls(settings, FALSE);
 
-  /* Injected before the bundle's own scripts, the same shim every host uses,
-     with the Linux half of the bridge appended: a script message out, and a
-     resolver the host calls back into. */
   gchar *shim = g_strdup_printf(
       "if (location.protocol === 'tachyon:' && location.host === 'app' && window === window.top) {\n%s\n}\n",
       TACHYON_NATIVE_SHIM);
@@ -568,6 +536,7 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
 static void tachyon_shutdown(GApplication *app, gpointer data) {
   (void)app;
   (void)data;
+  tachyon_companion_dispose();
   tachyon_record("controller.destroyed");
   g_view = NULL;
   if (g_bundle_fd >= 0) { close(g_bundle_fd); g_bundle_fd = -1; }
@@ -584,6 +553,7 @@ int main(int argc, char **argv) {
   return status;
 }
 "#;
+}
 
 #[cfg(test)]
 mod tests {
@@ -619,7 +589,6 @@ mod tests {
         assert!(source.contains("webkit_user_content_manager_register_script_message_handler"));
         assert!(source.contains("controller.created"));
         assert!(source.contains("controller.destroyed"));
-        // Nothing rebuilds the view out of GTK widgets any more.
         assert!(!source.contains("gtk_label_new"));
         assert!(!source.contains("tachyon_build_node"));
         assert!(source.contains("webkit_web_context_register_uri_scheme"));
@@ -627,6 +596,8 @@ mod tests {
         assert!(source.contains("frame-src 'none'"));
         assert!(source.contains("O_NOFOLLOW"));
         assert!(source.contains("tachyon_payload_route_matches"));
+        assert!(source.contains("if (event == WEBKIT_LOAD_STARTED) tachyon_companion_dispose()"));
+        assert!(source.contains("answer = operation && route != NULL"));
         assert!(!source.contains("file://%s"));
         assert!(!source.contains("set_allow_universal_access_from_file_urls(settings, TRUE)"));
     }

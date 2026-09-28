@@ -1,0 +1,86 @@
+{
+  "files": [
+    {
+      "name": "client/components/basket/tally/tac.html",
+      "code": {
+        "file": "client/components/basket/tally/tac.html"
+      }
+    },
+    {
+      "name": "client/components/basket/tally/tac.css",
+      "code": {
+        "file": "client/components/basket/tally/tac.css"
+      }
+    },
+    {
+      "name": "client/services/TallyService.js",
+      "code": {
+        "file": "client/services/TallyService.js"
+      },
+      "note": "The compiler rewrites the @Service marker and its import into plain JavaScript. The browser then runs the ES module. It works on every target, because native hosts display the application in a web view."
+    },
+    {
+      "name": "client/services/TallyService.ts",
+      "code": {
+        "file": "client/services/TallyService.ts"
+      },
+      "note": "The TypeScript compiler emits JavaScript using TypeScript's own language rules. The service runs on the same targets as a JavaScript service."
+    },
+    {
+      "name": "client/services/TallyService.dart",
+      "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC). It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.",
+      "code": {
+        "file": "client/services/TallyService.dart"
+      }
+    },
+    {
+      "name": "client/services/TallyService.rs",
+      "code": {
+        "file": "client/services/TallyService.rs"
+      },
+      "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts, where it can call platform APIs. For the web, iOS and Android, it compiles to WebAssembly."
+    },
+    {
+      "name": "client/services/TallyService.go",
+      "note": "Go compiles the service to WebAssembly. No native host links Go, so every target runs the module in its web view.",
+      "code": {
+        "file": "client/services/TallyService.go"
+      }
+    },
+    {
+      "name": "client/services/TallyService.rb",
+      "note": "Ruby runs on Tachyon's own mruby WebAssembly runtime (ADR 0049). The first build of a project with a Ruby service builds that runtime once on your machine, with your Ruby and Emscripten, into the Tachyon cache. The page loads the runtime once for all Ruby services. It runs on every target, because native hosts display the application in a web view.",
+      "code": {
+        "file": "client/services/TallyService.rb"
+      }
+    },
+    {
+      "name": "client/services/TallyService.swift",
+      "code": {
+        "file": "client/services/TallyService.swift"
+      },
+      "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts. The service can use AppKit and UIKit."
+    },
+    {
+      "name": "client/services/TallyService.kt",
+      "code": {
+        "file": "client/services/TallyService.kt"
+      },
+      "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer."
+    },
+    {
+      "name": "client/services/TallyService.cs",
+      "code": {
+        "file": "client/services/TallyService.cs"
+      },
+      "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the .NET browser runtime."
+    },
+    {
+      "name": "client/services/TallyService.fs",
+      "code": {
+        "file": "client/services/TallyService.fs"
+      },
+      "note": "The .NET SDK compiles the F# service to an assembly, and the page runs it on the same .NET browser runtime as C#. No native host links F#, so every target, Windows included, runs it in its web view. A page with C# and F# services downloads the .NET runtime once."
+    }
+  ]
+}

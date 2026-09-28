@@ -1,16 +1,18 @@
 # Architecture Decision Records
 
-ADRs record accepted, rejected, or superseded hard-to-reverse decisions.
+An ADR (architecture decision record) records one decision that is hard to
+reverse. The decision may be accepted, rejected, or superseded.
 
 Statuses:
 
-- **Proposed**: under review and not an implementation authority.
+- **Proposed**: under review. Do not use it as the basis for implementation yet.
 - **Accepted**: the current architectural decision.
-- **Superseded**: replaced by a later ADR that links back to it.
-- **Rejected**: evaluated and deliberately not selected.
+- **Superseded**: replaced by a later ADR. The later ADR links back to it.
+- **Rejected**: evaluated, and deliberately not chosen.
 
-Public behavior that still needs design belongs in an RFC. Routine
-implementation choices belong in code review, not an ADR.
+Write an RFC (request for comments) for public behavior that still needs
+design. Decide routine implementation choices in code review, not in an ADR.
+
 - [7. TypeScript companions are emitted by the TypeScript compiler](0007-typescript-companion-emission.md)
 - [8. Event Binding Contract](0008-event-binding-contract.md)
 - [9. Platform Navigation Over a Client Renderer](0009-platform-navigation-over-a-client-renderer.md)
@@ -24,3 +26,63 @@ implementation choices belong in code review, not an ADR.
 - [17. Mandatory Yon Layers, Relay, and Streaming](0017-mandatory-yon-layers-relay-and-streaming.md)
 - [18. Native Hosts Run the Platform's Web Engine](0018-native-hosts-run-the-platform-javascript-engine.md)
 - [19. Companions Compile for Their Target](0019-companions-compile-for-their-target.md)
+- [20. Decorator-Free Tac and Yon Authoring Conventions](0020-decorator-free-authoring-conventions.md)
+- [21. Yon Annotation Frontend and Constructor Injection](0021-yon-annotation-frontend.md)
+- [22. Shared Tac and Yon Behavior Adapters](0022-shared-behavior-adapters.md)
+- [23. Private Application Configuration](0023-private-application-configuration.md)
+- [24. Strict Annotation Roles and Explicit Modules](0024-strict-annotation-modules.md)
+- [25. Required-Field Constructor Inference in Yon](0025-required-constructor-inference.md)
+- [26. JSON Results and Separated Configuration](0026-json-results-and-separated-configuration.md)
+- [27. Scoped Annotation Discovery and Managed Yon Resources](0027-scoped-discovery-and-managed-resources.md)
+- [28. Owned Application Events and Lifecycle](0028-owned-application-events-and-lifecycle.md)
+- [29. Pages Compose Components](0029-pages-compose-components.md)
+- [30. Components Use Services](0030-components-use-services.md)
+- [31. Realms Mirror Each Other](0031-realms-mirror-each-other.md)
+- [32. FYLO Is a Datasource](0032-fylo-datasource.md)
+- [33. Dart Browser Services Compile to WebAssembly](0033-dart-browser-services.md)
+- [34. Tac Configuration Is the Web App Manifest, and Each Realm Keeps Its Own](0034-tac-configuration-is-the-web-app-manifest.md)
+- [35. Rust Services Reach the Web as WebAssembly](0035-rust-services-reach-the-web-as-webassembly.md)
+- [36. Views Read Shared Data and the Page Directly](0036-views-read-shared-data-and-the-page.md)
+- [37. C# Services Reach the Web as WebAssembly](0037-csharp-services-reach-the-web-as-webassembly.md)
+- [38. Resources Are Autowired by Spring's Names, and Markers Are Written Bare](0038-resources-are-autowired-by-spring-names.md)
+- [39. A Bare RequiredArgsConstructor Takes Every Field, and Makes the Service Per Component](0039-a-bare-required-args-constructor-takes-every-field.md)
+- [40. tac.config Is a Class With Static Fields](0040-tac-config-is-a-class.md) (superseded by 52)
+- [41. Models Hold Types](0041-models-hold-types.md)
+- [42. A Gateway Method Calls Another Language](0042-a-gateway-method-calls-another-language.md)
+- [43. Models Hold Data Types in Every Service Language](0043-models-hold-data-types.md)
+- [44. An Annotated or Handler File Holds One Class and Its Imports](0044-an-annotated-file-holds-one-class.md)
+- [45. Go Is a Yon Language and a Tac Service Language on the Web](0045-go-is-a-service-language.md)
+- [46. Tachyon Annotations Are Global](0046-tachyon-annotations-are-global.md)
+- [47. Annotation Names Are Plain English](0047-annotation-names-are-plain-english.md)
+- [48. Yon Routes Come From Annotations](0048-yon-routes-come-from-annotations.md)
+- [49. Tac Ruby Uses a Pinned mruby Runtime](0049-tac-ruby-uses-a-pinned-mruby-runtime.md)
+- [50. Go Annotations Are Comments](0050-go-annotations-are-comments.md)
+- [51. Controllers Share Error Handlers](0051-controller-error-handlers.md)
+- [52. The Manifest Is the Tac Configuration](0052-the-manifest-is-the-tac-configuration.md)
+- [53. Composed Classes Have Generated TypeScript Globals](0053-composed-classes-have-generated-typescript-globals.md)
+- [54. Ruby Is a Yon Language and a Tac Service Language](0054-ruby-is-a-yon-language-and-a-tac-service-language.md)
+- [55. Annotation Arguments Use Types](0055-annotation-arguments-use-types.md)
+- [56. Every Annotation Checks Its Target](0056-every-annotation-checks-its-target.md)
+- [57. NeedsAll Requires Its Fields](0057-needs-all-requires-its-fields.md)
+- [58. Streams Are a Route and a Request](0058-streams-are-a-route-and-a-request.md)
+- [59. Tac Stores Use IndexedDB and Caches Use the Cache API](0059-tac-stores-use-indexeddb-and-caches-use-the-cache-api.md)
+- [60. Sockets Are a Route and a Request](0060-sockets-are-a-route-and-a-request.md)
+- [61. Topic Events Cross Languages](0061-topic-events-cross-languages.md)
+- [62. Yon Uses Native HTTP Types](0062-yon-uses-native-http-types.md)
+- [63. Services and Controllers Are Cohesive](0063-services-and-controllers-are-cohesive.md)
+- [64. Code Is Not Duplicated](0064-code-is-not-duplicated.md)
+- [65. WebAssembly Services Reach the Browser Through Tachyon](0065-webassembly-services-reach-the-browser-through-tachyon.md)
+- [66. ty init Is a Setup Wizard](0066-ty-init-is-a-setup-wizard.md)
+- [67. A Class File Is Named After Its Class](0067-a-class-file-is-named-after-its-class.md)
+- [68. Safety Rules Are Build Errors](0068-safety-rules-are-build-errors.md)
+- [69. Design Rules Are Build Errors](0069-design-rules-are-build-errors.md)
+- [70. Coverage Means a Test Called the Method](0070-coverage-means-a-test-called-the-method.md)
+- [71. A Member Is Public Only When It Is Used](0071-a-member-is-public-only-when-used.md)
+- [72. Groovy Is a Yon Language](0072-groovy-is-a-yon-language.md)
+- [73. F# Is a Yon Language and a Tac Service Language](0073-fsharp-is-a-yon-language-and-a-tac-service-language.md)
+- [74. Front-End and API Rules Are Build Errors](0074-front-end-and-api-rules-are-build-errors.md)
+- [75. Release Builds Pre-Compress and the Server Negotiates](0075-release-builds-precompress-and-the-server-negotiates.md)
+- [76. Simpler Forms Are Suggestions](0076-simpler-forms-are-suggestions.md)
+- [77. The Development Server Never Exits on a Project Error](0077-the-development-server-never-exits-on-a-project-error.md)
+- [78. Kotlin Services Reach the Web as WebAssembly](0078-kotlin-services-reach-the-web-as-webassembly.md)
+- [79. Every Member States Its Type](0079-every-member-states-its-type.md)

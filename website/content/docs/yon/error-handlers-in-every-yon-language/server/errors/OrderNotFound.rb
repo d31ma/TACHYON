@@ -1,0 +1,2 @@
+class OrderNotFound < StandardError
+end

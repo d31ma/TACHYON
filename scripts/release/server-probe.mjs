@@ -1,4 +1,3 @@
-// Shared process boundary for blackbox acceptance of a selected release binary.
 import { spawn } from 'node:child_process';
 
 /**
@@ -39,20 +38,29 @@ export async function withServer(binary, args, probe) {
     return await probe(request);
   } finally {
     clearTimeout(readinessTimer);
-    if (!closed) child.kill('SIGTERM');
-    let killTimer;
-    let deadline;
-    try {
-      killTimer = setTimeout(() => { if (!closed) child.kill('SIGKILL'); }, 5000);
-      await Promise.race([
-        exited,
-        new Promise((_, reject) => {
-          deadline = setTimeout(() => reject(new Error('Server failed to exit after forced termination')), 10_000);
-        }),
-      ]);
-    } finally {
-      clearTimeout(killTimer);
-      clearTimeout(deadline);
-    }
+    await stopServer(child, exited, () => closed);
+  }
+}
+
+/**
+ * @param {import('node:child_process').ChildProcess} child
+ * @param {Promise<void>} exited
+ * @param {() => boolean} isClosed
+ */
+async function stopServer(child, exited, isClosed) {
+  if (!isClosed()) child.kill('SIGTERM');
+  let killTimer;
+  let deadline;
+  try {
+    killTimer = setTimeout(() => { if (!isClosed()) child.kill('SIGKILL'); }, 5000);
+    await Promise.race([
+      exited,
+      new Promise((_, reject) => {
+        deadline = setTimeout(() => reject(new Error('Server failed to exit after forced termination')), 10_000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(killTimer);
+    clearTimeout(deadline);
   }
 }

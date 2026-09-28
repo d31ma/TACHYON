@@ -1,0 +1,33 @@
+{
+  "title": "Settings and configuration",
+  "summary": "Server settings live in `server/application.json`. Page settings live in `client/manifest.json`. Secrets, such as passwords, live in `.env` and never reach the browser. A class marked `Settings` gets its field values from these files.",
+  "before": [
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "configuration-and-secrets-are-separate/section.json"
+    },
+    {
+      "include": "../yon/reading-settings-and-choosing-configuration/section.json"
+    },
+    {
+      "include": "client-manifest-json-field-by-field/section.json"
+    },
+    {
+      "include": "server-application-json-field-by-field/section.json"
+    },
+    {
+      "include": "profiles-paths-and-which-value-wins/section.json"
+    },
+    {
+      "include": "access-from-every-yon-language/section.json"
+    },
+    {
+      "include": "swift-public-configuration-in-native-tac/section.json"
+    },
+    {
+      "include": "public-tac-output-and-private-yon-lifetime/section.json"
+    }
+  ]
+}

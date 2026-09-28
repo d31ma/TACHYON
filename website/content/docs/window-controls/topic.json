@@ -1,0 +1,12 @@
+{
+  "title": "Window controls",
+  "summary": "In a desktop or mobile app, `client/manifest.json` describes the window that the app opens. It also lists the window controls that a page may ask for. By default, a page may ask for none.",
+  "before": [
+    "native-hosts"
+  ],
+  "sections": [
+    {
+      "include": "../platform-apis/window-controls-need-permission/section.json"
+    }
+  ]
+}

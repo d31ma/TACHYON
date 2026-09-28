@@ -1,0 +1,28 @@
+{
+  "id": "styles",
+  "title": "Styles next to each view",
+  "summary": "A `tac.css` file next to a view is the stylesheet of that view. A component contains only its view and its stylesheet. Component styles use CSS `@scope`, which limits styles to one part of the page. Tachyon does not rewrite selectors.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/product/card/tac.html",
+      "code": { "file": "client/components/product/card/tac.html" }
+    },
+    {
+      "name": "client/components/product/card/tac.css",
+      "code": { "file": "client/components/product/card/tac.css" }
+    },
+    {
+      "name": "client/services/CardService.js",
+      "code": { "file": "client/services/CardService.js" }
+    },
+    {
+      "name": "emitted",
+      "code": { "file": "emitted.txt" }
+    }
+  ]
+}

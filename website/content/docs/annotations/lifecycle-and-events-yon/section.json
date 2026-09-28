@@ -1,0 +1,399 @@
+{
+  "heading": "Lifecycle and events: Yon",
+  "axis": "language",
+  "summary": "One route, two shared services and a controller. CheckoutService publishes through the injected applicationEventPublisher during OnStart and releases in OnStop. AuditService holds the listeners. EventPublisher is removed (ADR 0031), and any use of it fails the build. So publishing is always a call on that field. Needs binds a Yon resource by the field's own name, which is the name Spring uses: dataSource, redisTemplate and applicationEventPublisher in every Yon language. Python and Rust write the field name in snake_case, so they bind the publisher by type. A listener takes exactly one payload parameter. In Java, Groovy, Kotlin, C#, Rust, Dart and Go, its type must be the JSON value type of that language. Order runs the listeners of one event from the lowest value first. condition skips delivery without an error. A returned {event, value} is published again. InBackground appears only in JavaScript, TypeScript and Python. PHP, Java, Groovy, Kotlin, C#, Rust, Dart and Go have no asynchronous method here, and they reject it at compile time. GET /lifecycle answers with the recorded log and the final total. Ruby creates its publisher with ApplicationEventPublisher.new and names each listener's model in a YARD tag, # @param order [PlacedOrder].",
+  "files": [
+    {
+      "name": "server/services/CheckoutService.js",
+      "code": {
+        "file": "server/services/CheckoutService.js"
+      }
+    },
+    {
+      "name": "server/services/AuditService.js",
+      "code": {
+        "file": "server/services/AuditService.js"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.js",
+      "code": {
+        "file": "server/controllers/LifecycleController.js"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.ts",
+      "code": { "file": "server/models/Lifecycle.ts" }
+    },
+    {
+      "name": "server/services/CheckoutService.ts",
+      "code": {
+        "file": "server/services/CheckoutService.ts"
+      }
+    },
+    {
+      "name": "server/services/AuditService.ts",
+      "code": {
+        "file": "server/services/AuditService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.ts",
+      "code": {
+        "file": "server/controllers/LifecycleController.ts"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.py",
+      "code": { "file": "server/models/Lifecycle.py" }
+    },
+    {
+      "name": "server/services/CheckoutService.py",
+      "code": {
+        "file": "server/services/CheckoutService.py"
+      }
+    },
+    {
+      "name": "server/services/AuditService.py",
+      "code": {
+        "file": "server/services/AuditService.py"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.py",
+      "code": {
+        "file": "server/controllers/LifecycleController.py"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.php",
+      "code": { "file": "server/models/Lifecycle.php" }
+    },
+    {
+      "name": "server/services/CheckoutService.php",
+      "code": {
+        "file": "server/services/CheckoutService.php"
+      }
+    },
+    {
+      "name": "server/services/AuditService.php",
+      "code": {
+        "file": "server/services/AuditService.php"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.php",
+      "code": {
+        "file": "server/controllers/LifecycleController.php"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.java",
+      "code": { "file": "server/models/Lifecycle.java" }
+    },
+    {
+      "name": "server/models/Lifecycle.groovy",
+      "code": { "file": "server/models/Lifecycle.groovy" }
+    },
+    {
+      "name": "server/services/CheckoutService.java",
+      "code": {
+        "file": "server/services/CheckoutService.java"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.groovy",
+      "code": {
+        "file": "server/services/CheckoutService.groovy"
+      }
+    },
+    {
+      "name": "server/services/AuditService.java",
+      "code": {
+        "file": "server/services/AuditService.java"
+      }
+    },
+    {
+      "name": "server/services/AuditService.groovy",
+      "code": {
+        "file": "server/services/AuditService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.java",
+      "code": {
+        "file": "server/controllers/LifecycleController.java"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.groovy",
+      "code": {
+        "file": "server/controllers/LifecycleController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.kt",
+      "code": { "file": "server/models/Lifecycle.kt" }
+    },
+    {
+      "name": "server/services/CheckoutService.kt",
+      "code": {
+        "file": "server/services/CheckoutService.kt"
+      }
+    },
+    {
+      "name": "server/services/AuditService.kt",
+      "code": {
+        "file": "server/services/AuditService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.kt",
+      "code": {
+        "file": "server/controllers/LifecycleController.kt"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.cs",
+      "code": { "file": "server/models/Lifecycle.cs" }
+    },
+    {
+      "name": "server/services/CheckoutService.cs",
+      "code": {
+        "file": "server/services/CheckoutService.cs"
+      }
+    },
+    {
+      "name": "server/services/AuditService.cs",
+      "code": {
+        "file": "server/services/AuditService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.cs",
+      "code": {
+        "file": "server/controllers/LifecycleController.cs"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.rs",
+      "code": { "file": "server/models/Lifecycle.rs" }
+    },
+    {
+      "name": "server/services/CheckoutService.rs",
+      "code": {
+        "file": "server/services/CheckoutService.rs"
+      }
+    },
+    {
+      "name": "server/services/AuditService.rs",
+      "code": {
+        "file": "server/services/AuditService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.rs",
+      "code": {
+        "file": "server/controllers/LifecycleController.rs"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.go",
+      "code": { "file": "server/models/Lifecycle.go" }
+    },
+    {
+      "name": "server/services/CheckoutService.go",
+      "code": {
+        "file": "server/services/CheckoutService.go"
+      }
+    },
+    {
+      "name": "server/services/AuditService.go",
+      "code": {
+        "file": "server/services/AuditService.go"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.go",
+      "code": {
+        "file": "server/controllers/LifecycleController.go"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.dart",
+      "code": { "file": "server/models/Lifecycle.dart" }
+    },
+    {
+      "name": "server/services/CheckoutService.dart",
+      "code": {
+        "file": "server/services/CheckoutService.dart"
+      }
+    },
+    {
+      "name": "server/services/AuditService.dart",
+      "code": {
+        "file": "server/services/AuditService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.dart",
+      "code": {
+        "file": "server/controllers/LifecycleController.dart"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.rb",
+      "code": { "file": "server/models/Lifecycle.rb" }
+    },
+    {
+      "name": "server/services/CheckoutService.rb",
+      "code": {
+        "file": "server/services/CheckoutService.rb"
+      }
+    },
+    {
+      "name": "server/services/AuditService.rb",
+      "code": {
+        "file": "server/services/AuditService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.rb",
+      "code": {
+        "file": "server/controllers/LifecycleController.rb"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.ts",
+      "code": {
+        "file": "server/models/PlacedOrder.ts"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.ts",
+      "code": {
+        "file": "server/models/SettledOrder.ts"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.py",
+      "code": {
+        "file": "server/models/PlacedOrder.py"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.py",
+      "code": {
+        "file": "server/models/SettledOrder.py"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.php",
+      "code": {
+        "file": "server/models/PlacedOrder.php"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.php",
+      "code": {
+        "file": "server/models/SettledOrder.php"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.java",
+      "code": {
+        "file": "server/models/PlacedOrder.java"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.groovy",
+      "code": {
+        "file": "server/models/PlacedOrder.groovy"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.java",
+      "code": {
+        "file": "server/models/SettledOrder.java"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.groovy",
+      "code": {
+        "file": "server/models/SettledOrder.groovy"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.kt",
+      "code": {
+        "file": "server/models/PlacedOrder.kt"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.kt",
+      "code": {
+        "file": "server/models/SettledOrder.kt"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.cs",
+      "code": {
+        "file": "server/models/PlacedOrder.cs"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.cs",
+      "code": {
+        "file": "server/models/SettledOrder.cs"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.rs",
+      "code": {
+        "file": "server/models/PlacedOrder.rs"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.rs",
+      "code": {
+        "file": "server/models/SettledOrder.rs"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.go",
+      "code": {
+        "file": "server/models/PlacedOrder.go"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.go",
+      "code": {
+        "file": "server/models/SettledOrder.go"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.dart",
+      "code": {
+        "file": "server/models/PlacedOrder.dart"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.dart",
+      "code": {
+        "file": "server/models/SettledOrder.dart"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.rb",
+      "code": {
+        "file": "server/models/PlacedOrder.rb"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.rb",
+      "code": {
+        "file": "server/models/SettledOrder.rb"
+      }
+    }
+  ]
+}

@@ -1,19 +1,14 @@
 use super::model::{AttributeValue, TemplateAttribute};
 use super::{TemplateFrontend, TemplateNode, TemplateNodeKind, TemplateProgram};
 use crate::Failure;
+use crate::compiler::{hex_digest, portable_path};
 use crate::failure::{diagnostic, source_span};
 use sha2::{Digest, Sha256};
-
-/// Attribute a component's `@scope` rule selects on.
-pub(crate) const SCOPE_ATTRIBUTE: &str = "data-tac-scope";
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Component as PathComponent, Path, PathBuf};
-
-const COMPONENT_ROOT: &str = "client/components";
-const MAX_COMPONENTS: usize = 1_024;
-const MAX_COMPANION_BYTES: u64 = 1_048_576;
+use tachyon_diagnostics::Diagnostic;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ComponentRegistry {
@@ -22,11 +17,14 @@ pub(crate) struct ComponentRegistry {
 }
 
 impl ComponentRegistry {
+    const COMPONENT_ROOT: &'static str = "client/components";
+    const MAX_COMPONENTS: usize = 1_024;
+    pub(crate) const SCOPE_ATTRIBUTE: &'static str = "data-tac-scope";
+
     pub(crate) fn discover(project_root: &Path) -> Result<Self, Failure> {
         let Some(root) = regular_component_root(project_root)? else {
             return Ok(Self::default());
         };
-
         let mut discovered = BTreeMap::<String, ComponentFiles>::new();
         let mut diagnostics = Vec::new();
         visit_components(
@@ -36,69 +34,18 @@ impl ComponentRegistry {
             &mut discovered,
             &mut diagnostics,
         );
-        if discovered.len() > MAX_COMPONENTS {
+        if discovered.len() > Self::MAX_COMPONENTS {
             diagnostics.push(component_diagnostic(
                 1401,
-                COMPONENT_ROOT,
+                Self::COMPONENT_ROOT,
                 0,
-                COMPONENT_ROOT.len(),
+                Self::COMPONENT_ROOT.len(),
                 "Component registry exceeds the limit of 1,024.",
                 "Split the application or remove unused components.",
             ));
         }
-        let names = discovered.keys().cloned().collect::<BTreeSet<_>>();
-        let mut components = BTreeMap::new();
         let mut hasher = Sha256::new();
-        for (name, mut files) in discovered {
-            let Some(template) = files.template.take() else {
-                if let Some(script) = files
-                    .script_real_compiler
-                    .as_ref()
-                    .or(files.script.as_ref())
-                {
-                    diagnostics.push(component_diagnostic(
-                        1401,
-                        &portable_path(
-                            script
-                                .strip_prefix(project_root)
-                                .unwrap_or(script.as_path()),
-                        ),
-                        0,
-                        0,
-                        &format!("Component '{name}' has a script companion but no tac.html."),
-                        "Add the component template or remove the orphan companion.",
-                    ));
-                }
-                continue;
-            };
-            let relative_template =
-                portable_path(template.strip_prefix(project_root).unwrap_or(&template));
-            match TemplateFrontend::compile_file(&template, &relative_template, &names) {
-                Ok(program) => {
-                    hash_file(&mut hasher, project_root, &template, &mut diagnostics);
-                    if let Some(script) = files
-                        .script_real_compiler
-                        .as_ref()
-                        .or(files.script.as_ref())
-                    {
-                        validate_script(project_root, script, &mut diagnostics);
-                        hash_file(&mut hasher, project_root, script, &mut diagnostics);
-                    }
-                    components.insert(
-                        name.clone(),
-                        define_component(
-                            program,
-                            &name,
-                            files,
-                            project_root,
-                            &mut hasher,
-                            &mut diagnostics,
-                        ),
-                    );
-                }
-                Err(failure) => diagnostics.extend_from_slice(failure.diagnostics()),
-            }
-        }
+        let components = define_components(project_root, discovered, &mut hasher, &mut diagnostics);
         detect_cycles(&components, &mut diagnostics);
         sort_diagnostics(&mut diagnostics);
         if !diagnostics.is_empty() {
@@ -124,14 +71,15 @@ impl ComponentRegistry {
 }
 
 fn regular_component_root(project_root: &Path) -> Result<Option<PathBuf>, Failure> {
-    let root = project_root.join(COMPONENT_ROOT);
+    let component_root = ComponentRegistry::COMPONENT_ROOT;
+    let root = project_root.join(component_root);
     let metadata = match fs::symlink_metadata(&root) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => {
             return Err(Failure::one(component_diagnostic(
                 1401,
-                COMPONENT_ROOT,
+                component_root,
                 0,
                 0,
                 &format!("Cannot inspect component root: {error}"),
@@ -142,9 +90,9 @@ fn regular_component_root(project_root: &Path) -> Result<Option<PathBuf>, Failur
     if metadata.file_type().is_symlink() || !metadata.is_dir() {
         return Err(Failure::one(component_diagnostic(
             1401,
-            COMPONENT_ROOT,
+            component_root,
             0,
-            COMPONENT_ROOT.len(),
+            component_root.len(),
             "Component root must be a regular directory.",
             "Replace the source root with a non-symlinked directory.",
         )));
@@ -155,21 +103,12 @@ fn regular_component_root(project_root: &Path) -> Result<Option<PathBuf>, Failur
 #[derive(Clone, Debug)]
 pub(crate) struct ComponentDefinition {
     program: TemplateProgram,
-    script_path: Option<PathBuf>,
     style_path: Option<PathBuf>,
 }
 
 impl ComponentDefinition {
     pub(crate) fn program(&self) -> &TemplateProgram {
         &self.program
-    }
-
-    pub(crate) fn has_script(&self) -> bool {
-        self.script_path.is_some()
-    }
-
-    pub(crate) fn script_path(&self) -> Option<&Path> {
-        self.script_path.as_deref()
     }
 
     pub(crate) fn style_path(&self) -> Option<&Path> {
@@ -180,8 +119,6 @@ impl ComponentDefinition {
 #[derive(Clone, Debug, Default)]
 struct ComponentFiles {
     template: Option<PathBuf>,
-    script: Option<PathBuf>,
-    script_real_compiler: Option<PathBuf>,
     style: Option<PathBuf>,
 }
 
@@ -190,11 +127,23 @@ fn visit_components(
     root: &Path,
     directory: &Path,
     components: &mut BTreeMap<String, ComponentFiles>,
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let mut entries = match fs::read_dir(directory)
-        .and_then(std::iter::Iterator::collect::<Result<Vec<_>, _>>)
-    {
+    let Some(entries) = sorted_entries(project_root, directory, diagnostics) else {
+        return;
+    };
+    for entry in entries {
+        visit_entry(project_root, root, &entry.path(), components, diagnostics);
+    }
+}
+
+fn sorted_entries(
+    project_root: &Path,
+    directory: &Path,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Vec<fs::DirEntry>> {
+    let listing = fs::read_dir(directory).and_then(Iterator::collect::<Result<Vec<_>, _>>);
+    let mut entries = match listing {
         Ok(entries) => entries,
         Err(error) => {
             let relative = portable_path(directory.strip_prefix(project_root).unwrap_or(directory));
@@ -206,41 +155,52 @@ fn visit_components(
                 &format!("Cannot enumerate component directory: {error}"),
                 "Check the directory permissions.",
             ));
-            return;
+            return None;
         }
     };
     entries.sort_by_key(fs::DirEntry::file_name);
-    for entry in entries {
-        let path = entry.path();
-        let relative = path.strip_prefix(project_root).unwrap_or(&path);
-        let metadata = match fs::symlink_metadata(&path) {
-            Ok(metadata) => metadata,
-            Err(error) => {
-                diagnostics.push(component_diagnostic(
-                    1401,
-                    &portable_path(relative),
-                    0,
-                    0,
-                    &format!("Cannot inspect component source: {error}"),
-                    "Use readable regular component sources.",
-                ));
-                continue;
-            }
-        };
-        if metadata.file_type().is_symlink() {
+    Some(entries)
+}
+
+fn visit_entry(
+    project_root: &Path,
+    root: &Path,
+    path: &Path,
+    components: &mut BTreeMap<String, ComponentFiles>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let relative = portable_path(path.strip_prefix(project_root).unwrap_or(path));
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) => {
             diagnostics.push(component_diagnostic(
                 1401,
-                &portable_path(relative),
+                &relative,
                 0,
-                portable_path(relative).len(),
-                "Symlinked component sources are not allowed.",
-                "Replace the symlink with a regular file or directory.",
+                0,
+                &format!("Cannot inspect component source: {error}"),
+                "Use readable regular component sources.",
             ));
-        } else if metadata.is_dir() {
-            visit_components(project_root, root, &path, components, diagnostics);
-        } else if metadata.is_file() {
-            inspect_component_file(root, &path, components, diagnostics);
+            return;
         }
+    };
+    if metadata.file_type().is_symlink() {
+        diagnostics.push(component_diagnostic(
+            1401,
+            &relative,
+            0,
+            relative.len(),
+            "Symlinked component sources are not allowed.",
+            "Replace the symlink with a regular file or directory.",
+        ));
+        return;
+    }
+    if metadata.is_dir() {
+        visit_components(project_root, root, path, components, diagnostics);
+        return;
+    }
+    if metadata.is_file() {
+        inspect_component_file(root, path, components, diagnostics);
     }
 }
 
@@ -248,12 +208,12 @@ fn inspect_component_file(
     root: &Path,
     path: &Path,
     components: &mut BTreeMap<String, ComponentFiles>,
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    diagnostics: &mut Vec<Diagnostic>,
 ) {
     let Some(name) = path.file_name().and_then(OsStr::to_str) else {
         diagnostics.push(component_diagnostic(
             1401,
-            COMPONENT_ROOT,
+            ComponentRegistry::COMPONENT_ROOT,
             0,
             0,
             "Component source paths must be valid Unicode.",
@@ -261,24 +221,8 @@ fn inspect_component_file(
         ));
         return;
     };
-    if !matches!(
-        name,
-        "tac.html" | "tac.js" | "tac.ts" | "tac.css" | "tachyon-island.js" | "tachyon-island.ts"
-    ) {
-        if name.starts_with("tac.") || name.starts_with("tachyon-wasm.") {
-            let relative = portable_path(path.strip_prefix(root).unwrap_or(path));
-            diagnostics.push(component_diagnostic(
-                1401,
-                &relative,
-                0,
-                relative.len(),
-                "Component companion is not a supported browser language.",
-                "Use tac.js or tac.ts for a browser component and tac.css for styles. \
-                 Place compiled native companions beside a page under client/pages, \
-                 where the target platform selects and links them. Browser WASM \
-                 companions are superseded by target-native companions (ADR 0019).",
-            ));
-        }
+    if !matches!(name, "tac.html" | "tac.css") {
+        report_file_beside_view(root, path, name, diagnostics);
         return;
     }
     let Some(parent) = path.parent() else {
@@ -299,51 +243,122 @@ fn inspect_component_file(
         return;
     };
     let files = components.entry(component_name).or_default();
-    match name {
-        "tac.html" => files.template = Some(path.to_path_buf()),
-        "tac.css" => files.style = Some(path.to_path_buf()),
-        "tachyon-island.js" | "tachyon-island.ts" => {
-            files.script_real_compiler = Some(path.to_path_buf());
-        }
-        _ => files.script = Some(path.to_path_buf()),
+    if name == "tac.html" {
+        files.template = Some(path.to_path_buf());
+    } else {
+        files.style = Some(path.to_path_buf());
     }
 }
 
-/// Assembles one component, hashing and scoping its stylesheet when present.
+fn report_file_beside_view(
+    root: &Path,
+    path: &Path,
+    name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if name == "tac.modules.json" {
+        return;
+    }
+    let relative = portable_path(path.strip_prefix(root).unwrap_or(path));
+    let is_island = matches!(name, "tachyon-island.js" | "tachyon-island.ts");
+    if crate::project::companion_kind(name).is_some() || is_island {
+        diagnostics.push(component_diagnostic(
+            1310,
+            &relative,
+            0,
+            relative.len(),
+            &format!("Components use services: '{relative}' cannot sit beside a component view."),
+            "A component directory holds tac.html and tac.css. Move this file to \
+             client/services/<Name>Service.<ext>, annotate the class @Service(), and \
+             address it from the view as {<name>.field} (ADR 0030).",
+        ));
+        return;
+    }
+    if name.starts_with("tac.") || name.starts_with("tachyon-wasm.") {
+        diagnostics.push(component_diagnostic(
+            1401,
+            &relative,
+            0,
+            relative.len(),
+            "Component companion is not a supported file.",
+            "A component directory holds tac.html and tac.css; behaviour lives in \
+             client/services (ADR 0030). Browser WASM companions are retired.",
+        ));
+    }
+}
+
+fn define_components(
+    project_root: &Path,
+    discovered: BTreeMap<String, ComponentFiles>,
+    hasher: &mut Sha256,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<String, ComponentDefinition> {
+    let names = discovered.keys().cloned().collect::<BTreeSet<_>>();
+    let mut components = BTreeMap::new();
+    for (name, mut files) in discovered {
+        let Some(template) = files.template.take() else {
+            report_orphan_style(project_root, &name, &files, diagnostics);
+            continue;
+        };
+        let relative_template =
+            portable_path(template.strip_prefix(project_root).unwrap_or(&template));
+        let program = match TemplateFrontend::compile_file(&template, &relative_template, &names) {
+            Ok(program) => program,
+            Err(failure) => {
+                diagnostics.extend_from_slice(failure.diagnostics());
+                continue;
+            }
+        };
+        hash_file(hasher, project_root, &template, diagnostics);
+        let definition = define_component(program, &name, files, project_root, hasher, diagnostics);
+        components.insert(name, definition);
+    }
+    components
+}
+
+fn report_orphan_style(
+    project_root: &Path,
+    name: &str,
+    files: &ComponentFiles,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(style) = &files.style else {
+        return;
+    };
+    diagnostics.push(component_diagnostic(
+        1401,
+        &portable_path(style.strip_prefix(project_root).unwrap_or(style)),
+        0,
+        0,
+        &format!("Component '{name}' has a stylesheet but no tac.html."),
+        "Add the component template or remove the orphan stylesheet.",
+    ));
+}
+
 fn define_component(
     mut program: TemplateProgram,
     name: &str,
     files: ComponentFiles,
     project_root: &Path,
     hasher: &mut Sha256,
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> ComponentDefinition {
     if let Some(style) = &files.style {
         hash_file(hasher, project_root, style, diagnostics);
-        // The scope attribute is what the emitted `@scope` rule selects on, so
-        // a component's styles reach its own subtree and nothing else.
         mark_scope_roots(&mut program.nodes, name);
     }
-    let script_path = files.script_real_compiler.or(files.script);
     ComponentDefinition {
         program,
-        script_path,
         style_path: files.style,
     }
 }
 
-/// Marks a component's root elements so its stylesheet can scope to them.
-///
-/// CSS `@scope` is the platform's own answer to component style scoping, so
-/// there is no selector rewriting and no per-element attribute: one attribute
-/// on each root is all the browser needs. Control-flow nodes are transparent,
-/// so the mark lands on the elements a branch or a loop actually produces.
 fn mark_scope_roots(nodes: &mut [TemplateNode], component: &str) {
     for node in nodes {
         match &mut node.kind {
             TemplateNodeKind::Element { attributes, .. } => {
                 attributes.insert(
-                    String::from(SCOPE_ATTRIBUTE),
+                    String::from(ComponentRegistry::SCOPE_ATTRIBUTE),
                     TemplateAttribute {
                         value: AttributeValue::Static(String::from(component)),
                         range: node.range,
@@ -360,30 +375,20 @@ fn mark_scope_roots(nodes: &mut [TemplateNode], component: &str) {
     }
 }
 
-/// Derives a component's tag from its directory path.
-///
-/// Any number of segments is joined by hyphens, so `clicker/` names
-/// `<clicker>`, `date-picker/` names `<date-picker>`, and `product/card/`
-/// names `<product-card>`.
-///
-/// A tag without a hyphen is not a custom element name, so it could in
-/// principle collide with an element HTML gains later. A component is compiled
-/// away rather than registered, so the collision that actually matters is with
-/// an element that exists today — and that is refused by name.
 fn component_name(root: &Path, directory: &Path) -> Option<String> {
     let relative = directory.strip_prefix(root).ok()?;
-    let segments = relative
-        .components()
-        .filter_map(|component| match component {
-            PathComponent::Normal(value) => value.to_str(),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
+    let mut segments = Vec::new();
+    for component in relative.components() {
+        if let PathComponent::Normal(value) = component
+            && let Some(segment) = value.to_str()
+        {
+            segments.push(segment);
+        }
+    }
     if segments.is_empty() || !segments.iter().all(|segment| valid_segment(segment)) {
         return None;
     }
     let name = segments.join("-");
-    // Shadowing a real element would silently change what a template means.
     if crate::html::is_standard_html_tag(&name) {
         return None;
     }
@@ -391,57 +396,19 @@ fn component_name(root: &Path, directory: &Path) -> Option<String> {
 }
 
 fn valid_segment(segment: &str) -> bool {
-    segment
+    let starts_with_lowercase = segment
         .bytes()
         .next()
-        .is_some_and(|byte| byte.is_ascii_lowercase())
-        && segment
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-}
-
-fn validate_script(
-    project_root: &Path,
-    path: &Path,
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
-) {
-    let relative = portable_path(path.strip_prefix(project_root).unwrap_or(path));
-    match fs::read(path) {
-        Ok(bytes) if bytes.len() as u64 > MAX_COMPANION_BYTES => {
-            diagnostics.push(component_diagnostic(
-                1401,
-                &relative,
-                0,
-                bytes.len(),
-                "Tac island companion exceeds the 1 MiB limit.",
-                "Reduce the browser companion below 1 MiB.",
-            ));
-        }
-        Ok(bytes) if std::str::from_utf8(&bytes).is_err() || bytes.contains(&0) => {
-            diagnostics.push(component_diagnostic(
-                1401,
-                &relative,
-                0,
-                bytes.len(),
-                "Tac island companion must be NUL-free UTF-8.",
-                "Save tac.js as UTF-8 without NUL bytes.",
-            ));
-        }
-        Ok(_) => {}
-        Err(error) => diagnostics.push(component_diagnostic(
-            1401,
-            &relative,
-            0,
-            0,
-            &format!("Cannot read Tac island companion: {error}"),
-            "Check the companion file permissions.",
-        )),
-    }
+        .is_some_and(|byte| byte.is_ascii_lowercase());
+    let has_only_tag_characters = segment
+        .bytes()
+        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-');
+    starts_with_lowercase && has_only_tag_characters
 }
 
 fn detect_cycles(
     components: &BTreeMap<String, ComponentDefinition>,
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    diagnostics: &mut Vec<Diagnostic>,
 ) {
     let mut complete = BTreeSet::new();
     for name in components.keys() {
@@ -455,25 +422,13 @@ fn visit_cycle(
     components: &BTreeMap<String, ComponentDefinition>,
     active: &mut Vec<String>,
     complete: &mut BTreeSet<String>,
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    diagnostics: &mut Vec<Diagnostic>,
 ) {
     if complete.contains(name) {
         return;
     }
-    if let Some(position) = active.iter().position(|active| active == name) {
-        let mut cycle = active[position..].to_vec();
-        cycle.push(String::from(name));
-        let source = components.get(name).map_or(COMPONENT_ROOT, |component| {
-            component.program.source_path.as_str()
-        });
-        diagnostics.push(component_diagnostic(
-            1403,
-            source,
-            0,
-            0,
-            &format!("Tac component cycle detected: {}.", cycle.join(" -> ")),
-            "Remove one component invocation from the cycle.",
-        ));
+    if let Some(position) = active.iter().position(|active_name| active_name == name) {
+        diagnostics.push(cycle_diagnostic(name, &active[position..], components));
         return;
     }
     active.push(String::from(name));
@@ -486,6 +441,27 @@ fn visit_cycle(
     }
     active.pop();
     complete.insert(String::from(name));
+}
+
+fn cycle_diagnostic(
+    name: &str,
+    active_cycle: &[String],
+    components: &BTreeMap<String, ComponentDefinition>,
+) -> Diagnostic {
+    let mut cycle = active_cycle.to_vec();
+    cycle.push(String::from(name));
+    let source = match components.get(name) {
+        Some(component) => component.program.source_path.as_str(),
+        None => ComponentRegistry::COMPONENT_ROOT,
+    };
+    component_diagnostic(
+        1403,
+        source,
+        0,
+        0,
+        &format!("Tac component cycle detected: {}.", cycle.join(" -> ")),
+        "Remove one component invocation from the cycle.",
+    )
 }
 
 fn collect_component_references(nodes: &[TemplateNode], references: &mut BTreeSet<String>) {
@@ -503,7 +479,7 @@ fn hash_file(
     hasher: &mut Sha256,
     project_root: &Path,
     path: &Path,
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    diagnostics: &mut Vec<Diagnostic>,
 ) {
     let relative = portable_path(path.strip_prefix(project_root).unwrap_or(path));
     match fs::read(path) {
@@ -524,16 +500,6 @@ fn hash_file(
     }
 }
 
-fn hex_digest(bytes: impl AsRef<[u8]>) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut encoded = String::with_capacity(bytes.as_ref().len() * 2);
-    for byte in bytes.as_ref() {
-        encoded.push(char::from(HEX[usize::from(byte >> 4)]));
-        encoded.push(char::from(HEX[usize::from(byte & 0x0f)]));
-    }
-    encoded
-}
-
 fn component_diagnostic(
     number: u16,
     source_path: &str,
@@ -541,7 +507,7 @@ fn component_diagnostic(
     end: usize,
     message: &str,
     help: &str,
-) -> tachyon_diagnostics::Diagnostic {
+) -> Diagnostic {
     diagnostic(
         number,
         message,
@@ -550,25 +516,17 @@ fn component_diagnostic(
     )
 }
 
-fn portable_path(path: &Path) -> String {
-    path.components()
-        .filter_map(|component| match component {
-            PathComponent::Normal(value) => value.to_str(),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join("/")
-}
-
-fn sort_diagnostics(diagnostics: &mut [tachyon_diagnostics::Diagnostic]) {
+fn sort_diagnostics(diagnostics: &mut [Diagnostic]) {
     diagnostics.sort_by(|left, right| {
-        let left_span = left.spans.first();
-        let right_span = right.spans.first();
-        left_span
-            .map(|span| (&span.file, span.start, span.end))
-            .cmp(&right_span.map(|span| (&span.file, span.start, span.end)))
+        diagnostic_position(left)
+            .cmp(&diagnostic_position(right))
             .then_with(|| left.code.cmp(&right.code))
     });
+}
+
+fn diagnostic_position(diagnostic: &Diagnostic) -> Option<(&String, u64, u64)> {
+    let span = diagnostic.spans.first()?;
+    Some((&span.file, span.start, span.end))
 }
 
 #[cfg(all(test, not(coverage)))]
@@ -577,8 +535,14 @@ mod tests {
 
     use super::ComponentRegistry;
     use std::fs;
+    use std::path::Path;
+    use tempfile::TempDir;
 
-    fn write(path: &std::path::Path, contents: &str) {
+    fn project() -> TempDir {
+        tempfile::tempdir().unwrap_or_else(|_| unreachable!())
+    }
+
+    fn write(path: &Path, contents: &str) {
         fs::create_dir_all(path.parent().unwrap_or_else(|| unreachable!()))
             .unwrap_or_else(|_| unreachable!());
         fs::write(path, contents).unwrap_or_else(|_| unreachable!());
@@ -586,20 +550,17 @@ mod tests {
 
     #[test]
     fn a_component_directory_names_its_tag_at_any_depth() {
-        let root = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        let write = |relative: &str| {
-            let path = root.path().join(relative);
-            fs::create_dir_all(path.parent().unwrap_or_else(|| unreachable!()))
-                .unwrap_or_else(|_| unreachable!());
-            fs::write(path, "<div>x</div>").unwrap_or_else(|_| unreachable!());
-        };
-        write("client/components/clicker/tac.html");
-        write("client/components/date-picker/tac.html");
-        write("client/components/product/card/tac.html");
+        let root = project();
+        for relative in [
+            "client/components/clicker/tac.html",
+            "client/components/date-picker/tac.html",
+            "client/components/product/card/tac.html",
+        ] {
+            write(&root.path().join(relative), "<div>x</div>");
+        }
 
         let registry = ComponentRegistry::discover(root.path()).expect("registry");
         let names = registry.names();
-        // One segment, a hyphenated segment, and two segments all name a tag.
         assert!(names.contains("clicker"), "{names:?}");
         assert!(names.contains("date-picker"), "{names:?}");
         assert!(names.contains("product-card"), "{names:?}");
@@ -607,13 +568,11 @@ mod tests {
 
     #[test]
     fn a_component_may_not_shadow_a_standard_html_element() {
-        // Shadowing a real element would silently change what a template
-        // means, so the name is refused rather than the tag reinterpreted.
-        let root = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        let path = root.path().join("client/components/section/tac.html");
-        fs::create_dir_all(path.parent().unwrap_or_else(|| unreachable!()))
-            .unwrap_or_else(|_| unreachable!());
-        fs::write(path, "<div>x</div>").unwrap_or_else(|_| unreachable!());
+        let root = project();
+        write(
+            &root.path().join("client/components/section/tac.html"),
+            "<div>x</div>",
+        );
 
         let error = ComponentRegistry::discover(root.path()).expect_err("shadowed element");
         assert!(error.to_string().contains("TY1401"), "{error}");
@@ -624,38 +583,126 @@ mod tests {
     }
 
     #[test]
-    fn registry_discovers_components_scripts_and_a_stable_digest() {
-        let root = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        write(
-            &root.path().join("client/components/product/card/tac.html"),
-            "<p>{label}</p>",
-        );
-        write(
-            &root.path().join("client/components/product/card/tac.js"),
-            "export default class Card {}",
-        );
+    fn registry_discovers_components_styles_and_a_stable_digest() {
+        let root = project();
+        let component = root.path().join("client/components/product/card");
+        write(&component.join("tac.html"), "<p>{label}</p>");
+        write(&component.join("tac.css"), "p { color: red }");
         let first = ComponentRegistry::discover(root.path()).unwrap_or_else(|_| unreachable!());
         let second = ComponentRegistry::discover(root.path()).unwrap_or_else(|_| unreachable!());
-        assert!(
-            first
-                .get("product-card")
-                .is_some_and(super::ComponentDefinition::has_script)
-        );
         assert_eq!(first.digest(), second.digest());
+        let selected = first
+            .get("product-card")
+            .and_then(super::ComponentDefinition::style_path)
+            .and_then(Path::file_name)
+            .and_then(std::ffi::OsStr::to_str);
+        assert_eq!(selected, Some("tac.css"));
+
+        write(&component.join("tac.css"), "p { color: blue }");
+        let third = ComponentRegistry::discover(root.path()).unwrap_or_else(|_| unreachable!());
+        assert_ne!(first.digest(), third.digest());
+    }
+
+    #[test]
+    fn a_browser_script_beside_a_component_view_fails_ty1310() {
+        let root = project();
+        let component = root.path().join("client/components/product/card");
+        write(&component.join("tac.html"), "<p>{card.label}</p>");
+        write(
+            &component.join("tac.js"),
+            "export default class Card { label = 'x' }",
+        );
+
+        let failure = ComponentRegistry::discover(root.path()).expect_err("script beside view");
+        let text = failure.to_string();
+        assert!(text.contains("TY1310"), "{text}");
+        assert!(text.contains("Components use services"), "{text}");
+        assert!(text.contains("product/card/tac.js"), "{text}");
         assert!(
-            first
-                .get("product-card")
-                .and_then(|value| value.script_path())
-                .is_some()
+            text.contains("client/services/<Name>Service.<ext>"),
+            "{text}"
+        );
+        assert!(text.contains("ADR 0030"), "{text}");
+    }
+
+    #[test]
+    fn a_typescript_script_beside_a_component_view_fails_ty1310() {
+        let root = project();
+        let component = root.path().join("client/components/typed/card");
+        write(&component.join("tac.html"), "<p>{card.label}</p>");
+        write(
+            &component.join("tac.ts"),
+            "export default class Card { label: string = 'x' }",
+        );
+
+        let failure = ComponentRegistry::discover(root.path()).expect_err("script beside view");
+        assert!(failure.to_string().contains("TY1310"), "{failure}");
+        assert!(
+            failure.to_string().contains("typed/card/tac.ts"),
+            "{failure}"
         );
     }
 
     #[test]
-    fn superseded_wasm_components_report_the_native_page_migration() {
-        let root = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
+    fn native_companions_beside_a_component_view_fail_ty1310() {
+        let root = project();
+        let component = root.path().join("client/components/owned/card");
+        write(&component.join("tac.html"), "<p>{card.count}</p>");
+        write(
+            &component.join("tac.swift"),
+            "final class Companion { var count = 1 }",
+        );
+        write(
+            &component.join("tac.rs"),
+            "#[derive(Default)] struct Companion { count: i64 }",
+        );
+        write(
+            &component.join("tac.kt"),
+            "class Companion { var count = 1 }",
+        );
+        write(
+            &component.join("tac.cs"),
+            "public class Companion { public int Count = 1; }",
+        );
+
+        let failure = ComponentRegistry::discover(root.path()).expect_err("native beside view");
+        let text = failure.to_string();
+        let ty1310 = failure
+            .diagnostics()
+            .iter()
+            .filter(|diagnostic| diagnostic.code.number() == 1310)
+            .count();
+        assert_eq!(ty1310, 4, "{text}");
+        for name in ["tac.swift", "tac.rs", "tac.kt", "tac.cs"] {
+            assert!(text.contains(&format!("owned/card/{name}")), "{text}");
+        }
+    }
+
+    #[test]
+    fn island_sidecars_beside_a_component_view_fail_ty1310() {
+        let root = project();
+        let component = root.path().join("client/components/dual/island");
+        write(&component.join("tac.html"), "<p>{label}</p>");
+        write(
+            &component.join("tachyon-island.js"),
+            "export default class RewriteIsland {}",
+        );
+
+        let failure = ComponentRegistry::discover(root.path()).expect_err("island sidecar");
+        assert!(failure.to_string().contains("TY1310"), "{failure}");
+        assert!(
+            failure
+                .to_string()
+                .contains("dual/island/tachyon-island.js"),
+            "{failure}"
+        );
+    }
+
+    #[test]
+    fn wasm_sidecars_beside_a_component_view_are_unsupported_files() {
+        let root = project();
         let component = root.path().join("client/components/language/rust");
         write(&component.join("tac.html"), "<p>{count}</p>");
-        write(&component.join("tac.rs"), "struct Legacy;");
         write(
             &component.join("tachyon-wasm.rs"),
             "#[no_mangle] pub extern \"C\" fn tac_alloc(_: i32) -> i32 { 0 }",
@@ -663,119 +710,89 @@ mod tests {
 
         let failure =
             ComponentRegistry::discover(root.path()).expect_err("obsolete wasm companion");
-        assert!(failure.to_string().contains("client/pages"));
-        assert!(failure.to_string().contains("ADR 0019"));
+        let text = failure.to_string();
+        assert!(text.contains("TY1401"), "{text}");
+        assert!(text.contains("tachyon-wasm.rs"), "{text}");
+        assert!(
+            text.contains("Component companion is not a supported file."),
+            "{text}"
+        );
+        assert!(text.contains("ADR 0030"), "{text}");
     }
 
     #[test]
-    fn rewrite_island_sidecar_wins_without_removing_the_legacy_companion() {
-        let root = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        let component = root.path().join("client/components/dual/island");
+    fn a_style_is_kept_beside_its_view() {
+        let root = project();
+        let component = root.path().join("client/components/styled/card");
         write(&component.join("tac.html"), "<p>{label}</p>");
-        write(
-            &component.join("tac.js"),
-            "export default class LegacyIsland {}",
-        );
-        write(
-            &component.join("tachyon-island.js"),
-            "export default class RewriteIsland {}",
-        );
+        write(&component.join("tac.css"), "p { margin: 0 }");
 
         let registry = ComponentRegistry::discover(root.path()).expect("registry");
-        let selected = registry
-            .get("dual-island")
-            .and_then(super::ComponentDefinition::script_path)
-            .and_then(std::path::Path::file_name)
-            .and_then(std::ffi::OsStr::to_str);
-        assert_eq!(selected, Some("tachyon-island.js"));
+        let card = registry
+            .get("styled-card")
+            .unwrap_or_else(|| unreachable!());
+        assert!(card.style_path().is_some());
     }
 
     #[test]
     fn invalid_shapes_orphans_and_cycles_fail_closed() {
-        let root = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
+        let root = project();
+        let components = root.path().join("client/components");
         write(
-            &root.path().join("client/components/one/tac.html"),
+            &components.join("one/tac.html"),
             "<p>invalid single segment</p>",
         );
         write(
-            &root.path().join("client/components/cycle/one/tac.html"),
+            &components.join("cycle/one/tac.html"),
             "<cycle-two></cycle-two>",
         );
         write(
-            &root.path().join("client/components/cycle/two/tac.html"),
+            &components.join("cycle/two/tac.html"),
             "<cycle-one></cycle-one>",
         );
-        write(
-            &root.path().join("client/components/orphan/script/tac.js"),
-            "export default class Orphan {}",
-        );
+        write(&components.join("orphan/style/tac.css"), "p { margin: 0 }");
         let error = ComponentRegistry::discover(root.path()).expect_err("invalid components");
-        assert!(error.to_string().contains("TY1401"));
-        assert!(error.to_string().contains("TY1403"));
+        assert!(error.to_string().contains("TY1401"), "{error}");
+        assert!(error.to_string().contains("TY1403"), "{error}");
     }
 
     #[test]
-    fn invalid_component_roots_templates_companions_and_symlinks_fail_closed() {
-        let root_file = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        write(
-            &root_file.path().join("client/components"),
-            "not a directory",
-        );
-        assert!(ComponentRegistry::discover(root_file.path()).is_err());
+    fn a_component_root_that_is_a_file_fails_closed() {
+        let root = project();
+        write(&root.path().join("client/components"), "not a directory");
+        assert!(ComponentRegistry::discover(root.path()).is_err());
+    }
 
-        let malformed = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        write(
-            &malformed
-                .path()
-                .join("client/components/bad/template/tac.html"),
-            "<main>",
-        );
-        // A polyglot companion has no adapter and must still raise TY1401.
-        // tac.css is supported now, so it would prove nothing here.
-        write(
-            &malformed
-                .path()
-                .join("client/components/bad/template/tac.py"),
-            "x = 1",
-        );
-        let error = ComponentRegistry::discover(malformed.path()).expect_err("malformed");
+    #[test]
+    fn a_malformed_template_and_an_unsupported_companion_fail_closed() {
+        let root = project();
+        let component = root.path().join("client/components/bad/template");
+        write(&component.join("tac.html"), "<main>");
+        write(&component.join("tac.py"), "x = 1");
+        let error = ComponentRegistry::discover(root.path()).expect_err("malformed");
         assert!(error.to_string().contains("TY1301"));
         assert!(error.to_string().contains("TY1401"));
+    }
 
-        let companion = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        write(
-            &companion
-                .path()
-                .join("client/components/bad/script/tac.html"),
-            "<p>safe</p>",
-        );
-        let script = companion.path().join("client/components/bad/script/tac.js");
-        fs::write(&script, b"bad\0script").unwrap_or_else(|_| unreachable!());
-        assert!(ComponentRegistry::discover(companion.path()).is_err());
+    #[test]
+    fn a_binary_script_beside_a_view_fails_closed() {
+        let root = project();
+        let component = root.path().join("client/components/bad/script");
+        write(&component.join("tac.html"), "<p>safe</p>");
+        fs::write(component.join("tac.js"), b"bad\0script").unwrap_or_else(|_| unreachable!());
+        let error = ComponentRegistry::discover(root.path()).expect_err("script beside view");
+        assert!(error.to_string().contains("TY1310"), "{error}");
+    }
 
-        let oversized = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-        write(
-            &oversized
-                .path()
-                .join("client/components/large/script/tac.html"),
-            "<p>safe</p>",
-        );
-        let script = oversized
-            .path()
-            .join("client/components/large/script/tac.js");
-        fs::write(&script, vec![b'x'; 1_048_577]).unwrap_or_else(|_| unreachable!());
-        assert!(ComponentRegistry::discover(oversized.path()).is_err());
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::symlink;
-            let linked = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
-            let outside = linked.path().join("outside");
-            fs::create_dir_all(&outside).unwrap_or_else(|_| unreachable!());
-            fs::create_dir_all(linked.path().join("client")).unwrap_or_else(|_| unreachable!());
-            symlink(&outside, linked.path().join("client/components"))
-                .unwrap_or_else(|_| unreachable!());
-            assert!(ComponentRegistry::discover(linked.path()).is_err());
-        }
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_component_root_fails_closed() {
+        use std::os::unix::fs::symlink;
+        let root = project();
+        let outside = root.path().join("outside");
+        fs::create_dir_all(&outside).unwrap_or_else(|_| unreachable!());
+        fs::create_dir_all(root.path().join("client")).unwrap_or_else(|_| unreachable!());
+        symlink(&outside, root.path().join("client/components")).unwrap_or_else(|_| unreachable!());
+        assert!(ComponentRegistry::discover(root.path()).is_err());
     }
 }

@@ -2,15 +2,22 @@
 
 ## Shape
 
-Tachyon is a modular monolith. The command-line interface orchestrates typed
-in-process modules; it does not introduce internal network services.
+Tachyon is a modular monolith: one program built from separate modules. The
+command-line interface (CLI) coordinates typed modules that run in the same
+process. It does not add internal network services.
 
-External build tools are framework-owned process trees: stdout and stderr are
-drained concurrently into fixed-size diagnostic buffers, an absolute tool
-deadline covers execution, and descendants are terminated and reaped even when
-their parent exits successfully. Development topic SSE uses a runtime-owned
-hub, not a reader per client; each topic has one incremental reader, bounded
-replay and broadcast buffers, and explicit global/per-topic admission.
+The framework owns the process tree of every external build tool:
+
+- It reads stdout and stderr at the same time into fixed-size diagnostic
+  buffers.
+- One absolute deadline covers the whole tool run.
+- It terminates and reaps every descendant process, even when the parent
+  process exits successfully.
+
+Development topic SSE (server-sent events) uses one hub that the runtime owns.
+It does not start one reader per client. Each topic has one incremental reader,
+bounded replay and broadcast buffers, and explicit global and per-topic
+admission.
 
 ```mermaid
 flowchart LR
@@ -29,60 +36,97 @@ flowchart LR
 
 ## Dependency Direction
 
-- Diagnostics and public contract types have no dependency on compiler,
+Local application events have their own lifecycle, which the framework owns
+(ADR 0028). A shared annotation frontend validates their metadata. Three
+adapters run it:
+
+- the browser adapter, within one document;
+- the native adapter, within one activation;
+- the Yon adapter, within one invocation.
+
+Listeners are registered before OnStart runs. OnStop releases the
+object graph once. In the browser, Resource injection replaces `this.tac`. It
+does not add browser objects to the Yon or native language adapters. These
+events are not the topic SSE transport described above.
+
+The modules depend on each other in one direction:
+
+- Diagnostics and the public contract types do not depend on compiler,
   server, runtime, or platform code.
 - Discovery depends on project configuration and diagnostics.
-- Frontends depend on diagnostics and emit validated source structures.
-- Lowering depends on frontend structures and emits View IR.
-- Web and native backends consume View IR; they do not modify it. Yon endpoints
-  do not participate in the view pipeline.
-- The handler supervisor depends on Handler Protocol, not on a language
-  runtime's internal API.
-- Platform web-view hosts consume the client bundle and declared capabilities.
-- The CLI may depend on all orchestration modules. No library depends on the
+- Frontends depend on diagnostics. They emit validated source structures.
+- Lowering depends on frontend structures. It emits View IR (the
+  intermediate representation of a view).
+- Web and native backends read View IR. They do not change it. Yon endpoints
+  are not part of the view pipeline.
+- The handler supervisor depends on the Handler Protocol, not on the internal
+  API of a language runtime.
+- Platform web-view hosts read the client bundle and the declared
+  capabilities.
+- The CLI may depend on every orchestration module. No library depends on the
   CLI.
 
-Circular crate dependencies are forbidden. Cross-module callbacks use
-consumer-owned traits only when a concrete dependency would invert the
-direction above.
+Circular crate dependencies are forbidden. A module calls back into another
+module through a trait that the consumer owns, but only when a concrete
+dependency would reverse the direction above.
 
 ## Compiler Pipeline
 
-1. Discover project files without executing application code.
-2. Canonicalize project-relative paths and reject escapes or unsupported
-   filesystem shapes.
-3. Construct and validate a deterministic route graph.
-4. Parse HTML and companions with source spans.
+1. Discover project files. Do not run application code.
+2. Make project-relative paths canonical. Reject paths that escape the project
+   and file system shapes that are not supported.
+3. Build and validate a deterministic route graph.
+4. Parse HTML and companions, and keep their source spans.
 5. Resolve bindings, components, and control-tag structure.
 6. Lower to versioned View IR.
 7. Validate target capabilities and fallback boundaries.
 8. Generate target output into a staging directory.
 9. Verify the artifact manifest.
-10. Atomically publish the completed output.
+10. Publish the complete output atomically.
 
-Every stage accepts immutable input and returns either immutable output or a
+Every stage takes immutable input. It returns either immutable output or a
 bounded set of stable diagnostics.
+
+Before annotation composition, a shared lexical check enforces one authored
+class and imports per annotated or Yon handler file (ADR 0044). Controller
+annotations define Yon paths and verbs (ADR 0048); old route markers are refused.
+Test configuration composition reads
+only the named same-language sibling through bounded, no-follow access; test
+files never become production role modules. Composed compiler output is not
+revalidated as a single authored class.
 
 ## Web Compiler and Server
 
-`tachyon-cli` owns argument and diagnostic presentation. `tachyon-core` owns
-project discovery, the static route graph, bounded HTML tokenization, staged
-publication, scaffolding, and the development server. `tachyon-contracts` owns
-Route Manifest v1 and repository policy tests; `tachyon-diagnostics` owns
-Diagnostics v1.
+| Crate | Owns |
+| --- | --- |
+| `tachyon-cli` | Argument and diagnostic presentation. |
+| `tachyon-core` | Project discovery, the static route graph, bounded HTML tokenization, staged publication, scaffolding, and the development server. |
+| `tachyon-contracts` | Route Manifest v1 and the repository policy tests. |
+| `tachyon-diagnostics` | Diagnostics v1. |
 
-The compiler emits Tac routes as deterministic bootstrap documents plus
-bounded client render plans; it never renders Tac view structure on the
-server. Yon is not a compiler frontend and `yon.html` is rejected. The compiler
-also emits View IR, source maps, client modules, shared assets, and an offline service worker into a staged
-directory before atomic publication. The server consumes that generated
-output, matches exact or dynamic route patterns, dispatches Yon REST handlers and
-middleware through the supervisor, and retains the last good build after a
-failed watched rebuild. In development, an event-driven watcher classifies a
-successful source change as a stylesheet update, client render-plan update,
-or safe full-reload fallback and publishes Hot Update Protocol v1 over SSE.
-Diagnostics retain the running page. The client is injected while serving and
-does not enter production artifacts; see ADR 0013.
+The compiler emits each Tac route as a deterministic bootstrap document plus
+bounded client render plans. It never renders the Tac view structure on the
+server. Yon is not a compiler frontend, and the compiler rejects `yon.html`.
+The compiler also emits View IR, source maps, client modules, shared assets,
+and an offline service worker. It writes all of them into a staging directory
+and then publishes them atomically.
+
+The server reads that generated output. It:
+
+- matches exact or dynamic route patterns;
+- dispatches Yon REST handlers and middleware through the supervisor;
+- keeps the last good build when a watched rebuild fails.
+
+In development, an event-driven watcher sorts each successful source change
+into one of three kinds:
+
+- a stylesheet update;
+- a client render-plan update;
+- a safe fallback to a full reload.
+
+It publishes the change with Hot Update Protocol v1 over SSE. Diagnostics do
+not replace the running page. The server injects the hot-update client only
+while it serves. That client does not enter production artifacts. See ADR 0013.
 
 ## Handler Data Path
 
@@ -91,7 +135,7 @@ sequenceDiagram
     participant C as "CLI or library caller"
     participant S as "Handler supervisor"
     participant A as "Embedded language adapter"
-    participant H as "Annotated Yon controller"
+    participant H as "Plain Yon Handler"
     C->>S: "Typed HandlerRequest"
     S->>S: "Validate source, request, deadline, environment"
     S->>A: "Direct spawn + length-prefixed request"
@@ -102,102 +146,287 @@ sequenceDiagram
     S-->>C: "Typed HTTP-compatible response or stable diagnostic"
 ```
 
-`tachyon-core::handler` owns source validation, framing, runtime adapter
-materialization, environment policy, concurrency admission, process lifecycle,
-and response validation. `tachyon-contracts` owns the typed public envelope
-shapes. `tachyon-cli` translates command arguments and Ctrl-C into one
-invocation; it does not parse adapter-specific output.
+| Module | Owns |
+| --- | --- |
+| `tachyon-core::handler` | Source validation, framing, runtime adapter materialization, environment policy, concurrency admission, process lifecycle, and response validation. |
+| `tachyon-contracts` | The typed public envelope shapes. |
 
-Project discovery opens one capability root and reads Tac pages, components,
-shared assets, web/native configuration, Yon, and the complete server source
-boundary without following any component. The route graph retains captured
-Tac/companion bytes and the project owns one private project-shaped snapshot.
-Web compilation, native planning, and supervised handler execution reuse that
-snapshot, including their working directories; native compilation never
-rediscovers the project. Development-server startup also derives its initial
-web build, route dispatch, selected root middleware, worker schedules, and
-worker HandlerSources from this one Project. Replacing an authored file or
-ambient project root after discovery cannot redirect an input. A hot-update
-rebuild performs one new discovery and builds from that fresh snapshot. Before
-output preparation, socket binding, route/middleware readiness, or worker
-startup, the server resolves and probes the deduplicated runtime requirements
-from those HandlerSources. The same ordering holds for `--no-bundle`, while a
-static-only Project has an empty runtime requirement set. JavaScript and
-TypeScript share the selected JavaScript runtime; Java and Kotlin share the
-Java runtime, with Kotlin retaining its compiler requirement. Firecracker mode
-validates the exact discovered language set and configured driver before the
-server can become observable. C# readiness resolves the installed SDK major and
-builds a framework-owned minimal project with isolated temporary CLI and NuGet
-state; listing `Microsoft.NETCore.App` alone is not readiness. The
-development server owns the watcher and every scheduled-worker task: they
-start with `run_until`, receive cooperative cancellation at shutdown, and are
-awaited under a bounded settlement deadline before the server returns. Dropping
-a bound server starts no tasks; dropping a running server future aborts every
-owned task. Streaming-handler bridges, hot-update SSE, and topic SSE share that
-runtime lifetime: shutdown closes producer admission, cancels active response
-producers and request handlers before Axum drains connections, then force-closes
-the HTTP future before the final reserved settlement slice. It then aborts and
-join-drains both task registries under the one global deadline. Completed
-producer records are reaped periodically while admission remains open rather
-than growing with request count. Infinite streaming invocations receive their cancellation signal and are then
-dropped through the supervised process-group guard rather than polled again;
-this prevents a ready-loop producer from monopolizing shutdown while retaining
-kill-and-reap semantics. The cooperative task drain yields every 16 joins.
-A client disconnect also closes its bridge and
-reaps its streaming child. Worker
-schedules remain fixed to the startup Project for the life
-of that server process, so changing `.tachyonrc.workers` requires a server
-restart rather than replacing live schedules during a web hot rebuild.
+`tachyon-cli` turns command arguments and Ctrl-C into one invocation. It does
+not parse output that is specific to one adapter.
 
-The supervisor selects its isolation backend exclusively from the parent
-process environment. Process mode spawns one language child per request;
-Firecracker mode spawns a trusted control client which delegates the same
-framed request to an operator-owned microVM pool for JavaScript and Python.
-TypeScript and the prepared Java, PHP, Kotlin, C#, and Rust paths are rejected
-before driver spawn because the current contract cannot transfer their
-artifact sets. Neither project files nor handler requests can weaken that
-selection. See ADR 0014.
+### Project snapshot
 
-The supervisor spawns its child or control client without a shell. Protocol
-stdout accepts one bounded response frame, or a bounded sequence of event
-frames from a method declared with `@Stream`, while stderr is drained
-independently and bounded. Queueing, startup, execution, framing, and exit
-share one deadline. Cancellation sends the protocol cancel frame, waits a
-short grace period, then kills and reaps when required. Process-mode handlers
-are never pooled or reused.
+Project discovery opens one capability root. It reads Tac pages, components,
+shared assets, web and native configuration, Yon, and the complete server
+source boundary. It does not follow any component. The route graph keeps the
+captured Tac and companion bytes. The project owns one private snapshot with
+the same shape as the project.
 
-Runtime absence has a distinct `TY2112` mapping. The startup probe and the
-subsequent process spawn use the same logical runtime identity, so an
-executable removed between them still produces `TY2112` instead of a generic
-spawn failure. Human diagnostics, JSON diagnostics, and structured invocation
-events expose only a fixed runtime family/configuration label. Raw executable
-paths and operating-system errors remain private.
+Web compilation, native planning, and supervised handler execution all reuse
+that snapshot, including their working directories. Native compilation never
+discovers the project again. Development-server startup also takes these from
+the same one Project:
 
-Yon owns eight language paths: JavaScript, TypeScript, Python, Java, C#,
-Kotlin, PHP, and Rust. Every source in the five server layer roots declares its
-matching stereotype; discovery rejects an absent or misplaced declaration
-before runtime selection. A handler may return `{status, headers, body}`; an
-explicit `Content-Type: text/html` body passes through unchanged. No Yon
-response is interpreted as a Tachyon template.
+- its first web build;
+- route dispatch;
+- the selected root middleware;
+- worker schedules;
+- worker HandlerSources.
 
-Other programs sit behind an `@Delegate` + `@Relay` edge. The per-language
-prelude drains delegate stdout and stderr concurrently under fixed bounds and
-sanitizes failures, while the supervisor owns the absolute request deadline
-and the complete process group. `@Stream` methods yield framed events in the
-six generator-capable languages (JavaScript, TypeScript, Python, PHP, Kotlin,
-and C#); subscriber disconnect is a lifecycle event that terminates and reaps
-the group. See ADR 0017.
+Replacing an authored file or the project root after discovery cannot redirect
+an input. A hot-update rebuild runs one new discovery and builds from that new
+snapshot.
 
-The server invokes this path for HTTP dispatch, middleware, and scheduled
-workers. Those entry points use the same eight-language boundary;
-`.tachyonrc.workers` schedules but cannot register an interpreter. Root
-middleware and workers are controller-shaped protocol entry points, and their
-source, dependencies, and working directory are the Project's owned snapshot.
-Builds never invoke them. A Firecracker control program may address a
-warm pool, but pool and snapshot correctness remain its qualified deployment
-responsibility. Its current transport is limited to JavaScript and Python.
+### Runtime readiness
+
+The server first resolves and probes the runtime requirements of those
+HandlerSources, with duplicates removed. It does this before it prepares
+output, binds a socket, makes routes and middleware ready, or starts workers.
+The same order applies with `--no-bundle`. A static-only Project has an empty
+set of runtime requirements.
+
+- JavaScript and TypeScript share the selected JavaScript runtime.
+- Java and Kotlin share the Java runtime. Kotlin still needs its compiler too.
+- Firecracker mode validates the exact set of discovered languages and the
+  configured driver before the server can become observable.
+- C# readiness finds the major version of the installed SDK. It then builds a
+  minimal project that the framework owns, with isolated temporary CLI and
+  NuGet state. Listing `Microsoft.NETCore.App` alone does not count as ready.
+
+### Server task lifetime
+
+The development server owns the watcher and every scheduled-worker task:
+
+- The tasks start with `run_until`.
+- They receive cooperative cancellation at shutdown.
+- The server waits for them under a bounded settlement deadline before it
+  returns.
+
+Dropping a bound server starts no tasks. Dropping a running server future
+aborts every task that it owns.
+
+Streaming-handler bridges, hot-update SSE, and topic SSE share the same runtime
+lifetime. At shutdown the server:
+
+1. closes producer admission;
+2. cancels active response producers and request handlers before Axum drains
+   connections;
+3. force-closes the HTTP future before the final reserved settlement slice;
+4. aborts and join-drains both task registries under the one global deadline.
+
+While admission is open, the server removes completed producer records at
+regular intervals, so the records do not grow with the request count.
+
+An infinite streaming invocation receives its cancellation signal. The server
+then drops it through the supervised process-group guard and does not poll it
+again. This stops a producer in a ready loop from taking over shutdown, and
+the process is still killed and reaped. The cooperative task drain yields
+every 16 joins. A client disconnect also closes its bridge and reaps its
+streaming child process.
+
+Worker schedules stay fixed to the startup Project for the life of that server
+process. To change `.tachyonrc.workers`, restart the server. A web hot rebuild
+does not replace live schedules.
+
+### Isolation backends
+
+The supervisor chooses its isolation backend only from the environment of the
+parent process:
+
+- Process mode starts one language child process per request.
+- Firecracker mode starts a trusted control client. For JavaScript and Python,
+  the client passes the same framed request to a microVM (small virtual
+  machine) pool that the operator owns.
+
+The supervisor rejects TypeScript and the prepared Java, PHP, Kotlin, C#, and
+Rust paths before it starts the driver. The current contract cannot transfer
+their artifact sets. Project files and handler requests cannot weaken the
+choice of backend. See ADR 0014.
+
+### Process supervision
+
+The supervisor starts its child process or control client without a shell.
+
+- Protocol stdout accepts one bounded response frame, or a bounded sequence of
+  event frames from a native generator method.
+- The supervisor reads stderr separately and bounds it.
+- Queueing, startup, execution, framing, and exit share one deadline.
+- On cancellation, the supervisor sends the protocol cancel frame and waits a
+  short grace period. When required, it then kills and reaps the process.
+- Process-mode handlers are never pooled or reused.
+
+A missing runtime has its own mapping: `TY2112`. The startup probe and the
+later process spawn use the same logical runtime identity. So if an executable
+is removed between them, the result is still `TY2112`, not a generic spawn
+failure. Human diagnostics, JSON diagnostics, and structured invocation events
+show only a fixed label for the runtime family or configuration. Raw
+executable paths and operating-system errors stay private.
+
+### Yon languages and annotations
+
+Yon owns ten language paths: JavaScript, TypeScript, Python, Java, C#,
+Kotlin, PHP, Rust, Dart, and Go. HTTP routes come from `RequestRoute`
+controllers in `server/controllers/` (ADR 0048), with providers scoped to
+the entry. Go annotations are comments such as `// @Service` (ADR 0050).
+Workers and root middleware retain their separate entry contracts.
+
+Annotation discovery works in three steps:
+
+1. It infers required-field dependencies, or reads explicit `Needs` tokens.
+2. It validates scope relationships, cycles, route paths and instance methods
+   marked with `GetRoute`, `PostRoute` and the other supported verbs.
+3. It generates direct calls into the existing Handler ABI (application binary
+   interface).
+
+It never imports application modules to discover metadata. Route annotations
+are the only HTTP dispatch declarations; legacy verb-named route files are
+refused with migration guidance. Provider and helper methods do not register routes.
+Singleton and request instances share a cache that is local to the invocation.
+Transient instances do not. Process mode does not keep providers between
+requests.
+
+See:
+
+- ADR 0021 for the annotation grammar;
+- ADR 0024 for the strict role layout;
+- [ADR 0027](../adr/0027-scoped-discovery-and-managed-resources.md) for
+  automatic entry-scoped discovery;
+- [ADR 0031](../adr/0031-realms-mirror-each-other.md) for the shared role
+  folders;
+- [ADR 0048](../adr/0048-yon-routes-come-from-annotations.md) for controller
+  routes and signature-derived request and response types;
+- [ADR 0050](../adr/0050-go-annotations-are-comments.md) for Go comment markers.
+
+The compiler visits the realm's `client/<role>` or `server/<role>` folders in
+the immutable captured snapshot. It selects shared role files in the same
+language and excludes sibling route controllers. It never follows symlinks or loads application imports for
+discovery. The compiler rejects authored module manifests. The assembled unit
+shares one behavior registry that is local to the source. The compiler
+validates the unit before it selects a runtime.
+
+For JS/TS (JavaScript and TypeScript) and Python, the compiler orders type
+dependencies at declaration time. The normal language initialization rules
+still apply to dynamic computations. A `static field =` initializer on its own
+line with a directly interpolated template literal fails closed. Move such work
+into methods that run after construction; do not rely on scan order. This
+narrow check does not evaluate dynamic initialization hidden in calls or other
+expressions.
+
+### Constructor inference
+
+NeedsAll inference reads only the source:
+
+- Yon typed fields resolve to exact concrete providers.
+- JavaScript uses exact lowerCamel provider names.
+- Rust requires `Arc<Provider>`.
+
+Declaration order, or an explicit quoted field list, sets the order of the
+generated assignments. Inference does not select fields with defaults or static
+fields. Ambiguity fails. The resulting plan keeps the existing bounds and
+scopes.
+
+Yon also recognizes the reserved provider tokens DataSource, Redis, and
+ApplicationEventPublisher. Tac JS/TS can inject scoped Client declarations into
+a service through NeedsAll. Native services keep explicit client
+ownership and configuration. See ADR 0025 and ADR 0027.
+
+### Managed resources
+
+Yon datasource and Redis settings create server-owned resources from the
+private application snapshot. The datasource driver is one of the SQL dialects
+or `fylo`. `fylo` is a local document store that the server runs through one
+subprocess that it owns ([ADR 0032](../adr/0032-fylo-datasource.md)). Every
+Yon language reaches these resources through a loopback capability that the
+invocation owns, never through a public REST route.
+
+- The server owns connection lifetime, admission, and shutdown. Each handler
+  process stays disposable.
+- SQL parameters are bound, not interpolated.
+- Redis stays a separate key/value resource.
+- Startup never changes schemas.
+- Application authorization and transaction policy stay explicit.
+- Firecracker mode rejects this resource configuration until its transport
+  supports the capability boundary.
+
+Driver qualification is recorded separately from release support. See ADR 0027
+for the ownership and failure contracts.
+
+### Shared behavior frontend
+
+Before controller and DI (dependency injection) lowering, the shared behavior
+frontend removes validated markers. It emits native wrappers or registrations
+that are local to the source. The markers are global in every language, and
+JS/TS refuses an import from `tachyon:behaviors` (ADR 0046). Tac's service
+compiler and the native service registry use the same frontend.
+
+Runtime configuration is explicit and never runs during compilation. The
+selected adapters own cache storage, persistence, and outbound HTTP. Contexts
+carry an explicit partition, cancellation, and a bounded operation lifetime.
+
+This API is not:
+
+- a server renderer;
+- a bridge that gives database credentials to the browser;
+- a global DI container;
+- a global application scanner based on reflection.
+
+Every Yon language implements the shared annotations. So do Tac's JS/TS,
+Swift, Kotlin, C#, Rust, and Go services. This includes cache mutations, typed
+configuration and activation, DTO (data transfer object) validation, and
+compiled repository queries.
+
+- Shared policy modules own literal validation, query derivation, and
+  source-local schema binding.
+- Language emitters own the executable adapters.
+- Query authorization is separate from cache authorization.
+- Native owners manage their context lifetimes explicitly.
+- Synchronous adapters check deadlines cooperatively.
+
+See ADR 0022.
+
+### Responses, relay, and streaming
+
+A handler may return `{status, headers, body}`. A body with an explicit
+`Content-Type: text/html` passes through unchanged. Tachyon never treats a Yon
+response as a Tachyon template.
+
+Other programs sit behind an explicit `relay(command, request)` call. The
+prelude for each language reads the delegate's stdout and stderr at the same
+time under fixed bounds. It also sanitizes failures, so private details do not
+leak. The supervisor owns the absolute request deadline and the complete
+process group.
+
+Generator methods yield framed events in the six languages that support
+generators: JavaScript, TypeScript, Python, PHP, Kotlin, and C#. A subscriber
+disconnect is a lifecycle event: it terminates and reaps the group. See
+ADR 0020.
+
+The server uses this path for HTTP dispatch, middleware, and scheduled workers.
+These entry points use the same boundary in every Yon language. `.tachyonrc.workers`
+schedules workers but cannot register an interpreter. Root middleware and
+workers are protocol entry points with the Handler shape. Their source,
+dependencies, and working directory come from the Project's owned snapshot.
+Builds never run them.
+
+A Firecracker control program may use a warm pool. Pool and snapshot
+correctness remain the responsibility of its qualified deployment. Its current
+transport supports only JavaScript and Python.
 
 ## View Data Path
+
+Configuration has two separate inputs (ADR 0026, ADR 0034):
+
+- Tac's public configuration is the `tac` member of `client/manifest.json`,
+  the web app manifest. Discovery validates it. The web compiler publishes the
+  manifest at `/manifest.webmanifest` for web and staged native hosts.
+- `server/application.json` (Application Configuration v3) belongs to Yon only.
+
+Neither `.env` nor Yon profile files take part in client builds. Server startup
+separately loads namespaced configuration and bounded literal `.env` secrets
+from the retained project capability. Only supervised invocations receive the
+resolved private `YON_APPLICATION_JSON` snapshot. Setting and property binding is
+explicit. In every Yon adapter, JSON result normalization stays separate
+from the optional helpers for HTTP status, headers, and raw-body responses.
 
 ```mermaid
 flowchart LR
@@ -213,11 +442,11 @@ flowchart LR
 
 `tachyon-core::template` owns expression parsing, control validation, component
 resolution, client-plan encoding, and source mapping. The compiler validates
-every view without executing handlers, treats prior build state as untrusted,
-and publishes only a complete staged output. At runtime, the bounded Tac
-renderer creates the entire Tac DOM and owns structural rerenders. Yon remains
-an independent HTTP dispatch path.
-Cross-document navigation remains browser-native. See ADR 0015.
+every view without running handlers. It treats earlier build state as
+untrusted and publishes only a complete staged output. At runtime, the bounded
+Tac renderer creates the whole Tac DOM and owns structural rerenders. Yon stays
+a separate HTTP dispatch path. Navigation between documents stays native to the
+browser. See ADR 0015.
 
 ## Native Data Path
 
@@ -225,29 +454,39 @@ Cross-document navigation remains browser-native. See ADR 0015.
 flowchart LR
     W["Authored Tac declarations"] --> P["Client render-plan compiler"]
     P --> N["Staged web bundle"]
-    C["Per-route native companions"] --> S["Generated platform web-view host"]
+    C["Native services, one language per target"] --> S["Generated platform web-view host"]
     N --> S
     S --> A["Compiled and ad-hoc-signed app"]
     A --> M["Capability + Artifact manifests"]
     M --> O["Atomic dist/macos publication"]
 ```
 
-`tachyon-core::native` owns strict application configuration, target companion
-selection, deterministic route registries, local-origin bridge boundaries,
-generated host source, supervised toolchain execution, manifests, and atomic
-publication. WKWebView, Android WebView, WebKitGTK, and WebView2 consume the
-same client-rendered web bundle. Native page companions compile with ordinary
-platform toolchains and are dispatched through a bounded, per-route registry.
-Remote content and subframes never receive a native bridge. See ADRs 0018 and
-0019 for the explicit migration from the released widget/WASM architecture.
+`tachyon-core::native` owns:
+
+- strict application configuration;
+- native service language selection;
+- deterministic route registries;
+- bridge boundaries for the local origin;
+- generated host source;
+- supervised toolchain execution;
+- manifests;
+- atomic publication.
+
+WKWebView, Android WebView, WebKitGTK, and WebView2 all read the same
+client-rendered web bundle. Native services compile with the normal platform
+toolchains. A bounded registry dispatches to them by service instance name. The
+page's canonical route bounds every request (ADR 0030). Remote content and
+subframes never receive a native bridge. See ADRs 0018 and 0019 for the
+explicit migration from the released widget/WASM (WebAssembly) architecture.
 
 ## Compatibility Boundary
 
-There is no in-tree legacy framework implementation. `website/` builds through
-Rust and acts as a real migration and multi-target acceptance project. The
-immutable v26.30.04 release binary is the external behavioral oracle, and
-`corpus/` contains the neutral fixtures shared by both implementations.
+There is no legacy framework implementation in the tree. `website/` builds
+through Rust. It is a real project for migration and multi-target acceptance.
+The immutable v26.30.04 release binary is the external reference for behavior
+(the behavioral oracle). `corpus/` holds the neutral fixtures that both
+implementations share.
 
-New compatibility fixtures must identify the observable behavior being
-preserved and must not embed private implementation logic, generated caches,
+A new compatibility fixture must name the observable behavior that it
+preserves. It must not contain private implementation logic, generated caches,
 private data, or incidental implementation details.

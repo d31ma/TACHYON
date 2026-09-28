@@ -1,0 +1,8 @@
+#[TestSetup]
+struct RustGreetingTestSetup {}
+
+impl RustGreetingTestSetup {
+    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {
+        Ok(BehaviorConfiguration::default())
+    }
+}

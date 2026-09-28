@@ -1,0 +1,235 @@
+{
+  "heading": "Annotated controllers and providers",
+  "axis": "language",
+  "body": "GET /products returns [{\"id\":1,\"name\":\"Anvil\"}]. GET /products/42 returns {\"id\":42,\"name\":\"Anvil\"}. Both answers are Product models (data types in server/models/), and Yon turns them into JSON. A controller is a class that answers HTTP requests. Put each controller in server/controllers/, one class in each file, and end its name with Controller. Mark the class with RequestRoute and a base path, such as RequestRoute(\"/products\"), and say who may call its routes: Public here, because anyone may read the products (SignedIn and Allow(Role) are the other choices). Mark each route method with GetRoute, PostRoute, PutRoute, PatchRoute or DeleteRoute. A method marker can add a path part, such as GetRoute(\"/{id}\"). The full path is the class path plus the method path. The method name must start with its verb. So write getProducts, GetProducts in C# and Go, or get_products in Python, Rust and Ruby. A method named GET no longer answers requests by its name. Route methods are instance methods: Python takes self, Rust takes &self, Go uses a method with a receiver, and Ruby uses an ordinary def. Parameter markers say where each value comes from: FromPath, FromQuery, FromBody, FromHeader and FromCookie. One parameter without a marker receives the request in the language's own type: Fetch Request in JavaScript and TypeScript, urllib.request.Request in Python, a Net::HTTP request in Ruby, HttpExchange in Java and Kotlin, HttpRequestMessage in C#, http::Request in Rust, a shelf Request in Dart and *http.Request in Go. PHP has no request object: it reads $_SERVER, $_GET, $_POST, $_COOKIE and php://input. The parameter types check the input. Bad input gets a 400 answer before the method runs. ResponseStatus(201) sets the status of a normal answer. A generator method (a method that yields values one at a time) answers with a stream, and StreamRoute marks it: a generator under GetRoute is refused. Tachyon rejects ResponseStatus on a method without a route marker. The role markers are RequestRoute, Service, Store, HTTPClient, Helper and Converter. Put Needs on each field that the class requires. In Ruby, Needs stands above an attr_reader line, and the field name names the provider. The compiler finds the dependency from the field and writes the assignment for you. When the field does not name the provider, use Named to name it. Here the field catalog uses Named(\"ProductsService\"). Lifetime selects singleton, request or transient. The same marker on a Tac service selects singleton or prototype. Singleton and request instances are shared only inside one invocation (one run of a route for one request). Transient instances are new each time something asks for them. These problems fail before the invocation: missing tokens, cycles, two methods for one path and verb, and singleton dependencies on request instances. A token is a name that identifies a provider. A cycle is a group of providers that need each other. For automatic discovery, put each role in a file named after its type. Put that file in the shared plural role folder of its realm (the Tac side or the Yon side). On the Yon side, these are server/controllers, server/services, server/stores, server/clients, server/setups, server/entities, server/helpers and server/converters. Each controller file is compiled with the shared roles in the same language. Guards, interceptors and filters are not supported. Plain imported helpers and existing root middleware (code at the project root that runs around every request) still work. Each annotation is on its own line. You need no framework imports.",
+  "files": [
+    {
+      "name": "server/services/ProductsService.js",
+      "code": {
+        "file": "server/services/ProductsService.js"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.js",
+      "code": {
+        "file": "server/controllers/ProductsController.js"
+      }
+    },
+    {
+      "name": "server/models/Product.ts",
+      "code": {
+        "file": "server/models/Product.ts"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.ts",
+      "code": {
+        "file": "server/services/ProductsService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.ts",
+      "code": {
+        "file": "server/controllers/ProductsController.ts"
+      }
+    },
+    {
+      "name": "server/models/Product.py",
+      "code": {
+        "file": "server/models/Product.py"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.py",
+      "code": {
+        "file": "server/services/ProductsService.py"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.py",
+      "code": {
+        "file": "server/controllers/ProductsController.py"
+      }
+    },
+    {
+      "name": "server/models/Product.php",
+      "code": {
+        "file": "server/models/Product.php"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.php",
+      "code": {
+        "file": "server/services/ProductsService.php"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.php",
+      "code": {
+        "file": "server/controllers/ProductsController.php"
+      }
+    },
+    {
+      "name": "server/models/Product.java",
+      "code": {
+        "file": "server/models/Product.java"
+      }
+    },
+    {
+      "name": "server/models/Product.groovy",
+      "code": {
+        "file": "server/models/Product.groovy"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.java",
+      "code": {
+        "file": "server/services/ProductsService.java"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.groovy",
+      "code": {
+        "file": "server/services/ProductsService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.java",
+      "code": {
+        "file": "server/controllers/ProductsController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.groovy",
+      "code": {
+        "file": "server/controllers/ProductsController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Product.kt",
+      "code": {
+        "file": "server/models/Product.kt"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.kt",
+      "code": {
+        "file": "server/services/ProductsService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.kt",
+      "code": {
+        "file": "server/controllers/ProductsController.kt"
+      }
+    },
+    {
+      "name": "server/models/Product.cs",
+      "code": {
+        "file": "server/models/Product.cs"
+      }
+    },
+    {
+      "name": "server/models/Product.fs",
+      "code": {
+        "file": "server/models/Product.fs"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.cs",
+      "code": {
+        "file": "server/services/ProductsService.cs"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.fs",
+      "code": {
+        "file": "server/services/ProductsService.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.cs",
+      "code": {
+        "file": "server/controllers/ProductsController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.fs",
+      "code": {
+        "file": "server/controllers/ProductsController.fs"
+      }
+    },
+    {
+      "name": "server/models/Product.rs",
+      "code": {
+        "file": "server/models/Product.rs"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.rs",
+      "code": {
+        "file": "server/services/ProductsService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rs",
+      "code": {
+        "file": "server/controllers/ProductsController.rs"
+      }
+    },
+    {
+      "name": "server/models/Product.dart",
+      "code": {
+        "file": "server/models/Product.dart"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.dart",
+      "code": {
+        "file": "server/services/ProductsService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.dart",
+      "code": {
+        "file": "server/controllers/ProductsController.dart"
+      }
+    },
+    {
+      "name": "server/models/Product.go",
+      "code": {
+        "file": "server/models/Product.go"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.go",
+      "code": {
+        "file": "server/services/ProductsService.go"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.go",
+      "code": {
+        "file": "server/controllers/ProductsController.go"
+      }
+    },
+    {
+      "name": "server/models/Product.rb",
+      "code": {
+        "file": "server/models/Product.rb"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.rb",
+      "code": {
+        "file": "server/services/ProductsService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rb",
+      "code": {
+        "file": "server/controllers/ProductsController.rb"
+      }
+    }
+  ]
+}

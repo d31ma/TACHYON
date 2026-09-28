@@ -1,0 +1,22 @@
+{
+  "heading": "Create the behavior context in OnStart",
+  "body": "Create the context in OnStart. Inject lifecycle and pass this.lifecycle as the context's signal (the object that tells work to stop). Then give the context to behaviors yourself. When the user leaves the page or a hot replacement happens, Tachyon aborts the operations that are still waiting. For lifetimes that you manage separately, use context.dispose(). The complete service below needs no storage or network adapter. PageDefaults only puts limited input into a standard form. It does not fetch a collection or cut it into parts. The application is responsible for more advanced adapters. The Yon guide describes their shared contracts. docs/BEHAVIOR_ANNOTATIONS.md is the full reference.",
+  "files": [
+    {
+      "name": "client/pages/catalog/tac.html",
+      "code": { "file": "client/pages/catalog/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/page/tac.html",
+      "code": { "file": "client/components/catalog/page/tac.html" }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.js",
+      "code": { "file": "client/setups/ApplicationSetup.js" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    }
+  ]
+}

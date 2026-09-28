@@ -1,0 +1,313 @@
+{
+  "heading": "Error handlers in every Yon language",
+  "axis": "language",
+  "body": "An error handler turns a typed error into a public answer, in one place for all routes (ADR 0051). Choose a language below. GET /orders throws OrderNotFound. The handler answers 404 with {\"code\":\"order-not-found\"}. The error type lives in server/errors/ and has no annotation. The handler class lives in server/controllers/ and its name ends with ErrorHandler. HandlesError takes no argument: the type of the first parameter says which error the method handles. Ruby names that type in a YARD tag, # @param error [OrderNotFound]. An optional second parameter receives the request in the language's own type; a PHP handler reads the superglobals instead. ResponseStatus sets a status from 400 to 599. Tachyon checks the answer against the Problem model, and OPTIONS and /api.json list OrderNotFound with status 404 and the Problem shape. The nearest type wins: a handler for a subclass runs before a handler for its base class. Go matches with errors.As, so a wrapped error matches too. Rust matches the error type of the controller method's Result. An error that no method handles, or an error thrown inside a handler, keeps the fixed 500 answer. Nothing from the error reaches the client unless the handler returns it. The order is: controller, then error handler, then middleware after.",
+  "files": [
+    {
+      "name": "server/errors/OrderNotFound.js",
+      "code": {
+        "file": "server/errors/OrderNotFound.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.js",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.ts",
+      "code": {
+        "file": "server/errors/OrderNotFound.ts"
+      }
+    },
+    {
+      "name": "server/models/Problem.ts",
+      "code": {
+        "file": "server/models/Problem.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.ts",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.ts",
+      "code": {
+        "file": "server/controllers/OrdersController.ts"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.py",
+      "code": {
+        "file": "server/errors/OrderNotFound.py"
+      }
+    },
+    {
+      "name": "server/models/Problem.py",
+      "code": {
+        "file": "server/models/Problem.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.py",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.py",
+      "code": {
+        "file": "server/controllers/OrdersController.py"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.php",
+      "code": {
+        "file": "server/errors/OrderNotFound.php"
+      }
+    },
+    {
+      "name": "server/models/Problem.php",
+      "code": {
+        "file": "server/models/Problem.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.php",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.php",
+      "code": {
+        "file": "server/controllers/OrdersController.php"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.java",
+      "code": {
+        "file": "server/errors/OrderNotFound.java"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.groovy",
+      "code": {
+        "file": "server/errors/OrderNotFound.groovy"
+      }
+    },
+    {
+      "name": "server/models/Problem.java",
+      "code": {
+        "file": "server/models/Problem.java"
+      }
+    },
+    {
+      "name": "server/models/Problem.groovy",
+      "code": {
+        "file": "server/models/Problem.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.java",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.groovy",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.java",
+      "code": {
+        "file": "server/controllers/OrdersController.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.groovy",
+      "code": {
+        "file": "server/controllers/OrdersController.groovy"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.kt",
+      "code": {
+        "file": "server/errors/OrderNotFound.kt"
+      }
+    },
+    {
+      "name": "server/models/Problem.kt",
+      "code": {
+        "file": "server/models/Problem.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.kt",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.kt",
+      "code": {
+        "file": "server/controllers/OrdersController.kt"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.cs",
+      "code": {
+        "file": "server/errors/OrderNotFound.cs"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.fs",
+      "code": {
+        "file": "server/errors/OrderNotFound.fs"
+      }
+    },
+    {
+      "name": "server/models/Problem.cs",
+      "code": {
+        "file": "server/models/Problem.cs"
+      }
+    },
+    {
+      "name": "server/models/Problem.fs",
+      "code": {
+        "file": "server/models/Problem.fs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.cs",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.fs",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.fs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.cs",
+      "code": {
+        "file": "server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.fs",
+      "code": {
+        "file": "server/controllers/OrdersController.fs"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.rs",
+      "code": {
+        "file": "server/errors/OrderNotFound.rs"
+      }
+    },
+    {
+      "name": "server/models/Problem.rs",
+      "code": {
+        "file": "server/models/Problem.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.rs",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rs",
+      "code": {
+        "file": "server/controllers/OrdersController.rs"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.go",
+      "code": {
+        "file": "server/errors/OrderNotFound.go"
+      }
+    },
+    {
+      "name": "server/models/Problem.go",
+      "code": {
+        "file": "server/models/Problem.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.go",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.go",
+      "code": {
+        "file": "server/controllers/OrdersController.go"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.dart",
+      "code": {
+        "file": "server/errors/OrderNotFound.dart"
+      }
+    },
+    {
+      "name": "server/models/Problem.dart",
+      "code": {
+        "file": "server/models/Problem.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.dart",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.dart",
+      "code": {
+        "file": "server/controllers/OrdersController.dart"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.rb",
+      "code": {
+        "file": "server/errors/OrderNotFound.rb"
+      }
+    },
+    {
+      "name": "server/models/Problem.rb",
+      "code": {
+        "file": "server/models/Problem.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.rb",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rb",
+      "code": {
+        "file": "server/controllers/OrdersController.rb"
+      }
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "id": "handlers",
+  "title": "REST controllers",
+  "summary": "A controller is a class in `server/controllers/` that answers HTTP requests. `RequestRoute` on the class gives its path, and `Public`, `SignedIn` or `Allow(Role)` says who may call it. `GetRoute`, `PostRoute` and the other route annotations mark the methods that answer. Each method name starts with its verb, such as `getProducts`. A returned model, or a list of models, becomes JSON with the model's field names. `ResponseStatus(201)` sets the status code. `FromBody` reads the JSON body into a model (a data type in `server/models/`). A body that does not fit the model gets 400 before the method runs. To set the status, headers and body yourself, answer with the language's own response: a Fetch `Response` in JavaScript and TypeScript, an `(HTTPStatus, headers, body)` tuple in Python, a `[status, headers, body]` array in Ruby, `http_response_code()`, `header()` and `echo` in PHP, the same `HttpExchange` in Java and Kotlin, `HttpResponseMessage` in C#, `http::Response` in Rust, a shelf `Response` in Dart and `*http.Response` in Go. If you return `text/html` yourself, Yon passes it through unchanged. Yon never renders it. A controller needs no framework import, base class, registration call or package.",
+  "group": "Yon server",
+  "files": [
+    {
+      "name": "server/controllers/ProductsController.js",
+      "code": {
+        "file": "server/controllers/ProductsController.js"
+      }
+    },
+    {
+      "name": "server/models/Product.ts",
+      "code": {
+        "file": "server/models/Product.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.ts",
+      "code": {
+        "file": "server/controllers/ProductsController.ts"
+      }
+    },
+    {
+      "name": "server/models/Product.py",
+      "code": {
+        "file": "server/models/Product.py"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.py",
+      "code": {
+        "file": "server/controllers/ProductsController.py"
+      }
+    },
+    {
+      "name": "server/models/Product.php",
+      "code": {
+        "file": "server/models/Product.php"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.php",
+      "code": {
+        "file": "server/controllers/ProductsController.php"
+      }
+    },
+    {
+      "name": "server/models/Product.java",
+      "code": {
+        "file": "server/models/Product.java"
+      }
+    },
+    {
+      "name": "server/models/Product.groovy",
+      "code": {
+        "file": "server/models/Product.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.java",
+      "code": {
+        "file": "server/controllers/ProductsController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.groovy",
+      "code": {
+        "file": "server/controllers/ProductsController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Product.kt",
+      "code": {
+        "file": "server/models/Product.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.kt",
+      "code": {
+        "file": "server/controllers/ProductsController.kt"
+      }
+    },
+    {
+      "name": "server/models/Product.cs",
+      "code": {
+        "file": "server/models/Product.cs"
+      }
+    },
+    {
+      "name": "server/models/Product.fs",
+      "code": {
+        "file": "server/models/Product.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.cs",
+      "code": {
+        "file": "server/controllers/ProductsController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.fs",
+      "code": {
+        "file": "server/controllers/ProductsController.fs"
+      }
+    },
+    {
+      "name": "server/models/Product.rs",
+      "code": {
+        "file": "server/models/Product.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rs",
+      "code": {
+        "file": "server/controllers/ProductsController.rs"
+      }
+    },
+    {
+      "name": "server/models/Product.go",
+      "code": {
+        "file": "server/models/Product.go"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.go",
+      "code": {
+        "file": "server/controllers/ProductsController.go"
+      }
+    },
+    {
+      "name": "server/models/Product.dart",
+      "code": {
+        "file": "server/models/Product.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.dart",
+      "code": {
+        "file": "server/controllers/ProductsController.dart"
+      }
+    },
+    {
+      "name": "server/controllers/PageController.js",
+      "code": {
+        "file": "server/controllers/PageController.js"
+      }
+    },
+    {
+      "name": "server/models/Product.rb",
+      "code": {
+        "file": "server/models/Product.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rb",
+      "code": {
+        "file": "server/controllers/ProductsController.rb"
+      }
+    }
+  ],
+  "verify": "yon"
+}

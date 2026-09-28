@@ -1,0 +1,268 @@
+{
+  "heading": "Retries: Yon",
+  "axis": "language",
+  "summary": "Retry runs one method again after a bounded delay, which can grow exponentially. MaxAtOnce limits how many calls to the method run at the same time. Both are method annotations on a service, never on an HTTP verb endpoint.",
+  "body": "Retry takes maxRetries (from 1 to 8) and the optional delayMs, multiplier, maxDelayMs and jitterMs. jitterMs adds a small random delay. Every value is a literal in milliseconds, so you do not need a TimeUnit. Tachyon never retries a framework refusal, because a refusal is a decision, not a fault. These refusals are an invalid policy, a denied authorization, a disposed (closed) context and an expired deadline. Tachyon does retry an adapter fault or an error that the method itself raised. MaxAtOnce limits how many calls run at the same time. It takes limit (from 1 to 64) and policy. With block, a call waits for a free slot until the operation deadline. With reject, the call is refused at once. A call that retries keeps its slot for every attempt. So retries cannot add more load than the limit allows. PHP and Ruby serve one call at a time and cannot pause a call, so they accept only reject.",
+  "files": [
+    {
+      "name": "server/setups/OrdersSetup.js",
+      "code": {
+        "file": "server/setups/OrdersSetup.js"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.js",
+      "code": {
+        "file": "server/services/OrdersService.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.ts",
+      "code": { "file": "server/models/OrderReport.ts" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.ts",
+      "code": {
+        "file": "server/setups/OrdersSetup.ts"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.ts",
+      "code": {
+        "file": "server/services/OrdersService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.ts",
+      "code": {
+        "file": "server/controllers/OrdersController.ts"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.py",
+      "code": { "file": "server/models/OrderReport.py" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.py",
+      "code": {
+        "file": "server/setups/OrdersSetup.py"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.py",
+      "code": {
+        "file": "server/services/OrdersService.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.py",
+      "code": {
+        "file": "server/controllers/OrdersController.py"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.php",
+      "code": { "file": "server/models/OrderReport.php" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.php",
+      "code": {
+        "file": "server/setups/OrdersSetup.php"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.php",
+      "code": {
+        "file": "server/services/OrdersService.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.php",
+      "code": {
+        "file": "server/controllers/OrdersController.php"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.java",
+      "code": { "file": "server/models/OrderReport.java" }
+    },
+    {
+      "name": "server/models/OrderReport.groovy",
+      "code": { "file": "server/models/OrderReport.groovy" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.java",
+      "code": {
+        "file": "server/setups/OrdersSetup.java"
+      }
+    },
+    {
+      "name": "server/setups/OrdersSetup.groovy",
+      "code": {
+        "file": "server/setups/OrdersSetup.groovy"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.java",
+      "code": {
+        "file": "server/services/OrdersService.java"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.groovy",
+      "code": {
+        "file": "server/services/OrdersService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.java",
+      "code": {
+        "file": "server/controllers/OrdersController.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.groovy",
+      "code": {
+        "file": "server/controllers/OrdersController.groovy"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.kt",
+      "code": { "file": "server/models/OrderReport.kt" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.kt",
+      "code": {
+        "file": "server/setups/OrdersSetup.kt"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.kt",
+      "code": {
+        "file": "server/services/OrdersService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.kt",
+      "code": {
+        "file": "server/controllers/OrdersController.kt"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.cs",
+      "code": { "file": "server/models/OrderReport.cs" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.cs",
+      "code": {
+        "file": "server/setups/OrdersSetup.cs"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.cs",
+      "code": {
+        "file": "server/services/OrdersService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.cs",
+      "code": {
+        "file": "server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.rs",
+      "code": { "file": "server/models/OrderReport.rs" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.rs",
+      "code": {
+        "file": "server/setups/OrdersSetup.rs"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.rs",
+      "code": {
+        "file": "server/services/OrdersService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rs",
+      "code": {
+        "file": "server/controllers/OrdersController.rs"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.go",
+      "code": { "file": "server/models/OrderReport.go" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.go",
+      "code": {
+        "file": "server/setups/OrdersSetup.go"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.go",
+      "code": {
+        "file": "server/services/OrdersService.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.go",
+      "code": {
+        "file": "server/controllers/OrdersController.go"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.dart",
+      "code": { "file": "server/models/OrderReport.dart" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.dart",
+      "code": {
+        "file": "server/setups/OrdersSetup.dart"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.dart",
+      "code": {
+        "file": "server/services/OrdersService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.dart",
+      "code": {
+        "file": "server/controllers/OrdersController.dart"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.rb",
+      "code": { "file": "server/models/OrderReport.rb" }
+    },
+    {
+      "name": "server/setups/OrdersSetup.rb",
+      "code": {
+        "file": "server/setups/OrdersSetup.rb"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.rb",
+      "code": {
+        "file": "server/services/OrdersService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rb",
+      "code": {
+        "file": "server/controllers/OrdersController.rb"
+      }
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "heading": "Contracts stay on the server",
+  "body": "The argument and return types of a Yon controller method are the route contract (the agreed shape of the data) for incoming requests and outgoing responses. Browser services call normal HTTP endpoints through HTTPClient + GetRequest. Native services may use their platform's networking APIs. Neither one declares a second protocol for server routes."
+}

@@ -1,0 +1,12 @@
+{
+  "id": "determinism",
+  "title": "Repeatable builds",
+  "summary": "A repeated build gives the same output, byte for byte. Tachyon reuses a route that has not changed. It first checks the digest of the route (a hash of its content). A failed build keeps the last good output.",
+  "group": "Tooling",
+  "files": [
+    {
+      "name": "shell",
+      "code": { "file": "shell.txt" }
+    }
+  ]
+}

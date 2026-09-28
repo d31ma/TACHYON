@@ -1,0 +1,24 @@
+{
+  "id": "shared-data",
+  "title": "Shared data and the page",
+  "group": "Tac views",
+  "summary": "A view (the HTML template of a page or component) reads `client/shared/data/<name>.json` as `data.<name>`. It reads the path of its document as `page.path`. It reads whether it runs in development mode as `page.development`. No service (a class that holds the state and behavior of a view) is needed (ADR 0036). Put content that has no behavior in these data files, not in a service. If the file is missing, the build fails with `TY1311`. No service may use `data` or `page` as its instance name.",
+  "files": [
+    {
+      "name": "client/shared/data/faq.json",
+      "code": { "file": "client/shared/data/faq.json" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/home/faq/tac.html",
+      "code": { "file": "client/components/home/faq/tac.html" }
+    },
+    {
+      "name": "diagnostic",
+      "code": { "file": "diagnostic.txt" }
+    }
+  ]
+}

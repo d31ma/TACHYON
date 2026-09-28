@@ -1,0 +1,54 @@
+name: Ruby Web Runtime
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - runtimes/ruby-web/**
+      - scripts/ruby-runtime-test.mjs
+      - .github/workflows/ruby-runtime.yml
+  push:
+    branches: [main, codex/rust-rewrite]
+    paths:
+      - runtimes/ruby-web/**
+      - scripts/ruby-runtime-test.mjs
+      - .github/workflows/ruby-runtime.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ruby-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      TAC_RUBY_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "4.0.6"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.18.0"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.14"
+      - name: Install the hash-verified Emscripten toolchain
+        run: bash runtimes/ruby-web/install-emscripten.sh "$RUNNER_TEMP/ruby-emsdk"
+      - name: Build twice and require identical bytes
+        run: |
+          source "$RUNNER_TEMP/ruby-emsdk/emsdk_env.sh"
+          bash runtimes/ruby-web/build.sh "$RUNNER_TEMP/ruby-build-one"
+          bash runtimes/ruby-web/build.sh "$RUNNER_TEMP/ruby-build-two"
+          cmp "$RUNNER_TEMP/ruby-build-one/tachyon-ruby.wasm" "$RUNNER_TEMP/ruby-build-two/tachyon-ruby.wasm"
+      - name: Install browser-test dependencies
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install chromium
+      - name: Check synchronous ABI, CRuby compatibility and strict CSP
+        run: node scripts/ruby-runtime-test.mjs "$RUNNER_TEMP/ruby-build-one/tachyon-ruby.wasm"

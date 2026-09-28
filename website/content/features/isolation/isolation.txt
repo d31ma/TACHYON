@@ -1,0 +1,21 @@
+How a handler runs
+
+  YON_ISOLATION=process       one supervised child process per
+                              request. The default.
+
+  YON_ISOLATION=firecracker   hand each request to a Firecracker
+                              control program instead.
+
+    YON_FIRECRACKER_DRIVER      the control program to run
+    YON_FIRECRACKER_POOL        how many microVMs to keep
+    YON_FIRECRACKER_VCPUS       vCPUs per microVM
+    YON_FIRECRACKER_MEMORY_MIB  memory per microVM
+    YON_FIRECRACKER_EGRESS      what a handler may reach
+
+Read from the environment rather than a config file, because
+which isolation a deployment wants is a property of where it
+runs, not of the source — the same build runs either way.
+
+An invalid or half-declared policy fails as TY2010 before a
+handler runs, rather than falling back to something weaker than
+what was asked for.

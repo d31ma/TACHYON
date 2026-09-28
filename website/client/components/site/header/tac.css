@@ -1,10 +1,3 @@
-/* The bar stays one row at every width.
- *
- * Wrapping is the wrong failure for an app bar: a second row pushes the page
- * down and leaves the brand stranded above a stray button. Instead the nav is
- * the one part allowed to shrink, and it scrolls when it runs out of room, so
- * the wordmark and the two actions keep their positions from 320px up.
- */
 .site-bar {
   flex-wrap: nowrap;
 }
@@ -20,13 +13,11 @@
   display: none;
 }
 
-/* Neither the brand nor the actions may be the thing that gets squeezed. */
 .site-bar__brand,
 .site-bar__actions {
   flex-shrink: 0;
 }
 
-/* Hidden only where the bar genuinely cannot spare the width. */
 .site-bar__wordmark {
   display: none;
 }

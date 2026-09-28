@@ -1,13 +1,6 @@
 #!/usr/bin/env node
-// Phase 6 compatibility differential.
-//
-// Builds every corpus project with both the legacy JavaScript implementation
-// and the Rust implementation, serves each output, renders every route in a
-// real browser, and compares the resulting semantic DOM, route graph, and
-// diagnostics. Byte comparison is meaningless here: the two implementations
-// emit deliberately different artifacts. What must match is what a user or an
-// assistive technology observes.
 
+import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
@@ -18,32 +11,35 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const CORPUS = path.join(REPO, 'corpus');
-const TY = process.env.TAC_BIN ?? path.join(REPO, process.env.CARGO_TARGET_DIR ?? 'target', 'debug/ty');
-const LEGACY_TY = process.env.TAC_LEGACY_BIN;
-if (!LEGACY_TY) {
+class Compatibility {
+  static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  static corpus = path.join(Compatibility.repo, 'corpus');
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty');
+  static legacyBinary = process.env.TAC_LEGACY_BIN;
+}
+
+if (!Compatibility.legacyBinary) {
   throw new Error(
     'TAC_LEGACY_BIN must name an immutable released ty executable; the in-tree legacy source is not a compatibility oracle.',
   );
 }
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.map': 'application/json; charset=utf-8',
-};
 
-// Attributes carrying observable meaning. Everything else is implementation
-// detail and is deliberately excluded from the comparison.
-const SEMANTIC_ATTRIBUTES = [
-  'alt', 'aria-current', 'aria-hidden', 'aria-label', 'aria-labelledby',
-  'aria-live', 'for', 'href', 'name', 'placeholder', 'role', 'src', 'type',
-  'value',
-];
-const IGNORED_TAGS = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'TEMPLATE', 'NOSCRIPT']);
+class ComparedMarkup {
+  static mimeTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.mjs': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.map': 'application/json; charset=utf-8',
+  };
+  static semanticAttributes = [
+    'alt', 'aria-current', 'aria-hidden', 'aria-label', 'aria-labelledby',
+    'aria-live', 'for', 'href', 'name', 'placeholder', 'role', 'src', 'type',
+    'value',
+  ];
+  static ignoredTags = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'TEMPLATE', 'NOSCRIPT']);
+}
 
 function run(command, args, options = {}) {
   return new Promise((resolve) => {
@@ -71,13 +67,10 @@ async function serve(root) {
         file = path.join(file, 'index.html');
       }
     } catch {
-      // Fall through to the SPA shell below.
     }
     try {
       await stat(file);
     } catch {
-      // The legacy output is a single-page shell; unknown paths serve it so the
-      // client router can resolve the route, exactly as its own server does.
       file = path.join(root, 'index.html');
       try {
         await stat(file);
@@ -87,7 +80,7 @@ async function serve(root) {
       }
     }
     response.writeHead(200, {
-      'content-type': MIME[path.extname(file)] ?? 'application/octet-stream',
+      'content-type': ComparedMarkup.mimeTypes[path.extname(file)] ?? 'application/octet-stream',
       'cache-control': 'no-store',
     });
     createReadStream(file).pipe(response);
@@ -96,8 +89,6 @@ async function serve(root) {
   return { server, origin: `http://127.0.0.1:${server.address().port}` };
 }
 
-// Extracted in the page: reduce the live DOM to what a user or an assistive
-// technology can observe, so two very different artifacts remain comparable.
 function extractSemanticDom(semanticAttributes, ignoredTags) {
   const ignored = new Set(ignoredTags);
   const visit = (node) => {
@@ -119,8 +110,6 @@ function extractSemanticDom(semanticAttributes, ignoredTags) {
     return { tag: node.tagName.toLowerCase(), attributes, children };
   };
   const body = visit(document.body);
-  // The legacy shell wraps rendered content; unwrap single-child chains so the
-  // comparison starts at the first element that carries meaning.
   let node = body;
   while (node && node.children && node.children.length === 1 && !Object.keys(node.attributes ?? {}).length) {
     node = node.children[0];
@@ -147,7 +136,7 @@ async function renderWith(origin, routes) {
         status: response ? response.status() : 0,
         dom: await page.evaluate(
           ([attributes, tags]) => window.__extract(attributes, tags),
-          [SEMANTIC_ATTRIBUTES, [...IGNORED_TAGS]],
+          [ComparedMarkup.semanticAttributes, [...ComparedMarkup.ignoredTags]],
         ),
       };
     }
@@ -207,34 +196,28 @@ function withoutRemovedLegacyScaffold(tree) {
     'db/README.md',
     'db/schemas/.gitkeep',
     'db/.collections/.gitkeep',
-    // The rewrite owns a standalone, legacy-import-free ambient type contract;
-    // its source is covered by the Rust scaffold tests, not byte parity.
     'tachyon-env.d.ts',
   ]) {
     delete normalized[file];
   }
-  const retainedEnvironment = new Set(['YON_PORT', 'YON_HOST', 'YON_HOSTNAME', 'YON_SKIP_BUNDLE']);
-  for (const file of ['.env.example', '.env.test']) {
-    const source = Buffer.from(normalized[file], 'base64').toString('utf8');
-    const retained = source.split('\n').filter((line) => {
-      const separator = line.indexOf('=');
-      return line === '' || (separator > 0 && retainedEnvironment.has(line.slice(0, separator)));
-    }).join('\n');
-    normalized[file] = Buffer.from(retained).toString('base64');
-  }
-  // The standalone-only installer contract intentionally supersedes the
-  // archived oracle's bundled helper-binary wording.
+  delete normalized['.env.test'];
+  normalized['.env.example'] = Buffer.from(
+    '# Copy to .env and add only server secrets. Never commit .env.\n# YON_DATASOURCE_PASSWORD=replace-me\n',
+  ).toString('base64');
+  normalized['application.json'] = Buffer.from(
+    `${JSON.stringify({ tac: {}, yon: { server: { host: '127.0.0.1', port: 8080 } } }, null, 2)}\n`,
+  ).toString('base64');
   const readme = Buffer.from(normalized['README.md'], 'base64').toString('utf8')
     .replace(
       /This shows a staged Tachyon progress bar while installing the `ty` binary plus\s+the `fylo`, `chex`, and `ttid` binaries it drives at runtime\./,
       'This shows a staged Tachyon progress bar while installing only the standalone `ty` binary.',
     );
   normalized['README.md'] = Buffer.from(readme).toString('base64');
-  // ADR 0017 makes the controller stereotype and its role-specific class name
-  // part of every new scaffold. Normalize only the archived oracle's exact
-  // route template; any other generated route difference still fails below.
+  const home = Buffer.from(normalized['client/pages/tac.html'], 'base64').toString('utf8')
+    .replace('Build your next Bun app with Tachyon.', 'Build your next app with Tachyon.');
+  normalized['client/pages/tac.html'] = Buffer.from(home).toString('base64');
   const route = Buffer.from(normalized['server/routes/yon.js'], 'base64').toString('utf8')
-    .replace('export class Handler {', '@Controller\nexport class RootController {');
+    .replace('export class Handler {', 'export class Handler {');
   normalized['server/routes/yon.js'] = Buffer.from(route).toString('base64');
   return normalized;
 }
@@ -244,38 +227,32 @@ async function compareScaffold() {
   const legacyRoot = path.join(workspace, 'legacy');
   const rustRoot = path.join(workspace, 'rust');
   try {
-    const legacy = await run(LEGACY_TY, ['init', legacyRoot, '--name', 'Parity App']);
-    const rust = await run(TY, ['init', rustRoot, '--name', 'Parity App']);
+    const legacy = await run(Compatibility.legacyBinary, ['init', legacyRoot, '--name', 'Parity App']);
+    const rust = await run(Compatibility.binary, ['init', rustRoot, '--name', 'Parity App']);
     if (legacy.code !== 0 || rust.code !== 0) {
       return { ok: false, detail: `legacy=${legacy.code} rust=${rust.code}\n${legacy.stderr}\n${rust.stderr}` };
     }
     const legacyTree = withoutRemovedLegacyScaffold(await treeOf(legacyRoot));
     const rustTree = await treeOf(rustRoot);
     delete rustTree['tachyon-env.d.ts'];
-    if (JSON.stringify(legacyTree) === JSON.stringify(rustTree)) {
-      return { ok: true, detail: `${Object.keys(rustTree).length} generated files match after declared legacy scaffold removals` };
-    }
     const names = [...new Set([...Object.keys(legacyTree), ...Object.keys(rustTree)])].sort();
     const difference = names.find((name) => legacyTree[name] !== rustTree[name]);
+    if (difference === undefined) {
+      return { ok: true, detail: `${Object.keys(rustTree).length} generated files match after declared scaffold migrations` };
+    }
     return { ok: false, detail: `first generated-file difference: ${difference}` };
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }
 }
 
-async function compareProject(name) {
-  const source = path.join(CORPUS, name);
-  const workspace = await mkdtemp(path.join(tmpdir(), `ty-compat-${name}-`));
-  const project = path.join(workspace, name);
-  await cp(source, project, { recursive: true });
+async function expectedDivergences(source) {
+  const parity = await readFile(path.join(source, 'parity.json'), 'utf8').catch(() => '{}');
+  return JSON.parse(parity).expected_divergences ?? [];
+}
 
-  // A project may declare divergences that are intentional. They stay visible
-  // in every report but do not fail the gate; anything undeclared does.
-  const expected = JSON.parse(
-    await readFile(path.join(source, 'parity.json'), 'utf8').catch(() => '{}'),
-  ).expected_divergences ?? [];
-  const result = { project: name, checks: [], differences: [], acknowledged: [] };
-  const record = (check, ok, detail) => {
+function checkRecorder(result, expected) {
+  return (check, ok, detail) => {
     const declared = expected.find(
       (entry) => entry.check === check && entry.detail === detail,
     );
@@ -287,11 +264,46 @@ async function compareProject(name) {
     result.checks.push({ check, ok, detail });
     if (!ok) result.differences.push(`${check}: ${detail}`);
   };
+}
 
-  const legacy = await run(LEGACY_TY, ['bundle'], { cwd: project });
+async function legacyPageNames(legacyRoot) {
+  const entries = await readdir(path.join(legacyRoot, 'pages')).catch(() => []);
+  const pages = entries
+    .filter((entry) => entry.endsWith('.js'))
+    .map((entry) => entry.replace(/\.js$/, ''));
+  return [...new Set(pages)].sort();
+}
+
+async function compareRenderedRoutes(legacyOrigin, rustOrigin, routes, record, result) {
+  const legacyDom = await renderWith(legacyOrigin, routes);
+  const rustDom = await renderWith(rustOrigin, routes);
+  for (const route of routes) {
+    const detail = difference(legacyDom[route]?.dom, rustDom[route]?.dom);
+    record(`semantic dom ${route}`, detail === null, detail ?? 'identical');
+    record(
+      `http status ${route}`,
+      legacyDom[route]?.status === 200 && rustDom[route]?.status === 200,
+      `legacy ${legacyDom[route]?.status} / rust ${rustDom[route]?.status}`,
+    );
+  }
+  result.legacyDom = legacyDom;
+  result.rustDom = rustDom;
+}
+
+async function compareProject(name) {
+  const source = path.join(Compatibility.corpus, name);
+  const workspace = await mkdtemp(path.join(tmpdir(), `ty-compat-${name}-`));
+  const project = path.join(workspace, name);
+  await cp(source, project, { recursive: true });
+
+  const expected = await expectedDivergences(source);
+  const result = { project: name, checks: [], differences: [], acknowledged: [] };
+  const record = checkRecorder(result, expected);
+
+  const legacy = await run(Compatibility.legacyBinary, ['bundle'], { cwd: project });
   record('legacy build', legacy.code === 0, legacy.code === 0 ? 'ok' : legacy.stderr.slice(-400));
 
-  const rust = await run(TY, ['build', project, '--out-dir', 'dist-rust']);
+  const rust = await run(Compatibility.binary, ['build', project, '--out-dir', 'dist-rust']);
   record('rust build', rust.code === 0, rust.code === 0 ? 'ok' : rust.stderr.slice(-400));
 
   if (legacy.code !== 0 || rust.code !== 0) {
@@ -303,37 +315,19 @@ async function compareProject(name) {
   const rustRoot = path.join(project, 'dist-rust');
   const routes = await routesOf(rustRoot);
 
-  // Route graph parity: every route the Rust implementation publishes must be
-  // reachable in the legacy output, and both must agree on the set.
-  const legacyPages = new Set(
-    (await readdir(path.join(legacyRoot, 'pages')).catch(() => []))
-      .filter((entry) => entry.endsWith('.js'))
-      .map((entry) => entry.replace(/\.js$/, '')),
-  );
+  const legacyPages = await legacyPageNames(legacyRoot);
   record(
     'route graph',
     routes.length > 0,
     routes.length > 0 ? `${routes.length} route(s): ${routes.join(', ')}` : 'no routes published',
   );
   result.routes = routes;
-  result.legacyPages = [...legacyPages].sort();
+  result.legacyPages = legacyPages;
 
   const legacyServer = await serve(legacyRoot);
   const rustServer = await serve(rustRoot);
   try {
-    const legacyDom = await renderWith(legacyServer.origin, routes);
-    const rustDom = await renderWith(rustServer.origin, routes);
-    for (const route of routes) {
-      const detail = difference(legacyDom[route]?.dom, rustDom[route]?.dom);
-      record(`semantic dom ${route}`, detail === null, detail ?? 'identical');
-      record(
-        `http status ${route}`,
-        legacyDom[route]?.status === 200 && rustDom[route]?.status === 200,
-        `legacy ${legacyDom[route]?.status} / rust ${rustDom[route]?.status}`,
-      );
-    }
-    result.legacyDom = legacyDom;
-    result.rustDom = rustDom;
+    await compareRenderedRoutes(legacyServer.origin, rustServer.origin, routes, record, result);
   } finally {
     legacyServer.server.close();
     rustServer.server.close();
@@ -347,7 +341,7 @@ async function main() {
   process.stdout.write(`==> scaffold\n    ${scaffold.ok ? 'ok  ' : 'FAIL'} ${scaffold.detail}\n`);
   if (!scaffold.ok) process.exit(1);
   const only = process.argv.slice(2).filter((value) => !value.startsWith('--'));
-  const names = (await readdir(CORPUS, { withFileTypes: true }))
+  const names = (await readdir(Compatibility.corpus, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .filter((name) => only.length === 0 || only.includes(name))

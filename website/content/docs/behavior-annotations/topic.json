@@ -1,0 +1,36 @@
+{
+  "title": "Behavior annotations",
+  "summary": "Behavior annotations add common work to a method without extra code, such as caching, retries, value checks, stores and settings. The same annotations work in Tac and in Yon.",
+  "before": [
+    "dependency-injection"
+  ],
+  "sections": [
+    {
+      "include": "../yon/shared-behavior-annotations-all-supported-languages/section.json"
+    },
+    {
+      "include": "../yon/what-the-23-annotations-do/section.json"
+    },
+    {
+      "include": "../yon/cache-changes-run-after-success/section.json"
+    },
+    {
+      "include": "../yon/limited-store-and-query/section.json"
+    },
+    {
+      "include": "../yon/helper-calls-in-each-language/section.json"
+    },
+    {
+      "include": "../yon/context-ownership-and-cache-permission/section.json"
+    },
+    {
+      "include": "../yon/saved-data-outgoing-calls-and-types/section.json"
+    },
+    {
+      "include": "../companions/shared-browser-behavior-annotations/section.json"
+    },
+    {
+      "include": "../companions/create-the-behavior-context-in-onstart/section.json"
+    }
+  ]
+}

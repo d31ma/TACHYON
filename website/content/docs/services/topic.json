@@ -1,0 +1,18 @@
+{
+  "title": "Services",
+  "summary": "A service is a class in `client/services` that holds the data and the actions of a view. The view names the service, and Tachyon creates it. For example, a view refers to `BasketService` as `basket` and shows `{basket.count}`. When a field changes, the page updates.",
+  "before": [
+    "templates"
+  ],
+  "sections": [
+    {
+      "include": "../companions/fields-that-update-the-view/section.json"
+    },
+    {
+      "include": "../companions/lifecycle-and-signals/section.json"
+    },
+    {
+      "include": "../companions/one-per-page-or-one-per-component/section.json"
+    }
+  ]
+}

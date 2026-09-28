@@ -1,24 +1,47 @@
 mod android;
+mod browser_api_grants;
 mod compiler;
 mod config;
+mod events;
+mod fsharp_service;
+mod fsharp_web_project;
+mod go;
+mod go_events;
 mod host;
 mod ios;
+mod kotlin_web_services;
 mod linux;
 mod macos;
+#[cfg(test)]
+mod model_tests;
+#[cfg(test)]
+mod native_web_api_tests;
 mod registry;
 mod routes;
 mod rust;
+mod site;
+mod site_map;
+#[cfg(test)]
+mod site_tests;
+#[cfg(test)]
+mod storage_tests;
 mod windows;
 
+pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,
 };
-pub(crate) use config::{
-    MANIFEST_NAME, MANIFEST_OUTPUT, PageMetadata, browser_scripts, browser_styles, cache_rules,
-    config_module_path, manifest_head, page_metadata,
+pub(crate) use config::{TacMember, WebAppManifest};
+pub(crate) use go::{
+    in_package as go_in_package, module_file as go_module_file,
+    publisher_alias as go_publisher_alias, runtime_files as go_runtime_files, web_go,
 };
+pub(crate) use kotlin_web_services::KotlinWebServices;
+pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
+pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
+pub(crate) use site_map::SiteMap;
+pub(crate) use windows::web_dotnet;
 
-/// Uses the same bounded frontend all native bundle builds consume.
 #[cfg(feature = "fuzzing")]
 pub(crate) fn plan_for_fuzzing(
     _target: tachyon_contracts::NativeTarget,

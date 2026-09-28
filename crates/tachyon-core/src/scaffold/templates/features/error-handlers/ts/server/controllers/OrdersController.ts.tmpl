@@ -1,0 +1,10 @@
+import type { Order } from '/models/Order.ts'
+
+@RequestRoute("/api/orders")
+@Public
+export class OrdersController {
+  @GetRoute
+  getOrder(): Order {
+    throw new OrderNotFound('order 42');
+  }
+}

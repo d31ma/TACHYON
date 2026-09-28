@@ -1,23 +1,25 @@
+import { CargoArtifacts } from './cargo-artifacts.mjs'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { once } from 'node:events'
 import { createInterface } from 'node:readline'
 import { chromium } from 'playwright'
 
-const binary = process.env.TAC_BIN ?? (process.platform === 'win32' ? 'target/debug/ty.exe' : 'target/debug/ty')
-const fixture = 'crates/tachyon-cli/tests/fixtures/phase3-browser'
-const build = spawnSync(binary, ['build', fixture, '--no-incremental'], {
-  encoding: 'utf8',
-  stdio: 'pipe',
-  timeout: 120000,
-})
-assert.equal(build.status, 0, build.stderr)
+class Phase3Test {
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug', process.platform === 'win32' ? 'ty.exe' : 'ty')
+  static fixture = 'crates/tachyon-cli/tests/fixtures/phase3-browser'
+}
 
-const server = spawn(binary, ['dev', fixture, '--port', '0'], {
-  stdio: ['ignore', 'pipe', 'pipe'],
-})
-let browser
-try {
+function buildFixture() {
+  const build = spawnSync(Phase3Test.binary, ['build', Phase3Test.fixture, '--no-incremental'], {
+    encoding: 'utf8',
+    stdio: 'pipe',
+    timeout: 120000,
+  })
+  assert.equal(build.status, 0, build.stderr)
+}
+
+async function waitForAddress(server) {
   const lines = createInterface({ input: server.stdout })
   const readinessTimeout = new Promise((_, reject) => {
     const timer = setTimeout(
@@ -26,7 +28,7 @@ try {
     )
     timer.unref()
   })
-  const address = await Promise.race([
+  return await Promise.race([
     (async () => {
       for await (const line of lines) {
         const match = line.match(/http:\/\/127\.0\.0\.1:\d+\//)
@@ -36,10 +38,9 @@ try {
     })(),
     readinessTimeout,
   ])
+}
 
-  browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage()
-  await page.goto(address, { waitUntil: 'load' })
+async function waitForActivation(page, errors) {
   await page.waitForFunction(() => {
     const loaded = document.querySelector(
       'tachyon-component[data-tachyon-component="demo-load"]',
@@ -49,9 +50,14 @@ try {
     )
     return loaded?.dataset.activated === 'Loaded'
       && failure?.dataset.tachyonMountError === 'activation_failed'
+  }).catch(async error => {
+    const state = await page.locator('tachyon-component').evaluateAll(roots => roots.map(root => ({ ...root.dataset, owner: root.tachyonComponent?.instance?.constructor?.name, fields: Object.keys(root.tachyonComponent?.instance || {}) })))
+    throw new Error(`${error.message}\nComponent state: ${JSON.stringify(state)}\nBrowser errors: ${errors.join(' | ')}`)
   })
+}
 
-  const state = await page.locator('tachyon-component').evaluateAll((roots) =>
+async function checkComponentStates(page) {
+  const state = await page.locator('tachyon-component:not([data-tachyon-component="demo-shell"])').evaluateAll((roots) =>
     roots.map((root) => ({
       component: root.dataset.tachyonComponent,
       activated: root.dataset.activated || null,
@@ -90,7 +96,9 @@ try {
       text: 'Never',
     },
   ])
+}
 
+async function checkInteractiveReplay(page) {
   await page.getByRole('button', { name: 'Interactive', exact: true }).click()
   await page.waitForFunction(() => {
     const root = document.querySelector(
@@ -98,11 +106,39 @@ try {
     )
     return root?.dataset.activated === 'Interactive' && root?.dataset.replayed === '1'
   })
-} finally {
-  if (browser) await browser.close()
-  if (server.exitCode === null) {
-    const exited = once(server, 'exit')
-    server.kill('SIGTERM')
-    await exited
+}
+
+async function stopServer(server) {
+  if (server.exitCode !== null) return
+  const exited = once(server, 'exit')
+  server.kill('SIGTERM')
+  await exited
+}
+
+async function main() {
+  buildFixture()
+
+  const server = spawn(Phase3Test.binary, ['dev', Phase3Test.fixture, '--port', '0'], {
+    env: { ...process.env, TAC_ALLOW_UNTESTED: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let browser
+  try {
+    const address = await waitForAddress(server)
+
+    browser = await chromium.launch({ headless: true })
+    const page = await browser.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(String(error)))
+    page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
+    await page.goto(address, { waitUntil: 'load' })
+    await waitForActivation(page, errors)
+    await checkComponentStates(page)
+    await checkInteractiveReplay(page)
+  } finally {
+    if (browser) await browser.close()
+    await stopServer(server)
   }
 }
+
+await main()

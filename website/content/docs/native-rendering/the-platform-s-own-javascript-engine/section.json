@@ -1,0 +1,5 @@
+{
+  "heading": "The platform's own JavaScript engine",
+  "body": "Tachyon does not build or include its own JavaScript engine. Each host uses the engine that its platform already includes. This is the same engine that runs the WebView inside the host.",
+  "code": { "file": "example.txt" }
+}

@@ -1,38 +1,35 @@
-<!-- Eyebrow, wordmark, one-line promise, then what it is, then the two things
-     a reader can do next. The install command sits under the buttons rather
-     than above them: it is what you run once you have decided, not what
-     decides you. -->
 <section class="hero-glow section text-center" aria-label="Introduction">
   <w-container size="xl">
     <span class="eyebrow">One project · web and native</span>
 
-    <h1 class="hero-title mt-4 font-bold tracking-tight text-balance mx-auto">
+    <h1 class="hero-title mt-4 font-bold tracking-tight text-balance">
       <span class="text-gradient">Tachyon</span>
     </h1>
 
     <p class="hero-promise mt-3 mx-auto text-balance">
-      Ship the whole stack, faster than light.
+      Build the frontend and the backend of your app in one project.
     </p>
 
-    <p class="section-lede mx-auto text-center">
-      Author standards-based HTML. <strong>Tac</strong> renders it in the browser, and ships the
-      same rendering as a desktop or mobile application on macOS, Windows, Linux, Android and
-      iOS. <strong>Yon</strong> serves file-system-routed REST handlers in eight languages, each
-      declaring its layer.
+    <p class="section-lede">
+      Write standard HTML. <strong>Tac</strong>, the frontend part, shows it in the browser. Tac
+      also builds the same page as a desktop or mobile app for macOS, Windows, Linux, Android and
+      iOS. <strong>Yon</strong>, the backend part, runs REST controllers in twelve languages. A
+      controller is a class that answers HTTP requests. Annotations on the class and its methods
+      give its URL paths.
     </p>
 
     <div class="w-row ga-2 mt-8 flex-wrap justify-center">
-      <w-btn href="/docs/introduction" variant="filled" color="primary">Get started</w-btn>
-      <w-btn href="/docs/features" variant="outlined">Browse features</w-btn>
+      <w-btn href="/docs/install" variant="filled" color="primary">Get started</w-btn>
+      <w-btn href="/docs/features" variant="outlined">See all features</w-btn>
     </div>
 
     <div class="w-row justify-center mt-6">
-      <p class="command">
+      <div class="command">
         <span class="command__prompt" aria-hidden="true">❯</span>
-        <span class="command__text">{install}</span>
-        <w-btn variant="text" size="sm" on:click="copy()"
-               :aria-label="copied ? 'Command copied' : 'Copy the install command'">{label()}</w-btn>
-      </p>
+        <span class="command__text">{data.hero.install}</span>
+        <w-btn variant="text" size="sm" on:click="clipboard.copy('install', data.hero.install)"
+               :aria-label="clipboard.copied === 'install' ? 'Command copied' : 'Copy the install command'">{clipboard.label('install')}</w-btn>
+      </div>
     </div>
   </w-container>
 </section>

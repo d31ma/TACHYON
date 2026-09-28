@@ -1,13 +1,3 @@
-//! Android host generation.
-//!
-//! A full-screen `WebView` over the application's own bundle; see
-//! `native/routes.rs` for why it is no longer a tree of Android views. The
-//! project uses pinned `AndroidX` `WebKit` for a source-frame-aware bridge. The Kotlin
-//! plugin is added only when the project declares a `tac.kt` companion, which
-//! is compiled into the APK rather than to WebAssembly: that is what lets it
-//! reach the Android SDK. Building an APK requires an Android SDK on the build
-//! machine; the generator fails closed when one is absent.
-
 use super::config::NativeApplication;
 use super::host::{
     GeneratedHost, first_line, native_io, native_tool_failure, quoted_string_escape, run_tool_in,
@@ -18,26 +8,24 @@ use crate::Failure;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Android Gradle Plugin pinned by every generated project.
-const ANDROID_GRADLE_PLUGIN: &str = "8.7.3";
-/// Google Maven AAR metadata requires compile SDK 34 and AGP 8.1.1 or newer.
-const ANDROIDX_WEBKIT: &str = "1.14.0";
-/// Kotlin plugin pinned by projects that declare a native companion.
-const KOTLIN_PLUGIN: &str = "2.0.21";
-/// Compile and target SDK pinned by every generated project.
-const COMPILE_SDK: u32 = 35;
-/// Minimum supported Android API level.
-const MIN_SDK: u32 = 26;
-/// Java package segments that cannot appear in a generated package name.
-const JAVA_KEYWORDS: [&str; 16] = [
-    "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const",
-    "do", "else", "for", "if", "int", "new",
-];
-
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct AndroidHostGenerator;
 
 impl AndroidHostGenerator {
+    const ANDROID_GRADLE_PLUGIN: &str = "8.7.3";
+    const ANDROIDX_WEBKIT: &str = "1.14.0";
+    const KOTLIN_PLUGIN: &str = "2.0.21";
+    const COMPILE_SDK: u32 = 35;
+    const MIN_SDK: u32 = 26;
+    const JAVA_KEYWORDS: [&str; 16] = [
+        "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
+        "const", "do", "else", "for", "if", "int", "new",
+    ];
+    const KOTLIN_COMPANION_PRELUDE: &str = concat!(
+        include_str!("prelude.kt"),
+        include_str!("prelude_android.kt")
+    );
+
     pub(super) async fn generate(
         application: &NativeApplication,
         index: &NativeRouteIndex,
@@ -50,47 +38,12 @@ impl AndroidHostGenerator {
         let project = bundle.join("project");
         let assets = project.join("app/src/main/assets");
         stage_application(index, web_bundle, stage, &assets)?;
-
-        let package = java_package(&application.application_id);
-        let package_path = package.replace('.', "/");
-        write(
-            &project.join("settings.gradle.kts"),
-            settings_gradle(application).as_bytes(),
-        )?;
-        write(
-            &project.join("gradle.properties"),
-            b"org.gradle.jvmargs=-Xmx2g\nandroid.useAndroidX=true\nandroid.nonTransitiveRClass=true\n",
-        )?;
-        // A Kotlin companion is compiled *as Kotlin* into this APK rather than
-        // to WebAssembly, which is the whole point: it reaches the Android SDK
-        // because it was built for this target.
-        let has_companion = stage_companion(companions, &project, &package, &package_path)?;
-        write(
-            &project.join("app/build.gradle.kts"),
-            app_gradle(application, &package, has_companion).as_bytes(),
-        )?;
-        write(
-            &project.join("app/src/main/AndroidManifest.xml"),
-            android_manifest(application).as_bytes(),
-        )?;
-        stage_icon(application, web_bundle, &project)?;
-        write(
-            &project.join("app/src/main/res/values/strings.xml"),
-            strings_xml(application).as_bytes(),
-        )?;
-        write_host_source(
-            &project.join(format!(
-                "app/src/main/java/{package_path}/MainActivity.java"
-            )),
-            &java_source(application, &package, has_companion, index),
-        )?;
+        write_project(application, index, companions, web_bundle, &project)?;
 
         if !package_artifact {
-            return Ok(GeneratedHost {
-                application_bundle: PathBuf::from(&application.executable_name).join("project"),
-                toolchain_name: String::from("source"),
-                toolchain_version: String::from("not-packaged"),
-            });
+            return Ok(GeneratedHost::not_packaged(
+                PathBuf::from(&application.executable_name).join("project"),
+            ));
         }
 
         let (gradle_version, apk) = assemble(&project, &bundle, application).await?;
@@ -102,20 +55,51 @@ impl AndroidHostGenerator {
     }
 }
 
-/// The prelude appended to a Kotlin companion compiled into this host.
-const KOTLIN_COMPANION_PRELUDE: &str = include_str!("prelude.kt");
-
-/// The Kotlin companion prelude, for the publish-channel drift test.
-#[cfg(test)]
-pub(super) const fn companion_prelude() -> &'static str {
-    KOTLIN_COMPANION_PRELUDE
+fn write_project(
+    application: &NativeApplication,
+    index: &NativeRouteIndex,
+    companions: &[super::registry::NativeCompanionInput],
+    web_bundle: &Path,
+    project: &Path,
+) -> Result<(), Failure> {
+    let package = java_package(&application.application_id);
+    let package_path = package.replace('.', "/");
+    write(
+        &project.join("settings.gradle.kts"),
+        settings_gradle(application).as_bytes(),
+    )?;
+    write(
+        &project.join("gradle.properties"),
+        b"org.gradle.jvmargs=-Xmx2g\nandroid.useAndroidX=true\nandroid.nonTransitiveRClass=true\n",
+    )?;
+    let has_companion = stage_companion(companions, project, &package, &package_path)?;
+    write(
+        &project.join("app/build.gradle.kts"),
+        app_gradle(application, &package, has_companion).as_bytes(),
+    )?;
+    write(
+        &project.join("app/src/main/AndroidManifest.xml"),
+        android_manifest(application).as_bytes(),
+    )?;
+    stage_icon(application, web_bundle, project)?;
+    write(
+        &project.join("app/src/main/res/values/strings.xml"),
+        strings_xml(application).as_bytes(),
+    )?;
+    write_host_source(
+        &project.join(format!(
+            "app/src/main/java/{package_path}/MainActivity.java"
+        )),
+        &java_source(application, &package, has_companion, index),
+    )
 }
 
-/// Stages the entry route's native Kotlin companion into the generated project.
-///
-/// Returns whether one was staged; every project that has not asked for a
-/// companion gets neither the file nor the Kotlin plugin that compiles it.
-fn stage_companion(
+#[cfg(test)]
+pub(super) const fn companion_prelude() -> &'static str {
+    AndroidHostGenerator::KOTLIN_COMPANION_PRELUDE
+}
+
+pub(super) fn stage_companion(
     companions: &[super::registry::NativeCompanionInput],
     project: &Path,
     package: &str,
@@ -126,19 +110,34 @@ fn stage_companion(
     else {
         return Ok(false);
     };
-    // The package is written here rather than by the author: the host reaches
-    // the companion by name, and a file in the default package is unreachable
-    // from one that is not.
+    let prelude = AndroidHostGenerator::KOTLIN_COMPANION_PRELUDE;
     write(
         &project.join(format!(
             "app/src/main/kotlin/{package_path}/TachyonCompanion.kt"
         )),
-        format!("package {package}\n\n{authored}\n{KOTLIN_COMPANION_PRELUDE}").as_bytes(),
+        format!("package {package}\n\n{authored}\n{prelude}").as_bytes(),
     )?;
+    stage_kotlin_models(companions, project)?;
     Ok(true)
 }
 
-/// Assembles the debug APK and copies it beside the generated project.
+fn stage_kotlin_models(
+    companions: &[super::registry::NativeCompanionInput],
+    project: &Path,
+) -> Result<(), Failure> {
+    let Some(first) = companions.first() else {
+        return Ok(());
+    };
+    let models = crate::model_sources::ModelSources::read(&first.snapshot_root, "client", "kt")?;
+    for (relative, source) in models.separate_files() {
+        write(
+            &project.join("app/src/main/kotlin").join(relative),
+            source.as_bytes(),
+        )?;
+    }
+    Ok(())
+}
+
 async fn assemble(
     project: &Path,
     bundle: &Path,
@@ -168,32 +167,30 @@ async fn assemble(
     Ok((version, name))
 }
 
-/// Returns a valid Java package derived from a reverse-DNS application id.
 fn java_package(application_id: &str) -> String {
-    application_id
-        .split('.')
-        .map(|segment| {
-            let sanitized = segment
-                .chars()
-                .map(|value| {
-                    if value.is_ascii_alphanumeric() {
-                        value
-                    } else {
-                        '_'
-                    }
-                })
-                .collect::<String>();
-            if sanitized.is_empty()
-                || sanitized.starts_with(|value: char| value.is_ascii_digit())
-                || JAVA_KEYWORDS.contains(&sanitized.as_str())
-            {
-                format!("_{sanitized}")
-            } else {
-                sanitized
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(".")
+    let mut segments = Vec::new();
+    for segment in application_id.split('.') {
+        segments.push(java_package_segment(segment));
+    }
+    segments.join(".")
+}
+
+fn java_package_segment(segment: &str) -> String {
+    let mut sanitized = String::new();
+    for character in segment.chars() {
+        if character.is_ascii_alphanumeric() {
+            sanitized.push(character);
+        } else {
+            sanitized.push('_');
+        }
+    }
+    let starts_with_digit = sanitized.starts_with(|character: char| character.is_ascii_digit());
+    let is_keyword = AndroidHostGenerator::JAVA_KEYWORDS.contains(&sanitized.as_str());
+    if sanitized.is_empty() || starts_with_digit || is_keyword {
+        format!("_{sanitized}")
+    } else {
+        sanitized
+    }
 }
 
 fn settings_gradle(application: &NativeApplication) -> String {
@@ -219,11 +216,9 @@ include(":app")
 }
 
 fn app_gradle(application: &NativeApplication, package: &str, has_companion: bool) -> String {
-    // The Kotlin plugin is added only for a project that has a companion: it
-    // is what compiles one, and a project without one should not pay for a
-    // plugin, a standard library and a slower build it never uses.
     let kotlin_plugin = if has_companion {
-        format!("\n  id(\"org.jetbrains.kotlin.android\") version \"{KOTLIN_PLUGIN}\"")
+        let version = AndroidHostGenerator::KOTLIN_PLUGIN;
+        format!("\n  id(\"org.jetbrains.kotlin.android\") version \"{version}\"")
     } else {
         String::new()
     };
@@ -266,8 +261,6 @@ android {{
   }}
 
   androidResources {{
-    // These assets are the compiler's owned bundle. AAPT's default <dir>_*
-    // rule would silently omit Tachyon's dynamic route directories.
     ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
   }}
 }}
@@ -276,19 +269,16 @@ dependencies {{
   implementation("androidx.webkit:webkit:{webkit}")
 }}
 "#,
-        plugin = ANDROID_GRADLE_PLUGIN,
-        webkit = ANDROIDX_WEBKIT,
+        plugin = AndroidHostGenerator::ANDROID_GRADLE_PLUGIN,
+        webkit = AndroidHostGenerator::ANDROIDX_WEBKIT,
         package = package,
-        compile_sdk = COMPILE_SDK,
-        min_sdk = MIN_SDK,
+        compile_sdk = AndroidHostGenerator::COMPILE_SDK,
+        min_sdk = AndroidHostGenerator::MIN_SDK,
         version = application.version,
     )
 }
 
 fn android_manifest(application: &NativeApplication) -> String {
-    // Declared only when there is one: naming a drawable that is not in the
-    // APK fails the resource link, which is a build error rather than a
-    // missing picture.
     let icon = application.largest_icon().map_or_else(String::new, |_| {
         String::from("\n      android:icon=\"@mipmap/ic_launcher\"")
     });
@@ -314,12 +304,6 @@ fn android_manifest(application: &NativeApplication) -> String {
     .replace("__ICON__", &icon)
 }
 
-/// Copies the manifest's icon into the density bucket Android reads.
-///
-/// One bucket, not five: the source is a single square image, and Android
-/// scales a launcher icon it finds in the largest bucket down for smaller
-/// screens. Generating five copies of one image would be five copies of one
-/// image.
 fn stage_icon(
     application: &NativeApplication,
     web_bundle: &Path,
@@ -353,53 +337,49 @@ fn java_source(
     has_companion: bool,
     index: &NativeRouteIndex,
 ) -> String {
-    JAVA_HOST
-        .replace("__ENTRY_DOCUMENT__", &quoted_string_escape(&index.entry_document))
-        // Written into a <script> as the document is served, so it is a Java
-        // string literal that has to survive both Java and HTML.
-        .replace("__NATIVE_SHIM__", &quoted_string_escape(&super::host::native_shim(&application.window)))
-        .replace("__ANDROID_BRIDGE_SHIM__", &quoted_string_escape(ANDROID_BRIDGE_SHIM))
+    let native_shim = super::host::native_shim(&application.window);
+    let route_documents = super::routes::route_documents_json(index);
+    let companion_call = if has_companion {
+        "TachyonCompanionKt.tacNativeInvoke(request)"
+    } else {
+        "emptyCompanion(request)"
+    };
+    let companion_emit = if has_companion {
+        "TacStore.setPreferences(getSharedPreferences(\"tachyon\", MODE_PRIVATE)); TacBridge.setEmit(this::relayPublish);"
+    } else {
+        "// No companion, so nothing publishes."
+    };
+    AndroidHostGenerator::JAVA_HOST
+        .replace(
+            "__ENTRY_DOCUMENT__",
+            &quoted_string_escape(&index.entry_document),
+        )
+        .replace("__NATIVE_SHIM__", &quoted_string_escape(&native_shim))
+        .replace(
+            "__ANDROID_BRIDGE_SHIM__",
+            &quoted_string_escape(AndroidHostGenerator::ANDROID_BRIDGE_SHIM),
+        )
         .replace("__PACKAGE__", package)
         .replace(
             "__BUNDLE_ID__",
             &quoted_string_escape(&application.application_id),
         )
         .replace("__APP_NAME__", &quoted_string_escape(&application.name))
-        .replace("__ROUTE_DOCUMENTS__", &quoted_string_escape(&super::routes::route_documents_json(index)))
-        // The call is written in only when a companion was staged: naming a
-        // class that is not in the APK is a compile error, not a runtime one.
         .replace(
-            "__TACHYON_COMPANION_CALL__",
-            if has_companion {
-                "TachyonCompanionKt.tacNativeInvoke(request)"
-            } else {
-                "emptyCompanion(request)"
-            },
+            "__ROUTE_DOCUMENTS__",
+            &quoted_string_escape(&route_documents),
         )
-        // Same gate: TacBridge comes from the companion's prelude, so without
-        // one there is no class to name.
-        .replace(
-            "__TACHYON_COMPANION_EMIT__",
-            if has_companion {
-                "TacStore.setPreferences(getSharedPreferences(\"tachyon\", MODE_PRIVATE)); TacBridge.setEmit(this::relayPublish);"
-            } else {
-                "// No companion, so nothing publishes."
-            },
-        )
+        .replace("__TACHYON_COMPANION_CALL__", companion_call)
+        .replace("__TACHYON_COMPANION_EMIT__", companion_emit)
 }
 
-/// The generated host source, for the cross-host drift tests.
-///
-/// The dispatch arms live in this string rather than in Rust, so reading it
-/// is the only way to assert what this host does and does not implement.
 #[cfg(test)]
 pub(super) const fn host_source() -> &'static str {
-    JAVA_HOST
+    AndroidHostGenerator::JAVA_HOST
 }
 
-// Reply messages are bound to the sending document by AndroidX. The local map
-// also bounds abandoned requests and is retired when the document leaves.
-const ANDROID_BRIDGE_SHIM: &str = r"
+impl AndroidHostGenerator {
+    const ANDROID_BRIDGE_SHIM: &str = r"
 ;(() => {
   const host = globalThis.__tachyonAndroidHost;
   const pending = new Map();
@@ -442,7 +422,7 @@ const ANDROID_BRIDGE_SHIM: &str = r"
 })();
 ";
 
-const JAVA_HOST: &str = r#"package __PACKAGE__;
+    const JAVA_HOST: &str = r#"package __PACKAGE__;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -469,13 +449,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/**
- * A full-screen WebView over the application's own bundle.
- *
- * This used to build Android views from a lowered Native UI tree. See
- * native/routes.rs for why it does not any more: on a real design almost
- * nothing had an adapter, and what did looked nothing like the rest.
- */
 public final class MainActivity extends Activity {
   private static final String ASSET_ORIGIN = "https://appassets.tachyon.local/";
   private static final String ENTRY_DOCUMENT = "__ENTRY_DOCUMENT__";
@@ -488,31 +461,37 @@ public final class MainActivity extends Activity {
   private volatile long documentGeneration;
   private final java.util.concurrent.ThreadPoolExecutor bridgeWorker =
       new java.util.concurrent.ThreadPoolExecutor(1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
-          new java.util.concurrent.ArrayBlockingQueue<Runnable>(128));
+          new java.util.concurrent.ArrayBlockingQueue<Runnable>(128)) {
+        @Override
+        protected void terminated() {
+          try { companionInvoke("{\"op\":\"host-dispose\"}"); }
+          finally { super.terminated(); }
+        }
+      };
 
-  /** Called only after the WebView has authenticated the actual sending frame. */
   private final class HostBridge {
     public String call(String capability, String payload, String ownerRoute) {
       if ("companion.invoke".equals(capability)) {
         try {
-          if (!ownerRoute.equals(new org.json.JSONObject(payload).optString("route"))) {
+          org.json.JSONObject request = new org.json.JSONObject(payload);
+          String operation = request.optString("op");
+          if (!("init".equals(operation) || "get".equals(operation) || "set".equals(operation)
+              || "call".equals(operation) || "dispose".equals(operation))) {
+            return "{\"error\":\"Invalid companion operation.\"}";
+          }
+          if (!ownerRoute.equals(request.optString("route"))) {
             return "{\"error\":\"Companion route does not belong to this page.\"}";
           }
         } catch (org.json.JSONException error) {
           return "{\"error\":\"Malformed companion request.\"}";
         }
-        // Recorded because it is the one event that proves the whole path: the
-        // bundle loaded, its modules ran, the bridge answered, and the
-        // companion compiled into this APK was reached.
         record("companion.invoked");
-        // Compiled into this APK, so this is a direct Kotlin call.
         return companionInvoke(payload);
       }
       if ("route.open".equals(capability)) {
         record("route.opened");
         return "{\"ok\":true,\"value\":{}}";
       }
-      // Naming both halves: which capability, and which platform declined it.
       return "{\"ok\":false,\"error\":\"android host does not implement capability '"
           + safeName(capability) + "'\"}";
     }
@@ -527,7 +506,6 @@ public final class MainActivity extends Activity {
   }
 
   private void installHostBridge() {
-    // No legacy fallback: its callbacks cannot authenticate the sending frame.
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return;
     WebViewCompat.addWebMessageListener(view, "__tachyonAndroidHost",
         java.util.Collections.singleton("https://appassets.tachyon.local"),
@@ -556,7 +534,6 @@ public final class MainActivity extends Activity {
         });
       });
     } catch (org.json.JSONException | java.util.concurrent.RejectedExecutionException ignored) {
-      // Malformed or overloaded requests cannot invoke a capability.
     }
   }
 
@@ -601,8 +578,6 @@ public final class MainActivity extends Activity {
         && value.getBytes(StandardCharsets.UTF_8).length <= limit;
   }
 
-  // JSONObject is recursive. Bound structural depth before either untrusted
-  // parse, while ignoring brackets and escaped quotes inside JSON strings.
   private static boolean boundedJson(String value, int byteLimit) {
     if (!withinByteLimit(value, byteLimit)) return false;
     int depth = 0;
@@ -621,8 +596,6 @@ public final class MainActivity extends Activity {
         quoted = true;
         continue;
       }
-      // Android's parser accepts single quotes and comments; allowing those
-      // would let its string boundaries disagree with this JSON-only scanner.
       if (nonJsonDelimiter(character)) return false;
       depth += structuralDepthChange(character);
       if (depth < 0 || depth > 64) return false;
@@ -635,8 +608,6 @@ public final class MainActivity extends Activity {
   }
 
   private static boolean jsonStringStartsHere(String value, int index) {
-    // JSONTokener permits quotes embedded in unquoted literals. Those are not
-    // string delimiters to it, so they must not change this scanner's state.
     for (int previous = index - 1; previous >= 0; previous--) {
       char character = value.charAt(previous);
       if (" \t\r\n".indexOf(character) >= 0) continue;
@@ -657,6 +628,15 @@ public final class MainActivity extends Activity {
     return __TACHYON_COMPANION_CALL__;
   }
 
+  private void disposeCompanions() {
+    bridgeWorker.getQueue().clear();
+    try {
+      bridgeWorker.execute(() -> companionInvoke("{\"op\":\"host-dispose\"}"));
+    } catch (java.util.concurrent.RejectedExecutionException ignored) {
+      record("companion.disposal_rejected");
+    }
+  }
+
   private static String emptyCompanion(String request) {
     try {
       if ("init".equals(new org.json.JSONObject(request).optString("op")))
@@ -667,28 +647,10 @@ public final class MainActivity extends Activity {
     return "{\"error\":\"This application has no native companion.\"}";
   }
 
-  /**
-   * Hands the companion its sink for tacPublish.
-   *
-   * The other direction of the bridge: everything else here is the page asking
-   * a question, and a companion watching the platform — connectivity, battery,
-   * a sensor — has no question to answer because nobody asked one.
-   *
-   * Called from onCreate, so a rotation replaces the sink rather than adding
-   * one. The lambda holds this Activity, which is why it is replaced rather
-   * than accumulated.
-   */
   private void installCompanionEmit() {
     __TACHYON_COMPANION_EMIT__
   }
 
-  /**
-   * Relays one publish into the page, on the thread the WebView lives on.
-   *
-   * A companion may publish from any thread it likes; a WebView may only be
-   * touched from the UI one. The payload is the companion's own JSON object,
-   * and JSON is a JavaScript expression already.
-   */
   private void relayPublish(String payload) {
     WebView web = view;
     if (web == null) {
@@ -715,8 +677,6 @@ public final class MainActivity extends Activity {
     super.onCreate(state);
     record("controller.created");
     view = new WebView(this);
-    // Local qualification can inspect debug APKs; distributed release builds
-    // never enable the WebView debugger.
     if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
       WebView.setWebContentsDebuggingEnabled(true);
     }
@@ -731,16 +691,13 @@ public final class MainActivity extends Activity {
         new ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     installHostBridge();
-    // Installed before the page loads, so a companion that publishes the
-    // moment it wakes up has somewhere to publish to. The shim queues until
-    // the page's modules take over, so nothing is lost either way.
     installCompanionEmit();
     view.setWebViewClient(
         new WebViewClient() {
           @Override
           public void onPageStarted(WebView web, String url, android.graphics.Bitmap favicon) {
             documentGeneration++;
-            bridgeWorker.getQueue().clear();
+            disposeCompanions();
             Uri target = Uri.parse(url);
             String canonical = isAssetUrl(target) ? canonicalRoute(target.getPath()) : null;
             route = canonical == null ? "" : canonical;
@@ -768,14 +725,6 @@ public final class MainActivity extends Activity {
             return assetResponse(request.getUrl());
           }
         });
-    // Android 15 draws every app targeting SDK 35 edge to edge, so without
-    // this the page renders underneath the status and navigation bars and its
-    // own header collides with the clock. The page is a document, not a game:
-    // it wants the space it can actually use.
-    //
-    // The padding goes on a container rather than on the WebView, because a
-    // WebView lays its page out over its own padding and the insets had no
-    // visible effect at all.
     FrameLayout root = new FrameLayout(this);
     root.addView(view);
     setContentView(root);
@@ -787,10 +736,8 @@ public final class MainActivity extends Activity {
             padded.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
           });
-      // The first dispatch happens before a listener set here could see it.
       root.requestApplyInsets();
     }
-    // A unique host-owned bootstrap retires legacy workers before loading assets.
     view.loadUrl(ASSET_ORIGIN + "__tachyon_bootstrap__.html?launch=" + System.nanoTime());
     record("bridge.ready");
   }
@@ -846,9 +793,6 @@ public final class MainActivity extends Activity {
     }
     String document = routeDocument(path);
     String name = document != null ? document : path.substring(1);
-    // Android's asset packager drops dot-prefixed directories, so the generated
-    // runtime is staged under a visible alias. The bundle still asks for it by
-    // its authored path.
     if (name.startsWith(".tachyon/")) {
       name = "tachyon-runtime/" + name.substring(".tachyon/".length());
     }
@@ -914,13 +858,6 @@ public final class MainActivity extends Activity {
     }
   }
 
-  /**
-   * Opens one staged asset, injecting the host shim into any document.
-   *
-   * The shim has to be in place before the bundle's own scripts run, and a
-   * rewriting the document as it is served avoids requiring the optional
-   * document-start-script feature in addition to the message listener.
-   */
   private InputStream open(String name) throws Exception {
     InputStream stream = getAssets().open(name);
     if (!name.endsWith(".html")) {
@@ -938,7 +875,6 @@ public final class MainActivity extends Activity {
     }
     stream.close();
     String document = new String(buffer.toByteArray(), StandardCharsets.UTF_8);
-    // The Android half returns promises, preserving the shared asynchronous API.
     String script =
         "<script>"
             + NATIVE_SHIM
@@ -958,7 +894,6 @@ public final class MainActivity extends Activity {
     try {
       startActivity(new Intent(Intent.ACTION_VIEW, target));
     } catch (Exception ignored) {
-      // A device without a registered browser keeps the application open.
     }
   }
 
@@ -990,18 +925,15 @@ public final class MainActivity extends Activity {
         stream.write(entry.getBytes(StandardCharsets.UTF_8));
       }
     } catch (Exception ignored) {
-      // Telemetry is evidence, never a reason to fail a launch.
     }
   }
 }
 "#;
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        ANDROID_GRADLE_PLUGIN, ANDROIDX_WEBKIT, MIN_SDK, android_manifest, app_gradle,
-        java_package, java_source,
-    };
+    use super::{AndroidHostGenerator, android_manifest, app_gradle, java_package, java_source};
     use crate::native::config::NativeApplication;
 
     fn application() -> NativeApplication {
@@ -1025,9 +957,18 @@ mod tests {
         }
     }
 
+    fn catalog_java_source(has_companion: bool) -> String {
+        java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            has_companion,
+            &index(),
+        )
+    }
+
     #[test]
     fn the_host_is_a_web_view_over_the_applications_own_bundle() {
-        let source = java_source(&application(), "dev.tachyon.native_catalog", true, &index());
+        let source = catalog_java_source(true);
         assert!(source.contains("package dev.tachyon.native_catalog;"));
         assert!(source.contains("controller.created"));
         assert!(source.contains("controller.destroyed"));
@@ -1035,29 +976,33 @@ mod tests {
         assert!(source.contains("https://appassets.tachyon.local/"));
         assert!(source.contains("TachyonCompanionKt.tacNativeInvoke"));
         assert!(source.contains("WebViewCompat.addWebMessageListener"));
-        // Edge-to-edge is forced from SDK 35, so the page has to be told
-        // where the system bars are or its header sits under the clock.
+        assert!(source.contains("protected void terminated()"));
+        assert!(source.contains("disposeCompanions();"));
+        assert!(source.contains("Invalid companion operation."));
         assert!(source.contains("setOnApplyWindowInsetsListener"));
-        // Nothing rebuilds the view out of Android widgets any more.
         assert!(!source.contains("buildNode"));
         assert!(!source.contains("LinearLayout"));
     }
 
     #[test]
+    fn a_failing_companion_call_answers_a_fixed_error_without_the_exception_text() {
+        let prelude = AndroidHostGenerator::KOTLIN_COMPANION_PRELUDE;
+        assert!(prelude.contains(
+            "} catch (_: Throwable) {\n        \"{\\\"error\\\":\\\"Native companion operation failed.\\\"}\""
+        ));
+        assert!(!prelude.contains("error.message"));
+    }
+
+    #[test]
     fn a_host_without_a_companion_names_no_companion_symbol() {
-        let source = java_source(
-            &application(),
-            "dev.tachyon.native_catalog",
-            false,
-            &index(),
-        );
+        let source = catalog_java_source(false);
         assert!(!source.contains("TachyonCompanionKt"));
         assert!(source.contains("has no native companion"));
     }
 
     #[test]
     fn android_bridge_authenticates_the_sending_frame_before_dispatch() {
-        let source = java_source(&application(), "dev.tachyon.native_catalog", true, &index());
+        let source = catalog_java_source(true);
         assert!(!source.contains("addJavascriptInterface"));
         assert!(!source.contains("@JavascriptInterface"));
         assert!(source.contains("WebViewCompat.addWebMessageListener"));
@@ -1071,13 +1016,13 @@ mod tests {
     #[test]
     fn gradle_and_manifest_pin_the_supported_android_surface() {
         let gradle = app_gradle(&application(), "dev.tachyon.native_catalog", false);
-        assert!(gradle.contains(ANDROID_GRADLE_PLUGIN));
-        assert!(gradle.contains(&format!("androidx.webkit:webkit:{ANDROIDX_WEBKIT}")));
-        assert!(gradle.contains(&format!("minSdk = {MIN_SDK}")));
+        let webkit = AndroidHostGenerator::ANDROIDX_WEBKIT;
+        let min_sdk = AndroidHostGenerator::MIN_SDK;
+        assert!(gradle.contains(AndroidHostGenerator::ANDROID_GRADLE_PLUGIN));
+        assert!(gradle.contains(&format!("androidx.webkit:webkit:{webkit}")));
+        assert!(gradle.contains(&format!("minSdk = {min_sdk}")));
         assert!(gradle.contains("VERSION_17"));
         assert!(gradle.contains("ignoreAssetsPattern ="));
-        // The Kotlin plugin is what compiles a companion, so it arrives with
-        // one and stays out of every project that has none.
         assert!(app_gradle(&application(), "x.y", true).contains("org.jetbrains.kotlin.android"));
         assert!(!gradle.contains("kotlin"));
 

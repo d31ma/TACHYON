@@ -1,0 +1,11 @@
+@Store
+export default class NoteStore {
+  /** @type {DataSource} */
+  @Needs
+  dataSource
+
+  /** @returns {Promise<unknown[]>} */
+  countNotes() {
+    return this.dataSource.query('SELECT 3 AS notes', [])
+  }
+}

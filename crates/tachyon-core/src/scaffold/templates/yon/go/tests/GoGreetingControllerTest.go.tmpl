@@ -1,0 +1,11 @@
+// @Test(GoGreetingTestSetup, {"partition":"tests"})
+type GoGreetingControllerTest struct {
+	behaviors *BehaviorContext
+}
+
+func (test *GoGreetingControllerTest) TestGetGreetingSaysHello() error {
+	if (&GoGreetingController{}).GetGreeting() != "Hello from Go" {
+		return &BehaviorError{Code: "assertion", Message: "expected a greeting"}
+	}
+	return nil
+}

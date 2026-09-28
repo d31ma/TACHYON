@@ -1,0 +1,1 @@
+{"server":{"host":"localhost","port":"${YON_PORT:8080}"},"datasource":{"url":"${YON_DATASOURCE_URL:postgres://localhost/catalog}"},"properties":{"YON_ENABLED":"true"}}

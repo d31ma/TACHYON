@@ -1,16 +1,16 @@
-use crate::Failure;
-use crate::failure::diagnostic;
-use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
+mod path_change;
+mod source_action;
+mod source_watcher;
+
+pub(crate) use source_action::SourceAction;
+pub(crate) use source_watcher::SourceWatcher;
+
+use notify::{Event, EventKind};
+use path_change::PathChange;
 use std::collections::BTreeSet;
-use std::path::{Component, Path};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::sync::mpsc;
+use std::ffi::OsStr;
+use std::path::{Component, Path, PathBuf};
 
-const WATCH_QUEUE_CAPACITY: usize = 1_024;
-const MAX_CHANGED_PATHS: usize = 4_096;
-
-/// One bounded source change batch and its narrowest safe browser action.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SourceChanges {
     paths: BTreeSet<String>,
@@ -18,6 +18,8 @@ pub(crate) struct SourceChanges {
 }
 
 impl SourceChanges {
+    const MAX_CHANGED_PATHS: usize = 4_096;
+
     pub(crate) fn new() -> Self {
         Self {
             paths: BTreeSet::new(),
@@ -26,16 +28,8 @@ impl SourceChanges {
     }
 
     pub(crate) fn record_event(&mut self, project_root: &Path, event: Event) {
-        if matches!(event.kind, EventKind::Access(_)) {
-            return;
-        }
-        if event.paths.is_empty() {
-            self.force_reload = true;
-            return;
-        }
-        for path in event.paths {
-            self.record_path(project_root, &path);
-        }
+        let paths = Self::relevant_paths(event);
+        self.record_relevant(project_root, paths);
     }
 
     pub(crate) fn force_reload(&mut self) {
@@ -43,7 +37,7 @@ impl SourceChanges {
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        self.paths.is_empty() && !self.force_reload
+        self.nothing_changed()
     }
 
     pub(crate) fn paths(&self) -> Vec<String> {
@@ -51,178 +45,152 @@ impl SourceChanges {
     }
 
     pub(crate) fn action(&self) -> SourceAction {
-        if self.force_reload || self.paths.is_empty() {
-            return SourceAction::Reload;
-        }
-        if self.paths.iter().all(|path| is_stylesheet(path)) {
-            return SourceAction::Css;
-        }
+        self.reload_action()
+            .or_else(|| self.css_action())
+            .unwrap_or_else(|| self.island_action())
+    }
 
-        let boundaries = self
+    fn nothing_changed(&self) -> bool {
+        self.paths.is_empty() && !self.force_reload
+    }
+
+    fn reload_action(&self) -> Option<SourceAction> {
+        let reload = self.force_reload || self.paths.is_empty();
+        reload.then_some(SourceAction::Reload)
+    }
+
+    fn css_action(&self) -> Option<SourceAction> {
+        let only_stylesheets = self.paths.iter().all(|path| Self::is_stylesheet(path));
+        only_stylesheets.then_some(SourceAction::Css)
+    }
+
+    fn island_action(&self) -> SourceAction {
+        let boundaries: Option<BTreeSet<String>> = self
             .paths
             .iter()
-            .map(|path| island_boundary(path))
-            .collect::<Option<BTreeSet<_>>>();
+            .map(|path| Self::island_boundary(path))
+            .collect();
         boundaries.map_or(SourceAction::Reload, |boundaries| SourceAction::Island {
             boundaries: boundaries.into_iter().collect(),
         })
     }
 
+    fn record_relevant(&mut self, project_root: &Path, paths: Option<Vec<PathBuf>>) {
+        if let Some(paths) = paths {
+            self.record_paths(project_root, &paths);
+        }
+    }
+
+    fn record_paths(&mut self, project_root: &Path, paths: &[PathBuf]) {
+        self.force_reload |= paths.is_empty();
+        for path in paths {
+            self.record_path(project_root, path);
+        }
+    }
+
     fn record_path(&mut self, project_root: &Path, path: &Path) {
-        let Ok(relative) = path.strip_prefix(project_root) else {
-            self.force_reload = true;
-            return;
-        };
-        if !is_source_path(relative) {
-            return;
-        }
-        let Some(portable) = portable_path(relative) else {
-            self.force_reload = true;
-            return;
-        };
-        if self.paths.len() >= MAX_CHANGED_PATHS {
-            self.force_reload = true;
-            return;
-        }
-        self.paths.insert(portable);
+        let change = path
+            .strip_prefix(project_root)
+            .map_or(PathChange::Reload, |relative| {
+                self.relative_change(relative)
+            });
+        self.apply(change);
     }
-}
 
-/// Narrowest browser action supported for one successful rebuild.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum SourceAction {
-    Css,
-    Island { boundaries: Vec<String> },
-    Reload,
-}
+    fn relative_change(&self, relative: &Path) -> PathChange {
+        if !Self::is_source_path(relative) {
+            return PathChange::Ignore;
+        }
+        self.source_change(relative)
+    }
 
-/// An operating-system source watcher and its bounded event receiver.
-pub(crate) struct SourceWatcher {
-    _watcher: RecommendedWatcher,
-    receiver: mpsc::Receiver<Result<Event, notify::Error>>,
-    overflowed: Arc<AtomicBool>,
-}
+    fn source_change(&self, relative: &Path) -> PathChange {
+        Self::portable_path(relative)
+            .filter(|_| self.paths.len() < Self::MAX_CHANGED_PATHS)
+            .map_or(PathChange::Reload, PathChange::Record)
+    }
 
-impl SourceWatcher {
-    pub(crate) fn start(project_root: &Path) -> Result<Self, Failure> {
-        let (sender, receiver) = mpsc::channel(WATCH_QUEUE_CAPACITY);
-        let overflowed = Arc::new(AtomicBool::new(false));
-        let callback_overflowed = Arc::clone(&overflowed);
-        let mut watcher = notify::recommended_watcher(move |event| {
-            if sender.try_send(event).is_err() {
-                callback_overflowed.store(true, Ordering::Release);
+    fn apply(&mut self, change: PathChange) {
+        match change {
+            PathChange::Ignore => {}
+            PathChange::Record(portable) => {
+                self.paths.insert(portable);
             }
-        })
-        .map_err(|error| watcher_failure(&error))?;
-
-        watcher
-            .watch(project_root, RecursiveMode::NonRecursive)
-            .map_err(|error| watcher_failure(&error))?;
-        for directory in ["client", "server"] {
-            let path = project_root.join(directory);
-            if path.is_dir() {
-                watcher
-                    .watch(&path, RecursiveMode::Recursive)
-                    .map_err(|error| watcher_failure(&error))?;
-            }
-        }
-
-        Ok(Self {
-            _watcher: watcher,
-            receiver,
-            overflowed,
-        })
-    }
-
-    pub(crate) async fn receive(&mut self) -> Option<Result<Event, notify::Error>> {
-        self.receiver.recv().await
-    }
-
-    pub(crate) fn drain(&mut self, changes: &mut SourceChanges, project_root: &Path) {
-        while let Ok(event) = self.receiver.try_recv() {
-            match event {
-                Ok(event) => changes.record_event(project_root, event),
-                Err(_) => changes.force_reload(),
-            }
-        }
-        if self.overflowed.swap(false, Ordering::AcqRel) {
-            changes.force_reload();
+            PathChange::Reload => self.force_reload = true,
         }
     }
-}
 
-fn watcher_failure(error: &notify::Error) -> Failure {
-    Failure::one(diagnostic(
-        1305,
-        format!("Cannot watch project sources: {error}"),
-        Some(String::from(
-            "Check source-directory permissions or run the development server with --no-watch.",
-        )),
-        None,
-    ))
-}
-
-fn is_source_path(path: &Path) -> bool {
-    let Some(first) = path.components().next() else {
-        return false;
-    };
-    match first {
-        Component::Normal(value) if value == "client" || value == "server" => true,
-        Component::Normal(_) if path.components().count() == 1 => path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .is_some_and(|name| {
-                name == "tachyon.json"
-                    || name == "tac.config.js"
-                    || name == "tac.config.mjs"
-                    || name == "tac.config.ts"
-                    || name == "manifest.json"
-                    || name == ".tachyonrc"
-                    || name.starts_with("middleware.")
-            }),
-        _ => false,
+    fn relevant_paths(event: Event) -> Option<Vec<PathBuf>> {
+        let access = matches!(event.kind, EventKind::Access(_));
+        (!access).then_some(event.paths)
     }
-}
 
-fn portable_path(path: &Path) -> Option<String> {
-    let mut parts = Vec::new();
-    for component in path.components() {
-        let Component::Normal(value) = component else {
-            return None;
-        };
-        parts.push(value.to_str()?);
+    fn is_source_path(path: &Path) -> bool {
+        let mut components = path.components();
+        let first = components.next().and_then(Self::normal_name);
+        let single = components.next().is_none();
+        first.is_some_and(|name| Self::is_source_name(name, single))
     }
-    Some(parts.join("/"))
-}
 
-fn is_stylesheet(path: &str) -> bool {
-    path.starts_with("client/")
-        && Path::new(path)
-            .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("css"))
-}
+    fn is_source_name(name: &OsStr, single: bool) -> bool {
+        let checks = [
+            Self::is_source_folder(name),
+            Self::is_root_file(name, single),
+        ];
+        checks.contains(&true)
+    }
 
-fn island_boundary(path: &str) -> Option<String> {
-    let relative = path.strip_prefix("client/components/")?;
-    let (directory, file) = relative.rsplit_once('/')?;
-    if !matches!(
-        file,
-        "tac.js" | "tac.ts" | "tachyon-island.js" | "tachyon-island.ts"
-    ) {
-        return None;
+    fn is_source_folder(name: &OsStr) -> bool {
+        name == "client" || name == "server"
     }
-    let parts = directory.split('/').collect::<Vec<_>>();
-    if parts.is_empty()
-        || !parts.iter().all(|part| {
-            !part.is_empty()
-                && part
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-        })
-    {
-        return None;
+
+    fn is_root_file(name: &OsStr, single: bool) -> bool {
+        single && name.to_str().is_some_and(Self::is_root_configuration)
     }
-    Some(parts.join("-"))
+
+    fn is_root_configuration(name: &str) -> bool {
+        name == ".tachyonrc" || name.starts_with("middleware.")
+    }
+
+    fn normal_name(component: Component<'_>) -> Option<&OsStr> {
+        match component {
+            Component::Normal(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    fn portable_path(path: &Path) -> Option<String> {
+        let parts: Option<Vec<&str>> = path
+            .components()
+            .map(|component| Self::normal_name(component).and_then(OsStr::to_str))
+            .collect();
+        Some(parts?.join("/"))
+    }
+
+    fn is_stylesheet(path: &str) -> bool {
+        path.starts_with("client/")
+            && Path::new(path)
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("css"))
+    }
+
+    fn island_boundary(path: &str) -> Option<String> {
+        let file = path.strip_prefix("client/services/")?;
+        let (stem, extension) = file.rsplit_once('.')?;
+        let checks = [
+            Self::is_script(extension),
+            stem.ends_with("Service"),
+            !file.contains('/'),
+        ];
+        checks
+            .iter()
+            .all(|passed| *passed)
+            .then(|| format!("service:{stem}"))
+    }
+
+    fn is_script(extension: &str) -> bool {
+        matches!(extension, "js" | "ts")
+    }
 }
 
 #[cfg(test)]
@@ -230,6 +198,10 @@ mod tests {
     use super::{SourceAction, SourceChanges};
     use notify::{Event, EventKind};
     use std::path::Path;
+
+    fn action(paths: &[&str]) -> SourceAction {
+        changes(paths).action()
+    }
 
     fn changes(paths: &[&str]) -> SourceChanges {
         let root = Path::new("/project");
@@ -248,77 +220,81 @@ mod tests {
     #[test]
     fn stylesheets_are_the_only_css_hot_update_boundary() {
         assert_eq!(
-            changes(&["client/pages/tac.css"]).action(),
+            action(&["client/components/card/tac.css"]),
             SourceAction::Css
         );
         assert_eq!(
-            changes(&["client/components/card/tac.css", "client/shared/theme.css"]).action(),
+            action(&["client/components/card/tac.css", "client/shared/theme.css"]),
             SourceAction::Css
         );
         assert_eq!(
-            changes(&["client/pages/tac.css", "client/pages/tac.html"]).action(),
+            action(&["client/components/card/tac.css", "client/pages/tac.html"]),
             SourceAction::Reload
         );
     }
 
     #[test]
-    fn companion_code_maps_to_canonical_island_boundaries() {
+    fn browser_service_modules_map_to_service_boundaries() {
         assert_eq!(
-            changes(&[
-                "client/components/product/card/tac.js",
-                "client/components/cart-panel/tachyon-island.ts"
-            ])
-            .action(),
+            action(&[
+                "client/services/UserListService.ts",
+                "client/services/BasketService.js"
+            ]),
             SourceAction::Island {
-                boundaries: vec![String::from("cart-panel"), String::from("product-card")]
+                boundaries: vec![
+                    String::from("service:BasketService"),
+                    String::from("service:UserListService")
+                ]
             }
         );
         assert_eq!(
-            changes(&["client/components/product/card/tac.html"]).action(),
+            action(&["client/components/product/card/tac.html"]),
+            SourceAction::Reload
+        );
+        assert_eq!(
+            action(&[
+                "client/services/BasketService.js",
+                "client/components/product/card/tac.html"
+            ]),
             SourceAction::Reload
         );
     }
 
     #[test]
-    fn only_browser_companions_receive_component_hot_updates() {
-        for name in ["tac.js", "tac.ts", "tachyon-island.js", "tachyon-island.ts"] {
-            assert_eq!(
-                changes(&[&format!("client/components/card/{name}")]).action(),
-                SourceAction::Island {
-                    boundaries: vec![String::from("card")]
-                }
-            );
-        }
-        for name in [
-            "tac.rs",
-            "tac.kt",
-            "tac.swift",
-            "tac.cs",
-            "tac.dart",
-            "tachyon-wasm.rs",
-            "tachyon-wasm.kt",
-            "tachyon-wasm.swift",
-            "tachyon-wasm.cs",
-            "tachyon-wasm.dart",
+    fn only_browser_services_receive_hot_updates() {
+        for path in [
+            "client/services/BasketService.swift",
+            "client/services/BasketService.kt",
+            "client/services/BasketService.cs",
+            "client/services/BasketService.rs",
+            "client/services/basket.js",
+            "client/services/Basket.js",
+            "client/services/nested/DeepService.js",
+            "client/components/card/tac.js",
+            "client/components/card/tac.ts",
+            "client/components/card/tachyon-island.js",
+            "client/components/card/tac.rs",
+            "client/components/card/tac.swift",
+            "client/pages/tac.js",
+            "client/pages/tac.rs",
+            "client/stores/BasketStore.js",
+            "client/helpers/PricingHelper.js",
+            "client/clients/ProductsClient.js",
+            "client/entities/ProductEntity.js",
+            "client/setups/ApiSetup.js",
+            "server/services/OrdersService.js",
+            "server/helpers/AuditHelper.js",
+            "server/controllers/OrdersController.js",
         ] {
-            for directory in ["client/components/card", "client/pages"] {
-                let changed = changes(&[&format!("{directory}/{name}")]);
-                assert!(!changed.is_empty(), "{directory}/{name}");
-                assert_eq!(changed.action(), SourceAction::Reload, "{directory}/{name}");
-            }
+            let changed = changes(&[path]);
+            assert!(!changed.is_empty(), "{path}");
+            assert_eq!(changed.action(), SourceAction::Reload, "{path}");
         }
     }
 
     #[test]
     fn every_supported_root_configuration_invalidates_the_dev_build() {
-        for name in [
-            "tachyon.json",
-            "tac.config.js",
-            "tac.config.mjs",
-            "tac.config.ts",
-            "manifest.json",
-            ".tachyonrc",
-        ] {
+        for name in [".tachyonrc", "client/manifest.json"] {
             let changed = changes(&[name]);
             assert_eq!(changed.paths(), vec![String::from(name)]);
             assert_eq!(changed.action(), SourceAction::Reload);
@@ -327,7 +303,13 @@ mod tests {
 
     #[test]
     fn generated_output_and_dependency_events_are_ignored() {
-        let changes = changes(&["dist/index.html", "target/debug/ty", "node_modules/x.js"]);
+        let changes = changes(&[
+            "dist/index.html",
+            "target/debug/ty",
+            "node_modules/x.js",
+            ".env",
+            "application-production.json",
+        ]);
         assert!(changes.is_empty());
     }
 }

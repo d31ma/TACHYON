@@ -1,0 +1,20 @@
+[
+  {
+    "number": "01",
+    "title": "Install",
+    "command": "curl -fsSL https://github.com/d31ma/Tachyon/releases/latest/download/install.sh | sh",
+    "note": "One binary (a single program file). You do not install a runtime first, and no background process keeps running."
+  },
+  {
+    "number": "02",
+    "title": "Create",
+    "command": "ty init my-app && cd my-app",
+    "note": "Creates a page, two components, a service and a controller. Each one goes in its own folder."
+  },
+  {
+    "number": "03",
+    "title": "Serve",
+    "command": "ty preview",
+    "note": "Rebuilds the sources you change. Some changes can use a hot update: the page updates in place and keeps its declared state. Other changes reload the page."
+  }
+]

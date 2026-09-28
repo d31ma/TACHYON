@@ -1,0 +1,195 @@
+{
+  "heading": "Yon: twelve language implementations",
+  "body": "Choose one language below for GET /money. Each implementation returns {\"amount\":42}. Copy the controller from server/controllers and the shared server/services role file. The compiler finds only role files in the same language as the controller. It orders them by their definition dependencies, and this order is always the same. Needs infers the controller's dependency from the field it marks, so you do not write a constructor. JavaScript names the field moneyService to match the exact lowerCamel name of MoneyService, and Ruby names its attr_reader money_service, the snake_case name. The other languages use its concrete type, which is Arc<MoneyService> in Rust and *MoneyService in Go. Types in the discovered role files are available by name in the assembled unit. So do not import these role files into each other. You do not need a runtime annotation package or an HTTP method decorator. RequestRoute on the class and GetRoute on the method declare GET /money. The controller role, the route and error handler markers, StreamRoute, Gateway and Schedule exist only in Yon. Tac mirrors Service, Lifetime, Store in its bare and entity-bound forms, HTTPClient, Helper, Needs, Named, OnStart, OnStop, OnEvent, Order and InBackground. In Tac, a service is what a view addresses. For browser JS/TS, HTTPClient also supports transport that Tachyon manages automatically. Native clients keep HTTP adapters that you configure yourself. Swift is not a Yon endpoint language. Needs selects each field it marks that is not static and has no initial value, in declaration order. Fields with a default value and static fields are not injected. Named names the provider when the field does not. Missing or ambiguous providers fail closed: Tachyon rejects them and does not guess. Unsupported optional, generic, interface or function field types also fail closed. Discovery covers only the realm's shared role folders. Other controllers are not part of the program. Each invocation still owns its instance graph (the objects it creates), and Tachyon adds no global container.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/services/MoneyService.js",
+      "code": {
+        "file": "server/services/MoneyService.js"
+      }
+    },
+    {
+      "name": "server/controllers/MoneyController.js",
+      "code": {
+        "file": "server/controllers/MoneyController.js"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.ts",
+      "code": {
+        "file": "server/services/MoneyService.ts"
+      }
+    },
+    {
+      "name": "server/models/Money.ts",
+      "code": { "file": "server/models/Money.ts" }
+    },
+    {
+      "name": "server/controllers/MoneyController.ts",
+      "code": {
+        "file": "server/controllers/MoneyController.ts"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.py",
+      "code": {
+        "file": "server/services/MoneyService.py"
+      }
+    },
+    {
+      "name": "server/models/Money.py",
+      "code": { "file": "server/models/Money.py" }
+    },
+    {
+      "name": "server/controllers/MoneyController.py",
+      "code": {
+        "file": "server/controllers/MoneyController.py"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.php",
+      "code": {
+        "file": "server/services/MoneyService.php"
+      }
+    },
+    {
+      "name": "server/models/Money.php",
+      "code": { "file": "server/models/Money.php" }
+    },
+    {
+      "name": "server/controllers/MoneyController.php",
+      "code": {
+        "file": "server/controllers/MoneyController.php"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.java",
+      "code": {
+        "file": "server/services/MoneyService.java"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.groovy",
+      "code": {
+        "file": "server/services/MoneyService.groovy"
+      }
+    },
+    {
+      "name": "server/models/Money.java",
+      "code": { "file": "server/models/Money.java" }
+    },
+    {
+      "name": "server/models/Money.groovy",
+      "code": { "file": "server/models/Money.groovy" }
+    },
+    {
+      "name": "server/controllers/MoneyController.java",
+      "code": {
+        "file": "server/controllers/MoneyController.java"
+      }
+    },
+    {
+      "name": "server/controllers/MoneyController.groovy",
+      "code": {
+        "file": "server/controllers/MoneyController.groovy"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.kt",
+      "code": {
+        "file": "server/services/MoneyService.kt"
+      }
+    },
+    {
+      "name": "server/models/Money.kt",
+      "code": { "file": "server/models/Money.kt" }
+    },
+    {
+      "name": "server/controllers/MoneyController.kt",
+      "code": {
+        "file": "server/controllers/MoneyController.kt"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.cs",
+      "code": {
+        "file": "server/services/MoneyService.cs"
+      }
+    },
+    {
+      "name": "server/models/Money.cs",
+      "code": { "file": "server/models/Money.cs" }
+    },
+    {
+      "name": "server/controllers/MoneyController.cs",
+      "code": {
+        "file": "server/controllers/MoneyController.cs"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.rs",
+      "code": {
+        "file": "server/services/MoneyService.rs"
+      }
+    },
+    {
+      "name": "server/models/Money.rs",
+      "code": { "file": "server/models/Money.rs" }
+    },
+    {
+      "name": "server/controllers/MoneyController.rs",
+      "code": {
+        "file": "server/controllers/MoneyController.rs"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.go",
+      "code": {
+        "file": "server/services/MoneyService.go"
+      }
+    },
+    {
+      "name": "server/models/Money.go",
+      "code": { "file": "server/models/Money.go" }
+    },
+    {
+      "name": "server/controllers/MoneyController.go",
+      "code": {
+        "file": "server/controllers/MoneyController.go"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.dart",
+      "code": {
+        "file": "server/services/MoneyService.dart"
+      }
+    },
+    {
+      "name": "server/models/Money.dart",
+      "code": { "file": "server/models/Money.dart" }
+    },
+    {
+      "name": "server/controllers/MoneyController.dart",
+      "code": {
+        "file": "server/controllers/MoneyController.dart"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.rb",
+      "code": {
+        "file": "server/services/MoneyService.rb"
+      }
+    },
+    {
+      "name": "server/models/Money.rb",
+      "code": { "file": "server/models/Money.rb" }
+    },
+    {
+      "name": "server/controllers/MoneyController.rb",
+      "code": {
+        "file": "server/controllers/MoneyController.rb"
+      }
+    }
+  ]
+}

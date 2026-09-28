@@ -1,0 +1,11 @@
+import type { NewsItem } from '/models/NewsItem';
+
+@Service
+export default class NewsService {
+  items: NewsItem[] = []
+
+  @OnEvent
+  addItem(item: NewsItem): void {
+    this.items = [...this.items.slice(-63), item]
+  }
+}

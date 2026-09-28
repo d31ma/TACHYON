@@ -1,0 +1,6 @@
+[<RequestRoute("/api/fsharp")>]
+[<Public>]
+type FSharpGreetingController() =
+    [<GetRoute>]
+    member this.GetGreeting() : string =
+        "Hello from F#"

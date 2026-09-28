@@ -1,0 +1,21 @@
+{
+  "id": "interpolation",
+  "title": "Values in text",
+  "summary": "Curly braces insert the value of a limited expression. The compiler turns the expression into instructions for the browser. It does not turn it into source code that runs.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/summary/tac.html",
+      "code": { "file": "client/components/catalog/summary/tac.html" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    }
+  ],
+  "verify": "tac"
+}

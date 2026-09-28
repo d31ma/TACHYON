@@ -3,8 +3,8 @@
 ## Outcome
 
 A new developer can use one compiled Rust `ty` executable to create, build,
-and serve a static Tachyon application without Bun, Node.js, a handler runtime,
-or application dependencies.
+and serve a static Tachyon application. They do not need Bun, Node.js, a
+handler runtime, or application dependencies.
 
 ## Public Workflow
 
@@ -14,26 +14,30 @@ ty build hello
 ty dev hello
 ```
 
-`ty bundle` is an alias for `ty build`, and `ty serve` is an alias for
-`ty dev`, preserving the current workflow vocabulary while the rewrite is
-developed.
+`ty bundle` is an alias for `ty build`. `ty serve` is an alias for `ty dev`.
+These aliases keep the current command names while the rewrite is in
+development.
 
 ## Source Model
 
 - `client/pages/tac.html` is the root client page.
 - `client/pages/<static-segments>/tac.html` is a nested static client page.
-- Route segments are lowercase ASCII letters, digits, and single internal
-  hyphens.
-- Symlinks below client and server source roots are rejected.
-- Every source is UTF-8, at most 1 MiB, and contains no NUL byte.
+- A route segment contains only lowercase ASCII letters, digits, and hyphens.
+  Two hyphens cannot be next to each other. A hyphen cannot be the first or
+  last character.
+- The compiler rejects symlinks below the client and server source roots.
+- Every source file is UTF-8, is at most 1 MiB, and contains no NUL byte.
 
-Phase 1 tokenizes HTML with a WHATWG-compatible tokenizer. HTML fragments are
-placed into a deterministic accessible document shell; complete documents are
-preserved after line-ending normalization. The compiler rejects tokenizer
-errors and any feature whose semantics belong to a later phase:
+Phase 1 splits HTML into tokens with a tokenizer that is compatible with the
+WHATWG standard. The compiler places an HTML fragment into a fixed, accessible
+document shell. The output is the same every time. The compiler keeps a
+complete document as it is, after it normalizes the line endings.
+
+The compiler rejects tokenizer errors. It also rejects any feature whose
+behavior belongs to a later phase:
 
 - `if`, `else`, `for`, and `loop`;
-- Tac components without a standards-based custom-element name;
+- Tac components that do not have a standard custom-element name;
 - companion `tac.*` source;
 - inline scripts and event-handler attributes;
 - dynamic route segments.
@@ -42,43 +46,73 @@ errors and any feature whose semantics belong to a later phase:
 
 `ty build`:
 
-1. canonicalizes the project root;
-2. discovers sources without executing application code;
-3. constructs a sorted, immutable route graph;
+1. converts the project root to its canonical path;
+2. finds the sources without running application code;
+3. builds a sorted route graph that cannot change afterward;
 4. tokenizes and validates every HTML source;
 5. writes each static route as `<route>/index.html`;
-6. writes `route-manifest.json` using Route Manifest v1;
-7. publishes the complete output directory only after every route succeeds.
+6. writes `route-manifest.json` in the Route Manifest v1 format;
+7. publishes the full output directory only after every route succeeds.
 
-Identical source and options produce byte-identical output. A failed build
-leaves the previously published output untouched.
+The same source and options always produce output that is identical byte for
+byte. A failed build does not change the output that was published before.
 
 ## Development Server
 
-`ty dev` builds before binding and serves only generated files. It binds to
-`127.0.0.1` by default, supports GET and HEAD, returns a bounded 404 response,
-and emits defensive browser headers. A non-loopback bind requires
+`ty dev` builds the project before it binds to an address. It serves only
+generated files. The server:
+
+- binds to `127.0.0.1` by default;
+- supports GET and HEAD;
+- returns a 404 response of limited size;
+- sends browser headers that improve security.
+
+To bind to an address that is not loopback, you must pass
 `--allow-non-loopback`.
 
 ## Diagnostics
 
-Failures use stable `TY####` codes, project-relative source spans, actionable
-help, and non-zero exit status. `--diagnostic-format json` emits Diagnostics
-v1; the default human format is suitable for a terminal.
+A failure has:
+
+- a stable `TY####` code;
+- source locations relative to the project;
+- help that tells the developer what to do;
+- a non-zero exit status.
+
+`--diagnostic-format json` prints the Diagnostics v1 format. The default human
+format is made for reading in a terminal.
 
 ## Acceptance Criteria
 
-- A generated project builds twice with byte-identical output.
-- Its root page and route manifest are served by the compiled Rust binary.
-- The behavior-level suite invokes the real `ty` process.
-- Missing sources, route collisions, unsafe source shapes, unsupported syntax,
-  unsafe bind configuration, and non-empty initialization targets fail safely.
+- A generated project builds twice, and both outputs are identical byte for
+  byte.
+- The compiled Rust binary serves the project's root page and route manifest.
+- The behavior-level test suite runs the real `ty` process.
+- These cases fail safely:
+  - missing sources;
+  - route collisions;
+  - unsafe source shapes;
+  - unsupported syntax;
+  - unsafe bind configuration;
+  - an initialization target that is not empty.
 - The workspace passes formatting, check, Clippy, tests, rustdoc, coverage,
   dependency policy, and the legacy compatibility suite.
-- Linux, macOS, and Windows CI build and exercise the same generated project.
+- Linux, macOS, and Windows CI (continuous integration) build and test the same
+  generated project.
 
 ## Out of Scope
 
-Handler execution, context injection, control tags, components, bindings,
-islands, incremental rebuilds, source maps, native rendering, remote binding
-without explicit opt-in, TLS, and production HTTP serving are later phases.
+Later phases add these features:
+
+- handler execution;
+- context injection;
+- control tags;
+- components;
+- bindings;
+- islands;
+- incremental rebuilds;
+- source maps;
+- native rendering;
+- remote binding without an explicit opt-in;
+- TLS;
+- production HTTP serving.

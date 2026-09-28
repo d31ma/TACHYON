@@ -1,0 +1,79 @@
+{
+  "heading": "Validation: Tac",
+  "axis": "language",
+  "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a behavior-only class in its own file, `client/helpers/OrderInput.<ext>`. Discovery composes it into the same unit as the service that it protects (ADR 0044). JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages have no Service marker, because the compiler discovers a native Tac service by its client/services folder and filename. Swift and C# take checked parameters as BehaviorJSON, and Rust and Go take them as BehaviorValue; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/order/form/tac.html",
+      "code": { "file": "client/components/order/form/tac.html" }
+    },
+    {
+      "name": "client/services/OrderService.js",
+      "code": { "file": "client/services/OrderService.js" }
+    },
+    {
+      "name": "client/services/OrderService.ts",
+      "code": { "file": "client/services/OrderService.ts" }
+    },
+    {
+      "name": "client/services/OrderService.swift",
+      "code": { "file": "client/services/OrderService.swift" }
+    },
+    {
+      "name": "client/services/OrderService.kt",
+      "code": { "file": "client/services/OrderService.kt" }
+    },
+    {
+      "name": "client/services/OrderService.cs",
+      "code": { "file": "client/services/OrderService.cs" }
+    },
+    {
+      "name": "client/services/OrderService.rs",
+      "code": { "file": "client/services/OrderService.rs" }
+    },
+    {
+      "name": "client/services/OrderService.dart",
+      "code": { "file": "client/services/OrderService.dart" }
+    },
+    {
+      "name": "client/helpers/OrderInput.js",
+      "code": { "file": "client/helpers/OrderInput.js" }
+    },
+    {
+      "name": "client/helpers/OrderInput.ts",
+      "code": { "file": "client/helpers/OrderInput.ts" }
+    },
+    {
+      "name": "client/helpers/OrderInput.swift",
+      "code": { "file": "client/helpers/OrderInput.swift" }
+    },
+    {
+      "name": "client/helpers/OrderInput.kt",
+      "code": { "file": "client/helpers/OrderInput.kt" }
+    },
+    {
+      "name": "client/helpers/OrderInput.cs",
+      "code": { "file": "client/helpers/OrderInput.cs" }
+    },
+    {
+      "name": "client/helpers/OrderInput.rs",
+      "code": { "file": "client/helpers/OrderInput.rs" }
+    },
+    {
+      "name": "client/services/OrderService.go",
+      "code": { "file": "client/services/OrderService.go" }
+    },
+    {
+      "name": "client/helpers/OrderInput.go",
+      "code": { "file": "client/helpers/OrderInput.go" }
+    },
+    {
+      "name": "client/helpers/OrderInput.dart",
+      "code": { "file": "client/helpers/OrderInput.dart" }
+    }
+  ]
+}

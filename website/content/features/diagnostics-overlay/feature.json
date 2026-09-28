@@ -1,0 +1,12 @@
+{
+  "id": "diagnostics-overlay",
+  "title": "Build errors on the open page",
+  "group": "Tooling",
+  "summary": "When a rebuild fails, Tachyon shows diagnostics (error messages) on top of the open page. The next successful rebuild removes them without reloading the page. The overlay shows only the current errors, not earlier errors that you have fixed.",
+  "files": [
+    {
+      "name": "sequence",
+      "code": { "file": "sequence.txt" }
+    }
+  ]
+}

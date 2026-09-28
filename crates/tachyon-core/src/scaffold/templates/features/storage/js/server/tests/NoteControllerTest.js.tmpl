@@ -1,0 +1,11 @@
+@Test(NoteTestSetup, {"partition":"tests"})
+export default class NoteControllerTest {
+  @Fake
+  noteStore
+
+  async testGetNotesAsksTheStore() {
+    this.noteStore = { countNotes: () => [{ notes: 3 }] }
+    const rows = this.construct(NoteController).getNotes()
+    if (rows[0].notes !== 3) throw Error(`rows are ${JSON.stringify(rows)}`)
+  }
+}

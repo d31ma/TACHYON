@@ -1,0 +1,16 @@
+dist/web/api.json             every controller route and model, in one document
+dist/web/api-docs/index.html  a page that shows the routes and models
+
+$ curl http://127.0.0.1:8080/api.json
+{
+  "contract_version": 1,
+  "routes": [
+    {
+      "route": "/items/_id",
+      "path": "/items/{id}",
+      "parameters": ["id"],
+      "methods": { "GET": { ... }, "PATCH": { ... } }
+    }
+  ],
+  "models": { "Item": { ... } }
+}

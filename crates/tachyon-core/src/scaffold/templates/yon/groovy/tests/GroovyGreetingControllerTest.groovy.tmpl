@@ -1,0 +1,8 @@
+@Test(GroovyGreetingTestSetup.class, {"partition":"tests"})
+class GroovyGreetingControllerTest {
+    void testGetGreetingSaysHello() {
+        if (new GroovyGreetingController().getGreeting() != 'Hello from Groovy') {
+            throw new IllegalStateException('expected a greeting')
+        }
+    }
+}

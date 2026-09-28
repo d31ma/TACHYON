@@ -1,0 +1,5 @@
+@Test(PythonGreetingTestSetup, {"partition":"tests"})
+class PythonGreetingControllerTest:
+    async def test_get_greeting_says_hello(self):
+        if PythonGreetingController().get_greeting() != "Hello from Python":
+            raise Exception("expected a greeting")

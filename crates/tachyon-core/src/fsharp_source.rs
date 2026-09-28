@@ -1,0 +1,150 @@
+mod attribute_line;
+mod block_kind;
+mod fsharp_body;
+mod fsharp_lexer;
+mod fsharp_markers;
+mod fsharp_parameters;
+mod fsharp_project;
+mod fsharp_shadow;
+mod fsharp_spans;
+mod fsharp_style;
+mod fsharp_test_unit;
+mod fsharp_type;
+mod fsharp_value;
+mod fsharp_view;
+mod fsharp_yon;
+mod later_features;
+mod line_kind;
+mod member_header;
+mod member_words;
+mod open_block;
+mod record_fields;
+mod shadow_writer;
+mod source_line;
+mod type_form;
+mod type_header;
+mod type_name;
+
+use attribute_line::AttributeLine;
+use block_kind::BlockKind;
+use fsharp_body::FsharpBody;
+pub(crate) use fsharp_lexer::FsharpLexer;
+pub(crate) use fsharp_markers::FsharpMarkers;
+use fsharp_parameters::FsharpParameters;
+pub(crate) use fsharp_project::FsharpProject;
+pub(crate) use fsharp_shadow::FsharpShadow;
+pub(crate) use fsharp_spans::FsharpSpans;
+pub(crate) use fsharp_style::FsharpStyle;
+pub(crate) use fsharp_test_unit::FsharpTestUnit;
+use fsharp_type::FsharpType;
+use fsharp_value::FsharpValue;
+pub(crate) use fsharp_view::FsharpView;
+pub(crate) use fsharp_yon::FsharpYon;
+use later_features::LaterFeatures;
+use line_kind::LineKind;
+use member_header::MemberHeader;
+use member_words::MemberWords;
+use open_block::OpenBlock;
+use record_fields::RecordFields;
+use shadow_writer::ShadowWriter;
+use source_line::SourceLine;
+use type_form::TypeForm;
+use type_header::TypeHeader;
+use type_name::TypeName;
+
+use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
+
+pub(crate) struct FsharpSource;
+
+impl FsharpSource {
+    pub(crate) const EXTENSION: &'static str = "fs";
+    const SYNTAX: [(&'static str, &'static str); 1] = [(Self::EXTENSION, "cs")];
+    const GENERATED_PART: &'static str = "\n//__YON_CSHARP__\n";
+    const WEB_PART: &'static str = "\n//__TAC_FSHARP__\n";
+    const MODELS_NAMESPACE: &'static str = "namespace rec Models\n";
+
+    pub(crate) fn is_fsharp(source: &Path) -> bool {
+        source
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case(Self::EXTENSION))
+    }
+
+    pub(crate) fn syntax(extension: &str) -> &str {
+        Self::SYNTAX
+            .iter()
+            .find(|(language, _)| *language == extension)
+            .map_or(extension, |(_, syntax)| syntax)
+    }
+
+    pub(crate) fn refuse_later_features(
+        view: &FsharpView,
+        source: &Path,
+        contents: &str,
+    ) -> Result<(), crate::Failure> {
+        LaterFeatures::refuse(view, source, contents, "tac")
+    }
+
+    pub(crate) fn with_generated(fsharp: &str, csharp: &str) -> String {
+        format!("{fsharp}{}{csharp}", Self::GENERATED_PART)
+    }
+
+    pub(crate) fn web_body(csharp: &str, fsharp: &str) -> String {
+        let joined = (!fsharp.is_empty()).then(|| format!("{csharp}{}{fsharp}", Self::WEB_PART));
+        joined.unwrap_or_else(|| csharp.to_owned())
+    }
+
+    pub(crate) fn web_split(text: &str) -> (&str, &str) {
+        text.split_once(Self::WEB_PART).unwrap_or((text, ""))
+    }
+
+    pub(crate) fn web_namespace(namespace: &str, fsharp: &str) -> String {
+        let written = (!fsharp.is_empty()).then(|| format!("namespace {namespace}\n{fsharp}\n"));
+        written.unwrap_or_default()
+    }
+
+    pub(crate) fn models_file(models: &[(PathBuf, String)]) -> String {
+        Self::models_text(models)
+    }
+
+    fn models_text(models: &[(PathBuf, String)]) -> String {
+        let mut file = String::from(Self::MODELS_NAMESPACE);
+        for (path, source) in models {
+            let _ = write!(file, "# 1 \"{}\"\n{source}\n", path.to_string_lossy());
+        }
+        file
+    }
+
+    pub(crate) fn split(program: &str) -> (&str, &str) {
+        program
+            .split_once(Self::GENERATED_PART)
+            .unwrap_or((program, ""))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FsharpSource;
+    use std::path::Path;
+
+    #[test]
+    fn the_generated_csharp_follows_the_authored_fsharp() {
+        let program =
+            FsharpSource::with_generated("type A() = class end", "sealed class Handler {}");
+        assert_eq!(
+            FsharpSource::split(&program),
+            ("type A() = class end", "sealed class Handler {}")
+        );
+        assert_eq!(FsharpSource::split("type A() = class end").1, "");
+    }
+
+    #[test]
+    fn only_fs_files_are_fsharp() {
+        assert!(FsharpSource::is_fsharp(Path::new(
+            "server/controllers/A.fs"
+        )));
+        assert!(!FsharpSource::is_fsharp(Path::new(
+            "server/controllers/A.cs"
+        )));
+    }
+}

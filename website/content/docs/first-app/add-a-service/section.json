@@ -1,0 +1,31 @@
+{
+  "heading": "Step 2: Add a service",
+  "axis": "language",
+  "body": "A service is a class in `client/services` that holds the data and the actions of a view. The view calls `CounterService` by the name `counter`: Tachyon removes `Service` from the class name and starts the rest with a small letter. A field is a value that belongs to the service, such as `count`. `{counter.count}` shows the field in the page. `on:click=\"counter.increment()\"` calls the method when you click the button. When the method changes the field, the page updates.\n\nChange the component and add the service. In the page, add `hydrate=\"load\"`: it starts the component and its service as soon as the page opens. A component without a service must not have `hydrate`, so step 1 did not use it. Save the files, and `ty preview` builds the app again. Choose JavaScript or TypeScript above the code.\n\nResult: each click on Click me adds one to the number on the page.",
+  "files": [
+    {
+      "name": "client/pages/hello/tac.html",
+      "code": {
+        "file": "client/pages/hello/tac.html"
+      }
+    },
+    {
+      "name": "client/components/hello/card/tac.html",
+      "code": {
+        "file": "client/components/hello/card/tac.html"
+      }
+    },
+    {
+      "name": "client/services/CounterService.js",
+      "code": {
+        "file": "client/services/CounterService.js"
+      }
+    },
+    {
+      "name": "client/services/CounterService.ts",
+      "code": {
+        "file": "client/services/CounterService.ts"
+      }
+    }
+  ]
+}

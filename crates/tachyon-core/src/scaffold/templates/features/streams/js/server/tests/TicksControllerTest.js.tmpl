@@ -1,0 +1,8 @@
+@Test(TicksTestSetup, {"partition":"tests"})
+export default class TicksControllerTest {
+  async testStreamTicksCountsDown() {
+    const levels = []
+    for await (const tick of this.construct(TicksController).streamTicks()) levels.push(tick.level)
+    if (levels.join(',') !== '3,2,1') throw Error(`levels are ${levels}`)
+  }
+}

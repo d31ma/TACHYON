@@ -1,0 +1,10 @@
+.tally {
+  padding: 1rem;
+  border: 1px solid var(--w-border);
+  border-radius: 12px;
+}
+
+.runtime {
+  font-size: .875rem;
+  opacity: .7;
+}

@@ -1,0 +1,5 @@
+{
+  "heading": "Build and deploy",
+  "body": "By default, ty bundle writes dist/web. To check a release, use --target all. Then preview or package the single target that you plan to release.",
+  "code": { "file": "example.sh" }
+}

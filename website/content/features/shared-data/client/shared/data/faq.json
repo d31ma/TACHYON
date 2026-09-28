@@ -1,0 +1,10 @@
+[
+  {
+    "question": "What do I install?",
+    "answer": "The ty binary, and the toolchains of the languages you use."
+  },
+  {
+    "question": "Is there a configuration file?",
+    "answer": "One per realm: client/manifest.json and server/application.json."
+  }
+]

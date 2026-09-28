@@ -1,10 +1,3 @@
-//! Windows Win32 host generation.
-//!
-//! A Win32 window around one `WebView2` showing the application's own bundle;
-//! see `native/routes.rs` for why it is no longer a generated control table.
-//! Building requires Windows with MSVC and the `WebView2` SDK, as the macOS
-//! and Linux hosts require their own platforms. See ADR 0017.
-
 use super::config::NativeApplication;
 use super::host::{
     GeneratedHost, c_string_escape, first_line, native_tool_failure, run_tool, stage_application,
@@ -30,9 +23,6 @@ impl WindowsHostGenerator {
         let resources = bundle.join("resources");
         stage_application(index, web_bundle, stage, &resources)?;
 
-        // A C# companion is compiled *as C#* here rather than to WebAssembly,
-        // which is the whole point: NativeAOT publishes it as a library the
-        // host loads, so it reaches the .NET Windows surface.
         let companion = stage_companion(companions, stage, &application.application_id)?;
         let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
         let source_path = stage.join("project").join("tachyon_host.c");
@@ -42,38 +32,20 @@ impl WindowsHostGenerator {
             application_manifest(application).as_bytes(),
         )?;
         if !package {
-            return Ok(GeneratedHost {
-                application_bundle: PathBuf::from("project/tachyon_host.c"),
-                toolchain_name: String::from("source"),
-                toolchain_version: String::from("not-packaged"),
-            });
+            return Ok(GeneratedHost::not_packaged(PathBuf::from(
+                "project/tachyon_host.c",
+            )));
         }
 
         let executable = bundle
             .join("bin")
             .join(format!("{}.exe", application.executable_name));
-        // The manifest's icon becomes the executable's, so the shell and the
-        // taskbar show the same artwork the browser tab does.
-        let resource = stage_icon(application, web_bundle, stage).await?;
-        let resource = match resource.as_deref() {
-            Some(path) => Some(compiler_path(path, "Icon resource")?),
-            None => None,
-        };
+        let resource = icon_resource(application, web_bundle, stage).await?;
         let compiler_version = compile_c(&source_path, &executable, resource.as_deref()).await?;
         if let Some(project) = companion {
             publish_companion(&project, &bundle.join("bin")).await?;
         }
-        // Each language keeps its own DLL; route selection must never replace
-        // a C# companion with a Rust build or fall back to a different route.
-        if let Some(source) = &rust_companion {
-            super::rust::compile(
-                source,
-                super::rust::Linkage::Shared,
-                Some("x86_64-pc-windows-msvc"),
-                &bundle.join("bin").join("TachyonRustCompanion.dll"),
-            )
-            .await?;
-        }
+        compile_rust_companion(rust_companion.as_deref(), &bundle).await?;
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(&application.executable_name),
             toolchain_name: String::from("msvc"),
@@ -82,33 +54,41 @@ impl WindowsHostGenerator {
     }
 }
 
-/// Environment variable naming an extracted `Microsoft.Web.WebView2` package.
-const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
-
-/// The prelude appended to a C# companion compiled into this host.
-const CSHARP_COMPANION_PRELUDE: &str = include_str!("prelude.cs");
-
-/// The C# companion prelude, for the publish-channel drift test.
-#[cfg(test)]
-pub(super) const fn companion_prelude() -> &'static str {
-    CSHARP_COMPANION_PRELUDE
-}
-/// Namespaces the prelude needs, which C# requires before any type.
-/// `System.Linq` is the prelude's own: `TacStore` writes its file with one,
-/// and without it a companion that persists a field does not compile. It went
-/// unnoticed because a C# companion only builds on a Windows machine.
-const CSHARP_COMPANION_USING: &str = "using System;\nusing System.Collections;\n\
+impl WindowsHostGenerator {
+    const WEBVIEW2_SDK: &str = "TAC_WEBVIEW2_SDK";
+    const LINKER_ARGUMENTS: [&str; 12] = [
+        "WebView2LoaderStatic.lib",
+        "user32.lib",
+        "shell32.lib",
+        "shlwapi.lib",
+        "comctl32.lib",
+        "gdi32.lib",
+        "ole32.lib",
+        "oleaut32.lib",
+        "version.lib",
+        "advapi32.lib",
+        "/SUBSYSTEM:WINDOWS",
+        "/ENTRY:wWinMainCRTStartup",
+    ];
+    const CSHARP_COMPANION_PRELUDE: &str = concat!(
+        include_str!("web_apis/TacWebHost.cs"),
+        include_str!("web_apis/Clock.cs"),
+        include_str!("web_apis/SecureRandom.cs"),
+        include_str!("web_apis/Connectivity.cs"),
+        include_str!("web_apis/PageVisibility.cs"),
+        include_str!("web_apis/Preferences.cs"),
+        include_str!("web_apis/Clipboard.cs"),
+        include_str!("web_apis/Share.cs"),
+        include_str!("web_apis/Notifications.cs"),
+        include_str!("web_apis/Geolocation.cs"),
+        include_str!("prelude.cs")
+    );
+    const CSHARP_COMPANION_USING: &str = "using System;\nusing System.Collections;\n\
                                       using System.Collections.Generic;\n\
                                       using System.Globalization;\nusing System.Linq;\n\
                                       using System.Runtime.InteropServices;\n\
                                       using System.Text;\nusing System.Text.Json.Nodes;\n";
-/// The project a native C# companion is published as.
-///
-/// `NativeLib=Shared` because the host is a C executable: a managed assembly
-/// would need a runtime host to load, and a static library would drag the whole
-/// AOT link into an MSVC command line. A DLL beside the executable is what both
-/// toolchains already know how to produce and consume.
-const CSHARP_COMPANION_PROJECT: &str = r#"<Project Sdk="Microsoft.NET.Sdk">
+    const CSHARP_COMPANION_PROJECT: &str = r#"<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -121,11 +101,84 @@ const CSHARP_COMPANION_PROJECT: &str = r#"<Project Sdk="Microsoft.NET.Sdk">
   </PropertyGroup>
 </Project>
 "#;
+    const CSHARP_WEB_PROJECT: &str = r#"<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>TachyonServices</AssemblyName>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PublishTrimmed>true</PublishTrimmed>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CompressionEnabled>false</CompressionEnabled>
+    <BlazorCacheBootResources>false</BlazorCacheBootResources>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup><Compile Include="TachyonServices.cs" /></ItemGroup>
+</Project>
+"#;
+    const CSHARP_WEB_DEVELOPMENT_SETTINGS: &str = "    <WasmBuildNative>false</WasmBuildNative>\n";
+    const CSHARP_WEB_INVARIANT_OPTION: &str = "  <ItemGroup><RuntimeHostConfigurationOption \
+        Include=\"System.Globalization.Invariant\" Value=\"true\" Trim=\"true\" /></ItemGroup>\n";
 
-/// Stages the entry route's native C# companion as a publishable project.
-///
-/// Returns the project directory, or `None` when no route declares a C#
-/// companion — which is every project that has not asked for one.
+    fn csharp_web_project(profile: crate::BuildProfile) -> String {
+        let release = Self::CSHARP_WEB_PROJECT;
+        match profile {
+            crate::BuildProfile::Release => String::from(release),
+            crate::BuildProfile::Development => release
+                .replace(
+                    "    <InvariantGlobalization>true</InvariantGlobalization>\n",
+                    Self::CSHARP_WEB_DEVELOPMENT_SETTINGS,
+                )
+                .replace(
+                    "  <ItemGroup><Compile",
+                    &format!("{}  <ItemGroup><Compile", Self::CSHARP_WEB_INVARIANT_OPTION),
+                ),
+        }
+    }
+
+    const CSHARP_WEB_ENTRY: &str = "public static partial class TacWeb\n{\n    \
+    [JSExport]\n    public static string Invoke(string request)\n    {\n        \
+    Tac.WebEmit ??= Emit;\n        TacWebHost.Ask ??= Web;\n        return Tac.Invoke(request);\n    }\n\n    \
+    [JSImport(\"emit\", \"tachyon\")]\n    internal static partial void Emit(string payload);\n\n    \
+    [JSImport(\"storage\", \"tachyon\")]\n    internal static partial string Storage(string request);\n\n    \
+    [JSImport(\"web\", \"tachyon\")]\n    internal static partial string Web(string request);\n\n    \
+    public static void Main() { }\n}\n";
+}
+
+#[cfg(test)]
+pub(super) const fn companion_prelude() -> &'static str {
+    WindowsHostGenerator::CSHARP_COMPANION_PRELUDE
+}
+
+async fn icon_resource(
+    application: &NativeApplication,
+    web_bundle: &Path,
+    stage: &Path,
+) -> Result<Option<String>, Failure> {
+    let Some(compiled) = stage_icon(application, web_bundle, stage).await? else {
+        return Ok(None);
+    };
+    Ok(Some(compiler_path(&compiled, "Icon resource")?))
+}
+
+async fn compile_rust_companion(
+    rust_companion: Option<&Path>,
+    bundle: &Path,
+) -> Result<(), Failure> {
+    let Some(source) = rust_companion else {
+        return Ok(());
+    };
+    super::rust::compile(
+        source,
+        super::rust::Linkage::Shared,
+        Some("x86_64-pc-windows-msvc"),
+        &bundle.join("bin").join("TachyonRustCompanion.dll"),
+    )
+    .await?;
+    Ok(())
+}
+
 fn stage_companion(
     companions: &[super::registry::NativeCompanionInput],
     stage: &Path,
@@ -137,27 +190,184 @@ fn stage_companion(
         return Ok(None);
     };
     let project = stage.join("project").join("companion");
-    // NativeApplication validates the identifier before staging. A C# string
-    // literal still receives the same escaping as its JSON representation.
     let identifier = serde_json::to_string(application_id).map_err(|_| {
         native_tool_failure(1605, "Cannot encode the companion application identifier.")
     })?;
     let application = format!(
         "internal static class TacApplication {{ internal const string Id = {identifier}; }}\n"
     );
+    let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
+    let prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
+    let events = crate::route_types::WebEventSources::csharp();
     write(
         &project.join("TachyonCompanion.cs"),
-        format!("{CSHARP_COMPANION_USING}\n{application}\n{authored}\n{CSHARP_COMPANION_PRELUDE}")
-            .as_bytes(),
+        format!("{using}\n{application}\n{authored}\n{prelude}{events}").as_bytes(),
     )?;
     write(
         &project.join("TachyonCompanion.csproj"),
-        CSHARP_COMPANION_PROJECT.as_bytes(),
+        WindowsHostGenerator::CSHARP_COMPANION_PROJECT.as_bytes(),
     )?;
     Ok(Some(project))
 }
 
-/// Publishes the staged companion beside the executable that loads it.
+pub(crate) async fn web_dotnet(
+    snapshot_root: &Path,
+    services: &[(String, String, PathBuf)],
+    profile: crate::BuildProfile,
+) -> Result<Vec<(String, Vec<u8>)>, Failure> {
+    let companions = web_companion_inputs(snapshot_root, services);
+    let Some(authored) =
+        super::registry::source(&companions, crate::project::NativeCompanion::CSharp)?
+    else {
+        return Ok(Vec::new());
+    };
+    let (authored, fsharp) = crate::fsharp_source::FsharpSource::web_split(&authored);
+    let fsharp_files = super::fsharp_web_project::FsharpWebProject::files(snapshot_root, fsharp)?;
+    let source = web_source(authored);
+    let version = run_tool("dotnet", &["--version"]).await.map_err(|_| {
+        native_tool_failure(
+            1605,
+            "A C# web service needs the .NET SDK with the wasm-tools workload: install .NET 9 \
+             or later, then run `dotnet workload install wasm-tools`.",
+        )
+    })?;
+    let project = super::fsharp_web_project::FsharpWebProject::referenced(
+        &WindowsHostGenerator::csharp_web_project(profile),
+        fsharp,
+    );
+    let mut keyed_source = source.clone();
+    for (_, contents) in &fsharp_files {
+        keyed_source.push_str(contents);
+    }
+    let key = web_cache_key(&version, &project, &keyed_source);
+    let cached = crate::cache::root().join("dotnet-web").join(key);
+    if !cached.is_dir() {
+        publish_web_framework(&project, &source, &fsharp_files, &cached).await?;
+    }
+    read_web_framework(&cached)
+}
+
+fn web_companion_inputs(
+    snapshot_root: &Path,
+    services: &[(String, String, PathBuf)],
+) -> Vec<super::registry::NativeCompanionInput> {
+    let mut companions = Vec::new();
+    for (service, class, source) in services {
+        companions.push(super::registry::NativeCompanionInput {
+            snapshot_root: snapshot_root.to_path_buf(),
+            language: crate::project::NativeCompanion::CSharp,
+            source: source.clone(),
+            service: service.clone(),
+            class: class.clone(),
+            web_assembly: true,
+        });
+    }
+    companions
+}
+
+fn web_source(authored: &str) -> String {
+    use std::fmt::Write as _;
+    let full_prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
+    let prelude = full_prelude
+        .split("// The host's view of the companion: two ordinary C functions")
+        .next()
+        .unwrap_or(full_prelude);
+    let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
+    let mut storage_hosts = String::new();
+    for (index, namespace) in authored
+        .split("namespace TachyonService")
+        .skip(1)
+        .enumerate()
+    {
+        if namespace.contains("public static class BehaviorStorage") {
+            let _ = write!(
+                storage_hosts,
+                "\n        TachyonService{index}.BehaviorStorage.Host ??= Storage;"
+            );
+        }
+    }
+    let entry = WindowsHostGenerator::CSHARP_WEB_ENTRY.replace(
+        "Tac.WebEmit ??= Emit;",
+        &format!("Tac.WebEmit ??= Emit;{storage_hosts}"),
+    );
+    format!(
+        "{using}using System.Runtime.InteropServices.JavaScript;\n\n\
+         internal static class TacApplication {{ internal const string Id = \"web\"; }}\n\n\
+         {authored}\n{prelude}\n{}{entry}",
+        crate::route_types::WebEventSources::csharp()
+    )
+}
+
+fn web_cache_key(version: &str, project: &str, source: &str) -> String {
+    use sha2::{Digest, Sha256};
+    use std::fmt::Write as _;
+    let mut hasher = Sha256::new();
+    for part in [version, project, source] {
+        hasher.update(part.as_bytes());
+        hasher.update([0]);
+    }
+    let digest = hasher.finalize();
+    let mut key = String::new();
+    for byte in &digest {
+        let _ = write!(key, "{byte:02x}");
+    }
+    key
+}
+
+async fn publish_web_framework(
+    project: &str,
+    source: &str,
+    extra_files: &[(String, String)],
+    cached: &Path,
+) -> Result<(), Failure> {
+    let staged = tempfile::Builder::new()
+        .prefix(".tachyon-dotnet-web-")
+        .tempdir()
+        .map_err(|error| {
+            native_tool_failure(1605, &format!("Cannot stage C# services: {error}"))
+        })?;
+    write(&staged.path().join("TachyonServices.cs"), source.as_bytes())?;
+    write(
+        &staged.path().join("TachyonServices.csproj"),
+        project.as_bytes(),
+    )?;
+    for (relative, contents) in extra_files {
+        write(&staged.path().join(relative), contents.as_bytes())?;
+    }
+    super::host::run_tool_in(
+        "dotnet",
+        &["publish", "-c", "Release", "--nologo", "-o", "out"],
+        Some(staged.path()),
+    )
+    .await?;
+    let framework = staged.path().join("out/wwwroot/_framework");
+    let partial = cached.with_extension("partial");
+    let _ = std::fs::remove_dir_all(&partial);
+    super::host::native_io(std::fs::create_dir_all(&partial), &partial)?;
+    for entry in super::host::native_io(std::fs::read_dir(&framework), &framework)?.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            let target = partial.join(entry.file_name());
+            super::host::native_io(std::fs::copy(&path, &target), &target)?;
+        }
+    }
+    super::host::native_io(std::fs::rename(&partial, cached), cached)
+}
+
+fn read_web_framework(cached: &Path) -> Result<Vec<(String, Vec<u8>)>, Failure> {
+    let mut files = Vec::new();
+    for entry in super::host::native_io(std::fs::read_dir(cached), cached)?.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        files.push((
+            format!("_framework/{name}"),
+            super::host::native_io(std::fs::read(&path), &path)?,
+        ));
+    }
+    files.sort();
+    Ok(files)
+}
+
 async fn publish_companion(project: &Path, bin: &Path) -> Result<(), Failure> {
     if run_tool("dotnet", &["--version"]).await.is_err() {
         return Err(native_tool_failure(
@@ -181,37 +391,15 @@ async fn publish_companion(project: &Path, bin: &Path) -> Result<(), Failure> {
     Ok(())
 }
 
-/// Returns the C compiler that produces a Windows executable on this machine.
-///
-/// MSVC is the platform's own toolchain and the one `WebView2`'s SDK targets, so
-/// a Windows host is built the way a Windows application is built. It only
-/// runs on Windows, which puts this host on the same footing as the macOS and
-/// Linux ones: a native host is built on its own operating system. See
-/// ADR 0017.
 const fn windows_compiler() -> &'static str {
     "cl"
 }
 
-/// Writes an `.ico` wrapping the manifest's PNG, and compiles it to a `.res`.
-///
-/// An icon directory may hold a PNG verbatim rather than a DIB, which Windows
-/// has read since Vista — so no converter is needed, just a 22-byte header in
-/// front of the file the project already ships. The one constraint is size: a
-/// PNG-compressed entry may not exceed 256 pixels, so the largest icon within
-/// that is the one used.
-///
-/// Returns the `.res` to hand the linker, or `None` when the project declared
-/// no icon small enough.
-///
-/// # Errors
-///
-/// Returns diagnostics when the resource compiler is absent or refuses.
 async fn stage_icon(
     application: &NativeApplication,
     web_bundle: &Path,
     stage: &Path,
 ) -> Result<Option<PathBuf>, Failure> {
-    // 256 is the format's ceiling for a PNG-compressed entry, not a taste.
     let Some(source) = application.icon_within(256) else {
         return Ok(None);
     };
@@ -222,26 +410,8 @@ async fn stage_icon(
     let Ok(length) = u32::try_from(png.len()) else {
         return Ok(None);
     };
-
-    let mut ico = Vec::with_capacity(png.len() + 22);
-    ico.extend_from_slice(&0u16.to_le_bytes()); // reserved
-    ico.extend_from_slice(&1u16.to_le_bytes()); // an icon, not a cursor
-    ico.extend_from_slice(&1u16.to_le_bytes()); // one image
-    // Zero means 256 in this field, and every size we accept is at most that.
-    ico.push(0);
-    ico.push(0);
-    ico.push(0); // palette entries: none, it is truecolour
-    ico.push(0); // reserved
-    ico.extend_from_slice(&1u16.to_le_bytes()); // colour planes
-    ico.extend_from_slice(&32u16.to_le_bytes()); // bits per pixel
-    ico.extend_from_slice(&length.to_le_bytes());
-    ico.extend_from_slice(&22u32.to_le_bytes()); // the image follows the header
-    ico.extend_from_slice(&png);
-
     let icon = stage.join("icon.ico");
-    super::host::write(&icon, &ico)?;
-    // `1` is the ordinal Windows shows for an executable, which is why the
-    // shell picks it up without the application asking.
+    super::host::write(&icon, &ico_bytes(&png, length))?;
     let script = stage.join("icon.rc");
     super::host::write(&script, b"1 ICON \"icon.ico\"\n")?;
 
@@ -257,6 +427,23 @@ async fn stage_icon(
     )
     .await?;
     Ok(Some(compiled))
+}
+
+fn ico_bytes(png: &[u8], length: u32) -> Vec<u8> {
+    let mut ico = Vec::with_capacity(png.len() + 22);
+    ico.extend_from_slice(&0u16.to_le_bytes());
+    ico.extend_from_slice(&1u16.to_le_bytes());
+    ico.extend_from_slice(&1u16.to_le_bytes());
+    ico.push(0);
+    ico.push(0);
+    ico.push(0);
+    ico.push(0);
+    ico.extend_from_slice(&1u16.to_le_bytes());
+    ico.extend_from_slice(&32u16.to_le_bytes());
+    ico.extend_from_slice(&length.to_le_bytes());
+    ico.extend_from_slice(&22u32.to_le_bytes());
+    ico.extend_from_slice(png);
+    ico
 }
 
 async fn compile_c(
@@ -275,83 +462,63 @@ async fn compile_c(
     }
     let sdk = webview2_sdk()?;
     let compiler = windows_compiler();
-    // cl.exe writes its banner to stdout and has no --version; the banner line
-    // is the version, and /? exits without needing an input file.
     let version = first_line(&run_tool(compiler, &["/?"]).await?, "MSVC unknown");
     let source = compiler_path(source, "Host source")?;
     let executable = compiler_path(executable, "Application")?;
-    let object_directory = compiler_path(
-        executable
-            .rsplit_once('\\')
-            .map_or(Path::new("."), |(directory, _)| Path::new(directory)),
-        "Object directory",
-    )
-    .unwrap_or_else(|_| String::from("."));
-    run_tool(
-        compiler,
-        &[
-            "/nologo",
-            "/std:c17",
-            "/W4",
-            "/WX",
-            "/O2",
-            &format!("/I{}", sdk.join("build/native/include").display()),
-            &format!("/Fo{object_directory}\\"),
-            &source,
-            // A resource object is a linker input; `cl` forwards anything it
-            // does not recognise as C.
-            resource.unwrap_or("/nologo"),
-            &format!("/Fe:{executable}"),
-            "/link",
-            &format!("/LIBPATH:{}", sdk.join("build/native/x64").display()),
-            "WebView2LoaderStatic.lib",
-            "user32.lib",
-            "shell32.lib",
-            "shlwapi.lib",
-            "comctl32.lib",
-            "gdi32.lib",
-            "ole32.lib",
-            "oleaut32.lib",
-            "version.lib",
-            "advapi32.lib",
-            "/SUBSYSTEM:WINDOWS",
-            "/ENTRY:wWinMainCRTStartup",
-        ],
-    )
-    .await?;
+    let include = format!("/I{}", sdk.join("build/native/include").display());
+    let objects = format!("/Fo{}\\", object_directory(&executable));
+    let output = format!("/Fe:{executable}");
+    let library_path = format!("/LIBPATH:{}", sdk.join("build/native/x64").display());
+    let mut arguments = vec![
+        "/nologo",
+        "/std:c17",
+        "/W4",
+        "/WX",
+        "/O2",
+        include.as_str(),
+        objects.as_str(),
+        source.as_str(),
+        resource.unwrap_or("/nologo"),
+        output.as_str(),
+        "/link",
+        library_path.as_str(),
+    ];
+    arguments.extend(WindowsHostGenerator::LINKER_ARGUMENTS);
+    run_tool(compiler, &arguments).await?;
     Ok(version)
 }
 
-/// Resolves the `WebView2` SDK the generated host compiles against.
-///
-/// The SDK is a `NuGet` package rather than part of the Windows SDK, so it is a
-/// declared prerequisite like GTK4 is on Linux. Naming it explicitly beats
-/// hand-declaring its COM interfaces here: a wrong vtable offset is a silent
-/// crash, not a compile error.
+fn object_directory(executable: &str) -> String {
+    let directory = match executable.rsplit_once('\\') {
+        Some((directory, _)) => Path::new(directory),
+        None => Path::new("."),
+    };
+    compiler_path(directory, "Object directory").unwrap_or_else(|_| String::from("."))
+}
+
 fn webview2_sdk() -> Result<PathBuf, Failure> {
-    let configured = std::env::var_os(WEBVIEW2_SDK).map(PathBuf::from);
-    if let Some(path) = configured {
-        if path.join("build/native/include/WebView2.h").is_file() {
-            return Ok(path);
-        }
+    let variable = WindowsHostGenerator::WEBVIEW2_SDK;
+    let Some(path) = std::env::var_os(variable).map(PathBuf::from) else {
         return Err(native_tool_failure(
             1605,
             &format!(
-                "{WEBVIEW2_SDK} does not contain build/native/include/WebView2.h. \
-                 Point it at an extracted Microsoft.Web.WebView2 package."
+                "The Windows host needs the WebView2 SDK. Restore Microsoft.Web.WebView2 \
+                 and set {variable} to the extracted package directory."
             ),
         ));
+    };
+    if path.join("build/native/include/WebView2.h").is_file() {
+        return Ok(path);
     }
     Err(native_tool_failure(
         1605,
         &format!(
-            "The Windows host needs the WebView2 SDK. Restore Microsoft.Web.WebView2 \
-             and set {WEBVIEW2_SDK} to the extracted package directory."
+            "{variable} does not contain build/native/include/WebView2.h. \
+             Point it at an extracted Microsoft.Web.WebView2 package."
         ),
     ))
 }
 
-/// Strips the extended-length prefix MSVC does not accept on a command line.
 fn compiler_path(path: &Path, label: &str) -> Result<String, Failure> {
     let value = path
         .to_str()
@@ -388,7 +555,7 @@ fn c_source(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
 ) -> String {
-    C_HOST
+    WindowsHostGenerator::C_HOST
         .replace(
             "__LOCAL_BUNDLE_HELPERS__",
             &super::routes::c_local_bundle(index, companions, "https://tachyon.local"),
@@ -405,16 +572,13 @@ fn c_source(
         )
 }
 
-/// The generated host source, for the capability-drift test.
-///
-/// The dispatch arms live in this string rather than in Rust, so the only way
-/// to assert that a host implements what the bundle advertises is to read it.
 #[cfg(test)]
 pub(super) const fn host_source() -> &'static str {
-    C_HOST
+    WindowsHostGenerator::C_HOST
 }
 
-const C_HOST: &str = r#"#ifndef UNICODE
+impl WindowsHostGenerator {
+    const C_HOST: &str = r#"#ifndef UNICODE
 #define UNICODE
 #endif
 #ifndef _UNICODE
@@ -423,7 +587,6 @@ const C_HOST: &str = r#"#ifndef UNICODE
 #define WIN32_LEAN_AND_MEAN
 #define COBJMACROS
 
-/* windows.h must precede the other platform headers; they depend on its types. */
 #include <windows.h>
 
 #include <objbase.h>
@@ -433,25 +596,14 @@ const C_HOST: &str = r#"#ifndef UNICODE
 #include <stdlib.h>
 #include <string.h>
 
-/* COBJMACROS is what makes the C convenience forms exist at all; without it a
-   MIDL header declares only the vtable structs and every call below is an
-   implicit declaration, which /W4 /WX turns into an error. */
 #include <WebView2.h>
 
 __LOCAL_BUNDLE_HELPERS__
 
-/* A Win32 window around one WebView2 showing the application's own bundle.
-   This used to lower a Native UI tree into a generated control table; see
-   native/routes.rs for why it does not any more. */
-
 #define TACHYON_APP_NAME "__APP_NAME__"
 #define TACHYON_BUNDLE_ID "__BUNDLE_ID__"
 #define TACHYON_ENTRY_ROUTE "__ENTRY_ROUTE__"
-/* The unit separator the page-side shim joins its arguments with. */
 #define TACHYON_SEPARATOR L'\x1f'
-/* Carries one companion publish onto the UI thread. WebView2 may only be
-   touched from the thread that created its controller, and a companion may
-   publish from any thread it started itself. */
 #define TACHYON_WM_PUBLISH (WM_APP + 1)
 
 static const char *TACHYON_NATIVE_SHIM = "__NATIVE_SHIM__";
@@ -465,9 +617,6 @@ static const char *g_route = TACHYON_ENTRY_ROUTE;
 static wchar_t g_resource_root[MAX_PATH];
 static LONG g_pending_publishes = 0;
 
-/* The native companion, published beside this executable as a NativeAOT
-   library and reached through two ordinary C entry points. It is looked up
-   rather than linked, so an application without one simply finds nothing. */
 typedef const char *(*TachyonCompanionInvoke)(const char *);
 typedef void (*TachyonCompanionFree)(const char *);
 typedef void (*TachyonCompanionEmit)(const char *);
@@ -488,8 +637,6 @@ static const TachyonLocalRoute *tachyon_current_route(void) {
 }
 
 static void tachyon_record(const char *event) {
-  /* Sized so the suffixes below always fit: MAX_PATH for the base leaves no
-     room for them, which a truncating snprintf is right to complain about. */
   char directory[MAX_PATH];
   if (GetEnvironmentVariableA("LOCALAPPDATA", directory, MAX_PATH) == 0) {
     return;
@@ -507,14 +654,6 @@ static void tachyon_record(const char *event) {
   fclose(handle);
 }
 
-/* The sink handed to the companion.
-
-   The other direction of the bridge: everything else is the page asking a
-   question, and a companion watching the platform has no question to answer
-   because nobody asked one.
-
-   The payload is copied because the pointer is borrowed for this call only and
-   the window proc that uses it runs later, on another thread. */
 static void tachyon_companion_emit(const char *payload) {
   HWND window = (HWND)InterlockedCompareExchangePointer(&g_publish_window, NULL, NULL);
   if (payload == NULL || window == NULL || strnlen(payload, TACHYON_MESSAGE_LIMIT + 1) > TACHYON_MESSAGE_LIMIT) {
@@ -553,8 +692,6 @@ static void tachyon_companion_load_one(const wchar_t *filename, int language) {
   }
   g_companion_invoke[language] = (TachyonCompanionInvoke)GetProcAddress(library, "tac_native_invoke");
   g_companion_free[language] = (TachyonCompanionFree)GetProcAddress(library, "tac_native_free");
-  /* Looked up rather than required: a companion built before this existed
-     loads and answers questions, it just never publishes. */
   TachyonCompanionSetEmit set_emit =
       (TachyonCompanionSetEmit)GetProcAddress(library, "tac_native_set_emit");
   if (set_emit != NULL) {
@@ -570,8 +707,14 @@ static void tachyon_companion_load(void) {
   tachyon_companion_load_one(L"TachyonCompanion.dll", 2);
 }
 
-/* The capability is echoed into a JSON string, so anything that could close
-   that string early is dropped rather than escaped. */
+static void tachyon_companion_dispose(void) {
+  for (int language = 1; language < 3; language += 1) {
+    if (g_companion_invoke[language] == NULL) continue;
+    const char *answer = g_companion_invoke[language]("{\"op\":\"host-dispose\"}");
+    if (answer != NULL && g_companion_free[language] != NULL) g_companion_free[language](answer);
+  }
+}
+
 static void tachyon_safe_name(const char *value, char *out, size_t size) {
   size_t written = 0;
   for (size_t index = 0; value[index] != '\0' && written + 1 < size && index < 64; index += 1) {
@@ -616,24 +759,31 @@ static char *tachyon_narrow(const wchar_t *value) {
   return narrow;
 }
 
-/* One function is the whole native surface: a capability and a JSON payload
-   in, a JSON answer out. */
 static char *tachyon_handle(const char *capability, const char *payload) {
   (void)payload;
   if (strcmp(capability, "companion.invoke") == 0) {
+    int operation = tachyon_payload_string_matches(payload, "op", "init")
+      || tachyon_payload_string_matches(payload, "op", "get")
+      || tachyon_payload_string_matches(payload, "op", "set")
+      || tachyon_payload_string_matches(payload, "op", "call")
+      || tachyon_payload_string_matches(payload, "op", "dispose");
     const TachyonLocalRoute *route = tachyon_current_route();
-    if (route == NULL || !tachyon_payload_route_matches(payload, route->route)) return _strdup("{\"error\":\"Native route mismatch.\"}");
-    int language = route->language;
-    if (language == 0) return _strdup(tachyon_payload_string_matches(payload, "op", "init")
+    if (!operation || route == NULL || !tachyon_payload_route_matches(payload, route->route)) return _strdup("{\"error\":\"Native route mismatch.\"}");
+    if (route->language == 0) return _strdup(tachyon_payload_string_matches(payload, "op", "init")
       ? "{\"value\":{\"fields\":[],\"methods\":[]}}" : "{\"error\":\"No native companion for this route.\"}");
-    if (g_companion_invoke[language] == NULL) {
-      return _strdup("{\"error\":\"This application has no native companion.\"}");
+    char *copy = NULL;
+    for (int language = 2; language >= 1; language -= 1) {
+      if (g_companion_invoke[language] == NULL) continue;
+      const char *answer = g_companion_invoke[language](payload);
+      int unknown = answer != NULL && strstr(answer, "\"TY_NATIVE_SERVICE\"") != NULL;
+      if (copy != NULL) free(copy);
+      copy = _strdup(answer != NULL && strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : "{\"error\":\"Invalid native response.\"}");
+      if (g_companion_free[language] != NULL && answer != NULL) {
+        g_companion_free[language](answer);
+      }
+      if (!unknown) break;
     }
-    const char *answer = g_companion_invoke[language](payload);
-    char *copy = _strdup(answer != NULL && strnlen(answer, TACHYON_MESSAGE_LIMIT + 1) <= TACHYON_MESSAGE_LIMIT ? answer : "{\"error\":\"Invalid native response.\"}");
-    if (g_companion_free[language] != NULL && answer != NULL) {
-      g_companion_free[language](answer);
-    }
+    if (copy == NULL) return _strdup("{\"error\":\"This application has no native companion.\"}");
     return copy;
   }
   char safe[80];
@@ -647,8 +797,6 @@ static char *tachyon_handle(const char *capability, const char *payload) {
   return answer;
 }
 
-/* WebView2 delivers a message as one string, so the shim joins the capability
-   and its payload with a unit separator and the host splits them here. */
 static void tachyon_on_message(const wchar_t *raw) {
   if (wcsnlen(raw, TACHYON_MESSAGE_LIMIT + 129) > TACHYON_MESSAGE_LIMIT + 128) return;
   char *message = tachyon_narrow(raw);
@@ -682,9 +830,6 @@ static void tachyon_on_message(const wchar_t *raw) {
   free(message);
 }
 
-/* These callbacks have static lifetime. Only IUnknown and their declared
-   interface are supported; claiming arbitrary COM interfaces permits callers
-   to use the wrong vtable (for example an agility or marshaling interface). */
 static HRESULT tachyon_query_interface(void *self, REFIID iid, void **object, const wchar_t *supported) {
   if (object == NULL || iid == NULL) return E_POINTER;
   *object = NULL;
@@ -739,18 +884,17 @@ static ICoreWebView2WebMessageReceivedEventHandlerVtbl g_message_vtbl = {
     message_query, message_add_ref, message_release, message_invoke};
 static TachyonMessageHandler g_message_handler = {&g_message_vtbl};
 
-typedef struct { ICoreWebView2NavigationStartingEventHandlerVtbl *lpVtbl; } TachyonNavigationHandler;
+typedef struct { ICoreWebView2NavigationStartingEventHandlerVtbl *lpVtbl; int top_level; } TachyonNavigationHandler;
 static HRESULT STDMETHODCALLTYPE navigation_query(ICoreWebView2NavigationStartingEventHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{9adbe429-f36d-432b-9ddc-f8881fbd76e3}"); }
 static ULONG STDMETHODCALLTYPE navigation_add_ref(ICoreWebView2NavigationStartingEventHandler *self) { (void)self; return 1; }
 static ULONG STDMETHODCALLTYPE navigation_release(ICoreWebView2NavigationStartingEventHandler *self) { (void)self; return 1; }
 static HRESULT STDMETHODCALLTYPE navigation_invoke(ICoreWebView2NavigationStartingEventHandler *self, ICoreWebView2 *sender, ICoreWebView2NavigationStartingEventArgs *arguments) {
-  (void)self;
   LPWSTR uri = NULL;
   if (FAILED(ICoreWebView2NavigationStartingEventArgs_get_Uri(arguments, &uri)) || uri == NULL) return E_FAIL;
   char *text = tachyon_narrow(uri), path[TACHYON_PATH_LIMIT];
   const TachyonLocalRoute *route = text != NULL && tachyon_local_path(text, path, sizeof(path)) ? tachyon_document_route(path) : NULL;
   if (route == NULL) ICoreWebView2NavigationStartingEventArgs_put_Cancel(arguments, TRUE);
-  else {
+  else if (((TachyonNavigationHandler *)self)->top_level) {
     g_route = route->route;
     if (path[strlen(path) - 1] != '/' && strcmp(path + 1, route->document) != 0) {
       size_t boundary = wcscspn(uri, L"?#"), length = wcslen(uri);
@@ -761,12 +905,13 @@ static HRESULT STDMETHODCALLTYPE navigation_invoke(ICoreWebView2NavigationStarti
         ICoreWebView2NavigationStartingEventArgs_put_Cancel(arguments, TRUE);
         ICoreWebView2_Navigate(sender, normalized); free(normalized);
       }
-    }
+    } else tachyon_companion_dispose();
   }
   free(text); CoTaskMemFree(uri); return S_OK;
 }
 static ICoreWebView2NavigationStartingEventHandlerVtbl g_navigation_vtbl = {navigation_query, navigation_add_ref, navigation_release, navigation_invoke};
-static TachyonNavigationHandler g_navigation_handler = {&g_navigation_vtbl};
+static TachyonNavigationHandler g_navigation_handler = {&g_navigation_vtbl, 1};
+static TachyonNavigationHandler g_frame_navigation_handler = {&g_navigation_vtbl, 0};
 
 typedef struct { ICoreWebView2NewWindowRequestedEventHandlerVtbl *lpVtbl; } TachyonNewWindowHandler;
 static HRESULT STDMETHODCALLTYPE new_window_query(ICoreWebView2NewWindowRequestedEventHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{d4c185fe-c81c-4989-97af-2d3fa7ab5651}"); }
@@ -834,7 +979,7 @@ static HRESULT STDMETHODCALLTYPE resource_invoke(ICoreWebView2WebResourceRequest
   }
   wchar_t headers[1024];
   _snwprintf_s(headers, 1024, _TRUNCATE,
-    L"Content-Type: %s\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'none'; object-src 'none'; base-uri 'self'\r\n",
+    L"Content-Type: %s\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'none'; object-src 'none'; base-uri 'self'\r\n",
     stream == NULL ? L"text/plain" : tachyon_content_type(relative));
   ICoreWebView2WebResourceResponse *response = NULL;
   if (SUCCEEDED(ICoreWebView2Environment_CreateWebResourceResponse(g_environment, stream, stream == NULL ? 404 : 200, stream == NULL ? L"Not Found" : L"OK", headers, &response)) && response != NULL) {
@@ -846,8 +991,6 @@ static HRESULT STDMETHODCALLTYPE resource_invoke(ICoreWebView2WebResourceRequest
 static ICoreWebView2WebResourceRequestedEventHandlerVtbl g_resource_vtbl = {resource_query, resource_add_ref, resource_release, resource_invoke};
 static TachyonResourceHandler g_resource_handler = {&g_resource_vtbl};
 
-/* AddScript is asynchronous: navigate only after the native bridge has been
-   registered for document creation, never in a race with its completion. */
 typedef struct { ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVtbl *lpVtbl; } TachyonScriptHandler;
 static HRESULT STDMETHODCALLTYPE script_query(ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler *self, REFIID iid, void **object) { return tachyon_query_interface(self, iid, object, L"{b99369f3-9b11-47b5-bc6f-8e7895fcea17}"); }
 static ULONG STDMETHODCALLTYPE script_add_ref(ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler *self) { (void)self; return 1; }
@@ -911,10 +1054,8 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   ICoreWebView2_add_WebMessageReceived(
       g_webview, (ICoreWebView2WebMessageReceivedEventHandler *)&g_message_handler, &token);
   ICoreWebView2_add_NavigationStarting(g_webview, (ICoreWebView2NavigationStartingEventHandler *)&g_navigation_handler, &token);
-  ICoreWebView2_add_FrameNavigationStarting(g_webview, (ICoreWebView2NavigationStartingEventHandler *)&g_navigation_handler, &token);
+  ICoreWebView2_add_FrameNavigationStarting(g_webview, (ICoreWebView2NavigationStartingEventHandler *)&g_frame_navigation_handler, &token);
   ICoreWebView2_add_NewWindowRequested(g_webview, (ICoreWebView2NewWindowRequestedEventHandler *)&g_new_window_handler, &token);
-  /* WebView2 folder mappings bypass WebResourceRequested. This responder must
-     own the origin so root and dynamic routes resolve to compiled documents. */
   ICoreWebView2_AddWebResourceRequestedFilter(g_webview, L"https://tachyon.local/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
   ICoreWebView2_add_WebResourceRequested(g_webview, (ICoreWebView2WebResourceRequestedEventHandler *)&g_resource_handler, &token);
 
@@ -927,8 +1068,6 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   if (separator == NULL) return E_FAIL;
   *separator = L'\0';
   if (wcscat_s(g_resource_root, MAX_PATH, L"\\resources\\WebBundle") != 0) return E_FAIL;
-  /* Injected before the bundle's own scripts, the same shim every host uses,
-     with the Windows half of the bridge appended. */
   size_t script_size = strlen(TACHYON_NATIVE_SHIM) + 2048;
   char *script = calloc(script_size, 1);
   if (script == NULL) return E_OUTOFMEMORY;
@@ -1007,7 +1146,6 @@ static LRESULT CALLBACK tachyon_window_proc(HWND window, UINT message, WPARAM wp
       }
       return 0;
     case TACHYON_WM_PUBLISH: {
-      /* Owned from here: the emit that posted it handed the copy over. */
       char *payload = (char *)lparam;
       if (payload == NULL) {
         return 0;
@@ -1021,6 +1159,7 @@ static LRESULT CALLBACK tachyon_window_proc(HWND window, UINT message, WPARAM wp
       return 0;
     }
     case WM_DESTROY:
+      tachyon_companion_dispose();
       InterlockedExchangePointer(&g_publish_window, NULL);
       tachyon_record("controller.destroyed");
       if (g_controller != NULL) { ICoreWebView2Controller_Close(g_controller); ICoreWebView2Controller_Release(g_controller); g_controller = NULL; }
@@ -1073,6 +1212,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
   return message_result < 0 ? 1 : 0;
 }
 "#;
+}
 
 #[cfg(test)]
 mod tests {
@@ -1081,6 +1221,38 @@ mod tests {
     use super::{application_manifest, c_source, compiler_path, stage_companion, windows_compiler};
     use crate::native::config::NativeApplication;
     use std::path::Path;
+
+    #[test]
+    fn every_csharp_web_namespace_with_the_behavior_runtime_gets_the_page_storage() {
+        let authored = "namespace TachyonService0 {\npublic static class BehaviorStorage { }\n}\n\
+             namespace TachyonService1 {\npublic class Plain { }\n}\n\
+             namespace TachyonService2 {\npublic static class BehaviorStorage { }\n}\n";
+        let source = super::web_source(authored);
+        assert!(source.contains("TachyonService0.BehaviorStorage.Host ??= Storage;"));
+        assert!(!source.contains("TachyonService1.BehaviorStorage"));
+        assert!(source.contains("TachyonService2.BehaviorStorage.Host ??= Storage;"));
+        assert!(!source.contains("        BehaviorStorage.Host"));
+    }
+
+    #[test]
+    fn the_development_web_project_skips_the_native_relink_and_stays_invariant() {
+        let release = super::WindowsHostGenerator::csharp_web_project(crate::BuildProfile::Release);
+        let development =
+            super::WindowsHostGenerator::csharp_web_project(crate::BuildProfile::Development);
+        assert!(release.contains("<InvariantGlobalization>true</InvariantGlobalization>"));
+        assert!(release.contains("<BlazorCacheBootResources>false</BlazorCacheBootResources>"));
+        assert!(!release.contains("WasmBuildNative"));
+        assert!(development.contains("<WasmBuildNative>false</WasmBuildNative>"));
+        assert!(!development.contains("InvariantGlobalization"));
+        assert!(development.contains(
+            r#"<RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" Trim="true" />"#
+        ));
+        assert!(development.contains("<PublishTrimmed>true</PublishTrimmed>"));
+        assert_ne!(
+            super::web_cache_key("9.0", &release, "source"),
+            super::web_cache_key("9.0", &development, "source")
+        );
+    }
 
     fn application() -> NativeApplication {
         NativeApplication {
@@ -1103,20 +1275,58 @@ mod tests {
         }
     }
 
+    fn catalog_host_source() -> String {
+        c_source(&application(), &index(), &[])
+    }
+
+    fn write_owned_card_service(
+        snapshot_root: &Path,
+    ) -> crate::native::registry::NativeCompanionInput {
+        let source = snapshot_root.join("client/services/OwnedCardService.cs");
+        std::fs::create_dir_all(source.parent().expect("companion parent"))
+            .expect("service directory");
+        std::fs::write(&source, owned_card_service_source()).expect("companion");
+        crate::native::registry::NativeCompanionInput {
+            snapshot_root: snapshot_root.to_path_buf(),
+            language: crate::project::NativeCompanion::CSharp,
+            source,
+            service: String::from("ownedCard"),
+            class: String::from("OwnedCardService"),
+            web_assembly: false,
+        }
+    }
+
+    fn owned_card_service_source() -> &'static str {
+        "public class OwnedCardService {\npublic int Count = 0;\n}\n"
+    }
+
+    fn staged_companion_source(
+        companions: &[crate::native::registry::NativeCompanionInput],
+        output: &Path,
+        identifier: &str,
+    ) -> String {
+        let project = stage_companion(companions, output, identifier)
+            .expect("stage")
+            .expect("C# project");
+        std::fs::read_to_string(project.join("TachyonCompanion.cs")).expect("generated companion")
+    }
+
     #[test]
     fn the_host_is_a_win32_window_around_one_webview() {
-        let source = c_source(&application(), &index(), &[]);
+        let source = catalog_host_source();
         assert!(source.contains("#define COBJMACROS"));
         assert!(source.contains("CreateCoreWebView2EnvironmentWithOptions"));
         assert!(source.contains("ICoreWebView2_Navigate"));
         assert!(source.contains("controller.created"));
         assert!(source.contains("controller.destroyed"));
         assert!(source.contains("tac_native_invoke"));
-        // Nothing lowers the view into a generated control table any more.
         assert!(!source.contains("TACHYON_ITEMS"));
         assert!(!source.contains("tachyon_create_controls"));
         assert!(source.contains("ICoreWebView2WebMessageReceivedEventArgs_get_Source"));
         assert!(source.contains("tachyon_payload_route_matches"));
+        assert!(source.contains("g_frame_navigation_handler = {&g_navigation_vtbl, 0}"));
+        assert!(source.contains("else tachyon_companion_dispose()"));
+        assert!(source.contains("if (!operation || route == NULL"));
         assert!(source.contains("TachyonRustCompanion.dll"));
         assert!(source.contains("CoInitializeEx"));
         assert!(!source.contains("file:///"));
@@ -1125,9 +1335,7 @@ mod tests {
 
     #[test]
     fn bundle_requests_reach_the_canonical_route_responder() {
-        let source = c_source(&application(), &index(), &[]);
-        // A virtual-folder mapping bypasses WebResourceRequested entirely:
-        // `/` becomes a directory, and dynamic paths never reach the resolver.
+        let source = catalog_host_source();
         assert!(!source.contains("SetVirtualHostNameToFolderMapping"));
         assert!(source.contains("ICoreWebView2_AddWebResourceRequestedFilter"));
         assert!(source.contains("ICoreWebView2_add_WebResourceRequested"));
@@ -1146,39 +1354,89 @@ mod tests {
 
     #[test]
     fn the_host_is_built_with_the_platform_toolchain() {
-        // MSVC is what the WebView2 SDK targets, and it only runs on Windows.
         assert_eq!(windows_compiler(), "cl");
     }
 
     #[test]
     fn csharp_local_storage_is_scoped_to_the_application_identifier() {
-        let temporary = tempfile::tempdir().expect("temporary");
-        let source = temporary.path().join("tac.cs");
-        std::fs::write(
-            &source,
-            "public class Companion {\npublic int Count = 0;\n}\n",
-        )
-        .expect("companion");
-        let companions = [crate::native::registry::NativeCompanionInput {
-            language: crate::project::NativeCompanion::CSharp,
-            source,
-            route: String::from("/"),
-        }];
+        let temporary_directory = tempfile::tempdir().expect("temporary");
+        let companions = [write_owned_card_service(temporary_directory.path())];
         for identifier in ["dev.tachyon.first", "dev.tachyon.second"] {
-            let output = temporary.path().join(identifier);
-            let project = stage_companion(&companions, &output, identifier)
-                .expect("stage")
-                .expect("C# project");
-            let generated = std::fs::read_to_string(project.join("TachyonCompanion.cs"))
-                .expect("generated companion");
+            let output = temporary_directory.path().join(identifier);
+            let generated = staged_companion_source(&companions, &output, identifier);
             assert!(generated.contains(&format!("Id = \"{identifier}\"")));
             assert!(generated.contains("\"Tachyon\", TacApplication.Id, \"store.txt\""));
         }
     }
 
     #[test]
+    fn a_failing_csharp_companion_call_answers_a_fixed_error_without_the_exception_text() {
+        let Some(version) = std::process::Command::new("dotnet")
+            .arg("--version")
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        else {
+            eprintln!("skipping: dotnet is unavailable");
+            return;
+        };
+        let major = version.split('.').next().expect("major version");
+        let temporary_directory = tempfile::tempdir().expect("temporary");
+        let source = temporary_directory
+            .path()
+            .join("client/services/LeakyService.cs");
+        std::fs::create_dir_all(source.parent().expect("companion parent"))
+            .expect("service directory");
+        std::fs::write(
+            &source,
+            "public class LeakyService {\npublic int Fail() { throw new System.InvalidOperationException(\"secret connection string\"); }\n}\n",
+        )
+        .expect("companion");
+        let companions = [crate::native::registry::NativeCompanionInput {
+            snapshot_root: temporary_directory.path().to_path_buf(),
+            language: crate::project::NativeCompanion::CSharp,
+            source,
+            service: String::from("leaky"),
+            class: String::from("LeakyService"),
+            web_assembly: false,
+        }];
+        let project = stage_companion(&companions, temporary_directory.path(), "dev.tachyon.leaky")
+            .expect("stage")
+            .expect("C# project");
+        std::fs::write(
+            project.join("TachyonCompanion.csproj"),
+            format!(
+                "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net{major}.0</TargetFramework><OutputType>Exe</OutputType><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks><InvariantGlobalization>true</InvariantGlobalization></PropertyGroup></Project>\n"
+            ),
+        )
+        .expect("project file");
+        std::fs::write(
+            project.join("Program.cs"),
+            "string Ask(string body) => Tac.Invoke(\"{\\\"route\\\":\\\"/\\\",\\\"owner\\\":\\\"00000000-0000-4000-8000-000000000001\\\",\\\"service\\\":\\\"leaky\\\",\" + body + \"}\");\n\
+             var methods = System.Text.Json.Nodes.JsonNode.Parse(Ask(\"\\\"op\\\":\\\"init\\\"\"))[\"value\"][\"methods\"].AsArray();\n\
+             System.Console.Write(Ask(\"\\\"op\\\":\\\"call\\\",\\\"args\\\":[],\\\"name\\\":\\\"\" + methods[0].GetValue<string>() + \"\\\"\"));\n",
+        )
+        .expect("program");
+        let output = std::process::Command::new("dotnet")
+            .arg("run")
+            .current_dir(&project)
+            .output()
+            .expect("dotnet run");
+        let printed = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "{printed}{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            printed.lines().last().expect("answer"),
+            "{\"error\":\"Native companion operation failed.\"}"
+        );
+    }
+
+    #[test]
     fn extended_length_prefixes_are_stripped_for_the_command_line() {
-        // cl.exe rejects the \\?\ prefix, and keeps backslashes otherwise.
         assert_eq!(
             compiler_path(Path::new(r"\\?\C:\build\host.c"), "Host source").expect("path"),
             r"C:\build\host.c"

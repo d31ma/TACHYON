@@ -1,0 +1,5 @@
+{
+  "heading": "Preview on a device",
+  "body": "Preview accepts exactly one target. If you do not pass --target, Tachyon previews web. A native preview first checks for the platform SDK, compiler and WebView that it needs. It reports any missing dependency before it tries to build.",
+  "code": { "file": "example.sh" }
+}

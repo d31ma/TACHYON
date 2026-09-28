@@ -31,9 +31,11 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
-      - name: Reject an in-tree legacy runtime or legacy entry point
+      - name: Run the repository policy tests
         run: cargo test --locked -p tachyon-contracts --test repository_policy
 
       - name: Check native gate shell entry points
@@ -44,7 +46,7 @@ jobs:
   native:
     name: Native Rust gate (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -60,26 +62,66 @@ jobs:
       - name: Install exact Rust toolchain
         run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt && rustup default 1.97.1
 
-      - name: Install Phase 2 JavaScript runtime
+      - name: Install OpenSSL build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Install Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.18.0
 
-      - name: Install Yon JavaScript runtime
+      - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
 
-      - name: Install Phase 2 Python runtime
+      - name: Install Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: 3.14.6
 
+      - name: Install Ruby for Ruby Yon handlers and client test units
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "4.0.6"
+
+      - name: Install the pinned Emscripten for the Tac Ruby runtime
+        run: node scripts/ci/install-emscripten.mjs "${{ runner.temp }}/tachyon-emscripten"
+
+      - name: Restore the Tac Ruby runtime built from runtimes/ruby-web
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cache/tachyon/ruby-web
+            ~/Library/Caches/Tachyon/ruby-web
+            ~/AppData/Local/Tachyon/Cache/ruby-web
+          key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
+
       - name: Install the pinned TypeScript compiler for tac.ts emission
         run: npm install --no-save typescript@7.0.2 && npx tsc --version
 
-      - name: Show toolchain
-        run: rustc --version --verbose && cargo --version --verbose && node --version && python --version
+      - name: Install Go for Go Yon handlers and Go web services
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27'
+          cache: false
+
+      - name: Install the WebAssembly target for Rust web services on native targets
+        run: rustup target add wasm32-unknown-unknown --toolchain 1.97.1
+
+      - name: Install .NET for C# web services on native targets
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Install the C# WebAssembly workload
+        run: dotnet workload install wasm-tools wasm-tools-net9
+
+      - name: Show tool versions
+        run: rustc --version --verbose && cargo --version --verbose && node --version && python --version && ruby --version && go version
 
       - name: Install checksum-pinned CHEX for real schema contracts
         run: node scripts/ci/install-chex.mjs "${{ runner.temp }}/tachyon-chex"
@@ -109,6 +151,35 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  managed-storage:
+    name: Real managed SQL, document and Redis contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install exact Rust toolchain
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
+
+      - name: Install OpenSSL build and fixture dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev openssl
+
+      - name: Install Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+
+      - name: Install checksum-pinned FYLO
+        run: node scripts/ci/install-fylo.mjs "${{ runner.temp }}/tachyon-fylo"
+
+      - name: Verify SQLite, FYLO, PostgreSQL, MySQL, MariaDB and Redis
+        run: node scripts/test-managed-storage.mjs
+
   supply-chain:
     name: Dependency, license, and source policy
     runs-on: ubuntu-latest
@@ -119,7 +190,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
       - name: Install pinned cargo-deny
         run: cargo install cargo-deny --version 0.19.7 --locked
@@ -128,16 +201,35 @@ jobs:
         run: cargo deny check advisories bans licenses sources
 
   browser:
-    name: Phase 3 Chromium island behavior
+    name: Phase 3 Chromium component and service behavior
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
 
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
+
+      - name: Install the WebAssembly target for Rust web services
+        run: rustup target add wasm32-unknown-unknown --toolchain 1.97.1
+
+      - name: Install Go for Go web services
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27'
+          cache: false
+
+      - name: Install .NET for C# WebAssembly event contracts
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Install the C# WebAssembly workload
+        run: dotnet workload install wasm-tools wasm-tools-net9
 
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -150,34 +242,73 @@ jobs:
           bun install --cwd website --frozen-lockfile
           bunx playwright install --with-deps chromium
 
-      - name: Type-check the migrated website and browser harnesses
-        run: bun run typecheck
+      - name: Install Ruby for the Tac Ruby runtime build
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "4.0.6"
+
+      - name: Install the pinned Emscripten for the Tac Ruby runtime
+        run: node scripts/ci/install-emscripten.mjs "${{ runner.temp }}/tachyon-emscripten"
+
+      - name: Restore the Tac Ruby runtime built from runtimes/ruby-web
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cache/tachyon/ruby-web
+            ~/Library/Caches/Tachyon/ruby-web
+            ~/AppData/Local/Tachyon/Cache/ruby-web
+          key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
+
+      - name: Check the website data generated from website/content
+        run: node website/scripts/build-content.mjs --check
 
       - name: Build the Phase 3 CLI
         run: cargo build --locked --bin ty
 
+      - name: Type-check the migrated website and browser harnesses
+        run: |
+          ./target/debug/ty types website
+          bun run typecheck
+
       - name: Run the real-browser Tac component contract
-        run: bun run test:rust-browser
+        run: bun run test:phase3-browser
+
+      - name: Verify Tac clients, injected providers and owner cancellation
+        run: node scripts/tac-client-test.mjs
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/debug/ty
+
+      - name: Verify injected-publisher application events and lifecycle resources
+        run: |
+          bun run test:application-events
+          bun run test:tac-events
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/debug/ty
 
       - name: Run the semantic hot-update contract
-        run: bun run test:rust-hmr
+        run: bun run test:hot-update-browser
 
       - name: Build the release CLI for the event gate
         run: cargo build --release --locked --bin ty
 
       - name: Run the real-browser Tac event contract
-        run: bun run test:rust-events
+        run: bun run test:events-browser
 
       - name: Run the real-browser offline cache contract
-        run: bun run test:rust-offline
+        run: bun run test:service-worker-browser
 
       - name: Run the real-browser Tac expression contract
-        run: bun run test:rust-client
+        run: bun run test:island-expression
 
       - name: Run restored browser persistence and runtime contracts
         run: |
-          bun run test:rust-storage
-          bun run test:rust-runtime
+          bun run test:storage-browser
+          bun run test:runtime-browser
+
+      - name: Verify shared Tac and Yon behavior adapters
+        run: |
+          bun run test:behavior-runtime
+          bun run test:behavior-browser
 
       - name: Install checksum-pinned CHEX
         run: node scripts/ci/install-chex.mjs "${{ runner.temp }}/tachyon-chex"
@@ -193,14 +324,16 @@ jobs:
   macos-native:
     name: Phase 4 macOS native and mobile-web parity
     runs-on: macos-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
 
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -212,12 +345,41 @@ jobs:
         with:
           dotnet-version: 10.0.302
 
-      - name: Install PHP for published Yon examples
+      - name: Install the WebAssembly target for Rust web services
+        run: rustup target add wasm32-unknown-unknown --toolchain 1.97.1
+
+      - name: Install the C# WebAssembly workload
+        run: dotnet workload install wasm-tools wasm-tools-net9
+
+      - name: Install PHP and php-cgi for published Yon examples
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
           coverage: none
           tools: none
+
+      - name: Install Ruby for published Yon examples and Ruby test units
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "4.0.6"
+
+      - name: Install the pinned Emscripten for the Tac Ruby runtime
+        run: node scripts/ci/install-emscripten.mjs "${{ runner.temp }}/tachyon-emscripten"
+
+      - name: Restore the Tac Ruby runtime built from runtimes/ruby-web
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cache/tachyon/ruby-web
+            ~/Library/Caches/Tachyon/ruby-web
+            ~/AppData/Local/Tachyon/Cache/ruby-web
+          key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
+
+      - name: Install Go for Go Yon handlers and Go web services
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27'
+          cache: false
 
       - name: Install locked browser dependencies
         run: |
@@ -229,14 +391,25 @@ jobs:
         run: |
           set -euo pipefail
           compiler="${RUNNER_TEMP}/kotlin-compiler.zip"
+          expected_checksum=c6e9e2636889828e19c8811d5ab890862538c89dc2a3101956dfee3c2a8ba6b1
           curl --fail --location --silent --show-error --max-time 120 \
             --output "${compiler}" \
             https://github.com/JetBrains/kotlin/releases/download/v2.1.10/kotlin-compiler-2.1.10.zip
-          printf '%s  %s\n' \
-            c6e9e2636889828e19c8811d5ab890862538c89dc2a3101956dfee3c2a8ba6b1 \
-            "${compiler}" | shasum -a 256 --check
+          echo "${expected_checksum}  ${compiler}" | shasum -a 256 --check
           unzip -q "${compiler}" -d "${RUNNER_TEMP}/kotlin"
           echo "${RUNNER_TEMP}/kotlin/kotlinc/bin" >> "${GITHUB_PATH}"
+
+      - name: Install checksum-pinned Dart SDK for Dart services and published examples
+        run: |
+          set -euo pipefail
+          sdk="${RUNNER_TEMP}/dartsdk.zip"
+          expected_checksum=367984941d8d14c653789f6f787312e715e5c546f6e9f5d30d86615c692907a9
+          curl --fail --location --silent --show-error --max-time 180 \
+            --output "${sdk}" \
+            https://storage.googleapis.com/dart-archive/channels/stable/release/3.13.1/sdk/dartsdk-macos-arm64-release.zip
+          echo "${expected_checksum}  ${sdk}" | shasum -a 256 --check
+          unzip -q "${sdk}" -d "${RUNNER_TEMP}/dart"
+          echo "${RUNNER_TEMP}/dart/dart-sdk/bin" >> "${GITHUB_PATH}"
 
       - name: Build the Phase 4 CLI
         run: cargo build --locked --bin ty
@@ -244,10 +417,69 @@ jobs:
       - name: Verify every website compiler is ready
         run: ./target/debug/ty doctor website
 
+      - name: Require every behavior annotation runtime
+        run: |
+          set -euo pipefail
+          for runtime in node bun python3 php php-cgi ruby java javac kotlinc dotnet rustc swiftc dart dartaotruntime go; do
+            command -v "${runtime}"
+          done
+          javac -version
+          kotlinc -version
+          swiftc --version
+
+      - name: Execute JVM and native behavior adapter boundary contracts
+        run: |
+          bun run test:behavior-jvm
+          bun run test:behavior-native-runtime
+          python3 crates/tachyon-core/tests/fixtures/behavior/python_runtime_contract.py
+          php crates/tachyon-core/tests/fixtures/behavior/php_runtime_contract.php
+          ruby crates/tachyon-core/tests/fixtures/behavior/ruby_runtime_contract.rb
+
+      - name: Execute emitted behavior annotations in every supported language
+        run: |
+          cargo test --locked -p tachyon-core --lib behavior::polyglot -- --test-threads=1
+          cargo test --locked -p tachyon-core --test it -- \
+            behavior_annotations:: behavior_dynamic:: \
+            behavior_jvm:: behavior_csharp:: behavior_rust:: behavior_go:: --test-threads=1
+
+      - name: Verify managed repository resources in every Yon language
+        run: |
+          cargo test --locked -p tachyon-core --test it -- managed_resources:: --test-threads=1
+          node crates/tachyon-core/tests/managed-resource-transports.mjs
+        env:
+          TAC_STORAGE_REQUIRE_TOOLCHAINS: "1"
+
+      - name: Verify local events and lifecycle in every Yon language
+        run: cargo test --locked -p tachyon-core --test it -- local_events:: --test-threads=1
+        env:
+          TAC_EVENTS_REQUIRE_TOOLCHAINS: "1"
+
+      - name: Verify activation-owned native events in all four companion languages
+        run: |
+          cargo test --locked -p tachyon-core --lib native::events::tests::native_event_owner_units_are_emitted -- --exact
+          node scripts/native/events-test.mjs rs swift kt cs
+        env:
+          TAC_NATIVE_EVENT_FIXTURES: ${{ runner.temp }}/native-event-owners
+          TAC_NATIVE_EVENT_TEST_ROOT: ${{ runner.temp }}
+
       - name: Run the migrated website acceptance suite
         run: bun run test:website
 
-      - name: Execute published snippets with all eight server toolchains required
+      - name: Start Redis for the application configuration worked example
+        run: |
+          if ! brew list redis >/dev/null 2>&1; then
+            brew install redis
+          fi
+          redis-server --daemonize yes
+          for _ in $(seq 1 20); do
+            if redis-cli ping 2>/dev/null | grep -q PONG; then
+              break
+            fi
+            sleep 0.5
+          done
+          redis-cli ping
+
+      - name: Execute published snippets with every server toolchain required
         run: node website/scripts/verify-snippets.mjs
         env:
           TAC_BIN: ${{ github.workspace }}/target/debug/ty
@@ -257,7 +489,7 @@ jobs:
         run: bun run test:website-browser
 
       - name: Run native launch, accessibility, lifecycle, and visual parity gate
-        run: bun run test:rust-macos
+        run: bun run test:phase4-macos
 
       - name: Execute Swift and WKWebView behavior in an isolated iOS simulator
         run: node scripts/ios/native-test.mjs
@@ -302,9 +534,6 @@ jobs:
           dotnet-version: 10.0.302
 
       - name: Build, launch, and drive the generated application
-        # The UIAutomationClient managed proxies are a .NET Framework surface.
-        # Windows PowerShell loads them reliably; PowerShell 7 falls through to
-        # generic Pane elements even when the provider assembly is present.
         shell: powershell
         run: ./scripts/windows/native-test.ps1
 
@@ -313,8 +542,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      # Both avdmanager and emulator must resolve the same explicit user and
-      # AVD directories instead of deriving independently from runner HOME.
       ANDROID_USER_HOME: /tmp/tachyon-android
       ANDROID_AVD_HOME: /tmp/tachyon-android/avd
 
@@ -323,7 +550,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
       - name: Install Bun for native WebView acceptance
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -341,29 +570,29 @@ jobs:
           gradle --version
           java -version
 
+      - name: Accept the Android SDK licenses
+        run: |
+          set -eu
+          yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+
       - name: Install the pinned Android SDK packages
         run: |
           set -euo pipefail
-          sdkmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
-          set +o pipefail
-          yes | "${sdkmanager}" --licenses > /dev/null
-          sdk_status=${PIPESTATUS[1]}
-          set -o pipefail
-          test "${sdk_status}" -eq 0
-          "${sdkmanager}" --install \
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0" \
             "emulator" \
             "system-images;android-35;google_apis;x86_64"
 
-      - name: Enable hardware acceleration
+      - name: Allow every user to use KVM hardware acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
-      - name: Boot a headless emulator
+      - name: Create the Android virtual device
         run: |
           set -euo pipefail
           avdmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager"
@@ -375,26 +604,19 @@ jobs:
           test -f "${ANDROID_AVD_HOME}/tachyon-gate.ini"
           test -d "${ANDROID_AVD_HOME}/tachyon-gate.avd"
           "${avdmanager}" list avd
-          emulator_log=/tmp/emulator.log
-          # Headless emulators select SwiftShader automatically; the former
-          # swiftshader_indirect mode is deprecated in current SDK releases.
+
+      - name: Start a headless emulator
+        run: |
+          set -euo pipefail
           nohup "${ANDROID_HOME}/emulator/emulator" -avd tachyon-gate \
             -no-window -no-audio -no-snapshot -no-boot-anim \
-            > "${emulator_log}" 2>&1 &
-          emulator_pid=$!
-          show_emulator_failure() {
-            status=$?
-            if [ "${status}" -ne 0 ]; then
-              echo '--- emulator process ---'
-              ps -p "${emulator_pid}" -f || true
-              echo '--- adb devices ---'
-              "${ANDROID_HOME}/platform-tools/adb" devices -l || true
-              echo '--- emulator log ---'
-              tail -200 "${emulator_log}" || true
-            fi
-            exit "${status}"
-          }
-          trap show_emulator_failure EXIT
+            > /tmp/emulator.log 2>&1 &
+          echo $! > /tmp/emulator.pid
+
+      - name: Wait for Android to finish booting
+        id: wait-for-boot
+        run: |
+          set -euo pipefail
           adb="${ANDROID_HOME}/platform-tools/adb"
           timeout 180 "${adb}" wait-for-device
           boot_deadline=$((SECONDS + 600))
@@ -405,7 +627,16 @@ jobs:
             fi
             sleep 5
           done
-          trap - EXIT
+
+      - name: Show emulator diagnostics after a failed boot
+        if: failure() && steps.wait-for-boot.outcome == 'failure'
+        run: |
+          echo '--- emulator process ---'
+          ps -p "$(cat /tmp/emulator.pid)" -f || true
+          echo '--- adb devices ---'
+          "${ANDROID_HOME}/platform-tools/adb" devices -l || true
+          echo '--- emulator log ---'
+          tail -200 /tmp/emulator.log || true
 
       - name: Assemble, launch, and drive the generated application
         run: ./scripts/android/native-test.sh
@@ -420,7 +651,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -428,7 +661,9 @@ jobs:
           bun-version: 1.3.14
 
       - name: Install locked browser dependencies
-        run: bun install --frozen-lockfile && bunx playwright install --with-deps chromium
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
 
       - name: Build the Phase 6 CLI
         run: cargo build --locked --bin ty
@@ -436,22 +671,21 @@ jobs:
       - name: Fetch the immutable v26.30.04 compatibility oracle
         run: |
           set -euo pipefail
+          legacy_binary="${RUNNER_TEMP}/tachyon-compat/ty-linux-x64"
+          expected_checksum=0ccf5db78f196db3d9279b2a533a22e2413a146c91968775aa7c988d0c89f72d
           mkdir -p "${RUNNER_TEMP}/tachyon-compat"
           curl --fail --location --silent --show-error \
-            --output "${RUNNER_TEMP}/tachyon-compat/ty-linux-x64" \
+            --output "${legacy_binary}" \
             https://github.com/d31ma/Tachyon/releases/download/v26.30.04/ty-linux-x64
-          printf '%s  %s\n' \
-            '0ccf5db78f196db3d9279b2a533a22e2413a146c91968775aa7c988d0c89f72d' \
-            "${RUNNER_TEMP}/tachyon-compat/ty-linux-x64" \
-            | sha256sum --check --strict
-          chmod 0755 "${RUNNER_TEMP}/tachyon-compat/ty-linux-x64"
-          echo "TAC_LEGACY_BIN=${RUNNER_TEMP}/tachyon-compat/ty-linux-x64" >> "${GITHUB_ENV}"
+          echo "${expected_checksum}  ${legacy_binary}" | sha256sum --check --strict
+          chmod 0755 "${legacy_binary}"
+          echo "TAC_LEGACY_BIN=${legacy_binary}" >> "${GITHUB_ENV}"
 
       - name: Compare both implementations over the shared corpus
         run: bun run test:compat
 
       - name: Run the released standalone workflow against Rust
-        run: bun run test:rust-standalone
+        run: bun run test:standalone-rust
 
       - name: Classify the archived migration fixture
         run: >-
@@ -462,7 +696,7 @@ jobs:
   fuzz:
     name: Phase 7 fuzzing
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
 
     steps:
       - name: Check out source
@@ -477,10 +711,10 @@ jobs:
       - name: Fuzz every trust boundary under AddressSanitizer
         run: |
           set -euo pipefail
-          for target in html_frontend template_frontend handler_frame native_planner; do
+          for target in html_frontend template_frontend handler_frame native_planner yon_annotations application_config managed_resource_headers; do
             echo "==> ${target}"
             cargo +nightly-2026-07-20 fuzz run "${target}" -- \
-              -max_total_time=${FUZZ_SECONDS} -rss_limit_mb=2048 -timeout=10
+              "-max_total_time=${FUZZ_SECONDS}" -rss_limit_mb=2048 -timeout=10
           done
         env:
           FUZZ_SECONDS: "300"
@@ -504,12 +738,12 @@ jobs:
       - name: Install the pinned nightly toolchain
         run: rustup toolchain install nightly-2026-07-20 --profile minimal --component rust-src
 
-      - name: Install Phase 2 runtimes
+      - name: Install Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.18.0
 
-      - name: Install Yon JavaScript runtime
+      - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
@@ -545,10 +779,12 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
       - name: Run interruption, corruption, contention, and load drills
-        run: cargo test --locked -p tachyon-cli --test phase7_cli -- --test-threads=1
+        run: cargo test --locked -p tachyon-cli --test it -- phase7_cli:: --test-threads=1
         env:
           TAC_SOAK_ITERATIONS: "200"
 
@@ -562,7 +798,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
       - name: Install pinned SBOM and audit tooling
         run: |
@@ -585,8 +823,6 @@ jobs:
     name: Cutover release lifecycle drill
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
-    # Provenance is attested from the workflow's own identity, so the build
-    # that produced an artifact is verifiable without a maintainer key.
     permissions:
       contents: read
       id-token: write
@@ -603,7 +839,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
       - name: Verify, install, upgrade, roll back, and uninstall a real artifact
         run: ./scripts/release/lifecycle-drill.sh
@@ -632,12 +870,20 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal --component llvm-tools-preview && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal --component llvm-tools-preview
+          rustup default 1.97.1
 
-      - name: Install Yon JavaScript runtime
+      - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
+
+      - name: Install Go for the Go rows of the workspace tests
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27'
+          cache: false
 
       - name: Install pinned coverage tool
         run: cargo install cargo-llvm-cov --version 0.8.6 --locked

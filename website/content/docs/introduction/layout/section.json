@@ -1,0 +1,5 @@
+{
+  "heading": "Where each file goes",
+  "body": "Pages are in client/pages. Components are in client/components. Services are in client/services. Backend controllers are in server/controllers. A controller is a class that answers HTTP requests. A page contains components. A component is a tac.html view and an optional tac.css file. Behaviour is in a service class. The view refers to that class by name. Shared browser assets and data are in client/shared.",
+  "code": { "file": "example.txt" }
+}

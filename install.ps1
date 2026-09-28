@@ -1,13 +1,5 @@
-# Tachyon installer for Windows.
-#   irm https://tachyon.del.ma/install.ps1 | iex
-# Downloads the latest `ty` Windows binary from GitHub releases, verifies its
-# checksum, then installs it under %LOCALAPPDATA%\Tachyon and adds that directory
-# to your user PATH.
 $ErrorActionPreference = 'Stop'
 
-$repo = 'd31ma/Tachyon'
-$base = if ($env:TAC_BASE_URL) { $env:TAC_BASE_URL } else { "https://github.com/$repo/releases/latest/download" }
-$asset = 'ty-windows-x64.exe'
 $script:TachyonSteps = 5
 $script:TachyonStep = 0
 
@@ -22,33 +14,42 @@ function Write-TachyonStep {
     Write-Progress -Activity 'Tachyon install' -Status $Message -PercentComplete $percent
 }
 
-Write-Host 'TACHYON installer'
-Write-Host 'Bringing the ty binary online...'
-Write-Host ''
+function Write-TachyonBanner {
+    Write-Host 'TACHYON installer'
+    Write-Host 'Bringing the ty binary online...'
+    Write-Host ''
+}
 
-Write-TachyonStep "Detected windows/x64"
-
-$dest = if ($env:TAC_INSTALL_DIR) { $env:TAC_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Tachyon' }
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
-$exe = Join-Path $dest 'ty.exe'
-$download = Join-Path $dest ("ty-{0}.download" -f [Guid]::NewGuid().ToString('N'))
-$backup = Join-Path $dest ("ty-{0}.backup" -f [Guid]::NewGuid().ToString('N'))
-Write-TachyonStep "Selected install directory: $dest"
-
-try {
-    Write-TachyonStep "Downloading $asset"
-    Invoke-WebRequest -Uri "$base/$asset" -OutFile $download
-
-    # Verification is fail-closed: an unavailable checksum, a missing asset
-    # entry, or a digest mismatch leaves any installed binary untouched.
-    Write-TachyonStep 'Verifying release checksum'
-    $sumsContent = (Invoke-WebRequest -Uri "$base/SHA256SUMS" -UseBasicParsing).Content
-    $sums = if ($sumsContent -is [byte[]]) {
-        [Text.Encoding]::UTF8.GetString($sumsContent)
-    } else {
-        [string]$sumsContent
+function Get-TachyonBaseUrl {
+    if ($env:TAC_BASE_URL) {
+        return $env:TAC_BASE_URL
     }
-    $line = ($sums -split "`n") | Where-Object { $_.Trim() -match "^[0-9a-fA-F]{64}\s+$([regex]::Escape($asset))$" } | Select-Object -First 1
+    $repo = 'd31ma/Tachyon'
+    return "https://github.com/$repo/releases/latest/download"
+}
+
+function Get-TachyonInstallDirectory {
+    if ($env:TAC_INSTALL_DIR) {
+        return $env:TAC_INSTALL_DIR
+    }
+    $directory = Join-Path $env:LOCALAPPDATA 'Tachyon'
+    return $directory
+}
+
+function Get-TachyonChecksums {
+    param([string]$BaseUrl)
+    $sumsContent = (Invoke-WebRequest -Uri "$BaseUrl/SHA256SUMS" -UseBasicParsing).Content
+    if ($sumsContent -is [byte[]]) {
+        return [Text.Encoding]::UTF8.GetString($sumsContent)
+    }
+    return [string]$sumsContent
+}
+
+function Assert-TachyonChecksum {
+    param([string]$BaseUrl, [string]$asset, [string]$download)
+    $sums = Get-TachyonChecksums $BaseUrl
+    $pattern = "^[0-9a-fA-F]{64}\s+$([regex]::Escape($asset))$"
+    $line = $sums -split "`n" | Where-Object { $_.Trim() -match $pattern } | Select-Object -First 1
     if (-not $line) {
         throw "No checksum published for $asset. Aborting."
     }
@@ -57,27 +58,61 @@ try {
     if ($expected -ne $actual) {
         throw "Checksum mismatch for $asset. Aborting."
     }
+}
 
-    Write-TachyonStep 'Installing ty'
+function Install-TachyonBinary {
+    param([string]$download, [string]$exe, [string]$backup)
     if (Test-Path $exe) {
         [IO.File]::Replace($download, $exe, $backup)
         Remove-Item $backup -Force
-    } else {
-        Move-Item -Path $download -Destination $exe
+        return
     }
-} finally {
-    Remove-Item $download -Force -ErrorAction SilentlyContinue
-    Remove-Item $backup -Force -ErrorAction SilentlyContinue
+    Move-Item -Path $download -Destination $exe
 }
 
-# Add install dir to the user PATH if it isn't already there.
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($userPath -notlike "*$dest*") {
+function Add-TachyonToUserPath {
+    param([string]$dest)
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ($userPath -like "*$dest*") {
+        return
+    }
     [Environment]::SetEnvironmentVariable('Path', "$userPath;$dest", 'User')
     Write-Host "Added $dest to your user PATH (restart your terminal to pick it up)."
 }
 
-Write-Host "Installed ty to $exe"
+function Invoke-TachyonInstall {
+    $base = Get-TachyonBaseUrl
+    $asset = 'ty-windows-x64.exe'
 
-Write-Progress -Activity 'Tachyon install' -Completed
-Write-Host "Run 'ty --help' to get started."
+    Write-TachyonBanner
+    Write-TachyonStep "Detected windows/x64"
+
+    $dest = Get-TachyonInstallDirectory
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+    $exe = Join-Path $dest 'ty.exe'
+    $download = Join-Path $dest ("ty-{0}.download" -f [Guid]::NewGuid().ToString('N'))
+    $backup = Join-Path $dest ("ty-{0}.backup" -f [Guid]::NewGuid().ToString('N'))
+    Write-TachyonStep "Selected install directory: $dest"
+
+    try {
+        Write-TachyonStep "Downloading $asset"
+        Invoke-WebRequest -Uri "$base/$asset" -OutFile $download
+
+        Write-TachyonStep 'Verifying release checksum'
+        Assert-TachyonChecksum $base $asset $download
+
+        Write-TachyonStep 'Installing ty'
+        Install-TachyonBinary $download $exe $backup
+    } finally {
+        Remove-Item $download -Force -ErrorAction SilentlyContinue
+        Remove-Item $backup -Force -ErrorAction SilentlyContinue
+    }
+
+    Add-TachyonToUserPath $dest
+    Write-Host "Installed ty to $exe"
+
+    Write-Progress -Activity 'Tachyon install' -Completed
+    Write-Host "Run 'ty --help' to get started."
+}
+
+Invoke-TachyonInstall

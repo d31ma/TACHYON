@@ -5,59 +5,71 @@
 
 ## Context
 
-Yon handlers may be implemented in multiple languages. Tachyon needs one
-server lifecycle, stable cancellation, bounded resources, actionable errors,
-and cross-language behavior without embedding every language runtime in the
-core.
+Developers may write Yon handlers in several languages. Tachyon needs:
 
-Newline-delimited protocols are simple but make framing, oversized messages,
-and protocol recovery more fragile. Shell invocation introduces injection and
-quoting differences.
+- one server lifecycle;
+- stable cancellation;
+- bounded resources;
+- errors that tell the developer what to fix;
+- the same behavior across languages.
+
+The core must get all of this without embedding every language runtime.
+
+Newline-delimited protocols are simple. But with them, framing, oversized
+messages and recovery from protocol errors break more easily. Calling a
+handler through a shell adds injection risks and quoting differences between
+platforms.
 
 ## Decision
 
-Run language handlers as directly spawned, supervised child processes.
+Run language handlers as supervised child processes. The server starts each
+process directly.
 
 Handler Protocol v1 uses:
 
 - a four-byte unsigned big-endian frame length;
 - one UTF-8 JSON envelope per frame;
-- a maximum frame of 16 MiB unless a future protocol version negotiates
+- a maximum frame of 16 MiB, unless a future protocol version negotiates
   another limit;
 - stable request IDs;
-- explicit request, response, and cancellation envelope kinds;
-- stdout for framed protocol only and stderr for bounded diagnostics;
-- deadlines, cancellation, concurrency, and lifecycle owned by the supervisor.
+- explicit envelope kinds for request, response and cancellation;
+- stdout only for the framed protocol, and stderr for bounded diagnostics;
+- a supervisor that owns deadlines, cancellation, concurrency and lifecycle.
 
-Never invoke a handler through a shell. Pass executable and arguments as
-separate operating-system values. Allowlist inherited environment variables.
+Never call a handler through a shell. Pass the executable and each argument as
+separate operating-system values. Pass on only the inherited environment
+variables that an allowlist names.
 
-A route may discover multiple same-level `yon.*` handlers in deterministic
-source order. Each invocation selects one handler and one HTTP method; no
-build-time route context is composed (ADR 0016).
+A route may find several `yon.*` handlers at the same level. It lists them in
+deterministic source order. Each invocation selects one handler and one HTTP
+method. Tachyon does not compose a build-time route context (ADR 0016).
 
 ## Consequences
 
-- Every adapter can run the same real-process contract corpus.
-- Handler crashes and protocol violations are isolated from the server.
-- Large streaming bodies need a future streaming extension rather than
-  unbounded frames.
-- Runtime discovery and packaging are explicit per-language responsibilities.
-- Process startup cost must be addressed by measured pooling, not hidden
-  global processes.
+- Every adapter can run the same contract corpus against real processes.
+- The server stays isolated from handler crashes and protocol violations.
+- Large streaming bodies need a future streaming extension. Unbounded frames
+  are not the answer.
+- Each language is explicitly responsible for its own runtime discovery and
+  packaging.
+- Process startup cost must be solved with pooling that is measured. Hidden
+  global processes are not allowed.
 
 ## Rejected Alternatives
 
-- **Embed every runtime**: expands attack surface and couples releases to
-  multiple language engines.
-- **Shell scripts as the common boundary**: unsafe and platform-dependent.
-- **NDJSON without length framing**: weaker recovery and size enforcement.
-- **Last handler wins during context merge**: nondeterministic and difficult to
-  audit.
+- **Embed every runtime**: it gives attackers more code to target. It also
+  ties each release to several language engines.
+- **Shell scripts as the common boundary**: they are unsafe and depend on the
+  platform.
+- **NDJSON (newline-delimited JSON) without length framing**: recovery is
+  weaker and size limits are harder to enforce.
+- **Last handler wins during context merge**: the result is nondeterministic
+  and hard to audit.
 
 ## Acceptance Gate
 
-- Handler Protocol v1 meta-validates and rejects an invalid fixture;
+- the Handler Protocol v1 schema passes meta-validation and rejects an invalid
+  fixture;
 - the threat model covers framing, resource exhaustion, environment leakage,
-  cancellation, and process reaping;
+  cancellation and process reaping;
 - future adapters must pass the same corpus against real child processes.

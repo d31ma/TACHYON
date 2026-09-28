@@ -1,0 +1,5 @@
+{
+  "heading": "Window controls need permission",
+  "body": "client/manifest.json declares the window that a native target opens and the controls that a page may request. It does this under a tachyon member (a key in the JSON), which a browser ignores. By default, the manifest grants nothing. The page cannot see controls that are not granted. The host checks the manifest grants before it runs a request. Check that a tachyonWindow function exists before you use it. These controls do not sandbox (restrict) the native service code that the application owns. That code runs with the operating system permissions of the host process.",
+  "code": { "file": "example.json" }
+}

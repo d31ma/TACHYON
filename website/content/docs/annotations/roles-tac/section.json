@@ -1,0 +1,229 @@
+{
+  "heading": "Roles: Tac",
+  "body": "These are the same roles, in the browser and in a native companion. A native companion is an app that runs outside the browser, such as a phone or desktop app. An entry is the file that the compiler starts from. A Tac entry is the service itself, at client/services/<Name>Service.<ext>. The page places <billing-panel hydrate=\"load\" />. The view refers to the service instance as {billing.total} (ADR 0030). The service's role files live in the realm's shared client/ folders: stores, helpers, converters, setups and entities. The compiler finds only files in the same language as the entry. The browser service languages are JavaScript, TypeScript, Dart, Rust, C#, Go and Ruby. Dart compiles to WebAssembly with garbage collection (WasmGC), behind one JavaScript module per service (ADR 0033). A service written only in Rust, only in C# or in Go compiles to WebAssembly (ADR 0035, ADR 0037, ADR 0045). Service, Lifetime and Needs work in every Tac language. Helper works only in JavaScript, TypeScript and Dart. BillingService reads its total through the injected store and helper. The Swift, Kotlin, C#, Rust and Go tabs place Store, Setup and Entity next to a plain service type. That is why the Swift, Kotlin, C#, Rust and Go services hold their own state. In Tac, Helper is a browser role. HTTPClient uses a network transport that the framework manages for you, and that transport works only in the browser. So the compiler rejects both in a native companion. Controllers (RequestRoute) do not exist in Tac at all.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/billing/panel/tac.html",
+      "code": {
+        "file": "client/components/billing/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/BillingService.js",
+      "code": {
+        "file": "client/services/BillingService.js"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.js",
+      "code": {
+        "file": "client/stores/BillingStore.js"
+      }
+    },
+    {
+      "name": "client/helpers/BillingHelper.js",
+      "code": {
+        "file": "client/helpers/BillingHelper.js"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.js",
+      "code": {
+        "file": "client/setups/BillingSetup.js"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.js",
+      "code": {
+        "file": "client/entities/BillingEntity.js"
+      }
+    },
+    {
+      "name": "client/services/BillingService.ts",
+      "code": {
+        "file": "client/services/BillingService.ts"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.ts",
+      "code": {
+        "file": "client/stores/BillingStore.ts"
+      }
+    },
+    {
+      "name": "client/helpers/BillingHelper.ts",
+      "code": {
+        "file": "client/helpers/BillingHelper.ts"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.ts",
+      "code": {
+        "file": "client/setups/BillingSetup.ts"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.ts",
+      "code": {
+        "file": "client/entities/BillingEntity.ts"
+      }
+    },
+    {
+      "name": "client/services/BillingService.swift",
+      "code": {
+        "file": "client/services/BillingService.swift"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.swift",
+      "code": {
+        "file": "client/stores/BillingStore.swift"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.swift",
+      "code": {
+        "file": "client/setups/BillingSetup.swift"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.swift",
+      "code": {
+        "file": "client/entities/BillingEntity.swift"
+      }
+    },
+    {
+      "name": "client/services/BillingService.kt",
+      "code": {
+        "file": "client/services/BillingService.kt"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.kt",
+      "code": {
+        "file": "client/stores/BillingStore.kt"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.kt",
+      "code": {
+        "file": "client/setups/BillingSetup.kt"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.kt",
+      "code": {
+        "file": "client/entities/BillingEntity.kt"
+      }
+    },
+    {
+      "name": "client/services/BillingService.cs",
+      "code": {
+        "file": "client/services/BillingService.cs"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.cs",
+      "code": {
+        "file": "client/stores/BillingStore.cs"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.cs",
+      "code": {
+        "file": "client/setups/BillingSetup.cs"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.cs",
+      "code": {
+        "file": "client/entities/BillingEntity.cs"
+      }
+    },
+    {
+      "name": "client/services/BillingService.rs",
+      "code": {
+        "file": "client/services/BillingService.rs"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.rs",
+      "code": {
+        "file": "client/stores/BillingStore.rs"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.rs",
+      "code": {
+        "file": "client/setups/BillingSetup.rs"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.rs",
+      "code": {
+        "file": "client/entities/BillingEntity.rs"
+      }
+    },
+    {
+      "name": "client/services/BillingService.go",
+      "code": {
+        "file": "client/services/BillingService.go"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.go",
+      "code": {
+        "file": "client/stores/BillingStore.go"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.go",
+      "code": {
+        "file": "client/setups/BillingSetup.go"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.go",
+      "code": {
+        "file": "client/entities/BillingEntity.go"
+      }
+    },
+    {
+      "name": "client/services/BillingService.dart",
+      "code": {
+        "file": "client/services/BillingService.dart"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.dart",
+      "code": {
+        "file": "client/stores/BillingStore.dart"
+      }
+    },
+    {
+      "name": "client/helpers/BillingHelper.dart",
+      "code": {
+        "file": "client/helpers/BillingHelper.dart"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.dart",
+      "code": {
+        "file": "client/setups/BillingSetup.dart"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.dart",
+      "code": {
+        "file": "client/entities/BillingEntity.dart"
+      }
+    }
+  ]
+}

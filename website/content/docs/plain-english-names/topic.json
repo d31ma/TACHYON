@@ -1,0 +1,12 @@
+{
+  "title": "Plain-English names",
+  "summary": "Every word of a class, method, field or parameter name is an English word, a short technical word or a word of your domain. The build checks this with TY1328.",
+  "before": [
+    "dependency-direction"
+  ],
+  "sections": [
+    {
+      "include": "names-are-whole-english-words/section.json"
+    }
+  ]
+}

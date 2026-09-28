@@ -1,0 +1,6 @@
+{
+  "datasource": {
+    "driver": "sqlite",
+    "url": "sqlite::memory:"
+  }
+}

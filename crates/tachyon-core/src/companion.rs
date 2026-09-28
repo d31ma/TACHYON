@@ -1,196 +1,529 @@
-//! Generates a companion's member table from the class it declares.
-//!
-//! A JavaScript companion is a class, and every other language's was a
-//! hand-written `tac` dictionary mapping names to closures. That asymmetry was
-//! not a language limitation but a missing build step: a compiled companion
-//! has no reflection the host can enumerate a class with, so *something* has
-//! to write the table down. This writes it.
-//!
-//! Tachyon does it rather than each language's macro system — Swift macros,
-//! Kotlin KSP, Roslyn source generators — because every
-//! one of those drags a project file and a build tool into a framework whose
-//! stance is that neither should be needed to compile one source file.
-//!
-//! An author who writes the table by hand keeps it: an explicit `tac`
-//! declaration is left exactly as it was. The generator only fills a gap.
-
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use std::collections::HashMap;
+use std::fmt::Write as _;
 
-/// Generates the member table a native host's prelude reads.
-///
-/// One generator for every language: the table is the same shape whichever
-/// compiler will read it, and writing it four times is how three of them
-/// silently drift.
-pub(crate) fn swift_member_table(source: &str, source_path: &str) -> Result<String, Failure> {
-    table(CompanionLanguage::Swift, source, source_path)
+pub(crate) mod go;
+
+pub(crate) fn owner_name(
+    language: CompanionLanguage,
+    source: &str,
+    source_path: &str,
+) -> Option<String> {
+    let wanted = declared_service(source_path);
+    if language == CompanionLanguage::Rust {
+        block_named(source, "struct", wanted.as_deref()).map(|(name, _)| name)
+    } else {
+        class_body_named(source, wanted.as_deref()).map(|(name, _)| name)
+    }
 }
 
-pub(crate) fn kotlin_member_table(source: &str, source_path: &str) -> Result<String, Failure> {
-    table(CompanionLanguage::Kotlin, source, source_path)
+fn exposes_nothing(source_path: &str, name: &str) -> Failure {
+    Failure::one(diagnostic(
+        1406,
+        format!("Native service type '{name}' exposes no members."),
+        Some(String::from(
+            "Give the type a stored property or a method, or remove the service. A native \
+             service reaches the page through its members; one with none has nothing to bind.",
+        )),
+        source_span(source_path, 0, source_path.len()),
+    ))
 }
 
-pub(crate) fn csharp_member_table(source: &str, source_path: &str) -> Result<String, Failure> {
-    table(CompanionLanguage::CSharp, source, source_path)
+fn unnamed_service(source_path: &str, wanted: Option<&str>, keyword: &str) -> Failure {
+    let Some(wanted) = wanted else {
+        return missing_type("Companion", source_path, "native");
+    };
+    Failure::one(diagnostic(
+        1406,
+        format!("Native service '{source_path}' declares no {keyword} named '{wanted}'."),
+        Some(format!(
+            "A service file owns the type named after it (ADR 0030). Name the {keyword} \
+             '{wanted}', and keep helpers, entities and configuration types beside it."
+        )),
+        source_span(source_path, 0, source_path.len()),
+    ))
 }
 
-pub(crate) fn rust_member_table(source: &str, source_path: &str) -> Result<String, Failure> {
-    table(CompanionLanguage::Rust, source, source_path)
+fn authored_table(source_path: &str) -> Failure {
+    Failure::one(diagnostic(
+        1405,
+        "Native companions require an owned class or struct, not an authored member table.",
+        None,
+        source_span(source_path, 0, source_path.len()),
+    ))
 }
 
-fn table(language: CompanionLanguage, source: &str, source_path: &str) -> Result<String, Failure> {
-    member_table(language, source, source_path).map(Option::unwrap_or_default)
+fn missing_constructor(source_path: &str, name: &str) -> Failure {
+    Failure::one(diagnostic(
+        1406,
+        format!("Companion struct '{name}' needs a constructor."),
+        Some("Add fn new() -> Self or implement Default.".into()),
+        source_span(source_path, 0, source_path.len()),
+    ))
 }
 
-/// One member found on an authored class.
+fn declared_service(source_path: &str) -> Option<String> {
+    let path = source_path.replace('\\', "/");
+    let (parent, file) = path.rsplit_once('/')?;
+    if !parent.ends_with("client/services") {
+        return None;
+    }
+    let stem = match file.rsplit_once('.') {
+        Some((stem, _)) => stem,
+        None => file,
+    };
+    if !stem.ends_with("Service") {
+        return None;
+    }
+    Some(stem.to_owned())
+}
+
+pub(crate) fn owner_table(
+    language: CompanionLanguage,
+    source: &str,
+    source_path: &str,
+    excluded: &[String],
+    extra: &str,
+    needs_all: bool,
+) -> Result<String, Failure> {
+    let source = crate::without_bom(source);
+    if declares_table(language, source) {
+        return Err(authored_table(source_path));
+    }
+    if language == CompanionLanguage::Rust {
+        return rust_owner_table(source, source_path, excluded, extra, needs_all);
+    }
+    class_owner_table(language, source, source_path, excluded, extra, needs_all)
+}
+
+pub(crate) fn with_required_constructor(
+    language: CompanionLanguage,
+    source: &str,
+    source_path: &str,
+    needs_all: bool,
+) -> String {
+    let source = crate::without_bom(source);
+    let wanted = declared_service(source_path);
+    let Some((name, body)) = class_body_named(source, wanted.as_deref()) else {
+        return source.to_owned();
+    };
+    let fields = constructed_fields(source, source_path, &name, needs_all);
+    if fields.is_empty() {
+        return source.to_owned();
+    }
+    let constructor = match language {
+        CompanionLanguage::Swift => swift_constructor(&fields),
+        CompanionLanguage::Kotlin => kotlin_constructor(&fields),
+        CompanionLanguage::CSharp | CompanionLanguage::Rust => return source.to_owned(),
+    };
+    let body_end = body.as_ptr() as usize - source.as_ptr() as usize + body.len();
+    format!(
+        "{}{constructor}{}",
+        &source[..body_end],
+        &source[body_end..]
+    )
+}
+
+fn constructed_fields(
+    source: &str,
+    source_path: &str,
+    class: &str,
+    needs_all: bool,
+) -> Vec<(String, String)> {
+    if !needs_all {
+        return Vec::new();
+    }
+    crate::template::required_fields::RequiredFields::constructed(
+        std::path::Path::new(source_path),
+        source,
+        class,
+    )
+}
+
+fn swift_constructor(fields: &[(String, String)]) -> String {
+    let mut constructor = String::from("\ninit?(tacProps: [String: Any]) {\n");
+    for (name, kind) in fields {
+        let _ = writeln!(
+            constructor,
+            "guard let {name} = tachyonSwiftJSONValue(tacProps[\"{name}\"]) as? {kind} else {{ return nil }}\nself.{name} = {name}"
+        );
+    }
+    constructor.push_str("}\n");
+    constructor
+}
+
+fn kotlin_constructor(fields: &[(String, String)]) -> String {
+    let mut constructor = String::from("\nconstructor(tacProps: Map<String, Any?>?) {\n");
+    for (name, kind) in fields {
+        let value = format!("tacRequiredValue(tacProps, \"{name}\")");
+        let converted = match kind.as_str() {
+            "Int" | "Long" | "Double" | "Float" | "Boolean" | "String" => {
+                format!("{value}.let {{ {} }}", kotlin_value(kind, "it"))
+            }
+            _ => format!("{value} as {kind}"),
+        };
+        let _ = writeln!(constructor, "this.{name} = {converted}");
+    }
+    constructor.push_str("}\n");
+    constructor
+}
+
+fn class_owner_table(
+    language: CompanionLanguage,
+    source: &str,
+    source_path: &str,
+    excluded: &[String],
+    extra: &str,
+    needs_all: bool,
+) -> Result<String, Failure> {
+    let wanted = declared_service(source_path);
+    let Some((name, body)) = class_body_named(source, wanted.as_deref()) else {
+        return Err(unnamed_service(source_path, wanted.as_deref(), "class"));
+    };
+    let constructs = !constructed_fields(source, source_path, &name, needs_all).is_empty();
+    let members = members(language, body, source_path)?;
+    let mut entries = String::new();
+    for member in &members {
+        if excluded.contains(&member.name) {
+            continue;
+        }
+        entries.push_str(&entry(language, member));
+    }
+    entries.push_str(extra);
+    if entries.trim().is_empty() {
+        return Err(exposes_nothing(source_path, &name));
+    }
+    let required = if language == CompanionLanguage::CSharp {
+        csharp_required_members(body)
+    } else {
+        Vec::new()
+    };
+    Ok(class_table(
+        language, &name, &entries, &required, constructs,
+    ))
+}
+
+fn csharp_required_members(body: &str) -> Vec<String> {
+    body.lines()
+        .filter(|line| !line.contains('('))
+        .filter_map(|line| {
+            let words = line.split_whitespace().collect::<Vec<_>>();
+            let at = words.iter().position(|word| *word == "required")?;
+            let name = identifier(words.get(at + 2)?);
+            (!name.is_empty()).then_some(name)
+        })
+        .collect()
+}
+
+fn class_table(
+    language: CompanionLanguage,
+    name: &str,
+    entries: &str,
+    required: &[String],
+    constructs: bool,
+) -> String {
+    match language {
+        CompanionLanguage::Swift => {
+            let instance = if constructs {
+                format!("guard let tacInstance = {name}(tacProps: tacProps) else {{ return nil }}")
+            } else {
+                format!("let tacInstance = {name}()")
+            };
+            format!(
+                "\nstatic func tacCreate(_ tacProps: [String: Any]) -> [String: TacMember]? {{\n{instance}\nreturn [\n{entries}]\n}}\n"
+            )
+        }
+        CompanionLanguage::Kotlin => {
+            let arguments = if constructs { "tacProps" } else { "" };
+            format!(
+                "\nfun tacCreate(tacProps: Map<String, Any?>?): Map<String, Any> {{\nval tacInstance = {name}({arguments})\nreturn linkedMapOf(\n{entries})\n}}\n"
+            )
+        }
+        CompanionLanguage::CSharp => {
+            let filled = required
+                .iter()
+                .map(|member| format!("{member} = default!"))
+                .collect::<Vec<_>>();
+            let initializer = if filled.is_empty() {
+                String::new()
+            } else {
+                format!(" {{ {} }}", filled.join(", "))
+            };
+            format!(
+                "\npublic static class TacBridge {{\npublic static Dictionary<string, TacMember> Create() {{\nvar Instance = new {name}(){initializer};\nreturn new() {{\n{entries}}};\n}}\n}}\n"
+            )
+        }
+        CompanionLanguage::Rust => String::new(),
+    }
+}
+
+fn rust_owner_table(
+    source: &str,
+    source_path: &str,
+    excluded: &[String],
+    extra: &str,
+    needs_all: bool,
+) -> Result<String, Failure> {
+    let wanted = declared_service(source_path);
+    let Some((name, body)) = block_named(source, "struct", wanted.as_deref()) else {
+        return Err(unnamed_service(source_path, wanted.as_deref(), "struct"));
+    };
+    let mut members = rust_struct_fields(body);
+    let fields = members
+        .iter()
+        .map(|member| member.name.clone())
+        .collect::<Vec<_>>();
+    let mut constructs = false;
+    let mut parameters = HashMap::new();
+    for (header, impl_body) in blocks(source, "impl") {
+        if header.trim() != name {
+            continue;
+        }
+        for (member, declared) in rust_methods(impl_body) {
+            parameters.insert(member.name.clone(), declared);
+            members.push(member);
+        }
+        constructs |= impl_body.contains("fn new(") && impl_body.contains("-> Self");
+    }
+    let instance = if !constructs && needs_all && !source.contains("Default") {
+        rust_filled_instance(&name, &fields)
+    } else {
+        rust_instance(&name, constructs, source, source_path)?
+    };
+    let mut output = format!(
+        "pub fn tac_create() -> Vec<(&'static str, TacMember)> {{\nlet instance = std::rc::Rc::new(core::cell::RefCell::new({instance}));\nvec![\n"
+    );
+    members.sort_by(|left, right| left.name.cmp(&right.name));
+    members.dedup_by(|left, right| left.name == right.name);
+    write_rust_members(&mut output, &members, excluded, &parameters);
+    if extra.trim().is_empty() && members.iter().all(|member| excluded.contains(&member.name)) {
+        return Err(exposes_nothing(source_path, &name));
+    }
+    output.push_str(extra);
+    output.push_str("]\n}\n");
+    Ok(output)
+}
+
+fn write_rust_members(
+    output: &mut String,
+    members: &[Member],
+    excluded: &[String],
+    parameters: &HashMap<String, Vec<String>>,
+) {
+    for member in members {
+        if excluded.contains(&member.name) {
+            continue;
+        }
+        if member.method {
+            let declared = parameters.get(&member.name).map_or(&[][..], Vec::as_slice);
+            write_rust_method(output, member, declared);
+        } else {
+            write_rust_field(output, member);
+        }
+    }
+}
+
+fn rust_filled_instance(name: &str, fields: &[String]) -> String {
+    let filled = fields
+        .iter()
+        .map(|field| format!("{field}: ::core::default::Default::default()"))
+        .collect::<Vec<_>>();
+    format!("{name} {{ {} }}", filled.join(", "))
+}
+
+fn rust_instance(
+    name: &str,
+    constructs: bool,
+    source: &str,
+    source_path: &str,
+) -> Result<String, Failure> {
+    if constructs {
+        return Ok(format!("{name}::new()"));
+    }
+    if source.contains("Default") {
+        return Ok(format!("<{name} as Default>::default()"));
+    }
+    Err(missing_constructor(source_path, name))
+}
+
+fn write_rust_method(output: &mut String, member: &Member, parameters: &[String]) {
+    let name = &member.name;
+    let key = camel_case(name);
+    let kind = member.declared_type.as_deref().unwrap_or("()");
+    let (bindings, passed) = rust_arguments(parameters);
+    let value = rust_read(kind, &format!("it.borrow_mut().{name}({passed})"));
+    let _ = writeln!(
+        output,
+        "(\"{key}\", TacMember::Method({{let it = instance.clone(); Box::new(move |arguments: Vec<TacValue>| {{ #[allow(unused_mut, unused_variables)] let mut arguments = arguments.into_iter(); {bindings}{value} }})}})),"
+    );
+}
+
+fn write_rust_field(output: &mut String, member: &Member) {
+    let name = &member.name;
+    let key = camel_case(name);
+    let kind = member.declared_type.as_deref().unwrap_or("i64");
+    let access = if kind == "&str" {
+        format!("it.borrow().{name}")
+    } else {
+        format!("it.borrow().{name}.clone()")
+    };
+    let value = rust_read(kind, &access);
+    let write = match rust_write(kind) {
+        Some(conversion) => format!(
+            "Some({{let it = instance.clone(); Box::new(move |value| it.borrow_mut().{name} = {conversion})}})"
+        ),
+        None => String::from("None"),
+    };
+    let _ = writeln!(
+        output,
+        "(\"{key}\", TacMember::Field {{read: {{let it = instance.clone(); Box::new(move || {value})}}, write: {write}}}),"
+    );
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Member {
     name: String,
-    /// The declared type, when the declaration carries one.
-    ///
-    /// A read-only field need not: `let runtime = "x"` is how Swift and Kotlin
-    /// write one, and inferring the type would mean implementing the language.
-    /// Only a *writable* field must declare it, because the setter has to
-    /// convert an incoming JSON value into something.
     declared_type: Option<String>,
-    /// Whether this is a method rather than a field.
-    ///
-    /// This used to be read off `declared_type.is_none()`, which made an
-    /// untyped `let` indistinguishable from a `func` — the table then called
-    /// a string, and the companion did not compile.
     method: bool,
-    /// Whether a field may be assigned as well as read.
     mutable: bool,
+    parameters: Option<Vec<String>>,
 }
 
-/// Languages whose companion can be written as a class.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum CompanionLanguage {
     Swift,
     Kotlin,
     CSharp,
-    /// Rust declares its state as a `struct` and its behaviour in an `impl`,
-    /// so the two are read together rather than from one brace-delimited body.
     Rust,
 }
 
-/// Every one of these languages spells the declaration `class`.
-const CLASS_KEYWORD: &str = "class";
+struct Modifiers;
 
-/// Returns the member table to append, or `None` when one is already declared.
-///
-/// # Errors
-///
-/// Returns a diagnostic when a class declares a mutable field without a type,
-/// which is the one thing that cannot be generated: the setter has to convert
-/// an incoming JSON value into something, and only the declaration says what.
-fn member_table(
-    language: CompanionLanguage,
-    source: &str,
-    source_path: &str,
-) -> Result<Option<String>, Failure> {
-    let source = crate::without_bom(source);
-    if declares_table(language, source) {
-        return Ok(None);
-    }
-    if language == CompanionLanguage::Rust {
-        return rust_table(source, source_path);
-    }
-    let Some((class_name, body)) = class_body(source) else {
-        return Ok(None);
-    };
-    let members = members(language, body, source_path)?;
-    if members.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(render(language, &class_name, &members)))
+impl Modifiers {
+    const CLASS: [&str; 11] = [
+        "public",
+        "private",
+        "internal",
+        "final",
+        "open",
+        "abstract",
+        "sealed",
+        "static",
+        "pub",
+        "pub(crate)",
+        "data",
+    ];
+
+    const TYPE_FIRST: [(&str, bool); 8] = [
+        ("public ", false),
+        ("async ", false),
+        ("required ", false),
+        ("internal ", false),
+        ("static ", false),
+        ("final ", true),
+        ("readonly ", true),
+        ("const ", true),
+    ];
+
+    const CSHARP_TASKS: [(&str, &str); 4] = [
+        (
+            "System.Threading.Tasks.Task<BehaviorJSON>",
+            "Task<BehaviorJSON>",
+        ),
+        ("Task<BehaviorJSON>", "Task<BehaviorJSON>"),
+        ("System.Threading.Tasks.Task", "Task"),
+        ("Task", "Task"),
+    ];
 }
 
-/// Whether the author wrote the table themselves.
 fn declares_table(language: CompanionLanguage, source: &str) -> bool {
-    let needles: &[&str] = match language {
+    let prefixes: &[&str] = match language {
         CompanionLanguage::Swift => &["let tac", "var tac"],
         CompanionLanguage::Kotlin => &["val tac", "var tac"],
         CompanionLanguage::CSharp => &["class TacBridge"],
         CompanionLanguage::Rust => &["fn tac()"],
     };
-    source
-        .lines()
-        .map(str::trim_start)
-        .any(|line| needles.iter().any(|needle| line.starts_with(needle)))
+    for line in source.lines() {
+        let line = line.trim_start();
+        if prefixes.iter().any(|prefix| line.starts_with(prefix)) {
+            return true;
+        }
+    }
+    false
 }
 
-/// Modifiers a declaration may carry before its keyword, across the languages.
-const CLASS_MODIFIERS: [&str; 11] = [
-    "public",
-    "private",
-    "internal",
-    "final",
-    "open",
-    "abstract",
-    "sealed",
-    "static",
-    "pub",
-    "pub(crate)",
-    "data",
-];
-
-/// Extracts the name and brace-balanced body of the first declared class.
-///
-/// The keyword has to open a line, after any modifiers. Scanning for it
-/// anywhere would find the word in a comment or a string — as it did, turning
-/// "the same class structure" in a doc comment into a class named
-/// `structure`.
-fn class_body(source: &str) -> Option<(String, &str)> {
-    let keyword = CLASS_KEYWORD;
-    let mut offset = 0usize;
-    for line in source.split_inclusive('\n') {
-        let trimmed = line.trim_start();
-        let mut rest = trimmed;
-        loop {
-            let stripped = CLASS_MODIFIERS.iter().find_map(|modifier| {
-                rest.strip_prefix(modifier)
-                    .filter(|value| value.starts_with(char::is_whitespace))
-                    .map(str::trim_start)
-            });
-            match stripped {
-                Some(value) => rest = value,
-                None => break,
-            }
+fn class_body_named<'a>(source: &'a str, wanted: Option<&str>) -> Option<(String, &'a str)> {
+    let Some(wanted) = wanted else {
+        return class_body_at(source);
+    };
+    let mut rest = source;
+    while let Some((name, body)) = class_body_at(rest) {
+        if name == wanted {
+            return Some((name, body));
         }
-        let Some(after) = rest
-            .strip_prefix(keyword)
-            .filter(|value| value.starts_with(char::is_whitespace))
-        else {
-            offset += line.len();
-            continue;
-        };
-        let name = identifier(after.trim_start());
-        if name.is_empty() {
-            offset += line.len();
-            continue;
-        }
-        // The body starts at the first brace at or after this declaration.
-        let from = source[offset..].find('{')? + offset;
-        let mut depth = 0usize;
-        for (position, character) in source[from..].char_indices() {
-            match character {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return Some((name, &source[from + 1..from + position]));
-                    }
-                }
-                _ => {}
-            }
-        }
-        return None;
+        let body_start = body.as_ptr() as usize - rest.as_ptr() as usize;
+        rest = rest.get(body_start + body.len()..)?;
     }
     None
 }
 
-/// Reads the fields and methods declared directly on a class body.
+fn class_body_at(source: &str) -> Option<(String, &str)> {
+    let mut offset = 0usize;
+    for line in source.split_inclusive('\n') {
+        let line_start = offset;
+        offset += line.len();
+        let Some(after) = after_declaration_keyword(line, "class") else {
+            continue;
+        };
+        let name = identifier(after);
+        if name.is_empty() {
+            continue;
+        }
+        let open = source[line_start..].find('{')? + line_start;
+        let body = braced_body(source, open)?;
+        return Some((name, body));
+    }
+    None
+}
+
+fn after_declaration_keyword<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
+    let mut rest = line.trim_start();
+    while let Some(after) = without_class_modifier(rest) {
+        rest = after;
+    }
+    rest.strip_prefix(keyword).and_then(after_keyword)
+}
+
+fn without_class_modifier(text: &str) -> Option<&str> {
+    for modifier in Modifiers::CLASS {
+        let Some(after) = text.strip_prefix(modifier) else {
+            continue;
+        };
+        if after.starts_with(char::is_whitespace) {
+            return Some(after.trim_start());
+        }
+    }
+    None
+}
+
+fn braced_body(source: &str, open: usize) -> Option<&str> {
+    let mut depth = 0usize;
+    for (position, character) in source[open..].char_indices() {
+        match character {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&source[open + 1..open + position]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn members(
     language: CompanionLanguage,
     body: &str,
@@ -200,11 +533,10 @@ fn members(
     let mut depth = 0i32;
     for line in body.lines() {
         let trimmed = line.trim();
-        // Only the class's own declarations: anything inside a method body is
-        // that method's business.
         let entering = depth;
-        depth += i32::try_from(trimmed.matches('{').count()).unwrap_or(0)
-            - i32::try_from(trimmed.matches('}').count()).unwrap_or(0);
+        let opened = i32::try_from(trimmed.matches('{').count()).unwrap_or(0);
+        let closed = i32::try_from(trimmed.matches('}').count()).unwrap_or(0);
+        depth += opened - closed;
         if entering != 0 || trimmed.is_empty() || trimmed.starts_with("//") {
             continue;
         }
@@ -217,59 +549,38 @@ fn members(
     Ok(members)
 }
 
-/// Builds the table for a Rust companion.
-///
-/// Rust keeps state in a `struct` and behaviour in an `impl`, so both are read
-/// and joined. A Rust struct has no inline field defaults, so the value a field
-/// starts at lives in a constructor: `fn new() -> Self` in the inherent impl,
-/// which keeps a companion to one struct and one impl — as close to the class
-/// every other language writes as Rust gets. `Default` is accepted too, for a
-/// companion that has one already.
-fn rust_table(source: &str, source_path: &str) -> Result<Option<String>, Failure> {
-    let Some((name, body)) = block(source, "struct") else {
-        return Ok(None);
-    };
-    let mut members: Vec<Member> = body
-        .lines()
-        .filter_map(|line| rust_field(line.trim()))
-        .collect();
-    // Every inherent impl, and only those: `impl Default for Companion` is
-    // where the starting values live, not where the methods do, and taking the
-    // first `impl` found silently picked it.
-    let mut constructs = false;
-    for (header, body) in blocks(source, "impl") {
-        if header.trim() == name {
-            members.extend(rust_methods(body));
-            constructs |= body.contains("fn new(") && body.contains("-> Self");
+fn rust_struct_fields(body: &str) -> Vec<Member> {
+    let mut fields = Vec::new();
+    for line in body.lines() {
+        for declaration in rust_field_declarations(line) {
+            if let Some(field) = rust_field(declaration.trim()) {
+                fields.push(field);
+            }
         }
     }
-    if members.is_empty() {
-        return Ok(None);
-    }
-    // `new()` first: a companion that has both means the one it wrote by hand.
-    let instance = if constructs {
-        format!("{name}::new()")
-    } else if source.contains("Default") {
-        format!("<{name} as Default>::default()")
-    } else {
-        return Err(Failure::one(diagnostic(
-            1406,
-            format!("Companion struct '{name}' needs a constructor."),
-            Some(String::from(
-                "A Rust struct has no inline field defaults, so the value a field \
-                 starts at lives in a constructor. Add `pub fn new() -> Self` to the \
-                 impl, which is the shape every other companion language writes; \
-                 #[derive(Default)] or an impl Default is accepted too.",
-            )),
-            source_span(source_path, 0, source_path.len()),
-        )));
-    };
-    members.sort_by(|left, right| left.name.cmp(&right.name));
-    members.dedup_by(|left, right| left.name == right.name);
-    Ok(Some(render_rust(&name, &instance, &members)))
+    fields
 }
 
-/// Reads one `name: Type,` struct field.
+fn rust_field_declarations(line: &str) -> Vec<String> {
+    let mut declarations = Vec::new();
+    let mut depth = 0i32;
+    let mut current = String::new();
+    for character in line.chars() {
+        match character {
+            '<' | '(' | '[' => depth += 1,
+            '>' | ')' | ']' => depth -= 1,
+            ',' if depth <= 0 => {
+                declarations.push(std::mem::take(&mut current));
+                continue;
+            }
+            _ => {}
+        }
+        current.push(character);
+    }
+    declarations.push(current);
+    declarations
+}
+
 fn rust_field(line: &str) -> Option<Member> {
     let line = line
         .trim_start_matches("pub ")
@@ -283,12 +594,13 @@ fn rust_field(line: &str) -> Option<Member> {
     }
     let rest = line[name.len()..].trim_start();
     let declared = rest.strip_prefix(':')?.trim().trim_end_matches(',').trim();
-    // `&'static str` is how Rust writes a constant string field, so it is read
-    // as one. Any other borrowed or generic type is not something this
-    // generator converts to.
     let declared = if matches!(declared, "&'static str" | "&str") {
         "&str"
-    } else if declared.is_empty() || declared.contains(['&', '<', '\'']) {
+    } else if declared.is_empty()
+        || declared.contains(['&', '<', '\''])
+        || declared == "BehaviorContext"
+        || crate::web_api_clients::WebApiClients::is_client_type(declared)
+    {
         return None;
     } else {
         declared
@@ -298,191 +610,192 @@ fn rust_field(line: &str) -> Option<Member> {
         declared_type: Some(String::from(declared)),
         method: false,
         mutable: true,
+        parameters: Some(Vec::new()),
     })
 }
 
-/// Reads the `fn name(&self …)` methods of an impl block.
-fn rust_methods(body: &str) -> Vec<Member> {
-    body.lines()
-        .filter_map(|line| {
-            let line = line.trim().trim_start_matches("pub ");
-            let rest = line.strip_prefix("fn").and_then(after_keyword)?;
-            let name = identifier(rest);
-            let arguments = rest[name.len()..].trim_start();
-            // Only a method reachable through the instance: an associated
-            // function has no receiver to call it on.
-            if name.is_empty() || !arguments.starts_with("(&self") {
-                return None;
+fn rust_methods(body: &str) -> Vec<(Member, Vec<String>)> {
+    let mut methods = Vec::new();
+    for line in body.lines() {
+        if let Some(method) = rust_method(line) {
+            methods.push(method);
+        }
+    }
+    methods
+}
+
+fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
+    let line = line.trim().trim_start_matches("pub ");
+    let rest = line.strip_prefix("fn").and_then(after_keyword)?;
+    let name = identifier(rest);
+    let arguments = rest[name.len()..].trim_start();
+    let takes_self = arguments.starts_with("(&self") || arguments.starts_with("(&mut self");
+    if name.is_empty() || !takes_self {
+        return None;
+    }
+    let returns = rust_return_type(arguments);
+    let parameters = rust_parameters(arguments)?;
+    let member = Member {
+        name,
+        declared_type: returns,
+        method: true,
+        mutable: false,
+        parameters: Some(Vec::new()),
+    };
+    Some((member, parameters))
+}
+
+fn rust_return_type(arguments: &str) -> Option<String> {
+    let returned = arguments.split("->").nth(1)?;
+    let returned = returned.trim().trim_end_matches('{').trim();
+    if returned.is_empty() {
+        return None;
+    }
+    Some(returned.to_owned())
+}
+
+fn rust_parameters(arguments: &str) -> Option<Vec<String>> {
+    let close = closing_parenthesis(arguments).unwrap_or(arguments.len());
+    let inside = &arguments[1..close];
+    let mut kinds = Vec::new();
+    for parameter in inside.split(',').skip(1) {
+        let parameter = parameter.trim();
+        if parameter.is_empty() {
+            continue;
+        }
+        let kind = parameter.split_once(':')?.1.trim();
+        if !is_supported_rust_type(kind) {
+            return None;
+        }
+        kinds.push(kind.to_owned());
+    }
+    Some(kinds)
+}
+
+fn closing_parenthesis(arguments: &str) -> Option<usize> {
+    let mut depth = 0_usize;
+    for (position, character) in arguments.char_indices() {
+        match character {
+            '(' | '<' | '[' => depth += 1,
+            ')' | '>' | ']' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 && character == ')' {
+                    return Some(position);
+                }
             }
-            let returns = arguments
-                .split("->")
-                .nth(1)
-                .map(|value| value.trim().trim_end_matches('{').trim().to_owned())
-                .filter(|value| !value.is_empty());
-            Some(Member {
-                name,
-                // A method's declared type is what it returns; a field's is
-                // what it holds. Both decide how the value crosses.
-                declared_type: returns,
-                method: true,
-                mutable: false,
-            })
-        })
-        .collect()
+            _ => {}
+        }
+    }
+    None
 }
 
-/// Extracts the name and brace-balanced body of the first matching block.
-fn block<'a>(source: &'a str, keyword: &str) -> Option<(String, &'a str)> {
-    blocks(source, keyword)
-        .into_iter()
-        .next()
-        .map(|(header, body)| (identifier(header.trim()), body))
+fn is_supported_rust_type(kind: &str) -> bool {
+    matches!(
+        kind,
+        "TacValue"
+            | "String"
+            | "&str"
+            | "bool"
+            | "f32"
+            | "f64"
+            | "i8"
+            | "i16"
+            | "i32"
+            | "i64"
+            | "isize"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "usize"
+    )
 }
 
-/// Extracts every `keyword …  { … }` block, with the text between the keyword
-/// and the brace so a caller can tell `impl X` from `impl Trait for X`.
+fn rust_arguments(parameters: &[String]) -> (String, String) {
+    let mut bindings = String::new();
+    let mut passed = Vec::new();
+    for (index, kind) in parameters.iter().enumerate() {
+        let conversion = rust_write(kind).unwrap_or_else(|| String::from("value.as_text()"));
+        let _ = write!(
+            bindings,
+            "let a{index} = {{ let value = arguments.next().unwrap_or(TacValue::Null); {conversion} }}; "
+        );
+        if kind == "&str" {
+            passed.push(format!("&a{index}"));
+        } else {
+            passed.push(format!("a{index}"));
+        }
+    }
+    (bindings, passed.join(", "))
+}
+
+fn block_named<'a>(
+    source: &'a str,
+    keyword: &str,
+    wanted: Option<&str>,
+) -> Option<(String, &'a str)> {
+    for (header, body) in blocks(source, keyword) {
+        let name = identifier(header.trim());
+        let Some(wanted) = wanted else {
+            return Some((name, body));
+        };
+        if name == wanted {
+            return Some((name, body));
+        }
+    }
+    None
+}
+
 fn blocks<'a>(source: &'a str, keyword: &str) -> Vec<(&'a str, &'a str)> {
     let mut found = Vec::new();
     let mut offset = 0usize;
     for line in source.split_inclusive('\n') {
-        let mut rest = line.trim_start();
-        loop {
-            let stripped = CLASS_MODIFIERS.iter().find_map(|modifier| {
-                rest.strip_prefix(modifier)
-                    .filter(|value| value.starts_with(char::is_whitespace))
-                    .map(str::trim_start)
-            });
-            match stripped {
-                Some(value) => rest = value,
-                None => break,
-            }
-        }
-        let Some(after) = rest
-            .strip_prefix(keyword)
-            .filter(|value| value.starts_with(char::is_whitespace))
-        else {
-            offset += line.len();
+        let line_start = offset;
+        offset += line.len();
+        let Some(after) = after_declaration_keyword(line, keyword) else {
             continue;
         };
-        let header = after.trim_start();
-        let header = &header[..header.find(['{', ';', '\n']).unwrap_or(header.len())];
-        let tail = &source[offset..];
+        let header_end = after.find(['{', ';', '\n']).unwrap_or(after.len());
+        let header = &after[..header_end];
+        let tail = &source[line_start..];
         let Some(brace) = tail.find('{') else {
             break;
         };
-        // A unit or tuple struct ends at a semicolon: it is a real declaration
-        // with no body of its own. Reading on to the next brace made the
-        // following `impl` its body and every method body inside it a list of
-        // fields — which is how `std::thread::spawn` became a member `std`.
         if tail[..brace].contains(';') {
             found.push((header, ""));
-            offset += line.len();
             continue;
         }
-        let brace = brace + offset;
-        let mut depth = 0usize;
-        for (position, character) in source[brace..].char_indices() {
-            match character {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        found.push((header, &source[brace + 1..brace + position]));
-                        break;
-                    }
-                }
-                _ => {}
-            }
+        if let Some(body) = braced_body(source, line_start + brace) {
+            found.push((header, body));
         }
-        offset += line.len();
     }
     found
 }
 
-/// Renders the table, reaching the instance through a thread-local cell.
-///
-/// A `static mut` would need `unsafe` at every access and warns in this
-/// edition; the cell costs nothing in a single-threaded module.
-fn render_rust(struct_name: &str, instance: &str, members: &[Member]) -> String {
-    let mut out = format!(
-        "\n// Generated from `struct {struct_name}`. Declaring `fn tac()` yourself \
-         replaces this.\nthread_local! {{\n    static TAC_INSTANCE: \
-         core::cell::RefCell<{struct_name}> =\n        \
-         core::cell::RefCell::new({instance});\n}}\n\n\
-         pub fn tac() -> Vec<(&'static str, TacMember)> {{\n    vec![\n"
-    );
-    for member in members {
-        let name = &member.name;
-        // A view names members as the template writes them, which is camel
-        // case; Rust declares them snake_cased by convention. The same
-        // reconciliation C# gets for its Pascal case.
-        let key = camel_case(name);
-        let line = if member.method {
-            let kind = member.declared_type.as_deref().unwrap_or("()");
-            let call = rust_read(kind, &format!("it.borrow().{name}()"));
-            format!("        (\"{key}\", TacMember::Method(|_| TAC_INSTANCE.with(|it| {call}))),\n")
-        } else {
-            let kind = member.declared_type.as_deref().unwrap_or("i64");
-            // A borrowed string is Copy, so cloning it is a no-op rustc warns
-            // about — and a project building with warnings denied would not
-            // compile at all.
-            let access = if kind == "&str" {
-                format!("it.borrow().{name}")
-            } else {
-                format!("it.borrow().{name}.clone()")
-            };
-            let read = rust_read(kind, &access);
-            // A borrowed string cannot be assigned an owned one, so it is
-            // read-only — the same answer Swift's `let` and C#'s `=>` get.
-            let write = rust_write(kind).map_or_else(
-                || String::from("None"),
-                |conversion| {
-                    format!(
-                        "Some(|value| TAC_INSTANCE.with(|it| it.borrow_mut().{name} = {conversion}))"
-                    )
-                },
-            );
-            format!(
-                "        (\"{key}\", TacMember::Field {{\n            \
-                 read: || TAC_INSTANCE.with(|it| {read}),\n            \
-                 write: {write},\n        \
-                 }}),\n"
-            )
-        };
-        out.push_str(&line);
-    }
-    out.push_str("    ]\n}\n");
-    out
-}
-
-/// Wraps a Rust expression of the declared type as a boundary value.
-fn rust_read(kind: &str, expression: &str) -> String {
+pub(crate) fn rust_read(kind: &str, expression: &str) -> String {
     match kind {
+        "TacValue" => format!("({expression})"),
         "f32" | "f64" => format!("TacValue::Float(f64::from({expression}))"),
         "bool" => format!("TacValue::Flag({expression})"),
         "String" | "&str" => format!("TacValue::Text(({expression}).to_string())"),
         "()" => format!("{{ {expression}; TacValue::Null }}"),
-        // A cast rather than `i64::from`: `usize` and `u64` have no such
-        // conversion, because their width is the platform's to decide. A
-        // companion counting cores is an ordinary thing to write.
         _ => format!("TacValue::Int(({expression}) as i64)"),
     }
 }
 
-/// Converts an incoming boundary value into the declared Rust type.
-fn rust_write(kind: &str) -> Option<String> {
-    Some(match kind {
+pub(crate) fn rust_write(kind: &str) -> Option<String> {
+    let conversion = match kind {
+        "TacValue" => String::from("value"),
         "f32" => String::from("value.as_float() as f32"),
         "f64" => String::from("value.as_float()"),
         "bool" => String::from("value.as_flag()"),
         "String" => String::from("value.as_text()"),
-        // Nothing owned can be assigned to a borrowed string.
         "&str" => return None,
         _ => format!("value.as_int() as {kind}"),
-    })
+    };
+    Some(conversion)
 }
 
-/// Reads one declaration, if the line is one.
 fn declaration(
     language: CompanionLanguage,
     line: &str,
@@ -494,12 +807,10 @@ fn declaration(
         }
         CompanionLanguage::Kotlin => name_first(line, source_path, "var", "val", "fun", "tac.kt"),
         CompanionLanguage::CSharp => Ok(type_first(line)),
-        // Rust is read from its struct and impl by `rust_table`.
         CompanionLanguage::Rust => Ok(None),
     }
 }
 
-/// Reads a `var name: Type` / `func name()` declaration.
 fn name_first(
     line: &str,
     source_path: &str,
@@ -508,25 +819,13 @@ fn name_first(
     function: &str,
     language: &str,
 ) -> Result<Option<Member>, Failure> {
-    // A property wrapper or an annotation sits in front of the declaration it
-    // decorates — `@Stored("visits") var visits: Int = 0`. It says how the
-    // property stores itself, not whether it is one, so it is stepped over.
     let line = strip_attribute(line);
-    // A private member is not part of the class's surface, and the generated
-    // table lives outside the class: naming one produced code that did not
-    // compile at all.
     if line.starts_with("private ") || line.starts_with("fileprivate ") {
         return Ok(None);
     }
     let line = line.trim_start_matches("public ");
     if let Some(rest) = line.strip_prefix(function).and_then(after_keyword) {
-        let name: String = identifier(rest);
-        return Ok((!name.is_empty()).then_some(Member {
-            name,
-            declared_type: None,
-            method: true,
-            mutable: false,
-        }));
+        return Ok(name_first_method(rest));
     }
     for (keyword, writable) in [(mutable, true), (immutable, false)] {
         let Some(rest) = line.strip_prefix(keyword).and_then(after_keyword) else {
@@ -537,18 +836,8 @@ fn name_first(
             continue;
         }
         let annotation = rest[name.len()..].trim_start();
-        let declared_type = annotation.strip_prefix(':').map(|value| {
-            value
-                .split('=')
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .to_owned()
-        });
+        let declared_type = annotated_type(annotation);
         if writable && declared_type.is_none() {
-            // The setter has to convert an incoming JSON value into something,
-            // and only the declaration says what. Inferring it would mean
-            // implementing the language's type checker.
             return Err(missing_type(&name, source_path, language));
         }
         return Ok(Some(Member {
@@ -556,116 +845,181 @@ fn name_first(
             declared_type,
             method: false,
             mutable: writable,
+            parameters: Some(Vec::new()),
         }));
     }
     Ok(None)
 }
 
-/// Modifiers a type-first declaration may carry, and whether each one fixes
-/// the value. A modifier that does means the table gets no setter.
-const TYPE_FIRST_MODIFIERS: [(&str, bool); 6] = [
-    ("public ", false),
-    ("internal ", false),
-    ("static ", false),
-    ("final ", true),
-    ("readonly ", true),
-    ("const ", true),
-];
+fn name_first_method(rest: &str) -> Option<Member> {
+    let name = identifier(rest);
+    if name.is_empty() {
+        return None;
+    }
+    let parameters = rest[name.len()..]
+        .trim_start()
+        .strip_prefix('(')
+        .map_or_else(Vec::new, kotlin_parameter_types);
+    Some(Member {
+        name,
+        declared_type: None,
+        method: true,
+        mutable: false,
+        parameters: Some(parameters),
+    })
+}
 
-/// Reads a `Type name;` / `Type name()` declaration.
+fn kotlin_parameter_types(list: &str) -> Vec<String> {
+    let mut types = Vec::new();
+    let mut depth = 0usize;
+    let mut current = String::new();
+    for character in list.chars() {
+        match character {
+            '(' | '<' | '[' => depth += 1,
+            ')' | '>' | ']' if depth == 0 => break,
+            ')' | '>' | ']' => depth -= 1,
+            ',' if depth == 0 => {
+                types.extend(kotlin_parameter_type(&current));
+                current.clear();
+                continue;
+            }
+            _ => {}
+        }
+        current.push(character);
+    }
+    types.extend(kotlin_parameter_type(&current));
+    types
+}
+
+fn kotlin_parameter_type(parameter: &str) -> Option<String> {
+    let (_, declared) = parameter.split_once(':')?;
+    let kind = declared.split('=').next().unwrap_or_default().trim();
+    (!kind.is_empty()).then(|| kind.to_owned())
+}
+
+fn annotated_type(annotation: &str) -> Option<String> {
+    let after_colon = annotation.strip_prefix(':')?;
+    let before_value = after_colon.split('=').next().unwrap_or_default();
+    Some(before_value.trim().to_owned())
+}
+
 fn type_first(line: &str) -> Option<Member> {
-    let mut line = line.trim();
-    // As above: the table cannot reach a private member.
+    let line = line.trim();
     if line.starts_with("private ") || line.starts_with("protected ") {
         return None;
     }
-    let mut fixed = false;
-    while let Some((rest, immutable)) = TYPE_FIRST_MODIFIERS
-        .iter()
-        .find_map(|(modifier, immutable)| Some((line.strip_prefix(modifier)?, *immutable)))
-    {
-        fixed |= immutable;
-        line = rest.trim_start();
-    }
+    let (line, fixed) = without_type_first_modifiers(line);
     if line.starts_with("//") || line.starts_with('@') {
         return None;
     }
-    let declared_type = identifier(line);
-    if declared_type.is_empty() {
-        return None;
-    }
-    let rest = line[declared_type.len()..].trim_start();
-    // A generic or nullable type carries punctuation the identifier scan
-    // stops at, which this generator deliberately does not try to parse.
-    if rest.starts_with('<') || rest.starts_with('?') {
-        return None;
-    }
+    let (declared_type, rest) = csharp_declared_type(line)?;
     let name = identifier(rest);
     if name.is_empty() {
         return None;
     }
     let after = rest[name.len()..].trim_start();
     let method = after.starts_with('(');
-    // An expression body or an accessor list without a setter is a getter, and
-    // generating `Instance.Label = …` for one does not compile. That is a
-    // build failure rather than a wrong answer, but only after the author has
-    // waited for a publish to tell them.
-    let getter = after.starts_with("=>")
-        || (after.starts_with('{')
-            && !after
-                .split_once('}')
-                .map_or(after, |(accessors, _)| accessors)
-                .split(|value: char| !value.is_alphanumeric())
-                .any(|word| word == "set" || word == "init"));
+    let hidden_type = declared_type == "BehaviorContext"
+        || crate::web_api_clients::WebApiClients::is_client_type(&declared_type);
+    if !method && hidden_type {
+        return None;
+    }
+    let getter = is_getter_only(after);
+    let parameters = if method {
+        csharp_parameters(after)
+    } else {
+        Some(Vec::new())
+    };
     Some(Member {
         name,
         declared_type: Some(declared_type),
         method,
         mutable: !method && !fixed && !getter,
+        parameters,
     })
 }
 
-/// Drops a leading `@Attribute` or `@Attribute(argument)` from a declaration.
-///
-/// Swift spells a property wrapper this way and Kotlin an annotation; both
-/// decorate the declaration that follows rather than replacing it. Skipping
-/// the line instead lost the member, and a companion that stored a field
-/// ended up with no table at all.
+fn csharp_declared_type(line: &str) -> Option<(String, &str)> {
+    for (written, declared) in Modifiers::CSHARP_TASKS {
+        if let Some(rest) = line.strip_prefix(written).and_then(after_keyword) {
+            return Some((String::from(declared), rest));
+        }
+    }
+    let declared_type = identifier(line);
+    if declared_type.is_empty() {
+        return None;
+    }
+    let rest = line[declared_type.len()..].trim_start();
+    if rest.starts_with('<') || rest.starts_with('?') {
+        return None;
+    }
+    Some((declared_type, rest))
+}
+
+fn without_type_first_modifiers(line: &str) -> (&str, bool) {
+    let mut line = line;
+    let mut fixed = false;
+    'strip: loop {
+        for (modifier, immutable) in Modifiers::TYPE_FIRST {
+            if let Some(rest) = line.strip_prefix(modifier) {
+                fixed |= immutable;
+                line = rest.trim_start();
+                continue 'strip;
+            }
+        }
+        return (line, fixed);
+    }
+}
+
+fn is_getter_only(after_name: &str) -> bool {
+    if after_name.starts_with("=>") {
+        return true;
+    }
+    if !after_name.starts_with('{') {
+        return false;
+    }
+    let accessors = match after_name.split_once('}') {
+        Some((accessors, _)) => accessors,
+        None => after_name,
+    };
+    let mut words = accessors.split(|character: char| !character.is_alphanumeric());
+    !words.any(|word| word == "set" || word == "init")
+}
+
 fn strip_attribute(line: &str) -> &str {
     let mut rest = line.trim_start();
     while let Some(after) = rest.strip_prefix('@') {
-        let name_len = after
-            .chars()
-            .take_while(|character| character.is_alphanumeric() || *character == '_')
-            .map(char::len_utf8)
-            .sum::<usize>();
-        if name_len == 0 {
+        let name_length = identifier(after).len();
+        if name_length == 0 {
             return rest;
         }
-        let tail = &after[name_len..];
-        // An argument list belongs to the attribute, not to the declaration.
-        rest = tail.strip_prefix('(').map_or(tail, |arguments| {
-            let mut depth = 1i32;
-            for (index, character) in arguments.char_indices() {
-                match character {
-                    '(' => depth += 1,
-                    ')' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            return &arguments[index + 1..];
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            arguments
-        });
+        let tail = &after[name_length..];
+        rest = match tail.strip_prefix('(') {
+            Some(arguments) => after_closing_parenthesis(arguments),
+            None => tail,
+        };
         rest = rest.trim_start();
     }
     rest
 }
 
-/// Returns the leading identifier of a fragment.
+fn after_closing_parenthesis(arguments: &str) -> &str {
+    let mut depth = 1i32;
+    for (index, character) in arguments.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &arguments[index + 1..];
+                }
+            }
+            _ => {}
+        }
+    }
+    arguments
+}
+
 fn identifier(value: &str) -> String {
     value
         .chars()
@@ -673,10 +1027,11 @@ fn identifier(value: &str) -> String {
         .collect()
 }
 
-/// Returns what follows a keyword, when the keyword is a whole word.
 fn after_keyword(rest: &str) -> Option<&str> {
-    rest.starts_with(char::is_whitespace)
-        .then(|| rest.trim_start())
+    if !rest.starts_with(char::is_whitespace) {
+        return None;
+    }
+    Some(rest.trim_start())
 }
 
 fn missing_type(name: &str, source_path: &str, language: &str) -> Failure {
@@ -692,126 +1047,123 @@ fn missing_type(name: &str, source_path: &str, language: &str) -> Failure {
     ))
 }
 
-/// Renders the member table the prelude reads.
-fn render(language: CompanionLanguage, class_name: &str, members: &[Member]) -> String {
-    let (open, close) = match language {
-        CompanionLanguage::Swift => (
-            format!("private let tacInstance = {class_name}()\nlet tac: [String: TacMember] = [\n"),
-            String::from("]\n"),
-        ),
-        CompanionLanguage::Kotlin => (
-            format!("private val tacInstance = {class_name}()\nval tac = mapOf(\n"),
-            String::from(")\n"),
-        ),
-        CompanionLanguage::Rust => (String::new(), String::new()),
-        CompanionLanguage::CSharp => (
-            format!(
-                "public static class TacBridge\n{{\n    private static readonly {class_name} \
-                 Instance = new {class_name}();\n    public static readonly \
-                 Dictionary<string, TacMember> Tac = new()\n    {{\n"
-            ),
-            String::from("    };\n}\n"),
-        ),
-    };
-
-    let mut out = format!(
-        "\n// Generated from `class {class_name}`. Declaring the table yourself \
-         replaces this.\n{open}"
-    );
-    for member in members {
-        out.push_str(&entry(language, member));
+fn entry(language: CompanionLanguage, member: &Member) -> String {
+    match language {
+        CompanionLanguage::Swift => swift_entry(member),
+        CompanionLanguage::Kotlin => kotlin_entry(member),
+        CompanionLanguage::CSharp => csharp_entry(member),
+        CompanionLanguage::Rust => String::new(),
     }
-    out.push_str(&close);
-    out
 }
 
-/// Renders one member as its language spells a table entry.
-fn entry(language: CompanionLanguage, member: &Member) -> String {
+fn swift_entry(member: &Member) -> String {
     let name = &member.name;
-    match language {
-        CompanionLanguage::Swift => match (member.method, &member.declared_type, member.mutable) {
-            (true, _, _) => format!("    \"{name}\": .method({{ _ in tacInstance.{name}() }}),\n"),
-            (false, Some(kind), true) => format!(
-                "    \"{name}\": .field({{ tacInstance.{name} }}, \
-                 {{ tacInstance.{name} = $0 as? {kind} ?? tacInstance.{name} }}),\n"
-            ),
-            (false, _, _) => format!("    \"{name}\": .field({{ tacInstance.{name} }}),\n"),
-        },
-        CompanionLanguage::Kotlin => match (member.method, &member.declared_type, member.mutable) {
-            (true, _, _) => format!("    \"{name}\" to TacMethod {{ tacInstance.{name}() }},\n"),
-            (false, Some(kind), true) => {
-                let converter = kotlin_converter(kind);
-                format!(
-                    "    \"{name}\" to TacField({{ tacInstance.{name} }}, \
-                     {{ tacInstance.{name} = {converter} }}),\n"
-                )
-            }
-            (false, _, _) => format!("    \"{name}\" to TacField({{ tacInstance.{name} }}),\n"),
-        },
-        // Rust renders its whole table in `render_rust`, entry included.
-        CompanionLanguage::Rust => String::new(),
-        CompanionLanguage::CSharp => {
-            // A view names members as the template writes them, which is camel
-            // case; C# declares them Pascal-cased by convention.
-            let key = lower_first(name);
-            match (member.method, &member.declared_type, member.mutable) {
-                (true, Some(kind), _) if kind == "void" => format!(
-                    "        [\"{key}\"] = TacMember.Method(arguments => {{ Instance.{name}(); return null; }}),\n"
-                ),
-                (true, _, _) => format!(
-                    "        [\"{key}\"] = TacMember.Method(arguments => Instance.{name}()),\n"
-                ),
-                (false, Some(kind), true) => {
-                    let converter = csharp_converter(kind);
-                    format!(
-                        "        [\"{key}\"] = TacMember.Field(() => Instance.{name}, \
-                         value => Instance.{name} = {converter}),\n"
-                    )
-                }
-                (false, _, _) => {
-                    format!("        [\"{key}\"] = TacMember.Field(() => Instance.{name}),\n")
-                }
-            }
+    if member.method {
+        return format!("    \"{name}\": .method({{ _ in tacInstance.{name}() }}),\n");
+    }
+    match (&member.declared_type, member.mutable) {
+        (Some(kind), true) => format!(
+            "    \"{name}\": .field({{ tacInstance.{name} }}, \
+             {{ tacInstance.{name} = $0 as? {kind} ?? tacInstance.{name} }}),\n"
+        ),
+        _ => format!("    \"{name}\": .field({{ tacInstance.{name} }}),\n"),
+    }
+}
+
+fn kotlin_entry(member: &Member) -> String {
+    let name = &member.name;
+    if member.method {
+        let arguments = member
+            .parameters
+            .iter()
+            .flatten()
+            .enumerate()
+            .map(|(index, kind)| kotlin_value(kind, &format!("it.getOrNull({index})")))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return format!("    \"{name}\" to TacMethod {{ tacInstance.{name}({arguments}) }},\n");
+    }
+    match (&member.declared_type, member.mutable) {
+        (Some(kind), true) => {
+            let converter = kotlin_value(kind, "it");
+            format!(
+                "    \"{name}\" to TacField({{ tacInstance.{name} }}, \
+                 {{ tacInstance.{name} = {converter} }}),\n"
+            )
+        }
+        _ => format!("    \"{name}\" to TacField({{ tacInstance.{name} }}),\n"),
+    }
+}
+
+fn csharp_entry(member: &Member) -> String {
+    let name = &member.name;
+    let key = lower_first(name);
+    let Some(parameters) = &member.parameters else {
+        return String::new();
+    };
+    let passed = csharp_arguments(parameters);
+    match (member.method, &member.declared_type, member.mutable) {
+        (true, Some(kind), _) if kind == "void" => format!(
+            "        [\"{key}\"] = TacMember.Method(arguments => {{ Instance.{name}({passed}); return null; }}),\n"
+        ),
+        (true, Some(kind), _) if kind == "Task" => format!(
+            "        [\"{key}\"] = TacMember.Method(arguments => {{ Instance.{name}({passed}).GetAwaiter().GetResult(); return null; }}),\n"
+        ),
+        (true, Some(kind), _) if kind == "Task<BehaviorJSON>" => format!(
+            "        [\"{key}\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.{name}({passed}).GetAwaiter().GetResult())),\n"
+        ),
+        (true, Some(kind), _) if kind == "BehaviorJSON" => format!(
+            "        [\"{key}\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.{name}({passed}))),\n"
+        ),
+        (true, _, _) => format!(
+            "        [\"{key}\"] = TacMember.Method(arguments => Instance.{name}({passed})),\n"
+        ),
+        (false, Some(kind), true) => {
+            let converter = csharp_converter(kind);
+            format!(
+                "        [\"{key}\"] = TacMember.Field(() => Instance.{name}, \
+                 value => Instance.{name} = {converter}),\n"
+            )
+        }
+        (false, _, _) => {
+            format!("        [\"{key}\"] = TacMember.Field(() => Instance.{name}),\n")
         }
     }
 }
 
-/// The prelude helper that turns an incoming value into a Kotlin type.
-fn kotlin_converter(kind: &str) -> &'static str {
+fn kotlin_value(kind: &str, value: &str) -> String {
     match kind {
-        "Int" => "tacInt(it)",
-        "Long" => "tacInt(it).toLong()",
-        "Double" | "Float" => "tacDouble(it)",
-        "Boolean" => "tacBoolean(it)",
-        _ => "tacString(it)",
+        "Int" => format!("tacInt({value})"),
+        "Long" => format!("tacLong({value})"),
+        "Double" => format!("tacDouble({value})"),
+        "Boolean" => format!("tacBoolean({value})"),
+        "String" => format!("tacString({value})"),
+        _ => format!("tacRead<{kind}>({value})"),
     }
 }
 
-/// Rust members are `snake_case` by convention; a view names them as written in
-/// the template, which is camel case.
-fn camel_case(value: &str) -> String {
-    let mut out = String::with_capacity(value.len());
+pub(crate) fn camel_case(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
     let mut capitalise = false;
     for character in value.chars() {
         if character == '_' {
             capitalise = true;
         } else if capitalise {
-            out.extend(character.to_uppercase());
+            output.extend(character.to_uppercase());
             capitalise = false;
         } else {
-            out.push(character);
+            output.push(character);
         }
     }
-    out
+    output
 }
 
-/// C# members are Pascal-cased by convention; a view names them as written in
-/// the template, which is camel case.
-fn lower_first(value: &str) -> String {
+pub(crate) fn lower_first(value: &str) -> String {
     let mut characters = value.chars();
-    characters.next().map_or_else(String::new, |first| {
-        first.to_lowercase().collect::<String>() + characters.as_str()
-    })
+    let Some(first) = characters.next() else {
+        return String::new();
+    };
+    first.to_lowercase().collect::<String>() + characters.as_str()
 }
 
 fn csharp_converter(kind: &str) -> &'static str {
@@ -820,41 +1172,157 @@ fn csharp_converter(kind: &str) -> &'static str {
         "long" => "Convert.ToInt64(value)",
         "double" | "float" => "Convert.ToDouble(value)",
         "bool" => "Convert.ToBoolean(value)",
+        "object" => "value",
         _ => "Convert.ToString(value)",
     }
+}
+
+fn csharp_parameters(after_name: &str) -> Option<Vec<String>> {
+    let inside = after_name.strip_prefix('(')?;
+    let inside = &inside[..inside.find(')')?];
+    let mut kinds = Vec::new();
+    for parameter in inside.split(',') {
+        let parameter = parameter.trim();
+        if parameter.is_empty() {
+            continue;
+        }
+        let kind = parameter.split_whitespace().next()?;
+        let supported = matches!(
+            kind,
+            "string" | "int" | "long" | "double" | "float" | "bool" | "object" | "BehaviorJSON"
+        );
+        if !supported {
+            return None;
+        }
+        kinds.push(kind.to_owned());
+    }
+    Some(kinds)
+}
+
+fn csharp_arguments(parameters: &[String]) -> String {
+    let mut arguments = Vec::new();
+    for (index, kind) in parameters.iter().enumerate() {
+        let value = format!("(arguments.Length > {index} ? arguments[{index}] : null)");
+        let argument = match kind.as_str() {
+            "object" => value,
+            "float" => format!("Convert.ToSingle({value})"),
+            "BehaviorJSON" => format!("BehaviorJSON.Parse(Tac.EncodeValue({value}))"),
+            other => csharp_converter(other).replace("value", &value),
+        };
+        arguments.push(argument);
+    }
+    arguments.join(", ")
 }
 
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{CompanionLanguage, member_table};
+    use super::{CompanionLanguage, owner_table};
+    use crate::Failure;
 
-    /// A companion whose behaviour is all in its `impl` still reads correctly.
-    ///
-    /// `struct Probe;` is a real declaration with no body. Reading on to the
-    /// next brace made the following `impl` its body, so every line of every
-    /// method body was scanned as a field list — which is how
-    /// `std::thread::spawn(|| {` became a member named `std` with a declared
-    /// type of `:thread::spawn(|| {`, and the generated table did not compile.
-    #[test]
-    fn a_unit_struct_takes_its_members_from_its_impl_alone() {
-        let generated = member_table(
-            CompanionLanguage::Rust,
-            "pub struct Probe;\n\n\
+    struct Sources;
+
+    impl Sources {
+        const UNIT_STRUCT: &str = "pub struct Probe;\n\n\
              impl Probe {\n\
              \x20   pub fn new() -> Self { Self }\n\
              \x20   pub fn start(&self) -> String {\n\
              \x20       std::thread::spawn(|| {\n\
-             \x20           tac_publish(\"tick\", TacValue::Int(1));\n\
+             \x20           1 + 1\n\
              \x20       });\n\
              \x20       String::from(\"started\")\n\
              \x20   }\n\
-             }\n",
-            "tac.rs",
-        )
-        .expect("a unit struct is a struct")
-        .expect("its impl declares members");
+             }\n";
+
+        const SWIFT_COMPANION: &str = "final class CompanionService {\n  var count: Int = 6\n  \
+                 let runtime = \"Swift\"\n\n  func doubled() -> Int { count * 2 }\n}\n";
+
+        const KOTLIN_COMPANION: &str = "class CompanionService {\n  var count: Int = 6\n  \
+                 val runtime: String = \"Kotlin\"\n\n  fun doubled(): Int = count * 2\n}\n";
+
+        const CSHARP_COMPANION: &str = "public class Companion\n{\n  public int Count = 6;\n  \
+                 public string Runtime => \"C#\";\n\n  public int Doubled() => Count * 2;\n}\n";
+
+        const RUST_COMPANION: &str = "pub struct CompanionService {\n  pub count: i32,\n  pub runtime: &'static str,\n}\n\n\
+                 impl CompanionService {\n  pub fn new() -> Self {\n    \
+                 Self { count: 6, runtime: \"Rust\" }\n  }\n\n  \
+                 pub fn doubled(&self) -> i32 {\n    self.count * 2\n  }\n}\n";
+
+        const PLATFORM_WIDTH_FIELD: &str = "pub struct CompanionService {\n    pub cores: usize,\n}\n\n\
+             impl CompanionService {\n    pub fn new() -> Self {\n        \
+             Self { cores: 1 }\n    }\n}\n";
+
+        const SWIFT_PRIVATE_MEMBER: &str = "final class CompanionService {\n  private let secret = \"x\"\n  let runtime = \"Swift\"\n}\n";
+
+        const KOTLIN_PRIVATE_MEMBER: &str = "class CompanionService {\n  private val secret = \"x\"\n  val runtime = \"Kotlin\"\n}\n";
+
+        const CSHARP_PRIVATE_MEMBER: &str = "public class Companion\n{\n  private string Secret => \"x\";\n  \
+                 public string Runtime => \"C#\";\n}\n";
+
+        const SWIFT_CLASS: &str = "final class CompanionService {\n    var count: Int = 6\n    \
+             let label: String = \"a\"\n    func doubled() -> Int { count * 2 }\n}\n";
+
+        const RUST_ARGUMENTS: &str = "#[derive(Default)]\nstruct DrawerService {\n    open: bool,\n}\n\n\
+             impl DrawerService {\n    fn dismiss(&mut self, key: &str, times: u8) {}\n    \
+             fn keep(&self, value: TacValue) -> TacValue { value }\n    \
+             fn hidden(&self, inner: std::path::PathBuf) {}\n}\n";
+
+        const RUST_BINDINGS: &str = "let a0 = { let value = arguments.next().unwrap_or(TacValue::Null); value.as_text() }; let a1 = { let value = arguments.next().unwrap_or(TacValue::Null); value.as_int() as u8 }; ";
+
+        const CSHARP_ARGUMENTS: &str = "public class DrawerService\n{\n    public object Entries;\n    \
+             public string Dismiss(string key, int times) => key;\n    \
+             public void Hidden(System.IO.Stream inner) { }\n}\n";
+
+        const CSHARP_BEHAVIOR_SERVICE: &str = "public sealed class NotesService {\n    \
+             public BehaviorContext behaviors;\n    public int reads = 0;\n    \
+             public async System.Threading.Tasks.Task<BehaviorJSON> find(BehaviorJSON key) { return key; }\n    \
+             public Task forget(BehaviorJSON key) { return Task.CompletedTask; }\n    \
+             public BehaviorJSON label() { return null; }\n}\n";
+
+        const CSHARP_DISMISS_CALL: &str = "Instance.Dismiss(Convert.ToString((arguments.Length > 0 ? arguments[0] : null)), Convert.ToInt32((arguments.Length > 1 ? arguments[1] : null)))";
+
+        const RUST_STRUCT_WITH_DEFAULT: &str = "pub struct CompanionService {\n    count: i32,\n    label: String,\n}\n\n\
+             impl Default for Companion {\n    fn default() -> Self {\n        \
+             Self { count: 6, label: String::from(\"Rust\") }\n    }\n}\n\n\
+             impl CompanionService {\n    fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}\n";
+
+        const RUST_BORROWED_STRING: &str = "pub struct CompanionService {\n    pub runtime: &'static str,\n}\n\n\
+             impl Default for Companion {\n    fn default() -> Self {\n        \
+             Self { runtime: \"Rust\" }\n    }\n}\n";
+
+        const RUST_CONSTRUCTOR: &str = "pub struct CompanionService {\n    pub count: i32,\n}\n\n\
+             impl CompanionService {\n    pub fn new() -> Self {\n        \
+             Self { count: 6 }\n    }\n}\n";
+
+        const KOTLIN_METHOD_BODY: &str = "class CompanionService {\n    var count: Int = 1\n    \
+             fun doubled(): Int {\n        val scratch = count\n        return scratch * 2\n    }\n}\n";
+
+        const CSHARP_READ_ONLY_FIELDS: &str = "public class Companion\n{\n    public int Count { get; set; } = 6;\n    \
+             public string Label => \"Native\";\n    public readonly int Fixed = 1;\n    \
+             public int Reading { get; }\n}\n";
+    }
+
+    fn member_table(
+        language: CompanionLanguage,
+        source: &str,
+        path: &str,
+    ) -> Result<String, Failure> {
+        owner_table(language, source, path, &[], "", false)
+    }
+
+    fn rust_member_table(source: &str, path: &str) -> Result<String, Failure> {
+        member_table(CompanionLanguage::Rust, source, path)
+    }
+
+    fn page_table(language: CompanionLanguage, file_name: &str, source: &str) -> String {
+        member_table(language, source, &format!("client/pages/{file_name}")).expect("generated")
+    }
+
+    #[test]
+    fn a_unit_struct_takes_its_members_from_its_impl_alone() {
+        let generated =
+            rust_member_table(Sources::UNIT_STRUCT, "tac.rs").expect("a unit struct is a struct");
         assert!(generated.contains("\"start\""), "{generated}");
         assert!(
             !generated.contains("\"std\""),
@@ -862,134 +1330,99 @@ mod tests {
         );
     }
 
-    /// The same companion, authored idiomatically in every language, has to
-    /// name the same members with the same mutability.
-    ///
-    /// A developer writes one companion and then writes it again for another
-    /// target; if the two disagree about what the page can reach, the page
-    /// renders differently on two platforms and nothing says why. So the shape
-    /// is fixed — a class, fields with values, methods — and each language
-    /// spells it its own way.
     #[test]
     fn every_language_reads_the_same_class_the_same_way() {
         let authored = [
             (
                 CompanionLanguage::Swift,
                 "tac.swift",
-                "final class Companion {\n  var count: Int = 6\n  \
-                 let runtime = \"Swift\"\n\n  func doubled() -> Int { count * 2 }\n}\n",
+                Sources::SWIFT_COMPANION,
             ),
             (
                 CompanionLanguage::Kotlin,
                 "tac.kt",
-                "class Companion {\n  var count: Int = 6\n  \
-                 val runtime: String = \"Kotlin\"\n\n  fun doubled(): Int = count * 2\n}\n",
+                Sources::KOTLIN_COMPANION,
             ),
             (
                 CompanionLanguage::CSharp,
                 "tac.cs",
-                "public class Companion\n{\n  public int Count = 6;\n  \
-                 public string Runtime => \"C#\";\n\n  public int Doubled() => Count * 2;\n}\n",
+                Sources::CSHARP_COMPANION,
             ),
-            (
-                CompanionLanguage::Rust,
-                "tac.rs",
-                "pub struct Companion {\n  pub count: i32,\n  pub runtime: &'static str,\n}\n\n\
-                 impl Companion {\n  pub fn new() -> Self {\n    \
-                 Self { count: 6, runtime: \"Rust\" }\n  }\n\n  \
-                 pub fn doubled(&self) -> i32 {\n    self.count * 2\n  }\n}\n",
-            ),
+            (CompanionLanguage::Rust, "tac.rs", Sources::RUST_COMPANION),
         ];
-        for (language, name, source) in authored {
-            let generated = member_table(language, source, &format!("client/pages/{name}"))
-                .expect("generated")
-                .unwrap_or_else(|| panic!("{name} produced no table"));
+        for (language, file_name, source) in authored {
+            let generated = page_table(language, file_name, source);
             for member in ["count", "runtime", "doubled"] {
                 assert!(
                     generated.contains(&format!("\"{member}\"")),
-                    "{name} lost {member}:\n{generated}"
+                    "{file_name} lost {member}:\n{generated}"
                 );
             }
-            // `new` and `default` are how an instance is made, not something
-            // the page can call.
-            assert!(!generated.contains("\"new\""), "{name}:\n{generated}");
-            assert!(!generated.contains("\"default\""), "{name}:\n{generated}");
+            assert!(!generated.contains("\"new\""), "{file_name}:\n{generated}");
+            assert!(
+                !generated.contains("\"default\""),
+                "{file_name}:\n{generated}"
+            );
         }
     }
 
-    /// A read-only field need not declare its type, and is still a field.
-    ///
-    /// `let runtime = "x"` is how Swift and Kotlin write one, and it is what
-    /// JavaScript's `runtime = 'x'` looks like in those languages. It had been
-    /// read as a *method*, because the table decided that from the absence of
-    /// a type — so the generated code called a string, and the companion did
-    /// not compile.
     #[test]
     fn an_untyped_read_only_field_is_a_field_and_not_a_method() {
-        for (language, name, source, expected) in [
+        let cases = [
             (
                 CompanionLanguage::Swift,
                 "tac.swift",
-                "final class Companion {\n  let runtime = \"Swift\"\n}\n",
+                "final class CompanionService {\n  let runtime = \"Swift\"\n}\n",
                 "\"runtime\": .field({ tacInstance.runtime }),",
             ),
             (
                 CompanionLanguage::Kotlin,
                 "tac.kt",
-                "class Companion {\n  val runtime = \"Kotlin\"\n}\n",
+                "class CompanionService {\n  val runtime = \"Kotlin\"\n}\n",
                 "\"runtime\" to TacField({ tacInstance.runtime }),",
             ),
-        ] {
-            let generated = member_table(language, source, &format!("client/pages/{name}"))
-                .expect("generated")
-                .unwrap_or_else(|| panic!("{name} produced no table"));
-            assert!(generated.contains(expected), "{name}:\n{generated}");
-            assert!(!generated.contains("runtime()"), "{name}:\n{generated}");
+        ];
+        for (language, file_name, source, expected) in cases {
+            let generated = page_table(language, file_name, source);
+            assert!(generated.contains(expected), "{file_name}:\n{generated}");
+            assert!(
+                !generated.contains("runtime()"),
+                "{file_name}:\n{generated}"
+            );
         }
     }
 
     #[test]
     fn a_platform_width_integer_field_crosses_as_a_number() {
-        // `i64::from(usize)` does not exist, so the generated table did not
-        // compile for a companion that counted anything.
-        let table = super::rust_member_table(
-            "pub struct Companion {\n    pub cores: usize,\n}\n\n\
-             impl Companion {\n    pub fn new() -> Self {\n        \
-             Self { cores: 1 }\n    }\n}\n",
-            "client/pages/tac.rs",
-        )
-        .expect("table");
+        let table =
+            rust_member_table(Sources::PLATFORM_WIDTH_FIELD, "client/pages/tac.rs").expect("table");
         assert!(table.contains("as i64"), "{table}");
         assert!(!table.contains("i64::from"), "{table}");
     }
 
     #[test]
     fn a_private_member_is_not_in_the_table() {
-        // It is not part of the class's surface, and the generated table lives
-        // outside the class — naming one produced code that did not compile.
-        for (language, name, source) in [
+        let cases = [
             (
                 CompanionLanguage::Swift,
                 "tac.swift",
-                "final class Companion {\n  private let secret = \"x\"\n  let runtime = \"Swift\"\n}\n",
+                Sources::SWIFT_PRIVATE_MEMBER,
             ),
             (
                 CompanionLanguage::Kotlin,
                 "tac.kt",
-                "class Companion {\n  private val secret = \"x\"\n  val runtime = \"Kotlin\"\n}\n",
+                Sources::KOTLIN_PRIVATE_MEMBER,
             ),
             (
                 CompanionLanguage::CSharp,
                 "tac.cs",
-                "public class Companion\n{\n  private string Secret => \"x\";\n  \
-                 public string Runtime => \"C#\";\n}\n",
+                Sources::CSHARP_PRIVATE_MEMBER,
             ),
-        ] {
-            let generated = member_table(language, source, &format!("client/pages/{name}"))
-                .expect("generated")
-                .unwrap_or_else(|| panic!("{name} produced no table"));
-            assert!(generated.contains("untime"), "{name}:\n{generated}");
-            assert!(!generated.contains("ecret"), "{name}:\n{generated}");
+        ];
+        for (language, file_name, source) in cases {
+            let generated = page_table(language, file_name, source);
+            assert!(generated.contains("untime"), "{file_name}:\n{generated}");
+            assert!(!generated.contains("ecret"), "{file_name}:\n{generated}");
         }
     }
 
@@ -997,136 +1430,264 @@ mod tests {
     fn a_swift_class_becomes_a_member_table() {
         let generated = member_table(
             CompanionLanguage::Swift,
-            "final class Companion {\n    var count: Int = 6\n    \
-             let label: String = \"a\"\n    func doubled() -> Int { count * 2 }\n}\n",
-            "client/components/x/tac.swift",
+            Sources::SWIFT_CLASS,
+            "client/services/CompanionService.swift",
         )
-        .expect("generated")
+        .expect("a table");
+        for expected in [
+            "let tacInstance = CompanionService()",
+            "$0 as? Int ?? tacInstance.count",
+            "\"label\": .field({ tacInstance.label }),",
+            ".method({ _ in tacInstance.doubled() })",
+        ] {
+            assert!(generated.contains(expected), "{generated}");
+        }
+    }
+
+    #[test]
+    fn rust_methods_take_json_arguments_and_keep_the_rest_inside() {
+        let generated =
+            rust_member_table(Sources::RUST_ARGUMENTS, "client/services/DrawerService.rs")
+                .expect("a table");
+        assert!(generated.contains(Sources::RUST_BINDINGS), "{generated}");
+        assert!(
+            generated.contains("it.borrow_mut().dismiss(&a0, a1)"),
+            "{generated}"
+        );
+        assert!(
+            generated.contains("it.borrow_mut().keep(a0)"),
+            "{generated}"
+        );
+        assert!(!generated.contains("\"hidden\""), "{generated}");
+    }
+
+    #[test]
+    fn csharp_behavior_methods_wait_for_their_task_and_pass_json() {
+        let generated = member_table(
+            CompanionLanguage::CSharp,
+            Sources::CSHARP_BEHAVIOR_SERVICE,
+            "client/services/NotesService.cs",
+        )
+        .expect("a table");
+        for expected in [
+            "[\"find\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.find(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null)))).GetAwaiter().GetResult()))",
+            "[\"forget\"] = TacMember.Method(arguments => { Instance.forget(BehaviorJSON.Parse(Tac.EncodeValue((arguments.Length > 0 ? arguments[0] : null)))).GetAwaiter().GetResult(); return null; })",
+            "[\"label\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.label()))",
+            "[\"reads\"] = TacMember.Field(",
+        ] {
+            assert!(generated.contains(expected), "{generated}");
+        }
+        assert!(!generated.contains("\"system\""), "{generated}");
+        assert!(!generated.contains("\"behaviors\""), "{generated}");
+    }
+
+    #[test]
+    fn csharp_methods_take_json_arguments_and_object_fields_pass_through() {
+        let generated = member_table(
+            CompanionLanguage::CSharp,
+            Sources::CSHARP_ARGUMENTS,
+            "client/services/DrawerService.cs",
+        )
         .expect("a table");
         assert!(
-            generated.contains("private let tacInstance = Companion()"),
-            "{generated}"
-        );
-        // A mutable field gets a setter typed by its declaration.
-        assert!(
-            generated.contains("$0 as? Int ?? tacInstance.count"),
-            "{generated}"
-        );
-        // An immutable one is read-only rather than silently writable.
-        assert!(
-            generated.contains("\"label\": .field({ tacInstance.label }),"),
+            generated.contains("value => Instance.Entries = value"),
             "{generated}"
         );
         assert!(
-            generated.contains(".method({ _ in tacInstance.doubled() })"),
+            generated.contains(Sources::CSHARP_DISMISS_CALL),
             "{generated}"
         );
+        assert!(!generated.contains("\"hidden\""), "{generated}");
     }
 
     #[test]
     fn a_rust_struct_and_its_inherent_impl_become_a_table() {
-        let generated = member_table(
-            CompanionLanguage::Rust,
-            "pub struct Companion {\n    count: i32,\n    label: String,\n}\n\n\
-             impl Default for Companion {\n    fn default() -> Self {\n        \
-             Self { count: 6, label: String::from(\"Rust\") }\n    }\n}\n\n\
-             impl Companion {\n    fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}\n",
-            "client/components/x/tac.rs",
+        let generated = rust_member_table(
+            Sources::RUST_STRUCT_WITH_DEFAULT,
+            "client/services/CompanionService.rs",
         )
-        .expect("generated")
         .expect("a table");
-        // Only the inherent impl contributes methods: `impl Default for
-        // Companion` is where the starting values live, and taking the first
-        // impl found silently picked it.
-        assert!(
-            generated.contains("\"doubled\", TacMember::Method"),
-            "{generated}"
-        );
         assert!(!generated.contains("\"default\""), "{generated}");
-        // Each type crosses as itself rather than as an assumed integer.
-        assert!(
-            generated.contains("TacValue::Int((it.borrow().count.clone()) as i64)"),
-            "{generated}"
-        );
-        assert!(
-            generated.contains("TacValue::Text((it.borrow().label.clone()).to_string())"),
-            "{generated}"
-        );
-        assert!(generated.contains("value.as_text()"), "{generated}");
-        assert!(generated.contains("value.as_int() as i32"), "{generated}");
+        for expected in [
+            "\"doubled\", TacMember::Method",
+            "TacValue::Int((it.borrow().count.clone()) as i64)",
+            "TacValue::Text((it.borrow().label.clone()).to_string())",
+            "value.as_text()",
+            "value.as_int() as i32",
+        ] {
+            assert!(generated.contains(expected), "{generated}");
+        }
     }
 
     #[test]
     fn a_borrowed_string_field_is_read_only_rather_than_dropped() {
-        // It had been dropped in silence: `&'static str` is how a constant
-        // string field is written, and the page rendered nothing for it.
-        let table = super::rust_member_table(
-            "pub struct Companion {\n    pub runtime: &'static str,\n}\n\n\
-             impl Default for Companion {\n    fn default() -> Self {\n        \
-             Self { runtime: \"Rust\" }\n    }\n}\n",
-            "client/pages/tac.rs",
-        )
-        .expect("table");
+        let table =
+            rust_member_table(Sources::RUST_BORROWED_STRING, "client/pages/tac.rs").expect("table");
         assert!(table.contains("\"runtime\""), "{table}");
         assert!(table.contains("TacValue::Text"), "{table}");
         assert!(table.contains("write: None"), "{table}");
-        // `&str` is Copy, so cloning it is a no-op rustc warns about.
         assert!(!table.contains("runtime.clone()"), "{table}");
     }
 
     #[test]
-    fn a_rust_struct_without_a_constructor_is_a_diagnostic() {
-        // A Rust struct has no inline field defaults, so the value a field
-        // starts at lives in a constructor and there is nothing to build
-        // without one.
-        let failure = member_table(
+    fn a_needs_all_service_is_built_without_a_constructor() {
+        let rust = owner_table(
             CompanionLanguage::Rust,
-            "pub struct Companion {\n    count: i32,\n}\n",
-            "client/components/x/tac.rs",
+            "struct TocService {\n    page_path: String,\n    entries: TacValue,\n}\n",
+            "client/services/TocService.rs",
+            &[],
+            "",
+            true,
+        )
+        .expect("NeedsAll struct table");
+        assert!(
+            rust.contains("TocService { page_path: ::core::default::Default::default(), entries: ::core::default::Default::default() }"),
+            "{rust}"
+        );
+        let csharp = owner_table(
+            CompanionLanguage::CSharp,
+            "public class DocumentationService\n{\n    public string Source = \"page.json\";\n    public required object Docs;\n    public required object Features;\n}\n",
+            "client/services/DocumentationService.cs",
+            &[],
+            "",
+            true,
+        )
+        .expect("required members table");
+        assert!(
+            csharp.contains("new DocumentationService() { Docs = default!, Features = default! }"),
+            "{csharp}"
+        );
+        assert!(csharp.contains("value => Instance.Docs ="), "{csharp}");
+    }
+
+    #[test]
+    fn a_rust_struct_without_a_constructor_is_a_diagnostic() {
+        let failure = rust_member_table(
+            "pub struct CompanionService {\n    count: i32,\n}\n",
+            "client/services/CompanionService.rs",
         )
         .expect_err("no constructor");
-        assert!(
-            failure.to_string().contains("needs a constructor"),
-            "{failure}"
-        );
-        assert!(
-            failure.to_string().contains("fn new() -> Self"),
-            "{failure}"
-        );
+        let message = failure.to_string();
+        assert!(message.contains("needs a constructor"), "{failure}");
+        assert!(message.contains("fn new() -> Self"), "{failure}");
     }
 
     #[test]
     fn a_rust_constructor_is_used_over_default() {
-        let table = super::rust_member_table(
-            "pub struct Companion {\n    pub count: i32,\n}\n\n\
-             impl Companion {\n    pub fn new() -> Self {\n        \
-             Self { count: 6 }\n    }\n}\n",
-            "client/pages/tac.rs",
-        )
-        .expect("table");
-        assert!(table.contains("RefCell::new(Companion::new())"), "{table}");
+        let table =
+            rust_member_table(Sources::RUST_CONSTRUCTOR, "client/pages/tac.rs").expect("table");
+        assert!(
+            table.contains("RefCell::new(CompanionService::new())"),
+            "{table}"
+        );
         assert!(!table.contains("\"new\""), "{table}");
     }
 
     #[test]
-    fn a_hand_written_table_is_left_alone() {
-        // The generator fills a gap; it does not overrule an author.
-        let source = "class Companion { var count: Int = 1 }\n\
+    fn a_hand_written_table_is_rejected_without_owner_lifecycle() {
+        let source = "class CompanionService { var count: Int = 1 }\n\
                       let tac: [String: TacMember] = [:]\n";
-        assert_eq!(
-            member_table(CompanionLanguage::Swift, source, "x/tac.swift").expect("read"),
-            None
+        assert!(member_table(CompanionLanguage::Swift, source, "x/tac.swift").is_err());
+    }
+
+    #[test]
+    fn a_service_file_owns_the_type_it_names() {
+        let swift = "final class CatalogProperties {}\n\n\
+                     final class SettingsService { var title: String = \"Catalog\" }\n";
+        let table = member_table(
+            CompanionLanguage::Swift,
+            swift,
+            "client/services/SettingsService.swift",
+        )
+        .expect("named service");
+        assert!(table.contains("SettingsService()"), "{table}");
+        assert!(!table.contains("CatalogProperties()"), "{table}");
+        assert!(table.contains("\"title\""), "{table}");
+
+        let rust = "#[derive(Default)]\nstruct CatalogProperties {}\n\
+                    #[derive(Default)]\nstruct SettingsService { title: i64 }\n";
+        let table = rust_member_table(rust, "client/services/SettingsService.rs").expect("named");
+        assert!(
+            table.contains("<SettingsService as Default>::default()"),
+            "{table}"
+        );
+        assert!(table.contains("\"title\""), "{table}");
+
+        let table = member_table(
+            CompanionLanguage::Swift,
+            "final class CompanionService { var count: Int = 1 }\n",
+            "client/pages/tac.swift",
+        )
+        .expect("unnamed");
+        assert!(table.contains("CompanionService()"), "{table}");
+    }
+
+    #[test]
+    fn a_service_file_without_its_named_type_is_refused() {
+        let failure = member_table(
+            CompanionLanguage::Swift,
+            "final class Helper { var count: Int = 1 }\n",
+            "client/services/PanelService.swift",
+        )
+        .expect_err("absent");
+        let message = failure.to_string();
+        assert!(
+            message.contains("declares no class named 'PanelService'"),
+            "{message}"
+        );
+        assert!(message.contains("ADR 0030"), "{message}");
+    }
+
+    #[test]
+    fn a_service_exposing_no_members_is_refused_in_every_language() {
+        let empty_services = [
+            (CompanionLanguage::Swift, "final class PanelService {\n}\n"),
+            (CompanionLanguage::Kotlin, "class PanelService {\n}\n"),
+            (
+                CompanionLanguage::CSharp,
+                "public class PanelService {\n}\n",
+            ),
+        ];
+        for (language, source) in empty_services {
+            let failure = member_table(language, source, "client/services/PanelService.swift")
+                .expect_err("empty");
+            assert!(
+                failure.to_string().contains("exposes no members"),
+                "{failure}"
+            );
+        }
+        let failure = rust_member_table(
+            "#[derive(Default)]\nstruct PanelService {}\n",
+            "client/services/PanelService.rs",
+        )
+        .expect_err("empty");
+        assert!(
+            failure.to_string().contains("exposes no members"),
+            "{failure}"
         );
     }
 
     #[test]
+    fn a_lifecycle_only_service_still_stages() {
+        let table = owner_table(
+            CompanionLanguage::Swift,
+            "final class PanelService {\n    func start() {}\n}\n",
+            "client/services/PanelService.swift",
+            &[String::from("start")],
+            "\"start\": .hook(false, { tacInstance.start() }),\n",
+            false,
+        )
+        .expect("hook entry keeps the table populated");
+        assert!(table.contains("\"start\": .hook"), "{table}");
+        assert!(!table.contains("[:]"), "{table}");
+    }
+
+    #[test]
     fn a_mutable_field_without_a_type_is_a_diagnostic() {
-        // The setter has to convert an incoming JSON value into something, and
-        // only the declaration says what.
         let failure = member_table(
             CompanionLanguage::Swift,
-            "class Companion {\n    var count = 6\n}\n",
-            "client/components/x/tac.swift",
+            "class CompanionService {\n    var count = 6\n}\n",
+            "client/services/CompanionService.swift",
         )
         .expect_err("untyped");
         assert!(
@@ -1139,11 +1700,9 @@ mod tests {
     fn a_method_body_does_not_contribute_members() {
         let generated = member_table(
             CompanionLanguage::Kotlin,
-            "class Companion {\n    var count: Int = 1\n    \
-             fun doubled(): Int {\n        val scratch = count\n        return scratch * 2\n    }\n}\n",
+            Sources::KOTLIN_METHOD_BODY,
             "x/tac.kt",
         )
-        .expect("generated")
         .expect("a table");
         assert!(!generated.contains("scratch"), "{generated}");
         assert!(
@@ -1161,25 +1720,18 @@ mod tests {
              public int Doubled() => Count * 2;\n}\n",
             "x/tac.cs",
         )
-        .expect("generated")
         .expect("a table");
-        // A view names members as the template writes them.
         assert!(csharp.contains("[\"count\"]"), "{csharp}");
         assert!(csharp.contains("Convert.ToInt32(value)"), "{csharp}");
     }
 
     #[test]
     fn a_byte_order_mark_does_not_hide_the_class_behind_it() {
-        // Notepad, Visual Studio and PowerShell 5.1's `Set-Content -Encoding
-        // utf8` all write one. U+FEFF is not whitespace, so the declaration
-        // behind it was not found, the table came out empty, and the generated
-        // bridge referred to a TacBridge nobody had written.
         let generated = member_table(
             CompanionLanguage::CSharp,
             "\u{feff}public class Companion\n{\n    public int Count { get; set; } = 6;\n}\n",
             "x/tac.cs",
         )
-        .expect("generated")
         .expect("a table");
         assert!(generated.contains("TacBridge"), "{generated}");
         assert!(generated.contains("[\"count\"]"), "{generated}");
@@ -1187,16 +1739,11 @@ mod tests {
 
     #[test]
     fn a_field_the_author_cannot_assign_gets_no_setter() {
-        // Generating one does not compile, and the author only finds out when
-        // the publish fails several minutes later.
         let csharp = member_table(
             CompanionLanguage::CSharp,
-            "public class Companion\n{\n    public int Count { get; set; } = 6;\n    \
-             public string Label => \"Native\";\n    public readonly int Fixed = 1;\n    \
-             public int Reading { get; }\n}\n",
+            Sources::CSHARP_READ_ONLY_FIELDS,
             "x/tac.cs",
         )
-        .expect("generated")
         .expect("a table");
         assert!(
             csharp.contains("Field(() => Instance.Count, value =>"),

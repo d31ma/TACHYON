@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { CargoArtifacts } from './cargo-artifacts.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
@@ -16,28 +17,25 @@ import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 
-const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const binary = process.env.TAC_BIN
-  ?? path.join(repository, process.platform === 'win32' ? 'target/debug/ty.exe' : 'target/debug/ty')
-const fixture = path.join(repository, 'crates/tachyon-cli/tests/fixtures/hot-update-browser')
-const project = mkdtempSync(path.join(tmpdir(), 'tachyon-hot-update-'))
-cpSync(fixture, project, { recursive: true })
+class HotUpdateTest {
+  static repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  static binary = process.env.TAC_BIN
+    ?? CargoArtifacts.path('debug', process.platform === 'win32' ? 'ty.exe' : 'ty')
+  static fixture = path.join(HotUpdateTest.repository, 'crates/tachyon-cli/tests/fixtures/hot-update-browser')
+}
 
-const component = path.join(project, 'client/components/hot-counter')
-const templatePath = path.join(component, 'tac.html')
-const modulePath = path.join(component, 'tac.js')
-const stylePath = path.join(component, 'tac.css')
-const originalTemplate = readFileSync(templatePath, 'utf8')
+function projectPaths(project) {
+  const component = path.join(project, 'client/components/hot-counter')
+  return {
+    templatePath: path.join(component, 'tac.html'),
+    modulePath: path.join(project, 'client/services/HotCounterService.js'),
+    stylePath: path.join(component, 'tac.css'),
+  }
+}
 
-const server = spawn(binary, ['dev', project, '--port', '0'], {
-  cwd: repository,
-  stdio: ['ignore', 'pipe', 'pipe'],
-})
-let browser
-
-try {
+async function waitForAddress(server) {
   const lines = createInterface({ input: server.stdout })
-  const address = await Promise.race([
+  return await Promise.race([
     (async () => {
       for await (const line of lines) {
         const match = line.match(/http:\/\/127\.0\.0\.1:\d+\//)
@@ -53,9 +51,10 @@ try {
       timer.unref()
     }),
   ])
+}
 
-  browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage()
+async function checkHotUpdates(page, address, paths, originalTemplate) {
+  const { templatePath, modulePath, stylePath } = paths
   const errors = []
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text())
@@ -82,12 +81,12 @@ try {
   )
   writeFileSync(modulePath, nextModule)
   await page.waitForFunction(() => {
-    const root = document.querySelector('tachyon-component')
+    const root = document.querySelector('tachyon-component[data-tachyon-component="hot-counter"]')
     return document.documentElement.dataset.tachyonHot === 'island'
       && root?.dataset.moduleVersion === 'two'
       && document.querySelector('#module-version')?.textContent === 'two'
   })
-  assert.equal(await page.textContent('#count'), '2', 'component HMR must restore declared hot state')
+  assert.equal(await page.textContent('#count'), '2', 'service HMR must restore declared hot state')
   assert.equal(await page.locator('#details').evaluate((node) => node.open), true)
   assert.equal(await page.locator('#draft').inputValue(), 'developer draft')
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'draft')
@@ -108,13 +107,41 @@ try {
       && document.querySelector('#count')?.textContent === '1',
   )
   assert.deepEqual(errors, [], `browser errors: ${errors.join(' | ')}`)
-  console.log('PASS: semantic hot-update browser gate')
-} finally {
-  if (browser) await browser.close()
-  if (server.exitCode === null) {
-    const exited = once(server, 'exit')
-    server.kill('SIGTERM')
-    await exited
-  }
-  rmSync(project, { recursive: true, force: true })
 }
+
+async function stopServer(server) {
+  if (server.exitCode !== null) return
+  const exited = once(server, 'exit')
+  server.kill('SIGTERM')
+  await exited
+}
+
+async function main() {
+  const project = mkdtempSync(path.join(tmpdir(), 'tachyon-hot-update-'))
+  cpSync(HotUpdateTest.fixture, project, { recursive: true })
+
+  const paths = projectPaths(project)
+  const originalTemplate = readFileSync(paths.templatePath, 'utf8')
+
+  const server = spawn(HotUpdateTest.binary, ['dev', project, '--port', '0'], {
+    cwd: HotUpdateTest.repository,
+    env: { ...process.env, TAC_ALLOW_UNTESTED: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let browser
+
+  try {
+    const address = await waitForAddress(server)
+
+    browser = await chromium.launch({ headless: true })
+    const page = await browser.newPage()
+    await checkHotUpdates(page, address, paths, originalTemplate)
+    console.log('PASS: semantic hot-update browser gate')
+  } finally {
+    if (browser) await browser.close()
+    await stopServer(server)
+    rmSync(project, { recursive: true, force: true })
+  }
+}
+
+await main()

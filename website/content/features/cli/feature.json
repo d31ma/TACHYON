@@ -1,0 +1,20 @@
+{
+  "id": "cli",
+  "title": "The ty binary",
+  "summary": "One standalone executable creates projects (`ty init` asks what the app should have and installs the missing tools; `ty add` grows the app later), runs them in development, builds them and inspects them. `ty preview` is the development server for Tac and Yon. `ty start` serves the published output and never builds it again. `ty handler invoke` runs one controller or worker through the protocol, without any server. `ty test` compiles and runs the `Test` units of the project in both realms (Tac and Yon). It also reports the public methods of annotated classes that no test case called.",
+  "group": "Tooling",
+  "files": [
+    {
+      "name": "shell",
+      "code": {
+        "file": "shell.sh"
+      }
+    },
+    {
+      "name": "options",
+      "code": {
+        "file": "options.txt"
+      }
+    }
+  ]
+}

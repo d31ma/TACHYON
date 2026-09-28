@@ -1,0 +1,14 @@
+Settings binds explicit nested tac/yon snapshots into typed JSON.
+Each underscore in prefixed names maps to a path segment; no ambient environment access.
+Unknown selected-prefix keys fail. Setting binds one field by path from the parsed application configuration
+through Behaviors.values; Tac may name only tac.*, Yon only yon.*.
+WhenProfile/WhenSetting inspect
+snapshotted explicit inputs before configure. Never ship server secrets to Tac.
+
+Checked marks direct DTO fields. Required/NotEmpty require values;
+Length counts UTF-8 string bytes or array/object entries. Min/Max accept finite
+numbers without coercion. Length/Min/Max otherwise ignore missing/null.
+Check validates the selected method argument before pagination/cache/HTTP/body.
+Behaviors.validate(Type, value) needs no context or DTO construction.
+Errors expose redacted field/rule paths. Unknown fields remain allowed.
+No nested groups or automatic field assignment; validate again in Yon.

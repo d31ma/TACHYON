@@ -1,0 +1,21 @@
+{
+  "id": "switch",
+  "title": "Matching a value",
+  "summary": "A switch compares one value with each case. Tac uses the first case that matches. If no case matches, it uses `<case default>`. The compiler turns a switch into a chain of if and else-if branches.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/status/badge/tac.html",
+      "code": { "file": "client/components/status/badge/tac.html" }
+    },
+    {
+      "name": "client/services/BadgeService.js",
+      "code": { "file": "client/services/BadgeService.js" }
+    }
+  ],
+  "verify": "tac"
+}

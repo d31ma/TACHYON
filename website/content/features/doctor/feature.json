@@ -1,0 +1,12 @@
+{
+  "id": "doctor",
+  "title": "Toolchain checks",
+  "summary": "`ty doctor` checks whether this machine can build and run the project. It reports only the toolchains (compilers and build tools) and controller runtimes that the project uses. `--json` prints the same report in a format for other programs. A Rust, Go or C# service with no browser script also needs a WebAssembly check: `wasm32-unknown-unknown` for Rust, Go 1.27 for Go, or the .NET `wasm-tools` workload for C#. A Ruby service needs the tools that build Tachyon's Ruby WebAssembly runtime once: Ruby, Emscripten 6.0.10 or newer (`emcc`) and a C compiler. When the runtime is already in the Tachyon cache, the report shows it as ready instead.",
+  "group": "Tooling",
+  "files": [
+    {
+      "name": "shell",
+      "code": { "file": "shell.txt" }
+    }
+  ]
+}

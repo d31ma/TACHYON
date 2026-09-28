@@ -1,0 +1,7 @@
+client/
+  pages/tac.html
+  components/hero/tac.html
+  services/HeroService.js
+  shared/assets/  shared/data/
+server/
+  controllers/PostsController.js

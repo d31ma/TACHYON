@@ -1,0 +1,1 @@
+record ChatMessage(String text) {}

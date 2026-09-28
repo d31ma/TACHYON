@@ -18,14 +18,10 @@ use tachyon_contracts::{
     NativeTarget,
 };
 
-/// Options for one Phase 5 native application build.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeBuildOptions {
-    /// Project-relative base output directory. Artifacts publish below the target directory.
     pub output_directory: PathBuf,
-    /// Native platform receiving the generated application.
     pub target: NativeTarget,
-    /// Whether the generated host is compiled into an installable artifact.
     pub package: bool,
 }
 
@@ -39,7 +35,6 @@ impl Default for NativeBuildOptions {
     }
 }
 
-/// Returns the stable published directory name for one native target.
 #[must_use]
 pub const fn native_target_directory(target: NativeTarget) -> &'static str {
     match target {
@@ -51,7 +46,6 @@ pub const fn native_target_directory(target: NativeTarget) -> &'static str {
     }
 }
 
-/// Returns the Artifact Manifest v1 operating system, architecture, and ABI.
 fn artifact_target(target: NativeTarget) -> ArtifactTarget {
     let host_architecture = if cfg!(target_arch = "aarch64") {
         "aarch64"
@@ -72,7 +66,6 @@ fn artifact_target(target: NativeTarget) -> ArtifactTarget {
     }
 }
 
-/// Evidence returned by a successful native application build.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeBuildResult {
     output_directory: PathBuf,
@@ -82,42 +75,34 @@ pub struct NativeBuildResult {
 }
 
 impl NativeBuildResult {
-    /// Returns the published target output directory.
     #[must_use]
     pub fn output_directory(&self) -> &Path {
         &self.output_directory
     }
 
-    /// Returns the published application bundle, executable, or package.
     #[must_use]
     pub fn application_bundle(&self) -> &Path {
         &self.application_bundle
     }
 
-    /// Returns the number of packaged page routes.
     #[must_use]
     pub const fn route_count(&self) -> usize {
         self.route_count
     }
 
-    /// Returns the digest over the complete published artifact.
     #[must_use]
     pub fn sha256(&self) -> &str {
         &self.sha256
     }
 }
 
-/// Compiles resolved Tachyon routes into a native application.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NativeCompiler;
 
 impl NativeCompiler {
-    /// Builds a native application using a current-thread async runtime.
-    ///
-    /// # Errors
-    ///
-    /// Returns diagnostics when planning, Swift compilation, signing, or
-    /// atomic publication fails.
+    const MAX_NATIVE_SERVICES: usize = 128;
+    const ARTIFACT_MANIFEST_NAME: &str = "artifact-manifest.json";
+
     pub fn build(
         project_root: impl AsRef<Path>,
         options: &NativeBuildOptions,
@@ -126,11 +111,6 @@ impl NativeCompiler {
         Self::build_project(&project, options)
     }
 
-    /// Builds a native application from one immutable discovery snapshot.
-    ///
-    /// # Errors
-    ///
-    /// Returns deterministic planning, generation, or publication diagnostics.
     pub fn build_project(
         project: &Project,
         options: &NativeBuildOptions,
@@ -149,12 +129,6 @@ impl NativeCompiler {
         runtime.block_on(Self::build_project_async(project, options))
     }
 
-    /// Builds and atomically publishes a native application.
-    ///
-    /// # Errors
-    ///
-    /// Returns deterministic native diagnostics and preserves the previous
-    /// native output on every failure.
     pub async fn build_async(
         project_root: impl AsRef<Path>,
         options: &NativeBuildOptions,
@@ -163,49 +137,21 @@ impl NativeCompiler {
         Self::build_project_async(&project, options).await
     }
 
-    /// Asynchronously builds a native application from one immutable discovery snapshot.
-    ///
-    /// # Errors
-    ///
-    /// Returns deterministic planning, generation, or publication diagnostics.
     pub async fn build_project_async(
         project: &Project,
         options: &NativeBuildOptions,
     ) -> Result<NativeBuildResult, Failure> {
         let application =
-            NativeApplication::discover_from_snapshot(project.snapshot_root(), project.root())
-                .await?;
+            NativeApplication::discover_from_snapshot(project.snapshot_root(), project.root())?;
         let base_output = resolve_output_path(project.root(), &options.output_directory)?;
-        if !project
-            .route_graph()
-            .routes()
-            .iter()
-            .any(|route| route.route() == application.entry_route && route.source_path().is_some())
-        {
-            return Err(Failure::one(diagnostic(
-                1601,
-                format!(
-                    "Native entry route '{}' does not identify a page.",
-                    application.entry_route
-                ),
-                Some(String::from(
-                    "Point the tac.config.js application entryRoute at a discovered page route.",
-                )),
-                None,
-            )));
-        }
+        ensure_entry_route_is_a_page(project, &application)?;
 
         let (temporary_web, companions) = build_web_bundle(project, options.target).await?;
         let index =
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
 
         let destination = base_output.join(native_target_directory(options.target));
-        let parent = destination.parent().unwrap_or(project.root());
-        fs::create_dir_all(parent).map_err(|error| native_io_failure(parent, &error))?;
-        let stage = tempfile::Builder::new()
-            .prefix(".tachyon-native-build-")
-            .tempdir_in(parent)
-            .map_err(|error| native_io_failure(parent, &error))?;
+        let stage = create_stage(&destination, project.root())?;
         write_host_descriptor(
             stage.path(),
             &application,
@@ -223,19 +169,7 @@ impl NativeCompiler {
             options.package,
         )
         .await?;
-        let outputs = collect_outputs(stage.path(), "artifact-manifest.json")?;
-        let manifest = artifact_manifest(options.target, &generated, outputs);
-        let mut manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| {
-            Failure::one(diagnostic(
-                1605,
-                format!("Cannot serialize Artifact Manifest v1: {error}"),
-                None,
-                None,
-            ))
-        })?;
-        manifest_bytes.push(b'\n');
-        fs::write(stage.path().join("artifact-manifest.json"), manifest_bytes)
-            .map_err(|error| native_io_failure(stage.path(), &error))?;
+        write_artifact_manifest(stage.path(), options.target, &generated)?;
         let digest = digest_tree(stage.path())?;
         publish(stage, &destination).map_err(|error| native_io_failure(&destination, &error))?;
 
@@ -248,7 +182,60 @@ impl NativeCompiler {
     }
 }
 
-/// Writes the descriptor that says what this bundle is and what it can do.
+fn create_stage(destination: &Path, project_root: &Path) -> Result<tempfile::TempDir, Failure> {
+    let parent = destination.parent().unwrap_or(project_root);
+    fs::create_dir_all(parent).map_err(|error| native_io_failure(parent, &error))?;
+    tempfile::Builder::new()
+        .prefix(".tachyon-native-build-")
+        .tempdir_in(parent)
+        .map_err(|error| native_io_failure(parent, &error))
+}
+
+fn ensure_entry_route_is_a_page(
+    project: &Project,
+    application: &NativeApplication,
+) -> Result<(), Failure> {
+    for route in project.route_graph().routes() {
+        if route.route() == application.entry_route && route.source_path().is_some() {
+            return Ok(());
+        }
+    }
+    Err(Failure::one(diagnostic(
+        1601,
+        format!(
+            "Native entry route '{}' does not identify a page.",
+            application.entry_route
+        ),
+        Some(String::from(
+            "Point start_url in client/manifest.json at a discovered page route.",
+        )),
+        None,
+    )))
+}
+
+fn write_artifact_manifest(
+    stage: &Path,
+    target: NativeTarget,
+    generated: &GeneratedHost,
+) -> Result<(), Failure> {
+    let outputs = collect_outputs(stage, NativeCompiler::ARTIFACT_MANIFEST_NAME)?;
+    let manifest = artifact_manifest(target, generated, outputs);
+    let mut manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| {
+        Failure::one(diagnostic(
+            1605,
+            format!("Cannot serialize Artifact Manifest v1: {error}"),
+            None,
+            None,
+        ))
+    })?;
+    manifest_bytes.push(b'\n');
+    fs::write(
+        stage.join(NativeCompiler::ARTIFACT_MANIFEST_NAME),
+        manifest_bytes,
+    )
+    .map_err(|error| native_io_failure(stage, &error))
+}
+
 fn write_host_descriptor(
     stage: &Path,
     application: &NativeApplication,
@@ -256,27 +243,25 @@ fn write_host_descriptor(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
 ) -> Result<(), Failure> {
+    let mut companion_descriptions = Vec::with_capacity(companions.len());
+    for companion in companions {
+        companion_descriptions.push(serde_json::json!({
+            "service": companion.service, "language": companion.language.label(),
+        }));
+    }
     let host = serde_json::json!({
         "schemaVersion": 3,
         "target": native_target_directory(target),
         "appName": application.name,
         "appId": application.application_id,
         "version": application.version,
-        // The application's own bundle is what the host shows, so there is no
-        // second rendering to describe and no adapter table to advertise.
         "renderMode": "bundle",
         "entryRoute": index.entry_route,
         "entryDocument": index.entry_document,
         "platformApiVersion": 1,
         "bridgeVersion": 3,
-        "companions": companions.iter().map(|item| serde_json::json!({
-            "route": item.route, "language": item.language.label(),
-        })).collect::<Vec<_>>(),
+        "companions": companion_descriptions,
         "windowControls": application.window.controls,
-        // The host implements one channel and no vocabulary: a page asks its
-        // compiled companion for a member. A tray, a window or a notification
-        // is the platform's, and a companion written in the platform's own
-        // language already has it.
         "hostCapabilities": ["companion.invoke"],
     });
     write_pretty_json(&stage.join("tachyon.host.json"), &host)
@@ -342,8 +327,6 @@ async fn generate_host(
     }
 }
 
-/// Builds the application's web bundle and collects the companions this
-/// target compiles natively.
 async fn build_web_bundle(
     project: &crate::Project,
     target: NativeTarget,
@@ -375,6 +358,7 @@ async fn build_web_bundle(
         &BuildOptions {
             output_directory: temporary_name,
             incremental: false,
+            ..BuildOptions::default()
         },
         target,
     )
@@ -384,80 +368,67 @@ async fn build_web_bundle(
     Ok((temporary_web, companions))
 }
 
-/// The companions this target compiles, once the matrix has been enforced.
-///
-/// A language is skipped when it belongs to another target, because a project
-/// is expected to carry one companion per platform beside the same page. It is
-/// an error only when a page declares companions and *none* of them reaches
-/// this target: an application written solely in Swift and built for Android
-/// has no behaviour on Android, and saying so at build time is the whole point
-/// of the matrix.
 fn native_companions(
     project: &crate::Project,
     target: NativeTarget,
 ) -> Result<Vec<super::registry::NativeCompanionInput>, Failure> {
-    use crate::project::CompanionKind;
-
+    let registry = crate::template::ServiceRegistry::discover(project.snapshot_root())?
+        .for_target(Some(target));
     let mut compiled = Vec::new();
-    for route in project.route_graph().routes() {
-        let mut declared = Vec::new();
-        let mut browser = false;
-        for companion in route.companions() {
-            match companion.kind {
-                CompanionKind::Native(language) => {
-                    declared.push((
-                        language,
-                        project.snapshot_root().join(&companion.source_path),
-                    ));
-                }
-                // A JavaScript or TypeScript companion runs on every target,
-                // because every host is a web view.
-                CompanionKind::ClientModule | CompanionKind::TypeScriptModule => browser = true,
-                CompanionKind::Style => {}
-            }
+    for (instance, service) in registry.iter() {
+        let Some((language, source)) = chosen_companion(instance, service, target)? else {
+            continue;
+        };
+        if compiled.len() >= NativeCompiler::MAX_NATIVE_SERVICES {
+            return Err(Failure::one(diagnostic(
+                1010,
+                "Native application exceeds the 128 native service limit.",
+                None,
+                None,
+            )));
         }
-        let languages = declared
-            .iter()
-            .map(|(language, _)| *language)
-            .collect::<Vec<_>>();
-        // Exactly one compiled companion answers a route on a target, even
-        // when several reach it. Compiling the others produced a library the
-        // host never calls — and demanded their toolchains to do it.
-        let chosen = crate::project::NativeCompanion::most_specific(&languages, target);
-        if let Some(chosen) = chosen {
-            if let Some((_, source)) = declared.iter().find(|(language, _)| *language == chosen) {
-                if compiled.len() >= 128 {
-                    return Err(Failure::one(diagnostic(
-                        1010,
-                        "Native application exceeds the 128 companion-route limit.",
-                        None,
-                        None,
-                    )));
-                }
-                compiled.push(super::registry::NativeCompanionInput {
-                    language: chosen,
-                    source: source.clone(),
-                    route: String::from(route.route()),
-                });
-            }
-        } else if !languages.is_empty() && !browser {
-            return Err(unreachable_companion(route, &languages, target));
-        }
+        compiled.push(super::registry::NativeCompanionInput {
+            snapshot_root: project.snapshot_root().to_path_buf(),
+            language,
+            source,
+            service: instance.clone(),
+            class: String::from(service.class()),
+            web_assembly: false,
+        });
     }
     Ok(compiled)
 }
 
-fn unreachable_companion(
-    route: &crate::RouteNode,
-    declared: &[crate::project::NativeCompanion],
+fn chosen_companion(
+    instance: &str,
+    service: &crate::template::ServiceDefinition,
     target: NativeTarget,
-) -> Failure {
-    crate::project::unreachable_companion(
-        route.route(),
-        declared,
-        native_target_directory(target),
-        Some(target),
-    )
+) -> Result<Option<(crate::project::NativeCompanion, PathBuf)>, Failure> {
+    let declared = service.native_companions();
+    let mut languages = Vec::new();
+    for (language, _) in declared {
+        languages.push(*language);
+    }
+    let Some(chosen) = crate::project::NativeCompanion::most_specific(&languages, target) else {
+        let runs_in_the_web_view =
+            service.script_path().is_some() || service.web_assembly().is_some();
+        if !languages.is_empty() && !runs_in_the_web_view {
+            return Err(crate::project::unreachable_companion(
+                &format!("{{{instance}}}"),
+                service.class(),
+                &languages,
+                crate::native_target_directory(target),
+                Some(target),
+            ));
+        }
+        return Ok(None);
+    };
+    for (language, source) in declared {
+        if *language == chosen {
+            return Ok(Some((chosen, source.clone())));
+        }
+    }
+    Ok(None)
 }
 
 fn artifact_manifest(
@@ -469,10 +440,7 @@ fn artifact_manifest(
         contract_version: 1,
         release_version: String::from(tachyon_contracts::PRODUCT_VERSION),
         commit: source_revision(),
-        source_date_epoch: std::env::var("SOURCE_DATE_EPOCH")
-            .ok()
-            .and_then(|value| value.parse().ok())
-            .unwrap_or(0),
+        source_date_epoch: source_date_epoch(),
         target: artifact_target(target),
         toolchains: vec![
             ArtifactToolchain {
@@ -489,24 +457,46 @@ fn artifact_manifest(
     }
 }
 
+fn source_date_epoch() -> u64 {
+    let Ok(value) = std::env::var("SOURCE_DATE_EPOCH") else {
+        return 0;
+    };
+    value.parse().unwrap_or(0)
+}
+
+fn is_commit_hash(value: &str) -> bool {
+    matches!(value.len(), 40 | 64) && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 fn source_revision() -> String {
-    std::env::var("GITHUB_SHA")
-        .ok()
-        .filter(|value| {
-            matches!(value.len(), 40 | 64) && value.bytes().all(|byte| byte.is_ascii_hexdigit())
-        })
-        .unwrap_or_else(|| "0".repeat(40))
+    match std::env::var("GITHUB_SHA") {
+        Ok(value) if is_commit_hash(&value) => value,
+        _ => "0".repeat(40),
+    }
+}
+
+fn sorted_entries(directory: &Path) -> Result<Vec<fs::DirEntry>, Failure> {
+    let mut entries = fs::read_dir(directory)
+        .and_then(Iterator::collect::<Result<Vec<_>, _>>)
+        .map_err(|error| native_io_failure(directory, &error))?;
+    entries.sort_by_key(fs::DirEntry::file_name);
+    Ok(entries)
+}
+
+fn file_output(path: &Path, relative: String, size: u64) -> Result<ArtifactOutput, Failure> {
+    let bytes = fs::read(path).map_err(|error| native_io_failure(path, &error))?;
+    Ok(ArtifactOutput {
+        path: relative,
+        sha256: sha256_bytes(&bytes),
+        size,
+    })
 }
 
 fn collect_outputs(root: &Path, excluded: &str) -> Result<Vec<ArtifactOutput>, Failure> {
     let mut pending = vec![root.to_path_buf()];
     let mut files = Vec::new();
     while let Some(directory) = pending.pop() {
-        let mut entries = fs::read_dir(&directory)
-            .and_then(Iterator::collect::<Result<Vec<_>, _>>)
-            .map_err(|error| native_io_failure(&directory, &error))?;
-        entries.sort_by_key(fs::DirEntry::file_name);
-        for entry in entries {
+        for entry in sorted_entries(&directory)? {
             let path = entry.path();
             let metadata =
                 fs::symlink_metadata(&path).map_err(|error| native_io_failure(&path, &error))?;
@@ -520,17 +510,14 @@ fn collect_outputs(root: &Path, excluded: &str) -> Result<Vec<ArtifactOutput>, F
             }
             if metadata.is_dir() {
                 pending.push(path);
-            } else if metadata.is_file() {
-                let relative = portable_path(path.strip_prefix(root).unwrap_or(&path));
-                if relative != excluded {
-                    let bytes =
-                        fs::read(&path).map_err(|error| native_io_failure(&path, &error))?;
-                    files.push(ArtifactOutput {
-                        path: relative,
-                        sha256: sha256_bytes(&bytes),
-                        size: metadata.len(),
-                    });
-                }
+                continue;
+            }
+            if !metadata.is_file() {
+                continue;
+            }
+            let relative = portable_path(path.strip_prefix(root).unwrap_or(&path));
+            if relative != excluded {
+                files.push(file_output(&path, relative, metadata.len())?);
             }
         }
     }
@@ -585,29 +572,23 @@ fn native_io_failure(path: &Path, error: &io::Error) -> Failure {
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::super::host::NATIVE_SHIM;
-    use super::{NativeBuildOptions, NativeCompiler, source_revision};
+    use super::super::host::NativeHost;
+    use super::super::{android, ios, linux, macos, rust, windows};
+    use super::{NativeBuildOptions, NativeCompiler, chosen_companion, source_revision};
+    use crate::project::NativeCompanion;
+    use crate::template::ServiceRegistry;
     use std::fs;
+    use tachyon_contracts::NativeTarget;
 
-    /// The one channel a host implements, in every host.
-    ///
-    /// There used to be a vocabulary here — tray, window, quit, route — and a
-    /// drift test comparing it against three host sources, because the
-    /// advertised list and the implemented arms had already disagreed once. It
-    /// is gone: what a page can ask a host for is that its companion answer,
-    /// and everything else belongs to the companion's own SDK.
     #[test]
     fn every_host_implements_the_companion_channel_and_nothing_else() {
-        assert!(NATIVE_SHIM.contains("__tachyonNativeHostCall"));
-        // No capability vocabulary reaches the page: `tachyonHost.invoke`
-        // and `tachyonHost.on` are gone, and `__tachyonHostPost` is only the
-        // transport the companion channel travels over.
-        assert!(!NATIVE_SHIM.contains("globalThis.tachyonHost"));
-        assert!(!NATIVE_SHIM.contains("__tachyonNativeEmit"));
+        assert!(NativeHost::SHIM.contains("__tachyonNativeHostCall"));
+        assert!(!NativeHost::SHIM.contains("globalThis.tachyonHost"));
+        assert!(!NativeHost::SHIM.contains("__tachyonNativeEmit"));
         for (platform, source) in [
-            ("macos", super::super::macos::host_source()),
-            ("windows", super::super::windows::host_source()),
-            ("linux", super::super::linux::host_source()),
+            ("macos", macos::host_source()),
+            ("windows", windows::host_source()),
+            ("linux", linux::host_source()),
         ] {
             assert!(
                 source.contains("companion.invoke"),
@@ -628,79 +609,237 @@ mod tests {
         }
     }
 
-    /// Every host relays what its companion publishes, and every companion
-    /// language can publish.
-    ///
-    /// The channel runs both ways: the page asks the companion for a member,
-    /// and the companion publishes when the platform tells it something rather
-    /// than when the page asks. Five hosts and four preludes have to agree on
-    /// one function name and one payload shape, and nothing makes them agree
-    /// except this.
     #[test]
     fn every_host_relays_what_its_companion_publishes() {
-        // The shim queues, because a companion may publish before the page's
-        // modules have run and this is the file that runs first.
-        assert!(NATIVE_SHIM.contains("__tachyonCompanionPublish"));
-        assert!(NATIVE_SHIM.contains("__tachyonCompanionQueue"));
+        assert_hosts_deliver_publishes();
+        assert_companions_can_publish();
+        assert_services_can_declare_publishers();
+    }
+
+    fn assert_hosts_deliver_publishes() {
+        assert!(NativeHost::SHIM.contains("__tachyonCompanionPublish"));
+        assert!(NativeHost::SHIM.contains("__tachyonCompanionQueue"));
         for (platform, source) in [
-            ("macos", super::super::macos::host_source()),
-            ("ios", super::super::ios::host_source()),
-            ("windows", super::super::windows::host_source()),
-            ("linux", super::super::linux::host_source()),
-            ("android", super::super::android::host_source()),
+            ("macos", macos::host_source()),
+            ("ios", ios::host_source()),
+            ("windows", windows::host_source()),
+            ("linux", linux::host_source()),
+            ("android", android::host_source()),
         ] {
             assert!(
                 source.contains("__tachyonCompanionPublish"),
                 "{platform} host never delivers a publish to the page"
             );
         }
-        // The two hosts that load their companion rather than link it look the
-        // sink up, so a companion built before this existed still loads.
         for (platform, source) in [
-            ("windows", super::super::windows::host_source()),
-            ("linux", super::super::linux::host_source()),
+            ("windows", windows::host_source()),
+            ("linux", linux::host_source()),
         ] {
             assert!(
                 source.contains("tac_native_set_emit"),
                 "{platform} host never installs its sink"
             );
         }
+    }
+
+    fn assert_companions_can_publish() {
         for (language, prelude, publish) in [
-            (
-                "swift",
-                super::super::macos::companion_prelude(),
-                "func tacPublish",
-            ),
+            ("swift", macos::companion_prelude(), "func tacEventPublish"),
             (
                 "kotlin",
-                super::super::android::companion_prelude(),
-                "fun tacPublish",
+                android::companion_prelude(),
+                "fun tacEventPublish",
             ),
-            (
-                "csharp",
-                super::super::windows::companion_prelude(),
-                "void Publish",
-            ),
-            (
-                "rust",
-                super::super::rust::companion_prelude(),
-                "fn tac_publish",
-            ),
+            ("csharp", windows::companion_prelude(), "void EventPublish"),
+            ("rust", rust::companion_prelude(), "fn tac_event_publish"),
         ] {
             assert!(
                 prelude.contains(publish),
                 "a {language} companion cannot publish"
             );
         }
-        // Both C-ABI preludes export the installer the C hosts look up.
         for (language, prelude) in [
-            ("csharp", super::super::windows::companion_prelude()),
-            ("rust", super::super::rust::companion_prelude()),
+            ("csharp", windows::companion_prelude()),
+            ("rust", rust::companion_prelude()),
         ] {
             assert!(
                 prelude.contains("tac_native_set_emit"),
                 "a {language} companion exports no sink installer"
             );
+        }
+    }
+
+    fn assert_services_can_declare_publishers() {
+        for (language, prelude, publisher) in [
+            ("swift", macos::companion_prelude(), "func publishEvent"),
+            (
+                "kotlin",
+                android::companion_prelude(),
+                "fun <T : Any> publishEvent",
+            ),
+            ("csharp", windows::companion_prelude(), "void PublishEvent"),
+            ("rust", rust::companion_prelude(), "fn publish_event"),
+        ] {
+            assert!(
+                prelude.contains("ApplicationEventPublisher") && prelude.contains(publisher),
+                "a {language} service cannot declare a publisher member"
+            );
+            assert!(
+                prelude.contains("TacListener") || prelude.contains("TacMember Listener("),
+                "a {language} listener carries no ADR 0031 options"
+            );
+            for option in ["order", "condition", "asynchronous"] {
+                assert!(
+                    prelude.to_lowercase().contains(option),
+                    "a {language} listener has no {option}"
+                );
+            }
+        }
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum Reach {
+        Linked(NativeCompanion),
+        WebView,
+        Refused,
+    }
+
+    fn service_files(extensions: &[&str]) -> tempfile::TempDir {
+        let root = tempfile::tempdir().expect("project");
+        let services = root.path().join("client/services");
+        fs::create_dir_all(&services).expect("services");
+        for extension in extensions {
+            let source = match *extension {
+                "js" | "ts" => "export default class TallyService {}\n",
+                "dart" => "class TallyService {}\n",
+                "go" => "type TallyService struct{ Count int }\n",
+                "rs" => "#[derive(Default)]\nstruct TallyService {}\n",
+                "cs" => "public class TallyService {}\n",
+                "swift" => "final class TallyService {}\n",
+                _ => "class TallyService\n",
+            };
+            fs::write(services.join(format!("TallyService.{extension}")), source).expect("service");
+        }
+        root
+    }
+
+    fn reach(extensions: &[&str], target: NativeTarget) -> Reach {
+        let root = service_files(extensions);
+        let registry = ServiceRegistry::discover(root.path())
+            .expect("registry")
+            .for_target(Some(target));
+        let service = registry.get("tally").expect("tally");
+        match chosen_companion("tally", service, target) {
+            Ok(Some((language, _))) => Reach::Linked(language),
+            Ok(None) => Reach::WebView,
+            Err(_) => Reach::Refused,
+        }
+    }
+
+    fn assert_reach(extensions: &[&str], expected: [Reach; 5]) {
+        let targets = [
+            NativeTarget::Macos,
+            NativeTarget::Ios,
+            NativeTarget::Android,
+            NativeTarget::Windows,
+            NativeTarget::Linux,
+        ];
+        for (target, wanted) in targets.into_iter().zip(expected) {
+            assert_eq!(
+                reach(extensions, target),
+                wanted,
+                "{extensions:?} on {target:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rust_links_on_the_desktops_and_is_webassembly_on_ios_and_android() {
+        let rust = Reach::Linked(NativeCompanion::Rust);
+        assert_reach(&["rs"], [rust, Reach::WebView, Reach::WebView, rust, rust]);
+    }
+
+    #[test]
+    fn csharp_links_on_windows_and_is_webassembly_everywhere_else() {
+        let csharp = Reach::Linked(NativeCompanion::CSharp);
+        let web = Reach::WebView;
+        assert_reach(&["cs"], [web, web, web, csharp, web]);
+    }
+
+    #[test]
+    fn go_and_browser_languages_run_in_the_web_view_on_every_target() {
+        for extensions in [&["go"][..], &["js"], &["ts"], &["dart"]] {
+            assert_reach(extensions, [Reach::WebView; 5]);
+        }
+    }
+
+    #[test]
+    fn rust_with_go_is_webassembly_where_rust_does_not_link() {
+        let rust = Reach::Linked(NativeCompanion::Rust);
+        let web = Reach::WebView;
+        assert_reach(&["rs", "go"], [rust, web, web, rust, rust]);
+        let csharp = Reach::Linked(NativeCompanion::CSharp);
+        assert_reach(&["cs", "go"], [web, web, web, csharp, web]);
+    }
+
+    #[test]
+    fn swift_links_on_apple_and_kotlin_links_on_android_and_is_webassembly_elsewhere() {
+        let swift = Reach::Linked(NativeCompanion::Swift);
+        let kotlin = Reach::Linked(NativeCompanion::Kotlin);
+        let refused = Reach::Refused;
+        assert_reach(&["swift"], [swift, swift, refused, refused, refused]);
+        let rust = Reach::Linked(NativeCompanion::Rust);
+        let web = Reach::WebView;
+        assert_reach(&["kt"], [web, web, kotlin, web, web]);
+        assert_reach(&["swift", "rs"], [swift, swift, web, rust, rust]);
+        assert_reach(
+            &["kt", "cs"],
+            [
+                web,
+                web,
+                kotlin,
+                Reach::Linked(NativeCompanion::CSharp),
+                web,
+            ],
+        );
+    }
+
+    #[test]
+    fn a_refused_service_is_told_which_service_files_reach_the_target() {
+        let root = service_files(&["swift"]);
+        let registry = ServiceRegistry::discover(root.path())
+            .expect("registry")
+            .for_target(Some(NativeTarget::Android));
+        let service = registry.get("tally").expect("tally");
+        let error = chosen_companion("tally", service, NativeTarget::Android).expect_err("refused");
+        let help = error.diagnostics()[0].help.clone().expect("help");
+        assert!(error.to_string().contains("TY1010"), "{error}");
+        assert!(
+            help.contains("client/services/TallyService.js, .ts, .dart, .rs, .cs, .go or .kt"),
+            "{help}"
+        );
+        assert!(!help.contains("tac."), "{help}");
+    }
+
+    #[test]
+    fn every_host_serves_webassembly_and_lets_the_page_compile_it() {
+        for (platform, source) in [
+            ("macos", macos::host_source()),
+            ("ios", ios::host_source()),
+            ("android", android::host_source()),
+            ("windows", windows::host_source()),
+            ("linux", linux::host_source()),
+        ] {
+            assert!(
+                source.contains("application/wasm"),
+                "{platform} host serves .wasm with the wrong type"
+            );
+            if source.contains("Content-Security-Policy") {
+                assert!(
+                    source.contains("script-src 'self' 'wasm-unsafe-eval'"),
+                    "{platform} host policy blocks WebAssembly"
+                );
+            }
         }
     }
 
@@ -720,17 +859,16 @@ mod tests {
         let root = tempfile::tempdir().expect("project");
         let pages = root.path().join("client/pages");
         fs::create_dir_all(&pages).expect("pages");
+        fs::create_dir_all(root.path().join("client")).expect("client");
         fs::write(
-            root.path().join("tac.config.js"),
-            "export const application = { name: 'Coverage', id: 'dev.tachyon.coverage', \
-             version: '1.0.0', entryRoute: '/' }\n",
+            root.path().join("client/manifest.json"),
+            r#"{"name":"Coverage","start_url":"/","tac":{"application":{"id":"dev.tachyon.coverage","version":"1.0.0"}}}"#,
         )
-        .expect("configuration");
-        fs::write(
-            pages.join("tac.html"),
-            r#"<main aria-label="Coverage"><h1>Coverage</h1><button aria-label="Add" data-tachyon-action="increment:count">Add</button><output aria-label="Count" data-tachyon-bind="count" data-tachyon-state="0">0</output><input aria-label="Name" data-tachyon-bind="name" data-tachyon-state=""><details aria-label="Details"><summary>Details</summary><p>Open</p></details><x-chart aria-label="Chart">Web</x-chart><iframe aria-label="Report" src="https://reports.example.test/path"></iframe></main>"#,
-        )
-        .expect("view");
+        .expect("manifest");
+        fs::write(pages.join("tac.html"), "<page-view />").expect("view");
+        let component = root.path().join("client/components/page/view");
+        fs::create_dir_all(&component).expect("component");
+        fs::write(component.join("tac.html"), r#"<main aria-label="Coverage"><h1>Coverage</h1><button aria-label="Add" data-tachyon-action="increment:count">Add</button><output aria-label="Count" data-tachyon-bind="count" data-tachyon-state="0">0</output><input aria-label="Name" data-tachyon-bind="name" data-tachyon-state=""><details aria-label="Details"><summary>Details</summary><p>Open</p></details><x-chart aria-label="Chart">Web</x-chart><iframe aria-label="Report" src="https://reports.example.test/path"></iframe></main>"#).expect("component view");
 
         let result =
             NativeCompiler::build(root.path(), &NativeBuildOptions::default()).expect("build");
@@ -745,16 +883,17 @@ mod tests {
         let root = tempfile::tempdir().expect("project");
         let pages = root.path().join("client/pages");
         fs::create_dir_all(&pages).expect("pages");
+        fs::create_dir_all(root.path().join("client")).expect("client");
         fs::write(
-            root.path().join("tac.config.js"),
-            "export const application = { name: 'Entry', id: 'dev.tachyon.entry', \
-             version: '1', entryRoute: '/missing' }\n",
+            root.path().join("client/manifest.json"),
+            r#"{"name":"Entry","start_url":"/missing","tac":{"application":{"id":"dev.tachyon.entry","version":"1"}}}"#,
         )
-        .expect("configuration");
+        .expect("manifest");
         fs::write(pages.join("tac.html"), "<main>Home</main>").expect("view");
         let error = NativeCompiler::build(root.path(), &NativeBuildOptions::default())
             .expect_err("missing entry");
         assert!(error.to_string().contains("TY1601"));
+        assert!(error.to_string().contains("'/missing'"));
     }
     #[cfg(unix)]
     #[test]
@@ -770,79 +909,13 @@ mod tests {
         }
         let workspace = tempfile::tempdir().expect("workspace");
         let authored = workspace.path().join("project");
-        let write = |root: &std::path::Path, relative: &str, contents: &str| {
-            let path = root.join(relative);
-            fs::create_dir_all(path.parent().expect("parent")).expect("directory");
-            fs::write(path, contents).expect("source");
-        };
-        write(
-            &authored,
-            "client/pages/tac.html",
-            r#"<main><owned-card hydrate="load" /></main>"#,
-        );
-        write(
-            &authored,
-            "client/components/owned/card/tac.html",
-            "<section>owned native component</section>",
-        );
-        write(
-            &authored,
-            "client/components/owned/card/tac.js",
-            "export default class OwnedCard { static origin = 'owned-native-script' }\n",
-        );
-        write(&authored, "client/shared/origin.txt", "owned-native-shared");
-        write(
-            &authored,
-            "client/pages/tac.swift",
-            "final class Companion {\n let marker: String = \"owned-native-companion\"\n}\n",
-        );
-        write(&authored, "package.json", r#"{"type":"module"}"#);
-        write(
-            &authored,
-            "tac.config.js",
-            "import { writeFile } from 'node:fs/promises'\nexport async function postBundle({ targetRoots }) { await writeFile(`${targetRoots.web}/hook.txt`, 'owned-native-hook') }\n",
-        );
-        write(
-            &authored,
-            "tachyon.json",
-            r#"{"application":{"name":"Owned Snapshot","id":"dev.tachyon.owned","version":"1.2.3","entry_route":"/"}}"#,
-        );
+        write_owned_project(&authored);
         let project = crate::ProjectDiscovery::discover(&authored).expect("owned snapshot");
 
         let retained = workspace.path().join("retained");
         fs::rename(&authored, &retained).expect("move project");
         let planted = tempfile::tempdir().expect("planted");
-        write(
-            planted.path(),
-            "client/pages/tac.html",
-            "<main>planted native page</main>",
-        );
-        write(
-            planted.path(),
-            "client/components/owned/card/tac.html",
-            "<section>planted native component</section>",
-        );
-        write(
-            planted.path(),
-            "client/components/owned/card/tac.js",
-            "export default class Planted {}\n",
-        );
-        write(
-            planted.path(),
-            "client/shared/origin.txt",
-            "planted-native-shared",
-        );
-        write(planted.path(), "package.json", r#"{"type":"module"}"#);
-        write(
-            planted.path(),
-            "tac.config.js",
-            "import { writeFile } from 'node:fs/promises'\nexport async function postBundle({ targetRoots }) { await writeFile(`${targetRoots.web}/hook.txt`, 'planted-native-hook') }\n",
-        );
-        write(
-            planted.path(),
-            "tachyon.json",
-            r#"{"application":{"name":"Planted Canary","id":"dev.tachyon.planted","version":"9.9.9","entry_route":"/"}}"#,
-        );
+        write_planted_project(planted.path());
         symlink(planted.path(), &authored).expect("ambient replacement");
 
         let result = NativeCompiler::build_project(
@@ -858,11 +931,71 @@ mod tests {
     }
 
     #[cfg(unix)]
+    fn write(root: &std::path::Path, relative: &str, contents: &str) {
+        let path = root.join(relative);
+        fs::create_dir_all(path.parent().expect("parent")).expect("directory");
+        fs::write(path, contents).expect("source");
+    }
+
+    #[cfg(unix)]
+    fn write_owned_project(authored: &std::path::Path) {
+        write(
+            authored,
+            "client/pages/tac.html",
+            r#"<owned-card hydrate="load" />"#,
+        );
+        write(
+            authored,
+            "client/components/owned/card/tac.html",
+            "<section>owned native component {ownedCard.marker}</section>",
+        );
+        write(
+            authored,
+            "client/services/OwnedCardService.js",
+            "@Service()\nexport default class OwnedCardService { static origin = 'owned-native-script'; marker = '' }\n",
+        );
+        write(authored, "client/shared/origin.txt", "owned-native-shared");
+        write(
+            authored,
+            "client/services/OwnedCardService.swift",
+            "final class OwnedCardService {\n let marker: String = \"owned-native-companion\"\n}\n",
+        );
+        write(authored, "package.json", r#"{"type":"module"}"#);
+        write(
+            authored,
+            "client/manifest.json",
+            r#"{"name":"Owned Snapshot","start_url":"/","tac":{"origin":"https://owned.example","application":{"id":"dev.tachyon.owned","version":"1.2.3"}}}"#,
+        );
+    }
+
+    #[cfg(unix)]
+    fn write_planted_project(planted: &std::path::Path) {
+        write(planted, "client/pages/tac.html", "<owned-card />");
+        write(
+            planted,
+            "client/components/owned/card/tac.html",
+            "<section>planted native component {ownedCard.marker}</section>",
+        );
+        write(
+            planted,
+            "client/services/OwnedCardService.js",
+            "@Service()\nexport default class OwnedCardService { marker = '' }\n",
+        );
+        write(planted, "client/shared/origin.txt", "planted-native-shared");
+        write(planted, "package.json", r#"{"type":"module"}"#);
+        write(
+            planted,
+            "client/manifest.json",
+            r#"{"name":"Planted Canary","start_url":"/","tac":{"origin":"https://planted.example","application":{"id":"dev.tachyon.planted","version":"9.9.9"}}}"#,
+        );
+    }
+
+    #[cfg(unix)]
     fn assert_native_snapshot_output(output: &std::path::Path) {
         let web = output.join("web");
         let index = fs::read_to_string(web.join("index.html")).expect("web index");
-        let component = fs::read_to_string(web.join(".tachyon/components/owned-card.js"))
-            .expect("component script");
+        let component = fs::read_to_string(web.join(".tachyon/services/OwnedCardService.js"))
+            .expect("service script");
         let plist = fs::read_to_string(output.join("OwnedSnapshot.app/Contents/Info.plist"))
             .expect("native config output");
         assert!(index.contains("owned native component"), "{index}");
@@ -872,12 +1005,13 @@ mod tests {
             fs::read_to_string(web.join("shared/origin.txt")).expect("shared"),
             "owned-native-shared"
         );
-        assert_eq!(
-            fs::read_to_string(web.join("hook.txt")).expect("hook"),
-            "owned-native-hook"
-        );
+        let robots = fs::read_to_string(web.join("robots.txt")).expect("robots");
+        assert!(robots.contains("https://owned.example"), "{robots}");
         assert!(plist.contains("Owned Snapshot"), "{plist}");
+        assert!(plist.contains("dev.tachyon.owned"), "{plist}");
+        assert!(plist.contains("1.2.3"), "{plist}");
         assert!(!plist.contains("Planted Canary"), "{plist}");
+        assert!(!plist.contains("dev.tachyon.planted"), "{plist}");
         let companion = fs::read_to_string(output.join("project/TachyonCompanion.swift"))
             .expect("captured companion");
         assert!(companion.contains("owned-native-companion"));

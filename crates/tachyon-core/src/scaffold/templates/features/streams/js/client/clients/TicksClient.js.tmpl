@@ -1,0 +1,6 @@
+@HTTPClient('/ticks')
+class TicksClient {
+  /** @param {Tick} tick */
+  @StreamRequest
+  streamTicks(tick) {}
+}

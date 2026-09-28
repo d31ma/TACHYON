@@ -1,0 +1,4 @@
+<form on:submit="userForm.save()">
+  <input aria-label="Name" :value="userForm.form.name" on:input="userForm.typed($event.target.value)" />
+  <button>Save</button>
+</form>

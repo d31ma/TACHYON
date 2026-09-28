@@ -1,26 +1,23 @@
 <section class="section" aria-labelledby="quickstart-heading">
-  <div class="section-head--center">
-    <span class="eyebrow">From nothing to serving</span>
+  <div class="text-center">
+    <span class="eyebrow">Quick start</span>
     <h2 id="quickstart-heading" class="section-title">Start in three commands.</h2>
-    <p class="section-lede mx-auto">
-      The web bundle is written to <code>dist/web/</code>. Add <code>--target macos</code>,
-      <code>windows</code>, <code>linux</code>, <code>android</code> or <code>ios</code> for a
-      native application built from the same source.
+    <p class="section-lede">
+      Tachyon writes the web bundle to <code>dist/web/</code>. To build a native app from the
+      same source, add <code>--target macos</code>, <code>windows</code>, <code>linux</code>,
+      <code>android</code> or <code>ios</code>.
     </p>
   </div>
 
-  <!-- Three steps rather than one block: each command answers a different
-       question, and a reader scanning for the middle one should not have to
-       parse a shell script to find it. -->
   <div class="grid-auto mt-10" style="--col: 15rem; --grid-gap: var(--gutter)">
-    <loop :for="step of steps()">
+    <loop :for="step of data.quickstart">
       <div class="quickstart-step panel p-gutter">
         <p class="stat-value text-2xl">{step.number}</p>
-        <p class="mt-3 font-semibold">{step.title}</p>
-        <pre class="code-block mt-3 text-xs"><code>{step.command}</code><button
-          type="button" class="code-copy" on:click="copy(step.number)"
-          :aria-label="'Copy step ' + step.number">{label(step.number)}</button></pre>
-        <p class="mt-3 text-sm opacity-70 text-pretty">{step.note}</p>
+        <p class="mt-3 text-card-title font-semibold">{step.title}</p>
+        <pre class="code-block mt-3"><code>{step.command}</code><button
+          type="button" class="code-copy" on:click="clipboard.copy(step.number, step.command)"
+          :aria-label="'Copy step ' + step.number">{clipboard.label(step.number)}</button></pre>
+        <p class="mt-3 text-sm opacity-70 text-pretty"><loop :for="part of inlineCode.parts(step.note)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></p>
       </div>
     </loop>
   </div>

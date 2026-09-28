@@ -1,0 +1,31 @@
+{
+  "heading": "Clock and secure random numbers",
+  "target": "web",
+  "body": "Tachyon gives every Tac service two small browser APIs: `Clock` and `SecureRandom`. Tachyon writes them once in the page, and each language reaches them through a small client.\n\n| Language | How the service gets them | Clock | SecureRandom | A failure |\n| --- | --- | --- | --- | --- |\n| JavaScript, TypeScript | `@Needs clock` and `@Needs secureRandom` | `now()`, `monotonic()`, `timeZone()` | `bytes(count)`, `uuid()` | an error is thrown |\n| Rust | fields `clock: Clock` and `secure_random: SecureRandom`, which `Default` fills | `now_ms()`, `monotonic_ms()`, `time_zone()` | `bytes(count)`, `uuid()` | an `Err` value |\n| Go | `// @Needs` above `clock Clock` and `secureRandom SecureRandom` | `NowMs()`, `MonotonicMs()`, `TimeZone()` | `Bytes(count)`, `UUID()` | an `error` value |\n| C# | `private readonly Clock clock = new();` | `NowMs()`, `MonotonicMs()`, `TimeZone()` | `Bytes(count)`, `Uuid()` | an `InvalidOperationException` |\n| Kotlin | `private val clock = Clock()` and `private val secureRandom = SecureRandom()` | `nowMs()`, `monotonicMs()`, `timeZone()` | `bytes(count)`, `uuid()` | an `IllegalStateException` |\n| Dart | `@Needs()` above `final Clock clock;` | `nowMs()`, `monotonicMs()`, `timeZone()` | `bytes(count)`, `uuid()` | a `StateError` |\n| Ruby | `Clock.new` and `SecureRandom.new` | `now_ms`, `monotonic_ms`, `time_zone` | `bytes(count)`, `uuid` | a `RuntimeError` |\n\n`now` is the time in milliseconds since 1970 (UTC). `monotonic` only goes up, so it measures how long something takes. `timeZone` is the time zone of the browser, such as `Europe/Paris`. `bytes` gives 0 to 65,536 random bytes from `crypto.getRandomValues`, and `uuid` gives a random version 4 UUID.\n\nThe page answers at once, so no call waits. These two APIs need no permission, so the manifest grants nothing for them. A service that is linked into a native app has no page, so the build refuses these APIs in it (`TY1317`). A test unit has no page either: give the calls fake answers (see \"Browser APIs in test units\"). The fields are not shown to the view.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/ticket/panel/tac.html",
+      "code": {
+        "file": "client/components/ticket/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/TicketService.js",
+      "code": {
+        "file": "client/services/TicketService.js"
+      }
+    },
+    {
+      "name": "client/services/TicketService.rs",
+      "code": {
+        "file": "client/services/TicketService.rs"
+      }
+    }
+  ]
+}

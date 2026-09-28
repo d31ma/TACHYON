@@ -1,0 +1,9 @@
+cache-control: no-store
+referrer-policy: no-referrer
+x-frame-options: DENY
+x-content-type-options: nosniff
+content-security-policy: default-src 'self'; connect-src 'self' <tac.outgoing.hosts>;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'
+  'inline-speculation-rules'; object-src 'none'; base-uri 'none';
+  frame-ancestors 'none'

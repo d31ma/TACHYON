@@ -4,16 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bundle": "ty bundle",
-    "dev": "ty preview",
+    "content": "node scripts/build-content.mjs",
+    "content:check": "node scripts/build-content.mjs --check",
+    "bundle": "bun run content && bun ../scripts/run-site.mjs bundle",
+    "dev": "bun run content && bun ../scripts/run-site.mjs preview",
     "styles": "tailwindcss -i client/shared/styles/tailwind.src.css -o client/shared/styles/tailwind.css --minify",
     "styles:check": "bun run styles && git diff --exit-code -- client/shared/styles/tailwind.css",
-    "seed": "node scripts/seed.mjs",
-    "test": "bun test tests/site.test.js tests/client-examples.test.js",
+    "test": "bun test",
     "verify:snippets": "node scripts/verify-snippets.mjs",
     "check:responsive": "node scripts/check-responsive.mjs"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "20.11.1",
     "@tailwindcss/cli": "4.3.3",
     "tailwindcss": "4.3.3"
   }

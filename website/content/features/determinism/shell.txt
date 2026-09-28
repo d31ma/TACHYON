@@ -1,0 +1,5 @@
+$ ty bundle
+Built 8 routes to dist/web (d4dc3128…) compiled=5 reused=3
+
+$ ty bundle
+Built 8 routes to dist/web (d4dc3128…) compiled=0 reused=8

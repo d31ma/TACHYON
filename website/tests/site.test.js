@@ -1,136 +1,481 @@
-// @ts-nocheck -- validated by the Tachyon compiler and website contract gates.
-// Build-output contract for the website.
-//
-// The site is the framework's own showcase, so what it publishes is evidence:
-// if a route stops linking its stylesheet or the language snippets stop
-// shipping, the page is broken in a way a screenshot review would miss.
+// @ts-nocheck
 
+import { SiteArtifacts } from '../../scripts/site-artifacts.mjs'
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { readdir, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { ensureBundle } from './helpers/ensure-bundle.js'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
-const read = (relative) => readFile(new URL(relative, new URL('..', import.meta.url)), 'utf8')
+class Patterns {
+  static needs = /[@#[]+Needs(\(\))?[\s\]]|Annotated\[[^\]]*\bneeds\b/
+}
 
-// This hook runs the real compiler, whose bounded toolchain work can exceed
-// Bun's five-second default on a clean CI checkout.
+function read(relative) {
+  if (relative.startsWith('dist/web/')) {
+    const project = fileURLToPath(new URL('..', import.meta.url))
+    return readFile(`${SiteArtifacts.web(project)}/${relative.slice(9)}`, 'utf8')
+  }
+  return readFile(new URL(relative, new URL('..', import.meta.url)), 'utf8')
+}
+
+async function readJson(relative) {
+  return JSON.parse(await read(relative))
+}
+
+async function listFiles(directory) {
+  const files = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const child = `${directory}/${entry.name}`
+    if (entry.isDirectory()) files.push(...await listFiles(child))
+    else files.push({ path: child, name: entry.name })
+  }
+  return files
+}
+
+function instanceNameOf(className) {
+  const stem = className.slice(0, -'Service'.length)
+  return stem[0].toLowerCase() + stem.slice(1)
+}
+
+function countByExtension(files) {
+  const counts = {}
+  for (const file of files) {
+    const extension = file.split('.').pop()
+    counts[extension] = (counts[extension] ?? 0) + 1
+  }
+  return counts
+}
+
+function expectServiceShape(source, className, extension) {
+  if (extension === 'go') {
+    expect(source).toMatch(/^\/\/ @Service$/m)
+    expect(source).toContain(`type ${className} struct`)
+    return
+  }
+  if (extension === 'rs') {
+    expect(source).toMatch(/^#\[Service\]$/m)
+    expect(source).toContain(`struct ${className} {`)
+    expect(source).toContain(`impl ${className} {`)
+    return
+  }
+  if (extension === 'rb') {
+    expect(source).toMatch(/^#\[Service\]$/m)
+    expect(source).toContain(`class ${className}\n`)
+    return
+  }
+  if (extension === 'cs') {
+    expect(source).toMatch(/^\[Service\]$/m)
+    expect(source).toContain(`public class ${className}`)
+    return
+  }
+  expect(source).toMatch(/^@Service$/m)
+  if (extension === 'dart') {
+    expect(source).toContain(`class ${className} `)
+    return
+  }
+  expect(source).toContain(`export default class ${className} `)
+  expect(source).not.toContain('tachyon:behaviors')
+}
+
 beforeAll(ensureBundle, 120_000)
 
 describe('published output', () => {
-  test('every route links its stylesheet and the client runtime', async () => {
-    for (const [route, stylesheet, module] of [
-      ['dist/web/index.html', '/style.css', '/client.js'],
-      ['dist/web/docs/index.html', '/docs/style.css', '/docs/client.js'],
-      ['dist/web/docs/_topic/index.html', '/docs/_topic/style.css', '/docs/_topic/client.js'],
-    ]) {
+  test('every route links the declared stylesheet, script and the client runtime', async () => {
+    for (const route of ['dist/web/index.html', 'dist/web/docs/index.html', 'dist/web/docs/_topic/index.html']) {
       const html = await read(route)
-      // The current compiler emits route-owned assets; each thin route entry
-      // imports the shared design system and browser bootstrap.
-      expect(html).toContain(stylesheet)
-      expect(html).toContain(`\"module\":\"${module}\"`)
+      expect(html).toContain('/shared/styles/site.css')
+      expect(html).toContain('/shared/scripts/imports.js')
       expect(html).toContain('/.tachyon/tac-client.js')
+      expect(html).not.toContain('"module":"/client.js"')
     }
   })
 
   test('the shared stylesheet orders DuVay below Tailwind', async () => {
     const css = await read('client/shared/styles/site.css')
-    // Component classes and utilities share specificity, so the cascade is
-    // what makes "DuVay for rigidity, Tailwind for fluidity" true.
     expect(css).toContain('@layer duvay, theme, base, components, brand, utilities;')
     expect(css).toContain('layer(duvay)')
   })
 
   test('Tailwind is imported without Preflight', async () => {
     const source = await read('client/shared/styles/tailwind.src.css')
-    // Preflight would strip the heading sizes and form controls DuVay styles.
     expect(source).toContain('tailwindcss/utilities.css')
     expect(source).not.toContain('"tailwindcss"')
   })
 
-  test('interactive components use the current client render hook', async () => {
-    for (const component of [
-      'home/hero',
-      'home/quickstart',
-      'home/languages',
-      'docs/snippet',
-      'site/search',
-    ]) {
-      const source = await read(`client/components/${component}/tac.js`)
-      expect(source).not.toContain('this.tac.render')
-      expect(source).toContain('globalThis.__tachyonTac?.render()')
+  test('every property a view hands to a component reaches that component service', async () => {
+    const routes = ['dist/web/docs/index.html', 'dist/web/docs/_topic/index.html', 'dist/web/docs/features/_id/index.html']
+    const lost = []
+    for (const route of routes) {
+      const html = await read(route)
+      const view = JSON.parse(html.match(/<script id="tachyon-view"[^>]*>([\s\S]*?)<\/script>/)[1])
+      const pending = [view]
+      while (pending.length > 0) {
+        const node = pending.pop()
+        if (Array.isArray(node)) pending.push(...node)
+        else if (node && typeof node === 'object') {
+          pending.push(...Object.values(node))
+          if (node.k !== 'component') continue
+          const receivers = node.services.filter(service => Array.isArray(service.required))
+          if (receivers.length === 0) continue
+          const required = new Set(receivers.flatMap(service => service.required))
+          for (const property of node.properties ?? []) {
+            if (!required.has(property.name)) lost.push(`${route}: <${node.name} :${property.name}>`)
+          }
+        }
+      }
     }
+    expect(lost).toEqual([])
+  })
+
+  test('interactive services inject owner-scoped render resources', async () => {
+    for (const file of ['ClipboardService.ts', 'SearchService.js']) {
+      const source = await read(`client/services/${file}`)
+      expect(source).toMatch(/this\.taskScheduler\??\.render\(\)/)
+      expect(source).toMatch(/@Needs\n\s*taskScheduler\b/)
+      expect(source).not.toContain('@Resource')
+      expect(source).not.toContain('this.tac')
+      expect(source).not.toContain('globalThis.__tachyonTac')
+      expect(source).not.toContain('__tachyonOnMount')
+    }
+  })
+
+  test('live site services use OnStart instead of implicit mount hooks', async () => {
+    const manifest = JSON.parse(await read('client/manifest.json'))
+    expect(manifest.tac.metadata.routes['/']).toBeDefined()
+    for (const sourcePath of [
+      'client/services/FeatureService.js',
+      'client/services/TopicService.ts',
+      'client/services/SearchService.js',
+    ]) {
+      const source = await read(sourcePath)
+      expect(source).toContain('@OnStart')
+      expect(source).not.toContain('mount(')
+      expect(source).not.toContain('__tachyonOnMount')
+    }
+  })
+
+  test('a component is a view and its style; behaviour is a service', async () => {
+    const components = fileURLToPath(new URL('../client/components', import.meta.url))
+    const views = []
+    for (const file of await listFiles(components)) {
+      expect(['tac.html', 'tac.css'], file.path).toContain(file.name)
+      if (file.name === 'tac.html') views.push(file.path)
+    }
+    expect(views.length).toBeGreaterThan(15)
+
+    const services = (await readdir(fileURLToPath(new URL('../client/services', import.meta.url))))
+    expect(services.length).toBeGreaterThanOrEqual(15)
+    const counts = countByExtension(services)
+    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'go', 'js', 'rb', 'rs', 'ts'])
+    const serviceCounts = Object.values(counts)
+    expect(Math.max(...serviceCounts) - Math.min(...serviceCounts), JSON.stringify(counts)).toBeLessThanOrEqual(1)
+    const instances = new Set()
+    for (const file of services) {
+      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|dart|rs|cs|go|rb)$/) ?? []
+      expect(className, file).toBeDefined()
+      const source = await read(`client/services/${file}`)
+      expectServiceShape(source, className, extension)
+      instances.add(instanceNameOf(className))
+    }
+    const named = new Set()
+    for (const view of views) {
+      const html = await readFile(view, 'utf8')
+      for (const [, instance] of html.matchAll(/\b([a-z][A-Za-z]*)\.[A-Za-z$]/g)) {
+        if (instances.has(instance)) named.add(instance)
+      }
+    }
+    expect([...instances].sort()).toEqual([...named].sort())
+    for (const prototype of ['SnippetService', 'TocService', 'PagerService', 'PagelinksService']) {
+      const file = services.find((name) => name.startsWith(`${prototype}.`))
+      const source = await read(`client/services/${file}`)
+      expect(source).toMatch(/^(@|#\[|\[)NeedsAll\]?$/m)
+      expect(source).not.toContain('Lifetime(')
+    }
+    expect(await read('client/services/ClipboardService.ts')).toContain('@Lifetime({"value":"prototype"})')
   })
 })
 
 describe('language coverage', () => {
-  test('every language Tachyon supports has a snippet in both layers', async () => {
-    const languages = JSON.parse(await read('client/shared/data/languages.json'))
-    // Tac is one route across every target — a view, a stylesheet and one
-    // companion per language — so its languages are named by file extension
-    // rather than by an id.
-    const tac = languages.tac.files.map((file) => file.name.split('.').pop())
-    const yon = languages.yon.entries.map((entry) => entry.id)
+  test('application events cover every owned language without retired runtime calls', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const topic = docs.topics['application-events']
+    const browser = topic.sections.find(section => section.heading.startsWith('Browser services'))
+    const compiled = topic.sections.find(section => section.heading.startsWith('Compiled services'))
+    const views = /^client\/(models|pages|components)\//
+    const services = (section) => section.files.filter(file => !views.test(file.name))
+    for (const file of [...services(browser), ...services(compiled)]) expect(file.name).toMatch(/^client\/services\/CatalogService\.[a-z]+$/)
+    const yon = topic.sections.find(section => section.heading.startsWith('Yon:'))
+    expect(services(browser).map(file => file.name.split('.').pop()).sort()).toEqual(['js', 'ts'])
+    expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'go', 'kt', 'rs', 'swift'])
+    for (const file of compiled.files.filter(file => file.name.startsWith('client/models/'))) expect(file.name).toMatch(/^client\/models\/CatalogCount\.[a-z]+$/)
+    expect(yon.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort())
+      .toEqual(['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts'])
+    for (const section of topic.sections) for (const file of section.files ?? []) {
+      expect(file.code).not.toContain('this.tac')
+      expect(file.code).not.toMatch(/tac_publish|tacPublish|Tac\.Publish|\bmount\(/)
+    }
+  })
 
-    // A component companion is JS or TS; a page companion may be any of these,
-    // each compiled for the targets its toolchain builds.
-    for (const extension of ['js', 'ts', 'rs', 'swift', 'kt', 'cs']) {
-      expect(tac).toContain(extension)
-    }
-    // And the two halves that are the same on every target.
-    for (const extension of ['html', 'css']) {
-      expect(tac).toContain(extension)
-    }
-    // The eight languages whose own syntax can carry an annotation, because a
-    // Yon example is a layered suite now and the layer is declared on the
-    // class. Go and Ruby are absent: neither has annotation syntax at all,
-    // where JavaScript only needed a runtime that transpiles decorators and
-    // Rust only needed its attributes' proc-macro crate built for it.
-    for (const id of ['javascript', 'typescript', 'python', 'java', 'csharp',
-                      'kotlin', 'php', 'rust']) {
-      expect(yon).toContain(id)
-    }
-    expect(yon).toHaveLength(8)
-    for (const file of languages.tac.files) {
-      expect(file.code.length).toBeGreaterThan(20)
-      expect(file.name).toMatch(/\/tac\.[a-z]+$/)
-    }
-    // Interpreted handlers can import separate layer files. Compiled handlers
-    // currently compile one source, with their helper classes colocated there.
-    for (const entry of languages.yon.entries) {
-      const names = entry.files.map((file) => file.name)
-      expect(names.some((name) => name.startsWith('server/routes/'))).toBe(true)
-      if (['java', 'csharp', 'kotlin', 'rust'].includes(entry.id)) {
-        expect(names).toHaveLength(1)
-        expect(entry.files[0].code).toMatch(/(?:@|\[)Service\b/)
-        expect(entry.files[0].code).toMatch(/(?:@|\[)Repository\b/)
-      } else {
-        expect(names.some((name) => name.startsWith('server/services/'))).toBe(true)
-        expect(names.some((name) => name.startsWith('server/repositories/'))).toBe(true)
+  test('strict role layouts have complete annotation-discovered examples in every supported language', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const sections = docs.topics['project-folders'].sections
+    for (const [framework, extensions, entryPattern, modulePattern] of [
+      ['yon', ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts'], /^server\/controllers\/MoneyController\.[a-z]+$/, /^server\/services\/MoneyService\./],
+      ['tac', ['cs', 'dart', 'go', 'js', 'kt', 'rs', 'swift', 'ts'], /^client\/services\/MoneyService\.[a-z]+$/, /^client\/entities\/MoneyEntity\./],
+    ]) {
+      const section = sections.find(entry => entry.files?.some(file => entryPattern.test(file.name)))
+      expect(section.axis).toBe('language')
+      expect(section.files.some(file => file.name.endsWith('.modules.json'))).toBe(false)
+      const entries = section.files.filter(file => entryPattern.test(file.name))
+      expect(entries.map(file => file.name.split('.').pop()).sort()).toEqual(extensions)
+      if (framework === 'tac') {
+        expect(section.files.some(file => file.name === 'client/pages/tac.html' && file.code.includes('<money-panel'))).toBe(true)
+        expect(section.files.find(file => file.name === 'client/components/money/panel/tac.html').code).toContain('{money.amount}')
+      }
+      for (const extension of extensions) {
+        const entry = entries.find(file => file.name.endsWith(`.${extension}`))
+        const modules = section.files.filter(file => file !== entry && file.name.endsWith(`.${extension}`) && !file.name.includes('/models/'))
+        expect(modules.length).toBe(1)
+        for (const module of modules) {
+          expect(module.code.length).toBeGreaterThan(0)
+          expect(module.name).toMatch(modulePattern)
+        }
+        if (framework === 'yon') {
+          const controller = section.files.find(file => file.name.endsWith(`/MoneyController.${extension}`)).code
+          expect(controller).toMatch(Patterns.needs)
+          expect(controller).not.toContain('YonResponse')
+          const selected = modules.map(file => file.code).join('\n')
+          expect(selected).not.toMatch(/[@\[](?:yon::)?[Ii]nject\b/)
+          for (const module of modules) {
+            const authored = /\bconstructor\s*\(|\b__init__\s*\(|\b__construct\s*\(|\bfn\s+new\s*\(/
+            if (Patterns.needs.test(module.code)) expect(module.code).not.toMatch(authored)
+            else if (extension !== 'rs') expect(module.code).not.toMatch(authored)
+          }
+          expect(selected).not.toMatch(/\bMoney(?:Controller|Service)\s*\(/)
+        }
       }
     }
   })
 
-  test('every companion language shows the same class, spelled its own way', async () => {
-    // A developer writes one companion and then writes it again for another
-    // target. If the samples disagree about what a companion looks like, the
-    // second one is a guess. So all six declare the same three members.
+  test('Tac configuration binding declares the same complete prefix in every language', async () => {
+    const docs = await readJson('client/shared/data/docs.json')
+    const section = docs.topics.annotations.sections.find(section => section.heading === 'Configuration binding: Tac')
+    const manifest = JSON.parse(section.files.find(file => file.name === 'client/manifest.json').code)
+    expect(manifest.tac.catalog).toEqual({ title: 'Catalog', page: { size: 20 }, cache: { enabled: true } })
+    const configurations = section.files.filter(file => file.name.startsWith('client/setups/'))
+    expect(configurations.map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'go', 'js', 'kt', 'rs', 'swift', 'ts'])
+    for (const file of configurations) {
+      const policy = JSON.parse(file.code.match(/Settings\((\{[^\n]*\})\)/)[1])
+      expect(policy.prefix).toBe('TAC_CATALOG_')
+      expect(policy.fields).toBeUndefined()
+      for (const field of ['pageSize', 'cacheEnabled', 'title', 'Min(1)', 'Max(100)']) expect(file.code).toContain(field)
+    }
+    const go = section.files.find(file => file.name === 'client/services/SettingsService.go').code
+    expect(go).toContain('BehaviorsProperties[CatalogSetup](published)')
+    expect(go).not.toContain('catalogProperties')
+  })
+
+  test('application configuration offers independently runnable examples in every Yon language', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const section = docs.topics['application-configuration'].sections
+      .find((entry) => entry.heading === 'Access from every Yon language')
+    expect(section).toBeDefined()
+    expect(section.axis).toBe('language')
+    const handlers = section.files.filter((file) => /^server\/controllers\//.test(file.name))
+    expect(handlers.map((file) => file.name.split('.').pop()).sort())
+      .toEqual(['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts'])
+    for (const handler of handlers) {
+      expect(handler.name).toMatch(/^server\/controllers\/ConfigurationController\./)
+      expect(handler.code).toMatch(/RequestRoute|request_route/)
+      const extension = handler.name.split('.').pop()
+      const controller = section.files.find((file) => file.name.endsWith(`/ConfigurationController.${extension}`))
+      const settings = section.files.find((file) => file.name === `server/helpers/CatalogSettings.${extension}`)
+      const endpoint = section.files.find((file) => file.name === `server/helpers/Endpoint.${extension}`)
+      expect(settings.code).toMatch(/[@[]Settings\(|@settings\(/)
+      expect(endpoint.code).toMatch(/\bSetting\b|\bsetting\b/)
+      expect(controller.code).toMatch(/GetRoute|get_route/)
+    }
+    const shared = section.files.filter((file) => file.name.endsWith('.json'))
+    expect(shared.map((file) => file.name)).toEqual(['server/application.json'])
+    expect(JSON.parse(shared[0].code)).toEqual({
+      server: { host: '127.0.0.1', port: 8080 },
+      catalog: { page: { size: 20 } },
+    })
+    const topicTemplate = await read('client/components/docs/topic/tac.html')
+    expect(topicTemplate).toContain(':axis="section.axis')
+  })
+
+  test('storage documents managed resources in every Yon language and browser Client discovery', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const repositories = docs.topics['server-data'].sections.find(section => section.heading === 'Store injection in every Yon language')
+    expect(repositories.axis).toBe('language')
+    const extensions = ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts']
+    expect(repositories.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort()).toEqual(extensions)
+    for (const extension of extensions) {
+      const files = repositories.files.filter(file => file.name.endsWith(`.${extension}`))
+      expect(files.some(file => file.name.endsWith(`/stores/CatalogStore.${extension}`))).toBe(true)
+      expect(files.some(file => file.name.endsWith(`/controllers/CatalogController.${extension}`))).toBe(true)
+      expect(files.map(file => file.code).join('\n')).toMatch(/DataSource|dataSource/)
+      expect(files.map(file => file.code).join('\n')).toMatch(Patterns.needs)
+    }
+    const clients = docs.topics['calling-the-server'].sections.find(section => section.heading === 'Client classes that call the server')
+    expect(clients.body).toContain('HTTPClient')
+    expect(clients.body).toContain('explicitly configured')
+    for (const extension of ['js', 'ts']) {
+      const provider = clients.files.find(file => file.name.endsWith(`/clients/CatalogClient.${extension}`))
+      expect(provider.code).toMatch(/^@HTTPClient\b/m)
+      expect(provider.code).toContain('@GetRequest(')
+      const service = clients.files.find(file => file.name === `client/services/CatalogService.${extension}`)
+      expect(service.code).toMatch(Patterns.needs)
+      expect(service.code).toContain('export default class CatalogService')
+      expect(service.code).not.toMatch(/\bconstructor\s*\(|@Needs\(|\bfetch\s*\(/)
+    }
+    expect(clients.files.find(file => file.name === 'client/components/catalog/page/tac.html').code).toContain('catalog.load()')
+    expect(clients.files.find(file => file.name === 'client/pages/catalog/tac.html').code).toContain('<catalog-page')
+    expect(JSON.stringify(docs)).not.toMatch(/\.modules?\.json/)
+  })
+
+  test('application HTTP recipes prefer Client while worker-cache reads stay explicitly low level', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    for (const section of [docs.topics.cookbook.sections[1], docs.topics['application-configuration'].sections.find(section => section.heading.startsWith('Public Tac output'))]) {
+      expect(section.axis).toBe('language')
+      expect(section.files.some(file => /\/clients\/\w+Client\.js$/.test(file.name))).toBe(true)
+      expect(section.files.some(file => /\/clients\/\w+Client\.ts$/.test(file.name))).toBe(true)
+      expect(section.files.map(file => file.code).join('\n')).not.toMatch(/\bfetch\s*\(/)
+    }
+    const features = JSON.parse(await read('client/shared/data/features.json')).features
+    for (const feature of features) {
+      const code = (feature.files || []).map(file => file.code).join('\n')
+      if (feature.id !== 'fetch-cache') expect(code).not.toMatch(/\bfetch\s*\(/)
+    }
+    const worker = features.find(feature => feature.id === 'fetch-cache')
+    expect(worker.summary).toContain('low-level fetch')
+    expect(worker.summary).toContain('network-only')
+    expect(worker.files.some(file => file.name.endsWith('/clients/ProductsClient.js'))).toBe(true)
+    for (const extension of ['js', 'ts']) {
+      const service = worker.files.find(file => file.name === `client/services/CatalogService.${extension}`)
+      expect(service.code).toContain("credentials: 'omit'")
+      expect(service.code).toContain('this.productsClient.save(product)')
+    }
+  })
+
+  test('application examples separate secrets, and Tac configuration lives in the web app manifest', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const topic = docs.topics['application-configuration']
+    const files = topic.sections[0].files
+    const application = JSON.parse(files.find(file => file.name === 'server/application.json').code)
+    expect(application.yon).toBeUndefined()
+    expect(application.tac).toBeUndefined()
+    expect(application.server).toBeDefined()
+    expect(JSON.stringify(application)).not.toMatch(/password|signing|\$\{/)
+    const manifest = JSON.parse(files.find(file => file.name === 'client/manifest.json').code)
+    expect(manifest.start_url).toBe('/')
+    expect(manifest.tac).toEqual({ api: { url: '/api' } })
+    expect(files.find(file => file.name === '.env').code).toContain('YON_DATASOURCE_PASSWORD=')
+    expect(files.find(file => file.name === '.gitignore').code).toContain('.env')
+    const published = JSON.parse(await read('dist/web/manifest.webmanifest'))
+    expect(published).toEqual(JSON.parse(await read('client/manifest.json')))
+    expect(published.yon).toBeUndefined()
+    expect(existsSync(`${SiteArtifacts.web(fileURLToPath(new URL('..', import.meta.url)))}/.tachyon/application.json`)).toBe(false)
+  })
+
+  test('the Swift configuration example keeps native Tac separate from private Yon configuration', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const section = docs.topics['application-configuration'].sections
+      .find((entry) => entry.files?.some((file) => file.name.endsWith('Service.swift')))
+    expect(section).toBeDefined()
+    const prose = JSON.stringify({ heading: section.heading, body: section.body })
+    expect(prose).toMatch(/Swift/)
+    expect(prose).toMatch(/native Tac/i)
+    expect(prose).toMatch(/public/i)
+    expect(prose).toMatch(/private/i)
+    expect(prose).toMatch(/Yon/)
+    expect(section.files.some((file) => /\/yon\./.test(file.name))).toBe(false)
+    const swift = section.files.find((file) => file.name.endsWith('Service.swift'))
+    expect(swift.name).toBe('client/services/SettingsService.swift')
+    expect(section.files.find((file) => file.name.endsWith('/tac.html') && file.name.startsWith('client/components/')).code).toContain('{settings.')
+    expect(swift.code).toContain('PublicValues')
+    expect(swift.code).not.toContain('YON_CATALOG_PAGE_SIZE')
+  })
+
+  test('every language Tachyon supports has a snippet in both layers', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
-    const companions = languages.tac.files.filter((file) => /\.(js|ts|rs|swift|kt|cs)$/.test(file.name))
-    expect(companions.length).toBe(6)
+    const tac = languages.tac.files.map((file) => file.name.split('.').pop())
+    const yon = languages.yon.entries.map((entry) => entry.id)
+
+    for (const extension of ['js', 'ts', 'dart', 'rs', 'swift', 'kt', 'cs', 'fs', 'go', 'rb']) {
+      expect(tac).toContain(extension)
+    }
+    for (const extension of ['html', 'css']) {
+      expect(tac).toContain(extension)
+    }
+    for (const id of ['javascript', 'typescript', 'python', 'java', 'groovy', 'csharp', 'fsharp',
+                      'kotlin', 'php', 'rust', 'dart', 'go', 'ruby']) {
+      expect(yon).toContain(id)
+    }
+    expect(yon).toHaveLength(13)
+    for (const file of languages.tac.files) {
+      expect(file.code.length).toBeGreaterThan(20)
+      expect(file.name).toMatch(/^client\/components\/basket\/tally\/tac\.(html|css)$|^client\/services\/TallyService\.[a-z]+$/)
+    }
+    expect(languages.tac.files.find((file) => file.name.endsWith('/tac.html')).code).toContain('{tally.')
+    for (const entry of languages.yon.entries) {
+      const names = entry.files.map((file) => file.name)
+      expect(names.some((name) => name.startsWith('server/controllers/'))).toBe(true)
+      expect(names.some((name) => name.startsWith('server/services/OrderService.'))).toBe(true)
+      expect(names.some((name) => name.startsWith('server/stores/OrderStore.'))).toBe(true)
+      const controller = entry.files.find((file) => /\/controllers\/OrdersController\./.test(file.name))
+      expect(controller.code).toMatch(/RequestRoute|request_route/)
+      expect(controller.code).toMatch(/GetRoute|get_route/)
+      expect(controller.code).toContain('OrderService')
+      expect(controller.code).not.toMatch(/(?:class|struct|object) OrderService/)
+      expect(controller.code).not.toMatch(/(?:class|struct|object) OrderStore/)
+    }
+  })
+
+  test('published test units select separate test-only configuration files in every language', async () => {
+    const docs = await readJson('client/shared/data/docs.json')
+    for (const [realm, count] of [['Yon', 13], ['Tac', 10]]) {
+      const section = docs.topics.annotations.sections.find((entry) => entry.heading === `Test units: ${realm}`)
+      const configurations = section.files.filter((file) => /\/tests\/CatalogTestSetup\./.test(file.name))
+      expect(configurations).toHaveLength(count)
+      for (const configuration of configurations) {
+        const extension = configuration.name.split('.').pop()
+        const unit = section.files.find((file) => file.name.endsWith(`/CatalogServiceTest.${extension}`))
+        expect(configuration.code).toContain('TestSetup')
+        expect(configuration.code).not.toMatch(/[@[]Test\(|#\[Test\(|@test\(/)
+        expect(unit.code).toMatch(/Test\((typeof[(<])?CatalogTestSetup/)
+        expect(unit.code).not.toMatch(/(?:class|struct) CatalogTestSetup/)
+      }
+    }
+  })
+
+  test('every service language shows the same class, spelled its own way', async () => {
+    const languages = JSON.parse(await read('client/shared/data/languages.json'))
+    const companions = languages.tac.files.filter((file) => /\.(js|ts|dart|rs|swift|kt|cs|fs|go|rb)$/.test(file.name))
+    expect(companions.length).toBe(10)
     for (const entry of companions) {
       const code = entry.code
-      // A class body — or, in Rust, the struct and impl that stand in for one.
-      expect(code).toMatch(/\b(class|struct)\b/)
+      expect(code).toMatch(/\b(class|struct|type)\b/)
       for (const member of ['count', 'runtime', 'doubled']) {
-        // C# writes them PascalCase, which the generator lowercases.
         const spellings = [member, member[0].toUpperCase() + member.slice(1)]
         expect(spellings.some((name) => code.includes(name))).toBe(true)
       }
-      // No hand-written member table: the generator writes it, and a sample
-      // showing one would be teaching the thing that was removed.
       expect(code).not.toContain('TacMember')
       expect(code).not.toContain('TacField')
+    }
+  })
+
+  test('every service language marks the class as a service, spelled its own way', async () => {
+    const languages = JSON.parse(await read('client/shared/data/languages.json'))
+    const markers = { js: '@Service', ts: '@Service', dart: '@Service', swift: '@Service',
+                      kt: '@Service', cs: '[Service]', fs: '[<Service>]', rs: '#[Service]', go: '// @Service', rb: '#[Service]' }
+    const services = languages.tac.files.filter((file) => file.name.startsWith('client/services/'))
+    expect(services.length).toBe(10)
+    for (const service of services) {
+      const extension = service.name.split('.').pop()
+      expect(service.code.split('\n')).toContain(markers[extension])
     }
   })
 
@@ -143,22 +488,15 @@ describe('language coverage', () => {
 
 describe('discovery and metadata', () => {
   test('every page declares canonical and social metadata', async () => {
-    // The metadata is declared once, in the configuration module, and the
-    // compiler writes it into each document. A tac.html is a view now, so it
-    // carries the content and nothing about the page it is rendered into.
     for (const [route, document] of [['/', 'index.html'], ['/docs', 'docs/index.html'],
                                      ['/docs/features', 'docs/features/index.html']]) {
       const html = await read(`dist/web/${document}`)
-      // A page without these is invisible to a crawler and ugly when shared.
       expect(html).toContain('rel="canonical"')
       expect(html).toContain('property="og:title"')
       expect(html).toContain('name="twitter:card"')
       expect(html).toContain('lang="en"')
       expect(html).toContain(`href="https://tachyon.del.ma${route === '/' ? '/' : route}"`)
     }
-    // The chrome is authored once. Navigation is cross-document, so every
-    // *document* still carries its own header and footer; what the layout
-    // removes is five copies of that in the source.
     const layout = await read('client/components/site/layout/tac.html')
     expect(layout).toContain('href="#main"')
     expect(layout).toContain('<site-header />')
@@ -169,11 +507,9 @@ describe('discovery and metadata', () => {
       expect(authored).toContain('<site-layout>')
       expect(authored).not.toContain('<site-header')
       expect(authored).not.toContain('<site-footer')
-      // A view is not a document.
       expect(authored).not.toContain('<head>')
       expect(authored).not.toContain('<body>')
     }
-    // And every emitted document still has the chrome and the skip target.
     for (const document of ['index.html', 'docs/index.html', 'docs/features/index.html']) {
       const html = await read(`dist/web/${document}`)
       expect(html).toContain('#main')
@@ -182,43 +518,13 @@ describe('discovery and metadata', () => {
     }
   })
 
-  test('the build emits a sitemap covering every guide, and robots hides the API', async () => {
+  test('the build emits a sitemap covering every guide, and robots links it', async () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     const sitemap = await read('dist/web/sitemap.xml')
     for (const slug of docs.order) expect(sitemap).toContain(`/docs/${slug}<`)
-    // A dynamic route is a pattern, not a page.
     expect(sitemap).not.toContain('_topic')
     const robots = await read('dist/web/robots.txt')
-    expect(robots).toContain('Disallow: /api/')
     expect(robots).toContain('Sitemap:')
-  })
-})
-
-describe('server layer', () => {
-  test('the Yon routes read the term from the path, not a query string', async () => {
-    // Handler Protocol v1 carries no query string, so a search term has to be
-    // a dynamic segment. Regressing this would silently return no results.
-    const handler = await read('server/routes/api/search/_query/yon.js')
-    expect(handler).toContain('parameters?.query')
-    expect(handler).not.toContain('?q=')
-  })
-
-  test('a layer imports the Fylo shim relative to itself', async () => {
-    // A handler is imported from its own path now, so a relative specifier
-    // resolves the way it reads. This test previously asserted the opposite,
-    // guarding a data: URL workaround that no longer applies.
-    //
-    // The import sits in the service rather than the route: a controller
-    // answers HTTP methods and nothing else, so the searching moved down a
-    // layer and took its dependency with it.
-    const service = await read('server/services/search.js')
-    expect(service).toContain("vendor/fylo.mjs'")
-    expect(service).not.toContain('pathToFileURL')
-    expect(service).not.toContain('process.cwd()')
-
-    const handler = await read('server/routes/api/search/_query/yon.js')
-    expect(handler).toContain('@Controller')
-    expect(handler).toContain("services/search.js'")
   })
 })
 
@@ -230,12 +536,13 @@ describe('feature catalogue', () => {
                          'Yon server', 'Native', 'Tooling']) {
       expect(groups).toContain(group)
     }
-    // A feature without code is a claim, not documentation.
     for (const feature of features) {
       expect(feature.files.length).toBeGreaterThan(0)
-      for (const file of feature.files) expect(file.code.length).toBeGreaterThan(10)
+      for (const file of feature.files) {
+        expect(file.code.trim().length).toBeGreaterThan(10)
+        expect(file.name).not.toMatch(/^server\/routes\//)
+      }
     }
-    // Identifiers are anchors, so they have to stay unique.
     const ids = features.map((feature) => feature.id)
     expect(ids.length).toBe(new Set(ids).size)
   })
@@ -243,58 +550,32 @@ describe('feature catalogue', () => {
   test('documents the framework surface the ledger claims', async () => {
     const { features } = JSON.parse(await read('client/shared/data/features.json'))
     const text = JSON.stringify(features)
-    // One probe per area the parity ledger records as supported, so a feature
-    // cannot quietly drop off the page. `yon.rb` and `yon.rs` were probes here
-    // until Yon narrowed to the languages that can declare a layer; they are
-    // replaced by two that stayed rather than deleted, so the count of areas
-    // covered does not quietly fall.
     for (const probe of ['_id', '<logic :if', '<loop :for', '<switch', '<slot',
-                         'hydrate=', 'on:click', '$$theme', 'policy:', 'tachyon-sw',
-                         'tac.rs', 'tac.swift', 'tac.kt', 'tac.cs',
-                         'TY1010', 'yon.js', 'yon.py',
-                         'yon.php', 'yon.kt', 'yon.java', 'middleware', 'EventSource', 'async *GET',
-                         'companion.invoke', 'entryRoute', 'ty doctor',
-                          'ty start', 'TY1307', 'module constants',
-                         'ty migrate check', 'postBundle', 'hotState', 'OPTIONS.schema.json']) {
+                         'hydrate=', 'on:click', '@LocalState', '\\"policy\\"', 'tachyon-sw',
+                         'Service.rs', 'Service.swift', 'Service.kt', 'Service.cs', 'Service.go',
+                         '@Service\\n', 'Lifetime({', 'client/services/',
+                         'TY1010', 'Controller.js', 'Controller.py',
+                         'Controller.php', 'Controller.kt', 'Controller.java', 'middleware', '@StreamRequest', 'async *stream',
+                         'companion.invoke', 'start_url', 'ty doctor',
+                          'ty start', 'TY1307', 'static class fields',
+                         'ty migrate check', 'tac.sitemap', 'hotState', 'GetRoute']) {
       expect(text).toContain(probe)
     }
   })
 
-  test('every published API route declares a contract', async () => {
-    // The site is the framework's own showcase, so its routes are held to the
-    // feature it documents: a caller can ask what they accept and answer.
-    const { readdir } = await import('node:fs/promises')
-    const routes = fileURLToPath(new URL('../server/routes', import.meta.url))
-    const found = []
-    const walk = async (directory) => {
-      for (const entry of await readdir(directory, { withFileTypes: true })) {
-        const child = `${directory}/${entry.name}`
-        if (entry.isDirectory()) await walk(child)
-        else if (entry.name.startsWith('yon.')) found.push(directory)
-      }
+  test('documents Yon as a REST boundary, never a renderer', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const { features } = JSON.parse(await read('client/shared/data/features.json'))
+    const yon = JSON.stringify(docs.topics.models)
+    const handlers = JSON.stringify(features.find((feature) => feature.id === 'handlers'))
+    for (const text of [yon, handlers]) {
+      expect(text).toContain('text/html')
+      expect(text.toLowerCase()).toContain('yon')
+      expect(text.toLowerCase()).toContain('render')
     }
-    await walk(routes)
-    expect(found.length).toBeGreaterThan(0)
-    for (const directory of found) {
-      const contract = JSON.parse(await readFile(`${directory}/OPTIONS.schema.json`, 'utf8'))
-      expect(Object.keys(contract.methods).length).toBeGreaterThan(0)
-      // CHEX schematics: every leaf is a regular expression.
-      const leaves = (value) => typeof value === 'string' ? [value]
-        : Array.isArray(value) ? value.flatMap(leaves)
-        : value && typeof value === 'object' ? Object.values(value).flatMap(leaves)
-        : []
-      for (const method of Object.values(contract.methods)) {
-        for (const schema of [method.request?.body, method.request?.parameters,
-                              method.request?.headers, method.ok, method.clientError]) {
-          for (const pattern of leaves(schema)) {
-            // A pattern that is not anchored matches a substring, which is
-            // rarely what a contract means.
-            expect(pattern.startsWith('^') && pattern.endsWith('$')).toBe(true)
-            expect(() => new RegExp(pattern)).not.toThrow()
-          }
-        }
-      }
-    }
+    expect(yon).toContain('yon.html')
+    expect(yon).toContain('TY1008')
+    expect(handlers).toContain('{not-a-template}')
   })
 
   test('the removed releases page leaves nothing behind', async () => {
@@ -305,8 +586,6 @@ describe('feature catalogue', () => {
 
 describe('house style', () => {
   test('every page section uses the shared eyebrow, title and lede', async () => {
-    // The three DELMA sites share this rhythm. Spelling it out per template is
-    // how eight pages quietly become eight designs.
     const css = await read('client/shared/styles/site.css')
     for (const rule of ['.eyebrow', '.section-title', '.section-lede', '.panel', '.command', '.stat-value']) {
       expect(css).toContain(rule)
@@ -319,8 +598,6 @@ describe('house style', () => {
   })
 
   test('a first visit lands on the dark theme', async () => {
-    // DuVay falls back to light, and the palette is designed around dark, so
-    // the seed is what stops a first paint looking like a different product.
     const imports = await read('client/shared/scripts/imports.js')
     expect(imports).toContain("localStorage.getItem('w-theme') ?? 'dark'")
 
@@ -330,9 +607,6 @@ describe('house style', () => {
   })
 
   test('no page restates a number the data already carries', async () => {
-    // The stats band is gone: a row of counts above the page that proves them
-    // was saying the same thing twice.
-    const { readdir } = await import('node:fs/promises')
     const components = await readdir(fileURLToPath(new URL('../client/components/site', import.meta.url)))
     expect(components).not.toContain('stats')
     const home = await read('client/pages/tac.html')
@@ -343,35 +617,24 @@ describe('house style', () => {
 describe('responsive system', () => {
   test('layout is driven by space, not by a breakpoint list', async () => {
     const css = await read('client/shared/styles/site.css')
-    // Intrinsic grids and container queries, so a component is correct
-    // wherever it is placed rather than only where it was authored.
     expect(css).toContain('repeat(auto-fit, minmax(min(100%, var(--col')
     expect(css).toContain('grid-auto-rows: 1fr')
     expect(css).toContain('container-type: inline-size')
-    // The docs shell gains a column at each of these, measured against the
-    // space it has rather than the window's width.
     expect(css).toContain('@container (min-width: 52rem)')
     expect(css).toContain('@container (min-width: 68rem)')
   })
 
   test('no template reintroduces a breakpoint grid', async () => {
-    // A single `md:grid-cols-3` is enough to put one section back on cliffs
-    // while every other section interpolates.
     for (const template of ['site/footer', 'home/quickstart']) {
       const html = await read(`client/components/${template}/tac.html`)
       expect(html).not.toMatch(/\b(sm|md|lg|xl):grid-cols-/)
       expect(html).toContain('grid-auto')
     }
-    // The catalogue and the landing grid reflow on their own width, so
-    // neither may reintroduce a breakpoint column count.
     for (const stylesheet of ['client/shared/styles/site.css',
                               'client/components/home/pillars/tac.css']) {
       const css = await read(stylesheet)
       expect(css).toContain('auto-fit')
     }
-    // The catalogue is drawn by two components, so its rules are shared: a
-    // component stylesheet is scoped to its own component, and colocating them
-    // left the docs home with the class and none of the rules.
     expect(await read('client/shared/styles/site.css')).toContain('.catalogue__card')
   })
 
@@ -380,8 +643,6 @@ describe('responsive system', () => {
     for (const step of ['--step-xs', '--step-sm', '--step-lg', '--step-2xl', '--gutter', '--section-space']) {
       expect(css).toMatch(new RegExp(`${step}: clamp\\(`))
     }
-    // The vw term is what makes it a ramp; a clamp of two fixed values is
-    // still a step, just a hidden one.
     expect(css).toMatch(/--step-2xl: clamp\([^)]*vw/)
   })
 
@@ -391,10 +652,6 @@ describe('responsive system', () => {
     expect(css).toContain('@media (prefers-contrast: more)')
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
 
-    // The docs shell gains its columns on the space it has rather than on the
-    // window's width: it sits inside a container already narrower than the
-    // viewport, so a viewport breakpoint drops the contents list while the
-    // shell still has room for it.
     const shell = await read('client/shared/styles/site.css')
     expect(shell).toContain('.docs-frame')
     expect(shell).toContain('@container (min-width: 52rem)')
@@ -405,27 +662,22 @@ describe('responsive system', () => {
 
 describe('documentation structure', () => {
   test('every footer documentation link names a published page', async () => {
-    const { default: Footer } = await import('../client/components/site/footer/tac.js')
+    const footer = await readJson('client/shared/data/footer.json')
+    const links = footer.flatMap((column) => column.links.map((link) => link.href))
+    expect(links.length).toBeGreaterThan(5)
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     const published = ['/docs', '/docs/features', ...docs.order.map((slug) => `/docs/${slug}`)]
-    for (const link of new Footer().columns().flatMap((column) => column.links)) {
-      if (link.href.startsWith('/docs')) expect(published).toContain(link.href)
+    for (const href of links) {
+      if (href.startsWith('/docs')) expect(published).toContain(href)
     }
   })
 
-  const readJson = async (relative) => JSON.parse(await read(relative))
-
   test('every feature is a page of its own', async () => {
-    // The explorer this replaces could show only the feature you had clicked
-    // and could not be linked to, so every one of them was unreachable from a
-    // search result or from anyone else's link.
-    const routes = await import('node:fs/promises')
-      .then(({ readdir }) => readdir(fileURLToPath(new URL('../client/pages/docs/features', import.meta.url))))
+    const routes = await readdir(fileURLToPath(new URL('../client/pages/docs/features', import.meta.url)))
     expect(routes).toContain('tac.html')
     expect(routes).toContain('_id')
 
     const catalogue = await readJson('client/shared/data/features.json')
-    // An id is a URL segment now, so it has to survive being one.
     for (const feature of catalogue.features) {
       expect(feature.id).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/)
     }
@@ -438,79 +690,50 @@ describe('documentation structure', () => {
     const docs = await readJson('client/shared/data/docs.json')
     const catalogue = await readJson('client/shared/data/features.json')
 
-    // The group order is the one list the data does not carry, so a group
-    // added to the catalogue and not to it would be silently unreachable.
-    const declared = [...navigation.matchAll(/^ {2}'(.+)',$/gm)].map((match) => match[1])
+    expect(navigation).toContain('catalogue.groups')
     const groups = [...new Set(catalogue.features.map((feature) => feature.group))]
-    for (const group of groups) expect(declared).toContain(group)
+    for (const group of groups) expect(catalogue.groups).toContain(group)
 
-    // One reading order across guides and features together: the last guide
-    // leads into the first feature rather than into nothing.
     const total = docs.order.length + catalogue.features.length
     expect(total).toBeGreaterThan(docs.order.length)
   })
 
   test('the search index covers features, not only guides', async () => {
-    // Every feature is a page now, so a search that could only land a reader
-    // on /docs and leave them to hunt is a search that lost the change.
-    const seed = await read('scripts/seed.mjs')
     const navigation = await read('client/shared/scripts/navigation.js')
-    const search = await read('client/components/site/search/tac.js')
+    const search = await read('client/services/SearchService.js')
     const searchTemplate = await read('client/components/site/search/tac.html')
-    expect(seed).toContain('features.json')
-    expect(seed).toContain("kind: 'feature'")
-    expect(seed).toContain('/docs/features/')
+    expect(navigation).toContain('/docs/features/')
     expect(navigation).toContain('export const searchDocs')
     expect(navigation).toContain("kind: 'section'")
     expect(navigation).toContain("kind: 'feature'")
     expect(search).toContain('this.results = searchDocs(query)')
-    expect(searchTemplate).toContain('on:input="find($event.target.value)"')
+    expect(searchTemplate).toContain('on:input="search.find($event.target.value)"')
     expect(search).toContain('keydown')
-    expect(search).toContain('globalThis.__tachyonTac?.render()')
+    expect(search).toContain('this.taskScheduler.render()')
   })
 
   test('the sitemap lists the feature pages', async () => {
-    const config = await read('tac.config.js')
-    expect(config).toContain('/docs/features/${feature.id}')
-    expect(config).toContain('"/docs/features"')
-    expect(config).toContain('"/docs/features/_id"')
+    const { tac } = JSON.parse(await read('client/manifest.json'))
+    expect(tac.sitemap['/docs/features/_id']).toEqual({ data: '/shared/data/features.json', values: '/features', field: 'id' })
+    expect(tac.sitemap['/docs/_topic']).toEqual({ data: '/shared/data/docs.json', values: '/order' })
+    expect(tac.metadata.routes['/docs/features']).toBeDefined()
+    expect(tac.metadata.routes['/docs/features/_id'].noindex).toBe(true)
+    expect(existsSync(new URL('../tac.config.js', import.meta.url))).toBe(false)
+    expect(existsSync(new URL('../tachyon.json', import.meta.url))).toBe(false)
   })
 
   test('a diagnostic the site quotes still says what the code emits', async () => {
-    // The site quotes diagnostics verbatim and nothing was checking the quote
-    // kept up. TY2105's help changed when servers gained
-    // TACHYON_JAVASCRIPT_RUNTIME and the page went on showing the old advice,
-    // which is the failure every one of these quotes is one edit away from.
-    //
-    // The page wraps and indents for reading, the source wraps for line
-    // length, and the source interpolates '{program}' where the page shows a
-    // real one. So the page's help is split at its quoted values and each run
-    // of prose between them has to appear in the source.
-    //
-    // Only the page is split that way. Rust spends single quotes on lifetimes
-    // and apostrophes, so stripping them from the source swallowed whole
-    // functions — which is how this test first passed while wrong.
     const flatten = (text) =>
       text
-        .replace(/\\\s*\n\s*/g, '')   // Rust string continuations
-        .replace(/\\"/g, '"')          // escaped quotes inside a Rust literal
+        .replace(/\\\s*\n\s*/g, '')
+        .replace(/\\"/g, '"')
         .replace(/\s+/g, ' ')
+    const coreSource = fileURLToPath(new URL('../../crates/tachyon-core/src', import.meta.url))
+    const rustFiles = (await listFiles(coreSource)).filter((file) => file.name.endsWith('.rs'))
     const corpus = flatten(
-      (await Promise.all([
-        read('../crates/tachyon-core/src/handler/process.rs'),
-        read('../crates/tachyon-core/src/html.rs'),
-        read('../crates/tachyon-core/src/stereotype.rs'),
-        read('../crates/tachyon-core/src/template/frontend.rs'),
-        read('../crates/tachyon-core/src/project.rs').catch(() => ''),
-        read('../crates/tachyon-core/src/native/routes.rs').catch(() => ''),
-      ])).join('\n'),
+      (await Promise.all(rustFiles.map((file) => readFile(file.path, 'utf8')))).join('\n'),
     )
 
-    // The diagnostics page and no other. Its whole purpose is to quote, so a
-    // quote there has to be exact. Elsewhere a diagnostic is an illustration
-    // with its placeholders filled — TY1010 interpolates a companion list and
-    // a target name mid-sentence, and demanding an exact match of that would
-    // be a test that fails for being right.
     const catalogue = JSON.parse(await read('client/shared/data/features.json'))
     const quoted = []
     for (const feature of catalogue.features.filter((one) => one.id === 'diagnostics')) {
@@ -527,7 +750,6 @@ describe('documentation structure', () => {
     let checked = 0
     for (const { code, help } of quoted) {
       for (const fragment of help.split(/'[^']*'/).map((part) => part.trim())) {
-        // A short run between two values is a joining word and proves nothing.
         if (fragment.length < 24) continue
         checked += 1
         expect(
@@ -536,73 +758,53 @@ describe('documentation structure', () => {
         ).toBe(true)
       }
     }
-    // A test that checked nothing would pass just as quietly.
     expect(checked).toBeGreaterThan(2)
   })
 
-  test('a Tac example shows its view and its companion together', async () => {
-    // A view and the companion behind it are two halves of one example. Shown
-    // apart, a `{count}` in the view has no visible source and the field that
-    // declares it has nothing to render — so every Tac feature carries both,
-    // and `tac.css` when the example is about styling.
+  test('a Tac example shows its view and its service together', async () => {
     const catalogue = JSON.parse(await read('client/shared/data/features.json'))
-    const isCompanionFile = (name) => /\/tac\.[a-z]+$|^tac\.[a-z]+$/.test(name) && name !== 'tac.config.js'
+    const isServiceFile = (name) => /^client\/services\/[A-Z]\w*Service\.(js|ts|swift|kt|cs|rs|go)$/.test(name)
 
     const tacFeatures = catalogue.features.filter((feature) =>
-      feature.files.some((file) => isCompanionFile(file.name)))
-    // The rest are shell commands, Yon handlers, configuration and diagrams:
-    // a `ty doctor` example has no view, and inventing one would be a snippet
-    // the gate then compiles as though it were real.
+      feature.files.some((file) => isServiceFile(file.name)))
     expect(tacFeatures.length).toBeGreaterThan(15)
 
     for (const feature of tacFeatures) {
       const names = feature.files.map((file) => file.name)
-      expect(names.some((name) => name.endsWith('tac.html'))).toBe(true)
-      expect(names.some((name) => /tac\.(js|ts)$/.test(name))).toBe(true)
+      expect(names.some((name) => /^client\/components\/.*\/tac\.html$/.test(name)), feature.id).toBe(true)
+      expect(names.some((name) => /^client\/services\/\w+Service\.(js|ts|dart|rs|cs|go)$/.test(name)), feature.id).toBe(true)
+      for (const name of names) {
+        if (name.startsWith('client/components/')) expect(name, feature.id).toMatch(/\/tac\.(html|css)$/)
+        if (name.startsWith('client/pages/')) expect(name, feature.id).toMatch(/\/tac\.html$/)
+      }
     }
   })
 
   test('an example reads behaviour, then structure, then presentation', async () => {
     const { inReadingOrder, rank } = await import('../client/shared/scripts/platforms.js')
 
-    // The companion leads because it is the half that differs: a view and a
-    // stylesheet are the same file on every target, so the thing a reader came
-    // to compare should not sit below two files they have already read.
-    expect(rank('tac.js')).toBeLessThan(rank('tac.html'))
+    expect(rank('client/services/TallyService.js')).toBeLessThan(rank('tac.html'))
     expect(rank('tac.html')).toBeLessThan(rank('tac.css'))
-    // JavaScript before TypeScript: the one that needs no toolchain is where a
-    // reader lands before choosing otherwise.
-    expect(rank('tac.js')).toBeLessThan(rank('tac.ts'))
-    expect(rank('tac.ts')).toBeLessThan(rank('tac.swift'))
-    // A pseudo-file is the result of the example, not part of it.
+    expect(rank('client/services/TallyService.js')).toBeLessThan(rank('client/services/TallyService.ts'))
+    expect(rank('client/services/TallyService.ts')).toBeLessThan(rank('client/services/TallyService.swift'))
+    expect(rank('client/services/TallyService.rs')).toBeLessThan(rank('client/services/TallyService.go'))
+    expect(rank('client/services/TallyService.go')).toBeLessThan(rank('tac.html'))
     expect(rank('emitted')).toBeGreaterThan(rank('tac.css'))
 
-    const shuffled = [{ name: 'emitted' }, { name: 'tac.css' }, { name: 'tac.html' }, { name: 'tac.swift' }]
+    const shuffled = [{ name: 'emitted' }, { name: 'tac.css' }, { name: 'tac.html' }, { name: 'client/services/TallyService.swift' }]
     expect(inReadingOrder(shuffled).map((file) => file.name))
-      .toEqual(['tac.swift', 'tac.html', 'tac.css', 'emitted'])
+      .toEqual(['client/services/TallyService.swift', 'tac.html', 'tac.css', 'emitted'])
   })
 
   test('the framework layers are rendered together, not switched between', async () => {
-    // Both cards exist and the toggle hides one. A component property is
-    // assigned once, when the instance is created, and two <docs-snippet>
-    // elements in mutually exclusive <logic> branches share a single instance
-    // — so the branch that rendered first kept its files and the toggle
-    // changed nothing but the label. This has now been the same bug twice, in
-    // two shapes, which is why it is pinned here rather than only commented.
     const html = await read('client/components/home/languages/tac.html')
-    expect(html).toContain(`:hidden="layer !== 'tac'"`)
-    expect(html).toContain(`:hidden="layer !== 'yon'"`)
-    // Neither card may sit in a branch: that is the arrangement that shares an
-    // instance between them.
+    expect(html).toContain(`:hidden="showcase.layer !== 'tac'"`)
+    expect(html).toContain(`:hidden="showcase.layer !== 'yon'"`)
     expect(html).not.toMatch(/<logic[^>]*>\s*<docs-snippet/)
     expect(html).not.toContain('<logic else>')
   })
 
-  test('the view and the styles are shown once, whatever the companion', async () => {
-    // They are the same file on every target, so they are stored once and
-    // rendered once: switching platform or companion swaps the companion block
-    // and nothing else. A suite that repeated them would have the reader
-    // re-reading two files to reach the one that changed.
+  test('the view and the styles are shown once, whatever the service language', async () => {
     const { inReadingOrder, isCompanion } = await import('../client/shared/scripts/platforms.js')
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const files = languages.tac.files
@@ -610,13 +812,10 @@ describe('documentation structure', () => {
     expect(files.filter((file) => file.name.endsWith('.html'))).toHaveLength(1)
     expect(files.filter((file) => file.name.endsWith('.css'))).toHaveLength(1)
 
-    // A view and a stylesheet are never companions, so they are never one of
-    // the things the second strip chooses between.
-    expect(isCompanion('client/pages/tac.html')).toBe(false)
-    expect(isCompanion('client/pages/tac.css')).toBe(false)
-    expect(isCompanion('client/pages/tac.swift')).toBe(true)
+    expect(isCompanion('client/components/basket/tally/tac.html')).toBe(false)
+    expect(isCompanion('client/components/basket/tally/tac.css')).toBe(false)
+    expect(isCompanion('client/services/TallyService.swift')).toBe(true)
 
-    // Behaviour first, then the two that do not change.
     const order = inReadingOrder(files).map((file) => file.name.split('/').pop())
     expect(order.at(-2)).toBe('tac.html')
     expect(order.at(-1)).toBe('tac.css')
@@ -627,54 +826,72 @@ describe('documentation structure', () => {
     const { spansPlatforms, filesFor, reachOf } =
       await import('../client/shared/scripts/platforms.js')
 
-    // One companion language reaches every target on its own, so a strip over
-    // a single tac.js would be six tabs that all do the same thing.
-    expect(spansPlatforms([{ name: 'client/pages/tac.js' }])).toBe(false)
-    expect(spansPlatforms([{ name: 'tac.js' }, { name: 'tac.swift' }])).toBe(true)
+    const service = (extension) => `client/services/TallyService.${extension}`
+    const names = (files) => files.map((file) => file.name)
+    expect(spansPlatforms([{ name: service('js') }])).toBe(false)
+    expect(spansPlatforms([{ name: service('js') }, { name: service('go') }])).toBe(false)
+    expect(spansPlatforms([{ name: service('js') }, { name: service('swift') }])).toBe(true)
 
-    // The reach is the companion matrix: Rust is desktop-only, Swift is Apple,
-    // Kotlin is Android, C# is Windows.
-    expect(reachOf('tac.rs')).toEqual(['macos', 'windows', 'linux'])
-    expect(reachOf('tac.swift')).toEqual(['macos', 'ios'])
-    expect(reachOf('tac.kt')).toEqual(['android'])
-    expect(reachOf('tac.cs')).toEqual(['windows'])
-    // A view is not a companion and belongs under every platform.
-    expect(reachOf('tac.html')).toContain('android')
+    const everyPlatform = ['web', 'macos', 'ios', 'android', 'windows', 'linux']
+    expect(reachOf(service('dart'))).toEqual(everyPlatform)
+    expect(reachOf(service('go'))).toEqual(everyPlatform)
+    expect(reachOf(service('rb'))).toEqual(everyPlatform)
+    expect(reachOf(service('rs'))).toEqual(everyPlatform)
+    expect(reachOf(service('cs'))).toEqual(everyPlatform)
+    expect(reachOf(service('swift'))).toEqual(['macos', 'ios'])
+    expect(reachOf(service('kt'))).toEqual(['android'])
+    expect(reachOf('client/components/basket/tally/tac.html')).toContain('android')
 
-    const files = [{ name: 'tac.swift' }, { name: 'tac.kt' }, { name: 'tac.js' }]
-    expect(filesFor(files, 'android').map((file) => file.name)).toEqual(['tac.kt', 'tac.js'])
-    expect(filesFor(files, 'ios').map((file) => file.name)).toEqual(['tac.swift', 'tac.js'])
+    const native = [{ name: service('swift') }, { name: service('kt') }, { name: service('js') }]
+    expect(names(filesFor(native, 'android'))).toEqual([service('kt'), service('js')])
+    expect(names(filesFor(native, 'ios'))).toEqual([service('swift'), service('js')])
+    expect(names(filesFor(native, 'web'))).toEqual([service('js')])
+
+    const view = 'client/components/basket/tally/tac.html'
+    const webAssembly = [{ name: service('rs') }, { name: service('go') }, { name: service('cs') }, { name: view }]
+    expect(names(filesFor(webAssembly, 'web'))).toEqual([service('rs'), service('go'), service('cs'), view])
+    expect(names(filesFor(webAssembly, 'windows'))).toEqual([service('rs'), service('go'), service('cs'), view])
+    expect(names(filesFor(webAssembly, 'linux'))).toEqual([service('rs'), service('go'), service('cs'), view])
+    expect(names(filesFor(webAssembly, 'ios'))).toEqual([service('rs'), service('go'), service('cs'), view])
+    expect(names(filesFor([{ name: service('cs') }], 'android'))).toEqual([service('cs')])
+    expect(filesFor([{ name: service('kt') }], 'ios')).toEqual([])
+  })
+
+  test('each home page platform tab shows every service language that can run there', async () => {
+    const { filesFor, inReadingOrder, isCompanion, languageOf } =
+      await import('../client/shared/scripts/platforms.js')
+    const languages = JSON.parse(await read('client/shared/data/languages.json'))
+    const shownOn = (platform) => inReadingOrder(filesFor(languages.tac.files, platform))
+      .filter((file) => isCompanion(file.name))
+      .map((file) => languageOf(file.name))
+
+    const browser = ['JavaScript', 'TypeScript', 'Dart']
+    const everywhere = ['C#', 'F#', 'Rust', 'Go', 'Ruby']
+    expect(shownOn('web')).toEqual([...browser, ...everywhere])
+    expect(shownOn('macos')).toEqual([...browser, 'Swift', ...everywhere])
+    expect(shownOn('ios')).toEqual([...browser, 'Swift', ...everywhere])
+    expect(shownOn('android')).toEqual([...browser, 'Kotlin', ...everywhere])
+    expect(shownOn('windows')).toEqual([...browser, ...everywhere])
+    expect(shownOn('linux')).toEqual([...browser, ...everywhere])
   })
 
   test('the navigation is a drawer where the shell has no column for it', async () => {
-    // Stacked in flow it pushed the article a whole screen down, so every
-    // documentation page opened on its own navigation rather than on what the
-    // reader came for.
     const css = await read('client/components/docs/sidebar/tac.css')
     expect(css).toContain('@container (max-width: 51.999rem)')
-    // Closed, it is out of the tab order as well as off the screen: a drawer
-    // that is hidden but still focusable is a list of links a keyboard walks
-    // into from nowhere.
     expect(css).toContain('visibility: hidden')
 
-    // A closed <details> hides its content through the UA's own display rule,
-    // and an author `display` on a direct child overrides it — which left a
-    // "collapsed" section fully reachable by keyboard and to a screen reader.
     expect(css).toContain('.docs-nav__section[open] > .docs-nav__list')
     expect(css).toContain('.docs-nav__section:not([open]) > .docs-nav__list')
 
     const html = await read('client/components/docs/sidebar/tac.html')
     expect(html).toContain('aria-expanded')
     expect(html).toContain('aria-controls="docs-nav-panel"')
-    const source = await read('client/components/docs/sidebar/tac.js')
-    // Escape closes it, which is what any overlay owes a keyboard.
-    expect(source).toContain("key === 'Escape'")
+    expect(html).toContain('on:click="drawer.toggle()"')
+    const source = await read('client/services/DrawerService.rb')
+    expect(source).toContain('key == "Escape"')
   })
 
   test('the docs shell dissolves its wrappers where the rule can win', async () => {
-    // site.css is @layer brand and the runtime's rule for a mounted component
-    // is unlayered, so `display: contents` there loses whatever its
-    // specificity. It has to be colocated, which is unlayered.
     const layout = await read('client/components/docs/layout/tac.css')
     expect(layout).toContain('display: contents')
     expect(layout).toContain('data-tachyon-component')

@@ -1,0 +1,6 @@
+{
+  "name": "Places",
+  "tac": {
+    "browserApis": ["clipboard", "geolocation"]
+  }
+}

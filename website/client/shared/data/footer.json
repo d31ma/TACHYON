@@ -1,0 +1,61 @@
+[
+  {
+    "title": "Learn",
+    "links": [
+      {
+        "label": "Install",
+        "href": "/docs/install"
+      },
+      {
+        "label": "Your first app",
+        "href": "/docs/first-app"
+      },
+      {
+        "label": "Tac templates",
+        "href": "/docs/templates"
+      },
+      {
+        "label": "Yon controllers",
+        "href": "/docs/controllers"
+      }
+    ]
+  },
+  {
+    "title": "Explore",
+    "links": [
+      {
+        "label": "Every feature",
+        "href": "/docs/features"
+      },
+      {
+        "label": "Languages",
+        "href": "/docs/service-languages"
+      },
+      {
+        "label": "Build targets",
+        "href": "/docs/devices"
+      }
+    ]
+  },
+  {
+    "title": "Project",
+    "links": [
+      {
+        "label": "Source on GitHub",
+        "href": "https://github.com/d31ma/Tachyon"
+      },
+      {
+        "label": "FYLO",
+        "href": "https://fylo.del.ma"
+      },
+      {
+        "label": "SESAME",
+        "href": "https://sesame.del.ma"
+      },
+      {
+        "label": "HEIMDALL",
+        "href": "https://heimdall.del.ma"
+      }
+    ]
+  }
+]

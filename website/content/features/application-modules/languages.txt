@@ -1,0 +1,16 @@
+One boundary name in every owned language:
+
+  JavaScript, TypeScript   export class Handler
+  Python                   class Handler
+  Java                     class Handler
+  Kotlin                   object Handler
+  C#                       class Handler
+  PHP                      class Handler
+  Rust                     struct Handler + impl Handler
+  Dart                     class Handler
+  Go                       type Handler struct{} + its methods
+  Ruby                     class Handler
+
+The fixed name is convention over configuration. It requires no import,
+annotation, base class, registration call, reflection package, or generated
+application code. Tachyon supplies only its protocol types and helpers.

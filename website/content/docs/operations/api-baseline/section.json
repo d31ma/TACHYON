@@ -1,0 +1,7 @@
+{
+  "heading": "Keep the API that callers use",
+  "body": "A caller that was built against your last release sends the requests and expects the answers of that release. `ty api freeze` saves the current API, the same document as `api.json`, in `server/api-baseline.json` together with `tac.application.version`. Run it after each release and commit the file.\n\nEvery later build compares its API with the baseline and stops with `TY1338` when it breaks a caller: a route, method or model is gone; a request value or a model field is gone; a request needs a new value, or a value became required; a request value accepts fewer values than before, for example `integer` instead of `number`; an answer can hold values that the old type did not allow; a model field changed its type; or the success status changed. New routes, methods, models, optional values and fields, and wider request types are fine.\n\nIf the break is on purpose, raise the major number of `tac.application.version` in `client/manifest.json`, for example from 1.4.0 to 2.0.0. The build then accepts every change. After that release, run `ty api freeze` again. A project without `server/api-baseline.json` is not checked (ADR 0074).",
+  "code": {
+    "file": "example.sh"
+  }
+}

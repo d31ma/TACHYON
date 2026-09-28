@@ -1,0 +1,6 @@
+mruby 7b4e0f3b7b3db3595332c4e1f4c97afcea183e5e e7f44cfc1a83f8923c37f0d7736cc8d5c7c5f2a0fd55c6a05334ee735de89584 https://github.com/mruby/mruby/archive/7b4e0f3b7b3db3595332c4e1f4c97afcea183e5e.tar.gz
+prism c0e37816e97e23e92524a4070e1b99a4025bc63f 1d90fcd65f78c361d8fb1f9a835611e3f48c1816471feed6764204f037f73383 https://github.com/ruby/prism/archive/c0e37816e97e23e92524a4070e1b99a4025bc63f.tar.gz
+emsdk e566f7bdcc7735f44037911c24b87a58a3c93145 8634b12869818ff088757141804dd4b36713add0a5669a14de1a7f72609c26df https://github.com/emscripten-core/emsdk/archive/e566f7bdcc7735f44037911c24b87a58a3c93145.tar.gz
+emscripten 6.0.10 084896c728d82e44d7aa54afc4a7bf64031dda83f3a4c47ee3164cece247cd76 https://storage.googleapis.com/webassembly/emscripten-releases-builds/mac/666337b525e673e769121856d175f6f52b8ead64/wasm-binaries-arm64.tar.xz
+node 24.19.0 8294b7aa9b03997481c06babf1e8b270c859358f27da57a11509afe537ac381d https://storage.googleapis.com/webassembly/emscripten-releases-builds/deps/node-v24.19.0-darwin-arm64.tar.gz
+python 3.13.3 2b0899d7ade9463b0c909ef23aeea27546a4f412637998d817a49718bc2bac19 https://storage.googleapis.com/webassembly/emscripten-releases-builds/deps/python-3.13.3-0-macos-arm64.tar.gz

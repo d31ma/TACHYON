@@ -1,32 +1,20 @@
 <w-app-bar sticky scroll-behavior="elevate">
   <w-container size="xl" class="site-bar w-row align-center ga-2 px-0">
     <a href="/" class="site-bar__brand w-row align-center ga-2 mr-auto" aria-label="Tachyon home">
-      <img src="/shared/assets/logo.svg" alt="" width="26" height="26" class="block" />
-      <!-- The one deliberate cliff on the site: a wordmark cannot be scaled
-           to nothing, and below ~30rem the bar needs the ~5rem it occupies
-           more than the page needs to be told its own name twice. -->
+      <img src="/shared/assets/logo.svg" alt="" aria-hidden="true" width="26" height="26" class="block" />
       <span class="site-bar__wordmark font-bold tracking-widest text-sm">TACHYON</span>
     </a>
 
-    <!-- Three destinations, all of them present at every width. The strip
-         scrolls rather than dropping items, so nothing is unreachable on a
-         phone the way a `hidden sm:inline` link would be. -->
     <nav class="site-bar__nav w-row align-center ga-1" aria-label="Primary">
       <w-btn href="/docs" variant="text" size="sm">Docs</w-btn>
-      <!-- A plain anchor: <w-btn href> forwards href to the anchor it renders,
-           but not target or rel, so through the component this opens in-tab. -->
       <a class="w-btn w-btn--text w-btn--sm" href="https://github.com/d31ma/Tachyon"
          target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
 
     <div class="site-bar__actions w-row align-center ga-1">
       <site-search hydrate="load" />
-
-    <!-- A glyph rather than <w-icon>: the vendored bundle resolves icons
-         through a registry this site does not install, so a named icon would
-         render as nothing at all. -->
-    <w-btn variant="text" size="sm" w-theme-toggle aria-label="Switch colour theme">◐</w-btn>
-      <w-btn href="/docs/introduction" variant="filled" color="primary" size="sm">Get started</w-btn>
+      <w-btn variant="text" size="sm" w-theme-toggle aria-label="Switch between the light and dark theme">◐</w-btn>
+      <w-btn href="/docs/install" variant="filled" color="primary" size="sm">Get started</w-btn>
     </div>
   </w-container>
 </w-app-bar>

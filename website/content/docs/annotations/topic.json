@@ -1,0 +1,84 @@
+{
+  "title": "Annotations A–Z",
+  "summary": "An annotation is a marker that you put on a class, a field or a method. It tells Tachyon what to do. This page first lists every annotation from A to Z with one line about what it does. Then each group of annotations has a working example in every language that accepts it. Tac is the frontend realm (one side of the app), and Yon is the backend realm. When a realm or a language does not accept an annotation, the section says so and explains why.",
+  "sections": [
+    {
+      "include": "a-to-z/section.json"
+    },
+    {
+      "include": "roles-yon/section.json"
+    },
+    {
+      "include": "roles-tac/section.json"
+    },
+    {
+      "include": "data-access-yon/section.json"
+    },
+    {
+      "include": "data-access-tac/section.json"
+    },
+    {
+      "include": "transactions-yon/section.json"
+    },
+    {
+      "include": "caching-yon/section.json"
+    },
+    {
+      "include": "caching-tac/section.json"
+    },
+    {
+      "include": "retries-yon/section.json"
+    },
+    {
+      "include": "retries-tac/section.json"
+    },
+    {
+      "include": "outgoing-http-yon/section.json"
+    },
+    {
+      "include": "outgoing-http-tac/section.json"
+    },
+    {
+      "include": "gateways-yon/section.json"
+    },
+    {
+      "include": "configuration-binding-yon/section.json"
+    },
+    {
+      "include": "configuration-binding-tac/section.json"
+    },
+    {
+      "include": "validation-yon/section.json"
+    },
+    {
+      "include": "validation-tac/section.json"
+    },
+    {
+      "include": "lifecycle-and-events-yon/section.json"
+    },
+    {
+      "include": "lifecycle-and-events-tac/section.json"
+    },
+    {
+      "include": "mapping-yon/section.json"
+    },
+    {
+      "include": "mapping-tac/section.json"
+    },
+    {
+      "include": "scheduling-yon/section.json"
+    },
+    {
+      "include": "test-units-yon/section.json"
+    },
+    {
+      "include": "test-units-tac/section.json"
+    },
+    {
+      "include": "what-each-realm-refuses/section.json"
+    },
+    {
+      "include": "coming-from-spring/section.json"
+    }
+  ]
+}

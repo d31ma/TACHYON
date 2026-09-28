@@ -1,0 +1,8 @@
+@RequestRoute("/api/java")
+@Public
+class JavaGreetingController {
+    @GetRoute
+    String getGreeting() {
+        return "Hello from Java";
+    }
+}

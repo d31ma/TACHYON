@@ -1,0 +1,6 @@
+error[TY1010]: Route '{basket}' has no companion that runs on android.
+               It declares Swift (macos, ios).
+
+The route is named by the service that cannot reach the target, in
+braces, so a project with several services knows which one to give
+a BasketService.js, a BasketService.ts or a BasketService.kt.

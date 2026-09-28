@@ -1,0 +1,5 @@
+{
+  "heading": "One HTML file for every target",
+  "body": "An application writes `tac.html` once. The control elements `logic`, `loop`, `switch` and `case` compile into a render plan (the compiled steps that build the page). The shared client runtime runs that plan. It mounts components (adds them to the page) to create the DOM. A published route document starts that renderer. It does not contain a view subtree rendered on the server. Native hosts use the same plan and runtime. They do not build a second tree of platform widgets.",
+  "code": { "file": "example.txt" }
+}

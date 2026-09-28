@@ -1,0 +1,21 @@
+Which languages middleware is written in
+
+  middleware.js    JavaScript
+  middleware.ts    TypeScript, on a TypeScript-capable runtime
+  middleware.py    Python
+  middleware.rb    Ruby
+  middleware.php   PHP
+  middleware.java, middleware.kt, middleware.cs,
+  middleware.rs, middleware.dart, middleware.go
+                   the compiled Yon languages
+
+In every language, root middleware is one class named Middleware;
+Rust and Go declare a struct, and Go spells the methods Before and
+After. Tachyon calls its before(request) before the route and its
+after(request) after the route, for every request, whatever its
+HTTP method. A missing before or after lets the request pass.
+request is the language's own request (PHP reads $_SERVER, $_GET,
+$_COOKIE and php://input). Answering nothing, or a 204, continues or
+adds its headers to the response; any other status answers or
+replaces the response. The answer is the language's own response.
+A class named Handler in a middleware file fails with TY1310.

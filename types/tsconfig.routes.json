@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "experimentalDecorators": true
+  },
+  "files": ["tachyon-env.d.ts", "tachyon-behaviors.d.ts", "tests/yon-routes.ts", "tests/behavior-parameters.ts"]
+}

@@ -1,21 +1,14 @@
-//! Cross-platform shutdown signals for long-running CLI commands.
-
 use serde_json::{Value, json};
 use std::future::{Future, pending};
 use std::io::{self, Write as _};
 use std::pin::Pin;
 use tokio::sync::oneshot;
 
-/// A canonical long-running command name used in lifecycle events.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum LongRunningCommand {
-    /// The development server, including its `dev` compatibility alias.
     Serve,
-    /// The production server, which never rebuilds published output.
     Start,
-    /// The bundle preview server.
     Preview,
-    /// A bundle command waiting for source changes.
     BundleWatch,
 }
 
@@ -30,18 +23,12 @@ impl LongRunningCommand {
     }
 }
 
-/// A shutdown request owned by one long-running command.
-///
-/// Installation is deliberately infallible. If the operating system refuses
-/// a handler, the failure is reported and that receiver remains absent; it can
-/// never masquerade as a shutdown request.
 #[must_use]
 pub(crate) struct ShutdownSignals {
     requested: oneshot::Receiver<()>,
 }
 
 impl ShutdownSignals {
-    /// Installs the platform's supported graceful-shutdown handlers.
     pub(crate) fn install(command: LongRunningCommand) -> Self {
         install_with(
             command,
@@ -51,10 +38,6 @@ impl ShutdownSignals {
         )
     }
 
-    /// Resolves after the first installed signal is observed.
-    ///
-    /// A failed monitor is treated like failed registration: availability is
-    /// preserved instead of turning an internal failure into shutdown.
     pub(crate) async fn wait(self) {
         if self.requested.await.is_err() {
             pending::<()>().await;

@@ -1,0 +1,28 @@
+{
+  "id": "window-controls",
+  "title": "What a page may do to its window",
+  "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service can use. By default, no controls are granted. The host (the native app that shows the page) makes only the granted controls available. It checks each grant before it runs a request. Native service code belongs to the application. It runs as normal operating-system code. This window-control policy does not sandbox it (limit what it can do).",
+  "group": "Native",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/services/ReportService.js",
+      "code": { "file": "client/services/ReportService.js" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/report/window/tac.html",
+      "code": { "file": "client/components/report/window/tac.html" }
+    },
+    {
+      "name": "grants",
+      "code": { "file": "grants.txt" }
+    }
+  ]
+}

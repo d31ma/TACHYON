@@ -1,0 +1,6 @@
+[Test(typeof(CSharpGreetingTestSetup), {"partition":"tests"})]
+sealed class CSharpGreetingControllerTest {
+    void testGetGreetingSaysHello() {
+        if (new CSharpGreetingController().GetGreeting() != "Hello from C#") throw new System.Exception("expected a greeting");
+    }
+}

@@ -1,0 +1,362 @@
+{
+  "heading": "Data access: Yon",
+  "axis": "language",
+  "summary": "Entity and Table name a table. Store names that Entity class and gives an explicit allowlist of fields and its page bounds. Method names derive the query, @Query states a query exactly, and @PageDefaults on a parameter limits a page request that the caller supplies.",
+  "body": "Choose one language for GET /products. Each implementation returns {\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}]}. An entity is a type that describes one kind of stored record. You must declare Entity and Table together, in server/entities. Entity takes only the adapter name; the one field marked @Id is the identifier. The Store that names an Entity lives in server/stores. Its first argument is the Entity class itself: ProductEntity.class in Java, ProductEntity::class in Kotlin and PHP, typeof(ProductEntity) in C#, and the bare name in the other languages. Its options are exactly fields, defaultSize and maxSize. The fields list must contain the field marked @Id. Both sizes are from 1 to 100, and defaultSize cannot be larger than maxSize.\n\nA method name can start with findBy/countBy/existsBy, or with the snake_case find_by_/count_by_/exists_by_. That method builds its query plan from that allowlist (the fields list). A query plan describes the query that the adapter runs. The operator suffixes (name endings) are Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull. And joins them. Equals is also the default when there is no suffix. @Query gives the plan directly instead. It accepts exactly operation, where and orderBy. operation is find, count or exists. A find reads its page request from the parameter marked @PageDefaults. count and exists take no page parameter and need orderBy set to []. The plan must use every declared parameter exactly once. Sometimes the orderBy of a find does not include the id field. Then the compiler adds the id field at the end. This keeps the order fixed when two records have equal values. You leave query bodies empty, because the compiler writes them. In Python the body is pass. A body that is not empty is an error. The compiler reports it and does not quietly drop it.\n\n@PageDefaults sits on the page parameter and accepts exactly defaultSize, maxSize and sort. It turns page, size, sort and offset into standard values before the call. @PageDefaults and the query methods both run through the owner's behavior context. The behavior context is the object that the owning class creates from a Setup. So the Store with an options object is not a Yon DI (dependency injection) provider. Instead, the route method creates a context from a @Setup. The route method is the controller method with a route annotation, such as GetRoute. Then it builds the store itself. A bare Store is still a provider. The adapter that Entity.adapter names is your application code. Every query must pass authorizeEntity. These annotations hold a query plan. They are not a database and not an authorization system.\n\nTwo language notes. C# route methods are synchronous, so the route method waits for the tasks that the behavior methods return. Synchronous means a call returns only when its work is done. Rust converts BehaviorError into YonResourceError so that the route method can use ?. Go does the same, and its route method returns (value, error). Raw SQL through a DataSource must pass its values as parameters; query text built from pieces stops the build with TY1325.",
+  "files": [
+    {
+      "name": "server/entities/ProductEntity.js",
+      "code": {
+        "file": "server/entities/ProductEntity.js"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.js",
+      "code": {
+        "file": "server/stores/ProductStore.js"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.js",
+      "code": {
+        "file": "server/setups/CatalogSetup.js"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.js",
+      "code": {
+        "file": "server/controllers/ProductController.js"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.ts",
+      "code": {
+        "file": "server/models/ProductReport.ts"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.ts",
+      "code": {
+        "file": "server/entities/ProductEntity.ts"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.ts",
+      "code": {
+        "file": "server/stores/ProductStore.ts"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.ts",
+      "code": {
+        "file": "server/setups/CatalogSetup.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.ts",
+      "code": {
+        "file": "server/controllers/ProductController.ts"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.py",
+      "code": {
+        "file": "server/models/ProductReport.py"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.py",
+      "code": {
+        "file": "server/entities/ProductEntity.py"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.py",
+      "code": {
+        "file": "server/stores/ProductStore.py"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.py",
+      "code": {
+        "file": "server/setups/CatalogSetup.py"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.py",
+      "code": {
+        "file": "server/controllers/ProductController.py"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.php",
+      "code": {
+        "file": "server/models/ProductReport.php"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.php",
+      "code": {
+        "file": "server/entities/ProductEntity.php"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.php",
+      "code": {
+        "file": "server/stores/ProductStore.php"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.php",
+      "code": {
+        "file": "server/setups/CatalogSetup.php"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.php",
+      "code": {
+        "file": "server/controllers/ProductController.php"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.java",
+      "code": {
+        "file": "server/models/ProductReport.java"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.groovy",
+      "code": {
+        "file": "server/models/ProductReport.groovy"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.java",
+      "code": {
+        "file": "server/entities/ProductEntity.java"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.groovy",
+      "code": {
+        "file": "server/entities/ProductEntity.groovy"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.java",
+      "code": {
+        "file": "server/stores/ProductStore.java"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.groovy",
+      "code": {
+        "file": "server/stores/ProductStore.groovy"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.java",
+      "code": {
+        "file": "server/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.groovy",
+      "code": {
+        "file": "server/setups/CatalogSetup.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.java",
+      "code": {
+        "file": "server/controllers/ProductController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.groovy",
+      "code": {
+        "file": "server/controllers/ProductController.groovy"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.kt",
+      "code": {
+        "file": "server/models/ProductReport.kt"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.kt",
+      "code": {
+        "file": "server/entities/ProductEntity.kt"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.kt",
+      "code": {
+        "file": "server/stores/ProductStore.kt"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.kt",
+      "code": {
+        "file": "server/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.kt",
+      "code": {
+        "file": "server/controllers/ProductController.kt"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.cs",
+      "code": {
+        "file": "server/models/ProductReport.cs"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.cs",
+      "code": {
+        "file": "server/entities/ProductEntity.cs"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.cs",
+      "code": {
+        "file": "server/stores/ProductStore.cs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.cs",
+      "code": {
+        "file": "server/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.cs",
+      "code": {
+        "file": "server/controllers/ProductController.cs"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.rs",
+      "code": {
+        "file": "server/models/ProductReport.rs"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.rs",
+      "code": {
+        "file": "server/entities/ProductEntity.rs"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.rs",
+      "code": {
+        "file": "server/stores/ProductStore.rs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rs",
+      "code": {
+        "file": "server/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.rs",
+      "code": {
+        "file": "server/controllers/ProductController.rs"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.dart",
+      "code": {
+        "file": "server/models/ProductReport.dart"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.dart",
+      "code": {
+        "file": "server/entities/ProductEntity.dart"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.dart",
+      "code": {
+        "file": "server/stores/ProductStore.dart"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.dart",
+      "code": {
+        "file": "server/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.dart",
+      "code": {
+        "file": "server/controllers/ProductController.dart"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogAdapterHelper.py",
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.py"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogAdapterHelper.php",
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.php"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogAdapterHelper.cs",
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.cs"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogAdapterHelper.rs",
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.rs"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.go",
+      "code": {
+        "file": "server/models/ProductReport.go"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.go",
+      "code": {
+        "file": "server/entities/ProductEntity.go"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.go",
+      "code": {
+        "file": "server/stores/ProductStore.go"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.go",
+      "code": {
+        "file": "server/setups/CatalogSetup.go"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.go",
+      "code": {
+        "file": "server/controllers/ProductController.go"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogAdapterHelper.go",
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.go"
+      }
+    }
+  ]
+}

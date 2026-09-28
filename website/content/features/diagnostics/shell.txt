@@ -1,0 +1,9 @@
+error[TY1306]: Retired Tac lifecycle and signal decorators are no longer supported.
+  --> client/services/CatalogService.js:0..0
+  help: Use @OnStart/@OnStop for lifecycle, an injected applicationEventPublisher with OnEvent for local events, and @Needs fields named after the owner-bound browser resources.
+
+error[TY2015]: 'server/routes/orders/yon.py' does not declare a Yon Handler.
+  help: Declare a plain class, object, or struct named Handler with HTTP methods, or use an annotated Controller with HTTP verb-named instance methods (docs/YON_ANNOTATIONS.md).
+
+error[TY2112]: Required Yon JavaScript runtime 'node' was not found.
+  help: Install Node.js or configure YON_JAVASCRIPT_RUNTIME.

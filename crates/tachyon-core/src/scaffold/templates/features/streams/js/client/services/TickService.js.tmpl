@@ -1,0 +1,14 @@
+@Service
+export default class TickService {
+  /** @type {TicksClient} */
+  @Needs
+  ticksClient
+  /** @type {Tick[]} */
+  ticks = []
+
+  /** @param {Tick} tick */
+  @OnEvent
+  addTick(tick) {
+    this.ticks = [...this.ticks.slice(-127), tick]
+  }
+}

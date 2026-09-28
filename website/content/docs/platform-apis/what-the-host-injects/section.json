@@ -1,0 +1,5 @@
+{
+  "heading": "What the host injects",
+  "body": "On purpose, the host injects three things and no more. First, the document body carries `data-platform=\"native\"`. With it, a page can style itself or behave differently without checking the user agent string. The user agent string is the text that names the browser. Second, `tachyonWindow` carries the window controls that the manifest granted. Third, the service channel runs in both directions. A service publishes to the page, and the page calls the service by its instance name.\n\nThe publish stub (a small function that the host injects) puts values in a queue. It does not deliver them at once. A service may publish from its own thread before the page's modules have run. Without the queue, that value would be lost. This loss is a race condition, and the application cannot see it. A race condition is a bug that depends on which code runs first.",
+  "code": { "file": "example.js" }
+}

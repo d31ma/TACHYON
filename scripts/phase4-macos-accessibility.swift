@@ -123,23 +123,10 @@ private func typeText(_ value: String, into element: AXUIElement, processID: pid
     )
     guard focus == .success else { throw ProbeError.focusFailed("Customer name", focus) }
 
-    guard let selectAllDown = CGEvent(
-        keyboardEventSource: nil,
-        virtualKey: 0,
-        keyDown: true
-    ), let selectAllUp = CGEvent(
-        keyboardEventSource: nil,
-        virtualKey: 0,
-        keyDown: false
-    ), let textDown = CGEvent(
-        keyboardEventSource: nil,
-        virtualKey: 0,
-        keyDown: true
-    ), let textUp = CGEvent(
-        keyboardEventSource: nil,
-        virtualKey: 0,
-        keyDown: false
-    ) else {
+    guard let selectAllDown = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
+          let selectAllUp = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false),
+          let textDown = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
+          let textUp = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else {
         throw ProbeError.keyboardFailed
     }
     selectAllDown.flags = .maskCommand
@@ -160,6 +147,58 @@ private func typeText(_ value: String, into element: AXUIElement, processID: pid
     }
 }
 
+private func pressIncreaseButton(in window: AXUIElement) throws {
+    let elements = collect(window)
+    guard let button = elements.first(where: {
+        matches($0, identifier: "n_000006", label: "Increase count", role: kAXButtonRole)
+    }) else {
+        throw ProbeError.controlNotFound("Increase count")
+    }
+    try press(button, name: "Increase count")
+}
+
+private func typeCustomerName(in window: AXUIElement, processID: pid_t) throws {
+    let elements = collect(window)
+    guard let textField = elements.first(where: {
+        matches($0, identifier: "n_000008", label: "Customer name", role: kAXTextFieldRole)
+    }) else {
+        throw ProbeError.controlNotFound("Customer name")
+    }
+    try typeText("Ada", into: textField, processID: processID)
+}
+
+private func toggleDisclosure(in window: AXUIElement, processID: pid_t) throws {
+    let elements = collect(window)
+    guard let disclosure = elements.first(where: {
+        stringAttribute($0, kAXRoleAttribute) == kAXDisclosureTriangleRole
+    }) else {
+        throw ProbeError.controlNotFound("Implementation details")
+    }
+    let focus = AXUIElementSetAttributeValue(disclosure, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    guard focus == .success else { throw ProbeError.focusFailed("Implementation details", focus) }
+    guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: true),
+          let up = CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: false) else {
+        throw ProbeError.keyboardFailed
+    }
+    down.postToPid(processID)
+    up.postToPid(processID)
+}
+
+private func interact(with application: NSRunningApplication, window: AXUIElement) throws -> [String] {
+    var interactions: [String] = []
+    application.activate()
+    try pressIncreaseButton(in: window)
+    interactions.append("increment")
+    RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+    try typeCustomerName(in: window, processID: application.processIdentifier)
+    interactions.append("input")
+    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+    try toggleDisclosure(in: window, processID: application.processIdentifier)
+    interactions.append("disclosure")
+    RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+    return interactions
+}
+
 private func run() throws {
     guard CommandLine.arguments.count >= 2 else { throw ProbeError.usage }
     guard AXIsProcessTrusted() else { throw ProbeError.accessibilityDisabled }
@@ -169,52 +208,15 @@ private func run() throws {
     }) else {
         throw ProbeError.processNotFound(processName)
     }
-    let app = AXUIElementCreateApplication(application.processIdentifier)
-    guard let windows = attribute(app, kAXWindowsAttribute) as? [AXUIElement],
+    let applicationElement = AXUIElementCreateApplication(application.processIdentifier)
+    guard let windows = attribute(applicationElement, kAXWindowsAttribute) as? [AXUIElement],
           let window = windows.first else {
         throw ProbeError.windowNotFound
     }
 
     var interactions: [String] = []
     if CommandLine.arguments.contains("--interact") {
-        application.activate()
-        var elements = collect(window)
-        guard let button = elements.first(where: {
-            matches($0, identifier: "n_000006", label: "Increase count", role: kAXButtonRole)
-        }) else {
-            throw ProbeError.controlNotFound("Increase count")
-        }
-        try press(button, name: "Increase count")
-        interactions.append("increment")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
-        // A reactive render can replace DOM-backed accessibility objects.
-        elements = collect(window)
-
-        guard let textField = elements.first(where: {
-            matches($0, identifier: "n_000008", label: "Customer name", role: kAXTextFieldRole)
-        }) else {
-            throw ProbeError.controlNotFound("Customer name")
-        }
-        try typeText("Ada", into: textField, processID: application.processIdentifier)
-        interactions.append("input")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-
-        elements = collect(window)
-        guard let disclosure = elements.first(where: {
-            stringAttribute($0, kAXRoleAttribute) == kAXDisclosureTriangleRole
-        }) else {
-            throw ProbeError.controlNotFound("Implementation details")
-        }
-        let focus = AXUIElementSetAttributeValue(disclosure, kAXFocusedAttribute as CFString, kCFBooleanTrue)
-        guard focus == .success else { throw ProbeError.focusFailed("Implementation details", focus) }
-        guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: true),
-              let up = CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: false) else {
-            throw ProbeError.keyboardFailed
-        }
-        down.postToPid(application.processIdentifier)
-        up.postToPid(application.processIdentifier)
-        interactions.append("disclosure")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        interactions = try interact(with: application, window: window)
     }
 
     let evidence = Evidence(

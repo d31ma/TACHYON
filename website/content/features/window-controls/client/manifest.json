@@ -1,0 +1,28 @@
+{
+  "name": "Catalog",
+  "short_name": "Catalog",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon-1024.png",
+      "sizes": "1024x1024"
+    }
+  ],
+  "tac": {
+    "application": {
+      "id": "com.example.catalog",
+      "version": "1.0.0",
+      "window": {
+        "width": 1024,
+        "height": 768,
+        "minWidth": 640,
+        "minHeight": 480,
+        "controls": [
+          "minimize",
+          "maximize",
+          "close"
+        ]
+      }
+    }
+  }
+}

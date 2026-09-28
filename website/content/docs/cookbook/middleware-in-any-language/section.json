@@ -1,0 +1,5 @@
+{
+  "heading": "Middleware in any language",
+  "body": "Tachyon calls a `middleware.<ext>` file at the project root before every request and after every response. The file holds one class named `Middleware` with `before(request)` and `after(request)`. Each method gets the request in its language's own type and answers with its language's own response, or with nothing to let the request pass. Tachyon calls these methods by name for every request, whatever its HTTP method. So a CORS preflight (`OPTIONS`) and a form `POST` reach them like a `GET`. A CORS preflight is the check request that a browser sends before a cross-origin request. If you leave out a method, that phase passes without change. The middleware may be written in any Yon language. It does not need to match the language of the controllers. Python and PHP middleware import a model from `server/models/` as a controller does, with `from models import Name` or `use Models\\Name;`. TypeScript middleware uses `import type` from `/models/`.",
+  "code": { "file": "example.txt" }
+}

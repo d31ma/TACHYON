@@ -1,6 +1,5 @@
-/* The group, above the title, linking back to where this was found. */
 .feature-group {
-  font-size: .75rem;
+  font-size: var(--step-xs);
   text-transform: uppercase;
   letter-spacing: .05em;
   opacity: .6;

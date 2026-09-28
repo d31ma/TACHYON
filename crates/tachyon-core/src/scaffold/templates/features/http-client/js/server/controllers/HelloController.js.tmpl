@@ -1,0 +1,9 @@
+@RequestRoute("/api/hello")
+@Public
+export class HelloController {
+  /** @returns {Hello} */
+  @GetRoute
+  getHello() {
+    return { message: 'Hello from Yon' }
+  }
+}

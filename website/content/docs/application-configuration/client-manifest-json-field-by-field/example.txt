@@ -1,0 +1,58 @@
+name                                          browser, native
+  The application's name. A native build names the app and its
+  executable after it (short_name when name is absent). 1 to 64
+  printable characters.
+
+short_name                                    browser, native
+  The label a launcher shows where name is too long.
+
+start_url                                     browser, native
+  The route the application opens at, and the entry route of a
+  native build. A canonical local route, such as "/".
+
+icons                                         browser, native
+  [{ "src": "/icon-512.png", "sizes": "512x512" }], local bundle
+  paths. A native build uses the largest raster icon; an SVG-only
+  manifest gets no native icon rather than a blurry one.
+
+display, theme_color, background_color, ...           browser
+  Standard members for a browser's install, published as written.
+
+tac                                              Tac services
+  Tac's public configuration (ADR 0034): any nested object, bound
+  with TAC_ names and tac. paths, so tac.api.url is TAC_API_URL.
+  Lowercase keys, and no secret-shaped names such as password.
+
+tac.application.id                                     native
+  Reverse-DNS bundle identifier, such as com.example.catalog.
+  Derived from the project folder when absent.
+
+tac.application.version                                native
+  A portable version, such as 1.4.0 (1.0.0 when absent).
+
+tac.application.window                                 native
+  width and height the window opens at (1024 by 768 unless set,
+  each 64 to 16384), minWidth and minHeight, and controls: which
+  window controls a page may use (close, fullscreen, maximize,
+  minimize, resize, title). None are granted unless listed.
+
+tac.origin                                              build
+  The public address, such as https://example.com, without a path.
+  It turns on the built-in sitemap.xml and robots.txt.
+
+tac.scripts, tac.styles                                 build
+  Up to 8 local paths each, linked into every page.
+
+tac.cache                                               build
+  Service-worker rules: [{ "path": "/api/*", "policy":
+  "network-first" }]; cache-first, network-first or no-store.
+
+tac.metadata                                            build
+  defaults, and routes keyed by route: title, description,
+  canonical, image, siteName, lang, noindex.
+
+tac.sitemap                                             build
+  Values for a dynamic page route, read from a shared data file:
+  { "/docs/_topic": { "data": "/shared/data/docs.json",
+  "values": "/order" } }.
+

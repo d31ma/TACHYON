@@ -44,14 +44,14 @@ export default class ItemService {
     }
 
     async getItem(id: unknown): Promise<ItemRecord | ItemError> {
-        const idStr = String(id ?? '');
-        if (idStr.startsWith('gone-')) {
+        const itemId = String(id ?? '');
+        if (itemId.startsWith('gone-')) {
             return { detail: 'item was deleted' };
         }
-        if (idStr.startsWith('error-')) {
+        if (itemId.startsWith('error-')) {
             return { detail: 'internal server error' };
         }
-        const item = await this.repository.findById(idStr);
+        const item = await this.repository.findById(itemId);
         return item ?? { detail: 'item not found' };
     }
 
@@ -94,13 +94,16 @@ export default class ItemService {
             return {};
         }
 
-        return await this.repository.replaceById(itemId, {
+        const payload = body as ItemPayload;
+        const replacement: ItemRecord = {
             id: itemId,
-            name: String((body as ItemPayload).name).trim(),
-            source: String((body as ItemPayload).source || existing.source || 'api'),
+            name: String(payload.name).trim(),
+            source: String(payload.source || existing.source || 'api'),
             createdAt: existing.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-        }) ?? { detail: 'item not found' };
+        };
+        const replaced = await this.repository.replaceById(itemId, replacement);
+        return replaced ?? { detail: 'item not found' };
     }
 
     async patchItem(id: unknown, body: unknown): Promise<ItemRecord | EmptyResult | ItemError> {
@@ -127,19 +130,20 @@ export default class ItemService {
             return { detail: 'patch body is required' };
         }
 
-        return await this.repository.updateById(itemId, patch) ?? { detail: 'item not found' };
+        const updated = await this.repository.updateById(itemId, patch);
+        return updated ?? { detail: 'item not found' };
     }
 
     async deleteItem(id: unknown): Promise<DeletedItem | EmptyResult | ItemError> {
-        const idStr = String(id ?? '');
-        if (idStr.startsWith('error-')) {
+        const itemId = String(id ?? '');
+        if (itemId.startsWith('error-')) {
             return { detail: 'internal server error' };
         }
-        const deleted = await this.repository.deleteById(idStr);
+        const deleted = await this.repository.deleteById(itemId);
         if (!deleted) {
             return { detail: 'item not found' };
         }
-        return { id: idStr, deletedAt: new Date().toISOString() };
+        return { id: itemId, deletedAt: new Date().toISOString() };
     }
 
     async clearItems(): Promise<Record<string, never>> {
@@ -148,6 +152,10 @@ export default class ItemService {
     }
 
     hasName(body: unknown): body is ItemPayload & { name: unknown } {
-        return Boolean(body && typeof body === 'object' && 'name' in body && String((body as ItemPayload).name).trim());
+        if (!body || typeof body !== 'object' || !('name' in body)) {
+            return false;
+        }
+        const name = String((body as ItemPayload).name).trim();
+        return Boolean(name);
     }
 }

@@ -1,16 +1,6 @@
 #!/usr/bin/env node
-// Offline-cache gate.
-//
-// A service worker that installs but never serves a request offline is the
-// exact defect this guards against, so nothing here is asserted from the
-// generated files. The page is loaded in a real browser, the network is cut,
-// and the page is reloaded.
-//
-// A worker needs a secure context and must not be on a loopback host, since
-// the generated registration deliberately skips loopback so a stale cache
-// cannot fight live reload. The fixture is therefore served over HTTPS with a
-// throwaway certificate, under a name mapped back to the loopback interface.
 
+import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { chromium } from 'playwright';
 import { createServer } from 'node:https';
 import { spawnSync } from 'node:child_process';
@@ -20,102 +10,124 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const TY = process.env.TAC_BIN ?? path.join(REPO, 'target/release/ty');
-const PROJECT = mkdtempSync(path.join(tmpdir(), 'ty-service-worker-gate-'));
-const HOST = 'tachyon.test';
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+class WorkerGate {
+  static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty');
+  static project = mkdtempSync(path.join(tmpdir(), 'ty-service-worker-gate-'));
+  static host = 'tachyon.test';
+  static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+}
 
-const write = (relative, contents) => {
-  const file = path.join(PROJECT, relative);
+class ServerState {
+  static requests = 0;
+  static apiRequests = 0;
+  static apiPolicy = 'public, max-age=60';
+  static apiVary = '';
+  static replaceStylesheet = false;
+}
+
+function write(relative, contents) {
+  const file = path.join(WorkerGate.project, relative);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, contents);
-};
-
-write('client/pages/tac.html', '<main aria-label="Offline"><h1 id="title">Cached page</h1></main>\n');
-write('client/pages/tac.css', '#title { color: rgb(0, 128, 0) }\n');
-write('client/pages/tac.js', 'export default class {}');
-write('tac.config.js', "export const cache = [{ path: '/api/cache-first', policy: 'cache-first' }, { path: '/api/never', policy: 'no-store' }, { path: '/api/*', policy: 'network-first' }]");
-
-const built = spawnSync(TY, ['build', PROJECT], { encoding: 'utf8' });
-if (built.status !== 0) {
-  console.error(built.stderr || built.stdout);
-  process.exit(1);
 }
 
-// A throwaway certificate, valid only for this run.
-const key = path.join(PROJECT, 'key.pem');
-const certificate = path.join(PROJECT, 'cert.pem');
-const issued = spawnSync('openssl', [
-  'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-  '-keyout', key, '-out', certificate, '-days', '1',
-  '-subj', `/CN=${HOST}`, '-addext', `subjectAltName=DNS:${HOST}`,
-], { encoding: 'utf8' });
-if (issued.status !== 0) {
-  console.error(`cannot issue a test certificate: ${issued.stderr}`);
-  process.exit(1);
+function writeFixture() {
+  write('client/pages/tac.html', '<offline-page />\n');
+  write('client/components/offline/page/tac.html', '<main aria-label="Offline"><h1 id="title">{workerPage.title}</h1></main>\n');
+  write('client/components/offline/page/tac.css', '#title { color: rgb(0, 128, 0) }\n');
+  write('client/clients/RuntimeClient.js', `@HTTPClient
+class RuntimeClient {
+  @GetRequest("/api/runtime")
+  async read() { return {}; }
+}`);
+  write('client/services/WorkerPageService.js', `@Service
+export default class WorkerPageService {
+  @Needs
+  runtimeClient;
+  title = 'Cached page';
+}`);
+  write('client/manifest.json', JSON.stringify({ tac: { cache: [{ path: '/api/cache-first', policy: 'cache-first' }, { path: '/api/never', policy: 'no-store' }, { path: '/api/*', policy: 'network-first' }] } }));
 }
 
-const root = path.join(PROJECT, 'dist');
-let requests = 0;
-let apiRequests = 0;
-let apiPolicy = 'public, max-age=60';
-let apiVary = '';
-let replaceStylesheet = false;
-const server = createServer({ key: readFileSync(key), cert: readFileSync(certificate) }, (request, response) => {
-  requests += 1;
-  if (request.url === '/style.css' && replaceStylesheet) {
-    response.writeHead(200, { 'content-type': 'text/css' });
-    response.end('#title { color: red }');
-    return;
-  }
-  if (request.url.startsWith('/api/') || request.url.startsWith('/account.html')) {
-    apiRequests += 1;
-    response.setHeader('content-type', 'text/plain');
-    response.setHeader('cache-control', apiPolicy);
-    if (apiVary) response.setHeader('vary', apiVary);
-    response.end(request.url.startsWith('/api/oversize') ? 'x'.repeat(300000) : String(apiRequests));
-    return;
-  }
-  let file = path.join(root, decodeURIComponent(request.url.split('?')[0]));
-  if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
-  if (!existsSync(file)) { response.writeHead(404).end(); return; }
-  response.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' });
-  createReadStream(file).pipe(response);
-});
+const rootHelper = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
 
-const fail = (message) => { console.error(`FAIL: ${message}`); process.exitCode = 1; };
-const expect = (actual, wanted, label) => {
+function buildFixture() {
+  const built = spawnSync(WorkerGate.binary, ['build', WorkerGate.project], { encoding: 'utf8' });
+  if (built.status !== 0) {
+    console.error(built.stderr || built.stdout);
+    process.exit(1);
+  }
+}
+
+function issueCertificate() {
+  const key = path.join(WorkerGate.project, 'key.pem');
+  const certificate = path.join(WorkerGate.project, 'cert.pem');
+  const issued = spawnSync('openssl', [
+    'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+    '-keyout', key, '-out', certificate, '-days', '1',
+    '-subj', `/CN=${WorkerGate.host}`, '-addext', `subjectAltName=DNS:${WorkerGate.host}`,
+  ], { encoding: 'utf8' });
+  if (issued.status !== 0) {
+    console.error(`cannot issue a test certificate: ${issued.stderr}`);
+    process.exit(1);
+  }
+  return { key, certificate };
+}
+
+function createWorkerServer(key, certificate) {
+  const root = path.join(WorkerGate.project, 'dist');
+  return createServer({ key: readFileSync(key), cert: readFileSync(certificate) }, (request, response) => {
+    ServerState.requests += 1;
+    if (request.url === '/.tachyon/components.css' && ServerState.replaceStylesheet) {
+      response.writeHead(200, { 'content-type': 'text/css' });
+      response.end('#title { color: red }');
+      return;
+    }
+    if (request.url.startsWith('/api/') || request.url.startsWith('/account.html')) {
+      ServerState.apiRequests += 1;
+      response.setHeader('content-type', request.url === '/api/runtime' ? 'application/json' : 'text/plain');
+      response.setHeader('cache-control', ServerState.apiPolicy);
+      if (ServerState.apiVary) response.setHeader('vary', ServerState.apiVary);
+      response.end(request.url.startsWith('/api/oversize') ? 'x'.repeat(300000) : String(ServerState.apiRequests));
+      return;
+    }
+    let file = path.join(root, decodeURIComponent(request.url.split('?')[0]));
+    if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
+    if (!existsSync(file)) { response.writeHead(404).end(); return; }
+    response.writeHead(200, { 'content-type': WorkerGate.mimeTypes[path.extname(file)] ?? 'application/octet-stream' });
+    createReadStream(file).pipe(response);
+  });
+}
+
+function fail(message) {
+  console.error(`FAIL: ${message}`);
+  process.exitCode = 1;
+}
+
+function expect(actual, wanted, label) {
   if (actual === wanted) console.log(`    ok   ${label}: ${actual}`);
   else fail(`${label}: expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`);
-};
+}
 
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const { port } = server.address();
-const origin = `https://${HOST}:${port}`;
-const profile = path.join(PROJECT, 'profile');
-const context = await chromium.launchPersistentContext(profile, {
-  ignoreHTTPSErrors: true,
-  args: [
-    `--host-resolver-rules=MAP ${HOST} 127.0.0.1`,
-    // A worker script is fetched by the network service, which does not honour
-    // the page-level certificate override.
-    '--ignore-certificate-errors',
-  ],
-});
-// A hung step must fail the gate, not stall it.
-context.setDefaultTimeout(15_000);
-context.setDefaultNavigationTimeout(15_000);
-const page = await context.newPage();
-page.on('console', (message) => {
-  if (message.type() === 'error') console.log(`    note console: ${message.text()}`);
-});
+async function openContext(origin) {
+  const profile = path.join(WorkerGate.project, 'profile');
+  const context = await chromium.launchPersistentContext(profile, {
+    ignoreHTTPSErrors: true,
+    args: [
+      `--host-resolver-rules=MAP ${WorkerGate.host} 127.0.0.1`,
+      '--ignore-certificate-errors',
+    ],
+  });
+  await context.addInitScript(rootHelper);
+  context.setDefaultTimeout(15_000);
+  context.setDefaultNavigationTimeout(15_000);
+  return context;
+}
 
-try {
+async function checkRegistration(page, origin) {
   await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
 
-  // The worker must reach the controlling state, or nothing below proves
-  // anything: an uncontrolled page would simply be served by the network.
   const controller = await page.evaluate(async () => {
     const registration = await Promise.race([
       navigator.serviceWorker.ready,
@@ -136,7 +148,6 @@ try {
   expect(controller.scope, '/', 'scope covers every page');
   expect(controller.controlled, true, 'page is controlled');
 
-  // A reload while controlled populates the cache with what the page uses.
   await page.reload({ waitUntil: 'networkidle' });
   const cachedPaths = await page.evaluate(async () => {
     const names = await caches.keys();
@@ -145,7 +156,9 @@ try {
   });
   expect(cachedPaths.includes('/'), true, `document cached (${cachedPaths.join(' ')})`);
   expect(cachedPaths.some((entry) => entry.endsWith('.css')), true, 'stylesheet cached');
+}
 
+async function checkApiCaching(page, context, origin) {
   const read = (url, options = {}) => page.evaluate(async ({ url, options }) => {
     try { return await (await fetch(url, options)).text(); } catch { return 'network-failed'; }
   }, { url, options });
@@ -156,11 +169,11 @@ try {
   const publicRead = { credentials: 'omit' };
   await read('/api/cache-first', publicRead);
   expect(await isCached('/api/cache-first'), true, 'declared anonymous public read cached');
-  const beforeHit = apiRequests;
+  const beforeHit = ServerState.apiRequests;
   await read('/api/cache-first', publicRead);
-  expect(apiRequests, beforeHit, 'declared cache-first answers without network');
+  expect(ServerState.apiRequests, beforeHit, 'declared cache-first answers without network');
   await read('/api/cache-first');
-  expect(apiRequests, beforeHit + 1, 'credentialed cache-first read must use network');
+  expect(ServerState.apiRequests, beforeHit + 1, 'credentialed cache-first read must use network');
   expect(await isCached('/api/cache-first'), false, 'credentialed read evicts matching shared cache');
   for (const options of [
     { credentials: 'include' },
@@ -172,19 +185,19 @@ try {
     expect(await isCached('/api/cache-first'), false, `private request not cached: ${JSON.stringify(options)}`);
   }
   for (const policy of ['private, max-age=60', 'no-store']) {
-    apiPolicy = 'public, max-age=60';
+    ServerState.apiPolicy = 'public, max-age=60';
     await read('/api/privacy', publicRead);
     expect(await isCached('/api/privacy'), true, 'public response seeded before policy changes');
-    apiPolicy = policy;
+    ServerState.apiPolicy = policy;
     await read('/api/privacy', publicRead);
     expect(await isCached('/api/privacy'), false, `response ${policy} evicts stale public response`);
   }
-  apiPolicy = 'public, max-age=60';
+  ServerState.apiPolicy = 'public, max-age=60';
   await read('/api/privacy', publicRead);
-  apiVary = 'accept-language';
+  ServerState.apiVary = 'accept-language';
   await read('/api/privacy', publicRead);
   expect(await isCached('/api/privacy'), false, 'Vary response evicts shared cache');
-  apiVary = '';
+  ServerState.apiVary = '';
   await read('/api/never', publicRead);
   expect(await isCached('/api/never'), false, 'declared no-store not persisted');
   await read('/api/oversize', publicRead);
@@ -193,29 +206,29 @@ try {
   expect(await isCached('/account.html'), false, 'arbitrary credentialed HTML is not a packaged asset');
   await page.evaluate(async () => {
     const cache = await caches.open((await caches.keys()).find((name) => name.startsWith('tachyon-static-')));
-    await cache.delete('/style.css');
+    await cache.delete('/.tachyon/components.css');
   });
-  replaceStylesheet = true;
-  await read('/style.css');
-  expect(await isCached('/style.css'), false, 'changed bytes at a packaged path fail fingerprint validation');
-  replaceStylesheet = false;
+  ServerState.replaceStylesheet = true;
+  await read('/.tachyon/components.css');
+  expect(await isCached('/.tachyon/components.css'), false, 'changed bytes at a packaged path fail fingerprint validation');
+  ServerState.replaceStylesheet = false;
   await page.evaluate(async () => {
     const cache = await caches.open((await caches.keys()).find((name) => name.startsWith('tachyon-static-')));
-    await cache.put('/style.css', new Response('#title { color: red }'));
+    await cache.put('/.tachyon/components.css', new Response('#title { color: red }'));
   });
-  expect((await read('/style.css')).includes('rgb(0, 128, 0)'), true, 'cache hits also validate packaged fingerprints');
-  expect(await isCached('/style.css'), true, 'valid stylesheet recached');
-  await page.evaluate(async () => { await __tachyonTac.tac.fetch('/api/runtime', { cache: 'no-store' }); });
-  expect(await isCached('/api/runtime'), false, 'worker cannot override this.tac.fetch no-store');
+  expect((await read('/.tachyon/components.css')).includes('rgb(0, 128, 0)'), true, 'cache hits also validate packaged fingerprints (component stylesheet)');
+  expect(await isCached('/.tachyon/components.css'), true, 'valid stylesheet recached');
+  await page.evaluate(() => __root('workerPage').runtimeClient.read());
+  expect(await isCached('/api/runtime'), false, 'worker cannot override the default Client no-store policy');
   await read('/api/cache-first', publicRead);
   await context.setOffline(true);
   expect(await read('/api/cache-first', publicRead) !== 'network-failed', true, 'anonymous cached API works offline');
   expect(await read('/api/cache-first', { credentials: 'omit', headers: { authorization: 'Bearer test-only' } }), 'network-failed', 'authorized read cannot fall back to shared response');
   await context.setOffline(false);
+}
 
-  // The real assertion: with the network gone, the page still loads and its
-  // stylesheet still applies.
-  const before = requests;
+async function checkOfflineDocument(page, context) {
+  const before = ServerState.requests;
   await context.setOffline(true);
   await page.reload({ waitUntil: 'load' });
   expect(await page.textContent('#title'), 'Cached page', 'document served offline');
@@ -225,11 +238,10 @@ try {
     'stylesheet served offline',
   );
   await context.setOffline(false);
-  console.log(`    note server saw ${requests - before} request(s) while offline`);
+  console.log(`    note server saw ${ServerState.requests - before} request(s) while offline`);
+}
 
-  // On a loopback host the worker must not register, or a stale cache would
-  // fight the development server's live reload. Registrations are per-origin,
-  // so the same profile proves this without a second browser.
+async function checkNoWorkerRegistration(context, origin, port) {
   const loopbackPage = await context.newPage();
   await loopbackPage.goto(`https://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
   await loopbackPage.waitForTimeout(600);
@@ -250,10 +262,34 @@ try {
       0, 'hosted native page does not register a service worker');
   } finally { await nativeContext.close(); }
 }
-finally {
-  await context.close();
-  await new Promise((resolve) => server.close(resolve));
-  rmSync(PROJECT, { recursive: true, force: true });
+
+async function main() {
+  writeFixture();
+  buildFixture();
+  const { key, certificate } = issueCertificate();
+  const server = createWorkerServer(key, certificate);
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const origin = `https://${WorkerGate.host}:${port}`;
+  const context = await openContext(origin);
+  const page = await context.newPage();
+  page.on('console', (message) => {
+    if (message.type() === 'error') console.log(`    note console: ${message.text()}`);
+  });
+
+  try {
+    await checkRegistration(page, origin);
+    await checkApiCaching(page, context, origin);
+    await checkOfflineDocument(page, context);
+    await checkNoWorkerRegistration(context, origin, port);
+  } finally {
+    await context.close();
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(WorkerGate.project, { recursive: true, force: true });
+  }
+
+  if (!process.exitCode) console.log('\nofflinecache gate passed');
 }
 
-if (!process.exitCode) console.log('\nofflinecache gate passed');
+await main();

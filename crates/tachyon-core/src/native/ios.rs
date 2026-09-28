@@ -1,26 +1,27 @@
-//! `iOS` host generation.
-//!
-//! A full-screen web view over the application's own bundle; see
-//! `native/routes.rs` for why it is no longer a tree of `UIKit` controls.
-//! Phase 5 targets the iOS Simulator. Device provisioning and distribution
-//! signing remain deferred and are recorded in `docs/SUPPORT_TIERS.md`.
-
 use super::config::NativeApplication;
 use super::host::{
     GeneratedHost, first_line, native_tool_failure, quoted_string_escape, run_tool,
     stage_application, write, write_host_source, xml_escape,
 };
+use super::macos::{MacOsHostGenerator, optional_unicode_path, unicode_path};
 use super::routes::NativeRouteIndex;
 use crate::Failure;
 use std::path::{Path, PathBuf};
-
-/// Minimum iOS deployment version accepted by the generated host.
-const DEPLOYMENT_TARGET: &str = "17.0";
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct IosHostGenerator;
 
 impl IosHostGenerator {
+    const DEPLOYMENT_TARGET: &str = "17.0";
+    const FRAMEWORK_ARGUMENTS: [&str; 6] = [
+        "-framework",
+        "UIKit",
+        "-framework",
+        "SwiftUI",
+        "-framework",
+        "WebKit",
+    ];
+
     pub(super) async fn generate(
         application: &NativeApplication,
         index: &NativeRouteIndex,
@@ -34,34 +35,24 @@ impl IosHostGenerator {
         stage_application(index, web_bundle, stage, &bundle)?;
 
         let companion = super::macos::stage_swift_companion(companions, stage)?;
+        let call = super::macos::companion_call(companion.as_deref(), None);
         let swift_path = stage.join("project").join("TachyonHost.swift");
-        write_host_source(
-            &swift_path,
-            &swift_source(
-                application,
-                super::macos::companion_call(companion.as_deref(), None),
-                index,
-            ),
-        )?;
-        // iOS reads a flat list of icon files from the bundle rather than a
-        // path, so the manifest's icon is staged under the names it looks for.
+        write_host_source(&swift_path, &swift_source(application, call, index))?;
         let icons = stage_icons(application, web_bundle, &bundle).await?;
         write(
             &bundle.join("Info.plist"),
             info_plist(application, &icons).as_bytes(),
         )?;
         if !package {
-            return Ok(GeneratedHost {
-                application_bundle: PathBuf::from("project/TachyonHost.swift"),
-                toolchain_name: String::from("source"),
-                toolchain_version: String::from("not-packaged"),
-            });
+            return Ok(GeneratedHost::not_packaged(PathBuf::from(
+                "project/TachyonHost.swift",
+            )));
         }
 
         let executable = bundle.join(&application.executable_name);
         let swift_version =
             compile_swift(&swift_path, companion.as_deref(), None, &executable).await?;
-        sign_bundle(&bundle).await?;
+        super::macos::sign_bundle(&bundle).await?;
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(bundle_name),
             toolchain_name: String::from("swift"),
@@ -70,14 +61,14 @@ impl IosHostGenerator {
     }
 }
 
-/// Returns the simulator triple used for the current build machine.
 fn simulator_triple() -> String {
     let architecture = if cfg!(target_arch = "aarch64") {
         "arm64"
     } else {
         "x86_64"
     };
-    format!("{architecture}-apple-ios{DEPLOYMENT_TARGET}-simulator")
+    let deployment_target = IosHostGenerator::DEPLOYMENT_TARGET;
+    format!("{architecture}-apple-ios{deployment_target}-simulator")
 }
 
 async fn compile_swift(
@@ -92,28 +83,18 @@ async fn compile_swift(
             "The iOS host requires an Apple macOS build machine with Xcode.",
         ));
     }
-    let version = first_line(
-        &run_tool(
-            "/usr/bin/xcrun",
-            &["--sdk", "iphonesimulator", "swiftc", "--version"],
-        )
-        .await?,
-        "Swift unknown",
-    );
-    let source = source
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Swift source path is not valid Unicode."))?;
-    let executable = executable
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Application path is not valid Unicode."))?;
+    let version_output = run_tool(
+        "/usr/bin/xcrun",
+        &["--sdk", "iphonesimulator", "swiftc", "--version"],
+    )
+    .await?;
+    let version = first_line(&version_output, "Swift unknown");
+    let source = unicode_path(source, "Swift source path is not valid Unicode.")?;
+    let executable = unicode_path(executable, "Application path is not valid Unicode.")?;
     let triple = simulator_triple();
-    let companion = companion
-        .map(|path| {
-            path.to_str().ok_or_else(|| {
-                native_tool_failure(1605, "Companion source path is not valid Unicode.")
-            })
-        })
-        .transpose()?;
+    let companion =
+        optional_unicode_path(companion, "Companion source path is not valid Unicode.")?;
+    let library = optional_unicode_path(library, "Companion library path is not valid Unicode.")?;
     let mut arguments = vec![
         "--sdk",
         "iphonesimulator",
@@ -122,52 +103,15 @@ async fn compile_swift(
         "-O",
         "-target",
         &triple,
-        "-framework",
-        "UIKit",
-        "-framework",
-        "SwiftUI",
-        "-framework",
-        "WebKit",
-        "-o",
-        executable,
-        source,
     ];
-    // Compiled together, so the companion is part of the application rather
-    // than something it loads.
+    arguments.extend(IosHostGenerator::FRAMEWORK_ARGUMENTS);
+    arguments.extend(["-o", executable, source]);
     arguments.extend(companion);
-    let library = library
-        .map(|path| {
-            path.to_str().ok_or_else(|| {
-                native_tool_failure(1605, "Companion library path is not valid Unicode.")
-            })
-        })
-        .transpose()?;
     arguments.extend(library);
     run_tool("/usr/bin/xcrun", &arguments).await?;
     Ok(version)
 }
 
-async fn sign_bundle(bundle: &Path) -> Result<(), Failure> {
-    let bundle = bundle
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Application path is not valid Unicode."))?;
-    run_tool(
-        "/usr/bin/codesign",
-        &["--force", "--sign", "-", "--timestamp=none", bundle],
-    )
-    .await
-    .map(|_| ())
-}
-
-/// Stages the manifest's icon at the sizes iOS asks a bundle for.
-///
-/// `sips` resizes; there is no asset catalog because compiling one needs
-/// `actool` and an Xcode project, and a bundle may simply carry its icons as
-/// files. Returns the names for `CFBundleIconFiles`.
-///
-/// # Errors
-///
-/// Returns diagnostics when `sips` refuses the image.
 async fn stage_icons(
     application: &NativeApplication,
     web_bundle: &Path,
@@ -181,7 +125,6 @@ async fn stage_icons(
         return Ok(Vec::new());
     }
     let mut names = Vec::new();
-    // The home screen and the settings list, at both densities.
     for (points, scale) in [(60u32, 2u32), (60, 3), (76, 2), (83, 2), (29, 2), (40, 2)] {
         let pixels = points * scale;
         let name = format!("AppIcon{points}x{points}@{scale}x.png");
@@ -202,23 +145,24 @@ async fn stage_icons(
     Ok(names)
 }
 
-fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
-    // Declared only when there are files to name.
-    let icon_block = if icons.is_empty() {
-        String::new()
-    } else {
-        use std::fmt::Write as _;
+fn icon_block(icons: &[String]) -> String {
+    if icons.is_empty() {
+        return String::new();
+    }
+    let mut files = String::new();
+    for name in icons {
+        files.push_str("<string>");
+        files.push_str(name);
+        files.push_str("</string>");
+    }
+    format!(
+        "\n<key>CFBundleIcons</key><dict><key>CFBundlePrimaryIcon</key><dict>\
+         <key>CFBundleIconFiles</key><array>{files}</array>\
+         </dict></dict>"
+    )
+}
 
-        let files = icons.iter().fold(String::new(), |mut out, name| {
-            let _ = write!(out, "<string>{name}</string>");
-            out
-        });
-        format!(
-            "\n<key>CFBundleIcons</key><dict><key>CFBundlePrimaryIcon</key><dict>\
-             <key>CFBundleIconFiles</key><array>{files}</array>\
-             </dict></dict>"
-        )
-    };
+fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -244,8 +188,8 @@ fn info_plist(application: &NativeApplication, icons: &[String]) -> String {
         executable = application.executable_name,
         identifier = application.application_id,
         version = application.version,
-        deployment = DEPLOYMENT_TARGET,
-        icon_block = icon_block,
+        deployment = IosHostGenerator::DEPLOYMENT_TARGET,
+        icon_block = icon_block(icons),
     )
 }
 
@@ -254,8 +198,16 @@ fn swift_source(
     companion_call: &str,
     index: &NativeRouteIndex,
 ) -> String {
-    SWIFT_HOST
-        .replace("__TACHYON_JSON_REQUEST__", super::macos::APPLE_JSON_REQUEST)
+    let rust_shim = if companion_call.contains("tacRustInvoke") {
+        MacOsHostGenerator::RUST_SHIM
+    } else {
+        ""
+    };
+    IosHostGenerator::SWIFT_HOST
+        .replace(
+            "__TACHYON_JSON_REQUEST__",
+            MacOsHostGenerator::APPLE_JSON_REQUEST,
+        )
         .replace(
             "__ENTRY_DOCUMENT__",
             &quoted_string_escape(&index.entry_document),
@@ -271,14 +223,7 @@ fn swift_source(
             "__TACHYON_COMPANION_EMIT__",
             super::macos::companion_emit(companion_call),
         )
-        .replace(
-            "__TACHYON_RUST_SHIM__",
-            if companion_call.contains("tacRustInvoke") {
-                super::macos::RUST_SHIM
-            } else {
-                ""
-            },
-        )
+        .replace("__TACHYON_RUST_SHIM__", rust_shim)
         .replace(
             "__APP_TYPE__",
             &format!("{}App", application.executable_name),
@@ -290,21 +235,15 @@ fn swift_source(
         )
 }
 
-/// The generated host source, for the cross-host drift tests.
-///
-/// The dispatch arms live in this string rather than in Rust, so reading it
-/// is the only way to assert what this host does and does not implement.
 #[cfg(test)]
 pub(super) const fn host_source() -> &'static str {
-    SWIFT_HOST
+    IosHostGenerator::SWIFT_HOST
 }
 
-const SWIFT_HOST: &str = r##"import Foundation
+impl IosHostGenerator {
+    const SWIFT_HOST: &str = r##"import Foundation
 import UIKit
 import WebKit
-
-// The application's own web bundle in a full-screen web view. See
-// `native/routes.rs` for why this is no longer a tree of UIKit controls.
 
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
@@ -317,7 +256,6 @@ private func tachyonRoute(_ path: String) -> String? {
     if tachyonRouteDocuments[path] != nil { return path }
     if let document = tachyonRouteDocuments.first(where: { "/" + $0.value == path }) { return document.key }
     let parts = path.split(separator: "/")
-    // Prefer exact routes, then the most-specific dynamic pattern.
     let patterns = tachyonRouteDocuments.keys.sorted {
         let a = $0.split(separator: "/").filter { !$0.hasPrefix("_") }.count
         let b = $1.split(separator: "/").filter { !$0.hasPrefix("_") }.count
@@ -367,9 +305,6 @@ private final class Telemetry {
     }
 }
 
-// Served rather than loaded from file://, because a bundle is a module graph:
-// WebKit refuses cross-origin module imports from file URLs, so the page would
-// load and none of its JavaScript would.
 private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     static let shared = TachyonAssetSchemeHandler()
 
@@ -386,8 +321,6 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
         var path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         if let document = tachyonDocument(url.path) { path = document }
         var file = root.appendingPathComponent(path).standardizedFileURL
-        // A client-routed application asks for a path with no file behind it;
-        // the document that owns that route is the answer, not a 404.
         var isDirectory: ObjCBool = false
         if !FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory)
             || isDirectory.boolValue {
@@ -442,12 +375,6 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
 }
 
 
-// MARK: - JavaScript host bridge
-//
-// One function is the whole native surface: a capability name and a JSON
-// payload in, a JSON answer out. It is reached from the page rather than from
-// a separate engine, because the page is now the application.
-
 @MainActor
 private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     static let shared = NativeBridge()
@@ -475,7 +402,9 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             replyHandler(nil, "invalid or oversized host call"); return
         }
         if capability == "companion.invoke" {
-            guard let path = message.frameInfo.request.url?.path,
+            guard let operation = request["op"] as? String,
+                  ["init", "get", "set", "call", "dispose"].contains(operation),
+                  let path = message.frameInfo.request.url?.path,
                   let route = tachyonRoute(path), request["route"] as? String == route else {
                 replyHandler(nil, "companion route does not belong to this page"); return
             }
@@ -498,10 +427,6 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             webView?.evaluateJavaScript("location.assign(\(NativeBridge.jsonString(route)))")
             Telemetry.shared.record("route.opened")
         default:
-            // iOS has no status item, no window to show or hide, and an
-            // application may not terminate itself: naming the platform is
-            // what tells a developer this is a target difference rather than
-            // a typo.
             return "{\"ok\":false,\"error\":\"ios host does not implement capability '\(NativeBridge.safeName(capability))'\"}"
         }
         return "{\"ok\":true,\"value\":{}}"
@@ -525,15 +450,6 @@ private let TACHYON_NATIVE_SHIM = #"""
 __NATIVE_SHIM__
 """#
 
-/// Relays one companion publish into the page.
-///
-/// A companion may publish from whatever thread it likes — a timer, a
-/// notification, a URLSession callback — and a WKWebView may only be touched
-/// from the main one. The hop belongs here rather than in every companion an
-/// author writes.
-///
-/// The payload is the companion's own JSON object, and JSON is a JavaScript
-/// expression already, so it is not re-encoded on the way through.
 private func tachyonRelayPublish(_ payload: String) {
     Task { @MainActor in
         NativeBridge.shared.webView?.evaluateJavaScript(
@@ -569,9 +485,6 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         ])
         webView = view
         NativeBridge.shared.webView = view
-        // Installed before the page loads, so a companion that publishes the
-        // moment it wakes up has somewhere to publish to. The shim queues
-        // until the page's modules take over, so nothing is lost either way.
         __TACHYON_COMPANION_EMIT__
         view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
         Telemetry.shared.record("bridge.ready")
@@ -591,14 +504,15 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         Telemetry.shared.record("controller.active")
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        tachyonDisposeCompanions()
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         Telemetry.shared.record("route.failed")
     }
 }
 
-// The entry point is an attribute rather than a top-level call: the host is
-// compiled with -parse-as-library, where an expression at file scope is an
-// error rather than a program.
 @UIApplicationMain
 private final class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
@@ -615,14 +529,21 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
+        tachyonDisposeCompanions()
         Telemetry.shared.record("controller.destroyed")
     }
 }
+
+private func tachyonDisposeCompanions() {
+    let payload = "{\"op\":\"host-dispose\"}"
+    _ = __TACHYON_COMPANION_CALL__
+}
 "##;
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{DEPLOYMENT_TARGET, info_plist, simulator_triple, swift_source};
+    use super::{IosHostGenerator, info_plist, simulator_triple, swift_source};
     use crate::native::config::NativeApplication;
 
     fn application() -> NativeApplication {
@@ -655,6 +576,11 @@ mod tests {
         assert!(source.contains("TachyonAssetSchemeHandler"));
         assert!(source.contains("tachyon-app://bundle/"));
         assert!(source.contains("WKScriptMessageHandlerWithReply"));
+        assert!(source.contains("didStartProvisionalNavigation"));
+        assert!(source.contains("tachyonDisposeCompanions()"));
+        assert!(
+            source.contains(r#"["init", "get", "set", "call", "dispose"].contains(operation)"#)
+        );
         assert!(!source.contains("UIViewRepresentable"));
     }
 
@@ -664,13 +590,13 @@ mod tests {
         assert!(plist.contains("dev.tachyon.native-catalog"));
         assert!(plist.contains("<string>iPhoneSimulator</string>"));
         assert!(plist.contains("<key>UILaunchScreen</key>"));
-        assert!(plist.contains(DEPLOYMENT_TARGET));
+        assert!(plist.contains(IosHostGenerator::DEPLOYMENT_TARGET));
     }
 
     #[test]
     fn simulator_triple_matches_the_build_machine() {
         let triple = simulator_triple();
         assert!(triple.ends_with("-simulator"));
-        assert!(triple.contains(DEPLOYMENT_TARGET));
+        assert!(triple.contains(IosHostGenerator::DEPLOYMENT_TARGET));
     }
 }

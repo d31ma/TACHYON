@@ -1,0 +1,14 @@
+mod application_config;
+mod composed_types_cli;
+mod executed_coverage;
+mod init_wizard;
+mod phase1_cli;
+mod phase2_cli;
+mod phase3_cli;
+mod phase4_cli;
+mod phase5_cli;
+mod phase6_cli;
+mod phase7_cli;
+mod preview_resilience;
+mod reconciled_templates;
+mod test_preflight;

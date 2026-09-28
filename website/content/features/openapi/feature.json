@@ -1,0 +1,176 @@
+{
+  "id": "openapi",
+  "title": "Generated route schemas",
+  "group": "Yon server",
+  "summary": "Tachyon makes a schema (a description of the data shape) for every route from the controller code. It reads the path variables, the query values, the headers, the body and the return type from the method signature. A model (a data type in `server/models/`) describes a body or an answer. JavaScript uses a JSDoc `@typedef` instead, and Ruby types its method with YARD tags. Tachyon checks every marked parameter before the method runs. A value that does not fit gets 400. An answer that does not match the return type gets 500. The server answers `OPTIONS` with the `Allow` header and the route schema. `/api.json` lists every route and model in one document. You write no schema file. The schema is public: `OPTIONS` and `/api.json` describe a route even when the route itself needs a signed-in user.",
+  "files": [
+    {
+      "name": "server/controllers/ItemsController.js",
+      "code": {
+        "file": "server/controllers/ItemsController.js"
+      }
+    },
+    {
+      "name": "server/models/Item.ts",
+      "code": {
+        "file": "server/models/Item.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.ts",
+      "code": {
+        "file": "server/controllers/ItemsController.ts"
+      }
+    },
+    {
+      "name": "server/models/Item.py",
+      "code": {
+        "file": "server/models/Item.py"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.py",
+      "code": {
+        "file": "server/controllers/ItemsController.py"
+      }
+    },
+    {
+      "name": "server/models/Item.php",
+      "code": {
+        "file": "server/models/Item.php"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.php",
+      "code": {
+        "file": "server/controllers/ItemsController.php"
+      }
+    },
+    {
+      "name": "server/models/Item.java",
+      "code": {
+        "file": "server/models/Item.java"
+      }
+    },
+    {
+      "name": "server/models/Item.groovy",
+      "code": {
+        "file": "server/models/Item.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.java",
+      "code": {
+        "file": "server/controllers/ItemsController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.groovy",
+      "code": {
+        "file": "server/controllers/ItemsController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Item.kt",
+      "code": {
+        "file": "server/models/Item.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.kt",
+      "code": {
+        "file": "server/controllers/ItemsController.kt"
+      }
+    },
+    {
+      "name": "server/models/Item.cs",
+      "code": {
+        "file": "server/models/Item.cs"
+      }
+    },
+    {
+      "name": "server/models/Item.fs",
+      "code": {
+        "file": "server/models/Item.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.cs",
+      "code": {
+        "file": "server/controllers/ItemsController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.fs",
+      "code": {
+        "file": "server/controllers/ItemsController.fs"
+      }
+    },
+    {
+      "name": "server/models/Item.rs",
+      "code": {
+        "file": "server/models/Item.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.rs",
+      "code": {
+        "file": "server/controllers/ItemsController.rs"
+      }
+    },
+    {
+      "name": "server/models/Item.go",
+      "code": {
+        "file": "server/models/Item.go"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.go",
+      "code": {
+        "file": "server/controllers/ItemsController.go"
+      }
+    },
+    {
+      "name": "server/models/Item.dart",
+      "code": {
+        "file": "server/models/Item.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.dart",
+      "code": {
+        "file": "server/controllers/ItemsController.dart"
+      }
+    },
+    {
+      "name": "options",
+      "code": {
+        "file": "options.txt"
+      }
+    },
+    {
+      "name": "enforced",
+      "code": {
+        "file": "enforced.txt"
+      }
+    },
+    {
+      "name": "emitted",
+      "code": {
+        "file": "emitted.txt"
+      }
+    },
+    {
+      "name": "server/models/Item.rb",
+      "code": {
+        "file": "server/models/Item.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.rb",
+      "code": {
+        "file": "server/controllers/ItemsController.rb"
+      }
+    }
+  ]
+}

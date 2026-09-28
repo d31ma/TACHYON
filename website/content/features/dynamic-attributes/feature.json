@@ -1,0 +1,21 @@
+{
+  "id": "dynamic-attributes",
+  "title": "Dynamic attributes",
+  "summary": "An attribute whose name starts with `:` takes an expression as its value. Braces work only in text, not in attribute values. To build an attribute from text and a value, join them in the expression, as in `:class=\"'status-' + link.state\"`. The build refuses braces in a plain attribute with `TY1313`.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/topic/link/tac.html",
+      "code": { "file": "client/components/topic/link/tac.html" }
+    },
+    {
+      "name": "client/services/LinkService.js",
+      "code": { "file": "client/services/LinkService.js" }
+    }
+  ],
+  "verify": "tac"
+}

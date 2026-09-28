@@ -1,0 +1,12 @@
+@Service
+export default class HelloService {
+  /** @type {HelloClient} */
+  @Needs
+  helloClient
+  message = ''
+
+  async askServer() {
+    const hello = await this.helloClient.getHello()
+    this.message = hello.message
+  }
+}

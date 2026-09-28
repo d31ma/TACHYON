@@ -1,0 +1,19 @@
+import type { ChatMessage } from '/models/ChatMessage.ts'
+
+@SocketRoute('/chat')
+@Public
+export class ChatController {
+  @OnOpen
+  onOpen(session: SocketSession): Promise<void> {
+    return session.send({ text: 'Welcome to the room' });
+  }
+
+  @OnMessage
+  async onMessage(session: SocketSession, message: ChatMessage): Promise<void> {
+    await this.sendToEveryone(await session.openSessions(), message);
+  }
+
+  private async sendToEveryone(peers: SocketPeer[], message: ChatMessage): Promise<void> {
+    for (const peer of peers) await peer.send(message);
+  }
+}

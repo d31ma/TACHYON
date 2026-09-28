@@ -1,0 +1,20 @@
+Serving a built bundle
+
+  client/manifest.json         web app manifest; its tac member is public Tac configuration
+  server/application.json      non-secret yon namespace
+  server/application-<profile>.json  Yon-only runtime profile overlay
+  .env                         literal YON_ secrets; ignored by builds
+  YON_PROFILE                  parent profile selector
+  YON_APPLICATION_JSON         reserved private output to Yon children
+  /manifest.webmanifest        the published manifest, tac member included
+  TAC_DIST_PATH                existing bundle location
+  YON_JAVASCRIPT_RUNTIME       JavaScript runtime selection
+  YON_PYTHON_RUNTIME           Python runtime selection
+  TAC_CACHE_DIR                standalone runtime cache location
+
+CLI host/port > profile > base file > command defaults.
+No parent application-setting or secret overrides.
+Underscores map paths: YON_CATALOG_PAGE_SIZE -> yon.catalog.page.size.
+Restart Yon after changing private settings or .env.
+Configured datasource/Redis resources are managed per Yon server.
+Inject DataSource or RedisTemplate with Needs; schema changes stay explicit.

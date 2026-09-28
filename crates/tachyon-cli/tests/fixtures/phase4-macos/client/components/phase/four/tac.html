@@ -1,0 +1,28 @@
+<w-app-bar role="banner" aria-label="Primary navigation">Tachyon Native</w-app-bar>
+<main aria-label="Phase Four evidence">
+  <h1>Native rendering</h1>
+  <p>The platform WebView renders the same bundled application as the browser.</p>
+  <button
+    aria-label="Increase count"
+    on:click="phaseFour.count += 1"
+  >Increase count</button>
+  <output
+    aria-label="Current count"
+  >{phaseFour.count}</output>
+  <input
+    aria-label="Customer name"
+    :value="phaseFour.customer"
+    on:input="phaseFour.customer = $event.target.value"
+    placeholder="Customer name"
+  >
+  <details aria-label="Implementation details">
+    <summary>Implementation details</summary>
+    <p>Disclosure content is native.</p>
+  </details>
+  <fancy-chart aria-label="Sales chart">
+    <strong>Bundled chart</strong>
+    <p>Custom elements and ordinary controls share the platform WebView.</p>
+  </fancy-chart>
+  <footer>Platform WebView with local-only native bridge.</footer>
+</main>
+  

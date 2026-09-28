@@ -1,0 +1,6 @@
+// @TestSetup
+type GoGreetingTestSetup struct{}
+
+func (GoGreetingTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {
+	return NewBehaviorConfiguration(), nil
+}

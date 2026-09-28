@@ -1,0 +1,11 @@
+@Service
+export default class HelloService {
+  @Needs
+  readonly helloClient!: HelloClient;
+  message = ''
+
+  async askServer(): Promise<void> {
+    const hello = await this.helloClient.getHello()
+    this.message = hello.message
+  }
+}

@@ -1,35 +1,41 @@
-//! Canonical JSON Schema documents for Tachyon's versioned public contracts.
-
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Product identity embedded in CLI and release-facing native artifacts.
 pub const PRODUCT_VERSION: &str = env!("TAC_PRODUCT_VERSION");
 
-/// The JSON Schema draft required by every canonical Tachyon contract.
-pub const JSON_SCHEMA_DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
-
-/// A canonical machine contract shipped by Tachyon.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Contract {
-    /// Stable contract name.
     pub name: &'static str,
-    /// Stable schema identifier.
     pub id: &'static str,
-    /// Current major schema version.
     pub major_version: u16,
-    /// Canonical JSON Schema document.
     pub schema: &'static str,
-    /// Example that every compatible implementation must accept.
     pub valid_example: &'static str,
-    /// Example that every compatible implementation must reject.
     pub invalid_example: &'static str,
 }
 
-/// All public contracts. Registry order is stable and alphabetical.
-pub const CONTRACTS: [Contract; 10] = [
+impl Contract {
+    pub const JSON_SCHEMA_DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
+}
+
+pub const CONTRACTS: [Contract; 12] = [
+    Contract {
+        name: "annotation-modules",
+        id: "https://tachyon.del.ma/schema/annotation-modules/v1",
+        major_version: 1,
+        schema: include_str!("../../../api/annotation-modules/v1/schema.json"),
+        valid_example: include_str!("../../../api/annotation-modules/v1/examples/valid.json"),
+        invalid_example: include_str!("../../../api/annotation-modules/v1/examples/invalid.json"),
+    },
+    Contract {
+        name: "application-config",
+        id: "https://tachyon.del.ma/schema/application-config/v3",
+        major_version: 3,
+        schema: include_str!("../../../api/application-config/v3/schema.json"),
+        valid_example: include_str!("../../../api/application-config/v3/examples/valid.json"),
+        invalid_example: include_str!("../../../api/application-config/v3/examples/invalid.json"),
+    },
     Contract {
         name: "artifact-manifest",
         id: "https://tachyon.del.ma/schema/artifact-manifest/v1",
@@ -112,28 +118,19 @@ pub const CONTRACTS: [Contract; 10] = [
     },
 ];
 
-/// One development-only Hot Update Protocol v1 message.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HotUpdate {
-    /// Contract major version.
     pub contract_version: u8,
-    /// Monotonic sequence within one development-server process.
     pub sequence: u64,
-    /// Kind of browser action that is safe for this change set.
     pub kind: HotUpdateKind,
-    /// Digest of the last successfully published build, when available.
     pub build_id: Option<String>,
-    /// Canonically ordered, project-relative changed source paths.
     pub paths: Vec<String>,
-    /// Canonically ordered Tac island component boundaries affected by the update.
     pub boundaries: Vec<String>,
-    /// Structured build diagnostics for an unsuccessful update.
     pub diagnostics: Option<tachyon_diagnostics::DiagnosticReport>,
 }
 
 impl HotUpdate {
-    /// Creates a Hot Update Protocol v1 message.
     #[must_use]
     pub const fn v1(
         sequence: u64,
@@ -155,34 +152,24 @@ impl HotUpdate {
     }
 }
 
-/// Browser action represented by Hot Update Protocol v1.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HotUpdateKind {
-    /// Replace generated stylesheets without changing the document.
     Css,
-    /// Replace and reactivate named hydrated island boundaries.
     Island,
-    /// Reload the document because no narrower safe boundary is known.
     Reload,
-    /// Keep the last-good page running and present compiler diagnostics.
     Diagnostics,
 }
 
-/// View IR v1.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ViewIr {
-    /// Contract major version.
     pub contract_version: u8,
-    /// Portable project-relative source path.
     pub source: String,
-    /// Root view node.
     pub root: ViewNode,
 }
 
 impl ViewIr {
-    /// Creates View IR v1.
     #[must_use]
     pub const fn v1(source: String, root: ViewNode) -> Self {
         Self {
@@ -193,109 +180,70 @@ impl ViewIr {
     }
 }
 
-/// One structural node in View IR v1.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ViewNode {
-    /// A standards-based HTML or web-component element.
     Element {
-        /// Lowercase element tag.
         tag: String,
-        /// Canonically ordered static and dynamic attribute source values.
         attributes: BTreeMap<String, String>,
-        /// Child nodes.
         children: Vec<Self>,
     },
-    /// A text node which may contain escaped interpolation source.
     Text {
-        /// Source text.
         value: String,
     },
-    /// A compiler conditional.
     Conditional {
-        /// Bounded Tachyon expression.
         condition: String,
-        /// Nodes emitted when the expression is truthy.
         then: Vec<Self>,
-        /// Nodes emitted otherwise.
         #[serde(rename = "else")]
         otherwise: Vec<Self>,
     },
-    /// A compiler iteration.
     Iteration {
-        /// Local binding name.
         binding: String,
-        /// Iterable expression.
         iterable: String,
-        /// Nodes emitted for every item.
         body: Vec<Self>,
-        /// Nodes emitted when the iterable is empty.
         empty: Vec<Self>,
     },
-    /// A bounded client-owned counted loop.
     CountedIteration {
-        /// Local counter name.
         binding: String,
-        /// Initial counter expression.
         from: String,
-        /// Comparison defining the direction of traversal.
         comparison: CountedComparison,
-        /// Limit expression.
         to: String,
-        /// Positive finite step magnitude expression.
         step: String,
-        /// Nodes emitted on each iteration.
         body: Vec<Self>,
     },
-    /// A registered Tac component invocation.
     Component {
-        /// Canonical component name.
         name: String,
-        /// Canonically ordered property source values.
         properties: BTreeMap<String, String>,
-        /// Invocation children supplied to the component slot.
         children: Vec<Self>,
     },
 }
 
-/// The comparison and direction of a counted loop.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CountedComparison {
-    /// Strictly below the upper limit.
     Lt,
-    /// At or below the upper limit.
     Le,
-    /// Strictly above the lower limit.
     Gt,
-    /// At or above the lower limit.
     Ge,
 }
 
 impl CountedComparison {
-    /// Returns whether the counter increases toward the limit.
     #[must_use]
     pub const fn ascending(self) -> bool {
         matches!(self, Self::Lt | Self::Le)
     }
 }
 
-/// View Source Map v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ViewSourceMap {
-    /// Contract major version.
     pub contract_version: u8,
-    /// Portable output HTML path.
     pub output: String,
-    /// Canonically ordered source paths.
     pub sources: Vec<String>,
-    /// Canonically ordered generated-to-source mappings.
     pub mappings: Vec<ViewSourceMapping>,
 }
 
 impl ViewSourceMap {
-    /// Creates View Source Map v1.
     #[must_use]
     pub const fn v1(
         output: String,
@@ -311,52 +259,35 @@ impl ViewSourceMap {
     }
 }
 
-/// One byte-range mapping in View Source Map v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ViewSourceMapping {
-    /// First generated HTML byte.
     pub generated_start: u64,
-    /// Exclusive generated HTML byte.
     pub generated_end: u64,
-    /// Portable project-relative input source.
     pub source: String,
-    /// First input byte.
     pub source_start: u64,
-    /// Exclusive input byte.
     pub source_end: u64,
 }
 
-/// A native application target represented by Native UI v1.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum NativeTarget {
-    /// Linux desktop.
     Linux,
-    /// macOS desktop.
     Macos,
-    /// Windows desktop.
     Windows,
-    /// Android.
     Android,
-    /// iOS.
     Ios,
 }
 
-/// One resolved Native UI v1 route document.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NativeUi {
-    /// Contract major version.
     pub contract_version: u8,
-    /// Native platform target.
     pub target: NativeTarget,
-    /// Resolved root node.
     pub root: NativeNode,
 }
 
 impl NativeUi {
-    /// Creates a Native UI v1 document.
     #[must_use]
     pub const fn v1(target: NativeTarget, root: NativeNode) -> Self {
         Self {
@@ -367,101 +298,68 @@ impl NativeUi {
     }
 }
 
-/// Accessibility semantics carried into a native platform adapter.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NativeAccessibility {
-    /// Platform-neutral semantic role.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
-    /// Accessible name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
 }
 
-/// The source category for one `WebSurface`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WebSurfaceSource {
-    /// A compiler-generated document contained by the application bundle.
     LocalBundle,
-    /// An explicitly declared remote HTTPS URL.
     RemoteUrl,
 }
 
-/// Native bridge policy for one `WebSurface`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WebSurfaceBridge {
-    /// No bridge is installed.
     None,
-    /// A deny-by-default local capability bridge is installed.
     LocalCapabilities,
 }
 
-/// One resolved node in Native UI v1.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum NativeNode {
-    /// A node handled by a fixed native platform adapter.
     NativeElement {
-        /// Deterministic route-local element identity.
         #[serde(skip_serializing_if = "Option::is_none")]
         id: Option<String>,
-        /// Stable adapter identifier.
         adapter: String,
-        /// Canonically ordered primitive properties.
         properties: BTreeMap<String, Value>,
-        /// Canonically ordered semantic event bindings.
         events: BTreeMap<String, String>,
-        /// Optional accessibility semantics.
         #[serde(skip_serializing_if = "Option::is_none")]
         accessibility: Option<NativeAccessibility>,
-        /// Resolved child nodes.
         children: Vec<Self>,
     },
-    /// A native text value.
     Text {
-        /// Resolved text.
         value: String,
     },
-    /// An isolated web-rendered subtree.
     WebSurface {
-        /// Deterministic route-local surface identity.
         #[serde(skip_serializing_if = "Option::is_none")]
         id: Option<String>,
-        /// Local or remote content category.
         source: WebSurfaceSource,
-        /// Bundle-relative path or HTTPS URL.
         location: String,
-        /// Native bridge policy.
         bridge: WebSurfaceBridge,
-        /// Inspectable fallback decision.
         reason: String,
-        /// Optional fallback accessibility semantics.
         #[serde(skip_serializing_if = "Option::is_none")]
         accessibility: Option<NativeAccessibility>,
     },
 }
 
-/// Capability Manifest v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityManifest {
-    /// Contract major version.
     pub contract_version: u8,
-    /// Reverse-DNS application identifier.
     pub application_id: String,
-    /// Deny-by-default policy.
     pub default_policy: String,
-    /// Whether remote content may receive a bridge.
     pub remote_content_bridge: bool,
-    /// Explicit capability grants.
     pub capabilities: Vec<CapabilityGrant>,
 }
 
 impl CapabilityManifest {
-    /// Creates the empty deny-by-default Phase 4 manifest.
     #[must_use]
     pub fn deny_all(application_id: String) -> Self {
         Self {
@@ -474,86 +372,56 @@ impl CapabilityManifest {
     }
 }
 
-/// One explicit native capability grant.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityGrant {
-    /// Stable capability name.
     pub name: String,
-    /// Bounded resource scopes.
     pub scope: Vec<String>,
-    /// Human-readable justification.
     pub reason: String,
-    /// Target names receiving the grant.
     pub targets: Vec<String>,
 }
 
-/// Artifact Manifest v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactManifest {
-    /// Contract major version.
     pub contract_version: u8,
-    /// Tachyon development or release version.
     pub release_version: String,
-    /// Source revision.
     pub commit: String,
-    /// Reproducible build epoch.
     pub source_date_epoch: u64,
-    /// Target tuple.
     pub target: ArtifactTarget,
-    /// External toolchain identities.
     pub toolchains: Vec<ArtifactToolchain>,
-    /// Contract major versions consumed by the artifact.
     pub contracts: ArtifactContractVersions,
-    /// Canonically ordered output digests.
     pub outputs: Vec<ArtifactOutput>,
 }
 
-/// Target tuple in Artifact Manifest v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactTarget {
-    /// Operating-system name.
     pub os: String,
-    /// Architecture name.
     pub architecture: String,
-    /// ABI or platform-runtime identifier.
     pub abi: String,
 }
 
-/// One toolchain identity in Artifact Manifest v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactToolchain {
-    /// Stable toolchain name.
     pub name: String,
-    /// Bounded version string.
     pub version: String,
 }
 
-/// Canonical contract versions consumed by one artifact.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactContractVersions {
-    /// Artifact Manifest major version.
     pub artifact_manifest: u8,
-    /// Capability Manifest major version.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_manifest: Option<u8>,
-    /// Diagnostics major version.
     pub diagnostics: u8,
-    /// Handler Protocol major version.
     pub handler_protocol: u8,
-    /// Native UI major version.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_ui: Option<u8>,
-    /// Native Host descriptor major version, absent on historical artifacts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_host: Option<u8>,
-    /// Route Manifest major version.
     pub route_manifest: u8,
-    /// View IR major version.
     pub view_ir: u8,
 }
 
@@ -572,29 +440,21 @@ impl Default for ArtifactContractVersions {
     }
 }
 
-/// One hashed file in Artifact Manifest v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactOutput {
-    /// Portable path relative to the artifact root.
     pub path: String,
-    /// Lowercase SHA-256 digest.
     pub sha256: String,
-    /// File length in bytes.
     pub size: u64,
 }
 
-/// Route Manifest v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RouteManifest {
-    /// Contract major version.
     pub contract_version: u8,
-    /// Canonically ordered application routes.
     pub routes: Vec<RouteEntry>,
 }
 
 impl RouteManifest {
-    /// Creates a Route Manifest v1.
     #[must_use]
     pub const fn v1(routes: Vec<RouteEntry>) -> Self {
         Self {
@@ -604,77 +464,47 @@ impl RouteManifest {
     }
 }
 
-/// One route in Route Manifest v1.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RouteEntry {
-    /// Canonical URL route. A dynamic segment keeps its `_name` form.
     pub route: String,
-    /// Ordered dynamic segment names, empty for a fully static route.
     pub parameters: Vec<String>,
-    /// Route behavior category.
     pub kind: RouteKind,
-    /// Supported HTTP methods.
     pub methods: Vec<HttpMethod>,
-    /// Project-relative view source.
     pub view: Option<String>,
-    /// Handler contributors, empty before Phase 2.
     pub handlers: Vec<RouteHandler>,
-    /// Deprecated Route Manifest v1 context declaration.
-    ///
-    /// ADR 0016 removed build-time Yon context evaluation, but Route Manifest
-    /// v1 is immutable. New manifests retain its empty shape for compatibility.
     pub context: RouteContext,
 }
 
-/// Route behavior category.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RouteKind {
-    /// A browser-visible page.
     Page,
-    /// A non-visual API endpoint.
     Api,
 }
 
-/// HTTP methods representable in Route Manifest v1.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum HttpMethod {
-    /// DELETE.
     Delete,
-    /// GET.
     Get,
-    /// HEAD.
     Head,
-    /// OPTIONS.
     Options,
-    /// PATCH.
     Patch,
-    /// POST.
     Post,
-    /// PUT.
     Put,
 }
 
-/// A language handler contributing to a route.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RouteHandler {
-    /// Project-relative source path.
     pub source: String,
-    /// Handler language identifier.
     pub language: String,
-    /// Runtime adapter identifier.
     pub runtime: String,
 }
 
-/// Deprecated Route Manifest v1 context declaration retained for compatibility.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RouteContext {
-    /// Duplicate export behavior.
     pub collision_policy: CollisionPolicy,
-    /// Static handler exports. New manifests emit an empty list.
     pub static_exports: Vec<String>,
-    /// Method response exports. New manifests emit an empty list.
     pub response_exports: Vec<String>,
 }
 
@@ -688,76 +518,57 @@ impl Default for RouteContext {
     }
 }
 
-/// Route Manifest v1 context collision behavior.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CollisionPolicy {
-    /// Reject duplicate route-context keys.
     Error,
 }
 
-/// Canonically ordered HTTP headers for Handler Protocol v1.
 pub type HandlerHeaders = BTreeMap<String, Vec<String>>;
 
-/// Body encoding supported by Handler Protocol v1.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HandlerBodyEncoding {
-    /// UTF-8 text.
     Utf8,
-    /// RFC 4648 base64 text.
     Base64,
 }
 
-/// A bounded Handler Protocol v1 body.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HandlerBody {
-    /// Body encoding.
     pub encoding: HandlerBodyEncoding,
-    /// Encoded body data.
     pub data: String,
 }
 
-/// The constant request envelope kind.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum HandlerRequestKind {
-    /// Handler invocation request.
     #[serde(rename = "request")]
     Request,
 }
 
-/// A Handler Protocol v1 invocation request.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HandlerRequest {
-    /// Protocol major version.
     pub protocol_version: u8,
-    /// Envelope kind.
     pub kind: HandlerRequestKind,
-    /// Caller-provided correlation identifier.
     pub request_id: String,
-    /// Stable operation identifier.
     pub operation: String,
-    /// Canonical route.
     pub route: String,
-    /// Selected HTTP method.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
     pub method: HttpMethod,
-    /// Optional deadline in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deadline_ms: Option<u64>,
-    /// Canonically ordered request headers.
     pub headers: HandlerHeaders,
-    /// Dynamic route parameters bound from the request path.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub parameters: BTreeMap<String, String>,
-    /// Optional request body.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<HandlerBody>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<Vec<serde_json::Value>>,
 }
 
 impl HandlerRequest {
-    /// Creates a Handler Protocol v1 route invocation.
     #[must_use]
     pub fn route(
         request_id: impl Into<String>,
@@ -770,59 +581,46 @@ impl HandlerRequest {
             request_id: request_id.into(),
             operation: String::from("route.invoke"),
             route: route.into(),
+            target: None,
             method,
             deadline_ms: None,
             headers: HandlerHeaders::new(),
             parameters: BTreeMap::new(),
             body: None,
+            arguments: None,
         }
     }
 }
 
-/// The constant response envelope kind.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum HandlerResponseKind {
-    /// Handler invocation response.
     #[serde(rename = "response")]
     Response,
 }
 
-/// A bounded Handler Protocol v1 error.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HandlerProtocolError {
-    /// Stable Tachyon diagnostic code.
     pub code: String,
-    /// Bounded public error message.
     pub message: String,
-    /// Whether a caller may safely retry.
     pub retryable: bool,
 }
 
-/// A Handler Protocol v1 response.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HandlerResponse {
-    /// Protocol major version.
     pub protocol_version: u8,
-    /// Envelope kind.
     pub kind: HandlerResponseKind,
-    /// Matching request identifier.
     pub request_id: String,
-    /// HTTP-compatible response status.
     pub status: u16,
-    /// Canonically ordered response headers.
     pub headers: HandlerHeaders,
-    /// Successful response body.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<HandlerBody>,
-    /// Failed response details.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<HandlerProtocolError>,
 }
 
 impl HandlerResponse {
-    /// Creates a successful Handler Protocol v1 response.
     #[must_use]
     pub fn success(
         request_id: impl Into<String>,
@@ -841,7 +639,6 @@ impl HandlerResponse {
         }
     }
 
-    /// Creates a failed Handler Protocol v1 response.
     #[must_use]
     pub fn error(request_id: impl Into<String>, status: u16, error: HandlerProtocolError) -> Self {
         Self {
@@ -856,28 +653,21 @@ impl HandlerResponse {
     }
 }
 
-/// The constant cancellation envelope kind.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum HandlerCancelKind {
-    /// Handler invocation cancellation.
     #[serde(rename = "cancel")]
     Cancel,
 }
 
-/// A Handler Protocol v1 cancellation request.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HandlerCancel {
-    /// Protocol major version.
     pub protocol_version: u8,
-    /// Envelope kind.
     pub kind: HandlerCancelKind,
-    /// Request identifier to cancel.
     pub request_id: String,
 }
 
 impl HandlerCancel {
-    /// Creates a Handler Protocol v1 cancellation.
     #[must_use]
     pub fn v1(request_id: impl Into<String>) -> Self {
         Self {
@@ -888,32 +678,19 @@ impl HandlerCancel {
     }
 }
 
-/// Any Handler Protocol v1 envelope.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum HandlerEnvelope {
-    /// Invocation request.
     Request(HandlerRequest),
-    /// Invocation response.
     Response(HandlerResponse),
-    /// Cancellation request.
     Cancel(HandlerCancel),
 }
 
-/// Finds a canonical contract by stable name.
 #[must_use]
 pub fn find(name: &str) -> Option<&'static Contract> {
     CONTRACTS.iter().find(|contract| contract.name == name)
 }
 
-/// Parses a contract's canonical schema.
-///
-/// The repository gate guarantees every registered schema parses successfully;
-/// this function remains fallible so callers never need to trust embedded input.
-///
-/// # Errors
-///
-/// Returns a JSON parsing error if the embedded canonical schema is malformed.
 pub fn parse_schema(contract: &Contract) -> Result<Value, serde_json::Error> {
     serde_json::from_str(contract.schema)
 }
@@ -924,12 +701,11 @@ mod tests {
 
     use super::{
         ArtifactContractVersions, ArtifactManifest, ArtifactOutput, ArtifactTarget,
-        ArtifactToolchain, CONTRACTS, CapabilityManifest, CollisionPolicy, HandlerBody,
+        ArtifactToolchain, CONTRACTS, CapabilityManifest, CollisionPolicy, Contract, HandlerBody,
         HandlerBodyEncoding, HandlerCancel, HandlerEnvelope, HandlerHeaders, HandlerProtocolError,
-        HandlerRequest, HandlerResponse, HotUpdate, HotUpdateKind, HttpMethod, JSON_SCHEMA_DRAFT,
-        NativeAccessibility, NativeNode, NativeTarget, NativeUi, RouteContext, RouteEntry,
-        RouteHandler, RouteKind, RouteManifest, WebSurfaceBridge, WebSurfaceSource, find,
-        parse_schema,
+        HandlerRequest, HandlerResponse, HotUpdate, HotUpdateKind, HttpMethod, NativeAccessibility,
+        NativeNode, NativeTarget, NativeUi, RouteContext, RouteEntry, RouteHandler, RouteKind,
+        RouteManifest, WebSurfaceBridge, WebSurfaceSource, find, parse_schema,
     };
     use std::collections::BTreeMap;
 
@@ -945,7 +721,12 @@ mod tests {
                 ))
             })?;
 
-            assert_eq!(schema["$schema"], JSON_SCHEMA_DRAFT, "{}", contract.name);
+            assert_eq!(
+                schema["$schema"],
+                Contract::JSON_SCHEMA_DRAFT,
+                "{}",
+                contract.name
+            );
             assert_eq!(schema["$id"], contract.id, "{}", contract.name);
 
             let validator = jsonschema::validator_for(&schema).map_err(|error| {
@@ -1021,6 +802,11 @@ mod tests {
 
     #[test]
     fn route_manifest_types_have_the_canonical_wire_shape() -> Result<(), serde_json::Error> {
+        assert_api_route_wire_shape()?;
+        assert_page_route_wire_shape()
+    }
+
+    fn assert_api_route_wire_shape() -> Result<(), serde_json::Error> {
         let methods = vec![
             HttpMethod::Delete,
             HttpMethod::Get,
@@ -1061,7 +847,10 @@ mod tests {
             RouteContext::default().collision_policy,
             CollisionPolicy::Error
         );
+        Ok(())
+    }
 
+    fn assert_page_route_wire_shape() -> Result<(), serde_json::Error> {
         let page = serde_json::to_value(RouteManifest::v1(vec![RouteEntry {
             route: String::from("/"),
             parameters: Vec::new(),
@@ -1077,6 +866,12 @@ mod tests {
 
     #[test]
     fn native_and_packaging_types_have_canonical_wire_shapes() -> Result<(), serde_json::Error> {
+        assert_native_wire_shape()?;
+        assert_capability_wire_shape()?;
+        assert_artifact_wire_shape()
+    }
+
+    fn assert_native_wire_shape() -> Result<(), serde_json::Error> {
         let native = NativeUi::v1(
             NativeTarget::Macos,
             NativeNode::NativeElement {
@@ -1105,12 +900,18 @@ mod tests {
         assert_eq!(native_value["target"], "macos");
         assert_eq!(native_value["root"]["kind"], "native_element");
         assert_eq!(native_value["root"]["children"][0]["bridge"], "none");
+        Ok(())
+    }
 
+    fn assert_capability_wire_shape() -> Result<(), serde_json::Error> {
         let capability = CapabilityManifest::deny_all(String::from("dev.tachyon.catalog"));
         let capability_value = serde_json::to_value(capability)?;
         assert_eq!(capability_value["default_policy"], "deny");
         assert_eq!(capability_value["remote_content_bridge"], false);
+        Ok(())
+    }
 
+    fn assert_artifact_wire_shape() -> Result<(), serde_json::Error> {
         let artifact = ArtifactManifest {
             contract_version: 1,
             release_version: String::from("0.0.0-phase4"),
@@ -1146,6 +947,13 @@ mod tests {
 
     #[test]
     fn handler_protocol_types_cover_every_canonical_envelope() -> Result<(), serde_json::Error> {
+        assert_request_envelope()?;
+        assert_response_envelope()?;
+        assert_failure_envelope()?;
+        assert_cancel_envelope()
+    }
+
+    fn assert_request_envelope() -> Result<(), serde_json::Error> {
         let mut request = HandlerRequest::route("req_01", "/products", HttpMethod::Post);
         request.deadline_ms = Some(2_000);
         request.headers.insert(
@@ -1163,7 +971,10 @@ mod tests {
             serde_json::from_value::<HandlerEnvelope>(request_value)?,
             HandlerEnvelope::Request(request)
         );
+        Ok(())
+    }
 
+    fn assert_response_envelope() -> Result<(), serde_json::Error> {
         let mut headers = HandlerHeaders::new();
         headers.insert(
             String::from("content-type"),
@@ -1185,7 +996,10 @@ mod tests {
             serde_json::from_value::<HandlerEnvelope>(response_value)?,
             HandlerEnvelope::Response(response)
         );
+        Ok(())
+    }
 
+    fn assert_failure_envelope() -> Result<(), serde_json::Error> {
         let failure = HandlerResponse::error(
             "req_02",
             500,
@@ -1198,7 +1012,10 @@ mod tests {
         let failure_value = serde_json::to_value(failure)?;
         assert!(failure_value.get("body").is_none());
         assert_eq!(failure_value["error"]["code"], "TY2201");
+        Ok(())
+    }
 
+    fn assert_cancel_envelope() -> Result<(), serde_json::Error> {
         let cancel = HandlerCancel::v1("req_01");
         let cancel_value = serde_json::to_value(HandlerEnvelope::Cancel(cancel.clone()))?;
         assert_eq!(cancel_value["kind"], "cancel");

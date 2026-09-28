@@ -1,0 +1,19 @@
+Configuration returns only application-selected caches/http/entities adapters.
+Each service receives an explicit behaviors context. Derive its partition
+from authenticated ownership, or declare a fixed partition for public data.
+Cache authorization must return literal true for hits, misses and eviction;
+@CacheKey parameters must cover every input that changes a result. The adapter enforces
+entry quotas and atomic replacement. Yon contexts do not survive requests.
+
+Explicit repository CRUD adapters own authorization and tenancy.
+Structured queries additionally require authorizeEntity(command, execution).
+Entity adapters own parameterized operations.
+HTTP adapters honor redirect: 'error', credentials: 'omit', cancellation,
+deadlines and the bounded response while reading. Never bundle server
+credentials in Tac. No annotation adds SSR or native capabilities.
+
+Tac and unmanaged TypeScript: declare fields and use
+Behaviors.construct(Type, values) for generated constructors.
+Yon managed roles: Needs infers each marked field's provider; no
+handwritten constructor is necessary, and Named names the provider. WebCall methods explicitly return JSON types;
+decorators cannot rewrite inferred method or constructor signatures.

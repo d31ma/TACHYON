@@ -1,0 +1,14 @@
+{
+  "id": "config",
+  "title": "Configuration as data",
+  "summary": "`client/manifest.json` is the whole Tac configuration (ADR 0052). Its standard members name the application, choose the page it opens at and list its icons. Its `tac` member holds the application identity and window, page metadata, shared browser assets, service-worker cache rules and the sitemap settings. It is data, so every build reads it the same way without running code. The whole file is sent to the browser, so never put a secret in it. `tac.outgoing.hosts` lists the hosts that page code may call; the build and the page's security policy refuse the others. The file is public, so the build refuses a secret in it (`TY1324`).",
+  "group": "Tooling",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    }
+  ]
+}

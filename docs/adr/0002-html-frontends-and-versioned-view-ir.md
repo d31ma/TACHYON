@@ -8,52 +8,64 @@
 ## Context
 
 Application developers must use HTML for views on web and non-web targets.
-Tachyon also needs structural control flow, components, islands, source-aware
-diagnostics, deterministic builds, and native code generation.
+Tachyon also needs:
 
-Passing raw HTML directly to every backend would duplicate parsing and make
-control-tag, component, and fallback behavior platform-dependent.
+- structural control flow;
+- components;
+- islands;
+- diagnostics that point to source locations;
+- deterministic builds;
+- native code generation.
+
+If every backend received raw HTML, each backend would parse it again. The
+behavior of control tags, components and fallbacks would then depend on the
+platform.
 
 ## Decision
 
-Treat `tac.html` as the entry context for the HTML frontend. Parse without
-executing application code, preserve source spans,
-resolve control tags and components, and lower validated source into View IR.
+`tac.html` is the entry point of the HTML frontend. The frontend:
 
-`if`, `else`, `for`, and `loop` are structural compiler syntax. They do not
-survive as element nodes.
+1. parses the file without running application code;
+2. keeps source spans (the location of each piece of source);
+3. resolves control tags and components;
+4. lowers the validated source into View IR (intermediate representation).
 
-View IR v1 is a canonical, platform-neutral machine contract. Its JSON Schema
-defines interchange and compatibility; optimized internal Rust
-representations may differ as long as conformance tests prove equivalent
-behavior.
+`if`, `else`, `for` and `loop` are structural compiler syntax. They do not
+remain as element nodes.
 
-Identical canonical source, configuration, compiler version, and target inputs
+View IR v1 is a canonical, platform-neutral contract for machines. Its JSON
+Schema defines interchange and compatibility. Optimized internal Rust
+representations may be different. Conformance tests must then prove that they
+behave the same.
+
+The same canonical source, configuration, compiler version and target inputs
 must produce byte-identical View IR.
 
 ## Consequences
 
 - Web and native backends share parsing and semantic validation.
 - Diagnostics can name stable source spans and codes.
-- New backends consume one normalized representation.
-- IR changes carry explicit compatibility and migration obligations.
-- The parser, component resolver, and expression language remain separate
-  future implementation decisions.
+- New backends read one normalized representation.
+- Every IR change must state its compatibility and migration rules.
+- The parser, the component resolver and the expression language stay separate
+  decisions for later.
 
 ## Rejected Alternatives
 
-- **Raw DOM as the compiler contract**: loses Tachyon structural meaning and is
-  not stable across parser implementations.
-- **Platform-specific parsing**: permits semantic drift and multiplies the
-  security surface.
-- **A new JSX-like view language**: violates the HTML-only developer contract.
-- **Keeping control tags as unknown elements**: produces incorrect browser and
-  native behavior.
+- **Raw DOM as the compiler contract**: it loses Tachyon's structural meaning.
+  It is also not stable across parser implementations.
+- **Platform-specific parsing**: each platform could interpret the source
+  differently. It also gives attackers more code to target.
+- **A new JSX-like view language**: it breaks the HTML-only contract for
+  developers.
+- **Keeping control tags as unknown elements**: browsers and native renderers
+  would then behave incorrectly.
 
 ## Acceptance Gate
 
 - View IR v1 has a valid canonical schema and positive/negative fixtures;
-- HTML-only and control-tag invariants appear in `CONTEXT.md`;
-- web, server, and native backends are documented as consumers rather than
-  alternate parsers;
-- any future parser proves deterministic source-to-IR golden fixtures.
+- the HTML-only and control-tag invariants appear in `CONTEXT.md`;
+- the docs describe web, server and native backends as consumers of View IR,
+  not as other parsers;
+- any future parser proves deterministic source-to-IR output with golden
+  fixtures.

@@ -1,0 +1,30 @@
+{
+  "title": "Templates",
+  "summary": "A template is the `tac.html` file of a page or a component. It is HTML with a few additions. Braces show values. `on:` attributes run a method when an event happens. The `loop`, `logic` and `switch` elements repeat or hide parts of the page. A component is a part of a page that you can use again.",
+  "before": [
+    "pages"
+  ],
+  "sections": [
+    {
+      "include": "values-in-braces-and-events/section.json"
+    },
+    {
+      "include": "accessible-views/section.json"
+    },
+    {
+      "include": "control-flow/section.json"
+    },
+    {
+      "include": "components/section.json"
+    },
+    {
+      "include": "shared-data-and-the-page/section.json"
+    },
+    {
+      "include": "when-a-component-activates/section.json"
+    },
+    {
+      "include": "the-hydrate-value-must-be-fixed/section.json"
+    }
+  ]
+}

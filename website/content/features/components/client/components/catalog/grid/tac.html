@@ -1,0 +1,5 @@
+<loop :for="product of catalog.products">
+  <product-card :name="product.name">
+    <p>Any markup lands in the slot — here, {product.price}.</p>
+  </product-card>
+</loop>

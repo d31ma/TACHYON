@@ -1,0 +1,51 @@
+#[Description("Behavior conformance Backend")]
+class Backend
+  @entries = {}
+  @calls = 0
+  @exchanges = 0
+  @authorizations = 0
+
+  class << self
+    attr_accessor :entries, :calls, :exchanges, :authorizations
+  end
+
+  def self.authorize(call, execution)
+    self.authorizations += 1
+    return false unless execution.partition == "catalog"
+    return true if call["method"] == "remote"
+    call["keyArguments"][0]["size"] == 5
+  end
+
+  def self.get(key, execution)
+    entries.fetch(key, { "hit" => false })
+  end
+
+  def self.set(key, value, execution)
+    entries[key] = { "hit" => true, "value" => value, "expiresAt" => execution.expires_at }
+  end
+
+  def self.delete(key, execution)
+    entries.delete(key)
+  end
+
+  def self.exchange(request, execution)
+    self.exchanges += 1
+    raise "transport policy" unless request["redirect"] == "error"
+    raise "transport policy" unless request["credentials"] == "omit"
+    raise "transport policy" unless request["maxResponseBytes"] == 1_048_576
+    { "path" => request["path"] }
+  end
+
+  def self.execute(command, execution)
+    return command unless command["operation"] == "query"
+    query = command["query"]
+    raise "query binding" unless query["where"][0]["value"] == "active"
+    return 1 if query["kind"] == "count"
+    return true if query["kind"] == "exists"
+    [{ "id" => "one", "status" => "active" }]
+  end
+
+  def self.authorize_entity(command, execution)
+    command["entity"] == "ProductEntity" && execution.partition == "catalog"
+  end
+end

@@ -1,0 +1,5 @@
+{
+  "heading": "Targets",
+  "body": "The bundle targets are web, macos, windows, linux, ios and android. The web target writes browser assets. Every other target prepares a host that contains the platform WebView. Native packaging needs the SDKs (software development kits) and host tools for that platform. The all target builds every target. It writes one folder for each target under dist/. You must still test on each platform.",
+  "code": { "file": "example.sh" }
+}

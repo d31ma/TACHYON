@@ -1,0 +1,49 @@
+{
+  "heading": "Step 4: Call the server from the page",
+  "axis": "language",
+  "body": "A client class sends HTTP requests for the page. Put it in `client/clients`. `HTTPClient` marks the class. `GetRequest(\"/api/greeting\")` makes the method `getGreeting` send a GET request to the controller of step 3. Leave the method body empty: Tachyon writes it.\n\nIn the service, `Needs` asks Tachyon to put a `GreetingClient` into the field `greetingClient`. The method `askServer` waits for the answer and saves its message in the field `message`. In TypeScript, the page has its own copy of the model in `client/models/Greeting.ts`, because the browser cannot read files in `server/`. Change the component, the service and add the client. The page file stays the same as in step 2.\n\nResult: click Ask the server. The text Hello from Yon appears under the buttons. A path such as `/api/greeting` stays on the same origin, so no host needs to be listed. A request to another host needs that host in `tac.outgoing.hosts`.",
+  "files": [
+    {
+      "name": "client/pages/hello/tac.html",
+      "code": {
+        "file": "client/pages/hello/tac.html"
+      }
+    },
+    {
+      "name": "client/components/hello/card/tac.html",
+      "code": {
+        "file": "client/components/hello/card/tac.html"
+      }
+    },
+    {
+      "name": "client/clients/GreetingClient.js",
+      "code": {
+        "file": "client/clients/GreetingClient.js"
+      }
+    },
+    {
+      "name": "client/services/CounterService.js",
+      "code": {
+        "file": "client/services/CounterService.js"
+      }
+    },
+    {
+      "name": "client/models/Greeting.ts",
+      "code": {
+        "file": "client/models/Greeting.ts"
+      }
+    },
+    {
+      "name": "client/clients/GreetingClient.ts",
+      "code": {
+        "file": "client/clients/GreetingClient.ts"
+      }
+    },
+    {
+      "name": "client/services/CounterService.ts",
+      "code": {
+        "file": "client/services/CounterService.ts"
+      }
+    }
+  ]
+}

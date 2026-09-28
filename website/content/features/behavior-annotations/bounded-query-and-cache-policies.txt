@@ -1,0 +1,16 @@
+Store(Entity, {fields, defaultSize, maxSize}) is shared query behavior.
+Bare Store is a role provider in both realms (ADR 0031). Referenced
+Entity/Table and query classes use exact role filenames in their realm's
+shared role folder. Empty methods become find/count/exists
+commands; derived findByStatus/countByStatus/existsByStatus are supported.
+Predicates combine with AND; no SQL, OR, joins or arbitrary expressions.
+authorizeEntity(command, execution) must return true before adapter execute.
+Find is bounded to page size <=100 with annotation-owned ordering and
+an ID tie-breaker. Caller page.sort must be empty. Results stay bounded JSON.
+
+UpdateCache/ClearCache({method: 'find'}) target a same-class Cached method
+and match its key parameters by name. Its page input and key policy are reused. Authorization
+and key/adapter checks precede mutation; store/delete follows successful
+bounded output and lifetime checks. Put never reads. No atomic database/cache
+transaction, automatic reconciliation, retry or AllOrNothing is promised.
+Annotation object options must be written as strict JSON.

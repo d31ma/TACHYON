@@ -1,0 +1,15 @@
+{
+  "title": "Saving data in the browser",
+  "summary": "A service can keep data in the browser. A field marked `@LocalState` or `@SessionState` keeps its value after a reload. A browser Store keeps records, and a cache keeps answers so that the page does not ask for them again.",
+  "before": [
+    "services"
+  ],
+  "sections": [
+    {
+      "include": "../storage/saved-service-fields/section.json"
+    },
+    {
+      "include": "records-and-caches/section.json"
+    }
+  ]
+}

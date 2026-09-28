@@ -1,0 +1,8 @@
+@Test(KotlinGreetingTestSetup::class, {"partition":"tests"})
+class KotlinGreetingServiceTest {
+    fun testGreetChangesTheMessage() {
+        val greeting = KotlinGreetingService()
+        greeting.greet()
+        if (greeting.message != "Kotlin says hello again.") throw IllegalStateException("message is ${greeting.message}")
+    }
+}

@@ -1,0 +1,6 @@
+<button on:click="basket.increment()">Add</button>
+<button on:click="basket.count += 1">Add one</button>
+<input aria-label="Basket label" on:input="basket.label = $event.target.value">
+<loop :for="tab of basket.tabs">
+  <button on:click="basket.select(tab.id)">{tab.name}</button>
+</loop>

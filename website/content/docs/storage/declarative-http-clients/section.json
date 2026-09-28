@@ -1,0 +1,43 @@
+{
+  "heading": "Client classes that call the server",
+  "axis": "language",
+  "body": "Use HTTPClient on a client class. Use GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest on its methods. Needs injects the client into a service without a constructor. Browser JavaScript and TypeScript clients send bounded JSON to the same origin. They reject redirects, send no credentials and cancel when their owner is disposed. Other languages use explicitly configured HTTP adapters. An HTTPClient marker can configure those adapters on a Service. Browser cache defaults to no-store. Select cache-first, network-first or reload for bounded anonymous IndexedDB storage. Every policy keeps the privacy, expiry and cancellation checks. Inject cacheManager to invalidate saved reads after writes. See the [routing annotation glossary](/docs/routing-annotations). Another host needs its name in `tac.outgoing.hosts` or `outgoing.hosts`; Tachyon refuses every other host when it builds and when it runs (`TY1326`).",
+  "files": [
+    {
+      "name": "client/pages/catalog/tac.html",
+      "code": {
+        "file": "client/pages/catalog/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/page/tac.html",
+      "code": {
+        "file": "client/components/catalog/page/tac.html"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.js",
+      "code": {
+        "file": "client/clients/CatalogClient.js"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.ts",
+      "code": {
+        "file": "client/clients/CatalogClient.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    }
+  ]
+}

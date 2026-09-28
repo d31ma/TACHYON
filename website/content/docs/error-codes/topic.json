@@ -1,0 +1,12 @@
+{
+  "title": "Error codes",
+  "summary": "Every error from `ty` has a stable code, such as `TY1310`. The code stays the same when the message text changes, so you can search for it. This page explains the codes that the guides name.",
+  "sections": [
+    {
+      "include": "read-an-error/section.json"
+    },
+    {
+      "include": "codes-in-the-guides/section.json"
+    }
+  ]
+}

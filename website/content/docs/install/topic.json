@@ -1,0 +1,12 @@
+{
+  "title": "Install",
+  "summary": "Tachyon is a full-stack framework: it makes both the frontend (the pages that run in the browser) and the backend (the server that answers requests). Tac is the frontend part. Yon is the backend part. You install one program, `ty`. It creates, previews, builds and tests your app.",
+  "sections": [
+    {
+      "include": "../introduction/install/section.json"
+    },
+    {
+      "include": "../introduction/create-an-app/section.json"
+    }
+  ]
+}

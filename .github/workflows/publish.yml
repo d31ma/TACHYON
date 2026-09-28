@@ -61,7 +61,7 @@ jobs:
           fi
           test "$(node -p "require('./package.json').version")" = "${version}"
           test "$(node -p "require('./website/package.json').version")" = "${version}"
-          test "$(node -p "require('./website/tachyon.json').application.version")" = "${version}"
+          test "$(node -p "require('./website/client/manifest.json').tac.application.version")" = "${version}"
           grep -Eq "^## \[${version}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md
           git diff --exit-code
           echo "tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
@@ -122,6 +122,12 @@ jobs:
           rustup default "${RUST_TOOLCHAIN}"
           rustup target add "${{ matrix.target }}"
 
+      - name: Install OpenSSL build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
       - name: Install pinned auditable-build tooling
         shell: bash
         run: cargo install cargo-auditable --version 0.7.0 --locked
@@ -135,11 +141,21 @@ jobs:
           set -euo pipefail
           export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
           ./scripts/release/build-artifact.sh
+
+      - name: Collect the native executable and archive
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p release
           cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "release/${{ matrix.asset }}"
           archive="$(find target/release-artifact -maxdepth 1 -type f -name '*.tar.gz' -print -quit)"
           test -n "${archive}"
           cp "${archive}" release/
+
+      - name: Check the native executable reports the release version
+        shell: bash
+        run: |
+          set -euo pipefail
           chmod 0755 "release/${{ matrix.asset }}"
           "release/${{ matrix.asset }}" --version | grep -Fx "${{ needs.validate.outputs.version }}"
 
@@ -171,13 +187,19 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install the exact Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
-      - name: Generate the release SBOM
+      - name: Install pinned cargo-cyclonedx
+        run: cargo install cargo-cyclonedx --version 0.5.7 --locked
+
+      - name: Generate the release SBOM files
+        run: cargo cyclonedx --all --format json
+
+      - name: Bundle the SBOM files into one archive
         run: |
           set -euo pipefail
-          cargo install cargo-cyclonedx --version 0.5.7 --locked
-          cargo cyclonedx --all --format json
           mkdir release
           find . -type f -name '*.cdx.json' -print0 \
             | LC_ALL=C sort -z \
@@ -217,17 +239,19 @@ jobs:
           path: release
           merge-multiple: true
 
-      - name: Add release metadata and fail-closed checksums
+      - name: Add the installers and license files
+        run: cp install.sh install.ps1 LICENSE NOTICE release/
+
+      - name: Write the release checksums
+        working-directory: release
         run: |
           set -euo pipefail
-          cp install.sh install.ps1 LICENSE NOTICE release/
-          cd release
-          : > SHA256SUMS
-          for file in *; do
-            test "${file}" = SHA256SUMS && continue
-            sha256sum "${file}"
-          done | LC_ALL=C sort -k2 > SHA256SUMS
-          sha256sum --check --strict SHA256SUMS
+          sha256sum -- * | LC_ALL=C sort -k2 > "${RUNNER_TEMP}/SHA256SUMS"
+          mv "${RUNNER_TEMP}/SHA256SUMS" SHA256SUMS
+
+      - name: Check the release checksums
+        working-directory: release
+        run: sha256sum --check --strict SHA256SUMS
 
       - name: Attest all distributed inputs
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
@@ -244,10 +268,8 @@ jobs:
             cosign sign-blob --yes --bundle "${file}.sigstore.json" "${file}"
           done
 
-      - name: Create a non-public draft from the existing tag
+      - name: Extract the release notes from the changelog
         env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.validate.outputs.tag }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
@@ -257,6 +279,14 @@ jobs:
             emit { print }
           ' CHANGELOG.md > release-notes.md
           test -s release-notes.md
+
+      - name: Create a non-public draft from the existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
           gh release create "${TAG}" --verify-tag --draft \
             --title "Tachyon ${VERSION}" --notes-file release-notes.md release/*
 
@@ -301,12 +331,12 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      - name: Install acceptance runtimes
+      - name: Install Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.18.0
 
-      - name: Install Yon runtime for artifact behavior tests
+      - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
@@ -316,9 +346,11 @@ jobs:
 
       - name: Install exact native companion compiler
         shell: bash
-        run: rustup toolchain install 1.97.1 --profile minimal && rustup default 1.97.1
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
 
-      - name: Install GitHub CLI and Python
+      - name: Install Python
         if: runner.os == 'Windows'
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -335,21 +367,29 @@ jobs:
           mkdir release
           gh release download "${TAG}" --repo "${REPOSITORY}" --dir release
 
-      - name: Verify checksums, attestations, and signatures
+      - name: Verify release checksums
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
+        working-directory: release
         run: |
           set -euo pipefail
-          cd release
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum --check --strict SHA256SUMS
           else
             shasum -a 256 --check --strict SHA256SUMS
           fi
+
+      - name: Verify release attestations
+        shell: bash
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
           for file in *; do
-            case "${file}" in *.sigstore.json) continue ;; esac
+            if [[ "${file}" == *.sigstore.json ]]; then
+              continue
+            fi
             gh attestation verify "${file}" --repo "${REPOSITORY}"
           done
 
@@ -361,7 +401,9 @@ jobs:
         run: |
           set -euo pipefail
           for file in release/*; do
-            case "${file}" in *.sigstore.json) continue ;; esac
+            if [[ "${file}" == *.sigstore.json ]]; then
+              continue
+            fi
             cosign verify-blob \
               --bundle "${file}.sigstore.json" \
               --certificate-identity-regexp '^https://github.com/d31ma/Tachyon/.github/workflows/publish.yml@refs/tags/v' \
@@ -380,6 +422,32 @@ jobs:
           node scripts/native/companion-test.mjs
           node scripts/release/feature-smoke.mjs
 
+      - name: Install checksum-pinned Dart SDK for the website's Dart services
+        if: matrix.os == 'linux-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${RUNNER_TEMP}/dartsdk.zip"
+          expected_checksum=9251c4606ebb31480c45f430be69fce2697e3b888a0a828b9e16e7d23403d72a
+          curl --fail --location --silent --show-error --max-time 180 \
+            --output "${sdk}" \
+            https://storage.googleapis.com/dart-archive/channels/stable/release/3.13.1/sdk/dartsdk-linux-x64-release.zip
+          echo "${expected_checksum}  ${sdk}" | sha256sum --check
+          unzip -q "${sdk}" -d "${RUNNER_TEMP}/dart"
+          echo "${RUNNER_TEMP}/dart/dart-sdk/bin" >> "${GITHUB_PATH}"
+
+      - name: Install Go for the website's Go services
+        if: matrix.os == 'linux-x64'
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27'
+          cache: false
+
+      - name: Check the website data generated from website/content
+        if: matrix.os == 'linux-x64'
+        shell: bash
+        run: node website/scripts/build-content.mjs --check
+
       - name: Verify browser features built by the downloaded executable
         if: matrix.os == 'linux-x64'
         shell: bash
@@ -389,11 +457,11 @@ jobs:
           set -euo pipefail
           bun install --frozen-lockfile
           bunx playwright install --with-deps chromium
-          bun run test:rust-storage
-          bun run test:rust-runtime
+          bun run test:storage-browser
+          bun run test:runtime-browser
           bun run test:website-browser
 
-      - name: Run and clean-install the Unix executable
+      - name: Check the downloaded Unix executable version
         if: runner.os != 'Windows'
         shell: bash
         env:
@@ -403,44 +471,54 @@ jobs:
           set -euo pipefail
           chmod 0755 "release/${ASSET}"
           test "$("release/${ASSET}" --version)" = "${VERSION}"
+
+      - name: Clean-install the Unix executable
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          ASSET: ${{ matrix.asset }}
+          TAC_BASE_URL: http://127.0.0.1:38191
+          TAC_INSTALL_DIR: ${{ runner.temp }}/tachyon-bin
+        run: |
+          set -euo pipefail
           python3 -m http.server 38191 --bind 127.0.0.1 --directory release >/tmp/tachyon-release-http.log 2>&1 &
           server=$!
           trap 'kill "${server}"' EXIT
-          for attempt in 1 2 3 4 5; do
-            curl --fail --silent http://127.0.0.1:38191/SHA256SUMS >/dev/null && break
+          for _ in 1 2 3 4 5; do
+            if curl --fail --silent "${TAC_BASE_URL}/SHA256SUMS" >/dev/null; then
+              break
+            fi
             sleep 1
           done
-          TAC_BASE_URL=http://127.0.0.1:38191 \
-          TAC_INSTALL_DIR="${RUNNER_TEMP}/tachyon-bin" \
-            sh release/install.sh
-          installed="${RUNNER_TEMP}/tachyon-bin/ty"
+
+          sh release/install.sh
+          installed="${TAC_INSTALL_DIR}/ty"
           installed_mode=$(stat -c '%a' "${installed}" 2>/dev/null || stat -f '%Lp' "${installed}")
-          test "${installed_mode}" = "755" || {
+          if [ "${installed_mode}" != "755" ]; then
             echo "installer produced mode ${installed_mode}; expected 755" >&2
             exit 1
-          }
+          fi
+
           printf 'known-good' >"${installed}"
           known_good=$(sha256sum "${installed}" | awk '{print $1}')
           cp release/SHA256SUMS release/SHA256SUMS.valid
           awk -v asset="${ASSET}" '$2 == asset {$1="0000000000000000000000000000000000000000000000000000000000000000"} {print}' \
             release/SHA256SUMS.valid >release/SHA256SUMS
-          if TAC_BASE_URL=http://127.0.0.1:38191 \
-             TAC_INSTALL_DIR="${RUNNER_TEMP}/tachyon-bin" \
-             sh release/install.sh; then
+          if sh release/install.sh; then
             echo "installer accepted a mismatched checksum" >&2
             exit 1
           fi
-          test "$(sha256sum "${installed}" | awk '{print $1}')" = "${known_good}" || {
+          if [ "$(sha256sum "${installed}" | awk '{print $1}')" != "${known_good}" ]; then
             echo "failed upgrade replaced the installed executable" >&2
             exit 1
-          }
-          mv release/SHA256SUMS.valid release/SHA256SUMS
-          TAC_BASE_URL=http://127.0.0.1:38191 \
-          TAC_INSTALL_DIR="${RUNNER_TEMP}/tachyon-bin" \
-            sh release/install.sh
-          test "$("${RUNNER_TEMP}/tachyon-bin/ty" --version)" = "${VERSION}"
+          fi
 
-      - name: Run and clean-install the Windows executable
+          mv release/SHA256SUMS.valid release/SHA256SUMS
+          sh release/install.sh
+          test "$("${installed}" --version)" = "${VERSION}"
+
+      - name: Check the downloaded Windows executable version
         if: runner.os == 'Windows'
         shell: pwsh
         env:
@@ -448,10 +526,25 @@ jobs:
           ASSET: ${{ matrix.asset }}
         run: |
           if ((& "release/$env:ASSET" --version) -ne $env:VERSION) { throw 'raw executable version mismatch' }
+
+      - name: Make a copy of the release with a corrupted Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          ASSET: ${{ matrix.asset }}
+        run: |
           New-Item -ItemType Directory -Force -Path 'release-bad' | Out-Null
           Copy-Item "release/$env:ASSET" "release-bad/$env:ASSET"
           Copy-Item 'release/SHA256SUMS' 'release-bad/SHA256SUMS'
           [IO.File]::AppendAllText((Join-Path $PWD "release-bad/$env:ASSET"), 'corrupt')
+
+      - name: Clean-install the Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          ASSET: ${{ matrix.asset }}
+        run: |
           $server = Start-Process python -ArgumentList '-m','http.server','38191','--bind','127.0.0.1','--directory','.' -PassThru
           try {
             foreach ($attempt in 1..5) {
@@ -469,13 +562,14 @@ jobs:
             [IO.File]::WriteAllText($installed, 'known-good')
             $knownGood = (Get-FileHash -Algorithm SHA256 $installed).Hash
             $env:TAC_BASE_URL = 'http://127.0.0.1:38191/release-bad'
+            $installerAccepted = $true
             try {
               & ./release/install.ps1
-              throw 'installer accepted a mismatched checksum'
             } catch {
-              if ($_.Exception.Message -eq 'installer accepted a mismatched checksum') { throw }
+              $installerAccepted = $false
               if ($_.Exception.Message -ne "Checksum mismatch for $env:ASSET. Aborting.") { throw }
             }
+            if ($installerAccepted) { throw 'installer accepted a mismatched checksum' }
             if ((Get-FileHash -Algorithm SHA256 $installed).Hash -ne $knownGood) { throw 'failed upgrade replaced the installed executable' }
             $env:TAC_BASE_URL = 'http://127.0.0.1:38191/release'
             & ./release/install.ps1

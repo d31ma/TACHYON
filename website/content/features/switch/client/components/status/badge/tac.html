@@ -1,0 +1,5 @@
+<switch :value="badge.status">
+  <case :when="'ready'"><p>Ready</p></case>
+  <case :when="'failed'"><p>Failed</p></case>
+  <case default><p>Unknown</p></case>
+</switch>

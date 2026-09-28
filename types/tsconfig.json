@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": true,
+    "checkJs": true,
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": [],
+    "noEmit": true
+  },
+  "files": ["tachyon-env.d.ts", "tachyon-behaviors.d.ts", "tests/yon-annotations.ts", "tests/yon-annotations.js", "tests/behavior-annotations.ts", "tests/behavior-annotations.js", "tests/application-events.ts", "tests/annotation-targets.ts", "tests/annotation-targets.js"]
+}

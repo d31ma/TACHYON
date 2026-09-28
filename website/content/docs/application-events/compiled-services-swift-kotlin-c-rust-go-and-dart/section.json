@@ -1,0 +1,91 @@
+{
+  "heading": "Compiled services: Swift, Kotlin, C#, Rust, Go and Dart",
+  "body": "Each example injects the publisher and publishes a CatalogCount model during initialization. The model lives in client/models in the language of the service. A listener updates the count, and cleanup resets it. The prelude (code that Tachyon adds before your code) constructs any member of type ApplicationEventPublisher. That member is not in the page's member table. Each activation has a new owner. Tachyon rejects old callbacks. Listener work waits in a queue until the active callback returns. Native and Go service hooks and event methods are synchronous. A Go service is not native: it runs as WebAssembly in the web view on every target, with the same rules. A Dart service compiles to WebAssembly (WasmGC) and follows the same shape. A Kotlin service links into the Android app and compiles to WebAssembly (WasmGC) for every other target. The same example works in both. It declares the publisher with Needs, and its hooks are synchronous. Helper types cannot own events. You cannot publish from background work that has no owner. You still configure native HTTP clients manually. Only JavaScript and TypeScript services receive the browser resources.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/count/tac.html",
+      "code": {
+        "file": "client/components/catalog/count/tac.html"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.swift",
+      "code": {
+        "file": "client/models/CatalogCount.swift"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.kt",
+      "code": {
+        "file": "client/models/CatalogCount.kt"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.cs",
+      "code": {
+        "file": "client/models/CatalogCount.cs"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.rs",
+      "code": {
+        "file": "client/models/CatalogCount.rs"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.go",
+      "code": {
+        "file": "client/models/CatalogCount.go"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.dart",
+      "code": {
+        "file": "client/models/CatalogCount.dart"
+      }
+    }
+  ]
+}

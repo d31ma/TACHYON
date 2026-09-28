@@ -1,0 +1,13 @@
+// client/services/CounterService.swift
+final class CounterService {
+  var count: Int = 0
+  func increment() { self.count += 1 }
+}
+
+// client/services/CounterService.js
+
+@Service
+export default class CounterService {
+  count = 0
+  increment() { this.count += 1 }
+}

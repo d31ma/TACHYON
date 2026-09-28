@@ -1,36 +1,48 @@
-//! Compiles a `tac.rs` companion for whichever target is being built.
-//!
-//! Rust is the desktop companion: the macOS host links a static library and
-//! calls it from Swift, and the Win32 and GTK hosts load a shared one. The
-//! companion runs in the host's own process with the platform in reach, the
-//! same as a Swift, Kotlin or C# one. It stops at the desktop because Android
-//! and iOS would each need a build system in service of a language that is not
-//! the language of either platform — an NDK and a JNI shim, or an `xcframework`.
-//!
-//! One file is compiled with `rustc` and no Cargo, so a companion declares no
-//! dependencies. That is a real limit, and a deliberate one: it keeps a
-//! companion to the thing it is for — reaching the platform — rather than
-//! becoming a second application with its own manifest.
-
 use super::host::{native_tool_failure, run_tool, write};
 use crate::Failure;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-/// The prelude appended to a Rust companion compiled into a native host.
-const RUST_COMPANION_PRELUDE: &str = include_str!("prelude.rs");
+pub(crate) struct RustCompanion;
 
-/// The Rust companion prelude, for the publish-channel drift test.
-#[cfg(test)]
-pub(super) const fn companion_prelude() -> &'static str {
-    RUST_COMPANION_PRELUDE
+impl RustCompanion {
+    const PRELUDE: &str = concat!(
+        include_str!("prelude.rs"),
+        include_str!("web_apis/tac_web_host.rs"),
+        include_str!("web_apis/clock.rs"),
+        include_str!("web_apis/secure_random.rs"),
+        include_str!("web_apis/connectivity.rs"),
+        include_str!("web_apis/page_visibility.rs"),
+        include_str!("web_apis/preferences.rs"),
+        include_str!("web_apis/clipboard.rs"),
+        include_str!("web_apis/share.rs"),
+        include_str!("web_apis/notifications.rs"),
+        include_str!("web_apis/geolocation.rs")
+    );
+    const VALUE_TYPES_START: &str = "#[derive(Clone, Default)]\npub enum TacValue";
+    const LISTENER_TYPE_START: &str = "pub struct TacListener";
+    const FAILURE_CODE: u16 = 1605;
+    pub(crate) const WEB_TARGET: &str = "wasm32-unknown-unknown";
+    const WEB_OPTIMIZATION_ARGUMENTS: [&str; 8] = [
+        "-C",
+        "opt-level=s",
+        "-C",
+        "lto",
+        "-C",
+        "panic=abort",
+        "-C",
+        "strip=symbols",
+    ];
 }
 
-/// What a host links or loads.
+#[cfg(test)]
+pub(super) const fn companion_prelude() -> &'static str {
+    RustCompanion::PRELUDE
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Linkage {
-    /// A static library, linked into the host binary.
     Static,
-    /// A shared library, loaded beside the host at run time.
     Shared,
 }
 
@@ -43,10 +55,6 @@ impl Linkage {
     }
 }
 
-/// Stages one Rust companion with its generated table and prelude.
-///
-/// Returns the staged source, or `None` when this target's companion is in
-/// another language — or when there is none at all.
 pub(super) fn stage(
     companions: &[super::registry::NativeCompanionInput],
     stage: &Path,
@@ -60,16 +68,21 @@ pub(super) fn stage(
     let staged = stage.join("project").join("companion.rs");
     write(
         &staged,
-        format!("{authored}\nconst TAC_APPLICATION_ID: &str = {application_id:?};\n{RUST_COMPANION_PRELUDE}").as_bytes(),
+        format!(
+            "{authored}\nconst TAC_APPLICATION_ID: &str = {application_id:?};\n{}{}",
+            RustCompanion::PRELUDE,
+            crate::route_types::WebEventSources::rust()
+        )
+        .as_bytes(),
     )?;
     Ok(Some(staged))
 }
 
-/// Compiles one staged companion into a library the host can reach.
-///
-/// # Errors
-///
-/// Returns diagnostics when `rustc` is absent or rejects the companion.
+fn unicode_path<'path>(path: &'path Path, message: &str) -> Result<&'path str, Failure> {
+    path.to_str()
+        .ok_or_else(|| native_tool_failure(RustCompanion::FAILURE_CODE, message))
+}
+
 pub(super) async fn compile(
     source: &Path,
     linkage: Linkage,
@@ -79,16 +92,10 @@ pub(super) async fn compile(
     if let Some(parent) = output.parent() {
         super::host::native_io(std::fs::create_dir_all(parent), parent)?;
     }
-    let version =
-        super::host::first_line(&run_tool("rustc", &["--version"]).await?, "rustc unknown");
-    let source = source
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Companion source path is not valid Unicode."))?;
-    let output = output
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Companion output path is not valid Unicode."))?;
-    // The 2024 edition, because the prelude's `unsafe extern` blocks are its
-    // spelling. Everything an author writes is ordinary Rust either way.
+    let version_output = run_tool("rustc", &["--version"]).await?;
+    let version = super::host::first_line(&version_output, "rustc unknown");
+    let source = unicode_path(source, "Companion source path is not valid Unicode.")?;
+    let output = unicode_path(output, "Companion output path is not valid Unicode.")?;
     let mut arguments = vec![
         "--edition",
         "2024",
@@ -102,6 +109,109 @@ pub(super) async fn compile(
     if let Some(triple) = target_triple {
         arguments.extend(["--target", triple]);
     }
+    if target_triple == Some(RustCompanion::WEB_TARGET) {
+        arguments.extend(RustCompanion::WEB_OPTIMIZATION_ARGUMENTS);
+    }
     run_tool("rustc", &arguments).await?;
     Ok(version)
+}
+
+pub(crate) fn tac_value_source() -> &'static str {
+    let prelude = RustCompanion::PRELUDE;
+    let start = prelude.find(RustCompanion::VALUE_TYPES_START).unwrap_or(0);
+    let from_value_types = &prelude[start..];
+    let length = from_value_types
+        .find(RustCompanion::LISTENER_TYPE_START)
+        .unwrap_or(from_value_types.len());
+    &from_value_types[..length]
+}
+
+fn web_companion_inputs(
+    snapshot_root: &Path,
+    services: &[(String, String, PathBuf)],
+) -> Vec<super::registry::NativeCompanionInput> {
+    let mut companions = Vec::with_capacity(services.len());
+    for (service, class, source) in services {
+        companions.push(super::registry::NativeCompanionInput {
+            snapshot_root: snapshot_root.to_path_buf(),
+            language: crate::project::NativeCompanion::Rust,
+            source: source.clone(),
+            service: service.clone(),
+            class: class.clone(),
+            web_assembly: true,
+        });
+    }
+    companions
+}
+
+pub(super) fn cache_key(compiler_version: &str, source: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(compiler_version.as_bytes());
+    hasher.update([0]);
+    hasher.update(source);
+    let mut key = String::new();
+    for byte in hasher.finalize() {
+        let _ = write!(key, "{byte:02x}");
+    }
+    key
+}
+
+pub(super) fn store_in_cache(cached: &Path, bytes: &[u8]) {
+    let Some(parent) = cached.parent() else {
+        return;
+    };
+    if std::fs::create_dir_all(parent).is_ok() {
+        let _ = std::fs::write(cached, bytes);
+    }
+}
+
+pub(crate) async fn web_assembly(
+    snapshot_root: &Path,
+    services: &[(String, String, PathBuf)],
+) -> Result<Vec<u8>, Failure> {
+    let companions = web_companion_inputs(snapshot_root, services);
+    let staged = tempfile::Builder::new()
+        .prefix(".tachyon-rust-wasm-")
+        .tempdir()
+        .map_err(|error| {
+            native_tool_failure(
+                RustCompanion::FAILURE_CODE,
+                &format!("Cannot stage Rust services: {error}"),
+            )
+        })?;
+    let Some(source) = stage(&companions, staged.path(), "web")? else {
+        return Ok(Vec::new());
+    };
+    let version = run_tool("rustc", &["-vV"]).await?;
+    let source_bytes = super::host::native_io(std::fs::read(&source), &source)?;
+    let key = cache_key(&version, &source_bytes);
+    let cached = crate::cache::root()
+        .join("rust-wasm")
+        .join(format!("{key}.wasm"));
+    if let Ok(bytes) = std::fs::read(&cached) {
+        return Ok(bytes);
+    }
+    let output = staged.path().join("services.wasm");
+    compile(
+        &source,
+        Linkage::Shared,
+        Some(RustCompanion::WEB_TARGET),
+        &output,
+    )
+    .await?;
+    let bytes = super::host::native_io(std::fs::read(&output), &output)?;
+    store_in_cache(&cached, &bytes);
+    Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_value_source_is_only_the_value_types() {
+        let source = super::tac_value_source();
+        assert!(source.starts_with("#[derive(Clone, Default)]\npub enum TacValue"));
+        assert!(!source.contains("TacListener"));
+        assert!(!source.contains("TAC_APPLICATION_ID"));
+    }
 }

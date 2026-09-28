@@ -1,0 +1,6 @@
+server/controllers/MoneyController.ts
+server/services/MoneyService.ts
+client/pages/money/tac.html                     <money-panel hydrate="load" />
+client/components/money/panel/tac.html          {money.amount}
+client/services/MoneyService.ts
+client/entities/MoneyEntity.ts

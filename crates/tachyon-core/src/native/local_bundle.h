@@ -1,4 +1,3 @@
-/* Compiler-owned routes shared by the Linux and Windows WebView hosts. */
 #define TACHYON_PATH_LIMIT 4096
 #define TACHYON_MESSAGE_LIMIT 65536
 #define TACHYON_LOCAL_ORIGIN "__LOCAL_ORIGIN__"
@@ -15,8 +14,6 @@ static int tachyon_hex(char ch) {
   return -1;
 }
 
-/* Exact origin boundary, bounded percent decoding, no encoded separators or
-   dot segments. A hostile URI can never become an ambient filesystem path. */
 static int tachyon_local_path(const char *uri, char *path, size_t capacity) {
   size_t origin = strlen(TACHYON_LOCAL_ORIGIN), written = 0;
   if (uri == NULL || strncmp(uri, TACHYON_LOCAL_ORIGIN, origin) != 0 || uri[origin] != '/') return 0;
@@ -92,8 +89,11 @@ static int tachyon_bundle_path(const char *path, char *relative, size_t capacity
   return 1;
 }
 
-/* Require one literal root route key. Escaped keys fail closed so a second
-   spelling cannot override the checked route when the companion parses JSON. */
+static size_t tachyon_skip_space(const char *json, size_t index) {
+  while (json[index] == ' ' || json[index] == '\n' || json[index] == '\r' || json[index] == '\t') index++;
+  return index;
+}
+
 static int tachyon_payload_string_matches(const char *json, const char *key, const char *expected) {
   int depth = 0, found = 0;
   for (size_t index = 0; json[index] != '\0' && index <= TACHYON_MESSAGE_LIMIT; index++) {
@@ -108,15 +108,13 @@ static int tachyon_payload_string_matches(const char *json, const char *key, con
         else if (json[index] == '"') break;
       }
       if (json[index] == '\0') return 0;
-      size_t end = index, next = index + 1;
-      while (json[next] == ' ' || json[next] == '\n' || json[next] == '\r' || json[next] == '\t') next++;
+      size_t end = index, next = tachyon_skip_space(json, index + 1);
       if (depth != 1 || json[next] != ':') continue;
       if (escaped) return 0;
       size_t key_length = strlen(key);
       if (end - start != key_length || memcmp(json + start, key, key_length) != 0) continue;
       if (found++) return 0;
-      next++;
-      while (json[next] == ' ' || json[next] == '\n' || json[next] == '\r' || json[next] == '\t') next++;
+      next = tachyon_skip_space(json, next + 1);
       if (json[next++] != '"') return 0;
       size_t length = strlen(expected);
       if (strncmp(json + next, expected, length) != 0 || json[next + length] != '"') return 0;

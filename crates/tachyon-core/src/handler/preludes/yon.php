@@ -1,74 +1,427 @@
 <?php
-// Appended after a `yon.php` handler. Everything below is the protocol.
-//
-// PHP strips a shebang only from the entry script, and the handler is the
-// entry script, so the runtime cannot be loaded from the top of the file — it
-// is appended after it with `-d auto_append_file`, by which time the class is
-// defined. That is a PHP fact rather than a Tachyon choice.
-//
-// The author writes a class and methods. Reading standard input, dispatching
-// on the method and writing the response envelope is Tachyon's half.
 
-/**
- * Marks a method as a proxy for a program Yon does not run.
- *
- * Declared, unlike the five layer stereotypes: PHP resolves an attribute
- * lazily, so an undeclared `#[Controller]` costs nothing — but this one is
- * read back through reflection, and reflection is where an undeclared
- * attribute finally becomes an error. PHP is one of the four languages here
- * whose annotations cannot do the work themselves, so the dispatch checks for
- * it and the annotated body is never called.
- */
-#[Attribute(Attribute::TARGET_METHOD)]
-final class Relay
+final class DataSource
 {
-    /** @var list<string> */
-    public array $command;
-
-    public function __construct(string ...$command)
+    public function query(string $sql, array $parameters): mixed
     {
-        $this->command = $command;
+        return YonManagedResources::call(['operation' => 'sql', 'sql' => $sql, 'parameters' => $parameters, 'mode' => 'rows']);
+    }
+    public function execute(string|array $sql, array $parameters = []): mixed
+    {
+        return is_array($sql) ? $this->command($sql) : YonManagedResources::call(['operation' => 'sql', 'sql' => $sql, 'parameters' => $parameters, 'mode' => 'execute']);
+    }
+    public function command(array $command): mixed { return YonManagedResources::call($command); }
+}
+
+final class RedisTemplate
+{
+    public function get(string $key): mixed { return YonManagedResources::call(['operation' => 'redis', 'command' => 'get', 'key' => $key]); }
+    public function delete(string $key): mixed { return YonManagedResources::call(['operation' => 'redis', 'command' => 'delete', 'key' => $key]); }
+    public function set(string $key, mixed $value, int $ttlSeconds): mixed
+    {
+        return YonManagedResources::call(['operation' => 'redis', 'command' => 'set', 'key' => $key, 'value' => $value, 'ttlSeconds' => $ttlSeconds]);
     }
 }
 
-/** One request, as the protocol delivers it. */
-final class YonRequest
+final class YonManagedResources
+{
+    private const LIMIT = 1024 * 1024;
+    private static function failed(): never { throw new RuntimeException('Yon managed resource operation failed.'); }
+    public static function call(mixed $command): mixed
+    {
+        try {
+            $body = json_encode($command, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $ignored) {
+            self::failed();
+        }
+        return self::exchange($body, 5_000_000_000);
+    }
+    public static function exchange(string $body, int $timeoutNanoseconds): mixed
+    {
+        $socket = false;
+        try {
+            $endpoint = getenv('YON_RESOURCE_ENDPOINT');
+            $token = getenv('YON_RESOURCE_TOKEN');
+            if (!is_string($endpoint) || preg_match('~\Ahttp://127\.0\.0\.1:([0-9]{1,5})/\z~', $endpoint, $matches) !== 1 || !is_string($token) || preg_match('/\A[0-9a-f]{64}\z/', $token) !== 1) self::failed();
+            $port = (int) $matches[1];
+            if ($port < 1 || $port > 65535) self::failed();
+            if (strlen($body) > self::LIMIT) self::failed();
+            $deadline = hrtime(true) + $timeoutNanoseconds;
+            $socket = @stream_socket_client("tcp://127.0.0.1:$port", $errorCode, $errorText, 5, STREAM_CLIENT_CONNECT);
+            if (!is_resource($socket)) self::failed();
+            $request = "POST / HTTP/1.1\r\nHost: 127.0.0.1:$port\r\nAuthorization: Bearer $token\r\nContent-Type: application/json\r\nContent-Length: " . strlen($body) . "\r\nConnection: close\r\n\r\n" . $body;
+            $written = 0;
+            while ($written < strlen($request)) {
+                self::timeout($socket, $deadline);
+                $count = @fwrite($socket, substr($request, $written));
+                if ($count === false || $count === 0) self::failed();
+                $written += $count;
+            }
+            $head = '';
+            while (!str_ends_with($head, "\r\n\r\n")) {
+                self::timeout($socket, $deadline);
+                $next = @fread($socket, 1);
+                if ($next === false || $next === '' || strlen($head) >= 16384) self::failed();
+                $head .= $next;
+            }
+            $lines = explode("\r\n", $head);
+            if (preg_match('~\AHTTP/1\.[01] 200(?: .*)?\z~', $lines[0]) !== 1) self::failed();
+            $length = -1;
+            foreach (array_slice($lines, 1) as $line) {
+                $line = strtolower($line);
+                if (str_starts_with($line, 'transfer-encoding:')) self::failed();
+                if (str_starts_with($line, 'content-length:')) {
+                    $value = trim(substr($line, 15));
+                    if ($length >= 0 || preg_match('/\A[0-9]{1,7}\z/', $value) !== 1) self::failed();
+                    $length = (int) $value;
+                }
+            }
+            if ($length < 0 || $length > self::LIMIT) self::failed();
+            $response = '';
+            while (strlen($response) < $length) {
+                self::timeout($socket, $deadline);
+                $chunk = @fread($socket, $length - strlen($response));
+                if ($chunk === false || $chunk === '') self::failed();
+                $response .= $chunk;
+            }
+            return json_decode($response, true, 64, JSON_THROW_ON_ERROR);
+        } catch (Throwable $ignored) {
+            self::failed();
+        } finally {
+            if (is_resource($socket)) fclose($socket);
+        }
+    }
+    private static function timeout(mixed $socket, int $deadline): void
+    {
+        $remaining = $deadline - hrtime(true);
+        if ($remaining <= 0) self::failed();
+        if (!stream_set_timeout($socket, intdiv($remaining, 1_000_000_000), intdiv($remaining % 1_000_000_000, 1000))) self::failed();
+    }
+}
+
+final class YonGateway
+{
+    private const LIMIT = 1024 * 1024;
+    private const ANSWER_MARGIN_NANOSECONDS = 1_000_000_000;
+    public static function call(string $key, array $arguments): array
+    {
+        try {
+            $body = json_encode(['operation' => 'gateway', 'key' => $key, 'arguments' => array_values($arguments)], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $ignored) {
+            return ['error' => 'invalid'];
+        }
+        if (strlen($body) > self::LIMIT) return ['error' => 'invalid'];
+        $timeLeft = YonRelayContext::timeLeftNanoseconds();
+        if ($timeLeft <= 0) return ['error' => 'timeout'];
+        try {
+            $answer = YonManagedResources::exchange($body, $timeLeft + self::ANSWER_MARGIN_NANOSECONDS);
+        } catch (Throwable $ignored) {
+            if (YonRelayContext::timeLeftNanoseconds() <= 0) return ['error' => 'timeout'];
+            return ['error' => 'adapter'];
+        }
+        if (!is_array($answer)) return ['error' => 'adapter'];
+        if (array_key_exists('result', $answer) || is_string($answer['error'] ?? null)) return $answer;
+        return ['error' => 'adapter'];
+    }
+}
+
+final class __YonFrame
 {
     public function __construct(private array $raw) {}
 
-    /** The HTTP method, upper case. */
     public function method(): string
     {
         return (string) ($this->raw['method'] ?? '');
     }
 
-    /** The route as matched, with its parameters still in it. */
     public function route(): string
     {
         return (string) ($this->raw['route'] ?? '');
     }
 
-    /** One bound route parameter, or an empty string when there is none. */
     public function parameter(string $name): string
     {
         return (string) ($this->raw['parameters'][$name] ?? '');
     }
 
-    /** The request body as text, empty when none was sent. */
     public function body(): string
     {
         return (string) ($this->raw['body']['data'] ?? '');
     }
 
-    /** The whole request, for anything the accessors above do not cover. */
     public function raw(): array
     {
         return $this->raw;
     }
+
+    public function arguments(): array
+    {
+        $arguments = $this->raw['arguments'] ?? [];
+        return is_array($arguments) ? $arguments : [];
+    }
+
+    public function headers(): array
+    {
+        $headers = $this->raw['headers'] ?? [];
+        return is_array($headers) ? $headers : [];
+    }
+
+    public function target(): string
+    {
+        return (string) ($this->raw['target'] ?? $this->route());
+    }
 }
 
-/** One response, built the way the other layers build their return values. */
-final class YonResponse
+if (!defined('STDIN')) {
+    define('STDIN', fopen('php://stdin', 'rb'));
+    define('STDOUT', fopen('php://stdout', 'wb'));
+    define('STDERR', fopen('php://stderr', 'wb'));
+}
+
+final class YonInputStream
+{
+    public static string $body = '';
+    public $context;
+    private $inner = null;
+    private int $position = 0;
+
+    public function stream_open(string $path, string $mode, int $options, ?string &$opened_path): bool
+    {
+        if (strtolower($path) === 'php://input') {
+            return true;
+        }
+        stream_wrapper_restore('php');
+        $this->inner = @fopen($path, $mode);
+        stream_wrapper_unregister('php');
+        stream_wrapper_register('php', self::class);
+        return $this->inner !== false;
+    }
+
+    public function stream_read(int $count): string|false
+    {
+        if ($this->inner !== null) {
+            return fread($this->inner, $count);
+        }
+        $part = substr(self::$body, $this->position, $count);
+        $this->position += strlen($part);
+        return $part;
+    }
+
+    public function stream_write(string $data): int
+    {
+        return $this->inner === null ? 0 : (int) fwrite($this->inner, $data);
+    }
+
+    public function stream_eof(): bool
+    {
+        return $this->inner === null ? $this->position >= strlen(self::$body) : feof($this->inner);
+    }
+
+    public function stream_tell(): int
+    {
+        return $this->inner === null ? $this->position : (int) ftell($this->inner);
+    }
+
+    public function stream_seek(int $offset, int $whence): bool
+    {
+        if ($this->inner !== null) {
+            return fseek($this->inner, $offset, $whence) === 0;
+        }
+        $this->position = $whence === SEEK_SET ? $offset : $this->position + $offset;
+        return true;
+    }
+
+    public function stream_flush(): bool
+    {
+        return $this->inner === null || fflush($this->inner);
+    }
+
+    public function stream_stat(): array|false
+    {
+        return $this->inner === null ? ['size' => strlen(self::$body)] : fstat($this->inner);
+    }
+
+    public function stream_close(): void
+    {
+        if ($this->inner !== null) {
+            fclose($this->inner);
+        }
+    }
+}
+
+final class YonNativeHttp
+{
+    private static string $method = 'GET';
+    private static string $target = '/';
+    private static array $requestHeaders = [];
+
+    public static function begin(__YonFrame $frame): void
+    {
+        self::$method = $frame->method();
+        self::$target = $frame->target();
+        self::$requestHeaders = $frame->headers();
+        YonInputStream::$body = $frame->body();
+        $query = (string) parse_url(self::$target, PHP_URL_QUERY);
+        $_SERVER['REQUEST_METHOD'] = self::$method;
+        $_SERVER['REQUEST_URI'] = self::$target;
+        $_SERVER['QUERY_STRING'] = $query;
+        $_SERVER['SERVER_PROTOCOL'] = 'HTTP/1.1';
+        foreach (self::$requestHeaders as $name => $values) {
+            $key = strtoupper(str_replace('-', '_', (string) $name));
+            $value = implode(', ', (array) $values);
+            $_SERVER[in_array($key, ['CONTENT_TYPE', 'CONTENT_LENGTH'], true) ? $key : 'HTTP_' . $key] = $value;
+        }
+        parse_str($query, $_GET);
+        $_POST = [];
+        if (str_starts_with((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 'application/x-www-form-urlencoded')) {
+            parse_str(YonInputStream::$body, $_POST);
+        }
+        $_COOKIE = self::cookies((string) ($_SERVER['HTTP_COOKIE'] ?? ''));
+        $_REQUEST = array_merge($_GET, $_POST);
+        stream_wrapper_unregister('php');
+        stream_wrapper_register('php', YonInputStream::class);
+        ob_start();
+    }
+
+    private static function cookies(string $header): array
+    {
+        $cookies = [];
+        foreach (explode(';', $header) as $pair) {
+            [$name, $value] = array_pad(explode('=', trim($pair), 2), 2, '');
+            if ($name !== '') {
+                $cookies[$name] = urldecode($value);
+            }
+        }
+        return $cookies;
+    }
+
+    public static function message(): array
+    {
+        return [
+            'route' => self::$target,
+            'method' => self::$method,
+            'headers' => self::$requestHeaders,
+            'body' => ['encoding' => 'utf8', 'data' => YonInputStream::$body],
+        ];
+    }
+
+    public static function write(int $status, array $headers, string $body): void
+    {
+        foreach ($headers as $name => $values) {
+            foreach ((array) $values as $value) {
+                header($name . ': ' . $value, false);
+            }
+        }
+        http_response_code($status);
+        echo $body;
+    }
+
+    public static function answer(mixed $result, bool $middleware): mixed
+    {
+        $body = (string) ob_get_clean();
+        $status = (int) http_response_code();
+        $lines = headers_list();
+        $written = $status !== 200 || $body !== '' || $lines !== [];
+        if (!$written && $middleware && $result === null) {
+            return __YonAnswer::empty(204);
+        }
+        if (!$written) {
+            return $result;
+        }
+        $headers = [];
+        foreach ($lines as $line) {
+            [$name, $value] = array_pad(explode(':', $line, 2), 2, '');
+            $headers[strtolower(trim($name))][] = trim($value);
+        }
+        $code = $status === 200 && $middleware && $body === '' ? 204 : $status;
+        return __YonAnswer::json($body)->headers($headers)->status($code);
+    }
+}
+
+final class YonModels
+{
+    public static function read(string $class, mixed $value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+        if ($value instanceof \stdClass) {
+            $value = get_object_vars($value);
+        }
+        if (enum_exists($class)) {
+            return is_subclass_of($class, \BackedEnum::class) ? $class::from($value) : constant($class . '::' . $value);
+        }
+        if (!class_exists($class) || !is_array($value)) {
+            return $value;
+        }
+        $reflection = new \ReflectionClass($class);
+        $constructor = $reflection->getConstructor();
+        if ($constructor !== null && $constructor->getNumberOfParameters() > 0) {
+            return $reflection->newInstanceArgs(self::constructorArguments($reflection, $constructor, $value));
+        }
+        $model = $reflection->newInstanceWithoutConstructor();
+        foreach ($reflection->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+            $name = $property->getName();
+            if (array_key_exists($name, $value)) {
+                $property->setValue($model, self::typed($reflection, $name, $property->getType(), $value[$name]));
+            }
+        }
+        return $model;
+    }
+
+    public static function readList(string $class, mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+        $items = [];
+        foreach ($value as $item) {
+            $items[] = self::read($class, $item);
+        }
+        return $items;
+    }
+
+    private static function constructorArguments(\ReflectionClass $reflection, \ReflectionMethod $constructor, array $value): array
+    {
+        $arguments = [];
+        foreach ($constructor->getParameters() as $parameter) {
+            $name = $parameter->getName();
+            if (array_key_exists($name, $value)) {
+                $arguments[$name] = self::typed($reflection, $name, $parameter->getType(), $value[$name]);
+            }
+        }
+        return $arguments;
+    }
+
+    private static function typed(\ReflectionClass $owner, string $name, ?\ReflectionType $type, mixed $value): mixed
+    {
+        if (!$type instanceof \ReflectionNamedType) {
+            return $value;
+        }
+        if ($type->getName() === 'array') {
+            $value = $value instanceof \stdClass ? get_object_vars($value) : $value;
+            $item = self::itemClass($owner, $name);
+            return $item === '' ? $value : self::readList($item, $value);
+        }
+        if ($type->isBuiltin()) {
+            return $value;
+        }
+        return self::read($type->getName(), $value);
+    }
+
+    private static function itemClass(\ReflectionClass $owner, string $name): string
+    {
+        $comment = $owner->hasProperty($name) ? $owner->getProperty($name)->getDocComment() : false;
+        $pattern = '/@var\s+\??(?:list<|array<|non-empty-list<)?\\\\?([A-Za-z_][A-Za-z0-9_\\\\]*)(?:>|\[\])/';
+        if ($comment === false || preg_match($pattern, $comment, $match) !== 1) {
+            return '';
+        }
+        $local = $owner->getNamespaceName() . '\\' . $match[1];
+        return class_exists($local) || enum_exists($local) ? $local : $match[1];
+    }
+}
+
+final class __YonAnswer
 {
     private function __construct(
         private int $status,
@@ -76,13 +429,11 @@ final class YonResponse
         private string $body,
     ) {}
 
-    /** A JSON body with a 200. The common case, so it is the short one. */
     public static function json(string $body): self
     {
         return new self(200, ['content-type' => ['application/json']], $body);
     }
 
-    /** A response with no body, for a 204 or a redirect. */
     public static function empty(int $status): self
     {
         return new self($status, [], '');
@@ -94,13 +445,6 @@ final class YonResponse
         return $this;
     }
 
-    /**
-     * Replaces every header at once, for a delegate answering with its own.
-     * Without this the assumed content type would survive alongside the one
-     * the delegate actually set.
-     *
-     * @param array<string, list<string>> $headers
-     */
     public function headers(array $headers): self
     {
         $this->headers = $headers;
@@ -109,7 +453,6 @@ final class YonResponse
 
     public function header(string $name, string $value): self
     {
-        // A header value is a list, because one header may repeat.
         $this->headers[$name][] = $value;
         return $this;
     }
@@ -124,188 +467,345 @@ final class YonResponse
     }
 }
 
-/** Work handed to a language Yon does not run. */
+final class YonRelayContext
+{
+    private const DEFAULT_DEADLINE_MILLISECONDS = 30000;
+    private static ?int $startedAt = null;
+    private static array $environment = [];
+    private static ?int $deadline = null;
+    private static string $requestId = 'unknown';
+
+    public static function captureStart(): void
+    {
+        if (self::$startedAt !== null) {
+            return;
+        }
+        self::$startedAt = hrtime(true);
+        self::$environment = self::relayEnvironment(getenv());
+    }
+
+    public static function readInvocation(): __YonFrame
+    {
+        $raw = YonSocket::framed() ? YonSocket::readFrame() : stream_get_contents(STDIN);
+        $request = new __YonFrame(json_decode($raw ?: '{}', true) ?? []);
+        self::captureInvocation($request->raw());
+        return $request;
+    }
+
+    private static function captureInvocation(array $raw): void
+    {
+        if (self::$deadline !== null || self::$startedAt === null) {
+            return;
+        }
+        $id = $raw['request_id'] ?? null;
+        if (is_string($id)) {
+            self::$requestId = $id;
+        }
+        self::$deadline = self::$startedAt + (int) (self::deadlineMilliseconds($raw) * 1000000);
+    }
+
+    public static function renewDeadline(): void
+    {
+        self::$deadline = hrtime(true) + self::DEFAULT_DEADLINE_MILLISECONDS * 1000000;
+    }
+
+    public static function timeLeftNanoseconds(): int
+    {
+        if (self::$deadline === null) {
+            return 0;
+        }
+        return self::$deadline - hrtime(true);
+    }
+
+    public static function environment(): array
+    {
+        return self::$environment;
+    }
+
+    public static function requestId(): string
+    {
+        return self::$requestId;
+    }
+
+    private static function relayEnvironment(array $environment): array
+    {
+        $kept = [];
+        foreach ($environment as $name => $value) {
+            $upper = strtoupper((string) $name);
+            if ($upper === 'YON_APPLICATION_JSON' || str_starts_with($upper, 'YON_RESOURCE_')) {
+                continue;
+            }
+            $kept[$name] = $value;
+        }
+        return $kept;
+    }
+
+    private static function deadlineMilliseconds(array $raw): float
+    {
+        $milliseconds = $raw['deadline_ms'] ?? null;
+        if (!is_int($milliseconds) && !is_float($milliseconds)) {
+            return self::DEFAULT_DEADLINE_MILLISECONDS;
+        }
+        if (!is_finite($milliseconds)) {
+            return self::DEFAULT_DEADLINE_MILLISECONDS;
+        }
+        return $milliseconds;
+    }
+}
+
+final class YonRelayExchange
+{
+    private const MAX_STDOUT_BYTES = 16 * 1024 * 1024;
+    private const MAX_STDERR_BYTES = 64 * 1024;
+    private const LONGEST_WAIT_MICROSECONDS = 100000;
+    private const EXIT_POLL_MICROSECONDS = 1000;
+    private const CHUNK_BYTES = 8192;
+    public string $stdout = '';
+    public bool $stdoutOverflow = false;
+    public bool $stderrOverflow = false;
+    private int $written = 0;
+    private int $stderrBytes = 0;
+
+    public function __construct(private array $pipes, private string $payload)
+    {
+        foreach ($this->pipes as $pipe) {
+            stream_set_blocking($pipe, false);
+        }
+    }
+
+    public function finishedInTime(mixed $process): bool
+    {
+        while (YonRelayContext::timeLeftNanoseconds() > 0) {
+            $read = $this->openOutputs();
+            $write = $this->pendingInput();
+            if ($read === [] && $write === []) {
+                if (!proc_get_status($process)['running']) {
+                    return true;
+                }
+                usleep(self::EXIT_POLL_MICROSECONDS);
+                continue;
+            }
+            $except = [];
+            if (@stream_select($read, $write, $except, 0, $this->waitMicroseconds()) === false) {
+                return false;
+            }
+            $this->writeInput($write);
+            $this->readOutputs($read);
+        }
+        return false;
+    }
+
+    public function closePipes(): void
+    {
+        foreach ($this->pipes as $pipe) {
+            if (is_resource($pipe)) {
+                fclose($pipe);
+            }
+        }
+    }
+
+    private function openOutputs(): array
+    {
+        $open = [];
+        foreach ([1, 2] as $number) {
+            $pipe = $this->pipes[$number] ?? null;
+            if (is_resource($pipe) && !feof($pipe)) {
+                $open[] = $pipe;
+            }
+        }
+        return $open;
+    }
+
+    private function pendingInput(): array
+    {
+        $input = $this->pipes[0] ?? null;
+        if (!is_resource($input) || $this->written >= strlen($this->payload)) {
+            return [];
+        }
+        return [$input];
+    }
+
+    private function waitMicroseconds(): int
+    {
+        $left = intdiv(max(0, YonRelayContext::timeLeftNanoseconds()), 1000);
+        return min(self::LONGEST_WAIT_MICROSECONDS, $left);
+    }
+
+    private function writeInput(array $ready): void
+    {
+        if ($ready === []) {
+            return;
+        }
+        $count = @fwrite($this->pipes[0], substr($this->payload, $this->written, self::CHUNK_BYTES));
+        if ($count === false) {
+            $this->closeInput();
+            return;
+        }
+        $this->written += $count;
+        if ($this->written >= strlen($this->payload)) {
+            $this->closeInput();
+        }
+    }
+
+    private function closeInput(): void
+    {
+        fclose($this->pipes[0]);
+        $this->pipes[0] = null;
+    }
+
+    private function readOutputs(array $ready): void
+    {
+        foreach ($ready as $pipe) {
+            $chunk = @fread($pipe, self::CHUNK_BYTES);
+            if ($chunk === false || $chunk === '') {
+                continue;
+            }
+            if ($pipe === $this->pipes[1]) {
+                $this->keepStdout($chunk);
+            } else {
+                $this->countStderr($chunk);
+            }
+        }
+    }
+
+    private function keepStdout(string $chunk): void
+    {
+        $remaining = self::MAX_STDOUT_BYTES - strlen($this->stdout);
+        if (strlen($chunk) > $remaining) {
+            $this->stdoutOverflow = true;
+        }
+        if ($remaining > 0) {
+            $this->stdout .= substr($chunk, 0, $remaining);
+        }
+    }
+
+    private function countStderr(string $chunk): void
+    {
+        $this->stderrBytes += strlen($chunk);
+        if ($this->stderrBytes > self::MAX_STDERR_BYTES) {
+            $this->stderrOverflow = true;
+        }
+    }
+}
+
 final class Yon
 {
-    private const MAX_RELAY_STDOUT_BYTES = 16 * 1024 * 1024;
-    private const MAX_RELAY_STDERR_BYTES = 64 * 1024;
+    private const FAILURE_MESSAGE = 'Component invocation failed.';
+    private const FALLBACK_HIGHEST_DESCRIPTOR = 255;
 
-    /**
-     * Runs a handler written in a language Yon does not run.
-     *
-     * Yon runs the eight languages that can declare a layer. Go, Ruby, Elixir
-     * and the rest cannot, so they are not routes — but they are still
-     * programs, and a program that speaks Handler Protocol v1 on standard
-     * input and output is exactly what Yon spawns anyway.
-     *
-     * The command is explicit rather than inferred from the file name: a
-     * compiled language has no interpreter to infer. The working directory is
-     * the project root, so a project-relative path reads as written.
-     *
-     * @param list<string> $command
-     */
-    public static function relay(array $command, YonRequest $request): YonResponse
+    public static function relay(array $command): void
+    {
+        $answer = json_decode(self::relayAnswer($command)->envelope(), true);
+        YonNativeHttp::write((int) $answer['status'], (array) $answer['headers'], (string) $answer['body']);
+    }
+
+    private static function relayAnswer(array $command): __YonAnswer
     {
         if ($command === []) {
-            return self::failed('A delegate command cannot be empty.');
+            return self::relayFailed('start');
         }
-        $windows = PHP_OS_FAMILY === 'Windows';
-        // PHP cannot select or make proc_open pipes non-blocking on Windows.
-        // Sending sideband output to the OS sink leaves one bounded response
-        // pipe to read and cannot expose delegate diagnostics to the client.
-        $descriptors = [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => $windows ? ['file', 'NUL', 'a'] : ['pipe', 'w'],
-        ];
-        // The array form, so nothing is passed through a shell: a route
-        // parameter that reached a command line would be an injection.
-        $process = @proc_open($command, $descriptors, $pipes);
+        if (YonRelayContext::timeLeftNanoseconds() <= 0) {
+            return self::relayFailed('timeout');
+        }
+        $process = @proc_open($command, self::descriptors(), $pipes, null, YonRelayContext::environment());
         if (!is_resource($process)) {
-            return self::failed('Delegate could not be started.');
+            return self::relayFailed('start');
         }
-        $payload = json_encode($request->raw()) ?: '{}';
-        $written = 0;
-        $stdout = '';
-        $stderrBytes = 0;
-        $stdoutOverflow = false;
-        $timedOut = false;
-
-        if ($windows) {
-            // The Rust supervisor owns the deadline and the Windows process
-            // group. With stderr detached, writing the bounded request before
-            // reading bounded stdout cannot form a cross-pipe deadlock.
-            while ($written < strlen($payload)) {
-                $count = @fwrite($pipes[0], substr($payload, $written, 8192));
-                if ($count === false || $count === 0) break;
-                $written += $count;
-            }
-            fclose($pipes[0]);
-            $pipes[0] = null;
-            $captured = @stream_get_contents($pipes[1], self::MAX_RELAY_STDOUT_BYTES + 1);
-            if ($captured !== false) $stdout = $captured;
-            $stdoutOverflow = strlen($stdout) > self::MAX_RELAY_STDOUT_BYTES;
-            if ($stdoutOverflow) $stdout = substr($stdout, 0, self::MAX_RELAY_STDOUT_BYTES);
-            if ($stdoutOverflow) @proc_terminate($process, 9);
-        } else {
-            foreach ($pipes as $pipe) {
-                stream_set_blocking($pipe, false);
-            }
-            $deadlineMs = max(1, min(300000, (int) ($request->raw()['deadline_ms'] ?? 30000)));
-            $deadline = microtime(true) + ($deadlineMs / 1000);
-
-            // All three pipes are serviced together. Sequential read-to-end can
-            // deadlock when the delegate fills stderr while the shim reads stdout.
-            while (true) {
-                $state = proc_get_status($process);
-                if (microtime(true) >= $deadline) {
-                    $timedOut = true;
-                    break;
-                }
-                $read = [];
-                if (is_resource($pipes[1]) && !feof($pipes[1])) $read[] = $pipes[1];
-                if (is_resource($pipes[2]) && !feof($pipes[2])) $read[] = $pipes[2];
-                $write = [];
-                if (is_resource($pipes[0]) && $written < strlen($payload)) $write[] = $pipes[0];
-                if (!$state['running'] && $read === [] && $write === []) break;
-                if ($read === [] && $write === []) {
-                    usleep(1000);
-                    continue;
-                }
-                $except = [];
-                $selected = @stream_select($read, $write, $except, 0, 100000);
-                if ($selected === false) {
-                    $timedOut = true;
-                    break;
-                }
-                foreach ($write as $pipe) {
-                    $count = @fwrite($pipe, substr($payload, $written, 8192));
-                    if ($count === false) {
-                        fclose($pipes[0]);
-                        $pipes[0] = null;
-                        break;
-                    }
-                    $written += $count;
-                    if ($written >= strlen($payload)) {
-                        fclose($pipes[0]);
-                        $pipes[0] = null;
-                    }
-                }
-                foreach ($read as $pipe) {
-                    $chunk = @fread($pipe, 8192);
-                    if ($chunk === false || $chunk === '') continue;
-                    if ($pipe === $pipes[1]) {
-                        $remaining = self::MAX_RELAY_STDOUT_BYTES - strlen($stdout);
-                        if (strlen($chunk) > $remaining) $stdoutOverflow = true;
-                        if ($remaining > 0) $stdout .= substr($chunk, 0, $remaining);
-                    } else {
-                        // Stderr is drained but never reflected. Keep only a
-                        // bounded count so a hostile delegate cannot grow memory.
-                        $stderrBytes = min(
-                            self::MAX_RELAY_STDERR_BYTES,
-                            $stderrBytes + strlen($chunk)
-                        );
-                    }
-                }
-            }
+        $exchange = new YonRelayExchange($pipes, json_encode(YonNativeHttp::message()) ?: '{}');
+        $finished = $exchange->finishedInTime($process);
+        if (!$finished) {
+            @proc_terminate($process, 9);
         }
-        if ($timedOut) @proc_terminate($process, 9);
-        foreach ($pipes as $pipe) {
-            if (is_resource($pipe)) fclose($pipe);
-        }
+        $exchange->closePipes();
         $status = @proc_close($process);
-        if ($timedOut || $stdoutOverflow || $status !== 0) {
-            return self::failed('Delegate invocation failed.');
+        if (!$finished) {
+            return self::relayFailed('timeout');
         }
-        $envelope = json_decode($stdout, true);
-        if (!is_array($envelope)) {
-            return self::failed('Delegate returned an invalid response.');
+        if ($exchange->stdoutOverflow || $exchange->stderrOverflow) {
+            return self::relayFailed('overflow');
         }
-        $response = YonResponse::json((string) ($envelope['body'] ?? ''))
-            ->status((int) ($envelope['status'] ?? 200));
-        // The headers the delegate set replace the assumed content type,
-        // because a delegate that answered with a header meant that header.
-        if (($envelope['headers'] ?? []) !== []) {
+        if ($status !== 0) {
+            return self::relayFailed('exit');
+        }
+        return self::responseFromOutput($exchange->stdout);
+    }
+
+    private static function descriptors(): array
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            return [0 => ['socket'], 1 => ['socket'], 2 => ['file', 'NUL', 'a']];
+        }
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        foreach (self::openDescriptorsAboveStandard() as $number) {
+            $descriptors[$number] = ['file', '/dev/null', 'r'];
+        }
+        return $descriptors;
+    }
+
+    private static function openDescriptorsAboveStandard(): array
+    {
+        foreach (['/proc/self/fd', '/dev/fd'] as $directory) {
+            $names = @scandir($directory);
+            if ($names === false) {
+                continue;
+            }
+            $numbers = [];
+            foreach ($names as $name) {
+                if (ctype_digit($name) && (int) $name > 2) {
+                    $numbers[] = (int) $name;
+                }
+            }
+            return $numbers;
+        }
+        return range(3, self::FALLBACK_HIGHEST_DESCRIPTOR);
+    }
+
+    private static function responseFromOutput(string $stdout): __YonAnswer
+    {
+        $decoded = json_decode($stdout);
+        if (!($decoded instanceof stdClass)) {
+            return self::relayFailed('protocol');
+        }
+        $envelope = get_object_vars($decoded);
+        $response = __YonAnswer::json(self::text($envelope['body'] ?? ''))
+            ->status(is_int($envelope['status'] ?? null) ? $envelope['status'] : 200);
+        $headers = get_object_vars(($envelope['headers'] ?? null) instanceof stdClass ? $envelope['headers'] : new stdClass());
+        if ($headers !== []) {
             $response = $response->headers([]);
         }
-        foreach ($envelope['headers'] ?? [] as $name => $values) {
+        foreach ($headers as $name => $values) {
             foreach (is_array($values) ? $values : [$values] as $value) {
-                $response = $response->header((string) $name, (string) $value);
+                $response = $response->header((string) $name, self::text($value));
             }
         }
         return $response;
     }
 
-    /**
-     * A delegate that could not be run answers 502, the same as any other
-     * upstream that did not reply. Reasons are deliberately generic: process
-     * errors and delegate stderr are diagnostics, never client response data.
-     */
-    private static function failed(string $reason): YonResponse
+    private static function text(mixed $value): string
     {
-        return YonResponse::json(json_encode(['error' => $reason]))->status(502);
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value) ?: '';
+        }
+        return (string) $value;
+    }
+
+    private static function relayFailed(string $category): __YonAnswer
+    {
+        fwrite(STDERR, json_encode([
+            'event' => 'handler.relay_failed',
+            'request_id' => YonRelayContext::requestId(),
+            'category' => $category,
+        ]) . "\n");
+        return __YonAnswer::json(json_encode(['error' => self::FAILURE_MESSAGE]))->status(502);
     }
 }
 
-/**
- * One streamed frame on standard output.
- *
- * A stream is length-prefixed where a single response is not: the reader has
- * to know where each frame ends, because more follow. `[4-byte big-endian
- * length][UTF-8 JSON]` is the shape the two adapters already write, and the
- * reader that consumes it never asks which language wrote it.
- */
 final class YonStream
 {
-    /** The reader refuses a larger frame, so refusing it here says why. */
     private const MAX_FRAME_BYTES = 16 * 1024 * 1024;
 
     public static function event(string $requestId, mixed $value): bool
     {
-        // The flags the other two adapters get for free. PHP escapes a forward
-        // slash and every non-ASCII character by default, so without them the
-        // same event was `{"route":"\/ticks"}` here and `{"route":"/ticks"}`
-        // in JavaScript — one value, two payloads.
         $data = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if ($data === false) {
             return self::failure($requestId, 'Streamed event is not JSON-encodable.');
@@ -318,11 +818,6 @@ final class YonStream
         ]);
     }
 
-    /**
-     * An error frame ends the stream. The reader turns it into a failure
-     * rather than presenting it as data, which is the difference between a
-     * handler that stopped and one that had nothing more to say.
-     */
     public static function failure(string $requestId, string $message): bool
     {
         self::frame($requestId, [
@@ -357,40 +852,240 @@ final class YonStream
             return false;
         }
         fwrite(STDOUT, pack('N', strlen($payload)) . $payload);
-        // Flushed per frame: a stream whose events arrive together at the end
-        // is a slow response wearing a stream's clothes.
         fflush(STDOUT);
         return true;
     }
 }
 
-// An undeclared method answers 405 without being written.
-$yon_request = new YonRequest(json_decode(stream_get_contents(STDIN) ?: '{}', true) ?? []);
-$yon_method = $yon_request->method();
-if (!method_exists('__YON_CONTROLLER__', $yon_method)) {
-    $yon_response = YonResponse::empty(405);
-} else {
-    $yon_response = __YON_CONTROLLER__::{$yon_method}($yon_request);
+interface YonSocketEndpoint
+{
+    public function open(SocketSession $session): void;
+    public function message(SocketSession $session, mixed $value): void;
+    public function close(SocketSession $session): void;
+    public function error(SocketSession $session, Throwable $error): void;
 }
 
-// A method that yields returns a Generator, and a Generator is a stream: each
-// value becomes one frame and end of stream is end of process, because the
-// reader takes EOF as the close.
-//
-// `#[Stream]` on the method is what told the server to read frames at all, and
-// Tachyon refuses the two to disagree — so a Generator here means the other end
-// is already reading them.
-if ($yon_response instanceof Generator) {
-    $yon_id = (string) ($yon_request->raw()['request_id'] ?? '');
-    try {
-        foreach ($yon_response as $yon_event) {
-            if (!YonStream::event($yon_id, $yon_event)) {
-                exit(0);
+final class SocketPeer
+{
+    public function __construct(private SocketSession $session, public readonly string $id) {}
+
+    public function send(mixed $message): void
+    {
+        $this->session->sendTo($message, $this->id);
+    }
+}
+
+final class SocketSession
+{
+    private array $inbox = [];
+    private bool $closed = false;
+    private ?array $sessions = null;
+
+    public function __construct(public readonly string $id) {}
+
+    public function send(mixed $message): void
+    {
+        $this->sendTo($message, null);
+    }
+
+    public function close(): void
+    {
+        $this->closed = true;
+        $this->write(['kind' => 'close']);
+    }
+
+    public function openSessions(): array
+    {
+        $this->sessions = null;
+        $this->write(['kind' => 'sessions']);
+        while ($this->sessions === null && !$this->closed) {
+            $this->receive();
+        }
+        return array_map(fn ($id) => new SocketPeer($this, (string) $id), $this->sessions ?? []);
+    }
+
+    public function sendTo(mixed $message, ?string $to): void
+    {
+        $data = json_encode($message, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $frame = ['kind' => 'event', 'body' => ['encoding' => 'utf8', 'data' => $data]];
+        if ($to !== null) {
+            $frame['to'] = $to;
+        }
+        $this->write($frame);
+    }
+
+    public function next(): ?string
+    {
+        while ($this->inbox === [] && !$this->closed) {
+            $this->receive();
+        }
+        return array_shift($this->inbox);
+    }
+
+    private function receive(): void
+    {
+        $raw = YonSocket::readFrame();
+        $frame = $raw === null ? null : json_decode($raw, true);
+        if (!is_array($frame)) {
+            $this->closed = true;
+            return;
+        }
+        if (($frame['request_id'] ?? null) !== $this->id) {
+            exit(70);
+        }
+        match ($frame['kind'] ?? null) {
+            'message' => $this->inbox[] = (string) ($frame['body']['data'] ?? 'null'),
+            'sessions' => $this->sessions = is_array($frame['sessions'] ?? null) ? $frame['sessions'] : [],
+            default => $this->closed = true,
+        };
+    }
+
+    private function write(array $frame): void
+    {
+        $frame['protocol_version'] = 1;
+        $frame['request_id'] = $this->id;
+        YonSocket::writeFrame(json_encode($frame, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+}
+
+final class YonSocket
+{
+    private const MAX_FRAME_BYTES = 16 * 1024 * 1024;
+
+    public static function framed(): bool
+    {
+        return getenv('YON_SOCKET_FRAMES') === '1';
+    }
+
+    public static function readFrame(): ?string
+    {
+        $prefix = self::readExactly(4);
+        if ($prefix === null) {
+            return null;
+        }
+        $length = unpack('N', $prefix)[1];
+        if ($length > self::MAX_FRAME_BYTES) {
+            exit(70);
+        }
+        return $length === 0 ? '' : self::readExactly($length);
+    }
+
+    private static function readExactly(int $length): ?string
+    {
+        $text = '';
+        while (strlen($text) < $length) {
+            $part = fread(STDIN, $length - strlen($text));
+            if ($part === false || $part === '') {
+                return null;
+            }
+            $text .= $part;
+        }
+        return $text;
+    }
+
+    public static function writeFrame(string $text): void
+    {
+        fwrite(STDOUT, pack('N', strlen($text)) . $text);
+        fflush(STDOUT);
+    }
+
+    public static function run(YonSocketEndpoint $endpoint, __YonFrame $request): never
+    {
+        $session = new SocketSession((string) ($request->raw()['request_id'] ?? ''));
+        self::attempt($endpoint, $session, fn () => $endpoint->open($session));
+        while (($message = $session->next()) !== null) {
+            self::attempt($endpoint, $session, fn () => $endpoint->message($session, json_decode($message, true)));
+        }
+        try {
+            YonRelayContext::renewDeadline();
+            $endpoint->close($session);
+        } catch (Throwable) {
+        }
+        exit(0);
+    }
+
+    private static function attempt(YonSocketEndpoint $endpoint, SocketSession $session, callable $action): void
+    {
+        try {
+            YonRelayContext::renewDeadline();
+            $action();
+        } catch (Throwable $failure) {
+            fwrite(STDERR, json_encode([
+                'event' => 'handler.socket_failed',
+                'request_id' => $session->id,
+                'message' => $failure->getMessage(),
+            ]) . "\n");
+            try {
+                YonRelayContext::renewDeadline();
+                $endpoint->error($session, $failure);
+            } catch (Throwable) {
             }
         }
-    } catch (Throwable $yon_failed) {
-        YonStream::failure($yon_id, $yon_failed->getMessage());
     }
-    exit(0);
 }
-echo $yon_response->envelope();
+
+final class YonMain
+{
+    public static function run(): void
+    {
+        YonRelayContext::captureStart();
+        $request = YonRelayContext::readInvocation();
+        YonNativeHttp::begin($request);
+        $response = self::invoke($request);
+        if ($response instanceof Generator) {
+            self::stream($request, $response);
+        }
+        $response = YonNativeHttp::answer($response, self::phase($request) !== null);
+        if (!($response instanceof __YonAnswer)) {
+            $response = __YonAnswer::json(json_encode(
+                $response, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            ));
+        }
+        echo $response->envelope();
+    }
+
+    private static function phase(__YonFrame $request): ?string
+    {
+        return match ((string) ($request->raw()['operation'] ?? '')) {
+            'middleware.before' => 'before',
+            'middleware.after' => 'after',
+            default => null,
+        };
+    }
+
+    private static function invoke(__YonFrame $request): mixed
+    {
+        $phase = self::phase($request);
+        if ($phase !== null) {
+            return method_exists('__YON_HANDLER__', $phase) ? __YON_HANDLER__::{$phase}() : null;
+        }
+        if (($request->raw()['operation'] ?? '') === 'event.deliver') {
+            return method_exists('__YON_HANDLER__', 'yonDeliver') ? __YON_HANDLER__::yonDeliver($request) : __YonAnswer::empty(404);
+        }
+        $method = $request->method();
+        if (!method_exists('__YON_HANDLER__', $method)) {
+            return __YonAnswer::empty(405);
+        }
+        if (defined('__YON_HANDLER__::YON_FRAMES')) {
+            return __YON_HANDLER__::{$method}($request);
+        }
+        return __YON_HANDLER__::{$method}();
+    }
+
+    private static function stream(__YonFrame $request, Generator $events): void
+    {
+        $id = (string) ($request->raw()['request_id'] ?? '');
+        try {
+            foreach ($events as $event) {
+                if (!YonStream::event($id, $event)) {
+                    exit(0);
+                }
+            }
+        } catch (Throwable) {
+            YonStream::failure($id, 'The handler stream failed.');
+        }
+        exit(0);
+    }
+}
+
+YonRelayContext::captureStart();

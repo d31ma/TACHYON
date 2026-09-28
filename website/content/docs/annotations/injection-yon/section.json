@@ -1,0 +1,391 @@
+{
+  "heading": "Injection: Yon",
+  "body": "GET /ledger returns {\"total\":42}. Three annotations connect every class to the classes it needs. Needs marks each field that the framework fills. The field must be an instance field, not static, and it must have no starting value. The framework fills the fields in the order that you declare them. The field itself decides which provider it gets. LedgerService declares one LedgerStore field. It writes no constructor and nothing else. When the field does not decide the provider, Named gives the provider's name directly. So you can give a field any words you want, written in the language's variable case (TY1332): lowerCamel case in most languages, snake_case in Python, Ruby and Rust, and an underscore with lowerCamel case for a private C# field, such as `_service`. In LedgerController, the fields service and settlement have Named(\"LedgerService\") and Named(\"LedgerHelper\"). If a name matches no provider in the entry scope, the build fails. Without Named, the field selects its provider in the way its language allows. JavaScript uses the lowerCamel field name, and Ruby uses the snake_case attr_reader name. Every other language uses the declared type. Lifetime takes one literal string: singleton, request or transient. A singleton is one instance that everything shares. A request-scoped instance lives for one request. A transient instance is new each time something needs it. Without Lifetime, a controller is request-scoped and everything else is a singleton. So you write Lifetime only to change that. Tachyon rejects a singleton that would depend, directly or through other providers, on a request-scoped provider.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/stores/LedgerStore.js",
+      "code": {
+        "file": "server/stores/LedgerStore.js"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.js",
+      "code": {
+        "file": "server/services/LedgerService.js"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.js",
+      "code": {
+        "file": "server/helpers/LedgerHelper.js"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.js",
+      "code": {
+        "file": "server/controllers/LedgerController.js"
+      }
+    },
+    {
+      "name": "server/models/Ledger.ts",
+      "code": {
+        "file": "server/models/Ledger.ts"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.ts",
+      "code": {
+        "file": "server/stores/LedgerStore.ts"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.ts",
+      "code": {
+        "file": "server/services/LedgerService.ts"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.ts",
+      "code": {
+        "file": "server/helpers/LedgerHelper.ts"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.ts",
+      "code": {
+        "file": "server/controllers/LedgerController.ts"
+      }
+    },
+    {
+      "name": "server/models/Ledger.py",
+      "code": {
+        "file": "server/models/Ledger.py"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.py",
+      "code": {
+        "file": "server/stores/LedgerStore.py"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.py",
+      "code": {
+        "file": "server/services/LedgerService.py"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.py",
+      "code": {
+        "file": "server/helpers/LedgerHelper.py"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.py",
+      "code": {
+        "file": "server/controllers/LedgerController.py"
+      }
+    },
+    {
+      "name": "server/models/Ledger.php",
+      "code": {
+        "file": "server/models/Ledger.php"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.php",
+      "code": {
+        "file": "server/stores/LedgerStore.php"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.php",
+      "code": {
+        "file": "server/services/LedgerService.php"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.php",
+      "code": {
+        "file": "server/helpers/LedgerHelper.php"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.php",
+      "code": {
+        "file": "server/controllers/LedgerController.php"
+      }
+    },
+    {
+      "name": "server/models/Ledger.java",
+      "code": {
+        "file": "server/models/Ledger.java"
+      }
+    },
+    {
+      "name": "server/models/Ledger.groovy",
+      "code": {
+        "file": "server/models/Ledger.groovy"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.java",
+      "code": {
+        "file": "server/stores/LedgerStore.java"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.groovy",
+      "code": {
+        "file": "server/stores/LedgerStore.groovy"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.java",
+      "code": {
+        "file": "server/services/LedgerService.java"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.groovy",
+      "code": {
+        "file": "server/services/LedgerService.groovy"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.java",
+      "code": {
+        "file": "server/helpers/LedgerHelper.java"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.groovy",
+      "code": {
+        "file": "server/helpers/LedgerHelper.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.java",
+      "code": {
+        "file": "server/controllers/LedgerController.java"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.groovy",
+      "code": {
+        "file": "server/controllers/LedgerController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Ledger.kt",
+      "code": {
+        "file": "server/models/Ledger.kt"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.kt",
+      "code": {
+        "file": "server/stores/LedgerStore.kt"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.kt",
+      "code": {
+        "file": "server/services/LedgerService.kt"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.kt",
+      "code": {
+        "file": "server/helpers/LedgerHelper.kt"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.kt",
+      "code": {
+        "file": "server/controllers/LedgerController.kt"
+      }
+    },
+    {
+      "name": "server/models/Ledger.cs",
+      "code": {
+        "file": "server/models/Ledger.cs"
+      }
+    },
+    {
+      "name": "server/models/Ledger.fs",
+      "code": {
+        "file": "server/models/Ledger.fs"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.cs",
+      "code": {
+        "file": "server/stores/LedgerStore.cs"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.fs",
+      "code": {
+        "file": "server/stores/LedgerStore.fs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.cs",
+      "code": {
+        "file": "server/services/LedgerService.cs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.fs",
+      "code": {
+        "file": "server/services/LedgerService.fs"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.cs",
+      "code": {
+        "file": "server/helpers/LedgerHelper.cs"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.fs",
+      "code": {
+        "file": "server/helpers/LedgerHelper.fs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.cs",
+      "code": {
+        "file": "server/controllers/LedgerController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.fs",
+      "code": {
+        "file": "server/controllers/LedgerController.fs"
+      }
+    },
+    {
+      "name": "server/models/Ledger.rs",
+      "code": {
+        "file": "server/models/Ledger.rs"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.rs",
+      "code": {
+        "file": "server/stores/LedgerStore.rs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.rs",
+      "code": {
+        "file": "server/services/LedgerService.rs"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.rs",
+      "code": {
+        "file": "server/helpers/LedgerHelper.rs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.rs",
+      "code": {
+        "file": "server/controllers/LedgerController.rs"
+      }
+    },
+    {
+      "name": "server/models/Ledger.go",
+      "code": {
+        "file": "server/models/Ledger.go"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.go",
+      "code": {
+        "file": "server/stores/LedgerStore.go"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.go",
+      "code": {
+        "file": "server/services/LedgerService.go"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.go",
+      "code": {
+        "file": "server/helpers/LedgerHelper.go"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.go",
+      "code": {
+        "file": "server/controllers/LedgerController.go"
+      }
+    },
+    {
+      "name": "server/models/Ledger.dart",
+      "code": {
+        "file": "server/models/Ledger.dart"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.dart",
+      "code": {
+        "file": "server/stores/LedgerStore.dart"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.dart",
+      "code": {
+        "file": "server/services/LedgerService.dart"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.dart",
+      "code": {
+        "file": "server/helpers/LedgerHelper.dart"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.dart",
+      "code": {
+        "file": "server/controllers/LedgerController.dart"
+      }
+    },
+    {
+      "name": "server/models/Ledger.rb",
+      "code": {
+        "file": "server/models/Ledger.rb"
+      }
+    },
+    {
+      "name": "server/stores/LedgerStore.rb",
+      "code": {
+        "file": "server/stores/LedgerStore.rb"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.rb",
+      "code": {
+        "file": "server/services/LedgerService.rb"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerHelper.rb",
+      "code": {
+        "file": "server/helpers/LedgerHelper.rb"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.rb",
+      "code": {
+        "file": "server/controllers/LedgerController.rb"
+      }
+    }
+  ]
+}

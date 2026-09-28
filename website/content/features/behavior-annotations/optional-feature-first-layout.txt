@@ -1,0 +1,17 @@
+client/pages/products/tac.html                        <products-page hydrate="load" />
+client/components/products/page/tac.html              {products.offset}
+client/services/ProductsService.ts
+client/setups/ApplicationSetup.ts
+server/routes/products/yon.ts
+server/services/ProductsService.ts
+server/routes/products/controllers/ProductsController.ts
+
+Role annotations require a type suffix, exact matching filename and immediate
+plural role folder. One primary role type belongs in each file. Modifiers
+(CacheSettings, Setting, Table, CatalogSettings, etc.) do not rename the type.
+Role files are discovered in their realm's shared role folders:
+client/<role>s for Tac and server/<role>s for Yon; only controllers
+stay beside their route. Unannotated
+helpers do not register or create a global container. Ordinary unannotated
+helpers remain ordinary code; native Tac keeps its service type first.
+See the Strict annotation layout guide for all supported languages.

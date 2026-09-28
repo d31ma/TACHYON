@@ -1,0 +1,16 @@
+@Test(ChatTestSetup, {"partition":"tests"})
+export default class ChatControllerTest {
+  async testOnOpenWelcomesTheSession() {
+    const sent = []
+    await this.construct(ChatController).onOpen({ send: async (message) => sent.push(message) })
+    if (sent[0].text !== 'Welcome to the room') throw Error(`sent ${JSON.stringify(sent)}`)
+  }
+
+  async testOnMessageSendsToEveryOpenSession() {
+    const sent = []
+    const peer = { send: async (message) => sent.push(message) }
+    const session = { openSessions: async () => [peer, peer] }
+    await this.construct(ChatController).onMessage(session, { text: 'Hi' })
+    if (sent.length !== 2) throw Error(`sent ${JSON.stringify(sent)}`)
+  }
+}

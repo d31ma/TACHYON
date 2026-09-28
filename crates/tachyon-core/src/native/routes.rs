@@ -1,38 +1,15 @@
-//! What a native host needs to know about a project's routes.
-//!
-//! This replaced a planner that lowered every view into per-platform widgets.
-//! The ambition there was that a Tac view would become real `SwiftUI`, GTK,
-//! Win32 and Android controls, with a web fallback wherever no adapter
-//! existed. Dogfooding the framework's own site settled it: five routes
-//! produced two adapters — a column and a line of text — against twenty-three
-//! fallbacks, because a real design is built from components the adapter table
-//! has never heard of. Every one of those fallbacks then had to be given an
-//! accessible name it did not need, and the result still looked nothing like
-//! the site.
-//!
-//! A native target now hosts the application's own web bundle, so it renders
-//! exactly as the browser does and looks the same on every platform. Matching
-//! the operating system's own controls is a choice the developer makes with
-//! whichever cross-platform UI they already use, not something the framework
-//! imposes and then approximates.
-//!
-//! What is left is this: which routes exist, and which document each one
-//! loads.
-
 use crate::Failure;
 use crate::failure::diagnostic;
 use serde::Serialize;
+use std::cmp::Ordering;
 use std::fmt::Write as _;
 
-/// One route a native host can open.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(super) struct NativeRouteIndexEntry {
     pub(super) route: String,
-    /// The document to load, relative to the staged `WebBundle`.
     pub(super) document: String,
 }
 
-/// The routes a native application ships, and where each one lives.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(super) struct NativeRouteIndex {
     pub(super) contract_version: u8,
@@ -42,122 +19,117 @@ pub(super) struct NativeRouteIndex {
 }
 
 impl NativeRouteIndex {
-    /// Builds the index from the route graph and the web bundle it produced.
-    ///
-    /// # Errors
-    ///
-    /// Returns a diagnostic when the entry route names no document, which
-    /// leaves the host with nothing to open.
     pub(super) fn build(routes: &[crate::RouteNode], entry_route: &str) -> Result<Self, Failure> {
-        let mut entries: Vec<NativeRouteIndexEntry> = routes
-            .iter()
-            .filter_map(|route| {
-                route
-                    .template_output_path()
-                    .map(|output| NativeRouteIndexEntry {
-                        route: String::from(route.route()),
-                        document: crate::compiler::portable_path(std::path::Path::new(&output)),
-                    })
-            })
-            .collect();
+        let mut entries = Vec::new();
+        for route in routes {
+            let Some(output) = route.template_output_path() else {
+                continue;
+            };
+            entries.push(NativeRouteIndexEntry {
+                route: String::from(route.route()),
+                document: crate::compiler::portable_path(std::path::Path::new(&output)),
+            });
+        }
         entries.sort_by(|left, right| left.route.cmp(&right.route));
-
-        let entry_document = entries
-            .iter()
-            .find(|entry| entry.route == entry_route)
-            .map(|entry| entry.document.clone())
-            .ok_or_else(|| {
-                Failure::one(diagnostic(
-                    1601,
-                    format!("Native entry route '{entry_route}' has no document to open."),
-                    Some(String::from(
-                        "Point entryRoute at a route with a tac.html, so the \
-                         application has something to load.",
-                    )),
-                    None,
-                ))
-            })?;
-
+        let entry_document = Self::entry_document(&entries, entry_route)?;
         Ok(Self {
-            // Version 2 drops the Native UI tree: a host loads a document
-            // rather than rebuilding the view out of platform widgets.
             contract_version: 2,
             entry_route: String::from(entry_route),
             entry_document,
             routes: entries,
         })
     }
+
+    fn entry_document(
+        entries: &[NativeRouteIndexEntry],
+        entry_route: &str,
+    ) -> Result<String, Failure> {
+        for entry in entries {
+            if entry.route == entry_route {
+                return Ok(entry.document.clone());
+            }
+        }
+        Err(Failure::one(diagnostic(
+            1601,
+            format!("Native entry route '{entry_route}' has no document to open."),
+            Some(String::from(
+                "Point start_url in client/manifest.json at a route with a \
+                 tac.html, so the application has something to load.",
+            )),
+            None,
+        )))
+    }
 }
 
-/// Generates only escaped, compiler-owned route/document pairs for Apple hosts.
 pub(super) fn swift_routes(index: &NativeRouteIndex) -> String {
-    let pairs = index
-        .routes
-        .iter()
-        .map(|entry| {
-            format!(
-                "\"{}\": \"{}\"",
-                super::host::quoted_string_escape(&entry.route),
-                super::host::quoted_string_escape(&entry.document)
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("[{pairs}]")
+    let mut pairs = Vec::new();
+    for entry in &index.routes {
+        let route = super::host::quoted_string_escape(&entry.route);
+        let document = super::host::quoted_string_escape(&entry.document);
+        pairs.push(format!("\"{route}\": \"{document}\""));
+    }
+    format!("[{}]", pairs.join(", "))
 }
 
 pub(super) fn route_documents_json(index: &NativeRouteIndex) -> String {
-    let map = index
-        .routes
-        .iter()
-        .map(|entry| (&entry.route, &entry.document))
-        .collect::<std::collections::BTreeMap<_, _>>();
-    serde_json::to_string(&map).unwrap_or_else(|_| String::from("{}"))
+    let mut documents = std::collections::BTreeMap::new();
+    for entry in &index.routes {
+        documents.insert(&entry.route, &entry.document);
+    }
+    serde_json::to_string(&documents).unwrap_or_else(|_| String::from("{}"))
 }
 
-/// Emits bounded local-origin routing shared by the C `WebView` hosts.
 pub(super) fn c_local_bundle(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
     origin: &str,
 ) -> String {
     let mut entries = index.routes.iter().collect::<Vec<_>>();
-    entries.sort_by(|left, right| {
-        right
-            .route
-            .split('/')
-            .count()
-            .cmp(&left.route.split('/').count())
-            .then_with(|| {
-                left.route
-                    .matches("/_")
-                    .count()
-                    .cmp(&right.route.matches("/_").count())
-            })
-            .then_with(|| left.route.cmp(&right.route))
-    });
-    let entries = entries
-        .into_iter()
-        .fold(String::new(), |mut output, entry| {
-            let language = companions
-                .iter()
-                .find(|item| item.route == entry.route)
-                .map_or(0, |item| match item.language {
-                    crate::project::NativeCompanion::Rust => 1,
-                    crate::project::NativeCompanion::CSharp => 2,
-                    _ => 0,
-                });
-            let _ = writeln!(
-                output,
-                "  {{\"{}\", \"{}\", {language}}},",
-                super::host::c_string_escape(&entry.route),
-                super::host::c_string_escape(&entry.document)
-            );
-            output
-        });
+    entries.sort_by(|left, right| c_route_order(left, right));
+    let language = c_companion_language(companions);
+    let mut routes = String::new();
+    for entry in entries {
+        let _ = writeln!(
+            routes,
+            "  {{\"{}\", \"{}\", {language}}},",
+            super::host::c_string_escape(&entry.route),
+            super::host::c_string_escape(&entry.document)
+        );
+    }
     include_str!("local_bundle.h")
         .replace("__LOCAL_ORIGIN__", origin)
-        .replace("__LOCAL_ROUTES__", &entries)
+        .replace("__LOCAL_ROUTES__", &routes)
+}
+
+fn c_route_order(left: &NativeRouteIndexEntry, right: &NativeRouteIndexEntry) -> Ordering {
+    let left_segments = left.route.split('/').count();
+    let right_segments = right.route.split('/').count();
+    let deeper_first = right_segments.cmp(&left_segments);
+    if deeper_first != Ordering::Equal {
+        return deeper_first;
+    }
+    let fewer_parameters_first = parameter_count(&left.route).cmp(&parameter_count(&right.route));
+    if fewer_parameters_first != Ordering::Equal {
+        return fewer_parameters_first;
+    }
+    left.route.cmp(&right.route)
+}
+
+fn parameter_count(route: &str) -> usize {
+    route.matches("/_").count()
+}
+
+fn c_companion_language(companions: &[super::registry::NativeCompanionInput]) -> u8 {
+    let mut language = 0;
+    for item in companions {
+        let item_language = match item.language {
+            crate::project::NativeCompanion::Rust => 1,
+            crate::project::NativeCompanion::CSharp => 2,
+            _ => 0,
+        };
+        language = language.max(item_language);
+    }
+    language
 }
 
 #[cfg(test)]
@@ -165,40 +137,40 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::NativeRouteIndex;
+    #[cfg(unix)]
+    use super::NativeRouteIndexEntry;
 
     #[test]
     fn an_entry_route_without_a_document_is_a_diagnostic() {
-        // A host with nothing to open is a window that never draws, and the
-        // build is the last place that can say so.
         let failure = NativeRouteIndex::build(&[], "/").expect_err("no routes");
         assert!(failure.to_string().contains("TY1601"), "{failure}");
     }
 
     #[cfg(unix)]
-    #[test]
-    fn c_host_route_boundary_executes_against_hostile_urls_and_payloads() {
-        let directory = tempfile::tempdir().expect("C boundary fixture");
-        let index = NativeRouteIndex {
+    fn route(route: &str, document: &str) -> NativeRouteIndexEntry {
+        NativeRouteIndexEntry {
+            route: String::from(route),
+            document: String::from(document),
+        }
+    }
+
+    #[cfg(unix)]
+    fn boundary_index() -> NativeRouteIndex {
+        NativeRouteIndex {
             contract_version: 2,
             entry_route: String::from("/"),
             entry_document: String::from("index.html"),
             routes: vec![
-                super::NativeRouteIndexEntry {
-                    route: String::from("/"),
-                    document: String::from("index.html"),
-                },
-                super::NativeRouteIndexEntry {
-                    route: String::from("/items/_id"),
-                    document: String::from("items/_id/index.html"),
-                },
-                super::NativeRouteIndexEntry {
-                    route: String::from("/items/special"),
-                    document: String::from("items/special/index.html"),
-                },
+                route("/", "index.html"),
+                route("/items/_id", "items/_id/index.html"),
+                route("/items/special", "items/special/index.html"),
             ],
-        };
-        let helper = super::c_local_bundle(&index, &[], "https://tachyon.local");
-        let harness = r#"
+        }
+    }
+
+    #[cfg(unix)]
+    fn boundary_harness() -> &'static str {
+        r#"
 int main(void) {
   char path[4096], output[4096];
   assert(tachyon_local_path("https://tachyon.local/items/7/?q=1",path,sizeof(path)));
@@ -219,7 +191,26 @@ int main(void) {
   assert(tachyon_payload_string_matches("{\"op\":\"init\",\"route\":\"/\"}","op","init"));
   return 0;
 }
-"#;
+"#
+    }
+
+    #[cfg(unix)]
+    fn compile_c(source: &std::path::Path, binary: &std::path::Path) -> std::process::Output {
+        std::process::Command::new("cc")
+            .args(["-std=c17", "-Wall", "-Wextra", "-Werror"])
+            .arg(source)
+            .arg("-o")
+            .arg(binary)
+            .output()
+            .expect("compile C boundary")
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn c_host_route_boundary_executes_against_hostile_urls_and_payloads() {
+        let directory = tempfile::tempdir().expect("C boundary fixture");
+        let helper = super::c_local_bundle(&boundary_index(), &[], "https://tachyon.local");
+        let harness = boundary_harness();
         let source = directory.path().join("boundary.c");
         let binary = directory.path().join("boundary");
         std::fs::write(
@@ -229,23 +220,15 @@ int main(void) {
             ),
         )
         .expect("fixture");
-        let compile = std::process::Command::new("cc")
-            .args(["-std=c17", "-Wall", "-Wextra", "-Werror"])
-            .arg(&source)
-            .arg("-o")
-            .arg(&binary)
-            .output()
-            .expect("compile C boundary");
+        let compile = compile_c(&source, &binary);
         assert!(
             compile.status.success(),
             "{}",
             String::from_utf8_lossy(&compile.stderr)
         );
-        assert!(
-            std::process::Command::new(&binary)
-                .status()
-                .expect("C boundary execution")
-                .success()
-        );
+        let run = std::process::Command::new(&binary)
+            .status()
+            .expect("C boundary execution");
+        assert!(run.success());
     }
 }

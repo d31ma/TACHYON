@@ -1,0 +1,7 @@
+{
+  "heading": "Middleware",
+  "body": "Tachyon calls a `middleware.<ext>` file at the project root before every request and after every response. The file holds one class named `Middleware`. Tachyon calls its `before(request)` before the route and its `after(request)` after the route. It does this for every request, whatever its HTTP method. `request` is the request in the language's own type, such as a Fetch `Request`, `HttpExchange` or `http::Request`. PHP has no request object and reads `$_SERVER`, `$_GET`, `$_COOKIE` and `php://input`. If the class has no `before` or no `after`, that phase lets the request pass. A method that answers nothing lets the request pass too. A 204 answer continues, and in the after phase its headers are added to the response. Any other status answers the request or replaces the response. The answer is the language's own response, such as a Fetch `Response`, an `(HTTPStatus, headers, body)` tuple in Python, `http_response_code()`, `header()` and `echo` in PHP, or a write on the `HttpExchange` in Java and Kotlin. You can write root middleware in any Yon language. Any other class in a middleware file fails with `TY1310`. Middleware does not decide who may call a route: every route says it with Public, SignedIn or Allow(Role), and one IdentityProvider class says who is signed in (see Who may call a route).",
+  "code": {
+    "file": "example.txt"
+  }
+}

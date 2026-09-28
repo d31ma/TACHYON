@@ -1,0 +1,33 @@
+How a controller is started
+
+  .js, .ts    a built-in adapter, on a capable runtime
+  .py         a built-in adapter
+  .php        php-cgi, with an early bootstrap and protocol entry
+  .java       JEP 330 single-file source launch
+  .rs         rustc plus the protocol prelude
+  .kt         kotlinc, then java -jar
+  .cs         a generated project built with dotnet
+  .go         go build plus the protocol prelude
+  .dart       dart compile aot-snapshot plus the protocol prelude
+  .rb         a built-in adapter, on Ruby 3.3 or newer
+
+Runtime selection belongs to the deployment:
+
+  YON_JAVASCRIPT_RUNTIME=/usr/bin/node ty start
+  YON_PYTHON_RUNTIME=/usr/bin/python3.13 ty start
+  YON_RUBY_RUNTIME=/usr/local/bin/ruby ty start
+
+Node is the default JavaScript runtime. Overrides must support the
+authored JavaScript or TypeScript syntax and pass the capability probe.
+
+Every language uses the same annotations. Tachyon reads the method
+signature and the models, and checks the request before the method runs.
+No framework imports, runtime annotation libraries,
+base classes, registration calls, or third-party packages are required.
+Every controller file holds one class and its imports. Shared
+Service and Store classes live in separate role files, and the
+compiler composes them into one generated program. Models (data
+types) belong in server/models/; plain helpers belong in shared/.
+
+Programs outside the eleven Yon languages are reached explicitly with
+relay(command, request), where request is the language's own request.

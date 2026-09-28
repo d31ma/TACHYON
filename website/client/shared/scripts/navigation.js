@@ -1,57 +1,53 @@
-// @ts-nocheck -- validated by the Tachyon compiler and website contract gates.
-// The documentation's shape, in one place.
-//
-// The sidebar, the catalogue index, the guide pages and the feature pages all
-// need the same answers: which sections exist, what is in them, and what comes
-// next. Each used to derive that itself, and the sidebar's group order was
-// already a second copy of a list the data does not carry.
+// @ts-nocheck
 import docs from '/shared/data/docs.json' with { type: 'json' }
 import catalogue from '/shared/data/features.json' with { type: 'json' }
 
-/** The order feature groups are shown in, which the data does not carry. */
-const GROUP_ORDER = [
-  'Routing',
-  'Tac views',
-  'Browser storage',
-  'Polyglot',
-  'Yon server',
-  'Native',
-  'Tooling',
-]
-
-/** A URL-safe fragment of a human name, used for group anchors and ids. */
-export const slugify = (value) =>
-  String(value)
+export function slugify(value) {
+  return String(value)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
+}
 
-/** Every guide, in reading order. */
-export const guides = () =>
-  docs.order.map((slug) => ({
+export function guides() {
+  return docs.order.map((slug) => ({
     slug,
     title: docs.topics[slug].title,
     summary: docs.topics[slug].summary,
     path: `/docs/${slug}`,
   }))
+}
 
-export const guide = (slug) => docs.topics[slug]
+export function guide(slug) {
+  return docs.topics[slug]
+}
 
-/** Every feature, in the order the catalogue declares them. */
-export const features = () =>
-  catalogue.features.map((feature) => ({ ...feature, path: `/docs/features/${feature.id}` }))
+export function redirect(slug, hash = '') {
+  const target = docs.redirects?.[slug]
+  if (!target) return undefined
+  const anchor = hash.replace(/^#/, '')
+  const holdsAnchor = (key) => docs.topics[key].sections.some((section) => slugify(section.heading) === anchor)
+  const holder = anchor ? docs.order.find(holdsAnchor) : undefined
+  return `/docs/${holder ?? target}${hash}`
+}
 
-export const feature = (id) => features().find((entry) => entry.id === id)
+export function features() {
+  return catalogue.features.map((feature) => ({ ...feature, path: `/docs/features/${feature.id}` }))
+}
 
-/**
- * The static documentation search index.
- *
- * Amplify publishes the web bundle without the optional Yon server, so the
- * browser needs the same authored corpus as a fallback when `/api/search` is
- * unavailable. Keeping the index beside the navigation data also makes it
- * available offline through the service worker.
- */
-const searchRows = () => {
+export function feature(id) {
+  return features().find((entry) => entry.id === id)
+}
+
+function joinText(parts) {
+  return parts.filter(Boolean).join('\n')
+}
+
+function codeOf(files) {
+  return (files ?? []).map((file) => file.code)
+}
+
+function searchRows() {
   const rows = []
   for (const entry of guides()) {
     const topic = guide(entry.slug)
@@ -62,8 +58,7 @@ const searchRows = () => {
         title: `${entry.title} · ${section.heading}`,
         path: `${entry.path}#${anchor}`,
         kind: 'section',
-        text: [section.body, section.code, ...(section.files ?? []).map((file) => file.code)]
-          .filter(Boolean).join('\n'),
+        text: joinText([section.body, section.code, ...codeOf(section.files)]),
       })
     }
   }
@@ -72,52 +67,58 @@ const searchRows = () => {
       title: entry.title,
       path: entry.path,
       kind: 'feature',
-      text: [entry.summary, entry.group, ...(entry.files ?? []).map((file) => file.code)]
-        .filter(Boolean).join('\n'),
+      text: joinText([entry.summary, entry.group, ...codeOf(entry.files)]),
     })
   }
   return rows
 }
 
-/** Search published documentation without requiring the optional Yon layer. */
-export const searchDocs = (query, maximum = 12) => {
-  const needle = String(query ?? '').trim().toLowerCase()
-  if (needle.length < 2) return []
-  return searchRows()
-    .map((row) => {
-      const title = row.title.toLowerCase()
-      const text = String(row.text ?? '').toLowerCase()
-      const rank = title.includes(needle) ? (title.startsWith(needle) ? 3 : 2) : (text.includes(needle) ? 1 : 0)
-      return { row, rank }
-    })
-    .filter((hit) => hit.rank > 0)
-    .sort((left, right) => right.rank - left.rank || left.row.title.length - right.row.title.length)
-    .slice(0, maximum)
-    .map(({ row }) => ({ title: row.title, path: row.path, kind: row.kind }))
+function matchRank(row, searchTerm) {
+  const title = row.title.toLowerCase()
+  if (title.startsWith(searchTerm)) return 3
+  if (title.includes(searchTerm)) return 2
+  const text = String(row.text ?? '').toLowerCase()
+  if (text.includes(searchTerm)) return 1
+  return 0
 }
 
-/** The feature groups, each with the features in it. */
-export const groups = () =>
-  GROUP_ORDER.map((name) => ({
-    name,
-    slug: slugify(name),
-    features: features().filter((entry) => entry.group === name),
-  })).filter((group) => group.features.length > 0)
+function byRankThenShorterTitle(left, right) {
+  return right.rank - left.rank || left.row.title.length - right.row.title.length
+}
 
-/**
- * Every documentation page, in one flat reading order.
- *
- * The pager walks this rather than a per-section list, so the last guide leads
- * into the first feature instead of into nothing — which is what made the old
- * pager stop halfway through the documentation.
- */
-export const reading = () => [
-  ...guides().map((entry) => ({ title: entry.title, path: entry.path })),
-  ...groups().flatMap((group) => group.features.map((entry) => ({ title: entry.title, path: entry.path }))),
-]
+export const searchDocs = (query, maximum = 12) => {
+  const searchTerm = String(query ?? '').trim().toLowerCase()
+  if (searchTerm.length < 2) return []
+  const hits = []
+  for (const row of searchRows()) {
+    const rank = matchRank(row, searchTerm)
+    if (rank > 0) hits.push({ row, rank })
+  }
+  hits.sort(byRankThenShorterTitle)
+  const bestHits = hits.slice(0, maximum)
+  return bestHits.map(({ row }) => ({ title: row.title, path: row.path, kind: row.kind }))
+}
 
-/** What comes before and after one path in that order. */
-export const neighbours = (path) => {
+export function groups() {
+  const result = []
+  for (const name of catalogue.groups) {
+    const members = features().filter((entry) => entry.group === name)
+    if (members.length > 0) result.push({ name, slug: slugify(name), features: members })
+  }
+  return result
+}
+
+function titleAndPath(entry) {
+  return { title: entry.title, path: entry.path }
+}
+
+export function reading() {
+  const pages = guides().map(titleAndPath)
+  for (const group of groups()) pages.push(...group.features.map(titleAndPath))
+  return pages
+}
+
+export function neighbours(path) {
   const order = reading()
   const index = order.findIndex((entry) => entry.path === path)
   return {
@@ -126,8 +127,10 @@ export const neighbours = (path) => {
   }
 }
 
-/** The current path without its trailing slash, so `/docs/tac/` matches. */
-export const currentPath = () => location.pathname.replace(/(.)\/+$/, '$1')
+export function currentPath() {
+  return location.pathname.replace(/(.)\/+$/, '$1')
+}
 
-/** The last segment of the current path, which is a guide slug or feature id. */
-export const currentSlug = () => currentPath().split('/').filter(Boolean).pop() ?? ''
+export function currentSlug() {
+  return currentPath().split('/').filter(Boolean).pop() ?? ''
+}

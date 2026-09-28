@@ -1,0 +1,8 @@
+[Test(typeof(CSharpGreetingTestSetup), {"partition":"tests"})]
+sealed class CSharpGreetingServiceTest {
+    void testGreetChangesTheMessage() {
+        var greeting = new CSharpGreetingService();
+        greeting.Greet();
+        if (greeting.Message != "C# says hello again.") throw new System.Exception("message is " + greeting.Message);
+    }
+}

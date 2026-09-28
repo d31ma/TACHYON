@@ -1,0 +1,8 @@
+@Test(DartGreetingTestSetup, {"partition":"tests"})
+class DartGreetingServiceTest {
+  Future<void> testGreetChangesTheMessage() async {
+    final greeting = DartGreetingService();
+    greeting.greet();
+    if (greeting.message != 'Dart says hello again.') throw StateError('message is ${greeting.message}');
+  }
+}

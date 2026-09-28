@@ -1,0 +1,17 @@
+Window controls a desktop page may be granted
+
+  close        dismiss the window
+  fullscreen   toggle full screen
+  maximize     zoom to fill the display
+  minimize     send to the dock or taskbar
+  resize       set width and height
+  title        set the window title
+
+Empty by default. Ungranted controls are not exposed to the page,
+and the host checks the declared grants before executing a request.
+Test for a tachyonWindow function before calling it; platform support
+may differ. This policy does not sandbox the application's native
+services, which run with the host's OS privileges.
+
+The grant list lives in manifest.json beside the application's name,
+icons and entry route. Unknown control names fail at build time.

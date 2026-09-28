@@ -19,20 +19,19 @@ __pycache__/
 .gemini/
 package-lock.json
 
-# cargo-fuzz writes content-addressed corpus entries beside the reviewed seeds.
 fuzz/corpus/*/*
 !fuzz/corpus/*/seed-*
 
-# Graphify
 .graphify*
 graphify-out/
 CLAUDE.md
 .github/copilot-instructions.md
 
-# Persistent prerender cache output (opt-in TAC_PRERENDER_CACHE)
 .tac-cache/
 
 .codex
 .vscode
 node_modules/
 package-lock.json
+
+/runtimes/ruby-web/tachyon-ruby.wasm

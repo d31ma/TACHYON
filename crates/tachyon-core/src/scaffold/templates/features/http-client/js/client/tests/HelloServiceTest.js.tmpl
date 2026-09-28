@@ -1,0 +1,12 @@
+@Test(HelloTestSetup, {"partition":"tests"})
+export default class HelloServiceTest {
+  @Fake
+  helloClient
+
+  async testAskServerSavesTheMessage() {
+    this.helloClient = { getHello: async () => ({ message: 'Hi' }) }
+    const hello = this.construct(HelloService)
+    await hello.askServer()
+    if (hello.message !== 'Hi') throw Error(`message is ${hello.message}`)
+  }
+}

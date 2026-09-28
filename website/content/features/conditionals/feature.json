@@ -1,0 +1,21 @@
+{
+  "id": "conditionals",
+  "title": "Conditionals",
+  "summary": "There is only one way to write a condition: `<logic>`. A chain of branches uses `:if`, `:else-if` and an `else` attribute with no value.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/stock/status/tac.html",
+      "code": { "file": "client/components/stock/status/tac.html" }
+    },
+    {
+      "name": "client/services/StockService.js",
+      "code": { "file": "client/services/StockService.js" }
+    }
+  ],
+  "verify": "tac"
+}

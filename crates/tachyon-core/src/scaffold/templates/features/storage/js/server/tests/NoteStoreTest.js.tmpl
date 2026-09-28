@@ -1,0 +1,12 @@
+@Test(NoteTestSetup, {"partition":"tests"})
+export default class NoteStoreTest {
+  @Fake
+  dataSource
+
+  async testCountNotesRunsOneQuery() {
+    const queries = []
+    this.dataSource = { query: (sql) => queries.push(sql) }
+    this.construct(NoteStore).countNotes()
+    if (queries.length !== 1) throw Error(`queries are ${JSON.stringify(queries)}`)
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "heading": "Streaming",
+  "body": "StreamRoute marks a controller method that answers GET requests with a stream. The method yields values from a private generator that holds the loop. Each value becomes one limited server-sent event, a message that the server pushes over an open HTTP response. When the method finishes, the server sends an end event, so the browser does not reconnect. The method name starts with stream. A generator under GetRoute is refused, so one marker says that a route streams. JavaScript, TypeScript, Python, PHP, Kotlin, C#, Dart and Ruby support this. Java, Rust and Go return once.",
+  "code": {
+    "file": "example.py"
+  }
+}

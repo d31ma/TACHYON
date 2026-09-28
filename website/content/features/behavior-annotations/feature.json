@@ -1,0 +1,57 @@
+{
+  "id": "behavior-annotations",
+  "title": "Shared behavior annotations",
+  "summary": "Tac and Yon share these annotations across their supported languages. The role, injection and description annotations are `Service`, `Helper`, `HTTPClient`, `Store`, `Converter`, `Setup`, `Lifetime`, `Needs`, `Named` and `Description`. Injection means the framework gives a class the objects it needs. The caching, data and resilience annotations are `CacheSettings`, `Cached`, `UpdateCache`, `ClearCache`, `PageDefaults`, `Retry`, `MaxAtOnce`, `AllOrNothing`, `Entity`, `Id`, `Table` and `Query`. `HTTP request annotations`, `Convert` and `Schedule` cover outgoing HTTP calls, mapping values and scheduling. The configuration annotations are `Settings`, `WhenProfile`, `WhenSetting` and `Setting`. The validation annotations are `Checked`, `Check`, `Required`, `NotEmpty`, `Length`, `Min` and `Max`. The test annotations are `Test`, `TestSetup`, `UseProfiles`, `TestSettings`, `Fake` and `FreshStart`. Write each marker (annotation) on its own line. Marker options use strict JSON. The compiler turns the markers into runtime code inside the same source file. It does not use a reflection scanner (code that inspects classes while the program runs). The markers are global, so no language needs to import them. Native services use typed adapters with no embedded JavaScript. Tac stays client-only, and Yon stays REST-only. Each adapter has one clear owner. Queries have limits and must be authorized. The cache changes only after a call succeeds. Data transfer object (DTO) validation is pure: it has no side effects. Configuration keys start with the prefix of their realm: `TAC_` or `tac.` for Tac, and `YON_` or `yon.` for Yon. You give this configuration yourself. Markers with no arguments can be written without parentheses, as in Spring: `@Service`, `@Setup`, `@Needs`, `@Converter`. A plain `@Service` can be a Tac role or a Yon role. The folder that holds the file decides which one (ADR 0038). The service below needs no network or storage adapter. Role types must be in plural folders, and their file names must match their type names exactly. Collaborators are classes that a service works with. Tac finds annotated collaborators in the same language under `client/services`, `client/stores`, `client/clients`, `client/setups`, `client/entities`, `client/helpers` and `client/converters`. Yon uses matching folders under `server/`. Only controllers are placed next to their route. `Test` units go in `server/tests/<Name>Test.<ext>` or `client/tests/<Name>Test.<ext>`, and `ty test` runs them. On managed Yon roles, `Needs` finds the provider for each marked field. So you do not need to write a constructor by hand. `Named` chooses a provider when the field name does not identify it. Tac types and unmanaged types still set up their behavior contexts themselves.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/page/tac.html",
+      "code": {
+        "file": "client/components/catalog/page/tac.html"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.js",
+      "code": {
+        "file": "client/setups/ApplicationSetup.js"
+      }
+    },
+    {
+      "name": "adapter ownership",
+      "code": {
+        "file": "adapter-ownership.txt"
+      }
+    },
+    {
+      "name": "bounded query and cache policies",
+      "code": {
+        "file": "bounded-query-and-cache-policies.txt"
+      }
+    },
+    {
+      "name": "configuration and validation boundaries",
+      "code": {
+        "file": "configuration-and-validation-boundaries.txt"
+      }
+    },
+    {
+      "name": "optional feature-first layout",
+      "code": {
+        "file": "optional-feature-first-layout.txt"
+      }
+    }
+  ],
+  "verify": "tac"
+}

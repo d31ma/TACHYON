@@ -1,0 +1,7 @@
+{
+  "heading": "What the page knows about its host",
+  "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a service injects view. This works only in the browser. The application itself is responsible for native capabilities.",
+  "code": {
+    "file": "example.js"
+  }
+}

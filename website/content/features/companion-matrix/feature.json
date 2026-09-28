@@ -1,0 +1,16 @@
+{
+  "id": "companion-matrix",
+  "title": "Which service language answers a target",
+  "group": "Polyglot",
+  "summary": "Each service language compiles for the targets its toolchain and SDK support. Rust and C# run as WebAssembly on the web and on every target that does not link them, and Go runs as WebAssembly on every target. If none of a service's declared languages supports the selected target, the build fails with `TY1010`. Tachyon never silently removes the service.",
+  "files": [
+    {
+      "name": "matrix",
+      "code": { "file": "matrix.txt" }
+    },
+    {
+      "name": "diagnostic",
+      "code": { "file": "diagnostic.txt" }
+    }
+  ]
+}

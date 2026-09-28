@@ -1,0 +1,17 @@
+{
+  "entries": [
+    { "include": "javascript/entry.json" },
+    { "include": "typescript/entry.json" },
+    { "include": "python/entry.json" },
+    { "include": "php/entry.json" },
+    { "include": "java/entry.json" },
+    { "include": "groovy/entry.json" },
+    { "include": "csharp/entry.json" },
+    { "include": "fsharp/entry.json" },
+    { "include": "kotlin/entry.json" },
+    { "include": "rust/entry.json" },
+    { "include": "go/entry.json" },
+    { "include": "dart/entry.json" },
+    { "include": "ruby/entry.json" }
+  ]
+}

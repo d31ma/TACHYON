@@ -1,0 +1,21 @@
+{
+  "id": "environment",
+  "title": "Marking development mode",
+  "group": "Tooling",
+  "summary": "The development server marks every document that it serves as development. A service can hide content that a published bundle should not include. A published bundle can never say that it is in development, wherever it is hosted.",
+  "files": [
+    {
+      "name": "client/services/RuntimeNoteService.js",
+      "code": { "file": "client/services/RuntimeNoteService.js" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/site/runtime-note/tac.html",
+      "code": { "file": "client/components/site/runtime-note/tac.html" }
+    }
+  ],
+  "verify": "tac"
+}

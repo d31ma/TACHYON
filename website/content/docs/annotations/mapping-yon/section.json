@@ -1,0 +1,246 @@
+{
+  "heading": "Mapping: Yon",
+  "axis": "language",
+  "summary": "Converter and Convert do the work of Converter and Convert from MapStruct, the Java mapping library, with the same shape that Spring gives a repository. You declare only signatures, and the compiler writes their bodies from a literal field plan.",
+  "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. The compiler finds it and injects it like any other role. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nThe declaration has no body in every language that allows this. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go. It is a trait in Rust. It is an abstract class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript has no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. In every case, the compiler writes the constructor, the behavior context and the method. So the source declares nothing else.",
+  "files": [
+    {
+      "name": "server/setups/CatalogSetup.js",
+      "code": {
+        "file": "server/setups/CatalogSetup.js"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.js",
+      "code": {
+        "file": "server/converters/ProductConverter.js"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.js",
+      "code": {
+        "file": "server/controllers/CatalogController.js"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.ts",
+      "code": { "file": "server/models/CatalogSummary.ts" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.ts",
+      "code": {
+        "file": "server/setups/CatalogSetup.ts"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.ts",
+      "code": {
+        "file": "server/converters/ProductConverter.ts"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.ts",
+      "code": {
+        "file": "server/controllers/CatalogController.ts"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.py",
+      "code": { "file": "server/models/CatalogSummary.py" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.py",
+      "code": {
+        "file": "server/setups/CatalogSetup.py"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.py",
+      "code": {
+        "file": "server/converters/ProductConverter.py"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.py",
+      "code": {
+        "file": "server/controllers/CatalogController.py"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.php",
+      "code": { "file": "server/models/CatalogSummary.php" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.php",
+      "code": {
+        "file": "server/setups/CatalogSetup.php"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.php",
+      "code": {
+        "file": "server/converters/ProductConverter.php"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.php",
+      "code": {
+        "file": "server/controllers/CatalogController.php"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.java",
+      "code": { "file": "server/models/CatalogSummary.java" }
+    },
+    {
+      "name": "server/models/CatalogSummary.groovy",
+      "code": { "file": "server/models/CatalogSummary.groovy" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.java",
+      "code": {
+        "file": "server/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.groovy",
+      "code": {
+        "file": "server/setups/CatalogSetup.groovy"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.java",
+      "code": {
+        "file": "server/converters/ProductConverter.java"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.groovy",
+      "code": {
+        "file": "server/converters/ProductConverter.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.java",
+      "code": {
+        "file": "server/controllers/CatalogController.java"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.groovy",
+      "code": {
+        "file": "server/controllers/CatalogController.groovy"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.kt",
+      "code": { "file": "server/models/CatalogSummary.kt" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.kt",
+      "code": {
+        "file": "server/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.kt",
+      "code": {
+        "file": "server/converters/ProductConverter.kt"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.kt",
+      "code": {
+        "file": "server/controllers/CatalogController.kt"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.cs",
+      "code": { "file": "server/models/CatalogSummary.cs" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.cs",
+      "code": {
+        "file": "server/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.cs",
+      "code": {
+        "file": "server/converters/ProductConverter.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.cs",
+      "code": {
+        "file": "server/controllers/CatalogController.cs"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.rs",
+      "code": { "file": "server/models/CatalogSummary.rs" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rs",
+      "code": {
+        "file": "server/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.rs",
+      "code": {
+        "file": "server/converters/ProductConverter.rs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.rs",
+      "code": {
+        "file": "server/controllers/CatalogController.rs"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.go",
+      "code": { "file": "server/models/CatalogSummary.go" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.go",
+      "code": {
+        "file": "server/setups/CatalogSetup.go"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.go",
+      "code": {
+        "file": "server/converters/ProductConverter.go"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.go",
+      "code": {
+        "file": "server/controllers/CatalogController.go"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.dart",
+      "code": { "file": "server/models/CatalogSummary.dart" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.dart",
+      "code": {
+        "file": "server/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.dart",
+      "code": {
+        "file": "server/converters/ProductConverter.dart"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.dart",
+      "code": {
+        "file": "server/controllers/CatalogController.dart"
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+@Test(SwiftGreetingTestSetup, {"partition":"tests"})
+final class SwiftGreetingServiceTest {
+    func testGreetChangesTheMessage() async throws {
+        let greeting = SwiftGreetingService()
+        greeting.greet()
+        if greeting.message != "Swift says hello again." { throw BehaviorError("GREET_DID_NOT_CHANGE_THE_MESSAGE") }
+    }
+}

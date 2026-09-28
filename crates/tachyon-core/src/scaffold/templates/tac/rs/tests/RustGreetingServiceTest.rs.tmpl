@@ -1,0 +1,19 @@
+#[Test(RustGreetingTestSetup, {"partition":"tests"})]
+struct RustGreetingServiceTest {
+    behaviors: std::cell::RefCell<Option<BehaviorContext>>,
+}
+
+impl RustGreetingServiceTest {
+    fn new() -> Self {
+        Self { behaviors: std::cell::RefCell::new(None) }
+    }
+
+    fn testGreetChangesTheMessage(&self) -> BehaviorResult<BehaviorValue> {
+        let mut greeting = RustGreetingService::new();
+        greeting.greet();
+        if greeting.message != "Rust says hello again." {
+            return Err(BehaviorError { code: "assertion", message: "greet did not change the message", path: None });
+        }
+        Ok(BehaviorValue::Null)
+    }
+}

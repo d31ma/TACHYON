@@ -1,0 +1,8 @@
+Linked into every document, in declaration order, before the
+route's own stylesheet:
+
+  <link rel="stylesheet" href="/shared/styles/site.css">
+  <script type="module" src="/shared/scripts/imports.js"></script>
+
+A component's tac.css is a different thing and stays where it is:
+it is scoped to that component.

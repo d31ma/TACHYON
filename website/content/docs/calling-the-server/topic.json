@@ -1,0 +1,13 @@
+{
+  "title": "Calling the server from a page",
+  "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. A request to another host needs that host in `tac.outgoing.hosts`.",
+  "before": [
+    "services",
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../storage/declarative-http-clients/section.json"
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "heading": "Retries: Tac",
+  "axis": "language",
+  "summary": "The same two annotations in the eight Tac service languages, with the same bounds and the same refusals.",
+  "body": "A Tac service can reach its own context, so the policy is the same in both realms (ADR 0031). The annotation, its keys and its limits do not change between realms. Only the spelling in the host language changes. A Rust behavior method takes and returns BehaviorValue, which the page cannot pass, so the Rust service gives the page a plain submit(&mut self, id: String) method and an attempts field, and calls its Retry method send from there.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/orders/panel/tac.html",
+      "code": {
+        "file": "client/components/orders/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.js",
+      "code": {
+        "file": "client/setups/OrdersSetup.js"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.js",
+      "code": {
+        "file": "client/services/OrdersService.js"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.ts",
+      "code": {
+        "file": "client/setups/OrdersSetup.ts"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.ts",
+      "code": {
+        "file": "client/services/OrdersService.ts"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.swift",
+      "code": {
+        "file": "client/setups/OrdersSetup.swift"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.swift",
+      "code": {
+        "file": "client/services/OrdersService.swift"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.kt",
+      "code": {
+        "file": "client/setups/OrdersSetup.kt"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.kt",
+      "code": {
+        "file": "client/services/OrdersService.kt"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.cs",
+      "code": {
+        "file": "client/setups/OrdersSetup.cs"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.cs",
+      "code": {
+        "file": "client/services/OrdersService.cs"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.rs",
+      "code": {
+        "file": "client/setups/OrdersSetup.rs"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.rs",
+      "code": {
+        "file": "client/services/OrdersService.rs"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.go",
+      "code": {
+        "file": "client/setups/OrdersSetup.go"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.go",
+      "code": {
+        "file": "client/services/OrdersService.go"
+      }
+    },
+    {
+      "name": "client/setups/OrdersSetup.dart",
+      "code": {
+        "file": "client/setups/OrdersSetup.dart"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.dart",
+      "code": {
+        "file": "client/services/OrdersService.dart"
+      }
+    }
+  ]
+}

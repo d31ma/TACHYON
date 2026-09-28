@@ -1,0 +1,9 @@
+// @RequestRoute("/api/go")
+// @Public
+type GoGreetingController struct {
+}
+
+// @GetRoute
+func (controller *GoGreetingController) GetGreeting() string {
+	return "Hello from Go"
+}

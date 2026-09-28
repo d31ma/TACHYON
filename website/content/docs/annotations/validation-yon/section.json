@@ -1,0 +1,205 @@
+{
+  "heading": "Validation: Yon",
+  "axis": "language",
+  "summary": "`Checked` declares a field schema on a plain type. That type is a behavior-only class in its own file in a role folder, `server/helpers/OrderInput.<ext>`, and discovery composes it into the same unit as the method that names it (ADR 0044). Check sits on one parameter and checks it against that schema before the annotated method body runs. It returns a checked copy; it does not construct the type. The option shapes are fixed. Checked(), Required() and NotEmpty() accept no arguments. Length takes exactly {\"min\",\"max\"}. In JavaScript, TypeScript and Python, Check takes no arguments: the parameter's type names the Checked class (a JSDoc @param type in JavaScript). The other languages keep the JSON parameter type and name the class in Check: Check(OrderInput.class) in Java, Check(OrderInput::class) in Kotlin and PHP, Check(typeof(OrderInput)) in C#, and Check(OrderInput) in Dart, Rust and Go. The controller reads the body with FromBody as a plain JSON value (any in TypeScript and Go, dict in Python, array in PHP, Object in Java, Any? in Kotlin, BehaviorJSON in C#, Object? in Dart, Json in Rust) and passes it to the service. Min and Max take a bare finite number, not an object. Length, Min and Max ignore a missing or null value, so only Required makes a bound required. Choose one language below for POST /orders. Each one rejects a blank name, a level above 9 and a missing level. Otherwise it answers 200 with the checked payload. Unknown fields such as sku stay in the payload after validation. This does not make it safe to assign all of them to an object at once.",
+  "files": [
+    {
+      "name": "server/services/OrderService.js",
+      "code": {
+        "file": "server/services/OrderService.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/services/OrderService.ts",
+      "code": {
+        "file": "server/services/OrderService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.ts",
+      "code": {
+        "file": "server/controllers/OrdersController.ts"
+      }
+    },
+    {
+      "name": "server/services/OrderService.py",
+      "code": {
+        "file": "server/services/OrderService.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.py",
+      "code": {
+        "file": "server/controllers/OrdersController.py"
+      }
+    },
+    {
+      "name": "server/services/OrderService.php",
+      "code": {
+        "file": "server/services/OrderService.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.php",
+      "code": {
+        "file": "server/controllers/OrdersController.php"
+      }
+    },
+    {
+      "name": "server/services/OrderService.java",
+      "code": {
+        "file": "server/services/OrderService.java"
+      }
+    },
+    {
+      "name": "server/services/OrderService.groovy",
+      "code": {
+        "file": "server/services/OrderService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.java",
+      "code": {
+        "file": "server/controllers/OrdersController.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.groovy",
+      "code": {
+        "file": "server/controllers/OrdersController.groovy"
+      }
+    },
+    {
+      "name": "server/services/OrderService.kt",
+      "code": {
+        "file": "server/services/OrderService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.kt",
+      "code": {
+        "file": "server/controllers/OrdersController.kt"
+      }
+    },
+    {
+      "name": "server/services/OrderService.cs",
+      "code": {
+        "file": "server/services/OrderService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.cs",
+      "code": {
+        "file": "server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/services/OrderService.rs",
+      "code": {
+        "file": "server/services/OrderService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rs",
+      "code": {
+        "file": "server/controllers/OrdersController.rs"
+      }
+    },
+    {
+      "name": "server/services/OrderService.dart",
+      "code": {
+        "file": "server/services/OrderService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.dart",
+      "code": {
+        "file": "server/controllers/OrdersController.dart"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.js",
+      "code": {
+        "file": "server/helpers/OrderInput.js"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.ts",
+      "code": {
+        "file": "server/helpers/OrderInput.ts"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.py",
+      "code": {
+        "file": "server/helpers/OrderInput.py"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.php",
+      "code": {
+        "file": "server/helpers/OrderInput.php"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.java",
+      "code": {
+        "file": "server/helpers/OrderInput.java"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.groovy",
+      "code": {
+        "file": "server/helpers/OrderInput.groovy"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.kt",
+      "code": {
+        "file": "server/helpers/OrderInput.kt"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.cs",
+      "code": {
+        "file": "server/helpers/OrderInput.cs"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.rs",
+      "code": {
+        "file": "server/helpers/OrderInput.rs"
+      }
+    },
+    {
+      "name": "server/services/OrderService.go",
+      "code": {
+        "file": "server/services/OrderService.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.go",
+      "code": {
+        "file": "server/controllers/OrdersController.go"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.go",
+      "code": {
+        "file": "server/helpers/OrderInput.go"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.dart",
+      "code": {
+        "file": "server/helpers/OrderInput.dart"
+      }
+    }
+  ]
+}

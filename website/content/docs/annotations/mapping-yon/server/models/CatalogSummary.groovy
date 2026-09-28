@@ -1,0 +1,1 @@
+record CatalogSummary(Object summary) {}

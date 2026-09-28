@@ -2,42 +2,62 @@
   "tac": {
     "files": [
       {
-        "name": "client/pages/tac.html",
-        "code": "<article class=\"tally\">\n  <h1>{count} in the basket</h1>\n  <p>That is {doubled()} at two apiece.</p>\n  <p class=\"runtime\">Answered by {runtime}.</p>\n</article>"
+        "name": "client/components/basket/tally/tac.html",
+        "code": "<article class=\"tally\">\n  <h1>{tally.count} in the basket</h1>\n  <p>That is {tally.doubled()} at two apiece.</p>\n  <p class=\"runtime\">Answered by {tally.runtime}.</p>\n</article>"
       },
       {
-        "name": "client/pages/tac.css",
-        "code": "/* Scoped to this route by the compiler, so `.tally` here cannot reach a\n   `.tally` anywhere else on the site. */\n.tally {\n  padding: 1rem;\n  border: 1px solid var(--w-border);\n  border-radius: 12px;\n}\n\n.runtime {\n  font-size: .875rem;\n  opacity: .7;\n}"
+        "name": "client/components/basket/tally/tac.css",
+        "code": ".tally {\n  padding: 1rem;\n  border: 1px solid var(--w-border);\n  border-radius: 12px;\n}\n\n.runtime {\n  font-size: .875rem;\n  opacity: .7;\n}"
       },
       {
-        "name": "client/pages/tac.js",
-        "code": "export default class {\n  count = 6\n  runtime = 'JavaScript, everywhere'\n\n  doubled() {\n    return this.count * 2\n  }\n}",
-        "note": "Native ES module. No compiler needed, and it runs on every target because every native host is a web view."
+        "name": "client/services/TallyService.js",
+        "code": "@Service\nexport default class TallyService {\n  count = 6\n  runtime = 'JavaScript, everywhere'\n\n  /** @returns {number} */\n  doubled() {\n    return this.count * 2\n  }\n}",
+        "note": "The compiler rewrites the @Service marker and its import into plain JavaScript. The browser then runs the ES module. It works on every target, because native hosts display the application in a web view."
       },
       {
-        "name": "client/pages/tac.ts",
-        "code": "export default class {\n  count: number = 6\n  runtime: string = 'TypeScript, everywhere'\n\n  doubled(): number {\n    return this.count * 2\n  }\n}",
-        "note": "Emitted by the TypeScript compiler itself, so the semantics are the reference semantics. Same reach as tac.js."
+        "name": "client/services/TallyService.ts",
+        "code": "@Service\nexport default class TallyService {\n  count: number = 6\n  runtime: string = 'TypeScript, everywhere'\n\n  doubled(): number {\n    return this.count * 2\n  }\n}",
+        "note": "The TypeScript compiler emits JavaScript using TypeScript's own language rules. The service runs on the same targets as a JavaScript service."
       },
       {
-        "name": "client/pages/tac.rs",
-        "code": "pub struct Companion {\n    pub count: i32,\n    pub runtime: &'static str,\n}\n\nimpl Companion {\n    pub fn new() -> Self {\n        Self { count: 6, runtime: \"Rust, linked into the app\" }\n    }\n\n    pub fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}",
-        "note": "Compiled by rustc and linked into the desktop host — macOS, Windows, Linux. Ordinary Rust, with the platform in reach."
+        "name": "client/services/TallyService.dart",
+        "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC). It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.",
+        "code": "@Service\nclass TallyService {\n  int count = 6;\n  final String runtime = 'Dart, compiled to JavaScript';\n\n  int doubled() => count * 2;\n}\n"
       },
       {
-        "name": "client/pages/tac.swift",
-        "code": "final class Companion {\n  var count = 6\n  let runtime = \"Swift, compiled into the app\"\n\n  func doubled() -> Int { count * 2 }\n}",
-        "note": "Compiled by Xcode's own swiftc into the macOS and iOS hosts, so AppKit and UIKit are in reach."
+        "name": "client/services/TallyService.rs",
+        "code": "#[Service]\npub struct TallyService {\n    pub count: i32,\n    pub runtime: &'static str,\n}\n\nimpl TallyService {\n    pub fn new() -> Self {\n        Self { count: 6, runtime: \"Rust, compiled by rustc\" }\n    }\n\n    pub fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}",
+        "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts, where it can call platform APIs. For the web, iOS and Android, it compiles to WebAssembly."
       },
       {
-        "name": "client/pages/tac.kt",
-        "code": "class Companion {\n  var count: Int = 6\n  val runtime: String = \"Kotlin, compiled into the APK\"\n\n  fun doubled(): Int = count * 2\n}",
-        "note": "Compiled as Kotlin into the APK by the Android Gradle plugin, so the Android SDK is in reach."
+        "name": "client/services/TallyService.go",
+        "note": "Go compiles the service to WebAssembly. No native host links Go, so every target runs the module in its web view.",
+        "code": "// @Service\ntype TallyService struct {\n\tCount   int\n\tRuntime string\n}\n\n// @OnStart\nfunc (tally *TallyService) Start() {\n\ttally.Count = 6\n\ttally.Runtime = \"Go, compiled to WebAssembly\"\n}\n\nfunc (tally *TallyService) Doubled() int {\n\treturn tally.Count * 2\n}\n"
       },
       {
-        "name": "client/pages/tac.cs",
-        "code": "public class Companion\n{\n    public int Count = 6;\n    public string Runtime => \"C#, published ahead of time\";\n\n    public int Doubled() => Count * 2;\n}",
-        "note": "Published ahead of time by the .NET SDK as a native library the Win32 host loads, so the Windows SDK is in reach."
+        "name": "client/services/TallyService.rb",
+        "note": "Ruby runs on Tachyon's own mruby WebAssembly runtime (ADR 0049). The first build of a project with a Ruby service builds that runtime once on your machine, with your Ruby and Emscripten, into the Tachyon cache. The page loads the runtime once for all Ruby services. It runs on every target, because native hosts display the application in a web view.",
+        "code": "#[Service]\nclass TallyService\n  # @return [Integer]\n  attr_reader :count\n  # @return [String]\n  attr_reader :runtime\n\n  def initialize\n    @count = 6\n    @runtime = \"Ruby, on the mruby web runtime\"\n  end\n\n  # @return [Integer]\n  def doubled\n    @count * 2\n  end\nend"
+      },
+      {
+        "name": "client/services/TallyService.swift",
+        "code": "@Service\nfinal class TallyService {\n  var count: Int = 6\n  let runtime = \"Swift, compiled into the app\"\n\n  func doubled() -> Int { count * 2 }\n}",
+        "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts. The service can use AppKit and UIKit."
+      },
+      {
+        "name": "client/services/TallyService.kt",
+        "code": "@Service\nclass TallyService {\n  var count: Int = 6\n  val runtime: String = \"Kotlin, compiled to WebAssembly or into the APK\"\n\n  fun doubled(): Int = count * 2\n}",
+        "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer."
+      },
+      {
+        "name": "client/services/TallyService.cs",
+        "code": "[Service]\npublic class TallyService\n{\n    public int Count = 6;\n    public string Runtime => \"C#, compiled by .NET\";\n\n    public int Doubled() => Count * 2;\n}",
+        "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the .NET browser runtime."
+      },
+      {
+        "name": "client/services/TallyService.fs",
+        "code": "[<Service>]\ntype TallyService() =\n    member val Count = 6 with get, set\n\n    member this.Runtime : string = \"F#, compiled by .NET\"\n\n    member this.Doubled() : int =\n        this.Count * 2\n",
+        "note": "The .NET SDK compiles the F# service to an assembly, and the page runs it on the same .NET browser runtime as C#. No native host links F#, so every target, Windows included, runs it in its web view. A page with C# and F# services downloads the .NET runtime once."
       }
     ]
   },
@@ -46,120 +66,319 @@
       {
         "id": "javascript",
         "name": "JavaScript",
-        "note": "No import: the adapter puts the stereotypes in scope before it loads the handler, the same way Tac makes @onMount available to a companion. Decorators need a runtime that transpiles them — Bun or Deno, selected with --javascript-runtime. Node rejects them at parse time and its own documentation says it will not polyfill a Stage 3 proposal.",
+        "note": "JavaScript keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.js",
-            "code": "import { OrderService } from '../../services/orders.js'\n\n@Controller\nexport class OrdersController {\n  // A route is thin on purpose: one request in, one call down, one response.\n  static GET() {\n    return { orders: new OrderService().list() }\n  }\n}"
+            "name": "server/services/OrderService.js",
+            "code": "@Service\nexport class OrderService {\n  /** @type {OrderStore} */\n  _repository = new OrderStore()\n\n  /** @returns {Order[]} */\n  list() {\n    return this._repository.all()\n  }\n}\n"
           },
           {
-            "name": "server/services/orders.js",
-            "code": "import { OrderRepository } from '../repositories/orders.js'\n\n@Service\nexport class OrderService {\n  // Injected rather than constructed inline, so a test supplies its own\n  // repository without reaching for a module mock.\n  constructor(repository = new OrderRepository()) {\n    this.repository = repository\n  }\n\n  list() {\n    return this.repository.all()\n  }\n}"
+            "name": "server/stores/OrderStore.js",
+            "code": "@Store\nexport class OrderStore {\n  /** @returns {Order[]} */\n  all() {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
           },
           {
-            "name": "server/repositories/orders.js",
-            "code": "@Repository\nexport class OrderRepository {\n  // Owns storage and nothing else. A repository, a client and a delegate are\n  // peers: none of them calls another.\n  all() {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}"
+            "name": "server/controllers/OrdersController.js",
+            "code": "@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  /** @returns {OrderList} */\n  @GetRoute\n  getOrders() {\n    return { orders: new OrderService().list() }\n  }\n}\n"
+          },
+          {
+            "name": "server/models/Order.js",
+            "code": "/**\n * @typedef {Object} Order\n * @property {string} sku\n * @property {number} level\n */\nexport {}\n"
+          },
+          {
+            "name": "server/models/OrderList.js",
+            "code": "/**\n * @typedef {Object} OrderList\n * @property {Order[]} orders\n */\nexport {}\n"
           }
         ]
       },
       {
         "id": "typescript",
         "name": "TypeScript",
-        "note": "No shebang and no envelope: the JavaScript adapter imports a yon.ts the same way it imports a yon.js, so the two are one shape. The runtime has to read TypeScript — Bun and Deno do, Node does not.",
+        "note": "TypeScript keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.ts",
-            "code": "import { OrderService } from '../../services/orders.ts'\nimport type { Order } from '../../repositories/orders.ts'\n\n@Controller\nexport class OrdersController {\n  static GET(): { orders: Order[] } {\n    return { orders: new OrderService().list() }\n  }\n}\n"
+            "name": "server/models/OrderList.ts",
+            "code": "import type { Order } from './Order.ts'\n\nexport interface OrderList {\n  orders: Order[]\n}\n"
           },
           {
-            "name": "server/services/orders.ts",
-            "code": "import { OrderRepository, type Order } from '../repositories/orders.ts'\n\n@Service\nexport class OrderService {\n  constructor(private repository = new OrderRepository()) {}\n\n  list(): Order[] {\n    return this.repository.all()\n  }\n}"
+            "name": "server/services/OrderService.ts",
+            "code": "import type { Order } from '/models/Order';\n@Service\nexport class OrderService {\n  private repository = new OrderStore()\n\n  list(): Order[] {\n    return this.repository.all()\n  }\n}\n"
           },
           {
-            "name": "server/repositories/orders.ts",
-            "code": "\nexport interface Order {\n  sku: string\n  level: number\n}\n\n@Repository\nexport class OrderRepository {\n  all(): Order[] {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}"
+            "name": "server/models/Order.ts",
+            "code": "export interface Order {\n  sku: string\n  level: number\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.ts",
+            "code": "import type { Order } from '/models/Order';\n@Store\nexport class OrderStore {\n  all(): Order[] {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.ts",
+            "code": "import type { OrderList } from '/models/OrderList.ts'\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  getOrders(): OrderList {\n    return { orders: new OrderService().list() }\n  }\n}\n"
           }
         ]
       },
       {
         "id": "python",
         "name": "Python",
-        "note": "The owned Python adapter places stereotypes in builtins before loading the captured server tree. The example uses Python namespace packages, so no __init__.py markers are needed under the typed service and repository directories.",
+        "note": "Python keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.py",
-            "code": "from server.services.orders import OrderService\n\n@Controller\nclass OrdersController:\n    @staticmethod\n    def GET(request):\n        return {\"orders\": OrderService().list()}"
+            "name": "server/models/Order.py",
+            "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Order:\n    sku: str\n    level: int\n"
           },
           {
-            "name": "server/services/orders.py",
-            "code": "from server.repositories.orders import OrderRepository\n\n@Service\nclass OrderService:\n    def __init__(self, repository=None):\n        # Injected rather than constructed inline, so a test supplies its own.\n        self.repository = repository or OrderRepository()\n\n    def list(self):\n        return self.repository.all()"
+            "name": "server/models/OrderList.py",
+            "code": "from dataclasses import dataclass\n\nfrom models import Order\n\n\n@dataclass\nclass OrderList:\n    orders: list[Order]\n"
           },
           {
-            "name": "server/repositories/orders.py",
-            "code": "@Repository\nclass OrderRepository:\n    def all(self):\n        return [{\"sku\": \"anvil\", \"level\": 4}]"
+            "name": "server/services/OrderService.py",
+            "code": "from models import Order\n\n\n@Service\nclass OrderService:\n    def __init__(self):\n        self.repository = OrderStore()\n\n    def list(self) -> list[Order]:\n        return self.repository.all()\n"
+          },
+          {
+            "name": "server/stores/OrderStore.py",
+            "code": "from models import Order\n\n\n@Store\nclass OrderStore:\n    def all(self) -> list[Order]:\n        return [Order(\"anvil\", 4)]\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.py",
+            "code": "from models import OrderList\n\n\n@request_route(\"/orders\")\n@public\nclass OrdersController:\n    @get_route\n    def get_orders(self) -> OrderList:\n        return OrderList(OrderService().list())\n"
           }
         ]
       },
       {
         "id": "php",
         "name": "PHP",
-        "note": "PHP layers are required by their project-relative path. Tachyon captures the server tree and appends its owned protocol runtime; the application supplies only its annotated classes and HTTP methods.",
+        "note": "PHP keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.php",
-            "code": "<?php\n// PHP layers are required by their project-relative path. Tachyon captures\n// the server tree and runs the handler with its owned protocol runtime.\nrequire_once 'server/services/orders.php';\n\n#[Controller]\nclass OrdersController\n{\n    public static function GET(YonRequest $request): YonResponse\n    {\n        return YonResponse::json(json_encode(['orders' => OrderService::list()]));\n    }\n}"
+            "name": "server/models/Order.php",
+            "code": "<?php\nclass Order {\n    public function __construct(\n        public string $sku,\n        public int $level,\n    ) {}\n}\n"
           },
           {
-            "name": "server/services/orders.php",
-            "code": "<?php\nrequire_once 'server/repositories/orders.php';\n\n#[Service]\nclass OrderService\n{\n    public static function list(): array\n    {\n        return OrderRepository::all();\n    }\n}"
+            "name": "server/models/OrderList.php",
+            "code": "<?php\nclass OrderList {\n    public function __construct(\n        /** @var list<Order> */\n        public array $orders,\n    ) {}\n}\n"
           },
           {
-            "name": "server/repositories/orders.php",
-            "code": "<?php\n\n#[Repository]\nclass OrderRepository\n{\n    public static function all(): array\n    {\n        return [['sku' => 'anvil', 'level' => 4]];\n    }\n}"
+            "name": "server/services/OrderService.php",
+            "code": "<?php\n\n#[Service]\nclass OrderService\n{\n    public static function list(): array\n    {\n        return OrderStore::all();\n    }\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.php",
+            "code": "<?php\nuse Models\\Order;\n\n#[Store]\nclass OrderStore\n{\n    /** @return list<Order> */\n    public static function all(): array\n    {\n        return [new Order('anvil', 4)];\n    }\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.php",
+            "code": "<?php\nuse Models\\OrderList;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController\n{\n    #[GetRoute]\n    public function getOrders(): OrderList\n    {\n        return new OrderList(OrderService::list());\n    }\n}\n"
           }
         ]
       },
       {
         "id": "java",
         "name": "Java",
-        "note": "Java uses one compiled source file per route. Keep the controller, service and repository classes together in yon.java, as below: separate compiled layer files are not imported yet. Tachyon supplies the protocol entry point, annotations and Json helpers.",
+        "note": "Java keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.java",
-            "code": "@Controller\nclass OrdersController {\n    static YonResponse GET(YonRequest request) {\n        return YonResponse.json(Json.write(\n            java.util.Map.of(\"orders\", OrderService.list())));\n    }\n}\n\n@Service\nclass OrderService {\n    static java.util.List<String> list() {\n        return OrderRepository.all();\n    }\n}\n\n@Repository\nclass OrderRepository {\n    static java.util.List<String> all() {\n        return java.util.List.of(\"anvil\");\n    }\n}\n"
+            "name": "server/models/OrderList.java",
+            "code": "import java.util.List;\n\nrecord OrderList(List<String> orders) {}\n"
+          },
+          {
+            "name": "server/services/OrderService.java",
+            "code": "@Service\nclass OrderService {\n    static java.util.List<String> list() {\n        return OrderStore.all();\n    }\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.java",
+            "code": "@Store\nclass OrderStore {\n    static java.util.List<String> all() {\n        return java.util.List.of(\"anvil\");\n    }\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.java",
+            "code": "import models.OrderList;\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    OrderList getOrders() {\n        return new OrderList(OrderService.list());\n    }\n}\n"
+          }
+        ]
+      },
+      {
+        "id": "groovy",
+        "name": "Groovy",
+        "note": "Groovy keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Every field and method has a declared type, not def, so that Tachyon can read the route types. Tachyon checks each file that you write. Then it joins the roles that use the same language, adds the protocol runtime and compiles your Groovy with its Java runtime on the same JVM. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "files": [
+          {
+            "name": "server/models/OrderList.groovy",
+            "code": "record OrderList(List<String> orders) {}\n"
+          },
+          {
+            "name": "server/services/OrderService.groovy",
+            "code": "@Service\nclass OrderService {\n    static List<String> list() {\n        return OrderStore.all()\n    }\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.groovy",
+            "code": "@Store\nclass OrderStore {\n    static List<String> all() {\n        return ['anvil']\n    }\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.groovy",
+            "code": "import models.OrderList\n\n@RequestRoute('/orders')\n@Public\nclass OrdersController {\n    @GetRoute\n    OrderList getOrders() {\n        return new OrderList(OrderService.list())\n    }\n}\n"
           }
         ]
       },
       {
         "id": "csharp",
         "name": "C#",
-        "note": "C# spells annotations [Controller], [Service] and [Repository]. The current compiler builds one source file per route, so these cooperating types live together in yon.cs. Separate compiled layer files are not imported yet; no hand-written entry point or response envelope is required.",
+        "note": "C# keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.cs",
-            "code": "[Controller]\nclass OrdersController\n{\n    static YonResponse GET(YonRequest request) =>\n        YonResponse.Json(Json.Write(new { orders = OrderService.List() }));\n}\n\n[Service]\nclass OrderService\n{\n    public static string[] List() => OrderRepository.All();\n}\n\n[Repository]\nclass OrderRepository\n{\n    public static string[] All() => new[] { \"anvil\" };\n}\n"
+            "name": "server/models/OrderList.cs",
+            "code": "public record OrderList(string[] Orders);\n"
+          },
+          {
+            "name": "server/services/OrderService.cs",
+            "code": "[Service]\nclass OrderService\n{\n    public static string[] List() => OrderStore.All();\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.cs",
+            "code": "[Store]\nclass OrderStore\n{\n    public static string[] All() => new[] { \"anvil\" };\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.cs",
+            "code": "using Models;\n\n[RequestRoute(\"/orders\")]\n[Public]\nclass OrdersController\n{\n    [GetRoute]\n    public OrderList GetOrders() =>\n        new OrderList(OrderService.List());\n}\n"
+          }
+        ]
+      },
+      {
+        "id": "fsharp",
+        "name": "F#",
+        "note": "F# keeps the OrdersController, OrderService and OrderStore in separate files, one type in each file. The attributes are F# attributes: RequestRoute on the controller type and GetRoute on its member declare GET /orders, and Public says that anyone may call its routes. A type takes the roles it needs as the parameters of its primary constructor, as Spring does with one constructor, so OrderService receives the OrderStore. F# runs on .NET: Tachyon compiles your F# code and adds the same protocol runtime that C# uses.",
+        "files": [
+          {
+            "name": "server/models/OrderList.fs",
+            "code": "type OrderList = { Orders: string[] }\n"
+          },
+          {
+            "name": "server/stores/OrderStore.fs",
+            "code": "[<Store>]\ntype OrderStore() =\n    member this.All() : string[] =\n        [| \"anvil\" |]\n"
+          },
+          {
+            "name": "server/services/OrderService.fs",
+            "code": "[<Service>]\ntype OrderService(orderStore: OrderStore) =\n    member this.List() : string[] =\n        orderStore.All()\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.fs",
+            "code": "open Models\n\n[<RequestRoute(\"/orders\")>]\n[<Public>]\ntype OrdersController(orderService: OrderService) =\n    [<GetRoute>]\n    member this.GetOrders() : OrderList =\n        { Orders = orderService.List() }\n"
           }
         ]
       },
       {
         "id": "kotlin",
         "name": "Kotlin",
-        "note": "Kotlin uses annotated objects and uppercase HTTP methods. The current compiler builds one source file per route, so the controller, service and repository are colocated in yon.kt. Separate compiled layer files are not imported yet; Tachyon owns main and the protocol runtime.",
+        "note": "Kotlin keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.kt",
-            "code": "@Controller\nobject OrdersController {\n    @JvmStatic\n    fun GET(request: YonRequest): YonResponse =\n        YonResponse.json(Json.write(mapOf(\"orders\" to OrderService.list())))\n}\n\n@Service\nobject OrderService {\n    fun list(): List<String> = OrderRepository.all()\n}\n\n@Repository\nobject OrderRepository {\n    fun all(): List<String> = listOf(\"anvil\")\n}\n"
+            "name": "server/models/OrderList.kt",
+            "code": "data class OrderList(val orders: List<String>)\n"
+          },
+          {
+            "name": "server/services/OrderService.kt",
+            "code": "@Service\nclass OrderService {\n    companion object {\n    fun list(): List<String> = OrderStore.all()\n}\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.kt",
+            "code": "@Store\nclass OrderStore {\n    companion object {\n    fun all(): List<String> = listOf(\"anvil\")\n}\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.kt",
+            "code": "import models.OrderList\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    fun getOrders(): OrderList = OrderList(OrderService.list())\n}\n"
           }
         ]
       },
       {
         "id": "rust",
         "name": "Rust",
-        "note": "Rust uses annotated structs and impl blocks. The current compiler builds one source file per route: colocate the controller, service and repository in yon.rs rather than importing separate compiled layer files. Tachyon supplies the protocol entry point and Json helpers.",
+        "note": "Rust keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
-            "name": "server/routes/orders/yon.rs",
-            "code": "#[Controller]\nstruct OrdersController;\n\nimpl OrdersController {\n    fn GET(_request: &YonRequest) -> YonResponse {\n        YonResponse::json(Json::map([\n            (\"orders\", Json::list(OrderService::list())),\n        ]))\n    }\n}\n\n#[Service]\nstruct OrderService;\n\nimpl OrderService {\n    fn list() -> Vec<&'static str> {\n        OrderRepository::all()\n    }\n}\n\n#[Repository]\nstruct OrderRepository;\n\nimpl OrderRepository {\n    fn all() -> Vec<&'static str> {\n        vec![\"anvil\"]\n    }\n}\n"
+            "name": "server/models/OrderList.rs",
+            "code": "pub struct OrderList {\n    pub orders: Vec<String>,\n}\n"
+          },
+          {
+            "name": "server/services/OrderService.rs",
+            "code": "#[Service]\nstruct OrderService;\n\nimpl OrderService {\n    fn list() -> Vec<&'static str> {\n        OrderStore::all()\n    }\n}\n\nimpl OrderService {\n    fn new() -> Self { Self }\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.rs",
+            "code": "#[Store]\nstruct OrderStore;\n\nimpl OrderStore {\n    fn all() -> Vec<&'static str> {\n        vec![\"anvil\"]\n    }\n}\n\nimpl OrderStore {\n    fn new() -> Self { Self }\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.rs",
+            "code": "use crate::models::OrderList;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nstruct OrdersController {}\n\nimpl OrdersController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_orders(&self) -> OrderList {\n        let orders = OrderService::list().into_iter().map(String::from).collect();\n        OrderList { orders }\n    }\n}\n"
+          }
+        ]
+      },
+      {
+        "id": "go",
+        "name": "Go",
+        "note": "Go keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "files": [
+          {
+            "name": "server/models/OrderList.go",
+            "code": "type OrderList struct {\n\tOrders []string `json:\"orders\"`\n}\n"
+          },
+          {
+            "name": "server/services/OrderService.go",
+            "code": "// @Service\ntype OrderService struct {\n\t// @Needs\n\trepository *OrderStore\n}\n\nfunc (service *OrderService) List() []string {\n\treturn service.repository.All()\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.go",
+            "code": "// @Store\ntype OrderStore struct{}\n\nfunc (repository *OrderStore) All() []string {\n\treturn []string{\"anvil\"}\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.go",
+            "code": "// @RequestRoute(\"/orders\")\n// @Public\ntype OrdersController struct {\n\t// @Needs\n\tservice *OrderService\n}\n\n// @GetRoute\nfunc (controller *OrdersController) GetOrders() OrderList {\n\treturn OrderList{Orders: controller.service.List()}\n}\n"
+          }
+        ]
+      },
+      {
+        "id": "dart",
+        "name": "Dart",
+        "note": "Dart keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "files": [
+          {
+            "name": "server/models/OrderList.dart",
+            "code": "class OrderList {\n  final List<String> orders;\n\n  const OrderList(this.orders);\n}\n"
+          },
+          {
+            "name": "server/services/OrderService.dart",
+            "code": "@Service\nclass OrderService {\n  static List<String> list() => OrderStore.all();\n}\n"
+          },
+          {
+            "name": "server/stores/OrderStore.dart",
+            "code": "@Store\nclass OrderStore {\n  static List<String> all() => ['anvil'];\n}\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.dart",
+            "code": "import 'models/OrderList.dart';\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  OrderList getOrders() => OrderList(OrderService.list());\n}\n"
+          }
+        ]
+      },
+      {
+        "id": "ruby",
+        "name": "Ruby",
+        "note": "Ruby keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "files": [
+          {
+            "name": "server/models/Order.rb",
+            "code": "# @!attribute [r] sku\n#   @return [String]\n# @!attribute [r] level\n#   @return [Integer]\nOrder = Data.define(:sku, :level)\n"
+          },
+          {
+            "name": "server/models/OrderList.rb",
+            "code": "# @!attribute [r] orders\n#   @return [Array<Order>]\nOrderList = Data.define(:orders)\n"
+          },
+          {
+            "name": "server/services/OrderService.rb",
+            "code": "#[Service]\nclass OrderService\n  def initialize\n    @store = OrderStore.new\n  end\n\n  # @return [Array<Order>]\n  def list\n    @store.all\n  end\nend\n"
+          },
+          {
+            "name": "server/stores/OrderStore.rb",
+            "code": "#[Store]\nclass OrderStore\n  # @return [Array<Order>]\n  def all\n    [Order.new(sku: \"anvil\", level: 4)]\n  end\nend\n"
+          },
+          {
+            "name": "server/controllers/OrdersController.rb",
+            "code": "#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController\n  # @return [OrderList]\n  #[GetRoute]\n  def get_orders\n    OrderList.new(orders: OrderService.new.list)\n  end\nend\n"
           }
         ]
       }

@@ -1,178 +1,340 @@
-# Client runtime and native companion migration
+# Client runtime and native service migration
 
-This guide describes the reconciled implementation after v26.35.07. Do not
-assume these APIs exist in an older installed binary because a website or a
-version label mentions them. Check `ty --version` and run the acceptance gates
-below against the exact binary being installed or published.
+This guide describes the current rewrite contract. A version label alone does
+not prove a release. Use the acceptance gates at the end of this guide to check
+the exact binary.
 
-## The instance runtime
+## Injected HTTP clients and named resources
 
-Each page or component default-class instance receives a non-enumerable
-`this.tac` binding before mount hooks run. Constructors and field initializers
-must not use it; use `@onMount` instead. The public type is `TacRuntime` in
-`types/tachyon-env.d.ts`.
+Application HTTP calls use `@HTTPClient` together with request method annotations.
+
+- Client is a Tachyon role marker. It is not a Spring annotation.
+- The class name and the filename of a client end in Client.
+- Clients live in `client/clients/`. This folder sits beside
+  `client/services/`, which holds the services that use the clients.
+- `@Needs` injects a concrete client by the name of the field. You do not
+  write a constructor or a `Needs` list by hand.
+
+The example below shows two files:
+
+- `client/clients/CatalogClient.js` defines the client.
+- `client/services/CatalogService.js` defines the service. The component
+  `client/components/catalog/panel/tac.html` addresses this service as
+  `catalog`. The page `client/pages/catalog/tac.html` places that component as
+  `<catalog-panel />`.
 
 ```javascript
-export default class Catalog {
+@HTTPClient({"cache":"network-first"})
+class CatalogClient {
+  @GetRequest("/api/catalog")
+  async list() { return {}; }
+
+  @PostRequest("/api/catalog")
+  async save(@RequestBody item) {}
+}
+
+@Service
+export default class CatalogService {
+  @Needs
+  catalogClient;
+  @Needs
+  cacheManager;
   items = [];
 
-  @onMount
-  async load() {
-    const response = await this.tac.fetch('/api/catalog',
-      { credentials: 'omit' }, { cache: 'network-first' });
-    if (!response.ok) throw new Error('Catalog unavailable');
-    this.items = await response.json();
+  @OnStart
+  async initialize() {
+    const items = await this.catalogClient.list();
+    if (!Array.isArray(items)) throw new TypeError('Expected a catalog list');
+    this.items = items;
+  }
+
+  async save(item) {
+    await this.catalogClient.save(item);
+    const key = 'fetch:GET:' + new URL('/api/catalog', location.href).href;
+    await this.cacheManager.invalidate([key]);
   }
 }
 ```
 
-The API includes `fetch`, `invalidate`, `precache`, `clearAssetCache`, `publish`,
-`subscribe`, `retained`, and `render`. After state changes outside a framework
-event or subscription callback, call `await this.tac.render()`. Page mount
-hooks precede the first render; component mount hooks run after their DOM is
-connected and should request a render when they change displayed fields. This is a client
-renderer, not SSR or an application-owned render-closure registry. Runtime
-methods are excluded from enumerable state so hot-update snapshots remain
-cloneable.
+How a client method works:
 
-Ordinary JS/TS module imports, top-level constants, and helper functions remain
-legal. Native reflection restrictions do not impose a class-only grammar on
-browser modules.
+- The method body describes optional query data, headers and JSON body data.
+- The generated adapter sends the HTTP request. It returns parsed JSON, not a
+  Response.
+- The call rejects on HTTP errors, invalid JSON, redirects and responses that
+  are too large.
+- A 204 response or a HEAD response returns null.
+- The compiler validates each path. A path must be an origin-relative HTTP(S)
+  endpoint.
+- The client sends no credentials. Tachyon copies no server configuration and
+  no secrets into a client.
 
-## Response caching: explicit privacy boundaries
+How services own their clients:
 
-`fetch(input, init?, options?)` returns a standard `Response`. Relative URLs
-resolve against the current document. Its optional IndexedDB cache is
-independent of the browser HTTP cache, which is bypassed for network requests
-so it cannot silently override the chosen policy.
+- Each browser service receives its own client graph and its own context.
+- Tachyon aborts active operations when it disposes the owner or replaces the
+  owner during a hot update. A prototype-scoped service is disposed together
+  with its component instance. A singleton is disposed when the user leaves the
+  page.
+- A page that the browser suspends in the back/forward cache (bfcache) keeps
+  its services.
+- Constructors and field initializers must not use injected dependencies. Use
+  OnStart or event methods after construction instead.
+- A service field can be declared, left undefined and named after another
+  service (`catalog;`). That field receives the page singleton of that service.
+- A dependency cycle between services fails at runtime.
 
-| `options.cache` | Behavior |
+The former `this.tac` object and the `TacRuntime` type are removed. Inject only
+the browser resources that you need. Put `@Needs` on a field named after
+each resource. The field names are the Spring resource names (ADR 0038; ADR means architecture
+decision record):
+
+| Field name | Resource |
 | --- | --- |
-| `network-first` (default) | Request current data; fall back to a stored response only on network failure. |
-| `cache-first` | Use a non-expired stored response first. |
-| `reload` | Require the network and refresh an eligible stored response. |
-| `no-store` | Never read or write the persistent cache; require the network. |
+| `view` | the element of the owner |
+| `lifecycle` | the `AbortSignal` of the owner |
+| `cacheManager` | the cache manager |
+| `resourceLoader` | the resource loader |
+| `taskScheduler` | the task scheduler |
+| `applicationEventPublisher` | the application event publisher |
 
-Persistence is allowed only for same-origin GET/HEAD requests with explicit
-`credentials: 'omit'`, without Authorization, and without request
-`cache: 'no-store'`. Responses declaring `Cache-Control: private` or `no-store`,
-or any `Vary`, are not stored. Credentialed reads still work but go directly to
-the network. Do not cache secrets, tokens, user-specific data, or data whose
-authorization can change. The runtime does not implement authenticated cache
-partitioning. Aborted requests reject rather than returning cached data.
+A field with one of these names that has no initial value also receives the
+resource without the annotation.
 
-Requests with `Range` or `If-Range` bypass persistent-cache reads and writes,
-including offline fallback. A partial response (`206` or any `Content-Range`
-header) is never stored or returned from an older cache record as a complete
-response. These requests require the network even under `cache-first`.
+- Resource fields are non-enumerable. Because of this, hot-state snapshots stay
+  cloneable.
+- After state changes in the background, call `render()` on the injected
+  taskScheduler.
+- Templates and local event listeners rerender automatically.
+- Tac stays client-rendered.
 
-Keys default to `fetch:<METHOD>:<absolute URL>`. A caller-supplied `options.key`
-must identify the actual resource and representation; reusing it for unrelated
-URLs intentionally aliases them. Invalidate after successful mutations:
+## Declarative JSON response caching
+
+`@HTTPClient` is network-only by default. A browser client can choose a bounded,
+anonymous IndexedDB policy. It does this with a literal cache option:
+
+| Client cache | Behavior |
+| --- | --- |
+| no-store (default) | Never read or write persistence. Require the network. |
+| network-first | Request current JSON. Use persisted JSON only when the network fails. |
+| cache-first | Return a stored JSON response that has not expired, before using the network. |
+| reload | Require the network. Refresh an eligible stored JSON response. |
+
+Rules for these options:
+
+- The options exist only for browser JS/TS.
+- Native Swift, Kotlin, C# and Rust services keep explicit HTTP adapters that
+  you configure explicitly, and they keep their owned contexts.
+- Clients that share the same HTTPClient adapter name must use the same
+  policy. Use different names when their policies differ.
+
+What persistence stores and skips:
+
+- Persistence accepts only same-origin, anonymous GET and HEAD responses.
+- Requests with Authorization, Range or If-Range headers bypass persistence.
+- Tachyon does not store these responses: private, no-store or Vary responses;
+  partial responses (206 or Content-Range); non-JSON content; invalid JSON.
+- Never cache secrets or data that belongs to one user.
+- There is no partitioning of the HTTP cache by authenticated user.
+- When the owner is aborted, the call rejects. It does not return stale data.
+- Tachyon does not replace an HTTP error with a stale successful response.
+
+Cache keys and invalidation:
+
+- The response store keeps its canonical keys, `fetch:<METHOD>:<absolute URL>`,
+  so that migrated code stays compatible.
+- Client no longer has the former options for custom keys or inline
+  invalidation.
+- After a successful mutation, invalidate canonical keys or prefixes
+  explicitly through the injected cacheManager, as in the example above.
+- A prefix must stay specific to the API resource that changed.
+
+Limits:
+
+- The cache holds at most 128 entries.
+- Each entry is at most 256 KiB.
+- Entries expire after 24 hours.
+- When the store is full, Tachyon clears it atomically before the next write.
+- IndexedDB operations and cache body reads each have a bounded two-second
+  window.
+- If storage is denied, corrupted or over quota, network operation still works.
+- Client parsing separately limits every response to 1 MiB. It also applies the
+  operation deadline of the behavior context.
+- Network requests bypass the browser HTTP cache and the service-worker HTTP
+  cache. Because of this, a second cache owner cannot silently override the
+  chosen policy.
+
+## Separate service-worker assets and declared public reads
+
+The service worker follows the path rules in the manifest's `tac.cache` for eligible public
+reads. Its low-level transport is separate from the IndexedDB owner of Client
+on purpose.
+
+- Examples written only for the worker policy can use the standard browser
+  fetch internally to test those rules. Application HTTP examples should use
+  Client.
+- A successful write still invalidates the affected worker reads before it
+  returns its response.
+
+Worker cache rules:
+
+- Credentialed requests, Authorization requests and no-store requests bypass
+  the worker cache and evict matching worker entries.
+- Private, no-store and Vary responses evict earlier entries.
+- The worker requests packaged assets anonymously. It checks them against the
+  SHA-256 fingerprints that the compiler emits.
+- Arbitrary HTML and URLs that look like file extensions are not trusted
+  assets.
+- Worker API bodies are limited to 256 KiB. Assets are limited to 4 MiB.
+  Storage is limited to 256 entries and 32 MiB.
+- Native hosts do not register this browser worker.
+
+Warming and clearing the worker cache:
+
+- `precache(urls)` warms eligible same-origin public assets in the worker
+  cache.
+- It accepts at most 512 URLs. Each body is at most 4 MiB. Each warm-up has a
+  budget of 30 seconds and 32 MiB.
+- Component branches that were not taken are warmed when the browser is idle.
+- `clearAssetCache()` removes the static worker caches. It does not remove
+  IndexedDB data or persisted fields.
+
+## Kept fields: `@SessionState` and `@LocalState`
+
+In the example below, `draft` uses sessionStorage, so it lasts for the
+current tab. `theme` uses localStorage, so it survives browser sessions. The
+file is `client/services/PreferencesService.js`. The markers replace the old
+`$` and `$$` prefixes, which Tachyon now refuses (ADR 0059);
+`ty migrate fix --write` converts them. The markers work in JavaScript,
+TypeScript, Dart, Swift, Kotlin, C#, Rust and Go Tac services.
 
 ```javascript
-await this.tac.fetch('/api/catalog/item', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ name: 'Example' }),
-}, { invalidateKeys: ['catalog'], invalidatePrefixes: ['catalog:'] });
-
-await this.tac.invalidate(['catalog'], ['catalog:']);
-```
-
-The response store holds at most 128 entries, at most 256 KiB each; records
-expire after 24 hours. A full store clears atomically before the next write.
-IndexedDB operations and body reads settle within bounded two-second windows;
-denied storage, corruption, and quota failure fall back to network behavior.
-HTTP error responses are returned as errors, not replaced by stale successes.
-
-The separate service worker honors declared `tac.config.js` cache rules only
-for anonymous public API reads. Credentialed/Authorization/no-store requests
-bypass and evict matching worker entries before lookup; private, no-store and
-Vary responses evict earlier entries. Known packaged files may bootstrap from
-ordinary document/module requests, but the worker fetches them anonymously and
-verifies their bytes against compiler-emitted SHA-256 fingerprints before
-caching. Arbitrary HTML and extension-looking URLs are not trusted assets.
-API bodies are limited to 256 KiB, packaged assets to 4 MiB, and worker storage
-to 256 entries/32 MiB. Native hosts do not register this browser service worker.
-Changing worker code changes the cache version as well as the worker script.
-
-`precache(urls)` warms the current generated service-worker cache with eligible
-same-origin public assets. It does not cache cross-origin or private responses.
-Each request is bounded, at most 512 URLs are accepted, each body is at most
-4 MiB, and one warm-up has a 30-second/32-MiB budget. Components referenced by
-untaken branches are warmed at idle within those bounds. `clearAssetCache()`
-removes Tachyon static caches; it does not clear IndexedDB or persisted fields.
-
-## Explicit `$` and `$$` persistence
-
-```javascript
-export default class Preferences {
-  $draft = '';       // sessionStorage: the current tab
-  $$theme = 'light'; // localStorage: survives browser sessions
+@Service
+export default class PreferencesService {
+  @SessionState
+  draft = '';
+  @LocalState
+  theme = 'light';
 }
 ```
 
-The stored value overrides the declared default before mount hooks. A value
-is written on assignment, not initial declaration. Reassign an object after
-changing it: nested mutation alone does not run the persistence setter.
-Assigning `undefined` removes the stored key. Keep values JSON-serializable and
-small (64 KiB serialized limit); these APIs are not secure storage.
+How values are read and written:
 
-Page scope combines the page module and pathname. Component scope combines the
-component name and pathname; provide a `persist-id` prop to distinguish two
-instances of the same component. Storage denial or invalid JSON preserves a
-usable in-memory default. Storage changes are not automatically broadcast into
-already-mounted instances in other tabs.
+- The stored value replaces the declared default before OnStart runs.
+- Tachyon writes a value when you assign it. It does not write the initial
+  declaration.
+- Changing a nested part of an object does not run the persistence setter.
+  Reassign the object after you change it.
+- Assigning `undefined` removes the stored key.
+- Keep values JSON-serializable and small. The limit is 64 KiB after
+  serialization.
+- These APIs are not secure storage.
 
-## Document-local signals and decorators
+How keys are built:
+
+- Persisted fields belong to services.
+- For a singleton service, the key combines the instance name and the pathname:
+  `tac:service:preferences:/settings:draft`.
+- For a prototype-scoped service, the key combines the component name, the
+  instance name and the pathname: `tac:basket-panel.basket:/shop:draft`.
+- A value saved under the old key (`...:$draft` or `...:$$theme`) moves to
+  the new key the first time the service starts.
+- To tell apart two instances of the same component, give each a `persist-id`
+  prop. It replaces the pathname in the prototype key.
+
+Failures and other tabs:
+
+- If storage is denied or holds invalid JSON, the field keeps a usable
+  in-memory default.
+- Tachyon does not automatically send storage changes to instances that are
+  already mounted in other tabs.
+
+## Document-local application events
+
+The example below is the file `client/services/CounterService.js`.
 
 ```javascript
-export default class Counter {
-  @publish('counter.value')
+/**
+ * @typedef {Object} CounterValue
+ * @property {integer} count
+ */
+/**
+ * @typedef {Object} CounterResult
+ * @property {integer} doubled
+ */
+@Service
+export default class CounterService {
+  applicationEventPublisher;
   $count = 0;
-
-  @subscribe('counter.value')
   displayedCount = 0;
 
-  @publish('counter.result')
-  async calculate() { return this.$count * 2; }
+  @OnStart
+  initialize() { this.announce(); }
+
+  /** @param {CounterValue} value */
+  @Order(-1)
+  @OnEvent({"replay":true,"condition":"value.count >= 0"})
+  changed(value) { this.displayedCount = value.count; }
+
+  announce() {
+    /** @type {CounterValue} */
+    const value = { count: this.$count };
+    this.applicationEventPublisher.publishEvent(value, true);
+  }
+
+  increment() {
+    this.$count += 1;
+    this.announce();
+  }
+
+  async calculate() {
+    /** @type {CounterResult} */
+    const result = { doubled: this.$count * 2 };
+    this.applicationEventPublisher.publishEvent(result);
+  }
 }
 ```
 
-Decorators occupy their own lines on instance members of the exported default
-class. `@publish` and `@subscribe` accept an optional quoted signal name;
-without it the member name is used. `@onMount` applies only to methods. The
-compiler lowers metadata before TypeScript transpilation; no native browser
-decorator implementation or unsafe expression evaluation is required. Invalid
-arguments, static/private members, reserved runtime names, and decorators
-outside that class fail before emission.
+Publishing:
 
-Published fields emit their initial value and every assignment. Methods emit
-their returned value or resolved Promise value; rejection publishes nothing.
-Persistent field accessors remain intact when decorated. Subscribed fields
-receive the retained value immediately; subscribed methods receive only new
-publications. Subscription-driven changes rerender the client document.
+- To publish, call the injected publisher. The compiler binds it to the
+  `applicationEventPublisher` field, which has no initial value.
+- `@EventPublisher` is removed (ADR 0031).
+- A method that throws never reaches the publish call.
 
-The imperative form is available when cleanup or replay needs to be explicit:
+Listening:
 
-```javascript
-const stop = this.tac.subscribe('counter.value', value => {
-  this.displayedCount = value;
-}, { immediate: true, signal: abortController.signal });
-this.tac.publish('counter.value', 4);
-const latest = this.tac.retained('counter.value');
-stop();
-```
+- Each listener receives one isolated, finite JSON value. The value is limited
+  to 64 KiB.
+- Listeners run in `@Order` order.
+- An optional compiled `condition` filters the events a listener receives.
+- Retention and replay are false by default.
+- There is no longer an imperative getter for the retained value.
+- Listeners register before initialization. They unregister when the owner is
+  disposed or replaced by a hot update.
+- A failure exposes a generic error marker. It never exposes payloads or
+  exception text.
+- Delivery is not over the network, not across tabs, not durable and not
+  transactional.
 
-Signals are local to the document, not server topic logs or cross-tab messages.
-Retained values are cloned snapshots, bounded to 128 names and 64 KiB each;
-use JSON-compatible cloneable values. `{ retain: false }` delivers without
-replacing an existing retained value. There are at most 128 subscribed topics,
-1,024 listeners, and 32 synchronous nested deliveries. Component removal and
-HMR dispose owned subscriptions; an AbortSignal or the returned function can
-stop them earlier. Subscriber failures are isolated and expose only a generic
-error marker, never payloads or exception text.
+See [application events](APPLICATION_EVENTS.md) for lifecycle ordering,
+asynchronous work and the limits of each language.
+
+The retired spellings `@onMount`, `@publish` and `@subscribe` fail with
+`TY1306` and a migration message. Tachyon does not pass them to a JavaScript
+runtime. It also does not silently treat them as syntax that does nothing.
+
+This does not forbid the optional polyglot behavior annotations that ADR 0022
+accepts.
+
+- In JS/TS, the global behavior annotations provide adapter-backed caching,
+  persistence, outbound HTTP, pagination, configuration and explicit
+  constructor generation. This works in Tac and in Yon.
+- Use the injected `lifecycle` signal to own the cancellation of the browser
+  context.
+- Native services instead own their signals explicitly and dispose their
+  contexts. See [the shared contract](BEHAVIOR_ANNOTATIONS.md).
+- This does not add server-side rendering (SSR).
 
 ## Counted loops remain bounded
 
@@ -182,88 +344,146 @@ error marker, never payloads or exception text.
 <loop :for="const item of items"><span>{item.name}</span></loop>
 ```
 
-The counted form requires one `let` binding, a comparison against that same
-binding, and `++`, `--`, `+= positiveMagnitude`, or `-= positiveMagnitude` in
-the correct direction. Zero, negative literal steps, mismatched bindings, and
-extra statements fail compilation. Non-finite runtime bounds/steps produce no
-iterations; a step that makes no numeric progress or more than 10,000
-iterations fails with a bounded error. A separate 100,000-iteration budget
-bounds all loops together, including nested empty loops that emit no nodes.
-Outer lexical locals remain visible to
-nested loops. `if`/`else`/`for` aliases and declaration-free iterable bindings
-remain accepted; this reconciliation does not remove them.
+The counted form requires:
 
-## Browser Wasm to target-native companions
+- exactly one `let` binding;
+- a comparison against that same binding;
+- a step of `++`, `--`, `+= positiveMagnitude` or `-= positiveMagnitude` that
+  moves in the correct direction.
 
-The former Wasm component ABI is retired. Keep browser page/component behavior
-in `tac.js` or `tac.ts`. Add page-local native source beside `tac.html`:
+Compilation fails for a zero step, a negative literal step, mismatched
+bindings and extra statements.
+
+At runtime:
+
+- Bounds or steps that are not finite produce no iterations.
+- A loop fails with a bounded error when a step makes no numeric progress or
+  when the loop runs more than 10,000 iterations.
+- A separate budget of 100,000 iterations applies to all loops together. This
+  includes nested empty loops that emit no nodes.
+- Nested loops can see the lexical locals of outer loops.
+
+The `if`/`else`/`for` aliases are still accepted. Iterable bindings without a
+declaration are still accepted. This reconciliation does not remove them.
+
+## Browser Wasm to target-native services
+
+The former Wasm component ABI (application binary interface) is retired.
+Behaviour is a service (ADR 0030). Keep browser behaviour in
+`client/services/<Name>Service.js` or `.ts`. Add a native implementation of the
+same service beside it. Add one file for each language the service must reach:
 
 | Native source | Targets |
 | --- | --- |
-| `tac.swift` | macOS and iOS |
-| `tac.kt` | Android |
-| `tac.cs` | Windows |
-| `tac.rs` | macOS, Linux, Windows |
+| `client/services/<Name>Service.swift` | macOS and iOS |
+| `client/services/<Name>Service.kt` | Android |
+| `client/services/<Name>Service.cs` | Windows |
+| `client/services/<Name>Service.rs` | macOS, Linux, Windows |
 
-The platform-specific language takes precedence over the Rust desktop
-fallback. Each route receives its own selected companion and state. Native-only
-pages fail web compilation with an actionable diagnostic; add JS/TS if the
-page also targets web. Dart/Python are not Tac companion targets.
+- The platform-specific language wins over the Rust desktop fallback. On each
+  target, one compiled implementation answers a service.
+- A service that has only Swift or Kotlin files fails a build for any other
+  target, including the web, with `TY1010`. Add a JS/TS file, or a Rust, C#
+  or Go file, which runs as WebAssembly where no host links it (ADR 0035,
+  ADR 0037, ADR 0045).
+- Python is not a Tac service language. Dart is: it compiles to JavaScript
+  for every target (ADR 0033).
+- A native `tac.*` file beside a component view is `TY1310`.
 
-Native hosts render the same Tac document in their platform web view. Native
-companions run in the host and reach OS APIs through their language SDK. The
-bridge is restricted to the packaged local application, not remote pages or
-subframes. Its protocol carries the compiler's canonical route for every
-`init`, `get`, `set`, or `call` operation.
+### The native bridge
 
-The former fixed JavaScript host verbs (`host.on`, `shortcuts.register`, and
-`contentSurface.open/state`) are not compatibility APIs of this architecture.
-Move those operations into a target-native companion using the platform SDK,
-and deliver native events with companion publication and `this.tac.subscribe`.
-The separate `tachyonWindow` API covers only the application's declared window
-controls; it is not a replacement registry for arbitrary device capabilities.
+- Native hosts render the same Tac document in their platform web view.
+- Native services run in the host. They reach OS APIs through the SDK of their
+  language.
+- The bridge serves only the packaged local application. It does not serve
+  remote pages or subframes.
+- Every `init`, `get`, `set`, `call` or `dispose` operation in the bridge
+  protocol carries the canonical route from the compiler and the instance name
+  of the service (`service: "basket"`). It also carries a fresh owner identity
+  for each activation.
+- The browser activates a native service once for each browser-side service
+  instance. For a singleton, that is once per page. For a prototype-scoped
+  service, that is once per component instance.
+- An unknown service answers `TY_NATIVE_SERVICE`. Calls and events from a stale
+  owner answer `TY_NATIVE_OWNER`.
 
-Native methods are asynchronous in the browser. Use `{await method()}` in a
-template or await the returned Promise in authored code. Initialization reads
-field values but never calls methods to discover their return values. Field
-assignments settle through the host before rerender; explicit method calls
-refresh the field snapshot afterward. Per-field revisions prevent a delayed
-reply from undoing later typing; refresh skips fields with queued writes.
-Native method discovery must not cause side effects. The native publish
-channel feeds the same retained document bus and preserves bounded early
-publications.
+The former fixed JavaScript host verbs are not compatibility APIs of this
+architecture. These verbs are `host.on`, `shortcuts.register`, and
+`contentSurface.open/state`. Move those operations into a target-native service
+that uses the platform SDK. Deliver local native events with an injected
+ApplicationEventPublisher and an OnEvent listener.
 
-Native assignments admit at most 128 queued writes. Each native call has a
-ten-second browser wait limit. This timeout is not native-code preemption or
-mutation rollback: application-owned native work may still finish after the
-caller stops waiting. Keep companions responsive and move long-running work
-off the host's interaction path. A hung companion may require an application
-relaunch; failed mutations are not automatically replayed.
+The separate `tachyonWindow` API covers only the window controls that the
+application declares. It does not replace a registry for arbitrary device
+capabilities.
 
-Android pins AndroidX WebKit `1.14.0` and uses its frame-aware asynchronous
-message bridge, with no legacy JavaScript-interface fallback. A runtime
-without `WEB_MESSAGE_LISTENER` reports that the Android native bridge is
-unavailable; update Android System WebView or use a compatible runtime.
-The bridge allows 128 pending document calls with ten-second deadlines and
-uses one worker with a 128-request queue. Navigation rejects pending document
-calls and discards stale queued work; activity destruction shuts down the
-worker. These controls do not forcibly stop an already-running companion.
+### Native calls from the browser
 
-macOS and iOS share the same bounded Foundation JSON parser and canonical
-request serialization. This replaces the handwritten Swift value scanner;
-a byte-level guard enforces the 64 KiB/64-level limits and rejects duplicate
-root keys before Foundation decodes the request.
+- Native methods are asynchronous in the browser. Use
+  `{await basket.method()}` in a template, or await the returned Promise in your
+  own code.
+- Initialization reads field values. It never calls methods to find out what
+  they return.
+- A field assignment goes through the host before the view rerenders.
+- An explicit method call refreshes the field snapshot after it returns.
+- Each field has a revision number. Because of this, a late reply cannot undo
+  later typing. A refresh skips fields that have queued writes.
+- Discovering native methods must not cause side effects.
+- Lifecycle hooks and listener hooks are not ordinary bridge methods.
+- Synchronous native publications wait in a queue until the current method
+  returns. This keeps native borrow safety and owner identity intact.
+- This annotation API does not cover background publication without an owner.
 
-Browser event handlers receive an implicit DOM event before authored arguments.
-Native methods receive only the authored JSON arguments: `on:click="setCount(7)"`
-invokes the native method with `7`, not a DOM event. Explicit expressions such
-as `$event.target.value` still provide their resolved value.
+Limits and timeouts:
 
-Automatic native member discovery currently supports fields and zero-argument
-public methods. The `setCount(7)` example requires an explicitly authored
-native member table accepting that argument; parameterized methods are not
-automatically bound. Use a field assignment or an explicit table until typed
-parameter discovery is implemented.
+- Native assignments allow at most 128 queued writes.
+- The browser waits at most ten seconds for each native call.
+- This timeout does not preempt native code and does not roll back mutations.
+  Native work that the application owns may still finish after the caller stops
+  waiting.
+- Keep native services responsive. Move long-running work off the interaction
+  path of the host.
+- A hung service may need an application relaunch.
+- Tachyon does not automatically replay failed mutations.
+
+### Android
+
+- Android pins AndroidX WebKit `1.14.0`. It uses the frame-aware asynchronous
+  message bridge of that library. There is no fallback to the legacy
+  JavaScript interface.
+- If the runtime has no `WEB_MESSAGE_LISTENER`, Tachyon reports that the
+  Android native bridge is unavailable. Update Android System WebView or use a
+  compatible runtime.
+- The bridge allows 128 pending document calls, each with a ten-second
+  deadline.
+- It uses one worker with a queue of 128 requests.
+- Navigation rejects pending document calls and discards stale queued work.
+- Destroying the activity shuts down the worker.
+- These controls do not force an already-running native service to stop.
+
+### macOS and iOS
+
+macOS and iOS share the same bounded Foundation JSON parser and the same
+canonical request serialization. This replaces the handwritten Swift value
+scanner. Before Foundation decodes a request, a byte-level guard does these
+checks:
+
+- it enforces the 64 KiB size limit and the 64-level nesting limit;
+- it rejects duplicate root keys.
+
+### Arguments
+
+Browser event handlers receive an implicit DOM event before the arguments you
+write. Native methods receive only the JSON arguments you write. For example,
+`on:click="counter.setCount(7)"` calls the native method with `7`, not with a
+DOM event. Explicit expressions such as `$event.target.value` still pass their
+resolved value.
+
+Automatic discovery of native members currently supports fields and public
+methods with zero arguments. Parameterized methods are not bound
+automatically. So the `setCount(7)` example needs a native member table that
+you write explicitly and that accepts that argument. Until typed parameter
+discovery exists, use a field assignment or an explicit table.
 
 ## Acceptance against the installed or published binary
 
@@ -276,11 +496,15 @@ TAC_BIN=/absolute/path/to/ty node scripts/website-browser-test.mjs
 TAC_BIN=/absolute/path/to/ty bash scripts/compat/verify-ledger.sh
 ```
 
-Browser gates require Node, Playwright Chromium, and (for the HTTPS offline
-case) OpenSSL. The desktop native companion gate requires Rust and Python 3,
-but not a GUI SDK: it stages two routes with the selected binary, compiles
-the emitted Rust companion with the host toolchain,
-and executes the generated ABI, including native OS access and publication.
-Platform UI gates remain separate: cross-compiling an archive is not native
-interaction evidence. Historical ADR/evidence documents describe older
-architectures, not the support level of this one.
+Requirements of the gates:
+
+- Browser gates need Node and Playwright Chromium. The HTTPS offline case also
+  needs OpenSSL.
+- The desktop native service gate needs Rust and Python 3. It does not need a
+  GUI SDK. It stages two routes with the selected binary. It compiles the
+  emitted Rust service with the host toolchain. Then it runs the generated ABI,
+  including native OS access and publication.
+- Platform UI gates are separate. Cross-compiling an archive does not prove
+  native interaction.
+- Historical ADR and evidence documents describe older architectures. They do
+  not describe the support level of this architecture.

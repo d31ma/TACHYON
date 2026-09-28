@@ -1,0 +1,13 @@
+{
+  "title": "Sockets",
+  "summary": "A socket (a WebSocket) is a connection that stays open, so the browser and the server can both send messages at any time. On the server, mark a controller with `SocketRoute`. In the page, a client method marked `SocketRequest` connects to it. The socket class also says who may connect: `Public`, `SignedIn` or `Allow(Role)` on the class.",
+  "before": [
+    "controllers",
+    "calling-the-server"
+  ],
+  "sections": [
+    {
+      "include": "../routing-annotations/sockets/section.json"
+    }
+  ]
+}

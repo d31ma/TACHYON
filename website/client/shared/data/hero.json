@@ -1,0 +1,3 @@
+{
+  "install": "curl -fsSL https://github.com/d31ma/Tachyon/releases/latest/download/install.sh | sh"
+}

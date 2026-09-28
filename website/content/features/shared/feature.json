@@ -1,0 +1,24 @@
+{
+  "id": "shared",
+  "title": "Shared assets",
+  "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file.",
+  "group": "Tooling",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/docs/summary/tac.html",
+      "code": { "file": "client/components/docs/summary/tac.html" }
+    },
+    {
+      "name": "layout",
+      "code": { "file": "layout.txt" }
+    },
+    {
+      "name": "client/services/DocumentsService.js",
+      "code": { "file": "client/services/DocumentsService.js" }
+    }
+  ]
+}

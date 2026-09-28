@@ -1,0 +1,92 @@
+{
+  "id": "middleware",
+  "title": "Middleware",
+  "summary": "Middleware is code that runs around every request. One middleware file at the project root runs before every request and again after the response. It can reject a request, or change or replace the response of the controller. Who may call a route is decided by the route itself (`Public`, `SignedIn`, `Allow(Role)`) and the one identity provider, not by middleware.",
+  "group": "Yon server",
+  "files": [
+    {
+      "name": "middleware.js",
+      "code": {
+        "file": "middleware.js"
+      }
+    },
+    {
+      "name": "middleware.ts",
+      "code": {
+        "file": "middleware.ts"
+      }
+    },
+    {
+      "name": "middleware.py",
+      "code": {
+        "file": "middleware.py"
+      }
+    },
+    {
+      "name": "middleware.php",
+      "code": {
+        "file": "middleware.php"
+      }
+    },
+    {
+      "name": "middleware.java",
+      "code": {
+        "file": "middleware.java"
+      }
+    },
+    {
+      "name": "middleware.groovy",
+      "code": {
+        "file": "middleware.groovy"
+      }
+    },
+    {
+      "name": "middleware.kt",
+      "code": {
+        "file": "middleware.kt"
+      }
+    },
+    {
+      "name": "middleware.cs",
+      "code": {
+        "file": "middleware.cs"
+      }
+    },
+    {
+      "name": "middleware.fs",
+      "code": {
+        "file": "middleware.fs"
+      }
+    },
+    {
+      "name": "middleware.rs",
+      "code": {
+        "file": "middleware.rs"
+      }
+    },
+    {
+      "name": "middleware.dart",
+      "code": {
+        "file": "middleware.dart"
+      }
+    },
+    {
+      "name": "middleware.go",
+      "code": {
+        "file": "middleware.go"
+      }
+    },
+    {
+      "name": "languages",
+      "code": {
+        "file": "languages.txt"
+      }
+    },
+    {
+      "name": "middleware.rb",
+      "code": {
+        "file": "middleware.rb"
+      }
+    }
+  ]
+}

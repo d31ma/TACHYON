@@ -17,6 +17,8 @@
     "scripts/release/feature-smoke.mjs",
     "scripts/schema-contract-smoke.mjs",
     "scripts/website-browser-test.mjs",
+    "website/scripts/build-content.mjs",
+    "website/scripts/site-content.mjs",
     "website/scripts/verify-snippets.mjs"
   ]
 }

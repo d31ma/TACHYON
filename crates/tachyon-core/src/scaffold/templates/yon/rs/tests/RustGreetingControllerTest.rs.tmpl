@@ -1,0 +1,17 @@
+#[Test(RustGreetingTestSetup, {"partition":"tests"})]
+struct RustGreetingControllerTest {
+    behaviors: std::cell::RefCell<Option<BehaviorContext>>,
+}
+
+impl RustGreetingControllerTest {
+    fn new() -> Self {
+        Self { behaviors: std::cell::RefCell::new(None) }
+    }
+
+    fn testGetGreetingSaysHello(&self) -> BehaviorResult<BehaviorValue> {
+        if RustGreetingController::new().get_greeting() != "Hello from Rust" {
+            return Err(BehaviorError { code: "assertion", message: "expected a greeting", path: None });
+        }
+        Ok(BehaviorValue::Null)
+    }
+}

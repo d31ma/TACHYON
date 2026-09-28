@@ -1,0 +1,31 @@
+{
+  "id": "csharp",
+  "name": "C#",
+  "note": "C# keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+  "files": [
+    {
+      "name": "server/models/OrderList.cs",
+      "code": {
+        "file": "server/models/OrderList.cs"
+      }
+    },
+    {
+      "name": "server/services/OrderService.cs",
+      "code": {
+        "file": "server/services/OrderService.cs"
+      }
+    },
+    {
+      "name": "server/stores/OrderStore.cs",
+      "code": {
+        "file": "server/stores/OrderStore.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.cs",
+      "code": {
+        "file": "server/controllers/OrdersController.cs"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+<logic :if="stock.products.length > 0">
+  <p>In stock</p>
+</logic>
+<logic :else-if="stock.restocking">
+  <p>Back soon</p>
+</logic>
+<logic else>
+  <p>Sold out</p>
+</logic>

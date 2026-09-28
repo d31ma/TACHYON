@@ -1,0 +1,5 @@
+{
+  "heading": "Route contracts",
+  "body": "Tachyon makes the API schema of each route from the controller method: its argument types, its return type, its `ResponseStatus` and the models they name. You write no schema file. `OPTIONS` on a route answers with the schema of that path. `/api.json` lists every controller route and every model. The server checks requests and answers against the same types, so the schema and the checks always agree.",
+  "code": { "file": "example.json" }
+}

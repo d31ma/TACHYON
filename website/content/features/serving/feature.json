@@ -1,0 +1,14 @@
+{
+  "id": "serving",
+  "title": "Serving what was published",
+  "summary": "`ty start` serves a bundle that is already built. `server/application.json` and its profile files hold `yon` settings that are not secret. These files have no `yon` root key (top-level key). `.env` holds private Yon secrets. Public `tac` settings are already in the bundle. The deployment chooses the runtime executable and the isolation policy. `outgoing.hosts` in `server/application.json` lists the hosts that Yon code may call; at run time a local guard refuses every other host.",
+  "group": "Tooling",
+  "files": [
+    {
+      "name": "environment",
+      "code": {
+        "file": "environment.txt"
+      }
+    }
+  ]
+}

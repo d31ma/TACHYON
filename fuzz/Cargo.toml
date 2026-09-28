@@ -42,3 +42,24 @@ bench = false
 
 [workspace]
 members = ["."]
+
+[[bin]]
+name = "yon_annotations"
+path = "fuzz_targets/yon_annotations.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "application_config"
+path = "fuzz_targets/application_config.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "managed_resource_headers"
+path = "fuzz_targets/managed_resource_headers.rs"
+test = false
+doc = false
+bench = false

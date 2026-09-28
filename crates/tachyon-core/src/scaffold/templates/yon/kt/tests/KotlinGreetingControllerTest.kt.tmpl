@@ -1,0 +1,6 @@
+@Test(KotlinGreetingTestSetup::class, {"partition":"tests"})
+class KotlinGreetingControllerTest {
+    fun testGetGreetingSaysHello() {
+        if (KotlinGreetingController().getGreeting() != "Hello from Kotlin") throw IllegalStateException("expected a greeting")
+    }
+}

@@ -1,0 +1,183 @@
+{
+  "heading": "Access from every Yon language",
+  "body": "Code in every language reads the private YON_APPLICATION_JSON snapshot. Your code passes it to behavior binding; this does not happen automatically. Settings turns its prefixed names into nested paths. Setting names the full standard path directly. Return data, not a response object or a JSON string that you serialized yourself. This example returns only some fields, and none of them are secret. Never return the complete snapshot.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/application.json",
+      "code": { "file": "server/application.json" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.js",
+      "code": { "file": "server/helpers/CatalogSettings.js" }
+    },
+    {
+      "name": "server/helpers/Endpoint.js",
+      "code": { "file": "server/helpers/Endpoint.js" }
+    },
+    {
+      "name": "server/models/Configuration.ts",
+      "code": { "file": "server/models/Configuration.ts" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.ts",
+      "code": { "file": "server/helpers/CatalogSettings.ts" }
+    },
+    {
+      "name": "server/helpers/Endpoint.ts",
+      "code": { "file": "server/helpers/Endpoint.ts" }
+    },
+    {
+      "name": "server/models/Configuration.py",
+      "code": { "file": "server/models/Configuration.py" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.py",
+      "code": { "file": "server/helpers/CatalogSettings.py" }
+    },
+    {
+      "name": "server/helpers/Endpoint.py",
+      "code": { "file": "server/helpers/Endpoint.py" }
+    },
+    {
+      "name": "server/models/Configuration.php",
+      "code": { "file": "server/models/Configuration.php" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.php",
+      "code": { "file": "server/helpers/CatalogSettings.php" }
+    },
+    {
+      "name": "server/helpers/Endpoint.php",
+      "code": { "file": "server/helpers/Endpoint.php" }
+    },
+    {
+      "name": "server/models/Configuration.java",
+      "code": { "file": "server/models/Configuration.java" }
+    },
+    {
+      "name": "server/models/Configuration.groovy",
+      "code": { "file": "server/models/Configuration.groovy" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.java",
+      "code": { "file": "server/helpers/CatalogSettings.java" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.groovy",
+      "code": { "file": "server/helpers/CatalogSettings.groovy" }
+    },
+    {
+      "name": "server/helpers/Endpoint.java",
+      "code": { "file": "server/helpers/Endpoint.java" }
+    },
+    {
+      "name": "server/helpers/Endpoint.groovy",
+      "code": { "file": "server/helpers/Endpoint.groovy" }
+    },
+    {
+      "name": "server/models/Configuration.kt",
+      "code": { "file": "server/models/Configuration.kt" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.kt",
+      "code": { "file": "server/helpers/CatalogSettings.kt" }
+    },
+    {
+      "name": "server/helpers/Endpoint.kt",
+      "code": { "file": "server/helpers/Endpoint.kt" }
+    },
+    {
+      "name": "server/models/Configuration.cs",
+      "code": { "file": "server/models/Configuration.cs" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.cs",
+      "code": { "file": "server/helpers/CatalogSettings.cs" }
+    },
+    {
+      "name": "server/helpers/Endpoint.cs",
+      "code": { "file": "server/helpers/Endpoint.cs" }
+    },
+    {
+      "name": "server/models/Configuration.rs",
+      "code": { "file": "server/models/Configuration.rs" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.rs",
+      "code": { "file": "server/helpers/CatalogSettings.rs" }
+    },
+    {
+      "name": "server/helpers/Endpoint.rs",
+      "code": { "file": "server/helpers/Endpoint.rs" }
+    },
+    {
+      "name": "server/models/Configuration.dart",
+      "code": { "file": "server/models/Configuration.dart" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.dart",
+      "code": { "file": "server/helpers/CatalogSettings.dart" }
+    },
+    {
+      "name": "server/helpers/Endpoint.dart",
+      "code": { "file": "server/helpers/Endpoint.dart" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.js",
+      "code": { "file": "server/controllers/ConfigurationController.js" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.ts",
+      "code": { "file": "server/controllers/ConfigurationController.ts" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.py",
+      "code": { "file": "server/controllers/ConfigurationController.py" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.php",
+      "code": { "file": "server/controllers/ConfigurationController.php" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.java",
+      "code": { "file": "server/controllers/ConfigurationController.java" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.groovy",
+      "code": { "file": "server/controllers/ConfigurationController.groovy" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.kt",
+      "code": { "file": "server/controllers/ConfigurationController.kt" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.cs",
+      "code": { "file": "server/controllers/ConfigurationController.cs" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.rs",
+      "code": { "file": "server/controllers/ConfigurationController.rs" }
+    },
+    {
+      "name": "server/models/Configuration.go",
+      "code": { "file": "server/models/Configuration.go" }
+    },
+    {
+      "name": "server/helpers/CatalogSettings.go",
+      "code": { "file": "server/helpers/CatalogSettings.go" }
+    },
+    {
+      "name": "server/helpers/Endpoint.go",
+      "code": { "file": "server/helpers/Endpoint.go" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.go",
+      "code": { "file": "server/controllers/ConfigurationController.go" }
+    },
+    {
+      "name": "server/controllers/ConfigurationController.dart",
+      "code": { "file": "server/controllers/ConfigurationController.dart" }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+@RequestRoute("/api/typescript")
+@Public
+export class TypeScriptGreetingController {
+  @GetRoute
+  getGreeting(): string {
+    return 'Hello from TypeScript';
+  }
+}

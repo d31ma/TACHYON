@@ -1,0 +1,77 @@
+{
+  "id": "gateways",
+  "title": "Calling a method in another language",
+  "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed.",
+  "group": "Polyglot",
+  "files": [
+    {
+      "name": "server/services/ReportService.java",
+      "code": { "file": "server/services/ReportService.java" }
+    },
+    {
+      "name": "server/services/ReportService.groovy",
+      "code": { "file": "server/services/ReportService.groovy" }
+    },
+    {
+      "name": "server/services/LedgerService.py",
+      "code": { "file": "server/services/LedgerService.py" }
+    },
+    {
+      "name": "server/helpers/forecast.py",
+      "code": { "file": "server/helpers/forecast.py" }
+    },
+    {
+      "name": "spellings",
+      "code": { "file": "spellings.txt" }
+    },
+    {
+      "name": "server/clients/ReportClient.js",
+      "code": { "file": "server/clients/ReportClient.js" }
+    },
+    {
+      "name": "server/models/Report.js",
+      "code": { "file": "server/models/Report.js" }
+    },
+    {
+      "name": "server/controllers/ReportController.js",
+      "code": { "file": "server/controllers/ReportController.js" }
+    },
+    {
+      "name": "server/models/Forecast.py",
+      "code": { "file": "server/models/Forecast.py" }
+    },
+    {
+      "name": "server/clients/ForecastClient.py",
+      "code": { "file": "server/clients/ForecastClient.py" }
+    },
+    {
+      "name": "server/controllers/ForecastController.py",
+      "code": { "file": "server/controllers/ForecastController.py" }
+    },
+    {
+      "name": "server/models/Balance.java",
+      "code": { "file": "server/models/Balance.java" }
+    },
+    {
+      "name": "server/models/Balance.groovy",
+      "code": { "file": "server/models/Balance.groovy" }
+    },
+    {
+      "name": "server/clients/LedgerClient.java",
+      "code": { "file": "server/clients/LedgerClient.java" }
+    },
+    {
+      "name": "server/clients/LedgerClient.groovy",
+      "code": { "file": "server/clients/LedgerClient.groovy" }
+    },
+    {
+      "name": "server/controllers/LedgerController.java",
+      "code": { "file": "server/controllers/LedgerController.java" }
+    },
+    {
+      "name": "server/controllers/LedgerController.groovy",
+      "code": { "file": "server/controllers/LedgerController.groovy" }
+    }
+  ],
+  "verify": "yon-gateway"
+}

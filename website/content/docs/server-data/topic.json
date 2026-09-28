@@ -1,0 +1,19 @@
+{
+  "title": "Server data",
+  "summary": "Yon can connect to a SQL database and to Redis for you. You name them in `server/application.json`, and a Store class gets them with `Needs`. Values always go in as parameters: Tachyon refuses query text built from pieces.",
+  "before": [
+    "controllers",
+    "application-configuration"
+  ],
+  "sections": [
+    {
+      "include": "../storage/yon-managed-sql-and-redis/section.json"
+    },
+    {
+      "include": "../storage/store-injection-in-every-yon-language/section.json"
+    },
+    {
+      "include": "../storage/redis-in-a-repository/section.json"
+    }
+  ]
+}

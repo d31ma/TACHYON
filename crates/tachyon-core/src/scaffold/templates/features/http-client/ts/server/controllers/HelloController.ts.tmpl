@@ -1,0 +1,10 @@
+import type { Hello } from '/models/Hello.ts'
+
+@RequestRoute("/api/hello")
+@Public
+export class HelloController {
+  @GetRoute
+  getHello(): Hello {
+    return { message: 'Hello from Yon' };
+  }
+}

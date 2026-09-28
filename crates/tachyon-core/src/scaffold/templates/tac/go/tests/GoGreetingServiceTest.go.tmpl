@@ -1,0 +1,24 @@
+import "errors"
+
+// @Test(GoGreetingTestSetup, {"partition":"tests"})
+type GoGreetingServiceTest struct {
+	behaviors *BehaviorContext
+}
+
+func (test *GoGreetingServiceTest) TestStartSetsTheMessage() error {
+	greeting := &GoGreetingService{}
+	greeting.Start()
+	if greeting.Message != "Hello from Go" {
+		return errors.New("start did not set the message")
+	}
+	return nil
+}
+
+func (test *GoGreetingServiceTest) TestGreetChangesTheMessage() error {
+	greeting := &GoGreetingService{}
+	greeting.Greet()
+	if greeting.Message != "Go says hello again." {
+		return errors.New("greet did not change the message")
+	}
+	return nil
+}

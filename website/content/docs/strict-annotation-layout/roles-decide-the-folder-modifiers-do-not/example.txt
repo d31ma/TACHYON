@@ -1,0 +1,10 @@
+services/MoneyService.ts                @Service
+controllers/MoneyController.ts          @RequestRoute("/money") + @Public
+controllers/AppIdentityProvider.ts      @IdentityProvider
+roles/Admin.ts                          (a role type, no annotation)
+repositories/MoneyStore.ts        @Store
+clients/MoneyClient.ts                  @HTTPClient
+delegates/MoneyHelper.ts              @Helper
+mappers/MoneySummaryConverter.ts            @Converter
+configurations/MoneySetup.ts    @Setup
+entities/MoneyEntity.ts                 @Entity + @Table

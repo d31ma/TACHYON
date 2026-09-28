@@ -1,0 +1,3 @@
+client/shared/assets/logo.svg    ->  /shared/assets/logo.svg
+client/shared/data/docs.json    ->  /shared/data/docs.json
+client/shared/styles/site.css   ->  /shared/styles/site.css

@@ -1,0 +1,4 @@
+/* client/shared/styles.css */
+body[data-platform="native"] .browser-only {
+  display: none;
+}

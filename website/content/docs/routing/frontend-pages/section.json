@@ -1,0 +1,5 @@
+{
+  "heading": "Folders become URLs",
+  "body": "client/pages/tac.html serves /. client/pages/docs/tac.html serves /docs. client/pages/docs/_topic/tac.html serves /docs/:topic. The page you are reading uses this dynamic segment. A page that contains a slot element becomes a reusable shell (a shared layout) for every page below it.",
+  "code": { "file": "example.txt" }
+}

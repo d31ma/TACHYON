@@ -1,0 +1,3 @@
+@scope ([data-tac-scope="product-card"]) {
+  .card { padding: 1rem; }
+}

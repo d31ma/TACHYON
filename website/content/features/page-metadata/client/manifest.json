@@ -1,0 +1,33 @@
+{
+  "tac": {
+    "origin": "https://example.com",
+    "metadata": {
+      "defaults": {
+        "image": "/shared/assets/card.png",
+        "siteName": "Catalog"
+      },
+      "routes": {
+        "/": {
+          "title": "Catalog",
+          "description": "Everything we sell.",
+          "canonical": "/"
+        },
+        "/products": {
+          "title": "Products — Catalog",
+          "canonical": "/products"
+        },
+        "/products/_id": {
+          "title": "Product — Catalog",
+          "noindex": true
+        }
+      }
+    },
+    "sitemap": {
+      "/products/_id": {
+        "data": "/shared/data/products.json",
+        "values": "/products",
+        "field": "id"
+      }
+    }
+  }
+}

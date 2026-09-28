@@ -1,0 +1,29 @@
+Moving from YonRequest and YonResponse (ADR 0062)
+
+1. Run ty migrate fix to see the plan, then ty migrate fix --write.
+   It removes every YonRequest parameter that the method does not read,
+   and lists every other use with the native type to write.
+2. Change each listed use by hand:
+
+  Language     Read the request              Answer with
+  JavaScript   request.headers.get('x-a')    new Response(body, { status, headers })
+  TypeScript   await request.text()          Response.json(value, { status: 400 })
+  Python       request.get_header('X-a')     (HTTPStatus.BAD_REQUEST, headers, body)
+               request.data
+  Ruby         request['x-a'], request.body  [400, { 'content-type' => 'application/json' }, [body]]
+  PHP          $_SERVER['HTTP_X_A']          http_response_code(400);
+               file_get_contents('php://input')  header('Content-Type: application/json'); echo $body;
+  Java         exchange.getRequestHeaders()  exchange.sendResponseHeaders(400, bytes.length);
+               exchange.getRequestBody()     exchange.getResponseBody().write(bytes);
+  Kotlin       exchange.requestHeaders       exchange.sendResponseHeaders(400, bytes.size.toLong())
+  C#           request.Headers               new HttpResponseMessage(HttpStatusCode.BadRequest)
+  Rust         request.headers().get("x-a")  http::Response::builder().status(400).body(bytes)
+  Dart         request.headers['x-a']        Response(400, body: body)
+  Go           request.Header.Get("X-A")     &http.Response{StatusCode: 400, Body: ...}
+
+3. Middleware that let the request pass with an empty 204 answer can
+   answer nothing instead: return undefined, None, nil or null, or
+   write nothing in PHP, Java and Kotlin.
+4. relay(command, request) now takes the native request. PHP calls
+   Yon::relay(command); Java and Kotlin call Yon.relay(command, exchange).
+   The program no longer receives path parameters: read them from route.

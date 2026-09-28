@@ -1,0 +1,2 @@
+error[TY1010]: Route '{catalog}' has no companion that runs on android.
+               It declares Swift (macos, ios).

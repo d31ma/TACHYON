@@ -1,9 +1,3 @@
-//! `macOS` host generation.
-//!
-//! The host is a window around the application's own web bundle. It used to
-//! rebuild the view out of `SwiftUI` controls; see `native/routes.rs` for why
-//! that went.
-
 use super::config::NativeApplication;
 use super::host::{
     GeneratedHost, first_line, native_io, native_tool_failure, quoted_string_escape, run_tool,
@@ -17,6 +11,19 @@ use std::path::{Path, PathBuf};
 pub(super) struct MacOsHostGenerator;
 
 impl MacOsHostGenerator {
+    const SWIFT_COMPANION_PRELUDE: &str = include_str!("prelude.swift");
+    pub(super) const APPLE_JSON_REQUEST: &str = include_str!("apple_json.swift");
+    const FRAMEWORK_ARGUMENTS: [&str; 8] = [
+        "-framework",
+        "AppKit",
+        "-framework",
+        "SwiftUI",
+        "-framework",
+        "WebKit",
+        "-framework",
+        "JavaScriptCore",
+    ];
+
     pub(super) async fn generate(
         application: &NativeApplication,
         index: &NativeRouteIndex,
@@ -30,51 +37,24 @@ impl MacOsHostGenerator {
         let resources = contents.join("Resources");
         stage_application(index, web_bundle, stage, &resources)?;
 
-        // Compiled by its own compiler, with AppKit in reach: Swift into the
-        // host binary, Rust as a static library the host links and calls
-        // through the C ABI.
         let companion = stage_swift_companion(companions, stage)?;
         let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
         let swift_path = stage.join("project").join("TachyonHost.swift");
-        write_host_source(
-            &swift_path,
-            &swift_source(
-                application,
-                companion_call(companion.as_deref(), rust_companion.as_deref()),
-                index,
-            ),
-        )?;
-        // The manifest's icon becomes the bundle's, so the Dock shows the
-        // same artwork the browser tab does.
+        let call = companion_call(companion.as_deref(), rust_companion.as_deref());
+        write_host_source(&swift_path, &swift_source(application, call, index))?;
         let icon = stage_icon(application, web_bundle, &resources).await?;
         write(
             &contents.join("Info.plist"),
             info_plist(application, icon.as_deref()).as_bytes(),
         )?;
         if !package {
-            return Ok(GeneratedHost {
-                application_bundle: PathBuf::from("project/TachyonHost.swift"),
-                toolchain_name: String::from("source"),
-                toolchain_version: String::from("not-packaged"),
-            });
+            return Ok(GeneratedHost::not_packaged(PathBuf::from(
+                "project/TachyonHost.swift",
+            )));
         }
 
-        let executable_directory = contents.join("MacOS");
-        native_io(
-            std::fs::create_dir_all(&executable_directory),
-            &executable_directory,
-        )?;
-        let executable = executable_directory.join(&application.executable_name);
-        // A Rust companion becomes a static library before the Swift compile,
-        // so the two link into one binary.
-        let library = match &rust_companion {
-            Some(source) => {
-                let path = stage.join("project").join("libtachyoncompanion.a");
-                super::rust::compile(source, super::rust::Linkage::Static, None, &path).await?;
-                Some(path)
-            }
-            None => None,
-        };
+        let executable = executable_path(application, &contents)?;
+        let library = compile_rust_library(rust_companion.as_deref(), stage).await?;
         let swift_version = compile_swift(
             &swift_path,
             companion.as_deref(),
@@ -91,9 +71,27 @@ impl MacOsHostGenerator {
     }
 }
 
-/// Stages every route's selected Swift companion beside the host source.
-///
-/// Returns the staged path, or `None` when no route selected Swift.
+fn executable_path(application: &NativeApplication, contents: &Path) -> Result<PathBuf, Failure> {
+    let executable_directory = contents.join("MacOS");
+    native_io(
+        std::fs::create_dir_all(&executable_directory),
+        &executable_directory,
+    )?;
+    Ok(executable_directory.join(&application.executable_name))
+}
+
+async fn compile_rust_library(
+    rust_companion: Option<&Path>,
+    stage: &Path,
+) -> Result<Option<PathBuf>, Failure> {
+    let Some(source) = rust_companion else {
+        return Ok(None);
+    };
+    let path = stage.join("project").join("libtachyoncompanion.a");
+    super::rust::compile(source, super::rust::Linkage::Static, None, &path).await?;
+    Ok(Some(path))
+}
+
 pub(super) fn stage_swift_companion(
     companions: &[super::registry::NativeCompanionInput],
     stage: &Path,
@@ -104,29 +102,19 @@ pub(super) fn stage_swift_companion(
         return Ok(None);
     };
     let staged = stage.join("project").join("TachyonCompanion.swift");
-    write(
-        &staged,
-        format!("{authored}\n{SWIFT_COMPANION_PRELUDE}").as_bytes(),
-    )?;
+    let prelude = MacOsHostGenerator::SWIFT_COMPANION_PRELUDE;
+    write(&staged, format!("{authored}\n{prelude}").as_bytes())?;
     Ok(Some(staged))
 }
 
-/// The prelude appended to a Swift companion compiled into this host.
-const SWIFT_COMPANION_PRELUDE: &str = include_str!("prelude.swift");
-
-/// The Swift companion prelude, for the publish-channel drift test.
 #[cfg(test)]
 pub(super) const fn companion_prelude() -> &'static str {
-    SWIFT_COMPANION_PRELUDE
+    MacOsHostGenerator::SWIFT_COMPANION_PRELUDE
 }
 
-/// The Swift expression the host calls to reach its companion.
-///
-/// Written in only when one was staged: naming a symbol that is not in the
-/// binary is a compile error, not a runtime fallback.
 pub(super) fn companion_call(swift: Option<&Path>, rust: Option<&Path>) -> &'static str {
     if swift.is_some() && rust.is_some() {
-        "tacRouteMembers(((try? JSONSerialization.jsonObject(with: Data(payload.utf8))) as? [String: Any])?[\"route\"] as? String ?? \"\") != nil ? tacNativeInvoke(payload) : tacRustInvoke(payload)"
+        "{ () -> String in let request = ((try? JSONSerialization.jsonObject(with: Data(payload.utf8))) as? [String: Any]) ?? [:]; if request[\"op\"] as? String == \"host-dispose\" { _ = tacNativeInvoke(payload); return tacRustInvoke(payload) }; return tacServiceKnown(request[\"service\"] as? String ?? \"\") ? tacNativeInvoke(payload) : tacRustInvoke(payload) }()"
     } else if swift.is_some() {
         "tacNativeInvoke(payload)"
     } else if rust.is_some() {
@@ -136,11 +124,6 @@ pub(super) fn companion_call(swift: Option<&Path>, rust: Option<&Path>) -> &'sta
     }
 }
 
-/// The Swift statement that hands the companion its sink for `tacPublish`.
-///
-/// Derived from the call rather than passed alongside it: they are always the
-/// same companion, and a second argument threaded through two hosts is a
-/// second thing that can disagree.
 pub(super) fn companion_emit(companion_call: &str) -> &'static str {
     if companion_call.contains("tacRustInvoke") && companion_call.contains("tacNativeInvoke") {
         "TacBridge.emit = tachyonRelayPublish; tacRustNativeSetEmit(tacRustEmit)"
@@ -150,6 +133,21 @@ pub(super) fn companion_emit(companion_call: &str) -> &'static str {
         "TacBridge.emit = tachyonRelayPublish"
     } else {
         "// No companion, so nothing publishes."
+    }
+}
+
+pub(super) fn unicode_path<'a>(path: &'a Path, message: &str) -> Result<&'a str, Failure> {
+    path.to_str()
+        .ok_or_else(|| native_tool_failure(1605, message))
+}
+
+pub(super) fn optional_unicode_path<'a>(
+    path: Option<&'a Path>,
+    message: &str,
+) -> Result<Option<&'a str>, Failure> {
+    match path {
+        Some(path) => Ok(Some(unicode_path(path, message)?)),
+        None => Ok(None),
     }
 }
 
@@ -165,58 +163,24 @@ async fn compile_swift(
             "The macOS host requires an Apple macOS build machine.",
         ));
     }
-    let version = first_line(
-        &run_tool("/usr/bin/xcrun", &["swiftc", "--version"]).await?,
-        "Swift unknown",
-    );
-    let source = source
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Swift source path is not valid Unicode."))?;
-    let executable = executable
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Application path is not valid Unicode."))?;
-    let companion = companion
-        .map(|path| {
-            path.to_str().ok_or_else(|| {
-                native_tool_failure(1605, "Companion source path is not valid Unicode.")
-            })
-        })
-        .transpose()?;
-    let mut arguments = vec![
-        "swiftc",
-        "-parse-as-library",
-        "-O",
-        "-framework",
-        "AppKit",
-        "-framework",
-        "SwiftUI",
-        "-framework",
-        "WebKit",
-        "-framework",
-        "JavaScriptCore",
-        "-o",
-        executable,
-        source,
-    ];
-    // Compiled together, so the companion is part of the application rather
-    // than something it loads.
+    let version_output = run_tool("/usr/bin/xcrun", &["swiftc", "--version"]).await?;
+    let version = first_line(&version_output, "Swift unknown");
+    let source = unicode_path(source, "Swift source path is not valid Unicode.")?;
+    let executable = unicode_path(executable, "Application path is not valid Unicode.")?;
+    let companion =
+        optional_unicode_path(companion, "Companion source path is not valid Unicode.")?;
+    let library = optional_unicode_path(library, "Companion library path is not valid Unicode.")?;
+    let mut arguments = vec!["swiftc", "-parse-as-library", "-O"];
+    arguments.extend(MacOsHostGenerator::FRAMEWORK_ARGUMENTS);
+    arguments.extend(["-o", executable, source]);
     arguments.extend(companion);
-    let library = library
-        .map(|path| {
-            path.to_str().ok_or_else(|| {
-                native_tool_failure(1605, "Companion library path is not valid Unicode.")
-            })
-        })
-        .transpose()?;
     arguments.extend(library);
     run_tool("/usr/bin/xcrun", &arguments).await?;
     Ok(version)
 }
 
-async fn sign_bundle(bundle: &Path) -> Result<(), Failure> {
-    let bundle = bundle
-        .to_str()
-        .ok_or_else(|| native_tool_failure(1605, "Application path is not valid Unicode."))?;
+pub(super) async fn sign_bundle(bundle: &Path) -> Result<(), Failure> {
+    let bundle = unicode_path(bundle, "Application path is not valid Unicode.")?;
     run_tool(
         "/usr/bin/codesign",
         &["--force", "--sign", "-", "--timestamp=none", bundle],
@@ -225,15 +189,6 @@ async fn sign_bundle(bundle: &Path) -> Result<(), Failure> {
     .map(|_| ())
 }
 
-/// Builds an `.icns` from the manifest's largest raster icon.
-///
-/// `sips` and `iconutil` are macOS's own, so no third-party rasteriser is
-/// pulled in. A project with no raster icon simply gets the system's default
-/// application icon, which is what a missing icon should look like.
-///
-/// # Errors
-///
-/// Returns diagnostics when either tool refuses the image.
 async fn stage_icon(
     application: &NativeApplication,
     web_bundle: &Path,
@@ -248,26 +203,7 @@ async fn stage_icon(
     }
     let iconset = resources.join("AppIcon.iconset");
     super::host::native_io(std::fs::create_dir_all(&iconset), &iconset)?;
-    // The sizes `iconutil` expects; each also at @2x, which is the same image
-    // at twice the edge.
-    for edge in [16u32, 32, 128, 256, 512] {
-        for (scale, suffix) in [(1u32, String::new()), (2, String::from("@2x"))] {
-            let pixels = edge * scale;
-            let out = iconset.join(format!("icon_{edge}x{edge}{suffix}.png"));
-            run_tool(
-                "sips",
-                &[
-                    "-z",
-                    &pixels.to_string(),
-                    &pixels.to_string(),
-                    &origin.to_string_lossy(),
-                    "--out",
-                    &out.to_string_lossy(),
-                ],
-            )
-            .await?;
-        }
-    }
+    write_iconset(&origin, &iconset).await?;
     let icns = resources.join("AppIcon.icns");
     run_tool(
         "iconutil",
@@ -280,13 +216,33 @@ async fn stage_icon(
         ],
     )
     .await?;
-    // The source images are build input, not something to ship in the bundle.
     let _ = std::fs::remove_dir_all(&iconset);
     Ok(Some(String::from("AppIcon")))
 }
 
+async fn write_iconset(origin: &Path, iconset: &Path) -> Result<(), Failure> {
+    for edge in [16u32, 32, 128, 256, 512] {
+        for (scale, suffix) in [(1u32, String::new()), (2, String::from("@2x"))] {
+            let pixels = edge * scale;
+            let output = iconset.join(format!("icon_{edge}x{edge}{suffix}.png"));
+            run_tool(
+                "sips",
+                &[
+                    "-z",
+                    &pixels.to_string(),
+                    &pixels.to_string(),
+                    &origin.to_string_lossy(),
+                    "--out",
+                    &output.to_string_lossy(),
+                ],
+            )
+            .await?;
+        }
+    }
+    Ok(())
+}
+
 fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
-    // Named without its extension, which is what CFBundleIconFile wants.
     let icon = icon.map_or_else(String::new, |name| {
         format!("\n<key>CFBundleIconFile</key><string>{name}</string>")
     });
@@ -315,7 +271,6 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
     )
 }
 
-/// The dispatch arms for the window controls this application granted.
 fn window_controls(window: &super::config::WindowConfiguration) -> String {
     let mut arms = String::new();
     if window.grants("minimize") {
@@ -339,15 +294,8 @@ fn window_controls(window: &super::config::WindowConfiguration) -> String {
     arms
 }
 
-fn swift_source(
-    application: &NativeApplication,
-    companion_call: &str,
-    index: &NativeRouteIndex,
-) -> String {
-    let window = &application.window;
-    SWIFT_HOST
-        .replace("__TACHYON_JSON_REQUEST__", APPLE_JSON_REQUEST)
-        .replace("__WINDOW_WIDTH__", &window.width.to_string())
+fn with_window_settings(host: &str, window: &super::config::WindowConfiguration) -> String {
+    host.replace("__WINDOW_WIDTH__", &window.width.to_string())
         .replace("__WINDOW_HEIGHT__", &window.height.to_string())
         .replace(
             "__WINDOW_MIN_WIDTH__",
@@ -357,14 +305,34 @@ fn swift_source(
             "__WINDOW_MIN_HEIGHT__",
             &window.min_height.unwrap_or(0).to_string(),
         )
-        // Only what the manifest granted reaches the switch. A control the
-        // application did not ask for is not refused at run time — there is
-        // no arm for it to reach.
         .replace("__WINDOW_CONTROLS__", &window_controls(window))
-        .replace("__ENTRY_DOCUMENT__", &quoted_string_escape(&index.entry_document))
+}
+
+fn swift_source(
+    application: &NativeApplication,
+    companion_call: &str,
+    index: &NativeRouteIndex,
+) -> String {
+    let rust_shim = if companion_call.contains("tacRustInvoke") {
+        MacOsHostGenerator::RUST_SHIM
+    } else {
+        ""
+    };
+    let host = MacOsHostGenerator::SWIFT_HOST.replace(
+        "__TACHYON_JSON_REQUEST__",
+        MacOsHostGenerator::APPLE_JSON_REQUEST,
+    );
+    with_window_settings(&host, &application.window)
+        .replace(
+            "__ENTRY_DOCUMENT__",
+            &quoted_string_escape(&index.entry_document),
+        )
         .replace("__ENTRY_ROUTE__", &quoted_string_escape(&index.entry_route))
         .replace("__ROUTE_DOCUMENTS__", &super::routes::swift_routes(index))
-        .replace("__NATIVE_SHIM__", &super::host::native_shim(&application.window))
+        .replace(
+            "__NATIVE_SHIM__",
+            &super::host::native_shim(&application.window),
+        )
         .replace(
             "__APP_TYPE__",
             &format!("{}App", application.executable_name),
@@ -374,29 +342,18 @@ fn swift_source(
             "__BUNDLE_ID__",
             &quoted_string_escape(&application.application_id),
         )
-        // The call is written in only when a companion was staged: referring
-        // to a symbol that is not in the binary is a compile error, not a
-        // runtime one.
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit(companion_call))
-        .replace(
-            "__TACHYON_RUST_SHIM__",
-            if companion_call.contains("tacRustInvoke") {
-                RUST_SHIM
-            } else {
-                ""
-            },
-        )
+        .replace("__TACHYON_RUST_SHIM__", rust_shim)
 }
 
-/// One bounded Foundation JSON boundary shared by Apple hosts and companions.
-pub(super) const APPLE_JSON_REQUEST: &str = include_str!("apple_json.swift");
+#[cfg(test)]
+pub(super) const fn host_source() -> &'static str {
+    MacOsHostGenerator::SWIFT_HOST
+}
 
-/// The Swift side of a Rust companion: two C declarations and the call.
-pub(super) const RUST_SHIM: &str = r#"// A Rust companion is linked as a static library and reached through the C
-// ABI — the one call every host can make. Declared only when one was linked:
-// naming a symbol that is not in the binary is a link error.
-@_silgen_name("tac_native_invoke")
+impl MacOsHostGenerator {
+    pub(super) const RUST_SHIM: &str = r#"@_silgen_name("tac_native_invoke")
 private func tacRustNativeInvoke(_ request: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
 
 @_silgen_name("tac_native_free")
@@ -415,32 +372,14 @@ private func tacRustInvoke(_ request: String) -> String {
     }
 }
 
-/// The sink handed to a Rust companion. Copies before returning, because the
-/// pointer is only borrowed for the length of the call.
 private func tacRustEmit(_ payload: UnsafePointer<CChar>?) {
     guard let payload else { return }
     tachyonRelayPublish(String(cString: payload))
 }"#;
 
-/// The generated host source, for the capability-drift test.
-///
-/// The dispatch arms live in this string rather than in Rust, so the only way
-/// to assert that a host implements what the bundle advertises is to read it.
-#[cfg(test)]
-pub(super) const fn host_source() -> &'static str {
-    SWIFT_HOST
-}
-
-const SWIFT_HOST: &str = r##"import AppKit
+    const SWIFT_HOST: &str = r##"import AppKit
 import WebKit
 import Foundation
-
-// The application's own web bundle is what this window shows. Tachyon used to
-// lower a Tac view into SwiftUI controls and fall back to a web view wherever
-// no adapter existed; on a real design almost everything fell back, and what
-// did not looked nothing like the rest. The bundle renders identically on
-// every platform, and matching macOS specifically is a choice an author makes
-// in their own UI layer.
 
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
@@ -453,7 +392,6 @@ private func tachyonRoute(_ path: String) -> String? {
     if tachyonRouteDocuments[path] != nil { return path }
     if let document = tachyonRouteDocuments.first(where: { "/" + $0.value == path }) { return document.key }
     let parts = path.split(separator: "/")
-    // Prefer exact routes, then the most-specific dynamic pattern.
     let patterns = tachyonRouteDocuments.keys.sorted {
         let a = $0.split(separator: "/").filter { !$0.hasPrefix("_") }.count
         let b = $1.split(separator: "/").filter { !$0.hasPrefix("_") }.count
@@ -503,9 +441,6 @@ private final class Telemetry {
     }
 }
 
-// Served rather than loaded from file://, because a bundle is a module graph:
-// WebKit refuses cross-origin module imports from file URLs, so the page would
-// load and none of its JavaScript would.
 private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     static let shared = TachyonAssetSchemeHandler()
 
@@ -522,8 +457,6 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
         var path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         if let document = tachyonDocument(url.path) { path = document }
         var file = root.appendingPathComponent(path).standardizedFileURL
-        // A client-routed application asks for a path with no file behind it;
-        // the document that owns that route is the answer, not a 404.
         var isDirectory: ObjCBool = false
         if !FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory)
             || isDirectory.boolValue {
@@ -578,12 +511,6 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
 }
 
 
-// MARK: - JavaScript host bridge
-//
-// One function is the whole native surface: a capability name and a JSON
-// payload in, a JSON answer out. It is reached from the page rather than from
-// a separate engine, because the page is now the application.
-
 @MainActor
 private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     static let shared = NativeBridge()
@@ -611,7 +538,9 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             replyHandler(nil, "invalid or oversized host call"); return
         }
         if capability == "companion.invoke" {
-            guard let path = message.frameInfo.request.url?.path,
+            guard let operation = request["op"] as? String,
+                  ["init", "get", "set", "call", "dispose"].contains(operation),
+                  let path = message.frameInfo.request.url?.path,
                   let route = tachyonRoute(path), request["route"] as? String == route else {
                 replyHandler(nil, "companion route does not belong to this page"); return
             }
@@ -624,7 +553,6 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
 
 
 
-    /// Resizes the key window to a payload's width and height.
     static func resize(_ payload: String) {
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
@@ -636,7 +564,6 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         window.setContentSize(NSSize(width: width, height: height))
     }
 
-    /// Sets the key window's title from a payload.
     static func retitle(_ payload: String) {
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
@@ -645,20 +572,11 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     }
 
     private func handle(_ capability: String, _ payload: String) -> String {
-        // One channel, and no vocabulary. A tray, a window or a notification
-        // belongs to AppKit, and a `tac.swift` compiled into this binary has
-        // AppKit already — a verb list in the middle could only ever be the
-        // subset Tachyon had got round to implementing.
         switch capability {
 __WINDOW_CONTROLS__
         case "companion.invoke":
-            // The companion is compiled into this binary, so this is a direct
-            // Swift call rather than a module boundary. Its answer is the
-            // protocol's own JSON, relayed unchanged.
             return __TACHYON_COMPANION_CALL__
         default:
-            // Naming both halves: what was asked for, and which platform
-            // declined it.
             return "{\"ok\":false,\"error\":\"macos host answers companion.invoke, not '\(NativeBridge.safeName(capability))'\"}"
         }
     }
@@ -669,8 +587,6 @@ __WINDOW_CONTROLS__
         return String(text.dropFirst().dropLast())
     }
 
-    /// The capability is echoed into a JSON string, so anything that could
-    /// close that string early is replaced rather than escaped.
     private static func safeName(_ value: String) -> String {
         let allowed = value.prefix(64).filter { character in
             character.isLetter || character.isNumber || character == "." || character == "_" || character == "-"
@@ -679,15 +595,6 @@ __WINDOW_CONTROLS__
     }
 }
 
-/// Relays one companion publish into the page.
-///
-/// A companion may publish from whatever thread it likes — a timer, a
-/// notification, a URLSession callback — and a WKWebView may only be touched
-/// from the main one. The hop belongs here rather than in every companion an
-/// author writes.
-///
-/// The payload is the companion's own JSON object, and JSON is a JavaScript
-/// expression already, so it is not re-encoded on the way through.
 private func tachyonRelayPublish(_ payload: String) {
     Task { @MainActor in
         NativeBridge.shared.webView?.evaluateJavaScript(
@@ -723,9 +630,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
         view.setAccessibilityIdentifier("tachyon-application")
         webView = view
         NativeBridge.shared.webView = view
-        // Installed before the page loads, so a companion that publishes the
-        // moment it wakes up has somewhere to publish to. The shim queues
-        // until the page's modules take over, so nothing is lost either way.
         __TACHYON_COMPANION_EMIT__
 
         let window = NSWindow(
@@ -760,13 +664,23 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
         Telemetry.shared.record("controller.active")
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        tachyonDisposeCompanions()
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         Telemetry.shared.record("route.failed")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        tachyonDisposeCompanions()
         Telemetry.shared.record("controller.destroyed")
     }
+}
+
+private func tachyonDisposeCompanions() {
+    let payload = "{\"op\":\"host-dispose\"}"
+    _ = __TACHYON_COMPANION_CALL__
 }
 
 private let TACHYON_NATIVE_SHIM = #"""
@@ -780,16 +694,15 @@ private struct __APP_TYPE__ {
         let delegate = AppDelegate()
         application.delegate = delegate
         application.setActivationPolicy(.regular)
-        // NSApplication.delegate is weak. Keep the owner of the window and
-        // WebView alive for the entire native event loop, including -O builds.
         withExtendedLifetime(delegate) { application.run() }
     }
 }
 "##;
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{info_plist, swift_source};
+    use super::{companion_call, info_plist, swift_source};
     use crate::native::config::NativeApplication;
 
     fn application() -> NativeApplication {
@@ -813,30 +726,43 @@ mod tests {
         }
     }
 
+    fn catalog_swift_source(call: &str) -> String {
+        swift_source(&application(), call, &index())
+    }
+
     #[test]
     fn the_host_is_a_window_around_the_applications_own_bundle() {
-        // With a companion, so the generated call is the one a real build emits.
-        let source = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        let source = catalog_swift_source("tacNativeInvoke(payload)");
         assert!(source.contains("controller.created"));
         assert!(source.contains("controller.destroyed"));
         assert!(source.contains("TachyonAssetSchemeHandler"));
         assert!(source.contains("tachyon-app://bundle/"));
         assert!(source.contains("tacNativeInvoke(payload)"));
-        // The bridge reaches the page rather than a separate engine.
         assert!(source.contains("WKScriptMessageHandlerWithReply"));
+        assert!(source.contains("didStartProvisionalNavigation"));
+        assert!(source.contains("tachyonDisposeCompanions()"));
+        assert!(
+            source.contains(r#"["init", "get", "set", "call", "dispose"].contains(operation)"#)
+        );
         assert!(source.contains("__tachyonNativeHostCall"));
-        // Nothing rebuilds the view out of platform widgets any more.
         assert!(!source.contains("case \"control.button\""));
         assert!(!source.contains("nodeView"));
     }
 
     #[test]
     fn a_host_without_a_companion_names_no_companion_symbol() {
-        // Referring to a symbol that is not in the binary is a compile error,
-        // not a runtime fallback.
-        let source = swift_source(&application(), super::companion_call(None, None), &index());
+        let source = catalog_swift_source(companion_call(None, None));
         assert!(!source.contains("tacNativeInvoke"));
         assert!(source.contains("has no native companion"));
+    }
+
+    #[test]
+    fn mixed_companions_are_selected_without_constructing_and_both_are_disposed() {
+        let path = std::path::Path::new("companion");
+        let call = companion_call(Some(path), Some(path));
+        assert!(call.contains("tacServiceKnown"));
+        assert!(!call.contains("tacServiceMembers"));
+        assert!(call.contains(r#"if request["op"] as? String == "host-dispose" { _ = tacNativeInvoke(payload); return tacRustInvoke(payload) }"#));
     }
 
     #[test]

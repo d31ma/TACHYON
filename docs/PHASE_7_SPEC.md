@@ -1,12 +1,13 @@
 # Phase 7 Specification: Enterprise Qualification
 
-This document is normative for Phase 7. It defines the qualification evidence
-the implementation must produce before any target may be promoted toward
-`supported`, and the budgets and drills that evidence consists of.
+This document defines the rules for Phase 7. It defines the qualification
+evidence that the implementation must produce before any target can move
+toward `supported`. It also defines the budgets and drills that make up that
+evidence.
 
-Phase 7 adds no application-facing feature. It adds the assurance that the
-existing features hold up under hostile input, sustained load, interruption,
-and audit.
+Phase 7 adds no feature for applications. It adds proof that the existing
+features keep working under hostile input, sustained load, interruption, and
+audit.
 
 ## 1. Fuzzing
 
@@ -14,68 +15,72 @@ Every input that crosses a trust boundary has a fuzz target under `fuzz/`.
 
 | Target | Boundary |
 | --- | --- |
-| `html_frontend` | Application HTML reaching the bounded parser. |
+| `html_frontend` | Application HTML that reaches the bounded parser. |
 | `template_frontend` | Control tags, bindings, and component references. |
 | `handler_frame` | Length-prefixed frames read from an untrusted child process. |
-| `native_planner` | Resolved HTML lowered into Native UI v1 for five targets. |
+| `native_planner` | Resolved HTML converted into Native UI v1 for five targets. |
 
 Requirements:
 
 - Every target runs under `AddressSanitizer`.
-- No input may cause a panic, an abort, a timeout, or unbounded memory growth.
-- `native_planner` additionally asserts a cross-platform invariant: all five
-  targets must agree on whether an input is valid. A disagreement is a bug even
-  when neither side crashes.
-- Hand-written seeds are tracked in the repository. Generated corpus entries
-  are not.
-- A crashing input is published as a CI artifact and becomes a regression test.
+- No input may cause a panic, an abort, a timeout, or memory growth without a
+  limit.
+- `native_planner` also checks a rule across platforms: all five targets must
+  agree on whether an input is valid. A disagreement is a bug even when
+  neither side crashes.
+- The repository tracks hand-written seeds. It does not track generated
+  corpus entries.
+- CI (continuous integration) publishes a crashing input as an artifact. The
+  input then becomes a regression test.
 
-The fuzz crate is excluded from the pinned workspace because it requires a
-nightly toolchain. It never ships.
+The fuzz crate needs a nightly toolchain, so it is excluded from the pinned
+workspace. It is never shipped.
 
 ## 2. Sanitizers
 
 The library suite runs under `AddressSanitizer`, `LeakSanitizer`, and
-`ThreadSanitizer`. Our own crates set `unsafe_code = "forbid"`, so these
-primarily qualify dependency code and the process, threading, and filesystem
-interactions the implementation performs.
+`ThreadSanitizer`. Our own crates set `unsafe_code = "forbid"`. So the
+sanitizers mainly test dependency code and the process, threading, and
+filesystem operations that the implementation performs.
 
 ## 3. The `fuzzing` Feature
 
-`tachyon-core` exposes crate-private parsers and decoders to fuzz targets
-through the `fuzzing` feature. It is not a stable API, carries no
-compatibility guarantee, and must never be enabled in a released artifact.
+`tachyon-core` gives fuzz targets access to its crate-private parsers and
+decoders through the `fuzzing` feature. This is not a stable API. It has no
+compatibility guarantee. A released artifact must never enable it.
 
 ## 4. Recovery Drills
 
-Each drill states an operator-visible property and the failure it simulates.
+Each drill states a property that an operator can see and the failure that
+the drill simulates.
 
 | Drill | Property |
 | --- | --- |
-| Interrupted build | A build killed mid-flight leaves the published output byte-identical, adds no files, and the next build succeeds. |
-| Corrupted incremental cache | Damaged build state is detected rather than trusted; the rebuild succeeds and reproduces the same output. |
-| Failed build | A source regression never damages the published application. |
-| Concurrent builds | Racing builds never publish a torn application; every manifest route has its document. |
-| Read-only output | An unwritable target produces a diagnostic, never a panic and never a partial write. |
+| Interrupted build | When a build is killed while it runs, the published output stays byte-identical and gets no new files. The next build succeeds. |
+| Corrupted incremental cache | The build detects damaged build state and does not trust it. The rebuild succeeds and produces the same output. |
+| Failed build | A regression in the source never damages the published application. |
+| Concurrent builds | Builds that run at the same time never publish a half-written application. Every route in the manifest has its document. |
+| Read-only output | A target that cannot be written produces a diagnostic. It never causes a panic or a partial write. |
 
-Publication is atomic. Every drill asserts that property from the outside,
-against the real executable.
+Publication is atomic. Every drill checks that property from outside, against
+the real executable.
 
 ## 5. Soak
 
-Sustained rebuilds in one long-lived working tree must hold three properties:
+Many rebuilds in one long-lived working tree must keep three properties:
 
-1. output stays deterministic across every iteration;
-2. open descriptors do not grow beyond a small constant;
-3. latency does not drift upward as state accumulates.
+1. the output stays deterministic in every iteration;
+2. the number of open file descriptors does not grow beyond a small constant;
+3. latency does not rise as state builds up.
 
-The iteration count is `TAC_SOAK_ITERATIONS`, defaulting to 24 locally and
-raised in CI.
+`TAC_SOAK_ITERATIONS` sets the iteration count. The default is 24 locally. CI
+uses a higher value.
 
 ## 6. Performance Budgets
 
-Ceilings are deliberately wide, because shared CI hardware is noisy, and are
-meant to catch an order-of-magnitude regression rather than a few percent.
+The limits are wide on purpose, because shared CI hardware gives noisy
+results. They catch a regression that is about ten times worse, not one of a
+few percent.
 
 | Budget | Ceiling |
 | --- | --- |
@@ -83,41 +88,45 @@ meant to catch an order-of-magnitude regression rather than a few percent.
 | Incremental rebuild, 50 routes | 20 s |
 | Generated output per route | 64 KiB |
 
-A budget may be tightened when measurements justify it. Loosening one requires
-a recorded reason.
+A budget may become stricter when measurements support it. Making a budget
+looser requires a recorded reason.
 
 ## 7. Supply-Chain Evidence
 
-- `cargo deny check advisories bans licenses sources` gates every change.
-- Every GitHub Action is pinned to an immutable commit.
-- A CycloneDX software bill of materials is generated for the workspace.
-- The release binary is built with `cargo auditable`, embedding its dependency
-  list so a deployed artifact can be audited without its source tree.
+- `cargo deny check advisories bans licenses sources` must pass for every
+  change.
+- Every GitHub Action is pinned to a commit that cannot change.
+- CI generates a CycloneDX software bill of materials for the workspace.
+- The release binary is built with `cargo auditable`. This embeds its
+  dependency list, so a deployed artifact can be audited without its source
+  tree.
 
 ## 8. Automated Security Qualification
 
-Phase 7 requires automated qualification of the trust boundaries, threat
-model, contracts, dependencies, and release machinery. Critical and high
-findings must have an owner and disposition before a stable tag is created.
+Phase 7 requires automated qualification of the trust boundaries, the threat
+model, the contracts, the dependencies, and the release tools. Every critical
+and high finding must have an owner and a decision before a stable tag is
+created.
 
-Independent human review is encouraged for additional assurance but is not a
-merge, support-tier, tagging, or publication gate.
+We encourage independent human review for more assurance. It is not a gate
+for merges, support tiers, tags, or publication.
 
 ## 9. Exit Gate
 
-- [x] Every trust boundary has a fuzz target that runs clean under
+- [x] Every trust boundary has a fuzz target that runs without failures under
       `AddressSanitizer`.
-- [x] The `native_planner` cross-target invariant holds under fuzzing.
+- [x] The `native_planner` rule across targets holds under fuzzing.
 - [x] The library suite passes under `AddressSanitizer`.
 - [x] Every recovery drill passes against the real executable.
-- [x] The soak drill holds determinism, descriptor, and latency properties.
+- [x] The soak drill keeps the determinism, descriptor, and latency properties.
 - [x] Every performance budget is met and published.
-- [x] Supply-chain policy, SBOM, and auditable-build jobs exist in CI.
-- [x] Automated security qualification is complete and no unowned critical or
-      high finding remains.
+- [x] CI has jobs for the supply-chain policy, the SBOM (software bill of
+      materials), and the auditable build.
+- [x] Automated security qualification is complete. No critical or high
+      finding remains without an owner.
 - [x] Install, upgrade, rollback, and uninstall exercises are recorded for the
-      standalone `ty` artifact. Native-target promotion retains its separate
-      evidence requirements.
+      standalone `ty` artifact. Native targets still have their own evidence
+      requirements for promotion.
 
-Native-target lifecycle evidence remains a promotion requirement rather than
-a blocker to publishing the standalone CLI.
+Lifecycle evidence for native targets is still required to promote those
+targets. It does not block publication of the standalone CLI.

@@ -1,3 +1,4 @@
+use super::braced_attribute::BracedAttribute;
 use super::expression::Expression;
 use super::model::{
     Assignment, AttributeValue, ConditionalBranch, EventArgument, EventBinding, HydrationPolicy,
@@ -7,30 +8,28 @@ use super::model::{
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use crate::html::{is_event_handler_attribute, is_standard_html_tag, valid_custom_element};
-use html5gum::{DefaultEmitter, HtmlString, Token, Tokenizer};
+use html5gum::{DefaultEmitter, HtmlString, Span, Spanned, StartTag, Token, Tokenizer};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-
-const MAX_HTML_BYTES: u64 = 1_048_576;
-const MAX_TEMPLATE_DEPTH: usize = 64;
-const MAX_DIAGNOSTICS: usize = 100;
-const VOID_TAGS: &[&str] = &[
-    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track",
-    "wbr",
-];
+use tachyon_diagnostics::Diagnostic;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct TemplateFrontend;
 
 impl TemplateFrontend {
+    const MAX_HTML_BYTES: u64 = 1_048_576;
+    const MAX_EVENT_BINDING_BYTES: usize = 256;
+    const MAX_EVENT_PATH_SEGMENTS: usize = 4;
+    const MAX_EVENT_ARGUMENTS: usize = 8;
+
     pub(crate) fn compile_file(
         path: &Path,
         source_path: &str,
         components: &BTreeSet<String>,
     ) -> Result<TemplateProgram, Failure> {
-        let source = read_source(path, source_path)?;
+        let source = Self::read_source(path, source_path)?;
         Self::compile(&source, source_path, components)
     }
 
@@ -63,6 +62,46 @@ impl TemplateFrontend {
         let normalized = source.replace("\r\n", "\n").replace('\r', "\n");
         Parser::new(&normalized, source_path, components).parse()
     }
+
+    fn read_source(path: &Path, source_path: &str) -> Result<String, Failure> {
+        let file = File::open(path).map_err(|error| read_failure(source_path, &error))?;
+        let mut bytes = Vec::new();
+        file.take(Self::MAX_HTML_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| read_failure(source_path, &error))?;
+        if bytes.len() as u64 > Self::MAX_HTML_BYTES {
+            return Err(Failure::one(template_diagnostic(
+                1301,
+                source_path,
+                0,
+                bytes.len(),
+                "Template source exceeds the 1 MiB limit.",
+                "Reduce the template below 1 MiB.",
+            )));
+        }
+        String::from_utf8(bytes).map_err(|error| {
+            let start = error.utf8_error().valid_up_to();
+            Failure::one(template_diagnostic(
+                1301,
+                source_path,
+                start,
+                start.saturating_add(1),
+                "Template source is not valid UTF-8.",
+                "Save Tachyon HTML sources as UTF-8.",
+            ))
+        })
+    }
+}
+
+fn read_failure(source_path: &str, error: &std::io::Error) -> Failure {
+    Failure::one(template_diagnostic(
+        1301,
+        source_path,
+        0,
+        0,
+        &format!("Cannot read template source: {error}"),
+        "Check the source file permissions.",
+    ))
 }
 
 struct Parser<'a> {
@@ -71,12 +110,21 @@ struct Parser<'a> {
     components: &'a BTreeSet<String>,
     roots: Vec<TemplateNode>,
     stack: Vec<OpenNode>,
-    diagnostics: Vec<tachyon_diagnostics::Diagnostic>,
-    has_doctype: bool,
-    is_document: bool,
+    diagnostics: Vec<Diagnostic>,
+    cursor: usize,
 }
 
 impl<'a> Parser<'a> {
+    const MAX_TEMPLATE_DEPTH: usize = 64;
+    const MAX_DIAGNOSTICS: usize = 100;
+    const VOID_TAGS: &'static [&'static str] = &[
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source",
+        "track", "wbr",
+    ];
+    const DOCUMENT_CODE: u16 = 1307;
+    const DOCUMENT_TAGS: &'static [&'static str] = &["html", "head", "body"];
+    const DOCUMENT_HELP: &'static str = "Remove the doctype, <html>, <head> and <body>. Tachyon writes the document around every view. Put the page title and other page metadata in client/manifest.json, under tac.metadata.";
+
     fn new(source: &'a str, source_path: &'a str, components: &'a BTreeSet<String>) -> Self {
         Self {
             source,
@@ -85,8 +133,7 @@ impl<'a> Parser<'a> {
             roots: Vec::new(),
             stack: Vec::new(),
             diagnostics: Vec::new(),
-            has_doctype: false,
-            is_document: false,
+            cursor: 0,
         }
     }
 
@@ -97,66 +144,102 @@ impl<'a> Parser<'a> {
                 Ok(token) => token,
                 Err(infallible) => match infallible {},
             };
-            match token {
-                Token::StartTag(tag) => self.start_tag(tag),
-                Token::EndTag(tag) => self.end_tag(
-                    &String::from_utf8_lossy(&tag.name),
-                    SourceRange {
-                        start: tag.span.start,
-                        end: tag.span.end,
-                    },
-                ),
-                Token::String(text) => {
-                    let range = SourceRange {
-                        start: text.span.start,
-                        end: text.span.end,
-                    };
-                    let raw = self.source.get(range.start..range.end).unwrap_or_default();
-                    let parts = if self.stack.last().is_some_and(|open| open.tag == "style") {
-                        Ok(vec![TextPart::Literal(String::from(raw), range)])
-                    } else {
-                        text_parts(raw, self.source_path, range.start)
-                    };
-                    match parts {
-                        Ok(parts) => self.push_node(TemplateNodeKind::Text(parts), range),
-                        Err(failure) => self.extend_failure(&failure),
-                    }
-                }
-                Token::Comment(comment) => {
-                    let range = SourceRange {
-                        start: comment.span.start,
-                        end: comment.span.end,
-                    };
-                    let raw = self.source.get(range.start..range.end).unwrap_or_default();
-                    self.push_node(TemplateNodeKind::Comment(String::from(raw)), range);
-                }
-                Token::Doctype(_) => {
-                    self.has_doctype = true;
-                    self.is_document = true;
-                }
-                Token::Error(error) => self.push_diagnostic(template_diagnostic(
+            self.read_token(token);
+        }
+        self.close_open_elements();
+        self.finish()
+    }
+
+    fn read_token(&mut self, token: Token<usize>) {
+        if let Some(end) = Self::token_end(&token) {
+            self.cursor = end;
+        }
+        match token {
+            Token::StartTag(tag) => self.start_tag(tag),
+            Token::EndTag(tag) => {
+                let name = String::from_utf8_lossy(&tag.name);
+                self.end_tag(&name, span_range(tag.span));
+            }
+            Token::String(text) => self.text(span_range(text.span)),
+            Token::Comment(comment) => self.comment(span_range(comment.span)),
+            Token::Doctype(_) => self.doctype(),
+            Token::Error(error) => {
+                let diagnostic = self.diagnostic(
                     1301,
-                    self.source_path,
-                    error.span.start,
-                    error.span.end,
+                    span_range(error.span),
                     "Template contains an HTML tokenizer error.",
                     "Correct the malformed token before building the view.",
-                )),
+                );
+                self.push_diagnostic(diagnostic);
             }
         }
+    }
 
+    fn token_end(token: &Token<usize>) -> Option<usize> {
+        match token {
+            Token::StartTag(tag) => Some(tag.span.end),
+            Token::EndTag(tag) => Some(tag.span.end),
+            Token::String(text) => Some(text.span.end),
+            Token::Comment(comment) => Some(comment.span.end),
+            Token::Error(error) => Some(error.span.end),
+            Token::Doctype(_) => None,
+        }
+    }
+
+    fn doctype(&mut self) {
+        let rest = &self.source[self.cursor..];
+        let start = self.cursor + rest.find("<!").unwrap_or_default();
+        let length = self.source[start..]
+            .find('>')
+            .map_or(0, |offset| offset + 1);
+        let range = SourceRange {
+            start,
+            end: start + length,
+        };
+        self.cursor = range.end;
+        let diagnostic = self.diagnostic(
+            Self::DOCUMENT_CODE,
+            range,
+            "A view cannot contain a doctype, because Tachyon writes the document.",
+            Self::DOCUMENT_HELP,
+        );
+        self.push_diagnostic(diagnostic);
+    }
+
+    fn text(&mut self, range: SourceRange) {
+        let raw = self.source.get(range.start..range.end).unwrap_or_default();
+        let inside_style = self.stack.last().is_some_and(|open| open.tag == "style");
+        let parts = if inside_style {
+            Ok(vec![TextPart::Literal(String::from(raw), range)])
+        } else {
+            text_parts(raw, self.source_path, range.start)
+        };
+        match parts {
+            Ok(parts) => self.push_node(TemplateNodeKind::Text(parts), range),
+            Err(failure) => self.extend_failure(&failure),
+        }
+    }
+
+    fn comment(&mut self, range: SourceRange) {
+        let raw = self.source.get(range.start..range.end).unwrap_or_default();
+        let kind = TemplateNodeKind::Comment(String::from(raw));
+        self.push_node(kind, range);
+    }
+
+    fn close_open_elements(&mut self) {
         while let Some(open) = self.stack.pop() {
-            self.push_diagnostic(template_diagnostic(
+            let diagnostic = self.diagnostic(
                 1301,
-                self.source_path,
-                open.range.start,
-                open.range.end,
+                open.range,
                 &format!("Template element '<{}>' is not closed.", open.tag),
                 "Close every non-void template element explicitly.",
-            ));
-            let node = open.finish(self.source_path);
-            self.append(node);
+            );
+            self.push_diagnostic(diagnostic);
+            self.close(open);
         }
+    }
+
+    fn finish(mut self) -> Result<TemplateProgram, Failure> {
         validate_conditionals(&self.roots, &mut self.diagnostics);
         sort_diagnostics(&mut self.diagnostics);
         if !self.diagnostics.is_empty() {
@@ -167,53 +250,35 @@ impl<'a> Parser<'a> {
         Ok(TemplateProgram {
             source_path: String::from(self.source_path),
             nodes,
-            is_document: self.is_document,
-            has_doctype: self.has_doctype,
         })
     }
 
-    fn start_tag(&mut self, tag: html5gum::StartTag<usize>) {
+    fn start_tag(&mut self, tag: StartTag<usize>) {
         let name = String::from_utf8_lossy(&tag.name).into_owned();
-        let range = SourceRange {
-            start: tag.span.start,
-            end: tag.span.end,
-        };
-        if name == "html" {
-            self.is_document = true;
+        let range = span_range(tag.span);
+        if Self::DOCUMENT_TAGS.contains(&name.as_str()) {
+            let diagnostic = self.diagnostic(
+                Self::DOCUMENT_CODE,
+                range,
+                &format!("A view cannot contain <{name}>, because Tachyon writes the document."),
+                Self::DOCUMENT_HELP,
+            );
+            self.push_diagnostic(diagnostic);
         }
-        let attributes = match self.attributes(&name, tag.attributes, range) {
-            Ok(attributes) => attributes,
-            Err(failure) => {
-                self.extend_failure(&failure);
-                BTreeMap::new()
-            }
-        };
-        let kind = match self.node_kind(&name, attributes, range) {
-            Ok(kind) => kind,
-            Err(failure) => {
-                self.extend_failure(&failure);
-                TemplateNodeKind::Element {
-                    tag: name.clone(),
-                    attributes: BTreeMap::new(),
-                    children: Vec::new(),
-                    void: tag.self_closing || VOID_TAGS.contains(&name.as_str()),
-                }
-            }
-        };
-        let closed = tag.self_closing || VOID_TAGS.contains(&name.as_str());
+        let closed = tag.self_closing || Self::VOID_TAGS.contains(&name.as_str());
+        let kind = self.start_tag_kind(&name, tag.attributes, range, closed);
         if closed {
             self.push_node(kind, range);
             return;
         }
-        if self.stack.len() >= MAX_TEMPLATE_DEPTH {
-            self.push_diagnostic(template_diagnostic(
+        if self.stack.len() >= Self::MAX_TEMPLATE_DEPTH {
+            let diagnostic = self.diagnostic(
                 1301,
-                self.source_path,
-                range.start,
-                range.end,
+                range,
                 "Template nesting exceeds the limit of 64.",
                 "Flatten the view or component structure.",
-            ));
+            );
+            self.push_diagnostic(diagnostic);
             return;
         }
         self.stack.push(OpenNode {
@@ -223,16 +288,43 @@ impl<'a> Parser<'a> {
         });
     }
 
+    fn start_tag_kind(
+        &mut self,
+        name: &str,
+        attributes: BTreeMap<HtmlString, Spanned<HtmlString, usize>>,
+        range: SourceRange,
+        closed: bool,
+    ) -> TemplateNodeKind {
+        let attributes = match self.attributes(name, attributes, range) {
+            Ok(attributes) => attributes,
+            Err(failure) => {
+                self.extend_failure(&failure);
+                BTreeMap::new()
+            }
+        };
+        match self.node_kind(name, attributes, range) {
+            Ok(kind) => kind,
+            Err(failure) => {
+                self.extend_failure(&failure);
+                TemplateNodeKind::Element {
+                    tag: String::from(name),
+                    attributes: BTreeMap::new(),
+                    children: Vec::new(),
+                    void: closed,
+                }
+            }
+        }
+    }
+
     fn end_tag(&mut self, name: &str, range: SourceRange) {
         let Some(position) = self.stack.iter().rposition(|open| open.tag == name) else {
-            self.push_diagnostic(template_diagnostic(
+            let diagnostic = self.diagnostic(
                 1301,
-                self.source_path,
-                range.start,
-                range.end,
+                range,
                 &format!("Closing tag '</{name}>' has no matching open element."),
                 "Balance template element start and end tags.",
-            ));
+            );
+            self.push_diagnostic(diagnostic);
             return;
         };
         while self.stack.len() > position + 1 {
@@ -245,53 +337,22 @@ impl<'a> Parser<'a> {
                 &format!("Element '<{}>' closes out of order.", open.tag),
                 "Use explicitly balanced, properly nested template markup.",
             ));
-            let node = open.finish(self.source_path);
-            self.append(node);
+            self.close(open);
         }
         let mut open = self.stack.pop().unwrap_or_else(|| unreachable!());
         open.range.end = range.end;
-        let node = open.finish(self.source_path);
-        self.append(node);
+        self.close(open);
     }
 
-    /// Records one `on:<event>` binding as a delegated marker attribute.
-    ///
-    /// The value is never evaluated as JavaScript. It is parsed into a handler
-    /// name and literal arguments, so a view cannot introduce executable code
-    /// into the generated document.
-    fn bind_event(
-        &self,
-        event: &str,
-        value: &str,
-        range: SourceRange,
-        parsed: &mut BTreeMap<String, TemplateAttribute>,
-        diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
-    ) {
-        match event_binding(event, value, self.source_path, range) {
-            Ok((marker, binding)) => {
-                parsed.insert(
-                    marker,
-                    TemplateAttribute {
-                        value: AttributeValue::Event(binding),
-                        range,
-                    },
-                );
-            }
-            Err(message) => diagnostics.push(template_diagnostic(
-                1306,
-                self.source_path,
-                range.start,
-                range.end,
-                message,
-                "Bind an exported handler, as in on:click=\"increment()\".",
-            )),
-        }
+    fn close(&mut self, open: OpenNode) {
+        let node = open.finish(self.source_path);
+        self.append(node);
     }
 
     fn attributes(
         &self,
         tag: &str,
-        attributes: BTreeMap<HtmlString, html5gum::Spanned<HtmlString, usize>>,
+        attributes: BTreeMap<HtmlString, Spanned<HtmlString, usize>>,
         tag_range: SourceRange,
     ) -> Result<BTreeMap<String, TemplateAttribute>, Failure> {
         let mut parsed = BTreeMap::new();
@@ -299,78 +360,15 @@ impl<'a> Parser<'a> {
         for (name, value) in attributes {
             let name = String::from_utf8_lossy(&name).into_owned();
             let range = SourceRange {
-                start: value_span_start(value.span.start, tag_range.start),
+                start: value.span.start.max(tag_range.start),
                 end: value.span.end.max(tag_range.start),
             };
             let value = String::from_utf8_lossy(&value.value).into_owned();
-            if let Some(event) = name.strip_prefix("on:") {
-                self.bind_event(event, &value, range, &mut parsed, &mut diagnostics);
-                continue;
-            }
-            if is_event_handler_attribute(&name) {
-                diagnostics.push(template_diagnostic(
-                    1306,
-                    self.source_path,
-                    range.start,
-                    range.end,
-                    "Native event attributes are outside the view contract.",
-                    "Use on:<event> to bind an exported handler instead.",
-                ));
-                continue;
-            }
-            if name == ":hydrate" {
-                diagnostics.push(template_diagnostic(
-                    1404,
-                    self.source_path,
-                    range.start,
-                    range.end,
-                    "Island hydration policy must be a static literal.",
-                    "Use hydrate=\"load|idle|visible|interaction|never\".",
-                ));
-                continue;
-            }
-            if let Some(dynamic_name) = name.strip_prefix(':') {
-                if dynamic_name.is_empty() || tag == "logic" && dynamic_name == "else" {
-                    diagnostics.push(template_diagnostic(
-                        1304,
-                        self.source_path,
-                        range.start,
-                        range.end,
-                        "Dynamic attribute name is invalid.",
-                        "Place ':' before a valid HTML attribute or component property name.",
-                    ));
-                    continue;
+            match self.attribute(tag, &name, value, range) {
+                Ok((name, attribute)) => {
+                    parsed.insert(name, attribute);
                 }
-                if matches!((tag, dynamic_name), ("loop", "for") | ("for", "each")) {
-                    parsed.insert(
-                        String::from(dynamic_name),
-                        TemplateAttribute {
-                            value: AttributeValue::Control(value),
-                            range,
-                        },
-                    );
-                    continue;
-                }
-                match Expression::parse(&value, self.source_path, range.start) {
-                    Ok(expression) => {
-                        parsed.insert(
-                            String::from(dynamic_name),
-                            TemplateAttribute {
-                                value: AttributeValue::Dynamic(expression),
-                                range,
-                            },
-                        );
-                    }
-                    Err(failure) => diagnostics.extend_from_slice(failure.diagnostics()),
-                }
-            } else {
-                parsed.insert(
-                    name,
-                    TemplateAttribute {
-                        value: AttributeValue::Static(value),
-                        range,
-                    },
-                );
+                Err(failure) => diagnostics.extend_from_slice(failure.diagnostics()),
             }
         }
         if diagnostics.is_empty() {
@@ -380,70 +378,161 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn attribute(
+        &self,
+        tag: &str,
+        name: &str,
+        value: String,
+        range: SourceRange,
+    ) -> Result<(String, TemplateAttribute), Failure> {
+        if let Some(event) = name.strip_prefix("on:") {
+            return self.event_attribute(event, &value, range);
+        }
+        if is_event_handler_attribute(name) {
+            return Err(self.failure(
+                1306,
+                range,
+                "Native event attributes are outside the view contract.",
+                "Use on:<event> to bind an exported handler instead.",
+            ));
+        }
+        if name == ":hydrate" {
+            return Err(self.failure(
+                1404,
+                range,
+                "Island hydration policy must be a static literal.",
+                "Use hydrate=\"load|idle|visible|interaction|never\".",
+            ));
+        }
+        let Some(dynamic_name) = name.strip_prefix(':') else {
+            let inside_style = self.stack.iter().any(|open| open.tag == "style");
+            if let Some(braced) = BracedAttribute::find(name, &value).filter(|_| !inside_style) {
+                return Err(self.failure(
+                    BracedAttribute::CODE,
+                    range,
+                    &braced.message(),
+                    &braced.help(),
+                ));
+            }
+            let attribute = TemplateAttribute {
+                value: AttributeValue::Static(value),
+                range,
+            };
+            return Ok((String::from(name), attribute));
+        };
+        self.dynamic_attribute(tag, dynamic_name, value, range)
+    }
+
+    fn event_attribute(
+        &self,
+        event: &str,
+        value: &str,
+        range: SourceRange,
+    ) -> Result<(String, TemplateAttribute), Failure> {
+        match event_binding(event, value, self.source_path, range) {
+            Ok((marker, binding)) => {
+                let attribute = TemplateAttribute {
+                    value: AttributeValue::Event(binding),
+                    range,
+                };
+                Ok((marker, attribute))
+            }
+            Err(message) => Err(self.failure(
+                1306,
+                range,
+                message,
+                "Bind an exported handler, as in on:click=\"increment()\".",
+            )),
+        }
+    }
+
+    fn dynamic_attribute(
+        &self,
+        tag: &str,
+        dynamic_name: &str,
+        value: String,
+        range: SourceRange,
+    ) -> Result<(String, TemplateAttribute), Failure> {
+        if dynamic_name.is_empty() || tag == "logic" && dynamic_name == "else" {
+            return Err(self.failure(
+                1304,
+                range,
+                "Dynamic attribute name is invalid.",
+                "Place ':' before a valid HTML attribute or component property name.",
+            ));
+        }
+        let is_control = matches!((tag, dynamic_name), ("loop", "for") | ("for", "each"));
+        let value = if is_control {
+            AttributeValue::Control(value)
+        } else {
+            AttributeValue::Dynamic(Expression::parse(&value, self.source_path, range.start)?)
+        };
+        Ok((
+            String::from(dynamic_name),
+            TemplateAttribute { value, range },
+        ))
+    }
+
     fn node_kind(
         &self,
         name: &str,
         mut attributes: BTreeMap<String, TemplateAttribute>,
         range: SourceRange,
     ) -> Result<TemplateNodeKind, Failure> {
+        let source_path = self.source_path;
         match name {
-            "logic" => conditional_logic(&mut attributes, self.source_path, range),
-            "if" => direct_if(&mut attributes, self.source_path, range),
-            "else" => direct_else(&mut attributes, self.source_path, range),
-            "switch" => switch_value(&mut attributes, self.source_path, range),
-            "case" => switch_case(&mut attributes, self.source_path, range),
-            "loop" => iteration(&mut attributes, ":for", "for", self.source_path, range),
-            "for" => iteration(&mut attributes, ":each", "each", self.source_path, range),
-            "script" => Err(Failure::one(template_diagnostic(
+            "logic" => conditional_logic(&mut attributes, source_path, range),
+            "if" => direct_if(&mut attributes, source_path, range),
+            "else" => direct_else(&attributes, source_path, range),
+            "switch" => switch_value(&mut attributes, source_path, range),
+            "case" => switch_case(&mut attributes, source_path, range),
+            "loop" => iteration(&mut attributes, "for", source_path, range),
+            "for" => iteration(&mut attributes, "each", source_path, range),
+            "script" => Err(self.failure(
                 1306,
-                self.source_path,
-                range.start,
-                range.end,
+                range,
                 "Executable script elements are outside the Phase 3 view contract.",
                 "Use a colocated Tac island companion.",
-            ))),
+            )),
             "slot" => {
-                reject_attributes(&attributes, self.source_path, range, "slot")?;
+                reject_attributes(&attributes, source_path, range, "slot")?;
                 Ok(TemplateNodeKind::Slot)
             }
             _ if self.components.contains(name) => {
-                let hydrate = take_hydrate(&mut attributes, self.source_path, range)?;
-                Ok(TemplateNodeKind::Component {
-                    name: String::from(name),
-                    properties: attributes,
-                    hydrate,
-                    children: Vec::new(),
-                })
+                component_kind(name, attributes, source_path, range)
             }
-            // A registered component is matched earlier; anything left must be
-            // a standard element or a custom-element-shaped tag.
             _ if is_standard_html_tag(name) || valid_custom_element(name) => {
-                if attributes.contains_key("hydrate") {
-                    return Err(Failure::one(template_diagnostic(
-                        1404,
-                        self.source_path,
-                        range.start,
-                        range.end,
-                        "Only a registered Tac component may declare hydrate.",
-                        "Remove hydrate or register the component template.",
-                    )));
-                }
-                Ok(TemplateNodeKind::Element {
-                    tag: String::from(name),
-                    attributes,
-                    children: Vec::new(),
-                    void: VOID_TAGS.contains(&name),
-                })
+                self.element_kind(name, attributes, range)
             }
-            _ => Err(Failure::one(template_diagnostic(
+            _ => Err(self.failure(
                 1402,
-                self.source_path,
-                range.start,
-                range.end,
+                range,
                 &format!("Unknown Tac component '<{name}>'."),
                 "Register a custom-element-shaped component or use standard HTML.",
-            ))),
+            )),
         }
+    }
+
+    fn element_kind(
+        &self,
+        name: &str,
+        attributes: BTreeMap<String, TemplateAttribute>,
+        range: SourceRange,
+    ) -> Result<TemplateNodeKind, Failure> {
+        if attributes.contains_key("hydrate") {
+            return Err(self.failure(
+                1404,
+                range,
+                "Only a registered Tac component may declare hydrate.",
+                "Remove hydrate or register the component template.",
+            ));
+        }
+        Ok(TemplateNodeKind::Element {
+            tag: String::from(name),
+            attributes,
+            children: Vec::new(),
+            void: Self::VOID_TAGS.contains(&name),
+        })
     }
 
     fn push_node(&mut self, kind: TemplateNodeKind, range: SourceRange) {
@@ -460,27 +549,18 @@ impl<'a> Parser<'a> {
             self.roots.push(node);
             return;
         };
-        // A leaf such as `<slot>` never holds children, but malformed markup
-        // can still leave one open on the stack. Refuse the child rather than
-        // silently reparenting it, and never panic on the recovered state.
-        let refused = match children_mut(&mut parent.kind) {
-            Some(children) => {
-                children.push(node);
-                None
-            }
-            None => Some(parent.tag.clone()),
-        };
-        let Some(tag) = refused else {
+        if let Some(children) = parent.kind.children_mut() {
+            children.push(node);
             return;
-        };
-        self.push_diagnostic(template_diagnostic(
+        }
+        let message = format!("Element '<{}>' cannot contain child content.", parent.tag);
+        let diagnostic = self.diagnostic(
             1301,
-            self.source_path,
-            range.start,
-            range.end,
-            &format!("Element '<{tag}>' cannot contain child content."),
+            range,
+            &message,
             "Leave the element empty and close it immediately.",
-        ));
+        );
+        self.push_diagnostic(diagnostic);
     }
 
     fn extend_failure(&mut self, failure: &Failure) {
@@ -489,10 +569,25 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn push_diagnostic(&mut self, value: tachyon_diagnostics::Diagnostic) {
-        if self.diagnostics.len() < MAX_DIAGNOSTICS {
+    fn push_diagnostic(&mut self, value: Diagnostic) {
+        if self.diagnostics.len() < Self::MAX_DIAGNOSTICS {
             self.diagnostics.push(value);
         }
+    }
+
+    fn diagnostic(&self, number: u16, range: SourceRange, message: &str, help: &str) -> Diagnostic {
+        template_diagnostic(
+            number,
+            self.source_path,
+            range.start,
+            range.end,
+            message,
+            help,
+        )
+    }
+
+    fn failure(&self, number: u16, range: SourceRange, message: &str, help: &str) -> Failure {
+        Failure::one(self.diagnostic(number, range, message, help))
     }
 }
 
@@ -512,7 +607,28 @@ impl OpenNode {
     }
 }
 
-/// Parses `<switch :value="expression">`.
+fn span_range(span: Span<usize>) -> SourceRange {
+    SourceRange {
+        start: span.start,
+        end: span.end,
+    }
+}
+
+fn component_kind(
+    name: &str,
+    mut attributes: BTreeMap<String, TemplateAttribute>,
+    source_path: &str,
+    range: SourceRange,
+) -> Result<TemplateNodeKind, Failure> {
+    let hydrate = take_hydrate(&mut attributes, source_path, range)?;
+    Ok(TemplateNodeKind::Component {
+        name: String::from(name),
+        properties: attributes,
+        hydrate,
+        children: Vec::new(),
+    })
+}
+
 fn switch_value(
     attributes: &mut BTreeMap<String, TemplateAttribute>,
     source_path: &str,
@@ -532,7 +648,6 @@ fn switch_value(
     })
 }
 
-/// Parses `<case :when="expression">` or `<case default>`.
 fn switch_case(
     attributes: &mut BTreeMap<String, TemplateAttribute>,
     source_path: &str,
@@ -559,25 +674,20 @@ fn switch_case(
     ))
 }
 
-/// Rewrites every `<switch>` into the conditional chain it stands for.
-///
-/// A switch is sugar: `<case :when="a">` is `value == a`, the first match
-/// wins, and `<case default>` is the else. Desugaring here means the renderer,
-/// the native planner, and the view IR never learn a third control shape.
 fn desugar_switches(nodes: &mut Vec<TemplateNode>, source_path: &str) -> Result<(), Failure> {
     let mut index = 0;
     while index < nodes.len() {
         if let TemplateNodeKind::Switch { .. } = nodes[index].kind {
             let node = nodes.remove(index);
-            let expanded = expand_switch(node, source_path)?;
-            let count = expanded.len();
-            for (offset, branch) in expanded.into_iter().enumerate() {
+            let branches = expand_switch(node, source_path)?;
+            let count = branches.len();
+            for (offset, branch) in branches.into_iter().enumerate() {
                 nodes.insert(index + offset, branch);
             }
             index += count;
             continue;
         }
-        if let Some(children) = children_mut(&mut nodes[index].kind) {
+        if let Some(children) = nodes[index].kind.children_mut() {
             desugar_switches(children, source_path)?;
         }
         index += 1;
@@ -585,99 +695,83 @@ fn desugar_switches(nodes: &mut Vec<TemplateNode>, source_path: &str) -> Result<
     Ok(())
 }
 
-/// Converts one `<switch>` node into its conditional branches.
 fn expand_switch(node: TemplateNode, source_path: &str) -> Result<Vec<TemplateNode>, Failure> {
-    let range = node.range;
-    let node_source = node.source_path.clone();
     let TemplateNodeKind::Switch { value, children } = node.kind else {
         unreachable!("caller matched a switch")
     };
     let mut branches = Vec::new();
     let mut seen_default = false;
     for child in children {
-        let child_range = child.range;
-        let TemplateNodeKind::Case { when, mut children } = child.kind else {
-            // Whitespace and comments between cases are not content.
-            if matches!(&child.kind, TemplateNodeKind::Comment(_)) {
-                continue;
-            }
-            if let TemplateNodeKind::Text(parts) = &child.kind
-                && parts.iter().all(is_blank_text)
-            {
-                continue;
-            }
+        let is_case = matches!(child.kind, TemplateNodeKind::Case { .. });
+        if !is_case && is_trivia(&child) {
+            continue;
+        }
+        if is_case && seen_default {
             return Err(control_failure(
                 source_path,
-                child_range,
-                "<switch> may only contain <case> children.",
-            ));
-        };
-        if seen_default {
-            return Err(control_failure(
-                source_path,
-                child_range,
+                child.range,
                 "<case default> must be the last case.",
             ));
         }
-        desugar_switches(&mut children, source_path)?;
-        let (condition, branch) = if let Some(when) = when {
-            let branch = if branches.is_empty() {
-                ConditionalBranch::If
-            } else {
-                ConditionalBranch::ElseIf
-            };
-            (Some(value.equals(&when)), branch)
-        } else {
+        let is_first = branches.is_empty();
+        let branch = switch_branch(child, &value, is_first, &node.source_path, source_path)?;
+        if matches!(
+            branch.kind,
+            TemplateNodeKind::Conditional {
+                branch: ConditionalBranch::Else,
+                ..
+            }
+        ) {
             seen_default = true;
-            (None, ConditionalBranch::Else)
-        };
-        if condition.is_none() && branches.is_empty() {
-            return Err(control_failure(
-                source_path,
-                child_range,
-                "<switch> needs at least one <case :when> before <case default>.",
-            ));
         }
-        branches.push(TemplateNode {
-            kind: TemplateNodeKind::Conditional {
-                condition,
-                branch,
-                children,
-            },
-            range: child_range,
-            source_path: node_source.clone(),
-        });
+        branches.push(branch);
     }
     if branches.is_empty() {
         return Err(control_failure(
             source_path,
-            range,
+            node.range,
             "<switch> requires at least one <case>.",
         ));
     }
     Ok(branches)
 }
 
-/// Returns a node's children when it has any.
-fn children_mut(kind: &mut TemplateNodeKind) -> Option<&mut Vec<TemplateNode>> {
-    match kind {
-        TemplateNodeKind::Element { children, .. }
-        | TemplateNodeKind::Conditional { children, .. }
-        | TemplateNodeKind::Iteration { children, .. }
-        | TemplateNodeKind::CountedIteration { children, .. }
-        | TemplateNodeKind::Switch { children, .. }
-        | TemplateNodeKind::Case { children, .. }
-        | TemplateNodeKind::Component { children, .. } => Some(children),
-        TemplateNodeKind::Text(_) | TemplateNodeKind::Comment(_) | TemplateNodeKind::Slot => None,
-    }
-}
-
-/// Reports whether one text part is only whitespace.
-fn is_blank_text(part: &TextPart) -> bool {
-    match part {
-        TextPart::Literal(value, _) => value.trim().is_empty(),
-        TextPart::Interpolation(..) => false,
-    }
+fn switch_branch(
+    child: TemplateNode,
+    value: &Expression,
+    is_first: bool,
+    switch_source_path: &str,
+    source_path: &str,
+) -> Result<TemplateNode, Failure> {
+    let TemplateNodeKind::Case { when, mut children } = child.kind else {
+        return Err(control_failure(
+            source_path,
+            child.range,
+            "<switch> may only contain <case> children.",
+        ));
+    };
+    desugar_switches(&mut children, source_path)?;
+    let (condition, branch) = match when {
+        None if is_first => {
+            return Err(control_failure(
+                source_path,
+                child.range,
+                "<switch> needs at least one <case :when> before <case default>.",
+            ));
+        }
+        None => (None, ConditionalBranch::Else),
+        Some(when) if is_first => (Some(value.equals(&when)), ConditionalBranch::If),
+        Some(when) => (Some(value.equals(&when)), ConditionalBranch::ElseIf),
+    };
+    Ok(TemplateNode {
+        kind: TemplateNodeKind::Conditional {
+            condition,
+            branch,
+            children,
+        },
+        range: child.range,
+        source_path: String::from(switch_source_path),
+    })
 }
 
 fn conditional_logic(
@@ -685,32 +779,53 @@ fn conditional_logic(
     source_path: &str,
     range: SourceRange,
 ) -> Result<TemplateNodeKind, Failure> {
-    let condition = take_dynamic(attributes, "if")
-        .map(|value| (ConditionalBranch::If, value))
-        .or_else(|| {
-            take_dynamic(attributes, "else-if").map(|value| (ConditionalBranch::ElseIf, value))
-        });
-    if let Some((branch, condition)) = condition {
-        reject_attributes(attributes, source_path, range, "logic")?;
-        return Ok(TemplateNodeKind::Conditional {
-            condition: Some(condition),
-            branch,
-            children: Vec::new(),
-        });
+    if let Some(condition) = take_dynamic(attributes, "if") {
+        return logic_branch(
+            attributes,
+            Some(condition),
+            ConditionalBranch::If,
+            source_path,
+            range,
+        );
+    }
+    if let Some(condition) = take_dynamic(attributes, "else-if") {
+        return logic_branch(
+            attributes,
+            Some(condition),
+            ConditionalBranch::ElseIf,
+            source_path,
+            range,
+        );
     }
     if take_static_flag(attributes, "else") {
-        reject_attributes(attributes, source_path, range, "logic")?;
-        return Ok(TemplateNodeKind::Conditional {
-            condition: None,
-            branch: ConditionalBranch::Else,
-            children: Vec::new(),
-        });
+        return logic_branch(
+            attributes,
+            None,
+            ConditionalBranch::Else,
+            source_path,
+            range,
+        );
     }
     Err(control_failure(
         source_path,
         range,
         "<logic> requires exactly one of :if, :else-if, or else.",
     ))
+}
+
+fn logic_branch(
+    attributes: &BTreeMap<String, TemplateAttribute>,
+    condition: Option<Expression>,
+    branch: ConditionalBranch,
+    source_path: &str,
+    range: SourceRange,
+) -> Result<TemplateNodeKind, Failure> {
+    reject_attributes(attributes, source_path, range, "logic")?;
+    Ok(TemplateNodeKind::Conditional {
+        condition,
+        branch,
+        children: Vec::new(),
+    })
 }
 
 fn direct_if(
@@ -737,7 +852,7 @@ fn direct_if(
 }
 
 fn direct_else(
-    attributes: &mut BTreeMap<String, TemplateAttribute>,
+    attributes: &BTreeMap<String, TemplateAttribute>,
     source_path: &str,
     range: SourceRange,
 ) -> Result<TemplateNodeKind, Failure> {
@@ -751,24 +866,20 @@ fn direct_else(
 
 fn iteration(
     attributes: &mut BTreeMap<String, TemplateAttribute>,
-    _display_name: &str,
     attribute_name: &str,
     source_path: &str,
     range: SourceRange,
 ) -> Result<TemplateNodeKind, Failure> {
     let Some(attribute) = attributes.remove(attribute_name) else {
+        let element = if attribute_name == "for" {
+            "loop"
+        } else {
+            "for"
+        };
         return Err(control_failure(
             source_path,
             range,
-            &format!(
-                "<{}> requires :{}=\"item of values\".",
-                if attribute_name == "for" {
-                    "loop"
-                } else {
-                    "for"
-                },
-                attribute_name
-            ),
+            &format!("<{element}> requires :{attribute_name}=\"item of values\"."),
         ));
     };
     let AttributeValue::Control(declaration) = attribute.value else {
@@ -792,6 +903,24 @@ fn iteration(
     } else {
         " in "
     };
+    list_iteration(
+        &declaration,
+        separator,
+        attribute.range.start,
+        source_path,
+        range,
+        attributes,
+    )
+}
+
+fn list_iteration(
+    declaration: &str,
+    separator: &str,
+    start: usize,
+    source_path: &str,
+    range: SourceRange,
+    attributes: &BTreeMap<String, TemplateAttribute>,
+) -> Result<TemplateNodeKind, Failure> {
     let Some((binding, iterable)) = declaration.split_once(separator) else {
         return Err(control_failure(
             source_path,
@@ -799,12 +928,7 @@ fn iteration(
             "Iteration must use 'binding of expression' or 'binding in expression'.",
         ));
     };
-    let binding = binding.trim();
-    let binding = binding
-        .strip_prefix("const ")
-        .or_else(|| binding.strip_prefix("let "))
-        .unwrap_or(binding)
-        .trim();
+    let binding = without_declaration_keyword(binding);
     if !valid_binding(binding) {
         return Err(control_failure(
             source_path,
@@ -812,17 +936,26 @@ fn iteration(
             "Iteration binding is not a portable identifier.",
         ));
     }
-    let iterable_start = attribute
-        .range
-        .start
-        .saturating_add(declaration.find(iterable).unwrap_or_default());
+    let iterable_offset = declaration.find(iterable).unwrap_or_default();
+    let iterable_start = start.saturating_add(iterable_offset);
     let iterable = Expression::parse(iterable.trim(), source_path, iterable_start)?;
     reject_attributes(attributes, source_path, range, "iteration")?;
     Ok(TemplateNodeKind::Iteration {
-        binding: String::from(binding.trim()),
+        binding: String::from(binding),
         iterable,
         children: Vec::new(),
     })
+}
+
+fn without_declaration_keyword(binding: &str) -> &str {
+    let binding = binding.trim();
+    if let Some(rest) = binding.strip_prefix("const ") {
+        return rest.trim();
+    }
+    if let Some(rest) = binding.strip_prefix("let ") {
+        return rest.trim();
+    }
+    binding
 }
 
 fn counted_iteration(
@@ -897,16 +1030,17 @@ fn counted_comparison<'a>(
         ("<", Comparison::Lt),
         (">", Comparison::Gt),
     ] {
-        if let Some((subject, limit)) = test.split_once(operator) {
-            if subject.trim() != binding {
-                return Err(control_failure(
-                    source_path,
-                    range,
-                    "A counted loop must test its own counter.",
-                ));
-            }
-            return Ok((comparison, limit.trim()));
+        let Some((subject, limit)) = test.split_once(operator) else {
+            continue;
+        };
+        if subject.trim() != binding {
+            return Err(control_failure(
+                source_path,
+                range,
+                "A counted loop must test its own counter.",
+            ));
         }
+        return Ok((comparison, limit.trim()));
     }
     Err(control_failure(
         source_path,
@@ -937,11 +1071,7 @@ fn counted_step<'a>(
         ));
     }
     let magnitude = magnitude.trim();
-    if magnitude.starts_with('-')
-        || magnitude
-            .parse::<f64>()
-            .is_ok_and(|value| !value.is_finite() || value <= 0.0)
-    {
+    if is_invalid_step(magnitude) {
         return Err(control_failure(
             source_path,
             range,
@@ -949,6 +1079,16 @@ fn counted_step<'a>(
         ));
     }
     Ok(magnitude)
+}
+
+fn is_invalid_step(magnitude: &str) -> bool {
+    if magnitude.starts_with('-') {
+        return true;
+    }
+    let Ok(value) = magnitude.parse::<f64>() else {
+        return false;
+    };
+    !value.is_finite() || value <= 0.0
 }
 
 fn split_counted_update(update: &str) -> Option<(&str, &str, bool)> {
@@ -983,36 +1123,35 @@ fn take_hydrate(
             "Use hydrate=\"load|idle|visible|interaction|never\".",
         )));
     };
-    HydrationPolicy::parse(&value).map(Some).ok_or_else(|| {
-        Failure::one(template_diagnostic(
+    let Some(policy) = HydrationPolicy::parse(&value) else {
+        return Err(Failure::one(template_diagnostic(
             1404,
             source_path,
             attribute.range.start,
             attribute.range.end,
             "Island hydration policy is not supported.",
             "Use load, idle, visible, interaction, or never.",
-        ))
-    })
+        )));
+    };
+    Ok(Some(policy))
 }
 
 fn take_dynamic(
     attributes: &mut BTreeMap<String, TemplateAttribute>,
     name: &str,
 ) -> Option<Expression> {
-    attributes
-        .remove(name)
-        .and_then(|attribute| match attribute.value {
-            AttributeValue::Dynamic(expression) => Some(expression),
-            AttributeValue::Static(_) | AttributeValue::Control(_) | AttributeValue::Event(_) => {
-                None
-            }
-        })
+    let attribute = attributes.remove(name)?;
+    let AttributeValue::Dynamic(expression) = attribute.value else {
+        return None;
+    };
+    Some(expression)
 }
 
 fn take_static_flag(attributes: &mut BTreeMap<String, TemplateAttribute>, name: &str) -> bool {
-    attributes.remove(name).is_some_and(
-        |attribute| matches!(attribute.value, AttributeValue::Static(value) if value.is_empty()),
-    )
+    let Some(attribute) = attributes.remove(name) else {
+        return false;
+    };
+    matches!(attribute.value, AttributeValue::Static(value) if value.is_empty())
 }
 
 fn reject_attributes(
@@ -1031,25 +1170,22 @@ fn reject_attributes(
     ))
 }
 
-fn validate_conditionals(
-    nodes: &[TemplateNode],
-    diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
-) {
-    let mut chain = false;
+fn validate_conditionals(nodes: &[TemplateNode], diagnostics: &mut Vec<Diagnostic>) {
+    let mut after_if_branch = false;
     for node in nodes {
         match &node.kind {
             TemplateNodeKind::Conditional {
                 branch: ConditionalBranch::If,
                 ..
-            } => chain = true,
+            } => after_if_branch = true,
             TemplateNodeKind::Conditional {
                 branch: ConditionalBranch::ElseIf,
                 ..
-            } if chain => {}
+            } if after_if_branch => {}
             TemplateNodeKind::Conditional {
                 branch: ConditionalBranch::Else,
                 ..
-            } if chain => chain = false,
+            } if after_if_branch => after_if_branch = false,
             TemplateNodeKind::Conditional {
                 branch: ConditionalBranch::ElseIf | ConditionalBranch::Else,
                 ..
@@ -1062,7 +1198,7 @@ fn validate_conditionals(
                 "Place else-if or else immediately after an if branch.",
             )),
             _ if is_trivia(node) => {}
-            _ => chain = false,
+            _ => after_if_branch = false,
         }
         if let Some(children) = node.kind.children() {
             validate_conditionals(children, diagnostics);
@@ -1070,9 +1206,6 @@ fn validate_conditionals(
     }
 }
 
-/// Decode literal HTML content once, using the tokenizer's complete entity table.
-/// Escaping markup delimiters keeps this operation in the data state; decoded
-/// characters become text nodes, never new template syntax or HTML elements.
 fn decode_text_references(value: &str) -> String {
     if !value.contains('&') {
         return String::from(value);
@@ -1092,37 +1225,19 @@ fn text_parts(
     source_path: &str,
     source_start: usize,
 ) -> Result<Vec<TextPart>, Failure> {
+    let bytes = value.as_bytes();
     let mut parts = Vec::new();
     let mut literal_start = 0;
     let mut current = 0;
     while current < value.len() {
-        if value.as_bytes()[current] == b'\\'
-            && value
-                .as_bytes()
-                .get(current + 1)
-                .is_some_and(|next| matches!(next, b'{' | b'}'))
-        {
-            if literal_start < current {
-                parts.push(TextPart::Literal(
-                    decode_text_references(&value[literal_start..current]),
-                    SourceRange {
-                        start: source_start + literal_start,
-                        end: source_start + current,
-                    },
-                ));
-            }
-            parts.push(TextPart::Literal(
-                String::from(&value[current + 1..current + 2]),
-                SourceRange {
-                    start: source_start + current,
-                    end: source_start + current + 2,
-                },
-            ));
+        if is_escaped_brace(bytes, current) {
+            push_literal(&mut parts, value, source_start, literal_start, current);
+            parts.push(escaped_brace(value, source_start, current));
             current += 2;
             literal_start = current;
             continue;
         }
-        if value.as_bytes()[current] != b'{' {
+        if bytes[current] != b'{' {
             let character = value[current..]
                 .chars()
                 .next()
@@ -1130,122 +1245,99 @@ fn text_parts(
             current += character.len_utf8();
             continue;
         }
-        if literal_start < current {
-            parts.push(TextPart::Literal(
-                decode_text_references(&value[literal_start..current]),
-                SourceRange {
-                    start: source_start + literal_start,
-                    end: source_start + current,
-                },
-            ));
-        }
-        let Some(relative_end) = value[current + 1..].find('}') else {
-            return Err(Failure::one(template_diagnostic(
-                1303,
-                source_path,
-                source_start + current,
-                source_start + value.len(),
-                "Text interpolation is missing '}'.",
-                "Close the bounded template expression.",
-            )));
-        };
-        let end = current + 1 + relative_end;
-        let expression_source = value[current + 1..end].trim();
-        if expression_source.starts_with('!') {
-            return Err(Failure::one(template_diagnostic(
-                1306,
-                source_path,
-                source_start + current,
-                source_start + end + 1,
-                "Raw HTML interpolation is not supported.",
-                "Use escaped interpolation and semantic component structure.",
-            )));
-        }
-        let leading = value[current + 1..end].len() - value[current + 1..end].trim_start().len();
-        let expression = Expression::parse(
-            expression_source,
-            source_path,
-            source_start + current + 1 + leading,
-        )?;
-        parts.push(TextPart::Interpolation(
-            expression,
-            SourceRange {
-                start: source_start + current,
-                end: source_start + end + 1,
-            },
-        ));
-        current = end + 1;
+        push_literal(&mut parts, value, source_start, literal_start, current);
+        let (interpolation, next) = interpolation(value, source_path, source_start, current)?;
+        parts.push(interpolation);
+        current = next;
         literal_start = current;
     }
-    if literal_start < value.len() {
-        parts.push(TextPart::Literal(
-            decode_text_references(&value[literal_start..]),
-            SourceRange {
-                start: source_start + literal_start,
-                end: source_start + value.len(),
-            },
-        ));
-    }
+    push_literal(&mut parts, value, source_start, literal_start, value.len());
     Ok(parts)
 }
 
-fn read_source(path: &Path, source_path: &str) -> Result<String, Failure> {
-    let file = File::open(path).map_err(|error| {
-        Failure::one(template_diagnostic(
-            1301,
-            source_path,
-            0,
-            0,
-            &format!("Cannot read template source: {error}"),
-            "Check the source file permissions.",
-        ))
-    })?;
-    let mut bytes = Vec::new();
-    file.take(MAX_HTML_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|error| {
-            Failure::one(template_diagnostic(
-                1301,
-                source_path,
-                0,
-                0,
-                &format!("Cannot read template source: {error}"),
-                "Check the source file permissions.",
-            ))
-        })?;
-    if bytes.len() as u64 > MAX_HTML_BYTES {
+fn is_escaped_brace(bytes: &[u8], index: usize) -> bool {
+    if bytes[index] != b'\\' {
+        return false;
+    }
+    matches!(bytes.get(index + 1), Some(b'{' | b'}'))
+}
+
+fn escaped_brace(value: &str, source_start: usize, backslash: usize) -> TextPart {
+    let brace = String::from(&value[backslash + 1..backslash + 2]);
+    let range = SourceRange {
+        start: source_start + backslash,
+        end: source_start + backslash + 2,
+    };
+    TextPart::Literal(brace, range)
+}
+
+fn push_literal(
+    parts: &mut Vec<TextPart>,
+    value: &str,
+    source_start: usize,
+    start: usize,
+    end: usize,
+) {
+    if start >= end {
+        return;
+    }
+    parts.push(TextPart::Literal(
+        decode_text_references(&value[start..end]),
+        SourceRange {
+            start: source_start + start,
+            end: source_start + end,
+        },
+    ));
+}
+
+fn interpolation(
+    value: &str,
+    source_path: &str,
+    source_start: usize,
+    open: usize,
+) -> Result<(TextPart, usize), Failure> {
+    let Some(relative_close) = value[open + 1..].find('}') else {
         return Err(Failure::one(template_diagnostic(
-            1301,
+            1303,
             source_path,
-            0,
-            bytes.len(),
-            "Template source exceeds the 1 MiB limit.",
-            "Reduce the template below 1 MiB.",
+            source_start + open,
+            source_start + value.len(),
+            "Text interpolation is missing '}'.",
+            "Close the bounded template expression.",
+        )));
+    };
+    let close = open + 1 + relative_close;
+    let inner = &value[open + 1..close];
+    let expression_source = inner.trim();
+    if expression_source.starts_with('!') {
+        return Err(Failure::one(template_diagnostic(
+            1306,
+            source_path,
+            source_start + open,
+            source_start + close + 1,
+            "Raw HTML interpolation is not supported.",
+            "Use escaped interpolation and semantic component structure.",
         )));
     }
-    String::from_utf8(bytes).map_err(|error| {
-        let start = error.utf8_error().valid_up_to();
-        Failure::one(template_diagnostic(
-            1301,
-            source_path,
-            start,
-            start.saturating_add(1),
-            "Template source is not valid UTF-8.",
-            "Save Tachyon HTML sources as UTF-8.",
-        ))
-    })
+    let leading_spaces = inner.len() - inner.trim_start().len();
+    let expression_start = source_start + open + 1 + leading_spaces;
+    let expression = Expression::parse(expression_source, source_path, expression_start)?;
+    let range = SourceRange {
+        start: source_start + open,
+        end: source_start + close + 1,
+    };
+    Ok((TextPart::Interpolation(expression, range), close + 1))
 }
 
 fn valid_binding(value: &str) -> bool {
     let mut bytes = value.bytes();
-    bytes
-        .next()
-        .is_some_and(|byte| byte.is_ascii_alphabetic() || matches!(byte, b'_' | b'$'))
-        && bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'$'))
-}
-
-fn value_span_start(value_start: usize, tag_start: usize) -> usize {
-    value_start.max(tag_start)
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    if !first.is_ascii_alphabetic() && !matches!(first, b'_' | b'$') {
+        return false;
+    }
+    bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'$'))
 }
 
 fn control_failure(source_path: &str, range: SourceRange, message: &str) -> Failure {
@@ -1259,165 +1351,138 @@ fn control_failure(source_path: &str, range: SourceRange, message: &str) -> Fail
     ))
 }
 
-/// Maximum characters accepted in one event binding value.
-const MAX_EVENT_BINDING_BYTES: usize = 256;
-/// Maximum literal arguments accepted by one event binding.
-/// Longest `$event` property path a binding may read.
-const MAX_EVENT_PATH_SEGMENTS: usize = 4;
-const MAX_EVENT_ARGUMENTS: usize = 8;
-
-/// Parses one `on:<event>` binding into its emitted marker and payload.
-///
-/// The grammar is deliberately small: a handler name, optionally followed by
-/// literal arguments. Nothing here is evaluated as JavaScript, so a view can
-/// never introduce executable code into the generated document.
-/// Parses one `on:<event>` binding into a marker attribute and a JSON payload.
-///
-/// Event bindings follow the convention every template framework converged on:
-/// `$event` names the dispatched event, and a dotted path reads a property off
-/// it, so `on:input="setName($event.target.value)"` works the way an author
-/// coming from Vue, Angular, or Alpine expects.
-///
-/// The binding is parsed into a structure, never evaluated as JavaScript. The
-/// runtime reads that structure and calls one exported function, so a template
-/// cannot introduce script.
 fn event_binding(
     event: &str,
     value: &str,
     source_path: &str,
     range: SourceRange,
 ) -> Result<(String, EventBinding), &'static str> {
+    validate_event_name(event)?;
+    let value = value.trim();
+    if value.is_empty() || value.len() > TemplateFrontend::MAX_EVENT_BINDING_BYTES {
+        return Err("Event binding must be 1 to 256 characters.");
+    }
+    let marker = format!("data-tac-on-{}", event.replace(':', "__"));
+    if let Some((target, operator, expression)) = split_assignment(value) {
+        let binding = EventBinding {
+            handler: String::new(),
+            arguments: vec![event_argument(expression, source_path, range)?],
+            assign: Some(Assignment { target, operator }),
+        };
+        return Ok((marker, binding));
+    }
+    let (name, arguments) = handler_call(value, source_path, range)?;
+    if !is_member_path(name) {
+        return Err("Event handler must name one handler, as save() or basket.add().");
+    }
+    let binding = EventBinding {
+        handler: String::from(name),
+        arguments,
+        assign: None,
+    };
+    Ok((marker, binding))
+}
+
+fn validate_event_name(event: &str) -> Result<(), &'static str> {
     if event.is_empty() || event.len() > 64 {
         return Err("Event name must be 1 to 64 characters.");
     }
-    if !event
-        .bytes()
-        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b':')
-    {
+    let is_allowed = |byte: u8| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b':';
+    if !event.bytes().all(is_allowed) {
         return Err("Event name must be lowercase alphanumeric, with ':' for namespaces.");
     }
-    let value = value.trim();
-    if value.is_empty() || value.len() > MAX_EVENT_BINDING_BYTES {
-        return Err("Event binding must be 1 to 256 characters.");
-    }
-    if let Some((target, operator, expression)) = split_assignment(value) {
-        let marker = format!("data-tac-on-{}", event.replace(':', "__"));
-        return Ok((
-            marker,
-            EventBinding {
-                handler: String::new(),
-                arguments: vec![event_argument(expression, source_path, range)?],
-                assign: Some(Assignment { target, operator }),
-            },
-        ));
-    }
-
-    let (name, arguments) = match value.split_once('(') {
-        None => (value, Vec::new()),
-        Some((name, rest)) => {
-            let Some(inner) = rest.strip_suffix(')') else {
-                return Err("Event binding must close its argument list.");
-            };
-            let inner = inner.trim();
-            let mut arguments = Vec::new();
-            if !inner.is_empty() {
-                for argument in inner.split(',') {
-                    if arguments.len() >= MAX_EVENT_ARGUMENTS {
-                        return Err("Event binding accepts at most eight arguments.");
-                    }
-                    arguments.push(event_argument(argument.trim(), source_path, range)?);
-                }
-            }
-            (name.trim(), arguments)
-        }
-    };
-
-    if name.is_empty()
-        || name.len() > 64
-        || !name
-            .bytes()
-            .next()
-            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
-        || !name
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-    {
-        return Err("Event handler must name one exported identifier.");
-    }
-
-    // Colons in a namespaced event name are encoded so the marker stays a
-    // valid attribute name, matching the legacy compiler's encoding.
-    let marker = format!("data-tac-on-{}", event.replace(':', "__"));
-    Ok((
-        marker,
-        EventBinding {
-            handler: String::from(name),
-            arguments,
-            assign: None,
-        },
-    ))
+    Ok(())
 }
 
-/// Splits an assigning binding into its target, operator, and value.
-///
-/// A binding either calls a handler or assigns to a field, which is what every
-/// template framework offers. Returns `None` for anything that is not an
-/// assignment, including the comparisons that share the `=` character.
+fn handler_call<'a>(
+    value: &'a str,
+    source_path: &str,
+    range: SourceRange,
+) -> Result<(&'a str, Vec<EventArgument>), &'static str> {
+    let Some((name, rest)) = value.split_once('(') else {
+        return Ok((value, Vec::new()));
+    };
+    let Some(inner) = rest.strip_suffix(')') else {
+        return Err("Event binding must close its argument list.");
+    };
+    let arguments = handler_arguments(inner.trim(), source_path, range)?;
+    Ok((name.trim(), arguments))
+}
+
+fn handler_arguments(
+    inner: &str,
+    source_path: &str,
+    range: SourceRange,
+) -> Result<Vec<EventArgument>, &'static str> {
+    let mut arguments = Vec::new();
+    if inner.is_empty() {
+        return Ok(arguments);
+    }
+    for argument in inner.split(',') {
+        if arguments.len() >= TemplateFrontend::MAX_EVENT_ARGUMENTS {
+            return Err("Event binding accepts at most eight arguments.");
+        }
+        arguments.push(event_argument(argument.trim(), source_path, range)?);
+    }
+    Ok(arguments)
+}
+
 fn split_assignment(value: &str) -> Option<(String, String, &str)> {
     let bytes = value.as_bytes();
-    for (index, byte) in bytes.iter().enumerate() {
-        if *byte != b'=' {
-            continue;
-        }
-        // `==`, `!=`, `<=` and `>=` are comparisons, not assignment.
-        if bytes.get(index + 1) == Some(&b'=')
-            || matches!(
-                bytes.get(index.wrapping_sub(1)),
-                Some(b'!' | b'<' | b'>' | b'=')
-            )
-        {
-            return None;
-        }
-        let (left, right) = value.split_at(index);
-        let right = right.get(1..)?.trim();
-        let mut left = left.trim();
-        let mut operator = String::from("=");
-        for compound in ['+', '-', '*', '/'] {
-            if let Some(stripped) = left.strip_suffix(compound) {
-                operator = format!("{compound}=");
-                left = stripped.trim();
-                break;
-            }
-        }
-        if right.is_empty() || !is_assignable_target(left) {
-            return None;
-        }
-        return Some((String::from(left), operator, right));
+    let index = bytes.iter().position(|byte| *byte == b'=')?;
+    let next = bytes.get(index + 1);
+    let previous = if index == 0 {
+        None
+    } else {
+        bytes.get(index - 1)
+    };
+    if next == Some(&b'=') || matches!(previous, Some(b'!' | b'<' | b'>' | b'=')) {
+        return None;
     }
-    None
+    let (left, right) = value.split_at(index);
+    let right = right.get(1..)?.trim();
+    let (target, operator) = split_compound_operator(left.trim());
+    if right.is_empty() || !is_member_path(target) {
+        return None;
+    }
+    Some((String::from(target), operator, right))
 }
 
-/// Reports whether a name may be assigned on a companion instance.
-///
-/// A `$`-prefixed field is the persisted form, so both spellings are allowed.
-fn is_assignable_target(name: &str) -> bool {
-    let bare = name.trim_start_matches('$');
-    !bare.is_empty()
-        && bare.len() <= 64
-        && bare
-            .bytes()
-            .next()
-            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
-        && bare
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+fn split_compound_operator(left: &str) -> (&str, String) {
+    for compound in ['+', '-', '*', '/'] {
+        if let Some(target) = left.strip_suffix(compound) {
+            return (target.trim(), format!("{compound}="));
+        }
+    }
+    (left, String::from("="))
 }
 
-/// Validates one event-binding argument.
-///
-/// An argument is a literal, a path off `$event`, or a template expression
-/// evaluated where the binding renders — which is how a loop passes the item
-/// it is iterating.
+fn is_member_path(name: &str) -> bool {
+    let Some((service, member)) = name.split_once('.') else {
+        return is_handler_identifier(name);
+    };
+    !service.starts_with('$') && is_handler_identifier(service) && is_handler_identifier(member)
+}
+
+fn is_handler_identifier(segment: &str) -> bool {
+    is_plain_identifier(segment.trim_start_matches('$'))
+}
+
+fn is_plain_identifier(segment: &str) -> bool {
+    let Some(first) = segment.bytes().next() else {
+        return false;
+    };
+    if segment.len() > 64 {
+        return false;
+    }
+    if !first.is_ascii_alphabetic() && first != b'_' {
+        return false;
+    }
+    segment
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+}
+
 fn event_argument(
     value: &str,
     source_path: &str,
@@ -1429,15 +1494,15 @@ fn event_argument(
     if let Ok(literal) = event_literal(value) {
         return Ok(EventArgument::Literal(literal));
     }
-    Expression::parse(value, source_path, range.start)
-        .map(EventArgument::Scope)
-        .map_err(|_| {
+    let Ok(expression) = Expression::parse(value, source_path, range.start) else {
+        return Err(
             "Event binding arguments must be literals, $event property paths, or bounded \
-             template expressions."
-        })
+             template expressions.",
+        );
+    };
+    Ok(EventArgument::Scope(expression))
 }
 
-/// Validates a dotted property path read off the dispatched event.
 fn event_path(path: &str) -> Result<String, &'static str> {
     if path.is_empty() {
         return Ok(String::new());
@@ -1446,27 +1511,17 @@ fn event_path(path: &str) -> Result<String, &'static str> {
         return Err("Read a property off $event with a dot, as in $event.target.value.");
     };
     let segments: Vec<&str> = path.split('.').collect();
-    if segments.len() > MAX_EVENT_PATH_SEGMENTS {
+    if segments.len() > TemplateFrontend::MAX_EVENT_PATH_SEGMENTS {
         return Err("$event property path is limited to four segments.");
     }
     for segment in &segments {
-        if segment.is_empty()
-            || segment.len() > 64
-            || !segment
-                .bytes()
-                .next()
-                .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
-            || !segment
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-        {
+        if !is_plain_identifier(segment) {
             return Err("$event property path segments must be plain identifiers.");
         }
     }
     Ok(String::from(path))
 }
 
-/// Validates one literal event-binding argument, in JSON form.
 fn event_literal(value: &str) -> Result<String, &'static str> {
     if value == "true" || value == "false" || value == "null" {
         return Ok(String::from(value));
@@ -1474,15 +1529,7 @@ fn event_literal(value: &str) -> Result<String, &'static str> {
     if value.parse::<f64>().is_ok_and(f64::is_finite) {
         return Ok(String::from(value));
     }
-    let quoted = value
-        .strip_prefix('\'')
-        .and_then(|rest| rest.strip_suffix('\''));
-    let quoted = quoted.or_else(|| {
-        value
-            .strip_prefix('"')
-            .and_then(|rest| rest.strip_suffix('"'))
-    });
-    let Some(text) = quoted else {
+    let Some(text) = quoted_text(value) else {
         return Err(
             "Event binding arguments must be literals or $event property paths, as in \
              $event.target.value.",
@@ -1494,6 +1541,18 @@ fn event_literal(value: &str) -> Result<String, &'static str> {
     Ok(format!("\"{text}\""))
 }
 
+fn quoted_text(value: &str) -> Option<&str> {
+    for quote in ['\'', '"'] {
+        let text = value
+            .strip_prefix(quote)
+            .and_then(|rest| rest.strip_suffix(quote));
+        if text.is_some() {
+            return text;
+        }
+    }
+    None
+}
+
 fn template_diagnostic(
     number: u16,
     source_path: &str,
@@ -1501,7 +1560,7 @@ fn template_diagnostic(
     end: usize,
     message: &str,
     help: &str,
-) -> tachyon_diagnostics::Diagnostic {
+) -> Diagnostic {
     diagnostic(
         number,
         message,
@@ -1510,30 +1569,58 @@ fn template_diagnostic(
     )
 }
 
-fn sort_diagnostics(diagnostics: &mut [tachyon_diagnostics::Diagnostic]) {
+fn sort_diagnostics(diagnostics: &mut [Diagnostic]) {
     diagnostics.sort_by(|left, right| {
-        let left_span = left.spans.first();
-        let right_span = right.spans.first();
-        left_span
-            .map(|span| (&span.file, span.start, span.end))
-            .cmp(&right_span.map(|span| (&span.file, span.start, span.end)))
+        let left_position = diagnostic_position(left);
+        let right_position = diagnostic_position(right);
+        left_position
+            .cmp(&right_position)
             .then_with(|| left.code.cmp(&right.code))
     });
+}
+
+fn diagnostic_position(value: &Diagnostic) -> Option<(&String, u64, u64)> {
+    let span = value.spans.first()?;
+    Some((&span.file, span.start, span.end))
 }
 
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{SourceRange, TemplateFrontend};
+    use super::{
+        EventArgument, EventBinding, SourceRange, TemplateFrontend, TemplateProgram, event_binding,
+    };
+    use crate::Failure;
     use std::collections::BTreeSet;
+
+    fn compile(source: &str, components: &BTreeSet<String>) -> Result<TemplateProgram, Failure> {
+        TemplateFrontend::compile(source, "client/pages/tac.html", components)
+    }
+
+    fn compile_without_components(source: &str) -> Result<TemplateProgram, Failure> {
+        compile(source, &BTreeSet::new())
+    }
+
+    fn bind(event: &str, value: &str) -> Result<(String, EventBinding), &'static str> {
+        let range = SourceRange { start: 0, end: 0 };
+        event_binding(event, value, "client/pages/tac.html", range)
+    }
+
+    fn binding_parts(event: &str, value: &str) -> (String, String, Vec<EventArgument>) {
+        let (marker, binding) = bind(event, value).expect(value);
+        (marker, binding.handler, binding.arguments)
+    }
+
+    fn input_arguments(value: &str) -> Vec<EventArgument> {
+        bind("input", value).expect(value).1.arguments
+    }
 
     #[test]
     fn controls_components_and_interpolation_lower_to_view_ir() {
         let components = BTreeSet::from([String::from("product-card")]);
-        let program = TemplateFrontend::compile(
+        let program = compile(
             r#"<logic :if="show"><product-card :item="item">{item.name}</product-card></logic><logic else>none</logic>"#,
-            "client/pages/tac.html",
             &components,
         )
         .unwrap_or_else(|_| unreachable!());
@@ -1547,45 +1634,31 @@ mod tests {
 
     #[test]
     fn parser_recovers_multiple_structure_and_expression_failures() {
-        let error = TemplateFrontend::compile(
-            // A call parses now and is refused at render, so an expression
-            // that is still a parse error is needed here.
-            "<logic else>x</logic><p>{bad syntax}</p><div><span></div>",
-            "client/pages/tac.html",
-            &BTreeSet::new(),
-        )
-        .expect_err("invalid template");
+        let error =
+            compile_without_components("<logic else>x</logic><p>{bad syntax}</p><div><span></div>")
+                .expect_err("invalid template");
         assert!(error.diagnostics().len() >= 3);
     }
 
-    /// `<slot>` holds no children, but malformed token recovery can leave one
-    /// open on the stack. Appending to it used to panic. Regression for the
-    /// `template_frontend` fuzz artifact
-    /// `crash-e40bfb3435ab0d4c4aaaa29c22cfa5dfcda5861c`.
     #[test]
     fn content_after_an_open_slot_fails_closed_instead_of_panicking() {
-        let empty = BTreeSet::new();
         for source in [
             "<main><slot>text</slot></main>",
             "<slot><p>child</p></slot>",
             "<main><slot>{ text <pr<slot><p>child</p></slot>\n",
             "main><slot>{\u{d}\u{d}\u{d}\u{d}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}-\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{d}\u{d}<pr<main><slot>{\u{d}\u{d}\u{d}\u{d}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}-\u{11}\u{11}\u{11}\u{11}\u{11}\u{11}\u{d}\u{d}<pr\u{d}",
         ] {
-            let error = TemplateFrontend::compile(source, "client/pages/tac.html", &empty)
-                .expect_err(source);
-            assert!(
-                error
-                    .diagnostics()
-                    .iter()
-                    .any(|value| value.code.number() == 1301),
-                "{source}"
-            );
+            let error = compile_without_components(source).expect_err(source);
+            let has_structure_error = error
+                .diagnostics()
+                .iter()
+                .any(|value| value.code.number() == 1301);
+            assert!(has_structure_error, "{source}");
         }
     }
 
     #[test]
     fn malformed_controls_attributes_and_sources_fail_closed() {
-        let empty = BTreeSet::new();
         for source in [
             "",
             "<main>\0</main>",
@@ -1608,10 +1681,7 @@ mod tests {
             "<p>{missing</p>",
             "<p>{!raw}</p>",
         ] {
-            assert!(
-                TemplateFrontend::compile(source, "client/pages/tac.html", &empty).is_err(),
-                "{source}"
-            );
+            assert!(compile_without_components(source).is_err(), "{source}");
         }
     }
 
@@ -1634,32 +1704,18 @@ mod tests {
 <demo-card hydrate="interaction"></demo-card>
 <demo-card hydrate="never"></demo-card>
 "#;
-        let program = TemplateFrontend::compile(source, "client/pages/tac.html", &components)
-            .unwrap_or_else(|_| unreachable!());
+        let program = compile(source, &components).unwrap_or_else(|_| unreachable!());
         assert!(!program.nodes.is_empty());
         for policy in ["", "later", "LOAD"] {
             let source = format!("<demo-card hydrate=\"{policy}\"></demo-card>");
-            assert!(
-                TemplateFrontend::compile(&source, "client/pages/tac.html", &components).is_err()
-            );
+            assert!(compile(&source, &components).is_err());
         }
     }
 
     #[test]
     fn event_bindings_parse_into_markers_and_structured_payloads() {
-        use super::{EventArgument, event_binding};
-
-        const RANGE: SourceRange = SourceRange { start: 0, end: 0 };
-
-        let bind =
-            |event: &str, value: &str| event_binding(event, value, "client/pages/tac.html", RANGE);
-        let parts = |event: &str, value: &str| {
-            let (marker, binding) = bind(event, value).expect(value);
-            (marker, binding.handler, binding.arguments)
-        };
-
         assert_eq!(
-            parts("click", "increment()"),
+            binding_parts("click", "increment()"),
             (
                 String::from("data-tac-on-click"),
                 String::from("increment"),
@@ -1667,23 +1723,20 @@ mod tests {
             )
         );
         assert_eq!(
-            parts("click", "addBy(5)"),
+            binding_parts("click", "addBy(5)"),
             (
                 String::from("data-tac-on-click"),
                 String::from("addBy"),
                 vec![EventArgument::Literal(String::from("5"))]
             )
         );
-        // A bare handler name binds with no arguments.
-        assert_eq!(parts("input", "rename").2, vec![]);
-        // A namespaced component event encodes its colon so the marker stays a
-        // valid attribute name.
+        assert_eq!(binding_parts("input", "rename").2, vec![]);
         assert_eq!(
-            parts("update:selected", "choose()").0,
+            binding_parts("update:selected", "choose()").0,
             String::from("data-tac-on-update__selected")
         );
         assert_eq!(
-            parts("click", "setMode('dark', true, 2, null)").2,
+            binding_parts("click", "setMode('dark', true, 2, null)").2,
             vec![
                 EventArgument::Literal(String::from("\"dark\"")),
                 EventArgument::Literal(String::from("true")),
@@ -1694,48 +1747,32 @@ mod tests {
     }
 
     #[test]
-    fn event_bindings_read_the_dispatched_event_and_the_render_scope() {
-        use super::{EventArgument, event_binding};
-
-        const RANGE: SourceRange = SourceRange { start: 0, end: 0 };
-
-        let bind =
-            |event: &str, value: &str| event_binding(event, value, "client/pages/tac.html", RANGE);
-        let arguments = |value: &str| bind("input", value).expect(value).1.arguments;
-
-        // `$event` is the name every template framework converged on, so a
-        // binding reads the event and its properties the way an author expects.
+    fn event_arguments_read_the_dispatched_event_and_the_render_scope() {
         assert_eq!(
-            arguments("go($event)"),
+            input_arguments("go($event)"),
             vec![EventArgument::EventPath(String::new())]
         );
         assert_eq!(
-            arguments("setName($event.target.value)"),
+            input_arguments("setName($event.target.value)"),
             vec![EventArgument::EventPath(String::from("target.value"))]
         );
         assert_eq!(
-            arguments("field('email', $event.target.value)"),
+            input_arguments("field('email', $event.target.value)"),
             vec![
                 EventArgument::Literal(String::from("\"email\"")),
                 EventArgument::EventPath(String::from("target.value")),
             ]
         );
-
-        // A scope path is an expression resolved where the binding renders, so
-        // a loop can pass the item it is iterating.
         assert!(matches!(
-            arguments("select(tab.id)").as_slice(),
+            input_arguments("select(tab.id)").as_slice(),
             [EventArgument::Scope(_)]
         ));
-
-        // A path must be plain identifiers and bounded in depth, so a binding
-        // cannot reach arbitrarily into the event.
         assert!(bind("input", "go($event.a.b.c.d.e)").is_err());
         assert!(bind("input", "go($event.)").is_err());
+    }
 
-        // Assignment parses into a target and an operator. Whether it is
-        // allowed depends on having a companion instance, which only the
-        // renderer knows, so that is checked there rather than here.
+    #[test]
+    fn event_assignments_name_their_target_and_operator() {
         let (_, assignment) = bind("input", "query = $event.target.value").expect("assignment");
         let target = assignment.assign.expect("assignment");
         assert_eq!(target.target, "query");
@@ -1750,56 +1787,166 @@ mod tests {
         assert_eq!(target.target, "$clicks");
         assert_eq!(target.operator, "+=");
 
-        // A comparison shares the '=' character and is not an assignment.
-        assert!(
-            bind("click", "go(a == b)")
-                .expect("comparison")
-                .1
-                .assign
-                .is_none()
-        );
+        let (_, comparison) = bind("click", "go(a == b)").expect("comparison");
+        assert!(comparison.assign.is_none());
     }
 
     #[test]
     fn event_bindings_never_admit_executable_code() {
-        use super::event_binding;
-
-        const RANGE: SourceRange = SourceRange { start: 0, end: 0 };
-        let bind = |value: &str| event_binding("click", value, "client/pages/tac.html", RANGE);
-
-        // Anything that is not a handler name plus bounded arguments must be
-        // refused, so a view cannot introduce executable code.
         for value in [
             "fetch('/x').then(r=>r.json())",
             "increment(); steal()",
-            "a.b()",
+            "a.b.c()",
+            "a().b()",
             "() => 1",
             "increment(",
             "new Function('x')()",
             "",
         ] {
-            assert!(bind(value).is_err(), "{value} was accepted");
+            assert!(bind("click", value).is_err(), "{value} was accepted");
         }
-        assert!(event_binding("", "increment()", "client/pages/tac.html", RANGE).is_err());
+        assert!(bind("", "increment()").is_err());
+    }
 
-        // These two are accepted now that an argument may be a template
-        // expression, and both are harmless: an argument is evaluated against
-        // the render scope, never as JavaScript. `document` is not in scope, so
-        // the build fails rather than reading a cookie, and a constant folds to
-        // a string. Neither reaches the browser as source.
+    #[test]
+    fn event_handlers_may_name_one_service_member() {
+        let (_, member) = bind("click", "basket.add()").expect("service member handler");
+        assert_eq!(member.handler, "basket.add");
+        let (_, assigned) =
+            bind("click", "basket.query = $event.target.value").expect("service assignment");
+        assert_eq!(assigned.assign.expect("assignment").target, "basket.query");
+        let refused = bind("click", "a.b.c()").expect_err("two dots");
+        assert!(
+            refused.contains("Event handler must name one handler, as save() or basket.add()."),
+            "{refused}"
+        );
+    }
+
+    #[test]
+    fn unsafe_handler_arguments_never_read_the_event() {
         for value in [
             "increment(unquoted)",
             "increment('a' + 'b')",
             "alert(document.cookie)",
         ] {
-            let (_, binding) = bind(value).expect(value);
+            let (_, binding) = bind("click", value).expect(value);
+            let reads_event = binding
+                .arguments
+                .iter()
+                .any(|argument| matches!(argument, EventArgument::EventPath(_)));
+            assert!(!reads_event, "{value}");
+        }
+    }
+
+    #[test]
+    fn braces_in_a_plain_attribute_are_refused_with_a_span_on_the_attribute() {
+        let components = BTreeSet::from([String::from("demo-card")]);
+        for (source, attribute, help) in [
+            (
+                r#"<p title="{name}">x</p>"#,
+                r#"title="{name}""#,
+                r#"Write :title="name" to set it from a value."#,
+            ),
+            (
+                r#"<p class="card {kind}">x</p>"#,
+                r#"class="card {kind}""#,
+                r#"Write :class="'card ' + kind" to join the text and the values."#,
+            ),
+            (
+                r#"<div hidden="{drawer.open ? '' : 'hidden'}"></div>"#,
+                r#"hidden="{drawer.open ? '' : 'hidden'}""#,
+                r#"Write :hidden="condition" with a condition that is true or false. When the condition is false, Tachyon leaves the attribute out."#,
+            ),
+            (
+                r#"<demo-card label="{title}"></demo-card>"#,
+                r#"label="{title}""#,
+                r#"Write :label="title" to set it from a value."#,
+            ),
+        ] {
+            let error = compile(source, &components).expect_err(source);
+            let found = error
+                .diagnostics()
+                .iter()
+                .find(|value| value.code.number() == 1313)
+                .expect(source);
+            let span = found.spans.first().expect(source);
+            let start = usize::try_from(span.start).expect(source);
+            let end = usize::try_from(span.end).expect(source);
+            assert_eq!(&source[start..end], attribute, "{source}");
             assert!(
-                binding
-                    .arguments
-                    .iter()
-                    .all(|argument| !matches!(argument, super::EventArgument::EventPath(_))),
-                "{value}"
+                found.message.contains("braces work only in text"),
+                "{source}"
             );
+            assert_eq!(found.help.as_deref(), Some(help), "{source}");
+        }
+    }
+
+    #[test]
+    fn a_view_with_document_tags_is_refused_with_a_span_on_each_tag() {
+        for (source, tags) in [
+            (
+                "<!doctype html><html><body><p>Hi</p></body></html>",
+                vec!["<!doctype html>", "<html>", "<body>"],
+            ),
+            (
+                "<!-- note --><!DOCTYPE html>\n<p>Hi</p>",
+                vec!["<!DOCTYPE html>"],
+            ),
+            (
+                "<html lang=\"en\"><head><title>Hi</title></head><main>Hi</main></html>",
+                vec!["<html lang=\"en\">", "<head>"],
+            ),
+            ("<main><body>Hi</body></main>", vec!["<body>"]),
+        ] {
+            let error = compile_without_components(source).expect_err(source);
+            let found: Vec<&str> = error
+                .diagnostics()
+                .iter()
+                .filter(|value| value.code.number() == 1307)
+                .map(|value| {
+                    let span = value.spans.first().expect(source);
+                    let start = usize::try_from(span.start).expect(source);
+                    let end = usize::try_from(span.end).expect(source);
+                    assert!(value.message.contains("Tachyon writes the document"));
+                    assert!(
+                        value
+                            .help
+                            .as_deref()
+                            .is_some_and(|help| help.contains("client/manifest.json")),
+                        "{source}"
+                    );
+                    &source[start..end]
+                })
+                .collect();
+            assert_eq!(found, tags, "{source}");
+        }
+    }
+
+    #[test]
+    fn document_tags_shown_as_text_are_not_refused() {
+        for source in [
+            "<pre><code>&lt;!doctype html&gt;&lt;html&gt;&lt;head&gt;&lt;body&gt;</code></pre>",
+            "<template><p>&lt;body&gt; is written by Tachyon.</p></template>",
+            "<p>Tachyon writes &lt;html&gt; and &lt;head&gt;.</p>",
+            "<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>",
+            "<header>Top</header><!-- <html><body> -->",
+        ] {
+            assert!(compile_without_components(source).is_ok(), "{source}");
+        }
+    }
+
+    #[test]
+    fn literal_braces_handlers_and_style_text_are_not_refused() {
+        for source in [
+            r#"<p :title="'{name}'">x</p>"#,
+            r#"<input pattern="[0-9]{3}" />"#,
+            r#"<div data-config='{"theme": "dark"}'></div>"#,
+            r#"<p title="\{name}">x</p>"#,
+            r#"<button on:click="shell.refresh()">Go</button>"#,
+            r#"<pre><code>&lt;p title="\{name}"&gt;</code></pre>"#,
+            r#"<style>p[title="{name}"] { color: red; }</style>"#,
+        ] {
+            assert!(compile_without_components(source).is_ok(), "{source}");
         }
     }
 }

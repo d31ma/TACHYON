@@ -1,0 +1,32 @@
+$ curl -i -X OPTIONS http://127.0.0.1:8080/items/42
+HTTP/1.1 200 OK
+allow: GET, HEAD, OPTIONS, PATCH
+
+{
+  "path": "/items/{id}",
+  "methods": {
+    "GET": {
+      "request": { "parameters": { "id": { "type": "number" } } },
+      "ok": { "$ref": "#/models/Item" },
+      "status": 200
+    },
+    "PATCH": {
+      "request": {
+        "parameters": { "id": { "type": "number" } },
+        "body": { "$ref": "#/models/Item" }
+      },
+      "ok": { "$ref": "#/models/Item" },
+      "status": 200
+    }
+  },
+  "models": {
+    "Item": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "level": { "type": "number" }
+      },
+      "required": ["name", "level"]
+    }
+  }
+}

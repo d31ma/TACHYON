@@ -1,0 +1,6 @@
+[<Test(typeof<FSharpGreetingTestSetup>)>]
+type FSharpGreetingServiceTest() =
+    member this.testGreetChangesTheMessage() : unit =
+        let greeting = FSharpGreetingService()
+        greeting.Greet()
+        if greeting.Message <> "F# says hello again." then failwith ("message is " + greeting.Message)

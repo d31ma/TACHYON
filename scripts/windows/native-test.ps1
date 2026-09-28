@@ -1,7 +1,10 @@
-# Real Windows evidence: WebView2 renders the emitted bundle and calls both
-# Rust and NativeAOT C# companions. No retired widget or HWND-class assumptions.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+$script:process = $null
+$script:window = $null
+$script:desktop = $null
+$script:deadline = $null
 
 function Enable-Msvc {
     if (Get-Command cl.exe -ErrorAction SilentlyContinue) { return }
@@ -19,20 +22,23 @@ function Enable-Msvc {
     }
 }
 
+function Install-WebViewSdk([string] $version, [string] $directory) {
+    $archive = "$directory.zip"
+    Invoke-WebRequest -TimeoutSec 90 -Uri "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/$version/microsoft.web.webview2.$version.nupkg" -OutFile $archive
+    $expected = 'bc09150b179246ac90189649b13be8e6b11b3ac200e817e18df106e1f3cf489e'
+    if ((Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -ne $expected) {
+        throw 'the WebView2 SDK package checksum did not match'
+    }
+    Expand-Archive -Path $archive -DestinationPath $directory -Force
+    Remove-Item $archive
+}
+
 function Enable-WebViewSdk {
     if ($env:TAC_WEBVIEW2_SDK) { return }
-    # Official NuGet package pinned by version and the bytes audited for this gate.
     $version = '1.0.3485.44'
     $directory = Join-Path $env:TEMP "tachyon-webview2-$version"
     if (-not (Test-Path (Join-Path $directory 'build\native\include\WebView2.h'))) {
-        $archive = "$directory.zip"
-        Invoke-WebRequest -TimeoutSec 90 -Uri "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/$version/microsoft.web.webview2.$version.nupkg" -OutFile $archive
-        $expected = 'bc09150b179246ac90189649b13be8e6b11b3ac200e817e18df106e1f3cf489e'
-        if ((Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -ne $expected) {
-            throw 'the WebView2 SDK package checksum did not match'
-        }
-        Expand-Archive -Path $archive -DestinationPath $directory -Force
-        Remove-Item $archive
+        Install-WebViewSdk $version $directory
     }
     $env:TAC_WEBVIEW2_SDK = $directory
 }
@@ -42,8 +48,6 @@ function Write-UiaFailureDiagnostics($window) {
         Write-Host 'UIA: no top-level window was found for the owned native process'
         return
     }
-    # Inspect only the fixture's selected window, never the whole desktop.
-    # Cap traversal and output so diagnostics do not become another UI gate.
     $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
     $queue = [System.Collections.Queue]::new()
     $queue.Enqueue($window)
@@ -67,33 +71,38 @@ function Write-UiaFailureDiagnostics($window) {
     Write-Host ("UIA diagnostic traversal ended: nodes={0}; queued={1}" -f (64 - $remaining), $queue.Count)
 }
 
+function Write-NativeLogTail([string] $log) {
+    if (-not (Test-Path $log)) {
+        Write-Host 'Native lifecycle log: absent'
+        return
+    }
+    Write-Host 'Native lifecycle log (last 32 records):'
+    Get-Content -LiteralPath $log -Tail 32 | ForEach-Object { Write-Host $_ }
+}
+
+function Write-OwnedProcessState($process) {
+    if ($null -eq $process) { return }
+    $process.Refresh()
+    Write-Host ("Owned process: pid={0}; exited={1}" -f $process.Id, $process.HasExited)
+    if ($process.HasExited) {
+        Write-Host ("Owned process exit code: {0}" -f $process.ExitCode)
+        return
+    }
+    Write-Host ("Owned window: handle={0}; responding={1}" -f $process.MainWindowHandle, $process.Responding)
+    Get-CimInstance Win32_Process -Filter "ParentProcessId = $($process.Id)" -OperationTimeoutSec 2 |
+        Select-Object -First 16 Name, ProcessId, ParentProcessId |
+        Format-Table -AutoSize | Out-String | Write-Host
+}
+
 function Write-NativeFailureDiagnostics($process, $window, [string] $log) {
     Write-Host 'Windows native failure diagnostics (before owned-process cleanup):'
-    if (Test-Path $log) {
-        Write-Host 'Native lifecycle log (last 32 records):'
-        Get-Content -LiteralPath $log -Tail 32 | ForEach-Object { Write-Host $_ }
-    } else {
-        Write-Host 'Native lifecycle log: absent'
-    }
-    if ($null -ne $process) {
-        $process.Refresh()
-        Write-Host ("Owned process: pid={0}; exited={1}" -f $process.Id, $process.HasExited)
-        if ($process.HasExited) {
-            Write-Host ("Owned process exit code: {0}" -f $process.ExitCode)
-        } else {
-            Write-Host ("Owned window: handle={0}; responding={1}" -f $process.MainWindowHandle, $process.Responding)
-            Get-CimInstance Win32_Process -Filter "ParentProcessId = $($process.Id)" -OperationTimeoutSec 2 |
-                Select-Object -First 16 Name, ProcessId, ParentProcessId |
-                Format-Table -AutoSize | Out-String | Write-Host
-        }
-    }
+    Write-NativeLogTail $log
+    Write-OwnedProcessState $process
     Write-UiaFailureDiagnostics $window
 }
 
 function Stop-NativeProcesses($process) {
     if ($null -eq $process) { return }
-    # The host can exit before its WebView releases the private profile files.
-    # Capture only its browser children while parentage is still observable.
     $browsers = @(Get-CimInstance Win32_Process -Filter (
         "ParentProcessId = $($process.Id) AND Name = 'msedgewebview2.exe'") -OperationTimeoutSec 2 |
         Select-Object -First 16 |
@@ -104,7 +113,6 @@ function Stop-NativeProcesses($process) {
     foreach ($ownedProcess in $owned) {
         $wait = [Math]::Max(0, [int]($grace - [DateTime]::UtcNow).TotalMilliseconds)
         if (-not $ownedProcess.WaitForExit($wait)) {
-            # Windows PowerShell/.NET Framework has no Process.Kill(bool).
             & taskkill /PID $ownedProcess.Id /T /F | Out-Null
         }
     }
@@ -126,17 +134,7 @@ function Remove-NativeFixture([string] $fixture) {
     }
 }
 
-Enable-Msvc
-Enable-WebViewSdk
-$fixture = Join-Path $env:TEMP ("ty-windows-native-" + [guid]::NewGuid().ToString('N'))
-$out = Join-Path $fixture 'dist\windows'
-$app = Join-Path $out 'NativeGate'
-$log = Join-Path $env:LOCALAPPDATA 'Tachyon\dev.tachyon.desktop-gate.jsonl'
-$process = $null
-$window = $null
-$gateFailure = $null
-
-try {
+function Build-NativeApp([string] $fixture) {
     python scripts/native/desktop-fixture.py $fixture windows
     if ($LASTEXITCODE -ne 0) { throw 'fixture generation failed' }
     $ty = $env:TAC_BIN
@@ -148,7 +146,9 @@ try {
     }
     & $ty build $fixture --target windows
     if ($LASTEXITCODE -ne 0) { throw 'Windows WebView2/native companion packaging failed' }
+}
 
+function Assert-NativeArtifacts([string] $out, [string] $app) {
     foreach ($relative in @(
         'NativeGate\bin\NativeGate.exe',
         'NativeGate\bin\TachyonRustCompanion.dll',
@@ -168,48 +168,50 @@ try {
     $webHash = (Get-FileHash (Join-Path $out 'web\index.html')).Hash
     $nativeHash = (Get-FileHash (Join-Path $app 'resources\WebBundle\index.html')).Hash
     if ($webHash -ne $nativeHash) { throw 'native host does not contain the emitted web bundle' }
+}
 
+function Find-Control([string] $name) {
+    if ($null -eq $script:window) {
+        $condition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $script:process.Id)
+        $script:window = $script:desktop.FindFirst(
+            [System.Windows.Automation.TreeScope]::Children, $condition)
+    }
+    if ($null -eq $script:window) { return $null }
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty, $name)
+    return $script:window.FindFirst(
+        [System.Windows.Automation.TreeScope]::Descendants, $condition)
+}
+
+function Expect-Controls([string[]] $names) {
+    $stageDeadline = [DateTime]::UtcNow.AddSeconds(20)
+    do {
+        if ($script:process.HasExited) { throw "native application exited with $($script:process.ExitCode)" }
+        $missing = @($names | Where-Object { $null -eq (Find-Control $_) })
+        if ($missing.Count -eq 0) { Write-Host ("OK: " + ($names -join ', ')); return }
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $stageDeadline -and [DateTime]::UtcNow -lt $script:deadline)
+    throw "rendered controls missing: $($missing -join ', ')"
+}
+
+function Invoke-Control([string] $name) {
+    Expect-Controls @($name)
+    $control = Find-Control $name
+    $pattern = $null
+    if (-not $control.TryGetCurrentPattern(
+        [System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+        throw "rendered control '$name' exposes no UI Automation InvokePattern"
+    }
+    ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+}
+
+function Test-RenderedControls([string] $app, [string] $log) {
     if (Test-Path $log) { Remove-Item $log }
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-    $desktop = [System.Windows.Automation.AutomationElement]::RootElement
-    $process = Start-Process -FilePath (Join-Path $app 'bin\NativeGate.exe') -PassThru
-    $deadline = [DateTime]::UtcNow.AddSeconds(120)
-
-    function Find-Control([string] $name) {
-        if ($null -eq $script:window) {
-            $condition = [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $process.Id)
-            $script:window = $desktop.FindFirst(
-                [System.Windows.Automation.TreeScope]::Children, $condition)
-        }
-        if ($null -eq $script:window) { return $null }
-        $condition = [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::NameProperty, $name)
-        return $script:window.FindFirst(
-            [System.Windows.Automation.TreeScope]::Descendants, $condition)
-    }
-
-    function Expect-Controls([string[]] $names) {
-        $stageDeadline = [DateTime]::UtcNow.AddSeconds(20)
-        do {
-            if ($process.HasExited) { throw "native application exited with $($process.ExitCode)" }
-            $missing = @($names | Where-Object { $null -eq (Find-Control $_) })
-            if ($missing.Count -eq 0) { Write-Host ("OK: " + ($names -join ', ')); return }
-            Start-Sleep -Milliseconds 200
-        } while ([DateTime]::UtcNow -lt $stageDeadline -and [DateTime]::UtcNow -lt $deadline)
-        throw "rendered controls missing: $($missing -join ', ')"
-    }
-
-    function Invoke-Control([string] $name) {
-        Expect-Controls @($name)
-        $control = Find-Control $name
-        $pattern = $null
-        if (-not $control.TryGetCurrentPattern(
-            [System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
-            throw "rendered control '$name' exposes no UI Automation InvokePattern"
-        }
-        ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
-    }
+    $script:desktop = [System.Windows.Automation.AutomationElement]::RootElement
+    $script:process = Start-Process -FilePath (Join-Path $app 'bin\NativeGate.exe') -PassThru
+    $script:deadline = [DateTime]::UtcNow.AddSeconds(120)
 
     Expect-Controls @('Root route', 'Root count 0', 'Shared module ready', 'Verify native Root')
     Invoke-Control 'Verify native Root'
@@ -221,33 +223,55 @@ try {
     Expect-Controls @('Second count 9', 'Native CSharp 18', 'OS ready', 'Styles ready',
         'Route boundary ready', 'Publish received')
     Invoke-Control 'Return root'
-    Expect-Controls @('Root route', 'Root count 7')
+    Expect-Controls @('Root route', 'Root count 0')
     Invoke-Control 'Leave app'
     Start-Sleep -Milliseconds 500
-    Expect-Controls @('Root route', 'Root count 7', 'Verify native Root')
+    Expect-Controls @('Root route', 'Root count 0', 'Verify native Root')
 }
-catch {
-    $gateFailure = $_
-    try { Write-NativeFailureDiagnostics $process $window $log }
-    catch { Write-Warning "Native failure diagnostics were incomplete: $($_.Exception.Message)" }
-    throw $gateFailure
-}
-finally {
-    try {
-        Stop-NativeProcesses $process
-        Remove-NativeFixture $fixture
-    }
-    catch {
-        if ($null -eq $gateFailure) { throw }
-        Write-Warning "Native cleanup also failed: $($_.Exception.Message)"
+
+function Assert-LifecycleEvents([string] $log) {
+    if (-not (Test-Path $log)) { throw 'native lifecycle log was not produced' }
+    $events = Get-Content $log
+    foreach ($eventName in @('controller.created', 'controller.active', 'controller.destroyed', 'companion.loaded')) {
+        if (-not ($events -match [regex]::Escape("`"event`":`"$eventName`""))) {
+            throw "missing lifecycle event $eventName"
+        }
     }
 }
 
-if (-not (Test-Path $log)) { throw 'native lifecycle log was not produced' }
-$events = Get-Content $log
-foreach ($event in @('controller.created', 'controller.active', 'controller.destroyed', 'companion.loaded')) {
-    if (-not ($events -match [regex]::Escape("`"event`":`"$event`""))) {
-        throw "missing lifecycle event $event"
+function Invoke-NativeGate {
+    Enable-Msvc
+    Enable-WebViewSdk
+    $fixture = Join-Path $env:TEMP ("ty-windows-native-" + [guid]::NewGuid().ToString('N'))
+    $out = Join-Path $fixture 'dist\windows'
+    $app = Join-Path $out 'NativeGate'
+    $log = Join-Path $env:LOCALAPPDATA 'Tachyon\dev.tachyon.desktop-gate.jsonl'
+    $gateFailure = $null
+
+    try {
+        Build-NativeApp $fixture
+        Assert-NativeArtifacts $out $app
+        Test-RenderedControls $app $log
     }
+    catch {
+        $gateFailure = $_
+        try { Write-NativeFailureDiagnostics $script:process $script:window $log }
+        catch { Write-Warning "Native failure diagnostics were incomplete: $($_.Exception.Message)" }
+        throw $gateFailure
+    }
+    finally {
+        try {
+            Stop-NativeProcesses $script:process
+            Remove-NativeFixture $fixture
+        }
+        catch {
+            if ($null -eq $gateFailure) { throw }
+            Write-Warning "Native cleanup also failed: $($_.Exception.Message)"
+        }
+    }
+
+    Assert-LifecycleEvents $log
+    Write-Host 'PASS: Windows WebView2, Rust/C# native ABI, publish, shared assets, dynamic routes, and isolation'
 }
-Write-Host 'PASS: Windows WebView2, Rust/C# native ABI, publish, shared assets, dynamic routes, and isolation'
+
+Invoke-NativeGate

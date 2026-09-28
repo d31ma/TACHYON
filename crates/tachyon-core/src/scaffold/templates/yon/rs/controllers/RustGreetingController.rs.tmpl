@@ -1,0 +1,14 @@
+#[RequestRoute("/api/rust")]
+#[Public]
+struct RustGreetingController {}
+
+impl RustGreetingController {
+    fn new() -> Self {
+        Self {}
+    }
+
+    #[GetRoute]
+    fn get_greeting(&self) -> String {
+        String::from("Hello from Rust")
+    }
+}

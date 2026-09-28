@@ -1,0 +1,18 @@
+{
+  "title": "Preview and build",
+  "summary": "`ty preview` runs your app while you work, and it builds the app again when you save a file. `ty bundle` builds the files that you publish. `ty start` serves those files.",
+  "before": [
+    "first-app"
+  ],
+  "sections": [
+    {
+      "include": "../yon/serve-modes/section.json"
+    },
+    {
+      "include": "when-the-project-has-a-problem/section.json"
+    },
+    {
+      "include": "../devices/preview/section.json"
+    }
+  ]
+}

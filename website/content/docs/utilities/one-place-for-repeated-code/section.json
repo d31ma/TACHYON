@@ -1,0 +1,60 @@
+{
+  "heading": "One place for repeated code",
+  "body": "When two places hold the same block of code, a fix in one place misses the other. So Tachyon refuses duplicated code, with the same rules as SonarQube's copy-paste detection. Tachyon checks your code itself and sends nothing to another service.\n\nA duplicate is a block of at least 100 tokens (words, names, values and signs) that spans at least 10 lines and appears twice or more. The two copies are in the same language and the same realm, in one file or in two files. Names and values may differ: `total(order)` and `total(invoice)` are the same code. Whitespace and comments do not count, and neither do imports, annotation lines, test units, models, entities, generated files and lists of values.\n\nThe build refuses a duplicate with `TY1315`. The message names both places, for example `client/services/OrderService.js:12-40`, and tells you where to move the code. `ty migrate check` lists every duplicate.\n\nMove the repeated code into a utility class. A utility class lives directly in `client/utils/` (Tac) or `server/utils/` (Yon), and its name ends with `Utils`. It holds only static methods and no state: no field, no stored value, no constructor and no instance method (`TY1316`). It has no annotation. Every class of the same realm and language can call it with no import, and a test unit can test it. Its methods follow the cohesion rule: a public static method only coordinates, and private static methods hold the decisions.\n\n| Language | Utility class | Static method |\n| --- | --- | --- |\n| JavaScript, TypeScript | `export default class PriceUtils` | `static label(cents)`; private: `static #dollars(cents)` or TypeScript `private static` |\n| Python | `class PriceUtils:` | `@staticmethod` above `def label(cents)`; private: `_dollars` |\n| Ruby | `class PriceUtils` | `def self.label(cents)`; private: `def self._dollars(cents)` |\n| PHP, Java, C#, Dart | `class PriceUtils` (C#: `static class`) | a `static` method; private: `private static` (Dart: a name that starts with `_`) |\n| Kotlin | `object PriceUtils` | `fun label(cents: Int)` |\n| Swift | `struct PriceUtils` | `static func label(_ cents: Int)` |\n| Go | `type PriceUtils struct{}` | `func (PriceUtils) Label(cents int) string` |\n| Rust | `pub struct PriceUtils;` | `pub fn label(cents: u32) -> String`, with no `self` |\n\nThis check is new, so you can turn it off for one side of the app while you move code. For Tac code, set `tac.duplication.check` to `false` in `client/manifest.json`. For Yon code, set `duplication.check` to `false` in `server/application.json`. Use these settings only for migration.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/basket/panel/tac.html",
+      "code": {
+        "file": "client/components/basket/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/utils/PriceUtils.js",
+      "code": {
+        "file": "client/utils/PriceUtils.js"
+      }
+    },
+    {
+      "name": "client/services/BasketService.js",
+      "code": {
+        "file": "client/services/BasketService.js"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.js",
+      "code": {
+        "file": "client/tests/PriceTestSetup.js"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.js",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.js"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.py",
+      "code": {
+        "file": "server/utils/PriceUtils.py"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.py",
+      "code": {
+        "file": "server/tests/PriceTestSetup.py"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.py",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.py"
+      }
+    }
+  ]
+}

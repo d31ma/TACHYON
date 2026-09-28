@@ -1,0 +1,24 @@
+{
+  "heading": "What a controller method is",
+  "body": "A controller method is an instance method with a route annotation, such as `GetRoute`. Your code does not read standard input or write an envelope (the wrapper around the response). It does not declare main, import a Tachyon symbol or extend a framework class. Tachyon does that work. The server answers `OPTIONS` and `HEAD` for you. A request for a verb that no method on that path answers gets 405, with an `Allow` header.",
+  "files": [
+    {
+      "name": "server/controllers/ItemsController.js",
+      "code": {
+        "file": "server/controllers/ItemsController.js"
+      }
+    },
+    {
+      "name": "server/models/Item.js",
+      "code": {
+        "file": "server/models/Item.js"
+      }
+    },
+    {
+      "name": "server/models/ItemList.js",
+      "code": {
+        "file": "server/models/ItemList.js"
+      }
+    }
+  ]
+}

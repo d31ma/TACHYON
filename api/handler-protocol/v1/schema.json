@@ -84,6 +84,11 @@
           "pattern": "^/",
           "maxLength": 2048
         },
+        "target": {
+          "type": "string",
+          "pattern": "^/",
+          "maxLength": 8192
+        },
         "method": {
           "enum": [
             "DELETE",
@@ -116,6 +121,10 @@
           "propertyNames": {
             "pattern": "^[a-z][a-z0-9_]*$"
           }
+        },
+        "arguments": {
+          "type": "array",
+          "maxItems": 64
         }
       }
     },

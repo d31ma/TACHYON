@@ -1,68 +1,49 @@
-//! The on-disk cache a Tachyon installation keeps.
-//!
-//! The Rust binary does not need unpacked JavaScript sources, but it preserves
-//! the released runtime-cache layout so scripts can inspect and clear it with
-//! the same commands before and after upgrading.
-
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-/// Reports where the cache lives and how much of it is in use.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CacheStatus {
-    /// Directory holding the cache, whether or not it exists.
     pub root: PathBuf,
-    /// Content-addressed runtime entries.
     pub runtime_entries: usize,
-    /// Entries attributed to a previous installation.
     pub legacy_entries: usize,
 }
 
-/// Returns the platform cache directory, honouring `TAC_CACHE_DIR`.
-///
-/// The layout matches the legacy implementation so both find the same
-/// directory and `clean` can remove what the legacy one wrote.
 #[must_use]
 pub fn root() -> PathBuf {
     if let Some(override_path) = std::env::var_os("TAC_CACHE_DIR")
-        .map(PathBuf::from)
-        .filter(|path| !path.as_os_str().is_empty())
+        && !override_path.is_empty()
     {
-        return override_path;
+        return PathBuf::from(override_path);
     }
-    let home = std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map_or_else(|| PathBuf::from("."), PathBuf::from);
+    let home = home_directory();
     if cfg!(target_os = "macos") {
-        home.join("Library/Caches/Tachyon")
-    } else if cfg!(target_os = "windows") {
-        std::env::var_os("LOCALAPPDATA")
-            .map_or_else(|| home.join("AppData/Local"), PathBuf::from)
-            .join("Tachyon/Cache")
-    } else {
-        std::env::var_os("XDG_CACHE_HOME")
-            .map_or_else(|| home.join(".cache"), PathBuf::from)
-            .join("tachyon")
+        return home.join("Library/Caches/Tachyon");
     }
+    if cfg!(target_os = "windows") {
+        let local_data = std::env::var_os("LOCALAPPDATA")
+            .map_or_else(|| home.join("AppData/Local"), PathBuf::from);
+        return local_data.join("Tachyon/Cache");
+    }
+    let cache_home =
+        std::env::var_os("XDG_CACHE_HOME").map_or_else(|| home.join(".cache"), PathBuf::from);
+    cache_home.join("tachyon")
 }
 
-/// Inspects the cache without changing it.
+fn home_directory() -> PathBuf {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map_or_else(|| PathBuf::from("."), PathBuf::from)
+}
+
 #[must_use]
 pub fn status() -> CacheStatus {
     status_at(root())
 }
 
 fn status_at(root: PathBuf) -> CacheStatus {
-    let runtime_entries = fs::read_dir(root.join("runtime"))
-        .map(|entries| {
-            entries
-                .flatten()
-                .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
-                .count()
-        })
-        .unwrap_or_default();
+    let runtime_entries = count_runtime_entries(&root);
     CacheStatus {
         root,
         runtime_entries,
@@ -70,31 +51,29 @@ fn status_at(root: PathBuf) -> CacheStatus {
     }
 }
 
-/// Materializes the stable runtime-cache marker used by the released CLI.
-///
-/// # Errors
-///
-/// Returns a cache diagnostic when the configured directory is not writable.
+fn count_runtime_entries(root: &Path) -> usize {
+    let Ok(entries) = fs::read_dir(root.join("runtime")) else {
+        return 0;
+    };
+    let mut count = 0;
+    for entry in entries.flatten() {
+        if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+            count += 1;
+        }
+    }
+    count
+}
+
 pub fn ensure_runtime() -> Result<PathBuf, Failure> {
     let entry = root().join("runtime/native-v1");
     fs::create_dir_all(&entry).map_err(|error| {
-        Failure::one(diagnostic(
-            1503,
-            format!("Cannot initialize the Tachyon runtime cache: {error}"),
-            Some(String::from(
-                "Check the directory's permissions, or set TAC_CACHE_DIR to a writable location.",
-            )),
-            source_span("cache", 0, 5),
+        cache_failure(format!(
+            "Cannot initialize the Tachyon runtime cache: {error}"
         ))
     })?;
     Ok(entry)
 }
 
-/// Removes the cache directory, returning what was removed.
-///
-/// # Errors
-///
-/// Returns a diagnostic when the directory exists but cannot be removed.
 pub fn clean() -> Result<CacheStatus, Failure> {
     clean_at(root())
 }
@@ -104,19 +83,22 @@ fn clean_at(root: PathBuf) -> Result<CacheStatus, Failure> {
     match fs::remove_dir_all(before.root.join("runtime")) {
         Ok(()) => Ok(before),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(before),
-        Err(error) => Err(Failure::one(diagnostic(
-            1503,
-            format!(
-                "Cannot clear the cache at {}. {error}",
-                before.root.display()
-            ),
-            Some(String::from(
-                "Check the directory's permissions, or set TAC_CACHE_DIR to \
-                 a writable location.",
-            )),
-            source_span("cache", 0, 5),
+        Err(error) => Err(cache_failure(format!(
+            "Cannot clear the cache at {}. {error}",
+            before.root.display()
         ))),
     }
+}
+
+fn cache_failure(message: String) -> Failure {
+    Failure::one(diagnostic(
+        1503,
+        message,
+        Some(String::from(
+            "Check the directory's permissions, or set TAC_CACHE_DIR to a writable location.",
+        )),
+        source_span("cache", 0, 5),
+    ))
 }
 
 #[cfg(test)]
@@ -138,8 +120,6 @@ mod tests {
 
     #[test]
     fn a_legacy_cache_is_counted_then_removed() {
-        // Nothing written yet, so nothing is reported and cleaning succeeds
-        // rather than failing on a missing directory.
         let directory = tempfile::tempdir().expect("directory");
         let cache = directory.path().join("cache");
         let empty = status_at(cache.clone());
@@ -147,8 +127,6 @@ mod tests {
         assert_eq!(empty.runtime_entries, 0);
         assert!(clean_at(cache.clone()).is_ok());
 
-        // A cache a legacy installation left behind is counted, then removed,
-        // which is what a project moving off the legacy implementation wants.
         fs::create_dir_all(cache.join("runtime")).expect("runtime");
         fs::write(cache.join("runtime/a.js"), "export const a = 1").expect("entry");
         assert_eq!(status_at(cache.clone()).runtime_entries, 0);

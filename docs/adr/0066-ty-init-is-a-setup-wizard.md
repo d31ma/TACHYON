@@ -1,0 +1,75 @@
+# ADR 0066: ty init Is a Setup Wizard
+
+- Status: Accepted
+- Date: 2026-09-27
+- Preserves: [ADR 0044](0044-an-annotated-file-holds-one-class.md) (one
+  class per file), [ADR 0062](0062-yon-uses-native-http-types.md) (PHP runs
+  with `php-cgi`), [ADR 0063](0063-services-and-controllers-are-cohesive.md)
+  and [ADR 0064](0064-code-is-not-duplicated.md) (the guards stay on in a new
+  app)
+
+## Context
+
+`ty init` wrote one JavaScript project with both realms. A developer who
+wanted Python on the server or Rust in the page deleted files by hand, copied
+examples from the website, and then learned from `ty test` or `ty preview`
+which toolchains were missing. The website examples follow every guard, but a
+hand-made mix of them often did not: a class without a test failed the
+coverage check, and a Swift service without a web copy did not run in the
+browser.
+
+## Decision
+
+`ty init` follows Spring Initializr: the developer chooses, and the generator
+writes only what was chosen.
+
+1. **Questions and options.** In a terminal, `ty init` asks five questions as
+   numbered lists (plain lines, so a screen reader reads them): the realms
+   (client, server or both), the Tac languages, the Yon languages, the targets
+   and the examples. A question that does not fit an earlier answer is
+   skipped. Every question is also an option: `--realm`, `--tac`, `--yon`,
+   `--target` and `--features`. Without a terminal and without options,
+   `ty init` keeps the defaults (both realms, JavaScript, the web), so scripts
+   and the existing guides keep working. `--interactive` asks even without a
+   terminal. An unknown or conflicting answer stops with `TY1408` before any
+   file is written.
+2. **Generated files.** Each chosen language gets one greeting class, a test
+   unit that calls each public method, and a separate test setup. JavaScript
+   keeps the old `ShellService` and `HomeController`. A Swift or Kotlin Tac
+   service also gets a JavaScript copy for the web. Examples are JavaScript,
+   or TypeScript when TypeScript is the only JavaScript-family language of
+   that realm. The templates are real files under
+   `crates/tachyon-core/src/scaffold/templates/`, compiled into `ty`. Every
+   combination passes `ty test --coverage` and `ty build` with the cohesion,
+   one-class, duplication, `NeedsAll`, template and native HTTP type guards on.
+3. **Tool check.** After it writes the app, `ty init` runs the `ty doctor`
+   checks on it and adds the target tools (Xcode, the Android SDK and Gradle,
+   the Linux desktop libraries, .NET for Windows). For each missing tool it
+   shows the exact commands and asks. `--yes` answers yes for every tool;
+   without a terminal and without `--yes` it only prints the commands.
+4. **Installers.** Tools are installed with the vendor's official installer
+   into the home folder, at a version that Tachyon is tested with: the Bun,
+   Go and Dart archives, `rustup-init`, the .NET install script, SDKMAN for
+   Java, Kotlin and Gradle, and emsdk for Emscripten. Each archive is checked
+   against the SHA-256 that its vendor publishes; the emsdk hash is pinned in
+   `runtimes/ruby-web/sources.txt`. A mismatch deletes the download and stops
+   with `TY1409`. Tachyon never runs a command with administrator rights: it
+   prints it (for example `sudo apt-get install -y php-cgi`). Xcode and the
+   Android SDK get a link and plain steps.
+5. **Growing an app.** `ty add language client|server <language>`,
+   `ty add target <target>` and `ty add feature <example>` write the same
+   files and run the same tool check. They read the existing app from its
+   folders, never overwrite a file (`TY1402`), and add the new component to
+   the home page.
+
+## Consequences
+
+- A new app of any combination starts green, and a developer sees the next
+  language's shape by adding it rather than by copying a website example.
+- The installer table in `crates/tachyon-core/src/tool_setup/` pins versions.
+  Updating a toolchain means updating that table and testing it again.
+- Tests never install anything: the installer runs its steps through a
+  `ToolRunner`, and the tests use a fake runner.
+- The .NET install script and the SDKMAN install script have no published
+  checksum. Tachyon says so before it runs them; both check the files that
+  they download themselves.

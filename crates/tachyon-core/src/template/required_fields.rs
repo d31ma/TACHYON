@@ -1,0 +1,572 @@
+use std::collections::BTreeSet;
+use std::path::Path;
+
+struct DeclaredField {
+    name: String,
+    type_name: String,
+    marked: bool,
+}
+
+pub(crate) struct RequiredFields;
+
+impl RequiredFields {
+    const PUBLISHER: &'static str = "ApplicationEventPublisher";
+    const LANGUAGES: [&'static str; 9] =
+        ["js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb"];
+    const NOT_FIELD_WORDS: [&'static str; 19] = [
+        "static",
+        "const",
+        "class",
+        "struct",
+        "enum",
+        "interface",
+        "object",
+        "companion",
+        "fun",
+        "func",
+        "fn",
+        "get",
+        "set",
+        "init",
+        "deinit",
+        "case",
+        "typealias",
+        "import",
+        "return",
+    ];
+
+    pub(crate) fn props(
+        path: &Path,
+        source: &str,
+        class: &str,
+        injectable: &BTreeSet<String>,
+    ) -> Vec<String> {
+        let (_, props) = Self::injected_and_props(path, source, class, injectable);
+        props
+    }
+
+    pub(crate) fn injected_fields(
+        path: &Path,
+        source: &str,
+        class: &str,
+        injectable: &BTreeSet<String>,
+    ) -> Vec<String> {
+        let (injected, _) = Self::injected_and_props(path, source, class, injectable);
+        injected
+    }
+
+    fn injected_and_props(
+        path: &Path,
+        source: &str,
+        class: &str,
+        injectable: &BTreeSet<String>,
+    ) -> (Vec<String>, Vec<String>) {
+        let Ok(code) = crate::annotation_layout::masked_source(path, source) else {
+            return (Vec::new(), Vec::new());
+        };
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        if !Self::LANGUAGES.contains(&extension) {
+            return (Vec::new(), Vec::new());
+        }
+        let local_classes = crate::annotation_layout::declaration_names(path, source)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|name| name != class)
+            .collect::<BTreeSet<_>>();
+        let fields = match extension {
+            "rb" => Self::ruby_fields(&code),
+            "go" => Self::go_fields(source, class),
+            "rs" => Self::rust_fields(&code, class),
+            _ => Self::declared_fields(extension, &code, class),
+        };
+        let (injected, props): (Vec<_>, Vec<_>) = fields
+            .into_iter()
+            .partition(|field| Self::injected(field, injectable, &local_classes));
+        (
+            Self::prop_names(extension, injected),
+            Self::prop_names(extension, props),
+        )
+    }
+
+    fn prop_names(extension: &str, fields: Vec<DeclaredField>) -> Vec<String> {
+        let names = fields.into_iter().map(|field| field.name);
+        if extension != "cs" {
+            return names.collect();
+        }
+        names
+            .map(|name| crate::companion::lower_first(&name))
+            .collect()
+    }
+
+    pub(crate) fn constructed(path: &Path, source: &str, class: &str) -> Vec<(String, String)> {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        if !matches!(extension, "swift" | "kt") {
+            return Vec::new();
+        }
+        let Ok(code) = crate::annotation_layout::masked_source(path, source) else {
+            return Vec::new();
+        };
+        Self::declared_fields(extension, &code, class)
+            .into_iter()
+            .map(|field| (field.name, field.type_name))
+            .collect()
+    }
+
+    fn injected(
+        field: &DeclaredField,
+        injectable: &BTreeSet<String>,
+        local_classes: &BTreeSet<String>,
+    ) -> bool {
+        field.marked
+            || injectable.contains(&field.name)
+            || field.name == crate::companion::lower_first(Self::PUBLISHER)
+            || local_classes
+                .iter()
+                .any(|class| crate::companion::lower_first(class) == field.name)
+            || field
+                .type_name
+                .split(|character: char| !Self::is_word_character(character))
+                .any(|word| {
+                    word == Self::PUBLISHER
+                        || injectable.contains(word)
+                        || local_classes.contains(word)
+                })
+    }
+
+    fn ruby_fields(code: &str) -> Vec<DeclaredField> {
+        crate::ruby_source::RubyMembers::read(code)
+            .fields
+            .iter()
+            .map(|name| DeclaredField {
+                name: crate::companion::camel_case(name),
+                type_name: String::new(),
+                marked: false,
+            })
+            .collect()
+    }
+
+    fn go_fields(source: &str, class: &str) -> Vec<DeclaredField> {
+        let Some((_, body)) = Self::class_body(source, class) else {
+            return Vec::new();
+        };
+        let mut marked = false;
+        let mut fields = Vec::new();
+        for line in body.lines().map(str::trim) {
+            let comment = line.trim_start_matches('/').trim();
+            if matches!(comment, "@Required" | "@Required()") {
+                marked = true;
+                continue;
+            }
+            if line.is_empty() || line.starts_with("//") {
+                continue;
+            }
+            let mut words = line.split_whitespace();
+            if let (true, Some(name), Some(type_name)) = (marked, words.next(), words.next()) {
+                fields.push(DeclaredField {
+                    name: crate::companion::lower_first(name),
+                    type_name: type_name.to_owned(),
+                    marked: false,
+                });
+            }
+            marked = false;
+        }
+        fields
+    }
+
+    fn rust_fields(code: &str, class: &str) -> Vec<DeclaredField> {
+        let Some((declared_at, body)) = Self::class_body(code, class) else {
+            return Vec::new();
+        };
+        if Self::rust_has_default(code, class, declared_at) {
+            return Vec::new();
+        }
+        let mut fields = Vec::new();
+        let mut pending_marker = false;
+        for piece in Self::pieces(body, true) {
+            let (declaration, marked) = Self::strip_markers(piece);
+            if declaration.is_empty() {
+                pending_marker |= marked;
+                continue;
+            }
+            let field = declaration.split_once(':').and_then(|(prefix, type_name)| {
+                let name = prefix.split_whitespace().last()?;
+                Self::is_name(name).then(|| DeclaredField {
+                    name: crate::companion::camel_case(name),
+                    type_name: type_name.trim().to_owned(),
+                    marked: marked || pending_marker,
+                })
+            });
+            fields.extend(field);
+            pending_marker = false;
+        }
+        fields
+    }
+
+    pub(crate) fn rust_has_default(code: &str, class: &str, declared_at: usize) -> bool {
+        let attributes = code[..declared_at]
+            .lines()
+            .rev()
+            .skip(1)
+            .take_while(|line| {
+                let line = line.trim();
+                line.is_empty() || line.starts_with("#[")
+            })
+            .collect::<String>();
+        let derives_default = attributes.contains("derive(") && attributes.contains("Default");
+        let spaced = code.split_whitespace().collect::<Vec<_>>().join(" ");
+        derives_default || spaced.contains(&format!("impl Default for {class} "))
+    }
+
+    fn declared_fields(extension: &str, code: &str, class: &str) -> Vec<DeclaredField> {
+        let Some((_, body)) = Self::class_body(code, class) else {
+            return Vec::new();
+        };
+        let mut fields = Vec::new();
+        let mut pending_marker = false;
+        for piece in Self::pieces(body, false) {
+            let (declaration, marked) = Self::strip_markers(piece);
+            if declaration.is_empty() {
+                pending_marker |= marked;
+                continue;
+            }
+            if let Some(mut field) = Self::required_field(extension, declaration) {
+                field.marked = marked || pending_marker;
+                fields.push(field);
+            }
+            pending_marker = false;
+        }
+        fields
+    }
+
+    fn required_field(extension: &str, piece: &str) -> Option<DeclaredField> {
+        let assignment = Self::assignment(piece);
+        let initialized = assignment.is_some() || piece.split_whitespace().any(|word| word == "by");
+        let mut declaration = piece[..assignment.unwrap_or(piece.len())].trim();
+        if extension == "cs"
+            && !initialized
+            && let Some(open) = declaration.find('{')
+        {
+            declaration = declaration[..open].trim();
+        }
+        if declaration.contains(['(', '{', '}']) || declaration.contains("=>") {
+            return None;
+        }
+        let words = declaration.split_whitespace().collect::<Vec<_>>();
+        let kotlin_object = |word: &&str| *word == "object" && extension != "kt";
+        if words
+            .iter()
+            .any(|word| Self::NOT_FIELD_WORDS.contains(word) && !kotlin_object(word))
+        {
+            return None;
+        }
+        let has = |modifier: &str| words.contains(&modifier);
+        let (name, type_name) = match extension {
+            "js" => match words.as_slice() {
+                [name] => ((*name).to_owned(), String::new()),
+                _ => return None,
+            },
+            "ts" | "kt" | "swift" => {
+                let (prefix, type_name) = declaration.split_once(':')?;
+                let name = prefix.split_whitespace().last()?;
+                if name.ends_with('?') {
+                    return None;
+                }
+                (
+                    name.trim_end_matches('!').to_owned(),
+                    type_name.trim().to_owned(),
+                )
+            }
+            "dart" | "cs" => {
+                let (name, before) = words.split_last()?;
+                ((*name).to_owned(), before.join(" "))
+            }
+            _ => return None,
+        };
+        let required = match extension {
+            "js" | "ts" => !initialized,
+            "dart" => !initialized && (has("final") || has("late")),
+            "cs" => has("required") || (!initialized && has("readonly")),
+            "kt" => !initialized && (has("val") || has("lateinit")),
+            "swift" => {
+                !initialized
+                    && !has("lazy")
+                    && (has("let") || (has("var") && !type_name.ends_with(['?', '!'])))
+            }
+            _ => false,
+        };
+        (required && Self::is_name(&name)).then_some(DeclaredField {
+            name,
+            type_name,
+            marked: false,
+        })
+    }
+
+    fn class_body<'a>(code: &'a str, class: &str) -> Option<(usize, &'a str)> {
+        let mut search = 0;
+        while let Some(found) = code[search..].find(class) {
+            let at = search + found;
+            search = at + class.len();
+            let keyword = code[..at]
+                .trim_end()
+                .rsplit(|character: char| !Self::is_word_character(character))
+                .next()
+                .unwrap_or("");
+            let whole_word = code[search..]
+                .chars()
+                .next()
+                .is_none_or(|character| !Self::is_word_character(character));
+            if !whole_word || !matches!(keyword, "class" | "struct" | "type") {
+                continue;
+            }
+            let open = search + code[search..].find(['{', ';'])?;
+            if code.as_bytes()[open] == b';' {
+                return None;
+            }
+            let close = Self::closing_brace(code, open)?;
+            return Some((at, &code[open + 1..close]));
+        }
+        None
+    }
+
+    fn closing_brace(code: &str, open: usize) -> Option<usize> {
+        let mut depth = 0_usize;
+        for (at, byte) in code.bytes().enumerate().skip(open) {
+            match byte {
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(at);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    fn pieces(body: &str, rust: bool) -> Vec<&str> {
+        let bytes = body.as_bytes();
+        let mut pieces = Vec::new();
+        let mut depth = 0_usize;
+        let mut start = 0;
+        for (at, byte) in bytes.iter().enumerate() {
+            let arrow = at > 0 && bytes[at - 1] == b'-';
+            match byte {
+                b'{' | b'(' | b'[' => depth += 1,
+                b'<' if rust => depth += 1,
+                b'>' if rust && !arrow => depth = depth.saturating_sub(1),
+                b'}' | b')' | b']' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 && *byte == b'}' {
+                        pieces.push(&body[start..=at]);
+                        start = at + 1;
+                    }
+                }
+                b',' if rust && depth == 0 => {
+                    pieces.push(&body[start..at]);
+                    start = at + 1;
+                }
+                b';' | b'\n' if depth == 0 => {
+                    pieces.push(&body[start..at]);
+                    start = at + 1;
+                }
+                _ => {}
+            }
+        }
+        pieces.push(&body[start..]);
+        pieces
+            .into_iter()
+            .map(str::trim)
+            .filter(|piece| !piece.is_empty())
+            .collect()
+    }
+
+    fn strip_markers(piece: &str) -> (&str, bool) {
+        let mut rest = piece.trim_start();
+        let mut marked = false;
+        loop {
+            if let Some(after) = rest
+                .strip_prefix('#')
+                .filter(|after| after.starts_with('['))
+            {
+                let Some(close) = Self::closing(after, b'[', b']') else {
+                    return (rest, marked);
+                };
+                rest = after[close + 1..].trim_start();
+            } else if rest.starts_with('[') {
+                let Some(close) = Self::closing(rest, b'[', b']') else {
+                    return (rest, marked);
+                };
+                rest = rest[close + 1..].trim_start();
+            } else if let Some(after) = rest.strip_prefix('@') {
+                let name_end = after
+                    .find(|character: char| !Self::is_word_character(character) && character != '.')
+                    .unwrap_or(after.len());
+                rest = &after[name_end..];
+                if rest.starts_with('(') {
+                    let Some(close) = Self::closing(rest, b'(', b')') else {
+                        return (rest, marked);
+                    };
+                    rest = &rest[close + 1..];
+                }
+                rest = rest.trim_start();
+            } else {
+                return (rest, marked);
+            }
+            marked = true;
+        }
+    }
+
+    fn closing(text: &str, open: u8, close: u8) -> Option<usize> {
+        let mut depth = 0_usize;
+        for (at, byte) in text.bytes().enumerate() {
+            if byte == open {
+                depth += 1;
+            } else if byte == close {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(at);
+                }
+            }
+        }
+        None
+    }
+
+    fn assignment(code: &str) -> Option<usize> {
+        let bytes = code.as_bytes();
+        for (at, byte) in bytes.iter().enumerate() {
+            if *byte != b'=' || matches!(bytes.get(at + 1), Some(b'>' | b'=')) {
+                continue;
+            }
+            let previous = at.checked_sub(1).and_then(|before| bytes.get(before));
+            if !matches!(previous, Some(b'=' | b'!' | b'<' | b'>')) {
+                return Some(at);
+            }
+        }
+        None
+    }
+
+    fn is_name(name: &str) -> bool {
+        name.chars()
+            .next()
+            .is_some_and(|first| first.is_alphabetic() || first == '_')
+            && name.chars().all(Self::is_word_character)
+    }
+
+    const fn is_word_character(character: char) -> bool {
+        character.is_ascii_alphanumeric() || character == '_'
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RequiredFields;
+    use std::collections::BTreeSet;
+    use std::path::Path;
+
+    fn props(file: &str, source: &str, class: &str) -> Vec<String> {
+        let injectable = BTreeSet::from([String::from("TallyService"), String::from("tally")]);
+        RequiredFields::props(
+            &Path::new("client/services").join(file),
+            source,
+            class,
+            &injectable,
+        )
+    }
+
+    #[test]
+    fn javascript_and_typescript_fields_without_a_value_are_required() {
+        let source = "@Service\n@NeedsAll\nexport default class SnippetService {\n  files\n  axis\n  tally\n  applicationEventPublisher\n  helper\n  platform = storedPlatform()\n  companion = ''\n  static shared\n  spans() {\n    return this.axis !== 'language'\n  }\n}\nclass Helper {}\n";
+        assert_eq!(
+            props("SnippetService.js", source, "SnippetService"),
+            ["files", "axis"]
+        );
+        let injectable = BTreeSet::from([String::from("TallyService"), String::from("tally")]);
+        let injected = RequiredFields::injected_fields(
+            Path::new("client/services/SnippetService.js"),
+            source,
+            "SnippetService",
+            &injectable,
+        );
+        assert_eq!(injected, ["tally", "applicationEventPublisher", "helper"]);
+        let typed = "@Service\n@NeedsAll\nexport default class DrawerService {\n  open!: boolean\n  label?: string\n  readonly title: string\n  count: number = 0\n  tally: TallyService\n}\n";
+        assert_eq!(
+            props("DrawerService.ts", typed, "DrawerService"),
+            ["open", "title"]
+        );
+    }
+
+    #[test]
+    fn typed_languages_follow_required_args_constructor_rules() {
+        let dart = "@Service\n@NeedsAll\nclass PagerService {\n  final String? path;\n  final Map<String, Object?>? docs;\n  late String label;\n  String? note;\n  final int size = 2;\n  final TallyService tally;\n  final Helper helper;\n  int count() => 1;\n}\n\nclass Helper {}\n";
+        assert_eq!(
+            props("PagerService.dart", dart, "PagerService"),
+            ["path", "docs", "label"]
+        );
+        let csharp = "[Service]\n[NeedsAll]\npublic class LinksService\n{\n    public readonly string Path;\n    public required string Title { get; set; }\n    public object Docs;\n    public readonly int Size = 2;\n    public object Topics()\n    {\n        return Docs;\n    }\n}\n";
+        assert_eq!(
+            props("LinksService.cs", csharp, "LinksService"),
+            ["path", "title"]
+        );
+        let kotlin = "@Service\n@NeedsAll\nclass TallyViewService {\n    val path: String\n    lateinit var label: String\n    var count: Int = 0\n    val size by lazy { 2 }\n    fun doubled(): Int = count * 2\n}\n";
+        assert_eq!(
+            props("TallyViewService.kt", kotlin, "TallyViewService"),
+            ["path", "label"]
+        );
+        let swift = "@Service\n@NeedsAll\nclass BadgeService {\n    let path: String\n    var label: String\n    var note: String?\n    var count: Int = 0\n    var doubled: Int { count * 2 }\n    func reset() {}\n}\n";
+        assert_eq!(
+            props("BadgeService.swift", swift, "BadgeService"),
+            ["path", "label"]
+        );
+    }
+
+    #[test]
+    fn csharp_required_members_are_lower_camel_props() {
+        let csharp = "[Service]\n[NeedsAll]\npublic class DocumentationService\n{\n    public string Source = \"website/content/docs/page.json\";\n    public required object Docs;\n    public required object Features;\n    public object Contents = new List<object>\n    {\n        new Dictionary<string, object> { [\"heading\"] = \"Guides\", [\"anchor\"] = \"#guides\" },\n    };\n    public object Topics()\n    {\n        var docs = Docs as IDictionary<string, object>;\n        return docs;\n    }\n}\n";
+        assert_eq!(
+            props("DocumentationService.cs", csharp, "DocumentationService"),
+            ["docs", "features"]
+        );
+    }
+
+    #[test]
+    fn every_tac_language_of_needs_all_has_a_required_field_rule() {
+        let rule = crate::annotation_rules::AnnotationRules::find("NeedsAll");
+        let tac = rule.map(|rule| rule.tac).unwrap_or_default();
+        assert!(!tac.is_empty());
+        for language in tac {
+            assert!(RequiredFields::LANGUAGES.contains(language), "{language}");
+        }
+        assert!(rule.is_some_and(|rule| rule.explained().contains("no initial value")));
+    }
+
+    #[test]
+    fn rust_go_and_ruby_follow_their_own_initial_values() {
+        let defaulted = "#[Service]\n#[NeedsAll]\n#[derive(Default)]\nstruct TocService {\n    entries: TacValue,\n}\n";
+        assert!(props("TocService.rs", defaulted, "TocService").is_empty());
+        let plain = "#[Service]\n#[NeedsAll]\nstruct TocService {\n    page_path: String,\n    entries: HashMap<String, TacValue>,\n    #[Needs]\n    helper: Helper,\n}\n";
+        assert_eq!(
+            props("TocService.rs", plain, "TocService"),
+            ["pagePath", "entries"]
+        );
+        let go = "// @Service\n// @NeedsAll\ntype CatalogService struct {\n\tSource string\n}\n";
+        assert!(props("CatalogService.go", go, "CatalogService").is_empty());
+        let marked = "// @Service\n// @NeedsAll\ntype CatalogService struct {\n\tSource string\n\t// @Required\n\tFeatures Catalogue\n}\n";
+        assert_eq!(
+            props("CatalogService.go", marked, "CatalogService"),
+            ["features"]
+        );
+        let ruby = "#[Service]\n#[NeedsAll]\nclass CounterService\n  attr_reader :start_count, :label\n\n  def increment\n    @start_count += 1\n  end\nend\n";
+        assert_eq!(
+            props("CounterService.rb", ruby, "CounterService"),
+            ["startCount", "label"]
+        );
+    }
+}

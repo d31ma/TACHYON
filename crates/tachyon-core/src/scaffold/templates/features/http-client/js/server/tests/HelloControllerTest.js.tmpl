@@ -1,0 +1,7 @@
+@Test(HelloTestSetup, {"partition":"tests"})
+export default class HelloControllerTest {
+  async testGetHelloSaysHello() {
+    const hello = this.construct(HelloController).getHello()
+    if (hello.message !== 'Hello from Yon') throw Error(`message is ${hello.message}`)
+  }
+}

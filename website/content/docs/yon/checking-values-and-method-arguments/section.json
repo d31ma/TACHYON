@@ -1,0 +1,179 @@
+{
+  "heading": "Checking values and method arguments",
+  "axis": "language",
+  "body": "Checked defines JSON rules for direct fields. Required rejects a missing or null value. NotEmpty requires a string that is not empty. The string must contain at least one Unicode scalar (one Unicode character) that is not whitespace. Its whitespace set is U+0009 to 000D, 0020, 0085, 00A0, 1680, 2000 to 200A, 2028, 2029, 202F, 205F and 3000. Length counts UTF-8 bytes for strings, elements for arrays and keys for objects. Length, Min and Max ignore a missing or null value unless a separate rule requires it. Min and Max require finite numbers, never numeric strings. Behaviors.validate(Type, value) needs no context. It checks a plain value, so the caller does not build a DTO first. Check validates its parameter before pagination, cache authorization, cache reads, HTTP or application code. Errors use validation plus a limited field.rule path, and they do not repeat the input. Unknown fields are still allowed. Tachyon does not support nested validation or validation groups. Tac form validation improves the user experience (UX), but it is not the final check. Validate again in Yon. Also check authorization there, and check which fields a caller may assign.",
+  "files": [
+    {
+      "name": "server/helpers/ProductInput.js",
+      "code": { "file": "server/helpers/ProductInput.js" }
+    },
+    {
+      "name": "server/services/ProductService.js",
+      "code": { "file": "server/services/ProductService.js" }
+    },
+    {
+      "name": "server/controllers/ProductsController.js",
+      "code": { "file": "server/controllers/ProductsController.js" }
+    },
+    {
+      "name": "server/helpers/ProductInput.ts",
+      "code": { "file": "server/helpers/ProductInput.ts" }
+    },
+    {
+      "name": "server/services/ProductService.ts",
+      "code": { "file": "server/services/ProductService.ts" }
+    },
+    {
+      "name": "server/models/Product.ts",
+      "code": { "file": "server/models/Product.ts" }
+    },
+    {
+      "name": "server/controllers/ProductsController.ts",
+      "code": { "file": "server/controllers/ProductsController.ts" }
+    },
+    {
+      "name": "server/helpers/ProductInput.py",
+      "code": { "file": "server/helpers/ProductInput.py" }
+    },
+    {
+      "name": "server/services/ProductService.py",
+      "code": { "file": "server/services/ProductService.py" }
+    },
+    {
+      "name": "server/models/Product.py",
+      "code": { "file": "server/models/Product.py" }
+    },
+    {
+      "name": "server/controllers/ProductsController.py",
+      "code": { "file": "server/controllers/ProductsController.py" }
+    },
+    {
+      "name": "server/helpers/ProductInput.php",
+      "code": { "file": "server/helpers/ProductInput.php" }
+    },
+    {
+      "name": "server/services/ProductService.php",
+      "code": { "file": "server/services/ProductService.php" }
+    },
+    {
+      "name": "server/models/Product.php",
+      "code": { "file": "server/models/Product.php" }
+    },
+    {
+      "name": "server/controllers/ProductsController.php",
+      "code": { "file": "server/controllers/ProductsController.php" }
+    },
+    {
+      "name": "server/helpers/ProductInput.java",
+      "code": { "file": "server/helpers/ProductInput.java" }
+    },
+    {
+      "name": "server/helpers/ProductInput.groovy",
+      "code": { "file": "server/helpers/ProductInput.groovy" }
+    },
+    {
+      "name": "server/services/ProductService.java",
+      "code": { "file": "server/services/ProductService.java" }
+    },
+    {
+      "name": "server/services/ProductService.groovy",
+      "code": { "file": "server/services/ProductService.groovy" }
+    },
+    {
+      "name": "server/models/Product.java",
+      "code": { "file": "server/models/Product.java" }
+    },
+    {
+      "name": "server/models/Product.groovy",
+      "code": { "file": "server/models/Product.groovy" }
+    },
+    {
+      "name": "server/controllers/ProductsController.java",
+      "code": { "file": "server/controllers/ProductsController.java" }
+    },
+    {
+      "name": "server/controllers/ProductsController.groovy",
+      "code": { "file": "server/controllers/ProductsController.groovy" }
+    },
+    {
+      "name": "server/helpers/ProductInput.kt",
+      "code": { "file": "server/helpers/ProductInput.kt" }
+    },
+    {
+      "name": "server/services/ProductService.kt",
+      "code": { "file": "server/services/ProductService.kt" }
+    },
+    {
+      "name": "server/models/Product.kt",
+      "code": { "file": "server/models/Product.kt" }
+    },
+    {
+      "name": "server/controllers/ProductsController.kt",
+      "code": { "file": "server/controllers/ProductsController.kt" }
+    },
+    {
+      "name": "server/helpers/ProductInput.cs",
+      "code": { "file": "server/helpers/ProductInput.cs" }
+    },
+    {
+      "name": "server/services/ProductService.cs",
+      "code": { "file": "server/services/ProductService.cs" }
+    },
+    {
+      "name": "server/models/Product.cs",
+      "code": { "file": "server/models/Product.cs" }
+    },
+    {
+      "name": "server/controllers/ProductsController.cs",
+      "code": { "file": "server/controllers/ProductsController.cs" }
+    },
+    {
+      "name": "server/helpers/ProductInput.rs",
+      "code": { "file": "server/helpers/ProductInput.rs" }
+    },
+    {
+      "name": "server/services/ProductService.rs",
+      "code": { "file": "server/services/ProductService.rs" }
+    },
+    {
+      "name": "server/models/Product.rs",
+      "code": { "file": "server/models/Product.rs" }
+    },
+    {
+      "name": "server/controllers/ProductsController.rs",
+      "code": { "file": "server/controllers/ProductsController.rs" }
+    },
+    {
+      "name": "server/helpers/ProductInput.dart",
+      "code": { "file": "server/helpers/ProductInput.dart" }
+    },
+    {
+      "name": "server/services/ProductService.dart",
+      "code": { "file": "server/services/ProductService.dart" }
+    },
+    {
+      "name": "server/models/Product.dart",
+      "code": { "file": "server/models/Product.dart" }
+    },
+    {
+      "name": "server/controllers/ProductsController.dart",
+      "code": { "file": "server/controllers/ProductsController.dart" }
+    },
+    {
+      "name": "server/helpers/ProductInput.go",
+      "code": { "file": "server/helpers/ProductInput.go" }
+    },
+    {
+      "name": "server/services/ProductService.go",
+      "code": { "file": "server/services/ProductService.go" }
+    },
+    {
+      "name": "server/models/Product.go",
+      "code": { "file": "server/models/Product.go" }
+    },
+    {
+      "name": "server/controllers/ProductsController.go",
+      "code": { "file": "server/controllers/ProductsController.go" }
+    }
+  ]
+}

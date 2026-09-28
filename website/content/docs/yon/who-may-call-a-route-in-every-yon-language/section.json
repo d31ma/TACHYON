@@ -1,0 +1,307 @@
+{
+  "heading": "Who may call a route in every Yon language",
+  "axis": "language",
+  "body": "Choose a language below. The controller class says `SignedIn`, so any signed-in user may call its routes. `getOrders` says `Public`, so anyone may call it: the rule on a method wins over the rule on its class. `deleteOrders` says `Allow(Admin)`, so only a user with the role `Admin` may call it. A role is a type: an empty class in `server/roles/`, named after the role. The one class marked `IdentityProvider` says who is signed in. Its method `identify` reads the request in the language's own type and returns the user and the names of their roles, or no value when nobody is signed in. PHP has no request object, so its `identify` reads `$_SERVER`. With the header `authorization: ada-token`, every route answers. With `bob-token`, `DELETE /orders` answers 403. Without the header, `POST /orders` and `DELETE /orders` answer 401. The example keeps its sessions in a constant; a real app checks a token or a session store.",
+  "files": [
+    {
+      "name": "server/roles/Admin.js",
+      "code": {
+        "file": "server/roles/Admin.js"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.js",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/roles/Admin.ts",
+      "code": {
+        "file": "server/roles/Admin.ts"
+      }
+    },
+    {
+      "name": "server/models/Identity.ts",
+      "code": {
+        "file": "server/models/Identity.ts"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.ts",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.ts",
+      "code": {
+        "file": "server/controllers/OrdersController.ts"
+      }
+    },
+    {
+      "name": "server/roles/Admin.py",
+      "code": {
+        "file": "server/roles/Admin.py"
+      }
+    },
+    {
+      "name": "server/models/Identity.py",
+      "code": {
+        "file": "server/models/Identity.py"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.py",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.py",
+      "code": {
+        "file": "server/controllers/OrdersController.py"
+      }
+    },
+    {
+      "name": "server/roles/Admin.rb",
+      "code": {
+        "file": "server/roles/Admin.rb"
+      }
+    },
+    {
+      "name": "server/models/Identity.rb",
+      "code": {
+        "file": "server/models/Identity.rb"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.rb",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rb",
+      "code": {
+        "file": "server/controllers/OrdersController.rb"
+      }
+    },
+    {
+      "name": "server/roles/Admin.php",
+      "code": {
+        "file": "server/roles/Admin.php"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.php",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.php",
+      "code": {
+        "file": "server/controllers/OrdersController.php"
+      }
+    },
+    {
+      "name": "server/roles/Admin.java",
+      "code": {
+        "file": "server/roles/Admin.java"
+      }
+    },
+    {
+      "name": "server/roles/Admin.groovy",
+      "code": {
+        "file": "server/roles/Admin.groovy"
+      }
+    },
+    {
+      "name": "server/models/Identity.java",
+      "code": {
+        "file": "server/models/Identity.java"
+      }
+    },
+    {
+      "name": "server/models/Identity.groovy",
+      "code": {
+        "file": "server/models/Identity.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.java",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.java"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.groovy",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.java",
+      "code": {
+        "file": "server/controllers/OrdersController.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.groovy",
+      "code": {
+        "file": "server/controllers/OrdersController.groovy"
+      }
+    },
+    {
+      "name": "server/roles/Admin.kt",
+      "code": {
+        "file": "server/roles/Admin.kt"
+      }
+    },
+    {
+      "name": "server/models/Identity.kt",
+      "code": {
+        "file": "server/models/Identity.kt"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.kt",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.kt",
+      "code": {
+        "file": "server/controllers/OrdersController.kt"
+      }
+    },
+    {
+      "name": "server/roles/Admin.cs",
+      "code": {
+        "file": "server/roles/Admin.cs"
+      }
+    },
+    {
+      "name": "server/roles/Admin.fs",
+      "code": {
+        "file": "server/roles/Admin.fs"
+      }
+    },
+    {
+      "name": "server/models/Identity.cs",
+      "code": {
+        "file": "server/models/Identity.cs"
+      }
+    },
+    {
+      "name": "server/models/Identity.fs",
+      "code": {
+        "file": "server/models/Identity.fs"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.cs",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.cs"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.fs",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.fs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.cs",
+      "code": {
+        "file": "server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.fs",
+      "code": {
+        "file": "server/controllers/OrdersController.fs"
+      }
+    },
+    {
+      "name": "server/roles/Admin.rs",
+      "code": {
+        "file": "server/roles/Admin.rs"
+      }
+    },
+    {
+      "name": "server/models/Identity.rs",
+      "code": {
+        "file": "server/models/Identity.rs"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.rs",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rs",
+      "code": {
+        "file": "server/controllers/OrdersController.rs"
+      }
+    },
+    {
+      "name": "server/roles/Admin.dart",
+      "code": {
+        "file": "server/roles/Admin.dart"
+      }
+    },
+    {
+      "name": "server/models/Identity.dart",
+      "code": {
+        "file": "server/models/Identity.dart"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.dart",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.dart",
+      "code": {
+        "file": "server/controllers/OrdersController.dart"
+      }
+    },
+    {
+      "name": "server/roles/Admin.go",
+      "code": {
+        "file": "server/roles/Admin.go"
+      }
+    },
+    {
+      "name": "server/models/Identity.go",
+      "code": {
+        "file": "server/models/Identity.go"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.go",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.go",
+      "code": {
+        "file": "server/controllers/OrdersController.go"
+      }
+    }
+  ]
+}

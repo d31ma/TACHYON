@@ -1,0 +1,24 @@
+{
+  "title": "Build and deploy",
+  "summary": "`ty bundle` builds the files that you publish, and `ty start` serves them. This page shows the options for a release.",
+  "before": [
+    "preview-and-build"
+  ],
+  "sections": [
+    {
+      "include": "../operations/build-and-deploy/section.json"
+    },
+    {
+      "include": "../operations/compressed-files/section.json"
+    },
+    {
+      "include": "../operations/route-size-budgets/section.json"
+    },
+    {
+      "include": "../operations/api-baseline/section.json"
+    },
+    {
+      "include": "../yon/serving/section.json"
+    }
+  ]
+}

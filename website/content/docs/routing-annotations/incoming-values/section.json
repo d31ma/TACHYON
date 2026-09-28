@@ -1,0 +1,4 @@
+{
+  "heading": "Incoming values",
+  "body": "FromPath reads a path value, such as {id}. FromQuery reads the query string after ?. FromBody reads the JSON request body. FromHeader reads a request header. FromCookie reads a cookie. One parameter without a marker receives the request in the language's own type, such as a Fetch Request, urllib.request.Request, HttpExchange, HttpRequestMessage, http::Request, a shelf Request or *http.Request; PHP reads $_SERVER, $_GET, $_POST, $_COOKIE and php://input instead. Parameter types validate these values before the method runs. Model return types validate the response. OPTIONS publishes the generated schema. HEAD uses the GET route."
+}

@@ -1,0 +1,12 @@
+@Test(NewsTestSetup, {"partition":"tests"})
+export default class NewsControllerTest {
+  @Fake
+  applicationEventPublisher
+
+  async testPostNewsPublishesTheItem() {
+    const published = []
+    this.applicationEventPublisher = { publishEvent: (item) => published.push(item) }
+    this.construct(NewsController).postNews({ text: 'Hello' })
+    if (published.length !== 1) throw Error(`published ${JSON.stringify(published)}`)
+  }
+}

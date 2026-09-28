@@ -1,0 +1,5 @@
+{
+  "heading": "The same page on every device",
+  "body": "`web` is a browser target. Native hosts serve the built application bundle inside the platform WebView. They serve it from a restricted local origin. An origin is the scheme, host and port that a page comes from. The WebView is WKWebView on macOS and iOS, WebView2 on Windows, WebKitGTK on Linux, and Android WebView on Android. The same DOM, CSS and client runtime render the application. Browser engines still differ, so test on each target.\n\nTo match the look of a platform, make that choice in the UI layer. Use the UI kit that the application already uses. The framework does not make this choice by turning tags into controls.",
+  "code": { "file": "example.txt" }
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Small signatures",
+  "summary": "A method takes at most four parameters, and a class needs at most five other classes. The build checks this with TY1329.",
+  "before": [
+    "plain-english-names"
+  ],
+  "sections": [
+    {
+      "include": "few-parameters-and-few-dependencies/section.json"
+    }
+  ]
+}

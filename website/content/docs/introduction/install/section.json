@@ -1,0 +1,7 @@
+{
+  "heading": "Install",
+  "body": "Tachyon comes as one binary, `ty`. You do not need a package manager to install it. A runtime toolchain is the extra tools that a language needs to run code, and `ty init` offers to install the ones that your app needs. On macOS or Linux, run the commands below. On Windows, install `ty` in PowerShell with `irm https://github.com/d31ma/Tachyon/releases/latest/download/install.ps1 | iex`, then run the other commands. Each installer compares the binary with the checksum in the release's SHA256SUMS file. A checksum is a short value computed from the bytes of a file. The installer stops if the checksum is missing or wrong. The last three commands create an app and start the development server. In a terminal, `ty init` first asks what the app should have. Press Enter to keep each answer that it shows. The next section explains the questions. Tachyon checks whether a project has a client/ folder, a server/ folder, or both. It serves them on one port. Tachyon creates identifiers itself.",
+  "code": {
+    "file": "example.sh"
+  }
+}

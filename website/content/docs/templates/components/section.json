@@ -1,0 +1,4 @@
+{
+  "heading": "Components",
+  "body": "Each component folder under client/components becomes a tag with hyphens: components/panel/users becomes panel-users. You pass props (the values a component receives) as attributes. The lazy attribute waits to load the component until it scrolls into view."
+}

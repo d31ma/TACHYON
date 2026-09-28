@@ -1,0 +1,5 @@
+client/
+  pages/tac.html
+  components/panel/users/tac.html
+  services/UsersService.js
+  shared/data/docs.json

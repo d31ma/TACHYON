@@ -1,0 +1,13 @@
+{
+  "id": "one-rendering",
+  "title": "One rendering everywhere",
+  "summary": "A native build shows the application's own web bundle (the built web files) on desktop or mobile. The targets share HTML, styles and client behavior. But the WebView of each platform can render them differently. To match the look of a platform, use your own UI layer and a cross-platform component kit.",
+  "group": "Native",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    }
+  ],
+  "verify": "tac"
+}

@@ -1,35 +1,50 @@
 # Cutover Gate Status
 
+"Cutover" means making the Rust implementation Tachyon's default. The cutover
+gate is the list of conditions that must hold first.
+
 ## Current reconciliation gate (2026-08-30)
 
-The earlier cutover below is a historical record. Release v26.35.07 completed
-the real [Stable Release run 33301688118](https://github.com/d31ma/Tachyon/actions/runs/33301688118);
-its downloadable artifacts were checksum- and provenance-verified during the
-reconciliation audit. The original provenance condition is therefore no
-longer waiting for its first release.
+The cutover assessment further below is a historical record.
 
-That does not qualify the newer native architecture. The reconciliation in
-[`RECONCILIATION.md`](RECONCILIATION.md) must pass fresh browser, schema,
-native-host, security, and downloaded-artifact behavior gates before a new
-immutable version is published. Historical widget and WebAssembly results
-cannot be substituted for the ADR 0018/0019 host and companion gates. Human
-security review remains optional; automated exact-head qualification remains
-mandatory. Current status: **reconciliation in progress, not release-ready**.
+Release v26.35.07 completed the real
+[Stable Release run 33301688118](https://github.com/d31ma/Tachyon/actions/runs/33301688118).
+During the reconciliation audit, its downloadable artifacts passed checksum and
+provenance verification. So the original provenance condition no longer waits
+for a first release.
+
+That result does not qualify the newer native architecture:
+
+- The reconciliation in [`RECONCILIATION.md`](RECONCILIATION.md) must pass new
+  gates before a new immutable version is published. These gates cover browser,
+  schema, native-host, security, and downloaded-artifact behavior.
+- Old widget and WebAssembly results cannot replace the host and companion
+  gates of ADR 0018/0019 (ADR means architecture decision record).
+- Human security review is still optional.
+- Automated qualification of the exact head commit is still required.
+
+Current status: **reconciliation in progress, not release-ready**.
 
 ## Historical cutover assessment (2026-08-01)
 
 The cutover gate in [`PROJECT_PLAN.md`](PROJECT_PLAN.md) lists six conditions
 that must all hold before the Rust implementation becomes Tachyon's default.
 
-**Five conditions are met and one remains open.** Automated security
-qualification is the pre-tag security gate; an independent human review is
-optional and does not block merge, tagging, or publication. The remaining
-open condition requires one real release-workflow run so the repository
-produces externally verifiable release artifacts and attestations.
+**Five conditions are met and one remains open.**
 
-Every claim below is either an execution result with the command that produced
-it, or a maintainer decision with the name of the person who made it. Nothing
-here is an assertion by the implementation about itself.
+- Automated security qualification is the security gate before tagging.
+- An independent human review is optional. It does not block merge, tagging,
+  or publication.
+- The open condition needs one real run of the release workflow. That run makes
+  the repository produce release artifacts and attestations that others can
+  verify.
+
+Every claim below is one of two things:
+
+- an execution result, with the command that produced it;
+- a maintainer decision, with the name of the person who made it.
+
+Nothing here is a claim that the implementation makes about itself.
 
 ## Status
 
@@ -44,9 +59,14 @@ here is an assertion by the implementation about itself.
 
 ## Evidence Standard — amended 2026-07-31
 
-The original gate required physical-device runs for iOS and Android, a
-host-native Linux runner, and a recorded `windows-native` CI run, and stated
-that simulators, emulators, and containers do not substitute for any of them.
+The original gate required:
+
+- runs on physical devices for iOS and Android;
+- a Linux runner on a native host;
+- a recorded `windows-native` CI run.
+
+It stated that simulators, emulators, and containers cannot replace any of
+them.
 
 **Amended by the maintainer (Samuel Ezenma, 2026-07-31):** simulator, emulator,
 and pinned-container evidence satisfies conditions 2 and 3 for cutover.
@@ -54,14 +74,14 @@ and pinned-container evidence satisfies conditions 2 and 3 for cutover.
 What this changes and what it does not:
 
 - It **does** accept that the generated hosts compile, launch, render native
-  widgets, expose accessible names to each platform's real accessibility API,
-  and drive bound state, because all of that is what was executed.
-- It **does not** establish device-specific behavior: real GPU drivers, vendor
-  accessibility services, thermal and memory pressure, and physical input
-  remain unexercised. A defect that only appears on hardware would not have
-  been caught by any run recorded here.
-- [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) carries the same amendment, so a tier
-  claim and this gate cannot drift apart.
+  widgets, give accessible names to each platform's real accessibility API,
+  and drive bound state. All of that was actually executed.
+- It **does not** prove device-specific behavior. Real GPU drivers, vendor
+  accessibility services, heat and memory pressure, and physical input were not
+  tested. No run recorded here would catch a defect that only appears on
+  hardware.
+- [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) has the same amendment. So a tier
+  claim and this gate cannot disagree.
 
 ## 1. Compatibility Evidence — Met
 
@@ -71,29 +91,38 @@ What this changes and what it does not:
 3/3 corpus projects match across implementations
 ```
 
-Both implementations render in a real browser and their route graphs, semantic
-DOM, and HTTP status are compared. The browser gates pass alongside it —
-events, island expressions, offline service worker, the wasm ABI probe, and the
-five-language wasm companion gate.
+Both implementations render in a real browser. The script compares their route
+graphs, semantic DOM, and HTTP status. These browser gates also pass:
 
-`changed` and `unsupported` rows are reported by `ty migrate check` with a
-required action per finding. Against the archived migration fixture: 18 supported, 6
-changed, 20 unsupported. Against this repository's migrated website on
-2026-08-01: 128 supported, 1 changed, 1 unsupported. Cross-document navigation
-is the changed finding; telemetry is the remaining unsupported product boundary recorded
-in [`PARITY_LEDGER.md`](PARITY_LEDGER.md).
+- events;
+- island expressions;
+- offline service worker;
+- the wasm application binary interface (ABI) probe;
+- the five-language wasm companion gate.
 
-The migrated website's public command was re-run on 2026-08-01 after dynamic
-route and post-bundle compatibility work:
+`ty migrate check` reports `changed` and `unsupported` rows. Each finding has a
+required action.
+
+| Checked project | Supported | Changed | Unsupported |
+| --- | --- | --- | --- |
+| Archived migration fixture | 18 | 6 | 20 |
+| This repository's migrated website, 2026-08-01 | 128 | 1 | 1 |
+
+For the website, the changed finding is cross-document navigation. The
+unsupported finding is telemetry. Telemetry is the remaining unsupported
+product boundary recorded in [`PARITY_LEDGER.md`](PARITY_LEDGER.md).
+
+On 2026-08-01, after work on dynamic routes and post-bundle compatibility, the
+migrated website's public command ran again:
 
 ```text
 bun run test
   24 pass, 0 fail, 160 expectations
 ```
 
-The same Rust release binary emitted its 11 web routes plus Android, iOS, and
-macOS application bundles. Both `serve` and `preview` returned the concrete
-dynamic `/docs/introduction` route rather than a 404.
+The same Rust release binary produced the 11 web routes and the Android, iOS,
+and macOS application bundles. Both `serve` and `preview` returned the concrete
+dynamic `/docs/introduction` route, not a 404.
 
 ## 2. Native Evidence Profiles — Met, with macOS and Windows Named
 
@@ -101,18 +130,22 @@ Executed 2026-07-31 on this machine:
 
 | Target | Command | Result |
 | --- | --- | --- |
-| iOS | `ty build --target ios`, `simctl install`, `simctl launch` on iPhone 17 Pro / iOS 26.5 | Launched as pid 13540. Native large title, body, `UIButton`, bound output, `UITextField`, and disclosure rendered. Two taps moved the bound count `0 → 2`; typing `Ada Lovelace` produced 12 `state.input` events; `<x-chart>` rendered as an isolated `WKWebView` subtree showing "Chart fallback" while every sibling stayed native. The lifecycle log recorded `controller.created → route.opened → websurface.created → websurface.attached → controller.mounted → controller.active → state.increment → state.input → controller.suspended`. |
-| Android | `./scripts/android/native-test.sh` on the `tachyon-gate` emulator (API 36, `google_apis`, arm64) | `PASS: Android native gate`. 5 accessible names on native widgets, `Increase count` as `Button` and `Your name` as `EditText`; accessibility-driven activation moved the bound output to `1`; lifecycle log complete. |
-| Linux | `./scripts/linux/native-test.sh` inside the pinned `debian:trixie-slim` image | `PASS: Linux native gate`. The generated GTK4 host compiled under `-Werror`, launched under `Xvfb` and `dbus-run-session`, and 7 declared accessible names reached AT-SPI with correct platform roles; AT-SPI activation incremented the bound state. |
-| macOS | `node scripts/phase4-macos-test.mjs` | **Blocked, not failed.** The probe cannot read the window until macOS Accessibility permission is granted to the process that runs it: `phase4 accessibility probe: macOS Accessibility permission is not enabled for this process`. Grant it in System Settings → Privacy & Security → Accessibility and re-run. |
-| Windows | `scripts/windows/native-test.ps1` in [CI run 30714886154](https://github.com/d31ma/Tachyon/actions/runs/30714886154) | `PASS: Windows native gate`. The generated `PE32+` app compiled, launched, exposed its visible names through UI Automation and a real `Button` HWND, processed `BM_CLICK`, changed bound state `0 → 1`, recorded lifecycle, and closed. The managed UIA client's pane-only roles remain a named promotion gap. |
+| iOS | `ty build --target ios`, `simctl install`, `simctl launch` on iPhone 17 Pro / iOS 26.5 | Launched as process ID (pid) 13540. Native large title, body, `UIButton`, bound output, `UITextField`, and disclosure rendered. Two taps moved the bound count `0 → 2`. Typing `Ada Lovelace` produced 12 `state.input` events. `<x-chart>` rendered as an isolated `WKWebView` subtree showing "Chart fallback". Every sibling stayed native. The lifecycle log recorded `controller.created → route.opened → websurface.created → websurface.attached → controller.mounted → controller.active → state.increment → state.input → controller.suspended`. |
+| Android | `./scripts/android/native-test.sh` on the `tachyon-gate` emulator (API 36, `google_apis`, arm64) | `PASS: Android native gate`. 5 accessible names on native widgets. `Increase count` is a `Button` and `Your name` is an `EditText`. Activation through accessibility moved the bound output to `1`. The lifecycle log is complete. |
+| Linux | `./scripts/linux/native-test.sh` inside the pinned `debian:trixie-slim` image | `PASS: Linux native gate`. The generated GTK4 host compiled under `-Werror` and launched under `Xvfb` and `dbus-run-session`. 7 declared accessible names reached AT-SPI (the Linux accessibility bus) with correct platform roles. AT-SPI activation incremented the bound state. |
+| macOS | `node scripts/phase4-macos-test.mjs` | **Blocked, not failed.** The process that runs the probe needs macOS Accessibility permission. Without it the probe cannot read the window and reports: `phase4 accessibility probe: macOS Accessibility permission is not enabled for this process`. Grant it in System Settings → Privacy & Security → Accessibility and run again. |
+| Windows | `scripts/windows/native-test.ps1` in [CI run 30714886154](https://github.com/d31ma/Tachyon/actions/runs/30714886154) | `PASS: Windows native gate`. The generated `PE32+` app compiled and launched. It showed its visible names through UI Automation (UIA) and a real `Button` HWND (window handle). It processed `BM_CLICK`, changed bound state `0 → 1`, recorded lifecycle, and closed. The managed UIA client reports only pane roles. This is still a named gap that blocks promotion. |
 
-Additional migrated-website execution on 2026-08-01 built all 11 routes into
-iOS, Android, and macOS artifacts. iOS and macOS launched and rendered the
-homepage. On Android, real emulator taps navigated through `/docs` to the
-dynamic `/docs/introduction` route and the generated host recorded no fatal
-runtime exception. This evidence exercises same-origin WebSurface-to-native
-route handoff that the earlier phase fixture did not contain.
+On 2026-08-01 the migrated website ran again:
+
+- All 11 routes were built into iOS, Android, and macOS artifacts.
+- iOS and macOS launched and rendered the homepage.
+- On Android, real emulator taps navigated through `/docs` to the dynamic
+  `/docs/introduction` route. The generated host recorded no fatal runtime
+  exception.
+
+This evidence tests same-origin route handoff from a WebSurface to native. The
+earlier phase fixture did not contain that case.
 
 ## 3. Install, Upgrade, Rollback, Uninstall — Met
 
@@ -130,77 +163,108 @@ ok   uninstall left nothing behind
 PASS: release lifecycle drill
 ```
 
-The drill could not run from a clean checkout before today: every gate script
-in `scripts/` was committed without its executable bit, so the drill failed at
-`build-artifact.sh: Permission denied`, and CI's `./scripts/linux/native-test.sh`
+Before today the drill could not run from a clean checkout. Every gate script
+in `scripts/` was committed without its executable bit. So the drill failed at
+`build-artifact.sh: Permission denied`. CI's `./scripts/linux/native-test.sh`
 would have failed the same way. The bits are set now.
 
-The same lifecycle for generated native application artifacts is covered by the
-amended evidence standard: each platform's gate installs, launches, and drives
-the generated application, and removes it with the emulator or container it ran
-in.
+The amended evidence standard covers the same lifecycle for generated native
+application artifacts. Each platform's gate installs, launches, and drives the
+generated application. It then removes the application together with the
+emulator or container it ran in.
 
 ## 4. Signed, Attested, Independently Verifiable — Open Until a Release Runs
 
-**Independently verifiable: met.** Each artifact carries `SHA256SUMS` over every
-published file and a `manifest.json` recording the release version, commit,
-`SOURCE_DATE_EPOCH`, target, and toolchain. Builds are reproducible — proven
-again today by the bit-identical rebuild above — so a third party can rebuild
-from the recorded commit and compare digests without trusting the publisher.
-`rust-ci.yml` also publishes a CycloneDX SBOM and builds with `cargo auditable`.
+**Independently verifiable: met.**
+
+- Each artifact has `SHA256SUMS` over every published file.
+- Each artifact has a `manifest.json` that records the release version, commit,
+  `SOURCE_DATE_EPOCH`, target, and toolchain.
+- Builds are reproducible. The bit-identical rebuild above proved this again
+  today. So a third party can rebuild from the recorded commit and compare
+  digests without trusting the publisher.
+- `rust-ci.yml` also publishes a CycloneDX software bill of materials (SBOM)
+  and builds with `cargo auditable`.
 
 **Attested: the repository work is complete.** The release lifecycle job now
-attests build provenance with `actions/attest-build-provenance` from the
-workflow's own identity, so what remains is one real workflow run rather than a
-maintainer key. Verification after that run:
+attests build provenance with `actions/attest-build-provenance`. It uses the
+workflow's own identity, not a maintainer key. So only one real workflow run
+remains. To verify after that run:
 
 ```bash
 gh attestation verify tachyon-<target>.tar.gz --repo <owner>/TACHYON
 ```
 
-The stable workflow now gives every asset a keyless Sigstore signature bound
-to the workflow identity, stages a non-public draft, verifies the checksum,
-attestation, signature, raw executable, and installer on all five release
-runners, and only then makes the release public. This repository work still
-needs one real tag run before the condition is evidence-backed.
+The stable workflow now does these steps in order:
+
+1. It gives every asset a keyless Sigstore signature bound to the workflow
+   identity.
+2. It stages a draft that is not public.
+3. On all five release runners, it verifies the checksum, attestation,
+   signature, raw executable, and installer.
+4. Only then does it make the release public.
+
+This repository work still needs one real tag run. Only then does evidence
+support the condition.
 
 ## 5. Threat-Model Findings — Met by Automated Qualification
 
-An independent automated technical audit on 2026-08-01 found two high-severity
-issues: descendant handler processes could escape lifecycle control, and Linux
-WebSurfaces accepted arbitrary `file://` navigation. Both were remediated and
-the technical re-review found no remaining critical or high blocker.
+On 2026-08-01 an independent automated technical audit found two
+high-severity issues:
+
+- Descendant handler processes could escape lifecycle control.
+- Linux WebSurfaces accepted any `file://` navigation.
+
+Both were fixed. The technical re-review found no remaining critical or high
+blocker.
 
 What exists instead, from [`PHASE_7_EVIDENCE.md`](PHASE_7_EVIDENCE.md):
-7,197,692 fuzz executions across four trust boundaries under
-`AddressSanitizer` with zero crashes, a clean sanitizer run, and five recovery
-drills. [`SECURITY_REVIEW_PACKAGE.md`](SECURITY_REVIEW_PACKAGE.md) contains the
+
+- 7,197,692 fuzz executions across four trust boundaries under
+  `AddressSanitizer`, with zero crashes;
+- a clean sanitizer run;
+- five recovery drills.
+
+[`SECURITY_REVIEW_PACKAGE.md`](SECURITY_REVIEW_PACKAGE.md) contains the
 technical audit record and the automated qualification criteria.
 
-The stable tag requires a clean exact-head security matrix and an explicit
-owner and disposition for every critical or high finding. Independent human
-review remains welcome but is not a release gate.
+The stable tag requires two things:
+
+- a clean security matrix on the exact head commit;
+- an explicit owner and decision for every critical or high finding.
+
+Independent human review is still welcome. It is not a release gate.
 
 ## 6. Stable Documentation — Met
 
-`README.md`, `CONTEXT.md`, the architecture overview, support tiers, cutover
-status, and the migrated website now describe the Rust implementation. Legacy
-OpenAPI, telemetry, client-renderer, runtime-cache, and native-host claims were
-removed from the stable README or named explicitly as compatibility decisions.
-Commands, ports, output paths, Tac client-render and component behavior, Yon's
-REST-only boundary and empty Route Manifest v1 compatibility field,
-real-language Wasm companions, native-first rendering, per-subtree fallback,
-security boundaries, and support vocabulary were checked against the
-executable implementation and its recorded evidence.
+These documents now describe the Rust implementation: `README.md`,
+`CONTEXT.md`, the architecture overview, support tiers, cutover status, and the
+migrated website.
+
+Legacy claims about OpenAPI, telemetry, the client renderer, the runtime cache,
+and native hosts were handled in one of two ways. They were removed from the
+stable README, or they were named explicitly as compatibility decisions.
+
+These items were checked against the executable implementation and its recorded
+evidence:
+
+- commands, ports, and output paths;
+- Tac client-render and component behavior;
+- Yon's REST-only boundary and the empty Route Manifest v1 compatibility field;
+- real-language Wasm companions;
+- native-first rendering and per-subtree fallback;
+- security boundaries;
+- support vocabulary.
 
 ## What Happens Next
 
-Complete the pull-request matrix, then run the release workflow from the
-qualified immutable tag and verify its staged assets.
-The macOS
-Accessibility automation remains a named local evidence gap and must not be
-represented as completed platform promotion work.
+1. Complete the pull-request matrix.
+2. Run the release workflow from the qualified immutable tag.
+3. Verify its staged assets.
 
-Per [`RELEASE_ENGINEERING.md`](RELEASE_ENGINEERING.md), `main` remains the
-released implementation until that pull request lands, and history is never
+The macOS Accessibility automation is still a named local evidence gap. Do not
+present it as completed platform promotion work.
+
+[`RELEASE_ENGINEERING.md`](RELEASE_ENGINEERING.md) sets two rules. `main` stays
+the released implementation until that pull request is merged. History is never
 rewritten.

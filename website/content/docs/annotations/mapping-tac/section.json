@@ -1,0 +1,112 @@
+{
+  "heading": "Mapping: Tac",
+  "axis": "language",
+  "summary": "The same Converter and the same plan in the browser and on native targets. A view addresses a service, the service owns the behavior context, and the mapper carries the field plan.",
+  "body": "Select a language tab and copy the page, the component view and the three role files. JavaScript, TypeScript and Dart bundle for the web. Swift, Kotlin, C# and Rust stage their native hosts. Go bundles for the web as WebAssembly. The view reads {catalog.title} from the service. A view can read only from a service (ADR 0030). The browser services show the order of calls. First they create the context from the Setup. Then they construct the converter with it. Then they map. The native services stay plain types, as they do elsewhere in Tac. The compiler finds their annotated converter and setup files and adds them to the same compile unit.\n\nThe annotation and its options are the same as in Yon. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/panel/tac.html",
+      "code": { "file": "client/components/catalog/panel/tac.html" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.js",
+      "code": { "file": "client/setups/CatalogSetup.js" }
+    },
+    {
+      "name": "client/converters/ProductConverter.js",
+      "code": { "file": "client/converters/ProductConverter.js" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.ts",
+      "code": { "file": "client/setups/CatalogSetup.ts" }
+    },
+    {
+      "name": "client/converters/ProductConverter.ts",
+      "code": { "file": "client/converters/ProductConverter.ts" }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": { "file": "client/services/CatalogService.ts" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.swift",
+      "code": { "file": "client/setups/CatalogSetup.swift" }
+    },
+    {
+      "name": "client/converters/ProductConverter.swift",
+      "code": { "file": "client/converters/ProductConverter.swift" }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": { "file": "client/services/CatalogService.swift" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.kt",
+      "code": { "file": "client/setups/CatalogSetup.kt" }
+    },
+    {
+      "name": "client/converters/ProductConverter.kt",
+      "code": { "file": "client/converters/ProductConverter.kt" }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": { "file": "client/services/CatalogService.kt" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.cs",
+      "code": { "file": "client/setups/CatalogSetup.cs" }
+    },
+    {
+      "name": "client/converters/ProductConverter.cs",
+      "code": { "file": "client/converters/ProductConverter.cs" }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": { "file": "client/services/CatalogService.cs" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rs",
+      "code": { "file": "client/setups/CatalogSetup.rs" }
+    },
+    {
+      "name": "client/converters/ProductConverter.rs",
+      "code": { "file": "client/converters/ProductConverter.rs" }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": { "file": "client/services/CatalogService.rs" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.go",
+      "code": { "file": "client/setups/CatalogSetup.go" }
+    },
+    {
+      "name": "client/converters/ProductConverter.go",
+      "code": { "file": "client/converters/ProductConverter.go" }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": { "file": "client/services/CatalogService.go" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.dart",
+      "code": { "file": "client/setups/CatalogSetup.dart" }
+    },
+    {
+      "name": "client/converters/ProductConverter.dart",
+      "code": { "file": "client/converters/ProductConverter.dart" }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": { "file": "client/services/CatalogService.dart" }
+    }
+  ]
+}

@@ -1,35 +1,35 @@
-<div class="docs-page">
-  <main class="docs-article">
-    <docs-pagelinks :source="source()" />
+<main class="docs-article">
+  <docs-pagelinks :source="catalog.source" :path="page.path" />
 
-    <h1 class="text-section font-semibold text-balance">Features</h1>
-    <p class="mt-3 text-lede opacity-80 text-pretty">
-      Every feature Tachyon has, each on its own page with the code that proves it.
-      {count()} of them, across routing, views, storage, the server, native targets and the
-      toolchain. Every snippet is compiled by the real toolchain before the site ships — a
-      documented API that does not build is a bug.
-    </p>
+  <h1 class="text-title font-semibold text-balance">Features</h1>
+  <p class="mt-3 text-lede opacity-80 text-pretty">
+    This page lists every Tachyon feature. Each feature has its own page, with code that shows
+    that it works. There are {catalog.count()} features. They cover routing, views, storage, the
+    server, native targets and the toolchain (the compilers and tools of each language). Before
+    the site is published, the real toolchain checks every code example. Most examples are built
+    and run. The others are built as part of their page's project, or only checked for syntax.
+    A documented API that does not build is a bug.
+  </p>
 
-    <loop :for="group of list()">
-      <section class="mt-10">
-        <h2 :id="group.slug" class="text-xl font-semibold">{group.name}</h2>
-        <ul class="catalogue mt-4 list-none p-0 m-0">
-          <loop :for="entry of group.features">
-            <li>
-              <a class="catalogue__card" :href="entry.path">
-                <span class="catalogue__title">{entry.title}</span>
-                <span class="catalogue__summary">{entry.summary}</span>
-              </a>
-            </li>
-          </loop>
-        </ul>
-      </section>
-    </loop>
+  <loop :for="group of catalog.list()">
+    <section class="mt-10">
+      <h2 :id="group.slug" class="text-heading font-semibold">{group.name}</h2>
+      <ul class="catalogue mt-4 list-none p-0 m-0">
+        <loop :for="entry of group.features">
+          <li>
+            <a class="catalogue__card" :href="entry.path">
+              <span class="catalogue__title">{entry.title}</span>
+              <span class="catalogue__summary"><loop :for="part of inlineCode.parts(entry.summary)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></span>
+            </a>
+          </li>
+        </loop>
+      </ul>
+    </section>
+  </loop>
 
-    <docs-pager :path="path()" />
-  </main>
+  <docs-pager :path="page.path" :documents="data.docs" :features="data.features" />
+</main>
 
-  <aside class="docs-toc" aria-label="On this page">
-    <docs-toc :entries="contents()" />
-  </aside>
-</div>
+<aside class="docs-toc" aria-label="On this page">
+  <docs-toc :entries="catalog.contents()" />
+</aside>

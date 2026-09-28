@@ -1,0 +1,16 @@
+{
+  "title": "Modules and lifecycle",
+  "summary": "This page explains how Tachyon groups your files into programs, and how it starts and stops the process that answers a request.",
+  "before": [
+    "project-folders",
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../yon/application-modules/section.json"
+    },
+    {
+      "include": "../yon/process-lifecycle/section.json"
+    }
+  ]
+}

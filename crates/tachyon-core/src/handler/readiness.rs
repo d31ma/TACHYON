@@ -1,135 +1,51 @@
-//! Deployment readiness for the fixed Yon language boundary.
+mod dotnet_version_outcome;
+mod prepared_probe;
+mod probe_kind;
+mod runtime_probe;
+mod runtime_probe_result;
+mod runtime_probe_state;
+mod runtime_requirement;
+mod runtime_requirement_key;
+mod yon_language;
 
-use super::{EnvironmentPolicy, HandlerRuntimePrograms, HandlerSource, YonIsolationPolicy};
+pub(crate) use runtime_probe::RuntimeProbe;
+pub(crate) use runtime_probe_result::RuntimeProbeResult;
+pub(crate) use runtime_probe_state::RuntimeProbeState;
+pub(crate) use runtime_requirement::RuntimeRequirement;
+pub(crate) use runtime_requirement_key::RuntimeRequirementKey;
+pub(crate) use yon_language::YonLanguage;
+
+use super::{FirecrackerIsolation, HandlerRuntimePrograms, HandlerSource, YonIsolationPolicy};
 use crate::Failure;
-use crate::external_command::{ToolError, run, run_sync};
 use crate::failure::diagnostic;
+use dotnet_version_outcome::DotnetVersionOutcome;
+use prepared_probe::PreparedProbe;
+use probe_kind::ProbeKind;
 use std::collections::BTreeSet;
-use std::ffi::OsStr;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command as StdCommand;
-use std::time::{Duration, Instant};
-use tokio::process::Command;
+use std::path::Path;
 
-const PREFLIGHT_DEADLINE: Duration = Duration::from_secs(10);
-const PROBE_OUTPUT_BYTES: usize = 64 * 1024;
-
-/// The authored language behind one validated Yon invocation source.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) enum YonLanguage {
-    JavaScript,
-    TypeScript,
-    Python,
-    Java,
-    Php,
-    Kotlin,
-    CSharp,
-    Rust,
-}
-
-impl YonLanguage {
-    pub(crate) fn from_extension(extension: &str) -> Option<Self> {
-        Some(match extension.to_ascii_lowercase().as_str() {
-            "js" => Self::JavaScript,
-            "ts" => Self::TypeScript,
-            "py" => Self::Python,
-            "java" => Self::Java,
-            "php" => Self::Php,
-            "kt" => Self::Kotlin,
-            "cs" => Self::CSharp,
-            "rs" => Self::Rust,
-            _ => return None,
-        })
-    }
-
-    pub(crate) fn from_path(path: &Path) -> Option<Self> {
-        path.extension()
-            .and_then(OsStr::to_str)
-            .and_then(Self::from_extension)
-    }
-
-    pub(crate) const fn family(self) -> &'static str {
-        match self {
-            Self::JavaScript | Self::TypeScript => "javascript",
-            Self::Python => "python",
-            Self::Java => "java",
-            Self::Php => "php",
-            Self::Kotlin => "kotlin",
-            Self::CSharp => "csharp",
-            Self::Rust => "rust",
-        }
-    }
-}
-
-/// One external capability needed to start every discovered Yon source.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) enum RuntimeRequirementKey {
-    JavaScript,
-    Python,
-    Java,
-    Php,
-    KotlinCompiler,
-    Dotnet,
-    RustCompiler,
-    FirecrackerDriver,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ProbeKind {
-    JavaScript { typescript: bool },
-    Python,
-    Java { source_launcher: bool },
-    Php,
-    Version(&'static [&'static str]),
-    DotnetBuild,
-    File,
-}
-
-/// A resolved requirement. The executable is deliberately private so a
-/// configured path can never accidentally enter a report or event.
-#[derive(Clone)]
-pub(crate) struct RuntimeRequirement {
-    key: RuntimeRequirementKey,
-    program: PathBuf,
-    command_label: String,
-    label: String,
-    help: String,
-    probe: ProbeKind,
-}
-
-impl RuntimeRequirement {
-    pub(crate) const fn key(&self) -> RuntimeRequirementKey {
-        self.key
-    }
-
-    pub(crate) fn label(&self) -> &str {
-        &self.label
-    }
-
-    pub(crate) fn command_label(&self) -> &str {
-        &self.command_label
-    }
-
-    pub(crate) fn help(&self) -> &str {
-        &self.help
-    }
-}
-
-/// Deduplicated authored languages which require deployment readiness.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct RuntimeRequirements {
     languages: BTreeSet<YonLanguage>,
+    gateway_programs: BTreeSet<String>,
+    uses_gateways: bool,
 }
 
 impl RuntimeRequirements {
     pub(crate) fn from_sources<'a>(sources: impl IntoIterator<Item = &'a HandlerSource>) -> Self {
-        Self {
-            languages: sources
-                .into_iter()
-                .filter_map(|source| YonLanguage::from_path(Path::new(source.relative_path())))
-                .collect(),
-        }
+        let mut requirements = Self::default();
+        sources
+            .into_iter()
+            .for_each(|source| requirements.add_source(source));
+        requirements
+    }
+
+    pub(crate) fn from_gateways<'a>(sources: impl IntoIterator<Item = &'a HandlerSource>) -> Self {
+        let mut requirements = Self::default();
+        sources
+            .into_iter()
+            .for_each(|source| requirements.add_gateways(source));
+        requirements
     }
 
     pub(crate) fn from_extensions<'a>(extensions: impl IntoIterator<Item = &'a str>) -> Self {
@@ -138,6 +54,7 @@ impl RuntimeRequirements {
                 .into_iter()
                 .filter_map(YonLanguage::from_extension)
                 .collect(),
+            ..Self::default()
         }
     }
 
@@ -146,58 +63,163 @@ impl RuntimeRequirements {
         runtimes: &HandlerRuntimePrograms,
         isolation: &YonIsolationPolicy,
     ) -> Result<Vec<RuntimeRequirement>, Failure> {
-        if let Some(policy) = isolation.firecracker() {
-            for language in &self.languages {
-                super::isolation::validate_backend_yon_language(isolation, *language)?;
-            }
-            return if self.languages.is_empty() {
-                Ok(Vec::new())
-            } else {
-                Ok(vec![RuntimeRequirement {
-                    key: RuntimeRequirementKey::FirecrackerDriver,
-                    program: policy.driver().to_path_buf(),
-                    command_label: String::from("YON_FIRECRACKER_DRIVER"),
-                    label: String::from("configured Firecracker driver (YON_FIRECRACKER_DRIVER)"),
-                    help: String::from(
-                        "Install or correct YON_FIRECRACKER_DRIVER before starting Tachyon.",
-                    ),
-                    probe: ProbeKind::File,
-                }])
-            };
-        }
+        isolation.firecracker().map_or_else(
+            || Ok(self.process_requirements(runtimes)),
+            |policy| self.firecracker_requirements(policy, isolation),
+        )
+    }
 
+    fn add_source(&mut self, source: &HandlerSource) {
+        self.languages
+            .extend(YonLanguage::from_path(Path::new(source.relative_path())));
+        self.add_gateways(source);
+    }
+
+    fn add_gateways(&mut self, source: &HandlerSource) {
+        if let Some(gateways) = source.gateways() {
+            self.add_gateway_table(gateways);
+        }
+    }
+
+    fn add_gateway_table(&mut self, gateways: &super::gateway::GatewayTable) {
+        self.uses_gateways = true;
+        self.gateway_programs
+            .extend(gateways.programs().into_iter().map(str::to_owned));
+        self.languages.extend(
+            gateways
+                .units()
+                .into_iter()
+                .filter_map(|unit| YonLanguage::from_path(Path::new(unit.relative_path()))),
+        );
+    }
+
+    fn process_requirements(&self, runtimes: &HandlerRuntimePrograms) -> Vec<RuntimeRequirement> {
         let mut requirements = Vec::new();
-        let has_javascript = self.languages.contains(&YonLanguage::JavaScript);
-        let has_typescript = self.languages.contains(&YonLanguage::TypeScript);
-        if has_javascript || has_typescript {
-            requirements.push(configured_requirement(
+        self.push_interpreter_requirements(runtimes, &mut requirements);
+        self.push_system_runtime_requirements(&mut requirements);
+        self.push_ahead_of_time_compilers(&mut requirements);
+        self.push_gateway_programs(&mut requirements);
+        requirements.sort_by_key(RuntimeRequirement::key);
+        requirements
+    }
+
+    fn push_gateway_programs(&self, requirements: &mut Vec<RuntimeRequirement>) {
+        for program in &self.gateway_programs {
+            requirements.push(RuntimeRequirement::gateway_program(program));
+        }
+    }
+
+    fn firecracker_requirements(
+        &self,
+        policy: &FirecrackerIsolation,
+        isolation: &YonIsolationPolicy,
+    ) -> Result<Vec<RuntimeRequirement>, Failure> {
+        self.check_no_gateways()?;
+        self.languages
+            .iter()
+            .try_for_each(|language| isolation.validate_backend_yon_language(*language))?;
+        Ok(self.firecracker_driver_requirements(policy))
+    }
+
+    fn check_no_gateways(&self) -> Result<(), Failure> {
+        if self.uses_gateways {
+            return Err(Failure::one(diagnostic(
+                2010,
+                "Gateways require the Yon process backend.",
+                Some(String::from(
+                    "The Firecracker transport does not yet transfer invocation-scoped resource capabilities.",
+                )),
+                None,
+            )));
+        }
+        Ok(())
+    }
+
+    fn firecracker_driver_requirements(
+        &self,
+        policy: &FirecrackerIsolation,
+    ) -> Vec<RuntimeRequirement> {
+        if self.languages.is_empty() {
+            return Vec::new();
+        }
+        vec![RuntimeRequirement::firecracker_driver(policy)]
+    }
+
+    fn uses(&self, language: YonLanguage) -> bool {
+        self.languages.contains(&language)
+    }
+
+    fn uses_any(&self, languages: &[YonLanguage]) -> bool {
+        languages
+            .iter()
+            .any(|language| self.languages.contains(language))
+    }
+
+    fn push_if(
+        requirements: &mut Vec<RuntimeRequirement>,
+        needed: bool,
+        requirement: RuntimeRequirement,
+    ) {
+        if needed {
+            requirements.push(requirement);
+        }
+    }
+
+    fn push_interpreter_requirements(
+        &self,
+        runtimes: &HandlerRuntimePrograms,
+        requirements: &mut Vec<RuntimeRequirement>,
+    ) {
+        Self::push_if(
+            requirements,
+            self.uses_any(&[YonLanguage::JavaScript, YonLanguage::TypeScript]),
+            RuntimeRequirement::configured(
                 RuntimeRequirementKey::JavaScript,
                 &runtimes.javascript,
-                "bun",
+                HandlerRuntimePrograms::DEFAULT_JAVASCRIPT,
                 "Yon JavaScript runtime",
                 "YON_JAVASCRIPT_RUNTIME",
-                "Install Bun or correct YON_JAVASCRIPT_RUNTIME.",
+                "Install Node.js or correct YON_JAVASCRIPT_RUNTIME.",
                 ProbeKind::JavaScript {
-                    typescript: has_typescript,
+                    typescript: self.uses(YonLanguage::TypeScript),
                 },
-            ));
-        }
-        if self.languages.contains(&YonLanguage::Python) {
-            let default = if cfg!(windows) { "python" } else { "python3" };
-            requirements.push(configured_requirement(
+            ),
+        );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Python),
+            RuntimeRequirement::configured(
                 RuntimeRequirementKey::Python,
                 &runtimes.python,
-                default,
+                HandlerRuntimePrograms::DEFAULT_PYTHON,
                 "Yon Python runtime",
                 "YON_PYTHON_RUNTIME",
                 "Install Python or correct YON_PYTHON_RUNTIME.",
                 ProbeKind::Python,
-            ));
-        }
-        let has_java = self.languages.contains(&YonLanguage::Java);
-        let has_kotlin = self.languages.contains(&YonLanguage::Kotlin);
-        if has_java || has_kotlin {
-            requirements.push(fixed_requirement(
+            ),
+        );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Ruby),
+            RuntimeRequirement::configured(
+                RuntimeRequirementKey::Ruby,
+                &runtimes.ruby,
+                HandlerRuntimePrograms::DEFAULT_RUBY,
+                "Yon Ruby runtime",
+                "YON_RUBY_RUNTIME",
+                "Install Ruby 3.3 or newer, or correct YON_RUBY_RUNTIME.",
+                ProbeKind::RubyVersion,
+            ),
+        );
+    }
+
+    fn push_system_runtime_requirements(&self, requirements: &mut Vec<RuntimeRequirement>) {
+        let has_java = self.uses(YonLanguage::Java);
+        let has_kotlin = self.uses(YonLanguage::Kotlin);
+        Self::push_if(
+            requirements,
+            self.uses_any(&[YonLanguage::Java, YonLanguage::Groovy, YonLanguage::Kotlin]),
+            RuntimeRequirement::fixed(
                 RuntimeRequirementKey::Java,
                 "java",
                 "Yon Java runtime 'java'",
@@ -205,423 +227,83 @@ impl RuntimeRequirements {
                 ProbeKind::Java {
                     source_launcher: has_java,
                 },
-            ));
-        }
-        if self.languages.contains(&YonLanguage::Php) {
-            requirements.push(fixed_requirement(
+            ),
+        );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Php),
+            RuntimeRequirement::fixed(
                 RuntimeRequirementKey::Php,
-                "php",
-                "Yon PHP runtime 'php'",
-                "Install PHP before starting Tachyon.",
-                ProbeKind::Php,
-            ));
-        }
-        if has_kotlin {
-            requirements.push(fixed_requirement(
+                "php-cgi",
+                RuntimeRequirement::PHP_LABEL,
+                RuntimeRequirement::PHP_HELP,
+                ProbeKind::Version(&["-v"]),
+            ),
+        );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Groovy),
+            RuntimeRequirement::groovy_runtime(),
+        );
+        Self::push_if(
+            requirements,
+            has_kotlin,
+            RuntimeRequirement::fixed(
                 RuntimeRequirementKey::KotlinCompiler,
                 "kotlinc",
-                "Yon Kotlin compiler 'kotlinc'",
-                "Install the Kotlin compiler before starting Tachyon.",
+                RuntimeRequirement::KOTLIN_LABEL,
+                RuntimeRequirement::KOTLIN_HELP,
                 ProbeKind::Version(&["-version"]),
-            ));
-        }
-        if self.languages.contains(&YonLanguage::CSharp) {
-            requirements.push(fixed_requirement(
+            ),
+        );
+        Self::push_if(
+            requirements,
+            self.uses_any(&[YonLanguage::CSharp, YonLanguage::FSharp]),
+            RuntimeRequirement::fixed(
                 RuntimeRequirementKey::Dotnet,
                 "dotnet",
-                "Yon C# runtime 'dotnet'",
-                "Install the .NET SDK and Microsoft.NETCore.App runtime.",
+                RuntimeRequirement::DOTNET_LABEL,
+                RuntimeRequirement::DOTNET_HELP,
                 ProbeKind::DotnetBuild,
-            ));
-        }
-        if self.languages.contains(&YonLanguage::Rust) {
-            requirements.push(fixed_requirement(
-                RuntimeRequirementKey::RustCompiler,
-                "rustc",
-                "Yon Rust compiler 'rustc'",
-                "Install Rust before starting Tachyon.",
-                ProbeKind::Version(&["--version"]),
-            ));
-        }
-        requirements.sort_by_key(RuntimeRequirement::key);
-        Ok(requirements)
-    }
-}
-
-fn configured_requirement(
-    key: RuntimeRequirementKey,
-    program: &Path,
-    default: &str,
-    family: &str,
-    environment: &str,
-    help: &str,
-    probe: ProbeKind,
-) -> RuntimeRequirement {
-    let label = if program == Path::new(default) {
-        format!("{family} '{default}'")
-    } else {
-        format!("configured {family} ({environment})")
-    };
-    RuntimeRequirement {
-        key,
-        program: program.to_path_buf(),
-        command_label: String::from(if program == Path::new(default) {
-            default
-        } else {
-            environment
-        }),
-        label,
-        help: String::from(help),
-        probe,
-    }
-}
-
-fn fixed_requirement(
-    key: RuntimeRequirementKey,
-    program: &str,
-    label: &str,
-    help: &str,
-    probe: ProbeKind,
-) -> RuntimeRequirement {
-    RuntimeRequirement {
-        key,
-        program: PathBuf::from(program),
-        command_label: String::from(program),
-        label: String::from(label),
-        help: String::from(help),
-        probe,
-    }
-}
-
-/// Safe result of one readiness probe.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum RuntimeProbeState {
-    Ready,
-    Missing,
-    Incomplete,
-}
-
-#[derive(Clone)]
-pub(crate) struct RuntimeProbeResult {
-    requirement: RuntimeRequirement,
-    state: RuntimeProbeState,
-}
-
-impl RuntimeProbeResult {
-    pub(crate) fn requirement(&self) -> &RuntimeRequirement {
-        &self.requirement
-    }
-
-    pub(crate) const fn state(&self) -> RuntimeProbeState {
-        self.state
-    }
-}
-
-struct PreparedProbe {
-    command: StdCommand,
-    workspace: Option<tempfile::TempDir>,
-}
-
-impl RuntimeRequirement {
-    fn prepare(&self) -> Result<PreparedProbe, Failure> {
-        let mut workspace = None;
-        let mut command = StdCommand::new(&self.program);
-        match self.probe {
-            ProbeKind::JavaScript { typescript } => {
-                let directory = probe_workspace()?;
-                let name = if typescript { "probe.ts" } else { "probe.js" };
-                let source = directory.path().join(name);
-                let annotation = if typescript {
-                    "function Controller(value: unknown, _context: ClassDecoratorContext) { return value; }\n@Controller\nclass ReadinessController {}\n"
-                } else {
-                    "function Controller(value, _context) { return value; }\n@Controller\nclass ReadinessController {}\n"
-                };
-                write_probe(&source, annotation)?;
-                if !typescript {
-                    command.arg("--no-warnings");
-                }
-                command.arg(&source);
-                workspace = Some(directory);
-            }
-            ProbeKind::Python => {
-                command.args(["-I", "-B", "-c", "class ReadinessController: pass"]);
-            }
-            ProbeKind::Java { source_launcher } => {
-                if source_launcher {
-                    let directory = probe_workspace()?;
-                    let source = directory.path().join("Readiness.java");
-                    write_probe(
-                        &source,
-                        "final class Readiness { public static void main(String[] args) {} }\n",
-                    )?;
-                    command.arg(&source);
-                    workspace = Some(directory);
-                } else {
-                    command.arg("--version");
-                }
-            }
-            ProbeKind::Php => {
-                command.args(["-r", "exit(0);"]);
-            }
-            ProbeKind::Version(arguments) => {
-                command.args(arguments);
-            }
-            ProbeKind::DotnetBuild => {
-                command.arg("--version");
-            }
-            ProbeKind::File => {}
-        }
-        Ok(PreparedProbe { command, workspace })
-    }
-
-    fn prepare_dotnet_build(&self, sdk_major: u32) -> Result<PreparedProbe, Failure> {
-        let workspace = probe_workspace()?;
-        write_probe(
-            &workspace.path().join("Readiness.cs"),
-            "internal static class Readiness { private static void Main() {} }\n",
-        )?;
-        write_probe(
-            &workspace.path().join("Readiness.csproj"),
-            &format!(
-                "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    \
-                 <OutputType>Exe</OutputType>\n    \
-                 <TargetFramework>net{sdk_major}.0</TargetFramework>\n    \
-                 <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    \
-                 <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>\n    \
-                 <NuGetAudit>false</NuGetAudit>\n  \
-                 </PropertyGroup>\n  <ItemGroup><Compile Include=\"Readiness.cs\" /></ItemGroup>\n\
-                 </Project>\n"
             ),
-        )?;
-        write_probe(
-            &workspace.path().join("NuGet.Config"),
-            "<configuration><packageSources><clear /></packageSources></configuration>\n",
-        )?;
-        let mut command = StdCommand::new(&self.program);
-        command
-            .args([
-                "build",
-                "Readiness.csproj",
-                "--nologo",
-                "--verbosity",
-                "quiet",
-                "--disable-build-servers",
-            ])
-            .current_dir(workspace.path());
-        Ok(PreparedProbe {
-            command,
-            workspace: Some(workspace),
-        })
+        );
     }
-}
 
-fn dotnet_sdk_major(output: &crate::external_command::ToolOutput) -> Option<u32> {
-    output.status.success().then_some(())?;
-    String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .split('.')
-        .next()?
-        .parse::<u32>()
-        .ok()
-        .filter(|major| *major > 0)
-}
-
-fn apply_dotnet_build_environment(environment: &EnvironmentPolicy, prepared: &mut PreparedProbe) {
-    environment.apply_std(&mut prepared.command);
-    if let Some(workspace) = &prepared.workspace {
-        prepared
-            .command
-            .env("DOTNET_CLI_HOME", workspace.path())
-            .env("DOTNET_CLI_TELEMETRY_OPTOUT", "1")
-            .env("DOTNET_NOLOGO", "1")
-            .env("DOTNET_SKIP_FIRST_TIME_EXPERIENCE", "1")
-            .env("NUGET_PACKAGES", workspace.path().join("packages"));
+    fn push_ahead_of_time_compilers(&self, requirements: &mut Vec<RuntimeRequirement>) {
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Rust),
+            RuntimeRequirement::fixed(
+                RuntimeRequirementKey::RustCompiler,
+                "cargo",
+                RuntimeRequirement::CARGO_LABEL,
+                RuntimeRequirement::RUST_HELP,
+                ProbeKind::Version(&["--version"]),
+            ),
+        );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Dart),
+            RuntimeRequirement::fixed(
+                RuntimeRequirementKey::DartCompiler,
+                "dart",
+                RuntimeRequirement::DART_LABEL,
+                RuntimeRequirement::DART_HELP,
+                ProbeKind::Version(&["--version"]),
+            ),
+        );
+        Self::push_if(
+            requirements,
+            self.uses(YonLanguage::Go),
+            RuntimeRequirement::fixed(
+                RuntimeRequirementKey::GoCompiler,
+                "go",
+                RuntimeRequirement::GO_LABEL,
+                RuntimeRequirement::GO_HELP,
+                ProbeKind::GoVersion,
+            ),
+        );
     }
-}
-
-fn probe_workspace() -> Result<tempfile::TempDir, Failure> {
-    tempfile::Builder::new()
-        .prefix("tachyon-readiness-")
-        .tempdir()
-        .map_err(|_| readiness_internal("Cannot create the runtime readiness workspace."))
-}
-
-fn write_probe(path: &Path, source: &str) -> Result<(), Failure> {
-    fs::write(path, source)
-        .map_err(|_| readiness_internal("Cannot write the runtime readiness probe."))
-}
-
-fn readiness_internal(message: &str) -> Failure {
-    Failure::one(diagnostic(
-        2101,
-        message,
-        Some(String::from("Check temporary storage and retry startup.")),
-        None,
-    ))
-}
-
-fn probe_state(
-    _requirement: &RuntimeRequirement,
-    result: Result<crate::external_command::ToolOutput, ToolError>,
-) -> RuntimeProbeState {
-    match result {
-        Ok(output) if output.status.success() => RuntimeProbeState::Ready,
-        Err(ToolError::Spawn(error)) if error.kind() == std::io::ErrorKind::NotFound => {
-            RuntimeProbeState::Missing
-        }
-        Ok(_) | Err(_) => RuntimeProbeState::Incomplete,
-    }
-}
-
-async fn probe_dotnet_build(
-    requirement: &RuntimeRequirement,
-    initial: Result<crate::external_command::ToolOutput, ToolError>,
-    environment: &EnvironmentPolicy,
-    deadline: tokio::time::Instant,
-) -> Result<RuntimeProbeState, Failure> {
-    let sdk_major = initial.as_ref().ok().and_then(dotnet_sdk_major);
-    let initial_state = probe_state(requirement, initial);
-    if initial_state != RuntimeProbeState::Ready {
-        return Ok(initial_state);
-    }
-    let Some(sdk_major) = sdk_major else {
-        return Ok(RuntimeProbeState::Incomplete);
-    };
-    let mut prepared = requirement.prepare_dotnet_build(sdk_major)?;
-    apply_dotnet_build_environment(environment, &mut prepared);
-    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-    if remaining.is_zero() {
-        return Ok(RuntimeProbeState::Incomplete);
-    }
-    let mut command = Command::from(prepared.command);
-    Ok(probe_state(
-        requirement,
-        run(&mut command, remaining, PROBE_OUTPUT_BYTES).await,
-    ))
-}
-
-fn probe_dotnet_build_sync(
-    requirement: &RuntimeRequirement,
-    initial: Result<crate::external_command::ToolOutput, ToolError>,
-    environment: &EnvironmentPolicy,
-    deadline: Instant,
-) -> Result<RuntimeProbeState, Failure> {
-    let sdk_major = initial.as_ref().ok().and_then(dotnet_sdk_major);
-    let initial_state = probe_state(requirement, initial);
-    if initial_state != RuntimeProbeState::Ready {
-        return Ok(initial_state);
-    }
-    let Some(sdk_major) = sdk_major else {
-        return Ok(RuntimeProbeState::Incomplete);
-    };
-    let mut prepared = requirement.prepare_dotnet_build(sdk_major)?;
-    apply_dotnet_build_environment(environment, &mut prepared);
-    let remaining = deadline.saturating_duration_since(Instant::now());
-    let result = if remaining.is_zero() {
-        Err(ToolError::TimedOut)
-    } else {
-        run_sync(&mut prepared.command, remaining, PROBE_OUTPUT_BYTES)
-    };
-    Ok(probe_state(requirement, result))
-}
-
-pub(crate) async fn probe_all(
-    requirements: Vec<RuntimeRequirement>,
-    environment: &EnvironmentPolicy,
-) -> Result<Vec<RuntimeProbeResult>, Failure> {
-    let deadline = tokio::time::Instant::now() + PREFLIGHT_DEADLINE;
-    let mut results = Vec::with_capacity(requirements.len());
-    for requirement in requirements {
-        if matches!(requirement.probe, ProbeKind::File) {
-            let state = match fs::symlink_metadata(&requirement.program) {
-                Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {
-                    RuntimeProbeState::Ready
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    RuntimeProbeState::Missing
-                }
-                Ok(_) | Err(_) => RuntimeProbeState::Incomplete,
-            };
-            results.push(RuntimeProbeResult { requirement, state });
-            continue;
-        }
-        let mut prepared = requirement.prepare()?;
-        environment.apply_std(&mut prepared.command);
-        let mut command = Command::from(prepared.command);
-        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-        let result = if remaining.is_zero() {
-            Err(ToolError::TimedOut)
-        } else {
-            run(&mut command, remaining, PROBE_OUTPUT_BYTES).await
-        };
-        let state = if matches!(requirement.probe, ProbeKind::DotnetBuild) {
-            probe_dotnet_build(&requirement, result, environment, deadline).await?
-        } else {
-            probe_state(&requirement, result)
-        };
-        results.push(RuntimeProbeResult { requirement, state });
-    }
-    Ok(results)
-}
-
-pub(crate) fn probe_all_sync(
-    requirements: Vec<RuntimeRequirement>,
-    environment: &EnvironmentPolicy,
-) -> Result<Vec<RuntimeProbeResult>, Failure> {
-    let deadline = Instant::now() + PREFLIGHT_DEADLINE;
-    let mut results = Vec::with_capacity(requirements.len());
-    for requirement in requirements {
-        if matches!(requirement.probe, ProbeKind::File) {
-            let state = match fs::symlink_metadata(&requirement.program) {
-                Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {
-                    RuntimeProbeState::Ready
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    RuntimeProbeState::Missing
-                }
-                Ok(_) | Err(_) => RuntimeProbeState::Incomplete,
-            };
-            results.push(RuntimeProbeResult { requirement, state });
-            continue;
-        }
-        let mut prepared = requirement.prepare()?;
-        environment.apply_std(&mut prepared.command);
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        let result = if remaining.is_zero() {
-            Err(ToolError::TimedOut)
-        } else {
-            run_sync(&mut prepared.command, remaining, PROBE_OUTPUT_BYTES)
-        };
-        let state = if matches!(requirement.probe, ProbeKind::DotnetBuild) {
-            probe_dotnet_build_sync(&requirement, result, environment, deadline)?
-        } else {
-            probe_state(&requirement, result)
-        };
-        results.push(RuntimeProbeResult { requirement, state });
-    }
-    Ok(results)
-}
-
-pub(crate) fn readiness_failure(results: &[RuntimeProbeResult]) -> Option<Failure> {
-    let diagnostics = results
-        .iter()
-        .filter_map(|result| match result.state {
-            RuntimeProbeState::Ready => None,
-            RuntimeProbeState::Missing => Some(diagnostic(
-                2112,
-                format!("Required {} was not found.", result.requirement.label),
-                Some(result.requirement.help.clone()),
-                None,
-            )),
-            RuntimeProbeState::Incomplete => Some(diagnostic(
-                2101,
-                format!("Required {} is not usable.", result.requirement.label),
-                Some(result.requirement.help.clone()),
-                None,
-            )),
-        })
-        .collect::<Vec<_>>();
-    (!diagnostics.is_empty()).then(|| Failure::new(diagnostics))
 }
 
 #[cfg(test)]
@@ -629,21 +311,91 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     #[cfg(unix)]
-    use super::{ProbeKind, RuntimeProbeState, probe_all, probe_all_sync, readiness_failure};
+    use super::{ProbeKind, RuntimeProbe, RuntimeProbeResult, RuntimeProbeState};
     use super::{RuntimeRequirement, RuntimeRequirementKey, RuntimeRequirements};
     #[cfg(unix)]
     use crate::handler::EnvironmentPolicy;
     use crate::handler::{HandlerRuntimePrograms, YonIsolationPolicy};
+    use std::collections::BTreeSet;
     use std::path::PathBuf;
+
+    fn gateway_requirements(programs: &[&str]) -> RuntimeRequirements {
+        RuntimeRequirements {
+            languages: BTreeSet::new(),
+            gateway_programs: programs
+                .iter()
+                .map(|program| (*program).to_owned())
+                .collect(),
+            uses_gateways: true,
+        }
+    }
+
+    #[test]
+    fn gateway_programs_are_required_on_the_path_without_running_them() {
+        let requirements = gateway_requirements(&["sh", "tachyon-missing-gateway-program"])
+            .resolve(
+                &HandlerRuntimePrograms::default(),
+                &YonIsolationPolicy::Process,
+            )
+            .expect("requirements");
+        let environment = crate::handler::EnvironmentPolicy::default();
+        let results = super::RuntimeProbe::all_sync(requirements, &environment).expect("probes");
+        let failure = super::RuntimeProbeResult::failure(&results).expect("missing program");
+        let rendered = failure.to_string();
+        assert!(rendered.contains("TY2112"), "{rendered}");
+        assert!(
+            rendered.contains("tachyon-missing-gateway-program"),
+            "{rendered}"
+        );
+        assert!(!rendered.contains("'sh'"), "{rendered}");
+    }
+
+    #[test]
+    fn windows_preflight_accepts_only_programs_that_spawn_can_run() {
+        let directory = tempfile::tempdir().expect("path directory");
+        for name in ["ruby.cmd", "python3.exe", "node.exe", "tool.exe", "perl"] {
+            std::fs::write(directory.path().join(name), "").expect("candidate");
+        }
+        for (program, runnable) in [
+            ("ruby", false),
+            ("python3.11", false),
+            ("perl", false),
+            ("node", true),
+            ("tool.exe", true),
+        ] {
+            let found = super::RuntimeProbe::windows_executable(
+                directory.path(),
+                std::path::Path::new(program),
+            );
+            assert_eq!(found, runnable, "{program}");
+        }
+    }
+
+    #[test]
+    fn gateways_are_refused_under_firecracker_isolation() {
+        let firecracker = YonIsolationPolicy::from_lookup(|name| match name {
+            "YON_ISOLATION" => Some("firecracker".into()),
+            "YON_FIRECRACKER_DRIVER" => Some("/usr/bin/true".into()),
+            _ => None,
+        })
+        .expect("firecracker policy");
+        let result =
+            gateway_requirements(&[]).resolve(&HandlerRuntimePrograms::default(), &firecracker);
+        let Err(failure) = result else {
+            panic!("gateways need the process backend");
+        };
+        assert!(failure.to_string().contains("TY2010"), "{failure}");
+    }
 
     #[test]
     fn language_requirements_are_complete_deduplicated_and_safe() {
         let requirements = RuntimeRequirements::from_extensions([
-            "js", "ts", "py", "java", "php", "kt", "cs", "rs",
+            "js", "ts", "py", "java", "groovy", "php", "kt", "cs", "fs", "rs", "go", "rb",
         ]);
         let runtimes = HandlerRuntimePrograms {
             javascript: PathBuf::from("/secret/canary-bun"),
             python: PathBuf::from("/secret/canary-python"),
+            ruby: PathBuf::from("/secret/canary-ruby"),
         };
         let resolved = requirements
             .resolve(&runtimes, &YonIsolationPolicy::Process)
@@ -657,39 +409,126 @@ mod tests {
             vec![
                 RuntimeRequirementKey::JavaScript,
                 RuntimeRequirementKey::Python,
+                RuntimeRequirementKey::Ruby,
                 RuntimeRequirementKey::Java,
+                RuntimeRequirementKey::GroovyRuntime,
                 RuntimeRequirementKey::Php,
                 RuntimeRequirementKey::KotlinCompiler,
                 RuntimeRequirementKey::Dotnet,
                 RuntimeRequirementKey::RustCompiler,
+                RuntimeRequirementKey::GoCompiler,
             ]
         );
         for value in &resolved {
             assert!(!value.label().contains("secret"), "{}", value.label());
             assert!(!value.help().contains("secret"), "{}", value.help());
         }
-        assert_eq!(
-            keys.iter()
-                .filter(|key| **key == RuntimeRequirementKey::Java)
-                .count(),
-            1
-        );
-        assert_eq!(
-            keys.iter()
-                .filter(|key| **key == RuntimeRequirementKey::JavaScript)
-                .count(),
-            1
-        );
+        assert_eq!(count_key(&keys, RuntimeRequirementKey::Java), 1);
+        assert_eq!(count_key(&keys, RuntimeRequirementKey::JavaScript), 1);
+    }
+
+    fn count_key(keys: &[RuntimeRequirementKey], wanted: RuntimeRequirementKey) -> usize {
+        keys.iter().filter(|key| **key == wanted).count()
+    }
+
+    #[test]
+    fn go_must_be_version_1_27_or_newer() {
+        for (output, supported) in [
+            ("go version go1.27.1 darwin/arm64", true),
+            ("go version go1.27 linux/amd64", true),
+            ("go version go1.30rc1 linux/amd64", true),
+            ("go version go1.26.4 linux/amd64", false),
+            ("go version go1.9 linux/amd64", false),
+            ("not a go version", false),
+        ] {
+            assert_eq!(
+                super::RuntimeProbe::supports_go_version(output),
+                supported,
+                "{output}"
+            );
+        }
+    }
+
+    #[test]
+    fn ruby_must_be_version_3_3_or_newer() {
+        for (output, supported) in [
+            ("3.3.0", true),
+            ("3.4.7", true),
+            ("4.0.6", true),
+            ("3.2.9", false),
+            ("2.7.8", false),
+            ("not a ruby version", false),
+            ("", false),
+        ] {
+            assert_eq!(
+                super::RuntimeProbe::supports_ruby_version(output),
+                supported,
+                "{output}"
+            );
+        }
     }
 
     #[test]
     fn unknown_extensions_require_nothing() {
         assert_eq!(
-            RuntimeRequirements::from_extensions(["rb", "html"])
+            RuntimeRequirements::from_extensions(["pl", "html"])
                 .languages
                 .len(),
             0
         );
+    }
+
+    fn go_requirement(program: PathBuf) -> RuntimeRequirement {
+        let requirements = RuntimeRequirements::from_extensions(["go"])
+            .resolve(
+                &HandlerRuntimePrograms::default(),
+                &YonIsolationPolicy::Process,
+            )
+            .expect("requirements");
+        let mut requirement = requirements.into_iter().next().expect("go requirement");
+        requirement.program = program;
+        requirement
+    }
+
+    #[test]
+    fn a_missing_go_fails_preflight_with_the_missing_toolchain_error() {
+        let requirement = go_requirement(PathBuf::from("tachyon-missing-go-compiler"));
+        let environment = crate::handler::EnvironmentPolicy::default();
+        let results =
+            super::RuntimeProbe::all_sync(vec![requirement], &environment).expect("probe");
+        let rendered = super::RuntimeProbeResult::failure(&results)
+            .expect("missing go")
+            .to_string();
+        assert!(rendered.contains("TY2112"), "{rendered}");
+        assert!(
+            rendered.contains("Required Yon Go compiler 'go' was not found."),
+            "{rendered}"
+        );
+        assert!(rendered.contains("Install Go 1.27 or newer"), "{rendered}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_old_go_is_not_usable() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempfile::tempdir().expect("fake go directory");
+        let old_go = directory.path().join("go");
+        std::fs::write(
+            &old_go,
+            "#!/bin/sh\necho 'go version go1.26.4 linux/amd64'\n",
+        )
+        .expect("fake go");
+        std::fs::set_permissions(&old_go, std::fs::Permissions::from_mode(0o700))
+            .expect("permissions");
+        let environment = EnvironmentPolicy::default();
+        let results =
+            RuntimeProbe::all_sync(vec![go_requirement(old_go)], &environment).expect("probe");
+        assert_eq!(results[0].state(), RuntimeProbeState::Incomplete);
+        let rendered = RuntimeProbeResult::failure(&results)
+            .expect("old go")
+            .to_string();
+        assert!(rendered.contains("TY2101"), "{rendered}");
     }
 
     #[cfg(unix)]
@@ -716,14 +555,14 @@ mod tests {
         };
         let environment = EnvironmentPolicy::default();
 
-        let asynchronous = probe_all(vec![requirement.clone()], &environment)
+        let asynchronous = RuntimeProbe::all(vec![requirement.clone()], &environment)
             .await
             .expect("asynchronous probe");
         let synchronous =
-            probe_all_sync(vec![requirement], &environment).expect("synchronous probe");
+            RuntimeProbe::all_sync(vec![requirement], &environment).expect("synchronous probe");
         for results in [&asynchronous, &synchronous] {
             assert_eq!(results[0].state(), RuntimeProbeState::Incomplete);
-            let failure = readiness_failure(results).expect("readiness failure");
+            let failure = RuntimeProbeResult::failure(results).expect("readiness failure");
             let rendered = failure.to_string();
             assert!(rendered.contains("TY2101"), "{rendered}");
             assert!(

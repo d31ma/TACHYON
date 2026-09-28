@@ -1,0 +1,5 @@
+client/pages/
+  tac.html          -> /
+  docs/tac.html     -> /docs (shell with <slot />)
+  docs/_topic/
+    tac.html        -> /docs/:topic

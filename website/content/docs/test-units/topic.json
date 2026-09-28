@@ -1,0 +1,12 @@
+{
+  "title": "Test units",
+  "summary": "A test unit is a class in `server/tests` or `client/tests` whose name ends with `Test`. `ty test` finds and runs every test unit. `ty preview` does not start while a public method of an annotated class has no test.",
+  "before": [
+    "first-app"
+  ],
+  "sections": [
+    {
+      "include": "../operations/test-units/section.json"
+    }
+  ]
+}

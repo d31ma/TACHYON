@@ -1,0 +1,27 @@
+{
+  "title": "Your first app",
+  "summary": "Build a small app in five steps. First make a page. Then add a service with a field that updates the page. Then add a Yon controller that returns a model, and call the controller from the page. Last, test the service and the controller. Each step shows every file, where it goes, and what you see.",
+  "before": [
+    "install"
+  ],
+  "sections": [
+    {
+      "include": "make-a-page/section.json"
+    },
+    {
+      "include": "add-a-service/section.json"
+    },
+    {
+      "include": "add-a-controller/section.json"
+    },
+    {
+      "include": "call-the-server/section.json"
+    },
+    {
+      "include": "add-tests/section.json"
+    },
+    {
+      "include": "next-steps/section.json"
+    }
+  ]
+}

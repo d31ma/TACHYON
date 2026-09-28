@@ -1,0 +1,18 @@
+{
+  "title": "Cookbook",
+  "summary": "Practical recipes for building Tachyon apps with a frontend-first workflow (you build the client first). This website has only a frontend, so you can try these patterns with Tac services before a Yon server exists.",
+  "sections": [
+    {
+      "include": "frontend-only-prototype/section.json"
+    },
+    {
+      "include": "signal-driven-ui/section.json"
+    },
+    {
+      "include": "middleware-in-any-language/section.json"
+    },
+    {
+      "include": "adding-behavior-for-native-platforms/section.json"
+    }
+  ]
+}

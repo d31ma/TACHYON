@@ -12,8 +12,6 @@ pub(crate) struct SourceRange {
 pub(crate) struct TemplateProgram {
     pub(crate) source_path: String,
     pub(crate) nodes: Vec<TemplateNode>,
-    pub(crate) is_document: bool,
-    pub(crate) has_doctype: bool,
 }
 
 impl TemplateProgram {
@@ -71,12 +69,10 @@ pub(crate) enum TemplateNodeKind {
         step: Expression,
         children: Vec<TemplateNode>,
     },
-    /// `<switch :value>`, desugared into a conditional chain after parsing.
     Switch {
         value: Expression,
         children: Vec<TemplateNode>,
     },
-    /// `<case :when>` or `<case default>`, always a child of a `<switch>`.
     Case {
         when: Option<Expression>,
         children: Vec<TemplateNode>,
@@ -103,6 +99,19 @@ impl TemplateNodeKind {
             Self::Text(_) | Self::Comment(_) | Self::Slot => None,
         }
     }
+
+    pub(crate) fn children_mut(&mut self) -> Option<&mut Vec<TemplateNode>> {
+        match self {
+            Self::Element { children, .. }
+            | Self::Conditional { children, .. }
+            | Self::Iteration { children, .. }
+            | Self::CountedIteration { children, .. }
+            | Self::Switch { children, .. }
+            | Self::Case { children, .. }
+            | Self::Component { children, .. } => Some(children),
+            Self::Text(_) | Self::Comment(_) | Self::Slot => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -116,15 +125,9 @@ pub(crate) enum AttributeValue {
     Static(String),
     Dynamic(Expression),
     Control(String),
-    /// An `on:<event>` binding, serialised once the render scope is known.
     Event(EventBinding),
 }
 
-/// One parsed `on:<event>` binding.
-///
-/// A binding either calls an exported handler or assigns to a field on the
-/// island's companion instance. Assignment is only meaningful where an
-/// instance exists, which the compiler checks.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct EventBinding {
     pub(crate) handler: String,
@@ -132,22 +135,16 @@ pub(crate) struct EventBinding {
     pub(crate) assign: Option<Assignment>,
 }
 
-/// The target and operator of an assigning binding.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Assignment {
     pub(crate) target: String,
     pub(crate) operator: String,
 }
 
-/// One argument of an event binding.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum EventArgument {
-    /// A literal, already in JSON form.
     Literal(String),
-    /// A dotted path read off the dispatched event; empty means the event.
     EventPath(String),
-    /// A template expression, evaluated where the binding is rendered, so a
-    /// loop can pass the item it is iterating.
     Scope(Expression),
 }
 
@@ -155,6 +152,22 @@ pub(crate) enum EventArgument {
 pub(crate) enum TextPart {
     Literal(String, SourceRange),
     Interpolation(Expression, SourceRange),
+}
+
+impl TextPart {
+    fn is_blank(&self) -> bool {
+        match self {
+            Self::Literal(value, _) => value.trim().is_empty(),
+            Self::Interpolation(_, _) => false,
+        }
+    }
+
+    fn view_text(&self) -> String {
+        match self {
+            Self::Literal(value, _) => value.clone(),
+            Self::Interpolation(expression, _) => format!("{{{}}}", expression.source()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -272,19 +285,7 @@ fn lower_node(node: &TemplateNode) -> Option<ViewNode> {
             attributes: lower_attributes(attributes),
             children: lower_siblings(children),
         }),
-        TemplateNodeKind::Text(parts) => Some(ViewNode::Text {
-            value: parts
-                .iter()
-                .map(|part| match part {
-                    TextPart::Literal(value, _) => value.clone(),
-                    TextPart::Interpolation(expression, _) => {
-                        format!("{{{}}}", expression.source())
-                    }
-                })
-                .collect(),
-        }),
-        // Switch and Case are desugared into a conditional chain during
-        // parsing, so neither reaches the view IR.
+        TemplateNodeKind::Text(parts) => Some(lower_text(parts)),
         TemplateNodeKind::Comment(_)
         | TemplateNodeKind::Conditional { .. }
         | TemplateNodeKind::Switch { .. }
@@ -304,32 +305,8 @@ fn lower_node(node: &TemplateNode) -> Option<ViewNode> {
             properties,
             hydrate,
             children,
-        } => {
-            let mut properties = lower_attributes(properties);
-            if let Some(policy) = hydrate {
-                properties.insert(String::from("hydrate"), String::from(policy.name()));
-            }
-            Some(ViewNode::Component {
-                name: name.clone(),
-                properties,
-                children: lower_siblings(children),
-            })
-        }
-        TemplateNodeKind::CountedIteration {
-            binding,
-            from,
-            comparison,
-            to,
-            step,
-            children,
-        } => Some(ViewNode::CountedIteration {
-            binding: binding.clone(),
-            from: String::from(from.source()),
-            comparison: *comparison,
-            to: String::from(to.source()),
-            step: String::from(step.source()),
-            body: lower_siblings(children),
-        }),
+        } => Some(lower_component(name, properties, *hydrate, children)),
+        TemplateNodeKind::CountedIteration { .. } => Some(lower_counted_iteration(&node.kind)),
         TemplateNodeKind::Slot => Some(ViewNode::Element {
             tag: String::from("slot"),
             attributes: BTreeMap::new(),
@@ -338,27 +315,72 @@ fn lower_node(node: &TemplateNode) -> Option<ViewNode> {
     }
 }
 
+fn lower_text(parts: &[TextPart]) -> ViewNode {
+    let mut value = String::new();
+    for part in parts {
+        value.push_str(&part.view_text());
+    }
+    ViewNode::Text { value }
+}
+
+fn lower_component(
+    name: &str,
+    properties: &BTreeMap<String, TemplateAttribute>,
+    hydrate: Option<HydrationPolicy>,
+    children: &[TemplateNode],
+) -> ViewNode {
+    let mut properties = lower_attributes(properties);
+    if let Some(policy) = hydrate {
+        properties.insert(String::from("hydrate"), String::from(policy.name()));
+    }
+    ViewNode::Component {
+        name: String::from(name),
+        properties,
+        children: lower_siblings(children),
+    }
+}
+
+fn lower_counted_iteration(kind: &TemplateNodeKind) -> ViewNode {
+    let TemplateNodeKind::CountedIteration {
+        binding,
+        from,
+        comparison,
+        to,
+        step,
+        children,
+    } = kind
+    else {
+        unreachable!("caller matched a counted iteration")
+    };
+    ViewNode::CountedIteration {
+        binding: binding.clone(),
+        from: String::from(from.source()),
+        comparison: *comparison,
+        to: String::from(to.source()),
+        step: String::from(step.source()),
+        body: lower_siblings(children),
+    }
+}
+
 fn lower_attributes(attributes: &BTreeMap<String, TemplateAttribute>) -> BTreeMap<String, String> {
-    attributes
-        .iter()
-        .map(|(name, attribute)| match &attribute.value {
+    let mut lowered = BTreeMap::new();
+    for (name, attribute) in attributes {
+        let (name, value) = match &attribute.value {
             AttributeValue::Static(value) => (name.clone(), value.clone()),
             AttributeValue::Dynamic(expression) => {
                 (format!(":{name}"), String::from(expression.source()))
             }
             AttributeValue::Control(value) => (format!(":{name}"), value.clone()),
-            // The view IR records the authored binding, not its payload.
             AttributeValue::Event(binding) => (name.clone(), binding.handler.clone()),
-        })
-        .collect()
+        };
+        lowered.insert(name, value);
+    }
+    lowered
 }
 
 pub(crate) fn is_trivia(node: &TemplateNode) -> bool {
     match &node.kind {
-        TemplateNodeKind::Text(parts) => parts.iter().all(|part| match part {
-            TextPart::Literal(value, _) => value.trim().is_empty(),
-            TextPart::Interpolation(_, _) => false,
-        }),
+        TemplateNodeKind::Text(parts) => parts.iter().all(TextPart::is_blank),
         TemplateNodeKind::Comment(_) => true,
         _ => false,
     }

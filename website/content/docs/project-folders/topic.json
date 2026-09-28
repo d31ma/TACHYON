@@ -1,0 +1,36 @@
+{
+  "title": "Project folders and roles",
+  "summary": "Tachyon finds your code by its folder and its file name, so you write no setup code. A role is the job of a class, such as service or controller. The role decides the folder. A file in the wrong folder fails with `TY1310` before the app runs. Role types for `Allow`, such as `Admin`, are empty classes in `server/roles`.",
+  "before": [
+    "first-app"
+  ],
+  "sections": [
+    {
+      "include": "../introduction/layout/section.json"
+    },
+    {
+      "include": "generated-and-saved-folders/section.json"
+    },
+    {
+      "include": "../strict-annotation-layout/roles-decide-the-folder-modifiers-do-not/section.json"
+    },
+    {
+      "include": "../strict-annotation-layout/file-names-follow-the-class/section.json"
+    },
+    {
+      "include": "../yon/strict-role-folders-and-file-names/section.json"
+    },
+    {
+      "include": "../strict-annotation-layout/models-types-without-a-role/section.json"
+    },
+    {
+      "include": "../strict-annotation-layout/yon-eleven-language-implementations/section.json"
+    },
+    {
+      "include": "../strict-annotation-layout/tac-eight-service-languages/section.json"
+    },
+    {
+      "include": "../strict-annotation-layout/moving-role-types-and-compiler-checks/section.json"
+    }
+  ]
+}

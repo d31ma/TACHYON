@@ -1,0 +1,328 @@
+{
+  "heading": "Caching: Yon",
+  "axis": "language",
+  "summary": "CacheSettings declares the policy on the type. Cached, UpdateCache and ClearCache then do three different jobs with the same key. Cached is rejected on a controller route method, so the policy goes on a service that the controller calls.",
+  "body": "A cache keeps a copy of a result, so the next read does not need to run the method again. CacheSettings takes exactly name, ttlMs, maxBytes and maxEntries. Its name selects configuration.caches.catalog. ttlMs is how long an entry lives, in milliseconds. Cached runs a read method in these steps. It checks authorization. It builds a key of limited size from the parameters marked @CacheKey, or from every parameter when none is marked. It looks up the key. On a miss (the key is not in the cache), it runs the method. Then it stores the JSON result if the method succeeded. UpdateCache goes on a method that changes data. It always runs that method, and then it writes the result under the target's key. ClearCache also goes on a method that changes data. It deletes that key, but only after the method succeeds. UpdateCache and ClearCache both name a Cached method in the same class. Their parameters are matched by name to the key parameters of that method, so a parameter named sku fills the sku key. A missing name fails the build. So reading, updating and removing an entry all use one key. Cached is not allowed on a Yon route method, and this is on purpose. Check who the user is and check the request in the controller. Then call a service that can be cached. That is why CacheSettings is on the shared server/services/CatalogService, and the controller only calls it. A Cached route method fails the build. The service reaches its adapter through a behavior context that it owns. Yon builds a new set of instances for each call, so the context that OnStart opens is request-scoped. Cached, UpdateCache and ClearCache methods are asynchronous in JavaScript, TypeScript, Python, C# and Dart. They are synchronous in Java, Groovy, Kotlin, PHP, Rust, Go and Ruby. Rust cannot assign a BehaviorContext through &self, so its managed provider opens the context in new(). Go has no constructor, so its provider opens the context in an OnStart method. C# calls a route method synchronously, so its controller waits for the pipeline once. GET /catalog returns first and repeat with the same read count, because the cache answered the second call. written holds the value that UpdateCache stored, without a call to find. refreshed holds a higher count, because ClearCache removed the entry. The in-memory adapter here lives only as long as its owner. An application that needs to reuse cached values across requests must choose a shared external cache.",
+  "files": [
+    {
+      "name": "server/setups/CatalogSetup.js",
+      "code": {
+        "file": "server/setups/CatalogSetup.js"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.js",
+      "code": {
+        "file": "server/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.js",
+      "code": {
+        "file": "server/controllers/CatalogController.js"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.ts",
+      "code": { "file": "server/models/CacheReport.ts" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.ts",
+      "code": {
+        "file": "server/setups/CatalogSetup.ts"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.ts",
+      "code": {
+        "file": "server/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.ts",
+      "code": {
+        "file": "server/controllers/CatalogController.ts"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.py",
+      "code": { "file": "server/models/CacheReport.py" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.py",
+      "code": {
+        "file": "server/setups/CatalogSetup.py"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.py",
+      "code": {
+        "file": "server/services/CatalogService.py"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.py",
+      "code": {
+        "file": "server/controllers/CatalogController.py"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.php",
+      "code": { "file": "server/models/CacheReport.php" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.php",
+      "code": {
+        "file": "server/setups/CatalogSetup.php"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.php",
+      "code": {
+        "file": "server/services/CatalogService.php"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.php",
+      "code": {
+        "file": "server/controllers/CatalogController.php"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.rb",
+      "code": { "file": "server/models/CacheReport.rb" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rb",
+      "code": {
+        "file": "server/setups/CatalogSetup.rb"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.rb",
+      "code": {
+        "file": "server/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.rb",
+      "code": {
+        "file": "server/controllers/CatalogController.rb"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.java",
+      "code": { "file": "server/models/CacheReport.java" }
+    },
+    {
+      "name": "server/models/CacheReport.groovy",
+      "code": { "file": "server/models/CacheReport.groovy" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.java",
+      "code": {
+        "file": "server/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.groovy",
+      "code": {
+        "file": "server/setups/CatalogSetup.groovy"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.java",
+      "code": {
+        "file": "server/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.groovy",
+      "code": {
+        "file": "server/services/CatalogService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.java",
+      "code": {
+        "file": "server/controllers/CatalogController.java"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.groovy",
+      "code": {
+        "file": "server/controllers/CatalogController.groovy"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.kt",
+      "code": { "file": "server/models/CacheReport.kt" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.kt",
+      "code": {
+        "file": "server/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.kt",
+      "code": {
+        "file": "server/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.kt",
+      "code": {
+        "file": "server/controllers/CatalogController.kt"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.cs",
+      "code": { "file": "server/models/CacheReport.cs" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.cs",
+      "code": {
+        "file": "server/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.cs",
+      "code": {
+        "file": "server/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.cs",
+      "code": {
+        "file": "server/controllers/CatalogController.cs"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.rs",
+      "code": { "file": "server/models/CacheReport.rs" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rs",
+      "code": {
+        "file": "server/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.rs",
+      "code": {
+        "file": "server/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.rs",
+      "code": {
+        "file": "server/controllers/CatalogController.rs"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.dart",
+      "code": { "file": "server/models/CacheReport.dart" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.dart",
+      "code": {
+        "file": "server/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.dart",
+      "code": {
+        "file": "server/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.dart",
+      "code": {
+        "file": "server/controllers/CatalogController.dart"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.py",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.py"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.php",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.php"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.java",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.java"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.groovy",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.groovy"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.kt",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.kt"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.cs",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.cs"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.rs",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.rs"
+      }
+    },
+    {
+      "name": "server/models/CacheReport.go",
+      "code": { "file": "server/models/CacheReport.go" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.go",
+      "code": {
+        "file": "server/setups/CatalogSetup.go"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.go",
+      "code": {
+        "file": "server/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.go",
+      "code": {
+        "file": "server/controllers/CatalogController.go"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.go",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.go"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.dart",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.dart"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.rb",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.rb"
+      }
+    }
+  ]
+}

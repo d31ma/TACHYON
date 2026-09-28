@@ -1,0 +1,26 @@
+[
+  {
+    "title": "One binary",
+    "body": "The `ty` command is one program file. Your application still needs the toolchain (the compiler and tools) for each language it uses. C# web services include the .NET browser runtime, and Go web services include the Go runtime."
+  },
+  {
+    "title": "Six targets",
+    "body": "A target is a place where your app runs. Build for the browser, macOS, Windows, Linux, Android and iOS from one project with `ty build --target`."
+  },
+  {
+    "title": "Clear routing",
+    "body": "Folders define the page paths in `client/pages`. On the server, annotations on controller classes in `server/controllers` define the REST routes."
+  },
+  {
+    "title": "Typed controllers",
+    "body": "In Yon (the backend part of Tachyon), a controller answers requests. `@GetRoute`, `@PostRoute` and the other route annotations mark its methods. Its argument and return types check the data. Helper code needs no framework annotations. Annotated classes follow strict rules for role names and folders."
+  },
+  {
+    "title": "Native services",
+    "body": "Swift, Kotlin, C# or Rust services compile for their target and link into the host. Rust and C# also run in the browser as WebAssembly, and so do Go services. The WebView calls their members through a bridge that is limited to the current route. The WebView is the browser view inside the app."
+  },
+  {
+    "title": "Web standards",
+    "body": "Views use HTML and brace expressions (code inside { and }). Tachyon adds no virtual DOM (an in-memory copy of the page) and no client router. Compiled services use their language's own toolchain."
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "heading": "Browser services: JavaScript and TypeScript",
+  "body": "Tachyon registers listeners and injects resources before OnStart runs. OnStart runs after the element exists. After listeners and template actions run, the view renders again automatically. Tachyon injects a resource by the field's name. Each name is the one Spring gives to its closest equivalent (ADR 0038; an ADR is an architecture decision record). The names are view (the element), lifecycle, taskScheduler, cacheManager, resourceLoader and applicationEventPublisher. lifecycle is an AbortSignal that is aborted on disposal, which means cleanup. An applicationEventPublisher field with no initial value receives that resource even without the annotation. Use lifecycle for cancellation. Use taskScheduler.render() for external callbacks (callbacks from code outside Tachyon). Use cacheManager.invalidate(keys, prefixes) for the JSON cache. Use resourceLoader.precache(urls) and its clearAssetCache() method for offline assets. Constructors must not use these resources. Retention and replay are off unless you turn them on. Hooks apply to services and to the providers that Tachyon manages for them. They do not apply to other instances that you create yourself. A Dart service is a browser service too. But its only resource is the ApplicationEventPublisher. Its example is under Compiled services below.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/count/tac.html",
+      "code": { "file": "client/components/catalog/count/tac.html" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": { "file": "client/services/CatalogService.ts" }
+    },
+    {
+      "name": "client/models/CatalogCount.ts",
+      "code": { "file": "client/models/CatalogCount.ts" }
+    }
+  ]
+}

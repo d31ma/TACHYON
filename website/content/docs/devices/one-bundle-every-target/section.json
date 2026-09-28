@@ -1,0 +1,5 @@
+{
+  "heading": "One bundle, every target",
+  "body": "Every non-web target contains the platform's own WebView and loads the application's own bundle (its built files). Tachyon does not turn tags into native controls. So there is no fallback (a second way to show a tag) to think about. The bundle renders the same way on every target.\n\nIn the past, Tachyon converted a Tac view into SwiftUI, Compose and WinUI controls. Where it had no adapter for a tag, it used a web view instead. In real designs, the web view showed almost everything. The other parts looked very different from the rest. Tachyon removed this approach. It also removed the `--render-mode` flag and `TAC_RENDER_MODE`. Tachyon rejects them if you pass them.",
+  "code": { "file": "example.sh" }
+}

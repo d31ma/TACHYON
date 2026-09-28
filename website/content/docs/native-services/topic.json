@@ -1,0 +1,33 @@
+{
+  "title": "Rust, Go and C# in the browser",
+  "summary": "A service written in Rust, Go or C# can run in the browser as WebAssembly, a compiled format that browsers run. In a desktop or mobile app, some of these services run as native code instead.",
+  "before": [
+    "service-languages"
+  ],
+  "sections": [
+    {
+      "include": "../polyglot/rust-go-and-c-on-the-web/section.json"
+    },
+    {
+      "include": "../polyglot/what-each-service-language-can-use-in-the-browser/section.json"
+    },
+    {
+      "include": "../polyglot/clock-and-secure-random-numbers/section.json"
+    },
+    {
+      "include": "../polyglot/connectivity-visibility-and-preferences/section.json"
+    },
+    {
+      "include": "../polyglot/clipboard-share-notifications-and-geolocation/section.json"
+    },
+    {
+      "include": "../polyglot/browser-apis-in-test-units/section.json"
+    },
+    {
+      "include": "../polyglot/what-a-native-service-reaches/section.json"
+    },
+    {
+      "include": "../native-rendering/services-are-compiled-in/section.json"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "mount",
+  "title": "When a component activates",
+  "summary": "A component activates when it starts to run in the browser. This can happen when the page loads, when the browser is idle, or when the component becomes visible. It can also happen when the user interacts with it, or never. The services that its view names start at the same time. The page itself has no activation schedule. It only places components, and each component follows its own schedule.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/product/card/tac.html",
+      "code": { "file": "client/components/product/card/tac.html" }
+    },
+    {
+      "name": "client/services/CardService.js",
+      "code": { "file": "client/services/CardService.js" }
+    }
+  ],
+  "verify": "tac-component"
+}

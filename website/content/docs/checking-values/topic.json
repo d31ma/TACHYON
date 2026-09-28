@@ -1,0 +1,16 @@
+{
+  "title": "Checking values",
+  "summary": "Yon checks the values that a caller sends before your method runs. A wrong value gets an error answer, and your method never sees it.",
+  "before": [
+    "controllers",
+    "models"
+  ],
+  "sections": [
+    {
+      "include": "../routing/validation/section.json"
+    },
+    {
+      "include": "../yon/checking-values-and-method-arguments/section.json"
+    }
+  ]
+}

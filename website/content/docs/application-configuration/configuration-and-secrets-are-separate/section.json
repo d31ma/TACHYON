@@ -1,0 +1,30 @@
+{
+  "heading": "Configuration and secrets are separate",
+  "body": "Tachyon uses two configuration files, one for each realm (Tac for the client, Yon for the server). client/manifest.json is the web app manifest. A browser uses it to install the app. Its tac member is the public configuration for Tac. The whole file goes to every visitor. server/application.json belongs only to Yon. The file itself is the yon namespace. Yon reads its members as yon.* paths, with no root key. For example, server.port is yon.server.port. If this file still contains a tac section or a yon wrapper, the build stops. Its message says what to do. JSON keys use lowercase letters and digits. In a TAC_ or YON_ name, each underscore stands for one level of nested key. For example, YON_CATALOG_PAGE_SIZE maps to yon.catalog.page.size. The JSON files refuse secret fields and URLs that contain credentials. Runtime secrets go in .env. They use only YON_ names and stay literal strings (Tachyon does not change them). They never enter client bundles. The tac member of the manifest follows the same key rules. It also refuses names that look like secrets. When yon.datasource or yon.redis is configured, Yon starts that managed resource before it accepts requests. The PostgreSQL example needs a running database and the .env credentials below. You create the schema and run migrations yourself. Tac never receives database connections. The build refuses a value that looks like a password, a token or a key in the code, a template or either public file (`TY1324`), and it names .env instead.",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "server/application.json",
+      "code": {
+        "file": "server/application.json"
+      }
+    },
+    {
+      "name": ".env",
+      "code": {
+        "file": "example.env"
+      }
+    },
+    {
+      "name": ".gitignore",
+      "code": {
+        "file": "example.gitignore"
+      }
+    }
+  ]
+}

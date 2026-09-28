@@ -1,0 +1,11 @@
+@RequestRoute("/api/notes")
+@Public
+export class NoteController {
+  @Needs
+  readonly noteStore!: NoteStore;
+
+  @GetRoute
+  getNotes(): Promise<unknown[]> {
+    return this.noteStore.countNotes();
+  }
+}

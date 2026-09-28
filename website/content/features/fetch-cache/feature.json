@@ -1,0 +1,36 @@
+{
+  "id": "fetch-cache",
+  "title": "Caching public reads",
+  "summary": "The manifest's `tac.cache` declares service-worker policies for public reads, grouped by path. A service worker is a browser script that can answer requests from a cache. API caching requires `credentials: 'omit'`, no `Authorization` header, and a cacheable response. Responses with `private`, `no-store` or `Vary` are not cached. This worker cache is separate from the optional, limited IndexedDB JSON cache of `HTTPClient`. A successful write invalidates (marks as out of date) the worker reads that it affects. This example uses low-level fetch on purpose for its cacheable read. Managed `HTTPClient` reads are network-only (`no-store`) by default. Their optional IndexedDB policies still skip the worker. Writes use the injected declarative `HTTPClient`.",
+  "group": "Browser storage",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/products/page/tac.html",
+      "code": { "file": "client/components/products/page/tac.html" }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/clients/ProductsClient.js",
+      "code": { "file": "client/clients/ProductsClient.js" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    },
+    {
+      "name": "client/clients/ProductsClient.ts",
+      "code": { "file": "client/clients/ProductsClient.ts" }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": { "file": "client/services/CatalogService.ts" }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 .docs-toc__heading {
-  font-size: .75rem;
+  font-size: var(--step-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -11,7 +11,8 @@
   display: flex;
   flex-direction: column;
   gap: .125rem;
-  font-size: .8125rem;
+  font-size: var(--step-sm);
+  line-height: 1.5;
 }
 
 .docs-toc__link {

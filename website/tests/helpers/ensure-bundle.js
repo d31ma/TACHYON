@@ -1,4 +1,6 @@
 // @ts-check
+import { SiteArtifacts } from '../../../scripts/site-artifacts.mjs'
+import { CargoArtifacts } from '../../../scripts/cargo-artifacts.mjs'
 import { chmod, lstat, mkdir, rm, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { tmpdir, userInfo } from 'node:os'
@@ -7,10 +9,8 @@ import { join, resolve } from 'node:path'
 const PROJECT_ROOT = resolve(import.meta.dir, '../..')
 const user = process.getuid?.() ?? createHash('sha256').update(userInfo().username).digest('hex').slice(0, 12)
 const LOCK_ROOT = join(tmpdir(), `tachyon-website-tests-${user}`)
-// A synced folder can recreate a deleted empty lock. Keep coordination local
-// to this user and distinguish independent checkouts by their absolute path.
 const LOCK_DIR = join(LOCK_ROOT, createHash('sha256').update(PROJECT_ROOT).digest('hex').slice(0, 24))
-const WEB_DIST = `${PROJECT_ROOT}/dist/web`
+const WEB_DIST = SiteArtifacts.web(PROJECT_ROOT)
 const REQUIRED_OUTPUTS = [
     `${WEB_DIST}/index.html`,
     `${WEB_DIST}/docs/index.html`,
@@ -78,15 +78,15 @@ async function rustupWhich(tool) {
 
 async function runBundle() {
     const configured = process.env.TAC_BIN
-    const releaseBinary = `${PROJECT_ROOT}/../target/release/ty`
-    const debugBinary = `${PROJECT_ROOT}/../target/debug/ty`
+    const releaseBinary = CargoArtifacts.path('release/ty')
+    const debugBinary = CargoArtifacts.path('debug/ty')
     const command = configured
-        ? [configured, 'bundle', '.']
+        ? [configured, 'bundle', '.', '--out-dir', WEB_DIST]
         : await fileExists(releaseBinary)
-            ? [releaseBinary, 'bundle', '.']
+            ? [releaseBinary, 'bundle', '.', '--out-dir', WEB_DIST]
             : await fileExists(debugBinary)
-                ? [debugBinary, 'bundle', '.']
-                : [await rustupWhich('cargo'), 'run', '--release', '--locked', '--manifest-path', '../Cargo.toml', '--', 'bundle', '.']
+                ? [debugBinary, 'bundle', '.', '--out-dir', WEB_DIST]
+                : [await rustupWhich('cargo'), 'run', '--release', '--locked', '--manifest-path', '../Cargo.toml', '--', 'bundle', '.', '--out-dir', WEB_DIST]
     const rustc = configured || await fileExists(releaseBinary) || await fileExists(debugBinary)
         ? process.env.RUSTC
         : await rustupWhich('rustc')

@@ -1,16 +1,14 @@
-<!-- One reading order across the whole documentation, so the last guide leads
-     into the first feature rather than into nothing. -->
 <nav class="docs-pager" aria-label="Pagination">
-  <logic :if="previous()">
-    <a class="docs-pager__link docs-pager__link--previous" :href="previous().path" rel="prev">
+  <logic :if="pager.previous()">
+    <a class="docs-pager__link" :href="pager.previous().path" rel="prev">
       <span class="docs-pager__label">Previous</span>
-      <span class="docs-pager__title">{previous().title}</span>
+      <span class="docs-pager__title">{pager.previous().title}</span>
     </a>
   </logic>
-  <logic :if="next()">
-    <a class="docs-pager__link docs-pager__link--next" :href="next().path" rel="next">
+  <logic :if="pager.next()">
+    <a class="docs-pager__link docs-pager__link--next" :href="pager.next().path" rel="next">
       <span class="docs-pager__label">Next</span>
-      <span class="docs-pager__title">{next().title}</span>
+      <span class="docs-pager__title">{pager.next().title}</span>
     </a>
   </logic>
 </nav>

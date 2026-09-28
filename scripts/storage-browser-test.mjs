@@ -1,22 +1,6 @@
 #!/usr/bin/env node
-// Browser-storage gate.
-//
-// Three caches, each proved against the real platform rather than against the
-// generated source, because every one of them is a claim about what a browser
-// does across a reload, a tab, or a cut network:
-//
-//   Web Storage    a `$` field is restored in the same tab and nowhere else,
-//                  while a `$$` field is shared by every tab.
-//   IndexedDB      tac.fetch honours its cache policy, and answers from what
-//                  was stored when the network is gone.
-//   CacheStorage   a component behind an untaken branch is warmed after the
-//                  page is idle, so it still renders once the network is gone.
-//
-// The first two phases run on loopback, where the offline cache deliberately
-// leaves itself unregistered, so the service worker cannot stand in for the
-// layer under test. The third needs the worker, so it is served over HTTPS
-// under a name mapped back to the loopback interface.
 
+import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
@@ -27,21 +11,25 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const TY = process.env.TAC_BIN ?? path.join(REPO, 'target/release/ty');
-let PROJECT;
-let server;
-let browser;
-let secure;
-let secureContext;
-const HOST = 'tachyon.test';
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+class StorageGate {
+  static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty');
+  static host = 'tachyon.test';
+  static settleCaches = () => globalThis[Symbol.for('tachyon.tac.storage')].settled();
+  static withCSharp = csharpWebAvailable();
+  static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+}
 
-const write = (relative, contents) => {
-  const file = path.join(PROJECT, relative);
+class ApiRequests {
+  static counter = 0;
+  static rangeRequests = 0;
+}
+
+function write(project, relative, contents) {
+  const file = path.join(project, relative);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, contents);
-};
+}
 
 const listen = (server) => new Promise((resolve, reject) => {
   server.once('error', reject);
@@ -57,79 +45,417 @@ const closeServer = async (server) => {
   await closed;
 };
 
-try {
-PROJECT = mkdtempSync(path.join(tmpdir(), 'ty-storage-gate-'));
-// `panel-detail` sits behind a branch that is false on a first visit, so its
-// module is never imported during the first render. That is exactly the asset
-// the offline cache would otherwise be missing.
-write('client/pages/tac.html', `<script>let $clicks = 0; let $$theme = 'light'</script>
-<main aria-label="Storage">
-  <button id="bump" on:click="$clicks += 1">bump</button>
-  <button id="dark" on:click="$$theme = 'dark'">dark</button>
-  <p id="clicks">{$clicks}</p>
-  <p id="theme">{$$theme}</p>
-  <logic :if="$clicks > 2"><panel-detail hydrate="load" /></logic>
-</main>
-`);
-write('client/pages/tac.js', 'export default class {}\n');
-write('client/components/panel/detail/tac.html', '<p id="detail">detail</p>\n');
-write('client/components/panel/detail/tac.js', 'export default class {}\n');
+function writeGoFixture(project) {
+  write(project, 'client/setups/GoNotesSetup.go', `// @Setup
+type GoNotesSetup struct{}
 
-const built = spawnSync(TY, ['build', PROJECT], {
-  encoding: 'utf8', timeout: 120_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
-});
-if (built.status !== 0) {
-  throw new Error(`storage fixture build failed: ${built.error?.message || built.stderr || built.stdout}`);
+func (GoNotesSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {
+\treturn NewBehaviorConfiguration(), nil
+}
+`);
+  write(project, 'client/entities/GoNoteEntity.go', `// @Entity({"adapter":"indexeddb"})
+// @Table("goNotes")
+type GoNoteEntity struct {
+\t// @Id
+\tid   string
+\ttext string
+}
+`);
+  write(project, 'client/components/storage/go/tac.html', '<p id="go">{goNotes.reads}</p>\n');
+  write(project, 'client/services/GoNotesService.go', `// @CacheSettings({"name":"gonotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
+type GoNotesService struct {
+\tbehaviors *BehaviorContext
+\tReads     int
 }
 
-const root = path.join(PROJECT, 'dist');
-let counter = 0;
-let rangeRequests = 0;
-const handle = (request, response) => {
-  const url = new URL(request.url, 'http://localhost');
-  if (url.pathname === '/api/range') {
-    rangeRequests += 1;
-    const partial = Boolean(request.headers.range) || url.searchParams.has('partial');
-    response.writeHead(partial && !url.searchParams.has('mislabelled') ? 206 : 200, {
-      'content-type': 'text/plain', 'cache-control': 'public, max-age=60',
-      'x-request-number': String(rangeRequests),
-      ...(partial ? { 'content-range': 'bytes 0-2/6' } : {}),
-    });
-    response.end(partial ? 'abc' : 'abcdef');
-    return;
-  }
-  // A counter is the cheapest way to tell a cached answer from a fresh one:
-  // any repeat of a previous value proves the network was not consulted.
-  if (url.pathname === '/api/counter') {
-    counter += 1;
-    const cacheControl = url.searchParams.get('policy') || 'public, max-age=60';
-    response.writeHead(200, { 'content-type': 'application/json', 'cache-control': cacheControl });
-    response.end(JSON.stringify({ value: counter }));
-    return;
-  }
-  let file = path.join(root, decodeURIComponent(url.pathname));
-  if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
-  if (!existsSync(file)) { response.writeHead(404).end(); return; }
-  response.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' });
-  createReadStream(file).pipe(response);
-};
+// @OnStart
+func (notes *GoNotesService) Start() error {
+\tcontext, err := BehaviorsCreate[GoNotesSetup](NewBehaviorOptions("go-notes", NewBehaviorSignal()))
+\tnotes.behaviors = context
+\treturn err
+}
 
-const fail = (message) => { console.error(`FAIL: ${message}`); process.exitCode = 1; };
-const expect = (actual, wanted, label) => {
+// @Cached
+func (notes *GoNotesService) Find(key BehaviorValue) (BehaviorValue, error) {
+\tnotes.Reads++
+\treturn map[string]any{"key": key, "reads": notes.Reads}, nil
+}
+
+func (notes *GoNotesService) Save(id BehaviorValue, text BehaviorValue) (BehaviorValue, error) {
+\treturn notes.useRepository(func(repository *BehaviorRepository) (BehaviorValue, error) {
+\t\treturn repository.Save(map[string]any{"id": id, "text": text})
+\t})
+}
+
+func (notes *GoNotesService) List() (BehaviorValue, error) {
+\treturn notes.useRepository(func(repository *BehaviorRepository) (BehaviorValue, error) {
+\t\treturn repository.Find(map[string]any{})
+\t})
+}
+
+func (notes *GoNotesService) useRepository(action func(*BehaviorRepository) (BehaviorValue, error)) (BehaviorValue, error) {
+\trepository, err := BehaviorsRepository[GoNoteEntity](notes.behaviors)
+\tif err != nil {
+\t\treturn nil, err
+\t}
+\treturn action(repository)
+}
+`);
+}
+
+function writeRubyFixture(project) {
+  write(project, 'client/setups/RubyNotesSetup.rb', '#[Setup]\nclass RubyNotesSetup\n  def self.configure(_execution)\n    {}\n  end\nend\n');
+  write(project, 'client/entities/RubyNoteEntity.rb', '#[Entity({"adapter":"indexeddb"})]\n#[Table("rubyNotes")]\nclass RubyNoteEntity\n  # @return [String]\n  #[Id]\n  attr_reader :id\nend\n');
+  write(project, 'client/components/storage/ruby/tac.html', '<p id="ruby">{rubyNotes.reads}</p>\n');
+  write(project, 'client/services/RubyNotesService.rb', `#[Service]
+#[CacheSettings({"name":"rubynotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
+class RubyNotesService
+  attr_reader :reads
+
+  #[OnStart]
+  def start
+    @reads = 0
+    @behaviors = Behaviors.create(RubyNotesSetup, partition: "ruby-notes", signal: BehaviorSignal.new)
+  end
+
+  #[Cached]
+  def find(key)
+    @reads += 1
+    { "key" => key, "reads" => @reads }
+  end
+
+  #[ClearCache({"method":"find"})]
+  def forget(key)
+    nil
+  end
+
+  def save(id, text)
+    @behaviors.repository(RubyNoteEntity).save({ "id" => id, "text" => text })
+  end
+
+  #[AllOrNothing({"adapter":"indexeddb"})]
+  def save_then_refuse(id)
+    save(id, "draft")
+    raise BehaviorError.new("validation", "the note was refused")
+  end
+
+  def list
+    @behaviors.repository(RubyNoteEntity).find({})
+  end
+end
+`);
+}
+
+function csharpWebAvailable() {
+  const probe = spawnSync('dotnet', ['workload', 'list'], { encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
+  return !probe.error && probe.status === 0 && probe.stdout.includes('wasm-tools');
+}
+
+function writeCSharpFixture(project) {
+  write(project, 'client/setups/CsNotesSetup.cs', `[Setup]
+public sealed class CsNotesSetup {
+    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }
+}
+`);
+  write(project, 'client/entities/CsNoteEntity.cs', `[Entity({"adapter":"indexeddb"})]
+[Table("csNotes")]
+public sealed class CsNoteEntity {
+    [Id]
+    public string id;
+    public string text;
+}
+`);
+  write(project, 'client/components/storage/cs/tac.html', '<p id="cs">{csNotes.reads}</p>\n');
+  write(project, 'client/services/CsNotesService.cs', `[Service]
+[CacheSettings({"name":"csnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
+public sealed class CsNotesService {
+    public BehaviorContext behaviors;
+    public int reads = 0;
+
+    [OnStart]
+    public void open() {
+        behaviors = Behaviors.create(typeof(CsNotesSetup), "cs-notes", new BehaviorSignal());
+    }
+
+    [Cached]
+    public async System.Threading.Tasks.Task<BehaviorJSON> find(BehaviorJSON key) {
+        await System.Threading.Tasks.Task.CompletedTask;
+        reads++;
+        return BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["key"] = key, ["reads"] = BehaviorJSON.From(reads) });
+    }
+
+    [ClearCache({"method":"find"})]
+    public async System.Threading.Tasks.Task<BehaviorJSON> forget(BehaviorJSON key) {
+        await System.Threading.Tasks.Task.CompletedTask;
+        return key;
+    }
+
+    public System.Threading.Tasks.Task<BehaviorJSON> save(BehaviorJSON id, BehaviorJSON text) {
+        return behaviors.repository(typeof(CsNoteEntity)).save(BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["id"] = id, ["text"] = text }));
+    }
+
+    [AllOrNothing({"adapter":"indexeddb"})]
+    public async System.Threading.Tasks.Task<BehaviorJSON> refuse(BehaviorJSON id) {
+        await save(id, BehaviorJSON.From("draft"));
+        throw new BehaviorError("the note was refused");
+    }
+
+    public System.Threading.Tasks.Task<BehaviorJSON> list() {
+        return behaviors.repository(typeof(CsNoteEntity)).find(BehaviorJSON.Parse("{}"));
+    }
+}
+`);
+}
+
+function writeFixture(project) {
+  write(project, 'client/pages/tac.html', '<storage-page />\n');
+  write(project, 'client/components/storage/page/tac.html', `<main aria-label="Storage">
+  <button id="bump" on:click="storagePage.clicks += 1">bump</button>
+  <button id="dark" on:click="storagePage.theme = 'dark'">dark</button>
+  <p id="clicks">{storagePage.clicks}</p>
+  <p id="theme">{storagePage.theme}</p>
+  <logic :if="storagePage.clicks > 2"><panel-detail /></logic>
+  <storage-clients />
+  <storage-catalog />
+  <storage-notes />
+  <storage-go />
+  <storage-ruby />
+${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}</main>
+`);
+  for (const [name, policy] of [['CacheFirstClient','cache-first'],['NetworkFirstClient','network-first'],['FreshClient','no-store'],['ReloadClient','reload']]) {
+    write(project, 'client/clients/' + name + '.js', `@HTTPClient({"cache":"${policy}","adapter":"${name}"})
+class ${name} {
+  @GetRequest("/api/counter")
+  async counter(query = {}, headers = {}) { return {query, headers}; }
+  @GetRequest("/api/range")
+  async range(query = {}, headers = {}) { return {query, headers}; }
+}`);
+  }
+  write(project, 'client/services/StoragePageService.js', `@Service()
+export default class StoragePageService {
+  @SessionState
+  clicks = 0;
+  @LocalState
+  theme = 'light';
+}
+`);
+  write(project, 'client/components/storage/clients/tac.html', '<span hidden>{storageClients.label}</span>\n');
+  write(project, 'client/services/StorageClientsService.js', `/**
+ * @typedef {Object} CacheWarmed
+ * @property {integer} size
+ */
+/**
+ * @typedef {Object} CacheAudited
+ * @property {integer} size
+ */
+@Service
+export default class StorageClientsService {
+  @Needs
+  cacheManager;
+  @Needs
+  applicationEventPublisher;
+  @Needs
+  cacheFirstClient;
+  @Needs
+  networkFirstClient;
+  @Needs
+  freshClient;
+  @Needs
+  reloadClient;
+  label = 'clients';
+  announce(size) {
+    this.label = 'clients';
+    /** @type {CacheWarmed} */
+    const warmed = { size };
+    this.applicationEventPublisher.publishEvent(warmed);
+  }
+  /**
+   * @param {CacheWarmed} value
+   * @returns {CacheAudited}
+   */
+  @OnEvent({"condition":"value.size >= 2"})
+  @Order(1)
+  warmed(value) { this.label += '|warmed:' + value.size; return { size: 0 }; }
+  /** @param {CacheAudited} value */
+  @OnEvent({"condition":"value.size >= 2"})
+  checked(value) { this.label += '|audited:' + value.size; }
+  /** @param {CacheWarmed} value */
+  @OnEvent
+  @Order(-1)
+  first(value) { this.label += '|first:' + value.size; }
+  /** @param {CacheWarmed} value */
+  @OnEvent
+  @InBackground()
+  async audited(value) { this.label += '|async:' + value.size; }
+}
+`);
+  writeKeptFixture(project);
+  write(project, 'client/components/panel/detail/tac.html', '<p id="detail">{panelDetail.label}</p>\n');
+  write(project, 'client/services/PanelDetailService.js', "@Service()\nexport default class PanelDetailService { label = 'detail'; }\n");
+}
+
+function writeKeptFixture(project) {
+  write(project, 'client/setups/StorageSetup.js', `@Setup
+class StorageSetup {
+  static configure() { return {}; }
+}
+`);
+  write(project, 'client/components/storage/catalog/tac.html', '<p id="catalog">{storageCatalog.reads}</p>\n');
+  write(project, 'client/services/StorageCatalogService.js', `@Service
+@CacheSettings({"name":"catalog","ttlMs":4000,"maxBytes":4096,"maxEntries":2})
+export default class StorageCatalogService {
+  @Needs
+  lifecycle;
+  behaviors = null;
+  reads = 0;
+
+  @OnStart
+  async open() {
+    this.behaviors = await Behaviors.create(StorageSetup, { partition: 'catalog', signal: this.lifecycle });
+  }
+
+  @Cached
+  async find(sku) {
+    this.reads += 1;
+    return { sku, reads: this.reads };
+  }
+
+  @ClearCache({"method":"find"})
+  async invalidate(sku) { return { sku }; }
+}
+`);
+  write(project, 'client/entities/NoteEntity.js', `@Entity({"adapter":"indexeddb"})
+@Table('notes')
+class NoteEntity {
+  @Id
+  id;
+  status;
+  rank;
+}
+`);
+  write(project, 'client/stores/NoteStore.js', `@Store(NoteEntity, {"fields":["id","status","rank"],"defaultSize":20,"maxSize":100})
+class NoteStore {
+  @Needs
+  behaviors;
+  async findByStatus(status) {}
+  async countByStatus(status) {}
+  @Query({"operation":"find","where":[{"field":"rank","operator":"gte","argument":0}],"orderBy":[{"field":"rank","direction":"desc"}]})
+  async ranked(rank, @PageDefaults page) {}
+}
+`);
+  writeGoFixture(project);
+  writeRubyFixture(project);
+  if (StorageGate.withCSharp) writeCSharpFixture(project);
+  write(project, 'client/components/storage/notes/tac.html', '<p id="notes">{storageNotes.label}</p>\n');
+  write(project, 'client/services/StorageNotesService.js', `@Service
+export default class StorageNotesService {
+  static OPEN = 'open';
+  static DELETED_ID = 'b';
+  static LOW_RANK = 2;
+  static PAGE_SIZE = 2;
+  @Needs
+  lifecycle;
+  behaviors = null;
+  label = 'notes';
+
+  @OnStart
+  async open() {
+    this.behaviors = await Behaviors.create(StorageSetup, { partition: 'notes', signal: this.lifecycle });
+  }
+
+  async seed() {
+    const notes = this.behaviors.repository(NoteEntity);
+    await this.#saveAll(notes, [['a', StorageNotesService.OPEN, 3], [StorageNotesService.DELETED_ID, StorageNotesService.OPEN, 1], ['c', 'done', StorageNotesService.LOW_RANK], ['d', StorageNotesService.OPEN, StorageNotesService.LOW_RANK]]);
+  }
+
+  async #saveAll(notes, rows) {
+    for (const [id, status, rank] of rows) {
+      await notes.save({ id, status, rank });
+    }
+  }
+
+  @AllOrNothing({"adapter":"indexeddb"})
+  async failedBatch() {
+    await this.behaviors.repository(NoteEntity).save({ id: 'x', status: StorageNotesService.OPEN, rank: 9 });
+    throw new Error('stop');
+  }
+
+  @AllOrNothing({"adapter":"indexeddb"})
+  async batch() {
+    const notes = this.behaviors.repository(NoteEntity);
+    await notes.save({ id: 'y', status: StorageNotesService.OPEN, rank: 7 });
+    await notes.delete(StorageNotesService.DELETED_ID);
+  }
+
+  async report() {
+    const store = Behaviors.construct(NoteStore, { behaviors: this.behaviors });
+    return {
+      open: this.#ids(await store.findByStatus(StorageNotesService.OPEN)),
+      count: await store.countByStatus(StorageNotesService.OPEN),
+      ranked: this.#ids(await store.ranked(StorageNotesService.LOW_RANK, { size: StorageNotesService.PAGE_SIZE })),
+      page: this.#ids(await this.behaviors.repository(NoteEntity).find({ size: StorageNotesService.PAGE_SIZE, page: 1 })),
+    };
+  }
+
+  #ids(rows) {
+    return rows.map((row) => row.id);
+  }
+}
+`);
+}
+
+const rootHelper = () => { globalThis.__root = (name) => __tachyonTac.service(name); };
+
+function buildFixture(project) {
+  const built = spawnSync(StorageGate.binary, ['build', project], {
+    encoding: 'utf8', timeout: 120_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
+  });
+  if (built.status !== 0) {
+    throw new Error(`storage fixture build failed: ${built.error?.message || built.stderr || built.stdout}`);
+  }
+}
+
+function createHandler(project) {
+  const root = path.join(project, 'dist');
+  return (request, response) => {
+    const url = new URL(request.url, 'http://localhost');
+    if (url.pathname === '/api/range') {
+      ApiRequests.rangeRequests += 1;
+      const partial = Boolean(request.headers.range) || url.searchParams.has('partial');
+      response.writeHead(partial && !url.searchParams.has('mislabelled') ? 206 : 200, {
+        'content-type': 'application/json', 'cache-control': 'public, max-age=60',
+        'x-request-number': String(ApiRequests.rangeRequests),
+        ...(partial ? { 'content-range': 'bytes 0-2/6' } : {}),
+      });
+      response.end(JSON.stringify({status:partial && !url.searchParams.has('mislabelled') ? 206 : 200, body:partial ? 'abc' : 'abcdef', number:ApiRequests.rangeRequests}));
+      return;
+    }
+    if (url.pathname === '/api/counter') {
+      ApiRequests.counter += 1;
+      const cacheControl = url.searchParams.get('policy') || 'public, max-age=60';
+      response.writeHead(200, { 'content-type': 'application/json', 'cache-control': cacheControl });
+      response.end(JSON.stringify({ value: ApiRequests.counter, cookie: Boolean(request.headers.cookie) }));
+      return;
+    }
+    let file = path.join(root, decodeURIComponent(url.pathname));
+    if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
+    if (!existsSync(file)) { response.writeHead(404).end(); return; }
+    response.writeHead(200, { 'content-type': StorageGate.mimeTypes[path.extname(file)] ?? 'application/octet-stream' });
+    createReadStream(file).pipe(response);
+  };
+}
+
+function fail(message) {
+  console.error(`FAIL: ${message}`);
+  process.exitCode = 1;
+}
+
+function expect(actual, wanted, label) {
   if (actual === wanted) console.log(`    ok   ${label}: ${actual}`);
   else fail(`${label}: expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`);
-};
+}
 
-// ── Phase 1 and 2: Web Storage and IndexedDB, on loopback ─────────────────
-server = createServer(handle);
-await listen(server);
-const origin = `http://127.0.0.1:${server.address().port}`;
-
-browser = await chromium.launch({ timeout: 30_000 });
-const context = await browser.newContext();
-context.setDefaultTimeout(15_000);
-context.setDefaultNavigationTimeout(15_000);
-
+async function checkFieldStorage(context, origin) {
   const page = await context.newPage();
   await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
 
@@ -140,197 +466,312 @@ context.setDefaultNavigationTimeout(15_000);
   await page.click('#dark');
   expect(await page.textContent('#clicks'), '3', 'assignment renders');
 
-  // A reload destroys every in-memory owner, so anything still here came back
-  // out of storage.
   await page.reload({ waitUntil: 'networkidle' });
-  expect(await page.textContent('#clicks'), '3', '$ field restored after reload');
-  expect(await page.textContent('#theme'), 'dark', '$$ field restored after reload');
-  // The restored value drives rendering, not just the field.
+  expect(await page.textContent('#clicks'), '3', 'SessionState field restored after reload');
+  expect(await page.textContent('#theme'), 'dark', 'LocalState field restored after reload');
   expect(await page.textContent('#detail'), 'detail', 'restored state re-opened the branch');
 
   const stored = await page.evaluate(() => ({
-    session: sessionStorage.getItem('tac:/client.js:/:$clicks'),
-    local: localStorage.getItem('tac:/client.js:/:$$theme'),
-    sessionHasLocalField: sessionStorage.getItem('tac:/client.js:/:$$theme'),
+    session: sessionStorage.getItem('tac:service:storagePage:/:clicks'),
+    local: localStorage.getItem('tac:service:storagePage:/:theme'),
+    sessionHasLocalField: sessionStorage.getItem('tac:service:storagePage:/:theme'),
   }));
-  expect(stored.session, '3', '$ field written to sessionStorage');
-  expect(stored.local, '"dark"', '$$ field written to localStorage');
-  expect(stored.sessionHasLocalField, null, '$$ field kept out of sessionStorage');
+  expect(stored.session, '3', 'SessionState field written to sessionStorage');
+  expect(stored.local, '"dark"', 'LocalState field written to localStorage');
+  expect(stored.sessionHasLocalField, null, 'LocalState field kept out of sessionStorage');
 
-  // A second tab is a second session: sessionStorage is per-tab, localStorage
-  // is shared. This is the whole reason the two prefixes exist.
   const second = await context.newPage();
   await second.goto(`${origin}/`, { waitUntil: 'networkidle' });
-  expect(await second.textContent('#clicks'), '0', '$ field is per-tab');
-  expect(await second.textContent('#theme'), 'dark', '$$ field is shared across tabs');
+  expect(await second.textContent('#clicks'), '0', 'SessionState field is per-tab');
+  expect(await second.textContent('#theme'), 'dark', 'LocalState field is shared across tabs');
+  await second.evaluate(() => {
+    localStorage.removeItem('tac:service:storagePage:/:theme');
+    localStorage.setItem('tac:service:storagePage:/:$$theme', '"sepia"');
+  });
+  await second.reload({ waitUntil: 'networkidle' });
+  expect(await second.textContent('#theme'), 'sepia', 'a value kept under the old $$ key is adopted');
+  const adopted = await second.evaluate(() => [localStorage.getItem('tac:service:storagePage:/:$$theme'), localStorage.getItem('tac:service:storagePage:/:theme')]);
+  expect(JSON.stringify(adopted), JSON.stringify([null, '"sepia"']), 'the old key moves to the new key');
+  await second.evaluate(() => localStorage.setItem('tac:service:storagePage:/:theme', '"dark"'));
   await second.close();
+  return page;
+}
 
-  // A companion reaches all of this through `this.tac`, which must stay off
-  // the enumerable surface: a hot update clones owner state, and a function
-  // would make the whole snapshot throw.
-  const binding = await page.evaluate(() => ({
-    reachable: typeof __tachyonTac.instance.tac?.fetch === 'function',
-    hidden: !Object.keys(__tachyonTac.instance).includes('tac'),
-    clonable: (() => { try { structuredClone({ ...__tachyonTac.instance }); return true; } catch { return false; } })(),
+async function checkKeptCaches(page) {
+  const catalog = () => page.evaluate(() => __root('storageCatalog'));
+  const find = (sku) => page.evaluate((value) => __root('storageCatalog').find(value), sku);
+  await catalog();
+  expect((await find('anvil')).reads, 1, 'Cached runs the method on a miss');
+  expect((await find('anvil')).reads, 1, 'Cached answers a hit from the built-in cache');
+  await page.evaluate(StorageGate.settleCaches);
+  const stored = await page.evaluate(async () => {
+    const cache = await caches.open('tachyon-cache:catalog');
+    return (await cache.keys()).length;
+  });
+  expect(stored, 1, 'the entry is written to the browser Cache API');
+  await page.reload({ waitUntil: 'networkidle' });
+  expect((await find('anvil')).reads, 1, 'the entry survives a reload');
+  expect(await page.evaluate(() => __root('storageCatalog').reads), 0, 'the reloaded service did not run the method');
+  await find('bolt');
+  await find('cog');
+  await page.evaluate(StorageGate.settleCaches);
+  const kept = await page.evaluate(async () => {
+    const cache = await caches.open('tachyon-cache:catalog');
+    return (await cache.keys()).map((request) => decodeURIComponent(new URL(request.url).pathname)).some((path) => path.includes('anvil'));
+  });
+  expect(kept, false, 'maxEntries evicts the least recently used entry');
+  expect((await find('anvil')).reads > 1, true, 'an evicted entry runs the method again');
+  await page.evaluate(() => __root('storageCatalog').invalidate('cog'));
+  const cleared = await find('cog');
+  expect(cleared.reads, await page.evaluate(() => __root('storageCatalog').reads), 'ClearCache removes the entry');
+  const before = await page.evaluate(() => __root('storageCatalog').reads);
+  await page.waitForTimeout(4100);
+  expect((await find('cog')).reads, before + 1, 'an expired entry runs the method again');
+}
+
+async function checkInsecureCaches(browser, port) {
+  const insecure = await browser.newContext();
+  await insecure.addInitScript(rootHelper);
+  const page = await insecure.newPage();
+  const notices = [];
+  page.on('console', (message) => { if (message.text().includes('memory only')) notices.push(message.text()); });
+  await page.goto(`http://${StorageGate.host}:${port}/`, { waitUntil: 'networkidle' });
+  expect(await page.evaluate(() => globalThis.isSecureContext), false, 'the plain-http host is an insecure origin');
+  const first = await page.evaluate(() => __root('storageCatalog').find('anvil'));
+  const second = await page.evaluate(() => __root('storageCatalog').find('anvil'));
+  expect(JSON.stringify([first.reads, second.reads]), '[1,1]', 'an insecure origin still caches in memory');
+  expect(notices.length, 1, 'one console notice explains the memory-only cache');
+  await page.reload({ waitUntil: 'networkidle' });
+  expect((await page.evaluate(() => __root('storageCatalog').find('anvil'))).reads, 1, 'a memory-only cache starts empty after a reload');
+  await insecure.close();
+}
+
+async function checkIndexedStore(browser, origin) {
+  const context = await browser.newContext();
+  await context.addInitScript(rootHelper);
+  const page = await context.newPage();
+  await page.goto(`${origin}/.tachyon/tac-client.js`);
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('tachyon-store', 1);
+    request.onupgradeneeded = () => { request.result.createObjectStore('notes', { keyPath: 'id' }).put({ id: 'z', status: 'open', rank: 0 }); };
+    request.onsuccess = () => { request.result.close(); resolve(); };
+    request.onerror = () => reject(request.error);
   }));
-  expect(binding.reachable, true, 'companion reaches this.tac.fetch');
-  expect(binding.hidden, true, 'tac binding is not enumerable');
-  expect(binding.clonable, true, 'owner state still clones for a hot update');
+  await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
+  const notes = (script) => page.evaluate(script);
+  await notes(() => __root('storageNotes').seed());
+  const upgraded = await notes(async () => {
+    const database = await new Promise((resolve) => { const request = indexedDB.open('tachyon-store'); request.onsuccess = () => resolve(request.result); });
+    const store = database.transaction('notes').objectStore('notes');
+    const answer = { version: database.version, indexes: [...store.indexNames].sort() };
+    database.close();
+    return answer;
+  });
+  expect(JSON.stringify(upgraded), JSON.stringify({ version: 2, indexes: ['rank', 'status'] }), 'the schema upgrade adds the query indexes');
+  expect(JSON.stringify(await notes(() => __root('storageNotes').report())), JSON.stringify({ open: ['a', 'b', 'd', 'z'], count: 4, ranked: ['a', 'c'], page: ['c', 'd'] }), 'derived, Query and paged reads use the stored rows and the row kept before the upgrade');
+  const failed = await notes(() => __root('storageNotes').failedBatch().then(() => 'saved', (error) => error.message));
+  expect(failed, 'stop', 'AllOrNothing rethrows the failure');
+  await notes(() => __root('storageNotes').batch());
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(JSON.stringify(await notes(() => __root('storageNotes').report())), JSON.stringify({ open: ['a', 'd', 'y', 'z'], count: 4, ranked: ['y', 'a'], page: ['d', 'y'] }), 'rows survive a reload; a failed AllOrNothing wrote nothing and a finished one wrote everything');
+  await context.close();
 
-  // ── IndexedDB fetch cache ───────────────────────────────────────────────
+  const changed = await browser.newContext();
+  await changed.addInitScript(rootHelper);
+  const other = await changed.newPage();
+  await other.goto(`${origin}/.tachyon/tac-client.js`);
+  await other.evaluate(() => new Promise((resolve) => {
+    const request = indexedDB.open('tachyon-store', 1);
+    request.onupgradeneeded = () => { request.result.createObjectStore('notes', { keyPath: 'code' }); };
+    request.onsuccess = () => { request.result.close(); resolve(); };
+  }));
+  await other.goto(`${origin}/`, { waitUntil: 'networkidle' });
+  const refused = await other.evaluate(() => __root('storageNotes').report().then(() => 'read', (error) => error.message));
+  expect(refused.includes("keeps its rows by 'code'"), true, 'a changed Id field is refused, and no row is deleted');
+  await changed.close();
+}
+
+async function checkWebAssemblyStorage(browser, origin) {
+  const context = await browser.newContext();
+  await context.addInitScript(rootHelper);
+  const page = await context.newPage();
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  const evaluate = (script) => page.evaluate(script);
+  expect(JSON.stringify(await evaluate(() => [__root('goNotes').find('a'), __root('goNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Go WebAssembly service reads its Cached value synchronously from memory');
+  await evaluate(() => __root('goNotes').save('g1', 'kept'));
+  await evaluate(StorageGate.settleCaches);
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(JSON.stringify(await evaluate(() => __root('goNotes').find('a'))), JSON.stringify({ key: 'a', reads: 1 }), 'the Go cache entry survives a reload through the Cache API');
+  expect(JSON.stringify(await evaluate(() => __root('goNotes').list())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'the Go Store row survives a reload through the IndexedDB copy');
+  expect(JSON.stringify(await evaluate(() => [__root('rubyNotes').find('a'), __root('rubyNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Ruby WebAssembly service reads its Cached value synchronously from memory');
+  await evaluate(() => __root('rubyNotes').forget('a'));
+  expect(JSON.stringify(await evaluate(() => __root('rubyNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the Ruby service read again');
+  await evaluate(() => __root('rubyNotes').save('r1', 'kept'));
+  const refused = await evaluate(() => { try { __root('rubyNotes').saveThenRefuse('r2'); return ''; } catch (error) { return error.message; } });
+  expect(refused.includes('the note was refused'), true, 'a refused Ruby AllOrNothing call reports its error');
+  await evaluate(StorageGate.settleCaches);
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(JSON.stringify(await evaluate(() => __root('rubyNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Ruby cache entry survives a reload through the Cache API');
+  expect(JSON.stringify(await evaluate(() => __root('rubyNotes').list())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'the Ruby Store row survives a reload and the refused AllOrNothing saved nothing');
+  if (StorageGate.withCSharp) await checkCSharpStorage(page, evaluate);
+  await context.close();
+}
+
+async function checkCSharpStorage(page, evaluate) {
+  expect(JSON.stringify(await evaluate(async () => [await __root('csNotes').find('a'), await __root('csNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a C# WebAssembly service reads its Cached value from the page cache');
+  await evaluate(() => __root('csNotes').forget('a'));
+  expect(JSON.stringify(await evaluate(() => __root('csNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the C# service read again');
+  await evaluate(() => __root('csNotes').save('c1', 'kept'));
+  const refused = await evaluate(async () => { try { await __root('csNotes').refuse('c2'); return false; } catch { return true; } });
+  expect(refused, true, 'a refused C# AllOrNothing call fails');
+  await evaluate(StorageGate.settleCaches);
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(JSON.stringify(await evaluate(() => __root('csNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the C# cache entry survives a reload through the Cache API');
+  expect(JSON.stringify(await evaluate(() => __root('csNotes').list())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'the C# Store row survives a reload and the refused AllOrNothing saved nothing');
+}
+
+async function checkInjectedClients(page) {
+  const binding = await page.evaluate(() => ({
+    client: typeof __root('storageClients').cacheFirstClient?.counter === 'function',
+    fetchRemoved: !('tac' in __root('storageClients')),
+    hidden: !Object.keys(__root('storageClients')).includes('tac') && !Object.keys(__root('storageClients')).includes('cacheFirstClient'),
+    clonable: (() => { try { structuredClone({...__root('storageClients')}); return true; } catch { return false; } })(),
+  }));
+  expect(binding.client, true, 'service receives an injected Client');
+  expect(binding.fetchRemoved, true, 'public runtime has no fetch method');
+  expect(binding.hidden, true, 'runtime and injected dependencies are not enumerable');
+  expect(binding.clonable, true, 'owner state clones for hot update');
+
+  const announce = async (size) => page.evaluate(async (size) => {
+    __root('storageClients').announce(size);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return __root('storageClients').label;
+  }, size);
+  expect(await announce(3), 'clients|first:3|warmed:3|async:3', 'injected publisher, Order, typed listeners, Async and returned model');
+  expect(await announce(1), 'clients|first:1|async:1', 'condition skips only the listener it guards');
+}
+
+async function checkCachePolicies(page, origin, context) {
   const api = `${origin}/api/counter`;
-  const value = async (expression) => page.evaluate(expression, api);
-
-  // An older runtime cached ambient-cookie responses in database version 1.
-  // Upgrading must clear that cache, not expose it to a new anonymous read.
   await page.evaluate((url) => new Promise((resolve, reject) => {
     const opened = indexedDB.open('tachyon-fetch-cache', 1);
-    opened.onupgradeneeded = () => opened.result.createObjectStore('responses', { keyPath: 'key' });
+    opened.onupgradeneeded = () => opened.result.createObjectStore('responses', {keyPath:'key'});
     opened.onerror = () => reject(opened.error);
     opened.onsuccess = () => {
-      const transaction = opened.result.transaction('responses', 'readwrite');
-      transaction.objectStore('responses').put({ key: `fetch:GET:${url}`, status: 200,
-        headers: [['content-type', 'application/json']], updatedAt: Date.now(),
-        body: new TextEncoder().encode(JSON.stringify({ value: -999 })).buffer });
+      const transaction = opened.result.transaction('responses','readwrite');
+      transaction.objectStore('responses').put({key:`fetch:GET:${url}`, status:200,
+        headers:[['content-type','application/json']], updatedAt:Date.now(),
+        body:new TextEncoder().encode(JSON.stringify({value:-999})).buffer});
       transaction.oncomplete = () => { opened.result.close(); resolve(); };
       transaction.onerror = () => { opened.result.close(); reject(transaction.error); };
     };
   }), api);
+  const first = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
+  const repeat = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
+  expect(first.value !== -999, true, 'legacy credentialed cache discarded on privacy migration');
+  expect(repeat.value, first.value, 'cache-first returns stored JSON');
+  const fresh = await page.evaluate(() => __root('storageClients').networkFirstClient.counter());
+  expect(fresh.value > first.value, true, 'network-first requests current JSON');
+  const reloaded = await page.evaluate(() => __root('storageClients').reloadClient.counter());
+  expect(reloaded.value > fresh.value, true, 'reload requires network and refreshes persistence');
+  const unstored = await page.evaluate(() => __root('storageClients').freshClient.counter());
+  const stillStored = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
+  expect(unstored.value > reloaded.value, true, 'no-store requests network');
+  expect(stillStored.value, reloaded.value, 'no-store leaves the stored response unchanged');
 
-  const first = await value(async (url) => (await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'cache-first' })).json());
-  expect(first.value !== -999, true, 'legacy credentialed cache is discarded on privacy migration');
-  const repeat = await value(async (url) => (await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'cache-first' })).json());
-  expect(repeat.value, first.value, 'cache-first served the stored response');
-
-  const fresh = await value(async (url) => (await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'network-first' })).json());
-  expect(fresh.value > first.value, true, 'network-first went to the network');
-
-  const unstored = await value(async (url) => {
-    const before = (await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'no-store' })).clone();
-    const body = await before.json();
-    const entries = await new Promise((resolve) => {
-      const request = indexedDB.open('tachyon-fetch-cache');
-      request.onsuccess = () => {
-        const store = request.result.transaction('responses', 'readonly').objectStore('responses');
-        const all = store.getAllKeys();
-        all.onsuccess = () => { request.result.close(); resolve(all.result); };
-        all.onerror = () => { request.result.close(); resolve([]); };
-      };
-      request.onerror = () => resolve([]);
-    });
-    return { body, entries };
-  });
-  expect(unstored.entries.includes(`fetch:GET:${api}`), true, 'cacheable reads are keyed by URL');
-
-  // Invalidation is what makes cache-first safe to use at all.
-  await page.evaluate((url) => __tachyonTac.tac.invalidate([`fetch:GET:${url}`]), api);
-  const afterInvalidate = await value(async (url) => (await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'cache-first' })).json());
-  expect(afterInvalidate.value > fresh.value, true, 'invalidate forced a refetch');
-
-  const privacy = await page.evaluate(async (api) => {
-    const read = async (suffix, init) => {
-      const url = `${api}?${suffix}`;
-      const first = await (await __tachyonTac.tac.fetch(url, init, { cache: 'cache-first' })).json();
-      const second = await (await __tachyonTac.tac.fetch(url, init, { cache: 'cache-first' })).json();
+  await page.evaluate((url) => __root('storageClients').cacheManager.invalidate([`fetch:GET:${url}`]), api);
+  const afterInvalidate = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
+  expect(afterInvalidate.value > unstored.value, true, 'explicit invalidation forces a new read');
+  await context.addCookies([{name:'private-session',value:'test-only',url:origin}]);
+  const privacy = await page.evaluate(async () => {
+    const client = __root('storageClients').cacheFirstClient;
+    const bypassed = async (query, headers = {}) => {
+      const first = await client.counter(query, headers);
+      const second = await client.counter(query, headers);
       return second.value > first.value;
     };
     return {
-      cookies: await read('ambient=yes', {}),
-      authorization: await read('auth=yes', { credentials: 'omit', headers: { authorization: 'test-fixture' } }),
-      noStore: await read('policy=no-store', { credentials: 'omit' }),
-      private: await read('policy=private', { credentials: 'omit' }),
-      requestNoStore: await read('request-no-store=yes', { credentials: 'omit', cache: 'no-store' }),
+      cookiesOmitted: !(await client.counter({ambient:'yes'})).cookie,
+      authorization: await bypassed({auth:'yes'}, {authorization:'test-fixture'}),
+      noStore: await bypassed({policy:'no-store'}),
+      private: await bypassed({policy:'private'}),
     };
-  }, api);
-  for (const [name, bypassed] of Object.entries(privacy)) expect(bypassed, true, `${name} bypasses persistent cache`);
+  });
+  for (const [name, allowed] of Object.entries(privacy)) expect(allowed, true, `${name} preserves cache privacy`);
+  return afterInvalidate;
+}
 
-  const range = await page.evaluate(async (origin) => {
-    const read = async (suffix, ranged = false) => {
-      const response = await __tachyonTac.tac.fetch(`${origin}/api/range?${suffix}`, {
-        credentials: 'omit', ...(ranged ? { headers: { Range: 'bytes=0-2' } } : {}),
-      }, { cache: 'cache-first' });
-      return { status: response.status, body: await response.text(), number: response.headers.get('x-request-number') };
-    };
-    const partial = await read('partial-first', true);
-    const full = await read('partial-first');
-    const warmed = await read('full-first');
-    const rangedAfterFull = await read('full-first', true);
-    const stillFull = await read('full-first');
-    const ifRange = await __tachyonTac.tac.fetch(`${origin}/api/range?full-first`, {
-      credentials: 'omit', headers: { 'If-Range': '"fixture-etag"' },
-    }, { cache: 'cache-first' });
-    const ifRangeNumber = ifRange.headers.get('x-request-number');
-    await ifRange.arrayBuffer();
-    const unsolicited = await read('partial=yes');
-    const repeatedPartial = await read('partial=yes');
-    const mislabelled = await read('partial=yes&mislabelled=yes');
-    const repeatedMislabelled = await read('partial=yes&mislabelled=yes');
-    return { partial, full, warmed, rangedAfterFull, stillFull, ifRangeNumber, unsolicited, repeatedPartial,
-      mislabelled, repeatedMislabelled };
-  }, origin);
-  expect(range.partial.status, 206, 'Range gets a partial network response');
-  expect(range.full.status, 200, 'partial response cannot poison a later full read');
-  expect(range.full.body, 'abcdef', 'full read receives the complete body');
-  expect(range.rangedAfterFull.status, 206, 'Range bypasses an existing full-response cache entry');
-  expect(range.stillFull.number, range.warmed.number, 'Range leaves the complete cached representation intact');
-  expect(range.ifRangeNumber !== range.warmed.number, true, 'If-Range also bypasses full-response cache lookup');
-  expect(range.repeatedPartial.number !== range.unsolicited.number, true, 'unsolicited 206 responses are never cached');
-  expect(range.repeatedMislabelled.number !== range.mislabelled.number, true, 'Content-Range responses are never cached even with status 200');
+async function checkRangeRequests(page) {
+  const range = await page.evaluate(async () => {
+    const client = __root('storageClients').cacheFirstClient;
+    const partial = await client.range({sample:'partial-first'}, {Range:'bytes=0-2'});
+    const full = await client.range({sample:'partial-first'});
+    const warmed = await client.range({sample:'full-first'});
+    const rangedAfterFull = await client.range({sample:'full-first'}, {Range:'bytes=0-2'});
+    const stillFull = await client.range({sample:'full-first'});
+    const ifRange = await client.range({sample:'full-first'}, {'If-Range':'"fixture-etag"'});
+    const unsolicited = await client.range({partial:'yes'});
+    const repeatedPartial = await client.range({partial:'yes'});
+    const mislabelled = await client.range({partial:'yes',mislabelled:'yes'});
+    const repeatedMislabelled = await client.range({partial:'yes',mislabelled:'yes'});
+    return {partial,full,warmed,rangedAfterFull,stillFull,ifRange,unsolicited,repeatedPartial,mislabelled,repeatedMislabelled};
+  });
+  expect(range.partial.status, 206, 'Range receives a partial network response');
+  expect(range.full.status, 200, 'partial JSON cannot poison a full read');
+  expect(range.full.body, 'abcdef', 'full read receives complete JSON');
+  expect(range.rangedAfterFull.status, 206, 'Range bypasses existing full cache');
+  expect(range.stillFull.number, range.warmed.number, 'Range preserves full cached representation');
+  expect(range.ifRange.number !== range.warmed.number, true, 'If-Range bypasses cached full response');
+  expect(range.repeatedPartial.number !== range.unsolicited.number, true, 'unsolicited 206 responses are not cached');
+  expect(range.repeatedMislabelled.number !== range.mislabelled.number, true, 'Content-Range responses are not cached');
+}
 
-  // Persisted entries can outlive the runtime that wrote them. Old partial
-  // responses must be rejected before they can stand in for a full read.
-  for (const status of [200, 206]) {
-    const restored = await page.evaluate(async ({ origin, status }) => {
+async function checkLegacyPartialResponses(page, origin) {
+  for (const status of [200,206]) {
+    const restored = await page.evaluate(async ({origin,status}) => {
       const url = `${origin}/api/range?legacy=${status}`;
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve,reject) => {
         const opened = indexedDB.open('tachyon-fetch-cache');
         opened.onerror = () => reject(opened.error);
         opened.onsuccess = () => {
-          const transaction = opened.result.transaction('responses', 'readwrite');
-          transaction.objectStore('responses').put({ key: `fetch:GET:${url}`, status,
-            headers: status === 200 ? { 'content-range': 'bytes 0-2/6' } : {},
-            updatedAt: Date.now(), body: new TextEncoder().encode('abc').buffer });
+          const transaction = opened.result.transaction('responses','readwrite');
+          transaction.objectStore('responses').put({key:`fetch:GET:${url}`,status,
+            headers:status===200?{'content-range':'bytes 0-2/6'}:{},
+            updatedAt:Date.now(),body:new TextEncoder().encode('abc').buffer});
           transaction.oncomplete = () => { opened.result.close(); resolve(); };
           transaction.onerror = () => { opened.result.close(); reject(transaction.error); };
         };
       });
-      return (await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'cache-first' })).text();
-    }, { origin, status });
-    expect(restored, 'abcdef', `legacy partial response (${status}) is rejected before cache lookup returns`);
+      return __root('storageClients').cacheFirstClient.range({legacy:String(status)});
+    },{origin,status});
+    expect(restored.body,'abcdef',`legacy partial response (${status}) rejected`);
   }
+}
 
-  const aborted = await page.evaluate(async (url) => {
-    const controller = new AbortController();
-    controller.abort();
-    try {
-      await __tachyonTac.tac.fetch(url, { credentials: 'omit', signal: controller.signal });
-      return false;
-    } catch { return true; }
-  }, api);
-  expect(aborted, true, 'aborted request never falls back to stored data');
-
-  // The payoff: with the network gone, a read still answers from IndexedDB.
+async function checkOfflineBehavior(page, context, afterInvalidate) {
   await context.setOffline(true);
-  const offline = await value(async (url) => (await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'network-first' })).json());
-  expect(offline.value, afterInvalidate.value, 'network-first fell back to IndexedDB offline');
-
-  const refused = await value(async (url) => {
-    try { await __tachyonTac.tac.fetch(url, { credentials: 'omit' }, { cache: 'no-store' }); return 'resolved'; }
-    catch { return 'threw'; }
+  const offline = await page.evaluate(() => __root('storageClients').networkFirstClient.counter());
+  expect(offline.value, afterInvalidate.value, 'network-first falls back to IndexedDB offline');
+  const refused = await page.evaluate(async () => {
+    try { await __root('storageClients').freshClient.counter(); return false; } catch { return true; }
   });
-  expect(refused, 'threw', 'no-store never answers from storage');
-  const offlineRange = await page.evaluate(async (origin) => {
-    try {
-      await __tachyonTac.tac.fetch(`${origin}/api/range?full-first`, {
-        credentials: 'omit', headers: { Range: 'bytes=0-2' },
-      });
-      return 'resolved';
-    } catch { return 'threw'; }
-  }, origin);
-  expect(offlineRange, 'threw', 'offline Range never falls back to a complete cached response');
+  expect(refused,true,'no-store never answers from persistence');
+  const offlineRange = await page.evaluate(async () => {
+    try { await __root('storageClients').cacheFirstClient.range({sample:'full-first'},{Range:'bytes=0-2'}); return false; }
+    catch { return true; }
+  });
+  expect(offlineRange,true,'offline Range never falls back to complete cached JSON');
   await context.setOffline(false);
+  const aborted = await page.evaluate(async () => {
+    dispatchEvent(new PageTransitionEvent('pagehide',{persisted:false}));
+    try { await __root('storageClients').cacheFirstClient.counter(); return false; } catch { return true; }
+  });
+  expect(aborted,true,'disposed services reject instead of reading cached JSON');
+}
 
+async function checkDeniedStorage(browser, origin) {
   const blocked = await browser.newContext();
+  await blocked.addInitScript(rootHelper);
   await blocked.addInitScript(() => {
     for (const name of ['localStorage', 'sessionStorage', 'indexedDB', 'caches']) {
       Object.defineProperty(globalThis, name, { get() { throw new DOMException('Denied', 'SecurityError'); } });
@@ -340,38 +781,26 @@ context.setDefaultNavigationTimeout(15_000);
   await deniedPage.goto(origin, { waitUntil: 'networkidle' });
   await deniedPage.click('#bump');
   expect(await deniedPage.textContent('#clicks'), '1', 'denied Web Storage does not break rendering');
-  const deniedFetch = await deniedPage.evaluate(async (url) => (await __tachyonTac.tac.fetch(url, { credentials: 'omit' })).status, api);
-  expect(deniedFetch, 200, 'denied IndexedDB degrades to successful network response');
+  const deniedClient = await deniedPage.evaluate(() => __root('storageClients').cacheFirstClient.counter());
+  expect(deniedClient.value > 0, true, 'denied IndexedDB degrades to successful Client network response');
   await blocked.close();
-await browser.close();
-browser = undefined;
-await closeServer(server);
-server = undefined;
-
-// ── Phase 3: CacheStorage precache, over HTTPS so the worker registers ────
-const key = path.join(PROJECT, 'ty-storage-key.pem');
-const certificate = path.join(PROJECT, 'ty-storage-cert.pem');
-const issued = spawnSync('openssl', [
-  'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-  '-keyout', key, '-out', certificate, '-days', '1',
-  '-subj', `/CN=${HOST}`, '-addext', `subjectAltName=DNS:${HOST}`,
-], { encoding: 'utf8', timeout: 30_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 });
-if (issued.status !== 0) {
-  throw new Error(`cannot issue a test certificate: ${issued.error?.message || issued.stderr || issued.stdout}`);
 }
 
-secure = createSecureServer({ key: readFileSync(key), cert: readFileSync(certificate) }, handle);
-await listen(secure);
-const secureOrigin = `https://${HOST}:${secure.address().port}`;
-const profile = path.join(PROJECT, 'ty-storage-profile');
-secureContext = await chromium.launchPersistentContext(profile, {
-  timeout: 30_000,
-  ignoreHTTPSErrors: true,
-  args: [`--host-resolver-rules=MAP ${HOST} 127.0.0.1`, '--ignore-certificate-errors'],
-});
-secureContext.setDefaultTimeout(15_000);
-secureContext.setDefaultNavigationTimeout(15_000);
+function issueCertificate(project) {
+  const key = path.join(project, 'ty-storage-key.pem');
+  const certificate = path.join(project, 'ty-storage-cert.pem');
+  const issued = spawnSync('openssl', [
+    'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+    '-keyout', key, '-out', certificate, '-days', '1',
+    '-subj', `/CN=${StorageGate.host}`, '-addext', `subjectAltName=DNS:${StorageGate.host}`,
+  ], { encoding: 'utf8', timeout: 30_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 });
+  if (issued.status !== 0) {
+    throw new Error(`cannot issue a test certificate: ${issued.error?.message || issued.stderr || issued.stdout}`);
+  }
+  return { key, certificate };
+}
 
+async function checkServiceWorkerOffline(secureContext, secureOrigin) {
   const securePage = await secureContext.newPage();
   await securePage.goto(`${secureOrigin}/`, { waitUntil: 'networkidle' });
   await securePage.evaluate(async () => {
@@ -383,11 +812,9 @@ secureContext.setDefaultNavigationTimeout(15_000);
       ]);
     } finally { clearTimeout(timer); }
   });
-  // The worker only caches what the page fetched, so the reload is what gives
-  // it a populated cache to warm from.
   await securePage.reload({ waitUntil: 'networkidle' });
 
-  const detail = '/.tachyon/components/panel-detail.js';
+  const detail = '/.tachyon/services/PanelDetailService.js';
   expect(await securePage.textContent('#clicks'), '0', 'fresh profile starts at the default');
   expect(await securePage.locator('#detail').count(), 0, 'branch is untaken, so the module is unused');
 
@@ -398,27 +825,83 @@ secureContext.setDefaultNavigationTimeout(15_000);
     const cache = await caches.open(name);
     return Boolean(await cache.match(new URL(asset, location.href).href));
   }, detail).then(() => true).catch(() => false);
-  expect(cached, true, 'unused component module precached at idle');
+  expect(cached, true, 'unused service module precached at idle');
 
-  // The assertion that matters: the branch opens with the network gone, and
-  // the component that was never fetched still renders.
   await secureContext.setOffline(true);
   await securePage.click('#bump');
   await securePage.click('#bump');
   await securePage.click('#bump');
   expect(await securePage.textContent('#detail'), 'detail', 'precached component rendered offline');
-} finally {
-  try {
-    const cleanup = await Promise.allSettled([
-      browser?.close(), secureContext?.close(), closeServer(server), closeServer(secure),
-    ]);
-    for (const result of cleanup) {
-      if (result.status === 'rejected') { console.error('storage cleanup failed:', result.reason); process.exitCode = 1; }
-    }
-  } finally {
-    if (PROJECT) rmSync(PROJECT, { recursive: true, force: true });
-  }
 }
 
-if (process.exitCode) console.error('storage gate failed');
-else console.log('storage gate passed');
+async function main() {
+  if (!StorageGate.withCSharp) {
+    if (process.env.CI) fail('CI must provide .NET wasm-tools for the C# storage check');
+    console.log('skipping the C# storage check: the .NET wasm-tools workload is not installed');
+  }
+  let project;
+  let server;
+  let browser;
+  let secure;
+  let secureContext;
+  try {
+    project = mkdtempSync(path.join(tmpdir(), 'ty-storage-gate-'));
+    writeFixture(project);
+    buildFixture(project);
+    const handle = createHandler(project);
+    server = createServer(handle);
+    await listen(server);
+    const origin = `http://127.0.0.1:${server.address().port}`;
+
+    browser = await chromium.launch({ timeout: 30_000, args: [`--host-resolver-rules=MAP ${StorageGate.host} 127.0.0.1`] });
+    const context = await browser.newContext();
+    await context.addInitScript(rootHelper);
+    context.setDefaultTimeout(15_000);
+    context.setDefaultNavigationTimeout(15_000);
+    const page = await checkFieldStorage(context, origin);
+    await checkKeptCaches(page);
+    await checkInsecureCaches(browser, server.address().port);
+    await checkIndexedStore(browser, origin);
+    await checkWebAssemblyStorage(browser, origin);
+    await checkInjectedClients(page);
+    const afterInvalidate = await checkCachePolicies(page, origin, context);
+    await checkRangeRequests(page);
+    await checkLegacyPartialResponses(page, origin);
+    await checkOfflineBehavior(page, context, afterInvalidate);
+    await checkDeniedStorage(browser, origin);
+    await browser.close();
+    browser = undefined;
+    await closeServer(server);
+    server = undefined;
+
+    const { key, certificate } = issueCertificate(project);
+    secure = createSecureServer({ key: readFileSync(key), cert: readFileSync(certificate) }, handle);
+    await listen(secure);
+    const secureOrigin = `https://${StorageGate.host}:${secure.address().port}`;
+    const profile = path.join(project, 'ty-storage-profile');
+    secureContext = await chromium.launchPersistentContext(profile, {
+      timeout: 30_000,
+      ignoreHTTPSErrors: true,
+      args: [`--host-resolver-rules=MAP ${StorageGate.host} 127.0.0.1`, '--ignore-certificate-errors'],
+    });
+    secureContext.setDefaultTimeout(15_000);
+    secureContext.setDefaultNavigationTimeout(15_000);
+    await checkServiceWorkerOffline(secureContext, secureOrigin);
+  } finally {
+    try {
+      const cleanup = await Promise.allSettled([
+        browser?.close(), secureContext?.close(), closeServer(server), closeServer(secure),
+      ]);
+      for (const result of cleanup) {
+        if (result.status === 'rejected') { console.error('storage cleanup failed:', result.reason); process.exitCode = 1; }
+      }
+    } finally {
+      if (project) rmSync(project, { recursive: true, force: true });
+    }
+  }
+
+  if (process.exitCode) console.error('storage gate failed');
+  else console.log('storage gate passed');
+}
+
+await main();

@@ -5,69 +5,82 @@
 
 ## Context
 
-The legacy implementation ships a single-page application: a 1,060-line client
-renderer, a 605-line DOM helper layer, and the router, cache, and hydration
-code around them. It exists to deliver two things a user can feel — navigation
-that is instant, and navigation that is smooth.
+The legacy implementation ships a single-page application. It has a
+1,060-line client renderer and a 605-line helper layer for the DOM (Document
+Object Model, the browser's tree of page elements). Router, cache and
+hydration code surround them. This code exists to give users two things they
+can feel:
+
+- navigation that is instant;
+- navigation that is smooth.
 
 The Rust implementation reaches those goals from a different starting point.
-Every route is already prerendered to static HTML, so a plain link works with
-no JavaScript at all. What a client renderer would add is speed and polish, not
-capability.
+The build already prerenders every route to static HTML. A plain link
+therefore works with no JavaScript at all. A client renderer would add speed
+and polish, not new capability.
 
-Reproducing it would mean porting the largest and most defect-prone subsystem
-in the legacy codebase, and owning a DOM reconciler forever, to reach an end
-state the browser now reaches natively.
+To reproduce the renderer, we would have to port the largest subsystem of the
+legacy codebase. It is also the subsystem with the most defects. We would
+also have to maintain a DOM reconciler forever. The result would only match
+what the browser now does by itself.
 
-`CONTEXT.md` is explicit that the rewrite is not a line-by-line port: stable
-behavior, source conventions, and contracts carry forward, while internal
-implementation structure is greenfield.
+`CONTEXT.md` states clearly that the rewrite is not a line-by-line port. Stable
+behavior, source conventions and contracts carry forward. The internal
+implementation structure is new, written from the beginning without legacy
+code.
 
 ## Decision
 
-Do not port the client renderer. Adopt the platform features that deliver the
-same two user-visible properties.
+Do not port the client renderer. Use the browser platform features that give
+users the same two properties.
 
-Every generated page opts into cross-document view transitions with
-`@view-transition { navigation: auto; }`, served as a stylesheet. Every
-generated page carries speculation rules that prefetch same-origin routes at
-moderate eagerness, so a route is usually already fetched before it is clicked.
+- Every generated page opts into cross-document view transitions with
+  `@view-transition { navigation: auto; }`. A stylesheet delivers this rule.
+- Every generated page carries speculation rules. The rules prefetch
+  same-origin routes at moderate eagerness. As a result, the browser has
+  usually fetched a route before the user clicks it.
 
-Both are inert where unsupported: navigation simply proceeds normally.
+A browser that does not support these features ignores them. Navigation then
+works in the normal way.
 
-The development server's policy gains `'inline-speculation-rules'`, the CSP
-keyword defined for this exact case. The rules payload is JSON, not executable
-script, so no general inline-script allowance is introduced.
+The development server adds `'inline-speculation-rules'` to its policy. This
+is the CSP (content security policy) keyword defined for exactly this case.
+The rules payload is JSON, not executable script. The policy therefore gains
+no general permission for inline scripts.
 
 ## Consequences
 
-The two user-visible benefits are delivered by roughly forty bytes of CSS and a
-JSON block, instead of by 1,665 lines of client JavaScript that would need
-testing, fuzzing, and long-term maintenance. Pages keep working with JavaScript
-disabled. There is no reconciler to desynchronise from the server's HTML,
-which removes an entire category of defect.
+Roughly forty bytes of CSS and one JSON block deliver the two user-visible
+benefits. The alternative was 1,665 lines of client JavaScript that would need
+testing, fuzzing and long-term maintenance. Pages keep working with
+JavaScript disabled. No reconciler exists, so no reconciler can get out of
+sync with the server's HTML. This removes a whole category of defect.
 
-Against that, state does not survive navigation the way it can in a
-single-page application: a document is genuinely replaced. An application that
-needs state to outlive a route change must hold it in an island, in storage, or
-on the server. Prefetching also trades bandwidth for latency, and browsers
-without support get correct but ordinary navigation.
+The costs are:
 
-This is a deliberate divergence from the legacy implementation and is recorded
-as such in `PARITY_LEDGER.md` rather than presented as parity.
+- State does not survive navigation the way it can in a single-page
+  application. Each navigation really replaces the document. An application
+  that needs state to last after a route change must keep it in an island, in
+  storage or on the server.
+- Prefetching uses more bandwidth to reduce waiting time.
+- Browsers without support get correct but ordinary navigation.
+
+This is a deliberate difference from the legacy implementation.
+`PARITY_LEDGER.md` records it as a difference. It does not present it as
+parity.
 
 ## Rejected Alternatives
 
-Porting the renderer was rejected for the reasons above: highest cost and
-highest risk in the codebase, to reach where the platform already is.
-
-Writing a smaller bespoke renderer was rejected as the worst of both. It still
-owns a reconciler, still desynchronises, and gives up the legacy version's one
-advantage, which is years of production hardening.
-
-Leaving navigation entirely unenhanced was rejected because instant and smooth
-navigation are real properties users notice, and the platform now supplies them
-for almost nothing.
+- **Port the renderer.** Rejected for the reasons above. It has the highest
+  cost and the highest risk in the codebase, and it only reaches what the
+  platform already provides.
+- **Write a smaller custom renderer.** Rejected because it combines the
+  disadvantages of both options. It still owns a reconciler and can still get
+  out of sync with the server's HTML. It also loses the one advantage of the
+  legacy renderer: years of use and fixes in production.
+- **Leave navigation with no improvement.** Rejected because users notice
+  instant and smooth navigation. The platform now provides both at almost no
+  cost.
 
 ## Acceptance Gate
 

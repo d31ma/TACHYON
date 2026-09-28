@@ -1,0 +1,94 @@
+# ADR 0064: Code Is Not Duplicated
+
+- Status: Accepted
+- Date: 2026-09-27
+- Preserves: [ADR 0031](0031-realms-mirror-each-other.md) (the realms stay
+  apart), [ADR 0044](0044-an-annotated-file-holds-one-class.md) (a file holds
+  one class), [ADR 0046](0046-tachyon-annotations-are-global.md) (composed
+  names need no import) and [ADR 0063](0063-services-and-controllers-are-cohesive.md)
+  (methods are cohesive)
+
+## Context
+
+The same block of code was copied into several services and controllers,
+often with other names. A fix in one copy missed the others. The shared
+engineering instructions already forbid duplicated code in Tachyon's own
+source. SonarQube finds such blocks with its copy-paste detection (CPD), but
+Tachyon must not send application code to another service, and Tachyon owns
+its rules, in the same way as it follows Spring for annotations.
+
+## Decision
+
+Tachyon runs its own copy-paste detection with SonarQube's semantics.
+
+1. **What a duplicate is.** A block of at least 100 successive tokens that
+   spans at least 10 lines and appears twice or more in the same language and
+   the same realm (`client/` or `server/`), in one file or in two files.
+   Names and literal values are normalized, so a copy with other names or
+   values is still a duplicate. Keywords keep their spelling. Whitespace and
+   comments are not tokens.
+2. **What is not counted.** Imports, `use`, `using`, `require`, `package`
+   and similar lines; annotation lines; files in `tests/`, `models/` and
+   `entities/` folders (test units and model field declarations); files in
+   `assets/` and `vendor/` folders and minified files (`.min.`), which are
+   copied libraries; files with
+   a test annotation; generated files (`.d.ts`, `.generated.`,
+   `_generated.`, `.g.`); and a block that holds almost only values (fewer
+   than one name or keyword in ten tokens), which is a list of data.
+3. **The error.** `ty build`, `ty preview`, `ty serve`, `ty bundle` and
+   `ty test` refuse a duplicate with `TY1315`. The message names both places
+   as `file:first-last` lines, and the help says: "Move the repeated code
+   into a utility: create `<realm>/utils/<Name>Utils.<ext>` with a static
+   method, and call it from both places." `<Name>` comes from the words that
+   the two file names share, without role words such as `Service`;
+   otherwise it is `Shared`. `ty migrate check` lists every duplicate as a
+   `duplication.block` finding.
+4. **Utility classes.** `client/utils/` (Tac) and `server/utils/` (Yon)
+   hold utility classes. A file there is named `<Topic>Utils.<ext>` and holds
+   one class of the same name (`TY1310`) with no Tachyon annotation. The class
+   holds only static methods and no state (`TY1316`): no field, no stored
+   value, no constructor and no instance method. The methods follow the
+   cohesion rule of ADR 0063. Tachyon composes every utility class of a
+   realm into each program of that realm and language, with no import:
+   services, controllers, error handlers, stores, test units and the other
+   role classes. `composed.d.ts` declares the JavaScript and TypeScript
+   utility classes, test units may test them, and `ty test --coverage` counts
+   their public methods.
+
+| Language | Utility class | Static method | Private helper |
+|---|---|---|---|
+| JavaScript | `export default class TextUtils` | `static slug(value)` | `static #lower(value)` |
+| TypeScript | `export default class TextUtils` | `static slug(value: string)` | `private static lower(value: string)` |
+| Python | `class TextUtils:` | `@staticmethod` above `def slug(value)` | `def _lower(value)` |
+| Ruby | `class TextUtils` | `def self.slug(value)` | `def self._lower(value)` |
+| PHP, Java, C#, Dart | `class TextUtils` (C#: `static class`) | `static` method | `private static` (Dart: `static _lower`) |
+| Kotlin | `object TextUtils` | `fun slug(value: String)` | `private fun lower(...)` |
+| Swift | `struct TextUtils` | `static func slug(_ value: String)` | `private static func lower(...)` |
+| Go | `type TextUtils struct{}` | `func (TextUtils) Slug(value string)` | `func (TextUtils) lower(...)` |
+| Rust | `pub struct TextUtils;` | `pub fn slug(value: &str)` (no `self`) | `fn lower(value: &str)` |
+
+One switch per realm turns the duplication check off while a project
+migrates, in the same place as the cohesion switch: `tac.duplication.check:
+false` in `client/manifest.json` and `duplication.check: false` in
+`server/application.json`. `ty migrate check` ignores the switch.
+
+The detector is one small crate, `crates/tachyon-duplication`: a rolling hash
+over the normalized tokens of each language finds equal windows of 100
+tokens and stretches each match as far as it goes. The per-language token
+reader is the one-class layout reader (`annotation_layout/single_class/tokens.rs`).
+Tachyon's own Rust source uses the same crate through `tools/cohesion-scan`,
+which now reports cohesion, structure and duplication together; the
+repository test keeps the number of duplicated blocks at or below
+`tools/cohesion-scan/DUPLICATION_BASELINE`, and the goal is 0.
+
+## Consequences
+
+- A fix to shared logic happens in one place, and the utility method has a
+  name that says what it does.
+- Two copies in different realms are not reported, because no utility class
+  can serve both realms.
+- The detector reads tokens, not a parse tree. A long list of similar
+  statements in one file can repeat itself; move it into a loop over data or
+  into `shared/data`.
+- A utility class cannot keep a constant as a field. Return the value from a
+  static method instead.

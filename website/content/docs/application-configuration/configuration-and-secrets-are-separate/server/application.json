@@ -1,0 +1,15 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8080
+  },
+  "datasource": {
+    "driver": "postgresql",
+    "url": "postgresql://localhost:5432/catalog"
+  },
+  "catalog": {
+    "page": {
+      "size": 20
+    }
+  }
+}

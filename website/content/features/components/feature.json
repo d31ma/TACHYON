@@ -1,0 +1,25 @@
+{
+  "id": "components",
+  "title": "Components and slots",
+  "summary": "A component is a reusable part of a page. Each directory under `client/components` defines one component. A page contains only component tags. Components can contain other components. A component that only shows the data it receives needs no service (a class that holds state and behavior). Slots (places where a parent component inserts its own content) are scoped. If components contain each other in a cycle, the build fails before publishing.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/components/product/card/tac.html",
+      "code": { "file": "client/components/product/card/tac.html" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/grid/tac.html",
+      "code": { "file": "client/components/catalog/grid/tac.html" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    }
+  ],
+  "verify": "tac-component"
+}

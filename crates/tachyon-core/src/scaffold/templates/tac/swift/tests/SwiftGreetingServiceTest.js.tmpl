@@ -1,0 +1,8 @@
+@Test(SwiftGreetingTestSetup, {"partition":"tests"})
+export default class SwiftGreetingServiceTest {
+  async testGreetChangesTheMessageOnTheWeb() {
+    const greeting = new SwiftGreetingService()
+    greeting.greet()
+    if (greeting.message !== 'Swift says hello again.') throw Error(`message is ${greeting.message}`)
+  }
+}

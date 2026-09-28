@@ -1,0 +1,17 @@
+@RequestRoute("/api/news")
+@Public
+export class NewsController {
+  /** @type {ApplicationEventPublisher} */
+  @Needs
+  applicationEventPublisher
+
+  /**
+   * @param {NewsItem} item
+   * @returns {NewsItem}
+   */
+  @PostRoute
+  postNews(@FromBody item) {
+    this.applicationEventPublisher.publishEvent(item)
+    return item
+  }
+}

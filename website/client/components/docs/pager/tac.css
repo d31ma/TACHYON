@@ -1,7 +1,3 @@
-/* Two cards, each naming where it goes. `margin-left: auto` on the next link
-   is what keeps it right-aligned when there is no previous one — a page at the
-   start of the order should not pull "Next" over to the left as though it were
-   going backwards. */
 .docs-pager {
   display: flex;
   flex-wrap: wrap;
@@ -28,18 +24,19 @@
 }
 
 .docs-pager__link--next {
-  margin-left: auto;
   text-align: right;
 }
 
 .docs-pager__label {
-  font-size: .75rem;
+  font-size: var(--step-xs);
   text-transform: uppercase;
   letter-spacing: .05em;
   opacity: .6;
 }
 
 .docs-pager__title {
+  font-size: var(--step-md);
+  line-height: 1.35;
   font-weight: 600;
   text-wrap: balance;
 }

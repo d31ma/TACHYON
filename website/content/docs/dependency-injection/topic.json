@@ -1,0 +1,19 @@
+{
+  "title": "Dependency injection",
+  "summary": "Dependency injection means that Tachyon creates the objects that a class needs and puts them into its fields. Mark a field with `Needs`, or mark the class with `NeedsAll`. `Lifetime` says how long one object lives.",
+  "before": [
+    "services",
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../yon/fields-that-needs-fills/section.json"
+    },
+    {
+      "include": "../annotations/injection-yon/section.json"
+    },
+    {
+      "include": "../annotations/injection-tac/section.json"
+    }
+  ]
+}

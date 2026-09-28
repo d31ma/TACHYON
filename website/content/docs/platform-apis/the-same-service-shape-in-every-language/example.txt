@@ -1,0 +1,12 @@
+// Swift
+final class ThemeService {
+    var theme = TacStore.local("theme", "calm")
+
+    func save() { TacStore.setLocal("theme", theme) }
+}
+
+// Kotlin
+Tac.setSession("theme", "calm")
+
+// Rust
+tac_set_session("theme", "calm");

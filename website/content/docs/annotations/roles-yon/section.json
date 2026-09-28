@@ -1,0 +1,559 @@
+{
+  "heading": "Roles: Yon",
+  "body": "GET /billing returns {\"total\":42}. A role is the job that a class does, such as controller, service or store. RequestRoute marks a controller (a class that answers HTTP requests) in server/controllers. It also gives the base path, and Public, SignedIn or Allow(Role) says who may call its routes. IdentityProvider is the one class in server/controllers that says who is signed in, and a role type for Allow is an empty class in server/roles. Service, Store, HTTPClient, Helper, Setup and Entity live in the realm's shared folders under server/. The compiler finds them by exact name and matching language (ADR 0031). Here is the chain. The controller injects BillingService (the framework creates the service and gives it to the controller). The service injects the bare BillingStore and BillingHelper. The helper injects BillingClient. A bare Store (a Store with no options) is only the role, and it has no queries. The Store form that is bound to an entity is part of the data group. Setup and Entity appear here only to show their folders and their names. Neither one connects to a database or configures an adapter by itself. An adapter is the code that talks to an outside system, such as a database. Needs works out every dependency from the field it marks, a field that has no starting value. So no file here writes a constructor. In Rust, a provider (a class that the framework can inject) still needs a constructor in its own impl block. That is why BillingClient and BillingStore write fn new themselves, even though they have no dependencies. Go has no constructors, so Tachyon builds each Go role as &T{} and fills its marked fields. JavaScript matches a field to the name of the provider in lowerCamel case. In lowerCamel case, the first word is lowercase, and each next word starts with a capital letter. Every other language matches the concrete type. Rust matches it through Arc<T>, and Go matches it through *T. The controller and route annotations, the error handler annotations, Stream, Gateway and Schedule exist only in Yon. Swift is not a Yon language.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/clients/BillingClient.js",
+      "code": {
+        "file": "server/clients/BillingClient.js"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.js",
+      "code": {
+        "file": "server/helpers/BillingHelper.js"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.js",
+      "code": {
+        "file": "server/stores/BillingStore.js"
+      }
+    },
+    {
+      "name": "server/services/BillingService.js",
+      "code": {
+        "file": "server/services/BillingService.js"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.js",
+      "code": {
+        "file": "server/setups/BillingSetup.js"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.js",
+      "code": {
+        "file": "server/entities/BillingEntity.js"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.js",
+      "code": {
+        "file": "server/controllers/BillingController.js"
+      }
+    },
+    {
+      "name": "server/models/Bill.ts",
+      "code": {
+        "file": "server/models/Bill.ts"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.ts",
+      "code": {
+        "file": "server/clients/BillingClient.ts"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.ts",
+      "code": {
+        "file": "server/helpers/BillingHelper.ts"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.ts",
+      "code": {
+        "file": "server/stores/BillingStore.ts"
+      }
+    },
+    {
+      "name": "server/services/BillingService.ts",
+      "code": {
+        "file": "server/services/BillingService.ts"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.ts",
+      "code": {
+        "file": "server/setups/BillingSetup.ts"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.ts",
+      "code": {
+        "file": "server/entities/BillingEntity.ts"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.ts",
+      "code": {
+        "file": "server/controllers/BillingController.ts"
+      }
+    },
+    {
+      "name": "server/models/Bill.py",
+      "code": {
+        "file": "server/models/Bill.py"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.py",
+      "code": {
+        "file": "server/clients/BillingClient.py"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.py",
+      "code": {
+        "file": "server/helpers/BillingHelper.py"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.py",
+      "code": {
+        "file": "server/stores/BillingStore.py"
+      }
+    },
+    {
+      "name": "server/services/BillingService.py",
+      "code": {
+        "file": "server/services/BillingService.py"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.py",
+      "code": {
+        "file": "server/setups/BillingSetup.py"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.py",
+      "code": {
+        "file": "server/entities/BillingEntity.py"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.py",
+      "code": {
+        "file": "server/controllers/BillingController.py"
+      }
+    },
+    {
+      "name": "server/models/Bill.php",
+      "code": {
+        "file": "server/models/Bill.php"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.php",
+      "code": {
+        "file": "server/clients/BillingClient.php"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.php",
+      "code": {
+        "file": "server/helpers/BillingHelper.php"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.php",
+      "code": {
+        "file": "server/stores/BillingStore.php"
+      }
+    },
+    {
+      "name": "server/services/BillingService.php",
+      "code": {
+        "file": "server/services/BillingService.php"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.php",
+      "code": {
+        "file": "server/setups/BillingSetup.php"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.php",
+      "code": {
+        "file": "server/entities/BillingEntity.php"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.php",
+      "code": {
+        "file": "server/controllers/BillingController.php"
+      }
+    },
+    {
+      "name": "server/models/Bill.java",
+      "code": {
+        "file": "server/models/Bill.java"
+      }
+    },
+    {
+      "name": "server/models/Bill.groovy",
+      "code": {
+        "file": "server/models/Bill.groovy"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.java",
+      "code": {
+        "file": "server/clients/BillingClient.java"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.groovy",
+      "code": {
+        "file": "server/clients/BillingClient.groovy"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.java",
+      "code": {
+        "file": "server/helpers/BillingHelper.java"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.groovy",
+      "code": {
+        "file": "server/helpers/BillingHelper.groovy"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.java",
+      "code": {
+        "file": "server/stores/BillingStore.java"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.groovy",
+      "code": {
+        "file": "server/stores/BillingStore.groovy"
+      }
+    },
+    {
+      "name": "server/services/BillingService.java",
+      "code": {
+        "file": "server/services/BillingService.java"
+      }
+    },
+    {
+      "name": "server/services/BillingService.groovy",
+      "code": {
+        "file": "server/services/BillingService.groovy"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.java",
+      "code": {
+        "file": "server/setups/BillingSetup.java"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.groovy",
+      "code": {
+        "file": "server/setups/BillingSetup.groovy"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.java",
+      "code": {
+        "file": "server/entities/BillingEntity.java"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.groovy",
+      "code": {
+        "file": "server/entities/BillingEntity.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.java",
+      "code": {
+        "file": "server/controllers/BillingController.java"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.groovy",
+      "code": {
+        "file": "server/controllers/BillingController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Bill.kt",
+      "code": {
+        "file": "server/models/Bill.kt"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.kt",
+      "code": {
+        "file": "server/clients/BillingClient.kt"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.kt",
+      "code": {
+        "file": "server/helpers/BillingHelper.kt"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.kt",
+      "code": {
+        "file": "server/stores/BillingStore.kt"
+      }
+    },
+    {
+      "name": "server/services/BillingService.kt",
+      "code": {
+        "file": "server/services/BillingService.kt"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.kt",
+      "code": {
+        "file": "server/setups/BillingSetup.kt"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.kt",
+      "code": {
+        "file": "server/entities/BillingEntity.kt"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.kt",
+      "code": {
+        "file": "server/controllers/BillingController.kt"
+      }
+    },
+    {
+      "name": "server/models/Bill.cs",
+      "code": {
+        "file": "server/models/Bill.cs"
+      }
+    },
+    {
+      "name": "server/models/Bill.fs",
+      "code": {
+        "file": "server/models/Bill.fs"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.cs",
+      "code": {
+        "file": "server/clients/BillingClient.cs"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.cs",
+      "code": {
+        "file": "server/helpers/BillingHelper.cs"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.fs",
+      "code": {
+        "file": "server/helpers/BillingHelper.fs"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.cs",
+      "code": {
+        "file": "server/stores/BillingStore.cs"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.fs",
+      "code": {
+        "file": "server/stores/BillingStore.fs"
+      }
+    },
+    {
+      "name": "server/services/BillingService.cs",
+      "code": {
+        "file": "server/services/BillingService.cs"
+      }
+    },
+    {
+      "name": "server/services/BillingService.fs",
+      "code": {
+        "file": "server/services/BillingService.fs"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.cs",
+      "code": {
+        "file": "server/setups/BillingSetup.cs"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.cs",
+      "code": {
+        "file": "server/entities/BillingEntity.cs"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.cs",
+      "code": {
+        "file": "server/controllers/BillingController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.fs",
+      "code": {
+        "file": "server/controllers/BillingController.fs"
+      }
+    },
+    {
+      "name": "server/models/Bill.rs",
+      "code": {
+        "file": "server/models/Bill.rs"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.rs",
+      "code": {
+        "file": "server/clients/BillingClient.rs"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.rs",
+      "code": {
+        "file": "server/helpers/BillingHelper.rs"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.rs",
+      "code": {
+        "file": "server/stores/BillingStore.rs"
+      }
+    },
+    {
+      "name": "server/services/BillingService.rs",
+      "code": {
+        "file": "server/services/BillingService.rs"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.rs",
+      "code": {
+        "file": "server/setups/BillingSetup.rs"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.rs",
+      "code": {
+        "file": "server/entities/BillingEntity.rs"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.rs",
+      "code": {
+        "file": "server/controllers/BillingController.rs"
+      }
+    },
+    {
+      "name": "server/models/Bill.go",
+      "code": {
+        "file": "server/models/Bill.go"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.go",
+      "code": {
+        "file": "server/clients/BillingClient.go"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.go",
+      "code": {
+        "file": "server/helpers/BillingHelper.go"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.go",
+      "code": {
+        "file": "server/stores/BillingStore.go"
+      }
+    },
+    {
+      "name": "server/services/BillingService.go",
+      "code": {
+        "file": "server/services/BillingService.go"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.go",
+      "code": {
+        "file": "server/setups/BillingSetup.go"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.go",
+      "code": {
+        "file": "server/entities/BillingEntity.go"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.go",
+      "code": {
+        "file": "server/controllers/BillingController.go"
+      }
+    },
+    {
+      "name": "server/models/Bill.dart",
+      "code": {
+        "file": "server/models/Bill.dart"
+      }
+    },
+    {
+      "name": "server/clients/BillingClient.dart",
+      "code": {
+        "file": "server/clients/BillingClient.dart"
+      }
+    },
+    {
+      "name": "server/helpers/BillingHelper.dart",
+      "code": {
+        "file": "server/helpers/BillingHelper.dart"
+      }
+    },
+    {
+      "name": "server/stores/BillingStore.dart",
+      "code": {
+        "file": "server/stores/BillingStore.dart"
+      }
+    },
+    {
+      "name": "server/services/BillingService.dart",
+      "code": {
+        "file": "server/services/BillingService.dart"
+      }
+    },
+    {
+      "name": "server/setups/BillingSetup.dart",
+      "code": {
+        "file": "server/setups/BillingSetup.dart"
+      }
+    },
+    {
+      "name": "server/entities/BillingEntity.dart",
+      "code": {
+        "file": "server/entities/BillingEntity.dart"
+      }
+    },
+    {
+      "name": "server/controllers/BillingController.dart",
+      "code": {
+        "file": "server/controllers/BillingController.dart"
+      }
+    }
+  ]
+}

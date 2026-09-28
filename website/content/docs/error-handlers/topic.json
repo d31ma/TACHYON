@@ -1,0 +1,12 @@
+{
+  "title": "Error handlers",
+  "summary": "An error handler turns an error that your code throws into a clear answer for the caller. You write it once, and it works for every controller of its language.",
+  "before": [
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../yon/error-handlers-in-every-yon-language/section.json"
+    }
+  ]
+}

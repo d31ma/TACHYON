@@ -1,0 +1,25 @@
+{
+  "id": "views",
+  "title": "A view is not a document",
+  "group": "Tac views",
+  "summary": "Each page and each component has a view (an HTML template). The `tac.html` of a page places components. The `tac.html` of each component defines its content. The compiler creates the document around them. If a view contains a doctype, `<html>`, `<head>` or `<body>`, the build fails with `TY1307`. Tachyon cannot merge a head that you write with the head that it generates.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/view/tac.html",
+      "code": { "file": "client/components/catalog/view/tac.html" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    },
+    {
+      "name": "emitted",
+      "code": { "file": "emitted.html" }
+    }
+  ],
+  "verify": "tac"
+}

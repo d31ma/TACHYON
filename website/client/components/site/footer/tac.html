@@ -3,16 +3,16 @@
     <div class="grid-auto" style="--col: 13rem; --grid-gap: 2rem">
       <div>
         <div class="w-row align-center ga-2">
-          <img src="/shared/assets/logo.svg" alt="" width="22" height="22" class="block" />
+          <img src="/shared/assets/logo.svg" alt="" aria-hidden="true" width="22" height="22" class="block" />
           <span class="font-bold tracking-widest text-sm">TACHYON</span>
         </div>
         <p class="mt-3 text-sm opacity-70 max-w-[34ch] text-pretty">
-          A polyglot, file-system-routed full-stack framework shipped as the standalone
-          <code>ty</code> binary.
+          A full-stack framework for many languages. Folders define the routes. It comes as one
+          program, the <code>ty</code> binary.
         </p>
       </div>
 
-      <loop :for="column of columns()">
+      <loop :for="column of data.footer">
         <nav :aria-label="column.title">
           <h2 class="text-sm font-semibold">{column.title}</h2>
           <ul class="mt-3 grid gap-2 text-sm opacity-70 list-none p-0 m-0">

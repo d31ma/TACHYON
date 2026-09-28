@@ -1,249 +1,490 @@
-// Appended after a `yon.kt` handler. Everything below is the protocol.
-//
-// The author writes a class and methods. Reading standard input, dispatching
-// on the method and writing the response envelope is Tachyon's half.
-//
-// Kotlin's standard library has no JSON, and `org.json` is on Android's
-// classpath rather than on a bare `kotlinc` one, so a parser is supplied here
-// instead of asked for. `Json.parse` and `Json.write` are simply in scope.
+class DataSource {
+    fun query(sql: String, parameters: List<Any?>): Any? = YonManagedResources.call(mapOf("operation" to "sql", "sql" to sql, "parameters" to parameters, "mode" to "rows"))
+    fun execute(sql: String, parameters: List<Any?>): Any? = YonManagedResources.call(mapOf("operation" to "sql", "sql" to sql, "parameters" to parameters, "mode" to "execute"))
+    fun execute(command: Map<String, Any?>): Any? = this.command(command)
+    fun command(command: Map<String, Any?>): Any? = YonManagedResources.call(command)
+}
 
-@Target(AnnotationTarget.CLASS)
-annotation class Controller
+class RedisTemplate {
+    fun get(key: String): Any? = YonManagedResources.call(mapOf("operation" to "redis", "command" to "get", "key" to key))
+    fun delete(key: String): Any? = YonManagedResources.call(mapOf("operation" to "redis", "command" to "delete", "key" to key))
+    fun set(key: String, value: Any?, ttlSeconds: Long): Any? = YonManagedResources.call(mapOf("operation" to "redis", "command" to "set", "key" to key, "value" to value, "ttlSeconds" to ttlSeconds))
+}
 
-@Target(AnnotationTarget.CLASS)
-annotation class Service
-
-@Target(AnnotationTarget.CLASS)
-annotation class Repository
-
-@Target(AnnotationTarget.CLASS)
-annotation class Client
-
-@Target(AnnotationTarget.CLASS)
-annotation class Delegate
-
-/**
- * Marks a method as a proxy for a program Yon does not run.
- *
- * RUNTIME retention, unlike the five above: those are read by Tachyon before
- * the compiler runs and nothing reads them back, where this one is read by the
- * dispatch below, which runs after it. Kotlin is one of the four languages
- * here whose annotations cannot do the work themselves — an annotation is
- * inert, so the dispatch checks for it and the annotated body is never called.
- */
-@Target(AnnotationTarget.FUNCTION)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Relay(vararg val command: String)
-
-/**
- * Marks a method that answers more than once.
- *
- * SOURCE retention, unlike `@Relay` above: Tachyon reads this before the
- * compiler runs, to tell the server which routes to read frames from, and the
- * dispatch below never asks for it — a `Sequence` is what it looks at. The two
- * are checked against each other at build time, so they cannot disagree.
- */
-@Target(AnnotationTarget.FUNCTION)
-@Retention(AnnotationRetention.SOURCE)
-annotation class Stream
-
-/** JSON, in the box, because Kotlin does not put it there. */
-object Json {
-    /** Reads one JSON document into maps, lists, strings, numbers and booleans. */
-    fun parse(source: String?): Any? {
-        val text = if (source.isNullOrBlank()) "{}" else source
-        return Reader(text).value()
+private object YonManagedResources {
+    const val LIMIT = 1024 * 1024
+    private const val RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L
+    private const val CONNECT_TIMEOUT_MILLISECONDS = 5000L
+    private fun failed(): Nothing = throw IllegalStateException("Yon managed resource operation failed.")
+    fun call(command: Any?): Any? {
+        val text = try { Json.stringify(command) } catch (_: Exception) { failed() }
+        return exchange(text, RESOURCE_TIMEOUT_NANOSECONDS)
     }
+    fun exchange(text: String, timeoutNanoseconds: Long): Any? {
+        try {
+            val endpoint = System.getenv("YON_RESOURCE_ENDPOINT") ?: failed()
+            val token = System.getenv("YON_RESOURCE_TOKEN") ?: failed()
+            if (!Regex("http://127\\.0\\.0\\.1:[0-9]{1,5}/").matches(endpoint) || !Regex("[0-9a-f]{64}").matches(token)) failed()
+            val port = endpoint.substring(17, endpoint.length - 1).toInt()
+            if (port !in 1..65535) failed()
+            val body = text.toByteArray(Charsets.UTF_8)
+            if (body.size > LIMIT) failed()
+            val deadline = System.nanoTime() + timeoutNanoseconds
+            val connectTimeout = minOf(CONNECT_TIMEOUT_MILLISECONDS, timeoutNanoseconds / 1_000_000L).toInt()
+            return java.net.Socket().use { socket ->
+                socket.connect(java.net.InetSocketAddress("127.0.0.1", port), connectTimeout)
+                val headers = "POST / HTTP/1.1\r\nHost: 127.0.0.1:$port\r\nAuthorization: Bearer $token\r\nContent-Type: application/json\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n"
+                socket.getOutputStream().apply {
+                    write(headers.toByteArray(Charsets.US_ASCII)); write(body); flush()
+                }
+                val input = socket.getInputStream()
+                val head = java.io.ByteArrayOutputStream()
+                val delimiter = intArrayOf(13, 10, 13, 10)
+                var matched = 0
+                while (matched < 4) {
+                    timeout(socket, deadline)
+                    val next = input.read()
+                    if (next < 0 || head.size() >= 16384) failed()
+                    head.write(next)
+                    matched = if (next == delimiter[matched]) matched + 1 else if (next == 13) 1 else 0
+                }
+                val lines = head.toString(Charsets.US_ASCII.name()).split("\r\n")
+                if (!Regex("HTTP/1\\.[01] 200(?: .*)?").matches(lines.first())) failed()
+                var length = -1
+                for (line in lines.drop(1).map { it.lowercase(java.util.Locale.ROOT) }) {
+                    if (line.startsWith("transfer-encoding:")) failed()
+                    if (line.startsWith("content-length:")) {
+                        val value = line.substring(15).trim()
+                        if (length >= 0 || !Regex("[0-9]{1,7}").matches(value)) failed()
+                        length = value.toInt()
+                    }
+                }
+                if (length !in 0..LIMIT) failed()
+                val response = ByteArray(length)
+                var read = 0
+                while (read < length) {
+                    timeout(socket, deadline)
+                    val count = input.read(response, read, length - read)
+                    if (count <= 0) failed()
+                    read += count
+                }
+                Json.parse(Charsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(response)).toString())
+            }
+        } catch (_: Exception) { failed() }
+    }
+    private fun timeout(socket: java.net.Socket, deadline: Long) {
+        val remaining = (deadline - System.nanoTime()) / 1_000_000L
+        if (remaining <= 0) failed()
+        socket.soTimeout = minOf(Int.MAX_VALUE.toLong(), remaining).toInt()
+    }
+}
 
-    /** Writes one value as JSON. */
-    fun write(value: Any?): String = when (value) {
-        null -> "null"
-        is String -> quote(value)
-        is Boolean -> value.toString()
-        is Number -> value.toString()
-        is Map<*, *> -> value.entries.joinToString(",", "{", "}") {
-            "${quote(it.key.toString())}:${write(it.value)}"
+object YonGateway {
+    private const val ANSWER_MARGIN_NANOSECONDS = 1_000_000_000L
+    fun call(key: String, arguments: Array<Any?>): Map<*, *> {
+        val body = try {
+            Json.stringify(mapOf("operation" to "gateway", "key" to key, "arguments" to arguments))
+        } catch (_: Exception) {
+            return failure("invalid")
         }
-        is Iterable<*> -> value.joinToString(",", "[", "]") { write(it) }
-        // Anything else crosses as its text, which is what a handler returning
-        // an unforeseen type would want to see at the other end.
-        else -> quote(value.toString())
+        if (body.toByteArray(Charsets.UTF_8).size > YonManagedResources.LIMIT) return failure("invalid")
+        val timeLeft = Yon.timeLeftNanos()
+        if (timeLeft <= 0) return failure("timeout")
+        val answer = try {
+            YonManagedResources.exchange(body, timeLeft + ANSWER_MARGIN_NANOSECONDS)
+        } catch (_: Exception) {
+            if (Yon.timeLeftNanos() <= 0) return failure("timeout")
+            return failure("adapter")
+        }
+        if (answer !is Map<*, *>) return failure("adapter")
+        if (answer.containsKey("result") || answer["error"] is String) return answer
+        return failure("adapter")
     }
+    private fun failure(kind: String): Map<String, Any?> = mapOf("error" to kind)
+}
 
-    fun quote(text: String): String {
-        val out = StringBuilder("\"")
-        for (character in text) {
-            when (character) {
+object Json {
+    private const val MAX_CHARS = 16 * 1024 * 1024
+    private const val MAX_DEPTH = 64
+    private val NUMBER = Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
+
+    fun parse(source: String?): Any? {
+        require(source != null && source.length <= MAX_CHARS) { "Invalid JSON document." }
+        return Reader(source).document()
+    }
+    fun stringify(value: Any?): String = StringBuilder().also { append(it, value, 0) }.toString()
+    fun write(value: Any?): String = stringify(value)
+    fun quote(text: String): String = StringBuilder().also { quoted(it, text) }.toString()
+
+    private fun check(out: StringBuilder) {
+        require(out.length <= MAX_CHARS) { "JSON document exceeds its limit." }
+    }
+    private fun append(out: StringBuilder, value: Any?, depth: Int) {
+        require(depth <= MAX_DEPTH) { "JSON nesting exceeds its limit." }
+        when (value) {
+            null -> out.append("null")
+            is String -> quoted(out, value)
+            is Boolean -> out.append(value)
+            is Number -> {
+                val text = value.toString()
+                require(NUMBER.matches(text)) { "Unsupported JSON number." }
+                out.append(text)
+            }
+            is Map<*, *> -> {
+                out.append('{')
+                var first = true
+                for ((key, item) in value) {
+                    require(key is String) { "JSON object keys must be strings." }
+                    if (!first) out.append(',')
+                    first = false
+                    quoted(out, key)
+                    out.append(':')
+                    append(out, item, depth + 1)
+                }
+                out.append('}')
+            }
+            is Iterable<*> -> {
+                out.append('[')
+                var first = true
+                for (item in value) {
+                    if (!first) out.append(',')
+                    first = false
+                    append(out, item, depth + 1)
+                }
+                out.append(']')
+            }
+            is Enum<*> -> quoted(out, value.name)
+            is __YonAnswer -> throw IllegalArgumentException("Unsupported JSON value.")
+            else -> {
+                if (!value.javaClass.isArray) {
+                    append(out, YonModels.plain(value), depth + 1)
+                    return
+                }
+                out.append('[')
+                for (index in 0 until java.lang.reflect.Array.getLength(value)) {
+                    if (index != 0) out.append(',')
+                    append(out, java.lang.reflect.Array.get(value, index), depth + 1)
+                }
+                out.append(']')
+            }
+        }
+        check(out)
+    }
+    private fun quoted(out: StringBuilder, text: String) {
+        out.append('"')
+        for (c in text) {
+            when (c) {
                 '"' -> out.append("\\\"")
                 '\\' -> out.append("\\\\")
                 '\n' -> out.append("\\n")
                 '\r' -> out.append("\\r")
                 '\t' -> out.append("\\t")
-                else ->
-                    if (character.code < 0x20) out.append("\\u%04x".format(character.code))
-                    else out.append(character)
+                else -> if (c.code < 0x20 || c.isSurrogate()) out.append("\\u%04x".format(c.code))
+                        else out.append(c)
             }
+            check(out)
         }
-        return out.append('"').toString()
+        out.append('"')
     }
-
     private class Reader(private val source: String) {
         private var at = 0
-
-        fun value(): Any? {
+        private fun invalid(): Nothing = throw IllegalArgumentException("Invalid JSON document.")
+        private fun skip() { while (at < source.length && source[at] in " \n\r\t") at++ }
+        private fun take(c: Char): Boolean {
             skip()
-            if (at >= source.length) return null
+            if (at >= source.length || source[at] != c) return false
+            at++
+            return true
+        }
+        private fun expect(c: Char) { if (!take(c)) invalid() }
+        fun document(): Any? {
+            val result = value(0)
+            skip()
+            if (at != source.length) invalid()
+            return result
+        }
+        private fun literal(text: String, result: Any?): Any? {
+            if (!source.startsWith(text, at)) invalid()
+            at += text.length
+            return result
+        }
+        private fun value(depth: Int): Any? {
+            skip()
+            if (depth > MAX_DEPTH || at >= source.length) invalid()
             return when (source[at]) {
-                '{' -> obj()
-                '[' -> list()
+                '{' -> obj(depth)
+                '[' -> list(depth)
                 '"' -> string()
-                't' -> { at += 4; true }
-                'f' -> { at += 5; false }
-                'n' -> { at += 4; null }
+                't' -> literal("true", true)
+                'f' -> literal("false", false)
+                'n' -> literal("null", null)
                 else -> number()
             }
         }
-
-        private fun skip() {
-            while (at < source.length && source[at].isWhitespace()) at += 1
-        }
-
-        private fun obj(): Map<String, Any?> {
+        private fun obj(depth: Int): Map<String, Any?> {
+            expect('{')
             val entries = LinkedHashMap<String, Any?>()
-            at += 1
-            while (at < source.length) {
+            if (take('}')) return entries
+            while (true) {
                 skip()
-                when (source[at]) {
-                    '}' -> { at += 1; return entries }
-                    ',' -> { at += 1; continue }
-                }
                 val key = string()
-                skip()
-                if (at < source.length && source[at] == ':') at += 1
-                entries[key] = value()
+                expect(':')
+                entries[key] = value(depth + 1)
+                if (take('}')) return entries
+                expect(',')
             }
-            return entries
         }
-
-        private fun list(): List<Any?> {
+        private fun list(depth: Int): List<Any?> {
+            expect('[')
             val values = ArrayList<Any?>()
-            at += 1
-            while (at < source.length) {
-                skip()
-                when (source[at]) {
-                    ']' -> { at += 1; return values }
-                    ',' -> { at += 1; continue }
-                }
-                values.add(value())
+            if (take(']')) return values
+            while (true) {
+                values.add(value(depth + 1))
+                if (take(']')) return values
+                expect(',')
             }
-            return values
         }
-
         private fun string(): String {
+            expect('"')
             val out = StringBuilder()
-            if (at >= source.length || source[at] != '"') return out.toString()
-            at += 1
             while (at < source.length) {
-                val character = source[at]
-                at += 1
-                if (character == '"') break
-                if (character != '\\') { out.append(character); continue }
-                val escaped = source[at]
-                at += 1
-                when (escaped) {
+                val c = source[at++]
+                if (c == '"') return out.toString()
+                if (c.code < 0x20) invalid()
+                if (c != '\\') { out.append(c); continue }
+                if (at >= source.length) invalid()
+                when (val escaped = source[at++]) {
+                    '"', '\\', '/' -> out.append(escaped)
                     'n' -> out.append('\n')
                     'r' -> out.append('\r')
                     't' -> out.append('\t')
                     'b' -> out.append('\b')
+                    'f' -> out.append('\u000c')
                     'u' -> {
-                        out.append(source.substring(at, at + 4).toInt(16).toChar())
+                        if (at + 4 > source.length) invalid()
+                        val digits = source.substring(at, at + 4)
+                        if (!digits.matches(Regex("[0-9a-fA-F]{4}"))) invalid()
+                        out.append(digits.toInt(16).toChar())
                         at += 4
                     }
-                    else -> out.append(escaped)
+                    else -> invalid()
                 }
             }
-            return out.toString()
+            invalid()
         }
-
-        private fun number(): Any {
-            val start = at
-            while (at < source.length && source[at] in "0123456789+-.eE") at += 1
-            val digits = source.substring(start, at)
-            // Whole numbers cross as longs, because a handler counting things
-            // wrote an integer and expects one back.
-            return digits.toLongOrNull() ?: (digits.toDoubleOrNull() ?: 0)
+        private fun number(): Number {
+            val match = NUMBER.find(source, at) ?: invalid()
+            if (match.range.first != at) invalid()
+            at = match.range.last + 1
+            val digits = match.value
+            return digits.toLongOrNull() ?: digits.toBigDecimal()
         }
     }
 }
 
-/** One request, as the protocol delivers it. */
-class YonRequest(parsed: Any?) {
+class __YonFrame(parsed: Any?) {
     @Suppress("UNCHECKED_CAST")
     private val raw: Map<String, Any?> = parsed as? Map<String, Any?> ?: emptyMap()
 
-    /** The HTTP method, upper case. */
     fun method(): String = raw["method"]?.toString() ?: ""
 
-    /** The route as matched, with its parameters still in it. */
     fun route(): String = raw["route"]?.toString() ?: ""
 
-    /** One bound route parameter, or an empty string when there is none. */
     @Suppress("UNCHECKED_CAST")
     fun parameter(name: String): String =
         (raw["parameters"] as? Map<String, Any?>)?.get(name)?.toString() ?: ""
 
-    /** The request body as text, empty when none was sent. */
     @Suppress("UNCHECKED_CAST")
     fun body(): String = (raw["body"] as? Map<String, Any?>)?.get("data")?.toString() ?: ""
 
-    /** The whole request, for anything the accessors do not cover. */
     fun raw(): Map<String, Any?> = raw
+
+    @Suppress("UNCHECKED_CAST")
+    fun arguments(): List<Any?> = raw["arguments"] as? List<Any?> ?: emptyList()
+
+    @Suppress("UNCHECKED_CAST")
+    fun headers(): Map<String, List<String>> = raw["headers"] as? Map<String, List<String>> ?: emptyMap()
+
+    fun target(): String = raw["target"]?.toString() ?: route()
 }
 
-/** One response, built the way the other layers build their return values. */
-class YonResponse private constructor(private var status: Int, private val body: String) {
+class YonExchange(frame: __YonFrame) : com.sun.net.httpserver.HttpExchange() {
+    private val requestHeaders = com.sun.net.httpserver.Headers()
+    private val responseHeaders = com.sun.net.httpserver.Headers()
+    private val written = java.io.ByteArrayOutputStream()
+    private val attributes = HashMap<String, Any?>()
+    private val uri = java.net.URI.create(frame.target())
+    private val method = frame.method()
+    private val body = frame.body().toByteArray()
+    private var responseCode = -1
+
+    init {
+        frame.headers().forEach { (name, values) -> values.forEach { requestHeaders.add(name, it) } }
+    }
+
+    override fun getRequestHeaders(): com.sun.net.httpserver.Headers = requestHeaders
+    override fun getResponseHeaders(): com.sun.net.httpserver.Headers = responseHeaders
+    override fun getRequestURI(): java.net.URI = uri
+    override fun getRequestMethod(): String = method
+    override fun getHttpContext(): com.sun.net.httpserver.HttpContext? = null
+    override fun close() {}
+    override fun getRequestBody(): java.io.InputStream = java.io.ByteArrayInputStream(body)
+    override fun getResponseBody(): java.io.OutputStream = written
+    override fun sendResponseHeaders(code: Int, length: Long) {
+        responseCode = code
+    }
+    override fun getRemoteAddress(): java.net.InetSocketAddress = java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0)
+    override fun getResponseCode(): Int = responseCode
+    override fun getLocalAddress(): java.net.InetSocketAddress = java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0)
+    override fun getProtocol(): String = "HTTP/1.1"
+    override fun getAttribute(name: String): Any? = attributes[name]
+    override fun setAttribute(name: String, value: Any?) {
+        attributes[name] = value
+    }
+    override fun setStreams(input: java.io.InputStream?, output: java.io.OutputStream?) {}
+    override fun getPrincipal(): com.sun.net.httpserver.HttpPrincipal? = null
+
+    internal fun answered(): Boolean = responseCode >= 0
+
+    internal fun answer(): __YonAnswer {
+        val headers = LinkedHashMap<String, List<String>>()
+        responseHeaders.forEach { (name, values) -> headers[name.lowercase()] = values }
+        return __YonAnswer.json(written.toString(Charsets.UTF_8)).headers(headers).status(responseCode)
+    }
+}
+
+object YonModels {
+    fun argument(owner: Class<*>, method: String, count: Int, index: Int, value: Any?): Any? {
+        val found = owner.declaredMethods.firstOrNull { it.name == method && it.parameterCount == count }
+            ?: return value
+        return read(found.genericParameterTypes[index], value)
+    }
+
+    fun read(type: java.lang.reflect.Type, value: Any?): Any? {
+        if (type is java.lang.reflect.WildcardType) return read(type.upperBounds[0], value)
+        if (type is java.lang.reflect.ParameterizedType) return readGeneric(type, value)
+        val kind = type as? Class<*> ?: return value
+        if (value == null) return zero(kind)
+        if (value is Number) return number(kind, value)
+        if (kind.isEnum) return kind.enumConstants.firstOrNull { (it as Enum<*>).name == value.toString() }
+        val map = value as? Map<*, *> ?: return value
+        if (kind == Any::class.java || Map::class.java.isAssignableFrom(kind)) return value
+        return construct(kind, map)
+    }
+
+    private fun readGeneric(type: java.lang.reflect.ParameterizedType, value: Any?): Any? {
+        val raw = type.rawType as Class<*>
+        val list = value as? List<*> ?: return value
+        if (!Iterable::class.java.isAssignableFrom(raw)) return value
+        val items = list.map { read(type.actualTypeArguments[0], it) }
+        if (Set::class.java.isAssignableFrom(raw)) return items.toSet()
+        return items
+    }
+
+    private fun zero(kind: Class<*>): Any? = when (kind) {
+        java.lang.Boolean.TYPE -> false
+        java.lang.Long.TYPE, java.lang.Integer.TYPE, java.lang.Short.TYPE, java.lang.Byte.TYPE,
+        java.lang.Double.TYPE, java.lang.Float.TYPE -> number(kind, 0L)
+        else -> null
+    }
+
+    private fun number(kind: Class<*>, number: Number): Any = when (kind) {
+        java.lang.Integer.TYPE, java.lang.Integer::class.java -> number.toInt()
+        java.lang.Long.TYPE, java.lang.Long::class.java -> number.toLong()
+        java.lang.Short.TYPE, java.lang.Short::class.java -> number.toShort()
+        java.lang.Byte.TYPE, java.lang.Byte::class.java -> number.toByte()
+        java.lang.Double.TYPE, java.lang.Double::class.java -> number.toDouble()
+        java.lang.Float.TYPE, java.lang.Float::class.java -> number.toFloat()
+        else -> number
+    }
+
+    private fun fields(kind: Class<*>): List<java.lang.reflect.Field> =
+        kind.declaredFields.filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) && !it.isSynthetic }
+
+    private fun construct(kind: Class<*>, map: Map<*, *>): Any? {
+        val fields = fields(kind)
+        val constructor = kind.declaredConstructors.firstOrNull { !it.isSynthetic && it.parameterCount == fields.size }
+            ?: return value(kind, fields, map)
+        constructor.isAccessible = true
+        val arguments = Array(fields.size) { index -> read(constructor.genericParameterTypes[index], map[fields[index].name]) }
+        return constructor.newInstance(*arguments)
+    }
+
+    private fun value(kind: Class<*>, fields: List<java.lang.reflect.Field>, map: Map<*, *>): Any? {
+        val constructor = kind.getDeclaredConstructor()
+        constructor.isAccessible = true
+        val model = constructor.newInstance()
+        for (field in fields) {
+            if (!map.containsKey(field.name)) continue
+            field.isAccessible = true
+            field.set(model, read(field.genericType, map[field.name]))
+        }
+        return model
+    }
+
+    fun plain(model: Any): Map<String, Any?> {
+        val result = LinkedHashMap<String, Any?>()
+        for (field in fields(model.javaClass)) {
+            field.isAccessible = true
+            result[field.name] = field.get(model)
+        }
+        return result
+    }
+}
+
+class __YonAnswer private constructor(private var status: Int, private val body: String) {
     private val headers = LinkedHashMap<String, MutableList<String>>()
 
     companion object {
-        /** A JSON body with a 200. The common case, so it is the short one. */
-        fun json(body: String): YonResponse {
-            val response = YonResponse(200, body)
+        fun json(body: String): __YonAnswer {
+            val response = __YonAnswer(200, body)
             response.headers["content-type"] = mutableListOf("application/json")
             return response
         }
 
-        /** A response with no body, for a 204 or a redirect. */
-        fun empty(status: Int): YonResponse = YonResponse(status, "")
+        fun empty(status: Int): __YonAnswer = __YonAnswer(status, "")
     }
 
-    fun status(value: Int): YonResponse {
+    fun status(value: Int): __YonAnswer {
         status = value
         return this
     }
 
-    /** Replaces every header at once, for a delegate answering with its own.
-     * Without this the assumed content type would survive alongside the one
-     * the delegate actually set. */
-    fun headers(replacement: Map<String, List<String>>): YonResponse {
+    fun headers(replacement: Map<String, List<String>>): __YonAnswer {
         headers.clear()
         replacement.forEach { (name, values) -> headers[name] = values.toMutableList() }
         return this
     }
 
-    fun header(name: String, value: String): YonResponse {
-        // A header value is a list, because one header may repeat.
+    fun header(name: String, value: String): __YonAnswer {
         headers.getOrPut(name) { mutableListOf() }.add(value)
         return this
+    }
+
+    fun writeTo(exchange: com.sun.net.httpserver.HttpExchange) {
+        headers.forEach { (name, values) -> values.forEach { exchange.responseHeaders.add(name, it) } }
+        val payload = body.toByteArray()
+        exchange.sendResponseHeaders(status, if (payload.isEmpty()) -1 else payload.size.toLong())
+        exchange.responseBody.write(payload)
     }
 
     fun envelope(): String =
         Json.write(mapOf("status" to status, "headers" to headers, "body" to body))
 }
 
-/** Work handed to a language Yon does not run. */
 object Yon {
     private const val MAX_RELAY_STDOUT_BYTES = 16 * 1024 * 1024
     private const val MAX_RELAY_STDERR_BYTES = 64 * 1024
+    private const val DEFAULT_DEADLINE_MILLISECONDS = 30_000L
+    private const val NANOSECONDS_PER_MILLISECOND = 1_000_000L
+    private const val FAILURE_MESSAGE = "Component invocation failed."
+    private var startNanos = 0L
+    private var relayEnvironment: Map<String, String>? = null
+    private var deadlineNanos: Long? = null
+    private var requestId = "unknown"
+    private val daemonThreads = java.util.concurrent.Executor { task ->
+        kotlin.concurrent.thread(isDaemon = true) { task.run() }
+    }
     private data class RelayOutput(val bytes: ByteArray, val overflow: Boolean)
 
     private fun drain(pipe: java.io.InputStream, limit: Int): RelayOutput {
@@ -270,69 +511,158 @@ object Yon {
         child.destroyForcibly()
     }
 
-    /**
-     * Runs a handler written in a language Yon does not run.
-     *
-     * Yon runs the eight languages that can declare a layer. Go, Ruby, Elixir
-     * and the rest cannot, so they are not routes — but they are still
-     * programs, and a program that speaks Handler Protocol v1 on standard
-     * input and output is exactly what Yon spawns anyway.
-     *
-     * The command is explicit rather than inferred from the file name: a
-     * compiled language has no interpreter to infer. The working directory is
-     * the project root, so a project-relative path reads as written.
-     */
+    internal fun captureStart() {
+        if (relayEnvironment != null) return
+        val uptimeMilliseconds = java.lang.management.ManagementFactory.getRuntimeMXBean().uptime
+        startNanos = System.nanoTime() - uptimeMilliseconds * NANOSECONDS_PER_MILLISECOND
+        relayEnvironment = relayEnvironmentFrom(System.getenv())
+    }
+
+    private fun relayEnvironmentFrom(environment: Map<String, String>): Map<String, String> {
+        val kept = HashMap<String, String>()
+        for ((name, value) in environment) {
+            val upper = name.uppercase(java.util.Locale.ROOT)
+            if (upper == "YON_APPLICATION_JSON" || upper.startsWith("YON_RESOURCE_")) continue
+            kept[name] = value
+        }
+        return kept
+    }
+
+    internal fun captureInvocation(request: __YonFrame) {
+        if (deadlineNanos != null) return
+        val id = request.raw()["request_id"]
+        if (id is String) requestId = id
+        deadlineNanos = startNanos + invocationDeadlineMilliseconds(request) * NANOSECONDS_PER_MILLISECOND
+    }
+
+    private fun invocationDeadlineMilliseconds(request: __YonFrame): Long {
+        val requested = request.raw()["deadline_ms"]
+        if (requested is Number) return requested.toLong()
+        return DEFAULT_DEADLINE_MILLISECONDS
+    }
+
+    internal fun renewDeadline() {
+        deadlineNanos = System.nanoTime() + DEFAULT_DEADLINE_MILLISECONDS * NANOSECONDS_PER_MILLISECOND
+    }
+
+    internal fun timeLeftNanos(): Long {
+        val deadline = deadlineNanos ?: return 0
+        return deadline - System.nanoTime()
+    }
+
+    private var exchange: YonExchange? = null
+
     @JvmStatic
-    fun relay(command: List<String>, request: YonRequest): YonResponse {
-        command.firstOrNull() ?: return failed("A delegate command cannot be empty.")
-        return try {
-            // No shell: a route parameter that reached a command line would be
-            // an injection.
-            val child = ProcessBuilder(command).start()
-            val stdoutPipe = child.inputStream
-            val stderrPipe = child.errorStream
-            val stdoutTask = java.util.concurrent.CompletableFuture.supplyAsync {
-                drain(stdoutPipe, MAX_RELAY_STDOUT_BYTES)
-            }
-            val stderrTask = java.util.concurrent.CompletableFuture.supplyAsync {
-                drain(stderrPipe, MAX_RELAY_STDERR_BYTES)
-            }
-            // Closed before the output is read, so the child sees end of input
-            // rather than waiting for more while this side waits for an answer.
-            child.outputStream.use { it.write(Json.write(request.raw()).toByteArray()) }
-            val requested = (request.raw()["deadline_ms"] as? Number)?.toLong() ?: 30_000L
-            val timeout = requested.coerceIn(1L, 300_000L)
-            if (!child.waitFor(timeout, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                killTree(child)
-                child.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)
-                return failed("Delegate invocation failed.")
-            }
-            val stdout = stdoutTask.get(1, java.util.concurrent.TimeUnit.SECONDS)
-            val stderr = stderrTask.get(1, java.util.concurrent.TimeUnit.SECONDS)
-            if (child.exitValue() != 0 || stdout.overflow || stderr.overflow) {
-                failed("Delegate invocation failed.")
-            } else {
-                envelope(stdout.bytes.decodeToString())
-            }
-        } catch (error: java.io.IOException) {
-            failed("Delegate invocation failed.")
-        } catch (interrupted: InterruptedException) {
-            Thread.currentThread().interrupt()
-            failed("Delegate invocation failed.")
-        } catch (_: java.util.concurrent.ExecutionException) {
-            failed("Delegate invocation failed.")
-        } catch (_: java.util.concurrent.TimeoutException) {
-            failed("Delegate invocation failed.")
+    fun exchange(frame: __YonFrame): YonExchange = exchange ?: YonExchange(frame).also { exchange = it }
+
+    internal fun answered(): __YonAnswer? = exchange?.takeIf { it.answered() }?.answer()
+
+    @JvmStatic
+    fun relay(command: List<String>, exchange: com.sun.net.httpserver.HttpExchange) {
+        relayAnswer(command, exchange).writeTo(exchange)
+    }
+
+    private fun relayMessage(exchange: com.sun.net.httpserver.HttpExchange): Map<String, Any?> {
+        val headers = LinkedHashMap<String, Any?>()
+        exchange.requestHeaders.forEach { (name, values) -> headers[name.lowercase()] = values }
+        val body = String(exchange.requestBody.readAllBytes(), Charsets.UTF_8)
+        return linkedMapOf(
+            "route" to exchange.requestURI.toString(),
+            "method" to exchange.requestMethod,
+            "headers" to headers,
+            "body" to mapOf("encoding" to "utf8", "data" to body),
+        )
+    }
+
+    private fun relayAnswer(command: List<String>, exchange: com.sun.net.httpserver.HttpExchange): __YonAnswer {
+        if (command.isEmpty()) return relayFailed("start")
+        if (timeLeftNanos() <= 0) return relayFailed("timeout")
+        val payload = try {
+            Json.write(relayMessage(exchange)).toByteArray()
+        } catch (_: IllegalArgumentException) {
+            return relayFailed("protocol")
+        }
+        val child = try {
+            startChild(command)
+        } catch (_: Exception) {
+            return relayFailed("start")
+        }
+        val stdoutTask = java.util.concurrent.CompletableFuture.supplyAsync(
+            { drain(child.inputStream, MAX_RELAY_STDOUT_BYTES) },
+            daemonThreads,
+        )
+        val stderrTask = java.util.concurrent.CompletableFuture.supplyAsync(
+            { drain(child.errorStream, MAX_RELAY_STDERR_BYTES) },
+            daemonThreads,
+        )
+        daemonThreads.execute { sendRequest(child, payload) }
+        return awaitChild(child, stdoutTask, stderrTask)
+    }
+
+    private fun startChild(command: List<String>): Process {
+        val builder = ProcessBuilder(command)
+        builder.environment().clear()
+        builder.environment().putAll(relayEnvironment ?: emptyMap())
+        return builder.start()
+    }
+
+    private fun sendRequest(child: Process, payload: ByteArray) {
+        try {
+            child.outputStream.use { it.write(payload) }
+        } catch (_: java.io.IOException) {
         }
     }
 
-    private fun envelope(stdout: String): YonResponse {
-        val parsed = Json.parse(stdout) as? Map<*, *>
-            ?: return failed("Delegate returned an invalid response.")
-        var response = YonResponse.json(parsed["body"]?.toString() ?: "")
+    private fun awaitChild(
+        child: Process,
+        stdoutTask: java.util.concurrent.CompletableFuture<RelayOutput>,
+        stderrTask: java.util.concurrent.CompletableFuture<RelayOutput>,
+    ): __YonAnswer {
+        val nanoseconds = java.util.concurrent.TimeUnit.NANOSECONDS
+        try {
+            if (!child.waitFor(timeLeftNanos(), nanoseconds)) return stopChild(child)
+            val stdout = stdoutTask.get(timeLeftNanos(), nanoseconds)
+            val stderr = stderrTask.get(timeLeftNanos(), nanoseconds)
+            return relayResult(child.exitValue(), stdout, stderr)
+        } catch (_: java.util.concurrent.TimeoutException) {
+            return stopChild(child)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            return stopChild(child)
+        } catch (_: java.util.concurrent.ExecutionException) {
+            return relayFailed("overflow")
+        }
+    }
+
+    private fun stopChild(child: Process): __YonAnswer {
+        killTree(child)
+        closePipe(child.inputStream)
+        closePipe(child.errorStream)
+        return relayFailed("timeout")
+    }
+
+    private fun closePipe(pipe: java.io.InputStream) {
+        try {
+            pipe.close()
+        } catch (_: java.io.IOException) {
+        }
+    }
+
+    private fun relayResult(exitCode: Int, stdout: RelayOutput, stderr: RelayOutput): __YonAnswer {
+        if (stdout.overflow || stderr.overflow) return relayFailed("overflow")
+        if (exitCode != 0) return relayFailed("exit")
+        val parsed = try {
+            Json.parse(stdout.bytes.decodeToString())
+        } catch (_: IllegalArgumentException) {
+            return relayFailed("protocol")
+        }
+        val envelope = parsed as? Map<*, *> ?: return relayFailed("protocol")
+        return responseFromEnvelope(envelope)
+    }
+
+    private fun responseFromEnvelope(parsed: Map<*, *>): __YonAnswer {
+        var response = __YonAnswer.json(parsed["body"]?.toString() ?: "")
         (parsed["status"] as? Number)?.let { response = response.status(it.toInt()) }
-        // The headers the delegate set replace the assumed content type,
-        // because a delegate that answered with a header meant that header.
         val written = parsed["headers"] as? Map<*, *>
         if (!written.isNullOrEmpty()) {
             response = response.headers(emptyMap())
@@ -344,25 +674,15 @@ object Yon {
         return response
     }
 
-    /**
-     * A delegate that could not be run answers 502, the same as any other
-     * upstream that did not reply. Delegate stderr and process errors are
-     * diagnostic-only and never become client response data.
-     */
-    private fun failed(reason: String): YonResponse =
-        YonResponse.json(Json.write(mapOf("error" to reason))).status(502)
+    private fun relayFailed(category: String): __YonAnswer {
+        val event = linkedMapOf("event" to "handler.relay_failed", "request_id" to requestId, "category" to category)
+        System.err.print(Json.write(event) + "\n")
+        System.err.flush()
+        return __YonAnswer.json(Json.write(mapOf("error" to FAILURE_MESSAGE))).status(502)
+    }
 }
 
-/**
- * One streamed frame on standard output.
- *
- * A stream is length-prefixed where a single response is not: the reader has
- * to know where each frame ends, because more follow. `[4-byte big-endian
- * length][UTF-8 JSON]` is the shape the two adapters already write, and the
- * reader that consumes it never asks which language wrote it.
- */
 object YonStream {
-    /** The reader refuses a larger frame, so refusing it here says why. */
     private const val MAX_FRAME_BYTES = 16 * 1024 * 1024
 
     fun event(requestId: String, value: Any?): Boolean = frame(
@@ -375,12 +695,7 @@ object YonStream {
         ),
     )
 
-    /**
-     * An error frame ends the stream. The reader turns it into a failure
-     * rather than presenting it as data, which is the difference between a
-     * handler that stopped and one that had nothing more to say.
-     */
-    fun failure(requestId: String, message: String) {
+    fun failure(requestId: String) {
         frame(
             requestId,
             mapOf(
@@ -391,7 +706,7 @@ object YonStream {
                 "headers" to emptyMap<String, List<String>>(),
                 "error" to mapOf(
                     "code" to "TY2204",
-                    "message" to message,
+                    "message" to "The handler stream failed.",
                     "retryable" to false,
                 ),
             ),
@@ -424,9 +739,6 @@ object YonStream {
 
     private fun write(payload: ByteArray) {
         val out = System.out
-        // The prefix is written as bytes rather than through a writer, which
-        // would apply the console encoding to four bytes that are already
-        // exactly what they should be.
         out.write(
             byteArrayOf(
                 (payload.size ushr 24).toByte(),
@@ -436,42 +748,169 @@ object YonStream {
             ),
         )
         out.write(payload)
-        // Flushed per frame: a stream whose events arrive together at the end
-        // is a slow response wearing a stream's clothes.
         out.flush()
     }
 }
 
-/** The entry point Tachyon supplies, so the handler does not write one. */
-fun main() {
-    val raw = generateSequence(::readLine).joinToString("\n")
-    val request = YonRequest(Json.parse(raw))
-    // Found by reflection rather than by a fixed list, so a method the handler
-    // does not declare answers 405 without being written.
-    val method = __YON_CONTROLLER__::class.java.methods.firstOrNull {
-        it.name == request.method() && it.parameterCount == 1
+interface YonSocketEndpoint {
+    fun open(session: SocketSession)
+    fun message(session: SocketSession, value: Any?)
+    fun close(session: SocketSession)
+    fun error(session: SocketSession, error: Exception)
+}
+
+class SocketPeer internal constructor(private val session: SocketSession, val id: String) {
+    fun send(message: Any?) = session.send(message, id)
+}
+
+class SocketSession internal constructor(val id: String) {
+    private val inbox = ArrayDeque<Any?>()
+    private var closed = false
+    private var sessions: List<*>? = null
+
+    fun send(message: Any?) = send(message, null)
+
+    fun close() {
+        closed = true
+        write(mapOf("kind" to "close"))
     }
-    val result: Any? = if (method == null) {
-        YonResponse.empty(405)
-    } else {
-        try {
-            method.invoke(__YON_CONTROLLER__, request)
-        } catch (failed: java.lang.reflect.InvocationTargetException) {
-            val cause = failed.cause ?: failed
-            YonResponse.json(Json.write(mapOf("error" to cause.message))).status(500)
+
+    fun openSessions(): List<SocketPeer> {
+        sessions = null
+        write(mapOf("kind" to "sessions"))
+        while (sessions == null && !closed) receive()
+        return sessions.orEmpty().map { SocketPeer(this, it.toString()) }
+    }
+
+    internal fun send(message: Any?, to: String?) {
+        val frame = mutableMapOf<String, Any?>(
+            "kind" to "event",
+            "body" to mapOf("encoding" to "utf8", "data" to Json.stringify(message)),
+        )
+        if (to != null) frame["to"] = to
+        write(frame)
+    }
+
+    internal fun next(): Any? {
+        while (inbox.isEmpty() && !closed) receive()
+        return if (inbox.isEmpty()) YonSocket.ENDED else inbox.removeFirst()
+    }
+
+    private fun receive() {
+        val frame = YonSocket.readFrame()?.let { Json.parse(it) } as? Map<*, *>
+        if (frame == null) {
+            closed = true
+            return
+        }
+        if (frame["request_id"] != id) kotlin.system.exitProcess(70)
+        val body = frame["body"] as? Map<*, *>
+        when (frame["kind"]) {
+            "message" -> inbox.addLast(Json.parse(body?.get("data")?.toString()))
+            "sessions" -> sessions = frame["sessions"] as? List<*> ?: emptyList<Any?>()
+            else -> closed = true
         }
     }
 
-    // A method that yields returns a Sequence, and a Sequence is a stream:
-    // each value becomes one frame and end of stream is end of process,
-    // because the reader takes EOF as the close.
-    //
-    // `@Stream` on the method is what told the server to read frames at all,
-    // and Tachyon refuses the two to disagree — so a Sequence here means the
-    // other end is already reading them.
-    //
-    // Sequence and not Flow: a Flow needs kotlinx-coroutines, which is not on
-    // a bare kotlinc classpath, for the same reason org.json is not.
+    private fun write(fields: Map<String, Any?>) {
+        YonSocket.writeFrame(Json.stringify(fields + mapOf("protocol_version" to 1, "request_id" to id)))
+    }
+}
+
+object YonSocket {
+    private const val MAX_FRAME_BYTES = 16 * 1024 * 1024
+    internal val ENDED = Any()
+    private val input by lazy { java.io.DataInputStream(System.`in`) }
+    private val output by lazy { java.io.DataOutputStream(System.out) }
+
+    fun framed(): Boolean = System.getenv("YON_SOCKET_FRAMES") == "1"
+
+    fun readFrame(): String? = try {
+        val length = input.readInt()
+        if (length < 0 || length > MAX_FRAME_BYTES) kotlin.system.exitProcess(70)
+        val payload = ByteArray(length)
+        input.readFully(payload)
+        String(payload, Charsets.UTF_8)
+    } catch (_: java.io.IOException) {
+        null
+    }
+
+    fun writeFrame(text: String) {
+        val payload = text.toByteArray(Charsets.UTF_8)
+        output.writeInt(payload.size)
+        output.write(payload)
+        output.flush()
+    }
+
+    fun run(endpoint: YonSocketEndpoint, request: __YonFrame): Any? {
+        val session = SocketSession(request.raw()["request_id"].toString())
+        attempt(endpoint, session) { endpoint.open(session) }
+        while (true) {
+            val message = session.next()
+            if (message === ENDED) break
+            attempt(endpoint, session) { endpoint.message(session, message) }
+        }
+        try {
+            call { endpoint.close(session) }
+        } catch (_: Exception) {
+        }
+        kotlin.system.exitProcess(0)
+    }
+
+    private fun call(action: () -> Unit) {
+        Yon.renewDeadline()
+        action()
+    }
+
+    private fun attempt(endpoint: YonSocketEndpoint, session: SocketSession, action: () -> Unit) {
+        try {
+            call(action)
+        } catch (failure: Exception) {
+            val event = mapOf(
+                "event" to "handler.socket_failed",
+                "request_id" to session.id,
+                "message" to failure.message.toString(),
+            )
+            System.err.println(Json.stringify(event))
+            try {
+                call { endpoint.error(session, failure) }
+            } catch (_: Exception) {
+            }
+        }
+    }
+}
+
+fun main() {
+    Yon.captureStart()
+    val raw = if (YonSocket.framed()) YonSocket.readFrame() ?: return else generateSequence(::readLine).joinToString("\n")
+    val request = __YonFrame(Json.parse(raw))
+    Yon.captureInvocation(request)
+    val phase = when (request.raw()["operation"]?.toString()) {
+        "middleware.before" -> "before"
+        "middleware.after" -> "after"
+        "event.deliver" -> "__yonDeliver"
+        else -> null
+    }
+    val entryName = phase ?: request.method()
+    val missingStatus = if (phase == null) 405 else if (phase == "__yonDeliver") 404 else 204
+    val method = __YON_HANDLER__::class.java.methods.firstOrNull {
+        it.name == entryName && it.parameterCount == 1
+    } ?: __YON_HANDLER__::class.java.methods.firstOrNull {
+        it.name == entryName && it.parameterCount == 0
+    }
+    val result: Any? = if (method == null) {
+        __YonAnswer.empty(missingStatus)
+    } else {
+        try {
+            when {
+                method.parameterCount == 0 -> method.invoke(__YON_HANDLER__)
+                method.parameterTypes[0] == __YonFrame::class.java -> method.invoke(__YON_HANDLER__, request)
+                else -> method.invoke(__YON_HANDLER__, Yon.exchange(request))
+            }
+        } catch (failed: java.lang.reflect.InvocationTargetException) {
+            kotlin.system.exitProcess(1)
+        }
+    }
+
     if (result is Sequence<*>) {
         val id = request.raw()["request_id"]?.toString() ?: ""
         try {
@@ -480,10 +919,15 @@ fun main() {
                     return
                 }
             }
-        } catch (failed: Throwable) {
-            YonStream.failure(id, failed.message ?: failed.toString())
+        } catch (_: Throwable) {
+            YonStream.failure(id)
         }
         return
     }
-    print((result as YonResponse).envelope())
+    val response = Yon.answered() ?: when {
+        result is __YonAnswer -> result
+        phase != null -> __YonAnswer.empty(204)
+        else -> __YonAnswer.json(Json.stringify(result))
+    }
+    print(response.envelope())
 }

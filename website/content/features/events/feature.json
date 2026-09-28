@@ -1,0 +1,21 @@
+{
+  "id": "events",
+  "title": "Handling events",
+  "summary": "`on:<event>` calls a service method or sets a service field when the event happens. You can use `$event` (the browser event object) and limited dotted paths (names joined by dots).",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/basket/controls/tac.html",
+      "code": { "file": "client/components/basket/controls/tac.html" }
+    },
+    {
+      "name": "client/services/BasketService.js",
+      "code": { "file": "client/services/BasketService.js" }
+    }
+  ],
+  "verify": "tac"
+}

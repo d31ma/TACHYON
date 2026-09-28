@@ -4,27 +4,23 @@ use serde_json::{Number, Value};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
-const MAX_EXPRESSION_BYTES: usize = 1_024;
-const MAX_EXPRESSION_DEPTH: usize = 32;
-/// Largest argument list a call in a template expression may carry.
-const MAX_CALL_ARGUMENTS: usize = 8;
-const FORBIDDEN_PROPERTIES: &[&str] = &["__proto__", "constructor", "prototype"];
-
 pub(crate) type Scope = BTreeMap<String, Value>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Expression {
     source: String,
-    node: Expr,
+    node: ExpressionNode,
 }
 
 impl Expression {
+    const MAX_EXPRESSION_BYTES: usize = 1_024;
+
     pub(crate) fn parse(
         source: &str,
         source_path: &str,
         source_start: usize,
     ) -> Result<Self, Failure> {
-        if source.is_empty() || source.len() > MAX_EXPRESSION_BYTES {
+        if source.is_empty() || source.len() > Self::MAX_EXPRESSION_BYTES {
             return Err(expression_failure(
                 source_path,
                 source_start,
@@ -53,78 +49,51 @@ impl Expression {
     pub(crate) fn source(&self) -> &str {
         &self.source
     }
-}
 
-impl Expression {
-    /// Serialises the parsed expression for an island to evaluate.
-    ///
-    /// The client receives the bounded AST the compiler already produced, not
-    /// source, so the runtime interprets a fixed shape and never parses or
-    /// evaluates JavaScript.
     pub(crate) fn to_client_json(&self) -> String {
         client_json(&self.node)
     }
+
+    pub(crate) fn equals(&self, other: &Self) -> Self {
+        Self {
+            source: format!("{} == {}", self.source, other.source),
+            node: ExpressionNode::Compare {
+                left: Box::new(self.node.clone()),
+                operator: CompareOperator::Equal,
+                right: Box::new(other.node.clone()),
+            },
+        }
+    }
 }
 
-fn client_json(node: &Expr) -> String {
-    let list = |nodes: &[Expr]| nodes.iter().map(client_json).collect::<Vec<_>>().join(",");
+fn client_json(node: &ExpressionNode) -> String {
     match node {
-        Expr::Literal(value) => format!(r#"{{"k":"lit","v":{value}}}"#),
-        Expr::Identifier(name) => format!(r#"{{"k":"id","n":"{name}"}}"#),
-        Expr::Access(parent, Access::Property(property)) => format!(
+        ExpressionNode::Literal(value) => format!(r#"{{"k":"lit","v":{value}}}"#),
+        ExpressionNode::Identifier(name) => format!(r#"{{"k":"id","n":"{name}"}}"#),
+        ExpressionNode::Access(parent, Access::Property(property)) => format!(
             r#"{{"k":"get","o":{},"p":"{property}"}}"#,
             client_json(parent)
         ),
-        Expr::Access(parent, Access::Index(index)) => {
+        ExpressionNode::Access(parent, Access::Index(index)) => {
             format!(r#"{{"k":"idx","o":{},"i":{index}}}"#, client_json(parent))
         }
-        Expr::Not(inner) => format!(r#"{{"k":"not","e":{}}}"#, client_json(inner)),
-        Expr::Compare {
+        ExpressionNode::Not(inner) => format!(r#"{{"k":"not","e":{}}}"#, client_json(inner)),
+        ExpressionNode::Compare {
             left,
             operator,
             right,
-        } => format!(
-            r#"{{"k":"cmp","op":"{}","l":{},"r":{}}}"#,
-            match operator {
-                CompareOperator::Equal => "eq",
-                CompareOperator::NotEqual => "ne",
-                CompareOperator::Less => "lt",
-                CompareOperator::LessEqual => "le",
-                CompareOperator::Greater => "gt",
-                CompareOperator::GreaterEqual => "ge",
-            },
-            client_json(left),
-            client_json(right)
-        ),
-        Expr::Logical {
+        } => binary_client_json("cmp", operator.client_name(), left, right),
+        ExpressionNode::Logical {
             left,
             operator,
             right,
-        } => format!(
-            r#"{{"k":"log","op":"{}","l":{},"r":{}}}"#,
-            match operator {
-                LogicalOperator::And => "and",
-                LogicalOperator::Or => "or",
-            },
-            client_json(left),
-            client_json(right)
-        ),
-        Expr::Arithmetic {
+        } => binary_client_json("log", operator.client_name(), left, right),
+        ExpressionNode::Arithmetic {
             left,
             operator,
             right,
-        } => format!(
-            r#"{{"k":"num","op":"{}","l":{},"r":{}}}"#,
-            match operator {
-                ArithmeticOperator::Add => "add",
-                ArithmeticOperator::Subtract => "sub",
-                ArithmeticOperator::Multiply => "mul",
-                ArithmeticOperator::Divide => "div",
-            },
-            client_json(left),
-            client_json(right)
-        ),
-        Expr::Conditional {
+        } => binary_client_json("num", operator.client_name(), left, right),
+        ExpressionNode::Conditional {
             condition,
             when_true,
             when_false,
@@ -134,36 +103,35 @@ fn client_json(node: &Expr) -> String {
             client_json(when_true),
             client_json(when_false)
         ),
-        Expr::Await(inner) => format!(r#"{{"k":"await","e":{}}}"#, client_json(inner)),
-        Expr::Call { callee, arguments } => format!(
+        ExpressionNode::Await(inner) => format!(r#"{{"k":"await","e":{}}}"#, client_json(inner)),
+        ExpressionNode::Call { callee, arguments } => format!(
             r#"{{"k":"call","c":{},"a":[{}]}}"#,
             client_json(callee),
-            list(arguments)
+            client_json_list(arguments)
         ),
     }
 }
 
-impl Expression {
-    /// Builds `self == other`, used to desugar `<switch>` into a conditional
-    /// chain.
-    ///
-    /// The node is built directly rather than by re-parsing concatenated
-    /// source, so a switch value like `a || b` cannot change meaning through
-    /// operator precedence.
-    pub(crate) fn equals(&self, other: &Self) -> Self {
-        Self {
-            source: format!("{} == {}", self.source, other.source),
-            node: Expr::Compare {
-                left: Box::new(self.node.clone()),
-                operator: CompareOperator::Equal,
-                right: Box::new(other.node.clone()),
-            },
-        }
-    }
+fn binary_client_json(
+    kind: &str,
+    operator: &str,
+    left: &ExpressionNode,
+    right: &ExpressionNode,
+) -> String {
+    format!(
+        r#"{{"k":"{kind}","op":"{operator}","l":{},"r":{}}}"#,
+        client_json(left),
+        client_json(right)
+    )
+}
+
+fn client_json_list(nodes: &[ExpressionNode]) -> String {
+    let items: Vec<String> = nodes.iter().map(client_json).collect();
+    items.join(",")
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Expr {
+enum ExpressionNode {
     Literal(Value),
     Identifier(String),
     Access(Box<Self>, Access),
@@ -188,12 +156,10 @@ enum Expr {
         when_true: Box<Self>,
         when_false: Box<Self>,
     },
-    /// A call, which only an island's companion instance can resolve.
     Call {
         callee: Box<Self>,
         arguments: Vec<Self>,
     },
-    /// An awaited value, resolvable only where evaluation can be async.
     Await(Box<Self>),
 }
 
@@ -203,6 +169,17 @@ enum ArithmeticOperator {
     Subtract,
     Multiply,
     Divide,
+}
+
+impl ArithmeticOperator {
+    const fn client_name(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Subtract => "sub",
+            Self::Multiply => "mul",
+            Self::Divide => "div",
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -221,10 +198,32 @@ enum CompareOperator {
     GreaterEqual,
 }
 
+impl CompareOperator {
+    const fn client_name(self) -> &'static str {
+        match self {
+            Self::Equal => "eq",
+            Self::NotEqual => "ne",
+            Self::Less => "lt",
+            Self::LessEqual => "le",
+            Self::Greater => "gt",
+            Self::GreaterEqual => "ge",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum LogicalOperator {
     And,
     Or,
+}
+
+impl LogicalOperator {
+    const fn client_name(self) -> &'static str {
+        match self {
+            Self::And => "and",
+            Self::Or => "or",
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -262,6 +261,29 @@ enum TokenKind {
     End,
 }
 
+impl TokenKind {
+    fn single_byte(byte: u8) -> Option<Self> {
+        match byte {
+            b'!' => Some(Self::Bang),
+            b'?' => Some(Self::Question),
+            b',' => Some(Self::Comma),
+            b':' => Some(Self::Colon),
+            b'+' => Some(Self::Plus),
+            b'-' => Some(Self::Minus),
+            b'*' => Some(Self::Star),
+            b'/' => Some(Self::Slash),
+            b'<' => Some(Self::Less),
+            b'>' => Some(Self::Greater),
+            b'.' => Some(Self::Dot),
+            b'[' => Some(Self::LeftBracket),
+            b']' => Some(Self::RightBracket),
+            b'(' => Some(Self::LeftParen),
+            b')' => Some(Self::RightParen),
+            _ => None,
+        }
+    }
+}
+
 struct Lexer<'a> {
     source: &'a str,
     source_path: &'a str,
@@ -288,86 +310,7 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             let start = self.current;
-            let kind = match byte {
-                b'!' if self.consume(b"!==") => TokenKind::NotEqual,
-                b'!' if self.consume(b"!=") => TokenKind::NotEqual,
-                b'!' => {
-                    self.current += 1;
-                    TokenKind::Bang
-                }
-                b'?' => {
-                    self.current += 1;
-                    TokenKind::Question
-                }
-                b',' => {
-                    self.current += 1;
-                    TokenKind::Comma
-                }
-                b':' => {
-                    self.current += 1;
-                    TokenKind::Colon
-                }
-                b'+' => {
-                    self.current += 1;
-                    TokenKind::Plus
-                }
-                b'-' => {
-                    self.current += 1;
-                    TokenKind::Minus
-                }
-                b'*' => {
-                    self.current += 1;
-                    TokenKind::Star
-                }
-                b'/' => {
-                    self.current += 1;
-                    TokenKind::Slash
-                }
-                b'=' if self.consume(b"===") => TokenKind::Equal,
-                b'=' if self.consume(b"==") => TokenKind::Equal,
-                b'<' if self.consume(b"<=") => TokenKind::LessEqual,
-                b'<' => {
-                    self.current += 1;
-                    TokenKind::Less
-                }
-                b'>' if self.consume(b">=") => TokenKind::GreaterEqual,
-                b'>' => {
-                    self.current += 1;
-                    TokenKind::Greater
-                }
-                b'&' if self.consume(b"&&") => TokenKind::And,
-                b'|' if self.consume(b"||") => TokenKind::Or,
-                b'.' => {
-                    self.current += 1;
-                    TokenKind::Dot
-                }
-                b'[' => {
-                    self.current += 1;
-                    TokenKind::LeftBracket
-                }
-                b']' => {
-                    self.current += 1;
-                    TokenKind::RightBracket
-                }
-                b'(' => {
-                    self.current += 1;
-                    TokenKind::LeftParen
-                }
-                b')' => {
-                    self.current += 1;
-                    TokenKind::RightParen
-                }
-                b'\'' | b'"' => self.string(byte)?,
-                byte if byte.is_ascii_digit() || byte == b'-' => self.number()?,
-                byte if identifier_start(byte) => self.identifier(),
-                _ => {
-                    return Err(self.error(
-                        start,
-                        start.saturating_add(1),
-                        "Template expression contains unsupported syntax.",
-                    ));
-                }
-            };
+            let kind = self.token_kind(byte)?;
             tokens.push(Token {
                 kind,
                 start,
@@ -382,13 +325,78 @@ impl<'a> Lexer<'a> {
         Ok(tokens)
     }
 
+    fn token_kind(&mut self, byte: u8) -> Result<TokenKind, Failure> {
+        if let Some(kind) = self.long_operator() {
+            return Ok(kind);
+        }
+        if let Some(kind) = TokenKind::single_byte(byte) {
+            self.current += 1;
+            return Ok(kind);
+        }
+        if byte == b'\'' || byte == b'"' {
+            return self.string(byte);
+        }
+        if byte.is_ascii_digit() {
+            return self.number();
+        }
+        if identifier_start(byte) {
+            return Ok(self.identifier());
+        }
+        let start = self.current;
+        Err(self.error(
+            start,
+            start.saturating_add(1),
+            "Template expression contains unsupported syntax.",
+        ))
+    }
+
+    fn long_operator(&mut self) -> Option<TokenKind> {
+        let operators = [
+            ("!==", TokenKind::NotEqual),
+            ("!=", TokenKind::NotEqual),
+            ("===", TokenKind::Equal),
+            ("==", TokenKind::Equal),
+            ("<=", TokenKind::LessEqual),
+            (">=", TokenKind::GreaterEqual),
+            ("&&", TokenKind::And),
+            ("||", TokenKind::Or),
+        ];
+        for (text, kind) in operators {
+            if self.consume(text.as_bytes()) {
+                return Some(kind);
+            }
+        }
+        None
+    }
+
     fn consume(&mut self, expected: &[u8]) -> bool {
         let end = self.current.saturating_add(expected.len());
-        if self.source.as_bytes().get(self.current..end) == Some(expected) {
-            self.current = end;
-            true
-        } else {
-            false
+        if self.source.as_bytes().get(self.current..end) != Some(expected) {
+            return false;
+        }
+        self.current = end;
+        true
+    }
+
+    fn consume_one_of(&mut self, choices: &[u8]) -> bool {
+        let Some(byte) = self.source.as_bytes().get(self.current) else {
+            return false;
+        };
+        if !choices.contains(byte) {
+            return false;
+        }
+        self.current += 1;
+        true
+    }
+
+    fn next_byte_matches(&self, test: fn(u8) -> bool) -> bool {
+        let next = self.source.as_bytes().get(self.current);
+        next.is_some_and(|byte| test(*byte))
+    }
+
+    fn skip_digits(&mut self) {
+        while self.next_byte_matches(|byte| byte.is_ascii_digit()) {
+            self.current += 1;
         }
     }
 
@@ -407,21 +415,14 @@ impl<'a> Lexer<'a> {
                     break;
                 };
                 self.current += 1;
-                match escaped {
-                    b'\\' => value.push('\\'),
-                    b'\'' => value.push('\''),
-                    b'"' => value.push('"'),
-                    b'n' => value.push('\n'),
-                    b'r' => value.push('\r'),
-                    b't' => value.push('\t'),
-                    _ => {
-                        return Err(self.error(
-                            self.current.saturating_sub(2),
-                            self.current,
-                            "Template string contains an unsupported escape.",
-                        ));
-                    }
-                }
+                let Some(character) = escaped_character(escaped) else {
+                    return Err(self.error(
+                        self.current.saturating_sub(2),
+                        self.current,
+                        "Template string contains an unsupported escape.",
+                    ));
+                };
+                value.push(character);
                 continue;
             }
             let Some(character) = self.source[self.current - 1..].chars().next() else {
@@ -439,72 +440,29 @@ impl<'a> Lexer<'a> {
 
     fn number(&mut self) -> Result<TokenKind, Failure> {
         let start = self.current;
-        if self.source.as_bytes()[self.current] == b'-' {
-            self.current += 1;
+        self.skip_digits();
+        if self.consume(b".") {
+            self.skip_digits();
         }
-        while self
-            .source
-            .as_bytes()
-            .get(self.current)
-            .is_some_and(u8::is_ascii_digit)
-        {
-            self.current += 1;
-        }
-        if self.source.as_bytes().get(self.current) == Some(&b'.') {
-            self.current += 1;
-            while self
-                .source
-                .as_bytes()
-                .get(self.current)
-                .is_some_and(u8::is_ascii_digit)
-            {
-                self.current += 1;
-            }
-        }
-        if self
-            .source
-            .as_bytes()
-            .get(self.current)
-            .is_some_and(|byte| matches!(byte, b'e' | b'E'))
-        {
-            self.current += 1;
-            if self
-                .source
-                .as_bytes()
-                .get(self.current)
-                .is_some_and(|byte| matches!(byte, b'+' | b'-'))
-            {
-                self.current += 1;
-            }
-            while self
-                .source
-                .as_bytes()
-                .get(self.current)
-                .is_some_and(u8::is_ascii_digit)
-            {
-                self.current += 1;
-            }
+        if self.consume_one_of(b"eE") {
+            self.consume_one_of(b"+-");
+            self.skip_digits();
         }
         let raw = &self.source[start..self.current];
-        let number = Number::from_str(raw).map_err(|_| {
-            self.error(
+        let Ok(number) = Number::from_str(raw) else {
+            return Err(self.error(
                 start,
                 self.current,
                 "Template expression contains an invalid finite number.",
-            )
-        })?;
+            ));
+        };
         Ok(TokenKind::Literal(Value::Number(number)))
     }
 
     fn identifier(&mut self) -> TokenKind {
         let start = self.current;
         self.current += 1;
-        while self
-            .source
-            .as_bytes()
-            .get(self.current)
-            .is_some_and(|byte| identifier_continue(*byte))
-        {
+        while self.next_byte_matches(identifier_continue) {
             self.current += 1;
         }
         match &self.source[start..self.current] {
@@ -525,6 +483,18 @@ impl<'a> Lexer<'a> {
     }
 }
 
+fn escaped_character(escaped: u8) -> Option<char> {
+    match escaped {
+        b'\\' => Some('\\'),
+        b'\'' => Some('\''),
+        b'"' => Some('"'),
+        b'n' => Some('\n'),
+        b'r' => Some('\r'),
+        b't' => Some('\t'),
+        _ => None,
+    }
+}
+
 struct Parser<'a> {
     tokens: &'a [Token],
     current: usize,
@@ -534,9 +504,12 @@ struct Parser<'a> {
 }
 
 impl Parser<'_> {
-    /// `condition ? when_true : when_false`, the shape every template
-    /// language offers for choosing a value inline.
-    fn parse_ternary(&mut self, depth: usize) -> Result<Expr, Failure> {
+    const MAX_EXPRESSION_DEPTH: usize = 32;
+    const MAX_CALL_ARGUMENTS: usize = 8;
+    const FORBIDDEN_PROPERTIES: &'static [&'static str] =
+        &["__proto__", "constructor", "prototype"];
+
+    fn parse_ternary(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let condition = self.parse_or(depth + 1)?;
         if !matches!(self.peek().kind, TokenKind::Question) {
@@ -549,20 +522,20 @@ impl Parser<'_> {
         }
         self.advance();
         let when_false = self.parse_ternary(depth + 1)?;
-        Ok(Expr::Conditional {
+        Ok(ExpressionNode::Conditional {
             condition: Box::new(condition),
             when_true: Box::new(when_true),
             when_false: Box::new(when_false),
         })
     }
 
-    fn parse_or(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_or(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let mut expression = self.parse_and(depth + 1)?;
         while matches!(self.peek().kind, TokenKind::Or) {
             self.advance();
             let right = self.parse_and(depth + 1)?;
-            expression = Expr::Logical {
+            expression = ExpressionNode::Logical {
                 left: Box::new(expression),
                 operator: LogicalOperator::Or,
                 right: Box::new(right),
@@ -571,13 +544,13 @@ impl Parser<'_> {
         Ok(expression)
     }
 
-    fn parse_and(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_and(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let mut expression = self.parse_comparison(depth + 1)?;
         while matches!(self.peek().kind, TokenKind::And) {
             self.advance();
             let right = self.parse_comparison(depth + 1)?;
-            expression = Expr::Logical {
+            expression = ExpressionNode::Logical {
                 left: Box::new(expression),
                 operator: LogicalOperator::And,
                 right: Box::new(right),
@@ -586,7 +559,7 @@ impl Parser<'_> {
         Ok(expression)
     }
 
-    fn parse_comparison(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_comparison(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let left = self.parse_additive(depth + 1)?;
         let operator = match self.peek().kind {
@@ -603,17 +576,14 @@ impl Parser<'_> {
         };
         self.advance();
         let right = self.parse_additive(depth + 1)?;
-        Ok(Expr::Compare {
+        Ok(ExpressionNode::Compare {
             left: Box::new(left),
             operator,
             right: Box::new(right),
         })
     }
 
-    /// `+`, `-`, `*`, and `/`, left-associative, with `*` and `/` binding
-    /// tighter. `+` also concatenates when either side is a string, which is
-    /// what a template uses it for.
-    fn parse_additive(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_additive(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let mut left = self.parse_multiplicative(depth + 1)?;
         loop {
@@ -624,7 +594,7 @@ impl Parser<'_> {
             };
             self.advance();
             let right = self.parse_multiplicative(depth + 1)?;
-            left = Expr::Arithmetic {
+            left = ExpressionNode::Arithmetic {
                 left: Box::new(left),
                 operator,
                 right: Box::new(right),
@@ -632,7 +602,7 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_multiplicative(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_multiplicative(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let mut left = self.parse_unary(depth + 1)?;
         loop {
@@ -643,7 +613,7 @@ impl Parser<'_> {
             };
             self.advance();
             let right = self.parse_unary(depth + 1)?;
-            left = Expr::Arithmetic {
+            left = ExpressionNode::Arithmetic {
                 left: Box::new(left),
                 operator,
                 right: Box::new(right),
@@ -651,91 +621,108 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_unary(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_unary(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
-        // `await` is only meaningful where evaluation can be async, which is
-        // inside an island; elsewhere it is refused at render.
         if matches!(&self.peek().kind, TokenKind::Identifier(name) if name == "await") {
             self.advance();
-            return Ok(Expr::Await(Box::new(self.parse_unary(depth + 1)?)));
+            return Ok(ExpressionNode::Await(Box::new(
+                self.parse_unary(depth + 1)?,
+            )));
         }
         if matches!(self.peek().kind, TokenKind::Bang) {
             self.advance();
-            return Ok(Expr::Not(Box::new(self.parse_unary(depth + 1)?)));
+            return Ok(ExpressionNode::Not(Box::new(self.parse_unary(depth + 1)?)));
         }
         self.parse_access(depth + 1)
     }
 
-    fn parse_access(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_access(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         let mut expression = self.parse_primary(depth + 1)?;
         loop {
-            if matches!(self.peek().kind, TokenKind::Dot) {
-                self.advance();
-                let TokenKind::Identifier(property) = self.peek().kind.clone() else {
-                    return Err(self.error("Property access requires an identifier."));
-                };
-                if FORBIDDEN_PROPERTIES.contains(&property.as_str()) {
-                    return Err(
-                        self.error("Template expressions cannot access prototype properties.")
-                    );
-                }
-                self.advance();
-                expression = Expr::Access(Box::new(expression), Access::Property(property));
-            } else if matches!(self.peek().kind, TokenKind::LeftParen) {
-                self.advance();
-                let mut arguments = Vec::new();
-                while !matches!(self.peek().kind, TokenKind::RightParen) {
-                    if arguments.len() >= MAX_CALL_ARGUMENTS {
-                        return Err(self.error("A call accepts at most eight arguments."));
-                    }
-                    arguments.push(self.parse_ternary(depth + 1)?);
-                    if matches!(self.peek().kind, TokenKind::Comma) {
-                        self.advance();
-                    } else {
-                        break;
-                    }
-                }
-                if !matches!(self.peek().kind, TokenKind::RightParen) {
-                    return Err(self.error("A call is missing ')'."));
-                }
-                self.advance();
-                expression = Expr::Call {
-                    callee: Box::new(expression),
-                    arguments,
-                };
-            } else if matches!(self.peek().kind, TokenKind::LeftBracket) {
-                self.advance();
-                let TokenKind::Literal(Value::Number(index)) = self.peek().kind.clone() else {
-                    return Err(self.error("Array access requires a non-negative integer literal."));
-                };
-                let Some(index) = index.as_u64().and_then(|value| usize::try_from(value).ok())
-                else {
-                    return Err(self.error("Array index is outside the supported range."));
-                };
-                self.advance();
-                if !matches!(self.peek().kind, TokenKind::RightBracket) {
-                    return Err(self.error("Array access is missing ']'."));
-                }
-                self.advance();
-                expression = Expr::Access(Box::new(expression), Access::Index(index));
-            } else {
-                break;
-            }
+            expression = match self.peek().kind {
+                TokenKind::Dot => self.parse_property(expression)?,
+                TokenKind::LeftParen => self.parse_call(expression, depth)?,
+                TokenKind::LeftBracket => self.parse_index(expression)?,
+                _ => return Ok(expression),
+            };
         }
-        Ok(expression)
     }
 
-    fn parse_primary(&mut self, depth: usize) -> Result<Expr, Failure> {
+    fn parse_property(&mut self, object: ExpressionNode) -> Result<ExpressionNode, Failure> {
+        self.advance();
+        let TokenKind::Identifier(property) = self.peek().kind.clone() else {
+            return Err(self.error("Property access requires an identifier."));
+        };
+        if Self::FORBIDDEN_PROPERTIES.contains(&property.as_str()) {
+            return Err(self.error("Template expressions cannot access prototype properties."));
+        }
+        self.advance();
+        Ok(ExpressionNode::Access(
+            Box::new(object),
+            Access::Property(property),
+        ))
+    }
+
+    fn parse_call(
+        &mut self,
+        callee: ExpressionNode,
+        depth: usize,
+    ) -> Result<ExpressionNode, Failure> {
+        self.advance();
+        let mut arguments = Vec::new();
+        while !matches!(self.peek().kind, TokenKind::RightParen) {
+            if arguments.len() >= Self::MAX_CALL_ARGUMENTS {
+                return Err(self.error("A call accepts at most eight arguments."));
+            }
+            arguments.push(self.parse_ternary(depth + 1)?);
+            if !matches!(self.peek().kind, TokenKind::Comma) {
+                break;
+            }
+            self.advance();
+        }
+        if !matches!(self.peek().kind, TokenKind::RightParen) {
+            return Err(self.error("A call is missing ')'."));
+        }
+        self.advance();
+        Ok(ExpressionNode::Call {
+            callee: Box::new(callee),
+            arguments,
+        })
+    }
+
+    fn parse_index(&mut self, array: ExpressionNode) -> Result<ExpressionNode, Failure> {
+        self.advance();
+        let TokenKind::Literal(Value::Number(number)) = self.peek().kind.clone() else {
+            return Err(self.error("Array access requires a non-negative integer literal."));
+        };
+        let index = number
+            .as_u64()
+            .and_then(|value| usize::try_from(value).ok());
+        let Some(index) = index else {
+            return Err(self.error("Array index is outside the supported range."));
+        };
+        self.advance();
+        if !matches!(self.peek().kind, TokenKind::RightBracket) {
+            return Err(self.error("Array access is missing ']'."));
+        }
+        self.advance();
+        Ok(ExpressionNode::Access(
+            Box::new(array),
+            Access::Index(index),
+        ))
+    }
+
+    fn parse_primary(&mut self, depth: usize) -> Result<ExpressionNode, Failure> {
         self.assert_depth(depth)?;
         match self.peek().kind.clone() {
             TokenKind::Literal(value) => {
                 self.advance();
-                Ok(Expr::Literal(value))
+                Ok(ExpressionNode::Literal(value))
             }
             TokenKind::Identifier(identifier) => {
                 self.advance();
-                Ok(Expr::Identifier(identifier))
+                Ok(ExpressionNode::Identifier(identifier))
             }
             TokenKind::LeftParen => {
                 self.advance();
@@ -751,7 +738,7 @@ impl Parser<'_> {
     }
 
     fn assert_depth(&self, depth: usize) -> Result<(), Failure> {
-        if depth > MAX_EXPRESSION_DEPTH {
+        if depth > Self::MAX_EXPRESSION_DEPTH {
             return Err(self.error("Template expression exceeds the nesting limit of 32."));
         }
         Ok(())
@@ -769,11 +756,11 @@ impl Parser<'_> {
 
     fn error(&self, message: &str) -> Failure {
         let token = self.peek();
+        let end = token.end.max(token.start + 1).min(self.source_len);
         expression_failure(
             self.source_path,
             self.source_start.saturating_add(token.start),
-            self.source_start
-                .saturating_add(token.end.max(token.start + 1).min(self.source_len)),
+            self.source_start.saturating_add(end),
             message,
         )
     }

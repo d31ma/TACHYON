@@ -1,0 +1,5 @@
+{
+  "heading": "Request IDs and error reports",
+  "body": "Every request carries a correlation identifier (an ID that links the log lines of one request). The server creates it in its own process and passes it through the handler protocol. So in a log, you can connect a request to the controller call it caused. A handler reads the ID from the request header `x-tachyon-request-id`; the server sets this header itself, so a client cannot choose it. Failures arrive as Diagnostics v1 with stable codes. This is the same structure that a build produces. `--diagnostic-format json` makes them machine-readable. Tracing exporters (tools that send trace data to another service) are not built in.",
+  "code": { "file": "example.sh" }
+}

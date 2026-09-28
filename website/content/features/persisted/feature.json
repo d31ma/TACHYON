@@ -1,0 +1,21 @@
+{
+  "id": "persisted",
+  "title": "Saved service fields",
+  "summary": "Tachyon restores a service field marked `@SessionState` from `sessionStorage`. This works only for the current tab. It restores a field marked `@LocalState` from `localStorage`, so the value is shared across tabs. The value in the declaration is the default.",
+  "group": "Browser storage",
+  "files": [
+    {
+      "name": "client/services/EditorService.js",
+      "code": { "file": "client/services/EditorService.js" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/draft/editor/tac.html",
+      "code": { "file": "client/components/draft/editor/tac.html" }
+    }
+  ],
+  "verify": "tac"
+}

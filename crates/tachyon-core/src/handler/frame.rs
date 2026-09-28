@@ -1,215 +1,261 @@
+mod frame_limits;
+
+pub(super) use frame_limits::FrameLimits;
+
 use crate::Failure;
 use crate::failure::diagnostic;
 use serde::Serialize;
+use std::cmp::Ordering;
 use tachyon_contracts::{
-    HandlerBody, HandlerCancel, HandlerHeaders, HandlerRequest, HandlerResponse,
+    HandlerBody, HandlerCancel, HandlerHeaders, HandlerProtocolError, HandlerRequest,
+    HandlerResponse,
 };
 
-pub(super) const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
-pub(super) const FRAME_PREFIX_BYTES: usize = 4;
+pub(crate) struct HandlerFrame;
 
-pub(super) fn request_frame(request: &HandlerRequest) -> Result<Vec<u8>, Failure> {
-    validate_request(request)?;
-    encode_frame(request)
-}
+impl HandlerFrame {
+    const HEADER_NAME_SYMBOLS: &'static [u8] = b"!#$%&'*+-.^_`|~";
+    const IDENTIFIER_SYMBOLS: &'static [u8] = b"_-";
+    const OPERATION_SYMBOLS: &'static [u8] = b"_.-";
 
-pub(super) fn cancel_frame(request_id: &str) -> Result<Vec<u8>, Failure> {
-    encode_frame(&HandlerCancel::v1(request_id))
-}
-
-pub(crate) fn response_frame(bytes: &[u8], request_id: &str) -> Result<HandlerResponse, Failure> {
-    if bytes.len() < FRAME_PREFIX_BYTES {
-        return Err(protocol_failure(
-            2102,
-            "Handler stdout ended before a frame prefix was received.",
-        ));
+    pub(in crate::handler) fn request(request: &HandlerRequest) -> Result<Vec<u8>, Failure> {
+        Self::check_request(request)?;
+        Self::encode(request)
     }
-    let length = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as usize;
-    if length > MAX_FRAME_BYTES {
-        return Err(protocol_failure(
-            2103,
-            "Handler response frame exceeds the 16 MiB protocol limit.",
-        ));
-    }
-    let expected = FRAME_PREFIX_BYTES.saturating_add(length);
-    if bytes.len() != expected {
-        let message = if bytes.len() > expected {
-            "Handler wrote trailing or multiple data to protocol stdout."
-        } else {
-            "Handler stdout ended before the declared frame was complete."
-        };
-        return Err(protocol_failure(2102, message));
-    }
-    let Ok(json) = std::str::from_utf8(&bytes[FRAME_PREFIX_BYTES..]) else {
-        return Err(protocol_failure(
-            2102,
-            "Handler response frame is not valid UTF-8.",
-        ));
-    };
-    let Ok(response) = serde_json::from_str::<HandlerResponse>(json) else {
-        return Err(protocol_failure(
-            2102,
-            "Handler response is not a valid Handler Protocol v1 response.",
-        ));
-    };
-    validate_response(&response, request_id)?;
-    Ok(response)
-}
 
-fn encode_frame<T: Serialize>(envelope: &T) -> Result<Vec<u8>, Failure> {
-    let Ok(json) = serde_json::to_vec(envelope) else {
-        return Err(Failure::one(diagnostic(
-            2005,
-            "Handler request cannot be serialized.",
+    pub(in crate::handler) fn cancel(request_id: &str) -> Result<Vec<u8>, Failure> {
+        Self::encode(&HandlerCancel::v1(request_id))
+    }
+
+    pub(crate) fn response(bytes: &[u8], request_id: &str) -> Result<HandlerResponse, Failure> {
+        Self::check_prefix(bytes)?;
+        let length = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as usize;
+        Self::check_response_length(length)?;
+        let expected = FrameLimits::PREFIX_BYTES.saturating_add(length);
+        Self::check_exact_size(bytes.len(), expected)?;
+        let json = std::str::from_utf8(&bytes[FrameLimits::PREFIX_BYTES..]).map_err(|_| {
+            Self::protocol_failure(2102, "Handler response frame is not valid UTF-8.")
+        })?;
+        let response = serde_json::from_str::<HandlerResponse>(json).map_err(|_| {
+            Self::protocol_failure(
+                2102,
+                "Handler response is not a valid Handler Protocol v1 response.",
+            )
+        })?;
+        Self::check_response(&response, request_id)?;
+        Ok(response)
+    }
+
+    pub(in crate::handler) fn protocol_failure(number: u16, message: &str) -> Failure {
+        Failure::one(diagnostic(
+            number,
+            message,
             Some(String::from(
-                "Use Handler Protocol v1-compatible request values.",
+                "Fix or replace the handler adapter before retrying.",
             )),
             None,
-        )));
-    };
-    if json.len() > MAX_FRAME_BYTES {
-        return Err(Failure::one(diagnostic(
-            2005,
-            "Handler request frame exceeds the 16 MiB protocol limit.",
-            Some(String::from("Reduce request headers or body size.")),
-            None,
-        )));
+        ))
     }
-    let Ok(length) = u32::try_from(json.len()) else {
-        return Err(Failure::one(diagnostic(
-            2005,
-            "Handler request frame length cannot be represented.",
-            None,
-            None,
-        )));
-    };
-    let mut frame = Vec::with_capacity(FRAME_PREFIX_BYTES + json.len());
-    frame.extend_from_slice(&length.to_be_bytes());
-    frame.extend_from_slice(&json);
-    Ok(frame)
-}
 
-fn validate_request(request: &HandlerRequest) -> Result<(), Failure> {
-    if request.protocol_version != 1
-        || !valid_identifier(&request.request_id)
-        || !valid_operation(&request.operation)
-        || !valid_route(&request.route)
-        || request
-            .deadline_ms
-            .is_some_and(|deadline| !(1..=300_000).contains(&deadline))
-        || !valid_headers(&request.headers)
-        || request.body.as_ref().is_some_and(|body| !valid_body(body))
-    {
-        return Err(Failure::one(diagnostic(
-            2005,
-            "Handler request does not satisfy Handler Protocol v1.",
-            Some(String::from(
-                "Check the request ID, operation, route, deadline, headers, and body limits.",
+    fn check_prefix(bytes: &[u8]) -> Result<(), Failure> {
+        if bytes.len() < FrameLimits::PREFIX_BYTES {
+            return Err(Self::protocol_failure(
+                2102,
+                "Handler stdout ended before a frame prefix was received.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn check_response_length(length: usize) -> Result<(), Failure> {
+        if length > FrameLimits::MAX_BYTES {
+            return Err(Self::protocol_failure(
+                2103,
+                "Handler response frame exceeds the 16 MiB protocol limit.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn check_exact_size(actual: usize, expected: usize) -> Result<(), Failure> {
+        match actual.cmp(&expected) {
+            Ordering::Equal => Ok(()),
+            Ordering::Greater => Err(Self::protocol_failure(
+                2102,
+                "Handler wrote trailing or multiple data to protocol stdout.",
             )),
-            None,
-        )));
+            Ordering::Less => Err(Self::protocol_failure(
+                2102,
+                "Handler stdout ended before the declared frame was complete.",
+            )),
+        }
     }
-    Ok(())
-}
 
-fn validate_response(response: &HandlerResponse, request_id: &str) -> Result<(), Failure> {
-    let valid_error = response.error.as_ref().is_none_or(|error| {
-        valid_code(&error.code)
-            && !error.message.is_empty()
-            && error.message.chars().count() <= 2_048
-    });
-    if response.protocol_version != 1
-        || response.request_id != request_id
-        || !valid_identifier(&response.request_id)
-        || !(100..=599).contains(&response.status)
-        || !valid_headers(&response.headers)
-        || response.body.as_ref().is_some_and(|body| !valid_body(body))
-        || response.body.is_some() == response.error.is_some()
-        || !valid_error
-    {
-        return Err(protocol_failure(
-            2102,
-            "Handler response violates Handler Protocol v1 or does not match the request.",
-        ));
+    fn encode<T: Serialize>(envelope: &T) -> Result<Vec<u8>, Failure> {
+        let json = serde_json::to_vec(envelope).map_err(|_| {
+            Failure::one(diagnostic(
+                2005,
+                "Handler request cannot be serialized.",
+                Some(String::from(
+                    "Use Handler Protocol v1-compatible request values.",
+                )),
+                None,
+            ))
+        })?;
+        Self::check_request_size(&json)?;
+        let length = u32::try_from(json.len()).map_err(|_| {
+            Failure::one(diagnostic(
+                2005,
+                "Handler request frame length cannot be represented.",
+                None,
+                None,
+            ))
+        })?;
+        let mut frame = Vec::with_capacity(FrameLimits::PREFIX_BYTES + json.len());
+        frame.extend_from_slice(&length.to_be_bytes());
+        frame.extend_from_slice(&json);
+        Ok(frame)
     }
-    Ok(())
-}
 
-fn valid_identifier(value: &str) -> bool {
-    (1..=128).contains(&value.len())
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-}
+    fn check_request_size(json: &[u8]) -> Result<(), Failure> {
+        if json.len() > FrameLimits::MAX_BYTES {
+            return Err(Failure::one(diagnostic(
+                2005,
+                "Handler request frame exceeds the 16 MiB protocol limit.",
+                Some(String::from("Reduce request headers or body size.")),
+                None,
+            )));
+        }
+        Ok(())
+    }
 
-fn valid_operation(value: &str) -> bool {
-    let mut bytes = value.bytes();
-    bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
-        && value.len() <= 128
-        && bytes.all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'.' | b'-')
-        })
-}
+    fn check_request(request: &HandlerRequest) -> Result<(), Failure> {
+        if !Self::valid_request(request) {
+            return Err(Failure::one(diagnostic(
+                2005,
+                "Handler request does not satisfy Handler Protocol v1.",
+                Some(String::from(
+                    "Check the request ID, operation, route, deadline, headers, and body limits.",
+                )),
+                None,
+            )));
+        }
+        Ok(())
+    }
 
-fn valid_route(value: &str) -> bool {
-    value.starts_with('/') && value.chars().count() <= 2_048
-}
+    fn valid_request(request: &HandlerRequest) -> bool {
+        Self::all_pass(&[
+            request.protocol_version == 1,
+            Self::valid_identifier(&request.request_id),
+            Self::valid_operation(&request.operation),
+            Self::valid_route(&request.route),
+            request
+                .deadline_ms
+                .is_none_or(|deadline| (1..=300_000).contains(&deadline)),
+            Self::valid_headers(&request.headers),
+            request.body.as_ref().is_none_or(Self::valid_body),
+        ])
+    }
 
-fn valid_headers(headers: &HandlerHeaders) -> bool {
-    headers.len() <= 128
-        && headers.iter().all(|(name, values)| {
-            valid_header_name(name)
-                && values.len() <= 64
-                && values.iter().all(|value| value.chars().count() <= 8_192)
-        })
-}
+    fn check_response(response: &HandlerResponse, request_id: &str) -> Result<(), Failure> {
+        if !Self::valid_response(response, request_id) {
+            return Err(Self::protocol_failure(
+                2102,
+                "Handler response violates Handler Protocol v1 or does not match the request.",
+            ));
+        }
+        Ok(())
+    }
 
-fn valid_header_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(
-                    byte,
-                    b'!' | b'#'
-                        | b'$'
-                        | b'%'
-                        | b'&'
-                        | b'\''
-                        | b'*'
-                        | b'+'
-                        | b'-'
-                        | b'.'
-                        | b'^'
-                        | b'_'
-                        | b'`'
-                        | b'|'
-                        | b'~'
-                )
-        })
-}
+    fn valid_response(response: &HandlerResponse, request_id: &str) -> bool {
+        Self::all_pass(&[
+            response.protocol_version == 1,
+            response.request_id == request_id,
+            Self::valid_identifier(&response.request_id),
+            (100..=599).contains(&response.status),
+            Self::valid_headers(&response.headers),
+            response.body.as_ref().is_none_or(Self::valid_body),
+            response.body.is_some() != response.error.is_some(),
+            response.error.as_ref().is_none_or(Self::valid_error),
+        ])
+    }
 
-fn valid_body(body: &HandlerBody) -> bool {
-    body.data.chars().count() <= MAX_FRAME_BYTES
-}
+    fn valid_error(error: &HandlerProtocolError) -> bool {
+        Self::all_pass(&[
+            Self::valid_code(&error.code),
+            !error.message.is_empty(),
+            error.message.chars().count() <= 2_048,
+        ])
+    }
 
-fn valid_code(code: &str) -> bool {
-    code.len() == 6 && code.starts_with("TY") && code[2..].bytes().all(|byte| byte.is_ascii_digit())
-}
+    fn valid_identifier(value: &str) -> bool {
+        (1..=128).contains(&value.len()) && value.bytes().all(Self::identifier_byte)
+    }
 
-pub(super) fn protocol_failure(number: u16, message: &str) -> Failure {
-    Failure::one(diagnostic(
-        number,
-        message,
-        Some(String::from(
-            "Fix or replace the handler adapter before retrying.",
-        )),
-        None,
-    ))
+    fn identifier_byte(byte: u8) -> bool {
+        byte.is_ascii_alphanumeric() || Self::IDENTIFIER_SYMBOLS.contains(&byte)
+    }
+
+    fn valid_operation(value: &str) -> bool {
+        let mut bytes = value.bytes();
+        bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
+            && value.len() <= 128
+            && bytes.all(Self::operation_byte)
+    }
+
+    fn operation_byte(byte: u8) -> bool {
+        byte.is_ascii_lowercase()
+            || byte.is_ascii_digit()
+            || Self::OPERATION_SYMBOLS.contains(&byte)
+    }
+
+    fn valid_route(value: &str) -> bool {
+        value.starts_with('/') && value.chars().count() <= 2_048
+    }
+
+    fn valid_headers(headers: &HandlerHeaders) -> bool {
+        Self::all_pass(&[
+            headers.len() <= 128,
+            headers
+                .iter()
+                .all(|(name, values)| Self::valid_header(name, values)),
+        ])
+    }
+
+    fn valid_header(name: &str, values: &[String]) -> bool {
+        Self::all_pass(&[
+            Self::valid_header_name(name),
+            values.len() <= 64,
+            values.iter().all(|value| value.chars().count() <= 8_192),
+        ])
+    }
+
+    fn valid_header_name(name: &str) -> bool {
+        !name.is_empty() && name.bytes().all(Self::header_name_byte)
+    }
+
+    fn header_name_byte(byte: u8) -> bool {
+        byte.is_ascii_alphanumeric() || Self::HEADER_NAME_SYMBOLS.contains(&byte)
+    }
+
+    fn valid_body(body: &HandlerBody) -> bool {
+        body.data.chars().count() <= FrameLimits::MAX_BYTES
+    }
+
+    fn valid_code(code: &str) -> bool {
+        code.len() == 6
+            && code.starts_with("TY")
+            && code[2..].bytes().all(|byte| byte.is_ascii_digit())
+    }
+
+    fn all_pass(checks: &[bool]) -> bool {
+        !checks.contains(&false)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{MAX_FRAME_BYTES, cancel_frame, request_frame, response_frame};
+    use super::{FrameLimits, HandlerFrame};
     use tachyon_contracts::{
         HandlerBody, HandlerBodyEncoding, HandlerHeaders, HandlerRequest, HandlerResponse,
         HttpMethod,
@@ -218,7 +264,7 @@ mod tests {
     #[test]
     fn frames_round_trip_and_reject_trailing_or_mismatched_output() {
         let request = HandlerRequest::route("req_1", "/", HttpMethod::Get);
-        let request_bytes = request_frame(&request).unwrap_or_else(|_| unreachable!());
+        let request_bytes = HandlerFrame::request(&request).unwrap_or_else(|_| unreachable!());
         assert_eq!(
             u32::from_be_bytes([
                 request_bytes[0],
@@ -243,30 +289,30 @@ mod tests {
         let mut frame = Vec::from(length.to_be_bytes());
         frame.extend_from_slice(&json);
         assert_eq!(
-            response_frame(&frame, "req_1").unwrap_or_else(|_| unreachable!()),
+            HandlerFrame::response(&frame, "req_1").unwrap_or_else(|_| unreachable!()),
             response
         );
         frame.push(0);
-        assert!(response_frame(&frame, "req_1").is_err());
+        assert!(HandlerFrame::response(&frame, "req_1").is_err());
         frame.pop();
-        assert!(response_frame(&frame, "other").is_err());
+        assert!(HandlerFrame::response(&frame, "other").is_err());
     }
 
     #[test]
     fn invalid_requests_and_frames_fail_closed() {
         let mut request = HandlerRequest::route("", "missing-slash", HttpMethod::Get);
         request.deadline_ms = Some(0);
-        assert!(request_frame(&request).is_err());
+        assert!(HandlerFrame::request(&request).is_err());
 
-        assert!(response_frame(&[], "req").is_err());
-        assert!(response_frame(&[0, 0, 0, 4, b'{', b'}'], "req").is_err());
-        assert!(response_frame(&[0, 0, 0, 3, 0xff, 0xff, 0xff], "req").is_err());
-        assert!(response_frame(&[0, 0, 0, 3, b'x', b'x', b'x'], "req").is_err());
-        let oversized = u32::try_from(MAX_FRAME_BYTES + 1)
+        assert!(HandlerFrame::response(&[], "req").is_err());
+        assert!(HandlerFrame::response(&[0, 0, 0, 4, b'{', b'}'], "req").is_err());
+        assert!(HandlerFrame::response(&[0, 0, 0, 3, 0xff, 0xff, 0xff], "req").is_err());
+        assert!(HandlerFrame::response(&[0, 0, 0, 3, b'x', b'x', b'x'], "req").is_err());
+        let oversized = u32::try_from(FrameLimits::MAX_BYTES + 1)
             .unwrap_or_else(|_| unreachable!())
             .to_be_bytes();
-        assert!(response_frame(&oversized, "req").is_err());
-        assert!(cancel_frame(&"x".repeat(MAX_FRAME_BYTES + 1)).is_err());
+        assert!(HandlerFrame::response(&oversized, "req").is_err());
+        assert!(HandlerFrame::cancel(&"x".repeat(FrameLimits::MAX_BYTES + 1)).is_err());
     }
 
     #[test]
@@ -301,7 +347,7 @@ mod tests {
             let length = u32::try_from(json.len()).unwrap_or_else(|_| unreachable!());
             let mut frame = Vec::from(length.to_be_bytes());
             frame.extend_from_slice(&json);
-            assert!(response_frame(&frame, "req").is_err());
+            assert!(HandlerFrame::response(&frame, "req").is_err());
         }
     }
 }

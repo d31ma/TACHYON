@@ -1,0 +1,8 @@
+@Test(TypeScriptGreetingTestSetup, {"partition":"tests"})
+export default class TypeScriptGreetingServiceTest {
+  async testGreetChangesTheMessage(): Promise<void> {
+    const greeting = new TypeScriptGreetingService();
+    greeting.greet();
+    if (greeting.message !== 'TypeScript says hello again.') throw Error(`message is ${greeting.message}`);
+  }
+}

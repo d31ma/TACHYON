@@ -1,0 +1,7 @@
+{
+  "heading": "Routes and paths",
+  "body": "A controller is a class in `server/controllers/<Name>Controller.<ext>`. `RequestRoute(\"/items\")` on the class gives the base path of its routes. `Public`, `SignedIn` or `Allow(Role)` on the class or on a method says who may call a route, and a route without one stops the build with `TY1322` (see Who may call a route). `GetRoute`, `PostRoute`, `PutRoute`, `PatchRoute` and `DeleteRoute` on a method make it answer that HTTP verb. They can add to the path, such as `GetRoute(\"/{id}\")`. A part in braces is a path variable (a part of the path that can change). The method name must start with its verb, such as `getItems` or `postItem`. Argument annotations say where each value comes from: `FromPath`, `FromQuery`, `FromBody`, `FromHeader` or `FromCookie`. One argument without an annotation gets the request in the language's own type: Fetch `Request` in JavaScript and TypeScript, `urllib.request.Request` in Python, a `Net::HTTP` request in Ruby, `HttpExchange` in Java and Kotlin, `HttpRequestMessage` in C#, `http::Request` in Rust, a shelf `Request` in Dart and `*http.Request` in Go. PHP has no request object: it reads `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE` and `php://input`. You can write a controller in any of the eleven Yon languages. You need no runtime annotation package. The glossary explains each annotation name in plain words. See the [routing annotation glossary](/docs/routing-annotations) for each name.",
+  "code": {
+    "file": "example.js"
+  }
+}

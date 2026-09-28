@@ -1,0 +1,7 @@
+{
+  "heading": "Validation",
+  "body": "The types in a controller method decide what a caller may send and what it gets back. A model is a data type in `server/models/`. A JavaScript model is a JSDoc `@typedef` in its own file, such as `server/models/Product.js`. The server checks each argument before the method runs. A value of the wrong type gets a 400 answer that names the part and the field. An answer that does not match the return type becomes a 500 error. Fields that the model does not name are allowed. The same types make the API schema: `OPTIONS` on a route answers with it, and `/api.json` lists every route.",
+  "code": {
+    "file": "example.json"
+  }
+}

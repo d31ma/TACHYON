@@ -1,0 +1,12 @@
+{
+  "id": "routing",
+  "title": "Page and controller routing",
+  "summary": "Each directory under `client/pages` is one page path. On the server, controllers (classes that answer requests) go in `server/controllers`. Their route annotations give the paths.",
+  "group": "Routing",
+  "files": [
+    {
+      "name": "layout",
+      "code": { "file": "layout.txt" }
+    }
+  ]
+}

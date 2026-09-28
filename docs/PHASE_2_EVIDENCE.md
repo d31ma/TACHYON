@@ -1,35 +1,47 @@
 # Phase 2 Yon Handler Boundary Evidence
 
-> Historical evidence: these counts and claims describe the original
-> JavaScript/Python Phase 2 gate. The current eight-language, mandatory-layer,
-> relay, and streaming contract is defined by ADR 0017 and its newer workspace
-> tests.
+> Historical evidence: the counts and claims in this file describe the original
+> Phase 2 gate for JavaScript and Python. ADR 0017 (architecture decision
+> record) and its newer workspace tests define the current contract. That
+> contract covers eight languages, mandatory layers, relay, and streaming.
 
 ## Status
 
-Phase 2 is complete as a development milestone on 2026-07-26. It is not a
-preview or supported Tachyon release. The normative contract and explicit
-deferrals are in [`PHASE_2_SPEC.md`](PHASE_2_SPEC.md).
+Phase 2 was completed as a development milestone on 2026-07-26. It is not a
+preview release or a supported Tachyon release. The required contract and the
+features that were explicitly postponed are in
+[`PHASE_2_SPEC.md`](PHASE_2_SPEC.md).
 
 ## Delivered Outcome
 
-The compiled Rust `ty` executable discovers JavaScript and Python Yon handlers
-and invokes either language through Handler Protocol v1. The implementation
-validates the source and request, directly spawns one language-adapter process,
-enforces bounded framed I/O and process lifetime, and returns one typed response
-or stable diagnostic.
+The compiled Rust `ty` executable finds JavaScript and Python Yon handlers. It
+calls handlers in either language through Handler Protocol v1. For each call,
+the implementation:
 
-Handler-only routes and handlers colocated with a Tac view are represented
-deterministically in Route Manifest v1. Handler values are HTTP responses and
-are never merged into a build-time view context.
+- validates the source and the request;
+- starts one language-adapter process directly;
+- limits the size of framed input and output, and limits how long the process
+  lives;
+- returns one typed response or a stable diagnostic.
 
-The current eight-language successor adds a bounded, deduplicated readiness
-probe before development-server output work or binding. Runtime absence is
-`TY2112` during both preflight and the later spawn race. Doctor reports and
-structured server events use only logical runtime labels; configured paths and
-operating-system errors are excluded. C# readiness performs a bounded build of
-framework-owned minimal source, so `Microsoft.NETCore.App` without an SDK is
-reported incomplete before the server binds.
+Route Manifest v1 records two kinds of routes in a fixed order:
+
+- routes that have only a handler;
+- routes where a handler is in the same place as a Tac view.
+
+Handler values are HTTP responses. The build never merges them into the
+context of a view.
+
+The current successor supports eight languages. It adds a readiness probe
+before the development server writes output or binds to an address. The probe
+has limits and does not repeat the same check twice. When a runtime is
+missing, the result is `TY2112`. This is true both during the preflight check
+and when the runtime disappears before a later spawn. Doctor reports and
+structured server events use only logical runtime labels. They do not include
+configured paths or operating-system errors. The C# readiness check builds a
+small source file that the framework owns, with a limit. Because of this, the
+check reports `Microsoft.NETCore.App` without an SDK as incomplete before the
+server binds.
 
 ## Toolchain and Platforms
 
@@ -37,58 +49,74 @@ reported incomplete before the server binds.
 - Cargo: `cargo 1.97.1 (c980f4866 2026-06-30)`.
 - Local JavaScript runtime: Node.js 23.5.0.
 - Local Python runtime: CPython 3.14.4.
-- macOS arm64: the complete workspace, compiled CLI, and real JavaScript and
-  Python process corpus execute locally on Darwin 25.5.0.
-- Linux x86_64: the same locked suite executes with real Node.js and CPython
-  children under the official `rust:1.97.1-bookworm` image at digest
+- macOS arm64: the full workspace, the compiled CLI, and the real JavaScript
+  and Python process tests run locally on Darwin 25.5.0.
+- Linux x86_64: the same locked suite runs with real Node.js and CPython child
+  processes in the official `rust:1.97.1-bookworm` image with digest
   `sha256:77fac8b98f9f46062bb680b6d25d5bcaabfc400143952ebc572e924bcbedc3fa`.
 - Windows x86_64: all workspace targets and features compile locally for
   `x86_64-pc-windows-gnu`. The repository's `windows-latest` job installs
-  Node.js 24.18.0 and CPython 3.14.6 and is the authoritative native process
-  execution gate; cross-compilation is recorded only as buildability.
+  Node.js 24.18.0 and CPython 3.14.6. This job is the official check that
+  processes run natively. The cross-compilation shows only that the code
+  builds.
 
-The native GitHub Actions matrix fixes the Rust and language runtime versions,
-runs the same locked workspace suite on Ubuntu, macOS, and Windows, builds
-warning-free documentation, and executes the release binary.
+The native GitHub Actions matrix fixes the versions of Rust and the language
+runtimes. On Ubuntu, macOS, and Windows it:
+
+- runs the same locked workspace suite;
+- builds the documentation with no warnings;
+- runs the release binary.
 
 ## Behavioral Evidence
 
 The workspace has 69 deterministic Rust tests:
 
-- 6 real-binary Phase 1 acceptance tests;
-- 5 real-binary Phase 2 handler acceptance tests;
-- 6 shared real-process JavaScript/Python and adversarial tests;
+- 6 Phase 1 acceptance tests that use the real binary;
+- 5 Phase 2 handler acceptance tests that use the real binary;
+- 6 shared tests with real JavaScript/Python processes and adversarial input;
 - 5 Handler Protocol and Route Manifest contract tests;
 - 7 repository policy tests;
-- 34 core discovery, HTML, compiler, server, handler, and scaffold unit tests;
+- 34 core unit tests for discovery, HTML, the compiler, the server, handlers,
+  and the scaffold;
 - 6 diagnostic contract tests.
 
-The Phase 2 corpus proves:
+The Phase 2 tests prove these things:
 
-- JavaScript and Python receive the same typed request contract and support
-  synchronous and asynchronous static HTTP methods;
-- request IDs, all seven HTTP methods, repeated headers, UTF-8 bodies, Unicode
-  data, and projects with spaces and Unicode paths round-trip;
-- handler-only and view-plus-handler routes produce canonical manifest entries;
-- host environment values are denied by default and copied only by explicit
-  name allowlisting;
-- queue admission, startup, execution, framing, and process exit share one
-  deadline and a concurrency cap;
-- timeout and explicit cancellation terminate and reap sleeping or
-  non-cooperative children;
-- a process crash is isolated and the next invocation succeeds in a fresh
-  child;
-- missing runtimes, classes, methods, syntax errors, exceptions, and
-  non-serializable values produce stable bounded failures;
-- malformed, oversized, trailing, mismatched-ID, stdout-smuggling, and
-  stderr-flooding processes fail closed.
+- JavaScript and Python receive the same typed request contract. Both support
+  synchronous and asynchronous static HTTP methods.
+- These values pass to the handler and back without change: request IDs, all
+  seven HTTP methods, repeated headers, UTF-8 bodies, Unicode data, and
+  project paths that contain spaces and Unicode.
+- Routes with only a handler, and routes with a view and a handler, produce
+  canonical manifest entries.
+- By default, handlers do not get host environment values. The runtime copies
+  a value only when its name is on an explicit allowlist.
+- Queue admission, startup, execution, framing, and process exit all share one
+  deadline. They also share a limit on how many run at the same time.
+- A timeout or an explicit cancellation stops the child process and waits for
+  it to exit. This works for children that are sleeping or that do not
+  cooperate.
+- A process crash affects only that process. The next call succeeds in a new
+  child process.
+- These cases produce stable failures of limited size: missing runtimes,
+  classes, or methods; syntax errors; exceptions; and values that cannot be
+  serialized.
+- Processes fail closed when they send malformed, oversized, or trailing
+  output, a mismatched ID, extra data hidden in stdout, or too much stderr.
 
 ## Quality and Security Gates
 
-The final gate covers formatting, all-target/all-feature checking, strict
-Clippy, all tests, warning-free rustdoc, dependency advisories/licenses/sources,
-immutable GitHub Action references, release-binary execution, and the legacy
-Bun type and test compatibility suite.
+The final gate covers these checks:
+
+- formatting;
+- checking all targets with all features;
+- strict Clippy;
+- all tests;
+- rustdoc with no warnings;
+- dependency advisories, licenses, and sources;
+- GitHub Action references that cannot change;
+- running the release binary;
+- the legacy Bun type and test compatibility suite.
 
 LLVM coverage is:
 
@@ -98,22 +126,29 @@ LLVM coverage is:
 | Functions | 92.62% | 90% |
 | Regions | 91.95% | 90% |
 
-The coverage floor remains uniform across all three metrics. Focused
-adversarial process tests remain mandatory independent of aggregate coverage.
+All three metrics still have the same minimum. The focused adversarial process
+tests are still required, whatever the total coverage is.
 
 ## Recovery, Limits, and Compatibility
 
-The supervisor owns every child until exit or forced termination. It drains
-stdout and stderr concurrently, writes a typed cancellation frame, applies a
-bounded grace period, kills when required, waits for exit, and never pools a
-failed process. Diagnostic content, frame size, handler source, request fields,
-stderr, concurrency, and lifetime are bounded.
+The supervisor owns every child process until the child exits or is forced to
+stop. The supervisor:
 
-This is not an OS security sandbox. A handler retains the invoking developer
-account's ambient filesystem and network access, and Phase 2 does not enforce
-kernel CPU or memory quotas. That limitation is explicit in
-[`THREAT_MODEL.md`](THREAT_MODEL.md) and [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md).
+- reads stdout and stderr at the same time;
+- writes a typed cancellation frame;
+- waits for a limited grace period;
+- kills the process when needed;
+- waits for the process to exit;
+- never reuses a process that failed.
 
-The legacy implementation remains untouched and passes its type and test
-suites. Phase 2 adds no route-context or view semantics, preserving a clean
+These things all have limits: diagnostic content, frame size, handler source,
+request fields, stderr, concurrency, and lifetime.
+
+This is not an operating-system security sandbox. A handler keeps the file
+system and network access of the developer account that runs it. Phase 2 does
+not enforce kernel limits on CPU or memory. [`THREAT_MODEL.md`](THREAT_MODEL.md)
+and [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) state this limitation clearly.
+
+The legacy implementation has not changed. It still passes its type and test
+suites. Phase 2 adds no route-context or view behavior. This keeps a clean
 compatibility boundary for Phase 3.

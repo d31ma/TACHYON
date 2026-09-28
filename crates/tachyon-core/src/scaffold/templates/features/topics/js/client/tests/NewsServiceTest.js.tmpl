@@ -1,0 +1,8 @@
+@Test(NewsTestSetup, {"partition":"tests"})
+export default class NewsServiceTest {
+  async testAddItemKeepsTheItem() {
+    const news = this.construct(NewsService)
+    news.addItem({ text: 'Hello' })
+    if (news.items.length !== 1) throw Error(`items are ${JSON.stringify(news.items)}`)
+  }
+}

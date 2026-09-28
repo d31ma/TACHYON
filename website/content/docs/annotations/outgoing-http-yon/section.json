@@ -1,0 +1,302 @@
+{
+  "heading": "Outgoing HTTP: Yon",
+  "axis": "language",
+  "summary": "A client (a class that sends HTTP requests to another server) is marked with HTTPClient. It lives in server/clients/<Name>HTTPClient.<ext>, and Needs injects it into a service. Each method gets a request marker: GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest. Like a Store query, you usually write only the method signature.",
+  "files": [
+    {
+      "name": "server/clients/CatalogClient.js",
+      "code": {
+        "file": "server/clients/CatalogClient.js"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.js",
+      "code": {
+        "file": "server/setups/CatalogSetup.js"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.js",
+      "code": {
+        "file": "server/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.js",
+      "code": {
+        "file": "server/controllers/CatalogController.js"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.ts",
+      "code": {
+        "file": "server/clients/CatalogClient.ts"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.ts",
+      "code": {
+        "file": "server/setups/CatalogSetup.ts"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.ts",
+      "code": {
+        "file": "server/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.ts",
+      "code": {
+        "file": "server/controllers/CatalogController.ts"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.py",
+      "code": {
+        "file": "server/clients/CatalogClient.py"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.py",
+      "code": {
+        "file": "server/setups/CatalogSetup.py"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.py",
+      "code": {
+        "file": "server/services/CatalogService.py"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.py",
+      "code": {
+        "file": "server/controllers/CatalogController.py"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.php",
+      "code": {
+        "file": "server/clients/CatalogClient.php"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.php",
+      "code": {
+        "file": "server/setups/CatalogSetup.php"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.php",
+      "code": {
+        "file": "server/services/CatalogService.php"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.php",
+      "code": {
+        "file": "server/controllers/CatalogController.php"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.java",
+      "code": {
+        "file": "server/clients/CatalogClient.java"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.groovy",
+      "code": {
+        "file": "server/clients/CatalogClient.groovy"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.java",
+      "code": {
+        "file": "server/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.groovy",
+      "code": {
+        "file": "server/setups/CatalogSetup.groovy"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.java",
+      "code": {
+        "file": "server/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.groovy",
+      "code": {
+        "file": "server/services/CatalogService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.java",
+      "code": {
+        "file": "server/controllers/CatalogController.java"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.groovy",
+      "code": {
+        "file": "server/controllers/CatalogController.groovy"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.kt",
+      "code": {
+        "file": "server/clients/CatalogClient.kt"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.kt",
+      "code": {
+        "file": "server/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.kt",
+      "code": {
+        "file": "server/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.kt",
+      "code": {
+        "file": "server/controllers/CatalogController.kt"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.cs",
+      "code": {
+        "file": "server/clients/CatalogClient.cs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.cs",
+      "code": {
+        "file": "server/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.cs",
+      "code": {
+        "file": "server/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.cs",
+      "code": {
+        "file": "server/controllers/CatalogController.cs"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.rs",
+      "code": {
+        "file": "server/clients/CatalogClient.rs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rs",
+      "code": {
+        "file": "server/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.rs",
+      "code": {
+        "file": "server/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.rs",
+      "code": {
+        "file": "server/controllers/CatalogController.rs"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.dart",
+      "code": {
+        "file": "server/clients/CatalogClient.dart"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.dart",
+      "code": {
+        "file": "server/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.dart",
+      "code": {
+        "file": "server/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.dart",
+      "code": {
+        "file": "server/controllers/CatalogController.dart"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogTransportHelper.py",
+      "code": {
+        "file": "server/helpers/CatalogTransportHelper.py"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogTransportHelper.php",
+      "code": {
+        "file": "server/helpers/CatalogTransportHelper.php"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogTransportHelper.cs",
+      "code": {
+        "file": "server/helpers/CatalogTransportHelper.cs"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogTransportHelper.rs",
+      "code": {
+        "file": "server/helpers/CatalogTransportHelper.rs"
+      }
+    },
+    {
+      "name": "server/clients/CatalogClient.go",
+      "code": {
+        "file": "server/clients/CatalogClient.go"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.go",
+      "code": {
+        "file": "server/setups/CatalogSetup.go"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.go",
+      "code": {
+        "file": "server/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.go",
+      "code": {
+        "file": "server/controllers/CatalogController.go"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogTransportHelper.go",
+      "code": {
+        "file": "server/helpers/CatalogTransportHelper.go"
+      }
+    }
+  ],
+  "body": "HTTPClient on a class makes it a client. It can take a path that comes before every method path, like HTTPClient(\"/api\"). It can also take an object with path, adapter and cache. The adapter is the code that really sends the request. Its default name is the class name without HTTPClient, in lowerCamel case. So CatalogClient uses the catalog adapter, and this example needs no adapter option. GetRequest(\"/products\") on a method sends a GET request to /products. PostRequest, PutRequest, PatchRequest and DeleteRequest send the other HTTP methods. A marker on each parameter says where its value goes. PathVariable fills a {name} part of the path. RequestParam(\"page\") is a value for the query string, after ?. RequestHeader(\"X-Tenant\") is a value for a request header. RequestBody is the JSON body of the request. A method with these parameter markers has an empty body. Tachyon builds the request from the arguments and never runs the body. A method can also write its own body, like first() here. The body returns a {query, headers, body} object, and no parameter may have a marker. The adapter holds the base origin (the scheme, host and port) and sends the request. The path is relative to that origin. Tachyon refuses headers that the transport controls. GET and HEAD have no body. The answer is JSON of limited size. RestClient makes the same adapter call from normal code, without an annotation. Use it when you know the shape of the request only at call time. See the [routing annotation glossary](/docs/routing-annotations) for each name."
+}

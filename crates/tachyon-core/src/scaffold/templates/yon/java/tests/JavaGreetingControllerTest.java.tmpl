@@ -1,0 +1,6 @@
+@Test(JavaGreetingTestSetup.class, {"partition":"tests"})
+class JavaGreetingControllerTest {
+    void testGetGreetingSaysHello() {
+        if (!new JavaGreetingController().getGreeting().equals("Hello from Java")) throw new IllegalStateException("expected a greeting");
+    }
+}

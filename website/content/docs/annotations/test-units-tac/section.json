@@ -1,0 +1,164 @@
+{
+  "heading": "Test units: Tac",
+  "axis": "language",
+  "summary": "The same unit in the client realm. client/tests/<Name>Test.<ext> composes the Tac roles beside it and is lowered for the browser. It runs in the host that its language compiles to: a JavaScript runtime, or one binary, jar or assembly. The page reads `title` and `double`, so they stay public. A call from a test alone does not keep a member public (TY1333).",
+  "body": "A Tac unit cannot use the Yon route plan. Its roles are Tac roles, and its context is a Tac context. So it has its own runner. ty test finds the units of both realms in one run and reports them together.\n\nEverything that Test accepts is the same as in Yon: the same Setup, the same partition, and the same UseProfiles and TestSettings. Only the host is different. JavaScript and TypeScript run under Bun, or under Node for plain modules. Dart runs on the Dart VM (virtual machine). The reason is that a Dart service is plain Dart until its browser build adds the bridge. Swift, Kotlin, C# and Rust each compile to one build output that prints its report. These outputs are a binary, a jar, and a project built the way a C# controller is. Go runs with go run, outside the browser, against the same service runtime as its WebAssembly module. Ruby runs under CRuby, with the same prelude that its mruby web runtime loads. The Tac driver uses no Yon transport type. Every behavior runtime already has a JSON serializer with size limits. So the driver answers with its own encoded report, and the runner reads that report.\n\nA Tac service is the entry of its realm (ADR 0030). The file that you write for it holds one class and its imports, like every other annotated file (ADR 0044). A test unit has exactly one Test class.\n\nThe test class and its TestSetup live in separate files in the same tests/ folder. The Setup class that Test names, for example Test(CatalogTestSetup), selects the sibling file by exact class name and source extension. The compiler checks both files that you wrote before it builds the test program. The test configuration is never included in a production browser or server bundle. Tachyon does not load sibling test setups that are not used. You may still select a production Setup yourself instead.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/panel/tac.html",
+      "code": {
+        "file": "client/components/catalog/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.js",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.js"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.js",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.js"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.ts",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.ts",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.ts"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.swift",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.swift"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.swift",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.swift"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.kt",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.kt"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.kt",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.kt"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.cs",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.cs"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.fs",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.fs"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.cs",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.cs"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.fs",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.fs"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.rs",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.rs"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.rs",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.rs"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.go",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.go"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.go",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.go"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.dart",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.dart",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.dart"
+      }
+    },
+    {
+      "name": "client/tests/CatalogTestSetup.rb",
+      "code": {
+        "file": "client/tests/CatalogTestSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/tests/CatalogServiceTest.rb",
+      "code": {
+        "file": "client/tests/CatalogServiceTest.rb"
+      }
+    }
+  ]
+}

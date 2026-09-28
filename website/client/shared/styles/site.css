@@ -1,58 +1,25 @@
-/* DuVay for rigidity, Tailwind for fluidity.
- *
- * Component classes and utilities carry the same specificity, so without an
- * explicit order the winner is whichever file loaded last. Naming the layers
- * fixes it: DuVay supplies structure, the brand layer adapts it, and Tailwind
- * utilities can adjust either without !important. Colocated component
- * stylesheets stay unlayered and therefore outrank all three.
- *
- * A @layer statement is one of the few things allowed to precede @import.
- * Regenerate tailwind.css with `bun run styles` after changing a template. */
 @layer duvay, theme, base, components, brand, utilities;
 @import "../assets/duvay/duvay.min.css" layer(duvay);
 @import "./tailwind.css";
 
 @layer brand {
-
-/* ── Palette ──────────────────────────────────────────────────────────────
- *
- * One saturated accent against a near-black surface, matching the rest of the
- * DELMA sites. DuVay's own dark theme is a soft grey-teal, which reads as a
- * different product; these override it rather than replace the theme, so a
- * component that reaches for a token nobody thought about still gets one.
- */
 :root {
   --tachyon-from: #22d3ee;
   --tachyon-to: #2dd4bf;
   --tachyon-gradient: linear-gradient(120deg, var(--tachyon-from), var(--tachyon-to));
-  /* Borders are the accent at low alpha rather than neutral grey. It is what
-     makes a wall of cards read as one product instead of a spreadsheet. */
   --tachyon-line: color-mix(in srgb, var(--tachyon-from) 18%, transparent);
-  --tachyon-line-strong: color-mix(in srgb, var(--tachyon-from) 34%, transparent);
+  --tachyon-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* ── Fluid scale ───────────────────────────────────────────────────────
-   *
-   * One continuous ramp from a 320px phone to an ultrawide, so nothing on
-   * this site changes size by jumping. A breakpoint is a cliff: at 767px the
-   * layout is one thing and at 768px another, and every width in between got
-   * whichever of the two happened to be authored first. These interpolate
-   * instead, which means the in-between widths are designed rather than
-   * inherited.
-   *
-   * The vw coefficient is what does the work; the clamp bounds only stop it
-   * becoming unreadable at the extremes.
-   */
-  --step-xs: clamp(.6875rem, .66rem + .14vw, .8125rem);
-  --step-sm: clamp(.8125rem, .78rem + .17vw, .9375rem);
-  --step-md: clamp(.9375rem, .89rem + .24vw, 1.0625rem);
-  --step-lg: clamp(1.0625rem, .98rem + .42vw, 1.3125rem);
-  --step-xl: clamp(1.25rem, 1.1rem + .75vw, 1.75rem);
-  --step-2xl: clamp(1.625rem, 1.28rem + 1.7vw, 2.75rem);
-  --step-3xl: clamp(2.125rem, 1.5rem + 3.1vw, 4.25rem);
+  --step-xs: clamp(.75rem, .72rem + .12vw, .8125rem);
+  --step-sm: clamp(.8125rem, .76rem + .15vw, .875rem);
+  --step-base: 1rem;
+  --step-md: 1.0625rem;
+  --step-lg: clamp(1.0625rem, .95rem + .35vw, 1.25rem);
+  --step-2xl: clamp(1.375rem, 1rem + 1.2vw, 1.75rem);
+  --step-3xl: clamp(1.75rem, 1.2rem + 1.6vw, 2.25rem);
 
   --gutter: clamp(1rem, .62rem + 1.9vw, 2.5rem);
   --section-space: clamp(2.75rem, 1.4rem + 6.6vw, 7rem);
-  --panel-pad: clamp(.9rem, .68rem + 1.1vw, 1.75rem);
 }
 
 :root[w-theme="dark"] {
@@ -60,7 +27,6 @@
   --w-surface-container-low: #0a0e13;
   --w-surface-container: #0d121a;
   --w-surface-container-high: #10161f;
-  --w-surface-raised: #10161f;
   --w-sidebar: #0a0e13;
   --w-toolbar: #0a0e13;
   --w-app-bar-frosted: #07090de6;
@@ -87,35 +53,29 @@
 }
 
 body {
-  margin: 0;
   background: var(--w-surface);
   color: var(--w-text);
   font-family: var(--w-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: var(--step-base);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-/* The measure grows with the viewport instead of stopping dead at a fixed
-   pixel width, so an ultrawide gets a wider page rather than the same column
-   with more empty space either side — capped, because a line of prose past
-   about 80 characters stops being readable.
+.w-btn {
+  font-size: var(--step-sm);
+  line-height: 1.5;
+}
 
-   A tag selector in this layer outranks DuVay's classes, which sit lower, and
-   layer order beats specificity. So `display` below is claimed only where a
-   DuVay layout class has not claimed it, or `<w-container class="w-row">`
-   would quietly stop being a flex row. */
+.w-expand-header {
+  font-size: var(--step-md);
+  line-height: 1.35;
+}
+
 w-container {
-  width: 100%;
   max-width: min(94vw, 84rem);
-  margin-inline: auto;
   padding-inline: var(--gutter);
 }
 
-w-container:not(.w-row, .w-col, .w-stack) {
-  display: block;
-}
-
-/* Tac wraps a component in a scope element exactly as tall as its content, so
-   the app bar's own sticky has no room to work. Pin the wrapper instead. */
 [data-tac-scope="site-header"] {
   position: sticky;
   top: 0;
@@ -139,19 +99,8 @@ w-app-bar {
   color: transparent;
 }
 
-/* ── Section rhythm ───────────────────────────────────────────────────────
- *
- * Every section on every page is eyebrow → heading → lede → content. Naming
- * that here is what keeps eight pages looking like one site, and it is the
- * part Tailwind utilities would otherwise re-spell slightly differently in
- * each template.
- */
 .section {
   padding-block: var(--section-space);
-}
-
-.section + .section {
-  border-top: 1px solid var(--w-divider);
 }
 
 .eyebrow {
@@ -167,15 +116,13 @@ w-app-bar {
   margin: .75rem 0 0;
   font-size: var(--step-2xl);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.25;
   letter-spacing: -.02em;
   text-wrap: balance;
 }
 
 .section-lede {
-  /* ch, not rem: the readable measure is a count of characters, so it has to
-     track the font size the clamp above just chose. */
-  margin: 1rem 0 0;
+  margin: 1rem auto 0;
   max-width: 62ch;
   font-size: var(--step-lg);
   line-height: 1.6;
@@ -183,54 +130,12 @@ w-app-bar {
   text-wrap: pretty;
 }
 
-.section-head--center {
-  text-align: center;
-}
-
-.section-head--center .section-lede {
-  margin-inline: auto;
-}
-
-/* ── Intrinsic grids ──────────────────────────────────────────────────────
- *
- * Column counts are computed from the space available rather than declared
- * per breakpoint. `--col` is the narrowest a card may get before the grid
- * drops one; everything between those points is a fluid 1fr.
- *
- * The `min(100%, …)` matters: without it a container narrower than `--col`
- * overflows instead of falling to a single column, which is exactly the case
- * a breakpoint list forgets — a card grid inside the docs content column, or
- * inside a split view.
- */
 .grid-auto {
   display: grid;
   gap: var(--grid-gap, 1rem);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--col, 18rem)), 1fr));
 }
 
-/* Every row as tall as the tallest, whatever the column count turns out to
-   be. This is what makes a card grid uniform at 320px and at 2560px from one
-   declaration: reserving a fixed number of lines for a summary only holds at
-   the width the reserve was measured at, because the same sentence wraps to
-   three lines in a wide column and five in a narrow one. */
-.grid-auto--even {
-  grid-auto-rows: 1fr;
-}
-
-/* The docs shell: navigation, page, and where the page is up to.
- *
- * Three columns, each of the outer two pinned and scrolling on its own, so a
- * long feature list and a long article never drag each other. The middle
- * column takes `minmax(0, 1fr)` rather than `1fr` because a code block is an
- * overflow box: without the zero minimum it sets the column's floor to its own
- * widest line and pushes the table of contents off the screen.
- *
- * The column count answers to the frame's width rather than the window's, for
- * the same reason as every other grid on this site — and here it is not only
- * house style: the shell sits inside a container that is already narrower than
- * the viewport by its own padding, so a viewport breakpoint would drop the
- * contents list while the shell still had room for it.
- */
 .docs-frame {
   container-type: inline-size;
 }
@@ -240,53 +145,33 @@ w-app-bar {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--gutter);
   align-items: start;
-  min-height: calc(100vh - var(--bar-height, 4rem));
+  min-height: calc(100vh - 4rem);
 }
 
-/* The two side columns, at their narrow-shell defaults: the navigation sits in
-   flow above the article, and the contents list is not shown at all — stacked
-   under the article it is a list of anchors to a page the reader has already
-   scrolled past.
-
-   Both are declared before the container queries below, not after: they share
-   a selector with the rules that widen them, so a later declaration of the
-   same specificity would simply win and the shell would never gain a column. */
-.docs-shell__nav {
-  align-self: start;
+.docs-shell__nav,
+.docs-toc {
   padding-block: var(--gutter);
 }
 
 .docs-toc {
   display: none;
-  position: sticky;
-  top: var(--bar-height, 4rem);
-  align-self: start;
-  max-height: calc(100vh - var(--bar-height, 4rem));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-block: var(--gutter);
 }
 
-/* Wide enough for the navigation to sit beside the article rather than above
-   it. Below this it stays in flow, because pinned it would cover the text it
-   links to. */
 @container (min-width: 52rem) {
   .docs-shell {
     grid-template-columns: 15rem minmax(0, 1fr);
   }
 
-  .docs-shell__nav {
+  .docs-shell__nav,
+  .docs-toc {
     position: sticky;
-    top: var(--bar-height, 4rem);
-    max-height: calc(100vh - var(--bar-height, 4rem));
+    top: 4rem;
+    max-height: calc(100vh - 4rem);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 }
 
-/* Room for the third column. The contents list is the last thing added and
-   the first thing dropped: it is an aid to a page already on screen, where
-   the navigation is how the reader got to it at all. */
 @container (min-width: 68rem) {
   .docs-shell {
     grid-template-columns: 15rem minmax(0, 1fr) 13rem;
@@ -297,46 +182,20 @@ w-app-bar {
   }
 }
 
-/* The wrappers between the shell and the article it lays out are dissolved in
-   the layout component's own stylesheet: this file is `@layer brand`, and the
-   runtime's own rule for a mounted component is unlayered, so a rule here
-   would lose to it whatever its specificity. */
-
 .docs-article {
   min-width: 0;
   padding-block: var(--gutter);
 }
 
-/* Prose is capped at a readable measure; code is not.
- *
- * The cap is on the text elements rather than on the article, because a code
- * block wants every pixel the column has — bounding their common ancestor
- * would force a snippet to scroll sideways on a screen with room to spare.
- * This was a `max-w-[72ch]` utility on the article before, which did exactly
- * that. */
 .docs-article :is(p, li, h1, h2, h3) {
   max-width: 72ch;
+  overflow-wrap: break-word;
 }
 
-/* An anchor scrolled to from the contents list must clear the sticky bar, or
-   the heading it names lands underneath it. */
-.docs-article :is(h1, h2, h3)[id] {
-  scroll-margin-top: calc(var(--bar-height, 4rem) + 1rem);
-}
-
-/* The catalogue grid.
- *
- * Shared rather than colocated, because two components draw it — the docs home
- * and the feature index — and a component stylesheet is scoped to its own
- * component. Colocated with the catalogue alone, the home page's cards got the
- * class and none of the rules, and collapsed to a 17px line of text.
- */
 .catalogue {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: .75rem;
-  /* Every row as tall as the tallest in it, so a two-line summary does not
-     leave the card beside it short. */
   grid-auto-rows: 1fr;
 }
 
@@ -359,16 +218,17 @@ w-app-bar {
 }
 
 .catalogue__title {
+  font-size: var(--step-md);
+  line-height: 1.35;
   font-weight: 600;
   text-wrap: balance;
 }
 
 .catalogue__summary {
-  font-size: .8125rem;
+  font-size: var(--step-sm);
+  line-height: 1.5;
   opacity: .7;
   text-wrap: pretty;
-  /* The card links to the page; the summary is the hint that gets you there,
-     so it is trimmed rather than allowed to set the grid's row height. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -376,13 +236,6 @@ w-app-bar {
   overflow: hidden;
 }
 
-/* ── The example card ─────────────────────────────────────────────────────
- *
- * Shared rather than colocated, because more than one component draws it — the
- * documentation's snippet and the home page's language explorer — and a
- * component stylesheet is scoped to its own component. The strip is a tab axis
- * either way: platform in the docs, language on the home page.
- */
 .demo {
   min-width: 0;
   max-width: 100%;
@@ -393,10 +246,6 @@ w-app-bar {
   overflow: hidden;
 }
 
-/* ── Platform strip ───────────────────────────────────────────────────────*/
-
-/* Scrolls rather than wraps. Six tabs do not fit a 375px screen, and wrapping
-   puts one lone tab on a second row, which reads as a separate control. */
 .demo-os-tabs {
   display: flex;
   flex-wrap: nowrap;
@@ -412,8 +261,6 @@ w-app-bar {
   display: none;
 }
 
-/* The companion row, under the platform row. Quieter than it: the platform
-   decides which companions exist at all, so it is the outer choice. */
 .demo-os-tabs--companion {
   background: transparent;
 }
@@ -421,16 +268,14 @@ w-app-bar {
 .demo-os-tab {
   appearance: none;
   border: 0;
-  /* Reserved rather than added on selection, so the strip does not reflow by a
-     couple of pixels every time the reader switches platform. */
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   background: none;
   padding: .5rem .625rem;
   color: var(--w-text-subtle, inherit);
   font: inherit;
-  font-size: .75rem;
-  line-height: 1.4;
+  font-size: var(--step-sm);
+  line-height: 1.5;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -445,7 +290,15 @@ w-app-bar {
   font-weight: 600;
 }
 
-/* ── Sources ──────────────────────────────────────────────────────────────*/
+.inline-code {
+  padding: .05em .35em;
+  border: 1px solid var(--w-border);
+  border-radius: 6px;
+  background: var(--w-surface-container-low);
+  font-family: var(--tachyon-mono);
+  font-size: max(.8125rem, .9em);
+  overflow-wrap: anywhere;
+}
 
 .demo-code-col {
   min-width: 0;
@@ -455,22 +308,22 @@ w-app-bar {
   border-top: 1px solid var(--w-border, currentColor);
 }
 
-/* DuVay uppercases this label because it is a short flavour name — "CSS
-   CLASSES". Here it is a path, and a path is case-sensitive: upper-casing
-   `tac.swift` would print something the reader cannot type. Same size and
-   weight, without the transform. */
 .demo-code-label {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: .5rem;
   margin: 0;
   padding: .75rem 1rem 0;
-  font-size: .75rem;
+  font-size: var(--step-sm);
+  line-height: 1.5;
   color: var(--w-text-very-subtle, inherit);
 }
 
 .demo-code-name {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  min-width: 0;
+  font-family: var(--tachyon-mono);
+  overflow-wrap: anywhere;
 }
 
 .demo-code-language {
@@ -481,19 +334,9 @@ w-app-bar {
 }
 
 .demo-code .code-block {
-  position: relative;
   margin: .5rem 1rem 1rem;
-  /* Room for the copy button pinned in the corner, so a long first line
-     scrolls under nothing. `padding-right` alone would be undone by the
-     block's own shorthand, hence the longhand after it. */
-  padding-right: 4.5rem;
 }
 
-/* ── Copy ─────────────────────────────────────────────────────────────────*/
-
-/* Pinned inside the block it copies, so a card with three sources has three
-   buttons that each say what they take rather than one that means whichever
-   was selected. */
 .code-copy {
   position: absolute;
   top: .5rem;
@@ -504,9 +347,8 @@ w-app-bar {
   background: var(--w-surface, canvas);
   color: inherit;
   font: inherit;
-  font-size: .6875rem;
-  /* Faint until wanted, but never hidden: `opacity: 0` would put it out of
-     reach of anyone who cannot hover, and it is still in the tab order. */
+  font-size: var(--step-sm);
+  line-height: 1.5;
   opacity: .45;
   cursor: pointer;
 }
@@ -516,50 +358,27 @@ w-app-bar {
   opacity: 1;
 }
 
-/* Opt a subtree into container queries. A component asking about its own
-   width keeps working wherever it is placed; one asking about the viewport
-   is only correct in the position it was authored for. */
-.cq {
-  container-type: inline-size;
-}
-
-/* ── Surfaces ─────────────────────────────────────────────────────────────*/
-
-.panel {
+.panel,
+.code-block {
   background: var(--w-surface-container-low);
   border: 1px solid var(--w-border);
   border-radius: var(--w-radius-lg, 12px);
 }
 
 .code-block {
-  box-sizing: border-box;
+  position: relative;
   max-width: 100%;
   margin: 0;
-  /* The block carries its own padding rather than taking a utility class in
-     each template. It was a `p-gutter` on every <pre>, which is the same
-     declaration written four times and forgotten on the fifth — as it was when
-     the snippet card was rebuilt and its code came out flush against the
-     border. */
-  padding: 1rem;
+  padding: 1rem 4.5rem 1rem 1rem;
   overflow-x: auto;
-  background: var(--w-surface-container-low);
-  border: 1px solid var(--w-border);
-  border-radius: var(--w-radius-lg, 12px);
-  /* Code does not reflow, so it scales more gently than prose — shrinking it
-     with the viewport only makes an already-scrolling block harder to read. */
-  font-size: clamp(.75rem, .72rem + .16vw, .875rem);
+  font-size: var(--step-sm);
   line-height: 1.6;
 }
 
 .code-block code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--tachyon-mono);
 }
 
-/* ── Hero furniture ───────────────────────────────────────────────────────*/
-
-/* One soft accent bloom behind the headline. Bounded by the section rather
-   than spilling past it, or the closing call to action washes teal over the
-   bottom of whatever section happens to precede it. */
 .hero-glow {
   position: relative;
   isolation: isolate;
@@ -576,9 +395,8 @@ w-app-bar {
     color-mix(in srgb, var(--tachyon-from) 15%, transparent), transparent 70%);
 }
 
-/* The install line. A copy button is the whole point of showing a command, so
-   it sits inside the box rather than beside it. */
 .command {
+  margin-block: 1em;
   display: flex;
   max-width: 100%;
   align-items: center;
@@ -587,8 +405,8 @@ w-app-bar {
   background: var(--w-surface-container-low);
   border: 1px solid var(--w-border);
   border-radius: 999px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: clamp(.7rem, .64rem + .3vw, .875rem);
+  font-family: var(--tachyon-mono);
+  font-size: var(--step-sm);
   text-align: left;
 }
 
@@ -603,53 +421,31 @@ w-app-bar {
   scrollbar-width: none;
 }
 
-/* The wordmark, and the one line under it that says what it is for. The name
-   carries the size and the promise carries the meaning, which is the other way
-   round from a hero that leads with a sentence. */
 .hero-title {
   line-height: 1.02;
-  font-size: clamp(3rem, 9vw, 5.5rem);
+  font-size: clamp(2.5rem, 7.5vw, 4.5rem);
 }
 
 .hero-promise {
   max-width: 26ch;
-  font-size: clamp(1.125rem, 1rem + .8vw, 1.75rem);
+  font-size: clamp(1rem, .9rem + .6vw, 1.375rem);
   font-weight: 500;
-  color: var(--w-text);
 }
 
-/* ── Stats band ───────────────────────────────────────────────────────────*/
-
 .stat-value {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--step-2xl);
+  font-family: var(--tachyon-mono);
   font-weight: 700;
-  line-height: 1;
   color: var(--w-primary);
 }
 
-.stat-label {
-  margin-top: .5rem;
-  font-size: var(--step-sm);
-  color: var(--w-text-subtle);
-  text-wrap: pretty;
-}
-
-/* ── Responding to more than width ────────────────────────────────────────*/
-
-/* A finger is not a mouse pointer. Below the WCAG 2.5.8 minimum a control is
-   hard to hit accurately, and this site's buttons are small by design. */
 @media (pointer: coarse) {
   .w-btn,
   w-btn > .w-btn,
-  w-tab > .w-tab,
-  .w-chip,
   nav a,
   footer a {
     min-height: 44px;
   }
 
-  /* A min-height only shows up in the box if the box is not inline. */
   nav a,
   footer a {
     display: inline-flex;
@@ -660,11 +456,9 @@ w-app-bar {
 @media (prefers-contrast: more) {
   :root {
     --tachyon-line: color-mix(in srgb, var(--tachyon-from) 55%, transparent);
-    --tachyon-line-strong: var(--tachyon-from);
   }
 
-  .section-lede,
-  .stat-label {
+  .section-lede {
     color: var(--w-text);
   }
 }

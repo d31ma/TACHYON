@@ -1,0 +1,13 @@
+{
+  "active": {
+    "profile": "development"
+  },
+  "catalog": {
+    "page": {
+      "size": 20
+    },
+    "cache": {
+      "enabled": true
+    }
+  }
+}

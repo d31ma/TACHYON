@@ -1,0 +1,3 @@
+server/controllers/MoneyController.ts       HTTP entry
+server/services/MoneyService.ts
+server/models/Money.ts

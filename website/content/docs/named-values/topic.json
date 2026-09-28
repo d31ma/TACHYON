@@ -1,0 +1,12 @@
+{
+  "title": "Named values",
+  "summary": "A text or number used twice, or a number in a condition, gets a name: a class constant. The build checks this with TY1330.",
+  "before": [
+    "small-signatures"
+  ],
+  "sections": [
+    {
+      "include": "give-values-a-name/section.json"
+    }
+  ]
+}

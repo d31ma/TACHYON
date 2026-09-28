@@ -1,0 +1,18 @@
+{
+  "title": "Choosing a service language",
+  "summary": "You can write a Tac service in JavaScript, TypeScript, Dart, Swift, Kotlin, C#, F#, Rust, Go or Ruby. JavaScript and TypeScript services run on every target. A service in another language runs where its platform supports it.",
+  "before": [
+    "services"
+  ],
+  "sections": [
+    {
+      "include": "../polyglot/choose-a-service-language/section.json"
+    },
+    {
+      "include": "../polyglot/contracts-stay-on-the-server/section.json"
+    },
+    {
+      "include": "../polyglot/what-tachyon-trusts-and-checks/section.json"
+    }
+  ]
+}

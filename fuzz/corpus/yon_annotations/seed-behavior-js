@@ -1,0 +1,12 @@
+Z
+
+@Setup()
+class Config {
+  static configure() { return {}; }
+}
+@CacheSettings({"name":"items","ttlMs":1000,"maxBytes":4096,"maxEntries":32})
+class Catalog {
+  @Cached
+  async find(id) { return id; }
+}
+export class Handler { static GET() { return {}; } }

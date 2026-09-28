@@ -18,7 +18,8 @@ class OtlpValueDecoder {
         }
         if ('kvlistValue' in value) {
             const entries = /** @type {{ values?: Array<{ key: string, value: Record<string, unknown> }> }} */ (value.kvlistValue);
-            return Object.fromEntries((entries.values ?? []).map((entry) => [entry.key, OtlpValueDecoder.decode(entry.value)]));
+            const decodedPairs = (entries.values ?? []).map((entry) => [entry.key, OtlpValueDecoder.decode(entry.value)]);
+            return Object.fromEntries(decodedPairs);
         }
         if ('bytesValue' in value) return value.bytesValue;
         return undefined;
@@ -30,7 +31,7 @@ export default class TelemetryService {
      * @param {string | undefined} value
      * @returns {string | undefined}
      */
-    static envPath(value) {
+    static environmentPath(value) {
         return value && value.trim() ? value : undefined;
     }
 
@@ -38,9 +39,9 @@ export default class TelemetryService {
      * @param {{ repository?: FyloTelemetryRepository, collection?: string, root?: string }} [options]
      */
     constructor(options = {}) {
-        const root = TelemetryService.envPath(options.root)
-            ?? TelemetryService.envPath(process.env.YON_OTEL_ROOT)
-            ?? TelemetryService.envPath(process.env.FYLO_ROOT)
+        const root = TelemetryService.environmentPath(options.root)
+            ?? TelemetryService.environmentPath(process.env.YON_OTEL_ROOT)
+            ?? TelemetryService.environmentPath(process.env.FYLO_ROOT)
             ?? `${process.cwd()}/db`;
         const collection = options.collection ?? 'otel-spans';
         this.repository = options.repository ?? new FyloTelemetryRepository({ root, collection });
@@ -62,13 +63,15 @@ export default class TelemetryService {
     async read(limit) {
         const spans = await this.loadSpans();
         const sorted = spans.sort((left, right) => {
-            const leftTs = Number(left.startTimeUnixNano ?? 0);
-            const rightTs = Number(right.startTimeUnixNano ?? 0);
-            return rightTs - leftTs;
+            const leftStart = Number(left.startTimeUnixNano ?? 0);
+            const rightStart = Number(right.startTimeUnixNano ?? 0);
+            return rightStart - leftStart;
         });
+        const telemetryEnabled = process.env.YON_OTEL_ENABLED === 'true';
+        const dataBrowserEnabled = process.env.YON_DATA_BROWSER_ENABLED === 'true';
         return {
             summary: {
-                enabled: process.env.YON_OTEL_ENABLED === 'true' || process.env.YON_DATA_BROWSER_ENABLED === 'true',
+                enabled: telemetryEnabled || dataBrowserEnabled,
                 collection: this.collection,
                 spanCount: spans.length,
                 requestCount: spans.filter((span) => span.kind === 'server').length,
@@ -84,7 +87,7 @@ export default class TelemetryService {
     async loadSpans() {
         const flatSpans = await this.repository.queryFlatSpans();
         if (flatSpans.length > 0) {
-            return flatSpans.map((doc) => this.normalizeFlatSpan(doc));
+            return flatSpans.map((flatSpan) => this.normalizeFlatSpan(flatSpan));
         }
 
         /** @type {Array<Record<string, unknown>>} */
@@ -101,39 +104,50 @@ export default class TelemetryService {
     }
 
     /**
-     * @param {Record<string, unknown>} doc
+     * @param {Record<string, unknown>} flatSpan
      * @returns {Record<string, unknown>}
      */
-    normalizeFlatSpan(doc) {
-        const startNs = Number(doc.startTimeUnixNano ?? 0);
-        const endNs = Number(doc.endTimeUnixNano ?? 0);
-        const durationMs = startNs && endNs ? Math.max(0, (endNs - startNs) / 1_000_000) : (Number(doc.durationMs) || 0);
+    normalizeFlatSpan(flatSpan) {
+        const durationMs = TelemetryService.flatSpanDuration(flatSpan);
         return {
-            traceId: doc.traceId ?? '',
-            spanId: doc.spanId ?? '',
-            parentSpanId: doc.parentSpanId ?? '',
-            kind: doc.kind ?? 'server',
-            name: doc.name ?? '',
-            requestId: doc.requestId ?? null,
-            route: doc.route ?? null,
-            method: doc.method ?? null,
-            statusCode: Number(doc.statusCode) || null,
-            traceState: doc.traceState ?? '',
-            startTimeUnixNano: doc.startTimeUnixNano ?? '',
-            endTimeUnixNano: doc.endTimeUnixNano ?? '',
+            traceId: flatSpan.traceId ?? '',
+            spanId: flatSpan.spanId ?? '',
+            parentSpanId: flatSpan.parentSpanId ?? '',
+            kind: flatSpan.kind ?? 'server',
+            name: flatSpan.name ?? '',
+            requestId: flatSpan.requestId ?? null,
+            route: flatSpan.route ?? null,
+            method: flatSpan.method ?? null,
+            statusCode: Number(flatSpan.statusCode) || null,
+            traceState: flatSpan.traceState ?? '',
+            startTimeUnixNano: flatSpan.startTimeUnixNano ?? '',
+            endTimeUnixNano: flatSpan.endTimeUnixNano ?? '',
             durationMs,
         };
     }
 
     /**
-     * @param {Record<string, unknown>} persistedDoc
+     * @param {Record<string, unknown>} flatSpan
+     * @returns {number}
+     */
+    static flatSpanDuration(flatSpan) {
+        const startNanoseconds = Number(flatSpan.startTimeUnixNano ?? 0);
+        const endNanoseconds = Number(flatSpan.endTimeUnixNano ?? 0);
+        if (startNanoseconds && endNanoseconds) {
+            return Math.max(0, (endNanoseconds - startNanoseconds) / 1_000_000);
+        }
+        return Number(flatSpan.durationMs) || 0;
+    }
+
+    /**
+     * @param {Record<string, unknown>} persistedEntry
      * @returns {Array<Record<string, unknown>>}
      */
-    extractPersistedSpans(persistedDoc) {
-        if (typeof persistedDoc.otlpJson !== 'string') return [];
+    extractPersistedSpans(persistedEntry) {
+        if (typeof persistedEntry.otlpJson !== 'string') return [];
         let tracesData;
         try {
-            tracesData = JSON.parse(persistedDoc.otlpJson);
+            tracesData = JSON.parse(persistedEntry.otlpJson);
         } catch {
             return [];
         }
@@ -157,7 +171,8 @@ export default class TelemetryService {
     normalizeSpan(span) {
         const startTimeUnixNano = String(span.startTimeUnixNano ?? '0');
         const endTimeUnixNano = String(span.endTimeUnixNano ?? '0');
-        const durationMs = Math.max(0, (Number(endTimeUnixNano) - Number(startTimeUnixNano)) / 1_000_000);
+        const elapsedNanoseconds = Number(endTimeUnixNano) - Number(startTimeUnixNano);
+        const durationMs = Math.max(0, elapsedNanoseconds / 1_000_000);
         return {
             traceId: span.traceId ?? '',
             spanId: span.spanId ?? '',
@@ -192,7 +207,10 @@ export default class TelemetryService {
      */
     static limitFromQuery(query) {
         const limitValue = Number(query?.limit ?? 12);
-        return Number.isFinite(limitValue) && limitValue > 0 ? Math.min(Math.trunc(limitValue), 50) : 12;
+        if (!Number.isFinite(limitValue) || limitValue <= 0) {
+            return 12;
+        }
+        return Math.min(Math.trunc(limitValue), 50);
     }
 
     /**

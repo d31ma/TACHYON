@@ -1,261 +1,128 @@
-use super::frame::{
-    FRAME_PREFIX_BYTES, MAX_FRAME_BYTES, cancel_frame, protocol_failure, request_frame,
-    response_frame,
-};
-use super::isolation::{apply_backend_environment, validate_backend_language};
-use super::readiness::{RuntimeRequirements, YonLanguage, probe_all, readiness_failure};
-use super::{HandlerLanguage, HandlerSource, YonIsolationPolicy};
+mod adapter_files;
+mod direct_response;
+mod drained;
+mod environment_policy;
+mod event_reader;
+mod handler_cancellation;
+mod handler_event;
+mod handler_runtime_programs;
+mod handler_supervisor_options;
+mod planned_command;
+mod process_failure;
+mod process_outcome;
+mod process_pipes;
+mod process_reaper;
+mod running_process;
+mod running_stream;
+mod runtime_identity;
+mod socket;
+mod started_process;
+mod stream_frame;
+mod stream_process_outcome;
+mod stream_read_outcome;
+mod streaming_process;
+
+pub(in crate::handler) use drained::Drained;
+pub use environment_policy::EnvironmentPolicy;
+pub use handler_cancellation::HandlerCancellation;
+pub use handler_event::HandlerEvent;
+pub use handler_runtime_programs::HandlerRuntimePrograms;
+pub use handler_supervisor_options::HandlerSupervisorOptions;
+pub(in crate::handler) use process_reaper::ProcessReaper;
+pub(crate) use socket::{SocketChannels, SocketInput, SocketOutput};
+
+use super::frame::{FrameLimits, HandlerFrame};
+use super::gateway::{GatewayCallSetup, GatewayCalls, GatewayTable};
+use super::readiness::{RuntimeProbe, RuntimeProbeResult, RuntimeRequirements};
+use super::resources::ResourceAccess;
+use super::topic_bus::{TopicBus, TopicOutbox};
+use super::{FirecrackerIsolation, HandlerLanguage, HandlerSource};
 use crate::Failure;
 use crate::failure::diagnostic;
-use command_group::{AsyncCommandGroup, AsyncGroupChild};
-use std::collections::BTreeSet;
+use crate::storage::ManagedStorage;
+use adapter_files::AdapterFiles;
+use command_group::AsyncGroupChild;
+use event_reader::EventReader;
+use futures_util::future::OptionFuture;
+use planned_command::PlannedCommand;
+use process_failure::ProcessFailure;
+use process_outcome::ProcessOutcome;
+use process_pipes::ProcessPipes;
+use running_process::RunningProcess;
+use running_stream::RunningStream;
+use runtime_identity::RuntimeIdentity;
+use serde_json::Value;
+use started_process::StartedProcess;
 use std::ffi::OsStr;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{ExitStatus, Stdio};
+use std::path::Path;
+use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
+use stream_frame::StreamFrame;
+use stream_process_outcome::StreamProcessOutcome;
+use stream_read_outcome::StreamReadOutcome;
+use streaming_process::StreamingProcess;
 use tachyon_contracts::{HandlerRequest, HandlerResponse};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::process::{ChildStderr, ChildStdin, ChildStdout, Command};
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::task::JoinHandle;
-use tokio::time::{Instant, sleep_until, timeout_at};
-use tokio_util::sync::CancellationToken;
+use tokio::time::{Instant, sleep_until};
 
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
-const MAX_TIMEOUT: Duration = Duration::from_mins(5);
-const DEFAULT_CANCEL_GRACE: Duration = Duration::from_millis(100);
-const PROCESS_REAP_TIMEOUT: Duration = Duration::from_secs(1);
-const DEFAULT_STDERR_LIMIT: usize = 64 * 1024;
-const DEFAULT_MAX_CONCURRENCY: usize = 16;
-const JAVASCRIPT_RUNNER: &str = include_str!("adapters/javascript_runner.mjs");
-const PYTHON_RUNNER: &str = include_str!("adapters/python_runner.py");
+pub(super) type GatewayUnitCall<'a> = std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<HandlerResponse, Failure>> + Send + 'a>,
+>;
 
-/// Explicit executable names or paths for Phase 2 language runtimes.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HandlerRuntimePrograms {
-    /// Decorator-capable JavaScript executable used by `javascript.v1`.
-    pub javascript: PathBuf,
-    /// `CPython` executable used by `python.v1`.
-    pub python: PathBuf,
-}
-
-impl Default for HandlerRuntimePrograms {
-    fn default() -> Self {
-        Self::from_lookup(|name| std::env::var_os(name))
-    }
-}
-
-impl HandlerRuntimePrograms {
-    pub(crate) fn from_lookup<F>(lookup: F) -> Self
-    where
-        F: Fn(&str) -> Option<std::ffi::OsString>,
-    {
-        Self {
-            javascript: runtime(&lookup, "YON_JAVASCRIPT_RUNTIME", "bun"),
-            python: runtime(
-                &lookup,
-                "YON_PYTHON_RUNTIME",
-                if cfg!(windows) { "python" } else { "python3" },
-            ),
-        }
-    }
-}
-
-fn runtime<F>(lookup: &F, name: &str, fallback: &str) -> PathBuf
-where
-    F: Fn(&str) -> Option<std::ffi::OsString>,
-{
-    lookup(name)
-        .filter(|value| !value.is_empty())
-        .map_or_else(|| PathBuf::from(fallback), PathBuf::from)
-}
-
-/// Deny-by-default child-process environment inheritance.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct EnvironmentPolicy {
-    allowed: BTreeSet<String>,
-}
-
-impl EnvironmentPolicy {
-    /// Creates an allowlist from environment variable names.
-    ///
-    /// # Errors
-    ///
-    /// Returns a stable diagnostic when a name is empty, platform-ambiguous, or
-    /// contains characters outside portable environment identifiers.
-    pub fn from_names<I, S>(names: I) -> Result<Self, Failure>
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        let mut policy = Self::default();
-        for name in names {
-            policy.allow(name)?;
-        }
-        Ok(policy)
-    }
-
-    /// Adds one portable environment variable name.
-    ///
-    /// # Errors
-    ///
-    /// Returns `TY2006` when the name is invalid.
-    pub fn allow(&mut self, name: impl Into<String>) -> Result<(), Failure> {
-        let name = name.into();
-        if !valid_environment_name(&name) {
-            return Err(Failure::one(diagnostic(
-                2006,
-                format!("Environment allowlist name '{name}' is invalid."),
-                Some(String::from(
-                    "Use ASCII letters, digits, and underscores, beginning with a letter or underscore.",
-                )),
-                None,
-            )));
-        }
-        self.allowed.insert(name);
-        Ok(())
-    }
-
-    fn environment_names(&self) -> impl Iterator<Item = &str> {
-        baseline_environment_names()
-            .iter()
-            .copied()
-            .chain(self.allowed.iter().map(String::as_str))
-    }
-
-    fn apply(&self, command: &mut Command) {
-        command.env_clear();
-        for name in self.environment_names() {
-            if let Some(value) = std::env::var_os(name) {
-                command.env(name, value);
-            }
-        }
-        command.env("YON_HANDLER_PROTOCOL", "1");
-    }
-
-    pub(crate) fn apply_std(&self, command: &mut std::process::Command) {
-        command.env_clear();
-        for name in self.environment_names() {
-            if let Some(value) = std::env::var_os(name) {
-                command.env(name, value);
-            }
-        }
-        command.env("YON_HANDLER_PROTOCOL", "1");
-    }
-}
-
-/// Cooperative cancellation handle for one or more handler invocations.
-#[derive(Clone, Debug, Default)]
-pub struct HandlerCancellation {
-    token: CancellationToken,
-}
-
-impl HandlerCancellation {
-    /// Requests cancellation.
-    pub fn cancel(&self) {
-        self.token.cancel();
-    }
-
-    /// Returns whether cancellation was requested.
-    #[must_use]
-    pub fn is_cancelled(&self) -> bool {
-        self.token.is_cancelled()
-    }
-}
-
-/// Resource and runtime policy for a handler supervisor.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HandlerSupervisorOptions {
-    /// Deadline used when the request does not provide one.
-    pub default_timeout: Duration,
-    /// Grace period after a cancellation frame before forced termination.
-    pub cancellation_grace: Duration,
-    /// Maximum retained stderr bytes.
-    pub stderr_limit: usize,
-    /// Maximum concurrently running child processes.
-    pub max_concurrency: usize,
-    /// Explicit language runtime programs.
-    pub runtimes: HandlerRuntimePrograms,
-    /// Child environment allowlist.
-    pub environment: EnvironmentPolicy,
-    /// Deployment-owned handler isolation backend.
-    pub isolation: YonIsolationPolicy,
-}
-
-impl Default for HandlerSupervisorOptions {
-    fn default() -> Self {
-        Self {
-            default_timeout: DEFAULT_TIMEOUT,
-            cancellation_grace: DEFAULT_CANCEL_GRACE,
-            stderr_limit: DEFAULT_STDERR_LIMIT,
-            max_concurrency: DEFAULT_MAX_CONCURRENCY,
-            runtimes: HandlerRuntimePrograms::default(),
-            environment: EnvironmentPolicy::default(),
-            isolation: YonIsolationPolicy::default(),
-        }
-    }
-}
-
-impl HandlerSupervisorOptions {
-    /// Creates the default resource policy and reads deployment isolation from
-    /// the process environment.
-    ///
-    /// # Errors
-    ///
-    /// Returns `TY2010` when the environment isolation policy is invalid or
-    /// incomplete.
-    pub fn from_environment() -> Result<Self, Failure> {
-        Ok(Self {
-            isolation: YonIsolationPolicy::from_environment()?,
-            ..Self::default()
-        })
-    }
-}
-
-/// Direct-spawn, bounded Handler Protocol v1 process supervisor.
 #[derive(Clone, Debug)]
 pub struct HandlerSupervisor {
     options: HandlerSupervisorOptions,
     permits: Arc<Semaphore>,
+    gateway_permits: Arc<Semaphore>,
+    resources: Arc<tokio::sync::OnceCell<Arc<ManagedStorage>>>,
+    topics: Arc<std::sync::OnceLock<Arc<TopicBus>>>,
+    egress: Arc<std::sync::OnceLock<String>>,
 }
 
 impl HandlerSupervisor {
-    /// Creates a supervisor using the environment-selected isolation backend.
-    ///
-    /// # Errors
-    ///
-    /// Returns stable diagnostics for invalid isolation configuration or
-    /// invalid resource bounds.
     pub fn from_environment() -> Result<Self, Failure> {
         Self::new(HandlerSupervisorOptions::from_environment()?)
     }
 
-    /// Creates a validated process supervisor.
-    ///
-    /// # Errors
-    ///
-    /// Returns stable diagnostics for zero concurrency, zero stderr capacity,
-    /// or deadlines outside Handler Protocol v1 limits.
     pub fn new(options: HandlerSupervisorOptions) -> Result<Self, Failure> {
-        if options.max_concurrency == 0
-            || options.stderr_limit == 0
-            || options.default_timeout.is_zero()
-            || options.default_timeout > MAX_TIMEOUT
-            || options.cancellation_grace > Duration::from_secs(5)
-        {
-            return Err(Failure::one(diagnostic(
-                2007,
-                "Handler supervisor resource limits are invalid.",
-                Some(String::from(
-                    "Use 1..=300 seconds, positive concurrency/stderr limits, and at most 5 seconds cancellation grace.",
-                )),
-                None,
-            )));
-        }
+        options.check_limits()?;
         let permits = Arc::new(Semaphore::new(options.max_concurrency));
-        Ok(Self { options, permits })
+        let gateway_permits = Arc::new(Semaphore::new(options.max_concurrency));
+        Ok(Self {
+            options,
+            permits,
+            gateway_permits,
+            resources: Arc::new(tokio::sync::OnceCell::new()),
+            topics: Arc::new(std::sync::OnceLock::new()),
+            egress: Arc::new(std::sync::OnceLock::new()),
+        })
+    }
+
+    pub(crate) fn send_outgoing_requests_through(&self, proxy: String) {
+        let _ = self.egress.set(proxy);
+    }
+
+    pub(crate) async fn invoke_socket(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        channels: SocketChannels,
+        cancellation: &HandlerCancellation,
+        lifetime: Duration,
+    ) -> Result<(), Failure> {
+        socket::SocketProcess::invoke(self, source, request, channels, cancellation, lifetime).await
+    }
+
+    pub(crate) const fn application(&self) -> &crate::ApplicationConfig {
+        &self.options.application
+    }
+
+    pub(crate) fn connect_topics(&self, bus: Arc<TopicBus>) {
+        let _already = self.topics.set(bus);
     }
 
     pub(crate) async fn preflight(
@@ -263,808 +130,69 @@ impl HandlerSupervisor {
         requirements: &RuntimeRequirements,
     ) -> Result<(), Failure> {
         let resolved = requirements.resolve(&self.options.runtimes, &self.options.isolation)?;
-        let results = probe_all(resolved, &self.options.environment).await?;
-        readiness_failure(&results).map_or(Ok(()), Err)
+        let results = RuntimeProbe::all(resolved, &self.options.environment).await?;
+        RuntimeProbeResult::failure(&results).map_or(Ok(()), Err)?;
+        self.storage().await?;
+        Ok(())
     }
 
-    /// Invokes a validated handler through one supervised child process.
-    ///
-    /// # Errors
-    ///
-    /// Returns stable diagnostics for invalid requests, admission timeout,
-    /// cancellation, runtime startup, process failure, bounded-output failure,
-    /// or protocol violations.
+    pub async fn preflight_languages<'a>(
+        &self,
+        extensions: impl IntoIterator<Item = &'a str>,
+    ) -> Result<(), Failure> {
+        self.preflight(&RuntimeRequirements::from_extensions(extensions))
+            .await
+    }
+
+    pub async fn preflight_gateways<'a>(
+        &self,
+        sources: impl IntoIterator<Item = &'a HandlerSource>,
+    ) -> Result<(), Failure> {
+        self.preflight(&RuntimeRequirements::from_gateways(sources))
+            .await
+    }
+
+    pub(super) async fn acquire_gateway_permit(
+        &self,
+        cancellation: &HandlerCancellation,
+        deadline: Instant,
+    ) -> Result<OwnedSemaphorePermit, Failure> {
+        Self::acquire_permit_from(&self.gateway_permits, cancellation, deadline).await
+    }
+
+    pub(super) const fn external_environment(&self) -> &EnvironmentPolicy {
+        &self.options.environment
+    }
+
+    pub(super) const fn stderr_limit(&self) -> usize {
+        self.options.stderr_limit
+    }
+
+    pub(crate) async fn close_resources(&self) {
+        self.permits.close();
+        self.gateway_permits.close();
+        OptionFuture::from(self.resources.get().map(|storage| storage.close())).await;
+    }
+
     pub async fn invoke(
         &self,
         source: &HandlerSource,
         request: &HandlerRequest,
         cancellation: &HandlerCancellation,
     ) -> Result<HandlerResponse, Failure> {
-        validate_backend_language(&self.options.isolation, source.language())?;
-        let direct_protocol = source.language() == HandlerLanguage::Direct
-            && self.options.isolation.uses_direct_handler_protocol();
-        let frame = encode_request(direct_protocol, request)?;
-        if cancellation.is_cancelled() {
-            return Err(cancelled());
-        }
-        let invocation_timeout = request
-            .deadline_ms
-            .map_or(self.options.default_timeout, Duration::from_millis)
-            .min(self.options.default_timeout);
-        let deadline = Instant::now() + invocation_timeout;
-        let permit = tokio::select! {
-            permit = Arc::clone(&self.permits).acquire_owned() => {
-                match permit {
-                    Ok(permit) => permit,
-                    Err(_) => return Err(Failure::one(diagnostic(
-                        2101,
-                        "Handler supervisor stopped accepting work.",
-                        Some(String::from("Create a new supervisor and retry.")),
-                        None,
-                    ))),
-                }
-            }
-            () = cancellation.token.cancelled() => return Err(cancelled()),
-            () = sleep_until(deadline) => return Err(timed_out()),
-        };
-        let result = self
-            .run_process(
-                source,
-                request,
-                &frame,
-                direct_protocol,
-                deadline,
-                cancellation,
-            )
-            .await;
-        drop(permit);
-        result
+        self.invoke_with_permits(source, request, cancellation, &self.permits)
+            .await
     }
 
-    async fn run_process(
-        &self,
-        source: &HandlerSource,
-        request: &HandlerRequest,
-        request_bytes: &[u8],
-        direct_protocol: bool,
-        deadline: Instant,
-        cancellation: &HandlerCancellation,
-    ) -> Result<HandlerResponse, Failure> {
-        let adapter = materialize_adapter(source.language())?;
-        let mut planned = self.command(source, &adapter);
-        self.options.environment.apply(&mut planned.command);
-        apply_backend_environment(&self.options.isolation, &mut planned.command);
-        let mut child = spawn_process(&mut planned.command, planned.runtime)?;
-        let (mut stdin, stdout, stderr) = match take_process_pipes(&mut child) {
-            Ok(pipes) => pipes,
-            Err(failure) => {
-                terminate(&mut child, &request.request_id).await;
-                return Err(failure);
-            }
-        };
-        let stdout_task = tokio::spawn(drain(stdout, MAX_FRAME_BYTES + FRAME_PREFIX_BYTES));
-        let stderr_task = tokio::spawn(drain(stderr, self.options.stderr_limit));
-
-        let write_failure = tokio::select! {
-            result = write_request(&mut stdin, request_bytes) => result.err(),
-            () = cancellation.token.cancelled() => Some(cancelled()),
-            () = sleep_until(deadline) => Some(timed_out()),
-        };
-        if let Some(failure) = write_failure {
-            terminate(&mut child, &request.request_id).await;
-            let _settled = settle_tasks(stdout_task, stderr_task, deadline).await;
-            return Err(failure);
-        }
-
-        // A direct handler reads until end of file, so its input must be
-        // closed now. The framed adapters keep it open to receive a
-        // cancellation frame.
-        let mut stdin = if direct_protocol {
-            drop(stdin);
-            None
-        } else {
-            Some(stdin)
-        };
-
-        let outcome = tokio::select! {
-            status = child.inner().wait() => ProcessOutcome::Exit(status),
-            () = cancellation.token.cancelled() => ProcessOutcome::Cancelled,
-            () = sleep_until(deadline) => ProcessOutcome::TimedOut,
-        };
-        match outcome {
-            ProcessOutcome::Cancelled => {
-                cancel_and_reap(
-                    &mut child,
-                    stdin.as_mut(),
-                    &request.request_id,
-                    self.options.cancellation_grace,
-                    deadline,
-                )
-                .await;
-                let _settled = settle_tasks(stdout_task, stderr_task, deadline).await;
-                Err(cancelled())
-            }
-            ProcessOutcome::TimedOut => {
-                cancel_and_reap(
-                    &mut child,
-                    stdin.as_mut(),
-                    &request.request_id,
-                    self.options.cancellation_grace,
-                    deadline,
-                )
-                .await;
-                let _settled = settle_tasks(stdout_task, stderr_task, deadline).await;
-                Err(timed_out())
-            }
-            ProcessOutcome::Exit(status) => {
-                drop(stdin);
-                let status = match status {
-                    Ok(status) => status,
-                    Err(error) => {
-                        terminate(&mut child, &request.request_id).await;
-                        let _settled = settle_tasks(stdout_task, stderr_task, deadline).await;
-                        return Err(Failure::one(diagnostic(
-                            2104,
-                            format!("Cannot observe handler process exit: {error}"),
-                            None,
-                            None,
-                        )));
-                    }
-                };
-                // A successful handler may have spawned a descendant that
-                // inherited its pipes. The leader's exit is the end of the
-                // invocation, so terminate the rest of its process group
-                // before waiting for EOF from those pipes.
-                terminate(&mut child, &request.request_id).await;
-                let (stdout, stderr) = settle_tasks(stdout_task, stderr_task, deadline).await?;
-                validate_process_output(status, &stdout, &stderr)?;
-                surface_relay_events(&stderr.bytes, &request.request_id);
-                if direct_protocol {
-                    direct_response(&stdout.bytes, &request.request_id)
-                } else {
-                    response_frame(&stdout.bytes, &request.request_id)
-                }
-            }
-        }
+    pub(super) fn invoke_gateway_unit<'a>(
+        &'a self,
+        source: &'a HandlerSource,
+        request: &'a HandlerRequest,
+        cancellation: &'a HandlerCancellation,
+    ) -> GatewayUnitCall<'a> {
+        Box::pin(self.invoke_with_permits(source, request, cancellation, &self.gateway_permits))
     }
 
-    fn command(&self, source: &HandlerSource, adapter: &AdapterFiles) -> PlannedCommand {
-        if let Some(policy) = self.options.isolation.firecracker() {
-            let mut command = Command::new(policy.driver());
-            policy.append_arguments(&mut command);
-            command
-                .arg("--project-root")
-                .arg(source.execution_root())
-                .arg("--source")
-                .arg(source.relative_path())
-                .arg("--adapter")
-                .arg(source.language().adapter())
-                .current_dir(source.execution_root())
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .kill_on_drop(true);
-            return PlannedCommand {
-                command,
-                runtime: RuntimeIdentity::Firecracker,
-            };
-        }
-        // A direct handler is run by its Tachyon-owned runtime or compiled
-        // artifact. Arbitrary interpreter and executable-file fallbacks are
-        // intentionally absent.
-        if source.language() == HandlerLanguage::Direct {
-            let interpreter = source.interpreter();
-            let execution_path = source.execution_path();
-            let mut command = interpreter.first().map_or_else(
-                || Command::new(&execution_path),
-                |program| {
-                    let mut command = Command::new(program);
-                    command.args(&interpreter[1..]);
-                    if !source.prebuilt() {
-                        command.arg(&execution_path);
-                    }
-                    command
-                },
-            );
-            command
-                .current_dir(source.execution_working_directory())
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .kill_on_drop(true);
-            return PlannedCommand {
-                command,
-                runtime: RuntimeIdentity::from_source(source, &self.options.runtimes),
-            };
-        }
-        let execution_path = source.execution_path();
-        let (program, arguments): (&Path, Vec<&OsStr>) = match source.language() {
-            HandlerLanguage::JavaScript => (
-                &self.options.runtimes.javascript,
-                vec![
-                    OsStr::new("--no-warnings"),
-                    adapter.runner.as_os_str(),
-                    execution_path.as_os_str(),
-                ],
-            ),
-            HandlerLanguage::TypeScript => (
-                &self.options.runtimes.javascript,
-                vec![adapter.runner.as_os_str(), execution_path.as_os_str()],
-            ),
-            HandlerLanguage::Python => (
-                &self.options.runtimes.python,
-                vec![
-                    OsStr::new("-I"),
-                    OsStr::new("-B"),
-                    adapter.runner.as_os_str(),
-                    execution_path.as_os_str(),
-                    source.execution_working_directory().as_os_str(),
-                ],
-            ),
-            HandlerLanguage::Direct => unreachable!("handled above"),
-        };
-        let mut command = Command::new(program);
-        command
-            .args(arguments)
-            .current_dir(source.execution_working_directory())
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
-        PlannedCommand {
-            command,
-            runtime: RuntimeIdentity::from_source(source, &self.options.runtimes),
-        }
-    }
-}
-
-struct PlannedCommand {
-    command: Command,
-    runtime: RuntimeIdentity,
-}
-
-#[derive(Clone, Copy)]
-enum RuntimeIdentity {
-    JavaScript { configured: bool },
-    Python { configured: bool },
-    Java,
-    Php,
-    Dotnet,
-    Firecracker,
-    PreparedArtifact,
-}
-
-impl RuntimeIdentity {
-    fn from_source(source: &HandlerSource, runtimes: &HandlerRuntimePrograms) -> Self {
-        match YonLanguage::from_path(Path::new(source.relative_path())) {
-            Some(YonLanguage::JavaScript | YonLanguage::TypeScript) => Self::JavaScript {
-                configured: runtimes.javascript != Path::new("bun"),
-            },
-            Some(YonLanguage::Python) => Self::Python {
-                configured: runtimes.python
-                    != Path::new(if cfg!(windows) { "python" } else { "python3" }),
-            },
-            Some(YonLanguage::Java | YonLanguage::Kotlin) => Self::Java,
-            Some(YonLanguage::Php) => Self::Php,
-            Some(YonLanguage::CSharp) => Self::Dotnet,
-            Some(YonLanguage::Rust) | None => Self::PreparedArtifact,
-        }
-    }
-
-    const fn is_external(self) -> bool {
-        !matches!(self, Self::PreparedArtifact)
-    }
-
-    fn missing(self) -> Failure {
-        let (name, help) = match self {
-            Self::JavaScript { configured: false } => (
-                "Yon JavaScript runtime 'bun'",
-                "Install Bun or configure YON_JAVASCRIPT_RUNTIME.",
-            ),
-            Self::JavaScript { configured: true } => (
-                "configured Yon JavaScript runtime",
-                "Correct YON_JAVASCRIPT_RUNTIME or --javascript-runtime.",
-            ),
-            Self::Python { configured: false } => (
-                if cfg!(windows) {
-                    "Yon Python runtime 'python'"
-                } else {
-                    "Yon Python runtime 'python3'"
-                },
-                "Install Python or configure YON_PYTHON_RUNTIME.",
-            ),
-            Self::Python { configured: true } => (
-                "configured Yon Python runtime",
-                "Correct YON_PYTHON_RUNTIME or --python-runtime.",
-            ),
-            Self::Java => ("Yon Java runtime 'java'", "Install a supported JDK."),
-            Self::Php => ("Yon PHP runtime 'php'", "Install PHP."),
-            Self::Dotnet => (
-                "Yon C# runtime 'dotnet'",
-                "Install the .NET SDK and Microsoft.NETCore.App runtime.",
-            ),
-            Self::Firecracker => (
-                "configured Firecracker driver",
-                "Correct YON_FIRECRACKER_DRIVER.",
-            ),
-            Self::PreparedArtifact => (
-                "prepared Yon handler artifact",
-                "Restart Tachyon so the handler artifact can be prepared again.",
-            ),
-        };
-        Failure::one(diagnostic(
-            2112,
-            format!("Required {name} was not found."),
-            Some(String::from(help)),
-            None,
-        ))
-    }
-}
-
-fn surface_relay_events(stderr: &[u8], request_id: &str) {
-    for line in String::from_utf8_lossy(stderr).lines() {
-        let Ok(event) = serde_json::from_str::<serde_json::Value>(line) else {
-            continue;
-        };
-        let category = event.get("category").and_then(serde_json::Value::as_str);
-        if event.get("event").and_then(serde_json::Value::as_str) == Some("handler.relay_failed")
-            && event.get("request_id").and_then(serde_json::Value::as_str) == Some(request_id)
-            && category.is_some_and(|value| {
-                matches!(
-                    value,
-                    "start" | "timeout" | "overflow" | "exit" | "protocol"
-                )
-            })
-        {
-            eprintln!(
-                "{}",
-                serde_json::json!({
-                    "event": "handler.relay_failed",
-                    "request_id": request_id,
-                    "category": category,
-                })
-            );
-        }
-    }
-}
-
-/// The response a direct handler writes: a status, optional headers, and an
-/// optional body. Everything else in the envelope is supplied by the
-/// supervisor and the per-language Yon prelude.
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct DirectResponse {
-    status: u16,
-    #[serde(default)]
-    headers: tachyon_contracts::HandlerHeaders,
-    #[serde(default)]
-    body: Option<String>,
-}
-
-/// Parses the plain JSON a direct handler writes to standard output.
-fn direct_response(bytes: &[u8], request_id: &str) -> Result<HandlerResponse, Failure> {
-    if bytes.len() > MAX_FRAME_BYTES {
-        return Err(protocol_failure(
-            2004,
-            "Direct handler wrote more than the frame limit.",
-        ));
-    }
-    let text = std::str::from_utf8(bytes)
-        .map_err(|_| protocol_failure(2004, "Direct handler output is not valid UTF-8."))?;
-    let parsed: DirectResponse = serde_json::from_str(text.trim()).map_err(|error| {
-        protocol_failure(
-            2004,
-            &format!(
-                "Direct handler must write one JSON object with a status: {error}. \
-                 Wrote: {}",
-                text.trim().chars().take(200).collect::<String>()
-            ),
-        )
-    })?;
-    if !(100..=599).contains(&parsed.status) {
-        return Err(protocol_failure(
-            2004,
-            "Direct handler status must be a valid HTTP status.",
-        ));
-    }
-    Ok(HandlerResponse {
-        protocol_version: 1,
-        kind: tachyon_contracts::HandlerResponseKind::Response,
-        request_id: String::from(request_id),
-        status: parsed.status,
-        headers: parsed.headers,
-        body: parsed.body.map(|data| tachyon_contracts::HandlerBody {
-            encoding: tachyon_contracts::HandlerBodyEncoding::Utf8,
-            data,
-        }),
-        error: None,
-    })
-}
-
-/// Encodes one request for the adapter that will receive it.
-///
-/// A framework-owned direct runtime receives plain JSON terminated by end of
-/// file; its Tachyon prelude owns translation into the authored class API.
-fn encode_request(direct_protocol: bool, request: &HandlerRequest) -> Result<Vec<u8>, Failure> {
-    if direct_protocol {
-        return serde_json::to_vec(request).map_err(|error| {
-            protocol_failure(2004, &format!("Cannot encode the request: {error}"))
-        });
-    }
-    request_frame(request)
-}
-
-/// Writes one encoded request to a child's standard input.
-async fn write_request(stdin: &mut ChildStdin, request_bytes: &[u8]) -> Result<(), Failure> {
-    if let Err(error) = stdin.write_all(request_bytes).await {
-        return Err(Failure::one(diagnostic(
-            2101,
-            format!("Cannot write Handler Protocol request: {error}"),
-            Some(String::from("Retry with a healthy language runtime.")),
-            None,
-        )));
-    }
-    if let Err(error) = stdin.flush().await {
-        return Err(Failure::one(diagnostic(
-            2101,
-            format!("Cannot flush Handler Protocol request: {error}"),
-            None,
-            None,
-        )));
-    }
-    Ok(())
-}
-
-enum ProcessOutcome {
-    Exit(std::io::Result<ExitStatus>),
-    Cancelled,
-    TimedOut,
-}
-
-struct AdapterFiles {
-    _directory: tempfile::TempDir,
-    runner: PathBuf,
-}
-
-fn spawn_process(
-    command: &mut Command,
-    runtime: RuntimeIdentity,
-) -> Result<AsyncGroupChild, Failure> {
-    command.group().kill_on_drop(true).spawn().map_err(|error| {
-        if error.kind() == std::io::ErrorKind::NotFound && runtime.is_external() {
-            return runtime.missing();
-        }
-        Failure::one(diagnostic(
-            2101,
-            "Cannot start the selected handler runtime.",
-            Some(String::from(
-                "Check the runtime installation, permissions, and deployment policy.",
-            )),
-            None,
-        ))
-    })
-}
-
-fn take_process_pipes(
-    child: &mut AsyncGroupChild,
-) -> Result<(ChildStdin, ChildStdout, ChildStderr), Failure> {
-    let process = child.inner();
-    match (
-        process.stdin.take(),
-        process.stdout.take(),
-        process.stderr.take(),
-    ) {
-        (Some(stdin), Some(stdout), Some(stderr)) => Ok((stdin, stdout, stderr)),
-        (None, _, _) => Err(process_pipe_failure("stdin")),
-        (_, None, _) => Err(process_pipe_failure("stdout")),
-        (_, _, None) => Err(process_pipe_failure("stderr")),
-    }
-}
-
-fn materialize_adapter(language: HandlerLanguage) -> Result<AdapterFiles, Failure> {
-    let directory = match tempfile::Builder::new()
-        .prefix("tachyon-handler-")
-        .tempdir()
-    {
-        Ok(directory) => directory,
-        Err(error) => return Err(adapter_io(&error)),
-    };
-    let (name, contents) = match language {
-        HandlerLanguage::JavaScript | HandlerLanguage::TypeScript => {
-            ("runner.mjs", JAVASCRIPT_RUNNER)
-        }
-        HandlerLanguage::Python => ("runner.py", PYTHON_RUNNER),
-        // A direct handler needs no adapter; an unused placeholder keeps the
-        // staging directory shape uniform.
-        HandlerLanguage::Direct => ("direct.unused", ""),
-    };
-    let runner = directory.path().join(name);
-    if let Err(error) = fs::write(&runner, contents) {
-        return Err(adapter_io(&error));
-    }
-    Ok(AdapterFiles {
-        _directory: directory,
-        runner,
-    })
-}
-
-fn adapter_io(error: &std::io::Error) -> Failure {
-    Failure::one(diagnostic(
-        2101,
-        format!("Cannot materialize the trusted handler adapter: {error}"),
-        Some(String::from(
-            "Check temporary-directory permissions and available storage.",
-        )),
-        None,
-    ))
-}
-
-#[derive(Debug)]
-struct Drained {
-    bytes: Vec<u8>,
-    overflow: bool,
-    read_error: bool,
-}
-
-async fn drain<R>(mut reader: R, limit: usize) -> Drained
-where
-    R: AsyncRead + Unpin,
-{
-    let mut bytes = Vec::with_capacity(limit.min(64 * 1024));
-    let mut overflow = false;
-    let mut read_error = false;
-    let mut chunk = [0_u8; 8 * 1024];
-    loop {
-        match reader.read(&mut chunk).await {
-            Ok(0) => break,
-            Err(_) => {
-                read_error = true;
-                break;
-            }
-            Ok(read) => {
-                let available = limit.saturating_sub(bytes.len());
-                let retained = available.min(read);
-                bytes.extend_from_slice(&chunk[..retained]);
-                overflow |= retained < read;
-            }
-        }
-    }
-    Drained {
-        bytes,
-        overflow,
-        read_error,
-    }
-}
-
-async fn settle_tasks(
-    mut stdout: JoinHandle<Drained>,
-    mut stderr: JoinHandle<Drained>,
-    deadline: Instant,
-) -> Result<(Drained, Drained), Failure> {
-    let Ok(stdout_result) = timeout_at(deadline, &mut stdout).await else {
-        stdout.abort();
-        stderr.abort();
-        let _stdout = stdout.await;
-        let _stderr = stderr.await;
-        return Err(timed_out());
-    };
-    let Ok(stdout) = stdout_result else {
-        stderr.abort();
-        let _stderr = stderr.await;
-        return Err(protocol_failure(2101, "Handler stdout drain task failed."));
-    };
-    let Ok(stderr_result) = timeout_at(deadline, &mut stderr).await else {
-        stderr.abort();
-        let _stderr = stderr.await;
-        return Err(timed_out());
-    };
-    let Ok(stderr) = stderr_result else {
-        return Err(protocol_failure(2101, "Handler stderr drain task failed."));
-    };
-    Ok((stdout, stderr))
-}
-
-fn validate_process_output(
-    status: ExitStatus,
-    stdout: &Drained,
-    stderr: &Drained,
-) -> Result<(), Failure> {
-    if stdout.overflow {
-        return Err(protocol_failure(
-            2103,
-            "Handler protocol stdout exceeds the 16 MiB frame limit.",
-        ));
-    }
-    if stdout.read_error {
-        return Err(protocol_failure(
-            2102,
-            "Cannot read the complete handler protocol stdout stream.",
-        ));
-    }
-    if stderr.overflow {
-        return Err(Failure::one(diagnostic(
-            2107,
-            "Handler stderr exceeded its configured diagnostic limit.",
-            Some(String::from(
-                "Reduce handler logging and retry the invocation.",
-            )),
-            None,
-        )));
-    }
-    if stderr.read_error {
-        return Err(Failure::one(diagnostic(
-            2107,
-            "Cannot read the complete handler stderr stream.",
-            Some(String::from("Retry with a healthy language runtime.")),
-            None,
-        )));
-    }
-    if !status.success() {
-        let sideband = bounded_sideband(&stderr.bytes);
-        let suffix = if sideband.is_empty() {
-            String::new()
-        } else {
-            format!(" Stderr: {sideband}")
-        };
-        return Err(Failure::one(diagnostic(
-            2104,
-            format!("Handler process exited unsuccessfully ({status}).{suffix}"),
-            Some(String::from(
-                "Fix the handler crash; a later invocation will start a clean process.",
-            )),
-            None,
-        )));
-    }
-    Ok(())
-}
-
-async fn cancel_and_reap(
-    child: &mut AsyncGroupChild,
-    stdin: Option<&mut ChildStdin>,
-    request_id: &str,
-    grace: Duration,
-    deadline: Instant,
-) {
-    let grace_deadline = deadline.min(Instant::now() + grace);
-    // A direct handler has no open input to cancel through; it is reaped by
-    // the grace period below instead.
-    if let Some(stdin) = stdin
-        && let Ok(frame) = cancel_frame(request_id)
-    {
-        let _cancel = timeout_at(grace_deadline, async {
-            let _write = stdin.write_all(&frame).await;
-            let _flush = stdin.flush().await;
-        })
-        .await;
-    }
-    if Instant::now() < grace_deadline {
-        let _exit = timeout_at(grace_deadline, child.inner().wait()).await;
-    }
-    // Always terminate the group after cooperative cancellation: the leader
-    // may have exited while a descendant kept running with inherited handles.
-    terminate(child, request_id).await;
-}
-
-async fn terminate(child: &mut AsyncGroupChild, request_id: &str) {
-    let process_id = child.inner().id();
-    let kill_failed = child.start_kill().is_err();
-    // Reaping is cleanup, not handler work. Give it its own short bound even
-    // when the invocation deadline has already expired; pipe settlement still
-    // uses the original absolute deadline and cannot hold a permit open.
-    let cleanup_deadline = Instant::now() + PROCESS_REAP_TIMEOUT;
-    let wait_failed = !matches!(timeout_at(cleanup_deadline, child.wait()).await, Ok(Ok(_)));
-    if wait_failed {
-        eprintln!(
-            "{}",
-            cleanup_unsettled_event(request_id, process_id, kill_failed)
-        );
-    }
-}
-
-fn cleanup_unsettled_event(
-    request_id: &str,
-    process_id: Option<u32>,
-    kill_failed: bool,
-) -> serde_json::Value {
-    serde_json::json!({
-        "event": "handler.cleanup_unsettled",
-        "request_id": request_id,
-        "process_id": process_id,
-        "kill_failed": kill_failed,
-        "reap_failed": true,
-    })
-}
-
-fn process_pipe_failure(name: &str) -> Failure {
-    Failure::one(diagnostic(
-        2101,
-        format!("Handler runtime did not provide a piped {name} stream."),
-        None,
-        None,
-    ))
-}
-
-fn timed_out() -> Failure {
-    Failure::one(diagnostic(
-        2110,
-        "Handler invocation exceeded its deadline.",
-        Some(String::from(
-            "Reduce handler work or choose a larger bounded timeout.",
-        )),
-        None,
-    ))
-}
-
-fn cancelled() -> Failure {
-    Failure::one(diagnostic(
-        2111,
-        "Handler invocation was cancelled.",
-        Some(String::from(
-            "Retry only if the caller still needs the result.",
-        )),
-        None,
-    ))
-}
-
-fn bounded_sideband(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes)
-        .chars()
-        .filter(|character| !character.is_control() || matches!(character, '\n' | '\t'))
-        .take(4_096)
-        .collect::<String>()
-        .trim()
-        .to_owned()
-}
-
-/// Largest number of events one streamed request may emit.
-const MAX_STREAM_EVENTS: usize = 100_000;
-/// Largest decoded event admitted to the subscriber queue.
-const MAX_STREAM_EVENT_BYTES: usize = 256 * 1024;
-/// Aggregate decoded payload admitted from one stream before it is stopped.
-const MAX_STREAM_TOTAL_BYTES: usize = 64 * 1024 * 1024;
-
-/// One event yielded by a streaming Yon handler.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HandlerEvent {
-    /// The JSON text produced by the handler for this event.
-    pub data: String,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum StreamReadOutcome {
-    Complete,
-    SubscriberClosed,
-}
-
-enum StreamProcessOutcome {
-    Frames(Result<Result<StreamReadOutcome, Failure>, tokio::task::JoinError>),
-    Exit(std::io::Result<ExitStatus>),
-    SubscriberClosed,
-    Cancelled,
-    TimedOut,
-}
-
-struct StreamingProcess<'a> {
-    source: &'a HandlerSource,
-    request: &'a HandlerRequest,
-    request_bytes: &'a [u8],
-    direct_protocol: bool,
-    deadline: Instant,
-    events: tokio::sync::mpsc::Sender<HandlerEvent>,
-    cancellation: &'a HandlerCancellation,
-}
-
-impl HandlerSupervisor {
-    /// Invokes a handler that emits length-prefixed event frames until EOF.
-    ///
-    /// The same admission, absolute deadline, environment, isolation, process
-    /// group, and bounded-cleanup policy used by [`Self::invoke`] applies.
-    ///
-    /// # Errors
-    ///
-    /// Returns stable diagnostics for admission, startup, framing, process,
-    /// output-bound, or deadline failures. Handler-provided error text is never
-    /// copied into the diagnostic.
     pub async fn invoke_streaming(
         &self,
         source: &HandlerSource,
@@ -1082,35 +210,18 @@ impl HandlerSupervisor {
         events: tokio::sync::mpsc::Sender<HandlerEvent>,
         cancellation: &HandlerCancellation,
     ) -> Result<(), Failure> {
-        validate_backend_language(&self.options.isolation, source.language())?;
-        let direct_protocol = source.language() == HandlerLanguage::Direct
-            && self.options.isolation.uses_direct_handler_protocol();
-        let request_bytes = encode_request(direct_protocol, request)?;
-        if cancellation.is_cancelled() {
-            return Err(cancelled());
-        }
-        let invocation_timeout = request
-            .deadline_ms
-            .map_or(self.options.default_timeout, Duration::from_millis)
-            .min(self.options.default_timeout);
-        let deadline = Instant::now() + invocation_timeout;
-        let permit = tokio::select! {
-            permit = Arc::clone(&self.permits).acquire_owned() => permit.map_err(|_| {
-                Failure::one(diagnostic(
-                    2101,
-                    "Handler supervisor stopped accepting work.",
-                    Some(String::from("Create a new supervisor and retry.")),
-                    None,
-                ))
-            })?,
-            () = cancellation.token.cancelled() => return Err(cancelled()),
-            () = sleep_until(deadline) => return Err(timed_out()),
-        };
+        self.options
+            .isolation
+            .validate_backend_language(source.language())?;
+        let direct_protocol = self.uses_direct_protocol(source);
+        Self::check_request_encodes(direct_protocol, request)?;
+        Self::check_not_cancelled(cancellation)?;
+        let deadline = self.invocation_deadline(request);
+        let permit = Self::acquire_permit_from(&self.permits, cancellation, deadline).await?;
         let result = self
             .run_streaming_process(StreamingProcess {
                 source,
                 request,
-                request_bytes: &request_bytes,
                 direct_protocol,
                 deadline,
                 events,
@@ -1121,369 +232,830 @@ impl HandlerSupervisor {
         result
     }
 
-    #[allow(clippy::too_many_lines)] // Process launch, framing, and bounded cleanup are one lifecycle.
+    pub(in crate::handler) fn pipe_all_streams(command: &mut Command) {
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+    }
+
+    async fn storage(&self) -> Result<Option<Arc<ManagedStorage>>, Failure> {
+        let configuration = self.storage_configuration()?;
+        self.check_storage_backend(configuration.as_ref())?;
+        self.connected_storage(configuration).await
+    }
+
+    fn storage_configuration(&self) -> Result<Option<Value>, Failure> {
+        let configuration = self
+            .options
+            .application
+            .handler_json()
+            .map(Self::parse_resource_configuration)
+            .transpose()?;
+        Ok(configuration.filter(Self::declares_storage))
+    }
+
+    fn parse_resource_configuration(json: &str) -> Result<Value, Failure> {
+        serde_json::from_str(json).map_err(|_| {
+            Failure::one(diagnostic(
+                2010,
+                "Invalid managed resource configuration.",
+                None,
+                None,
+            ))
+        })
+    }
+
+    fn declares_storage(configuration: &Value) -> bool {
+        configuration.pointer("/yon/datasource").is_some()
+            || configuration.pointer("/yon/redis").is_some()
+    }
+
+    fn check_storage_backend(&self, configuration: Option<&Value>) -> Result<(), Failure> {
+        if configuration.is_some() && self.options.isolation.firecracker().is_some() {
+            return Err(Failure::one(diagnostic(
+                2010,
+                "Managed storage requires the Yon process backend.",
+                Some(String::from(
+                    "The Firecracker transport does not yet transfer invocation-scoped resource capabilities.",
+                )),
+                None,
+            )));
+        }
+        Ok(())
+    }
+
+    async fn connected_storage(
+        &self,
+        configuration: Option<Value>,
+    ) -> Result<Option<Arc<ManagedStorage>>, Failure> {
+        match configuration {
+            None => Ok(None),
+            Some(configuration) => self
+                .resources
+                .get_or_try_init(|| async {
+                    ManagedStorage::connect(&configuration).await.map(Arc::new)
+                })
+                .await
+                .map(|storage| Some(Arc::clone(storage))),
+        }
+    }
+
+    async fn resource_access(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<Option<ResourceAccess>, Failure> {
+        let storage = self.storage().await?;
+        let stop = cancellation.child();
+        let gateways = self.gateway_calls(source, request, deadline, &stop)?;
+        let topics = self
+            .topics
+            .get()
+            .and_then(|bus| TopicOutbox::for_invocation(bus, source, request));
+        Self::bind_resources(storage, gateways, topics, stop, deadline).await
+    }
+
+    async fn bind_resources(
+        storage: Option<Arc<ManagedStorage>>,
+        gateways: Option<GatewayCalls>,
+        topics: Option<TopicOutbox>,
+        stop: HandlerCancellation,
+        deadline: Instant,
+    ) -> Result<Option<ResourceAccess>, Failure> {
+        if storage.is_none() && gateways.is_none() && topics.is_none() {
+            return Ok(None);
+        }
+        ResourceAccess::bind(storage, gateways, topics, stop, deadline)
+            .await
+            .map(Some)
+    }
+
+    fn gateway_calls(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<Option<GatewayCalls>, Failure> {
+        source
+            .gateways()
+            .map(|table| self.gateway_call_setup(table, source, request, deadline, cancellation))
+            .transpose()
+    }
+
+    fn gateway_call_setup(
+        &self,
+        table: &Arc<GatewayTable>,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<GatewayCalls, Failure> {
+        self.check_gateway_backend()?;
+        let setup = GatewayCallSetup {
+            supervisor: self.clone(),
+            table: Arc::clone(table),
+            request_id: request.request_id.clone(),
+            working_directory: source.execution_working_directory().to_path_buf(),
+            deadline: deadline
+                .checked_sub(self.options.cancellation_grace)
+                .unwrap_or(deadline),
+            cancellation: cancellation.child(),
+        };
+        Ok(GatewayCalls::new(setup))
+    }
+
+    fn check_gateway_backend(&self) -> Result<(), Failure> {
+        if self.options.isolation.firecracker().is_some() {
+            return Err(ProcessFailure::gateways_need_process_backend());
+        }
+        Ok(())
+    }
+
+    async fn invoke_with_permits(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        cancellation: &HandlerCancellation,
+        permits: &Arc<Semaphore>,
+    ) -> Result<HandlerResponse, Failure> {
+        self.options
+            .isolation
+            .validate_backend_language(source.language())?;
+        let direct_protocol = self.uses_direct_protocol(source);
+        Self::check_request_encodes(direct_protocol, request)?;
+        Self::check_not_cancelled(cancellation)?;
+        let deadline = self.invocation_deadline(request);
+        let permit = Self::acquire_permit_from(permits, cancellation, deadline).await?;
+        let result = self
+            .run_process(source, request, direct_protocol, deadline, cancellation)
+            .await;
+        drop(permit);
+        result
+    }
+
+    fn check_not_cancelled(cancellation: &HandlerCancellation) -> Result<(), Failure> {
+        if cancellation.is_cancelled() {
+            return Err(ProcessFailure::cancelled());
+        }
+        Ok(())
+    }
+
+    fn check_before_deadline(deadline: Instant) -> Result<(), Failure> {
+        if Instant::now() >= deadline {
+            return Err(ProcessFailure::timed_out());
+        }
+        Ok(())
+    }
+
+    fn too_late_to_start(deadline: Instant, cancellation: &HandlerCancellation) -> Option<Failure> {
+        Self::check_not_cancelled(cancellation)
+            .and_then(|()| Self::check_before_deadline(deadline))
+            .err()
+    }
+
+    fn uses_direct_protocol(&self, source: &HandlerSource) -> bool {
+        source.language() == HandlerLanguage::Direct
+            && self.options.isolation.uses_direct_handler_protocol()
+    }
+
+    fn request_with_time_left(
+        &self,
+        request: &HandlerRequest,
+        direct_protocol: bool,
+        deadline: Instant,
+    ) -> Result<Vec<u8>, Failure> {
+        let time_left = Self::time_left(deadline)?;
+        let handler_time = time_left.saturating_sub(self.options.cancellation_grace);
+        let milliseconds = u64::try_from(handler_time.as_millis()).unwrap_or(u64::MAX);
+        let mut timed_request = request.clone();
+        timed_request.deadline_ms = Some(milliseconds.max(1));
+        Self::encode_request(direct_protocol, &timed_request)
+    }
+
+    fn time_left(deadline: Instant) -> Result<Duration, Failure> {
+        let time_left = deadline.saturating_duration_since(Instant::now());
+        if time_left.is_zero() {
+            return Err(ProcessFailure::timed_out());
+        }
+        Ok(time_left)
+    }
+
+    fn invocation_deadline(&self, request: &HandlerRequest) -> Instant {
+        let default_timeout = self.options.default_timeout;
+        let requested_timeout = request
+            .deadline_ms
+            .map_or(default_timeout, Duration::from_millis);
+        Instant::now() + requested_timeout.min(default_timeout)
+    }
+
+    async fn acquire_permit_from(
+        permits: &Arc<Semaphore>,
+        cancellation: &HandlerCancellation,
+        deadline: Instant,
+    ) -> Result<OwnedSemaphorePermit, Failure> {
+        tokio::select! {
+            biased;
+            () = cancellation.cancelled() => Err(ProcessFailure::cancelled()),
+            () = sleep_until(deadline) => Err(ProcessFailure::timed_out()),
+            permit = Arc::clone(permits).acquire_owned() => {
+                permit.map_err(|_| ProcessFailure::stopped_accepting_work())
+            }
+        }
+    }
+
+    async fn start_process(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+        socket: bool,
+    ) -> Result<StartedProcess, Failure> {
+        let adapter = AdapterFiles::materialize(source.language())?;
+        let mut planned = self.command(source, &adapter);
+        self.options.environment.apply(&mut planned.command);
+        self.apply_application(&mut planned.command);
+        self.apply_egress(&mut planned.command);
+        Self::mark_socket_frames(&mut planned.command, socket);
+        let resource_access = self
+            .resource_access_in_time(source, request, deadline, cancellation)
+            .await?;
+        let resource_access = Self::still_in_time(resource_access, deadline, cancellation).await?;
+        Self::apply_resource_access(resource_access.as_ref(), &mut planned.command);
+        self.options
+            .isolation
+            .apply_backend_environment(&mut planned.command);
+        let mut child = planned.runtime.spawn(&mut planned.command)?;
+        let pipes = Self::take_process_pipes(&mut child);
+        let (stdin, stdout, stderr) =
+            Self::terminate_on_failure(pipes, &mut child, &request.request_id).await?;
+        Ok(StartedProcess {
+            child,
+            stdin,
+            stdout,
+            stderr,
+            resource_access,
+            _adapter: adapter,
+        })
+    }
+
+    fn apply_egress(&self, command: &mut Command) {
+        if let Some(proxy) = self.egress.get() {
+            crate::handler::EgressProxy::apply(proxy, command);
+        }
+    }
+
+    fn mark_socket_frames(command: &mut Command, socket: bool) {
+        if socket {
+            command.env("YON_SOCKET_FRAMES", "1");
+        }
+    }
+
+    async fn resource_access_in_time(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<Option<ResourceAccess>, Failure> {
+        tokio::select! {
+            biased;
+            () = cancellation.cancelled() => Err(ProcessFailure::cancelled()),
+            () = sleep_until(deadline) => Err(ProcessFailure::timed_out()),
+            result = self.resource_access(source, request, deadline, cancellation) => result,
+        }
+    }
+
+    async fn still_in_time(
+        resource_access: Option<ResourceAccess>,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<Option<ResourceAccess>, Failure> {
+        if let Some(failure) = Self::too_late_to_start(deadline, cancellation) {
+            Self::close_resource_access(resource_access).await;
+            return Err(failure);
+        }
+        Ok(resource_access)
+    }
+
+    async fn close_resource_access(resource_access: Option<ResourceAccess>) {
+        OptionFuture::from(resource_access.map(ResourceAccess::close)).await;
+    }
+
+    fn apply_resource_access(resource_access: Option<&ResourceAccess>, command: &mut Command) {
+        if let Some(access) = resource_access {
+            access.apply(command);
+        }
+    }
+
+    fn take_process_pipes(
+        child: &mut AsyncGroupChild,
+    ) -> Result<(ChildStdin, ChildStdout, ChildStderr), Failure> {
+        let process = child.inner();
+        match (
+            process.stdin.take(),
+            process.stdout.take(),
+            process.stderr.take(),
+        ) {
+            (Some(stdin), Some(stdout), Some(stderr)) => Ok((stdin, stdout, stderr)),
+            (None, _, _) => Err(ProcessFailure::missing_pipe("stdin")),
+            (_, None, _) => Err(ProcessFailure::missing_pipe("stdout")),
+            (_, _, None) => Err(ProcessFailure::missing_pipe("stderr")),
+        }
+    }
+
+    async fn terminate_on_failure<T>(
+        result: Result<T, Failure>,
+        child: &mut AsyncGroupChild,
+        request_id: &str,
+    ) -> Result<T, Failure> {
+        if result.is_err() {
+            ProcessReaper::terminate(child, request_id).await;
+        }
+        result
+    }
+
+    async fn run_process(
+        &self,
+        source: &HandlerSource,
+        request: &HandlerRequest,
+        direct_protocol: bool,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<HandlerResponse, Failure> {
+        let StartedProcess {
+            child,
+            stdin,
+            stdout,
+            stderr,
+            resource_access,
+            _adapter,
+        } = self
+            .start_process(source, request, deadline, cancellation, false)
+            .await?;
+        let pipes = ProcessPipes {
+            child,
+            stdin,
+            stdout,
+            stderr,
+        };
+        let result = self
+            .drive_process(pipes, request, direct_protocol, deadline, cancellation)
+            .await;
+        Self::close_resource_access(resource_access).await;
+        result
+    }
+
+    async fn drive_process(
+        &self,
+        pipes: ProcessPipes,
+        request: &HandlerRequest,
+        direct_protocol: bool,
+        deadline: Instant,
+        cancellation: &HandlerCancellation,
+    ) -> Result<HandlerResponse, Failure> {
+        let ProcessPipes {
+            mut child,
+            mut stdin,
+            stdout,
+            stderr,
+        } = pipes;
+        let request_id = &request.request_id;
+        let request_bytes = self.request_with_time_left(request, direct_protocol, deadline);
+        let request_bytes =
+            Self::terminate_on_failure(request_bytes, &mut child, request_id).await?;
+        let stdout_limit = FrameLimits::MAX_BYTES + FrameLimits::PREFIX_BYTES;
+        let stdout_task = tokio::spawn(Drained::read_all(stdout, stdout_limit));
+        let stderr_task = tokio::spawn(Drained::read_all(stderr, self.options.stderr_limit));
+        let write_failure =
+            Self::write_request_until(&mut stdin, &request_bytes, cancellation, deadline).await;
+        let (stdout_task, stderr_task) = Self::stop_after_write_failure(
+            write_failure,
+            &mut child,
+            request_id,
+            (stdout_task, stderr_task),
+            deadline,
+        )
+        .await?;
+        let running = RunningProcess {
+            child,
+            stdin: Self::stdin_kept_open(stdin, direct_protocol),
+            stdout_task,
+            stderr_task,
+            deadline,
+            direct_protocol,
+        };
+        running
+            .run(cancellation, request_id, self.options.cancellation_grace)
+            .await
+    }
+
+    async fn stop_after_write_failure(
+        write_failure: Option<Failure>,
+        child: &mut AsyncGroupChild,
+        request_id: &str,
+        tasks: (JoinHandle<Drained>, JoinHandle<Drained>),
+        deadline: Instant,
+    ) -> Result<(JoinHandle<Drained>, JoinHandle<Drained>), Failure> {
+        if let Some(failure) = write_failure {
+            ProcessReaper::terminate(child, request_id).await;
+            let _settled = Drained::settle_pair(tasks.0, tasks.1, deadline).await;
+            return Err(failure);
+        }
+        Ok(tasks)
+    }
+
+    fn apply_application(&self, command: &mut Command) {
+        command.env_remove("YON_APPLICATION_JSON");
+        command.env_remove("YON_RESOURCE_ENDPOINT");
+        command.env_remove("YON_RESOURCE_TOKEN");
+        if let Some(json) = self.options.application.handler_json() {
+            command.env("YON_APPLICATION_JSON", json);
+        }
+    }
+
+    fn command(&self, source: &HandlerSource, adapter: &AdapterFiles) -> PlannedCommand {
+        match self.options.isolation.firecracker() {
+            Some(policy) => PlannedCommand {
+                command: Self::firecracker_command(policy, source),
+                runtime: RuntimeIdentity::Firecracker,
+            },
+            None => self.local_command(source, adapter),
+        }
+    }
+
+    fn local_command(&self, source: &HandlerSource, adapter: &AdapterFiles) -> PlannedCommand {
+        let mut command = self.language_command(source, adapter);
+        command.current_dir(source.execution_working_directory());
+        Self::pipe_all_streams(&mut command);
+        PlannedCommand {
+            command,
+            runtime: RuntimeIdentity::from_source(source, &self.options.runtimes),
+        }
+    }
+
+    fn language_command(&self, source: &HandlerSource, adapter: &AdapterFiles) -> Command {
+        if source.language() == HandlerLanguage::Direct {
+            return Self::direct_command(source);
+        }
+        self.adapter_command(source, adapter)
+    }
+
+    fn adapter_command(&self, source: &HandlerSource, adapter: &AdapterFiles) -> Command {
+        let execution_path = source.execution_path();
+        let (program, arguments) = self.adapter_program(source, adapter, &execution_path);
+        let mut command = Command::new(program);
+        command.args(arguments);
+        command
+    }
+
+    fn adapter_program<'a>(
+        &'a self,
+        source: &'a HandlerSource,
+        adapter: &'a AdapterFiles,
+        execution_path: &'a Path,
+    ) -> (&'a Path, Vec<&'a OsStr>) {
+        let runner = adapter.runner.as_os_str();
+        match source.language() {
+            HandlerLanguage::JavaScript => (
+                &self.options.runtimes.javascript,
+                vec![
+                    OsStr::new("--no-warnings"),
+                    runner,
+                    execution_path.as_os_str(),
+                ],
+            ),
+            HandlerLanguage::TypeScript => (
+                &self.options.runtimes.javascript,
+                vec![runner, execution_path.as_os_str()],
+            ),
+            HandlerLanguage::Python => (
+                &self.options.runtimes.python,
+                vec![
+                    OsStr::new("-I"),
+                    OsStr::new("-B"),
+                    runner,
+                    execution_path.as_os_str(),
+                    source.execution_working_directory().as_os_str(),
+                ],
+            ),
+            HandlerLanguage::Ruby => (
+                &self.options.runtimes.ruby,
+                vec![
+                    OsStr::new("--disable=rubyopt"),
+                    OsStr::new("-E"),
+                    OsStr::new("UTF-8:UTF-8"),
+                    runner,
+                    execution_path.as_os_str(),
+                    source.execution_working_directory().as_os_str(),
+                ],
+            ),
+            HandlerLanguage::Direct => unreachable!("handled above"),
+        }
+    }
+
+    fn firecracker_command(policy: &FirecrackerIsolation, source: &HandlerSource) -> Command {
+        let mut command = Command::new(policy.driver());
+        policy.append_arguments(&mut command);
+        command
+            .arg("--project-root")
+            .arg(source.execution_root())
+            .arg("--source")
+            .arg(source.execution_relative_path())
+            .arg("--adapter")
+            .arg(source.language().adapter())
+            .current_dir(source.execution_root());
+        Self::pipe_all_streams(&mut command);
+        command
+    }
+
+    fn direct_command(source: &HandlerSource) -> Command {
+        let execution_path = source.execution_path();
+        source.interpreter().split_first().map_or_else(
+            || Command::new(&execution_path),
+            |(program, arguments)| {
+                Self::interpreted_command(program, arguments, source.prebuilt(), &execution_path)
+            },
+        )
+    }
+
+    fn interpreted_command(
+        program: &str,
+        arguments: &[String],
+        prebuilt: bool,
+        execution_path: &Path,
+    ) -> Command {
+        let mut command = Command::new(program);
+        command.args(arguments);
+        if !prebuilt {
+            command.arg(execution_path);
+        }
+        command
+    }
+
+    fn check_request_encodes(
+        direct_protocol: bool,
+        request: &HandlerRequest,
+    ) -> Result<(), Failure> {
+        Self::encode_request(direct_protocol, request)?;
+        Ok(())
+    }
+
+    fn encode_request(direct_protocol: bool, request: &HandlerRequest) -> Result<Vec<u8>, Failure> {
+        if direct_protocol {
+            return serde_json::to_vec(request).map_err(|error| {
+                HandlerFrame::protocol_failure(2004, &format!("Cannot encode the request: {error}"))
+            });
+        }
+        HandlerFrame::request(request)
+    }
+
+    async fn write_request_until(
+        stdin: &mut ChildStdin,
+        request_bytes: &[u8],
+        cancellation: &HandlerCancellation,
+        deadline: Instant,
+    ) -> Option<Failure> {
+        tokio::select! {
+            result = Self::write_request(stdin, request_bytes) => result.err(),
+            () = cancellation.cancelled() => Some(ProcessFailure::cancelled()),
+            () = sleep_until(deadline) => Some(ProcessFailure::timed_out()),
+        }
+    }
+
+    fn stdin_kept_open(stdin: ChildStdin, direct_protocol: bool) -> Option<ChildStdin> {
+        if direct_protocol {
+            drop(stdin);
+            return None;
+        }
+        Some(stdin)
+    }
+
+    async fn write_request(stdin: &mut ChildStdin, request_bytes: &[u8]) -> Result<(), Failure> {
+        stdin.write_all(request_bytes).await.map_err(|error| {
+            Failure::one(diagnostic(
+                2101,
+                format!("Cannot write Handler Protocol request: {error}"),
+                Some(String::from("Retry with a healthy language runtime.")),
+                None,
+            ))
+        })?;
+        stdin.flush().await.map_err(|error| {
+            Failure::one(diagnostic(
+                2101,
+                format!("Cannot flush Handler Protocol request: {error}"),
+                None,
+                None,
+            ))
+        })
+    }
+
     async fn run_streaming_process(&self, process: StreamingProcess<'_>) -> Result<(), Failure> {
+        let StartedProcess {
+            child,
+            stdin,
+            stdout,
+            stderr,
+            resource_access,
+            _adapter,
+        } = self
+            .start_process(
+                process.source,
+                process.request,
+                process.deadline,
+                process.cancellation,
+                false,
+            )
+            .await?;
+        let pipes = ProcessPipes {
+            child,
+            stdin,
+            stdout,
+            stderr,
+        };
+        let result = self.drive_streaming_process(pipes, process).await;
+        Self::close_resource_access(resource_access).await;
+        result
+    }
+
+    async fn drive_streaming_process(
+        &self,
+        pipes: ProcessPipes,
+        process: StreamingProcess<'_>,
+    ) -> Result<(), Failure> {
         let StreamingProcess {
-            source,
+            source: _,
             request,
-            request_bytes,
             direct_protocol,
             deadline,
             events,
             cancellation,
         } = process;
-        let adapter = materialize_adapter(source.language())?;
-        let mut planned = self.command(source, &adapter);
-        self.options.environment.apply(&mut planned.command);
-        apply_backend_environment(&self.options.isolation, &mut planned.command);
-        let mut child = spawn_process(&mut planned.command, planned.runtime)?;
-        let (mut stdin, stdout, stderr) = match take_process_pipes(&mut child) {
-            Ok(pipes) => pipes,
-            Err(failure) => {
-                terminate(&mut child, &request.request_id).await;
-                return Err(failure);
-            }
-        };
-        let stderr_task = tokio::spawn(drain(stderr, self.options.stderr_limit));
-        let write_result = tokio::select! {
-            result = write_request(&mut stdin, request_bytes) => Some(result),
-            () = cancellation.token.cancelled() => None,
-            () = sleep_until(deadline) => Some(Err(timed_out())),
-        };
-        match write_result {
-            Some(Ok(())) => {}
-            Some(Err(failure)) => {
-                terminate(&mut child, &request.request_id).await;
-                let _stderr = settle_drain(stderr_task, deadline).await;
-                return Err(failure);
-            }
-            None => {
-                cancel_and_reap(
-                    &mut child,
-                    Some(&mut stdin),
-                    &request.request_id,
-                    self.options.cancellation_grace,
-                    deadline,
-                )
-                .await;
-                let _stderr = settle_drain(stderr_task, deadline).await;
-                return Err(cancelled());
-            }
-        }
-        let mut stdin = if direct_protocol {
-            drop(stdin);
-            None
-        } else {
-            Some(stdin)
-        };
+        let request_id = &request.request_id;
+        let ProcessPipes {
+            mut child,
+            mut stdin,
+            stdout,
+            stderr,
+        } = pipes;
+        let request_bytes = self.request_with_time_left(request, direct_protocol, deadline);
+        let request_bytes =
+            Self::terminate_on_failure(request_bytes, &mut child, request_id).await?;
+        let stderr_task = tokio::spawn(Drained::read_all(stderr, self.options.stderr_limit));
+        let write_failure = self
+            .write_streaming_request(
+                &mut child,
+                &mut stdin,
+                &request_bytes,
+                request_id,
+                cancellation,
+                deadline,
+            )
+            .await;
+        let stderr_task =
+            Self::settle_after_stream_write_failure(write_failure, stderr_task, deadline).await?;
+        let stdin = Self::stdin_kept_open(stdin, direct_protocol);
         let subscriber = events.clone();
-        let mut events_task = tokio::spawn(read_events(stdout, events, request.request_id.clone()));
-        let outcome = tokio::select! {
-            frames = &mut events_task => StreamProcessOutcome::Frames(frames),
+        let mut events_task = EventReader::spawn(stdout, events, request_id.clone());
+        let outcome = Self::first_stream_outcome(
+            &mut events_task,
+            &mut child,
+            &subscriber,
+            cancellation,
+            deadline,
+        )
+        .await;
+        let running = RunningStream {
+            child,
+            stdin,
+            events_task,
+            stderr_task,
+            deadline,
+        };
+        self.finish_stream(outcome, running, request_id).await
+    }
+
+    async fn settle_after_stream_write_failure(
+        write_failure: Option<Failure>,
+        stderr_task: JoinHandle<Drained>,
+        deadline: Instant,
+    ) -> Result<JoinHandle<Drained>, Failure> {
+        if let Some(failure) = write_failure {
+            let _stderr = Drained::settle(stderr_task, deadline).await;
+            return Err(failure);
+        }
+        Ok(stderr_task)
+    }
+
+    async fn first_stream_outcome(
+        events_task: &mut JoinHandle<Result<StreamReadOutcome, Failure>>,
+        child: &mut AsyncGroupChild,
+        subscriber: &tokio::sync::mpsc::Sender<HandlerEvent>,
+        cancellation: &HandlerCancellation,
+        deadline: Instant,
+    ) -> StreamProcessOutcome {
+        tokio::select! {
+            frames = events_task => StreamProcessOutcome::Frames(frames),
             status = child.inner().wait() => StreamProcessOutcome::Exit(status),
             () = subscriber.closed() => StreamProcessOutcome::SubscriberClosed,
-            () = cancellation.token.cancelled() => StreamProcessOutcome::Cancelled,
+            () = cancellation.cancelled() => StreamProcessOutcome::Cancelled,
             () = sleep_until(deadline) => StreamProcessOutcome::TimedOut,
-        };
+        }
+    }
 
+    async fn finish_stream(
+        &self,
+        outcome: StreamProcessOutcome,
+        running: RunningStream,
+        request_id: &str,
+    ) -> Result<(), Failure> {
+        let grace = self.options.cancellation_grace;
         match outcome {
             StreamProcessOutcome::Cancelled => {
-                cancel_and_reap(
-                    &mut child,
-                    stdin.as_mut(),
-                    &request.request_id,
-                    self.options.cancellation_grace,
-                    deadline,
-                )
-                .await;
-                events_task.abort();
-                let _events = events_task.await;
-                let _stderr = settle_drain(stderr_task, deadline).await;
-                Err(cancelled())
+                running
+                    .stop(request_id, grace, ProcessFailure::cancelled())
+                    .await
             }
             StreamProcessOutcome::TimedOut => {
-                cancel_and_reap(
-                    &mut child,
-                    stdin.as_mut(),
-                    &request.request_id,
+                running
+                    .stop(request_id, grace, ProcessFailure::timed_out())
+                    .await
+            }
+            StreamProcessOutcome::Frames(Ok(Ok(StreamReadOutcome::SubscriberClosed))) => {
+                running.end_after_closed_frames(request_id).await
+            }
+            StreamProcessOutcome::SubscriberClosed => {
+                running.end_for_closed_subscriber(request_id).await
+            }
+            StreamProcessOutcome::Frames(frames) => {
+                running.finish_after_frames(frames, request_id).await
+            }
+            StreamProcessOutcome::Exit(status) => {
+                running.finish_after_exit(status, request_id).await
+            }
+        }
+    }
+
+    async fn write_streaming_request(
+        &self,
+        child: &mut AsyncGroupChild,
+        stdin: &mut ChildStdin,
+        request_bytes: &[u8],
+        request_id: &str,
+        cancellation: &HandlerCancellation,
+        deadline: Instant,
+    ) -> Option<Failure> {
+        let write_result =
+            Self::write_request_in_time(stdin, request_bytes, cancellation, deadline).await;
+        self.after_streaming_write(write_result, child, stdin, request_id, deadline)
+            .await
+    }
+
+    async fn write_request_in_time(
+        stdin: &mut ChildStdin,
+        request_bytes: &[u8],
+        cancellation: &HandlerCancellation,
+        deadline: Instant,
+    ) -> Option<Result<(), Failure>> {
+        tokio::select! {
+            result = Self::write_request(stdin, request_bytes) => Some(result),
+            () = cancellation.cancelled() => None,
+            () = sleep_until(deadline) => Some(Err(ProcessFailure::timed_out())),
+        }
+    }
+
+    async fn after_streaming_write(
+        &self,
+        write_result: Option<Result<(), Failure>>,
+        child: &mut AsyncGroupChild,
+        stdin: &mut ChildStdin,
+        request_id: &str,
+        deadline: Instant,
+    ) -> Option<Failure> {
+        match write_result {
+            Some(Ok(())) => None,
+            Some(Err(failure)) => {
+                ProcessReaper::terminate(child, request_id).await;
+                Some(failure)
+            }
+            None => {
+                ProcessReaper::cancel_and_reap(
+                    child,
+                    Some(stdin),
+                    request_id,
                     self.options.cancellation_grace,
                     deadline,
                 )
                 .await;
-                events_task.abort();
-                let _events = events_task.await;
-                let _stderr = settle_drain(stderr_task, deadline).await;
-                Err(timed_out())
-            }
-            StreamProcessOutcome::Frames(Ok(Ok(StreamReadOutcome::SubscriberClosed))) => {
-                terminate(&mut child, &request.request_id).await;
-                let _stderr = settle_drain(stderr_task, deadline).await;
-                Ok(())
-            }
-            StreamProcessOutcome::SubscriberClosed => {
-                terminate(&mut child, &request.request_id).await;
-                events_task.abort();
-                let _events = events_task.await;
-                let _stderr = settle_drain(stderr_task, deadline).await;
-                Ok(())
-            }
-            StreamProcessOutcome::Frames(frames) => {
-                finish_stream_after_frames(
-                    &mut child,
-                    stderr_task,
-                    deadline,
-                    frames,
-                    &request.request_id,
-                )
-                .await
-            }
-            StreamProcessOutcome::Exit(status) => {
-                drop(stdin);
-                finish_stream_after_exit(
-                    &mut child,
-                    events_task,
-                    stderr_task,
-                    deadline,
-                    status,
-                    &request.request_id,
-                )
-                .await
+                Some(ProcessFailure::cancelled())
             }
         }
     }
-}
-
-async fn finish_stream_after_frames(
-    child: &mut AsyncGroupChild,
-    stderr_task: JoinHandle<Drained>,
-    deadline: Instant,
-    frames: Result<Result<StreamReadOutcome, Failure>, tokio::task::JoinError>,
-    request_id: &str,
-) -> Result<(), Failure> {
-    let frames = match frames {
-        Ok(Ok(frames)) => frames,
-        Ok(Err(failure)) => {
-            terminate(child, request_id).await;
-            let _stderr = settle_drain(stderr_task, deadline).await;
-            return Err(failure);
-        }
-        Err(_) => {
-            terminate(child, request_id).await;
-            let _stderr = settle_drain(stderr_task, deadline).await;
-            return Err(stream_failure("Handler event reader failed."));
-        }
-    };
-    debug_assert_eq!(frames, StreamReadOutcome::Complete);
-    let status = match timeout_at(deadline, child.inner().wait()).await {
-        Ok(Ok(status)) => status,
-        Ok(Err(_)) => {
-            terminate(child, request_id).await;
-            let _stderr = settle_drain(stderr_task, deadline).await;
-            return Err(stream_failure("Cannot observe handler process exit."));
-        }
-        Err(_) => {
-            terminate(child, request_id).await;
-            let _stderr = settle_drain(stderr_task, deadline).await;
-            return Err(timed_out());
-        }
-    };
-    terminate(child, request_id).await;
-    let stderr = settle_drain(stderr_task, deadline).await?;
-    validate_stream_process_output(status, &stderr)
-}
-
-async fn finish_stream_after_exit(
-    child: &mut AsyncGroupChild,
-    mut events_task: JoinHandle<Result<StreamReadOutcome, Failure>>,
-    stderr_task: JoinHandle<Drained>,
-    deadline: Instant,
-    status: std::io::Result<ExitStatus>,
-    request_id: &str,
-) -> Result<(), Failure> {
-    let Ok(status) = status else {
-        terminate(child, request_id).await;
-        events_task.abort();
-        let _events = events_task.await;
-        let _stderr = settle_drain(stderr_task, deadline).await;
-        return Err(stream_failure("Cannot observe handler process exit."));
-    };
-    terminate(child, request_id).await;
-    let frames = match timeout_at(deadline, &mut events_task).await {
-        Ok(Ok(Ok(frames))) => frames,
-        Ok(Ok(Err(failure))) => {
-            let _stderr = settle_drain(stderr_task, deadline).await;
-            return Err(failure);
-        }
-        Ok(Err(_)) => {
-            let _stderr = settle_drain(stderr_task, deadline).await;
-            return Err(stream_failure("Handler event reader failed."));
-        }
-        Err(_) => {
-            events_task.abort();
-            let _events = events_task.await;
-            let _stderr = settle_drain(stderr_task, deadline).await;
-            return Err(timed_out());
-        }
-    };
-    if frames == StreamReadOutcome::SubscriberClosed {
-        let _stderr = settle_drain(stderr_task, deadline).await;
-        return Ok(());
-    }
-    let stderr = settle_drain(stderr_task, deadline).await?;
-    validate_stream_process_output(status, &stderr)
-}
-
-async fn settle_drain(
-    mut task: JoinHandle<Drained>,
-    deadline: Instant,
-) -> Result<Drained, Failure> {
-    match timeout_at(deadline, &mut task).await {
-        Ok(Ok(drained)) => Ok(drained),
-        Ok(Err(_)) => Err(stream_failure("Handler diagnostic reader failed.")),
-        Err(_) => {
-            task.abort();
-            let _task = task.await;
-            Err(timed_out())
-        }
-    }
-}
-
-fn validate_stream_process_output(status: ExitStatus, stderr: &Drained) -> Result<(), Failure> {
-    let empty_stdout = Drained {
-        bytes: Vec::new(),
-        overflow: false,
-        read_error: false,
-    };
-    validate_process_output(status, &empty_stdout, stderr)
-}
-
-async fn read_events(
-    mut stdout: ChildStdout,
-    events: tokio::sync::mpsc::Sender<HandlerEvent>,
-    request_id: String,
-) -> Result<StreamReadOutcome, Failure> {
-    let mut sent = 0usize;
-    let mut sent_bytes = 0usize;
-    loop {
-        let mut prefix = [0_u8; FRAME_PREFIX_BYTES];
-        match stdout.read(&mut prefix[..1]).await {
-            Ok(0) => return Ok(StreamReadOutcome::Complete),
-            Ok(_) => {}
-            Err(_) => return Err(stream_failure("Cannot read a streamed frame prefix.")),
-        }
-        if stdout.read_exact(&mut prefix[1..]).await.is_err() {
-            return Err(stream_failure(
-                "A streamed frame ended before its prefix was complete.",
-            ));
-        }
-        let length = u32::from_be_bytes(prefix) as usize;
-        if length > MAX_FRAME_BYTES {
-            return Err(stream_failure(
-                "A streamed frame exceeds the 16 MiB protocol limit.",
-            ));
-        }
-        let mut payload = vec![0_u8; length];
-        if stdout.read_exact(&mut payload).await.is_err() {
-            return Err(stream_failure(
-                "A streamed frame ended before its payload was complete.",
-            ));
-        }
-        let frame: serde_json::Value = serde_json::from_slice(&payload)
-            .map_err(|_| stream_failure("A streamed frame is not valid JSON."))?;
-        if frame
-            .get("protocol_version")
-            .and_then(serde_json::Value::as_u64)
-            != Some(1)
-            || frame.get("request_id").and_then(serde_json::Value::as_str)
-                != Some(request_id.as_str())
-        {
-            return Err(stream_failure(
-                "A streamed frame violates Handler Protocol v1.",
-            ));
-        }
-        if frame.get("error").is_some_and(|error| !error.is_null()) {
-            return Err(stream_failure(
-                "The handler ended its stream with an error.",
-            ));
-        }
-        if frame.get("kind").and_then(serde_json::Value::as_str) != Some("event")
-            || frame
-                .pointer("/body/encoding")
-                .and_then(serde_json::Value::as_str)
-                != Some("utf8")
-        {
-            return Err(stream_failure("A streamed event has an invalid envelope."));
-        }
-        let Some(data) = frame
-            .pointer("/body/data")
-            .and_then(serde_json::Value::as_str)
-        else {
-            return Err(stream_failure("A streamed event has no UTF-8 body."));
-        };
-        if data.len() > MAX_STREAM_EVENT_BYTES {
-            return Err(stream_failure(
-                "A streamed event exceeds the 256 KiB delivery limit.",
-            ));
-        }
-        sent_bytes = sent_bytes.saturating_add(data.len());
-        if sent_bytes > MAX_STREAM_TOTAL_BYTES {
-            return Err(stream_failure(
-                "A streamed handler exceeded the 64 MiB aggregate delivery limit.",
-            ));
-        }
-        sent += 1;
-        if sent > MAX_STREAM_EVENTS {
-            return Err(stream_failure(
-                "A streamed handler exceeded the 100,000 event limit.",
-            ));
-        }
-        if events
-            .send(HandlerEvent {
-                data: String::from(data),
-            })
-            .await
-            .is_err()
-        {
-            return Ok(StreamReadOutcome::SubscriberClosed);
-        }
-    }
-}
-
-fn stream_failure(message: &str) -> Failure {
-    Failure::one(diagnostic(
-        2107,
-        format!("Streamed handler failed: {message}"),
-        Some(String::from(
-            "Fix the handler stream or its protocol adapter, then retry the request.",
-        )),
-        None,
-    ))
-}
-
-fn valid_environment_name(name: &str) -> bool {
-    let mut bytes = name.bytes();
-    bytes
-        .next()
-        .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
-        && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-}
-
-#[cfg(windows)]
-const fn baseline_environment_names() -> &'static [&'static str] {
-    &[
-        "PATH",
-        "PATHEXT",
-        "SYSTEMROOT",
-        "WINDIR",
-        "COMSPEC",
-        "TEMP",
-        "TMP",
-    ]
-}
-
-#[cfg(not(windows))]
-const fn baseline_environment_names() -> &'static [&'static str] {
-    &["PATH", "LANG", "LC_ALL", "TMPDIR"]
 }
 
 #[cfg(test)]
@@ -1491,9 +1063,8 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::{
-        Drained, EnvironmentPolicy, HandlerSupervisor, HandlerSupervisorOptions, PYTHON_RUNNER,
-        RuntimeIdentity, adapter_io, bounded_sideband, cleanup_unsettled_event, drain,
-        process_pipe_failure, settle_tasks, spawn_process,
+        AdapterFiles, Drained, EnvironmentPolicy, HandlerSource, HandlerSupervisor,
+        HandlerSupervisorOptions, ProcessFailure, ProcessReaper, RuntimeIdentity,
     };
     use std::io;
     use std::pin::Pin;
@@ -1504,14 +1075,49 @@ mod tests {
     use tokio::time::Instant;
 
     #[test]
-    fn python_dispatch_requires_the_controller_decorator() {
-        assert!(PYTHON_RUNNER.contains("handler = _CONTROLLER[0]"));
-        assert!(!PYTHON_RUNNER.contains("getattr(module, \"Handler\""));
+    fn application_transport_cannot_inherit_an_untrusted_value() {
+        let mut command = Command::new("unused");
+        let names = [
+            "YON_APPLICATION_JSON",
+            "YON_RESOURCE_ENDPOINT",
+            "YON_RESOURCE_TOKEN",
+        ];
+        for name in names {
+            command.env(name, "untrusted");
+        }
+        let supervisor =
+            HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+        supervisor.apply_application(&mut command);
+        for reserved in names {
+            let value = command
+                .as_std()
+                .get_envs()
+                .find(|(name, _)| *name == reserved)
+                .expect("explicit reserved environment removal")
+                .1;
+            assert_eq!(value, None);
+        }
+    }
+
+    #[test]
+    fn ruby_dispatch_uses_the_plain_handler_convention() {
+        let runner = AdapterFiles::RUBY_RUNNER;
+        assert!(runner.contains("class_name = \"Handler\""));
+        assert!(runner.contains("class_name = \"Middleware\""));
+        assert!(runner.trim_end().ends_with("YonRunner.main(ARGV)"));
+    }
+
+    #[test]
+    fn python_dispatch_uses_the_plain_handler_convention() {
+        let runner = AdapterFiles::PYTHON_RUNNER;
+        assert!(runner.contains("getattr(module, class_name, None)"));
+        assert!(runner.contains("return \"Handler\""));
+        assert!(!runner.contains("_CONTROLLER"));
     }
 
     #[test]
     fn unsettled_cleanup_event_is_correlated_and_contains_no_process_output() {
-        let event = cleanup_unsettled_event("request-42", Some(123), true);
+        let event = ProcessReaper::cleanup_unsettled_event("request-42", Some(123), true);
         assert_eq!(event["request_id"], "request-42");
         assert_eq!(event["process_id"], 123);
         assert_eq!(event["event"], "handler.cleanup_unsettled");
@@ -1522,10 +1128,8 @@ mod tests {
     fn missing_external_runtimes_are_ty2112_and_spawn_details_are_redacted() {
         let canary = "tachyon-runtime-does-not-exist-secret-canary";
         let mut command = Command::new(canary);
-        let Err(failure) = spawn_process(
-            &mut command,
-            RuntimeIdentity::JavaScript { configured: true },
-        ) else {
+        let Err(failure) = RuntimeIdentity::JavaScript { configured: true }.spawn(&mut command)
+        else {
             panic!("runtime unexpectedly started");
         };
         let rendered = failure.to_string();
@@ -1533,8 +1137,7 @@ mod tests {
         assert!(!rendered.contains(canary), "{rendered}");
 
         let mut prepared = Command::new(canary);
-        let Err(prepared_failure) = spawn_process(&mut prepared, RuntimeIdentity::PreparedArtifact)
-        else {
+        let Err(prepared_failure) = RuntimeIdentity::PreparedArtifact.spawn(&mut prepared) else {
             panic!("prepared artifact unexpectedly started");
         };
         assert!(prepared_failure.to_string().contains("TY2101"));
@@ -1587,43 +1190,68 @@ mod tests {
         }
     }
 
+    fn aborted_drain_task() -> tokio::task::JoinHandle<Drained> {
+        let failed = tokio::spawn(std::future::pending::<Drained>());
+        failed.abort();
+        failed
+    }
+
+    fn empty_drain_task() -> tokio::task::JoinHandle<Drained> {
+        tokio::spawn(async {
+            Drained {
+                bytes: Vec::new(),
+                overflow: false,
+                read_error: false,
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn a_passed_deadline_wins_over_a_free_permit() {
+        let permits = std::sync::Arc::new(tokio::sync::Semaphore::new(1));
+        let cancellation = super::HandlerCancellation::default();
+        let deadline = Instant::now();
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        for _attempt in 0..64 {
+            let refused = HandlerSupervisor::acquire_permit_from(&permits, &cancellation, deadline)
+                .await
+                .expect_err("no time left");
+            assert!(refused.to_string().contains("TY2110"), "{refused}");
+        }
+        assert!(HandlerSupervisor::too_late_to_start(deadline, &cancellation).is_some());
+        let later = Instant::now() + Duration::from_secs(5);
+        assert!(HandlerSupervisor::too_late_to_start(later, &cancellation).is_none());
+        cancellation.cancel();
+        let cancelled =
+            HandlerSupervisor::too_late_to_start(later, &cancellation).expect("cancelled");
+        assert!(cancelled.to_string().contains("TY2111"), "{cancelled}");
+    }
+
     #[tokio::test]
     async fn drain_and_task_failures_are_bounded() {
-        let drained = drain(BrokenReader, 8).await;
+        let drained = Drained::read_all(BrokenReader, 8).await;
         assert!(drained.read_error);
         assert!(!drained.overflow);
 
-        let failed = tokio::spawn(std::future::pending::<Drained>());
-        failed.abort();
-        let healthy = tokio::spawn(async {
-            Drained {
-                bytes: Vec::new(),
-                overflow: false,
-                read_error: false,
-            }
-        });
-        let failure = settle_tasks(failed, healthy, Instant::now() + Duration::from_secs(1))
-            .await
-            .expect_err("join failure");
+        let failed = aborted_drain_task();
+        let healthy = empty_drain_task();
+        let failure =
+            Drained::settle_pair(failed, healthy, Instant::now() + Duration::from_secs(1))
+                .await
+                .expect_err("join failure");
         assert!(failure.to_string().contains("TY2101"));
 
-        let healthy = tokio::spawn(async {
-            Drained {
-                bytes: Vec::new(),
-                overflow: false,
-                read_error: false,
-            }
-        });
-        let failed = tokio::spawn(std::future::pending::<Drained>());
-        failed.abort();
-        let failure = settle_tasks(healthy, failed, Instant::now() + Duration::from_secs(1))
-            .await
-            .expect_err("join failure");
+        let healthy = empty_drain_task();
+        let failed = aborted_drain_task();
+        let failure =
+            Drained::settle_pair(healthy, failed, Instant::now() + Duration::from_secs(1))
+                .await
+                .expect_err("join failure");
         assert!(failure.to_string().contains("TY2101"));
 
         let pending_stdout = tokio::spawn(std::future::pending::<Drained>());
         let pending_stderr = tokio::spawn(std::future::pending::<Drained>());
-        let failure = settle_tasks(
+        let failure = Drained::settle_pair(
             pending_stdout,
             pending_stderr,
             Instant::now() + Duration::from_millis(10),
@@ -1636,18 +1264,139 @@ mod tests {
     #[test]
     fn internal_process_failures_and_sideband_are_sanitized() {
         assert!(
-            adapter_io(&io::Error::other("temporary"))
+            AdapterFiles::io_failure(&io::Error::other("temporary"))
                 .to_string()
                 .contains("TY2101")
         );
         assert!(
-            process_pipe_failure("stdout")
+            ProcessFailure::missing_pipe("stdout")
                 .to_string()
                 .contains("TY2101")
         );
         assert_eq!(
-            bounded_sideband(b"visible\x1b[31m\nline"),
+            Drained::bounded_sideband(b"visible\x1b[31m\nline"),
             "visible[31m\nline"
         );
+    }
+
+    struct FailingStream {
+        extension: &'static str,
+        program: &'static str,
+        version_flag: &'static str,
+        source: &'static str,
+    }
+
+    impl FailingStream {
+        const CASES: [Self; 7] = [
+            Self {
+                extension: "kt",
+                program: "kotlinc",
+                version_flag: "-version",
+                source: "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n    @StreamRoute\n    fun streamEvents() = sequence {\n        yield(mapOf(\"tick\" to 1))\n        throw IllegalStateException(\"secret-canary\")\n    }\n}\n",
+            },
+            Self {
+                extension: "cs",
+                program: "dotnet",
+                version_flag: "--version",
+                source: "[RequestRoute(\"/events\")]\n[Public]\nclass EventsController {\n    [StreamRoute]\n    public System.Collections.Generic.IEnumerable<object> StreamEvents() {\n        yield return new { tick = 1 };\n        throw new System.InvalidOperationException(\"secret-canary\");\n    }\n}\n",
+            },
+            Self {
+                extension: "php",
+                program: "php-cgi",
+                version_flag: "--version",
+                source: "<?php\n#[RequestRoute(\"/events\")]\n#[Public]\nclass EventsController {\n    #[StreamRoute]\n    public function streamEvents() {\n        yield ['tick' => 1];\n        throw new RuntimeException('secret-canary');\n    }\n}\n",
+            },
+            Self {
+                extension: "dart",
+                program: "dart",
+                version_flag: "--version",
+                source: "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @StreamRoute\n  Stream<Object?> streamEvents() async* {\n    yield {'tick': 1};\n    throw StateError('secret-canary');\n  }\n}\n",
+            },
+            Self {
+                extension: "js",
+                program: "node",
+                version_flag: "--version",
+                source: "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @StreamRoute\n  *streamEvents() {\n    yield { tick: 1 }\n    throw new Error('secret-canary')\n  }\n}\n",
+            },
+            Self {
+                extension: "py",
+                program: "python3",
+                version_flag: "--version",
+                source: "@request_route('/events')\n@public\nclass EventsController:\n    @stream_route\n    def stream(self, request):\n        yield {\"tick\": 1}\n        raise RuntimeError(\"secret-canary\")\n",
+            },
+            Self {
+                extension: "rb",
+                program: "ruby",
+                version_flag: "--version",
+                source: "#[RequestRoute(\"/events\")]\n#[Public]\nclass EventsController\n  #[StreamRoute]\n  def stream_events\n    yield({ \"tick\" => 1 })\n    raise \"secret-canary\"\n  end\nend\n",
+            },
+        ];
+
+        fn available(&self) -> bool {
+            std::process::Command::new(self.program)
+                .arg(self.version_flag)
+                .output()
+                .is_ok_and(|output| output.status.success())
+        }
+
+        async fn protocol_output(&self) -> String {
+            let root = tempfile::tempdir().expect("project");
+            let relative = format!("server/controllers/EventsController.{}", self.extension);
+            let path = root.path().join(&relative);
+            std::fs::create_dir_all(path.parent().expect("controllers")).expect("controllers");
+            std::fs::write(&path, self.source).expect("controller");
+            let source = HandlerSource::discover(root.path(), &relative).expect("stream source");
+            let supervisor =
+                HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+            let adapter = AdapterFiles::materialize(source.language()).expect("adapter");
+            let mut planned = supervisor.command(&source, &adapter);
+            let direct = supervisor.uses_direct_protocol(&source);
+            let mut request = tachyon_contracts::HandlerRequest::route(
+                "events",
+                "/events",
+                tachyon_contracts::HttpMethod::Get,
+            );
+            request.deadline_ms = Some(60_000);
+            let bytes = HandlerSupervisor::encode_request(direct, &request).expect("request");
+            let mut child = planned.command.spawn().expect("handler starts");
+            let mut stdin = child.stdin.take().expect("stdin");
+            tokio::io::AsyncWriteExt::write_all(&mut stdin, &bytes)
+                .await
+                .expect("request written");
+            let _open = HandlerSupervisor::stdin_kept_open(stdin, direct);
+            let mut stdout = child.stdout.take().expect("stdout");
+            let mut output = Vec::new();
+            tokio::time::timeout(
+                Duration::from_mins(2),
+                tokio::io::AsyncReadExt::read_to_end(&mut stdout, &mut output),
+            )
+            .await
+            .expect("handler finishes")
+            .expect("stdout read");
+            String::from_utf8_lossy(&output).into_owned()
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_failures_send_a_fixed_error_without_the_exception_text() {
+        let mut wrong = Vec::new();
+        for case in FailingStream::CASES {
+            if !case.available() {
+                eprintln!(
+                    "Skipping {} stream failure: {} unavailable",
+                    case.extension, case.program
+                );
+                continue;
+            }
+            let output = case.protocol_output().await;
+            let fixed = output.contains("tick")
+                && output.contains("TY2204")
+                && output.contains("The handler stream failed.")
+                && !output.contains("secret-canary");
+            if !fixed {
+                wrong.push(format!("{}: {output}", case.extension));
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
     }
 }

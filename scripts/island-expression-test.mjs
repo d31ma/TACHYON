@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-// Tac client expression and structural rerender gate (ADR 0015).
-//
-// Expressions and structural tags must resolve against the companion instance
-// in a real browser. A render plan that ships but never creates the expected DOM
-// is the exact defect this guards, so nothing is asserted from generated HTML.
 
+import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { spawnSync } from 'node:child_process';
@@ -14,60 +10,65 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const TY = process.env.TAC_BIN ?? path.join(REPO, 'target/release/ty');
-const PROJECT = path.join(tmpdir(), 'ty-island-expression-gate');
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+class IslandExpressionGate {
+  static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty');
+  static project = path.join(tmpdir(), 'ty-island-expression-gate');
+  static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+}
 
-const write = (relative, contents) => {
-  const file = path.join(PROJECT, relative);
+function write(relative, contents) {
+  const file = path.join(IslandExpressionGate.project, relative);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, contents);
-};
+}
 
-rmSync(PROJECT, { recursive: true, force: true });
-write('client/pages/tac.html', '<main aria-label="Client view"><panel-status hydrate="load" /></main>\n');
-write('client/components/panel/status/tac.html', `<section>
-  <p id="method">{loadingState()}</p>
-  <p id="field">{label}</p>
-  <p id="maths">{count + 1}</p>
-  <p id="ternary">{count > 3 ? 'many' : 'few'}</p>
-  <p id="nested">{report.title}</p>
-  <p id="chained">{report.rows.length}</p>
-  <p id="awaited">{await note()}</p>
-  <p id="live">{count}</p>
-  <if :when="count > 0">
-    <ul id="rows"><for :each="row in report.rows"><li>{row}</li></for></ul>
+function writeFixture() {
+  rmSync(IslandExpressionGate.project, { recursive: true, force: true });
+  write('client/pages/tac.html', '<panel-status />\n');
+  write('client/components/panel/status/tac.html', `<section>
+  <p id="method">{panelStatus.loadingState()}</p>
+  <p id="field">{panelStatus.label}</p>
+  <p id="maths">{panelStatus.count + 1}</p>
+  <p id="ternary">{panelStatus.count > 3 ? 'many' : 'few'}</p>
+  <p id="nested">{panelStatus.report.title}</p>
+  <p id="chained">{panelStatus.report.rows.length}</p>
+  <p id="awaited">{await panelStatus.note()}</p>
+  <p id="live">{panelStatus.count}</p>
+  <if :when="panelStatus.count > 0">
+    <ul id="rows"><for :each="row in panelStatus.report.rows"><li>{row}</li></for></ul>
   </if>
   <else><p id="empty">empty</p></else>
-  <button id="bump" on:click="count += 1">bump</button>
-  <button id="reset" on:click="reset()">reset</button>
-  <input id="typed" on:input="label = $event.target.value">
-  <p id="typedOut">{label}</p>
+  <button id="bump" on:click="panelStatus.count += 1">bump</button>
+  <button id="reset" on:click="panelStatus.reset()">reset</button>
+  <input id="typed" on:input="panelStatus.label = $event.target.value">
+  <p id="typedOut">{panelStatus.label}</p>
   <section id="lexical-scope">
-    <loop :for="account of accounts">
+    <loop :for="account of panelStatus.accounts">
       <p class="outer-before">{account.domain}</p>
-      <loop :for="role of roles">
-        <p class="two-level" :data-pair="value(account, role)">{value(account, role)}</p>
-        <if :when="value(account, role) === 'example.com:inbox'">
-          <p class="matched-pair">{value(account, role)}</p>
+      <loop :for="role of panelStatus.roles">
+        <p class="two-level" :data-pair="panelStatus.value(account, role)">{panelStatus.value(account, role)}</p>
+        <if :when="panelStatus.value(account, role) === 'example.com:inbox'">
+          <p class="matched-pair">{panelStatus.value(account, role)}</p>
         </if>
-        <scope-probe :label="value(account, role)" />
-        <button class="select-pair" on:click="select(account.domain, role.id)">select</button>
-        <loop :for="folder of foldersFor(account, role)">
-          <p class="three-level">{triple(account, role, folder)}</p>
+        <scope-probe :label="panelStatus.value(account, role)" />
+        <button class="select-pair" on:click="panelStatus.select(account.domain, role.id)">select</button>
+        <loop :for="folder of panelStatus.foldersFor(account, role)">
+          <p class="three-level">{panelStatus.triple(account, role, folder)}</p>
         </loop>
       </loop>
-      <loop :for="account of shadowAccounts">
+      <loop :for="account of panelStatus.shadowAccounts">
         <p class="shadowed-account">{account.domain}</p>
       </loop>
       <p class="outer-after">{account.domain}</p>
     </loop>
-    <output id="selection">{selection}</output>
+    <output id="selection">{panelStatus.selection}</output>
   </section>
 </section>
 `);
-write('client/components/panel/status/tac.js', `export default class {
+  write('client/services/PanelStatusService.js', `@Service()
+export default class PanelStatusService {
+  static MISSING = 'missing'
   label = 'ready'
   count = 6
   report = { title: 'Report', rows: [1, 2, 3] }
@@ -78,60 +79,68 @@ write('client/components/panel/status/tac.js', `export default class {
   loadingState() { return 'live' }
   async note() { return 'awaited' }
   reset() { this.count = 0 }
-  value(account, role) { return \`\${account?.domain || 'missing'}:\${role?.id || 'missing'}\` }
+  value(account, role) { return \`\${this.#domainOf(account)}:\${this.#idOf(role)}\` }
   foldersFor(account, role) {
-    if (!account || !role) return []
-    return [{ id: account.domain === 'example.com' ? 'primary' : 'archive' }]
+    const given = this.#bothGiven(account, role)
+    return this.#listWhen(given, { id: this.#folderId(account) })
   }
   triple(account, role, folder) {
-    return \`\${account?.domain || 'missing'}:\${role?.id || 'missing'}:\${folder?.id || 'missing'}\`
+    return \`\${this.#domainOf(account)}:\${this.#idOf(role)}:\${this.#idOf(folder)}\`
   }
   select(_event, domain, role) { this.selection = \`\${domain}:\${role}\` }
-  hydrate() {}
+  #domainOf(account) { return account?.domain || PanelStatusService.MISSING }
+  #idOf(item) { return item?.id || PanelStatusService.MISSING }
+  #bothGiven(account, role) { return Boolean(account && role) }
+  #folderId(account) { return account?.domain === 'example.com' ? 'primary' : 'archive' }
+  #listWhen(given, item) {
+    if (!given) return []
+    return [item]
+  }
 }
 `);
-write('client/components/scope/probe/tac.html', '<p class="component-prop">{label}</p>\n');
-
-const built = spawnSync(TY, ['build', PROJECT], { encoding: 'utf8' });
-if (built.status !== 0) {
-  console.error(built.stderr || built.stdout);
-  process.exit(1);
+  write('client/components/scope/probe/tac.html', '<p class="component-prop">{label}</p>\n');
 }
 
-const root = path.join(PROJECT, 'dist');
-const server = createServer((request, response) => {
-  let file = path.join(root, decodeURIComponent(request.url.split('?')[0]));
-  if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
-  if (!existsSync(file)) { response.writeHead(404).end(); return; }
-  response.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' });
-  createReadStream(file).pipe(response);
-});
+function buildFixture() {
+  const built = spawnSync(IslandExpressionGate.binary, ['build', IslandExpressionGate.project], { encoding: 'utf8' });
+  if (built.status !== 0) {
+    console.error(built.stderr || built.stdout);
+    process.exit(1);
+  }
+}
 
-const fail = (message) => { console.error(`FAIL: ${message}`); process.exitCode = 1; };
-const expect = (actual, wanted, label) => {
+function serveDist() {
+  const root = path.join(IslandExpressionGate.project, 'dist');
+  return createServer((request, response) => {
+    let file = path.join(root, decodeURIComponent(request.url.split('?')[0]));
+    if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
+    if (!existsSync(file)) { response.writeHead(404).end(); return; }
+    response.writeHead(200, { 'content-type': IslandExpressionGate.mimeTypes[path.extname(file)] ?? 'application/octet-stream' });
+    createReadStream(file).pipe(response);
+  });
+}
+
+function fail(message) {
+  console.error(`FAIL: ${message}`);
+  process.exitCode = 1;
+}
+
+function expect(actual, wanted, label) {
   if (actual === wanted) console.log(`    ok   ${label}: ${actual}`);
   else fail(`${label}: expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`);
-};
+}
 
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch();
-const page = await browser.newPage();
-const errors = [];
-page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
-page.on('pageerror', (error) => errors.push(String(error)));
-
-try {
+async function checkPage(page, origin, errors) {
   await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.documentElement.dataset.tachyonRendered === 'client', null, { timeout: 5000 });
 
-  expect(await page.textContent('#method'), 'live', 'method call on the companion');
-  expect(await page.textContent('#field'), 'ready', 'companion field');
-  expect(await page.textContent('#maths'), '7', 'arithmetic over a companion field');
-  expect(await page.textContent('#ternary'), 'many', 'conditional over a companion field');
+  expect(await page.textContent('#method'), 'live', 'method call on the service');
+  expect(await page.textContent('#field'), 'ready', 'service field');
+  expect(await page.textContent('#maths'), '7', 'arithmetic over a service field');
+  expect(await page.textContent('#ternary'), 'many', 'conditional over a service field');
   expect(await page.textContent('#nested'), 'Report', 'nested property');
   expect(await page.textContent('#chained'), '3', 'property of a nested array');
-  expect(await page.textContent('#awaited'), 'awaited', 'awaited companion method');
+  expect(await page.textContent('#awaited'), 'awaited', 'awaited service method');
   expect((await page.locator('#rows li').allTextContents()).join(','), '1,2,3', 'client loop renders');
   expect(
     (await page.locator('.two-level').allTextContents()).join(','),
@@ -178,8 +187,6 @@ try {
   await page.waitForTimeout(150);
   expect(await page.textContent('#selection'), 'work.test:inbox', 'event arguments retain parent bindings');
 
-  // An assigning binding writes to the instance, and the client renderer
-  // rebuilds all affected structure and expressions.
   expect(await page.textContent('#live'), '6', 'initial value');
   await page.click('#bump');
   await page.waitForFunction(() => document.querySelector('#live').textContent === '7');
@@ -188,20 +195,17 @@ try {
   await page.waitForTimeout(100);
   expect(await page.textContent('#live'), '8', 'assignment accumulates');
 
-  // A handler on the companion updates the view too.
   await page.click('#reset');
   await page.waitForTimeout(100);
-  expect(await page.textContent('#live'), '0', 'companion method updates the view');
+  expect(await page.textContent('#live'), '0', 'service method updates the view');
   expect(await page.textContent('#maths'), '1', 'every expression refreshes, not just one');
   expect(await page.locator('#rows').count(), 0, 'client conditional removes its branch');
   expect(await page.textContent('#empty'), 'empty', 'client else branch renders');
 
-  // A plain assignment from $event.
   await page.fill('#typed', 'typed value');
   await page.waitForTimeout(150);
   expect(await page.textContent('#typedOut'), 'typed value', 'assignment from $event');
 
-  // The browser-mounted component must be active, not silently failed.
   expect(
     await page.getAttribute('tachyon-component', 'data-tachyon-active'),
     'true',
@@ -210,9 +214,28 @@ try {
   expect(await page.getAttribute('tachyon-component', 'data-tachyon-mount-error'), null, 'no mount error');
   expect(errors.length, 0, `no console errors${errors.length ? `: ${errors[0]}` : ''}`);
 }
-finally {
-  await browser.close();
-  server.close();
+
+async function main() {
+  writeFixture();
+  buildFixture();
+  const server = serveDist();
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('pageerror', (error) => errors.push(String(error)));
+
+  try {
+    await checkPage(page, origin, errors);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+
+  if (!process.exitCode) console.log('\nTac client expression gate passed');
 }
 
-if (!process.exitCode) console.log('\nTac client expression gate passed');
+await main();

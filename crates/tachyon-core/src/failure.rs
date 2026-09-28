@@ -1,14 +1,12 @@
 use std::fmt;
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticReport, Severity, SourceSpan};
 
-/// A failed Tachyon operation with stable structured diagnostics.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Failure {
     diagnostics: Vec<Diagnostic>,
 }
 
 impl Failure {
-    /// Creates a failure from one diagnostic.
     #[must_use]
     pub fn one(diagnostic: Diagnostic) -> Self {
         Self {
@@ -16,20 +14,17 @@ impl Failure {
         }
     }
 
-    /// Creates a failure from a non-empty diagnostic collection.
     #[must_use]
     pub fn new(diagnostics: Vec<Diagnostic>) -> Self {
         debug_assert!(!diagnostics.is_empty());
         Self { diagnostics }
     }
 
-    /// Returns the diagnostics in deterministic presentation order.
     #[must_use]
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }
 
-    /// Returns a serializable Diagnostics v1 report.
     #[must_use]
     pub fn report(&self) -> DiagnosticReport {
         DiagnosticReport::v1(self.diagnostics.clone())

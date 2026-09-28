@@ -1,0 +1,56 @@
+{
+  "id": "native-companions",
+  "title": "Polyglot native services",
+  "summary": "Native services can use Rust, Swift, Kotlin or C#. Their file layout matches JavaScript services: `client/services/BasketService.swift` is next to `BasketService.js`. Each language uses its own toolchain (its own compiler and build tools). On supported native targets, the compiled service links into the host and can call platform APIs directly. Tachyon generates a member table (a list of the fields and methods of the service) so that views can use them. It needs this table because a compiled class has no reflection (a way to list the members of a class while the program runs). If no browser script is present, a Rust or C# service also runs as WebAssembly on the web and on every native target that does not link it (ADR 0035, ADR 0037). No host links Go, so a Go service always runs as WebAssembly (ADR 0045). A Ruby service runs on Tachyon's mruby WebAssembly runtime on every target (ADR 0054). The example also shows the TypeScript, Dart, Go and Ruby versions. So each platform tab lists every language that can answer on that platform.",
+  "group": "Polyglot",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/basket/native/tac.html",
+      "code": { "file": "client/components/basket/native/tac.html" }
+    },
+    {
+      "name": "client/services/BasketService.js",
+      "code": { "file": "client/services/BasketService.js" }
+    },
+    {
+      "name": "client/services/BasketService.ts",
+      "code": { "file": "client/services/BasketService.ts" }
+    },
+    {
+      "name": "client/services/BasketService.dart",
+      "code": { "file": "client/services/BasketService.dart" }
+    },
+    {
+      "name": "client/services/BasketService.rs",
+      "code": { "file": "client/services/BasketService.rs" }
+    },
+    {
+      "name": "client/services/BasketService.swift",
+      "code": { "file": "client/services/BasketService.swift" }
+    },
+    {
+      "name": "client/services/BasketService.kt",
+      "code": { "file": "client/services/BasketService.kt" }
+    },
+    {
+      "name": "client/services/BasketService.cs",
+      "code": { "file": "client/services/BasketService.cs" }
+    },
+    {
+      "name": "client/services/BasketService.go",
+      "code": { "file": "client/services/BasketService.go" }
+    },
+    {
+      "name": "generated",
+      "code": { "file": "generated.txt" }
+    },
+    {
+      "name": "client/services/BasketService.rb",
+      "code": { "file": "client/services/BasketService.rb" }
+    }
+  ]
+}

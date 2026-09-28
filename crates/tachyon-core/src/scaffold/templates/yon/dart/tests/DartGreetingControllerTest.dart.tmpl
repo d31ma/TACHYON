@@ -1,0 +1,6 @@
+@Test(DartGreetingTestSetup, {"partition":"tests"})
+class DartGreetingControllerTest {
+  Future<void> testGetGreetingSaysHello() async {
+    if (DartGreetingController().getGreeting() != 'Hello from Dart') throw StateError('expected a greeting');
+  }
+}

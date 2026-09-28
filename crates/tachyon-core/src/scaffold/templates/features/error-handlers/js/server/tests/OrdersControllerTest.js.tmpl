@@ -1,0 +1,16 @@
+@Test(OrdersTestSetup, {"partition":"tests"})
+export default class OrdersControllerTest {
+  async testGetOrderThrowsOrderNotFound() {
+    const thrown = this.#errorOf(() => this.construct(OrdersController).getOrder())
+    if (!(thrown instanceof OrderNotFound)) throw Error(`thrown is ${thrown}`)
+  }
+
+  #errorOf(action) {
+    try {
+      action()
+    } catch (error) {
+      return error
+    }
+    return null
+  }
+}

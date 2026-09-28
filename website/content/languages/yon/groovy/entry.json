@@ -1,0 +1,31 @@
+{
+  "id": "groovy",
+  "name": "Groovy",
+  "note": "Groovy keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Every field and method has a declared type, not def, so that Tachyon can read the route types. Tachyon checks each file that you write. Then it joins the roles that use the same language, adds the protocol runtime and compiles your Groovy with its Java runtime on the same JVM. The protocol runtime is the code that passes requests and responses between the server and your route.",
+  "files": [
+    {
+      "name": "server/models/OrderList.groovy",
+      "code": {
+        "file": "server/models/OrderList.groovy"
+      }
+    },
+    {
+      "name": "server/services/OrderService.groovy",
+      "code": {
+        "file": "server/services/OrderService.groovy"
+      }
+    },
+    {
+      "name": "server/stores/OrderStore.groovy",
+      "code": {
+        "file": "server/stores/OrderStore.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.groovy",
+      "code": {
+        "file": "server/controllers/OrdersController.groovy"
+      }
+    }
+  ]
+}

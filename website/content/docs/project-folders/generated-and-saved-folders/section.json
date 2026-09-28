@@ -1,0 +1,7 @@
+{
+  "heading": "Generated folders and saved data",
+  "body": "Tachyon writes two generated folders. `.tachyon` in the project holds types for your editor, prepared copies of your Yon files, route contracts and the record of the methods that `ty test` called. `dist/.tachyon` in the build holds the page runtime, the component styles and the compiled services that the browser loads. Tachyon writes both again when it needs them, so you can delete them at any time, and `ty init` puts `.tachyon/` and `dist` in `.gitignore`. Neither folder holds saved data.\n\nSaved data lives in `data`. The topic logs are in `data/topics` unless `topics.directory` in `server/application.json` names another folder (see Topics). Back up this folder. `ty init` does not ignore it, so decide yourself whether to commit it: commit sample events that everyone needs, and ignore real user events.",
+  "code": {
+    "file": "example.txt"
+  }
+}

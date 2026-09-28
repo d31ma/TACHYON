@@ -1,0 +1,37 @@
+{
+  "id": "javascript",
+  "name": "JavaScript",
+  "note": "JavaScript keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+  "files": [
+    {
+      "name": "server/services/OrderService.js",
+      "code": {
+        "file": "server/services/OrderService.js"
+      }
+    },
+    {
+      "name": "server/stores/OrderStore.js",
+      "code": {
+        "file": "server/stores/OrderStore.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/models/Order.js",
+      "code": {
+        "file": "server/models/Order.js"
+      }
+    },
+    {
+      "name": "server/models/OrderList.js",
+      "code": {
+        "file": "server/models/OrderList.js"
+      }
+    }
+  ]
+}

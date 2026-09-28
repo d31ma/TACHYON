@@ -1,0 +1,5 @@
+{
+  "heading": "One program for pages and server",
+  "body": "Tac and Yon do not run as two servers. One process builds the client and serves the routes. A project may have only client/pages, only server/controllers, or both. `ty preview` builds again when a source file changes. `ty start` serves what you published and never builds again.",
+  "code": { "file": "example.sh" }
+}

@@ -1,0 +1,56 @@
+{
+  "id": "companions",
+  "title": "Service classes",
+  "summary": "A service is a class that holds the state and behavior of a view. A view refers to a service by its instance name: `BasketService` is `basket`. `{basket.count}` reads a field, and `on:click=\"basket.add()\"` calls a method. Fields hold the state of the view. Methods give its behavior. By default, a service is a page singleton (one shared instance for the whole page). Every component that names it shares that one instance. `NeedsAll` creates one service instance for each component instance. It uses the properties of that component. `Lifetime({\"value\":\"prototype\"})` also gives other services one instance for each component. `OnStart` runs after injection (the framework gives the service the objects it needs). It also waits until the component is attached to the DOM (the tree of elements on the page). `OnStop` cleans up work that the service owns. A declared `applicationEventPublisher` field and `OnEvent` replace local publish and subscribe code that you would write by hand. A `Needs` field named after a browser resource receives that resource. There is no general framework object on the instance. Ordinary imports and helper functions still work. Constants are static class fields.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/basket/summary/tac.html",
+      "code": { "file": "client/components/basket/summary/tac.html" }
+    },
+    {
+      "name": "client/services/BasketService.js",
+      "code": { "file": "client/services/BasketService.js" }
+    },
+    {
+      "name": "client/services/BasketService.ts",
+      "code": { "file": "client/services/BasketService.ts" }
+    },
+    {
+      "name": "conventions",
+      "code": { "file": "conventions.txt" }
+    },
+    {
+      "name": "client/components/cart/summary/tac.html",
+      "code": { "file": "client/components/cart/summary/tac.html" }
+    },
+    {
+      "name": "client/services/CartService.js",
+      "code": { "file": "client/services/CartService.js" }
+    },
+    {
+      "name": "client/services/CartService.ts",
+      "code": { "file": "client/services/CartService.ts" }
+    },
+    {
+      "name": "client/components/live-total/tac.html",
+      "code": { "file": "client/components/live-total/tac.html" }
+    },
+    {
+      "name": "client/services/LiveTotalService.js",
+      "code": { "file": "client/services/LiveTotalService.js" }
+    },
+    {
+      "name": "client/services/LiveTotalService.ts",
+      "code": { "file": "client/services/LiveTotalService.ts" }
+    },
+    {
+      "name": "client/models/CartTotal.ts",
+      "code": { "file": "client/models/CartTotal.ts" }
+    }
+  ]
+}

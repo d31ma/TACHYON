@@ -1,35 +1,11 @@
+use super::site::{RawCacheRule, SiteMetadata, SitemapValues};
 use crate::Failure;
-use crate::external_command::{ToolError, run as supervise_tool};
 use crate::failure::{diagnostic, source_span};
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
-
-/// Config file names, in the order they are accepted.
-///
-/// Configuration is a module the project already knows how to write, not a
-/// separate data dialect: the same file that carries the build hooks carries
-/// the application's identity, and it can compute those values rather than
-/// repeat them.
-const CONFIG_NAMES: [&str; 3] = ["tac.config.js", "tac.config.mjs", "tac.config.ts"];
-const MAX_CONFIG_BYTES: u64 = 1_024 * 1_024;
-
-/// Reads the configuration module and writes one named export as JSON.
-///
-/// Evaluating it needs the project's own runtime, because the module is the
-/// developer's code and may import from the project.
-const CONFIG_RUNNER: &str = r"import { pathToFileURL } from 'node:url'
-const source = process.env.TAC_CONFIG
-if (!source) throw new Error('missing Tachyon config path')
-const name = process.env.TAC_CONFIG_EXPORT
-const loaded = await import(`${pathToFileURL(source).href}?tachyon=${process.env.TAC_CONFIG_NONCE}`)
-const resolved = loaded[name] ?? loaded.default?.[name]
-const value = typeof resolved === 'function' ? await resolved() : resolved
-if (value === undefined) process.stdout.write('null')
-else process.stdout.write(JSON.stringify(value))
-";
+use std::path::Path;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct NativeApplication {
@@ -38,44 +14,21 @@ pub(super) struct NativeApplication {
     pub(super) application_id: String,
     pub(super) version: String,
     pub(super) entry_route: String,
-    /// The raster icons the manifest declared, largest edge first.
-    ///
-    /// The list rather than one choice, because each platform wants a
-    /// different size: macOS builds every `.icns` slice from the largest,
-    /// Windows cannot embed a PNG wider than 256 in an `.ico`, and Android
-    /// scales one bucket down.
     pub(super) icons: Vec<(u32, String)>,
-    /// The window this application opens with, and what a page may do to it.
     pub(super) window: WindowConfiguration,
 }
 
-/// The window a native target opens, declared once in `manifest.json`.
-///
-/// A web app manifest already says what an application is called, what its
-/// icon is and where it starts. What it has never had is a window size, so
-/// that lives beside those under a `tachyon` member — a manifest carrying
-/// unknown members is still a valid manifest, and a browser ignores it.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(super) struct WindowConfiguration {
-    /// Logical width the window opens at.
     #[serde(default = "default_width")]
     pub(super) width: u32,
-    /// Logical height the window opens at.
     #[serde(default = "default_height")]
     pub(super) height: u32,
-    /// Smallest width the window may be resized to.
     #[serde(default)]
     pub(super) min_width: Option<u32>,
-    /// Smallest height the window may be resized to.
     #[serde(default)]
     pub(super) min_height: Option<u32>,
-    /// What a browser companion is permitted to do to the window.
-    ///
-    /// Empty by default. Electron hands a privileged process the window and
-    /// lets it do anything; Tauri gates each call behind a permission in a
-    /// separate capabilities dialect. This is the same default-deny, declared
-    /// in the file the application already has to ship.
     #[serde(default)]
     pub(super) controls: Vec<String>,
 }
@@ -101,7 +54,6 @@ impl Default for WindowConfiguration {
 }
 
 impl WindowConfiguration {
-    /// Every control a page may be granted.
     pub(super) const KNOWN: [&'static str; 6] = [
         "close",
         "fullscreen",
@@ -110,195 +62,232 @@ impl WindowConfiguration {
         "resize",
         "title",
     ];
+    const MIN_EDGE: u32 = 64;
+    const MAX_EDGE: u32 = 16_384;
 
-    /// Whether one control was granted.
     pub(super) fn grants(&self, control: &str) -> bool {
         self.controls.iter().any(|value| value == control)
     }
-}
 
-/// The manifest a project ships for the web platform, if it has one.
-///
-/// `manifest.json` at the project root, which is where a PWA already puts it.
-/// Absent is not an error for a web build — a page without a manifest is a
-/// page — but a native target needs a name, an identifier and a window, and
-/// this is where they are declared.
-pub(super) fn read_manifest(project_root: &Path) -> Result<Option<WebAppManifest>, Failure> {
-    let path = project_root.join(MANIFEST_NAME);
-    let metadata = match fs::symlink_metadata(&path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => {
-            return Err(config_failure(&format!(
-                "Cannot inspect {MANIFEST_NAME}: {error}"
-            )));
+    fn edge_is_supported(edge: u32) -> bool {
+        (Self::MIN_EDGE..=Self::MAX_EDGE).contains(&edge)
+    }
+
+    fn has_duplicate_controls(&self) -> bool {
+        let unique = self
+            .controls
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>();
+        unique.len() != self.controls.len()
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        if !Self::edge_is_supported(self.width) || !Self::edge_is_supported(self.height) {
+            return false;
         }
-    };
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(config_failure(&format!(
-            "{MANIFEST_NAME} must be a regular, non-symlinked file."
-        )));
+        if self.min_width.is_some_and(|value| value > self.width) {
+            return false;
+        }
+        if self.min_height.is_some_and(|value| value > self.height) {
+            return false;
+        }
+        if self.controls.len() > Self::KNOWN.len() {
+            return false;
+        }
+        !self.has_duplicate_controls()
     }
-    if metadata.len() > MAX_CONFIG_BYTES {
-        return Err(config_failure(&format!(
-            "{MANIFEST_NAME} exceeds the 1 MiB limit."
-        )));
-    }
-    let source = fs::read_to_string(&path)
-        .map_err(|error| config_failure(&format!("Cannot read {MANIFEST_NAME}: {error}")))?;
-    let manifest: WebAppManifest = serde_json::from_str(crate::without_bom(&source))
-        .map_err(|error| config_failure(&format!("{MANIFEST_NAME} is invalid: {error}")))?;
-    validate_manifest(&manifest)?;
-    if let Some(tachyon) = &manifest.tachyon
-        && let Some(window) = &tachyon.window
-    {
-        for control in &window.controls {
-            if !WindowConfiguration::KNOWN.contains(&control.as_str()) {
+
+    fn ensure_known_controls(&self) -> Result<(), Failure> {
+        for control in &self.controls {
+            if !Self::KNOWN.contains(&control.as_str()) {
                 return Err(config_failure(&format!(
                     "'{control}' is not a window control. Grant any of: {}.",
-                    WindowConfiguration::KNOWN.join(", ")
+                    Self::KNOWN.join(", ")
                 )));
             }
         }
+        Ok(())
     }
+}
+
+fn manifest_metadata(path: &Path) -> Result<Option<fs::Metadata>, Failure> {
+    let manifest_name = WebAppManifest::SOURCE_PATH;
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => Ok(Some(metadata)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(config_failure(&format!(
+            "Cannot inspect {manifest_name}: {error}"
+        ))),
+    }
+}
+
+pub(super) fn read_manifest(project_root: &Path) -> Result<Option<WebAppManifest>, Failure> {
+    let legacy_name = WebAppManifest::LEGACY_NAME;
+    let manifest_name = WebAppManifest::SOURCE_PATH;
+    if fs::symlink_metadata(project_root.join(legacy_name)).is_ok() {
+        return Err(config_failure(&format!(
+            "{legacy_name} at the project root moved to {manifest_name}, beside the client it describes (ADR 0034)."
+        )));
+    }
+    let path = project_root.join(manifest_name);
+    let Some(metadata) = manifest_metadata(&path)? else {
+        return Ok(None);
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(config_failure(&format!(
+            "{manifest_name} must be a regular, non-symlinked file."
+        )));
+    }
+    if metadata.len() > WebAppManifest::MAX_BYTES {
+        return Err(config_failure(&format!(
+            "{manifest_name} exceeds the 1 MiB limit."
+        )));
+    }
+    let source = fs::read_to_string(&path)
+        .map_err(|error| config_failure(&format!("Cannot read {manifest_name}: {error}")))?;
+    let manifest: WebAppManifest = serde_json::from_str(crate::without_bom(&source))
+        .map_err(|error| config_failure(&format!("{manifest_name} is invalid: {error}")))?;
+    validate_manifest(&manifest)?;
     Ok(Some(manifest))
+}
+
+fn valid_manifest_name(name: &str) -> bool {
+    !name.trim().is_empty()
+        && name.chars().count() <= 64
+        && !name.chars().any(char::is_control)
+        && !executable_name(name).is_empty()
+}
+
+fn valid_icon_source(source: &str) -> bool {
+    let relative = source.trim_start_matches('/');
+    if relative.is_empty() || source.starts_with("//") {
+        return false;
+    }
+    if relative.contains(['\\', ':', '?', '#', '%']) {
+        return false;
+    }
+    for segment in relative.split('/') {
+        if matches!(segment, "" | "." | "..") {
+            return false;
+        }
+    }
+    true
+}
+
+fn valid_version(version: &str) -> bool {
+    if version.is_empty() || version.len() > 64 {
+        return false;
+    }
+    version
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'+'))
 }
 
 fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
     for name in [&manifest.name, &manifest.short_name].into_iter().flatten() {
-        if name.trim().is_empty()
-            || name.chars().count() > 64
-            || name.chars().any(char::is_control)
-            || executable_name(name).is_empty()
-        {
+        if !valid_manifest_name(name) {
             return Err(config_failure(
                 "Manifest names must contain 1 to 64 printable characters and an ASCII letter or digit.",
             ));
         }
     }
-    if manifest
-        .start_url
-        .as_ref()
-        .is_some_and(|route| !valid_route(route))
+    if let Some(route) = &manifest.start_url
+        && !valid_route(route)
     {
         return Err(config_failure(
             "Manifest start_url must be a canonical local route.",
         ));
     }
     for icon in &manifest.icons {
-        let source = icon.src.trim_start_matches('/');
-        if source.is_empty()
-            || icon.src.starts_with("//")
-            || source.contains(['\\', ':', '?', '#', '%'])
-            || source
-                .split('/')
-                .any(|segment| matches!(segment, "" | "." | ".."))
-        {
+        if !valid_icon_source(&icon.src) {
             return Err(config_failure(
                 "Manifest icons must identify contained local bundle paths.",
             ));
         }
     }
-    let Some(tachyon) = &manifest.tachyon else {
+    if manifest.tachyon.is_some() {
+        return Err(config_failure(
+            "The manifest member tachyon moved to tac.application. Move id, version and window there.",
+        ));
+    }
+    let Some(application) = manifest.application() else {
         return Ok(());
     };
-    if tachyon
-        .id
-        .as_ref()
-        .is_some_and(|id| !valid_application_id(id))
+    validate_manifest_application(application)
+}
+
+fn validate_manifest_application(application: &ManifestApplication) -> Result<(), Failure> {
+    if let Some(id) = &application.id
+        && !valid_application_id(id)
     {
         return Err(config_failure(
-            "Manifest tachyon.id must be a bounded lowercase reverse-DNS identifier.",
+            "Manifest tac.application.id must be a bounded lowercase reverse-DNS identifier, such as com.example.app.",
         ));
     }
-    if tachyon.version.as_ref().is_some_and(|version| {
-        version.is_empty()
-            || version.len() > 64
-            || !version
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'+'))
-    }) {
-        return Err(config_failure(
-            "Manifest tachyon.version must be a bounded portable version.",
-        ));
-    }
-    if let Some(window) = &tachyon.window
-        && (!(64..=16_384).contains(&window.width)
-            || !(64..=16_384).contains(&window.height)
-            || window.min_width.is_some_and(|value| value > window.width)
-            || window.min_height.is_some_and(|value| value > window.height)
-            || window.controls.len() > WindowConfiguration::KNOWN.len()
-            || window
-                .controls
-                .iter()
-                .collect::<std::collections::BTreeSet<_>>()
-                .len()
-                != window.controls.len())
+    if let Some(version) = &application.version
+        && !valid_version(version)
     {
         return Err(config_failure(
-            "Manifest window dimensions or controls exceed their supported bounds.",
+            "Manifest tac.application.version must be a portable version of at most 64 letters, digits, '.', '-' or '+', such as 1.4.0.",
+        ));
+    }
+    let Some(window) = &application.window else {
+        return Ok(());
+    };
+    window.ensure_known_controls()?;
+    if !window.is_within_bounds() {
+        return Err(config_failure(
+            "Manifest tac.application.window sizes must be 64 to 16384, a minimum no larger than its size, and each control listed once.",
         ));
     }
     Ok(())
 }
 
-/// The edge length an icon declares, or zero when it declares none.
 fn icon_edge(icon: &ManifestIcon) -> u32 {
-    icon.sizes
-        .as_deref()
-        .and_then(|sizes| sizes.split_whitespace().next())
-        .and_then(|size| size.split(['x', 'X']).next())
-        .and_then(|value| value.parse::<u32>().ok())
-        .unwrap_or(0)
+    let Some(sizes) = icon.sizes.as_deref() else {
+        return 0;
+    };
+    let Some(first_size) = sizes.split_whitespace().next() else {
+        return 0;
+    };
+    let Some(width) = first_size.split(['x', 'X']).next() else {
+        return 0;
+    };
+    width.parse::<u32>().unwrap_or(0)
 }
 
-/// Whether a source names an SVG, however it was cased.
 fn is_svg(source: &str) -> bool {
     std::path::Path::new(source)
         .extension()
         .is_some_and(|value| value.eq_ignore_ascii_case("svg"))
 }
 
-/// The file a project declares its identity in.
-pub(crate) const MANIFEST_NAME: &str = "manifest.json";
+fn icon_link(icon: &ManifestIcon) -> String {
+    use crate::compiler::html_attribute_escape;
 
-/// The name the manifest is published under, which is the media type's own.
-pub(crate) const MANIFEST_OUTPUT: &str = "manifest.webmanifest";
+    let kind = if is_svg(&icon.src) {
+        r#" type="image/svg+xml""#
+    } else {
+        ""
+    };
+    let sizes = match icon.sizes.as_deref() {
+        Some(value) => format!(r#" sizes="{}""#, html_attribute_escape(value)),
+        None => String::new(),
+    };
+    format!(
+        r#"<link rel="icon" href="{}"{kind}{sizes}>"#,
+        html_attribute_escape(&icon.src)
+    )
+}
 
-/// The head elements a document gets from the project's manifest.
-///
-/// One declaration, three uses: the favicon a browser tab shows, the manifest
-/// an install prompt reads, and the icon a native build compiles into its
-/// bundle. They were the same artwork all along; this is the site saying so
-/// once instead of three times.
-///
-/// # Errors
-///
-/// Returns a diagnostic when the manifest cannot be read or parsed.
-pub(crate) fn manifest_head(project_root: &Path) -> Result<String, Failure> {
+pub(super) fn manifest_head(manifest: &WebAppManifest) -> String {
     use crate::compiler::html_attribute_escape;
     use std::fmt::Write as _;
 
-    let Some(manifest) = read_manifest(project_root)? else {
-        return Ok(String::new());
-    };
-    let mut head = format!(r#"<link rel="manifest" href="/{MANIFEST_OUTPUT}">"#);
-    // An SVG scales to every tab and every density, so it is preferred where
-    // it exists; a PNG is listed beside it for anything that cannot read one.
+    let output_name = WebAppManifest::OUTPUT_NAME;
+    let mut head = format!(r#"<link rel="manifest" href="/{output_name}">"#);
     for icon in &manifest.icons {
-        let kind = if is_svg(&icon.src) {
-            r#" type="image/svg+xml""#
-        } else {
-            ""
-        };
-        let sizes = icon.sizes.as_deref().map_or_else(String::new, |value| {
-            format!(r#" sizes="{}""#, html_attribute_escape(value))
-        });
-        let _ = write!(
-            head,
-            r#"<link rel="icon" href="{}"{kind}{sizes}>"#,
-            html_attribute_escape(&icon.src)
-        );
+        head.push_str(&icon_link(icon));
     }
     if let Some(largest) = manifest.largest_icon() {
         let _ = write!(
@@ -307,19 +296,20 @@ pub(crate) fn manifest_head(project_root: &Path) -> Result<String, Failure> {
             html_attribute_escape(largest)
         );
     }
-    Ok(head)
+    head
 }
 
-/// The subset of a web app manifest a native build reads.
 #[derive(Debug, Deserialize)]
-pub(super) struct WebAppManifest {
+pub(crate) struct WebAppManifest {
     name: Option<String>,
     short_name: Option<String>,
     start_url: Option<String>,
     #[serde(default)]
     icons: Vec<ManifestIcon>,
     #[serde(default)]
-    tachyon: Option<TachyonManifest>,
+    tac: Option<TacMember>,
+    #[serde(default)]
+    tachyon: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -330,12 +320,11 @@ pub(super) struct ManifestIcon {
 }
 
 impl WebAppManifest {
-    /// The largest raster icon the manifest declares.
-    ///
-    /// Raster, because every platform's icon pipeline wants pixels: macOS
-    /// builds an `.icns` from a PNG, and an SVG would have to be rasterised by
-    /// something Tachyon does not ship. A manifest that lists only an SVG gets
-    /// no native icon, which is the honest outcome rather than a blurry one.
+    const LEGACY_NAME: &str = "manifest.json";
+    const MAX_BYTES: u64 = 1_024 * 1_024;
+    pub(crate) const SOURCE_PATH: &str = "client/manifest.json";
+    pub(crate) const OUTPUT_NAME: &str = "manifest.webmanifest";
+
     pub(super) fn largest_icon(&self) -> Option<&str> {
         self.icons
             .iter()
@@ -344,126 +333,97 @@ impl WebAppManifest {
             .map(|icon| icon.src.as_str())
     }
 
-    /// Every raster icon declared, largest edge first.
     pub(super) fn raster_icons(&self) -> Vec<(u32, String)> {
-        let mut icons = self
-            .icons
-            .iter()
-            .filter(|icon| !is_svg(&icon.src))
-            .map(|icon| (icon_edge(icon), icon.src.clone()))
-            .collect::<Vec<_>>();
+        let mut icons = Vec::new();
+        for icon in &self.icons {
+            if !is_svg(&icon.src) {
+                icons.push((icon_edge(icon), icon.src.clone()));
+            }
+        }
         icons.sort_by_key(|(edge, _)| std::cmp::Reverse(*edge));
         icons
     }
+
+    fn display_name(&self) -> Option<String> {
+        self.name.clone().or_else(|| self.short_name.clone())
+    }
+
+    fn application(&self) -> Option<&ManifestApplication> {
+        self.tac.as_ref()?.application.as_ref()
+    }
+
+    pub(super) fn into_tac(self) -> TacMember {
+        self.tac.unwrap_or_default()
+    }
 }
 
-/// What a manifest carries that the web platform has no field for.
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct TacMember {
+    #[serde(default)]
+    pub(super) origin: Option<String>,
+    #[serde(default)]
+    application: Option<ManifestApplication>,
+    #[serde(default)]
+    pub(super) scripts: Vec<String>,
+    #[serde(default)]
+    pub(super) styles: Vec<String>,
+    #[serde(default)]
+    pub(super) cache: Vec<RawCacheRule>,
+    #[serde(default)]
+    pub(super) metadata: SiteMetadata,
+    #[serde(default)]
+    pub(super) sitemap: BTreeMap<String, SitemapValues>,
+    #[serde(default, rename = "browserApis")]
+    pub(super) browser_apis: Vec<String>,
+}
+
+impl TacMember {
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 14] = [
+        "origin",
+        "application",
+        "scripts",
+        "styles",
+        "cache",
+        "metadata",
+        "sitemap",
+        "cohesion",
+        "duplication",
+        "dependencies",
+        "names",
+        "signatures",
+        "constants",
+        "browserApis",
+    ];
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct TachyonManifest {
-    /// Reverse-DNS bundle identifier. The manifest's own `id` is a URL, which
-    /// is not what a platform installer wants.
+struct ManifestApplication {
     id: Option<String>,
     version: Option<String>,
     #[serde(default)]
     window: Option<WindowConfiguration>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ApplicationConfiguration {
-    name: String,
-    id: String,
-    version: String,
-    /// Named for the spelling an author writes in a module, with the snake
-    /// case the former JSON contract used still accepted.
-    #[serde(rename = "entryRoute", alias = "entry_route")]
-    entry_route: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct LegacyNativeConfiguration {
-    application: ApplicationConfiguration,
-}
-
 impl NativeApplication {
-    /// Reads the application block from the project's configuration module.
-    ///
-    /// A project without one, or with one that exports no `application`, keeps
-    /// the derived defaults: a name is not required to build.
     #[cfg(test)]
-    pub(super) async fn discover(project_root: &Path) -> Result<Self, Failure> {
-        Self::discover_from_snapshot(project_root, project_root).await
+    pub(super) fn discover(project_root: &Path) -> Result<Self, Failure> {
+        Self::discover_from_snapshot(project_root, project_root)
     }
 
-    pub(super) async fn discover_from_snapshot(
+    pub(super) fn discover_from_snapshot(
         project_root: &Path,
         authored_root: &Path,
     ) -> Result<Self, Failure> {
         let manifest = read_manifest(project_root)?;
-        let Some(path) = config_module_path(project_root)? else {
-            let application = Self::legacy_or_defaults(project_root, authored_root)?;
-            return Ok(application.with_manifest(manifest.as_ref()));
-        };
-        let name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("tac.config.js");
-        let source = evaluate_config(project_root, &path, name).await?;
-        let trimmed = source.trim();
-        if trimmed.is_empty() || trimmed == "null" {
-            return Ok(Self::legacy_or_defaults(project_root, authored_root)?
-                .with_manifest(manifest.as_ref()));
-        }
-        let application: ApplicationConfiguration = serde_json::from_str(trimmed)
-            .map_err(|error| config_failure(&format!("{name} application is invalid: {error}")))?;
-        Ok(Self::validate(application)?.with_manifest(manifest.as_ref()))
+        Ok(Self::defaults(authored_root).with_manifest(manifest.as_ref()))
     }
 
-    fn legacy_or_defaults(project_root: &Path, authored_root: &Path) -> Result<Self, Failure> {
-        let legacy = project_root.join("tachyon.json");
-        match fs::symlink_metadata(&legacy) {
-            Ok(metadata) => {
-                if !metadata.is_file()
-                    || metadata.file_type().is_symlink()
-                    || metadata.len() > 65536
-                {
-                    return Err(config_failure(
-                        "tachyon.json must be a regular non-symlinked file within 64 KiB.",
-                    ));
-                }
-                let bytes = fs::read(&legacy).map_err(|error| {
-                    config_failure(&format!("Cannot read tachyon.json: {error}"))
-                })?;
-                let config: LegacyNativeConfiguration =
-                    serde_json::from_slice(&bytes).map_err(|error| {
-                        config_failure(&format!("tachyon.json is invalid: {error}"))
-                    })?;
-                Self::validate(config.application)
-            }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                Ok(Self::defaults(authored_root))
-            }
-            Err(error) => Err(config_failure(&format!(
-                "Cannot inspect tachyon.json: {error}"
-            ))),
-        }
-    }
-
-    /// Overlays what `manifest.json` declares, which wins where both speak.
-    ///
-    /// The manifest is the application's identity to the web platform already
-    /// — its name, its icon, where it starts. A native build reads the same
-    /// file rather than a second copy of the same facts.
     fn with_manifest(mut self, manifest: Option<&WebAppManifest>) -> Self {
         let Some(manifest) = manifest else {
             return self;
         };
-        if let Some(name) = manifest
-            .name
-            .clone()
-            .or_else(|| manifest.short_name.clone())
+        if let Some(name) = manifest.display_name()
             && !name.trim().is_empty()
         {
             self.executable_name = executable_name(&name);
@@ -477,31 +437,29 @@ impl NativeApplication {
                 self.entry_route = String::from("/");
             }
         }
-        if let Some(tachyon) = &manifest.tachyon {
-            if let Some(id) = &tachyon.id
-                && !id.trim().is_empty()
-            {
-                self.application_id.clone_from(id);
-            }
-            if let Some(version) = &tachyon.version
-                && !version.trim().is_empty()
-            {
-                self.version.clone_from(version);
-            }
-            if let Some(window) = &tachyon.window {
-                self.window.clone_from(window);
-            }
+        if let Some(application) = manifest.application() {
+            self.apply_manifest_application(application);
         }
         self.icons = manifest.raster_icons();
         self
     }
 
-    /// The largest raster icon declared, if any.
+    fn apply_manifest_application(&mut self, application: &ManifestApplication) {
+        if let Some(id) = &application.id {
+            self.application_id.clone_from(id);
+        }
+        if let Some(version) = &application.version {
+            self.version.clone_from(version);
+        }
+        if let Some(window) = &application.window {
+            self.window.clone_from(window);
+        }
+    }
+
     pub(super) fn largest_icon(&self) -> Option<&str> {
         self.icons.first().map(|(_, src)| src.as_str())
     }
 
-    /// The largest raster icon no wider than `edge`.
     pub(super) fn icon_within(&self, edge: u32) -> Option<&str> {
         self.icons
             .iter()
@@ -526,51 +484,6 @@ impl NativeApplication {
             window: WindowConfiguration::default(),
         }
     }
-
-    fn validate(value: ApplicationConfiguration) -> Result<Self, Failure> {
-        let name = value.name.trim();
-        if name.is_empty() || name.chars().count() > 64 || name.chars().any(char::is_control) {
-            return Err(config_failure(
-                "Application name must contain 1 to 64 printable characters.",
-            ));
-        }
-        let executable_name = executable_name(name);
-        if executable_name.is_empty() {
-            return Err(config_failure(
-                "Application name must contain an ASCII letter or digit.",
-            ));
-        }
-        if !valid_application_id(&value.id) {
-            return Err(config_failure(
-                "Application id must be a bounded lowercase reverse-DNS identifier.",
-            ));
-        }
-        if value.version.is_empty()
-            || value.version.len() > 64
-            || !value
-                .version
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'+'))
-        {
-            return Err(config_failure(
-                "Application version must be a bounded portable version string.",
-            ));
-        }
-        if !valid_route(&value.entry_route) {
-            return Err(config_failure(
-                "Application entry_route must be a canonical absolute route.",
-            ));
-        }
-        Ok(Self {
-            name: String::from(name),
-            executable_name,
-            application_id: value.id,
-            version: value.version,
-            entry_route: value.entry_route,
-            icons: Vec::new(),
-            window: WindowConfiguration::default(),
-        })
-    }
 }
 
 fn executable_name(value: &str) -> String {
@@ -582,18 +495,16 @@ fn executable_name(value: &str) -> String {
 }
 
 fn identifier_segment(value: &str) -> String {
-    let value = value
-        .bytes()
-        .map(|byte| {
-            let byte = byte.to_ascii_lowercase();
-            if byte.is_ascii_alphanumeric() {
-                char::from(byte)
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>();
-    let trimmed = value.trim_matches('-');
+    let mut identifier = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        let lowercase = byte.to_ascii_lowercase();
+        if lowercase.is_ascii_alphanumeric() {
+            identifier.push(char::from(lowercase));
+        } else {
+            identifier.push('-');
+        }
+    }
+    let trimmed = identifier.trim_matches('-');
     if trimmed.is_empty() {
         String::from("app")
     } else {
@@ -601,130 +512,44 @@ fn identifier_segment(value: &str) -> String {
     }
 }
 
+fn valid_application_id_segment(segment: &str) -> bool {
+    if segment.is_empty() {
+        return false;
+    }
+    let hyphen_allowed = !segment.starts_with('-') && !segment.ends_with('-');
+    segment.bytes().all(|byte| {
+        byte.is_ascii_lowercase() || byte.is_ascii_digit() || (byte == b'-' && hyphen_allowed)
+    })
+}
+
 fn valid_application_id(value: &str) -> bool {
-    value.len() <= 255
-        && value.split('.').count() >= 2
-        && value.split('.').all(|segment| {
-            !segment.is_empty()
-                && segment.bytes().all(|byte| {
-                    byte.is_ascii_lowercase()
-                        || byte.is_ascii_digit()
-                        || (byte == b'-' && !segment.starts_with('-') && !segment.ends_with('-'))
-                })
-        })
-}
-
-fn valid_route(value: &str) -> bool {
-    value.starts_with('/')
-        && value.len() <= 2_048
-        && !value.contains('\\')
-        && !value.contains("//")
-        && !value
-            .split('/')
-            .any(|segment| matches!(segment, "." | ".."))
-}
-
-/// Resolves the configuration module a project uses, if it has one.
-///
-/// Every consumer resolves through here, so the application block, the
-/// `postBundle` hook, and the rebuild fingerprint always agree on which file
-/// is the project's configuration.
-pub(crate) fn config_module_path(project_root: &Path) -> Result<Option<PathBuf>, Failure> {
-    for name in CONFIG_NAMES {
-        let path = project_root.join(name);
-        match fs::symlink_metadata(&path) {
-            Ok(metadata) => {
-                if metadata.file_type().is_symlink() || !metadata.is_file() {
-                    return Err(config_failure(&format!(
-                        "{name} must be a regular, non-symlinked file."
-                    )));
-                }
-                if metadata.len() > MAX_CONFIG_BYTES {
-                    return Err(config_failure(&format!("{name} exceeds the 1 MiB limit.")));
-                }
-                return Ok(Some(path));
-            }
-            // Absent simply means the project uses one of the other names,
-            // or none at all.
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(config_failure(&format!("Cannot inspect {name}: {error}")));
-            }
-        }
+    if value.len() > 255 || value.split('.').count() < 2 {
+        return false;
     }
-    Ok(None)
+    value.split('.').all(valid_application_id_segment)
 }
 
-/// Evaluates the configuration module and returns the JSON it printed.
-///
-/// The module is the project's own code, so it runs in the project's runtime
-/// rather than a parser here. TypeScript is stripped by the runtime that
-/// supports it: Bun reads it directly, and Node needs to be told.
-async fn evaluate_config(project_root: &Path, path: &Path, name: &str) -> Result<String, Failure> {
-    evaluate_export(project_root, path, name, "application").await
-}
-
-async fn evaluate_export(
-    project_root: &Path,
-    path: &Path,
-    name: &str,
-    export: &str,
-) -> Result<String, Failure> {
-    let typescript = path.extension().is_some_and(|value| value == "ts");
-    let configured = std::env::var_os("TAC_JAVASCRIPT_RUNTIME").map(PathBuf::from);
-    let programs = configured
-        .into_iter()
-        .chain([PathBuf::from("node"), PathBuf::from("bun")]);
-    // A fresh query keeps a long-lived runtime from serving a cached module,
-    // without reaching for a clock the build cannot reproduce.
-    let nonce = format!("{}", std::process::id());
-    for program in programs {
-        let node = program.file_stem().is_some_and(|value| value == "node");
-        let mut command = tokio::process::Command::new(&program);
-        if typescript && node {
-            command.arg("--experimental-strip-types");
-        }
-        command
-            .args(["--input-type=module", "--eval", CONFIG_RUNNER])
-            .current_dir(project_root)
-            .env("TAC_CONFIG", path)
-            .env("TAC_CONFIG_EXPORT", export)
-            .env("TAC_CONFIG_NONCE", &nonce)
-            .stdin(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .kill_on_drop(true);
-        let output = supervise_tool(&mut command, Duration::from_secs(30), 1_048_576).await;
-        let output = match output {
-            Ok(output) => output,
-            Err(ToolError::Spawn(error)) if error.kind() == io::ErrorKind::NotFound => continue,
-            Err(error) => {
-                return Err(config_failure(&format!("Cannot start {name}: {error}")));
-            }
-        };
-        if !output.status.success() {
-            let detail = String::from_utf8_lossy(&output.stderr);
-            return Err(config_failure(&format!(
-                "{name} failed to evaluate: {}",
-                detail.lines().last().unwrap_or("no detail").trim()
-            )));
-        }
-        return String::from_utf8(output.stdout)
-            .map_err(|_| config_failure(&format!("{name} printed invalid UTF-8.")));
+pub(super) fn valid_route(value: &str) -> bool {
+    if !value.starts_with('/') || value.len() > 2_048 {
+        return false;
     }
-    Err(config_failure(&format!(
-        "{name} needs a JavaScript runtime, but neither node nor bun is available."
-    )))
+    if value.contains('\\') || value.contains("//") {
+        return false;
+    }
+    !value
+        .split('/')
+        .any(|segment| matches!(segment, "." | ".."))
 }
 
-fn config_failure(message: &str) -> Failure {
+pub(super) fn config_failure(message: &str) -> Failure {
+    let file_name = WebAppManifest::SOURCE_PATH;
     Failure::one(diagnostic(
         1601,
         message,
         Some(String::from(
-            "Export an `application` object from tac.config.js with name, id, version and entryRoute.",
+            "Correct client/manifest.json. Its tac member holds Tachyon's settings: origin, application, scripts, styles, cache, metadata and sitemap.",
         )),
-        source_span(CONFIG_NAMES[0], 0, CONFIG_NAMES[0].len()),
+        source_span(file_name, 0, file_name.len()),
     ))
 }
 
@@ -735,8 +560,43 @@ mod tests {
     use super::NativeApplication;
     use std::fs;
 
-    fn config(root: &std::path::Path, body: &str) {
-        fs::write(root.join("tac.config.js"), body).expect("configuration");
+    fn write_manifest(root: &std::path::Path, source: &str, sizes: &str) {
+        let manifest = serde_json::json!({
+            "icons": [{ "src": source, "sizes": sizes }],
+        });
+        write_manifest_document(root, &manifest);
+    }
+
+    fn write_manifest_document(root: &std::path::Path, manifest: &serde_json::Value) {
+        fs::create_dir_all(root.join("client")).expect("client");
+        fs::write(root.join("client/manifest.json"), manifest.to_string()).expect("manifest");
+    }
+
+    fn discovery_error(root: &std::path::Path) -> String {
+        NativeApplication::discover(root)
+            .expect_err("invalid manifest")
+            .to_string()
+    }
+
+    type Attributes = std::collections::BTreeMap<String, String>;
+
+    fn start_tags(html: &str) -> Vec<(String, Attributes)> {
+        let mut tags = Vec::new();
+        for token in html5gum::Tokenizer::new(html) {
+            let html5gum::Token::StartTag(tag) = token.expect("HTML token") else {
+                continue;
+            };
+            let name = String::from_utf8(tag.name.to_vec()).expect("tag name");
+            let mut attributes = Attributes::new();
+            for (attribute_name, value) in tag.attributes {
+                attributes.insert(
+                    String::from_utf8(attribute_name.to_vec()).expect("attribute name"),
+                    String::from_utf8(value.value.to_vec()).expect("attribute value"),
+                );
+            }
+            tags.push((name, attributes));
+        }
+        tags
     }
 
     #[test]
@@ -754,29 +614,12 @@ mod tests {
             ("/icons/<angle>'&copy;\".png", "16x16"),
         ] {
             let root = tempfile::tempdir().expect("project");
-            let manifest = serde_json::json!({
-                "icons": [{ "src": source, "sizes": sizes }],
-            });
-            fs::write(root.path().join("manifest.json"), manifest.to_string()).expect("manifest");
-            let head = super::manifest_head(root.path()).expect("manifest head");
-            let tags = html5gum::Tokenizer::new(head.as_str())
-                .filter_map(|token| match token.expect("HTML token") {
-                    html5gum::Token::StartTag(tag) => Some((
-                        String::from_utf8(tag.name.to_vec()).expect("tag name"),
-                        tag.attributes
-                            .into_iter()
-                            .map(|(name, value)| {
-                                (
-                                    String::from_utf8(name.to_vec()).expect("attribute name"),
-                                    String::from_utf8(value.value.to_vec())
-                                        .expect("attribute value"),
-                                )
-                            })
-                            .collect::<std::collections::BTreeMap<_, _>>(),
-                    )),
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
+            write_manifest(root.path(), source, sizes);
+            let manifest = super::read_manifest(root.path())
+                .expect("manifest")
+                .expect("manifest present");
+            let head = super::manifest_head(&manifest);
+            let tags = start_tags(&head);
             assert_eq!(
                 tags.len(),
                 3,
@@ -795,409 +638,119 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn document_resources_reject_foreign_and_ambiguous_paths() {
-        let root = tempfile::tempdir().expect("project");
-        for source in [
-            "//example.invalid/module.js",
-            "/\\example.invalid/module.js",
-            "/\t/example.invalid/module.js",
-            "/shared/../module.js",
-            "/shared/%2e%2E/module.js",
-            "/shared/%2fmodule.js",
-            "/shared/%5Cmodule.js",
-        ] {
-            config(
-                root.path(),
-                &format!(
-                    "export const scripts = [{}]; export const styles = scripts;",
-                    serde_json::to_string(source).expect("source literal")
-                ),
-            );
-            for export in ["scripts", "styles"] {
-                assert!(
-                    super::document_paths(root.path(), export).await.is_err(),
-                    "{export} accepted an ambiguous project path: {source:?}"
-                );
-            }
-        }
-        let sources = vec![
-            String::from(
-                "/shared/app.js?v=1&next=https://example.invalid/a..b&encoded=%2f#section",
-            ),
-            String::from("/shared/name%20with%20spaces.js"),
-        ];
-        config(
-            root.path(),
-            &format!(
-                "export const scripts = {}; export const styles = scripts;",
-                serde_json::to_string(&sources).expect("source literals")
-            ),
-        );
-        for export in ["scripts", "styles"] {
-            assert_eq!(
-                super::document_paths(root.path(), export)
-                    .await
-                    .expect("local resources preserve query and fragment data"),
-                sources
-            );
-        }
+    #[test]
+    fn a_project_without_a_manifest_uses_the_default_identity() {
+        let root = tempfile::tempdir().expect("root");
+        let defaults = NativeApplication::discover(root.path()).expect("defaults");
+        assert!(defaults.application_id.starts_with("ma.del.tachyon."));
+        assert_eq!(defaults.version, "1.0.0");
+        assert_eq!(defaults.entry_route, "/");
     }
 
-    #[tokio::test]
-    async fn defaults_and_module_configuration_are_portable() {
+    #[test]
+    fn the_manifest_names_and_identifies_the_application() {
         let root = tempfile::tempdir().expect("root");
-        // A project without a configuration module still builds.
-        let defaults = NativeApplication::discover(root.path())
-            .await
-            .expect("defaults");
-        assert!(defaults.application_id.starts_with("ma.del.tachyon."));
-        assert_eq!(defaults.entry_route, "/");
-
-        // The module can compute what a data file could only repeat.
-        config(
+        write_manifest_document(
             root.path(),
-            "const channel = 'catalog'\n\
-             export const application = {\n\
-               name: 'Catalog App',\n\
-               id: `dev.example.${channel}`,\n\
-               version: '1.2.3',\n\
-               entryRoute: '/products',\n\
-             }\n",
+            &serde_json::json!({
+                "name": "Catalog App",
+                "start_url": "/products/",
+                "tac": {
+                    "api": { "url": "https://api.example.com" },
+                    "application": {
+                        "id": "dev.example.catalog",
+                        "version": "1.2.3",
+                        "window": { "width": 420, "height": 720, "minWidth": 320, "controls": ["close"] },
+                    },
+                },
+            }),
         );
-        let configured = NativeApplication::discover(root.path())
-            .await
-            .expect("configured");
+        let configured = NativeApplication::discover(root.path()).expect("configured");
+        assert_eq!(configured.name, "Catalog App");
         assert_eq!(configured.executable_name, "CatalogApp");
         assert_eq!(configured.application_id, "dev.example.catalog");
+        assert_eq!(configured.version, "1.2.3");
         assert_eq!(configured.entry_route, "/products");
+        assert_eq!(configured.window.width, 420);
+        assert_eq!(configured.window.height, 720);
+        assert_eq!(configured.window.min_width, Some(320));
+        assert!(configured.window.grants("close"));
     }
 
-    #[tokio::test]
-    async fn an_application_function_is_awaited() {
+    #[test]
+    fn a_manifest_without_tac_application_keeps_the_default_identity() {
         let root = tempfile::tempdir().expect("root");
-        config(
-            root.path(),
-            "export const application = async () => ({\n\
-               name: 'Async App', id: 'dev.example.async', version: '2', entryRoute: '/',\n\
-             })\n",
-        );
-        let configured = NativeApplication::discover(root.path())
-            .await
-            .expect("configured");
-        assert_eq!(configured.application_id, "dev.example.async");
-    }
-
-    #[tokio::test]
-    async fn a_module_without_an_application_export_keeps_the_defaults() {
-        let root = tempfile::tempdir().expect("root");
-        // A project may use the module only for build hooks.
-        config(root.path(), "export function postBundle() {}\n");
-        let configured = NativeApplication::discover(root.path())
-            .await
-            .expect("configured");
+        write_manifest_document(root.path(), &serde_json::json!({ "name": "Named" }));
+        let configured = NativeApplication::discover(root.path()).expect("configured");
+        assert_eq!(configured.name, "Named");
         assert!(configured.application_id.starts_with("ma.del.tachyon."));
+        assert_eq!(configured.window, super::WindowConfiguration::default());
     }
 
-    #[tokio::test]
-    async fn malformed_configuration_fails_closed() {
-        for body in [
-            "export const application = {}",
-            "export const application = { name: '', id: 'dev.ok', version: '1', entryRoute: '/' }",
-            "export const application = { name: 'App', id: 'INVALID', version: '1', entryRoute: '/' }",
-            "export const application = { name: 'App', id: 'dev.ok', version: 'bad version', entryRoute: '/' }",
-            "export const application = { name: 'App', id: 'dev.ok', version: '1', entryRoute: '../bad' }",
-            "export const application = { name: 'App', id: 'dev.ok', version: '1', entryRoute: '/', extra: true }",
-            // A module that throws must fail the build, not fall back silently.
-            "throw new Error('broken configuration')",
+    #[test]
+    fn invalid_manifest_application_values_are_refused_with_a_message() {
+        for (application, expected) in [
+            (
+                serde_json::json!({ "id": "INVALID" }),
+                "tac.application.id must be",
+            ),
+            (
+                serde_json::json!({ "id": "single" }),
+                "tac.application.id must be",
+            ),
+            (
+                serde_json::json!({ "version": "bad version" }),
+                "tac.application.version must be",
+            ),
+            (
+                serde_json::json!({ "version": "" }),
+                "tac.application.version must be",
+            ),
+            (
+                serde_json::json!({ "window": { "width": 10 } }),
+                "tac.application.window sizes",
+            ),
+            (
+                serde_json::json!({ "window": { "width": 400, "minWidth": 500 } }),
+                "tac.application.window sizes",
+            ),
+            (
+                serde_json::json!({ "window": { "controls": ["close", "close"] } }),
+                "tac.application.window sizes",
+            ),
+            (
+                serde_json::json!({ "window": { "controls": ["teleport"] } }),
+                "'teleport' is not a window control",
+            ),
+            (
+                serde_json::json!({ "window": { "minwidth": 300 } }),
+                "unknown field `minwidth`",
+            ),
+            (serde_json::json!({ "name": "App" }), "unknown field `name`"),
+            (
+                serde_json::json!({ "entryRoute": "/" }),
+                "unknown field `entryRoute`",
+            ),
         ] {
             let root = tempfile::tempdir().expect("root");
-            config(root.path(), body);
-            assert!(
-                NativeApplication::discover(root.path()).await.is_err(),
-                "{body}"
+            write_manifest_document(
+                root.path(),
+                &serde_json::json!({ "tac": { "application": application } }),
             );
+            let text = discovery_error(root.path());
+            assert!(text.contains("TY1601"), "{text}");
+            assert!(text.contains(expected), "{application}: {text}");
         }
-    }
-
-    #[tokio::test]
-    async fn oversized_configuration_fails_before_evaluation() {
-        let root = tempfile::tempdir().expect("root");
-        fs::write(
-            root.path().join("tac.config.js"),
-            vec![b' '; 1_024 * 1_024 + 1],
-        )
-        .expect("oversized configuration");
-        let error = NativeApplication::discover(root.path())
-            .await
-            .expect_err("size limit");
-        assert!(error.to_string().contains("TY1601"));
-        assert!(error.to_string().contains("1 MiB"));
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn symlinked_configuration_is_rejected() {
-        use std::os::unix::fs::symlink;
-
-        let root = tempfile::tempdir().expect("root");
-        let target = root.path().join("application.js");
-        fs::write(&target, "export const application = {}").expect("target");
-        symlink(&target, root.path().join("tac.config.js")).expect("symlink");
-        let error = NativeApplication::discover(root.path())
-            .await
-            .expect_err("symlink rejection");
-        assert!(error.to_string().contains("TY1601"));
-        assert!(error.to_string().contains("non-symlinked"));
-    }
-}
-
-/// One declared cache policy for a URL pattern.
-///
-/// Caching used to be something a companion opted into per call, through
-/// `this.tac.fetch`. That works, but it puts a framework API on the hot path
-/// of every read and leaves a plain `fetch()` uncached — so the same request
-/// behaves differently depending on which function issued it. Declaring the
-/// policy by path moves the decision to where it belongs: the service worker
-/// enforces it for every request the page makes, whoever made it.
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
-pub(crate) struct CacheRule {
-    /// Anchored regular expression the request path must match.
-    pub(crate) pattern: String,
-    /// One of `cache-first`, `network-first`, or `no-store`.
-    pub(crate) policy: String,
-}
-
-#[derive(serde::Deserialize)]
-struct RawCacheRule {
-    path: String,
-    policy: String,
-}
-
-/// What a page puts in the document head, per route.
-///
-/// A `tac.html` is a view rather than a page of HTML, so this is where the
-/// title, the description and the social tags live. The configuration module
-/// already knows the route list — it is what generates the sitemap — so it is
-/// where a route's metadata belongs rather than repeated in every template.
-#[derive(Clone, Debug, Default, Eq, PartialEq, serde::Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub(crate) struct PageMetadata {
-    #[serde(default)]
-    pub(crate) title: Option<String>,
-    #[serde(default)]
-    pub(crate) description: Option<String>,
-    #[serde(default)]
-    pub(crate) canonical: Option<String>,
-    /// The social preview image, as an absolute URL.
-    #[serde(default)]
-    pub(crate) image: Option<String>,
-    /// `og:site_name`, which is the same for every route of one site.
-    #[serde(default)]
-    pub(crate) site_name: Option<String>,
-    /// The document language. `en` unless a route says otherwise.
-    #[serde(default)]
-    pub(crate) lang: Option<String>,
-}
-
-/// Reads the `scripts` export: browser modules every document loads.
-///
-/// A shared browser entry — the one that registers a component library, or
-/// seeds a theme before first paint — belongs to the project rather than to
-/// any one page. Declaring it here replaces a `tac.js` per route whose whole
-/// body was an import of it.
-pub(crate) async fn browser_scripts(project_root: &Path) -> Result<Vec<String>, Failure> {
-    document_paths(project_root, "scripts").await
-}
-
-/// Reads the `styles` export: stylesheets every document links.
-///
-/// The same argument as `scripts`. A site's shared stylesheet was linked by a
-/// `tac.css` per route whose whole body was `@import url(...)`.
-pub(crate) async fn browser_styles(project_root: &Path) -> Result<Vec<String>, Failure> {
-    document_paths(project_root, "styles").await
-}
-
-/// Reads one export naming project-absolute paths every document loads.
-async fn document_paths(project_root: &Path, export: &str) -> Result<Vec<String>, Failure> {
-    let Some(path) = config_module_path(project_root)? else {
-        return Ok(Vec::new());
-    };
-    let name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("tac.config.js");
-    let raw = evaluate_export(project_root, &path, name, export).await?;
-    let trimmed = raw.trim();
-    if trimmed.is_empty() || trimmed == "null" {
-        return Ok(Vec::new());
-    }
-    let declared: Vec<String> = serde_json::from_str(trimmed)
-        .map_err(|error| config_failure(&format!("{name} {export} is invalid: {error}")))?;
-    if declared.len() > 8 {
-        return Err(config_failure(&format!(
-            "{name} declares more than 8 entries in {export}."
-        )));
-    }
-    for source in &declared {
-        // A project-absolute path, so a document can load it from an HTTP
-        // origin and from a native host's own scheme alike.
-        if !local_document_path(source) {
-            return Err(config_failure(&format!(
-                "'{source}' in {export} must be a local absolute project path of at most 256 characters, without ambiguous separators, traversal, or control characters."
-            )));
-        }
-    }
-    Ok(declared)
-}
-
-fn local_document_path(source: &str) -> bool {
-    // Query and fragment data cannot change the resource's origin or path.
-    // Browsers normalize encoded dot segments and HTTP URL backslashes;
-    // platform asset handlers may also decode encoded separators.
-    let path = source.split(['?', '#']).next().unwrap_or(source);
-    let normalized = path.to_ascii_lowercase().replace("%2e", ".");
-    source.len() <= 256
-        && !source.chars().any(char::is_control)
-        && path.starts_with('/')
-        && !path.starts_with("//")
-        && !path.contains('\\')
-        && !normalized.contains("..")
-        && !normalized.contains("%2f")
-        && !normalized.contains("%5c")
-}
-
-/// Reads the `metadata` export: a map from route to what its head carries.
-///
-/// A route with no entry gets the document shell and nothing else, which is
-/// what a project that has not asked for metadata should get.
-pub(crate) async fn page_metadata(
-    project_root: &Path,
-) -> Result<std::collections::BTreeMap<String, PageMetadata>, Failure> {
-    let Some(path) = config_module_path(project_root)? else {
-        return Ok(std::collections::BTreeMap::new());
-    };
-    let name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("tac.config.js");
-    let raw = evaluate_export(project_root, &path, name, "metadata").await?;
-    let trimmed = raw.trim();
-    if trimmed.is_empty() || trimmed == "null" {
-        return Ok(std::collections::BTreeMap::new());
-    }
-    serde_json::from_str(trimmed)
-        .map_err(|error| config_failure(&format!("{name} metadata is invalid: {error}")))
-}
-
-/// Reads the `cache` export, if the project declares one.
-pub(crate) async fn cache_rules(project_root: &Path) -> Result<Vec<CacheRule>, Failure> {
-    let Some(path) = config_module_path(project_root)? else {
-        return Ok(Vec::new());
-    };
-    let name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("tac.config.js");
-    let raw = evaluate_export(project_root, &path, name, "cache").await?;
-    let trimmed = raw.trim();
-    if trimmed.is_empty() || trimmed == "null" {
-        return Ok(Vec::new());
-    }
-    let declared: Vec<RawCacheRule> = serde_json::from_str(trimmed)
-        .map_err(|error| config_failure(&format!("{name} cache is invalid: {error}")))?;
-    if declared.len() > 64 {
-        return Err(config_failure(&format!(
-            "{name} declares more than 64 cache rules."
-        )));
-    }
-    declared.into_iter().map(cache_rule).collect()
-}
-
-/// Compiles one declared rule, so the worker needs no glob parser of its own.
-fn cache_rule(raw: RawCacheRule) -> Result<CacheRule, Failure> {
-    if !matches!(
-        raw.policy.as_str(),
-        "cache-first" | "network-first" | "no-store"
-    ) {
-        return Err(config_failure(&format!(
-            "'{}' is not a cache policy. Use cache-first, network-first or no-store.",
-            raw.policy
-        )));
-    }
-    if !raw.path.starts_with('/') || raw.path.len() > 256 {
-        return Err(config_failure(&format!(
-            "Cache path '{}' must be an absolute path of at most 256 characters.",
-            raw.path
-        )));
-    }
-    // `*` is the only metacharacter, and it stops at a query string so one
-    // rule cannot silently widen to another route's parameters.
-    let mut pattern = String::from("^");
-    for part in raw.path.split('*') {
-        if pattern.len() > 1 {
-            pattern.push_str("[^?]*");
-        }
-        for character in part.chars() {
-            if character.is_ascii_alphanumeric() || matches!(character, '/' | '-' | '_' | '.') {
-                if character == '.' {
-                    pattern.push('\\');
-                }
-                pattern.push(character);
-            } else {
-                return Err(config_failure(&format!(
-                    "Cache path '{}' may contain only letters, digits, '/', '-', '_', '.' and '*'.",
-                    raw.path
-                )));
-            }
-        }
-    }
-    pattern.push('$');
-    Ok(CacheRule {
-        pattern,
-        policy: raw.policy,
-    })
-}
-
-#[cfg(test)]
-mod cache_tests {
-    use super::{RawCacheRule, cache_rule};
-
-    fn compile(path: &str, policy: &str) -> Result<String, String> {
-        cache_rule(RawCacheRule {
-            path: String::from(path),
-            policy: String::from(policy),
-        })
-        .map(|rule| rule.pattern)
-        .map_err(|failure| failure.to_string())
     }
 
     #[test]
-    fn a_declared_path_compiles_to_an_anchored_expression() {
-        assert_eq!(
-            compile("/api/products", "cache-first"),
-            Ok(String::from("^/api/products$"))
+    fn the_old_tachyon_manifest_member_is_refused() {
+        let root = tempfile::tempdir().expect("root");
+        write_manifest_document(
+            root.path(),
+            &serde_json::json!({ "tachyon": { "id": "dev.example.app" } }),
         );
-        // A wildcard stops at the query string, so one rule cannot widen into
-        // another route's parameters.
-        assert_eq!(
-            compile("/api/search/*", "network-first"),
-            Ok(String::from("^/api/search/[^?]*$"))
-        );
-        // A dot is a literal in a path and a metacharacter in an expression.
-        assert_eq!(
-            compile("/api/v1.0/items", "no-store"),
-            Ok(String::from(r"^/api/v1\.0/items$"))
-        );
-    }
-
-    #[test]
-    fn only_declared_policies_and_safe_paths_are_accepted() {
-        assert!(compile("/api/products", "stale-while-revalidate").is_err());
-        assert!(compile("api/products", "cache-first").is_err());
-        // Anything that could change the meaning of the compiled expression.
-        for path in ["/api/(a|b)", "/api/a+", "/api/^x", "/api/a$"] {
-            assert!(compile(path, "cache-first").is_err(), "{path}");
-        }
+        let text = discovery_error(root.path());
+        assert!(text.contains("moved to tac.application"), "{text}");
     }
 }

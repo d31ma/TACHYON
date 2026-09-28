@@ -1,0 +1,6 @@
+error[TY1311]: The view reads data.faqs, but client/shared/data/faqs.json does not exist.
+  help: Add the JSON file, or correct the name: `data.<name>` reads
+        client/shared/data/<name>.json.
+
+A view hands either root to a service as a property, the way it hands
+any other value: <docs-pager :path="page.path" :documents="data.docs" />.

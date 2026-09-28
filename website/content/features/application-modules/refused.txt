@@ -1,0 +1,10 @@
+Yon validates only its public boundary:
+
+  server/routes/products/yon.* must define Handler
+  Handler HTTP methods use GET, POST, PUT, PATCH, DELETE, HEAD, or OPTIONS
+  a generator method streams; an ordinary method returns once
+  HTML is passed through only with an explicit text/html content type
+
+Everything behind Handler uses the language itself. Choose functions,
+classes, modules, repositories, ports, or another pattern when the
+application benefits from it; Yon neither requires nor interprets them.

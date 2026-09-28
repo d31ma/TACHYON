@@ -1,0 +1,7 @@
+@Test(OrdersTestSetup, {"partition":"tests"})
+export default class OrdersErrorHandlerTest {
+  async testMissingAnswersWithAProblem() {
+    const problem = new OrdersErrorHandler().missing(new OrderNotFound('order 42'))
+    if (problem.code !== 'order-not-found') throw Error(`code is ${problem.code}`)
+  }
+}

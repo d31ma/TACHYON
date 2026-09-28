@@ -1,0 +1,13 @@
+{
+  "title": "Public only when used",
+  "summary": "A method or field of a class is public only when a view, another class or Tachyon uses it. Everything else is private. The build checks this with TY1333.",
+  "before": [
+    "cohesive-services",
+    "named-values"
+  ],
+  "sections": [
+    {
+      "include": "members-stay-private-until-used/section.json"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+@Test(TypeScriptGreetingTestSetup, {"partition":"tests"})
+export default class TypeScriptGreetingControllerTest {
+  async testGetGreetingSaysHello(): Promise<void> {
+    if (this.construct(TypeScriptGreetingController).getGreeting() !== 'Hello from TypeScript') throw Error('expected a greeting');
+  }
+}

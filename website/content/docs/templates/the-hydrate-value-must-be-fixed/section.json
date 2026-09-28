@@ -1,0 +1,5 @@
+{
+  "heading": "Write the start time in the markup",
+  "body": "`hydrate` must be one of `load`, `idle`, `visible`, `interaction` or `never`. Write it as a static literal (a fixed value written in the markup). It cannot be an expression. The compiler puts the schedule into the render plan (the compiled steps that build the page). A value known only at run time would come too late. It would come after the moment when the schedule must decide.\n\nProperties are ordinary values passed to the component. The browser evaluates them like everything else. So the served document contains nothing about them.",
+  "code": { "file": "example.txt" }
+}

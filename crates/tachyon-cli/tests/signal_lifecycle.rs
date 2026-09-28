@@ -1,5 +1,3 @@
-//! Process-level signal lifecycle acceptance tests.
-
 #![allow(clippy::expect_used)]
 
 #[cfg(unix)]
@@ -17,9 +15,8 @@ mod unix {
     use std::sync::mpsc::{self, Receiver};
     use std::time::{Duration, Instant};
 
-    static PROCESS_TEST: Mutex<()> = Mutex::new(());
-
     fn serialize_process_test() -> std::sync::MutexGuard<'static, ()> {
+        static PROCESS_TEST: Mutex<()> = Mutex::new(());
         PROCESS_TEST
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -106,7 +103,15 @@ mod unix {
         let project = tempfile::tempdir().expect("project directory");
         let page = project.path().join("client/pages/tac.html");
         fs::create_dir_all(page.parent().expect("page parent")).expect("page directory");
-        fs::write(page, "<main aria-label=\"Signal\"><h1>Signal</h1></main>").expect("page source");
+        fs::write(page, "<app-view />").expect("page source");
+        let component = project.path().join("client/components/app/view/tac.html");
+        fs::create_dir_all(component.parent().expect("component parent"))
+            .expect("component directory");
+        fs::write(
+            component,
+            "<main aria-label=\"Signal\"><h1>Signal</h1></main>",
+        )
+        .expect("component source");
         project
     }
 
@@ -268,7 +273,7 @@ mod unix {
         let announcement = line_containing(&stdout, "Watching sources");
         assert!(announcement.contains("rebuilding the preview"));
         fs::write(
-            project.path().join("client/pages/tac.html"),
+            project.path().join("client/components/app/view/tac.html"),
             "<main><h1>Watcher rebuild before shutdown</h1></main>",
         )
         .expect("pre-signal source change");
@@ -287,7 +292,7 @@ mod unix {
         assert_eq!(receipt["command"], "preview");
         assert_eq!(receipt["signal"], "SIGTERM");
         fs::write(
-            project.path().join("client/pages/tac.html"),
+            project.path().join("client/components/app/view/tac.html"),
             "<main><h1>Must not publish after shutdown</h1></main>",
         )
         .expect("post-signal source change");
@@ -373,6 +378,161 @@ mod unix {
             assert_eq!(receipt["signal"], "SIGTERM");
             assert!(server.wait_bounded().success());
         }
+    }
+
+    fn replace_executable(executable: &std::path::Path, contents: &[u8]) {
+        use std::os::unix::fs::PermissionsExt as _;
+        let next = executable.with_extension("next");
+        fs::write(&next, contents).expect("new executable");
+        fs::set_permissions(&next, fs::Permissions::from_mode(0o755)).expect("executable mode");
+        fs::rename(&next, executable).expect("replace executable");
+    }
+
+    fn start_copied_preview(
+        executable: &std::path::Path,
+        project: &std::path::Path,
+    ) -> (RunningChild, Receiver<String>, Receiver<String>, String) {
+        replace_executable(
+            executable,
+            &fs::read(env!("CARGO_BIN_EXE_ty")).expect("ty binary"),
+        );
+        let port = TcpListener::bind("127.0.0.1:0")
+            .and_then(|listener| listener.local_addr())
+            .expect("free port")
+            .port();
+        let mut command = Command::new(executable);
+        command.arg("preview").arg(project).args([
+            "--host",
+            "127.0.0.1",
+            "--port",
+            &port.to_string(),
+        ]);
+        let (server, stdout, stderr) = RunningChild::spawn_command(command);
+        line_containing(&stdout, "Tachyon preview ready");
+        (server, stdout, stderr, format!("127.0.0.1:{port}"))
+    }
+
+    fn open_hot_updates(address: &str, last_event_id: Option<&str>) -> std::net::TcpStream {
+        use std::io::Write as _;
+        let mut stream = std::net::TcpStream::connect(address).expect("hot-update connection");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .expect("hot-update read timeout");
+        let resume = last_event_id
+            .map(|id| format!("Last-Event-ID: {id}\r\n"))
+            .unwrap_or_default();
+        write!(
+            stream,
+            "GET /.tachyon/hot HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n{resume}\r\n"
+        )
+        .expect("hot-update request");
+        stream
+    }
+
+    fn read_until(stream: &mut std::net::TcpStream, expected: &str) -> String {
+        use std::io::Read as _;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let mut seen = String::new();
+        let mut buffer = [0_u8; 4096];
+        while !seen.contains(expected) {
+            assert!(
+                Instant::now() < deadline,
+                "no {expected:?} within 30s: {seen}"
+            );
+            if let Ok(read) = stream.read(&mut buffer) {
+                seen.push_str(&String::from_utf8_lossy(&buffer[..read]));
+            }
+        }
+        seen
+    }
+
+    fn event_id_before(stream_text: &str, expected: &str) -> String {
+        let message = stream_text.find(expected).expect("message in stream");
+        let id = stream_text[..message].rfind("id: ").expect("event id") + 4;
+        stream_text[id..]
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect()
+    }
+
+    fn page_status(address: &str) -> String {
+        use std::io::{Read as _, Write as _};
+        let mut stream = std::net::TcpStream::connect(address).expect("page connection");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("page read timeout");
+        stream
+            .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .expect("page request");
+        let mut response = String::new();
+        let _ = stream.read_to_string(&mut response);
+        response.lines().next().unwrap_or_default().to_owned()
+    }
+
+    #[test]
+    fn preview_restarts_itself_when_ty_changes_on_disk() {
+        let _serial = serialize_process_test();
+        let project = project();
+        let tools = tempfile::tempdir().expect("tool directory");
+        let executable = tools.path().join("ty");
+        let (_server, stdout, _stderr, address) = start_copied_preview(&executable, project.path());
+        let mut updates = open_hot_updates(&address, None);
+        read_until(&mut updates, ": connected");
+
+        replace_executable(
+            &executable,
+            &fs::read(env!("CARGO_BIN_EXE_ty")).expect("ty binary"),
+        );
+        let notice = read_until(&mut updates, "Restarting the preview");
+        assert!(notice.contains(r#""kind":"diagnostics""#), "{notice}");
+        line_containing(&stdout, "Restarting the preview");
+        line_containing(&stdout, "Tachyon preview ready");
+
+        let last_seen = event_id_before(&notice, "Restarting the preview");
+        let mut reconnected = open_hot_updates(&address, Some(&last_seen));
+        read_until(&mut reconnected, r#""kind":"reload""#);
+        assert!(page_status(&address).contains("200"));
+    }
+
+    #[test]
+    fn preview_keeps_running_when_the_new_ty_does_not_start() {
+        let _serial = serialize_process_test();
+        let project = project();
+        let tools = tempfile::tempdir().expect("tool directory");
+        let executable = tools.path().join("ty");
+        let (_server, _stdout, _stderr, address) =
+            start_copied_preview(&executable, project.path());
+        let mut updates = open_hot_updates(&address, None);
+        read_until(&mut updates, ": connected");
+
+        replace_executable(&executable, b"#!/bin/sh\nexit 3\n");
+        let notice = read_until(&mut updates, "does not start");
+        assert!(
+            notice.contains("keeps running the previous version"),
+            "{notice}"
+        );
+        assert!(page_status(&address).contains("200"));
+    }
+
+    #[test]
+    fn preview_keeps_the_old_server_when_the_new_ty_refuses_the_project() {
+        let _serial = serialize_process_test();
+        let project = project();
+        let tools = tempfile::tempdir().expect("tool directory");
+        let executable = tools.path().join("ty");
+        let (mut server, _stdout, _stderr, address) =
+            start_copied_preview(&executable, project.path());
+        let mut updates = open_hot_updates(&address, None);
+        read_until(&mut updates, ": connected");
+
+        replace_executable(
+            &executable,
+            b"#!/bin/sh\ncase \"$*\" in *--check-project*) echo 'error[TY1333]: this project breaks a new rule' >&2; exit 1;; esac\nexit 0\n",
+        );
+        let notice = read_until(&mut updates, "keeps running the previous version");
+        assert!(notice.contains("TY1333"), "{notice}");
+        assert!(page_status(&address).contains("200"));
+        assert!(server.child.try_wait().expect("preview status").is_none());
     }
 }
 

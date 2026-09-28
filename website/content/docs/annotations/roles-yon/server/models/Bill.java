@@ -1,0 +1,1 @@
+record Bill(int total) {}

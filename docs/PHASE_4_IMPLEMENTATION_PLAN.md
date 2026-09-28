@@ -2,11 +2,12 @@
 
 ## Architecture
 
-Phase 4 adds a `native` module to `tachyon-core`; it does not add a crate.
-`NativeCompiler` shares discovery and Tac frontend contracts, then plans native
-routes from authored Tac declarations. Yon handlers and response bodies do not
-enter native planning. This keeps source validation, component lowering,
-diagnostics, and rollback behavior on one tested path.
+Phase 4 adds a `native` module to `tachyon-core`. It does not add a crate.
+`NativeCompiler` uses the shared discovery and Tac frontend contracts. It then
+plans native routes from the Tac declarations that the author wrote. Native
+planning does not use Yon handlers or response bodies. Because of this design,
+source validation, component lowering, diagnostics and rollback behavior all
+stay on one tested path.
 
 The new data path is:
 
@@ -21,8 +22,9 @@ ProjectDiscovery
   -> atomic publication
 ```
 
-WebSurface fallback documents are generated only for the smallest unsupported
-Tac subtrees; they are not Yon templates or server-rendered route documents.
+The compiler generates WebSurface fallback documents only for the smallest
+Tac subtrees that native code does not support. These documents are not Yon
+templates or route documents that the server renders.
 
 ## Interfaces
 
@@ -85,37 +87,48 @@ impl MacOsHostGenerator {
 }
 ```
 
-Canonical serializable types for Native UI v1, Capability Manifest v1, and
-Artifact Manifest v1 live in `tachyon-contracts`.
+`tachyon-contracts` contains the canonical serializable types for Native UI
+v1, Capability Manifest v1 and Artifact Manifest v1.
 
 ## Vertical Slices
 
-1. Add failing compiled-binary tests for the CLI, output contracts, fallback,
-   accessibility, and rollback.
-2. Add canonical Rust contract types and schema-compatible wire tests.
-3. Implement strict native configuration and resolved-tree planning.
-4. Implement declarative state validation and WebSurface document generation.
-5. Generate deterministic SwiftUI source, resources, Info.plist, and manifests.
-6. Compile and ad-hoc sign a real macOS application in a staged output.
-7. Add the macOS black-box interaction, accessibility, and screenshot
-   comparison runner.
-8. Update CI, threat model, support language, architecture, release notes, and
-   the Phase 4 evidence ledger.
+1. Add tests that run the compiled binary and fail at first. They cover the
+   CLI, output contracts, fallback, accessibility and rollback.
+2. Add canonical Rust contract types, and wire tests that check them against
+   the schemas.
+3. Implement strict native configuration and planning from the resolved tree.
+4. Implement validation of declarative state and generation of WebSurface
+   documents.
+5. Generate deterministic SwiftUI source, resources, Info.plist and manifests.
+6. Compile a real macOS application in a staged output, and give it an ad-hoc
+   signature.
+7. Add the macOS black-box runner. It checks interaction and accessibility, and
+   compares screenshots.
+8. Update CI (continuous integration), the threat model, the support language,
+   the architecture, the release notes and the Phase 4 evidence ledger.
 
 ## Recovery and Security
 
-Every external tool is spawned directly with fixed arguments. Tool output is
-bounded before it enters a diagnostic. Native publication reuses the existing
-staged rename-and-rollback primitive. The previous native output remains
-untouched until Swift compilation, resource generation, contract validation,
-signing, and manifest hashing all succeed.
+The compiler starts every external tool directly, with fixed arguments. It
+limits the size of tool output before the output goes into a diagnostic.
+Native publication reuses the existing primitive that stages files, renames
+them and rolls back on failure. The previous native output stays unchanged
+until all of these steps succeed:
 
-WebSurface decisions are data, not generated Swift branches. The host decodes
-Native UI v1 and applies a fixed adapter allowlist. Remote content never
-receives a message handler. Local navigation is contained to the application
-resource root.
+- Swift compilation;
+- resource generation;
+- contract validation;
+- signing;
+- manifest hashing.
+
+WebSurface decisions are data. They are not branches in the generated Swift
+code. The host decodes Native UI v1 and applies a fixed allowlist of adapters.
+Remote content never gets a message handler. Local navigation cannot leave the
+application's resource root.
 
 ## Explicit Deferrals
+
+Phase 4 does not include these items:
 
 - iOS, Android, Windows, and Linux native hosts;
 - third-party native adapter registration;

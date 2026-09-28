@@ -1,0 +1,123 @@
+{
+  "heading": "Configuration binding: Tac",
+  "axis": "language",
+  "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/settings/tac.html",
+      "code": { "file": "client/components/catalog/settings/tac.html" }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/clients/ApplicationClient.js",
+      "code": { "file": "client/clients/ApplicationClient.js" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.js",
+      "code": { "file": "client/setups/CatalogSetup.js" }
+    },
+    {
+      "name": "client/services/SettingsService.js",
+      "code": { "file": "client/services/SettingsService.js" }
+    },
+    {
+      "name": "client/clients/ApplicationClient.ts",
+      "code": { "file": "client/clients/ApplicationClient.ts" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.ts",
+      "code": { "file": "client/setups/CatalogSetup.ts" }
+    },
+    {
+      "name": "client/services/SettingsService.ts",
+      "code": { "file": "client/services/SettingsService.ts" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.swift",
+      "code": { "file": "client/setups/CatalogSetup.swift" }
+    },
+    {
+      "name": "client/services/SettingsService.swift",
+      "code": { "file": "client/services/SettingsService.swift" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.kt",
+      "code": { "file": "client/setups/CatalogSetup.kt" }
+    },
+    {
+      "name": "client/services/SettingsService.kt",
+      "code": { "file": "client/services/SettingsService.kt" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.cs",
+      "code": { "file": "client/setups/CatalogSetup.cs" }
+    },
+    {
+      "name": "client/services/SettingsService.cs",
+      "code": { "file": "client/services/SettingsService.cs" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rs",
+      "code": { "file": "client/setups/CatalogSetup.rs" }
+    },
+    {
+      "name": "client/services/SettingsService.rs",
+      "code": { "file": "client/services/SettingsService.rs" }
+    },
+    {
+      "name": "client/helpers/PublicValues.js",
+      "code": { "file": "client/helpers/PublicValues.js" }
+    },
+    {
+      "name": "client/helpers/PublicValues.ts",
+      "code": { "file": "client/helpers/PublicValues.ts" }
+    },
+    {
+      "name": "client/helpers/PublicValues.swift",
+      "code": { "file": "client/helpers/PublicValues.swift" }
+    },
+    {
+      "name": "client/helpers/PublicValues.kt",
+      "code": { "file": "client/helpers/PublicValues.kt" }
+    },
+    {
+      "name": "client/helpers/PublicValues.cs",
+      "code": { "file": "client/helpers/PublicValues.cs" }
+    },
+    {
+      "name": "client/helpers/PublicValues.rs",
+      "code": { "file": "client/helpers/PublicValues.rs" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.go",
+      "code": { "file": "client/setups/CatalogSetup.go" }
+    },
+    {
+      "name": "client/services/SettingsService.go",
+      "code": { "file": "client/services/SettingsService.go" }
+    },
+    {
+      "name": "client/helpers/PublicValues.go",
+      "code": { "file": "client/helpers/PublicValues.go" }
+    },
+    {
+      "name": "client/setups/CatalogSetup.dart",
+      "code": { "file": "client/setups/CatalogSetup.dart" }
+    },
+    {
+      "name": "client/services/SettingsService.dart",
+      "code": { "file": "client/services/SettingsService.dart" }
+    },
+    {
+      "name": "client/helpers/PublicValues.dart",
+      "code": { "file": "client/helpers/PublicValues.dart" }
+    }
+  ]
+}

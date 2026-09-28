@@ -1,0 +1,17 @@
+{
+  "name": "Catalog",
+  "short_name": "Catalog",
+  "start_url": "/",
+  "display": "standalone",
+  "tac": {
+    "catalog": {
+      "title": "Catalog",
+      "page": {
+        "size": 20
+      },
+      "cache": {
+        "enabled": true
+      }
+    }
+  }
+}

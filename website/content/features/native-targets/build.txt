@@ -1,0 +1,8 @@
+ty bundle --target macos     ->  dist/macos/     AppKit host + WKWebView
+ty bundle --target windows   ->  dist/windows/   Win32 host + WebView2
+ty bundle --target linux     ->  dist/linux/     GTK host + WebKitGTK
+ty bundle --target android   ->  dist/android/   Android host + WebView
+ty bundle --target ios       ->  dist/ios/       UIKit host + WKWebView
+
+The WebView renders the application's HTML, CSS and JavaScript.
+Tac elements are not translated into platform-native widgets.

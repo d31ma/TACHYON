@@ -1,0 +1,24 @@
+{
+  "title": "Native hosts",
+  "summary": "A native host is the desktop or mobile app that Tachyon builds for a target. It shows your pages in the WebView, the browser view that is built into the operating system. So the app shows exactly what the browser shows.",
+  "before": [
+    "devices"
+  ],
+  "sections": [
+    {
+      "include": "../native-rendering/one-rendering/section.json"
+    },
+    {
+      "include": "../native-rendering/one-html-source/section.json"
+    },
+    {
+      "include": "../native-rendering/the-platform-s-own-javascript-engine/section.json"
+    },
+    {
+      "include": "../native-rendering/what-the-host-adds/section.json"
+    },
+    {
+      "include": "../native-rendering/what-the-host-does-not-do/section.json"
+    }
+  ]
+}

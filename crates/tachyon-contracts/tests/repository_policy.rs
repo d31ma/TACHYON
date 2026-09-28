@@ -1,5 +1,3 @@
-//! Repository-wide policy gates owned by the canonical contract crate.
-
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -35,18 +33,97 @@ fn collect_files(root: &Path, extension: &str) -> Result<Vec<PathBuf>, std::io::
 }
 
 fn relative_markdown_links(contents: &str) -> Vec<&str> {
-    contents
-        .split("](")
-        .skip(1)
-        .filter_map(|tail| tail.split(')').next())
-        .map(str::trim)
-        .filter(|target| {
-            !target.is_empty()
-                && !target.starts_with('#')
-                && !target.contains("://")
-                && !target.starts_with("mailto:")
-        })
-        .collect()
+    let mut links = Vec::new();
+    let mut fence = None;
+    for line in contents.lines() {
+        if fenced_code_line(line, &mut fence) {
+            continue;
+        }
+        collect_line_links(line, &mut links);
+    }
+    links
+}
+
+fn fenced_code_line(line: &str, fence: &mut Option<(char, usize)>) -> bool {
+    let text = line.trim_start_matches(' ');
+    if line.len() - text.len() > 3 || text.starts_with('\t') {
+        return fence.is_some();
+    }
+    let marker = text.chars().next().unwrap_or(' ');
+    let length = text.chars().take_while(|value| *value == marker).count();
+    let is_marker = matches!(marker, '`' | '~') && length >= 3;
+    if let Some((opened, minimum)) = *fence {
+        if is_marker && marker == opened && length >= minimum && text[length..].trim().is_empty() {
+            *fence = None;
+        }
+        return true;
+    }
+    if !is_marker || (marker == '`' && text[length..].contains('`')) {
+        return false;
+    }
+    *fence = Some((marker, length));
+    true
+}
+
+fn collect_line_links<'a>(line: &'a str, links: &mut Vec<&'a str>) {
+    for tail in line.split("](").skip(1) {
+        let Some(target) = tail.split(')').next() else {
+            continue;
+        };
+        let target = target.trim();
+        if target.is_empty()
+            || target.starts_with('#')
+            || target.contains("://")
+            || target.starts_with("mailto:")
+        {
+            continue;
+        }
+        links.push(target);
+    }
+}
+
+#[test]
+fn document_links_ignore_fenced_code_without_hiding_real_links() {
+    let source = "[before](before.md)\n```go\nBehaviorsProperties[CatalogSettings](application)\n```\n[after](after.md)\n~~~~text\n[example](not-a-link)\n~~~\n[still code](not-a-link-either)\n~~~~\n[final](final.md)\n";
+    assert_eq!(
+        relative_markdown_links(source),
+        ["before.md", "after.md", "final.md"]
+    );
+}
+
+#[test]
+fn document_links_accept_up_to_three_spaces_before_fences() {
+    for width in 0..=3 {
+        let indent = " ".repeat(width);
+        for marker in ["```", "~~~"] {
+            let source = format!(
+                "[before](before.md)\n{indent}{marker}go\n[code](ignored)\n{indent}{marker}\n[after](after.md)\n"
+            );
+            assert_eq!(relative_markdown_links(&source), ["before.md", "after.md"]);
+        }
+    }
+}
+
+#[test]
+fn document_links_do_not_open_indented_or_invalid_backtick_fences() {
+    for opening in ["    ```go", "\t```go", "   \t```go", "```go`value"] {
+        let source = format!("{opening}\n\n[real](real.md)\n");
+        assert_eq!(relative_markdown_links(&source), ["real.md"], "{opening:?}");
+    }
+}
+
+#[test]
+fn document_links_do_not_close_on_indented_fences() {
+    for indent in ["    ", "\t", "   \t"] {
+        let source = format!("```go\n{indent}```\n[still code](ignored)\n```\n[after](after.md)\n");
+        assert_eq!(relative_markdown_links(&source), ["after.md"], "{indent:?}");
+    }
+}
+
+#[test]
+fn document_links_allow_backticks_in_tilde_fence_info() {
+    let source = "~~~`go`\n[code](ignored)\n~~~\n[after](after.md)\n";
+    assert_eq!(relative_markdown_links(source), ["after.md"]);
 }
 
 #[test]
@@ -118,6 +195,9 @@ fn every_phase7_fuzz_boundary_has_a_target_seed_and_ci_campaign()
         "template_frontend",
         "handler_frame",
         "native_planner",
+        "yon_annotations",
+        "application_config",
+        "managed_resource_headers",
     ] {
         assert!(manifest.contains(&format!("name = \"{target}\"")));
         assert!(
@@ -128,15 +208,19 @@ fn every_phase7_fuzz_boundary_has_a_target_seed_and_ci_campaign()
             .collect::<Result<Vec<_>, _>>()?;
         assert!(!seeds.is_empty(), "{target} has no hand-written seed");
     }
-    assert!(
-        workflow
-            .contains("for target in html_frontend template_frontend handler_frame native_planner")
-    );
+    assert!(workflow.contains(
+        "for target in html_frontend template_frontend handler_frame native_planner yon_annotations application_config managed_resource_headers"
+    ));
     assert!(workflow.contains("-max_total_time=${FUZZ_SECONDS}"));
-    assert!(scheduled.contains("Long-form persistent-corpus fuzzing"));
+    assert!(scheduled.contains("name: Fuzz ${{ matrix.target }}"));
+    assert!(scheduled.contains("target: [html_frontend, template_frontend, handler_frame, native_planner, yon_annotations, application_config, managed_resource_headers]"));
+    assert!(scheduled.contains("path: fuzz/corpus/${{ matrix.target }}"));
     assert!(scheduled.contains("actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25"));
     assert!(scheduled.contains("actions/cache/save@caa296126883cff596d87d8935842f9db880ef25"));
-    assert!(scheduled.contains("fuzz-corpus-${{ runner.os }}-${{ github.run_id }}"));
+    assert!(
+        scheduled
+            .contains("fuzz-corpus-${{ runner.os }}-${{ matrix.target }}-${{ github.run_id }}")
+    );
     Ok(())
 }
 
@@ -147,18 +231,10 @@ fn architecture_adrs_have_final_statuses_and_are_numbered() -> Result<(), Box<dy
     let adrs = collect_files(&root.join("docs/adr"), "md")?;
     let numbered = adrs
         .iter()
-        .filter(|path| {
-            path.file_name()
-                .and_then(|value| value.to_str())
-                .is_some_and(|name| {
-                    name.len() > 5
-                        && name.as_bytes()[..4].iter().all(u8::is_ascii_digit)
-                        && name.as_bytes()[4] == b'-'
-                })
-        })
+        .filter(|path| is_numbered_adr(path))
         .collect::<Vec<_>>();
 
-    assert_eq!(numbered.len(), 19);
+    assert_eq!(numbered.len(), 70);
     for (index, adr) in numbered.into_iter().enumerate() {
         let expected_prefix = format!("{:04}-", index + 1);
         assert!(
@@ -180,6 +256,14 @@ fn architecture_adrs_have_final_statuses_and_are_numbered() -> Result<(), Box<dy
     }
 
     Ok(())
+}
+
+fn is_numbered_adr(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    let bytes = name.as_bytes();
+    bytes.len() > 5 && bytes[..4].iter().all(u8::is_ascii_digit) && bytes[4] == b'-'
 }
 
 #[test]
@@ -215,38 +299,40 @@ fn github_actions_are_pinned_to_full_commits() -> Result<(), Box<dyn std::error:
 
     for workflow in workflows {
         let contents = fs::read_to_string(&workflow)?;
-        for line in contents.lines() {
-            let trimmed = line.trim();
-            let Some(action) = trimmed.strip_prefix("uses: ") else {
-                continue;
-            };
-            if let Some(local) = action
-                .split_whitespace()
-                .next()
-                .filter(|value| value.starts_with("./"))
-            {
-                assert!(
-                    root.join(local.trim_start_matches("./")).exists(),
-                    "{} references a missing local workflow: {action}",
-                    workflow.display()
-                );
-                continue;
-            }
-            let revision = action
-                .split('#')
-                .next()
-                .and_then(|value| value.rsplit_once('@'))
-                .map(|(_, revision)| revision.trim())
-                .unwrap_or_default();
+        assert_pinned_actions(&root, &workflow, &contents);
+    }
+    Ok(())
+}
+
+fn assert_pinned_actions(root: &Path, workflow: &Path, contents: &str) {
+    for line in contents.lines() {
+        let Some(action) = line.trim().strip_prefix("uses: ") else {
+            continue;
+        };
+        if let Some(local) = action
+            .split_whitespace()
+            .next()
+            .filter(|value| value.starts_with("./"))
+        {
             assert!(
-                revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit()),
-                "{} contains an unpinned action: {action}",
+                root.join(local.trim_start_matches("./")).exists(),
+                "{} references a missing local workflow: {action}",
                 workflow.display()
             );
+            continue;
         }
+        let revision = action
+            .split('#')
+            .next()
+            .and_then(|value| value.rsplit_once('@'))
+            .map(|(_, revision)| revision.trim())
+            .unwrap_or_default();
+        assert!(
+            revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            "{} contains an unpinned action: {action}",
+            workflow.display()
+        );
     }
-
-    Ok(())
 }
 
 #[test]
@@ -454,6 +540,8 @@ fn completed_phase_acceptance_is_enforced_by_ci_and_documentation()
     assert!(workflow.contains("node-version: 24.18.0"));
     assert!(workflow.contains("actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"));
     assert!(workflow.contains("python-version: 3.14.6"));
+    assert!(workflow.contains("ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8"));
+    assert!(workflow.contains("ruby-version: \"4.0.6\""));
     assert!(workflow.contains("cargo run --release --locked --bin ty -- --version"));
     assert!(workflow.contains("--fail-under-lines 80"));
     assert!(workflow.contains("--fail-under-functions 80"));
@@ -461,14 +549,79 @@ fn completed_phase_acceptance_is_enforced_by_ci_and_documentation()
     assert!(workflow.contains(
         "--ignore-filename-regex 'crates/tachyon-core/src/native/(compiler|macos)\\.rs'"
     ));
-    assert!(workflow.contains("Phase 3 Chromium island behavior"));
-    assert!(workflow.contains("bun run test:rust-browser"));
+    assert!(workflow.contains("Phase 3 Chromium component and service behavior"));
+    assert!(workflow.contains("bun run test:phase3-browser"));
     assert!(workflow.contains("Phase 4 macOS native and mobile-web parity"));
-    assert!(workflow.contains("bun run test:rust-macos"));
+    assert!(workflow.contains("bun run test:phase4-macos"));
     assert!(plan.contains("## Phase 3: Tac View Semantics"));
     assert!(plan.contains("## Phase 4: Native Vertical Slice"));
     assert!(plan.matches("Status: complete on 2026-07-26").count() >= 4);
     assert_eq!(version.trim(), "26.36.01");
     assert_eq!(version.trim(), tachyon_contracts::PRODUCT_VERSION);
+    Ok(())
+}
+
+#[test]
+fn cohesion_violations_cannot_grow_above_the_baseline() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let baseline: usize = fs::read_to_string(root.join("tools/cohesion-scan/BASELINE"))?
+        .trim()
+        .parse()?;
+    let report = cohesion_scan::Scan::repository(&root)?;
+    assert!(
+        report.total <= baseline,
+        "cohesion violations grew from {baseline} to {}; run `cargo run -p cohesion-scan` to list them\n{}",
+        report.total,
+        report.table()
+    );
+    Ok(())
+}
+
+#[test]
+fn duplicated_blocks_cannot_grow_above_the_baseline() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let baseline: usize =
+        fs::read_to_string(root.join("tools/cohesion-scan/DUPLICATION_BASELINE"))?
+            .trim()
+            .parse()?;
+    let report = cohesion_scan::Scan::repository(&root)?;
+    assert!(
+        report.duplication_total <= baseline,
+        "duplicated blocks grew from {baseline} to {}; move the repeated code into one static method of a utility type (ADR 0064) and run `cargo run -p cohesion-scan` to list them\n{}",
+        report.duplication_total,
+        report.duplicates.join("\n")
+    );
+    Ok(())
+}
+
+#[test]
+fn structure_violations_cannot_grow_above_the_baseline() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let baseline: usize = fs::read_to_string(root.join("tools/cohesion-scan/STRUCTURE_BASELINE"))?
+        .trim()
+        .parse()?;
+    let report = cohesion_scan::Scan::repository(&root)?;
+    assert!(
+        report.structure_total <= baseline,
+        "files with more than one type, free functions or file-level values grew from {baseline} to {}; run `cargo run -p cohesion-scan` to list them\n{}",
+        report.structure_total,
+        report.table()
+    );
+    Ok(())
+}
+
+#[test]
+fn file_name_violations_cannot_grow_above_the_baseline() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let baseline: usize = fs::read_to_string(root.join("tools/cohesion-scan/FILE_NAME_BASELINE"))?
+        .trim()
+        .parse()?;
+    let report = cohesion_scan::Scan::repository(&root)?;
+    assert!(
+        report.file_name_total <= baseline,
+        "files not named after their one type grew from {baseline} to {}; name each Rust file after its type in snake_case (ADR 0067) and run `cargo run -p cohesion-scan` to list them\n{}",
+        report.file_name_total,
+        report.table()
+    );
     Ok(())
 }

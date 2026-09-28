@@ -1,0 +1,10 @@
+$ ty doctor
+ready     TypeScript services                      node_modules/.bin/tsc  Version 6.0.3
+ready     Rust services for macos, windows, linux  rustc                  rustc 1.97.1
+ready     Rust services on the web                 rustc --target wasm32-unknown-unknown  wasm32-unknown-unknown
+ready     C# services on the web                   dotnet workload wasm-tools             wasm-tools
+ready     Ruby services on the web                 tachyon-ruby.wasm      built in ~/Library/Caches/Tachyon/ruby-web/60610a41…/tachyon-ruby.wasm
+missing   Yon JavaScript runtime 'node'            node                   not on PATH
+        Install Node.js or correct YON_JAVASCRIPT_RUNTIME.
+
+5 of 6 ready

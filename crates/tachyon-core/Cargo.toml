@@ -10,31 +10,39 @@ repository.workspace = true
 publish = false
 
 [features]
-# Exposes crate-private parsers and decoders to fuzz targets only.
-# Never enable this in a released artifact.
 fuzzing = []
 
 [dependencies]
-axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "ws"] }
 cap-fs-ext.workspace = true
 cap-std.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 html5gum = { version = "0.8.4", default-features = false }
+futures-util = { version = "0.3.31", default-features = false, features = ["std"] }
+getrandom = "0.4.2"
+redis = { version = "1.7.0", default-features = false, features = ["tokio-rustls-comp", "tls-rustls-webpki-roots", "connection-manager"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["any", "postgres", "mysql", "sqlite-bundled", "runtime-tokio", "tls-rustls-ring-webpki"] }
+tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"] }
+url = "2.5.8"
 notify.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tachyon-contracts.workspace = true
 tachyon-diagnostics.workspace = true
+tachyon-duplication.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "net", "process", "rt", "signal", "sync", "time"] }
-tokio-util = { workspace = true, features = ["io", "rt"] }
+tokio-util = { workspace = true, features = ["io", "rt", "compat"] }
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
 tower-http = { version = "0.7.0", features = ["fs", "set-header"] }
+brotli = { version = "9.0.0", default-features = false, features = ["std"] }
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 
 [dev-dependencies]
 jsonschema = { version = "0.49.1", default-features = false }
-tempfile.workspace = true
+futures-util = { version = "0.3.31", default-features = false, features = ["std", "sink"] }
+tokio-tungstenite = { version = "0.29.0", default-features = false, features = ["connect", "handshake"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]

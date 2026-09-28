@@ -1,0 +1,10 @@
+{
+  "methods": {
+    "POST": {
+      "summary": "Create one item",
+      "request": { "body": { "name": "^.{1,80}$", "note?": "^.{0,400}$" } },
+      "ok": { "id": "^[0-9]+$" },
+      "clientError": { "error": "^.+$" }
+    }
+  }
+}

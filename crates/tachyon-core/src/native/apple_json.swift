@@ -1,6 +1,3 @@
-// Shared by every generated Apple host, including applications without Swift
-// companions. Foundation owns JSON semantics; this byte scan only enforces
-// budgets and rejects duplicate root keys before Foundation would discard them.
 import Foundation
 import CoreFoundation
 
@@ -11,8 +8,6 @@ func tachyonParseJSONRequest(_ raw: String) -> [String: Any]? {
     return (try? JSONSerialization.jsonObject(with: Data(bytes))) as? [String: Any]
 }
 
-// Find the closing quote without interpreting Unicode or JSON values. Escaped
-// quotes and backslashes remain inside the token for Foundation to decode.
 private func tachyonJSONQuotedTokenEnd(_ bytes: [UInt8], start: Int) -> Int? {
     var index = start + 1
     while index < bytes.count {
@@ -27,8 +22,6 @@ private func tachyonJSONRootKey(_ bytes: [UInt8], start: Int, end: Int) -> Strin
     var next = end + 1
     while next < bytes.count && [9, 10, 13, 32].contains(bytes[next]) { next += 1 }
     guard next < bytes.count, bytes[next] == 58 else { return nil }
-    // Decode only the key token. "route" and "\u0072oute" must compare equally.
-    // Invalid strings are refused by the final Foundation object parse too.
     return (try? JSONSerialization.jsonObject(
         with: Data(bytes[start...end]), options: [.fragmentsAllowed])) as? String
 }
@@ -65,8 +58,6 @@ func tachyonCanonicalJSONRequest(_ request: [String: Any]) -> String? {
     return String(data: data, encoding: .utf8)
 }
 
-// Native closures receive ordinary Swift scalars, not NSNumber's permissive
-// bool/number casts. Preserve explicit nulls inside arrays and dictionaries.
 func tachyonSwiftJSONValue(_ value: Any?) -> Any? {
     guard let value, !(value is NSNull) else { return nil }
     if let number = value as? NSNumber {

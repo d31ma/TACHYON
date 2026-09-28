@@ -1,0 +1,39 @@
+Z
+@Entity({"adapter":"data"})
+@Table("products")
+class Product {
+  @Id
+  id = 0;
+}
+@Store(Product, {"fields":["id","status"],"defaultSize":20,"maxSize":100})
+class Products {
+  behaviors;
+  async findByStatusAndIdGreaterThan(status, id) {}
+  @Query({"operation":"exists","where":[{"field":"id","operator":"eq","argument":0}],"orderBy":[]})
+  async available(id) {}
+}
+@Checked()
+class Input {
+  @Required()
+  @NotEmpty()
+  @Length({"min":1,"max":64})
+  name = "";
+  @Min(0)
+  @Max(100)
+  quantity = 0;
+}
+class Service {
+  /** @param {Input} value */
+  accept(@Check value) { return value; }
+}
+@Settings({"prefix":"YON_CATALOG_"})
+class Settings {
+  @Min(1)
+  @Max(100)
+  size = 20;
+}
+@Setup()
+@WhenProfile("test")
+@WhenSetting({"name":"YON_CATALOG_ENABLED","havingValue":"true","matchIfMissing":false})
+class Adapters { static configure() { return {}; } }
+export class Handler { static GET() { return {}; } }

@@ -43,8 +43,8 @@
 class TelemetryAlertWorker {
   constructor() {
     this.telemetryUrl = process.env.YON_TELEMETRY_URL || 'http://127.0.0.1:8000/languages/javascript/telemetry?limit=25'
-    this.slowMs = TelemetryAlertWorker.numberEnv('YON_ALERT_SLOW_MS', 500)
-    this.minStatusCode = TelemetryAlertWorker.numberEnv('YON_ALERT_STATUS_CODE', 500)
+    this.slowMs = TelemetryAlertWorker.numberFromEnvironment('YON_ALERT_SLOW_MS', 500)
+    this.minStatusCode = TelemetryAlertWorker.numberFromEnvironment('YON_ALERT_STATUS_CODE', 500)
     this.authorization = process.env.YON_BASIC_AUTH_HEADER || ''
   }
 
@@ -53,7 +53,7 @@ class TelemetryAlertWorker {
    * @param {number} fallback
    * @returns {number}
    */
-  static numberEnv(name, fallback) {
+  static numberFromEnvironment(name, fallback) {
     const value = Number(process.env[name] || '')
     return Number.isFinite(value) && value > 0 ? value : fallback
   }
@@ -105,34 +105,34 @@ class TelemetryAlertWorker {
         continue
       }
       if (typeof entry.statusCode === 'number' && entry.statusCode >= this.minStatusCode) {
-        alerts.push({
-          level: 'error',
-          reason: 'error-route',
-          route: entry.route || entry.name,
-          method: entry.method || 'GET',
-          statusCode: entry.statusCode,
-          durationMs: entry.durationMs,
-          traceId: entry.traceId,
-          requestId: entry.requestId,
-        })
+        alerts.push(TelemetryAlertWorker.alertFor(entry, 'error', 'error-route'))
         continue
       }
       if (entry.durationMs >= this.slowMs) {
-        alerts.push({
-          level: 'warn',
-          reason: 'slow-route',
-          route: entry.route || entry.name,
-          method: entry.method || 'GET',
-          statusCode: entry.statusCode,
-          durationMs: entry.durationMs,
-          traceId: entry.traceId,
-          requestId: entry.requestId,
-        })
+        alerts.push(TelemetryAlertWorker.alertFor(entry, 'warn', 'slow-route'))
       }
     }
     return alerts
   }
+
+  /**
+   * @param {TelemetryEntry} entry
+   * @param {TelemetryAlert['level']} level
+   * @param {TelemetryAlert['reason']} reason
+   * @returns {TelemetryAlert}
+   */
+  static alertFor(entry, level, reason) {
+    return {
+      level,
+      reason,
+      route: entry.route || entry.name,
+      method: entry.method || 'GET',
+      statusCode: entry.statusCode,
+      durationMs: entry.durationMs,
+      traceId: entry.traceId,
+      requestId: entry.requestId,
+    }
+  }
 }
 
-const worker = new TelemetryAlertWorker()
-await worker.run()
+await new TelemetryAlertWorker().run()

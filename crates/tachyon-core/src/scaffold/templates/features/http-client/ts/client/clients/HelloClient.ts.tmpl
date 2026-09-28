@@ -1,0 +1,7 @@
+import type { Hello } from '/models/Hello.ts'
+
+@HTTPClient
+class HelloClient {
+  @GetRequest("/api/hello")
+  async getHello(): Promise<Hello> {}
+}

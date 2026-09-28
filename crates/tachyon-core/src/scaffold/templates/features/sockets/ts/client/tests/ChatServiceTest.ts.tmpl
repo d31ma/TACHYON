@@ -1,0 +1,19 @@
+@Test(ChatTestSetup, {"partition":"tests"})
+export default class ChatServiceTest {
+  @Fake
+  chatClient!: ChatClient;
+
+  async testAddMessageKeepsTheMessage(): Promise<void> {
+    this.chatClient = { send: async () => {} } as unknown as ChatClient
+    const chat = this.construct(ChatService)
+    chat.addMessage({ text: 'Hi' })
+    if (chat.messages.length !== 1) throw Error(`messages are ${JSON.stringify(chat.messages)}`)
+  }
+
+  async testSayHelloSendsAMessage(): Promise<void> {
+    const sent: unknown[] = []
+    this.chatClient = { send: async (message: unknown) => { sent.push(message) } } as unknown as ChatClient
+    await this.construct(ChatService).sayHello()
+    if (sent.length !== 1) throw Error(`sent ${JSON.stringify(sent)}`)
+  }
+}

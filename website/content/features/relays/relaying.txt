@@ -1,0 +1,28 @@
+Relaying to a language Yon does not run
+
+Yon owns eleven controller languages. Everything else remains callable
+as a program through the explicit relay(command, request) helper.
+The helper is supplied by Yon and needs no package or import.
+request is the route method parameter without a marker. It is the
+request in the language's own type, and relay answers with the
+language's own response. PHP has no request object, so
+Yon::relay(command) forwards the current request.
+
+  JavaScript  return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)
+  Python      return relay(('ruby', 'server/helpers/ReportDelegate.rb'), request)
+  PHP         Yon::relay(['ruby', 'server/helpers/ReportDelegate.rb']);
+  Java        Yon.relay(List.of("ruby", "server/helpers/ReportDelegate.rb"), exchange);
+  Kotlin      Yon.relay(listOf("ruby", "server/helpers/ReportDelegate.rb"), exchange)
+  C#          return Yon.Relay(new[] { "ruby", "server/helpers/ReportDelegate.rb" }, request)
+  Rust        relay(&["ruby", "server/helpers/ReportDelegate.rb"], request)
+  Dart        return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)
+  Go          return Relay([]string{"ruby", "server/helpers/ReportDelegate.rb"}, request)
+  Ruby        relay(["ruby", "server/helpers/ReportDelegate.rb"], request)
+
+The program reads the request as JSON on its standard input: route
+(the path and query), method, headers and body. It answers with JSON
+on its standard output: status, headers and body.
+
+The command bypasses a shell. Yon drains bounded stdout and stderr,
+inherits the request deadline, validates protocol frames, and reaps
+the process group. A start or protocol failure becomes a sanitized 502.

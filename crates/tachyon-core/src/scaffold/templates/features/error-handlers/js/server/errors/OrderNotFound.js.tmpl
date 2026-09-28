@@ -1,0 +1,1 @@
+class OrderNotFound extends Error {}

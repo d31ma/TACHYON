@@ -1,0 +1,30 @@
+Which languages a socket is written in
+
+  .js, .ts   a @SocketRoute class; the session has openSessions()
+  .py        a @socket_route class; the session has open_sessions()
+  .go        a // @SocketRoute type; the session has OpenSessions()
+  .java      a @SocketRoute class; the session has getOpenSessions()
+  .kt        a @SocketRoute class; the session has openSessions()
+  .cs        a [SocketRoute] class; the session has OpenSessions()
+  .php       a #[SocketRoute] class; the session has openSessions()
+  .rb        a #[SocketRoute] class; the session has open_sessions
+  .rs        a #[SocketRoute] struct; the session has open_sessions()
+  .dart      a @SocketRoute class; the session has openSessions()
+
+Every Yon language holds a socket. Tachyon keeps one handler
+process running for the whole connection, and the runner or
+prelude of each language reads the socket's message frames while
+the class runs. Each language names the session methods in its
+own style (above). A method that throws, panics or returns an
+error counts as a failure. In Rust the object is shared, so its
+fields keep state in a Cell or a lock.
+
+When OnOpen or OnMessage fails, OnError runs and the socket stays
+open, as in Jakarta. The error text goes to the server log only.
+
+In the browser, @SocketRequest is JavaScript or TypeScript.
+Every Tac language receives the messages with @OnEvent.
+
+Limits: messages are JSON text of at most 64 KiB, at most 32
+sockets are open at once, five idle minutes or one hour close a
+socket, and only pages from the same origin may open it.

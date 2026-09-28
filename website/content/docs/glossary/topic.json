@@ -1,0 +1,12 @@
+{
+  "title": "Glossary",
+  "summary": "Short meanings of the words that the guides use.",
+  "sections": [
+    {
+      "include": "words/section.json"
+    },
+    {
+      "include": "../devices/words-for-platform-target-and-environment/section.json"
+    }
+  ]
+}

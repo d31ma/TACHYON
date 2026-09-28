@@ -1,0 +1,12 @@
+{
+  "id": "native-targets",
+  "title": "Native targets",
+  "summary": "The same client source can build a browser application. It can also build a desktop or mobile application that shows the bundle in the WebView of the platform. The bundle is the built web files. A WebView is a browser view inside an app. One command can build several targets: `ty bundle --target macos,ios`. Each native target needs its platform software development kit (SDK), compiler and WebView dependencies.",
+  "group": "Native",
+  "files": [
+    {
+      "name": "build",
+      "code": { "file": "build.txt" }
+    }
+  ]
+}

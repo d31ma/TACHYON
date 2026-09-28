@@ -1,0 +1,220 @@
+{
+  "heading": "Gateways: Yon",
+  "axis": "language",
+  "summary": "Gateway declares a method that another language answers. Declare it on an HTTPClient as a signature with an empty body. It names a class in another Yon language or a program under server/helpers.",
+  "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# uses `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. The C# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language.",
+  "files": [
+    {
+      "name": "server/clients/ReportClient.js",
+      "code": {
+        "file": "server/clients/ReportClient.js"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.js",
+      "code": {
+        "file": "server/controllers/ReportController.js"
+      }
+    },
+    {
+      "name": "server/services/ReportService.js",
+      "code": {
+        "file": "server/services/ReportService.js"
+      }
+    },
+    {
+      "name": "server/models/Report.ts",
+      "code": { "file": "server/models/Report.ts" }
+    },
+    {
+      "name": "server/clients/ReportClient.ts",
+      "code": {
+        "file": "server/clients/ReportClient.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.ts",
+      "code": {
+        "file": "server/controllers/ReportController.ts"
+      }
+    },
+    {
+      "name": "server/models/Report.py",
+      "code": { "file": "server/models/Report.py" }
+    },
+    {
+      "name": "server/clients/ReportClient.py",
+      "code": {
+        "file": "server/clients/ReportClient.py"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.py",
+      "code": {
+        "file": "server/controllers/ReportController.py"
+      }
+    },
+    {
+      "name": "server/services/ReportService.py",
+      "code": {
+        "file": "server/services/ReportService.py"
+      }
+    },
+    {
+      "name": "server/helpers/forecast.py",
+      "code": {
+        "file": "server/helpers/forecast.py"
+      }
+    },
+    {
+      "name": "server/models/Report.php",
+      "code": { "file": "server/models/Report.php" }
+    },
+    {
+      "name": "server/clients/ReportClient.php",
+      "code": {
+        "file": "server/clients/ReportClient.php"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.php",
+      "code": {
+        "file": "server/controllers/ReportController.php"
+      }
+    },
+    {
+      "name": "server/models/Report.java",
+      "code": { "file": "server/models/Report.java" }
+    },
+    {
+      "name": "server/models/Report.groovy",
+      "code": { "file": "server/models/Report.groovy" }
+    },
+    {
+      "name": "server/clients/ReportClient.java",
+      "code": {
+        "file": "server/clients/ReportClient.java"
+      }
+    },
+    {
+      "name": "server/clients/ReportClient.groovy",
+      "code": {
+        "file": "server/clients/ReportClient.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.java",
+      "code": {
+        "file": "server/controllers/ReportController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.groovy",
+      "code": {
+        "file": "server/controllers/ReportController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Report.kt",
+      "code": { "file": "server/models/Report.kt" }
+    },
+    {
+      "name": "server/clients/ReportClient.kt",
+      "code": {
+        "file": "server/clients/ReportClient.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.kt",
+      "code": {
+        "file": "server/controllers/ReportController.kt"
+      }
+    },
+    {
+      "name": "server/models/Report.cs",
+      "code": { "file": "server/models/Report.cs" }
+    },
+    {
+      "name": "server/clients/ReportClient.cs",
+      "code": {
+        "file": "server/clients/ReportClient.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.cs",
+      "code": {
+        "file": "server/controllers/ReportController.cs"
+      }
+    },
+    {
+      "name": "server/models/Report.rs",
+      "code": { "file": "server/models/Report.rs" }
+    },
+    {
+      "name": "server/clients/ReportClient.rs",
+      "code": {
+        "file": "server/clients/ReportClient.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.rs",
+      "code": {
+        "file": "server/controllers/ReportController.rs"
+      }
+    },
+    {
+      "name": "server/models/Report.go",
+      "code": { "file": "server/models/Report.go" }
+    },
+    {
+      "name": "server/clients/ReportClient.go",
+      "code": {
+        "file": "server/clients/ReportClient.go"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.go",
+      "code": {
+        "file": "server/controllers/ReportController.go"
+      }
+    },
+    {
+      "name": "server/services/ReportService.go",
+      "code": {
+        "file": "server/services/ReportService.go"
+      }
+    },
+    {
+      "name": "server/models/Report.dart",
+      "code": { "file": "server/models/Report.dart" }
+    },
+    {
+      "name": "server/clients/ReportClient.dart",
+      "code": {
+        "file": "server/clients/ReportClient.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.dart",
+      "code": {
+        "file": "server/controllers/ReportController.dart"
+      }
+    },
+    {
+      "name": "server/models/Report.rb",
+      "code": { "file": "server/models/Report.rb" }
+    },
+    {
+      "name": "server/clients/ReportClient.rb",
+      "code": {
+        "file": "server/clients/ReportClient.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.rb",
+      "code": {
+        "file": "server/controllers/ReportController.rb"
+      }
+    }
+  ]
+}

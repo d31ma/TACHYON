@@ -1,0 +1,146 @@
+{
+  "id": "realtime",
+  "title": "Streaming controllers",
+  "summary": "StreamRoute marks a controller method that answers GET requests with a stream of server-sent events (SSE). The method produces many values, one at a time, with the language's own `yield` syntax, and its name starts with `stream`. It keeps the loop in a private generator method and only passes on that method's values. Tachyon sends each value as one limited event, and an end event when the method finishes. In the browser, StreamRequest on an HTTPClient method receives the stream. Tachyon opens it when a component first uses the client, reconnects with a growing wait (at most five tries), and closes it with the component. Each message is checked against the model type of the method's one parameter, passed to the method, and published as that model's event, so an OnEvent listener in any Tac language receives it. Java, Rust and Go cannot stream, because they have no native generator. Like every route, a stream says who may call it with `Public`, `SignedIn` or `Allow(Role)`.",
+  "group": "Yon server",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/ticks/stream/tac.html",
+      "code": {
+        "file": "client/components/ticks/stream/tac.html"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.js",
+      "code": {
+        "file": "server/controllers/TicksController.js"
+      }
+    },
+    {
+      "name": "server/models/Tick.ts",
+      "code": {
+        "file": "server/models/Tick.ts"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.ts",
+      "code": {
+        "file": "server/controllers/TicksController.ts"
+      }
+    },
+    {
+      "name": "server/models/Tick.py",
+      "code": {
+        "file": "server/models/Tick.py"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.py",
+      "code": {
+        "file": "server/controllers/TicksController.py"
+      }
+    },
+    {
+      "name": "server/models/Tick.php",
+      "code": {
+        "file": "server/models/Tick.php"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.php",
+      "code": {
+        "file": "server/controllers/TicksController.php"
+      }
+    },
+    {
+      "name": "server/models/Tick.kt",
+      "code": {
+        "file": "server/models/Tick.kt"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.kt",
+      "code": {
+        "file": "server/controllers/TicksController.kt"
+      }
+    },
+    {
+      "name": "server/models/Tick.cs",
+      "code": {
+        "file": "server/models/Tick.cs"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.cs",
+      "code": {
+        "file": "server/controllers/TicksController.cs"
+      }
+    },
+    {
+      "name": "server/models/Tick.dart",
+      "code": {
+        "file": "server/models/Tick.dart"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.dart",
+      "code": {
+        "file": "server/controllers/TicksController.dart"
+      }
+    },
+    {
+      "name": "client/clients/TicksClient.js",
+      "code": {
+        "file": "client/clients/TicksClient.js"
+      }
+    },
+    {
+      "name": "client/clients/TicksClient.ts",
+      "code": {
+        "file": "client/clients/TicksClient.ts"
+      }
+    },
+    {
+      "name": "client/services/StreamService.js",
+      "code": {
+        "file": "client/services/StreamService.js"
+      }
+    },
+    {
+      "name": "client/services/StreamService.ts",
+      "code": {
+        "file": "client/services/StreamService.ts"
+      }
+    },
+    {
+      "name": "languages",
+      "code": {
+        "file": "languages.txt"
+      }
+    },
+    {
+      "name": "client/models/Tick.ts",
+      "code": {
+        "file": "client/models/Tick.ts"
+      }
+    },
+    {
+      "name": "server/models/Tick.rb",
+      "code": {
+        "file": "server/models/Tick.rb"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.rb",
+      "code": {
+        "file": "server/controllers/TicksController.rb"
+      }
+    }
+  ]
+}

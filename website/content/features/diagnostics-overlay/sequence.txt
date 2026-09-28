@@ -1,0 +1,6 @@
+1  save a broken view     -> overlay appears, naming the TY code
+2  keep typing            -> overlay updates in place
+3  save a working view    -> overlay is removed, page hot-updates
+
+No reload at any step. The page that recovers is the page that
+was open, with its scroll position and focus intact.

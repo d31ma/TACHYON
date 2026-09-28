@@ -1,0 +1,99 @@
+{
+  "id": "relays",
+  "title": "Relaying to Ruby and other programs",
+  "summary": "Yon supports eleven controller languages. A route method can return `relay(command, request)` to call another program that implements Handler Protocol v1. `request` is the method parameter without a marker. It is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request. The application gives the command at the call site. Tachyon supervises the program. It limits the program to the time left in the request and to the process limits. It gives the program only the baseline environment and the names on the allowlist (a list of allowed names). No shell execution is needed. To call one method and get a value back, use `@Gateway`.",
+  "group": "Polyglot",
+  "files": [
+    {
+      "name": "server/helpers/ReportDelegate.rb",
+      "code": {
+        "file": "server/helpers/ReportDelegate.rb"
+      }
+    },
+    {
+      "name": "relaying",
+      "code": {
+        "file": "relaying.txt"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.js",
+      "code": {
+        "file": "server/controllers/ReportController.js"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.ts",
+      "code": {
+        "file": "server/controllers/ReportController.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.py",
+      "code": {
+        "file": "server/controllers/ReportController.py"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.php",
+      "code": {
+        "file": "server/controllers/ReportController.php"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.java",
+      "code": {
+        "file": "server/controllers/ReportController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.groovy",
+      "code": {
+        "file": "server/controllers/ReportController.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.kt",
+      "code": {
+        "file": "server/controllers/ReportController.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.cs",
+      "code": {
+        "file": "server/controllers/ReportController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.fs",
+      "code": {
+        "file": "server/controllers/ReportController.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.rs",
+      "code": {
+        "file": "server/controllers/ReportController.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.go",
+      "code": {
+        "file": "server/controllers/ReportController.go"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.dart",
+      "code": {
+        "file": "server/controllers/ReportController.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.rb",
+      "code": {
+        "file": "server/controllers/ReportController.rb"
+      }
+    }
+  ],
+  "verify": "yon-relay"
+}

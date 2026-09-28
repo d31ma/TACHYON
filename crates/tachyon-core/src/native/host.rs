@@ -1,8 +1,3 @@
-//! Platform-neutral staging shared by every Phase 5 native host generator.
-//!
-//! Each platform generator receives a fully staged resource tree and owns only
-//! its host source, bundle layout, and toolchain invocation.
-
 use super::routes::NativeRouteIndex;
 use crate::Failure;
 use crate::external_command::run as supervise_tool;
@@ -14,27 +9,14 @@ use std::process::Stdio;
 use std::time::Duration;
 use tokio::process::Command;
 
-/// Upper bound on any generated host source file.
-pub(super) const MAX_HOST_SOURCE_BYTES: usize = 4 * 1_024 * 1_024;
-const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
-/// Injected into the hosted bundle before its own scripts run.
-///
-/// Two jobs, and deliberately no more. It tells the page it is running
-/// natively, so an application can style or behave differently without
-/// sniffing a user agent. And it carries the channel between page and
-/// compiled companion, in both directions.
-///
-/// There is no capability vocabulary here any more. A tray, a window, a
-/// notification — those are the platform's, and a companion written in the
-/// platform's own language already has them. A fixed list of verbs in the
-/// middle could only ever be the subset Tachyon had got round to
-/// implementing, in three hosts, for every platform at once.
-///
-/// The publish stub queues rather than delivers. A companion may publish from
-/// a thread of its own at any moment, including before the page's modules have
-/// run, and this file is what runs first: without the queue that value is lost
-/// to a race nothing in the application can see.
-pub(super) const NATIVE_SHIM: &str = r"globalThis.__tachyonCompanionQueue = []
+pub(super) struct NativeHost;
+
+impl NativeHost {
+    const MAX_SOURCE_BYTES: usize = 4 * 1_024 * 1_024;
+    const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
+    const MAX_BUNDLED_FILE_BYTES: u64 = 16 * 1_024 * 1_024;
+    const TOOL_TIME_LIMIT: Duration = Duration::from_mins(2);
+    pub(super) const SHIM: &str = r"globalThis.__tachyonCompanionQueue = []
 globalThis.__tachyonCompanionPublish = (signal) => {
   const queue = globalThis.__tachyonCompanionQueue
   if (queue.length === 128) queue.shift()
@@ -54,40 +36,34 @@ addEventListener('DOMContentLoaded', () => {
   if (document.body) document.body.dataset.platform = 'native'
 })
 ";
-
-/// Builds the shim for one application, with the controls it was granted.
-///
-/// The list is baked in rather than probed, so `tachyonWindow.minimize` is
-/// either a function or `undefined` — a page can ask what it has without
-/// calling anything and being refused. Electron hands a privileged process
-/// the whole window; Tauri gates each call behind a permission in a separate
-/// capabilities file. This is the same default-deny, declared in the manifest
-/// the application already ships.
-pub(super) fn native_shim(window: &super::config::WindowConfiguration) -> String {
-    let granted = window
-        .controls
-        .iter()
-        .map(|control| format!("'{control}'"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    NATIVE_SHIM.replace("__WINDOW_CONTROLS__", &format!("[{granted}]"))
 }
 
-/// Evidence returned by one platform host generator.
+pub(super) fn native_shim(window: &super::config::WindowConfiguration) -> String {
+    let mut quoted = Vec::new();
+    for control in &window.controls {
+        quoted.push(format!("'{control}'"));
+    }
+    let granted = quoted.join(", ");
+    NativeHost::SHIM.replace("__WINDOW_CONTROLS__", &format!("[{granted}]"))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct GeneratedHost {
-    /// Stage-relative application bundle, executable, or package.
     pub(super) application_bundle: PathBuf,
-    /// Platform toolchain name recorded in Artifact Manifest v1.
     pub(super) toolchain_name: String,
-    /// Platform toolchain version recorded in Artifact Manifest v1.
     pub(super) toolchain_version: String,
 }
 
-/// Writes the platform-neutral resource tree used by every native host.
-///
-/// The stage receives inspectable top-level copies and the platform bundle
-/// receives the canonical `NativeIndex.json` and `WebBundle/` names.
+impl GeneratedHost {
+    pub(super) fn not_packaged(application_bundle: PathBuf) -> Self {
+        Self {
+            application_bundle,
+            toolchain_name: String::from("source"),
+            toolchain_version: String::from("not-packaged"),
+        }
+    }
+}
+
 pub(super) fn stage_application(
     index: &NativeRouteIndex,
     web_bundle: &Path,
@@ -102,13 +78,8 @@ pub(super) fn stage_application(
     write(&stage.join("native-index.json"), &index_bytes)?;
     write(&resources.join("NativeIndex.json"), &index_bytes)?;
 
-    // The application's own web bundle is what the host loads. It is the same
-    // bundle the browser gets, which is the point: one build, one rendering,
-    // and no per-platform approximation of it.
     copy_tree(web_bundle, &stage.join("web"))?;
     copy_tree(web_bundle, &resources.join("WebBundle"))?;
-    // Android's asset packager drops dot-prefixed directories, so the
-    // generated runtime is published under a visible alias on every platform.
     let hidden_runtime = web_bundle.join(".tachyon");
     if hidden_runtime.is_dir() {
         copy_tree(&hidden_runtime, &stage.join("web/tachyon-runtime"))?;
@@ -121,9 +92,8 @@ pub(super) fn stage_application(
     Ok(())
 }
 
-/// Writes one generated host source file after enforcing the size budget.
 pub(super) fn write_host_source(path: &Path, source: &str) -> Result<(), Failure> {
-    if source.len() > MAX_HOST_SOURCE_BYTES {
+    if source.len() > NativeHost::MAX_SOURCE_BYTES {
         return Err(native_tool_failure(
             1605,
             "Generated native host exceeds the 4 MiB limit.",
@@ -132,53 +102,70 @@ pub(super) fn write_host_source(path: &Path, source: &str) -> Result<(), Failure
     write(path, source.as_bytes())
 }
 
-/// Runs one bounded native toolchain program without a shell.
 pub(super) async fn run_tool(program: &str, arguments: &[&str]) -> Result<String, Failure> {
     run_tool_in(program, arguments, None).await
 }
 
-/// Runs one bounded native toolchain program in an explicit working directory.
 pub(super) async fn run_tool_in(
     program: &str,
     arguments: &[&str],
     working_directory: Option<&Path>,
 ) -> Result<String, Failure> {
+    run_tool_with(program, arguments, working_directory, &[]).await
+}
+
+pub(super) async fn run_tool_with(
+    program: &str,
+    arguments: &[&str],
+    working_directory: Option<&Path>,
+    environment: &[(&str, &str)],
+) -> Result<String, Failure> {
     let mut command = Command::new(program);
     command
         .args(arguments)
+        .envs(environment.iter().copied())
         .stdin(Stdio::null())
         .kill_on_drop(true);
     if let Some(working_directory) = working_directory {
         command.current_dir(working_directory);
     }
-    let output = supervise_tool(&mut command, Duration::from_mins(2), MAX_TOOL_OUTPUT_BYTES)
-        .await
-        .map_err(|error| {
-            native_tool_failure(
-                1605,
-                &format!("Cannot run native tool '{program}': {error}"),
-            )
-        })?;
-    let stdout = bounded_text(&output.stdout);
-    let stderr = bounded_text(&output.stderr);
-    if !output.status.success() {
-        let detail = if stderr.trim().is_empty() {
-            stdout.trim()
-        } else {
-            stderr.trim()
-        };
-        return Err(native_tool_failure(
+    let output = supervise_tool(
+        &mut command,
+        NativeHost::TOOL_TIME_LIMIT,
+        NativeHost::MAX_TOOL_OUTPUT_BYTES,
+    )
+    .await
+    .map_err(|error| {
+        native_tool_failure(
             1605,
-            &format!(
-                "Native tool '{}' failed with status {}: {}",
-                program, output.status, detail
-            ),
-        ));
+            &format!("Cannot run native tool '{program}': {error}"),
+        )
+    })?;
+    let stdout = bounded_text(&output.stdout);
+    if !output.status.success() {
+        let stderr = bounded_text(&output.stderr);
+        return Err(failed_tool(program, output.status, &stdout, &stderr));
     }
     Ok(stdout)
 }
 
-/// Returns the first bounded line of a toolchain version banner.
+fn failed_tool(
+    program: &str,
+    status: std::process::ExitStatus,
+    stdout: &str,
+    stderr: &str,
+) -> Failure {
+    let detail = if stderr.trim().is_empty() {
+        stdout.trim()
+    } else {
+        stderr.trim()
+    };
+    native_tool_failure(
+        1605,
+        &format!("Native tool '{program}' failed with status {status}: {detail}"),
+    )
+}
+
 pub(super) fn first_line(value: &str, fallback: &str) -> String {
     value
         .lines()
@@ -191,10 +178,10 @@ pub(super) fn first_line(value: &str, fallback: &str) -> String {
 }
 
 fn bounded_text(value: &[u8]) -> String {
-    String::from_utf8_lossy(&value[..value.len().min(MAX_TOOL_OUTPUT_BYTES)]).into_owned()
+    let length = value.len().min(NativeHost::MAX_TOOL_OUTPUT_BYTES);
+    String::from_utf8_lossy(&value[..length]).into_owned()
 }
 
-/// Recursively copies a symlink-free tree in deterministic order.
 pub(super) fn copy_tree(source: &Path, destination: &Path) -> Result<(), Failure> {
     native_io(fs::create_dir_all(destination), destination)?;
     let mut entries = native_io(
@@ -215,13 +202,28 @@ pub(super) fn copy_tree(source: &Path, destination: &Path) -> Result<(), Failure
         if metadata.is_dir() {
             copy_tree(&path, &target)?;
         } else if metadata.is_file() {
+            refuse_oversized_file(&path, metadata.len())?;
             native_io(fs::copy(&path, &target), &target)?;
         }
     }
     Ok(())
 }
 
-/// Writes one file, creating parent directories.
+fn refuse_oversized_file(path: &Path, size: u64) -> Result<(), Failure> {
+    if size <= NativeHost::MAX_BUNDLED_FILE_BYTES {
+        return Ok(());
+    }
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    Err(Failure::one(diagnostic(
+        1605,
+        format!("Web bundle file '{name}' is {size} bytes. Native hosts serve files up to 16 MiB."),
+        Some(String::from(
+            "Make the file smaller, or split it into several files.",
+        )),
+        None,
+    )))
+}
+
 pub(super) fn write(path: &Path, contents: &[u8]) -> Result<(), Failure> {
     if let Some(parent) = path.parent() {
         native_io(fs::create_dir_all(parent), parent)?;
@@ -229,7 +231,6 @@ pub(super) fn write(path: &Path, contents: &[u8]) -> Result<(), Failure> {
     native_io(fs::write(path, contents), path)
 }
 
-/// Serializes one contract value as newline-terminated pretty JSON.
 pub(super) fn pretty_json(value: &impl serde::Serialize, label: &str) -> Result<Vec<u8>, Failure> {
     let mut bytes = serde_json::to_vec_pretty(value).map_err(|error| {
         native_tool_failure(1605, &format!("Cannot serialize {label}: {error}"))
@@ -238,7 +239,6 @@ pub(super) fn pretty_json(value: &impl serde::Serialize, label: &str) -> Result<
     Ok(bytes)
 }
 
-/// Maps one filesystem error to a stable native diagnostic.
 pub(super) fn native_io<T>(result: io::Result<T>, path: &Path) -> Result<T, Failure> {
     result.map_err(|error| {
         native_tool_failure(
@@ -248,7 +248,6 @@ pub(super) fn native_io<T>(result: io::Result<T>, path: &Path) -> Result<T, Fail
     })
 }
 
-/// Builds a stable native toolchain or packaging diagnostic.
 pub(super) fn native_tool_failure(number: u16, message: &str) -> Failure {
     Failure::one(diagnostic(
         number,
@@ -260,7 +259,6 @@ pub(super) fn native_tool_failure(number: u16, message: &str) -> Failure {
     ))
 }
 
-/// Escapes text embedded in generated XML documents.
 pub(super) fn xml_escape(value: &str) -> String {
     value
         .replace('&', "&amp;")
@@ -270,7 +268,6 @@ pub(super) fn xml_escape(value: &str) -> String {
         .replace('\'', "&apos;")
 }
 
-/// Escapes text embedded in generated Swift and Kotlin string literals.
 pub(super) fn quoted_string_escape(value: &str) -> String {
     value
         .replace('\\', "\\\\")
@@ -281,7 +278,6 @@ pub(super) fn quoted_string_escape(value: &str) -> String {
         .replace('\u{2029}', "\\u{2029}")
 }
 
-/// Escapes text embedded in generated C string literals.
 pub(super) fn c_string_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for character in value.chars() {
@@ -300,7 +296,12 @@ pub(super) fn c_string_escape(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{NATIVE_SHIM, c_string_escape, first_line, quoted_string_escape, xml_escape};
+    #![allow(clippy::expect_used)]
+
+    use super::{
+        NativeHost, c_string_escape, copy_tree, first_line, quoted_string_escape, xml_escape,
+    };
+    use std::fs;
 
     #[test]
     fn generated_literals_are_escaped_without_changing_plain_names() {
@@ -323,9 +324,29 @@ mod tests {
 
     #[test]
     fn the_shim_gives_the_page_one_bridge_and_says_where_it_is_running() {
-        assert!(NATIVE_SHIM.contains("__tachyonNativeHostCall"));
-        assert!(NATIVE_SHIM.contains("messageHandlers.tachyon"));
-        assert!(NATIVE_SHIM.contains("__tachyonHostPost"));
-        assert!(NATIVE_SHIM.contains("dataset.platform = 'native'"));
+        assert!(NativeHost::SHIM.contains("__tachyonNativeHostCall"));
+        assert!(NativeHost::SHIM.contains("messageHandlers.tachyon"));
+        assert!(NativeHost::SHIM.contains("__tachyonHostPost"));
+        assert!(NativeHost::SHIM.contains("dataset.platform = 'native'"));
+    }
+
+    #[test]
+    fn a_web_bundle_file_over_the_16_mib_limit_is_refused() {
+        let bundle = tempfile::tempdir().expect("bundle");
+        let module = fs::File::create(bundle.path().join("services.wasm")).expect("module");
+        module
+            .set_len(NativeHost::MAX_BUNDLED_FILE_BYTES)
+            .expect("largest allowed size");
+        let copied = tempfile::tempdir().expect("copy");
+        copy_tree(bundle.path(), copied.path()).expect("a 16 MiB file is served");
+
+        module
+            .set_len(NativeHost::MAX_BUNDLED_FILE_BYTES + 1)
+            .expect("one byte over");
+        let error = copy_tree(bundle.path(), copied.path()).expect_err("too large");
+        let message = error.to_string();
+        assert!(message.contains("TY1605"), "{message}");
+        assert!(message.contains("services.wasm"), "{message}");
+        assert!(message.contains("16 MiB"), "{message}");
     }
 }

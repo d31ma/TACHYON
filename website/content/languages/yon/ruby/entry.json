@@ -1,0 +1,37 @@
+{
+  "id": "ruby",
+  "name": "Ruby",
+  "note": "Ruby keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+  "files": [
+    {
+      "name": "server/models/Order.rb",
+      "code": {
+        "file": "server/models/Order.rb"
+      }
+    },
+    {
+      "name": "server/models/OrderList.rb",
+      "code": {
+        "file": "server/models/OrderList.rb"
+      }
+    },
+    {
+      "name": "server/services/OrderService.rb",
+      "code": {
+        "file": "server/services/OrderService.rb"
+      }
+    },
+    {
+      "name": "server/stores/OrderStore.rb",
+      "code": {
+        "file": "server/stores/OrderStore.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rb",
+      "code": {
+        "file": "server/controllers/OrdersController.rb"
+      }
+    }
+  ]
+}

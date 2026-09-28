@@ -1,4 +1,3 @@
-# Keep Graphify from re-reading its own generated outputs.
 graphify-out/GRAPH_REPORT.md
 graphify-out/graph.html
 graphify-out/graph.json
@@ -10,10 +9,8 @@ graphify-out/graph.svg
 graphify-out/graph.graphml
 graphify-out/cypher.txt
 
-# Graphify local bookkeeping
 .graphify_*
 
-# Repo-local generated artifacts that Graphify does not skip by default
 bin/
 test-results/
 coverage/
@@ -23,5 +20,4 @@ node_modules/
 tests/fixtures/fullstack/db/
 **/__pycache__/
 
-# Private website submodule.
 website/

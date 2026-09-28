@@ -1,0 +1,12 @@
+{
+  "id": "page-metadata",
+  "title": "Page metadata",
+  "group": "Tooling",
+  "summary": "Declare the title, description, canonical URL and social tags of each route in the manifest's `tac.metadata`. The canonical URL is the main address of a page. Social tags are tags that link previews use. `defaults` apply to every page, and a route entry overrides them. A `canonical` or `image` that starts with `/` is joined to `tac.origin`. The compiler writes the tags into every generated document, also in preview. With `tac.origin` set, the build also writes `sitemap.xml` and `robots.txt` from the same routes; `tac.sitemap` lists the values of a route with a path variable. So keep metadata there. Do not repeat it in templates or set it from a service at run time.",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    }
+  ]
+}

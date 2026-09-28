@@ -1,0 +1,16 @@
+{
+  "title": "Simpler forms",
+  "summary": "When a piece of code has a simpler form that reads more plainly, `ty build`, `ty preview` and `ty test` suggest it with codes TY1340 to TY1355. A suggestion never stops the build, and `ty migrate fix --write` applies it.",
+  "before": [
+    "public-only-when-used",
+    "cohesive-services"
+  ],
+  "sections": [
+    {
+      "include": "suggestions-not-errors/section.json"
+    },
+    {
+      "include": "every-simpler-form/section.json"
+    }
+  ]
+}

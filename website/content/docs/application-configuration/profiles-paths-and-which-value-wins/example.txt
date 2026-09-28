@@ -1,0 +1,7 @@
+YON_PROFILE=production ty serve --port 9001
+
+# server/application-production.json
+{
+  "server": { "port": 9000 },
+  "catalog": { "page": { "size": 50 } }
+}

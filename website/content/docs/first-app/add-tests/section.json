@@ -1,0 +1,55 @@
+{
+  "heading": "Step 5: Test the service and the controller",
+  "axis": "language",
+  "body": "A test unit is a class in `client/tests` or `server/tests` whose name ends with `Test`. Each method whose name starts with `test` is one test case. `Test(HelloTestSetup)` names the Setup that the test uses. The Setup file must be in the same folder as the test.\n\n`this.construct(CounterService)` makes the service in the same way that Tachyon makes it for the page. `Fake` marks the field `greetingClient`, and `construct` gives the fake to the service in place of the real `GreetingClient`. So the test does not call the server. A controller is made in the same way: `this.construct(GreetingController)` makes the controller, and the test calls `getGreeting` directly, without HTTP. `GreetingClient` needs no test, because Tachyon writes its method.\n\nRun `ty test` in the project folder. Then stop `ty preview` (press Ctrl+C) and run `ty preview` again. It starts, because a test case now calls every public method. A test must really call a method: a call on the fake `greetingClient` does not count for `GreetingClient`, and writing only the name of a method does not count at all. `ty test --coverage` shows which case first called each method.\n\nResult: `ty test` prints one ok line for each test case and ends with 0 failed.",
+  "files": [
+    {
+      "name": "client/tests/HelloTestSetup.js",
+      "code": {
+        "file": "client/tests/HelloTestSetup.js"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.js",
+      "code": {
+        "file": "client/tests/CounterServiceTest.js"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.js",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.js"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.js",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.js"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.ts",
+      "code": {
+        "file": "client/tests/HelloTestSetup.ts"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.ts",
+      "code": {
+        "file": "client/tests/CounterServiceTest.ts"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.ts",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.ts"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.ts",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.ts"
+      }
+    }
+  ]
+}

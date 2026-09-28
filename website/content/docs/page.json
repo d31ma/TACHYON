@@ -1,0 +1,334 @@
+{
+  "order": [
+    "install",
+    "first-app",
+    "project-folders",
+    "preview-and-build",
+    "pages",
+    "templates",
+    "services",
+    "browser-storage",
+    "application-events",
+    "controllers",
+    "models",
+    "checking-values",
+    "error-handlers",
+    "route-access",
+    "application-configuration",
+    "calling-the-server",
+    "server-data",
+    "streams",
+    "sockets",
+    "topics",
+    "service-languages",
+    "yon-languages",
+    "native-services",
+    "devices",
+    "native-hosts",
+    "platform-apis",
+    "window-controls",
+    "dependency-injection",
+    "behavior-annotations",
+    "middleware",
+    "relays-and-gateways",
+    "modules-and-lifecycle",
+    "isolation-and-security",
+    "cohesive-services",
+    "utilities",
+    "helpers",
+    "dependency-direction",
+    "plain-english-names",
+    "small-signatures",
+    "named-values",
+    "public-only-when-used",
+    "simpler-forms",
+    "types-in-every-language",
+    "test-units",
+    "build-and-deploy",
+    "request-ids",
+    "cookbook",
+    "annotations",
+    "routing-annotations",
+    "error-codes",
+    "glossary"
+  ],
+  "groups": [
+    {
+      "title": "Get started",
+      "summary": "Install Tachyon, build your first app, learn where each file goes, and preview it.",
+      "topics": [
+        "install",
+        "first-app",
+        "project-folders",
+        "preview-and-build"
+      ]
+    },
+    {
+      "title": "Pages (Tac)",
+      "summary": "Tac is the frontend part of Tachyon. Make pages, show values, and keep data in the browser.",
+      "topics": [
+        "pages",
+        "templates",
+        "services",
+        "browser-storage",
+        "application-events"
+      ]
+    },
+    {
+      "title": "Server (Yon)",
+      "summary": "Yon is the backend part of Tachyon. Answer requests, return models, check values, and read settings and data.",
+      "topics": [
+        "controllers",
+        "models",
+        "checking-values",
+        "error-handlers",
+        "route-access",
+        "application-configuration",
+        "calling-the-server",
+        "server-data"
+      ]
+    },
+    {
+      "title": "Real-time",
+      "summary": "Send messages while a page is open: streams, sockets and topics.",
+      "topics": [
+        "streams",
+        "sockets",
+        "topics"
+      ]
+    },
+    {
+      "title": "Languages",
+      "summary": "Choose the language of each service and controller.",
+      "topics": [
+        "service-languages",
+        "yon-languages",
+        "native-services"
+      ]
+    },
+    {
+      "title": "Apps on devices",
+      "summary": "Build the same pages as a desktop or mobile app.",
+      "topics": [
+        "devices",
+        "native-hosts",
+        "platform-apis",
+        "window-controls"
+      ]
+    },
+    {
+      "title": "Going further",
+      "summary": "Topics for later: injection, behavior annotations, middleware, other languages, modules, security, cohesive services, utilities, helpers the design rules and simpler forms.",
+      "topics": [
+        "dependency-injection",
+        "behavior-annotations",
+        "middleware",
+        "relays-and-gateways",
+        "modules-and-lifecycle",
+        "isolation-and-security",
+        "cohesive-services",
+        "utilities",
+        "helpers",
+        "dependency-direction",
+        "plain-english-names",
+        "small-signatures",
+        "named-values",
+        "public-only-when-used",
+        "simpler-forms",
+        "types-in-every-language"
+      ]
+    },
+    {
+      "title": "Operations",
+      "summary": "Test, build, deploy and follow requests in the logs.",
+      "topics": [
+        "test-units",
+        "build-and-deploy",
+        "request-ids"
+      ]
+    },
+    {
+      "title": "Cookbook",
+      "summary": "Examples for real applications that use Tac (the frontend) and Yon (the backend) together.",
+      "topics": [
+        "cookbook"
+      ]
+    },
+    {
+      "title": "Reference",
+      "summary": "Look up an annotation, a routing name, an error code or a word.",
+      "topics": [
+        "annotations",
+        "routing-annotations",
+        "error-codes",
+        "glossary"
+      ]
+    }
+  ],
+  "redirects": {
+    "introduction": "install",
+    "routing": "pages",
+    "yon": "controllers",
+    "companions": "services",
+    "polyglot": "service-languages",
+    "native-rendering": "native-hosts",
+    "storage": "browser-storage",
+    "strict-annotation-layout": "project-folders",
+    "operations": "build-and-deploy"
+  },
+  "topics": {
+    "install": {
+      "include": "install/topic.json"
+    },
+    "first-app": {
+      "include": "first-app/topic.json"
+    },
+    "project-folders": {
+      "include": "project-folders/topic.json"
+    },
+    "preview-and-build": {
+      "include": "preview-and-build/topic.json"
+    },
+    "pages": {
+      "include": "pages/topic.json"
+    },
+    "templates": {
+      "include": "templates/topic.json"
+    },
+    "services": {
+      "include": "services/topic.json"
+    },
+    "browser-storage": {
+      "include": "browser-storage/topic.json"
+    },
+    "application-events": {
+      "include": "application-events/topic.json"
+    },
+    "controllers": {
+      "include": "controllers/topic.json"
+    },
+    "models": {
+      "include": "models/topic.json"
+    },
+    "checking-values": {
+      "include": "checking-values/topic.json"
+    },
+    "error-handlers": {
+      "include": "error-handlers/topic.json"
+    },
+    "route-access": {
+      "include": "route-access/topic.json"
+    },
+    "application-configuration": {
+      "include": "application-configuration/topic.json"
+    },
+    "calling-the-server": {
+      "include": "calling-the-server/topic.json"
+    },
+    "server-data": {
+      "include": "server-data/topic.json"
+    },
+    "streams": {
+      "include": "streams/topic.json"
+    },
+    "sockets": {
+      "include": "sockets/topic.json"
+    },
+    "topics": {
+      "include": "topics/topic.json"
+    },
+    "service-languages": {
+      "include": "service-languages/topic.json"
+    },
+    "yon-languages": {
+      "include": "yon-languages/topic.json"
+    },
+    "native-services": {
+      "include": "native-services/topic.json"
+    },
+    "devices": {
+      "include": "devices/topic.json"
+    },
+    "native-hosts": {
+      "include": "native-hosts/topic.json"
+    },
+    "platform-apis": {
+      "include": "platform-apis/topic.json"
+    },
+    "window-controls": {
+      "include": "window-controls/topic.json"
+    },
+    "dependency-injection": {
+      "include": "dependency-injection/topic.json"
+    },
+    "behavior-annotations": {
+      "include": "behavior-annotations/topic.json"
+    },
+    "middleware": {
+      "include": "middleware/topic.json"
+    },
+    "relays-and-gateways": {
+      "include": "relays-and-gateways/topic.json"
+    },
+    "modules-and-lifecycle": {
+      "include": "modules-and-lifecycle/topic.json"
+    },
+    "isolation-and-security": {
+      "include": "isolation-and-security/topic.json"
+    },
+    "cohesive-services": {
+      "include": "cohesive-services/topic.json"
+    },
+    "utilities": {
+      "include": "utilities/topic.json"
+    },
+    "helpers": {
+      "include": "helpers/topic.json"
+    },
+    "dependency-direction": {
+      "include": "dependency-direction/topic.json"
+    },
+    "plain-english-names": {
+      "include": "plain-english-names/topic.json"
+    },
+    "small-signatures": {
+      "include": "small-signatures/topic.json"
+    },
+    "named-values": {
+      "include": "named-values/topic.json"
+    },
+    "public-only-when-used": {
+      "include": "public-only-when-used/topic.json"
+    },
+    "types-in-every-language": {
+      "include": "types-in-every-language/topic.json"
+    },
+    "simpler-forms": {
+      "include": "simpler-forms/topic.json"
+    },
+    "test-units": {
+      "include": "test-units/topic.json"
+    },
+    "build-and-deploy": {
+      "include": "build-and-deploy/topic.json"
+    },
+    "request-ids": {
+      "include": "request-ids/topic.json"
+    },
+    "cookbook": {
+      "include": "cookbook/topic.json"
+    },
+    "annotations": {
+      "include": "annotations/topic.json"
+    },
+    "routing-annotations": {
+      "include": "routing-annotations/topic.json"
+    },
+    "error-codes": {
+      "include": "error-codes/topic.json"
+    },
+    "glossary": {
+      "include": "glossary/topic.json"
+    }
+  }
+}

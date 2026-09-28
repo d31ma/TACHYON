@@ -1,0 +1,25 @@
+{
+  "heading": "Step 3: Add a controller that returns a model",
+  "axis": "language",
+  "body": "Yon is the server part of Tachyon. A controller is a class in `server/controllers` that answers HTTP requests. `RequestRoute(\"/api/greeting\")` gives its path. `Public` says that anyone may call it: every route must say who may call it, or the build stops (see Who may call a route). `GetRoute` makes the method `getGreeting` answer GET requests on that path.\n\nA model is a data type that describes the shape of a value. Here the model `Greeting` has one text field, `message`. In JavaScript, a JSDoc `@typedef` comment describes the model. In TypeScript, the model is an interface in `server/models/Greeting.ts`. The method returns a Greeting, and Yon turns it into JSON. The same `ty preview` serves the pages and the controller on one port.\n\nResult: open /api/greeting. It shows {\"message\":\"Hello from Yon\"}.",
+  "files": [
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "server/models/Greeting.ts",
+      "code": {
+        "file": "server/models/Greeting.ts"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.ts",
+      "code": {
+        "file": "server/controllers/GreetingController.ts"
+      }
+    }
+  ]
+}
