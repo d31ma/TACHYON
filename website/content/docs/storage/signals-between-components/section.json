@@ -13,6 +13,18 @@
       "code": {
         "file": "client/models/ReleaseChanged.js"
       }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/release/panel/tac.html",
+      "code": {
+        "file": "client/components/release/panel/tac.html"
+      }
     }
   ]
 }

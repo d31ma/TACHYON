@@ -1,6 +1,6 @@
 @Service
 export class PriceService {
-  static CURRENCY = 'EUR'
+  static _CURRENCY = 'EUR'
 
   /**
    * @param {number} amount
@@ -8,6 +8,6 @@ export class PriceService {
    * @returns {Price}
    */
   priceFor(amount, count) {
-    return { amount: amount * count, currency: PriceService.CURRENCY }
+    return { amount: amount * count, currency: PriceService._CURRENCY }
   }
 }

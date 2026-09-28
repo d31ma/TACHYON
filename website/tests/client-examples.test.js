@@ -74,7 +74,8 @@ function serviceExamplesFromClass(label, code = '') {
   const className = code.match(/export default class ([A-Z]\w*Service)\b/)?.[1]
   if (!className) return []
   const serviceFile = { name: `client/services/${className}.js`, code }
-  return [{ name: label, classes: [className], files: [...generatedPageFiles([className]), serviceFile] }]
+  const noViewUsesSettings = { name: 'client/manifest.json', code: '{"tac":{"visibility":{"check":false}}}\n' }
+  return [{ name: label, classes: [className], files: [...generatedPageFiles([className]), noViewUsesSettings, serviceFile] }]
 }
 
 function collectExamples(docs, catalogue) {

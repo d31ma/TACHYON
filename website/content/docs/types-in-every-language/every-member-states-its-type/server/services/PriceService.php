@@ -4,7 +4,7 @@ use Models\Price;
 #[Service]
 class PriceService
 {
-    const CURRENCY = 'EUR';
+    private const CURRENCY = 'EUR';
 
     public function priceFor(int $amount, int $count): Price
     {
