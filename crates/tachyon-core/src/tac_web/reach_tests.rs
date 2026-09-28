@@ -174,7 +174,7 @@ impl Reach {
         let path = Self::write(root, "client/services/ReachService.dart", Self::DART);
         let services = [("ReachService", path.as_path())];
         let instances = std::collections::BTreeSet::from([String::from("reach")]);
-        let modules = crate::tac_dart::build_all(root, &services, &instances)
+        let modules = crate::tac_dart::build_all(root, &services, &instances, crate::BuildProfile::Release)
             .await
             .expect("build");
         for (name, bytes) in modules {

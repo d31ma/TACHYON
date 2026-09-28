@@ -19,6 +19,7 @@ pub(crate) async fn build_all(
     snapshot_root: &Path,
     services: &[(&str, &Path)],
     instances: &BTreeSet<String>,
+    profile: crate::BuildProfile,
 ) -> Result<Vec<(String, Vec<u8>)>, Failure> {
     let mut dart = BTreeSet::new();
     for (class, _) in services {
@@ -52,9 +53,13 @@ pub(crate) async fn build_all(
     let _ = write!(main, "\nvoid main() {{\n{register}}}\n");
     libraries.push(("main.dart".to_owned(), main));
     libraries.extend(model_libraries(snapshot_root)?);
-    let program = WasmProgram::compile(&libraries, DartCompiler::ALL_SERVICES).await?;
+    let program = WasmProgram::compile(&libraries, DartCompiler::ALL_SERVICES, profile).await?;
     published.extend(program.published());
     Ok(published)
+}
+
+pub(crate) fn compiler_note(profile: crate::BuildProfile) -> Option<String> {
+    WasmProgram::note(profile)
 }
 
 fn model_libraries(snapshot_root: &Path) -> Result<Vec<(String, String)>, Failure> {
@@ -1663,7 +1668,8 @@ class CounterService {
         for (class, path) in &paths {
             services.push((*class, path.as_path()));
         }
-        super::build_all(root, &services, &service_names(instances)).await
+        let profile = crate::BuildProfile::Release;
+        super::build_all(root, &services, &service_names(instances), profile).await
     }
 
     async fn publish(root: &std::path::Path, services: &[(&str, &str)], instances: &[&str]) {

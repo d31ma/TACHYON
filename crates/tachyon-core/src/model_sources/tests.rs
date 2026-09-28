@@ -234,7 +234,7 @@ async fn dart_browser_services_share_a_model() {
         ("ShelfService", shelf.as_path()),
     ];
     let instances = ["guide", "shelf"].map(String::from).into_iter().collect();
-    let published = crate::tac_dart::build_all(root.path(), &services, &instances)
+    let published = crate::tac_dart::build_all(root.path(), &services, &instances, crate::BuildProfile::Release)
         .await
         .expect("the Dart services build with their models");
     publish(root.path(), published);

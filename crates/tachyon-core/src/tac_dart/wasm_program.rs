@@ -23,29 +23,52 @@ impl WasmProgram {
     const VERSION_DEADLINE: Duration = Duration::from_secs(30);
     const OUTPUT_BYTES: usize = 64 * 1024;
     const SHARED_MODULE_TEMPLATE: &str = include_str!("shared_module.js");
+    const RELEASE_LEVEL: &str = "-O4";
+    const DEVELOPMENT_LEVEL: &str = "-O2";
+    const RELEASE_NOTE: &str = "Dart: dart compile wasm -O4, which runs Binaryen itself and drops runtime type checks for the smallest, fastest module; development builds keep -O2 with the checks";
 
     pub(super) async fn compile(
         libraries: &[(String, String)],
         portable: &str,
+        profile: crate::BuildProfile,
     ) -> Result<Self, Failure> {
-        let cached = Self::cached_folder(libraries, portable).await?;
-        Self::cached_or_fresh(libraries, portable, &cached).await
+        let level = Self::optimization_level(profile);
+        let cached = Self::cached_folder(libraries, portable, level).await?;
+        Self::cached_or_fresh((libraries, portable, level), &cached).await
+    }
+
+    pub(super) fn note(profile: crate::BuildProfile) -> Option<String> {
+        Self::note_text(profile).map(String::from)
+    }
+
+    const fn optimization_level(profile: crate::BuildProfile) -> &'static str {
+        match profile {
+            crate::BuildProfile::Release => Self::RELEASE_LEVEL,
+            crate::BuildProfile::Development => Self::DEVELOPMENT_LEVEL,
+        }
+    }
+
+    const fn note_text(profile: crate::BuildProfile) -> Option<&'static str> {
+        match profile {
+            crate::BuildProfile::Release => Some(Self::RELEASE_NOTE),
+            crate::BuildProfile::Development => None,
+        }
     }
 
     async fn cached_or_fresh(
-        libraries: &[(String, String)],
-        portable: &str,
+        (libraries, portable, level): (&[(String, String)], &str, &str),
         cached: &Path,
     ) -> Result<Self, Failure> {
         if let Ok(program) = Self::read(cached) {
             return Ok(program);
         }
-        Self::compile_fresh(libraries, portable, cached).await
+        Self::compile_fresh((libraries, portable, level), cached).await
     }
 
     async fn cached_folder(
         libraries: &[(String, String)],
         portable: &str,
+        level: &str,
     ) -> Result<std::path::PathBuf, Failure> {
         let mut version = tokio::process::Command::new("dart");
         version.arg("--version").stdin(std::process::Stdio::null());
@@ -59,17 +82,17 @@ impl WasmProgram {
                     ),
                 )
             })?;
-        let key = Self::cache_key(&version.stdout, &version.stderr, libraries);
+        let identity = [version.stdout, version.stderr, level.as_bytes().to_vec()].concat();
+        let key = Self::cache_key(&identity, libraries);
         Ok(Self::cache().join(key))
     }
 
     async fn compile_fresh(
-        libraries: &[(String, String)],
-        portable: &str,
+        (libraries, portable, level): (&[(String, String)], &str, &str),
         cached: &Path,
     ) -> Result<Self, Failure> {
         let staged = Self::stage(libraries, portable)?;
-        Self::run_compiler(staged.path(), portable).await?;
+        Self::run_compiler(staged.path(), portable, level).await?;
         let program = Self::read(staged.path()).map_err(|error| failure(portable, error))?;
         let _ = Self::save(staged.path(), cached);
         Ok(program)
@@ -99,12 +122,8 @@ impl WasmProgram {
         })
     }
 
-    fn cache_key(
-        version_stdout: &[u8],
-        version_stderr: &[u8],
-        libraries: &[(String, String)],
-    ) -> String {
-        let mut material = [version_stdout, version_stderr].concat();
+    fn cache_key(identity: &[u8], libraries: &[(String, String)]) -> String {
+        let mut material = identity.to_vec();
         for (name, contents) in libraries {
             material.push(0);
             material.extend_from_slice(name.as_bytes());
@@ -132,13 +151,13 @@ impl WasmProgram {
         std::fs::write(path, contents)
     }
 
-    async fn run_compiler(staged: &Path, portable: &str) -> Result<(), Failure> {
+    async fn run_compiler(staged: &Path, portable: &str, level: &str) -> Result<(), Failure> {
         let mut command = tokio::process::Command::new("dart");
         command
             .args([
                 "compile",
                 "wasm",
-                "-O2",
+                level,
                 "--no-source-maps",
                 "-o",
                 Self::BINARY,
@@ -179,5 +198,45 @@ impl WasmProgram {
         }
         let kept = copy.keep();
         std::fs::rename(&kept, cached).or_else(|_| std::fs::remove_dir_all(&kept))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::WasmProgram;
+    use crate::BuildProfile;
+
+    const MAIN: &str = "class Shelf {\n  final List<String> titles = [];\n  void add(Object title) => titles.add(title as String);\n}\n\nvoid main() {\n  final shelf = Shelf();\n  for (final title in ['a', 'b', 'c']) {\n    shelf.add(title);\n  }\n  print(shelf.titles.join(','));\n}\n";
+
+    fn dart_installed() -> bool {
+        std::process::Command::new("dart")
+            .arg("--version")
+            .output()
+            .is_ok_and(|output| output.status.success())
+    }
+
+    #[tokio::test]
+    async fn a_release_module_is_compiled_at_o4_and_is_smaller() {
+        if !dart_installed() {
+            eprintln!("skipping: dart is unavailable");
+            return;
+        }
+        let libraries = [(String::from("main.dart"), String::from(MAIN))];
+        let release = WasmProgram::compile(&libraries, "main.dart", BuildProfile::Release)
+            .await
+            .expect("release build");
+        let development = WasmProgram::compile(&libraries, "main.dart", BuildProfile::Development)
+            .await
+            .expect("development build");
+        assert!(
+            release.binary.len() < development.binary.len(),
+            "release {} >= development {}",
+            release.binary.len(),
+            development.binary.len()
+        );
+        let note = WasmProgram::note(BuildProfile::Release).expect("note");
+        assert!(note.starts_with("Dart: dart compile wasm -O4"), "{note}");
+        assert_eq!(WasmProgram::note(BuildProfile::Development), None);
     }
 }

@@ -606,12 +606,13 @@ impl<'a> SiteBuild<'a> {
         }
         let instances = self.services.names();
         let files =
-            crate::tac_dart::build_all(self.snapshot_root, dart_services, &instances).await?;
+            crate::tac_dart::build_all(self.snapshot_root, dart_services, &instances, self.profile)
+                .await?;
         let timings = vec![(String::from("Dart"), started.elapsed())];
         Ok(BuiltServices {
             files,
             timings,
-            notes: Vec::new(),
+            notes: crate::tac_dart::compiler_note(self.profile).into_iter().collect(),
         })
     }
 
