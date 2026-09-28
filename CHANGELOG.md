@@ -1695,6 +1695,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A page with both Kotlin and Go WebAssembly services now starts. Go's
+  `wasm_exec.js` puts a small `process` object on the page, and the Kotlin
+  loader read `process.release.name` from it and stopped; the published
+  Kotlin loader now reads `process.release?.name`.
+
 - The website tests now build the site with the newest `ty` in the Cargo
   target folder when `TAC_BIN` is not set. Before, an old `release/ty` won
   over a newer `debug/ty`, so a change such as utility classes in Dart

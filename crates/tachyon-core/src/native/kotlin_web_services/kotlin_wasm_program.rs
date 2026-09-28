@@ -26,6 +26,8 @@ impl KotlinWasmProgram {
     const PUBLISHED_LOADER: &'static str = "kotlin/services-loader.js";
     const PUBLISHED_LOADER_IMPORT: &'static str = "./services-loader.js";
     const LOADER_IMPORT: &'static str = "./services.uninstantiated.mjs";
+    const NODE_CHECK: &'static str = "process.release.name === 'node'";
+    const PAGE_SAFE_NODE_CHECK: &'static str = "process.release?.name === 'node'";
     const CACHE_FOLDER: &'static str = "kotlin-wasm";
     const DEADLINE: Duration = Duration::from_mins(5);
     const VERSION_DEADLINE: Duration = Duration::from_mins(1);
@@ -121,9 +123,12 @@ impl KotlinWasmProgram {
         let entry = self
             .entry
             .replace(Self::LOADER_IMPORT, Self::PUBLISHED_LOADER_IMPORT);
+        let loader = self
+            .loader
+            .replace(Self::NODE_CHECK, Self::PAGE_SAFE_NODE_CHECK);
         vec![
             (Self::PUBLISHED_ENTRY.to_owned(), entry.into_bytes()),
-            (Self::PUBLISHED_LOADER.to_owned(), self.loader.into_bytes()),
+            (Self::PUBLISHED_LOADER.to_owned(), loader.into_bytes()),
             (Self::PUBLISHED_BINARY.to_owned(), self.binary),
         ]
     }
@@ -268,5 +273,32 @@ impl KotlinWasmProgram {
         }
         let kept = copy.keep();
         std::fs::rename(&kept, cached).or_else(|_| std::fs::remove_dir_all(&kept))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::KotlinWasmProgram;
+
+    #[test]
+    fn the_published_loader_starts_beside_the_go_process_stand_in() {
+        let program = KotlinWasmProgram {
+            binary: Vec::new(),
+            entry: String::new(),
+            loader: String::from(
+                "const isNodeJs = (typeof process !== 'undefined') && (process.release.name === 'node');",
+            ),
+            made_smaller: true,
+        };
+        let published = program.published();
+        let loader = published
+            .iter()
+            .find(|(name, _)| name == KotlinWasmProgram::PUBLISHED_LOADER)
+            .map(|(_, bytes)| String::from_utf8_lossy(bytes).into_owned())
+            .unwrap_or_default();
+        assert!(
+            loader.contains("process.release?.name === 'node'"),
+            "{loader}"
+        );
     }
 }

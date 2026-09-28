@@ -19,7 +19,7 @@ class StorageGate {
   static withCSharp = csharpWebAvailable();
   static withKotlin = kotlinWebAvailable();
   static scriptBudgetKilobytes = 320;
-  static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+  static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' };
 }
 
 class ApiRequests {
@@ -239,7 +239,7 @@ class KtNotesService {
     }
 
     fun save(id: String, text: String): Any? {
-        return behaviors.repository("KtNoteEntity").save(mapOf("id" to id, "text" to text))
+        return behaviors.repository(NOTES).save(mapOf("id" to id, "text" to text))
     }
 
     @AllOrNothing({"adapter":"indexeddb"})
@@ -249,7 +249,11 @@ class KtNotesService {
     }
 
     fun list(): Any? {
-        return behaviors.repository("KtNoteEntity").find(emptyMap())
+        return behaviors.repository(NOTES).find(emptyMap())
+    }
+
+    companion object {
+        private const val NOTES = "KtNoteEntity"
     }
 }
 `);
@@ -320,7 +324,7 @@ public sealed class CsNotesService {
 
 function writeFixture(project) {
   write(project, 'client/pages/tac.html', '<storage-page />\n');
-  write(project, 'client/manifest.json', JSON.stringify({ tac: { budgets: { script: StorageGate.scriptBudgetKilobytes } } }));
+  write(project, 'client/manifest.json', JSON.stringify({ tac: { budgets: { script: StorageGate.scriptBudgetKilobytes }, visibility: { check: false } } }));
   write(project, 'client/components/storage/page/tac.html', `<main aria-label="Storage">
   <button id="bump" on:click="storagePage.clicks += 1">bump</button>
   <button id="dark" on:click="storagePage.theme = 'dark'">dark</button>
