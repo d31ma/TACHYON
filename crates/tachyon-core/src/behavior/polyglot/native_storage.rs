@@ -158,7 +158,10 @@ mod tests {
             "{message}"
         );
         assert!(message.contains("\"catalog\""), "{message}");
-        assert!(message.contains("Go, Rust, C# and Kotlin WebAssembly"), "{message}");
+        assert!(
+            message.contains("Go, Rust, C# and Kotlin WebAssembly"),
+            "{message}"
+        );
         let empty = format!("{KOTLIN_SERVICE}{KOTLIN_EMPTY_SETUP}");
         assert!(refusal("client/services/CatalogService.kt", &empty).contains("Kotlin services"));
     }
