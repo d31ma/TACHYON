@@ -7,6 +7,6 @@ export default class HelloServiceTest {
     this.helloClient = { getHello: async () => ({ message: 'Hi' }) } as HelloClient
     const hello = this.construct(HelloService)
     await hello.askServer()
-    if (hello.message !== 'Hi') throw Error(`message is ${hello.message}`)
+    Assert.equals('Hi', hello.message)
   }
 }

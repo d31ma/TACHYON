@@ -7,6 +7,6 @@ export default class NoteStoreTest {
     const queries = []
     this.dataSource = { query: (sql) => queries.push(sql) }
     this.construct(NoteStore).countNotes()
-    if (queries.length !== 1) throw Error(`queries are ${JSON.stringify(queries)}`)
+    Assert.equals(1, queries.length)
   }
 }

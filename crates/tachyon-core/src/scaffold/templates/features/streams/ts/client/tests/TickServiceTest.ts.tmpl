@@ -3,6 +3,6 @@ export default class TickServiceTest {
   async testAddTickKeepsTheTick(): Promise<void> {
     const service = new TickService()
     service.addTick({ level: 3 })
-    if (service.ticks.length !== 1) throw Error(`ticks are ${JSON.stringify(service.ticks)}`)
+    Assert.equals(1, service.ticks.length)
   }
 }

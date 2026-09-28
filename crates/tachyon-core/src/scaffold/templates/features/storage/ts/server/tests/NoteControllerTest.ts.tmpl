@@ -6,6 +6,6 @@ export default class NoteControllerTest {
   async testGetNotesAsksTheStore(): Promise<void> {
     this.noteStore = { countNotes: async () => [{ notes: 3 }] } as unknown as NoteStore;
     const rows = await this.construct(NoteController).getNotes();
-    if (rows.length !== 1) throw Error(`rows are ${JSON.stringify(rows)}`);
+    Assert.equals(1, rows.length);
   }
 }

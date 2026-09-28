@@ -7,6 +7,6 @@ export default class NewsControllerTest {
     const published: unknown[] = [];
     this.applicationEventPublisher = { publishEvent: (item: unknown) => { published.push(item); } } as unknown as ApplicationEventPublisher;
     this.construct(NewsController).postNews({ text: 'Hello' });
-    if (published.length !== 1) throw Error(`published ${JSON.stringify(published)}`);
+    Assert.equals(1, published.length);
   }
 }

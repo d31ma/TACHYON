@@ -3,6 +3,6 @@ export default class KotlinGreetingServiceTest {
   async testGreetChangesTheMessageOnTheWeb() {
     const greeting = new KotlinGreetingService()
     greeting.greet()
-    if (greeting.message !== 'Kotlin says hello again.') throw Error(`message is ${greeting.message}`)
+    Assert.equals('Kotlin says hello again.', greeting.message)
   }
 }

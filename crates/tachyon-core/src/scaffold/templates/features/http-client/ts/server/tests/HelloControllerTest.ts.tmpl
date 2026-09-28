@@ -2,6 +2,6 @@
 export default class HelloControllerTest {
   async testGetHelloSaysHello(): Promise<void> {
     const hello = this.construct(HelloController).getHello();
-    if (hello.message !== 'Hello from Yon') throw Error(`message is ${hello.message}`);
+    Assert.equals('Hello from Yon', hello.message);
   }
 }

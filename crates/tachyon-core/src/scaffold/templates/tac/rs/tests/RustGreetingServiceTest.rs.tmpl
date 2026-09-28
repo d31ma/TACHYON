@@ -8,12 +8,9 @@ impl RustGreetingServiceTest {
         Self { behaviors: std::cell::RefCell::new(None) }
     }
 
-    fn testGreetChangesTheMessage(&self) -> BehaviorResult<BehaviorValue> {
+    fn testGreetChangesTheMessage(&self) {
         let mut greeting = RustGreetingService::new();
         greeting.greet();
-        if greeting.message != "Rust says hello again." {
-            return Err(BehaviorError { code: "assertion", message: "greet did not change the message", path: None });
-        }
-        Ok(BehaviorValue::Null)
+        Assert::equals("Rust says hello again.", greeting.message);
     }
 }

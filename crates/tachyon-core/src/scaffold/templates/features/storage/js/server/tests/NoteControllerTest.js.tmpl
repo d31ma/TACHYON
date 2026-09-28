@@ -6,6 +6,6 @@ export default class NoteControllerTest {
   async testGetNotesAsksTheStore() {
     this.noteStore = { countNotes: () => [{ notes: 3 }] }
     const rows = this.construct(NoteController).getNotes()
-    if (rows[0].notes !== 3) throw Error(`rows are ${JSON.stringify(rows)}`)
+    Assert.equals(3, rows[0].notes)
   }
 }

@@ -3,6 +3,6 @@ export default class NewsServiceTest {
   async testAddItemKeepsTheItem() {
     const news = this.construct(NewsService)
     news.addItem({ text: 'Hello' })
-    if (news.items.length !== 1) throw Error(`items are ${JSON.stringify(news.items)}`)
+    Assert.equals(1, news.items.length)
   }
 }

@@ -82,7 +82,7 @@ impl ServerFiles {
             (
                 String::from("server/tests/HomeControllerTest.js"),
                 String::from(
-                    "@Test(HomeTestSetup, {\"partition\":\"tests\"})\nexport default class HomeControllerTest {\n  async testGetSaysOk() {\n    const body = await new HomeController().get()\n    if (body.ok !== true) throw Error('expected ok')\n  }\n}\n",
+                    "@Test(HomeTestSetup, {\"partition\":\"tests\"})\nexport default class HomeControllerTest {\n  async testGetSaysOk() {\n    const body = await new HomeController().get()\n    Assert.isTrue(body.ok)\n  }\n}\n",
                 ),
             ),
         ]

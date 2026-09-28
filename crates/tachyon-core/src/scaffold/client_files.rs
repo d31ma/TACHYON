@@ -164,7 +164,7 @@ impl ClientFiles {
             (
                 String::from("client/tests/ShellServiceTest.js"),
                 format!(
-                    "@Test(ShellTestSetup, {{\"partition\":\"tests\"}})\nexport default class ShellServiceTest {{\n  async testInitializeNamesTheDocument() {{\n    globalThis.document ??= /** @type {{Document}} */ ({{ title: '' }})\n    new ShellService().initialize()\n    if (document.title !== {javascript_name}) throw Error(`title is ${{document.title}}`)\n  }}\n}}\n",
+                    "@Test(ShellTestSetup, {{\"partition\":\"tests\"}})\nexport default class ShellServiceTest {{\n  async testInitializeNamesTheDocument() {{\n    globalThis.document ??= /** @type {{Document}} */ ({{ title: '' }})\n    new ShellService().initialize()\n    Assert.equals({javascript_name}, document.title)\n  }}\n}}\n",
                 ),
             ),
         ]

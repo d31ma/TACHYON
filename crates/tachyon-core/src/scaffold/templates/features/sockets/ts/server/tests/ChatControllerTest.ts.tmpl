@@ -4,7 +4,7 @@ export default class ChatControllerTest {
     const sent: unknown[] = [];
     const session = { send: async (message: unknown) => { sent.push(message); } } as unknown as SocketSession;
     await this.construct(ChatController).onOpen(session);
-    if (sent.length !== 1) throw Error(`sent ${JSON.stringify(sent)}`);
+    Assert.equals(1, sent.length);
   }
 
   async testOnMessageSendsToEveryOpenSession(): Promise<void> {
@@ -12,6 +12,6 @@ export default class ChatControllerTest {
     const peer = { send: async (message: unknown) => { sent.push(message); } };
     const session = { openSessions: async () => [peer, peer] } as unknown as SocketSession;
     await this.construct(ChatController).onMessage(session, { text: 'Hi' });
-    if (sent.length !== 2) throw Error(`sent ${JSON.stringify(sent)}`);
+    Assert.equals(2, sent.length);
   }
 }

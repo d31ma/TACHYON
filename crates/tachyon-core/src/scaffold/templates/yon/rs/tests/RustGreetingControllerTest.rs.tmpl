@@ -8,10 +8,7 @@ impl RustGreetingControllerTest {
         Self { behaviors: std::cell::RefCell::new(None) }
     }
 
-    fn testGetGreetingSaysHello(&self) -> BehaviorResult<BehaviorValue> {
-        if RustGreetingController::new().get_greeting() != "Hello from Rust" {
-            return Err(BehaviorError { code: "assertion", message: "expected a greeting", path: None });
-        }
-        Ok(BehaviorValue::Null)
+    fn testGetGreetingSaysHello(&self) {
+        Assert::equals("Hello from Rust", RustGreetingController::new().get_greeting());
     }
 }
