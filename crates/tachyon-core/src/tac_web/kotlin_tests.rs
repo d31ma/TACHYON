@@ -60,6 +60,48 @@ impl KotlinFixtures {
         ),
     ];
 
+    const STORAGE_FILES: [(&str, &str); 3] = [
+        (
+            "client/setups/BrowserSetup.kt",
+            "@Setup\nclass BrowserSetup {\n    companion object {\n        \
+             fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
+        ),
+        (
+            "client/entities/NoteEntity.kt",
+            "@Entity({\"adapter\":\"indexeddb\"})\n@Table(\"notes\")\nclass NoteEntity {\n    @Id\n    var id: String = \"\"\n    var text: String = \"\"\n}\n",
+        ),
+        (
+            "client/services/NotesService.kt",
+            "@CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n\
+             class NotesService {\n    \
+             private val behaviors: Behaviors.Context = Behaviors.create(\"BrowserSetup\", Behaviors.Options(\"notes\", Behaviors.Signal()))\n    \
+             private var reads: Long = 0\n\n    \
+             @Cached\n    fun find(key: String): Any? {\n        reads += 1\n        return mapOf(\"key\" to key, \"reads\" to reads)\n    }\n\n    \
+             @ClearCache({\"method\":\"find\"})\n    fun forget(key: String): Any? {\n        return key\n    }\n\n    \
+             fun save(id: String, text: String): Any? {\n        \
+             return behaviors.repository(\"NoteEntity\").save(mapOf(\"id\" to id, \"text\" to text))\n    }\n\n    \
+             @AllOrNothing({\"adapter\":\"indexeddb\"})\n    fun saveThenRefuse(id: String): Any? {\n        \
+             save(id, \"draft\")\n        throw IllegalStateException(\"the note was refused\")\n    }\n\n    \
+             fun list(): Any? {\n        return behaviors.repository(\"NoteEntity\").find(mapOf(\"size\" to 10))\n    }\n}\n",
+        ),
+    ];
+
+    const STORAGE_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         console.info = () => {}\n\
+         globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
+         ;(0, eval)(await readFile('./tac-storage.js', 'utf8'))\n\
+         const { default: NotesService } = await import('./NotesService.js')\n\
+         const notes = new NotesService({})\n\
+         const first = notes.find('a')\n\
+         const second = notes.find('a')\n\
+         notes.forget('a')\n\
+         const third = notes.find('a')\n\
+         notes.save('n1', 'hello')\n\
+         let refused = ''\n\
+         try { notes.saveThenRefuse('n2') } catch (error) { refused = error.message }\n\
+         console.log(JSON.stringify({ first, second, third, refused, listed: notes.list() }))\n\
+         process.exit(0)\n";
+
     const SETTINGS_DRIVER: &str = "const { default: SettingsService } = await import('./SettingsService.js')\n\
          const settings = new SettingsService({})\n\
          console.log(JSON.stringify({ title: settings.title, pageSize: settings.pageSize }))\n\
@@ -155,6 +197,22 @@ fn run_driver(root: &Path, script: &str) -> serde_json::Value {
         String::from_utf8_lossy(&output.stderr)
     );
     serde_json::from_str(stdout.trim()).expect("report")
+}
+
+async fn publish_for_development(root: &Path, services: &[(String, String, WebLanguage, PathBuf)]) {
+    let built = build_all(
+        root,
+        services,
+        &BuildJobs::new(1),
+        crate::BuildProfile::Development,
+    )
+    .await
+    .expect("the Kotlin behavior runtime builds for the web");
+    for (name, bytes) in built.files {
+        let path = root.join(name);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+        std::fs::write(path, bytes).expect("publish");
+    }
 }
 
 async fn build_kotlin_services(root: &Path) {
@@ -272,22 +330,48 @@ async fn a_kotlin_service_uses_the_behavior_runtime_as_webassembly() {
         WebLanguage::Kotlin,
         source,
     )];
-    let built = build_all(
-        root.path(),
-        &services,
-        &BuildJobs::new(1),
-        crate::BuildProfile::Development,
-    )
-    .await
-    .expect("the Kotlin behavior runtime builds for the web");
-    for (name, bytes) in built.files {
-        let path = root.path().join(name);
-        std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
-        std::fs::write(path, bytes).expect("publish");
-    }
+    publish_for_development(root.path(), &services).await;
     let report = run_driver(root.path(), KotlinFixtures::SETTINGS_DRIVER);
     assert_eq!(
         report,
         serde_json::json!({"title": "Catalog", "pageSize": 20})
+    );
+}
+
+#[tokio::test]
+async fn a_kotlin_service_reads_the_builtin_cache_and_store_synchronously() {
+    if !kotlin_web_ready() {
+        eprintln!("skipping: kotlinc-js, TAC_KOTLIN_WASM_STDLIB or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in KotlinFixtures::STORAGE_FILES {
+        write(root.path(), relative, text);
+    }
+    write(
+        root.path(),
+        "tac-storage.js",
+        include_str!("../template/tac-storage.js"),
+    );
+    let services = [(
+        String::from("notes"),
+        String::from("NotesService"),
+        WebLanguage::Kotlin,
+        root.path().join("client/services/NotesService.kt"),
+    )];
+    publish_for_development(root.path(), &services).await;
+    let report = run_driver(root.path(), KotlinFixtures::STORAGE_DRIVER);
+    assert_eq!(report["first"], serde_json::json!({"key": "a", "reads": 1}));
+    assert_eq!(report["second"], report["first"]);
+    assert_eq!(report["third"], serde_json::json!({"key": "a", "reads": 2}));
+    assert!(
+        report["refused"]
+            .as_str()
+            .is_some_and(|message| message.contains("the note was refused")),
+        "{report}"
+    );
+    assert_eq!(
+        report["listed"],
+        serde_json::json!([{"id": "n1", "text": "hello"}])
     );
 }
