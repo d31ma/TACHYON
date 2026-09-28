@@ -1,6 +1,81 @@
+mod artifact_contract_versions;
+mod artifact_manifest;
+mod artifact_output;
+mod artifact_target;
+mod artifact_toolchain;
+mod capability_grant;
+mod capability_manifest;
+mod collision_policy;
+mod counted_comparison;
+mod handler_body;
+mod handler_body_encoding;
+mod handler_cancel;
+mod handler_cancel_kind;
+mod handler_envelope;
+mod handler_protocol_error;
+mod handler_request;
+mod handler_request_kind;
+mod handler_response;
+mod handler_response_kind;
+mod hot_update;
+mod hot_update_kind;
+mod http_method;
+mod native_accessibility;
+mod native_node;
+mod native_target;
+mod native_ui;
+mod route_context;
+mod route_entry;
+mod route_handler;
+mod route_kind;
+mod route_manifest;
+mod view_ir;
+mod view_node;
+mod view_source_map;
+mod view_source_mapping;
+mod web_surface_bridge;
+mod web_surface_source;
+
+pub use artifact_contract_versions::ArtifactContractVersions;
+pub use artifact_manifest::ArtifactManifest;
+pub use artifact_output::ArtifactOutput;
+pub use artifact_target::ArtifactTarget;
+pub use artifact_toolchain::ArtifactToolchain;
+pub use capability_grant::CapabilityGrant;
+pub use capability_manifest::CapabilityManifest;
+pub use collision_policy::CollisionPolicy;
+pub use counted_comparison::CountedComparison;
+pub use handler_body::HandlerBody;
+pub use handler_body_encoding::HandlerBodyEncoding;
+pub use handler_cancel::HandlerCancel;
+pub use handler_cancel_kind::HandlerCancelKind;
+pub use handler_envelope::HandlerEnvelope;
+pub use handler_protocol_error::HandlerProtocolError;
+pub use handler_request::HandlerRequest;
+pub use handler_request_kind::HandlerRequestKind;
+pub use handler_response::HandlerResponse;
+pub use handler_response_kind::HandlerResponseKind;
+pub use hot_update::HotUpdate;
+pub use hot_update_kind::HotUpdateKind;
+pub use http_method::HttpMethod;
+pub use native_accessibility::NativeAccessibility;
+pub use native_node::NativeNode;
+pub use native_target::NativeTarget;
+pub use native_ui::NativeUi;
+pub use route_context::RouteContext;
+pub use route_entry::RouteEntry;
+pub use route_handler::RouteHandler;
+pub use route_kind::RouteKind;
+pub use route_manifest::RouteManifest;
+pub use view_ir::ViewIr;
+pub use view_node::ViewNode;
+pub use view_source_map::ViewSourceMap;
+pub use view_source_mapping::ViewSourceMapping;
+pub use web_surface_bridge::WebSurfaceBridge;
+pub use web_surface_source::WebSurfaceSource;
+
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const PRODUCT_VERSION: &str = env!("TAC_PRODUCT_VERSION");
@@ -19,672 +94,53 @@ impl Contract {
     pub const JSON_SCHEMA_DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
 }
 
+macro_rules! contract {
+    ($name:literal, $version:literal) => {
+        Contract {
+            name: $name,
+            id: concat!("https://tachyon.del.ma/schema/", $name, "/v", $version),
+            major_version: $version,
+            schema: include_str!(concat!(
+                "../../../api/",
+                $name,
+                "/v",
+                $version,
+                "/schema.json"
+            )),
+            valid_example: include_str!(concat!(
+                "../../../api/",
+                $name,
+                "/v",
+                $version,
+                "/examples/valid.json"
+            )),
+            invalid_example: include_str!(concat!(
+                "../../../api/",
+                $name,
+                "/v",
+                $version,
+                "/examples/invalid.json"
+            )),
+        }
+    };
+}
+
 pub const CONTRACTS: [Contract; 12] = [
-    Contract {
-        name: "annotation-modules",
-        id: "https://tachyon.del.ma/schema/annotation-modules/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/annotation-modules/v1/schema.json"),
-        valid_example: include_str!("../../../api/annotation-modules/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/annotation-modules/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "application-config",
-        id: "https://tachyon.del.ma/schema/application-config/v3",
-        major_version: 3,
-        schema: include_str!("../../../api/application-config/v3/schema.json"),
-        valid_example: include_str!("../../../api/application-config/v3/examples/valid.json"),
-        invalid_example: include_str!("../../../api/application-config/v3/examples/invalid.json"),
-    },
-    Contract {
-        name: "artifact-manifest",
-        id: "https://tachyon.del.ma/schema/artifact-manifest/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/artifact-manifest/v1/schema.json"),
-        valid_example: include_str!("../../../api/artifact-manifest/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/artifact-manifest/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "capability-manifest",
-        id: "https://tachyon.del.ma/schema/capability-manifest/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/capability-manifest/v1/schema.json"),
-        valid_example: include_str!("../../../api/capability-manifest/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/capability-manifest/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "diagnostics",
-        id: "https://tachyon.del.ma/schema/diagnostics/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/diagnostics/v1/schema.json"),
-        valid_example: include_str!("../../../api/diagnostics/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/diagnostics/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "handler-protocol",
-        id: "https://tachyon.del.ma/schema/handler-protocol/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/handler-protocol/v1/schema.json"),
-        valid_example: include_str!("../../../api/handler-protocol/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/handler-protocol/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "hot-update",
-        id: "https://tachyon.del.ma/schema/hot-update/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/hot-update/v1/schema.json"),
-        valid_example: include_str!("../../../api/hot-update/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/hot-update/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "native-host",
-        id: "https://tachyon.del.ma/schema/native-host/v3",
-        major_version: 3,
-        schema: include_str!("../../../api/native-host/v3/schema.json"),
-        valid_example: include_str!("../../../api/native-host/v3/examples/valid.json"),
-        invalid_example: include_str!("../../../api/native-host/v3/examples/invalid.json"),
-    },
-    Contract {
-        name: "native-ui",
-        id: "https://tachyon.del.ma/schema/native-ui/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/native-ui/v1/schema.json"),
-        valid_example: include_str!("../../../api/native-ui/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/native-ui/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "route-manifest",
-        id: "https://tachyon.del.ma/schema/route-manifest/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/route-manifest/v1/schema.json"),
-        valid_example: include_str!("../../../api/route-manifest/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/route-manifest/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "view-ir",
-        id: "https://tachyon.del.ma/schema/view-ir/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/view-ir/v1/schema.json"),
-        valid_example: include_str!("../../../api/view-ir/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/view-ir/v1/examples/invalid.json"),
-    },
-    Contract {
-        name: "view-source-map",
-        id: "https://tachyon.del.ma/schema/view-source-map/v1",
-        major_version: 1,
-        schema: include_str!("../../../api/view-source-map/v1/schema.json"),
-        valid_example: include_str!("../../../api/view-source-map/v1/examples/valid.json"),
-        invalid_example: include_str!("../../../api/view-source-map/v1/examples/invalid.json"),
-    },
+    contract!("annotation-modules", 1),
+    contract!("application-config", 3),
+    contract!("artifact-manifest", 1),
+    contract!("capability-manifest", 1),
+    contract!("diagnostics", 1),
+    contract!("handler-protocol", 1),
+    contract!("hot-update", 1),
+    contract!("native-host", 3),
+    contract!("native-ui", 1),
+    contract!("route-manifest", 1),
+    contract!("view-ir", 1),
+    contract!("view-source-map", 1),
 ];
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HotUpdate {
-    pub contract_version: u8,
-    pub sequence: u64,
-    pub kind: HotUpdateKind,
-    pub build_id: Option<String>,
-    pub paths: Vec<String>,
-    pub boundaries: Vec<String>,
-    pub diagnostics: Option<tachyon_diagnostics::DiagnosticReport>,
-}
-
-impl HotUpdate {
-    #[must_use]
-    pub const fn v1(
-        sequence: u64,
-        kind: HotUpdateKind,
-        build_id: Option<String>,
-        paths: Vec<String>,
-        boundaries: Vec<String>,
-        diagnostics: Option<tachyon_diagnostics::DiagnosticReport>,
-    ) -> Self {
-        Self {
-            contract_version: 1,
-            sequence,
-            kind,
-            build_id,
-            paths,
-            boundaries,
-            diagnostics,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HotUpdateKind {
-    Css,
-    Island,
-    Reload,
-    Diagnostics,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ViewIr {
-    pub contract_version: u8,
-    pub source: String,
-    pub root: ViewNode,
-}
-
-impl ViewIr {
-    #[must_use]
-    pub const fn v1(source: String, root: ViewNode) -> Self {
-        Self {
-            contract_version: 1,
-            source,
-            root,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum ViewNode {
-    Element {
-        tag: String,
-        attributes: BTreeMap<String, String>,
-        children: Vec<Self>,
-    },
-    Text {
-        value: String,
-    },
-    Conditional {
-        condition: String,
-        then: Vec<Self>,
-        #[serde(rename = "else")]
-        otherwise: Vec<Self>,
-    },
-    Iteration {
-        binding: String,
-        iterable: String,
-        body: Vec<Self>,
-        empty: Vec<Self>,
-    },
-    CountedIteration {
-        binding: String,
-        from: String,
-        comparison: CountedComparison,
-        to: String,
-        step: String,
-        body: Vec<Self>,
-    },
-    Component {
-        name: String,
-        properties: BTreeMap<String, String>,
-        children: Vec<Self>,
-    },
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CountedComparison {
-    Lt,
-    Le,
-    Gt,
-    Ge,
-}
-
-impl CountedComparison {
-    #[must_use]
-    pub const fn ascending(self) -> bool {
-        matches!(self, Self::Lt | Self::Le)
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ViewSourceMap {
-    pub contract_version: u8,
-    pub output: String,
-    pub sources: Vec<String>,
-    pub mappings: Vec<ViewSourceMapping>,
-}
-
-impl ViewSourceMap {
-    #[must_use]
-    pub const fn v1(
-        output: String,
-        sources: Vec<String>,
-        mappings: Vec<ViewSourceMapping>,
-    ) -> Self {
-        Self {
-            contract_version: 1,
-            output,
-            sources,
-            mappings,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ViewSourceMapping {
-    pub generated_start: u64,
-    pub generated_end: u64,
-    pub source: String,
-    pub source_start: u64,
-    pub source_end: u64,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum NativeTarget {
-    Linux,
-    Macos,
-    Windows,
-    Android,
-    Ios,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NativeUi {
-    pub contract_version: u8,
-    pub target: NativeTarget,
-    pub root: NativeNode,
-}
-
-impl NativeUi {
-    #[must_use]
-    pub const fn v1(target: NativeTarget, root: NativeNode) -> Self {
-        Self {
-            contract_version: 1,
-            target,
-            root,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NativeAccessibility {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WebSurfaceSource {
-    LocalBundle,
-    RemoteUrl,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WebSurfaceBridge {
-    None,
-    LocalCapabilities,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum NativeNode {
-    NativeElement {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        id: Option<String>,
-        adapter: String,
-        properties: BTreeMap<String, Value>,
-        events: BTreeMap<String, String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        accessibility: Option<NativeAccessibility>,
-        children: Vec<Self>,
-    },
-    Text {
-        value: String,
-    },
-    WebSurface {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        id: Option<String>,
-        source: WebSurfaceSource,
-        location: String,
-        bridge: WebSurfaceBridge,
-        reason: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        accessibility: Option<NativeAccessibility>,
-    },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CapabilityManifest {
-    pub contract_version: u8,
-    pub application_id: String,
-    pub default_policy: String,
-    pub remote_content_bridge: bool,
-    pub capabilities: Vec<CapabilityGrant>,
-}
-
-impl CapabilityManifest {
-    #[must_use]
-    pub fn deny_all(application_id: String) -> Self {
-        Self {
-            contract_version: 1,
-            application_id,
-            default_policy: String::from("deny"),
-            remote_content_bridge: false,
-            capabilities: Vec::new(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CapabilityGrant {
-    pub name: String,
-    pub scope: Vec<String>,
-    pub reason: String,
-    pub targets: Vec<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ArtifactManifest {
-    pub contract_version: u8,
-    pub release_version: String,
-    pub commit: String,
-    pub source_date_epoch: u64,
-    pub target: ArtifactTarget,
-    pub toolchains: Vec<ArtifactToolchain>,
-    pub contracts: ArtifactContractVersions,
-    pub outputs: Vec<ArtifactOutput>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ArtifactTarget {
-    pub os: String,
-    pub architecture: String,
-    pub abi: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ArtifactToolchain {
-    pub name: String,
-    pub version: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ArtifactContractVersions {
-    pub artifact_manifest: u8,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capability_manifest: Option<u8>,
-    pub diagnostics: u8,
-    pub handler_protocol: u8,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub native_ui: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub native_host: Option<u8>,
-    pub route_manifest: u8,
-    pub view_ir: u8,
-}
-
-impl Default for ArtifactContractVersions {
-    fn default() -> Self {
-        Self {
-            artifact_manifest: 1,
-            capability_manifest: None,
-            diagnostics: 1,
-            handler_protocol: 1,
-            native_ui: None,
-            native_host: Some(3),
-            route_manifest: 1,
-            view_ir: 1,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ArtifactOutput {
-    pub path: String,
-    pub sha256: String,
-    pub size: u64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct RouteManifest {
-    pub contract_version: u8,
-    pub routes: Vec<RouteEntry>,
-}
-
-impl RouteManifest {
-    #[must_use]
-    pub const fn v1(routes: Vec<RouteEntry>) -> Self {
-        Self {
-            contract_version: 1,
-            routes,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct RouteEntry {
-    pub route: String,
-    pub parameters: Vec<String>,
-    pub kind: RouteKind,
-    pub methods: Vec<HttpMethod>,
-    pub view: Option<String>,
-    pub handlers: Vec<RouteHandler>,
-    pub context: RouteContext,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RouteKind {
-    Page,
-    Api,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum HttpMethod {
-    Delete,
-    Get,
-    Head,
-    Options,
-    Patch,
-    Post,
-    Put,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct RouteHandler {
-    pub source: String,
-    pub language: String,
-    pub runtime: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct RouteContext {
-    pub collision_policy: CollisionPolicy,
-    pub static_exports: Vec<String>,
-    pub response_exports: Vec<String>,
-}
-
-impl Default for RouteContext {
-    fn default() -> Self {
-        Self {
-            collision_policy: CollisionPolicy::Error,
-            static_exports: Vec::new(),
-            response_exports: Vec::new(),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CollisionPolicy {
-    Error,
-}
-
 pub type HandlerHeaders = BTreeMap<String, Vec<String>>;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum HandlerBodyEncoding {
-    Utf8,
-    Base64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HandlerBody {
-    pub encoding: HandlerBodyEncoding,
-    pub data: String,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum HandlerRequestKind {
-    #[serde(rename = "request")]
-    Request,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HandlerRequest {
-    pub protocol_version: u8,
-    pub kind: HandlerRequestKind,
-    pub request_id: String,
-    pub operation: String,
-    pub route: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target: Option<String>,
-    pub method: HttpMethod,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub deadline_ms: Option<u64>,
-    pub headers: HandlerHeaders,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub parameters: BTreeMap<String, String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub body: Option<HandlerBody>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub arguments: Option<Vec<serde_json::Value>>,
-}
-
-impl HandlerRequest {
-    #[must_use]
-    pub fn route(
-        request_id: impl Into<String>,
-        route: impl Into<String>,
-        method: HttpMethod,
-    ) -> Self {
-        Self {
-            protocol_version: 1,
-            kind: HandlerRequestKind::Request,
-            request_id: request_id.into(),
-            operation: String::from("route.invoke"),
-            route: route.into(),
-            target: None,
-            method,
-            deadline_ms: None,
-            headers: HandlerHeaders::new(),
-            parameters: BTreeMap::new(),
-            body: None,
-            arguments: None,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum HandlerResponseKind {
-    #[serde(rename = "response")]
-    Response,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HandlerProtocolError {
-    pub code: String,
-    pub message: String,
-    pub retryable: bool,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HandlerResponse {
-    pub protocol_version: u8,
-    pub kind: HandlerResponseKind,
-    pub request_id: String,
-    pub status: u16,
-    pub headers: HandlerHeaders,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub body: Option<HandlerBody>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<HandlerProtocolError>,
-}
-
-impl HandlerResponse {
-    #[must_use]
-    pub fn success(
-        request_id: impl Into<String>,
-        status: u16,
-        headers: HandlerHeaders,
-        body: HandlerBody,
-    ) -> Self {
-        Self {
-            protocol_version: 1,
-            kind: HandlerResponseKind::Response,
-            request_id: request_id.into(),
-            status,
-            headers,
-            body: Some(body),
-            error: None,
-        }
-    }
-
-    #[must_use]
-    pub fn error(request_id: impl Into<String>, status: u16, error: HandlerProtocolError) -> Self {
-        Self {
-            protocol_version: 1,
-            kind: HandlerResponseKind::Response,
-            request_id: request_id.into(),
-            status,
-            headers: HandlerHeaders::new(),
-            body: None,
-            error: Some(error),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum HandlerCancelKind {
-    #[serde(rename = "cancel")]
-    Cancel,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HandlerCancel {
-    pub protocol_version: u8,
-    pub kind: HandlerCancelKind,
-    pub request_id: String,
-}
-
-impl HandlerCancel {
-    #[must_use]
-    pub fn v1(request_id: impl Into<String>) -> Self {
-        Self {
-            protocol_version: 1,
-            kind: HandlerCancelKind::Cancel,
-            request_id: request_id.into(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum HandlerEnvelope {
-    Request(HandlerRequest),
-    Response(HandlerResponse),
-    Cancel(HandlerCancel),
-}
 
 #[must_use]
 pub fn find(name: &str) -> Option<&'static Contract> {
