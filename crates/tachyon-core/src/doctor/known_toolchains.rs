@@ -82,6 +82,31 @@ impl KnownToolchains {
         }
     }
 
+    pub(super) fn binaryen() -> Toolchain {
+        let installed = crate::wasm_optimizer::WasmOptimizer::is_installed();
+        Toolchain {
+            requirement: String::from("smaller release WebAssembly"),
+            command: String::from("wasm-opt"),
+            state: Self::presence_state(installed, "wasm-opt"),
+            install: String::from(
+                "Install Binaryen version_133 or newer from https://github.com/WebAssembly/binaryen/releases and put its bin folder on PATH. Release builds run its wasm-opt on every WebAssembly module to make the download smaller.",
+            ),
+            required: false,
+        }
+    }
+
+    pub(super) fn tinygo() -> Toolchain {
+        Toolchain {
+            requirement: String::from("small Go services on the web"),
+            command: String::from("tinygo"),
+            state: CommandProbe::version_state("tinygo", &["version"]),
+            install: String::from(
+                "Install TinyGo 0.42 or newer from https://tinygo.org/getting-started/install/. Release builds compile Go services with TinyGo (several times smaller) and use the standard Go compiler when TinyGo is missing or cannot build them.",
+            ),
+            required: false,
+        }
+    }
+
     pub(super) fn dotnet_web() -> Toolchain {
         let installed =
             CommandProbe::output("dotnet", &["workload", "list"]).is_some_and(|listed| {

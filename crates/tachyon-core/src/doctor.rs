@@ -388,7 +388,15 @@ mod tests {
             "type BasketService struct{ Count int }\n",
         )]);
         let report = check(root.path()).expect("report");
-        assert_eq!(command_names(&report), ["go"], "{:?}", report.toolchains);
+        assert_eq!(
+            command_names(&report),
+            ["go", "tinygo", "wasm-opt"],
+            "{:?}",
+            report.toolchains
+        );
+        assert!(!report.toolchains[1].required, "{:?}", report.toolchains);
+        assert!(report.toolchains[1].install.contains("standard Go compiler"));
+        assert!(!report.toolchains[2].required, "{:?}", report.toolchains);
         let entry = &report.toolchains[0];
         assert_eq!(entry.requirement, "Go services on the web");
         assert!(entry.install.contains("Go 1.27 or newer"), "{entry:?}");

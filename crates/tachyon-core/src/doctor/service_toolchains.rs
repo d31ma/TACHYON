@@ -16,6 +16,8 @@ impl ServiceToolchains {
         NativeCompanion::Swift,
     ];
 
+    const OPTIMIZED_WEB_LANGUAGES: [WebLanguage; 2] = [WebLanguage::Rust, WebLanguage::Go];
+
     pub(super) fn list(root: &Path, services: &ServiceRegistry) -> Vec<Toolchain> {
         let scripts = Self::script_extensions(services);
         let mut toolchains = Vec::new();
@@ -42,6 +44,10 @@ impl ServiceToolchains {
         toolchains.extend(
             Self::uses_web_service(services, WebLanguage::Kotlin).then(KnownToolchains::kotlin_web),
         );
+        toolchains.extend(
+            Self::uses_web_service(services, WebLanguage::Go).then(KnownToolchains::tinygo),
+        );
+        toolchains.extend(Self::uses_optimized_web_service(services).then(KnownToolchains::binaryen));
         toolchains.extend(
             Self::uses_web_service(services, WebLanguage::Ruby)
                 .then(crate::tac_ruby::RubyRuntimeBuild::toolchains)
@@ -70,6 +76,12 @@ impl ServiceToolchains {
                 .iter()
                 .any(|(used, _)| *used == language)
         })
+    }
+
+    fn uses_optimized_web_service(services: &ServiceRegistry) -> bool {
+        Self::OPTIMIZED_WEB_LANGUAGES
+            .into_iter()
+            .any(|language| Self::uses_web_service(services, language))
     }
 
     fn uses_web_service(services: &ServiceRegistry, language: WebLanguage) -> bool {

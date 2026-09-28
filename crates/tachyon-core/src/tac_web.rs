@@ -112,13 +112,20 @@ async fn build_language(
     let mut published = Vec::new();
     let mut note = None;
     let engine = match language {
-        WebLanguage::Rust => rust_engine(snapshot_root, &chosen).await?,
+        WebLanguage::Rust => {
+            let module = crate::native::web_assembly(snapshot_root, &chosen, profile).await?;
+            note = module.note;
+            WebEngine::RUST_ENGINE.replace("__WASM__", &base64(&module.binary))
+        }
         WebLanguage::CSharp => {
             published.extend(dotnet_framework(snapshot_root, &chosen, profile).await?);
             String::from(WebEngine::CSHARP_ENGINE)
         }
         WebLanguage::Go => {
-            published.extend(go_program(snapshot_root, &chosen).await?);
+            let built = crate::native::web_go(snapshot_root, &chosen, profile).await?;
+            note = built.note;
+            published.push((String::from(WebEngine::GO_MODULE), built.wasm));
+            published.push((String::from(WebEngine::GO_GLUE), built.glue));
             String::from(WebEngine::GO_ENGINE)
         }
         WebLanguage::Kotlin => {
@@ -158,14 +165,6 @@ fn services_in_language(
     chosen
 }
 
-async fn rust_engine(
-    snapshot_root: &Path,
-    chosen: &[(String, String, PathBuf)],
-) -> Result<String, Failure> {
-    let wasm = crate::native::web_assembly(snapshot_root, chosen).await?;
-    Ok(WebEngine::RUST_ENGINE.replace("__WASM__", &base64(&wasm)))
-}
-
 async fn dotnet_framework(
     snapshot_root: &Path,
     chosen: &[(String, String, PathBuf)],
@@ -176,17 +175,6 @@ async fn dotnet_framework(
         files.push((format!("dotnet/{name}"), bytes));
     }
     Ok(files)
-}
-
-async fn go_program(
-    snapshot_root: &Path,
-    chosen: &[(String, String, PathBuf)],
-) -> Result<Vec<(String, Vec<u8>)>, Failure> {
-    let built = crate::native::web_go(snapshot_root, chosen).await?;
-    Ok(vec![
-        (String::from(WebEngine::GO_MODULE), built.wasm),
-        (String::from(WebEngine::GO_GLUE), built.glue),
-    ])
 }
 
 fn ruby_engine(
@@ -767,7 +755,7 @@ mod tests {
         language: WebLanguage,
         source: PathBuf,
         profile: crate::BuildProfile,
-    ) {
+    ) -> (Vec<String>, usize) {
         let services = [(
             String::from(instance),
             String::from(class),
@@ -777,11 +765,14 @@ mod tests {
         let published = build_all(root, &services, &super::BuildJobs::new(1), profile)
             .await
             .expect("build");
+        let mut size = 0;
         for (name, bytes) in published.files {
+            size += bytes.len();
             let path = root.join(name);
             std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
             std::fs::write(path, bytes).expect("publish");
         }
+        (published.notes, size)
     }
 
     fn run_driver(root: &Path, script: &str) -> serde_json::Value {
@@ -825,6 +816,104 @@ mod tests {
         .await;
         let report = run_driver(root.path(), Fixtures::COUNTER_DRIVER);
         assert_counter_report(&report);
+    }
+
+    async fn rust_counter(profile: crate::BuildProfile) -> (Vec<String>, usize) {
+        let root = tempfile::tempdir().expect("project");
+        for (path, source) in Fixtures::COUNTER_MODELS {
+            write_service(root.path(), path, source);
+        }
+        let source = write_service(
+            root.path(),
+            "client/services/CounterService.rs",
+            Fixtures::COUNTER_SERVICE,
+        );
+        let service = ("counter", "CounterService");
+        let built =
+            build_and_publish_with(root.path(), service, WebLanguage::Rust, source, profile).await;
+        assert_counter_report(&run_driver(root.path(), Fixtures::COUNTER_DRIVER));
+        built
+    }
+
+    #[tokio::test]
+    async fn a_release_rust_module_is_smaller_and_answers_like_a_development_one() {
+        if !web_assembly_target_installed() || !node_available() {
+            eprintln!("skipping: the wasm32 Rust target or node is unavailable");
+            return;
+        }
+        let (development_notes, development) = rust_counter(crate::BuildProfile::Development).await;
+        let (release_notes, release) = rust_counter(crate::BuildProfile::Release).await;
+        assert!(development_notes.is_empty(), "{development_notes:?}");
+        assert!(release_notes[0].starts_with("Rust: rustc tuned for size"), "{release_notes:?}");
+        if crate::wasm_optimizer::WasmOptimizer::is_installed() {
+            assert!(release_notes[0].contains("wasm-opt -Oz"), "{release_notes:?}");
+            assert!(release < development, "release {release} >= development {development}");
+        }
+    }
+
+    async fn go_counter(root: &Path, profile: crate::BuildProfile) -> (Vec<String>, usize) {
+        for (relative, model) in Fixtures::GO_COUNTER_MODELS {
+            write_service(root, relative, model);
+        }
+        let source = write_service(
+            root,
+            "client/services/CounterService.go",
+            Fixtures::GO_COUNTER_SERVICE,
+        );
+        let service = ("counter", "CounterService");
+        let built = build_and_publish_with(root, service, WebLanguage::Go, source, profile).await;
+        let driver = Fixtures::COUNTER_DRIVER.replace(
+            "import CounterService, { __tachyon_event_plan__ as plan } from './CounterService.js'\n",
+            "const { default: CounterService, __tachyon_event_plan__: plan } = await import('./CounterService.js')\n",
+        );
+        let script = format!("{}{driver}process.exit(0)\n", Fixtures::FILE_FETCH);
+        assert_counter_report(&run_driver(root, &script));
+        built
+    }
+
+    fn tinygo_installed() -> bool {
+        Command::new("tinygo")
+            .arg("version")
+            .output()
+            .is_ok_and(|output| output.status.success())
+    }
+
+    #[tokio::test]
+    async fn a_release_go_module_is_built_by_tinygo_and_answers_like_a_development_one() {
+        if !go_installed() || !tinygo_installed() || !node_available() {
+            eprintln!("skipping: go, tinygo or node is unavailable");
+            return;
+        }
+        let development_root = tempfile::tempdir().expect("project");
+        let release_root = tempfile::tempdir().expect("project");
+        let (development_notes, development) =
+            go_counter(development_root.path(), crate::BuildProfile::Development).await;
+        let (release_notes, release) =
+            go_counter(release_root.path(), crate::BuildProfile::Release).await;
+        assert!(development_notes.is_empty(), "{development_notes:?}");
+        assert!(release_notes[0].starts_with("Go: TinyGo"), "{release_notes:?}");
+        assert!(release * 3 < development, "release {release}, development {development}");
+        let glue = std::fs::read_to_string(release_root.path().join("go/wasm_exec.js")).expect("glue");
+        assert!(glue.contains("wasi_snapshot_preview1"), "the glue must be TinyGo's own");
+    }
+
+    #[tokio::test]
+    async fn the_go_compiler_setting_keeps_the_standard_compiler_in_a_release_build() {
+        if !go_installed() || !node_available() {
+            eprintln!("skipping: go or node is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        write_service(
+            root.path(),
+            "client/manifest.json",
+            "{\"tac\":{\"go\":{\"compiler\":\"go\"}}}",
+        );
+        let (notes, _) = go_counter(root.path(), crate::BuildProfile::Release).await;
+        assert!(
+            notes[0].starts_with("Go: the standard Go compiler (tac.go.compiler is \"go\")"),
+            "{notes:?}"
+        );
     }
 
     fn assert_counter_report(report: &serde_json::Value) {

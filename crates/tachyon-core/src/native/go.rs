@@ -1,4 +1,7 @@
-use super::host::{native_io, native_tool_failure, run_tool_with, write};
+use super::go_compiler_choice::GoCompilerChoice;
+use super::go_web_build::GoWebBuild;
+use super::host::{native_io, native_tool_failure};
+use crate::wasm_release_step::WasmReleaseStep;
 use crate::Failure;
 use crate::companion::go::{GoTable, masked_code};
 use crate::go_source::GoFile;
@@ -6,11 +9,6 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct GoServices;
-
-pub(crate) struct GoWebBuild {
-    pub(crate) wasm: Vec<u8>,
-    pub(crate) glue: Vec<u8>,
-}
 
 struct StagedService {
     package: String,
@@ -68,26 +66,6 @@ impl GoServices {
         ),
     ];
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
-    const ENVIRONMENT: [(&str, &str); 8] = [
-        ("GO111MODULE", "on"),
-        ("GOFLAGS", ""),
-        ("GOPROXY", "off"),
-        ("GOTOOLCHAIN", "local"),
-        ("GOWORK", "off"),
-        ("CGO_ENABLED", "0"),
-        ("GOOS", "js"),
-        ("GOARCH", "wasm"),
-    ];
-    const BUILD_ARGUMENTS: [&str; 7] = [
-        "build",
-        "-trimpath",
-        "-buildvcs=false",
-        "-ldflags=-s -w",
-        "-o",
-        "services.wasm",
-        ".",
-    ];
-    const GLUE_PATH: &str = "lib/wasm/wasm_exec.js";
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
     const ALIASED_TYPES: [&str; 19] = [
@@ -124,21 +102,14 @@ impl GoServices {
 pub(crate) async fn web_go(
     snapshot_root: &Path,
     services: &[(String, String, PathBuf)],
+    profile: crate::BuildProfile,
 ) -> Result<GoWebBuild, Failure> {
     let files = program_files(snapshot_root, services)?;
-    let version = run_go(&["version"], None).await?;
-    let cached = crate::cache::root()
-        .join("go-wasm")
-        .join(format!("{}.wasm", program_key(&version, &files)));
-    let wasm = if let Ok(bytes) = std::fs::read(&cached) {
-        bytes
-    } else {
-        let bytes = compile(&files, services.len()).await?;
-        super::rust::store_in_cache(&cached, &bytes);
-        bytes
-    };
-    let glue = wasm_exec_glue().await?;
-    Ok(GoWebBuild { wasm, glue })
+    let choice = GoCompilerChoice::read(snapshot_root, profile)?;
+    let release = WasmReleaseStep::prepare(profile).await;
+    GoWebBuild::load(&files, &choice, &release)
+        .await
+        .map_err(|failure| with_authored_paths(&failure, services.len()))
 }
 
 pub(crate) fn runtime_files() -> Vec<(PathBuf, String)> {
@@ -320,7 +291,7 @@ fn string_slice(values: &[String]) -> String {
     format!("[]string{{{}}}", quoted.join(", "))
 }
 
-fn program_key(version: &str, files: &[(PathBuf, String)]) -> String {
+pub(super) fn program_key(version: &str, files: &[(PathBuf, String)]) -> String {
     let mut joined = Vec::new();
     for (name, text) in files {
         joined.extend_from_slice(name.to_string_lossy().as_bytes());
@@ -329,30 +300,6 @@ fn program_key(version: &str, files: &[(PathBuf, String)]) -> String {
         joined.push(0);
     }
     super::rust::cache_key(version, &joined)
-}
-
-async fn run_go(arguments: &[&str], directory: Option<&Path>) -> Result<String, Failure> {
-    run_tool_with("go", arguments, directory, &GoServices::ENVIRONMENT).await
-}
-
-async fn compile(files: &[(PathBuf, String)], packages: usize) -> Result<Vec<u8>, Failure> {
-    let staged = tempfile::Builder::new()
-        .prefix(".tachyon-go-wasm-")
-        .tempdir()
-        .map_err(|error| {
-            native_tool_failure(
-                GoServices::FAILURE_CODE,
-                &format!("Cannot stage Go services: {error}"),
-            )
-        })?;
-    for (name, text) in files {
-        write(&staged.path().join(name), text.as_bytes())?;
-    }
-    run_go(&GoServices::BUILD_ARGUMENTS, Some(staged.path()))
-        .await
-        .map_err(|failure| with_authored_paths(&failure, packages))?;
-    let output = staged.path().join("services.wasm");
-    native_io(std::fs::read(&output), &output)
 }
 
 fn with_authored_paths(failure: &Failure, packages: usize) -> Failure {
@@ -364,20 +311,6 @@ fn with_authored_paths(failure: &Failure, packages: usize) -> Failure {
         message = message.replace(&format!("service{index}/client/"), "client/");
     }
     native_tool_failure(GoServices::FAILURE_CODE, &message)
-}
-
-async fn wasm_exec_glue() -> Result<Vec<u8>, Failure> {
-    let root = run_go(&["env", "GOROOT"], None).await?;
-    let path = Path::new(root.trim()).join(GoServices::GLUE_PATH);
-    std::fs::read(&path).map_err(|error| {
-        native_tool_failure(
-            GoServices::FAILURE_CODE,
-            &format!(
-                "Cannot read Go's WebAssembly glue {}: {error}",
-                path.display()
-            ),
-        )
-    })
 }
 
 #[cfg(test)]
@@ -417,7 +350,7 @@ mod tests {
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         std::fs::write(&path, "// @Service\ntype BrokenService struct{ Count int }\n\nfunc (broken *BrokenService) Read() int {\n\treturn missing\n}\n").expect("service");
         let services = [(String::from("broken"), String::from("BrokenService"), path)];
-        let Err(failure) = web_go(root.path(), &services).await else {
+        let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await else {
             panic!("an undefined name must fail the build");
         };
         let message = &failure.diagnostics()[0].message;
@@ -451,7 +384,7 @@ mod tests {
             String::from("BillingService"),
             service,
         )];
-        let built = web_go(root.path(), &services)
+        let built = web_go(root.path(), &services, crate::BuildProfile::Release)
             .await
             .expect("the role marker is removed before go build");
         assert!(built.wasm.starts_with(b"\0asm"));
@@ -480,7 +413,7 @@ mod tests {
             String::from("TallyService"),
             root.path().join(files[0].0),
         )];
-        let Err(failure) = web_go(root.path(), &services).await else {
+        let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await else {
             panic!("a Tac Helper is a browser role");
         };
         let diagnostic = &failure.diagnostics()[0];
@@ -490,6 +423,34 @@ mod tests {
         assert_eq!(span.file, "client/helpers/StepHelper.go");
         let marker = files[1].1.find("@Helper").expect("marker");
         assert_eq!(span.start, u64::try_from(marker).expect("offset"));
+    }
+
+    #[tokio::test]
+    async fn a_service_tinygo_cannot_build_falls_back_to_the_standard_compiler() {
+        let tinygo_missing = std::process::Command::new("tinygo")
+            .arg("version")
+            .output()
+            .is_err();
+        if tinygo_missing {
+            eprintln!("skipping: tinygo is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let path = root.path().join("client/services/RandomService.go");
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
+        std::fs::write(&path, "import _ \"unsafe\"\n\n//go:linkname cheapRandom runtime.cheaprand\nfunc cheapRandom() uint32\n\n// @Service\ntype RandomService struct{}\n\nfunc (random *RandomService) Next() int {\n\treturn int(cheapRandom() % 6)\n}\n").expect("service");
+        let services = [(String::from("random"), String::from("RandomService"), path)];
+        let built = web_go(root.path(), &services, crate::BuildProfile::Release)
+            .await
+            .expect("the standard compiler builds what TinyGo cannot");
+        assert!(built.wasm.starts_with(b"\0asm"));
+        let note = built.note.expect("a release build explains its compiler");
+        assert!(
+            note.starts_with("Go: the standard Go compiler (because TinyGo could not build"),
+            "{note}"
+        );
+        assert!(String::from_utf8_lossy(&built.glue).contains("globalThis.Go = class"));
+        assert!(!String::from_utf8_lossy(&built.glue).contains("wasi_snapshot_preview1"));
     }
 
     #[test]

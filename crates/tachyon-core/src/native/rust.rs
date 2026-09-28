@@ -1,5 +1,7 @@
 use super::host::{native_tool_failure, run_tool, write};
+use super::rust_web_module::RustWebModule;
 use crate::Failure;
+use crate::wasm_release_step::WasmReleaseStep;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -23,16 +25,6 @@ impl RustCompanion {
     const LISTENER_TYPE_START: &str = "pub struct TacListener";
     const FAILURE_CODE: u16 = 1605;
     pub(crate) const WEB_TARGET: &str = "wasm32-unknown-unknown";
-    const WEB_OPTIMIZATION_ARGUMENTS: [&str; 8] = [
-        "-C",
-        "opt-level=s",
-        "-C",
-        "lto",
-        "-C",
-        "panic=abort",
-        "-C",
-        "strip=symbols",
-    ];
 }
 
 #[cfg(test)]
@@ -44,13 +36,22 @@ pub(super) const fn companion_prelude() -> &'static str {
 pub(super) enum Linkage {
     Static,
     Shared,
+    Web(crate::BuildProfile),
 }
 
 impl Linkage {
     const fn crate_type(self) -> &'static str {
         match self {
             Self::Static => "staticlib",
-            Self::Shared => "cdylib",
+            Self::Shared | Self::Web(_) => "cdylib",
+        }
+    }
+
+    const fn profile_arguments(self) -> &'static [&'static str] {
+        match self {
+            Self::Static | Self::Shared => &[],
+            Self::Web(crate::BuildProfile::Release) => &RustWebModule::RELEASE_ARGUMENTS,
+            Self::Web(crate::BuildProfile::Development) => &RustWebModule::DEVELOPMENT_ARGUMENTS,
         }
     }
 }
@@ -109,9 +110,7 @@ pub(super) async fn compile(
     if let Some(triple) = target_triple {
         arguments.extend(["--target", triple]);
     }
-    if target_triple == Some(RustCompanion::WEB_TARGET) {
-        arguments.extend(RustCompanion::WEB_OPTIMIZATION_ARGUMENTS);
-    }
+    arguments.extend(linkage.profile_arguments());
     run_tool("rustc", &arguments).await?;
     Ok(version)
 }
@@ -169,7 +168,8 @@ pub(super) fn store_in_cache(cached: &Path, bytes: &[u8]) {
 pub(crate) async fn web_assembly(
     snapshot_root: &Path,
     services: &[(String, String, PathBuf)],
-) -> Result<Vec<u8>, Failure> {
+    profile: crate::BuildProfile,
+) -> Result<RustWebModule, Failure> {
     let companions = web_companion_inputs(snapshot_root, services);
     let staged = tempfile::Builder::new()
         .prefix(".tachyon-rust-wasm-")
@@ -181,28 +181,34 @@ pub(crate) async fn web_assembly(
             )
         })?;
     let Some(source) = stage(&companions, staged.path(), "web")? else {
-        return Ok(Vec::new());
+        return Ok(RustWebModule::default());
     };
-    let version = run_tool("rustc", &["-vV"]).await?;
+    let release = WasmReleaseStep::prepare(profile).await;
+    let version = run_tool("rustc", &["-vV"]).await? + &release.identity();
     let source_bytes = super::host::native_io(std::fs::read(&source), &source)?;
     let key = cache_key(&version, &source_bytes);
     let cached = crate::cache::root()
         .join("rust-wasm")
         .join(format!("{key}.wasm"));
     if let Ok(bytes) = std::fs::read(&cached) {
-        return Ok(bytes);
+        return Ok(RustWebModule::built(bytes, &release, release.will_shrink()));
     }
     let output = staged.path().join("services.wasm");
     compile(
         &source,
-        Linkage::Shared,
+        Linkage::Web(profile),
         Some(RustCompanion::WEB_TARGET),
         &output,
     )
     .await?;
+    let shrunk = release
+        .shrink(&output, &RustWebModule::OPTIMIZER_FLAGS)
+        .await;
     let bytes = super::host::native_io(std::fs::read(&output), &output)?;
-    store_in_cache(&cached, &bytes);
-    Ok(bytes)
+    if shrunk == release.will_shrink() {
+        store_in_cache(&cached, &bytes);
+    }
+    Ok(RustWebModule::built(bytes, &release, shrunk))
 }
 
 #[cfg(test)]
