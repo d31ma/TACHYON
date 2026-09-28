@@ -31,30 +31,54 @@ pub(super) enum ResultKind {
 
 impl ResultKind {
     pub(super) fn returns_rows(&self) -> bool {
+        self.reads_rows()
+    }
+
+    fn reads_rows(&self) -> bool {
         matches!(self, Self::Rows | Self::Count | Self::Exists)
     }
 }
 
 impl Dialect {
+    const MAX_PARAMETERS: usize = 1024;
+    const MAX_ENTITY_FIELDS: usize = 64;
+    const MAX_IDENTIFIER_LENGTH: usize = 128;
+    const MAX_ID_TEXT_LENGTH: usize = 256;
+    const MAX_PAGE_POSITION: u64 = 1_000_000;
+    const FORMAT_FAILURE: &str = "SQL statement formatting failed.";
+
     pub(super) fn parse(driver: &str) -> Result<Self, Failure> {
+        Self::from_driver(driver).ok_or_else(|| failure("Unsupported Yon datasource driver."))
+    }
+
+    fn from_driver(driver: &str) -> Option<Self> {
         match driver {
-            "postgresql" => Ok(Self::Postgres),
-            "mysql" | "mariadb" => Ok(Self::Mysql),
-            "sqlite" => Ok(Self::Sqlite),
-            "sqlserver" => Ok(Self::SqlServer),
-            _ => Err(failure("Unsupported Yon datasource driver.")),
+            "postgresql" => Some(Self::Postgres),
+            "mysql" | "mariadb" => Some(Self::Mysql),
+            "sqlite" => Some(Self::Sqlite),
+            "sqlserver" => Some(Self::SqlServer),
+            _ => None,
         }
     }
 
     fn quote(self, name: &str) -> Result<String, Failure> {
+        let name = Self::simple_name(name)?;
+        Ok(self.quoted(name))
+    }
+
+    fn simple_name(name: &str) -> Result<&str, Failure> {
         if !is_simple_identifier(name) {
             return Err(failure("Storage identifiers require simple ASCII names."));
         }
-        Ok(match self {
+        Ok(name)
+    }
+
+    fn quoted(self, name: &str) -> String {
+        match self {
             Self::Mysql => format!("`{name}`"),
             Self::SqlServer => format!("[{name}]"),
             _ => format!("\"{name}\""),
-        })
+        }
     }
 
     fn bind(self, parameters: &mut Vec<Value>, value: &Value) -> Result<String, Failure> {
@@ -62,29 +86,57 @@ impl Dialect {
         if value.is_null() {
             return Ok("NULL".into());
         }
-        if parameters.len() >= 1024 {
+        self.push_parameter(parameters, value)
+    }
+
+    fn push_parameter(self, parameters: &mut Vec<Value>, value: &Value) -> Result<String, Failure> {
+        Self::require_parameter_room(parameters)?;
+        parameters.push(value.clone());
+        Ok(self.placeholder(parameters.len()))
+    }
+
+    fn require_parameter_room(parameters: &[Value]) -> Result<(), Failure> {
+        if parameters.len() >= Self::MAX_PARAMETERS {
             return Err(failure("Storage parameter limit exceeded."));
         }
-        parameters.push(value.clone());
-        Ok(match self {
-            Self::Postgres => format!("${}", parameters.len()),
-            Self::SqlServer => format!("@P{}", parameters.len()),
+        Ok(())
+    }
+
+    fn placeholder(self, number: usize) -> String {
+        match self {
+            Self::Postgres => format!("${number}"),
+            Self::SqlServer => format!("@P{number}"),
             _ => "?".into(),
-        })
+        }
+    }
+
+    fn bindings<'value>(
+        self,
+        values: impl Iterator<Item = &'value Value>,
+        parameters: &mut Vec<Value>,
+    ) -> Result<Vec<String>, Failure> {
+        let mut bindings = Vec::new();
+        for value in values {
+            bindings.push(self.bind(parameters, value)?);
+        }
+        Ok(bindings)
     }
 
     pub(super) fn control(self, action: &str) -> Statement {
-        let sql = match (action, self) {
+        Statement {
+            sql: self.control_sql(action).to_owned(),
+            parameters: Vec::new(),
+            result: ResultKind::Affected,
+            isolated: false,
+        }
+    }
+
+    fn control_sql(self, action: &str) -> &'static str {
+        match (action, self) {
             ("begin", Self::SqlServer) => "BEGIN TRANSACTION",
             ("begin", _) => "BEGIN",
             ("commit", _) => "COMMIT",
             _ => "ROLLBACK",
-        };
-        Statement {
-            sql: sql.to_owned(),
-            parameters: Vec::new(),
-            result: ResultKind::Affected,
-            isolated: false,
         }
     }
 
@@ -144,20 +196,14 @@ impl Dialect {
             .ok_or_else(|| failure("Store save requires an entity."))?;
         let data = value
             .as_object()
-            .filter(|data| !data.is_empty() && data.len() <= 64)
+            .filter(|data| (1..=Self::MAX_ENTITY_FIELDS).contains(&data.len()))
             .ok_or_else(|| failure("Store save requires a bounded entity object."))?;
-        if !data.contains_key(text(command, "idField")?) {
-            return Err(failure("Store save requires its mapped identifier."));
-        }
-        entity_id(&data[text(command, "idField")?])?;
-        let mut columns = Vec::new();
-        for name in data.keys() {
-            columns.push(self.quote(name)?);
-        }
-        let mut bindings = Vec::new();
-        for value in data.values() {
-            bindings.push(self.bind(&mut statement.parameters, value)?);
-        }
+        let identifier = data
+            .get(text(command, "idField")?)
+            .ok_or_else(|| failure("Store save requires its mapped identifier."))?;
+        entity_id(identifier)?;
+        let columns = self.quoted_columns(data.keys())?;
+        let bindings = self.bindings(data.values(), &mut statement.parameters)?;
         let assignments = self.update_assignments(&columns, id);
         let upsert = Upsert {
             table,
@@ -166,29 +212,43 @@ impl Dialect {
             bindings: &bindings,
             assignments: &assignments,
         };
-        statement.sql = if self == Self::SqlServer {
-            merge_sql(&upsert)
-        } else {
-            self.insert_sql(&upsert)
-        };
+        statement.sql = self.upsert_sql(&upsert);
         statement.result = ResultKind::Saved(value.clone());
         Ok(())
     }
 
-    fn update_assignments(self, columns: &[String], id: &str) -> Vec<String> {
-        let mut assignments = Vec::new();
-        for column in columns {
-            if column.as_str() == id {
-                continue;
-            }
-            let assignment = match self {
-                Self::Mysql => format!("{column} = VALUES({column})"),
-                Self::SqlServer => format!("target.{column} = source.{column}"),
-                _ => format!("{column} = excluded.{column}"),
-            };
-            assignments.push(assignment);
+    fn quoted_columns<'name>(
+        self,
+        names: impl Iterator<Item = &'name String>,
+    ) -> Result<Vec<String>, Failure> {
+        let mut columns = Vec::new();
+        for name in names {
+            columns.push(self.quote(name)?);
         }
-        assignments
+        Ok(columns)
+    }
+
+    fn upsert_sql(self, upsert: &Upsert<'_>) -> String {
+        if self == Self::SqlServer {
+            return merge_sql(upsert);
+        }
+        self.insert_sql(upsert)
+    }
+
+    fn update_assignments(self, columns: &[String], id: &str) -> Vec<String> {
+        columns
+            .iter()
+            .filter(|column| column.as_str() != id)
+            .map(|column| self.assignment(column))
+            .collect()
+    }
+
+    fn assignment(self, column: &str) -> String {
+        match self {
+            Self::Mysql => format!("{column} = VALUES({column})"),
+            Self::SqlServer => format!("target.{column} = source.{column}"),
+            _ => format!("{column} = excluded.{column}"),
+        }
     }
 
     fn insert_sql(self, upsert: &Upsert<'_>) -> String {
@@ -201,22 +261,21 @@ impl Dialect {
         } = upsert;
         let columns_joined = columns.join(", ");
         let bindings_joined = bindings.join(", ");
-        let suffix = if self == Self::Mysql {
-            let updates = if assignments.is_empty() {
-                format!("{id} = {id}")
-            } else {
-                assignments.join(", ")
-            };
+        let suffix = self.conflict_clause(id, assignments);
+        format!("INSERT INTO {table} ({columns_joined}) VALUES ({bindings_joined}){suffix}")
+    }
+
+    fn conflict_clause(self, id: &str, assignments: &[String]) -> String {
+        let updates = assignments.join(", ");
+        if self == Self::Mysql && assignments.is_empty() {
+            format!(" ON DUPLICATE KEY UPDATE {id} = {id}")
+        } else if self == Self::Mysql {
             format!(" ON DUPLICATE KEY UPDATE {updates}")
         } else if assignments.is_empty() {
             format!(" ON CONFLICT ({id}) DO NOTHING")
         } else {
-            format!(
-                " ON CONFLICT ({id}) DO UPDATE SET {}",
-                assignments.join(", ")
-            )
-        };
-        format!("INSERT INTO {table} ({columns_joined}) VALUES ({bindings_joined}){suffix}")
+            format!(" ON CONFLICT ({id}) DO UPDATE SET {updates}")
+        }
     }
 
     fn query(
@@ -227,34 +286,43 @@ impl Dialect {
         statement: &mut Statement,
     ) -> Result<(), Failure> {
         object_keys(query, &["kind", "where", "orderBy", "page"])?;
-        let kind = text(query, "kind")?;
-        statement.sql = match kind {
-            "find" => format!("SELECT * FROM {table}"),
-            "count" | "exists" => {
-                let count_function = self.count_function();
-                format!("SELECT {count_function}(*) AS tachyon_count FROM {table}")
-            }
-            _ => return Err(failure("Unsupported repository query kind.")),
-        };
+        let result = Self::query_result(text(query, "kind")?)?;
+        statement.sql = self.select_sql(&result, table);
         self.where_clause(query, statement)?;
-        if kind == "find" {
+        self.finish_query(result, query, id, statement)
+    }
+
+    fn query_result(kind: &str) -> Result<ResultKind, Failure> {
+        match kind {
+            "find" => Ok(ResultKind::Rows),
+            "count" => Ok(ResultKind::Count),
+            "exists" => Ok(ResultKind::Exists),
+            _ => Err(failure("Unsupported repository query kind.")),
+        }
+    }
+
+    fn select_sql(self, result: &ResultKind, table: &str) -> String {
+        match (result, self) {
+            (ResultKind::Rows, _) => format!("SELECT * FROM {table}"),
+            (_, Self::SqlServer) => format!("SELECT COUNT_BIG(*) AS tachyon_count FROM {table}"),
+            _ => format!("SELECT COUNT(*) AS tachyon_count FROM {table}"),
+        }
+    }
+
+    fn finish_query(
+        self,
+        result: ResultKind,
+        query: &Value,
+        id: &str,
+        statement: &mut Statement,
+    ) -> Result<(), Failure> {
+        if let ResultKind::Rows = result {
             let page = page_with_query_order(query)?;
             return self.page(&page, id, statement);
         }
         reject_count_page_or_order(query)?;
-        statement.result = if kind == "count" {
-            ResultKind::Count
-        } else {
-            ResultKind::Exists
-        };
+        statement.result = result;
         Ok(())
-    }
-
-    fn count_function(self) -> &'static str {
-        if self == Self::SqlServer {
-            return "COUNT_BIG";
-        }
-        "COUNT"
     }
 
     fn where_clause(self, query: &Value, statement: &mut Statement) -> Result<(), Failure> {
@@ -262,15 +330,28 @@ impl Dialect {
             .as_array()
             .filter(|items| items.len() <= 8)
             .ok_or_else(|| failure("Store query requires bounded predicates."))?;
+        let clauses = self.predicate_clauses(predicates, &mut statement.parameters)?;
+        Self::append_where(statement, &clauses)
+    }
+
+    fn predicate_clauses(
+        self,
+        predicates: &[Value],
+        parameters: &mut Vec<Value>,
+    ) -> Result<Vec<String>, Failure> {
         let mut clauses = Vec::new();
         for predicate in predicates {
-            clauses.push(self.predicate(predicate, &mut statement.parameters)?);
+            clauses.push(self.predicate(predicate, parameters)?);
         }
+        Ok(clauses)
+    }
+
+    fn append_where(statement: &mut Statement, clauses: &[String]) -> Result<(), Failure> {
         if clauses.is_empty() {
             return Ok(());
         }
         write!(statement.sql, " WHERE {}", clauses.join(" AND "))
-            .map_err(|_| failure("SQL statement formatting failed."))
+            .map_err(|_| failure(Self::FORMAT_FAILURE))
     }
 
     fn predicate(self, predicate: &Value, parameters: &mut Vec<Value>) -> Result<String, Failure> {
@@ -295,14 +376,15 @@ impl Dialect {
             .as_array()
             .filter(|values| values.len() <= 100)
             .ok_or_else(|| failure("In predicate requires a bounded array."))?;
-        if values.is_empty() {
-            return Ok("1 = 0".into());
+        let bindings = self.bindings(values.iter(), parameters)?;
+        Ok(Self::in_list(field, &bindings))
+    }
+
+    fn in_list(field: &str, bindings: &[String]) -> String {
+        if bindings.is_empty() {
+            return "1 = 0".into();
         }
-        let mut bindings = Vec::new();
-        for value in values {
-            bindings.push(self.bind(parameters, value)?);
-        }
-        Ok(format!("{field} IN ({})", bindings.join(", ")))
+        format!("{field} IN ({})", bindings.join(", "))
     }
 
     fn comparison_predicate(
@@ -335,57 +417,169 @@ impl Dialect {
     }
 
     fn page(self, page: &Value, id: &str, statement: &mut Statement) -> Result<(), Failure> {
-        let page = if page.is_null() {
-            json!({})
-        } else {
-            page.clone()
-        };
+        let page = Self::page_or_empty(page);
         object_keys(&page, &["page", "size", "sort", "offset"])?;
         let (index, size) = page_index_and_size(&page)?;
-        let mut order = self.sort_order(&page)?;
-        if order.is_empty() {
-            order.push(format!("{id} ASC"));
-        }
+        let order = Self::order_or_id(self.sort_order(&page)?, id);
         write!(statement.sql, " ORDER BY {}", order.join(", "))
-            .map_err(|_| failure("SQL statement formatting failed."))?;
-        let offset = json!(index * size);
+            .map_err(|_| failure(Self::FORMAT_FAILURE))?;
+        let limit = self.limit_clause(index * size, size, &mut statement.parameters)?;
+        statement.sql.push_str(&limit);
+        Ok(())
+    }
+
+    fn page_or_empty(page: &Value) -> Value {
+        if page.is_null() {
+            return json!({});
+        }
+        page.clone()
+    }
+
+    fn order_or_id(order: Vec<String>, id: &str) -> Vec<String> {
+        if order.is_empty() {
+            return vec![format!("{id} ASC")];
+        }
+        order
+    }
+
+    fn limit_clause(
+        self,
+        offset: u64,
+        size: u64,
+        parameters: &mut Vec<Value>,
+    ) -> Result<String, Failure> {
         if self == Self::SqlServer {
-            let skip = self.bind(&mut statement.parameters, &offset)?;
-            let take = self.bind(&mut statement.parameters, &json!(size))?;
-            write!(
-                statement.sql,
-                " OFFSET {skip} ROWS FETCH NEXT {take} ROWS ONLY"
-            )
-            .map_err(|_| failure("SQL statement formatting failed."))?;
-        } else {
-            let take = self.bind(&mut statement.parameters, &json!(size))?;
-            let skip = self.bind(&mut statement.parameters, &offset)?;
-            write!(statement.sql, " LIMIT {take} OFFSET {skip}")
-                .map_err(|_| failure("SQL statement formatting failed."))?;
+            let skip = self.push_parameter(parameters, &json!(offset))?;
+            let take = self.push_parameter(parameters, &json!(size))?;
+            return Ok(format!(" OFFSET {skip} ROWS FETCH NEXT {take} ROWS ONLY"));
+        }
+        let take = self.push_parameter(parameters, &json!(size))?;
+        let skip = self.push_parameter(parameters, &json!(offset))?;
+        Ok(format!(" LIMIT {take} OFFSET {skip}"))
+    }
+
+    fn sort_order(self, page: &Value) -> Result<Vec<String>, Failure> {
+        let items = Self::sort_items(page)?;
+        self.order_terms(items)
+    }
+
+    fn sort_items(page: &Value) -> Result<&[Value], Failure> {
+        let Some(sort) = page.get("sort") else {
+            return Ok(&[]);
+        };
+        sort.as_array()
+            .filter(|sort| sort.len() <= 5)
+            .map(Vec::as_slice)
+            .ok_or_else(|| failure("Invalid repository sorting."))
+    }
+
+    fn order_terms(self, items: &[Value]) -> Result<Vec<String>, Failure> {
+        let mut order = Vec::new();
+        for item in items {
+            let (field, direction) = sort_field_and_direction(item)?;
+            let field = self.quote(field)?;
+            let direction = Self::sort_direction(direction)?;
+            order.push(format!("{field} {direction}"));
+        }
+        Ok(order)
+    }
+
+    fn sort_direction(direction: &str) -> Result<&'static str, Failure> {
+        match direction {
+            "asc" => Ok("ASC"),
+            "desc" => Ok("DESC"),
+            _ => Err(failure("Invalid repository sort direction.")),
+        }
+    }
+
+    fn matched_update(assignments: &[String]) -> String {
+        if assignments.is_empty() {
+            return String::new();
+        }
+        format!(" WHEN MATCHED THEN UPDATE SET {}", assignments.join(", "))
+    }
+
+    fn is_simple_name(name: &str) -> bool {
+        (1..=Self::MAX_IDENTIFIER_LENGTH).contains(&name.len())
+            && !name.starts_with(|character: char| character.is_ascii_digit())
+            && name.bytes().all(Self::is_identifier_byte)
+    }
+
+    fn is_identifier_byte(byte: u8) -> bool {
+        [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true)
+    }
+
+    fn checked_sql(sql: &str) -> Result<&str, Failure> {
+        Self::reject_null_byte(sql)?;
+        let sql = sql.trim().trim_end_matches(';');
+        Self::require_one_statement(sql)?;
+        Ok(sql)
+    }
+
+    fn reject_null_byte(sql: &str) -> Result<(), Failure> {
+        if sql.contains('\0') {
+            return Err(failure("SQL contains a null byte."));
         }
         Ok(())
     }
 
-    fn sort_order(self, page: &Value) -> Result<Vec<String>, Failure> {
-        let mut order = Vec::new();
-        let Some(sort) = page.get("sort") else {
-            return Ok(order);
-        };
-        let sort = sort
-            .as_array()
-            .filter(|sort| sort.len() <= 5)
-            .ok_or_else(|| failure("Invalid repository sorting."))?;
-        for item in sort {
-            let (field, direction) = sort_field_and_direction(item)?;
-            let field = self.quote(field)?;
-            let direction = match direction {
-                "asc" => "ASC",
-                "desc" => "DESC",
-                _ => return Err(failure("Invalid repository sort direction.")),
-            };
-            order.push(format!("{field} {direction}"));
+    fn require_one_statement(sql: &str) -> Result<(), Failure> {
+        let verb = sql
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .to_ascii_uppercase();
+        let allowed_verbs = [
+            "SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "CREATE", "ALTER", "DROP", "MERGE",
+        ];
+        if sql.contains(';') || !allowed_verbs.contains(&verb.as_str()) {
+            return Err(failure(
+                "Explicit SQL requires one data or schema statement, not session or transaction control; bind literal values as parameters.",
+            ));
         }
-        Ok(order)
+        Ok(())
+    }
+
+    fn explicit_parameters(command: &Value) -> Result<&Vec<Value>, Failure> {
+        let parameters = command["parameters"]
+            .as_array()
+            .filter(|parameters| parameters.len() <= Self::MAX_PARAMETERS)
+            .ok_or_else(|| failure("SQL requires a bounded parameter array."))?;
+        for value in parameters {
+            scalar(value)?;
+        }
+        Ok(parameters)
+    }
+
+    fn explicit_result(mode: &str) -> Result<ResultKind, Failure> {
+        match mode {
+            "rows" => Ok(ResultKind::Rows),
+            "execute" => Ok(ResultKind::Affected),
+            _ => Err(failure("SQL mode must be rows or execute.")),
+        }
+    }
+
+    fn reject_paging(query: &Value) -> Result<(), Failure> {
+        let has_order = query
+            .get("orderBy")
+            .and_then(Value::as_array)
+            .is_some_and(|order| !order.is_empty());
+        if query.get("page").is_some() || has_order {
+            return Err(failure(
+                "Count and exists queries cannot paginate or order.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn field_and_direction(item: &Value) -> Result<(&str, &str), Failure> {
+        if let Some(sort) = item.as_str() {
+            return sort
+                .split_once(':')
+                .ok_or_else(|| failure("Invalid repository sorting."));
+        }
+        object_keys(item, &["field", "direction"])?;
+        Ok((text(item, "field")?, text(item, "direction")?))
     }
 }
 
@@ -407,16 +601,12 @@ fn merge_sql(upsert: &Upsert<'_>) -> String {
     } = upsert;
     let columns_joined = columns.join(", ");
     let bindings_joined = bindings.join(", ");
-    let updates = if assignments.is_empty() {
-        String::new()
-    } else {
-        format!(" WHEN MATCHED THEN UPDATE SET {}", assignments.join(", "))
-    };
-    let mut source_columns = Vec::new();
-    for column in *columns {
-        source_columns.push(format!("source.{column}"));
-    }
-    let source_values = source_columns.join(", ");
+    let updates = Dialect::matched_update(assignments);
+    let source_values = columns
+        .iter()
+        .map(|column| format!("source.{column}"))
+        .collect::<Vec<_>>()
+        .join(", ");
     format!(
         "MERGE {table} WITH (HOLDLOCK) AS target USING (VALUES ({bindings_joined})) AS source ({columns_joined}) ON target.{id} = source.{id}{updates} WHEN NOT MATCHED THEN INSERT ({columns_joined}) VALUES ({source_values});"
     )
@@ -443,95 +633,43 @@ pub(super) fn page_with_query_order(query: &Value) -> Result<Value, Failure> {
 }
 
 pub(super) fn reject_count_page_or_order(query: &Value) -> Result<(), Failure> {
-    let has_order = query
-        .get("orderBy")
-        .and_then(Value::as_array)
-        .is_some_and(|order| !order.is_empty());
-    if query.get("page").is_some() || has_order {
-        return Err(failure(
-            "Count and exists queries cannot paginate or order.",
-        ));
-    }
-    Ok(())
+    Dialect::reject_paging(query)
 }
 
 fn page_index_and_size(page: &Value) -> Result<(u64, u64), Failure> {
     let index = page
         .get("page")
         .map_or(Some(0), Value::as_u64)
-        .filter(|index| *index <= 1_000_000)
+        .filter(|index| *index <= Dialect::MAX_PAGE_POSITION)
         .ok_or_else(|| failure("Invalid repository page."))?;
     let size = page
         .get("size")
         .map_or(Some(20), Value::as_u64)
-        .filter(|size| *size > 0 && *size <= ManagedStorage::MAX_ROWS as u64)
+        .filter(|size| (1..=ManagedStorage::MAX_ROWS as u64).contains(size))
         .ok_or_else(|| failure("Invalid repository page size."))?;
     let offset = index * size;
     let offset_mismatch = page
         .get("offset")
         .is_some_and(|declared| declared.as_u64() != Some(offset));
-    if offset > 1_000_000 || offset_mismatch {
+    if offset > Dialect::MAX_PAGE_POSITION || offset_mismatch {
         return Err(failure("Invalid repository page offset."));
     }
     Ok((index, size))
 }
 
 pub(super) fn sort_field_and_direction(item: &Value) -> Result<(&str, &str), Failure> {
-    if let Some(sort) = item.as_str() {
-        return sort
-            .split_once(':')
-            .ok_or_else(|| failure("Invalid repository sorting."));
-    }
-    object_keys(item, &["field", "direction"])?;
-    Ok((text(item, "field")?, text(item, "direction")?))
+    Dialect::field_and_direction(item)
 }
 
 pub(super) fn is_simple_identifier(name: &str) -> bool {
-    if name.is_empty() || name.len() > 128 {
-        return false;
-    }
-    for (index, byte) in name.bytes().enumerate() {
-        let allowed =
-            byte.is_ascii_alphabetic() || byte == b'_' || (index > 0 && byte.is_ascii_digit());
-        if !allowed {
-            return false;
-        }
-    }
-    true
+    Dialect::is_simple_name(name)
 }
 
 fn explicit_sql(command: &Value, dialect: Dialect) -> Result<Statement, Failure> {
     object_keys(command, &["operation", "sql", "parameters", "mode"])?;
-    let sql = text(command, "sql")?;
-    if sql.contains('\0') {
-        return Err(failure("SQL contains a null byte."));
-    }
-    let sql = sql.trim().trim_end_matches(';');
-    let verb = sql
-        .split_whitespace()
-        .next()
-        .unwrap_or("")
-        .to_ascii_uppercase();
-    let allowed_verbs = [
-        "SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "CREATE", "ALTER", "DROP", "MERGE",
-    ];
-    if sql.contains(';') || !allowed_verbs.contains(&verb.as_str()) {
-        return Err(failure(
-            "Explicit SQL requires one data or schema statement, not session or transaction control; bind literal values as parameters.",
-        ));
-    }
-    let parameters = command["parameters"]
-        .as_array()
-        .filter(|parameters| parameters.len() <= 1024)
-        .ok_or_else(|| failure("SQL requires a bounded parameter array."))?;
-    for value in parameters {
-        scalar(value)?;
-    }
-    let result = match text(command, "mode")? {
-        "rows" => ResultKind::Rows,
-        "execute" => ResultKind::Affected,
-        _ => return Err(failure("SQL mode must be rows or execute.")),
-    };
+    let sql = Dialect::checked_sql(text(command, "sql")?)?;
+    let parameters = Dialect::explicit_parameters(command)?;
+    let result = Dialect::explicit_result(text(command, "mode")?)?;
     Ok(Statement {
         sql: sql.into(),
         parameters: parameters.clone(),
@@ -544,7 +682,8 @@ fn entity_id(value: &Value) -> Result<(), Failure> {
     let is_integer = value.as_i64().is_some();
     let is_bounded_text = value
         .as_str()
-        .is_some_and(|text| !text.is_empty() && text.len() <= 256);
+        .map(str::len)
+        .is_some_and(|length| (1..=Dialect::MAX_ID_TEXT_LENGTH).contains(&length));
     if is_integer || is_bounded_text {
         return Ok(());
     }
