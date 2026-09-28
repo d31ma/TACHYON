@@ -1681,7 +1681,7 @@ machine contracts have their own, independent major versions.
   services looked broken. New tests check that Dart, Rust, Go, C# and Ruby
   web services call a `client/utils` class without an import.
 - A `@LocalState` or `@SessionState` field of a WebAssembly Tac service
-  (Rust, Go, C#, F#, Kotlin, Ruby) that one of the service's own methods or
+  (Rust, Go, C#, Kotlin, Ruby) that one of the service's own methods or
   `OnEvent` listeners changed was not saved, so a reload brought back the
   old value. The page now reads the saved fields after each call into the
   service and stores the ones that changed.
