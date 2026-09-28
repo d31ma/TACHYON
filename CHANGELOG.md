@@ -519,6 +519,26 @@ machine contracts have their own, independent major versions.
   Kotlin, C#, PHP, Go, Rust, Swift and Dart where the rewrite behaves the
   same. `tac.simplify.suggest` and `simplify.suggest` hide them per realm.
   Docs: Going further > Simpler forms.
+- Swift Tac services run on the web as WebAssembly (the Swift SDK for
+  WebAssembly, ADR 0082). A service with a `.swift` file and no browser
+  sibling now reaches every target: macOS and iOS still link it, and the web,
+  Windows, Linux and Android run it as WebAssembly. It keeps fields, methods
+  with arguments (labels kept), `@OnStart` hooks and `@LocalState` /
+  `@SessionState` fields, which the page saves after each method call. The
+  web program uses no Foundation, so it stays about 3.4 MB of WebAssembly
+  (0.9 MB with Brotli); `import Foundation` would make it more than ten times
+  larger. A release build runs Binaryen's `wasm-opt -Oz` and prints
+  `Swift: WebAssembly release build — optimized by Binaryen`. The build needs
+  Swift 6.3.3 and the matching SDK: `TAC_SWIFT_WASM_SDK` names the SDK's
+  `wasm32-unknown-wasip1` folder, and `TAC_SWIFT_WASM_COMPILER` the swift.org
+  `swiftc` when Xcode's comes first on `PATH`; `ty doctor` checks both.
+  When a service has several WebAssembly languages, the order is now Rust,
+  Go, C#, Swift, Kotlin, Ruby. `TY1317` now also refuses Swift browser
+  interop (`JavaScriptKit`, `JSObject`, `JSValue`, `@_extern`, `@_expose`).
+  Events, `Codable` models across the page boundary, the built-in storage
+  and the curated browser APIs come in the next step. Every service language
+  now reaches every target, so the `TY1010` refusal of a service with no
+  language for the target is gone.
 - Kotlin Tac services run on the web as WebAssembly (Kotlin/Wasm, WasmGC,
   ADR 0078). A service with a `.kt` file and no browser sibling now reaches
   every target: Android still links it natively, and every other target runs
@@ -1732,6 +1752,13 @@ machine contracts have their own, independent major versions.
   request.". Go, C# and Ruby also name the method of a call that is too big,
   and the page's native bridge names the start-up request. The limits are
   unchanged (ADR 0037).
+- A Swift companion method that takes arguments compiles on macOS and iOS.
+  Before, the generated call passed no arguments. A field setter now also
+  converts the page's number to the field's type, so a `Double` field
+  accepts `2`.
+- The Kotlin web build cache works. Its key was every source written out in
+  hexadecimal, too long for a folder name, so every build compiled again.
+  The key is now a SHA-256 digest.
 - The website's Documentation page shows its guides again. Its C#
   WebAssembly service received all of `docs.json`, with the text of every
   guide. That file grew past the 1 MiB that `init` may carry (ADR 0037), so
