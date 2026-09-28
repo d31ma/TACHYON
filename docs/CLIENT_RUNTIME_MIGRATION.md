@@ -382,10 +382,10 @@ same service beside it. Add one file for each language the service must reach:
 
 - The platform-specific language wins over the Rust desktop fallback. On each
   target, one compiled implementation answers a service.
-- A service that has only Swift or Kotlin files fails a build for any other
-  target, including the web, with `TY1010`. Add a JS/TS file, or a Rust, C#
-  or Go file, which runs as WebAssembly where no host links it (ADR 0035,
-  ADR 0037, ADR 0045).
+- Where no host links a Rust, C#, Swift or Kotlin service, and for every Go
+  service, the service runs as WebAssembly, including on the web (ADR 0035,
+  ADR 0037, ADR 0045, ADR 0078, ADR 0082). So every service language reaches
+  every target.
 - Python is not a Tac service language. Dart is: it compiles to JavaScript
   for every target (ADR 0033).
 - A native `tac.*` file beside a component view is `TY1310`.

@@ -18,6 +18,7 @@ class StorageGate {
   static settleCaches = () => globalThis[Symbol.for('tachyon.tac.storage')].settled();
   static withCSharp = csharpWebAvailable();
   static withKotlin = kotlinWebAvailable();
+  static withSwift = swiftWebAvailable();
   static scriptBudgetKilobytes = 320;
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' };
 }
@@ -180,6 +181,26 @@ impl RsCounterService {
 `);
 }
 
+function swiftWebAvailable() {
+  const sdk = process.env.TAC_SWIFT_WASM_SDK;
+  return Boolean(sdk) && existsSync(path.join(sdk, 'WASI.sdk'));
+}
+
+function writeSwiftFixture(project) {
+  write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swCounter.increment()">+</button>\n<p id="swift-count">{swCounter.count}</p>\n');
+  write(project, 'client/services/SwCounterService.swift', `@Service
+final class SwCounterService {
+    @LocalState
+    var count: Int = 0
+
+    func increment() -> Int {
+        count += 1
+        return count
+    }
+}
+`);
+}
+
 function csharpWebAvailable() {
   const probe = spawnSync('dotnet', ['workload', 'list'], { encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
   return !probe.error && probe.status === 0 && probe.stdout.includes('wasm-tools');
@@ -337,7 +358,7 @@ function writeFixture(project) {
   <storage-go />
   <storage-ruby />
   <storage-rs />
-${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}</main>
+${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}</main>
 `);
   for (const [name, policy] of [['CacheFirstClient','cache-first'],['NetworkFirstClient','network-first'],['FreshClient','no-store'],['ReloadClient','reload']]) {
     write(project, 'client/clients/' + name + '.js', `@HTTPClient({"cache":"${policy}","adapter":"${name}"})
@@ -460,6 +481,7 @@ class NoteStore {
   writeRustFixture(project);
   if (StorageGate.withCSharp) writeCSharpFixture(project);
   if (StorageGate.withKotlin) writeKotlinFixture(project);
+  if (StorageGate.withSwift) writeSwiftFixture(project);
   write(project, 'client/components/storage/notes/tac.html', '<p id="notes">{storageNotes.label}</p>\n');
   write(project, 'client/services/StorageNotesService.js', `@Service
 export default class StorageNotesService {
@@ -739,6 +761,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
   const services = [['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
   if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#']);
   if (StorageGate.withKotlin) services.push(['kt', 'ktNotes', 'Kotlin']);
+  if (StorageGate.withSwift) services.push(['swift', 'swCounter', 'Swift']);
   for (const [id, , language] of services) {
     for (let click = 0; click < 3; click += 1) await page.click(`#${id}-bump`);
     await page.waitForFunction((selector) => document.querySelector(selector)?.textContent === '3', `#${id}-count`);
@@ -989,6 +1012,7 @@ async function main() {
     console.log('skipping the C# storage check: the .NET wasm-tools workload is not installed');
   }
   if (!StorageGate.withKotlin) console.log('skipping the Kotlin storage check: kotlinc-js or TAC_KOTLIN_WASM_STDLIB is missing');
+  if (!StorageGate.withSwift) console.log('skipping the Swift stored-field check: TAC_SWIFT_WASM_SDK is not set');
   let project;
   let server;
   let browser;

@@ -79,7 +79,10 @@ page and import one method back.
 - JavaScript, TypeScript, Dart, Rust and C# all reach every target. Swift and
   Kotlin stay platform languages. (Amended by
   [ADR 0078](0078-kotlin-services-reach-the-web-as-webassembly.md): Kotlin now
-  reaches every target as WebAssembly; only Swift stays a platform language.)
+  reaches every target as WebAssembly; only Swift stays a platform language.
+  Amended again by
+  [ADR 0082](0082-swift-services-reach-the-web-as-webassembly.md): Swift also
+  reaches every target as WebAssembly, so no platform language is left.)
 - A page with a C# service downloads the .NET runtime once. After that, the
   page serves it from the cache that the service worker keeps. This download
   is the cost of C# on the web, and it is why Rust wins when a service has
