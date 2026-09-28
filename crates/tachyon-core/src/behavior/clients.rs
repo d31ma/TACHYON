@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn a_test_unit_fakes_a_client_without_needing_it() {
-        let source = "@Setup\nclass HelloTestSetup {\n  static configure() { return {}; }\n}\n@HTTPClient\nclass GreetingClient {\n  @GetRequest(\"/api/greeting\")\n  async getGreeting() {}\n}\n@Test(HelloTestSetup)\nexport default class CounterServiceTest {\n  @Fake\n  greetingClient;\n\n  async testAsks() {}\n}\n";
+        let source = "@Setup\nclass HelloTestSetup {\n  static configure() { return {}; }\n}\n@HTTPClient\nclass GreetingClient {\n  @GetRequest(\"/api/greeting\")\n  async getGreeting() {}\n}\n@Test(HelloTestSetup)\nexport default class CounterServiceTest {\n  @Fake\n  greetingClient;\n\n  async testAsks() { Assert.isTrue(Boolean(this.greetingClient)); }\n}\n";
         let lowered = lower_tac_js(source);
         assert!(lowered.is_ok(), "{lowered:?}");
     }

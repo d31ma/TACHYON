@@ -17,7 +17,7 @@ impl TestUnit {
         program: "rustc",
         configuration: "#[Setup()]\nstruct CatalogSetup {}\nimpl CatalogSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> { Ok(BehaviorConfiguration::default()) }\n}\n",
         model: "#[derive(Clone, Debug)]\npub struct Guide {\n    pub title: String,\n    pub pages: u32,\n}\n",
-        source: "use crate::models::Guide;\n\n#[Test(CatalogSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testUsesAModel(&self) -> BehaviorResult<BehaviorValue> {\n        let guide = Guide { title: String::from(\"Guide\"), pages: 3 };\n        if guide.pages != 3 || guide.title != \"Guide\" { return Err(BehaviorError { code: \"adapter\", message: \"wrong guide\", path: None }); }\n        Ok(BehaviorValue::Null)\n    }\n}\n",
+        source: "use crate::models::Guide;\n\n#[Test(CatalogSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testUsesAModel(&self) {\n        let guide = Guide { title: String::from(\"Guide\"), pages: 3 };\n        Assert::equals(3, guide.pages);\n        Assert::equals(\"Guide\", guide.title);\n    }\n}\n",
     };
 
     const CSHARP: Self = Self {

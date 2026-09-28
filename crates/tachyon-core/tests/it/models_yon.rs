@@ -399,7 +399,7 @@ async fn a_python_test_unit_uses_a_model() {
     write(
         root.path(),
         relative,
-        "from models import Guide, Kind\n\n\n@Test(CatalogSetup, {\"partition\":\"tests\"})\nclass GuideServiceTest:\n    async def test_builds_a_guide(self):\n        guide = Guide('Guide', 3, Kind.SHORT)\n        if guide.pages != 3 or guide.kind is not Kind.SHORT:\n            raise Exception('wrong guide')\n",
+        "from models import Guide, Kind\n\n\n@Test(CatalogSetup, {\"partition\":\"tests\"})\nclass GuideServiceTest:\n    async def test_builds_a_guide(self):\n        guide = Guide('Guide', 3, Kind.SHORT)\n        Assert.is_true(guide.pages == 3 and guide.kind is Kind.SHORT, 'the guide keeps its fields')\n",
     );
     let source = HandlerSource::discover(root.path(), relative).expect("test unit discovery");
     let supervisor =

@@ -76,7 +76,7 @@ async fn run_javascript_test_unit(extension: &str) {
         root.path(),
         &format!("server/tests/CatalogServiceTest.{extension}"),
         &javascript_unit_source(
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    if (service.total() !== 8) throw Error('expected 8');\n  }\n\n  async testReportsAFailure() {\n    throw Error('this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake()\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testReportsAFailure() {\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
             extension,
         ),
     );
@@ -124,7 +124,7 @@ async fn a_python_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.py",
-        "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    async def test_opens_a_context(self):\n        if self.behaviors is None:\n            raise Exception('no context')\n\n    async def test_reports_a_failure(self):\n        raise Exception('this case is meant to fail')\n",
+        "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n\n    async def test_reports_a_failure(self):\n        Assert.is_true(False, 'this case is meant to fail')\n",
     );
 
     let relative = "server/tests/CatalogServiceTest.py";
@@ -259,7 +259,7 @@ async fn every_compiled_language_runs_its_test_unit() {
             "rs",
             "rustc",
             "#[TestSetup()]\nstruct CatalogTestSetup {}\nimpl CatalogTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> { Ok(BehaviorConfiguration::default()) }\n}\n",
-            "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testOpensAContext(&self) -> BehaviorResult<BehaviorValue> {\n        if self.behaviors.borrow().is_none() { return Err(BehaviorError { code: \"adapter\", message: \"no context\", path: None }); }\n        Ok(BehaviorValue::Null)\n    }\n    fn testReportsAFailure(&self) -> BehaviorResult<BehaviorValue> {\n        Err(BehaviorError { code: \"adapter\", message: \"this case is meant to fail\", path: None })\n    }\n}\n",
+            "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testOpensAContext(&self) {\n        Assert::is_true_with_message(self.behaviors.borrow().is_some(), \"the case has a context\");\n    }\n    fn testReportsAFailure(&self) {\n        Assert::is_true_with_message(false, \"this case is meant to fail\");\n    }\n}\n",
         ),
         (
             "go",
@@ -314,7 +314,7 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
             "node",
             "@TestSetup()\nclass CatalogTestSetup {\n  static configure() { return {}; }\n}\n",
             None,
-            "@Test(CatalogTestSetup)\nexport default class CatalogServiceTest {\n  async testHasAContext() {\n    if (!this.behaviors) throw Error('no context');\n  }\n  async testReportsAFailure() {\n    throw Error('this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup)\nexport default class CatalogServiceTest {\n  async testHasAContext() {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n  async testReportsAFailure() {\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
         ),
         (
             "js",
@@ -323,7 +323,7 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
             Some(
                 "@Service()\nexport default class CatalogService {\n  title = 'Catalog';\n  double(value) { return value * 2; }\n}\n",
             ),
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  async testUsesAClientRole() {\n    if (new CatalogService().double(4) !== 8) throw Error('expected 8');\n  }\n  async testHasAContext() {\n    if (!this.behaviors) throw Error('no context');\n  }\n  async testReportsAFailure() {\n    throw Error('this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  async testUsesAClientRole() {\n    Assert.equals(8, new CatalogService().double(4));\n  }\n  async testHasAContext() {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n  async testReportsAFailure() {\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
         ),
         (
             "kt",
@@ -353,7 +353,7 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
             "rustc",
             "#[TestSetup()]\nstruct CatalogTestSetup {}\nimpl CatalogTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> { Ok(BehaviorConfiguration::default()) }\n}\n",
             None,
-            "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testHasAContext(&self) -> BehaviorResult<BehaviorValue> {\n        if self.behaviors.borrow().is_none() { return Err(BehaviorError { code: \"adapter\", message: \"no context\", path: None }); }\n        Ok(BehaviorValue::Null)\n    }\n    fn testReportsAFailure(&self) -> BehaviorResult<BehaviorValue> {\n        Err(BehaviorError { code: \"adapter\", message: \"this case is meant to fail\", path: None })\n    }\n}\n",
+            "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testHasAContext(&self) {\n        Assert::is_true_with_message(self.behaviors.borrow().is_some(), \"the case has a context\");\n    }\n    fn testReportsAFailure(&self) {\n        Assert::is_true_with_message(false, \"this case is meant to fail\");\n    }\n}\n",
         ),
         (
             "dart",
@@ -450,7 +450,7 @@ async fn every_javascript_runtime_runs_a_browser_unit() {
     write(
         root.path(),
         "client/tests/BasketServiceTest.js",
-        "@Test(ShopSetup, {\"partition\":\"tests\"})\nexport default class BasketServiceTest {\n  async testTotalAddsTax() {\n    if (new BasketService().total(10) !== 12) throw Error('expected 12')\n  }\n}\n",
+        "@Test(ShopSetup, {\"partition\":\"tests\"})\nexport default class BasketServiceTest {\n  async testTotalAddsTax() {\n    Assert.equals(12, new BasketService().total(10))\n  }\n}\n",
     );
     let mut ran = 0;
     for runtime in ["node", "bun", "deno"] {

@@ -435,7 +435,7 @@ mod tests {
     #[test]
     fn a_javascript_test_unit_keeps_its_protocol_entry_without_publishing_a_route() {
         let source = with_configuration(
-            "@Test(CatalogConfiguration)\nexport class CatalogServiceTest {\nasync testReady() {}\n}\n",
+            "@Test(CatalogConfiguration)\nexport class CatalogServiceTest {\nasync testReady() { Assert.isTrue(Boolean(this.behaviors)); }\n}\n",
         );
         crate::convention::check_handler(Path::new("server/tests/CatalogServiceTest.js"), &source)
             .expect("test preflight");

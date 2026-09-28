@@ -9,7 +9,7 @@ impl Units {
     const JS_SETUP: &str =
         "@TestSetup()\nclass StampTestSetup {\n  static configure() { return {}; }\n}\n";
     const JS_SERVICE: &str = "@Service\nexport default class StampService {\n  @Needs\n  clock;\n  @Needs\n  connectivity;\n\n  stamp() {\n    return `${this.clock.now()} ${this.connectivity.online()}`;\n  }\n}\n";
-    const JS_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  clock;\n  @Fake\n  connectivity;\n\n  async testUsesTheFakes() {\n    this.clock = { now: () => 1000 };\n    this.connectivity = { online: () => false };\n    const service = this.construct(StampService);\n    if (service.stamp() !== '1000 false') throw Error(service.stamp());\n  }\n}\n";
+    const JS_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  clock;\n  @Fake\n  connectivity;\n\n  async testUsesTheFakes() {\n    this.clock = { now: () => 1000 };\n    this.connectivity = { online: () => false };\n    const service = this.construct(StampService);\n    Assert.equals('1000 false', service.stamp());\n  }\n}\n";
 
     const GO_SETUP: &str = "// @TestSetup\ntype StampTestSetup struct{}\n\nfunc (StampTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn &BehaviorConfiguration{}, nil\n}\n";
     const GO_SERVICE: &str = "import \"strconv\"\n\n// @Service\ntype StampService struct {\n\t// @Needs\n\tclock Clock\n\t// @Needs\n\tconnectivity Connectivity\n}\n\nfunc (stamp *StampService) Stamp() string {\n\tnow, _ := stamp.clock.NowMs()\n\tonline, _ := stamp.connectivity.Online()\n\treturn strconv.FormatFloat(now, 'f', 0, 64) + \" \" + strconv.FormatBool(online)\n}\n";

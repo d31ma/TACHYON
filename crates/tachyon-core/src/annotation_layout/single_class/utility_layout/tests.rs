@@ -287,7 +287,7 @@ fn coverage_counts_the_public_static_methods_of_a_utility_class() {
     write(
         root.path(),
         "client/tests/PriceUtilsTest.js",
-        "@Test(PriceTestSetup)\nexport default class PriceUtilsTest {\n  async testLabel() {\n    if (PriceUtils.label(100) !== 1) throw Error('label')\n  }\n}\n",
+        "@Test(PriceTestSetup)\nexport default class PriceUtilsTest {\n  async testLabel() {\n    Assert.equals(1, PriceUtils.label(100))\n  }\n}\n",
     );
     let mut calls = crate::method_coverage::RecordedCalls::default();
     calls.add(
