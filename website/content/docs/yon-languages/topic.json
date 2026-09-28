@@ -1,5 +1,5 @@
 {
-  "title": "The thirteen Yon languages",
+  "title": "The Yon languages",
   "summary": "Yon runs controllers written in JavaScript, TypeScript, Python, Java, Groovy, Kotlin, C#, F#, PHP, Rust, Dart, Go and Ruby. Every language uses the same annotations and the same folders.",
   "before": [
     "controllers"

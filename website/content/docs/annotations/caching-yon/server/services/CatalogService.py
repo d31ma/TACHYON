@@ -1,7 +1,7 @@
 @service
 @cache_settings({"name":"catalog","ttlMs":30000,"maxBytes":65536,"maxEntries":256})
 class CatalogService:
-    behaviors = None
+    behaviors: object = None
     reads = 0
 
     @on_start
@@ -9,17 +9,17 @@ class CatalogService:
         self.behaviors = await Behaviors.create(CatalogSetup, {'partition': 'public-catalog', 'signal': BehaviorSignal()})
 
     @cached
-    async def find(self, sku) -> None:
+    async def find(self, sku: str) -> dict[str, object]:
         self.reads += 1
         return self._entry(sku, self.reads)
 
     @update_cache({"method":"find"})
-    async def write(self, sku, reads) -> None:
+    async def write(self, sku: str, reads: int) -> dict[str, object]:
         return self._entry(sku, reads)
 
     @clear_cache({"method":"find"})
-    async def invalidate(self, sku) -> None:
+    async def invalidate(self, sku: str) -> dict[str, object]:
         return self._entry(sku, self.reads)
 
-    def _entry(self, sku, reads):
+    def _entry(self, sku: str, reads: int) -> dict[str, object]:
         return {'sku': sku, 'reads': reads}

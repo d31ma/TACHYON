@@ -21,10 +21,11 @@ use std::time::{Duration, Instant};
 mod fsharp_handler;
 mod fsharp_program;
 mod go;
-mod groovy;
+mod groovy_build;
+mod groovy_handler;
 use fsharp_handler::FsharpHandler;
 use go::{GoHandler, GoSharedCode};
-use groovy::GroovyHandler;
+use groovy_handler::GroovyHandler;
 
 #[derive(Debug)]
 struct CompilerOutput {

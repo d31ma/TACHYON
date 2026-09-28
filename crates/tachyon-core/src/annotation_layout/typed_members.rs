@@ -1,53 +1,64 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::groovy_source::GroovySource;
 use std::path::Path;
 
 pub(crate) struct TypedMembers;
 
 impl TypedMembers {
     pub(crate) const CODE: u16 = 1334;
-    const LANGUAGE: &'static str = "groovy";
     const UNTYPED: &'static str = "def";
     const CLASS_BODY_DEPTH: usize = 1;
-    const MODIFIERS: [&'static str; 8] = [
-        "public",
-        "private",
-        "protected",
-        "static",
-        "final",
-        "abstract",
-        "synchronized",
-        "transient",
-    ];
+    const DECLARATION_ENDS: [char; 3] = ['(', '=', '{'];
     const HELP: &'static str = "Write the type in place of def, for example `String name` or `List<Order> findOrders()`. Tachyon reads member types to check routes, models and injection (ADR 0072).";
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
-        let extension = path.extension().and_then(|value| value.to_str());
-        if extension != Some(Self::LANGUAGE) {
-            return Ok(());
+        let code = Self::groovy_code(path, source)?;
+        let found = Self::first_untyped_member(&code);
+        Self::refuse(path, found)
+    }
+
+    fn groovy_code(path: &Path, source: &str) -> Result<String, Failure> {
+        if !GroovySource::is_groovy(path) {
+            return Ok(String::new());
         }
-        let code = super::masked_source(path, source)?;
+        super::masked_source(path, source)
+    }
+
+    fn first_untyped_member(code: &str) -> Option<usize> {
+        let mut found = Vec::new();
         let mut depth = 0_usize;
         let mut offset = 0_usize;
         for line in code.split_inclusive('\n') {
-            if depth == Self::CLASS_BODY_DEPTH && Self::starts_with_def(line) {
-                let at = offset + line.len() - line.trim_start().len();
-                return Err(Self::failure(path, at));
-            }
+            let in_class_body = depth == Self::CLASS_BODY_DEPTH;
+            found.extend(Self::untyped_member_at(line, in_class_body, offset));
             depth = super::brace_depth_after(line, depth);
             offset += line.len();
         }
-        Ok(())
+        found.first().copied()
     }
 
-    fn starts_with_def(line: &str) -> bool {
-        for word in line.split_whitespace() {
-            if Self::MODIFIERS.contains(&word) || word.starts_with('@') {
-                continue;
-            }
-            return word == Self::UNTYPED;
-        }
-        false
+    fn untyped_member_at(line: &str, in_class_body: bool, offset: usize) -> Option<usize> {
+        let member = in_class_body.then_some(line)?;
+        let indent = member.len() - member.trim_start().len();
+        Self::declares_def(member).then_some(offset + indent)
+    }
+
+    fn declares_def(line: &str) -> bool {
+        let declaration = line
+            .split(Self::DECLARATION_ENDS)
+            .next()
+            .unwrap_or_default();
+        declaration
+            .split_whitespace()
+            .any(|word| word == Self::UNTYPED)
+    }
+
+    fn refuse(path: &Path, found: Option<usize>) -> Result<(), Failure> {
+        let Some(at) = found else {
+            return Ok(());
+        };
+        Err(Self::failure(path, at))
     }
 
     fn failure(path: &Path, at: usize) -> Failure {
@@ -77,6 +88,7 @@ mod tests {
             "def orders = []",
             "private def orders",
             "static def find() { null }",
+            "@Needs def ledgerStore",
         ] {
             let source = format!("@Service\nclass OrderService {{\n    {member}\n}}\n");
             let failure = checked(&source).err().unwrap_or_default();
@@ -86,7 +98,7 @@ mod tests {
 
     #[test]
     fn typed_members_and_local_def_variables_are_allowed() {
-        let source = "@Service\nclass OrderService {\n    List<String> orders = []\n    String name() {\n        def local = 'def'\n        return local\n    }\n}\n";
+        let source = "@Service\nclass OrderService {\n    List<String> orders = []\n    int size() { def count = orders.size(); return count }\n    String name() {\n        def local = 'def'\n        return local\n    }\n}\n";
         assert!(checked(source).is_ok());
         let java = Path::new("server/services/OrderService.java");
         assert!(TypedMembers::check(java, "class A {\n    def x;\n}\n").is_ok());

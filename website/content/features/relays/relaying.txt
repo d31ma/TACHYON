@@ -1,6 +1,6 @@
 Relaying to a language Yon does not run
 
-Yon owns eleven controller languages. Everything else remains callable
+Yon owns its controller languages. Everything else remains callable
 as a program through the explicit relay(command, request) helper.
 The helper is supplied by Yon and needs no package or import.
 request is the route method parameter without a marker. It is the

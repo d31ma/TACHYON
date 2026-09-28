@@ -5,8 +5,8 @@ class OrdersController {
   @Needs
   orderService;
   /**
-   * @param {OrderInput} order
-   * @returns {OrderInput}
+   * @param {any} order
+   * @returns {any}
    */
   @PostRoute
   postOrders(@FromBody order) {

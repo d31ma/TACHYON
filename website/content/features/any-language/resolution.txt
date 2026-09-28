@@ -29,5 +29,5 @@ Service and Store classes live in separate role files, and the
 compiler composes them into one generated program. Models (data
 types) belong in server/models/; plain helpers belong in shared/.
 
-Programs outside the eleven Yon languages are reached explicitly with
+Programs outside the Yon languages are reached explicitly with
 relay(command, request), where request is the language's own request.

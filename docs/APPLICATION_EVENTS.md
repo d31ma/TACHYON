@@ -277,7 +277,7 @@ This is not an error, and nothing is republished for it.
 
 An async listener never republishes its return value, as in Spring.
 
-`@InBackground` is a compile error in Yon PHP, Java, Kotlin, C# and Rust, because
+`@InBackground` is a compile error in Yon PHP, Java, Groovy, Kotlin, C# and Rust, because
 their event methods are synchronous there. The error is "InBackground listeners
 require a Yon language with asynchronous methods (js, ts, py)".
 

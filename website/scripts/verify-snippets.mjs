@@ -459,7 +459,7 @@ function runCommand(command, args, { cwd = Settings.repo, timeout = 120_000 } = 
 
 /** @param {string} tool */
 function versionFlag(tool) {
-  if (tool === 'javac' || tool === 'kotlinc') return '-version'
+  if (tool === 'javac' || tool === 'kotlinc' || tool === 'kotlinc-js') return '-version'
   if (tool === 'go') return 'version'
   return '--version'
 }

@@ -20,6 +20,10 @@ impl Project {
                 "class OrderInvalid extends Error {}\n",
             ),
             (
+                "models/Problem",
+                "/**\n * @typedef {Object} Problem\n * @property {string} code\n */\nexport {}\n",
+            ),
+            (
                 "services/OrdersService",
                 r"@Service
 class OrdersService {
@@ -70,11 +74,7 @@ class StatusController {
             ),
             (
                 "controllers/OrdersErrorHandler",
-                r"/**
- * @typedef {Object} Problem
- * @property {string} code
- */
-@ErrorHandler
+                r"@ErrorHandler
 class OrdersErrorHandler {
   /** @type {string} */
   static PRIVATE_MESSAGE = 'PRIVATE_ERROR_SENTINEL';
@@ -140,11 +140,7 @@ class OrdersController {
   }
 }
 "#;
-    const HANDLER: &str = r"/**
- * @typedef {Object} Problem
- * @property {string} code
- */
-@ErrorHandler
+    const HANDLER: &str = r"@ErrorHandler
 class OrdersErrorHandler {
   /**
    * @param {OrderNotFound} error
@@ -158,6 +154,11 @@ class OrdersErrorHandler {
 
     fn write(root: &Path) {
         Files::write(root, "middleware.js", Self::MIDDLEWARE);
+        Files::write(
+            root,
+            "server/models/Problem.js",
+            "/**\n * @typedef {Object} Problem\n * @property {string} code\n */\nexport {}\n",
+        );
         Files::write(
             root,
             "server/errors/OrderNotFound.js",

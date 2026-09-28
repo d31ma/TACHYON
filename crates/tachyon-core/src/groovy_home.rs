@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct GroovyHome {
@@ -7,31 +8,19 @@ pub(crate) struct GroovyHome {
 impl GroovyHome {
     const HOME_VARIABLE: &'static str = "GROOVY_HOME";
     const PATH_VARIABLE: &'static str = "PATH";
-    const LAUNCHERS: [&'static str; 2] = ["groovyc", "groovyc.bat"];
+    const LAUNCHER: &'static str = "groovyc";
+    const WINDOWS_LAUNCHER: &'static str = "groovyc.bat";
     const LIBRARY_FOLDER: &'static str = "lib";
     const RUNTIME_PREFIX: &'static str = "groovy-";
     const JAR_SUFFIX: &'static str = ".jar";
     const EVERY_JAR: &'static str = "*";
 
     pub(crate) fn find() -> Option<Self> {
-        if let Some(home) = std::env::var_os(Self::HOME_VARIABLE) {
-            return Self::at(Path::new(&home));
-        }
-        let launcher = Self::launcher_on_path()?;
-        let launcher = std::fs::canonicalize(launcher).ok()?;
-        let home = launcher.parent()?.parent()?;
-        Self::at(home)
+        Self::from_variable().or_else(Self::from_launcher)
     }
 
     pub(crate) fn runtime_jar(&self) -> Option<PathBuf> {
-        let entries = std::fs::read_dir(&self.library).ok()?;
-        let mut found = Vec::new();
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if Self::is_runtime_jar(&name) {
-                found.push(entry.path());
-            }
-        }
+        let mut found = self.runtime_jars();
         found.sort();
         found.pop()
     }
@@ -43,6 +32,19 @@ impl GroovyHome {
             .into_owned()
     }
 
+    fn from_variable() -> Option<Self> {
+        let home = std::env::var_os(Self::HOME_VARIABLE)?;
+        Self::at(Path::new(&home))
+    }
+
+    fn from_launcher() -> Option<Self> {
+        let path = std::env::var_os(Self::PATH_VARIABLE)?;
+        let launcher = Self::first_file(Self::launcher_candidates(&path))?;
+        let launcher = std::fs::canonicalize(launcher).ok()?;
+        let home = launcher.parent()?.parent()?;
+        Self::at(home)
+    }
+
     fn at(home: &Path) -> Option<Self> {
         let library = home.join(Self::LIBRARY_FOLDER);
         if !library.is_dir() {
@@ -51,17 +53,31 @@ impl GroovyHome {
         Some(Self { library })
     }
 
-    fn launcher_on_path() -> Option<PathBuf> {
-        let path = std::env::var_os(Self::PATH_VARIABLE)?;
-        for folder in std::env::split_paths(&path) {
-            for launcher in Self::LAUNCHERS {
-                let candidate = folder.join(launcher);
-                if candidate.is_file() {
-                    return Some(candidate);
-                }
-            }
+    fn launcher_candidates(path: &OsStr) -> Vec<PathBuf> {
+        let mut candidates = Vec::new();
+        for folder in std::env::split_paths(path) {
+            candidates.push(folder.join(Self::LAUNCHER));
+            candidates.push(folder.join(Self::WINDOWS_LAUNCHER));
         }
-        None
+        candidates
+    }
+
+    fn first_file(candidates: Vec<PathBuf>) -> Option<PathBuf> {
+        candidates.into_iter().find(|candidate| candidate.is_file())
+    }
+
+    fn runtime_jars(&self) -> Vec<PathBuf> {
+        let mut found = Vec::new();
+        let entries = std::fs::read_dir(&self.library).into_iter().flatten();
+        for entry in entries.flatten() {
+            found.extend(Self::runtime_jar_path(&entry));
+        }
+        found
+    }
+
+    fn runtime_jar_path(entry: &std::fs::DirEntry) -> Option<PathBuf> {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        Self::is_runtime_jar(&name).then(|| entry.path())
     }
 
     fn is_runtime_jar(name: &str) -> bool {

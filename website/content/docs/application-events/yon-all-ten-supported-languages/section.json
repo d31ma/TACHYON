@@ -1,5 +1,5 @@
 {
-  "heading": "Yon: all eleven supported languages",
+  "heading": "Yon: every supported language",
   "body": "Choose one language. The roles below live in the shared server/services folder. The controller lives in server/controllers. Tachyon finds both automatically. PublishService injects the applicationEventPublisher provider through Needs. JavaScript matches it by field name. Every other language matches it by type. PublishService publishes a ProbeReady model during OnStart. ProbeService listens for ProbeReady and keeps the result, and GET returns it as JSON. Events belong only to this invocation (this one run of the route), unless the model is a Topic. A Topic event is also saved in the topic log, and Tachyon calls its listeners in the other files and languages once (see Topics). JavaScript, TypeScript and Python support async hooks, async listeners and InBackground. PHP, Java, Groovy, Kotlin, C#, Rust, Dart and Go use synchronous event listeners. They reject InBackground at compile time. Tachyon rejects compiled async methods, streaming event containers and transient event providers. The initialization and endpoint queues finish before serialization (turning the result into JSON). Then cleanup runs in reverse order, within the supervisor deadline (the time limit of the process that runs the route).",
   "axis": "language",
   "files": [

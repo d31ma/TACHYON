@@ -6,10 +6,7 @@ impl GroovySource {
     const JAVA_PART: &'static str = "\n//__YON_JAVA__\n";
 
     pub(crate) fn syntax(extension: &str) -> &str {
-        if extension == Self::EXTENSION {
-            return Self::SYNTAX;
-        }
-        extension
+        Self::syntax_of(extension)
     }
 
     pub(crate) fn is_groovy(path: &std::path::Path) -> bool {
@@ -18,24 +15,34 @@ impl GroovySource {
     }
 
     pub(crate) fn with_java_part(extension: &str, contents: &str) -> Option<String> {
-        if extension != Self::EXTENSION || contents.contains(Self::JAVA_PART) {
-            return None;
-        }
-        Some(format!("{contents}{}", Self::JAVA_PART))
+        let needed = Self::needs_java_part(extension, contents);
+        needed.then(|| format!("{contents}{}", Self::JAVA_PART))
     }
 
     pub(crate) fn before_java_part(program: &str, inserted: &str) -> String {
-        match program.find(Self::JAVA_PART) {
-            Some(at) => format!("{}\n{inserted}{}", &program[..at], &program[at..]),
-            None => format!("{program}\n{inserted}"),
-        }
+        let at = Self::java_part_start(program);
+        format!("{}\n{inserted}{}", &program[..at], &program[at..])
     }
 
     pub(crate) fn split(program: &str) -> (&str, &str) {
-        match program.find(Self::JAVA_PART) {
-            Some(at) => (&program[..at], &program[at + Self::JAVA_PART.len()..]),
-            None => (program, ""),
+        let at = Self::java_part_start(program);
+        let java_start = (at + Self::JAVA_PART.len()).min(program.len());
+        (&program[..at], &program[java_start..])
+    }
+
+    fn syntax_of(extension: &str) -> &str {
+        if extension == Self::EXTENSION {
+            return Self::SYNTAX;
         }
+        extension
+    }
+
+    fn needs_java_part(extension: &str, contents: &str) -> bool {
+        extension == Self::EXTENSION && !contents.contains(Self::JAVA_PART)
+    }
+
+    fn java_part_start(program: &str) -> usize {
+        program.find(Self::JAVA_PART).unwrap_or(program.len())
     }
 }
 

@@ -209,7 +209,7 @@ annotation like this:
 | PHP | `#[CacheSettings(...)]` |
 | Rust | `#[CacheSettings(...)]`, or the matching namespaces `#[yon::cache_settings(...)]`/`#[tac::cache_settings(...)]` |
 | Go | `// @CacheSettings(...)`, or `// @yon::cache_settings(...)`/`// @tac::cache_settings(...)` |
-| Swift, Java, Kotlin | `@CacheSettings(...)` |
+| Swift, Java, Groovy, Kotlin | `@CacheSettings(...)` |
 
 In every language, the options stay strict JSON that the compiler owns. They
 are not evaluated as native expressions. Run these files through Tachyon before
@@ -564,7 +564,7 @@ members: the behavior context, the constructor and every body.
 
 | Language | Declaration | Method |
 | --- | --- | --- |
-| Java, Kotlin, C#, PHP | `interface ProductStore` | no body |
+| Java, Groovy, Kotlin, C#, PHP | `interface ProductStore` | no body |
 | TypeScript | `abstract class ProductStore` | `abstract` member, no body |
 | Swift | `protocol ProductStore` | no body |
 | Rust | `trait ProductStore` | no body |
@@ -1230,7 +1230,7 @@ lifecycle hooks cannot host a generated unit yet (`TY1312`).
 
 A target method uses the same JSON value type for its parameters. Its result
 may be that type or the language's asynchronous or result form. Overloads in
-Java, Kotlin and C# are selected by argument count and JSON types, not source
+Java, Groovy, Kotlin and C# are selected by argument count and JSON types, not source
 order. Every call
 starts a process, so a JVM or .NET target pays its start-up time on every
 call.

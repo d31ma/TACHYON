@@ -82,5 +82,8 @@ new one.
 - Groovy gives a closure or lambda its interface type only where a parameter
   names that type. A `Setup` that puts an adapter into a map writes the type:
   `{ request, execution -> ... } as Behaviors.HttpAdapter`.
+- Groovy reads one map argument to a record constructor as named arguments.
+  Code that builds a record from a map value names the component:
+  `new CatalogSummary(summary: summary)`.
 - The first request after a change compiles the handler once (a few seconds
   for joint compilation); later requests reuse the cached jar.

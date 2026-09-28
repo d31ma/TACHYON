@@ -1,10 +1,9 @@
-from typing import Optional
 from models import ProbeReady
 
 
 @service
 class ProbeService:
-    last: Optional[ProbeReady] = None
+    last: ProbeReady | None = None
 
     @on_event
     def observe(self, ready: ProbeReady) -> None:

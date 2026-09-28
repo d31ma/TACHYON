@@ -24,6 +24,20 @@ impl KotlinWebServices {
         include_str!("web_apis/Notifications.kt"),
         include_str!("web_apis/Geolocation.kt")
     );
+    const JVM_SHIMS: [(&'static str, &'static str); 3] = [
+        (
+            "jvm_shims/java_util.kt",
+            include_str!("kotlin_web_services/jvm_shims/java_util.kt"),
+        ),
+        (
+            "jvm_shims/java_util_concurrent.kt",
+            include_str!("kotlin_web_services/jvm_shims/java_util_concurrent.kt"),
+        ),
+        (
+            "jvm_shims/jvm_names.kt",
+            include_str!("kotlin_web_services/jvm_shims/jvm_names.kt"),
+        ),
+    ];
     const PROGRAM_SOURCE: &'static str = "services.kt";
     const MODEL_REALM: &'static str = "client";
     const MODEL_EXTENSION: &'static str = "kt";
@@ -82,6 +96,8 @@ impl KotlinWebServices {
         );
         let mut sources = vec![(PathBuf::from(Self::PROGRAM_SOURCE), program)];
         sources.extend(model_files);
+        sources
+            .extend(Self::JVM_SHIMS.map(|(path, text)| (PathBuf::from(path), String::from(text))));
         Ok(sources)
     }
 

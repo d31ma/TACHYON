@@ -8,7 +8,7 @@ pub(crate) use model_blocks::{ModelBlock, ModelBlocks};
 mod csharp;
 mod dart;
 mod go;
-mod groovy;
+mod groovy_model;
 mod java;
 mod java_script_model;
 mod kotlin;
@@ -146,7 +146,7 @@ impl Language {
             Self::Swift => swift::first_refused(code),
             Self::Kotlin => kotlin::first_refused(code),
             Self::Java => java::first_refused(code),
-            Self::Groovy => groovy::first_refused(code),
+            Self::Groovy => groovy_model::GroovyModel::first_refused(code),
             Self::Python => python::first_refused(code),
             Self::Php => php::first_refused(code),
             Self::Ruby => ruby::first_refused(code),

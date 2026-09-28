@@ -59,13 +59,18 @@ async fn get(port: u16, path: &str) -> String {
     .await
 }
 
-fn typed_items_source() -> &'static str {
+fn item_model_source() -> &'static str {
     r"/**
  * @typedef {Object} Item
  * @property {string} name
  * @property {string} [note]
  */
-@RequestRoute('/items/{id}')
+export {}
+"
+}
+
+fn typed_items_source() -> &'static str {
+    r"@RequestRoute('/items/{id}')
 @Public
 export class ItemsController {
   /** @param {number} id */
@@ -89,6 +94,10 @@ export class ItemsController {
 async fn models_enforce_captured_request_contracts_before_handler_dispatch() {
     let root = tempfile::tempdir().expect("project");
     write_project(root.path());
+    write(
+        &root.path().join("server/models/Item.js"),
+        item_model_source(),
+    );
     let declaration = root.path().join("server/controllers/ItemsController.js");
     write(&declaration, typed_items_source());
     let captured = tachyon_core::ProjectDiscovery::discover(root.path()).expect("captured project");

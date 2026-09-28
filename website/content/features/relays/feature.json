@@ -1,7 +1,7 @@
 {
   "id": "relays",
   "title": "Relaying to Ruby and other programs",
-  "summary": "Yon supports eleven controller languages. A route method can return `relay(command, request)` to call another program that implements Handler Protocol v1. `request` is the method parameter without a marker. It is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request. The application gives the command at the call site. Tachyon supervises the program. It limits the program to the time left in the request and to the process limits. It gives the program only the baseline environment and the names on the allowlist (a list of allowed names). No shell execution is needed. To call one method and get a value back, use `@Gateway`.",
+  "summary": "Yon supports controllers in many languages. A route method can return `relay(command, request)` to call another program that implements Handler Protocol v1. `request` is the method parameter without a marker. It is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request. The application gives the command at the call site. Tachyon supervises the program. It limits the program to the time left in the request and to the process limits. It gives the program only the baseline environment and the names on the allowlist (a list of allowed names). No shell execution is needed. To call one method and get a value back, use `@Gateway`.",
   "group": "Polyglot",
   "files": [
     {

@@ -2,7 +2,7 @@
 
 #[Setup]
 class CatalogSetup {
-    public static function configure($execution) {
+    public static function configure(mixed $execution): array {
         $cache = [
             'get' => [MemoryCacheHelper::class, 'get'],
             'set' => [MemoryCacheHelper::class, 'set'],

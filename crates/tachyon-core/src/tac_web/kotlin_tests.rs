@@ -45,6 +45,26 @@ impl KotlinFixtures {
         ),
     ];
 
+    const SETTINGS_FILES: [(&str, &str); 3] = [
+        (
+            "client/services/SettingsService.kt",
+            "class SettingsService {\n    var title: String = \"Catalog\"\n    var pageSize: Long = 20\n\n    init {\n        val publicCatalog = mapOf(\n            \"title\" to \"Catalog\",\n            \"page\" to mapOf(\"size\" to 20),\n            \"cache\" to mapOf(\"enabled\" to true),\n        )\n        val published = mapOf(\"tac\" to mapOf(\"catalog\" to publicCatalog))\n        val setup = \"CatalogSetup\"\n        val catalog = Behaviors.properties(setup, published)\n        val values = Behaviors.values(\"PublicValues\", published)\n        title = values[\"title\"] as String\n        pageSize = catalog[\"pageSize\"] as Long\n        Behaviors.create(setup, Behaviors.Options(\n            \"public-catalog\", Behaviors.Signal(), profiles = listOf(\"public\"), properties = published\n        )).close()\n    }\n}\n",
+        ),
+        (
+            "client/setups/CatalogSetup.kt",
+            "@Setup\n@Settings({\"prefix\":\"TAC_CATALOG_\"})\n@WhenProfile(\"public\")\n@WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n    @Min(1)\n    @Max(100)\n    var pageSize: Int = 20\n    var cacheEnabled: Boolean = false\n    var title: String = \"Catalog\"\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
+        ),
+        (
+            "client/helpers/PublicValues.kt",
+            "class PublicValues {\n    @Setting(\"${tac.catalog.title:Catalog}\")\n    var title: String = \"\"\n}\n",
+        ),
+    ];
+
+    const SETTINGS_DRIVER: &str = "const { default: SettingsService } = await import('./SettingsService.js')\n\
+         const settings = new SettingsService({})\n\
+         console.log(JSON.stringify({ title: settings.title, pageSize: settings.pageSize }))\n\
+         process.exit(0)\n";
+
     const SERVICES: [(&str, &str); 3] = [
         ("counter", "CounterService"),
         ("signal", "SignalService"),
@@ -232,5 +252,42 @@ async fn kotlin_services_run_as_one_webassembly_program() {
             .as_str()
             .is_some_and(|message| message.contains("WebAssembly garbage collection")),
         "{old}"
+    );
+}
+
+#[tokio::test]
+async fn a_kotlin_service_uses_the_behavior_runtime_as_webassembly() {
+    if !kotlin_web_ready() {
+        eprintln!("skipping: kotlinc-js, TAC_KOTLIN_WASM_STDLIB or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in KotlinFixtures::SETTINGS_FILES {
+        write(root.path(), relative, text);
+    }
+    let source = root.path().join("client/services/SettingsService.kt");
+    let services = [(
+        String::from("settings"),
+        String::from("SettingsService"),
+        WebLanguage::Kotlin,
+        source,
+    )];
+    let built = build_all(
+        root.path(),
+        &services,
+        &BuildJobs::new(1),
+        crate::BuildProfile::Development,
+    )
+    .await
+    .expect("the Kotlin behavior runtime builds for the web");
+    for (name, bytes) in built.files {
+        let path = root.path().join(name);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+        std::fs::write(path, bytes).expect("publish");
+    }
+    let report = run_driver(root.path(), KotlinFixtures::SETTINGS_DRIVER);
+    assert_eq!(
+        report,
+        serde_json::json!({"title": "Catalog", "pageSize": 20})
     );
 }

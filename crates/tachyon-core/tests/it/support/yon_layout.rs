@@ -94,6 +94,7 @@ pub fn write_fixture(root: &Path, relative: &str, contents: &str) -> String {
         .expect("fixture prefix")
         .trim_start()
         .trim_start_matches("<?php");
+    let prefix = javascript_models(root, extension, prefix);
     let mut controller = None;
     for (index, &(start, role)) in roles.iter().enumerate() {
         let end = roles.get(index + 1).map_or(source.len(), |next| next.0);
@@ -101,7 +102,11 @@ pub fn write_fixture(root: &Path, relative: &str, contents: &str) -> String {
         let name = role_name(body);
         assert!(name.ends_with(role), "fixture {name} must end with {role}");
         let path = format!("server/{}/{name}.{extension}", folder(role));
-        let header = if role == "Controller" { prefix } else { "" };
+        let header = if role == "Controller" {
+            prefix.as_str()
+        } else {
+            ""
+        };
         let opening = if extension == "php" { "<?php\n" } else { "" };
         write(root, &path, &format!("{opening}{header}{body}"));
         if role == "Controller" {
@@ -109,4 +114,39 @@ pub fn write_fixture(root: &Path, relative: &str, contents: &str) -> String {
         }
     }
     controller.unwrap_or_else(|| relative.to_owned())
+}
+
+fn javascript_models(root: &Path, extension: &str, prefix: &str) -> String {
+    if extension != "js" {
+        return prefix.to_owned();
+    }
+    let mut kept = String::new();
+    let mut rest = prefix;
+    while let Some(start) = rest.find("/**") {
+        let end = rest[start..]
+            .find("*/")
+            .map_or(rest.len(), |close| start + close + 2);
+        let block = &rest[start..end];
+        kept.push_str(&rest[..start]);
+        match typedef_name(block) {
+            Some(name) => write(
+                root,
+                &format!("server/models/{name}.js"),
+                &format!("{block}\nexport {{}}\n"),
+            ),
+            None => kept.push_str(block),
+        }
+        rest = &rest[end..];
+    }
+    kept.push_str(rest);
+    kept
+}
+
+fn typedef_name(block: &str) -> Option<&str> {
+    let after = block.split("@typedef").nth(1)?.trim_start();
+    let named = after
+        .strip_prefix('{')
+        .and_then(|typed| typed.split_once('}'))
+        .map_or(after, |(_, rest)| rest);
+    named.split_whitespace().next()
 }

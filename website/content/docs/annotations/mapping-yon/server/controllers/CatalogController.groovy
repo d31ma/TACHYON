@@ -11,6 +11,6 @@ class CatalogController {
         Object summary = mapper.toSummary(java.util.Map.of(
             "detail", java.util.Map.of("id", 7), "name", "Anvil", "extra", "dropped"))
         context.close()
-        return new CatalogSummary(summary)
+        return new CatalogSummary(summary: summary)
     }
 }

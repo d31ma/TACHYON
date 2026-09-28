@@ -1,5 +1,6 @@
 @Setup
 class CatalogSetup {
+  /** @returns {object} */
   static configure() {
     const entries = new Map();
     return {

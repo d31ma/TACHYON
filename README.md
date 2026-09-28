@@ -38,8 +38,8 @@ layer. Both use the standalone `ty` executable.
   targets.
 - Content that is only data lives in `client/shared/data`. A view reads it as
   `data.<name>`.
-- Yon runs JavaScript, TypeScript, Python, Java, C#, Kotlin, PHP, Rust, Dart,
-  Go, Ruby and F#. Routes expose plain `Handler` types or annotated controllers.
+- Yon runs JavaScript, TypeScript, Python, Java, Groovy, C#, Kotlin, PHP,
+  Rust, Dart, Go, Ruby and F#. Routes expose plain `Handler` types or annotated controllers.
   Go annotations are comments such as `// @Service` (ADR 0050), Ruby
   annotations are comment lines such as `#[Service]` (ADR 0054), and F#
   annotations are F# attributes such as `[<Service>]` (ADR 0073). Programs in

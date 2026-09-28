@@ -3,8 +3,10 @@ export default class HotCounterService {
   static _FLAG_SET = 'true'
   count = 1
   version = 'one'
+  /** @type {HTMLElement} */
   @Needs
   view
+  /** @type {AbortSignal} */
   @Needs
   lifecycle
 
@@ -20,10 +22,14 @@ export default class HotCounterService {
     this.count += 1
   }
 
+  /** @returns {{ count: number }} */
   hotState() {
     return { count: this.count }
   }
 
+  /**
+   * @param {{ count: number }} state
+   */
   restoreHotState(state) {
     this.count = state.count
   }

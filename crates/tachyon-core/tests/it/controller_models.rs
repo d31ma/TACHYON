@@ -18,20 +18,31 @@ impl BasketProject {
     const JAVASCRIPT: Self = Self {
         extension: "js",
         program: "node",
-        files: &[(
-            "server/controllers/BasketsController.js",
-            r#"/**
+        files: &[
+            (
+                "server/models/Line.js",
+                r"/**
  * @typedef {Object} Line
  * @property {string} name
  * @property {number} count
  */
-/**
+export {}
+",
+            ),
+            (
+                "server/models/Basket.js",
+                r"/**
  * @typedef {Object} Basket
  * @property {string} owner
  * @property {Line[]} lines
  * @property {Line=} gift
  */
-@RequestRoute("/baskets")
+export {}
+",
+            ),
+            (
+                "server/controllers/BasketsController.js",
+                r#"@RequestRoute("/baskets")
 @Public
 class BasketsController {
   /**
@@ -63,7 +74,8 @@ class BasketsController {
   }
 }
 "#,
-        )],
+            ),
+        ],
     };
 
     const TYPESCRIPT: Self = Self {

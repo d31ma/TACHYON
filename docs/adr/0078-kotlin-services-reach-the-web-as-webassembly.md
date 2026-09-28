@@ -73,6 +73,13 @@ Kotlin/Wasm has none of these.
   `kotlinx.datetime.Clock`.
 - The built-in cache and Store still need their own adapters in Kotlin. The
   build refuses them for Kotlin, as it does for Android.
+- The behavior runtime (`Setup`, configuration binding, `Cached`, `Retry` and
+  the other behavior annotations) is shared with Yon Kotlin and Android. It
+  uses a few JVM names: `java.util.Collections`, `ConcurrentHashMap`,
+  `Semaphore`, `System`, `Math`, `Thread` and `synchronized`. A web build
+  compiles it unchanged, together with small replacements for these names
+  (`native/kotlin_web_services/jvm_shims/`). A page has one thread, so a lock
+  does nothing, and `Thread.sleep` makes the page wait, as it does in Go.
 
 ### Build
 
@@ -124,7 +131,8 @@ Kotlin/Wasm has none of these.
   | `tachyon-kotlin.js` + `kotlin/services.js` | 4,567 | 4,567 | about 1,650 |
 
   This is the size budget: about 80 KB of WebAssembly (30 KB with Brotli)
-  for a small Kotlin program. All Kotlin services on a site share this one
+  for a small Kotlin program. A service that uses the behavior runtime is
+  about 268 KB, because the runtime brings Kotlin's regular expressions. All Kotlin services on a site share this one
   program. A release build without `wasm-opt` is about 3.4 times larger.
 - It was checked in Chromium 151, Firefox 153 and WebKit 26.5, in both a
   development and a release build. The service counts, reads the time zone

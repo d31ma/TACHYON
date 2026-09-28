@@ -63,13 +63,15 @@ fn node_available() -> bool {
 struct ControllerSource;
 
 impl ControllerSource {
-    const JAVASCRIPT: &str = r#"/**
+    const JAVASCRIPT_ORDER: &str = r"/**
  * @typedef {Object} Order
  * @property {string} name
  * @property {number} [count]
  * @property {string} [tenant]
  */
-@RequestRoute("/orders")
+export {}
+";
+    const JAVASCRIPT: &str = r#"@RequestRoute("/orders")
 @Public
 class OrdersController {
   static SECRET_ORDER = 4
@@ -159,6 +161,11 @@ async fn a_javascript_controller_answers_its_routes() {
         root.path(),
         "server/controllers/OrdersController.js",
         ControllerSource::JAVASCRIPT,
+    );
+    write(
+        root.path(),
+        "server/models/Order.js",
+        ControllerSource::JAVASCRIPT_ORDER,
     );
     let (port, stop, running) = serve_orders(root.path()).await;
 
@@ -266,6 +273,11 @@ fn the_route_manifest_lists_controller_paths_and_methods() {
         "server/controllers/OrdersController.js",
         ControllerSource::JAVASCRIPT,
     );
+    write(
+        root.path(),
+        "server/models/Order.js",
+        ControllerSource::JAVASCRIPT_ORDER,
+    );
     let project = ProjectDiscovery::discover(root.path()).expect("discovery");
     let manifest = project.route_graph().manifest();
     let routes: Vec<&str> = manifest
@@ -285,6 +297,11 @@ fn two_controllers_cannot_answer_the_same_route() {
         root.path(),
         "server/controllers/OrdersController.js",
         ControllerSource::JAVASCRIPT,
+    );
+    write(
+        root.path(),
+        "server/models/Order.js",
+        ControllerSource::JAVASCRIPT_ORDER,
     );
     write(
         root.path(),

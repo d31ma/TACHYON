@@ -5,5 +5,5 @@ from typing import Annotated
 class OrdersController:
     orders: Annotated[OrderService, needs]
     @post_route
-    def post_orders(self, order: Annotated[dict, from_body]) -> OrderInput:
+    def post_orders(self, order: Annotated[dict, from_body]) -> dict:
         return self.orders.accept(order)
