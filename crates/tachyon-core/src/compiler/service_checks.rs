@@ -10,11 +10,10 @@ impl ServiceChecks {
     pub(super) fn validate_all(
         snapshot_root: &Path,
         services: &ServiceRegistry,
-        target: Option<tachyon_contracts::NativeTarget>,
     ) -> Result<(), Failure> {
-        services.iter().try_for_each(|(instance, service)| {
-            Self::validate(snapshot_root, instance, service, target)
-        })
+        services
+            .iter()
+            .try_for_each(|(_, service)| Self::validate(snapshot_root, service))
     }
 
     pub(super) fn check_native_source(
@@ -33,13 +32,7 @@ impl ServiceChecks {
         Ok(())
     }
 
-    fn validate(
-        snapshot_root: &Path,
-        instance: &str,
-        service: &ServiceDefinition,
-        target: Option<tachyon_contracts::NativeTarget>,
-    ) -> Result<(), Failure> {
-        Self::validate_service_target(instance, service, target)?;
+    fn validate(snapshot_root: &Path, service: &ServiceDefinition) -> Result<(), Failure> {
         Self::validate_native_companions(snapshot_root, service.native_companions())?;
         service.go_path().map_or(Ok(()), |path| {
             Self::validate_source_file(snapshot_root, path)
@@ -72,31 +65,5 @@ impl ServiceChecks {
             return crate::go_source::GoFile::locate(&failure, lowered_source);
         }
         failure
-    }
-
-    fn validate_service_target(
-        instance: &str,
-        service: &ServiceDefinition,
-        target: Option<tachyon_contracts::NativeTarget>,
-    ) -> Result<(), Failure> {
-        let languages: Vec<NativeCompanion> = service
-            .native_companions()
-            .iter()
-            .map(|(language, _)| *language)
-            .collect();
-        if languages.is_empty()
-            || service.script_path().is_some()
-            || service.web_assembly().is_some()
-            || service.linked()
-        {
-            return Ok(());
-        }
-        Err(crate::project::NativeCompanion::unreachable(
-            &format!("{{{instance}}}"),
-            service.class(),
-            &languages,
-            target.map_or("the web", crate::native_target_directory),
-            target,
-        ))
     }
 }

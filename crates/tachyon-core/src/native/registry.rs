@@ -14,6 +14,26 @@ pub(super) struct NativeCompanionInput {
     pub(super) web_assembly: bool,
 }
 
+impl NativeCompanionInput {
+    pub(super) fn web_services(
+        snapshot_root: &Path,
+        language: NativeCompanion,
+        services: &[(String, String, PathBuf)],
+    ) -> Vec<Self> {
+        services
+            .iter()
+            .map(|(service, class, source)| Self {
+                snapshot_root: snapshot_root.to_path_buf(),
+                language,
+                source: source.clone(),
+                service: service.clone(),
+                class: class.clone(),
+                web_assembly: true,
+            })
+            .collect()
+    }
+}
+
 pub(super) fn source(
     companions: &[NativeCompanionInput],
     language: NativeCompanion,
@@ -145,8 +165,10 @@ fn lowered_body(
     }
     let prepared = super::events::prepare(language, authored, events.as_ref(), &identity)?;
     let authored = prepared.source.as_str();
-    if !item.web_assembly {
+    if !item.web_assembly || language == NativeCompanion::Swift {
         crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
+    }
+    if !item.web_assembly {
         crate::annotation_layout::NativeWebApis::refuse(&identity, authored)?;
     }
     let lowered = crate::behavior::lower(&identity, authored, "tac")?;

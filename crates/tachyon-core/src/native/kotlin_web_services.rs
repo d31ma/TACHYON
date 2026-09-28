@@ -68,7 +68,8 @@ impl KotlinWebServices {
         snapshot_root: &Path,
         services: &[(String, String, PathBuf)],
     ) -> Result<Vec<(PathBuf, String)>, Failure> {
-        let companions = Self::inputs(snapshot_root, services);
+        let companions =
+            NativeCompanionInput::web_services(snapshot_root, NativeCompanion::Kotlin, services);
         let Some(authored) = super::registry::source(&companions, NativeCompanion::Kotlin)? else {
             return Ok(Vec::new());
         };
@@ -101,22 +102,5 @@ impl KotlinWebServices {
         sources
             .extend(Self::JVM_SHIMS.map(|(path, text)| (PathBuf::from(path), String::from(text))));
         Ok(sources)
-    }
-
-    fn inputs(
-        snapshot_root: &Path,
-        services: &[(String, String, PathBuf)],
-    ) -> Vec<NativeCompanionInput> {
-        services
-            .iter()
-            .map(|(service, class, source)| NativeCompanionInput {
-                snapshot_root: snapshot_root.to_path_buf(),
-                language: NativeCompanion::Kotlin,
-                source: source.clone(),
-                service: service.clone(),
-                class: class.clone(),
-                web_assembly: true,
-            })
-            .collect()
     }
 }

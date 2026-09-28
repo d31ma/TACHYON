@@ -245,7 +245,7 @@ fn write_native_probe(probe: &Path) {
 }
 
 #[test]
-fn a_service_with_only_native_languages_has_no_behaviour_on_the_web() {
+fn a_swift_only_service_is_compiled_to_webassembly_for_the_web() {
     let project = tempfile::tempdir().expect("project");
     write_phase4_project(project.path());
     write(
@@ -255,11 +255,17 @@ fn a_service_with_only_native_languages_has_no_behaviour_on_the_web() {
         "final class PhaseFourService {\n  let runtime = \"Swift\"\n}\n",
     );
 
-    let output = run(ty().arg("bundle").arg(project.path()));
+    let output = run(ty()
+        .arg("bundle")
+        .arg(project.path())
+        .env_remove("TAC_SWIFT_WASM_SDK"));
     assert!(!output.status.success());
     let message = stderr(&output);
-    assert!(message.contains("TY1010"), "{message}");
-    assert!(message.contains("on the web"), "{message}");
+    assert!(
+        message.contains("Cannot build the Swift web services"),
+        "{message}"
+    );
+    assert!(message.contains("TAC_SWIFT_WASM_SDK"), "{message}");
 
     write(
         &project.path().join("client/services/PhaseFourService.js"),
@@ -301,32 +307,6 @@ fn browser_services_keep_constants_inside_their_class() {
             .join("dist/web/.tachyon/components/phase-four.js")
             .exists()
     );
-}
-
-#[test]
-fn a_service_that_cannot_reach_the_target_fails_the_build() {
-    let project = tempfile::tempdir().expect("project");
-    write_phase4_project(project.path());
-    write(
-        &project
-            .path()
-            .join("client/services/PhaseFourService.swift"),
-        "final class PhaseFourService {\n  var seed = 21\n}\n",
-    );
-
-    let output = run(ty()
-        .arg("build")
-        .arg(project.path())
-        .args(["--target", "windows"]));
-    assert!(!output.status.success());
-    let message = stderr(&output);
-    assert!(message.contains("TY1010"), "{message}");
-    assert!(message.contains("Swift (macos, ios)"), "{message}");
-    assert!(
-        message.contains("client/services/PhaseFourService.js, .ts, .dart, .rs, .cs, .go or .kt"),
-        "{message}"
-    );
-    assert!(!message.contains("tac.js"), "{message}");
 }
 
 fn rust_web_target_installed() -> bool {
@@ -490,16 +470,6 @@ fn swift_and_kotlin_services_accept_the_service_role_markers() {
             assert!(!companion.contains("init(count"), "{companion}");
         }
     }
-}
-
-#[test]
-fn swift_services_with_role_markers_still_refuse_other_targets() {
-    let source = service_with_roles("swift", "prototype");
-    let (_web_project, web) = bundle_service("swift", &source, &[]);
-    assert!(stderr(&web).contains("TY1010"), "{}", stderr(&web));
-    let (_project, native) = bundle_service("swift", &source, &["--native", "--target", "android"]);
-    assert!(!native.status.success());
-    assert!(stderr(&native).contains("TY1010"), "{}", stderr(&native));
 }
 
 #[test]

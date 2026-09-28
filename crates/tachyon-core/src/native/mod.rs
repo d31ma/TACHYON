@@ -32,6 +32,8 @@ mod site_map;
 mod site_tests;
 #[cfg(test)]
 mod storage_tests;
+mod swift_web_services;
+mod web_program_build;
 mod windows;
 
 pub(crate) use browser_api_grants::BrowserApiGrants;
@@ -47,6 +49,7 @@ pub(crate) use kotlin_web_services::KotlinWebServices;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
 pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
 pub(crate) use site_map::SiteMap;
+pub(crate) use swift_web_services::SwiftWebServices;
 pub(crate) use windows::web_dotnet;
 
 #[cfg(feature = "fuzzing")]

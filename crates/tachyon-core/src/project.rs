@@ -107,16 +107,6 @@ impl Project {
     }
 }
 
-pub(crate) fn unreachable_companion(
-    route: &str,
-    class: &str,
-    declared: &[NativeCompanion],
-    target_name: &str,
-    target: Option<tachyon_contracts::NativeTarget>,
-) -> crate::Failure {
-    NativeCompanion::unreachable(route, class, declared, target_name, target)
-}
-
 pub(crate) fn companion_kind(name: &str) -> Option<CompanionKind> {
     CompanionKind::from_file_name(name)
 }

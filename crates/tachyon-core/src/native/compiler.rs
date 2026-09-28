@@ -376,7 +376,7 @@ fn native_companions(
         .for_target(Some(target));
     let mut compiled = Vec::new();
     for (instance, service) in registry.iter() {
-        let Some((language, source)) = chosen_companion(instance, service, target)? else {
+        let Some((language, source)) = chosen_companion(service, target) else {
             continue;
         };
         if compiled.len() >= NativeCompiler::MAX_NATIVE_SERVICES {
@@ -400,35 +400,16 @@ fn native_companions(
 }
 
 fn chosen_companion(
-    instance: &str,
     service: &crate::template::ServiceDefinition,
     target: NativeTarget,
-) -> Result<Option<(crate::project::NativeCompanion, PathBuf)>, Failure> {
+) -> Option<(crate::project::NativeCompanion, PathBuf)> {
     let declared = service.native_companions();
-    let mut languages = Vec::new();
-    for (language, _) in declared {
-        languages.push(*language);
-    }
-    let Some(chosen) = crate::project::NativeCompanion::most_specific(&languages, target) else {
-        let runs_in_the_web_view =
-            service.script_path().is_some() || service.web_assembly().is_some();
-        if !languages.is_empty() && !runs_in_the_web_view {
-            return Err(crate::project::unreachable_companion(
-                &format!("{{{instance}}}"),
-                service.class(),
-                &languages,
-                crate::native_target_directory(target),
-                Some(target),
-            ));
-        }
-        return Ok(None);
-    };
-    for (language, source) in declared {
-        if *language == chosen {
-            return Ok(Some((chosen, source.clone())));
-        }
-    }
-    Ok(None)
+    let languages: Vec<_> = declared.iter().map(|(language, _)| *language).collect();
+    let chosen = crate::project::NativeCompanion::most_specific(&languages, target)?;
+    declared
+        .iter()
+        .find(|(language, _)| *language == chosen)
+        .map(|(language, source)| (*language, source.clone()))
 }
 
 fn artifact_manifest(
@@ -701,7 +682,6 @@ mod tests {
     enum Reach {
         Linked(NativeCompanion),
         WebView,
-        Refused,
     }
 
     fn service_files(extensions: &[&str]) -> tempfile::TempDir {
@@ -729,11 +709,8 @@ mod tests {
             .expect("registry")
             .for_target(Some(target));
         let service = registry.get("tally").expect("tally");
-        match chosen_companion("tally", service, target) {
-            Ok(Some((language, _))) => Reach::Linked(language),
-            Ok(None) => Reach::WebView,
-            Err(_) => Reach::Refused,
-        }
+        chosen_companion(service, target)
+            .map_or(Reach::WebView, |(language, _)| Reach::Linked(language))
     }
 
     fn assert_reach(extensions: &[&str], expected: [Reach; 5]) {
@@ -786,10 +763,9 @@ mod tests {
     fn swift_links_on_apple_and_kotlin_links_on_android_and_is_webassembly_elsewhere() {
         let swift = Reach::Linked(NativeCompanion::Swift);
         let kotlin = Reach::Linked(NativeCompanion::Kotlin);
-        let refused = Reach::Refused;
-        assert_reach(&["swift"], [swift, swift, refused, refused, refused]);
         let rust = Reach::Linked(NativeCompanion::Rust);
         let web = Reach::WebView;
+        assert_reach(&["swift"], [swift, swift, web, web, web]);
         assert_reach(&["kt"], [web, web, kotlin, web, web]);
         assert_reach(&["swift", "rs"], [swift, swift, web, rust, rust]);
         assert_reach(
@@ -802,23 +778,6 @@ mod tests {
                 web,
             ],
         );
-    }
-
-    #[test]
-    fn a_refused_service_is_told_which_service_files_reach_the_target() {
-        let root = service_files(&["swift"]);
-        let registry = ServiceRegistry::discover(root.path())
-            .expect("registry")
-            .for_target(Some(NativeTarget::Android));
-        let service = registry.get("tally").expect("tally");
-        let error = chosen_companion("tally", service, NativeTarget::Android).expect_err("refused");
-        let help = error.diagnostics()[0].help.clone().expect("help");
-        assert!(error.to_string().contains("TY1010"), "{error}");
-        assert!(
-            help.contains("client/services/TallyService.js, .ts, .dart, .rs, .cs, .go or .kt"),
-            "{help}"
-        );
-        assert!(!help.contains("tac."), "{help}");
     }
 
     #[test]

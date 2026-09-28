@@ -859,7 +859,7 @@ fn name_first_method(rest: &str) -> Option<Member> {
     let parameters = rest[name.len()..]
         .trim_start()
         .strip_prefix('(')
-        .map_or_else(Vec::new, kotlin_parameter_types);
+        .map_or_else(Vec::new, typed_parameters);
     Some(Member {
         name,
         declared_type: None,
@@ -869,7 +869,7 @@ fn name_first_method(rest: &str) -> Option<Member> {
     })
 }
 
-fn kotlin_parameter_types(list: &str) -> Vec<String> {
+fn typed_parameters(list: &str) -> Vec<String> {
     let mut types = Vec::new();
     let mut depth = 0usize;
     let mut current = String::new();
@@ -879,7 +879,7 @@ fn kotlin_parameter_types(list: &str) -> Vec<String> {
             ')' | '>' | ']' if depth == 0 => break,
             ')' | '>' | ']' => depth -= 1,
             ',' if depth == 0 => {
-                types.extend(kotlin_parameter_type(&current));
+                types.extend(typed_parameter(&current));
                 current.clear();
                 continue;
             }
@@ -887,14 +887,28 @@ fn kotlin_parameter_types(list: &str) -> Vec<String> {
         }
         current.push(character);
     }
-    types.extend(kotlin_parameter_type(&current));
+    types.extend(typed_parameter(&current));
     types
 }
 
-fn kotlin_parameter_type(parameter: &str) -> Option<String> {
-    let (_, declared) = parameter.split_once(':')?;
+fn typed_parameter(parameter: &str) -> Option<String> {
+    let (names, declared) = parameter.split_once(':')?;
     let kind = declared.split('=').next().unwrap_or_default().trim();
-    (!kind.is_empty()).then(|| kind.to_owned())
+    (!kind.is_empty()).then(|| format!("{}: {kind}", names.trim()))
+}
+
+fn parameter_type(declaration: &str) -> &str {
+    declaration
+        .split_once(':')
+        .map_or(declaration, |(_, kind)| kind.trim())
+}
+
+fn swift_label(declaration: &str) -> String {
+    let names = declaration.split_once(':').map_or("", |(names, _)| names);
+    match names.split_whitespace().next() {
+        Some("_") | None => String::new(),
+        Some(label) => format!("{label}: "),
+    }
 }
 
 fn annotated_type(annotation: &str) -> Option<String> {
@@ -1058,16 +1072,37 @@ fn entry(language: CompanionLanguage, member: &Member) -> String {
 
 fn swift_entry(member: &Member) -> String {
     let name = &member.name;
-    if member.method {
+    let parameters = member.parameters.as_deref().unwrap_or_default();
+    if member.method && parameters.is_empty() {
         return format!("    \"{name}\": .method({{ _ in tacInstance.{name}() }}),\n");
+    }
+    if member.method {
+        let arguments = swift_arguments(parameters);
+        return format!(
+            "    \"{name}\": .method({{ tacArguments in try tacInstance.{name}({arguments}) }}),\n"
+        );
     }
     match (&member.declared_type, member.mutable) {
         (Some(kind), true) => format!(
             "    \"{name}\": .field({{ tacInstance.{name} }}, \
-             {{ tacInstance.{name} = $0 as? {kind} ?? tacInstance.{name} }}),\n"
+             {{ tacInstance.{name} = tacField({kind}.self, $0) ?? tacInstance.{name} }}),\n"
         ),
         _ => format!("    \"{name}\": .field({{ tacInstance.{name} }}),\n"),
     }
+}
+
+fn swift_arguments(parameters: &[String]) -> String {
+    parameters
+        .iter()
+        .enumerate()
+        .map(|(index, declaration)| {
+            format!(
+                "{}tacArgument(tacArguments, {index})",
+                swift_label(declaration)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn kotlin_entry(member: &Member) -> String {
@@ -1078,7 +1113,12 @@ fn kotlin_entry(member: &Member) -> String {
             .iter()
             .flatten()
             .enumerate()
-            .map(|(index, kind)| kotlin_value(kind, &format!("it.getOrNull({index})")))
+            .map(|(index, declaration)| {
+                kotlin_value(
+                    parameter_type(declaration),
+                    &format!("it.getOrNull({index})"),
+                )
+            })
             .collect::<Vec<_>>()
             .join(", ");
         return format!("    \"{name}\" to TacMethod {{ tacInstance.{name}({arguments}) }},\n");
@@ -1436,12 +1476,31 @@ mod tests {
         .expect("a table");
         for expected in [
             "let tacInstance = CompanionService()",
-            "$0 as? Int ?? tacInstance.count",
+            "tacField(Int.self, $0) ?? tacInstance.count",
             "\"label\": .field({ tacInstance.label }),",
             ".method({ _ in tacInstance.doubled() })",
         ] {
             assert!(generated.contains(expected), "{generated}");
         }
+    }
+
+    #[test]
+    fn a_swift_method_passes_its_arguments_with_their_labels() {
+        let source = "final class CounterService {\n  var count: Int = 0\n\n  \
+                      func add(_ by: Int, why: String, with note: String = \"\") -> String { why }\n}\n";
+        let generated = member_table(
+            CompanionLanguage::Swift,
+            source,
+            "client/services/CounterService.swift",
+        )
+        .expect("a table");
+        assert!(
+            generated.contains(
+                "\"add\": .method({ tacArguments in try tacInstance.add(tacArgument(tacArguments, 0), \
+                 why: tacArgument(tacArguments, 1), with: tacArgument(tacArguments, 2)) }),"
+            ),
+            "{generated}"
+        );
     }
 
     #[test]

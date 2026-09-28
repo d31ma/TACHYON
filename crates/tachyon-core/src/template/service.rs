@@ -119,6 +119,7 @@ impl ServiceDefinition {
             WebLanguage::Rust => NativeCompanion::Rust,
             WebLanguage::CSharp => NativeCompanion::CSharp,
             WebLanguage::Kotlin => NativeCompanion::Kotlin,
+            WebLanguage::Swift => NativeCompanion::Swift,
         };
         for (declared, path) in &self.native {
             if *declared == native {

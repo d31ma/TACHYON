@@ -10,7 +10,7 @@ pub(super) struct InteropRules {
 impl InteropRules {
     const CLIENT: &'static str = "client";
 
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self {
             extension: "rs",
             language: "Rust",
@@ -61,6 +61,21 @@ impl InteropRules {
                 "kotlinx.browser",
                 "org.w3c",
                 "kotlin.js",
+            ],
+            imports: &[],
+        },
+        Self {
+            extension: "swift",
+            language: "Swift",
+            words: &[
+                "JavaScriptKit",
+                "JavaScriptEventLoop",
+                "JSObject",
+                "JSValue",
+                "JSClosure",
+                "JSPromise",
+                "_extern",
+                "_expose",
             ],
             imports: &[],
         },

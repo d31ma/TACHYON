@@ -8,12 +8,19 @@ pub(crate) enum WebLanguage {
     CSharp,
     Go,
     Kotlin,
+    Swift,
     Ruby,
 }
 
 impl WebLanguage {
-    pub(crate) const PREFERENCE: [Self; 5] =
-        [Self::Rust, Self::Go, Self::CSharp, Self::Kotlin, Self::Ruby];
+    pub(crate) const PREFERENCE: [Self; 6] = [
+        Self::Rust,
+        Self::Go,
+        Self::CSharp,
+        Self::Swift,
+        Self::Kotlin,
+        Self::Ruby,
+    ];
 
     const fn shared_module(self) -> &'static str {
         match self {
@@ -21,6 +28,7 @@ impl WebLanguage {
             Self::CSharp => "tachyon-csharp.js",
             Self::Go => "tachyon-go.js",
             Self::Kotlin => "tachyon-kotlin.js",
+            Self::Swift => "tachyon-swift.js",
             Self::Ruby => "tachyon-ruby-services.js",
         }
     }
@@ -72,13 +80,7 @@ pub(crate) async fn build_all(
     profile: crate::BuildProfile,
 ) -> Result<BuiltServices, Failure> {
     let mut builds = Vec::new();
-    for language in [
-        WebLanguage::Rust,
-        WebLanguage::CSharp,
-        WebLanguage::Go,
-        WebLanguage::Kotlin,
-        WebLanguage::Ruby,
-    ] {
+    for language in WebLanguage::PREFERENCE {
         let chosen = services_in_language(services, language);
         if !chosen.is_empty() {
             builds.push(jobs.run(build_language(snapshot_root, language, chosen, profile)));
@@ -115,7 +117,9 @@ async fn build_language(
         WebLanguage::Rust => {
             let module = crate::native::web_assembly(snapshot_root, &chosen, profile).await?;
             note = module.note;
-            WebEngine::RUST_ENGINE.replace("__WASM__", &base64(&module.binary))
+            WebEngine::linear_memory(
+                &WebEngine::RUST_INSTANCE.replace("__WASM__", &base64(&module.binary)),
+            )
         }
         WebLanguage::CSharp => {
             let (framework, reason) = dotnet_framework(snapshot_root, &chosen, profile).await?;
@@ -136,6 +140,13 @@ async fn build_language(
             published.extend(program);
             note = reason;
             String::from(WebEngine::KOTLIN_ENGINE)
+        }
+        WebLanguage::Swift => {
+            let (program, reason) =
+                crate::native::SwiftWebServices::build(snapshot_root, &chosen, profile).await?;
+            published.extend(program);
+            note = reason;
+            WebEngine::linear_memory(WebEngine::SWIFT_INSTANCE)
         }
         WebLanguage::Ruby => {
             published.extend(crate::tac_ruby::RubyWebServices::runtime_files().await?);
@@ -230,6 +241,14 @@ fn base64(bytes: &[u8]) -> String {
 struct WebEngine;
 
 impl WebEngine {
+    fn linear_memory(instance: &str) -> String {
+        format!(
+            "{}{instance}{}",
+            Self::LINEAR_MEMORY_HOST,
+            Self::LINEAR_MEMORY_TRANSPORT
+        )
+    }
+
     const BASE64_ALPHABET: &[u8; 64] =
         b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -244,24 +263,80 @@ const calling = (owner, work) => web ? web.calling(owner, work) : work()
 await storage?.mirror()
 ";
 
-    const RUST_ENGINE: &str = r"const encoder = new TextEncoder()
+    const LINEAR_MEMORY_HOST: &str = r"const encoder = new TextEncoder()
 const decoder = new TextDecoder()
-const binary = Uint8Array.from(atob('__WASM__'), (character) => character.charCodeAt(0))
 const hostAnswer = (host, pointer, length) => {
   const answer = encoder.encode(`${host(decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length)))}\0`)
   const target = exports.tac_wasm_alloc(answer.length)
   new Uint8Array(exports.memory.buffer, target, answer.length).set(answer)
   return target
 }
-const { instance } = await WebAssembly.instantiate(binary, { tachyon: {
+const tachyonImports = {
   tac_host_emit: (pointer, length) => { published.push(decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length))) },
   tac_host_monotonic_ms: () => performance.now(),
   tac_host_epoch_ms: () => Date.now(),
   tac_host_storage: (pointer, length) => storageHost ? hostAnswer(storageHost, pointer, length) : 0,
   tac_host_web: (pointer, length) => hostAnswer(webHost, pointer, length),
-} })
+}
+";
+
+    const RUST_INSTANCE: &str = r"const binary = Uint8Array.from(atob('__WASM__'), (character) => character.charCodeAt(0))
+const { instance } = await WebAssembly.instantiate(binary, { tachyon: tachyonImports })
 const exports = instance.exports
-const transport = (text) => {
+";
+
+    const SWIFT_INSTANCE: &str = r"const swiftResponse = await fetch(new URL('./swift/services.wasm', import.meta.url))
+const swiftModule = await WebAssembly.compile(await swiftResponse.arrayBuffer())
+const wasiNotSupported = 52
+const wasiBadDescriptor = 8
+const wasiView = () => new DataView(exports.memory.buffer)
+const wasiPending = { 1: '', 2: '' }
+const wasiWrite = (descriptor, text) => {
+  const lines = (wasiPending[descriptor] + text).split('\n')
+  wasiPending[descriptor] = lines.pop()
+  for (const line of lines) (descriptor === 2 ? console.error : console.log)(line)
+}
+const wasiNothing = (count, size) => { wasiView().setUint32(count, 0, true); wasiView().setUint32(size, 0, true); return 0 }
+const wasi = {
+  args_get: () => 0,
+  args_sizes_get: wasiNothing,
+  environ_get: () => 0,
+  environ_sizes_get: wasiNothing,
+  clock_time_get: (clock, precision, target) => {
+    const milliseconds = clock === 0 ? Date.now() : performance.now()
+    wasiView().setBigUint64(target, BigInt(Math.round(milliseconds * 1e6)), true)
+    return 0
+  },
+  random_get: (pointer, length) => {
+    for (let offset = 0; offset < length; offset += 65536) {
+      crypto.getRandomValues(new Uint8Array(exports.memory.buffer, pointer + offset, Math.min(65536, length - offset)))
+    }
+    return 0
+  },
+  fd_write: (descriptor, vectors, count, written) => {
+    const view = wasiView()
+    let total = 0
+    for (let index = 0; index < count; index += 1) {
+      const pointer = view.getUint32(vectors + index * 8, true)
+      const length = view.getUint32(vectors + index * 8 + 4, true)
+      if (descriptor === 1 || descriptor === 2) wasiWrite(descriptor, decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length)))
+      total += length
+    }
+    view.setUint32(written, total, true)
+    return 0
+  },
+  fd_prestat_get: () => wasiBadDescriptor,
+  proc_exit: (code) => { throw new Error(`Swift services stopped with exit code ${code}.`) },
+}
+for (const { module, name, kind } of WebAssembly.Module.imports(swiftModule)) {
+  if (module === 'wasi_snapshot_preview1' && kind === 'function') wasi[name] ??= () => wasiNotSupported
+}
+const instance = await WebAssembly.instantiate(swiftModule, { tachyon: tachyonImports, wasi_snapshot_preview1: wasi })
+const exports = instance.exports
+exports._initialize()
+";
+
+    const LINEAR_MEMORY_TRANSPORT: &str = r"const transport = (text) => {
   const bytes = encoder.encode(`${text}\0`)
   const pointer = exports.tac_wasm_alloc(bytes.length)
   try {
@@ -459,6 +534,9 @@ mod web_api_tests;
 
 #[cfg(test)]
 mod kotlin_tests;
+
+#[cfg(test)]
+pub(crate) mod swift_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]

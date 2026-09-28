@@ -11,7 +11,10 @@ use std::path::{Path, PathBuf};
 pub(super) struct MacOsHostGenerator;
 
 impl MacOsHostGenerator {
-    const SWIFT_COMPANION_PRELUDE: &str = include_str!("prelude.swift");
+    const SWIFT_COMPANION_PRELUDE: &str = concat!(
+        include_str!("prelude.swift"),
+        include_str!("prelude_apple.swift")
+    );
     pub(super) const APPLE_JSON_REQUEST: &str = include_str!("apple_json.swift");
     const FRAMEWORK_ARGUMENTS: [&str; 8] = [
         "-framework",

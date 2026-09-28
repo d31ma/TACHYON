@@ -18,6 +18,8 @@ impl Sources {
     const RUBY_SERVICE: &str = "#[Service]\nclass GuideService\n  attr_reader :pages\n\n  def read\n    guide = Guide.new(title: \"Guide\", pages: 3)\n    @pages = guide.pages\n    \"#{guide.title} #{guide.pages}\"\n  end\nend\n";
     const KOTLIN_MODEL: &str = "data class Guide(val title: String, val pages: Int)\n";
     const KOTLIN_SERVICE: &str = "import models.Guide\n\n@Service\nclass GuideService {\n    var pages: Int = 0\n\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + guide.pages\n    }\n}\n";
+    const SWIFT_MODEL: &str = "struct Guide {\n    let title: String\n    let pages: Int\n}\n";
+    const SWIFT_SERVICE: &str = "@Service\nfinal class GuideService {\n    var pages: Int = 0\n\n    func read() -> String {\n        let guide = Guide(title: \"Guide\", pages: 3)\n        pages = guide.pages\n        return guide.title + \" \" + String(guide.pages)\n    }\n}\n";
     const FILE_FETCH: &str = "import { readFile } from 'node:fs/promises'\n\
          globalThis.fetch = async (url) => new Response(await readFile(url))\n";
     const DART_MODEL: &str = "class Guide {\n  final String title;\n  final int pages;\n\n  const Guide(this.title, this.pages);\n}\n";
@@ -104,6 +106,7 @@ async fn build_web_service(root: &Path, language: WebLanguage, extension: &str) 
         WebLanguage::Go => (Sources::GO_MODEL, Sources::GO_SERVICE),
         WebLanguage::Ruby => (Sources::RUBY_MODEL, Sources::RUBY_SERVICE),
         WebLanguage::Kotlin => (Sources::KOTLIN_MODEL, Sources::KOTLIN_SERVICE),
+        WebLanguage::Swift => (Sources::SWIFT_MODEL, Sources::SWIFT_SERVICE),
     };
     write(root, &format!("client/models/Guide.{extension}"), model);
     if matches!(language, WebLanguage::CSharp) {
@@ -163,12 +166,7 @@ async fn a_go_web_assembly_service_uses_a_model() {
     }
     let root = tempfile::tempdir().expect("project");
     build_web_service(root.path(), WebLanguage::Go, "go").await;
-    let driver = Sources::WEB_DRIVER.replace(
-        "import GuideService from './GuideService.js'\n",
-        "const { default: GuideService } = await import('./GuideService.js')\n",
-    );
-    let driver = format!("{}{driver}", Sources::FILE_FETCH);
-    let report = run_driver(root.path(), &driver);
+    let report = run_driver(root.path(), &fetching_driver());
     assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
 }
 
@@ -185,12 +183,7 @@ async fn a_ruby_web_service_uses_a_model() {
     }
     let root = tempfile::tempdir().expect("project");
     build_web_service(root.path(), WebLanguage::Ruby, "rb").await;
-    let driver = Sources::WEB_DRIVER.replace(
-        "import GuideService from './GuideService.js'\n",
-        "const { default: GuideService } = await import('./GuideService.js')\n",
-    );
-    let driver = format!("{}{driver}", Sources::FILE_FETCH);
-    let report = run_driver(root.path(), &driver);
+    let report = run_driver(root.path(), &fetching_driver());
     assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
 }
 
@@ -204,6 +197,26 @@ async fn a_kotlin_web_assembly_service_uses_a_model() {
     build_web_service(root.path(), WebLanguage::Kotlin, "kt").await;
     let report = run_driver(root.path(), Sources::WEB_DRIVER);
     assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
+}
+
+#[tokio::test]
+async fn a_swift_web_assembly_service_uses_a_model() {
+    if !crate::tac_web::swift_tests::swift_web_ready() {
+        eprintln!("skipping: the Swift SDK for WebAssembly or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    build_web_service(root.path(), WebLanguage::Swift, "swift").await;
+    let report = run_driver(root.path(), &fetching_driver());
+    assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
+}
+
+fn fetching_driver() -> String {
+    let driver = Sources::WEB_DRIVER.replace(
+        "import GuideService from './GuideService.js'\n",
+        "const { default: GuideService } = await import('./GuideService.js')\n",
+    );
+    format!("{}{driver}", Sources::FILE_FETCH)
 }
 
 fn kotlin_web_ready() -> bool {

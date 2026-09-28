@@ -62,6 +62,18 @@ fn a_kotlin_service_may_not_use_javascript_interop() {
 }
 
 #[test]
+fn a_swift_service_may_not_use_javascript_interop() {
+    let source = "import JavaScriptKit\n\n@_extern(wasm, module: \"env\", name: \"where\")\nfunc whereAmI() -> Double\n\n@Service\nfinal class PlaceService {\n    let page = JSObject.global.document\n    let JSValueCount = 0\n    // JavaScriptKit JSObject\n}\n";
+    let found = found_text("client/services/PlaceService.swift", source);
+    assert_eq!(found.len(), 3, "{found:?}");
+    assert!(found[0].starts_with("Remove `JavaScriptKit`."), "{found:?}");
+    assert!(found[1].starts_with("Remove `_extern`."), "{found:?}");
+    assert!(found[2].starts_with("Remove `JSObject`."), "{found:?}");
+    let problems = refused("client/services/PlaceService.swift", source);
+    assert!(problems[0].starts_with("TY1317 Swift services cannot call browser APIs."));
+}
+
+#[test]
 fn a_csharp_service_may_not_use_javascript_interop() {
     let source = "using System.Runtime.InteropServices.JavaScript;\n\n[Service]\npublic partial class PlaceService\n{\n    [JSImport(\"navigator.geolocation\", \"main.js\")]\n    internal static partial string Where();\n}\n";
     let found = found_text("client/services/PlaceService.cs", source);

@@ -147,6 +147,30 @@ impl KnownToolchains {
         }
     }
 
+    pub(super) fn swift_web() -> Toolchain {
+        let compiler = crate::native::SwiftWebServices::compiler();
+        let compiler = compiler.to_string_lossy();
+        let state = match (
+            crate::native::SwiftWebServices::sdk_installed(),
+            crate::wasm_optimizer::WasmOptimizer::is_installed(),
+        ) {
+            (false, _) => ToolchainState::Missing,
+            (true, false) => ToolchainState::Incomplete(String::from(
+                "wasm-opt (Binaryen) was not found, so release builds ship Swift unoptimized. Install Binaryen or put Emscripten on PATH",
+            )),
+            (true, true) => CommandProbe::version_state(&compiler, &["--version"]),
+        };
+        Toolchain {
+            requirement: String::from("Swift services on the web"),
+            command: String::from("swiftc + TAC_SWIFT_WASM_SDK"),
+            state,
+            install: String::from(
+                "Install Swift 6.3.3 from swift.org, add the matching Swift SDK for WebAssembly with `swift sdk install`, and set TAC_SWIFT_WASM_SDK to its wasm32-unknown-wasip1 folder. If another swiftc comes first on PATH, set TAC_SWIFT_WASM_COMPILER to the swift.org swiftc.",
+            ),
+            required: true,
+        }
+    }
+
     pub(super) fn go_web() -> Toolchain {
         let state =
             CommandProbe::run("go", &["version"]).map_or(ToolchainState::Missing, Self::go_state);

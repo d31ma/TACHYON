@@ -71,7 +71,7 @@ impl<'a> SiteBuild<'a> {
         let snapshot_root = project.snapshot_root();
         let components = ComponentRegistry::discover(snapshot_root)?;
         let services = ServiceRegistry::discover(snapshot_root)?.for_target(native_target);
-        ServiceChecks::validate_all(snapshot_root, &services, native_target)?;
+        ServiceChecks::validate_all(snapshot_root, &services)?;
         let shared_data = SharedAssets::data_names(snapshot_root);
         let component_styles = ComponentStyles::collect(&components)?;
         let build_config_digest = BuildStage::config_digest(snapshot_root)?;

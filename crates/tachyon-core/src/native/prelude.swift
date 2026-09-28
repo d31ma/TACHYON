@@ -1,25 +1,3 @@
-import Foundation
-
-public enum TacStore {
-    nonisolated(unsafe) private static var values: [String: Any] = [:]
-
-    public static func local<Value>(_ key: String, _ fallback: Value) -> Value {
-        UserDefaults.standard.object(forKey: "tachyon." + key) as? Value ?? fallback
-    }
-
-    public static func setLocal(_ key: String, _ value: Any) {
-        UserDefaults.standard.set(value, forKey: "tachyon." + key)
-    }
-
-    public static func session<Value>(_ key: String, _ fallback: Value) -> Value {
-        values[key] as? Value ?? fallback
-    }
-
-    public static func setSession(_ key: String, _ value: Any) {
-        values[key] = value
-    }
-}
-
 enum TacMember {
     case field(() -> Any?, ((Any?) -> Void)?)
     case method(([Any?]) throws -> Any?)
@@ -56,21 +34,27 @@ final class TacListener {
 }
 
 private func tacParse(_ text: String) -> Any? {
-    tachyonSwiftJSONValue(
-        try? JSONSerialization.jsonObject(with: Data(text.utf8), options: [.fragmentsAllowed]))
+    tacParseJSON(text)
 }
 
-func tacModel<T: Decodable>(_ type: T.Type, _ value: Any?) throws -> T {
-    let data = try JSONSerialization.data(withJSONObject: value ?? NSNull(), options: [.fragmentsAllowed])
-    return try JSONDecoder().decode(T.self, from: data)
+func tacArgument<T: Decodable>(_ values: [Any?], _ index: Int) throws -> T {
+    try tacModel(T.self, index < values.count ? values[index] : nil)
 }
 
-private func tacModelValue<T: Encodable>(_ value: T) -> Any? {
-    guard let data = try? JSONEncoder().encode(value),
-          let decoded = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
-    else { return nil }
-    return tachyonSwiftJSONValue(decoded)
+func tacArgument<T>(_ values: [Any?], _ index: Int) throws -> T {
+    guard index < values.count, let value = values[index] as? T else { throw TacWrongArgument.value }
+    return value
 }
+
+func tacField<T: Decodable>(_ type: T.Type, _ value: Any?) -> T? {
+    try? tacModel(T.self, value)
+}
+
+func tacField<T>(_ type: T.Type, _ value: Any?) -> T? {
+    value as? T
+}
+
+enum TacWrongArgument: Error { case value }
 
 public final class ApplicationEventPublisher {
     public init() {}
@@ -112,7 +96,7 @@ private func tacEncode(_ value: Any?) -> String {
     case let value as Double:
         guard value.isFinite else { return "null" }
         return value == value.rounded() && value.magnitude < 9_007_199_254_740_992
-            ? String(Int(value)) : String(value)
+            ? String(Int64(value)) : String(value)
     case let value as String: return tacEncode(value)
     case let values as [Any?]: return "[" + values.map(tacEncode).joined(separator: ",") + "]"
     case let values as [String: Any?]:
@@ -140,7 +124,7 @@ private func tacHandle(_ raw: String) throws -> String {
     }
     if operation == "host-dispose" { tacDisposeAll(); return "{\"value\":null}" }
     guard let route = request["route"] as? String, let owner = request["owner"] as? String,
-          UUID(uuidString: owner) != nil else { return "{\"error\":\"Missing native owner identity.\",\"code\":\"TY_NATIVE_OWNER\"}" }
+          tacValidOwner(owner) else { return "{\"error\":\"Missing native owner identity.\",\"code\":\"TY_NATIVE_OWNER\"}" }
     guard let service = request["service"] as? String else {
         return "{\"error\":\"Missing companion name.\",\"code\":\"TY_NATIVE_SERVICE\"}"
     }
@@ -207,11 +191,11 @@ private func tacHandle(_ raw: String) throws -> String {
 }
 
 func tacNativeInvoke(_ request: String) -> String {
-    guard Thread.isMainThread, !TacNativeState.handling else { return "{\"error\":\"Native owner is busy or on another thread.\"}" }
+    guard tacOnOwnerThread(), !TacNativeState.handling else { return "{\"error\":\"Native owner is busy or on another thread.\"}" }
     TacNativeState.handling = true
     defer { if let owner = TacNativeState.executing { tacDrain(owner) }; TacNativeState.executing = nil; TacNativeState.handling = false }
     do { return try tacHandle(request) }
-    catch { return "{\"error\":\"Native companion operation failed.\"}" }
+    catch { return tacFailureAnswer(error) }
 }
 
 public enum TacBridge {
@@ -225,9 +209,9 @@ private final class TacActivation {
     let members: [String: TacMember]
     let listeners: [TacListener]
     var disposed = false
-    var queue: [(String, Data, Bool)] = []
-    var retained: [String: Data] = [:]
-    var deferred: [(TacListener, Data)] = []
+    var queue: [(String, String, Bool)] = []
+    var retained: [String: String] = [:]
+    var deferred: [(TacListener, String)] = []
     init(_ route: String, _ service: String, _ owner: String, _ members: [String: TacMember]) {
         self.route = route; self.service = service; self.owner = owner; self.members = members
         var declared: [(Int, TacListener)] = []
@@ -246,12 +230,10 @@ private enum TacNativeState {
     nonisolated(unsafe) static var handling = false
 }
 
-private func tacEventFailure() { FileHandle.standardError.write(Data("Tachyon native event delivery failed.\n".utf8)) }
-
 private func tacEventValid(_ value: Any?, _ depth: Int = 0) -> Bool {
     if depth > 64 { return false }
     switch value {
-    case nil, is NSNull, is Void, is String, is Bool, is Int: return true
+    case nil, is Void, is String, is Bool, is Int: return true
     case let number as Double: return number.isFinite
     case let list as [Any?]: return list.allSatisfy { tacEventValid($0, depth + 1) }
     case let map as [String: Any?]: return map.values.allSatisfy { tacEventValid($0, depth + 1) }
@@ -260,10 +242,10 @@ private func tacEventValid(_ value: Any?, _ depth: Int = 0) -> Bool {
 }
 
 private func tacEventPublish(_ name: String, _ value: Any?, _ retain: Bool) {
-    guard Thread.isMainThread, let owner = TacNativeState.executing, !owner.disposed, TacNativeState.activations[owner.owner] === owner,
+    let json = tacEncode(value)
+    guard tacOnOwnerThread(), let owner = TacNativeState.executing, !owner.disposed, TacNativeState.activations[owner.owner] === owner,
           owner.queue.count < 128, tacEventValid(value),
-          let json = try? JSONSerialization.data(withJSONObject: value is Void ? NSNull() : value ?? NSNull(), options: [.fragmentsAllowed]),
-          json.count <= 65536 else { tacEventFailure(); return }
+          json.utf8.count <= 65536 else { tacEventFailure(); return }
     owner.queue.append((name, json, retain))
 }
 
@@ -319,7 +301,7 @@ private func tacNumber(_ value: Any?) -> Double? {
 
 private func tacTruthy(_ value: Any?) -> Bool {
     switch value {
-    case nil, is TacAbsent, is NSNull: return false
+    case nil, is TacAbsent: return false
     case let flag as Bool: return flag
     case let text as String: return !text.isEmpty
     default:
@@ -330,8 +312,8 @@ private func tacTruthy(_ value: Any?) -> Bool {
 
 private func tacIdentical(_ left: Any?, _ right: Any?) -> Bool {
     if tacAbsent(left) || tacAbsent(right) { return tacAbsent(left) && tacAbsent(right) }
-    let leftNull = left == nil || left is NSNull
-    let rightNull = right == nil || right is NSNull
+    let leftNull = left == nil
+    let rightNull = right == nil
     if leftNull || rightNull { return leftNull && rightNull }
     if let left = left as? Bool { return (right as? Bool) == left }
     if let left = left as? String { return (right as? String) == left }
@@ -429,11 +411,9 @@ private func tacFits(_ models: Any?, _ shape: String, _ value: Any?) -> Bool {
     return true
 }
 
-private func tacDeliver(_ listener: TacListener, _ json: Data, _ republish: Bool) {
-    guard let decoded = try? JSONSerialization.jsonObject(with: json, options: [.fragmentsAllowed])
-    else { tacEventFailure(); return }
+private func tacDeliver(_ listener: TacListener, _ json: String, _ republish: Bool) {
     do {
-        let result = try listener.invoke(tachyonSwiftJSONValue(decoded))
+        let result = try listener.invoke(tacParseJSON(json))
         if republish { tacRepublish(result, listener.returns) }
     } catch { tacEventFailure() }
 }
@@ -451,8 +431,7 @@ private func tacDrain(_ owner: TacActivation) {
         delivered += 1
         let (name, json, retain) = owner.queue.removeFirst()
         if retain { if owner.retained[name] == nil && owner.retained.count == 32 { tacEventFailure(); continue }; owner.retained[name] = json }
-        let value = (try? JSONSerialization.jsonObject(with: json, options: [.fragmentsAllowed]))
-            .map(tachyonSwiftJSONValue) ?? nil
+        let value = tacParseJSON(json)
         for listener in owner.listeners where listener.events.contains(name) {
             if let models = listener.models, !tacFits(models, name, value) { tacEventFailure(); continue }
             if let condition = listener.condition, !tacMatches(condition, value, name) { continue }
@@ -463,7 +442,7 @@ private func tacDrain(_ owner: TacActivation) {
             }
             tacDeliver(listener, json, true)
         }
-        TacBridge.emit?("{\"route\":" + tacEncode(owner.route) + ",\"service\":" + tacEncode(owner.service) + ",\"owner\":" + tacEncode(owner.owner) + ",\"name\":" + tacEncode(name) + ",\"value\":" + String(decoding: json, as: UTF8.self) + ",\"retain\":" + String(retain) + "}")
+        TacBridge.emit?("{\"route\":" + tacEncode(owner.route) + ",\"service\":" + tacEncode(owner.service) + ",\"owner\":" + tacEncode(owner.owner) + ",\"name\":" + tacEncode(name) + ",\"value\":" + json + ",\"retain\":" + String(retain) + "}")
     }
 }
 
