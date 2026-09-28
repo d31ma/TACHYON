@@ -142,7 +142,7 @@ test('published browser service examples compile and use the documented runtime 
       const project = join(root, `example-${index}`)
       await writeProject(project, example.files)
       const command = binary ? [binary, 'build', project]
-        : ['cargo', 'run', '--locked', '--manifest-path', join(Locations.repository, 'Cargo.toml'), '--', 'build', project]
+        : ['cargo', 'run', '--locked', '--bin', 'ty', '--manifest-path', join(Locations.repository, 'Cargo.toml'), '--', 'build', project]
       const built = spawnSync(command[0], command.slice(1), { encoding: 'utf8', timeout: 120000, env })
       expect(built.status, `${example.name}\n${built.stderr || built.stdout}`).toBe(0)
       for (const className of example.classes) {

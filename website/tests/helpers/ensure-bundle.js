@@ -92,7 +92,7 @@ async function runBundle() {
     const binary = process.env.TAC_BIN || built
     const command = binary
         ? [binary, 'bundle', '.', '--out-dir', WEB_DIST]
-        : [await rustupWhich('cargo'), 'run', '--release', '--locked', '--manifest-path', '../Cargo.toml', '--', 'bundle', '.', '--out-dir', WEB_DIST]
+        : [await rustupWhich('cargo'), 'run', '--release', '--locked', '--bin', 'ty', '--manifest-path', '../Cargo.toml', '--', 'bundle', '.', '--out-dir', WEB_DIST]
     const rustc = binary ? process.env.RUSTC : await rustupWhich('rustc')
     const proc = Bun.spawn(command, {
         cwd: PROJECT_ROOT,
