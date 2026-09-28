@@ -86,3 +86,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [77. The Development Server Never Exits on a Project Error](0077-the-development-server-never-exits-on-a-project-error.md)
 - [78. Kotlin Services Reach the Web as WebAssembly](0078-kotlin-services-reach-the-web-as-webassembly.md)
 - [79. Every Member States Its Type](0079-every-member-states-its-type.md)
+- [80. A Test Case Asserts and Holds No Logic](0080-a-test-case-asserts-and-holds-no-logic.md)

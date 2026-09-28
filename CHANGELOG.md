@@ -457,6 +457,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Test units get a JUnit 5-style `Assert` class (ADR 0080) in JavaScript,
+  TypeScript, Python and Rust: `Assert.equals(expected, actual)`,
+  `Assert.isTrue(condition)` (Python and Rust: `is_true`) and
+  `Assert.throws(action)`, each with an optional last message (Rust:
+  `equals_with_message` and the other `_with_message` forms). A failed check
+  fails its case with `message ==> expected: <3> but was: <2>`. `ValueSource`
+  on a test case lists its inputs, like JUnit's `@ValueSource`: the driver runs
+  one case per input (`testName[1]`, `testName[2]`) and passes the input as
+  the one argument. A Rust case that panics (`assert!`, `assert_eq!`,
+  `Assert::`) now fails as one case instead of stopping the unit. The new
+  design rule `TY1339` refuses a test case with no assertion or with a branch
+  or loop; the Python `assert` and the Rust `assert!`, `assert_eq!` and
+  `assert_ne!` count as assertions. It is off by default (`tests.check` /
+  `tac.tests.check`) until every test unit is rewritten; `ty migrate check`
+  lists the cases to change.
 - Groovy is a Yon language (ADR 0072). Controllers, services and the other
   roles, models, error handlers, workers, `middleware.groovy` and test units
   are `.groovy` files with the Java annotations (`@Service`,

@@ -1,0 +1,80 @@
+{
+  "heading": "Assert and ValueSource",
+  "axis": "language",
+  "summary": "Check a result with Assert.equals, Assert.isTrue or Assert.throws, like JUnit. List the inputs of a case in ValueSource and Tachyon runs one case per input. A test case asserts and holds no logic (TY1339).",
+  "body": "A test case prepares values, calls the code and checks the result. Tachyon gives every test unit a class `Assert` for the checks, named like JUnit 5's `Assertions`:\n\n| Language | Equal | True | Throws |\n| --- | --- | --- | --- |\n| JavaScript, TypeScript | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws(action)` |\n| Python | `Assert.equals(expected, actual)` | `Assert.is_true(condition)` | `Assert.throws(action)` |\n| Rust | `Assert::equals(expected, actual)` | `Assert::is_true(condition)` | `Assert::throws(action)` |\n\nEach check takes an optional last message. Rust has no optional arguments, so it writes `Assert::equals_with_message(expected, actual, \"the total\")` and the other `_with_message` forms. When a check fails, the case fails with the message and what it expected, like `the total ==> expected: <3> but was: <2>`. `equals` compares values: two lists or two objects are equal when their items are equal. `throws` returns the error, so the case can check its message. When the action is asynchronous, `throws` returns a promise (JavaScript, TypeScript) or an awaitable (Python), and the case writes `await Assert.throws(...)`. In Rust, `throws` passes when the closure returns an `Err` or panics.\n\nThe assert of your language counts too, when it always runs: the Python `assert` statement and the Rust macros `assert!`, `assert_eq!` and `assert_ne!`. A Rust case that panics fails as one case, and the other cases still run. `console.assert` does not count, because it only writes a message.\n\n`ValueSource` lists the inputs of a test case, like JUnit's `@ValueSource`. Tachyon runs the case once for each input and passes the input as the one argument. `ty test` names each run with its position, such as `testNeverLowersAPrice[2]`, so one failing input does not hide the others. The list holds literal values, at most 256. In Rust it holds numbers, strings and booleans. `ValueSource` goes on a method whose name begins with `test` in a `Test` class.\n\nA test case asserts and holds no logic: no `if`, `else`, loop, `switch`, `match` or `? :` choice. When a case needs a branch, write one case for each path. When it needs a loop, list the inputs in `ValueSource`. `&&` and `||` inside a check are fine, and a helper method of the unit (its name does not begin with `test`) may hold logic. `ty build` and `ty preview` refuse a case that breaks this with `TY1339` (ADR 0080), and `ty migrate check` lists every case to change. While the test units of a project move to `Assert`, the check is off by default. Turn it on for Yon tests with `tests.check: true` in `server/application.json`, and for Tac tests with `tac.tests.check: true` in `client/manifest.json`. This first step covers JavaScript, TypeScript, Python and Rust; the other test languages keep their own checks for now.",
+  "files": [
+    {
+      "name": "server/utils/PriceUtils.js",
+      "code": {
+        "file": "server/utils/PriceUtils.js"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.js",
+      "code": {
+        "file": "server/tests/PriceTestSetup.js"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.js",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.js"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.ts",
+      "code": {
+        "file": "server/utils/PriceUtils.ts"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.ts",
+      "code": {
+        "file": "server/tests/PriceTestSetup.ts"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.ts",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.ts"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.py",
+      "code": {
+        "file": "server/utils/PriceUtils.py"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.py",
+      "code": {
+        "file": "server/tests/PriceTestSetup.py"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.py",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.py"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.rs",
+      "code": {
+        "file": "server/utils/PriceUtils.rs"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.rs",
+      "code": {
+        "file": "server/tests/PriceTestSetup.rs"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.rs",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.rs"
+      }
+    }
+  ]
+}

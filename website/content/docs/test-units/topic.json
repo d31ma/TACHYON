@@ -7,6 +7,9 @@
   "sections": [
     {
       "include": "../operations/test-units/section.json"
+    },
+    {
+      "include": "assert-and-value-source/section.json"
     }
   ]
 }
