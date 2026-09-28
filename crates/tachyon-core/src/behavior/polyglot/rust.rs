@@ -859,7 +859,7 @@ fn test_members(unit: &super::super::testing::Unit, environment: &str) -> String
     let names = quoted_names(&case_names);
     let mut dispatch = String::new();
     for (name, call) in &calls {
-        let _ = write!(dispatch, "{name:?} => CaseOutcome::failure({call}),");
+        let _ = write!(dispatch, "{name:?} => CaseOutcome::from({call}).failure(),");
     }
     let profiles = profile_statements(unit);
     let properties = property_statements(unit);

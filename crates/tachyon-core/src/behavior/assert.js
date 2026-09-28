@@ -27,9 +27,13 @@ class Assert {
   }
 
   static _thrown(outcome, message) {
-    if (outcome.failed) return outcome.error
     if (Assert._isPromise(outcome.result)) return Assert._rejected(outcome.result, message)
-    return Assert._fail(Assert.NOTHING_THROWN, message)
+    return Assert._settled(outcome, message)
+  }
+
+  static _settled(outcome, message) {
+    Assert._check(outcome.failed, Assert.NOTHING_THROWN, message)
+    return outcome.error
   }
 
   static _rejected(promise, message) {
@@ -45,7 +49,12 @@ class Assert {
   }
 
   static _fail(failure, message) {
-    throw new Error(message === undefined ? failure : `${message}${Assert.MESSAGE_SEPARATOR}${failure}`)
+    throw new Error(Assert._text(failure, message))
+  }
+
+  static _text(failure, message) {
+    if (message === undefined) return failure
+    return `${message}${Assert.MESSAGE_SEPARATOR}${failure}`
   }
 
   static _same(expected, actual) {

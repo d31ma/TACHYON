@@ -72,11 +72,16 @@ impl ValueSource {
     }
 
     fn values(input: &Input<'_>, marker: &Marker) -> Result<Vec<Value>, Failure> {
+        let listed = Self::list(input, marker)?;
+        Self::bounded(input, marker, listed)
+    }
+
+    fn list(input: &Input<'_>, marker: &Marker) -> Result<Vec<Value>, Failure> {
         let parsed = super::literal::parse(&marker.arguments).ok();
         let Some(Value::Array(values)) = parsed else {
             return Err(input.failure(marker.span.start, Self::NOT_A_LIST));
         };
-        Self::bounded(input, marker, values)
+        Ok(values)
     }
 
     fn bounded(
@@ -144,14 +149,16 @@ impl ValueSource {
         let Some(values) = values.and_then(Value::as_array) else {
             return vec![(method.to_owned(), format!("self.{method}()"))];
         };
+        Self::input_calls(method, values)
+    }
+
+    fn input_calls(method: &str, values: &[Value]) -> Vec<(String, String)> {
         values
             .iter()
             .enumerate()
             .map(|(index, value)| {
-                (
-                    Self::case_name(method, index),
-                    Self::rust_call(method, value),
-                )
+                let call = format!("self.{method}({})", Self::rust_literal(value));
+                (Self::case_name(method, index), call)
             })
             .collect()
     }
@@ -160,11 +167,10 @@ impl ValueSource {
         format!("{method}[{}]", index + 1)
     }
 
-    fn rust_call(method: &str, value: &Value) -> String {
-        let argument = match value {
+    fn rust_literal(value: &Value) -> String {
+        match value {
             Value::String(text) => format!("{text:?}"),
             other => other.to_string(),
-        };
-        format!("self.{method}({argument})")
+        }
     }
 }

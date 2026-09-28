@@ -29,11 +29,14 @@ class Assert:
     @staticmethod
     def _thrown(outcome, message):
         failed, value = outcome
-        if failed:
-            return value
         if _behavior_inspect.isawaitable(value):
             return Assert._raised(value, message)
-        return Assert._fail(Assert.NOTHING_THROWN, message)
+        return Assert._settled(failed, value, message)
+
+    @staticmethod
+    def _settled(failed, value, message):
+        Assert._check(failed, Assert.NOTHING_THROWN, message)
+        return value
 
     @staticmethod
     async def _raised(awaitable, message):
@@ -50,5 +53,10 @@ class Assert:
 
     @staticmethod
     def _fail(failure, message):
-        text = failure if message is None else f'{message}{Assert.MESSAGE_SEPARATOR}{failure}'
-        raise AssertionError(text)
+        raise AssertionError(Assert._text(failure, message))
+
+    @staticmethod
+    def _text(failure, message):
+        if message is None:
+            return failure
+        return f'{message}{Assert.MESSAGE_SEPARATOR}{failure}'

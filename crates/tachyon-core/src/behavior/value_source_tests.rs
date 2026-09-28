@@ -87,9 +87,9 @@ fn a_rust_value_source_lists_numbers_strings_or_booleans() {
     .expect("lowered")
     .expect("a test unit");
     for call in [
-        "\"test_keeps_an_input[1]\" => CaseOutcome::failure(self.test_keeps_an_input(1))",
-        "\"test_keeps_an_input[2]\" => CaseOutcome::failure(self.test_keeps_an_input(\"two\"))",
-        "\"test_keeps_an_input[3]\" => CaseOutcome::failure(self.test_keeps_an_input(true))",
+        "\"test_keeps_an_input[1]\" => CaseOutcome::from(self.test_keeps_an_input(1)).failure()",
+        "\"test_keeps_an_input[2]\" => CaseOutcome::from(self.test_keeps_an_input(\"two\")).failure()",
+        "\"test_keeps_an_input[3]\" => CaseOutcome::from(self.test_keeps_an_input(true)).failure()",
     ] {
         assert!(accepted.contains(call), "{call} missing from {accepted}");
     }
