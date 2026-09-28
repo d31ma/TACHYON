@@ -23,10 +23,9 @@ impl ValueSource {
     ) -> Result<(), Failure> {
         Self::require_case(input, marker, method)?;
         let values = Self::values(input, marker)?;
-        let recorded = data
-            .entry(Self::DATA_KEY)
-            .or_insert_with(|| Value::Object(Map::new()));
-        Self::insert(input, marker, method, recorded, values)
+        let table = Self::table(input, marker, data)?;
+        let previous = table.insert(method.to_owned(), Value::Array(values));
+        Self::require_first(input, marker, previous.as_ref())
     }
 
     pub(super) fn record_scalars(
@@ -106,23 +105,26 @@ impl ValueSource {
         matches!(value, Value::Number(_) | Value::String(_) | Value::Bool(_))
     }
 
-    fn insert(
+    fn table<'d>(
         input: &Input<'_>,
         marker: &Marker,
-        method: &str,
-        recorded: &mut Value,
-        values: Vec<Value>,
-    ) -> Result<(), Failure> {
-        let Some(previous) = recorded
+        data: &'d mut Map<String, Value>,
+    ) -> Result<&'d mut Map<String, Value>, Failure> {
+        data.entry(Self::DATA_KEY)
+            .or_insert_with(|| Value::Object(Map::new()))
             .as_object_mut()
-            .map(|table| table.insert(method.to_owned(), Value::Array(values)))
-        else {
-            return Err(input.failure(marker.span.start, Self::NOT_A_LIST));
-        };
-        if previous.is_some() {
-            return Err(input.failure(marker.span.start, Self::REPEATED));
+            .ok_or_else(|| input.failure(marker.span.start, Self::NOT_A_LIST))
+    }
+
+    fn require_first(
+        input: &Input<'_>,
+        marker: &Marker,
+        previous: Option<&Value>,
+    ) -> Result<(), Failure> {
+        if previous.is_none() {
+            return Ok(());
         }
-        Ok(())
+        Err(input.failure(marker.span.start, Self::REPEATED))
     }
 
     fn method_rows(method: &str, values: Option<&Value>) -> Vec<Value> {

@@ -44,6 +44,9 @@ mod test_assert;
 mod testing;
 mod validation;
 mod value_source;
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod value_source_tests;
 
 fn retired(name: &str) -> Option<&'static str> {
     let normalized = name.replace('_', "").to_ascii_lowercase();
