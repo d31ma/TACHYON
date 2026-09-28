@@ -205,3 +205,24 @@ fn an_old_go_marker_keeps_a_method_public() {
     let files = [("server/controllers/OrdersController.go", controller)];
     assert_eq!(VisibilityProject::names(&files), Vec::<String>::new());
 }
+
+#[test]
+fn a_gateway_in_every_jvm_language_keeps_the_method_it_calls_public() {
+    let service = "@service\nclass ReportService:\n    def summarize(self, period: str) -> str:\n        return period\n";
+    let client = "@HTTPClient\nclass ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period) {}\n}\n";
+    let controller = "@RequestRoute(\"/report\")\nclass ReportController {\n    @Needs\n    final ReportClient reportClient\n\n    @GetRoute\n    Report getReport() {\n        return new Report(reportClient.summarize(\"2026-Q3\"))\n    }\n}\n";
+    for extension in ["java", "groovy"] {
+        let client_path = format!("server/clients/ReportClient.{extension}");
+        let controller_path = format!("server/controllers/ReportController.{extension}");
+        let files = [
+            ("server/services/ReportService.py", service),
+            (client_path.as_str(), client),
+            (controller_path.as_str(), controller),
+        ];
+        assert_eq!(
+            VisibilityProject::names_in(&files, "server/services"),
+            Vec::<String>::new(),
+            "{extension}"
+        );
+    }
+}

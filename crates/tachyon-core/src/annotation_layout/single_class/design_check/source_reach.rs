@@ -15,9 +15,9 @@ pub(super) struct SourceReach<'a> {
 }
 
 impl<'a> SourceReach<'a> {
-    const CODE_EXTENSIONS: [&'static str; 16] = [
-        "js", "mjs", "ts", "java", "kt", "cs", "fs", "dart", "swift", "php", "rs", "go", "py",
-        "rb", "html", "tsx",
+    const CODE_EXTENSIONS: [&'static str; 17] = [
+        "js", "mjs", "ts", "java", "groovy", "kt", "cs", "fs", "dart", "swift", "php", "rs", "go",
+        "py", "rb", "html", "tsx",
     ];
     const HANDING_FOLDERS: [&'static str; 2] = ["/setups/", "/configurations/"];
     const VIEW_EXTENSION: &'static str = "html";

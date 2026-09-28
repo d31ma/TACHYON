@@ -1700,6 +1700,9 @@ machine contracts have their own, independent major versions.
   loader read `process.release.name` from it and stopped; the published
   Kotlin loader now reads `process.release?.name`.
 
+- The visibility rule (`TY1333`) now reads Groovy files when it looks for
+  uses of a member. Before, a Groovy controller that called a gateway did not
+  count, so the Python service method behind the gateway was refused as unused.
 - The website tests now build the site with the newest `ty` in the Cargo
   target folder when `TAC_BIN` is not set. Before, an old `release/ty` won
   over a newer `debug/ty`, so a change such as utility classes in Dart
