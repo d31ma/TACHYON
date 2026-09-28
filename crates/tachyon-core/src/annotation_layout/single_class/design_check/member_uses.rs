@@ -19,7 +19,9 @@ impl MemberUses {
             .collect();
         Self {
             names: Self::used_names(&beside, &forms),
-            handed_over: beside.iter().any(|reach| reach.hands_over(&forms)),
+            handed_over: beside
+                .iter()
+                .any(|reach| reach.hands_over(&forms, class.path)),
         }
     }
 

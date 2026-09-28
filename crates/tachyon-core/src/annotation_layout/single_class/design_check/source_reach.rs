@@ -10,6 +10,7 @@ pub(super) struct SourceReach<'a> {
     realm: &'static str,
     view: bool,
     hands_over: bool,
+    text: &'a str,
     words: BTreeSet<&'a str>,
     accesses: Vec<(&'a str, &'a str)>,
 }
@@ -48,8 +49,9 @@ impl<'a> SourceReach<'a> {
         chosen.unwrap_or_default()
     }
 
-    pub(super) fn hands_over(&self, forms: &[String]) -> bool {
-        self.hands_over & self.mentions(forms)
+    pub(super) fn hands_over(&self, forms: &[String], path: &str) -> bool {
+        let handed_by_folder = self.hands_over & self.mentions(forms);
+        handed_by_folder | self.text.contains(path)
     }
 
     fn mentions(&self, forms: &[String]) -> bool {
@@ -65,6 +67,7 @@ impl<'a> SourceReach<'a> {
             hands_over: Self::HANDING_FOLDERS
                 .iter()
                 .any(|folder| source.path.contains(folder)),
+            text: &source.text,
             words: scan.words().into_iter().collect(),
             accesses: scan.accesses(),
         }

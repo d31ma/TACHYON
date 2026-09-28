@@ -50,7 +50,9 @@ A member stays public when one of these uses it:
    `@Check`; it is a field that Tachyon fills (a field without a starting
    value, or any field that `Needs` or `NeedsAll` fills); a setup or
    configuration class hands the class to Tachyon (a cache or data adapter);
-   it is `identify` of the `@IdentityProvider` class; or it is a name that
+   a `Gateway` names the class file, such as
+   `{"class":"server/services/ReportService.java"}`, so a gateway in any
+   language can call its methods; it is `identify` of the `@IdentityProvider` class; or it is a name that
    the runtime or the language calls: `hotState`, `hotDispose`,
    `restoreHotState`, `toString`, `toJSON`, `equals`, `hashCode`, Go
    `String` and `Error`, Ruby `to_s`. Constructors, `override` methods,

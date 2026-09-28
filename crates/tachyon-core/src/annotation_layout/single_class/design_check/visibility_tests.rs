@@ -226,3 +226,19 @@ fn a_gateway_in_every_jvm_language_keeps_the_method_it_calls_public() {
         );
     }
 }
+
+#[test]
+fn a_gateway_that_names_another_method_keeps_that_method_public() {
+    let service = "@Service\nclass ReportService {\n    Object summarize(Object period) {\n        return period;\n    }\n}\n";
+    let client = "@h_t_t_p_client\nclass ForecastClient:\n    @gateway({\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"})\n    def summary(self, period: str) -> None: ...\n";
+    let controller = "@request_route(\"/forecast\")\n@needs_all()\nclass ForecastController:\n    forecast_client: ForecastClient\n\n    @get_route\n    def get_forecast(self) -> str:\n        return self.forecast_client.summary(\"2026-Q4\")\n";
+    let files = [
+        ("server/services/ReportService.java", service),
+        ("server/clients/ForecastClient.py", client),
+        ("server/controllers/ForecastController.py", controller),
+    ];
+    assert_eq!(
+        VisibilityProject::names_in(&files, "server/services"),
+        Vec::<String>::new()
+    );
+}

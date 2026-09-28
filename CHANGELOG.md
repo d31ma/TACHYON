@@ -1703,6 +1703,12 @@ machine contracts have their own, independent major versions.
 - The visibility rule (`TY1333`) now reads Groovy files when it looks for
   uses of a member. Before, a Groovy controller that called a gateway did not
   count, so the Python service method behind the gateway was refused as unused.
+- The visibility rule (`TY1333`) keeps the methods of a class public when a
+  `Gateway` names its file, such as
+  `{"class":"server/services/ReportService.java","method":"summarize"}`.
+  Before, a gateway that named another method, or a gateway in a language
+  whose client calls look different, left the method refused as unused.
+- The Outgoing HTTP: Tac example now calls `catalog.load()` from its view.
 - The website tests now build the site with the newest `ty` in the Cargo
   target folder when `TAC_BIN` is not set. Before, an old `release/ty` won
   over a newer `debug/ty`, so a change such as utility classes in Dart
