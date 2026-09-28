@@ -352,6 +352,7 @@ if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) 
 }
 globalThis[Symbol.for('tachyon.kotlin.host')] = {
   emit: (payload) => { published.push(payload) },
+  storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
   web: (text) => webHost(text),
 }
 const kotlin = await import('./kotlin/services.js')

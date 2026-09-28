@@ -145,10 +145,8 @@ fn lowered_body(
     }
     let prepared = super::events::prepare(language, authored, events.as_ref(), &identity)?;
     let authored = prepared.source.as_str();
-    if !item.web_assembly || language == NativeCompanion::Kotlin {
-        crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
-    }
     if !item.web_assembly {
+        crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
         crate::annotation_layout::NativeWebApis::refuse(&identity, authored)?;
     }
     let lowered = crate::behavior::lower(&identity, authored, "tac")?;

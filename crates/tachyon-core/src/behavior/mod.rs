@@ -21,7 +21,7 @@ pub(crate) use gateway::{
     GatewayDeclaration, GatewayLimits, GatewayTarget, declarations as gateway_declarations,
     target_failure as gateway_target_failure, target_signature as gateway_target_signature,
 };
-pub(crate) use polyglot::{HelperRole, NativeStorage, gateway_unit_runtime};
+pub(crate) use polyglot::{HelperRole, KotlinBuiltins, NativeStorage, gateway_unit_runtime};
 #[cfg(test)]
 mod extensions_tests;
 pub(crate) mod literal;

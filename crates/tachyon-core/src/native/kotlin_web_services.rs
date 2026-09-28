@@ -38,6 +38,7 @@ impl KotlinWebServices {
             include_str!("kotlin_web_services/jvm_shims/jvm_names.kt"),
         ),
     ];
+    const STORAGE: &'static str = include_str!("kotlin_web_services/kotlin_storage.kt");
     const PROGRAM_SOURCE: &'static str = "services.kt";
     const MODEL_REALM: &'static str = "client";
     const MODEL_EXTENSION: &'static str = "kt";
@@ -88,6 +89,7 @@ impl KotlinWebServices {
             .iter()
             .map(|(path, text)| (path.to_string_lossy().into_owned(), text.clone()))
             .collect();
+        let authored = crate::behavior::KotlinBuiltins::in_browser(authored, Self::STORAGE);
         let program = format!(
             "{authored}\n{}{}{}",
             crate::route_types::WebEventSources::kotlin(),

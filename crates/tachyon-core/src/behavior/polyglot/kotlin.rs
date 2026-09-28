@@ -12,7 +12,8 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         edits.extend(concrete_edit(module, type_declaration));
         lower_type(module, type_declaration, &mut sections, &mut edits)?;
     }
-    let runtime = sections.fill_runtime(module);
+    let mut runtime = sections.fill_runtime(module);
+    runtime.push_str(super::KotlinBuiltins::NONE);
     render(module, edits, &runtime)
 }
 
@@ -160,7 +161,7 @@ fn eviction_case(
     let mut line = String::new();
     let _ = writeln!(
         line,
-        "if (type == {} && method == {}) {{ {normalize} val policy = {policy}; val key = cacheKey(type, method, normalized, {indices}, policy, execution, \"cache:evict\"); val adapter = configuration.caches[policy.name] ?: fail(\"cache-adapter\"); try {{ adapter.delete(key, execution) }} catch (_: RuntimeException) {{ fail(\"cache-adapter\") }}; execution.check(); return@operation null }}",
+        "if (type == {} && method == {}) {{ {normalize} val policy = {policy}; val key = cacheKey(type, method, normalized, {indices}, policy, execution, \"cache:evict\"); val adapter = cacheAdapter(policy.name); try {{ adapter.delete(key, execution) }} catch (_: RuntimeException) {{ fail(\"cache-adapter\") }}; execution.check(); return@operation null }}",
         quote(&type_declaration.name),
         quote(&method.name)
     );

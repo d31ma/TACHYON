@@ -11,6 +11,8 @@ mod go;
 mod go_syntax;
 mod java;
 mod kotlin;
+mod kotlin_builtins;
+pub(crate) use kotlin_builtins::KotlinBuiltins;
 mod native_storage;
 pub(crate) use native_storage::NativeStorage;
 #[cfg(test)]

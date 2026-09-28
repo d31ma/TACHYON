@@ -4,6 +4,9 @@ private external fun tacHostEmit(payload: String)
 @JsFun("(text) => globalThis[Symbol.for('tachyon.kotlin.host')].web(text)")
 private external fun tacHostWeb(text: String): String
 
+@JsFun("(text) => globalThis[Symbol.for('tachyon.kotlin.host')].storage(text)")
+private external fun tacHostStorage(text: String): String
+
 private const val tacPageListeners = true
 
 private fun tacOnOwnerThread(): Boolean = true

@@ -71,8 +71,14 @@ Kotlin/Wasm has none of these.
 - A Kotlin service that Android links has no browser APIs. On Android, a name
   such as `Clock` stays whatever the service imports, for example
   `kotlinx.datetime.Clock`.
-- The built-in cache and Store still need their own adapters in Kotlin. The
-  build refuses them for Kotlin, as it does for Android.
+- The built-in cache and Store work in Kotlin/Wasm (amended 2026-09-28). The
+  behavior runtime asks `behaviorBuiltinCache` and `behaviorBuiltinEntities`
+  for an adapter when the Setup names none. Every JVM build (Yon, Android,
+  test units) gets versions that return nothing; the web build replaces them
+  with `kotlin_storage.kt`, which sends each request to the page's
+  synchronous storage host through the `storage` import of
+  `tachyon.kotlin.host`, as Go, Rust and C# do. Android still refuses a cache
+  or Store that its Setup does not name.
 - The behavior runtime (`Setup`, configuration binding, `Cached`, `Retry` and
   the other behavior annotations) is shared with Yon Kotlin and Android. It
   uses a few JVM names: `java.util.Collections`, `ConcurrentHashMap`,

@@ -96,12 +96,12 @@ table, the TypeScript hover text and the other Tac languages did not know it.
      and pads it with spaces, and the Ruby side parses it as JSON. A larger
      answer is kept by the page, which writes `{"more": bytes}`; the prelude
      then sends a `tachyon-storage:take` string of that size.
-   - A Kotlin, Swift, native Rust or native C# companion has no storage
-     host, so its Setup must name every cache and entity adapter that it
+   - An Android Kotlin, Swift, native Rust or native C# companion has no
+     storage host, so its Setup must name every cache and entity adapter that it
      uses. The native build stops when a Cached, UpdateCache or ClearCache
      method uses a cache, or a Store uses an entity adapter, that no Setup
-     in the service names (for example "Kotlin services need a cache adapter
-     in their Setup"). It does not wait for a failure at run time.
+     in the service names (for example "Android Kotlin services need a cache
+     adapter in their Setup"). It does not wait for a failure at run time.
    - Cached reads are served from the memory copy that Tachyon loads before
      the first render, so they need no wait.
    - Before a WebAssembly or Dart service module starts, Tachyon copies every Table of
@@ -120,8 +120,9 @@ table, the TypeScript hover text and the other Tac languages did not know it.
 
 - A Tac application can cache and store browser data with annotations alone.
 - The Store and Cache built-ins exist in the JavaScript runtime and, through
-  the storage host, in Go, Rust and C# WebAssembly services and in Dart
-  and Ruby services. Native companions (Swift, Kotlin, native Rust and C#) still
+  the storage host, in Go, Rust, C# and Kotlin WebAssembly services (Kotlin
+  since ADR 0078) and in Dart and Ruby services. Native companions (Swift,
+  Android Kotlin, native Rust and C#) still
   configure their own adapters: they answer the page asynchronously from
   another process, so the synchronous page host does not reach them. The
   native build refuses such a service when its Setup does not name the

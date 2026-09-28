@@ -17,6 +17,7 @@ class StorageGate {
   static host = 'tachyon.test';
   static settleCaches = () => globalThis[Symbol.for('tachyon.tac.storage')].settled();
   static withCSharp = csharpWebAvailable();
+  static withKotlin = kotlinWebAvailable();
   static scriptBudgetKilobytes = 320;
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 }
@@ -184,6 +185,76 @@ function csharpWebAvailable() {
   return !probe.error && probe.status === 0 && probe.stdout.includes('wasm-tools');
 }
 
+function kotlinWebAvailable() {
+  const library = process.env.TAC_KOTLIN_WASM_STDLIB;
+  if (!library || !existsSync(library)) return false;
+  const probe = spawnSync('kotlinc-js', ['-version'], { encoding: 'utf8', timeout: 60_000, maxBuffer: 1024 * 1024 });
+  return !probe.error && probe.status === 0;
+}
+
+function writeKotlinFixture(project) {
+  write(project, 'client/setups/KtNotesSetup.kt', `@Setup
+class KtNotesSetup {
+    companion object {
+        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()
+    }
+}
+`);
+  write(project, 'client/entities/KtNoteEntity.kt', `@Entity({"adapter":"indexeddb"})
+@Table("ktNotes")
+class KtNoteEntity {
+    @Id
+    var id: String = ""
+    var text: String = ""
+}
+`);
+  write(project, 'client/components/storage/kt/tac.html', '<p id="kt">{ktNotes.reads}</p>\n<button id="kt-bump" on:click="ktNotes.increment()">+</button>\n<p id="kt-count">{ktNotes.count}</p>\n');
+  write(project, 'client/services/KtNotesService.kt', `@Service
+@CacheSettings({"name":"ktnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
+class KtNotesService {
+    lateinit var behaviors: Behaviors.Context
+    var reads: Long = 0
+    @LocalState
+    var count: Long = 0
+
+    fun increment(): Long {
+        count += 1
+        return count
+    }
+
+    @OnStart
+    fun open() {
+        behaviors = Behaviors.create("KtNotesSetup", Behaviors.Options("kt-notes", Behaviors.Signal()))
+    }
+
+    @Cached
+    fun find(key: String): Any? {
+        reads += 1
+        return mapOf("key" to key, "reads" to reads)
+    }
+
+    @ClearCache({"method":"find"})
+    fun forget(key: String): Any? {
+        return key
+    }
+
+    fun save(id: String, text: String): Any? {
+        return behaviors.repository("KtNoteEntity").save(mapOf("id" to id, "text" to text))
+    }
+
+    @AllOrNothing({"adapter":"indexeddb"})
+    fun saveThenRefuse(id: String): Any? {
+        save(id, "draft")
+        throw IllegalStateException("the note was refused")
+    }
+
+    fun list(): Any? {
+        return behaviors.repository("KtNoteEntity").find(emptyMap())
+    }
+}
+`);
+}
+
 function writeCSharpFixture(project) {
   write(project, 'client/setups/CsNotesSetup.cs', `[Setup]
 public sealed class CsNotesSetup {
@@ -262,7 +333,7 @@ function writeFixture(project) {
   <storage-go />
   <storage-ruby />
   <storage-rs />
-${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}</main>
+${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}</main>
 `);
   for (const [name, policy] of [['CacheFirstClient','cache-first'],['NetworkFirstClient','network-first'],['FreshClient','no-store'],['ReloadClient','reload']]) {
     write(project, 'client/clients/' + name + '.js', `@HTTPClient({"cache":"${policy}","adapter":"${name}"})
@@ -384,6 +455,7 @@ class NoteStore {
   writeRubyFixture(project);
   writeRustFixture(project);
   if (StorageGate.withCSharp) writeCSharpFixture(project);
+  if (StorageGate.withKotlin) writeKotlinFixture(project);
   write(project, 'client/components/storage/notes/tac.html', '<p id="notes">{storageNotes.label}</p>\n');
   write(project, 'client/services/StorageNotesService.js', `@Service
 export default class StorageNotesService {
@@ -652,6 +724,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Ruby cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').list())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'the Ruby Store row survives a reload and the refused AllOrNothing saved nothing');
   if (StorageGate.withCSharp) await checkCSharpStorage(page, evaluate);
+  if (StorageGate.withKotlin) await checkKotlinStorage(page, evaluate);
   await context.close();
 }
 
@@ -661,6 +734,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
   await page.goto(origin, { waitUntil: 'networkidle' });
   const services = [['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
   if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#']);
+  if (StorageGate.withKotlin) services.push(['kt', 'ktNotes', 'Kotlin']);
   for (const [id, , language] of services) {
     for (let click = 0; click < 3; click += 1) await page.click(`#${id}-bump`);
     await page.waitForFunction((selector) => document.querySelector(selector)?.textContent === '3', `#${id}-count`);
@@ -686,6 +760,19 @@ async function checkCSharpStorage(page, evaluate) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('csNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the C# cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').list())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'the C# Store row survives a reload and the refused AllOrNothing saved nothing');
+}
+
+async function checkKotlinStorage(page, evaluate) {
+  expect(JSON.stringify(await evaluate(() => [__root('ktNotes').find('a'), __root('ktNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Kotlin WebAssembly service reads its Cached value synchronously from memory');
+  await evaluate(() => __root('ktNotes').forget('a'));
+  expect(JSON.stringify(await evaluate(() => __root('ktNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the Kotlin service read again');
+  await evaluate(() => __root('ktNotes').save('k1', 'kept'));
+  const refused = await evaluate(() => { try { __root('ktNotes').saveThenRefuse('k2'); return ''; } catch (error) { return error.message; } });
+  expect(refused.includes('the note was refused'), true, 'a refused Kotlin AllOrNothing call reports its error');
+  await evaluate(StorageGate.settleCaches);
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(JSON.stringify(await evaluate(() => __root('ktNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Kotlin cache entry survives a reload through the Cache API');
+  expect(JSON.stringify(await evaluate(() => __root('ktNotes').list())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'the Kotlin Store row survives a reload and the refused AllOrNothing saved nothing');
 }
 
 async function checkInjectedClients(page) {
@@ -897,6 +984,7 @@ async function main() {
     if (process.env.CI) fail('CI must provide .NET wasm-tools for the C# storage check');
     console.log('skipping the C# storage check: the .NET wasm-tools workload is not installed');
   }
+  if (!StorageGate.withKotlin) console.log('skipping the Kotlin storage check: kotlinc-js or TAC_KOTLIN_WASM_STDLIB is missing');
   let project;
   let server;
   let browser;

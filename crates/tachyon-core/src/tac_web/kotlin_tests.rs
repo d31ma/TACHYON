@@ -74,8 +74,10 @@ impl KotlinFixtures {
             "client/services/NotesService.kt",
             "@CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n\
              class NotesService {\n    \
-             private val behaviors: Behaviors.Context = Behaviors.create(\"BrowserSetup\", Behaviors.Options(\"notes\", Behaviors.Signal()))\n    \
+             lateinit var behaviors: Behaviors.Context\n    \
              private var reads: Long = 0\n\n    \
+             @OnStart\n    fun open() {\n        \
+             behaviors = Behaviors.create(\"BrowserSetup\", Behaviors.Options(\"notes\", Behaviors.Signal()))\n    }\n\n    \
              @Cached\n    fun find(key: String): Any? {\n        reads += 1\n        return mapOf(\"key\" to key, \"reads\" to reads)\n    }\n\n    \
              @ClearCache({\"method\":\"find\"})\n    fun forget(key: String): Any? {\n        return key\n    }\n\n    \
              fun save(id: String, text: String): Any? {\n        \
@@ -92,6 +94,7 @@ impl KotlinFixtures {
          ;(0, eval)(await readFile('./tac-storage.js', 'utf8'))\n\
          const { default: NotesService } = await import('./NotesService.js')\n\
          const notes = new NotesService({})\n\
+         notes.__tachyonStarted()\n\
          const first = notes.find('a')\n\
          const second = notes.find('a')\n\
          notes.forget('a')\n\

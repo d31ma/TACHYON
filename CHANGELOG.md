@@ -512,6 +512,10 @@ machine contracts have their own, independent major versions.
   Safari 18.2; an older browser gets a clear error. `TY1317` now also
   refuses Kotlin browser interop (`external`, `@JsFun`, `@JsExport`, `js(…)`,
   `kotlinx.browser`, `org.w3c`, `kotlin.js`).
+- Kotlin WebAssembly services use the built-in browser cache and Store
+  (ADR 0078), as Go, Rust and C# do: a `Cached` method or an `"indexeddb"`
+  Entity needs no adapter in the Setup. Android Kotlin services still name
+  their own adapters, and the build still refuses them otherwise.
 - F# is a Yon language and a Tac service language (ADR 0073). Annotations are
   F# attributes, `[<Service>]` or `[<GetRoute("/{id}")>]`, on their own line;
   several may share one pair of brackets. A type takes the roles it needs as

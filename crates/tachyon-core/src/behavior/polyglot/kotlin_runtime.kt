@@ -244,7 +244,7 @@ object Behaviors {
         @Volatile internal var transaction: String? = null
         private fun transacted(policy: Transaction?, execution: Execution, call: () -> Any?): Any? {
             if (policy == null || transaction != null) return call()
-            val adapter = configuration.entities[policy.adapter] ?: fail("entity-adapter")
+            val adapter = entityAdapter(policy.adapter)
             val begun = control(adapter, execution, "begin", null)
             val identifier = (begun as? Map<*, *>)?.get("transaction")
             if (identifier !is String || identifier.isEmpty() || identifier.toByteArray().size > 128) fail("entity-adapter")
@@ -307,7 +307,7 @@ object Behaviors {
         fun invoke(type: String, method: String, arguments: Array<Any?>, indices: IntArray, policy: Policy?, declaredExchange: Exchange?, retry: Retry? = null, limit: Limit? = null, transactional: Transaction? = null, call: () -> Any?): Any? = operation { execution ->
             val exchange = declaredExchange?.filled(arguments)
             val key = if (policy != null) cacheKey(type, method, arguments, indices, policy, execution, "cache:read") else null
-            val cache = if (policy != null) configuration.caches[policy.name] ?: fail("cache-adapter") else null
+            val cache = if (policy != null) cacheAdapter(policy.name) else null
             if (cache != null && key != null && policy != null) {
                 val entry = try { cache.get(key, execution) } catch (_: RuntimeException) { fail("cache-adapter") }
                 execution.check()
@@ -330,7 +330,7 @@ object Behaviors {
         fun mutate(type: String, target: String, arguments: Array<Any?>, indices: IntArray, policy: Policy, put: Boolean, declaredExchange: Exchange?, retry: Retry? = null, limit: Limit? = null, transactional: Transaction? = null, call: () -> Any?): Any? = operation { execution ->
             val exchange = declaredExchange?.filled(arguments)
             val key = cacheKey(type, target, arguments, indices, policy, execution, if (put) "cache:put" else "cache:evict")
-            val cache = configuration.caches[policy.name] ?: fail("cache-adapter")
+            val cache = cacheAdapter(policy.name)
             var value = resilient(type, target, retry, limit, transactional, execution, call)
             execution.check()
             if (exchange != null) value = exchange(value, exchange, execution)
@@ -346,13 +346,27 @@ object Behaviors {
         private fun cacheKey(type: String, method: String, arguments: Array<Any?>, indices: IntArray, policy: Policy, execution: Execution, operation: String): String {
             val selected = indices.map { if (it !in arguments.indices) fail("cache-key"); copy(arguments[it], 4096) }
             val immutable = copy(selected, 4096)
+            allowCache(record("operation" to operation, "cache" to policy.name, "type" to type, "method" to method, "keyArguments" to immutable), policy, execution)
+            return encode(copy(listOf(options.partition, policy.name, MODULE, type, method, immutable), 4096))
+        }
+        private fun allowCache(call: Map<String, Any?>, policy: Policy, execution: Execution) {
+            if (configuration.authorize == null && builtinCache(policy.name)) return
             val authorize = configuration.authorize ?: fail("authorization")
-            val call = record("operation" to operation, "cache" to policy.name, "type" to type, "method" to method, "keyArguments" to immutable)
             val allowed = try { authorize.allow(call, execution) } catch (_: RuntimeException) { fail("authorization") }
             execution.check()
             if (!allowed) fail("authorization")
-            return encode(copy(listOf(options.partition, policy.name, MODULE, type, method, immutable), 4096))
         }
+        private fun allowEntity(command: Map<String, Any?>, entity: Entity, execution: Execution) {
+            if (configuration.authorizeEntity == null && builtinEntities(entity.adapter)) return
+            val authorize = configuration.authorizeEntity ?: fail("authorization")
+            val allowed = try { authorize.allow(command, execution) } catch (_: RuntimeException) { fail("authorization") }
+            execution.check()
+            if (!allowed) fail("authorization")
+        }
+        private fun cacheAdapter(name: String): CacheAdapter = configuration.caches[name] ?: behaviorBuiltinCache(name) ?: fail("cache-adapter")
+        private fun entityAdapter(name: String): EntityAdapter = configuration.entities[name] ?: behaviorBuiltinEntities(name) ?: fail("entity-adapter")
+        private fun builtinCache(name: String): Boolean = name !in configuration.caches && behaviorBuiltinCache(name) != null
+        private fun builtinEntities(name: String): Boolean = name !in configuration.entities && behaviorBuiltinEntities(name) != null
         fun evict(type: String, method: String, arguments: Array<Any?>) {
             operation { execution ->
                 __EVICTIONS__
@@ -365,10 +379,8 @@ object Behaviors {
             val joined = transaction
             val command = map(copy(if (joined == null) record("operation" to "query", "entity" to entity.name, "table" to entity.table, "idField" to entity.id, "query" to query)
                 else record("operation" to "query", "entity" to entity.name, "table" to entity.table, "idField" to entity.id, "query" to query, "transaction" to joined), 1048576))
-            val authorize = configuration.authorizeEntity ?: fail("authorization")
-            val allowed = try { authorize.allow(command, execution) } catch (_: RuntimeException) { fail("authorization") }
-            execution.check(); if (!allowed) fail("authorization")
-            val adapter = configuration.entities[entity.adapter] ?: fail("entity-adapter")
+            allowEntity(command, entity, execution)
+            val adapter = entityAdapter(entity.adapter)
             val raw = try { adapter.execute(command, execution) } catch (_: RuntimeException) { fail("entity-adapter") }
             execution.check()
             val result = copy(raw, 1048576)
@@ -399,7 +411,7 @@ object Behaviors {
             catch (error: Failure) { throw error } catch (_: RuntimeException) { fail("http-adapter") }
         }
         internal fun persist(entity: Entity, operation: String, key: String, value: Any?): Any? = operation { execution ->
-            val adapter = configuration.entities[entity.adapter] ?: fail("entity-adapter")
+            val adapter = entityAdapter(entity.adapter)
             val joined = transaction
             val command = if (joined == null) record("operation" to operation, "entity" to entity.name, "table" to entity.table, "idField" to entity.id, key to value)
                 else record("operation" to operation, "entity" to entity.name, "table" to entity.table, "idField" to entity.id, key to value, "transaction" to joined)
