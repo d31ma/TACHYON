@@ -26,7 +26,7 @@ impl<'r, 'a> IndentedMembers<'r, 'a> {
 
     fn read_member(&mut self, at: usize) -> usize {
         let is_method = (self.words.text(at) == "def")
-            & (self.words.column(at) > 0)
+            & (self.indent(at) > 0)
             & !self.words.after_member_access(at);
         if !is_method {
             return at + 1;
@@ -56,10 +56,10 @@ impl<'r, 'a> IndentedMembers<'r, 'a> {
             .find_at_depth(at + 2, self.words.depth(at), &[":"])
             .unwrap_or(at + 1);
         let start = colon + 1;
-        start
-            ..self
-                .words
-                .block_end(start, self.words.column(at))
-                .max(start)
+        start..self.words.block_end(start, self.indent(at)).max(start)
+    }
+
+    fn indent(&self, at: usize) -> usize {
+        self.words.column(self.words.line_begin(at))
     }
 }

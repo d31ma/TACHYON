@@ -56,7 +56,7 @@ fn write_basket_roles(root: &Path, constructor: &str, fields: &str) {
     write(
         root,
         "client/helpers/PricingHelper.js",
-        "@Helper()\nclass PricingHelper {\nprice(items) { return items.length; }\n}",
+        "@Helper()\nclass PricingHelper {\n_price(items) { return items.length; }\n}",
     );
     write(
         root,
@@ -141,7 +141,7 @@ async fn discovered_roles_preserve_handler_routing_and_captured_execution() {
     write(
         root.path(),
         "server/controllers/MoneyController.js",
-        "@RequestRoute(\"/money\")\n@Public\n@NeedsAll()\nclass MoneyController {\n static otherService;\n offset = 0;\n moneyService;\n @GetRoute\n getMoney() { return {amount:this.moneyService.amount() + this.offset}; }\n }",
+        "@RequestRoute(\"/money\")\n@Public\n@NeedsAll()\nclass MoneyController {\n static otherService;\n _offset = 0;\n moneyService;\n @GetRoute\n getMoney() { return {amount:this.moneyService.amount() + this._offset}; }\n }",
     );
     let project = ProjectDiscovery::discover(root.path()).expect("discovered roles");
     assert_eq!(project.route_graph().routes().len(), 1);

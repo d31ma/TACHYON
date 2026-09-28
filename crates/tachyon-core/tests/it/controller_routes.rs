@@ -74,7 +74,7 @@ export {}
     const JAVASCRIPT: &str = r#"@RequestRoute("/orders")
 @Public
 class OrdersController {
-  static SECRET_ORDER = 4
+  static _SECRET_ORDER = 4
 
   @GetRoute
   getOrders() {
@@ -112,7 +112,7 @@ class OrdersController {
   }
 
   #orderFor(id) {
-    if (id === OrdersController.SECRET_ORDER) return { name: 'lamp', PRIVATE_SECRET: 'not exposed' }
+    if (id === OrdersController._SECRET_ORDER) return { name: 'lamp', PRIVATE_SECRET: 'not exposed' }
     return { count: id }
   }
 

@@ -34,7 +34,7 @@ impl DesignRule {
         "visibility.private_when_unused",
         "types.every_member",
     ];
-    const ON_BY_DEFAULT: [bool; 6] = [true, true, true, true, false, false];
+    const ON_BY_DEFAULT: [bool; 6] = [true, true, true, true, true, false];
 
     pub(super) const fn code(self) -> u16 {
         Self::CODES[self as usize]

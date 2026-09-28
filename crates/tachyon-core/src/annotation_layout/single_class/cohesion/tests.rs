@@ -624,11 +624,15 @@ fn discovery_refuses_a_branching_service_when_the_check_is_on() {
         "client/services/ItemService.js",
         "@Service\nexport default class ItemService {\n  load(items) {\n    return items || []\n  }\n}\n",
     );
+    write(
+        "client/manifest.json",
+        r#"{"tac":{"visibility":{"check":false}}}"#,
+    );
     let on_by_default = crate::ProjectDiscovery::discover(root.path()).map(|_| ());
     assert_eq!(on_by_default.is_ok(), !RuleSwitch::ON_BY_DEFAULT);
     write(
         "client/manifest.json",
-        r#"{"tac":{"cohesion":{"check":true}}}"#,
+        r#"{"tac":{"cohesion":{"check":true},"visibility":{"check":false}}}"#,
     );
     let refused = crate::ProjectDiscovery::discover(root.path()).expect_err("TY1314");
     assert!(
@@ -639,7 +643,7 @@ fn discovery_refuses_a_branching_service_when_the_check_is_on() {
     );
     write(
         "client/manifest.json",
-        r#"{"tac":{"cohesion":{"check":false}}}"#,
+        r#"{"tac":{"cohesion":{"check":false},"visibility":{"check":false}}}"#,
     );
     assert!(crate::ProjectDiscovery::discover(root.path()).is_ok());
 }
@@ -673,4 +677,12 @@ fn promise_callbacks_and_forwarded_blocks_are_not_decisions() {
         messages("server/controllers/TicketController.rb", ruby),
         Vec::<String>::new()
     );
+}
+
+#[test]
+fn a_python_async_method_holds_its_whole_body() {
+    let source = "class ItemService:\n    async def load(self, items):\n        first = items[0]\n        if first:\n            return first\n        return None\n\n    async def _pick(self, items):\n        chosen = items[-1]\n        return chosen\n";
+    let found = messages("server/services/ItemService.py", source);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].starts_with("Public method `load`"), "{found:?}");
 }

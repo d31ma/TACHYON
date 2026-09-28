@@ -1,6 +1,7 @@
 use super::MigrationFix;
 use super::edits::TextEdit;
 use super::type_comments_fix::TypeCommentsFix;
+use super::visibility_off::VisibilityOff;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -43,7 +44,7 @@ impl TypeCases {
         "server/services/NoteService.py",
         "@Service()\nclass NoteService:\n    def shown(self, value):\n        return value\n",
     );
-    const SERVER_ON: &'static str = r#"{"types":{"check":true}}"#;
+    const SERVER_ON: &'static str = r#"{"types":{"check":true},"visibility":{"check":false}}"#;
 
     fn write(root: &Path, relative: &str, contents: &str) {
         let path = root.join(relative);
@@ -58,6 +59,7 @@ impl TypeCases {
     fn project(settings: Option<&str>) -> TempDir {
         let project = TempDir::new().expect("project");
         let root = project.path();
+        VisibilityOff::write(root);
         for (relative, before, _) in Self::CHANGED {
             Self::write(root, relative, before);
         }

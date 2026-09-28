@@ -1048,7 +1048,7 @@ export default class Chat {
         write_file(
             root.path(),
             "client/services/DocumentationService.js",
-            "@Service()\nexport default class DocumentationService {\n  title = 'Docs'\n}\n",
+            "@Service()\nexport default class DocumentationService {\n  _title = 'Docs'\n}\n",
         );
         let result = build_default(root.path())?;
         Ok(fs::read_to_string(result.output_directory().join("index.html")).expect("Tac"))
@@ -1514,7 +1514,7 @@ export default class Chat {
             root.path(),
             "client/services/TypedService.ts",
             "@Service()\nexport default class TypedService {\n  a: number = 1\n\
-             \x20 twice(value: number): number { return (value as number) * 2 }\n}\n",
+             \x20 private twice(value: number): number { return (value as number) * 2 }\n}\n",
         );
 
         let result = build_default(root.path()).expect("build");

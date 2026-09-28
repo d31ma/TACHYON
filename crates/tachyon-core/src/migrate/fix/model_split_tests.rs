@@ -1,4 +1,5 @@
 use super::MigrationFix;
+use super::visibility_off::VisibilityOff;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -10,6 +11,7 @@ fn project(files: &[(&str, &str)]) -> TempDir {
         fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         fs::write(path, contents).expect("source");
     }
+    VisibilityOff::write(project.path());
     project
 }
 

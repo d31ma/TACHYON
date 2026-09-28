@@ -551,6 +551,10 @@ fn migrate_fix_applies_every_suggestion() -> Result<(), Box<dyn std::error::Erro
     std::fs::create_dir_all(root.path().join("server/services"))?;
     let source = js("    if (a > b) {\n      return true;\n    }\n    return false;\n");
     std::fs::write(root.path().join("server/services/Shop.js"), &source)?;
+    std::fs::write(
+        root.path().join("server/application.json"),
+        r#"{"visibility":{"check":false}}"#,
+    )?;
     let plan = crate::migrate::MigrationFix::plan(root.path())?;
     plan.write(root.path())?;
     let written = std::fs::read_to_string(root.path().join("server/services/Shop.js"))?;

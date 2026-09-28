@@ -52,12 +52,12 @@ class ProductChecksHelper {
                 "found", repository.find(java.util.Map.of()), "deleted", repository.delete(ONE));
         }
     }
-    static void expect(boolean condition, String message) {
+    private static void expect(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError(message);
         }
     }
-    static Behaviors.Failure expectFailure(String code, String missingMessage, Runnable call) {
+    private static Behaviors.Failure expectFailure(String code, String missingMessage, Runnable call) {
         try {
             call.run();
         } catch (Behaviors.Failure failure) {
@@ -68,7 +68,7 @@ class ProductChecksHelper {
         }
         throw new AssertionError(missingMessage);
     }
-    static void checkConfiguration() {
+    private static void checkConfiguration() {
         java.util.Map<String, Object> settings = Behaviors.properties("Settings", java.util.Map.of("YON_APP_TITLE", PRODUCTS, "YON_APP_COUNT", "12"));
         boolean settingsMatch = settings.get(TITLE).equals(PRODUCTS) && settings.get("count").equals(12L) && settings.get("enabled").equals(false) && settings.get("ratio").equals(1.5);
         expect(settingsMatch, "configuration properties");
@@ -78,7 +78,7 @@ class ProductChecksHelper {
         Behaviors.Options selected = new Behaviors.Options(TENANT, new Behaviors.Signal(), 10000, java.util.List.of("development"), java.util.Map.of("YON_ENABLED", "true"));
         Behaviors.create(SELECTED_SETUP, selected).close();
     }
-    static void checkValidation(CatalogClient catalog) {
+    private static void checkValidation(CatalogClient catalog) {
         Object validInput = java.util.Map.of(ID, ONE, NAME, "é", "price", PRICE, "unknown", true);
         Validator validator = new Validator();
         expect(validator.accept(validInput).equals(validInput) && validator.calls == 1, "standalone Valid");
@@ -93,7 +93,7 @@ class ProductChecksHelper {
         expect(catalog.validCalls == 1, "invalid input reached HTTP descriptor");
         expect(Behaviors.map(catalog.checkedRemote(validInput)).get(PATH).equals("/validated"), "Valid HttpExchange pipeline");
     }
-    static void checkCachePut(CatalogClient catalog, java.util.Map<String, Object> page) {
+    private static void checkCachePut(CatalogClient catalog, java.util.Map<String, Object> page) {
         Object updated = catalog.update("replacement", page);
         expect(updated.equals(catalog.list(page)) && catalog.calls == EXPECTED_CALLS && catalog.mutations == EXPECTED_CALLS, "CachePut target mapping");
         RuntimeAdaptersSetup.allow = false;
@@ -103,42 +103,42 @@ class ProductChecksHelper {
         expectFailure(JSON_VALUE, "expected bounded JSON", () -> catalog.invalid(page));
         expect(updated.equals(catalog.list(page)), "invalid result changed cache");
     }
-    static void checkRemoteCachePut(CatalogClient catalog, java.util.Map<String, Object> page) {
+    private static void checkRemoteCachePut(CatalogClient catalog, java.util.Map<String, Object> page) {
         Object exchanged = catalog.remoteUpdate(page);
         expect(exchanged.equals(catalog.list(page)) && Behaviors.map(exchanged).get(PATH).equals("/products"), "HTTP CachePut");
     }
-    static void checkDefaultPage(CatalogClient catalog) {
+    private static void checkDefaultPage(CatalogClient catalog) {
         Object defaultUpdated = catalog.update("default", java.util.Map.of());
         expect(defaultUpdated.equals(catalog.list(java.util.Map.of())), "raw mutation Pageable mapping");
     }
-    static void checkDeclaredExchange(CatalogClient catalog) {
+    private static void checkDeclaredExchange(CatalogClient catalog) {
         java.util.Map<String, Object> declared = Behaviors.map(catalog.search(PAGE_NUMBER));
         expect(Behaviors.map(declared.get(QUERY)).get(PAGE).equals(PAGE_NUMBER), "declared HttpExchange");
         expect(Behaviors.map(catalog.find(PRODUCT_ID)).get(PATH).equals("/products/7"), "path variable");
     }
-    static void checkResilience(Behaviors.Context context) {
+    private static void checkResilience(Behaviors.Context context) {
         Resilient resilient = new Resilient(context);
         resilient.flaky();
         expect(resilient.attempts == ATTEMPTS, "Retryable contract");
         expect(resilient.bounded(OK).equals(OK), "ConcurrencyLimit contract");
     }
-    static java.util.Map<String, Object> firstQuery(Object rows) {
+    private static java.util.Map<String, Object> firstQuery(Object rows) {
         Object firstRow = ((java.util.List<?>)rows).get(0);
         return Behaviors.map(Behaviors.map(firstRow).get(QUERY));
     }
-    static void checkDerivedQueries(ProductQueriesStore queries) {
+    private static void checkDerivedQueries(ProductQueriesStore queries) {
         Object rows = queries.findByStatus(ACTIVE);
         java.util.Map<String, Object> query = firstQuery(rows);
         boolean firstPage = Behaviors.map(query.get(PAGE)).get(OFFSET).equals(0L);
         expect(firstPage && Behaviors.map(((java.util.List<?>)query.get("where")).get(0)).get("value").equals(ACTIVE), "derived query bindings");
         expect(queries.countByStatus(ACTIVE).equals(1L) && queries.existsById(ONE).equals(true), "derived result shape");
     }
-    static void checkExplicitQuery(ProductQueriesStore queries, java.util.Map<String, Object> page) {
+    private static void checkExplicitQuery(ProductQueriesStore queries, java.util.Map<String, Object> page) {
         Object explicit = queries.available(java.util.List.of(ACTIVE), page);
         java.util.Map<String, Object> explicitQuery = firstQuery(explicit);
         expect(Behaviors.map(explicitQuery.get(PAGE)).get(OFFSET).equals(10L), "explicit query pagination");
     }
-    static void checkMapping(Behaviors.Context context) {
+    private static void checkMapping(Behaviors.Context context) {
         ProductSummaries summaries = new ProductSummaries(context);
         java.util.Map<String, Object> product = java.util.Map.of("detail", java.util.Map.of(ID, PRODUCT_ID), NAME, ANVIL, "extra", "dropped");
         java.util.Map<String, Object> summary = Behaviors.map(summaries.toSummary(product));
@@ -148,7 +148,7 @@ class ProductChecksHelper {
         expect(fieldsMatch, "mapping fields");
         expectFailure(JSON_VALUE, "a mapping reads one JSON object argument", () -> summaries.toSummary(java.util.List.of()));
     }
-    static void checkEntityAuthorization(ProductQueriesStore queries) {
+    private static void checkEntityAuthorization(ProductQueriesStore queries) {
         RuntimeAdaptersSetup.allow = false;
         expectFailure(AUTHORIZATION, "expected entity authorization", () -> queries.existsById(ONE));
         RuntimeAdaptersSetup.allow = true;

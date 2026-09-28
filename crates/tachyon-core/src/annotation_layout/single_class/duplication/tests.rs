@@ -178,7 +178,7 @@ fn discovery_refuses_duplicated_code_until_the_realm_opts_out() {
     write(
         root.path(),
         "client/manifest.json",
-        r#"{"tac":{"duplication":{"check":false},"constants":{"check":false}}}"#,
+        r#"{"tac":{"duplication":{"check":false},"constants":{"check":false},"visibility":{"check":false}}}"#,
     );
     let allowed = crate::ProjectDiscovery::discover(root.path()).map(|_| ());
     assert!(allowed.is_ok(), "{allowed:?}");

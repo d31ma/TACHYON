@@ -37,26 +37,26 @@ impl Project {
 @Public
 @needs_all()
 class OrdersController:
-    PRIVATE_MESSAGE: str = 'PRIVATE_ERROR_SENTINEL'
+    _PRIVATE_MESSAGE: str = 'PRIVATE_ERROR_SENTINEL'
     orders: OrdersService
     @GetRoute
     def get_order(self) -> Problem:
-        raise OrderNotFound(self.PRIVATE_MESSAGE)
+        raise OrderNotFound(self._PRIVATE_MESSAGE)
     @GetRoute("/gone")
     def get_gone(self) -> Problem:
-        raise OrderGone(self.PRIVATE_MESSAGE)
+        raise OrderGone(self._PRIVATE_MESSAGE)
     @GetRoute("/service")
     def get_service(self) -> Problem:
         return self.orders.find()
     @GetRoute("/unknown")
     def get_unknown(self) -> Problem:
-        raise ValueError(self.PRIVATE_MESSAGE)
+        raise ValueError(self._PRIVATE_MESSAGE)
     @GetRoute("/broken")
     def get_broken(self) -> Problem:
-        raise OrderBroken(self.PRIVATE_MESSAGE)
+        raise OrderBroken(self._PRIVATE_MESSAGE)
     @GetRoute("/invalid")
     def get_invalid(self) -> Problem:
-        raise OrderInvalid(self.PRIVATE_MESSAGE)
+        raise OrderInvalid(self._PRIVATE_MESSAGE)
 "#,
             ),
             (
@@ -75,7 +75,7 @@ class StatusController:
                 r"from models import Problem
 @ErrorHandler
 class OrdersErrorHandler:
-    PRIVATE_MESSAGE: str = 'PRIVATE_ERROR_SENTINEL'
+    _PRIVATE_MESSAGE: str = 'PRIVATE_ERROR_SENTINEL'
     @HandlesError
     @ResponseStatus(404)
     def missing(self, error: OrderNotFound) -> Problem:
@@ -87,11 +87,11 @@ class OrdersErrorHandler:
     @HandlesError
     @ResponseStatus(503)
     def broken(self, error: OrderBroken, request) -> Problem:
-        raise ValueError(self.PRIVATE_MESSAGE)
+        raise ValueError(self._PRIVATE_MESSAGE)
     @HandlesError
     @ResponseStatus(422)
     def invalid(self, error: OrderInvalid) -> Problem:
-        return {'wrong': self.PRIVATE_MESSAGE}
+        return {'wrong': self._PRIVATE_MESSAGE}
 ",
             ),
         ],

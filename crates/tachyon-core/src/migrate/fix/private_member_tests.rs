@@ -1,4 +1,5 @@
 use super::MigrationFix;
+use super::visibility_off::VisibilityOff;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -116,6 +117,7 @@ fn a_realm_that_opts_out_keeps_its_public_members() {
     let root = project.path();
     let (relative, before, _) = PrivateCases::CHANGED[3];
     PrivateCases::write(root, relative, before);
+    VisibilityOff::write(root);
     MigrationFix::plan(root)
         .expect("plan")
         .write(root)

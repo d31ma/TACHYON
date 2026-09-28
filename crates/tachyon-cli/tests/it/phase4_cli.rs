@@ -36,7 +36,7 @@ fn assert_contract(name: &str, instance: &serde_json::Value) {
 fn write_phase4_project(project: &Path) {
     write(
         &project.join("client/manifest.json"),
-        r#"{"name":"PhaseFour","start_url":"/","tac":{"application":{"id":"dev.tachyon.phase-four","version":"0.0.1"}}}"#,
+        r#"{"name":"PhaseFour","start_url":"/","tac":{"application":{"id":"dev.tachyon.phase-four","version":"0.0.1"},"visibility":{"check":false}}}"#,
     );
     write(&project.join("client/pages/tac.html"), "<phase-four />");
     write(
@@ -172,7 +172,7 @@ fn write_multiple_native_services(project: &tempfile::TempDir) {
             &project
                 .path()
                 .join(format!("client/components/native/{component}/tac.html")),
-            &format!("<main>{{{instance}.count}}</main>"),
+            &format!("<main>{{{instance}.count}} {{{instance}.doubled()}}</main>"),
         );
         write(
             &project

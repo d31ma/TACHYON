@@ -183,7 +183,7 @@ impl Project {
     const ROLE_ADMIN: &'static str = "server/roles/Admin.js";
     const ROLE_EDITOR: &'static str = "server/roles/Editor.js";
     const ORDERS: &'static str = "server/controllers/OrdersController.py";
-    const ORDERS_SOURCE: &'static str = "from pathlib import Path\n\n\n@request_route(\"/orders\")\n@signed_in\nclass OrdersController:\n    DELETED: str = \"deleted\"\n    @get_route\n    @public\n    def get_orders(self):\n        return {\"list\": \"public\"}\n\n    @post_route\n    def post_order(self):\n        Path(\"MARKERS/posted.marker\").write_text(\"posted\")\n        return {\"created\": True}\n\n    @delete_route\n    @allow(Admin)\n    def delete_orders(self):\n        Path(\"MARKERS/deleted.marker\").write_text(self.DELETED)\n        return {self.DELETED: True}\n";
+    const ORDERS_SOURCE: &'static str = "from pathlib import Path\n\n\n@request_route(\"/orders\")\n@signed_in\nclass OrdersController:\n    _DELETED: str = \"deleted\"\n    @get_route\n    @public\n    def get_orders(self):\n        return {\"list\": \"public\"}\n\n    @post_route\n    def post_order(self):\n        Path(\"MARKERS/posted.marker\").write_text(\"posted\")\n        return {\"created\": True}\n\n    @delete_route\n    @allow(Admin)\n    def delete_orders(self):\n        Path(\"MARKERS/deleted.marker\").write_text(self._DELETED)\n        return {self._DELETED: True}\n";
     const JAVASCRIPT_ORDERS: &'static str = "@RequestRoute(\"/orders\")\n@Allow(Admin)\nexport class OrdersController {\n  @GetRoute\n  getOrders() {\n    return { list: \"admins\" };\n  }\n}\n";
 
     fn write(root: &Path, relative: &str, source: &str) {

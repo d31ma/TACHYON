@@ -1,29 +1,33 @@
 pub(super) struct AnnotationMarks;
 
 impl AnnotationMarks {
-    const MARKS: [(&'static str, &'static str); 5] = [
-        ("rs", "#["),
-        ("php", "#["),
-        ("rb", "#["),
-        ("cs", "["),
-        ("go", "// @"),
+    const MARKS: [(&'static str, &'static [&'static str]); 5] = [
+        ("rs", &["#["]),
+        ("php", &["#["]),
+        ("rb", &["#["]),
+        ("cs", &["["]),
+        ("go", &["// @", "#["]),
     ];
-    const AT: &'static str = "@";
+    const AT: &'static [&'static str] = &["@"];
     const NEWLINE: char = '\n';
 
     pub(super) fn precede(text: &str, start: usize, extension: &str) -> bool {
-        let mark = Self::mark(extension);
+        let marks = Self::marks(extension);
         let line_start = Self::line_start(text, start);
         let head = text[line_start..start].trim_start();
-        let previous = Self::previous_line(text, line_start);
-        head.starts_with(mark) | previous.trim_start().starts_with(mark)
+        let previous = Self::previous_line(text, line_start).trim_start();
+        Self::starts_with_mark(head, marks) | Self::starts_with_mark(previous, marks)
     }
 
-    fn mark(extension: &str) -> &'static str {
+    fn marks(extension: &str) -> &'static [&'static str] {
         Self::MARKS
             .iter()
             .find(|(language, _)| *language == extension)
-            .map_or(Self::AT, |(_, mark)| mark)
+            .map_or(Self::AT, |(_, marks)| marks)
+    }
+
+    fn starts_with_mark(line: &str, marks: &[&str]) -> bool {
+        marks.iter().any(|mark| line.starts_with(mark))
     }
 
     fn line_start(text: &str, at: usize) -> usize {

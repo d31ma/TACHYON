@@ -42,16 +42,16 @@ class OrdersService {
 @RequestRoute("/orders")
 @Public
 class OrdersController {
-  static const String privateMessage = 'PRIVATE_ERROR_SENTINEL';
+  static const String _privateMessage = 'PRIVATE_ERROR_SENTINEL';
   @Needs
   final OrdersService orders;
   @GetRoute
   Problem getOrder() {
-    throw OrderNotFound(privateMessage);
+    throw OrderNotFound(_privateMessage);
   }
   @GetRoute("/gone")
   Future<Problem> getGone() async {
-    throw OrderGone(privateMessage);
+    throw OrderGone(_privateMessage);
   }
   @GetRoute("/service")
   Future<Problem> getService() {
@@ -59,15 +59,15 @@ class OrdersController {
   }
   @GetRoute("/unknown")
   Problem getUnknown() {
-    throw StateError(privateMessage);
+    throw StateError(_privateMessage);
   }
   @GetRoute("/broken")
   Problem getBroken() {
-    throw OrderBroken(privateMessage);
+    throw OrderBroken(_privateMessage);
   }
   @GetRoute("/invalid")
   Problem getInvalid() {
-    throw OrderInvalid(privateMessage);
+    throw OrderInvalid(_privateMessage);
   }
 }
 "#,

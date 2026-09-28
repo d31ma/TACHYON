@@ -145,6 +145,11 @@ fn tac_annotations_compile_without_executing_configuration_or_rendering_views() 
         "<main>{pageView.value}</main>",
     );
     authored_behaviors::write(root.path(), "js", "client", "js");
+    write(
+        root.path(),
+        "client/manifest.json",
+        r#"{"tac":{"visibility":{"check":false}}}"#,
+    );
     let source = "@Service()\nexport default class PageViewService {\n value = 'client';\n @OnStart()\n initialize() { throw new Error('build executed client'); }\n}";
     write(root.path(), "client/services/PageViewService.js", source);
     let project = ProjectDiscovery::discover(root.path()).expect("discovery");

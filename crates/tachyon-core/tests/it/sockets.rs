@@ -33,8 +33,8 @@ impl ChatProject {
 @SocketRoute('/chat')
 @Public
 export class ChatController {
-  static readonly ALL = 'all'
-  count = 0
+  private static readonly ALL = 'all'
+  private count = 0
 
   @OnOpen
   onOpen(session: any) {
@@ -90,9 +90,9 @@ export class ChatController {
 @socket_route("/chat")
 @public
 class ChatController:
-    ALL = "all"
+    _ALL = "all"
     def __init__(self):
-        self.count = 0
+        self._count = 0
 
     @on_open
     def on_open(self, session):
@@ -100,12 +100,12 @@ class ChatController:
 
     @on_message
     def on_message(self, session, message: ChatMessage):
-        self.count += 1
+        self._count += 1
         self._send_hello(self._peers_for(session, message))
         self._answer(session, message)
 
     def _peers_for(self, session, message):
-        if message.text != self.ALL:
+        if message.text != self._ALL:
             return []
         return session.open_sessions()
 
@@ -117,9 +117,9 @@ class ChatController:
         match message.text:
             case "fail":
                 raise RuntimeError("secret-canary")
-            case self.ALL:
+            case self._ALL:
                 return
-        session.send(ChatMessage(f"{message.text} {self.count}"))
+        session.send(ChatMessage(f"{message.text} {self._count}"))
 
     @on_error
     def on_error(self, session, error):
@@ -583,8 +583,8 @@ impl ChatController {
 @SocketRoute("/chat")
 @Public
 class ChatController {
-  static const all = 'all';
-  int count = 0;
+  static const _all = 'all';
+  int _count = 0;
 
   @OnOpen
   Future<void> onOpen(SocketSession session) async {
@@ -593,13 +593,13 @@ class ChatController {
 
   @OnMessage
   Future<void> onMessage(SocketSession session, ChatMessage message) async {
-    count += 1;
+    _count += 1;
     await _sendHello(await _peersFor(session, message));
     await _answer(session, message);
   }
 
   Future<List<SocketPeer>> _peersFor(SocketSession session, ChatMessage message) async {
-    if (message.text != all) return [];
+    if (message.text != _all) return [];
     return session.openSessions();
   }
 
@@ -613,10 +613,10 @@ class ChatController {
     switch (message.text) {
       case 'fail':
         throw StateError('secret-canary');
-      case all:
+      case _all:
         return;
     }
-    await session.send(ChatMessage('${message.text} $count'));
+    await session.send(ChatMessage('${message.text} $_count'));
   }
 
   @OnError

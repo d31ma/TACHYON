@@ -1,4 +1,5 @@
 use super::MigrationFix;
+use super::visibility_off::VisibilityOff;
 use std::fs;
 use std::path::Path;
 
@@ -24,6 +25,7 @@ fn write(root: &Path, relative: &str, source: &str) {
 }
 
 fn converted(root: &Path, relative: &str) -> String {
+    VisibilityOff::write(root);
     let planned = MigrationFix::plan(root).expect("plan");
     planned.write(root).expect("write");
     let again = MigrationFix::plan(root).expect("second plan");
@@ -68,6 +70,7 @@ fn javascript_and_typescript_events_become_models() {
 #[test]
 fn typed_languages_convert_listeners_and_report_what_needs_a_person() {
     let project = tempfile::tempdir().expect("project");
+    VisibilityOff::write(project.path());
     write(
         project.path(),
         "server/models/OrderPlaced.java",

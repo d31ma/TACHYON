@@ -72,6 +72,7 @@ impl CoverageProject {
     const YON_FAKE_LANGUAGES: [(&'static str, &'static str); 3] =
         [("js", "bun"), ("ts", "bun"), ("rb", "ruby")];
     const PREVIEW_WAIT_SECONDS: u64 = 120;
+    const TEST_ONLY_SERVICE_SETTINGS: &'static str = r#"{"visibility":{"check":false}}"#;
 
     fn ty() -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_ty"));
@@ -117,7 +118,12 @@ impl CoverageProject {
         std::fs::write(path, source).expect("source");
     }
 
-    fn page(root: &Path) {
+    fn preview_files(root: &Path) {
+        Self::write(
+            root,
+            "server/application.json",
+            Self::TEST_ONLY_SERVICE_SETTINGS,
+        );
         Self::write(root, "client/pages/tac.html", "<counter-heading />\n");
         Self::write(
             root,
@@ -556,7 +562,7 @@ fn preview_shows_a_method_no_case_called_after_running_the_tests_itself() {
     }
     let root = tempfile::tempdir().expect("project");
     case.project(root.path(), case.named);
-    CoverageProject::page(root.path());
+    CoverageProject::preview_files(root.path());
     let refused = CoverageProject::preview(root.path());
     assert!(!refused.passed, "{}", refused.report);
     assert!(root.path().join(".tachyon/coverage/calls.json").is_file());
@@ -575,7 +581,7 @@ fn serve_starts_without_running_tests_or_writing_a_coverage_record() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
     case.project(root.path(), case.named);
-    CoverageProject::page(root.path());
+    CoverageProject::preview_files(root.path());
     let server = RunningServer::start(root.path(), "serve");
     server.ready("Tachyon server ready at http://127.0.0.1:");
     assert!(!root.path().join(".tachyon/coverage/calls.json").exists());
@@ -586,7 +592,7 @@ fn preview_records_test_calls_before_announcing_readiness_as_its_first_line() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
     case.project(root.path(), case.called);
-    CoverageProject::page(root.path());
+    CoverageProject::preview_files(root.path());
     let server = RunningServer::start(root.path(), "preview");
     server.ready("Tachyon preview ready at http://127.0.0.1:");
     let record = tachyon_core::method_coverage::RecordedCalls::read(root.path()).expect("record");
@@ -601,7 +607,7 @@ fn preview_reuses_a_current_call_record_without_rewriting_it() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
     case.project(root.path(), case.called);
-    CoverageProject::page(root.path());
+    CoverageProject::preview_files(root.path());
     let first = RunningServer::start(root.path(), "preview");
     first.ready("Tachyon preview ready at http://127.0.0.1:");
     drop(first);
@@ -626,7 +632,7 @@ fn preview_rechecks_stale_calls_and_shows_newly_uncovered_methods() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
     case.project(root.path(), case.called);
-    CoverageProject::page(root.path());
+    CoverageProject::preview_files(root.path());
     let first = RunningServer::start(root.path(), "preview");
     first.ready("Tachyon preview ready at http://127.0.0.1:");
     drop(first);
@@ -653,7 +659,7 @@ fn preview_shows_failed_tests_even_when_they_called_every_method() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
     case.project(root.path(), "this.construct(CounterService).total() === 2");
-    CoverageProject::page(root.path());
+    CoverageProject::preview_files(root.path());
     let refused = CoverageProject::preview(root.path());
     assert!(!refused.passed, "{}", refused.report);
     assert!(refused.report.contains("TY2020"), "{}", refused.report);
@@ -677,7 +683,7 @@ fn preview_does_not_accept_a_fresh_record_from_a_failed_explicit_test_run() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
     case.project(root.path(), "this.construct(CounterService).total() === 2");
-    CoverageProject::page(root.path());
+    CoverageProject::preview_files(root.path());
     let tested = CoverageProject::test(root.path());
     assert!(!tested.passed, "{}", tested.report);
     assert!(tested.report.contains("TY2020"), "{}", tested.report);

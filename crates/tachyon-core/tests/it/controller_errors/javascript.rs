@@ -38,26 +38,26 @@ class OrdersService {
 @NeedsAll()
 class OrdersController {
   /** @type {string} */
-  static PRIVATE_MESSAGE = 'PRIVATE_ERROR_SENTINEL';
+  static _PRIVATE_MESSAGE = 'PRIVATE_ERROR_SENTINEL';
   ordersService;
   /** @returns {Problem} */
   @GetRoute
-  getOrder() { throw new OrderNotFound(OrdersController.PRIVATE_MESSAGE); }
+  getOrder() { throw new OrderNotFound(OrdersController._PRIVATE_MESSAGE); }
   /** @returns {Problem} */
   @GetRoute("/gone")
-  getGone() { throw new OrderGone(OrdersController.PRIVATE_MESSAGE); }
+  getGone() { throw new OrderGone(OrdersController._PRIVATE_MESSAGE); }
   /** @returns {Problem} */
   @GetRoute("/service")
   getService() { return this.ordersService.find(); }
   /** @returns {Problem} */
   @GetRoute("/unknown")
-  getUnknown() { throw new TypeError(OrdersController.PRIVATE_MESSAGE); }
+  getUnknown() { throw new TypeError(OrdersController._PRIVATE_MESSAGE); }
   /** @returns {Problem} */
   @GetRoute("/broken")
-  getBroken() { throw new OrderBroken(OrdersController.PRIVATE_MESSAGE); }
+  getBroken() { throw new OrderBroken(OrdersController._PRIVATE_MESSAGE); }
   /** @returns {Problem} */
   @GetRoute("/invalid")
-  getInvalid() { throw new OrderInvalid(OrdersController.PRIVATE_MESSAGE); }
+  getInvalid() { throw new OrderInvalid(OrdersController._PRIVATE_MESSAGE); }
 }
 "#,
             ),
@@ -77,7 +77,7 @@ class StatusController {
                 r"@ErrorHandler
 class OrdersErrorHandler {
   /** @type {string} */
-  static PRIVATE_MESSAGE = 'PRIVATE_ERROR_SENTINEL';
+  static _PRIVATE_MESSAGE = 'PRIVATE_ERROR_SENTINEL';
   /**
    * @param {OrderNotFound} error
    * @returns {Problem}
@@ -99,14 +99,14 @@ class OrdersErrorHandler {
    */
   @HandlesError
   @ResponseStatus(503)
-  broken(error, request) { throw new TypeError(OrdersErrorHandler.PRIVATE_MESSAGE); }
+  broken(error, request) { throw new TypeError(OrdersErrorHandler._PRIVATE_MESSAGE); }
   /**
    * @param {OrderInvalid} error
    * @returns {Problem}
    */
   @HandlesError
   @ResponseStatus(422)
-  invalid(error) { return { wrong: OrdersErrorHandler.PRIVATE_MESSAGE }; }
+  invalid(error) { return { wrong: OrdersErrorHandler._PRIVATE_MESSAGE }; }
 }
 ",
             ),
@@ -128,15 +128,15 @@ impl MiddlewareProject {
 @Public
 class OrdersController {
   /** @type {string} */
-  static PRIVATE_MESSAGE = 'PRIVATE_ERROR_SENTINEL';
+  static _PRIVATE_MESSAGE = 'PRIVATE_ERROR_SENTINEL';
   /** @returns {Problem} */
   @GetRoute
-  getOrder() { throw new OrderNotFound(OrdersController.PRIVATE_MESSAGE); }
+  getOrder() { throw new OrderNotFound(OrdersController._PRIVATE_MESSAGE); }
   /** @returns {Problem} */
   @GetRoute("/later")
   async getLater() {
     await Promise.resolve();
-    throw new OrderNotFound(OrdersController.PRIVATE_MESSAGE);
+    throw new OrderNotFound(OrdersController._PRIVATE_MESSAGE);
   }
 }
 "#;

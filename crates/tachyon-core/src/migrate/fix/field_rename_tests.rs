@@ -1,4 +1,5 @@
 use super::MigrationFix;
+use super::visibility_off::VisibilityOff;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -68,6 +69,7 @@ impl RenameCases {
 fn injected_fields_get_the_language_case_with_their_uses_and_view_bindings() {
     let project = TempDir::new().expect("project");
     let root = project.path();
+    VisibilityOff::write(root);
     for (relative, before, _) in RenameCases::RENAMED {
         RenameCases::write(root, relative, before);
     }

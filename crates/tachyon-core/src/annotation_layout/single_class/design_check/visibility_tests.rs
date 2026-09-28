@@ -177,13 +177,31 @@ fn every_language_writes_its_own_private_form() {
 }
 
 #[test]
-fn the_visibility_rule_is_off_until_a_realm_turns_it_on() {
+fn the_visibility_rule_is_on_until_a_realm_turns_it_off() {
     assert!(
-        !VisibilityProject::built_codes(None).contains(&VisibilityProject::CODE),
-        "the rule starts off"
+        VisibilityProject::built_codes(None).contains(&VisibilityProject::CODE),
+        "the rule starts on"
     );
     assert!(
-        VisibilityProject::built_codes(Some(r#"{"visibility":{"check":true}}"#))
+        !VisibilityProject::built_codes(Some(r#"{"visibility":{"check":false}}"#))
             .contains(&VisibilityProject::CODE)
     );
+}
+
+#[test]
+fn a_python_async_method_keeps_its_locals_out_of_the_class_fields() {
+    let service = "@service\nclass HelpService:\n    async def shown(self) -> int:\n        total: int = 1\n        count = total + 1\n        return count\n";
+    let controller = "@request_route(\"/help\")\n@needs_all\nclass HelpController:\n    help_service: HelpService\n\n    @get_route\n    async def get_help(self) -> int:\n        return await self.help_service.shown()\n";
+    let files = [
+        ("server/services/HelpService.py", service),
+        ("server/controllers/HelpController.py", controller),
+    ];
+    assert_eq!(VisibilityProject::names(&files), Vec::<String>::new());
+}
+
+#[test]
+fn an_old_go_marker_keeps_a_method_public() {
+    let controller = "package main\n\n#[RequestRoute(\"/orders\")]\ntype OrdersController struct{}\n\n#[GetRoute(\"/{id}\"), ResponseStatus(201)]\nfunc (controller *OrdersController) GetOrder(id int) int {\n\treturn id\n}\n";
+    let files = [("server/controllers/OrdersController.go", controller)];
+    assert_eq!(VisibilityProject::names(&files), Vec::<String>::new());
 }

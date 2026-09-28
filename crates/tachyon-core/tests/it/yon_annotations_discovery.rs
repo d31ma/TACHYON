@@ -108,7 +108,7 @@ fn invalid_provider_graph_fails_without_running_application_code() {
 @Public
 @Needs(Missing)
 class ItemsController {
-  static loaded = (() => { throw new Error('discovery executed application code'); })();
+  static _loaded = (() => { throw new Error('discovery executed application code'); })();
   constructor(missing) { this.missing = missing; }
   @GetRoute()
   get() { return []; }
@@ -141,7 +141,7 @@ async fn discovery_and_bundle_never_construct_annotated_providers() {
 @RequestRoute("/")
 @Public
 class ItemsController {
-  static loaded = (() => { throw new Error('must only execute on invocation'); })();
+  static _loaded = (() => { throw new Error('must only execute on invocation'); })();
   constructor() { throw new Error('must not construct during build'); }
   @GetRoute()
   get() { return []; }
@@ -180,7 +180,7 @@ class ItemsController {
   constructor(catalog) { this.catalog = catalog; }
   @GetRoute()
   get(@FromPath id) { return {id, label: this.catalog.title()}; }
-  helper() { throw new Error('helper is not a route'); }
+  _helper() { throw new Error('helper is not a route'); }
 }
 "#,
     );
@@ -220,7 +220,7 @@ import { label } from '../shared/catalog.js';
 export class ItemsController {
   @GetRoute()
   get(@FromPath id) { return {id, label}; }
-  helper() { throw new Error('helper is not a route'); }
+  _helper() { throw new Error('helper is not a route'); }
 }
 "#,
     );

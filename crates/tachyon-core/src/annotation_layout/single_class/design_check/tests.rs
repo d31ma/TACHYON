@@ -506,7 +506,7 @@ impl DefaultRulesProject {
     const ORDER: &'static str = "@Service\n@NeedsAll\nclass OrderService {\n  paymentService;\n  total(usrCount, count, price, tax, items) {\n    this.send('sent');\n    this.send('sent');\n    return count;\n  }\n}\n";
     const PAYMENT: &'static str =
         "@Service\n@NeedsAll\nclass PaymentService {\n  orderService;\n}\n";
-    const OFF: &'static str = r#"{"dependencies":{"check":false},"names":{"check":false},"signatures":{"check":false},"constants":{"check":false}}"#;
+    const OFF: &'static str = r#"{"dependencies":{"check":false},"names":{"check":false},"signatures":{"check":false},"constants":{"check":false},"visibility":{"check":false}}"#;
 
     fn codes(client: bool, server: bool) -> Vec<(String, u16)> {
         let root = tempfile::tempdir().expect("project");
@@ -554,7 +554,7 @@ impl DefaultRulesProject {
         realms
             .iter()
             .flat_map(|realm| {
-                [1327, 1328, 1329, 1330]
+                [1327, 1328, 1329, 1330, 1333]
                     .map(|code| (format!("{realm}/services/OrderService.js"), code))
             })
             .collect()
@@ -562,7 +562,7 @@ impl DefaultRulesProject {
 }
 
 #[test]
-fn all_four_design_rules_are_on_by_default_in_both_realms() {
+fn all_five_design_rules_are_on_by_default_in_both_realms() {
     assert_eq!(
         DefaultRulesProject::codes(true, true),
         DefaultRulesProject::expected(&["client", "server"])

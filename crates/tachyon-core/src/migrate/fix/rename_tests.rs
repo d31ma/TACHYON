@@ -1,4 +1,5 @@
 use super::renames::FileMove;
+use super::visibility_off::VisibilityOff;
 use super::{MigrationFix, MigrationFixPlan};
 use crate::behavior::RenamedAnnotation;
 use std::collections::BTreeMap;
@@ -48,7 +49,9 @@ impl Language {
 }
 
 fn project() -> TempDir {
-    tempfile::tempdir().expect("project")
+    let project = tempfile::tempdir().expect("project");
+    VisibilityOff::write(project.path());
+    project
 }
 
 fn write(root: &Path, relative: &str, contents: &str) {

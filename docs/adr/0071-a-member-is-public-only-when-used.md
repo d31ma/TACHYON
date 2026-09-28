@@ -88,10 +88,10 @@ taken, when a use is unclear (a bare name in Dart or Go that could be a
 local), or when a Ruby line declares several readers.
 
 The switch is `tac.visibility.check` in `client/manifest.json` and
-`visibility.check` in `server/application.json`. The website, its examples,
-the corpus and the `ty init` templates pass the rule. It stays off by default
-until the remaining test fixtures pass it too; then the default becomes on,
-like the other four design rules.
+`visibility.check` in `server/application.json`. The rule is on by default,
+like the other four design rules; `false` turns it off for one realm while
+it migrates. The website, its examples, the corpus, the `ty init` templates
+and the test fixtures pass the rule.
 
 ## Consequences
 

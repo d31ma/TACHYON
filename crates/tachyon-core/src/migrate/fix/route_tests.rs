@@ -1,3 +1,4 @@
+use super::visibility_off::VisibilityOff;
 use super::{FileMove, MigrationFix, MigrationFixPlan};
 use crate::HandlerSource;
 use std::fs;
@@ -56,7 +57,9 @@ impl PlainHandler {
 }
 
 fn project() -> TempDir {
-    tempfile::tempdir().expect("project")
+    let project = tempfile::tempdir().expect("project");
+    VisibilityOff::write(project.path());
+    project
 }
 
 fn write(root: &Path, relative: &str, contents: &str) {

@@ -57,8 +57,9 @@ machine contracts have their own, independent major versions.
   help shows the private form of the language (`private`, `_name` in
   JavaScript, Dart and Python, a lowercase Go name, no `pub` in Rust,
   `private def` in Ruby). `ty migrate fix --write` makes the simple cases
-  private. The switch is `tac.visibility.check` / `visibility.check`; the rule
-  is off by default until the remaining test fixtures pass it. The website,
+  private. The rule is on by default; `tac.visibility.check` /
+  `visibility.check` set to `false` turns it off for one realm while it
+  migrates. The website,
   its examples and the `ty init` templates pass it: examples that had no
   caller gained a small view or controller, and website tests now check
   public members only. The `NeedsAll` field reader skips JavaScript `#name`
@@ -1688,6 +1689,10 @@ machine contracts have their own, independent major versions.
 - `TY1341` (comparison with true or false) is no longer suggested in Go. A
   Go value of type `any` can be compared with `true`, but it cannot be a
   condition by itself, so `ty migrate fix` wrote Go that did not compile.
+- A Python `async def` method was read only up to its first line, so the
+  cohesion check (`TY1314`) never saw its branches and loops, and the
+  visibility check (`TY1333`) took its local values for public class
+  fields. The whole body is now read, as for a plain `def`.
 - A Kotlin Android service method that takes arguments now compiles; before,
   the generated table always called it with none. A model-typed or `Float`
   Kotlin field can be set from the page.

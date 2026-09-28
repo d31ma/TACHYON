@@ -113,6 +113,10 @@ mod private_member_tests;
 #[allow(clippy::expect_used)]
 mod type_comment_tests;
 
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod visibility_off;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct FileChange {
     source: String,
