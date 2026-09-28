@@ -11,6 +11,7 @@ use project_words::ProjectWords;
 use signature_rule::SignatureRule;
 use std::path::Path;
 use tachyon_diagnostics::Diagnostic;
+use test_rule::TestRule;
 use type_rule::TypeRule;
 use visibility_rule::VisibilityRule;
 
@@ -57,6 +58,7 @@ mod signature;
 mod signature_rule;
 mod source_reach;
 mod struct_fields;
+mod test_rule;
 mod token_index;
 mod type_rule;
 mod unused_member;
@@ -146,6 +148,7 @@ impl DesignCheck {
         problems.extend(ConstantRule::problems(&classes));
         problems.extend(VisibilityRule::problems(&classes, sources));
         problems.extend(TypeRule::problems(&classes, sources));
+        problems.extend(TestRule::problems(sources));
         problems
     }
 }

@@ -7,7 +7,7 @@ use cap_std::fs::Dir;
 use std::path::Path;
 
 pub(crate) struct DesignSwitches {
-    switches: [RuleSwitch; 6],
+    switches: [RuleSwitch; 7],
     words: ProjectWords,
 }
 
@@ -32,7 +32,7 @@ impl DesignSwitches {
     #[cfg(test)]
     pub(super) fn every_realm(words: ProjectWords) -> Self {
         Self {
-            switches: [RuleSwitch::every_realm(); 6],
+            switches: [RuleSwitch::every_realm(); 7],
             words,
         }
     }

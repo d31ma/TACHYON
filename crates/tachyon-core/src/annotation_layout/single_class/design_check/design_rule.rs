@@ -6,35 +6,39 @@ pub(super) enum DesignRule {
     Constants,
     Visibility,
     Types,
+    Tests,
 }
 
 impl DesignRule {
-    pub(super) const ALL: [Self; 6] = [
+    pub(super) const ALL: [Self; 7] = [
         Self::Dependencies,
         Self::Names,
         Self::Signatures,
         Self::Constants,
         Self::Visibility,
         Self::Types,
+        Self::Tests,
     ];
-    const CODES: [u16; 6] = [1327, 1328, 1329, 1330, 1333, 1356];
-    const SWITCH_NAMES: [&'static str; 6] = [
+    const CODES: [u16; 7] = [1327, 1328, 1329, 1330, 1333, 1356, 1339];
+    const SWITCH_NAMES: [&'static str; 7] = [
         "dependencies",
         "names",
         "signatures",
         "constants",
         "visibility",
         "types",
+        "tests",
     ];
-    const FEATURES: [&'static str; 6] = [
+    const FEATURES: [&'static str; 7] = [
         "dependencies.direction",
         "names.plain_english",
         "signatures.size",
         "constants.named",
         "visibility.private_when_unused",
         "types.every_member",
+        "tests.assert_without_logic",
     ];
-    const ON_BY_DEFAULT: [bool; 6] = [true, true, true, true, true, false];
+    const ON_BY_DEFAULT: [bool; 7] = [true, true, true, true, true, false, false];
 
     pub(super) const fn code(self) -> u16 {
         Self::CODES[self as usize]
