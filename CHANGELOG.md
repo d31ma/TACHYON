@@ -1675,6 +1675,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The website tests now build the site with the newest `ty` in the Cargo
+  target folder when `TAC_BIN` is not set. Before, an old `release/ty` won
+  over a newer `debug/ty`, so a change such as utility classes in Dart
+  services looked broken. New tests check that Dart, Rust, Go, C# and Ruby
+  web services call a `client/utils` class without an import.
 - A Kotlin Android service method that takes arguments now compiles; before,
   the generated table always called it with none. A model-typed or `Float`
   Kotlin field can be set from the page.

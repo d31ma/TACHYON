@@ -59,6 +59,32 @@ impl Reach {
          def say\n    puts \"reach-log\"\n    true\n  end\n\n  \
          def pause\n    sleep 0.005\n    true\n  end\nend\n";
 
+    const RUST_UTILITY: &str = "pub struct TextUtils;\n\nimpl TextUtils {\n    \
+         pub fn shout(text: &str) -> String {\n        format!(\"{}!\", text.to_uppercase())\n    }\n}\n";
+
+    const RUST_SHOUT: &str = "#[Service()]\n#[derive(Default)]\nstruct ReachService {}\n\n\
+         impl ReachService {\n    fn shout(&self) -> String {\n        TextUtils::shout(\"reach\")\n    }\n}\n";
+
+    const GO_UTILITY: &str = "import \"strings\"\n\ntype TextUtils struct{}\n\n\
+         func (TextUtils) Shout(text string) string {\n\treturn strings.ToUpper(text) + \"!\"\n}\n";
+
+    const GO_SHOUT: &str = "// @Service()\ntype ReachService struct{}\n\n\
+         func (reach *ReachService) Shout() string {\n\treturn TextUtils{}.Shout(\"reach\")\n}\n";
+
+    const CSHARP_UTILITY: &str = "public static class TextUtils\n{\n    \
+         public static string Shout(string text) => text.ToUpper() + \"!\";\n}\n";
+
+    const CSHARP_SHOUT: &str = "[Service()]\npublic class ReachService\n{\n    \
+         public string Shout() => TextUtils.Shout(\"reach\");\n}\n";
+
+    const RUBY_UTILITY: &str =
+        "class TextUtils\n  def self.shout(text)\n    \"#{text.upcase}!\"\n  end\nend\n";
+
+    const RUBY_SHOUT: &str =
+        "#[Service]\nclass ReachService\n  def shout\n    TextUtils.shout(\"reach\")\n  end\nend\n";
+
+    const SHOUTED: &str = "REACH!";
+
     fn available(program: &str, argument: &str) -> bool {
         Command::new(program)
             .arg(argument)
@@ -122,6 +148,19 @@ impl Reach {
         for (name, bytes) in published.files {
             let _ = Self::write_bytes(root, &name, &bytes);
         }
+    }
+
+    async fn shout_through_utility(
+        language: WebLanguage,
+        (service, utility, extension): (&str, &str, &str),
+        prefix: &str,
+    ) -> serde_json::Value {
+        let root = tempfile::tempdir().expect("project");
+        let utility_path = format!("client/utils/TextUtils.{extension}");
+        let _ = Self::write(root.path(), &utility_path, utility);
+        let profile = crate::BuildProfile::Development;
+        Self::publish_with(root.path(), language, (service, extension), profile).await;
+        Self::run(root.path(), prefix, &["shout"])
     }
 
     fn write_bytes(root: &Path, relative: &str, bytes: &[u8]) -> std::path::PathBuf {
@@ -286,4 +325,53 @@ async fn a_ruby_web_service_has_a_clock_random_numbers_a_console_and_no_sleep() 
     Reach::assert_portable(&report);
     let refused = report["pause"]["error"].as_str().unwrap_or_default();
     assert!(refused.contains("sleep would freeze the page"), "{report}");
+}
+
+#[tokio::test]
+async fn a_rust_web_service_calls_a_utility_class_without_an_import() {
+    if !Reach::available("node", "--version") || !Reach::rust_web_target() {
+        eprintln!("skipping: node or the wasm32 Rust target is unavailable");
+        return;
+    }
+    let sources = (Reach::RUST_SHOUT, Reach::RUST_UTILITY, "rs");
+    let report = Reach::shout_through_utility(WebLanguage::Rust, sources, "").await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn a_go_web_service_calls_a_utility_class_without_an_import() {
+    if !Reach::available("node", "--version") || !Reach::available("go", "version") {
+        eprintln!("skipping: node or go is unavailable");
+        return;
+    }
+    let sources = (Reach::GO_SHOUT, Reach::GO_UTILITY, "go");
+    let report = Reach::shout_through_utility(WebLanguage::Go, sources, Reach::FILE_FETCH).await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn a_csharp_web_service_calls_a_utility_class_without_an_import() {
+    let workload = Command::new("dotnet")
+        .args(["workload", "list"])
+        .output()
+        .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("wasm-tools"));
+    if !Reach::available("node", "--version") || !workload {
+        eprintln!("skipping: node or the .NET wasm-tools workload is unavailable");
+        return;
+    }
+    let sources = (Reach::CSHARP_SHOUT, Reach::CSHARP_UTILITY, "cs");
+    let report = Reach::shout_through_utility(WebLanguage::CSharp, sources, "").await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn a_ruby_web_service_calls_a_utility_class_without_an_import() {
+    let unavailable = crate::tac_ruby::RubyRuntimeBuild::unavailable_reason();
+    if !Reach::available("node", "--version") || unavailable.is_some() {
+        eprintln!("skipping: node or the Ruby runtime is unavailable: {unavailable:?}");
+        return;
+    }
+    let sources = (Reach::RUBY_SHOUT, Reach::RUBY_UTILITY, "rb");
+    let report = Reach::shout_through_utility(WebLanguage::Ruby, sources, Reach::FILE_FETCH).await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
 }

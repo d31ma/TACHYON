@@ -1994,6 +1994,33 @@ class CounterService {
         assert!(error.diagnostics()[0].message.contains("name it 'basket'"));
     }
 
+    #[tokio::test]
+    async fn a_dart_service_uses_a_utility_class_without_an_import() {
+        if !dart_and_node_available() {
+            eprintln!("skipping: dart or node is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let greeting = "client/services/GreetingService.dart";
+        write_file(
+            root.path(),
+            "client/utils/TextUtils.dart",
+            "class TextUtils {\n  static String shout(String text) => '${text.toUpperCase()}!';\n}\n",
+        );
+        write_file(
+            root.path(),
+            greeting,
+            "@Service()\nclass GreetingService {\n  String greet(String name) => TextUtils.shout(name);\n}\n",
+        );
+        publish(root.path(), &[("GreetingService", greeting)], &["greeting"]).await;
+        let report = node(
+            root.path(),
+            "import GreetingService from './GreetingService.js'\n\
+             console.log(JSON.stringify({ greeting: new GreetingService({}).greet('ada') }))\n",
+        );
+        assert_eq!(report, serde_json::json!({"greeting": "ADA!"}));
+    }
+
     fn private_hook_service_source() -> &'static str {
         "@Service()\nclass ClockService {\n  int ticks = 0;\n\n  @OnStart()\n  void _start() {\n    ticks = 1;\n  }\n}\n"
     }
