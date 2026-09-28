@@ -420,13 +420,16 @@ export const activate = (target, service, properties, plan) => {
   const early = []
   const self = new WeakRef(target)
   const call = (request) => calling(self.deref() ?? null, () => invoke({ ...request, route: 'web', service, owner }))
+  const change = (request) => {
+    try { return call(request) } finally { self.deref()?.__tachyonStoredChanged?.() }
+  }
   publishers.set(owner, (name, value, retain) => {
     const publisher = self.deref()?.__tachyonPublisher
     if (publisher && !early.length) publisher.publishEvent(name, value, retain)
     else early.push([name, value, retain])
   })
   const declared = call({ op: 'init', props: props(properties) })
-  listen(target, call, plan, declared?.listeners ?? [])
+  listen(target, change, plan, declared?.listeners ?? [])
   const dispose = { op: 'dispose', route: 'web', service, owner }
   released?.register(target, dispose, target)
   hidden(target, '__tachyonStarted', () => {
@@ -449,7 +452,7 @@ export const activate = (target, service, properties, plan) => {
     Object.defineProperty(target, name, {
       configurable: true,
       writable: true,
-      value: (...values) => call({ op: 'call', name, args: authored(values) }),
+      value: (...values) => change({ op: 'call', name, args: authored(values) }),
     })
   }
 }

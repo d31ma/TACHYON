@@ -17,6 +17,7 @@ class StorageGate {
   static host = 'tachyon.test';
   static settleCaches = () => globalThis[Symbol.for('tachyon.tac.storage')].settled();
   static withCSharp = csharpWebAvailable();
+  static scriptBudgetKilobytes = 320;
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 }
 
@@ -61,11 +62,18 @@ type GoNoteEntity struct {
 \ttext string
 }
 `);
-  write(project, 'client/components/storage/go/tac.html', '<p id="go">{goNotes.reads}</p>\n');
+  write(project, 'client/components/storage/go/tac.html', '<p id="go">{goNotes.reads}</p>\n<button id="go-bump" on:click="goNotes.increment()">+</button>\n<p id="go-count">{goNotes.count}</p>\n');
   write(project, 'client/services/GoNotesService.go', `// @CacheSettings({"name":"gonotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 type GoNotesService struct {
 \tbehaviors *BehaviorContext
 \tReads     int
+\t// @LocalState
+\tCount int
+}
+
+func (notes *GoNotesService) Increment() int {
+\tnotes.Count++
+\treturn notes.Count
 }
 
 // @OnStart
@@ -106,15 +114,18 @@ func (notes *GoNotesService) useRepository(action func(*BehaviorRepository) (Beh
 function writeRubyFixture(project) {
   write(project, 'client/setups/RubyNotesSetup.rb', '#[Setup]\nclass RubyNotesSetup\n  def self.configure(_execution)\n    {}\n  end\nend\n');
   write(project, 'client/entities/RubyNoteEntity.rb', '#[Entity({"adapter":"indexeddb"})]\n#[Table("rubyNotes")]\nclass RubyNoteEntity\n  # @return [String]\n  #[Id]\n  attr_reader :id\nend\n');
-  write(project, 'client/components/storage/ruby/tac.html', '<p id="ruby">{rubyNotes.reads}</p>\n');
+  write(project, 'client/components/storage/ruby/tac.html', '<p id="ruby">{rubyNotes.reads}</p>\n<button id="ruby-bump" on:click="rubyNotes.increment()">+</button>\n<p id="ruby-count">{rubyNotes.count}</p>\n');
   write(project, 'client/services/RubyNotesService.rb', `#[Service]
 #[CacheSettings({"name":"rubynotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
 class RubyNotesService
   attr_reader :reads
+  #[LocalState]
+  attr_accessor :count
 
   #[OnStart]
   def start
     @reads = 0
+    @count = 0
     @behaviors = Behaviors.create(RubyNotesSetup, partition: "ruby-notes", signal: BehaviorSignal.new)
   end
 
@@ -142,7 +153,29 @@ class RubyNotesService
   def list
     @behaviors.repository(RubyNoteEntity).find({})
   end
+
+  def increment
+    @count += 1
+  end
 end
+`);
+}
+
+function writeRustFixture(project) {
+  write(project, 'client/components/storage/rs/tac.html', '<button id="rs-bump" on:click="rsCounter.increment()">+</button>\n<p id="rs-count">{rsCounter.count}</p>\n');
+  write(project, 'client/services/RsCounterService.rs', `#[Service]
+#[derive(Default)]
+struct RsCounterService {
+    #[LocalState]
+    count: i64,
+}
+
+impl RsCounterService {
+    fn increment(&mut self) -> i64 {
+        self.count += 1;
+        self.count
+    }
+}
 `);
 }
 
@@ -165,12 +198,19 @@ public sealed class CsNoteEntity {
     public string text;
 }
 `);
-  write(project, 'client/components/storage/cs/tac.html', '<p id="cs">{csNotes.reads}</p>\n');
+  write(project, 'client/components/storage/cs/tac.html', '<p id="cs">{csNotes.reads}</p>\n<button id="cs-bump" on:click="csNotes.increment()">+</button>\n<p id="cs-count">{csNotes.count}</p>\n');
   write(project, 'client/services/CsNotesService.cs', `[Service]
 [CacheSettings({"name":"csnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
 public sealed class CsNotesService {
     public BehaviorContext behaviors;
     public int reads = 0;
+    [LocalState]
+    public int count = 0;
+
+    public int increment() {
+        count++;
+        return count;
+    }
 
     [OnStart]
     public void open() {
@@ -209,6 +249,7 @@ public sealed class CsNotesService {
 
 function writeFixture(project) {
   write(project, 'client/pages/tac.html', '<storage-page />\n');
+  write(project, 'client/manifest.json', JSON.stringify({ tac: { budgets: { script: StorageGate.scriptBudgetKilobytes } } }));
   write(project, 'client/components/storage/page/tac.html', `<main aria-label="Storage">
   <button id="bump" on:click="storagePage.clicks += 1">bump</button>
   <button id="dark" on:click="storagePage.theme = 'dark'">dark</button>
@@ -220,6 +261,7 @@ function writeFixture(project) {
   <storage-notes />
   <storage-go />
   <storage-ruby />
+  <storage-rs />
 ${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}</main>
 `);
   for (const [name, policy] of [['CacheFirstClient','cache-first'],['NetworkFirstClient','network-first'],['FreshClient','no-store'],['ReloadClient','reload']]) {
@@ -240,15 +282,10 @@ export default class StoragePageService {
 }
 `);
   write(project, 'client/components/storage/clients/tac.html', '<span hidden>{storageClients.label}</span>\n');
-  write(project, 'client/services/StorageClientsService.js', `/**
- * @typedef {Object} CacheWarmed
- * @property {integer} size
- */
-/**
- * @typedef {Object} CacheAudited
- * @property {integer} size
- */
-@Service
+  for (const model of ['CacheWarmed', 'CacheAudited']) {
+    write(project, `client/models/${model}.js`, `/**\n * @typedef {Object} ${model}\n * @property {integer} size\n */\nexport {}\n`);
+  }
+  write(project, 'client/services/StorageClientsService.js', `@Service
 export default class StorageClientsService {
   @Needs
   cacheManager;
@@ -345,6 +382,7 @@ class NoteStore {
 `);
   writeGoFixture(project);
   writeRubyFixture(project);
+  writeRustFixture(project);
   if (StorageGate.withCSharp) writeCSharpFixture(project);
   write(project, 'client/components/storage/notes/tac.html', '<p id="notes">{storageNotes.label}</p>\n');
   write(project, 'client/services/StorageNotesService.js', `@Service
@@ -617,6 +655,26 @@ async function checkWebAssemblyStorage(browser, origin) {
   await context.close();
 }
 
+async function checkWebAssemblyStoredFields(browser, origin) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  const services = [['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
+  if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#']);
+  for (const [id, , language] of services) {
+    for (let click = 0; click < 3; click += 1) await page.click(`#${id}-bump`);
+    await page.waitForFunction((selector) => document.querySelector(selector)?.textContent === '3', `#${id}-count`);
+    expect(await page.textContent(`#${id}-count`), '3', `a ${language} WebAssembly method changes its LocalState field`);
+  }
+  await page.reload({ waitUntil: 'networkidle' });
+  for (const [id, instance, language] of services) {
+    expect(await page.textContent(`#${id}-count`), '3', `a ${language} LocalState field changed by its own method survives a reload`);
+    const stored = await page.evaluate((key) => localStorage.getItem(key), `tac:service:${instance}:/:count`);
+    expect(stored, '3', `a ${language} LocalState field changed by its own method is written to localStorage`);
+  }
+  await context.close();
+}
+
 async function checkCSharpStorage(page, evaluate) {
   expect(JSON.stringify(await evaluate(async () => [await __root('csNotes').find('a'), await __root('csNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a C# WebAssembly service reads its Cached value from the page cache');
   await evaluate(() => __root('csNotes').forget('a'));
@@ -863,6 +921,7 @@ async function main() {
     await checkInsecureCaches(browser, server.address().port);
     await checkIndexedStore(browser, origin);
     await checkWebAssemblyStorage(browser, origin);
+    await checkWebAssemblyStoredFields(browser, origin);
     await checkInjectedClients(page);
     const afterInvalidate = await checkCachePolicies(page, origin, context);
     await checkRangeRequests(page);

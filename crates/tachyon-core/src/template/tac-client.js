@@ -522,10 +522,30 @@ class Owners {
   }
 }
 
+class StoredAccessor {
+  constructor(owner, read, store, key) {
+    this.owner = owner
+    this.read = read
+    this.store = store
+    this.key = key
+    this.saved = JSON.stringify(read.call(owner))
+  }
+  save() {
+    try {
+      const value = this.read.call(this.owner)
+      const raw = JSON.stringify(value)
+      if (raw === this.saved) return
+      this.saved = raw
+      writeStoredField(this.store, this.key, value)
+    } catch {}
+  }
+}
+
 const bindPersistentFields = (owner, scope) => {
   if (Owners.bound.has(owner)) return owner
   Owners.bound.add(owner)
   const stored = Owners.stored.get(owner) || {}
+  const accessors = []
   for (const name of Object.keys(owner)) {
     if (!Object.hasOwn(stored, name) || !Object.getOwnPropertyDescriptor(owner, name)?.configurable) continue
     const local = stored[name] === 'local'
@@ -537,11 +557,13 @@ const bindPersistentFields = (owner, scope) => {
     if (get && set) {
       const restored = readStoredField(store, key, undefined)
       if (restored !== undefined) set.call(owner, restored)
+      const accessor = new StoredAccessor(owner, get, store, key)
+      accessors.push(accessor)
       Object.defineProperty(owner, name, {
         configurable: true,
         enumerable: true,
         get,
-        set: (value) => { set.call(owner, value); writeStoredField(store, key, get.call(owner)) },
+        set: (value) => { set.call(owner, value); accessor.save() },
       })
       continue
     }
@@ -551,6 +573,12 @@ const bindPersistentFields = (owner, scope) => {
       enumerable: true,
       get: () => current,
       set: (value) => { current = value; writeStoredField(store, key, value) },
+    })
+  }
+  if (accessors.length) {
+    Object.defineProperty(owner, '__tachyonStoredChanged', {
+      configurable: true,
+      value: () => { for (const accessor of accessors) accessor.save() },
     })
   }
   return owner
