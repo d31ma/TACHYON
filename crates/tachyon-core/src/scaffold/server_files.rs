@@ -11,7 +11,10 @@ impl ServerFiles {
     const DATASOURCE: &'static str = ",\n  \"datasource\": {\n    \"driver\": \"sqlite\",\n    \"url\": \"sqlite::memory:\"\n  }";
 
     pub(crate) fn for_choices(choices: &ProjectChoices) -> Vec<(String, String)> {
-        let mut files = Self::fixed_files(choices.features.contains(&AppFeature::Storage));
+        let mut files = Self::fixed_files(
+            choices.features.contains(&AppFeature::Storage),
+            choices.server_uses_typescript(),
+        );
         files.extend(
             choices
                 .yon
@@ -32,7 +35,7 @@ impl ServerFiles {
         format!("{{\n{}{datasource}\n}}\n", Self::SERVER_SETTINGS)
     }
 
-    fn fixed_files(storage: bool) -> Vec<(String, String)> {
+    fn fixed_files(storage: bool, typescript_only: bool) -> Vec<(String, String)> {
         vec![
             (
                 String::from(".env.example"),
@@ -41,7 +44,7 @@ impl ServerFiles {
             (String::from(Self::APPLICATION), Self::application(storage)),
             (
                 String::from("server/jsconfig.json"),
-                BaseFiles::jsconfig("server"),
+                BaseFiles::jsconfig("server", typescript_only),
             ),
             (String::from("server/data/.gitkeep"), String::new()),
             (String::from("server/deps/.gitkeep"), String::new()),

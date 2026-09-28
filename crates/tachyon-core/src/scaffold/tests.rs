@@ -474,3 +474,22 @@ fn add_to_a_server_only_project_creates_the_client_realm() {
     );
     assert!(feature.is_err());
 }
+
+#[test]
+fn only_a_typescript_realm_keeps_the_field_start_check_of_tsc() {
+    let field_check = |target: &std::path::Path, realm: &str| -> serde_json::Value {
+        let text =
+            fs::read_to_string(target.join(realm).join("jsconfig.json")).expect("realm jsconfig");
+        let config: serde_json::Value = serde_json::from_str(&text).expect("valid JSON");
+        assert_eq!(config["compilerOptions"]["strict"], true, "{text}");
+        config["compilerOptions"]["strictPropertyInitialization"].clone()
+    };
+    let (_javascript_root, javascript) = generated(&ProjectChoices::defaults());
+    let typescript_choices =
+        ProjectChoices::from_answers(&answers(None, Some("ts"), Some("ts"))).expect("typescript");
+    let (_typescript_root, typescript) = generated(&typescript_choices);
+    for realm in ["client", "server"] {
+        assert_eq!(field_check(&javascript, realm), false);
+        assert!(field_check(&typescript, realm).is_null());
+    }
+}

@@ -128,3 +128,32 @@ fn a_scaffolded_project_uses_its_service_without_an_import() {
         text(&checked.stdout)
     );
 }
+
+#[test]
+fn injected_javascript_fields_pass_the_type_checker_and_the_tests() {
+    let workspace = tempfile::tempdir().expect("workspace");
+    let project = workspace.path().join("app");
+    let output = run(ty().arg("init").arg(&project).arg("--skip-tools"));
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let tested = run(ty().args(["test", "--coverage"]).arg(&project));
+    assert!(tested.status.success(), "{}", text(&tested.stdout));
+
+    write(
+        &project,
+        "server/services/PriceService.js",
+        "@Service\nexport default class PriceService {\n  /** @returns {number} */\n  price() { return 3 }\n}\n",
+    );
+    write(
+        &project,
+        "server/services/CartService.js",
+        "@Service\nexport default class CartService {\n  /** @type {PriceService} */\n  @Needs\n  priceService\n\n  /** @returns {number} */\n  total() { return this.priceService.price() * 2 }\n}\n",
+    );
+    let output = run(ty().arg("types").arg(&project));
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let Some(compiler) = typescript_compiler() else {
+        eprintln!("skipping the type check: the TypeScript compiler is not installed");
+        return;
+    };
+    let checked = type_check(&compiler, &project, "server");
+    assert!(checked.status.success(), "{}", text(&checked.stdout));
+}

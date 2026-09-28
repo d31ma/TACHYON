@@ -5,6 +5,7 @@ pub(crate) struct BaseFiles;
 impl BaseFiles {
     const GITIGNORE: &'static str = "node_modules\ndist\n.env\n.DS_Store\n.tachyon/\n";
     const TYPESCRIPT: &'static str = "7.0.2";
+    const FIELDS_FILLED_LATER: &'static str = "    \"strictPropertyInitialization\": false,\n";
 
     pub(crate) fn for_choices(app_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         vec![
@@ -25,10 +26,18 @@ impl BaseFiles {
         ]
     }
 
-    pub(crate) fn jsconfig(realm: &str) -> String {
+    pub(crate) fn jsconfig(realm: &str, typescript_only: bool) -> String {
+        let fields = Self::field_check(typescript_only);
         format!(
-            "{{\n  \"compilerOptions\": {{\n    \"strict\": true,\n    \"allowJs\": true,\n    \"checkJs\": true,\n    \"target\": \"ESNext\",\n    \"module\": \"NodeNext\",\n    \"moduleResolution\": \"NodeNext\",\n    \"types\": []\n  }},\n  \"include\": [\n    \"../tachyon-env.d.ts\",\n    \"../.tachyon/types/{realm}\",\n    \"**/*.js\",\n    \"**/*.ts\"\n  ]\n}}\n"
+            "{{\n  \"compilerOptions\": {{\n    \"strict\": true,\n{fields}    \"allowJs\": true,\n    \"checkJs\": true,\n    \"target\": \"ESNext\",\n    \"module\": \"NodeNext\",\n    \"moduleResolution\": \"NodeNext\",\n    \"types\": []\n  }},\n  \"include\": [\n    \"../tachyon-env.d.ts\",\n    \"../.tachyon/types/{realm}\",\n    \"**/*.js\",\n    \"**/*.ts\"\n  ]\n}}\n"
         )
+    }
+
+    fn field_check(typescript_only: bool) -> &'static str {
+        if typescript_only {
+            return "";
+        }
+        Self::FIELDS_FILLED_LATER
     }
 
     fn package_json(app_name: &str, choices: &ProjectChoices) -> String {

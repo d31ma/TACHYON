@@ -47,15 +47,39 @@ fn javascript_members_need_jsdoc_types() {
             "The return value of `total` in CartService has no type.",
             "The field `taxHelper` in CartService has no type.",
             "The field `items` in CartService has no type.",
+            "The field `items` in CartService has no starting value, and Tachyon does not fill it.",
         ]
     );
-    let typed = "@Service\nexport default class CartService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n  count = 0;\n  /** @type {string[]} */\n  items;\n\n  /**\n   * @param {number} [extra]\n   * @returns {number}\n   */\n  total(extra) {\n    return this.count + extra;\n  }\n\n  clear() {\n    this.count = 0;\n  }\n}\n";
+    let typed = "@Service\nexport default class CartService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n  count = 0;\n  /** @type {string[]} */\n  items = [];\n\n  /**\n   * @param {number} [extra]\n   * @returns {number}\n   */\n  total(extra) {\n    return this.count + extra;\n  }\n\n  clear() {\n    this.count = 0;\n  }\n}\n";
     assert!(
         TypedProject::messages(&[
             ("client/services/CartService.js", typed),
             ("client/helpers/TaxHelper.js", helper),
         ])
         .is_empty()
+    );
+}
+
+#[test]
+fn a_javascript_field_starts_with_a_value_or_is_filled_by_tachyon() {
+    let service = "@Service\nexport default class ShelfService {\n  /** @type {ShelfStore} */\n  @Needs\n  shelfStore;\n  /** @type {string} */\n  @Setting(\"${tac.shelf.name:Main}\")\n  name;\n  /** @type {string[]} */\n  labels = [];\n  /** @type {number | undefined} */\n  chosen;\n}\n";
+    let filled = "@Service\n@NeedsAll\nexport default class BoxService {\n  /** @type {ShelfStore} */\n  shelfStore;\n}\n";
+    let entity = "@Entity\nclass BoxEntity {\n  /** @type {number} */\n  @Id\n  id;\n}\n";
+    let typescript = "@Service\nexport default class TrayService {\n  chosen!: number;\n}\n";
+    let files = [
+        ("client/services/ShelfService.js", service),
+        ("client/services/BoxService.js", filled),
+        ("server/entities/BoxEntity.js", entity),
+        ("client/services/TrayService.ts", typescript),
+    ];
+    assert_eq!(
+        TypedProject::messages(&files),
+        ["The field `chosen` in ShelfService has no starting value, and Tachyon does not fill it."]
+    );
+    let helps = TypedProject::helps(&files);
+    assert!(
+        helps[0].starts_with("Give it a starting value (`chosen = value`), or put `@Needs` above it when Tachyon should fill it."),
+        "{helps:?}"
     );
 }
 

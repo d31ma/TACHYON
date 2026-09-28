@@ -66,6 +66,22 @@ core class, a class or model file of the project, a Tachyon class, a
 qualified library class (`Net::HTTPGenericRequest`), or `Boolean`, `nil`,
 `true`, `false`, `void` or `self`.
 
+### JavaScript fields start with a value or are filled
+
+Amendment (2026-09-28). `tsc` with `strict` also checks that every field
+gets a value in the constructor (`strictPropertyInitialization`, `TS2564`).
+TypeScript marks a field that Tachyon fills later with `!`
+(`taxHelper!: TaxHelper`, `TY1331`); JavaScript has no such mark, so the
+check refused every `@Needs` field. The `jsconfig.json` that `ty init`
+writes for a realm with JavaScript code turns only this check off; a realm
+that uses only TypeScript keeps the full `strict` check. The type rule
+checks the fields instead: in a JavaScript class file, a field without a
+starting value is refused with `TY1356` unless Tachyon fills it. Tachyon
+fills a field marked `@Needs`, `@Setting` or `@Fake`, every field of a class
+marked `@NeedsAll` or `@Needs(...)`, and the fields of an `@Entity`. The
+message names the field; the help shows both fixes, a starting value or
+`@Needs`.
+
 ### No escape hatches in class files
 
 A class file may not switch the checker off: `// @ts-nocheck`,

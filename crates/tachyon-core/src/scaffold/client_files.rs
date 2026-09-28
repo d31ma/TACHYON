@@ -9,7 +9,7 @@ impl ClientFiles {
 
     pub(crate) fn for_choices(app_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let javascript_name = AppName::javascript_literal(app_name);
-        let mut files = Self::fixed_files(&javascript_name);
+        let mut files = Self::fixed_files(&javascript_name, choices.client_uses_typescript());
         files.push((
             String::from(Self::SHELL_VIEW),
             Self::shell_view(&choices.tac),
@@ -98,7 +98,7 @@ impl ClientFiles {
         Self::PLAIN_BRAND
     }
 
-    fn fixed_files(javascript_name: &str) -> Vec<(String, String)> {
+    fn fixed_files(javascript_name: &str, typescript_only: bool) -> Vec<(String, String)> {
         let files = [
             (
                 "client/manifest.json",
@@ -106,7 +106,10 @@ impl ClientFiles {
                     "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n    \"scripts\": [\"/shared/scripts/imports.js\"],\n    \"styles\": [\"/shared/styles/app.css\"]\n  }}\n}}\n"
                 ),
             ),
-            ("client/jsconfig.json", BaseFiles::jsconfig("client")),
+            (
+                "client/jsconfig.json",
+                BaseFiles::jsconfig("client", typescript_only),
+            ),
             (
                 "client/shared/scripts/imports.js",
                 String::from("document.documentElement.setAttribute('data-theme', 'light')\n"),

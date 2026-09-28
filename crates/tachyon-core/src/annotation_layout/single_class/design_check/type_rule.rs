@@ -8,6 +8,7 @@ use php_types::PhpTypes;
 use python_types::PythonTypes;
 use ruby_types::RubyTypes;
 use typescript_types::TypescriptTypes;
+use unfilled_field::UnfilledField;
 use yard_names::YardNames;
 
 mod escape_hatch;
@@ -26,6 +27,7 @@ mod type_comments;
 mod type_insertion;
 mod type_tags;
 mod typescript_types;
+mod unfilled_field;
 mod yard_names;
 
 #[cfg(test)]
@@ -44,6 +46,7 @@ impl TypeRule {
             .map(MissingType::problem)
             .collect();
         problems.extend(classes.iter().flat_map(EscapeHatch::problems));
+        problems.extend(classes.iter().flat_map(UnfilledField::problems));
         problems.extend(
             classes
                 .iter()

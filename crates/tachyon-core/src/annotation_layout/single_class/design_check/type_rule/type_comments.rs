@@ -2,6 +2,7 @@ use super::super::class_file::ClassFile;
 
 pub(super) struct TypeComments {
     pub(super) comments: String,
+    pub(super) markers: String,
     pub(super) top: usize,
     pub(super) line: usize,
     pub(super) indent: String,
@@ -20,7 +21,8 @@ impl TypeComments {
         let lines = Self::lines_above(class, line);
         let top = lines.last().map_or(line, |(offset, _)| *offset);
         Self {
-            comments: Self::comments(&lines),
+            comments: Self::joined(&lines, false),
+            markers: Self::joined(&lines, true),
             top,
             line,
             indent: Self::indent(&class.text[line..]),
@@ -69,11 +71,11 @@ impl TypeComments {
             .any(|start| text.starts_with(start))
     }
 
-    fn comments(lines: &[(usize, &str)]) -> String {
+    fn joined(lines: &[(usize, &str)], annotations: bool) -> String {
         lines
             .iter()
             .rev()
-            .filter(|(_, text)| !Self::is_annotation(text.trim()))
+            .filter(|(_, text)| Self::is_annotation(text.trim()) == annotations)
             .map(|(_, text)| *text)
             .collect()
     }
