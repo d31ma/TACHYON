@@ -6,6 +6,6 @@ export default class GreetingControllerTest {
   async testGetGreetingUsesTheFake() {
     this.greetingService = { message: () => 'Hi' } as GreetingService;
     const controller = this.construct(GreetingController);
-    if (controller.getGreeting().message !== 'Hi') throw Error('expected Hi');
+    Assert.equals('Hi', controller.getGreeting().message);
   }
 }

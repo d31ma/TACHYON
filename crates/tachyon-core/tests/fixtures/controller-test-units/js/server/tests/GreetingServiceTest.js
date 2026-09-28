@@ -2,6 +2,6 @@
 export default class GreetingServiceTest {
   async testMessageSaysHello() {
     const service = this.construct(GreetingService);
-    if (service.message() !== 'Hello') throw Error('expected Hello');
+    Assert.equals('Hello', service.message());
   }
 }
