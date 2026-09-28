@@ -162,16 +162,18 @@ impl Sample {
             ("php", Target::Parameter) => format!(
                 "<?php\n{class}\nclass SampleService {{\n    public function load({inline}string $value): string {{\n        return $value;\n    }}\n}}\n"
             ),
-            ("java", Target::Type) => format!("{all}\npublic class SampleService {{\n}}\n"),
-            ("java", Target::Field) => format!(
+            ("java" | "groovy", Target::Type) => {
+                format!("{all}\npublic class SampleService {{\n}}\n")
+            }
+            ("java" | "groovy", Target::Field) => format!(
                 "{class}\npublic class SampleService {{\n{}    private String value;\n}}\n",
                 lines("    ")
             ),
-            ("java", Target::Method) => format!(
+            ("java" | "groovy", Target::Method) => format!(
                 "{class}\npublic class SampleService {{\n{}    public String load(String value) {{\n        return value;\n    }}\n}}\n",
                 lines("    ")
             ),
-            ("java", Target::Parameter) => format!(
+            ("java" | "groovy", Target::Parameter) => format!(
                 "{class}\npublic class SampleService {{\n    public String load({inline}String value) {{\n        return value;\n    }}\n}}\n"
             ),
             ("kt", Target::Type) => format!("{all}\nclass SampleService {{\n}}\n"),

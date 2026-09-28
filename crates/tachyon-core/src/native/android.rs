@@ -987,8 +987,9 @@ mod tests {
     #[test]
     fn a_failing_companion_call_answers_a_fixed_error_without_the_exception_text() {
         let prelude = AndroidHostGenerator::KOTLIN_COMPANION_PRELUDE;
+        assert!(prelude.contains("} catch (error: Throwable) {\n        tacFailureAnswer(error)"));
         assert!(prelude.contains(
-            "} catch (_: Throwable) {\n        \"{\\\"error\\\":\\\"Native companion operation failed.\\\"}\""
+            "private fun tacFailureAnswer(error: Throwable): String = \"{\\\"error\\\":\\\"Native companion operation failed.\\\"}\""
         ));
         assert!(!prelude.contains("error.message"));
     }

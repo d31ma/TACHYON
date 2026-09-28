@@ -323,7 +323,7 @@ fn a_service_that_cannot_reach_the_target_fails_the_build() {
     assert!(message.contains("TY1010"), "{message}");
     assert!(message.contains("Swift (macos, ios)"), "{message}");
     assert!(
-        message.contains("client/services/PhaseFourService.js, .ts, .dart, .rs, .cs or .go"),
+        message.contains("client/services/PhaseFourService.js, .ts, .dart, .rs, .cs, .go or .kt"),
         "{message}"
     );
     assert!(!message.contains("tac.js"), "{message}");
@@ -493,16 +493,13 @@ fn swift_and_kotlin_services_accept_the_service_role_markers() {
 }
 
 #[test]
-fn swift_and_kotlin_services_with_role_markers_still_refuse_other_targets() {
-    for (language, refused_target) in [("swift", "android"), ("kt", "ios"), ("kt", "macos")] {
-        let source = service_with_roles(language, "prototype");
-        let (_web_project, web) = bundle_service(language, &source, &[]);
-        assert!(stderr(&web).contains("TY1010"), "{}", stderr(&web));
-        let (_project, native) =
-            bundle_service(language, &source, &["--native", "--target", refused_target]);
-        assert!(!native.status.success());
-        assert!(stderr(&native).contains("TY1010"), "{}", stderr(&native));
-    }
+fn swift_services_with_role_markers_still_refuse_other_targets() {
+    let source = service_with_roles("swift", "prototype");
+    let (_web_project, web) = bundle_service("swift", &source, &[]);
+    assert!(stderr(&web).contains("TY1010"), "{}", stderr(&web));
+    let (_project, native) = bundle_service("swift", &source, &["--native", "--target", "android"]);
+    assert!(!native.status.success());
+    assert!(stderr(&native).contains("TY1010"), "{}", stderr(&native));
 }
 
 #[test]
