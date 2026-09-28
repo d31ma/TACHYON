@@ -371,6 +371,16 @@ class YonServiceTest {
   catalogClient!: ProductsClient;
   @Fake
   alternateClient!: ProductsClient;
+
+  @ValueSource([1, 2, 3])
+  testCountsEveryInput(count: number): void {
+    Assert.isTrue(count > 0, 'counts from one');
+  }
+
+  async testRefusesAnEmptyName(): Promise<void> {
+    Assert.equals('Sample', 'Sample');
+    await Assert.throws(async () => Promise.reject(new Error('empty name')));
+  }
 }
 
 // @ts-expect-error Test configurations require a static configure method.

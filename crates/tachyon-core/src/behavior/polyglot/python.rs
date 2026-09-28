@@ -6,6 +6,7 @@ use std::fmt::Write as _;
 pub(super) fn lower(module: &Module) -> Result<String, String> {
     let mut edits = Vec::new();
     let mut registrations = Vec::new();
+    let mut helpers = String::new();
     for type_declaration in &module.types {
         edits.extend(concrete_edit(module, type_declaration));
         let data = type_data(type_declaration)?;
@@ -18,11 +19,12 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
                 range: type_declaration.body.start..type_declaration.body.start,
                 replacement: test_members(&unit, &indent),
             });
+            helpers = String::from(super::super::TestAssert::PYTHON);
         }
         registrations.push(registration(type_declaration, &data)?);
     }
     let suffix = format!(
-        "{}\nBehaviors = _BehaviorFactory({{{}}}, {:?}, {:?})\n",
+        "{}{helpers}\nBehaviors = _BehaviorFactory({{{}}}, {:?}, {:?})\n",
         include_str!("python_runtime.py"),
         registrations.join(","),
         module.environment,
@@ -126,7 +128,8 @@ fn test_members(unit: &Unit, indent: &str) -> String {
     for name in &unit.mocks {
         let _ = writeln!(mocks, "{indent}{indent}self.{name} = None");
     }
-    let cases = serde_json::to_string(&unit.cases).unwrap_or_else(|_| String::from("[]"));
+    let table = super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string();
+    let cases = serde_json::Value::String(table);
     format!(
         "{indent}async def startBehaviors(self):\n\
          {indent}{indent}await self.stopBehaviors()\n\
@@ -139,11 +142,11 @@ fn test_members(unit: &Unit, indent: &str) -> String {
          {indent}async def POST(self):\n\
 {mocks}\
          {indent}{indent}cases = []\n\
-         {indent}{indent}for name in {cases}:\n\
+         {indent}{indent}for name, method, arguments in _behavior_json.loads({cases}):\n\
          {indent}{indent}{indent}await self.startBehaviors()\n\
          {indent}{indent}{indent}BehaviorCalls.take()\n\
          {indent}{indent}{indent}try:\n\
-         {indent}{indent}{indent}{indent}await getattr(self, name)()\n\
+         {indent}{indent}{indent}{indent}await getattr(self, method)(*arguments)\n\
          {indent}{indent}{indent}{indent}cases.append({{'name': name, 'passed': True, 'called': BehaviorCalls.take()}})\n\
          {indent}{indent}{indent}except Exception as error:\n\
          {indent}{indent}{indent}{indent}cases.append({{'name': name, 'passed': False, 'error': str(error), 'called': BehaviorCalls.take()}})\n\

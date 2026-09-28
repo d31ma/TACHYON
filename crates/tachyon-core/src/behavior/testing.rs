@@ -160,6 +160,7 @@ pub(super) struct Unit {
     pub profiles: Value,
     pub properties: Value,
     pub cases: Vec<String>,
+    pub inputs: Map<String, Value>,
     pub mocks: Vec<String>,
 }
 
@@ -188,6 +189,7 @@ pub(super) fn polyglot_unit(ty: &super::polyglot::Type) -> Option<Unit> {
         profiles,
         properties,
         cases: string_list(&ty.policies, "cases"),
+        inputs: super::ValueSource::inputs(&ty.policies),
         mocks: string_list(&ty.policies, "mockBeans"),
     })
 }
@@ -214,12 +216,10 @@ pub(super) fn controller_marker(language: &str) -> &'static str {
     }
 }
 
-pub(super) fn cases(registration: &super::Registration) -> Value {
-    registration
-        .data
-        .get("cases")
-        .cloned()
-        .unwrap_or_else(|| Value::Array(Vec::new()))
+fn case_table(registration: &super::Registration) -> Value {
+    let cases = string_list(&registration.data, "cases");
+    let inputs = super::ValueSource::inputs(&registration.data);
+    super::ValueSource::case_table(&cases, &inputs)
 }
 
 pub(super) fn members(registration: &super::Registration) -> Option<String> {
@@ -239,9 +239,9 @@ pub(super) fn members(registration: &super::Registration) -> Option<String> {
         .map_or_else(|| String::from("{}"), ToString::to_string);
     let mocks = mock_bindings(&registration.data);
     Some(format!(
-        " async startBehaviors() {{ await this.stopBehaviors();          this.behaviors = await Behaviors.create({configuration}, {{ partition: {},          signal: new AbortController().signal, profiles: {profiles}, properties: {properties} }}); }}          async stopBehaviors() {{ if (this.behaviors) {{ this.behaviors.dispose(); this.behaviors = undefined; }} }}          construct(Type) {{ return Behaviors.constructWith(Type, this.behaviors, {{ {mocks} }}); }}          async POST() {{ const cases = [];          for (const name of {}) {{          await this.startBehaviors(); Behaviors.takeCalled();          try {{ await this[name](); cases.push({{ name, passed: true, called: Behaviors.takeCalled() }}); }}          catch (error) {{ cases.push({{ name, passed: false, error: String(error && error.message || error), called: Behaviors.takeCalled() }}); }}          finally {{ await this.stopBehaviors(); }} }}          return {{ unit: {}, cases }}; }} ",
+        " async startBehaviors() {{ await this.stopBehaviors();          this.behaviors = await Behaviors.create({configuration}, {{ partition: {},          signal: new AbortController().signal, profiles: {profiles}, properties: {properties} }}); }}          async stopBehaviors() {{ if (this.behaviors) {{ this.behaviors.dispose(); this.behaviors = undefined; }} }}          construct(Type) {{ return Behaviors.constructWith(Type, this.behaviors, {{ {mocks} }}); }}          async POST() {{ const cases = [];          for (const [name, method, input] of {}) {{          await this.startBehaviors(); Behaviors.takeCalled();          try {{ await this[method](...input); cases.push({{ name, passed: true, called: Behaviors.takeCalled() }}); }}          catch (error) {{ cases.push({{ name, passed: false, error: String(error && error.message || error), called: Behaviors.takeCalled() }}); }}          finally {{ await this.stopBehaviors(); }} }}          return {{ unit: {}, cases }}; }} ",
         serde_json::Value::String(partition.to_owned()),
-        cases(registration),
+        case_table(registration),
         serde_json::Value::String(registration.name.clone()),
     ))
 }

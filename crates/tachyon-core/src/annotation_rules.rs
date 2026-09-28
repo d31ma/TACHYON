@@ -270,6 +270,8 @@ impl AnnotationRules {
     const YON_STREAM: &'static [&'static str] =
         &["js", "ts", "py", "php", "kt", "cs", "dart", "rb"];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts"];
+    const TAC_VALUE_SOURCE: &'static [&'static str] = &["js", "ts", "rs"];
+    const YON_VALUE_SOURCE: &'static [&'static str] = &["js", "ts", "py", "rs"];
     const NOWHERE: &'static [&'static str] = &[];
     const TYPE: &'static [Target] = &[Target::Type];
     const METHOD: &'static [Target] = &[Target::Method];
@@ -347,6 +349,15 @@ impl AnnotationRules {
             "puts a stand-in object into this field while a test runs",
         )
         .bare()
+        .class_needs(Self::TEST_CLASSES),
+        Rule::new(
+            "ValueSource",
+            Self::METHOD,
+            "runs this test case once for each input in its list",
+        )
+        .needs_arguments()
+        .instance()
+        .reach(Self::TAC_VALUE_SOURCE, Self::YON_VALUE_SOURCE)
         .class_needs(Self::TEST_CLASSES),
         Rule::new(
             "UseProfiles",

@@ -854,10 +854,12 @@ fn test_members(unit: &super::super::testing::Unit, environment: &str) -> String
             "Json::parse(&body.to_json(1048576).map_err(|_| YonResourceError)?).map_err(|_| YonResourceError)",
         )
     };
-    let names = quoted_names(&unit.cases);
+    let calls = super::super::ValueSource::rust_calls(&unit.cases, &unit.inputs);
+    let case_names: Vec<String> = calls.iter().map(|(name, _)| name.clone()).collect();
+    let names = quoted_names(&case_names);
     let mut dispatch = String::new();
-    for name in &unit.cases {
-        let _ = write!(dispatch, "{name:?} => self.{name}(),");
+    for (name, call) in &calls {
+        let _ = write!(dispatch, "{name:?} => CaseOutcome::failure({call}),");
     }
     let profiles = profile_statements(unit);
     let properties = property_statements(unit);
@@ -873,25 +875,33 @@ fn test_members(unit: &super::super::testing::Unit, environment: &str) -> String
          fn stop_behaviors(&self) {{\n\
          if let Some(context) = self.behaviors.borrow_mut().take() {{ context.dispose(); }}\n\
          }}\n\
-         fn run_case(&self, name: &str) -> BehaviorResult<BehaviorValue> {{\n\
-         match name {{ {dispatch} _ => Ok(BehaviorValue::Null) }}\n\
+         fn run_case(&self, name: &str) -> Option<String> {{\n\
+         let hook = std::panic::take_hook();\n\
+         std::panic::set_hook(Box::new(|_| {{}}));\n\
+         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match name {{ {dispatch} _ => None }}));\n\
+         std::panic::set_hook(hook);\n\
+         outcome.unwrap_or_else(|payload| Some(Assert::panic_message(payload.as_ref())))\n\
          }}\n\
          #[allow(non_snake_case)]\n\
          fn POST(&self) -> {report} {{\n\
          let mut cases = Vec::new();\n\
          for name in [{names}] {{\n\
-         let outcome = self.start_behaviors().map(|()| BehaviorCalls::take()).and_then(|_| self.run_case(name));\n\
-         cases.push(match outcome {{\n\
-         Ok(_) => BehaviorValue::object([(\"name\", name.into()), (\"passed\", BehaviorValue::Bool(true)), (\"called\", BehaviorCalls::take())]),\n\
-         Err(error) => BehaviorValue::object([(\"name\", name.into()), (\"passed\", BehaviorValue::Bool(false)), (\"error\", error.message.into()), (\"called\", BehaviorCalls::take())]),\n\
+         let failure = match self.start_behaviors() {{ Ok(()) => {{ BehaviorCalls::take(); self.run_case(name) }} Err(error) => Some(error.message.to_owned()) }};\n\
+         cases.push(match failure {{\n\
+         None => BehaviorValue::object([(\"name\", name.into()), (\"passed\", BehaviorValue::Bool(true)), (\"called\", BehaviorCalls::take())]),\n\
+         Some(message) => BehaviorValue::object([(\"name\", name.into()), (\"passed\", BehaviorValue::Bool(false)), (\"error\", BehaviorValue::String(message)), (\"called\", BehaviorCalls::take())]),\n\
          }});\n\
          self.stop_behaviors();\n\
          }}\n\
          let body = BehaviorValue::object([(\"unit\", {:?}.into()), (\"cases\", BehaviorValue::Array(cases))]);\n\
          {answer}\n\
          }}\n\
-         }}\n",
-        unit.name, unit.partition, unit.configuration, unit.name,
+         }}\n{}",
+        unit.name,
+        unit.partition,
+        unit.configuration,
+        unit.name,
+        super::super::TestAssert::RUST,
     )
 }
 

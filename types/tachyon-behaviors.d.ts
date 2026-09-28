@@ -452,6 +452,15 @@ declare global {
   function TestSettings(properties: BehaviorTestProperties): BehaviorClassAnnotation;
   const FreshStart: BehaviorBareMarker<BehaviorClassAnnotation>;
   const Fake: BehaviorBareMarker<BehaviorFieldAnnotation>;
+  type BehaviorTestInput = null | boolean | number | string | BehaviorTestInput[] | { [key: string]: BehaviorTestInput };
+  /** ValueSource: Tachyon runs this test case once for each input, like `@ValueSource([1, 2, 3])`, and passes the input as the one argument. */
+  function ValueSource(inputs: [BehaviorTestInput, ...BehaviorTestInput[]]): BehaviorMethodAnnotation;
+  /** Assert: checks inside a test case, like JUnit's Assertions. A failed check fails the case with its message. */
+  class Assert {
+    static equals(expected: unknown, actual: unknown, message?: string): void;
+    static isTrue(condition: boolean, message?: string): void;
+    static throws(action: () => unknown, message?: string): unknown;
+  }
   interface BehaviorParameterAnnotation {
     (target: object, propertyKey: string | symbol | undefined, parameterIndex: number): void;
   }

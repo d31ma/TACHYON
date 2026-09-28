@@ -828,7 +828,30 @@ fn apply_marker(
     if marker.parameter {
         return apply_parameter_marker(input, language, types, marker);
     }
+    if marker.name == super::ValueSource::NAME {
+        return apply_value_source(input, language, types, marker);
+    }
     apply_method_marker(input, language, types, marker)
+}
+
+fn apply_value_source(
+    input: &Input<'_>,
+    language: &str,
+    types: &mut [Type],
+    marker: &Marker,
+) -> Result<(), Failure> {
+    let owner = method_owner(input, language, types, marker.target).ok_or_else(|| {
+        input.failure(
+            marker.span.start,
+            "ValueSource goes on a test case of the Test class",
+        )
+    })?;
+    let ty = &mut types[owner];
+    let method = parse_method(input, language, marker.target, ty)?;
+    if language == "rs" {
+        return super::ValueSource::record_scalars(input, marker, &method.name, &mut ty.policies);
+    }
+    super::ValueSource::record(input, marker, &method.name, &mut ty.policies)
 }
 
 fn apply_parameter_marker(

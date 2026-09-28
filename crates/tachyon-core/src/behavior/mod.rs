@@ -6,6 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 use std::ops::Range;
 use std::path::Path;
+use test_assert::TestAssert;
+use value_source::ValueSource;
 
 mod behaviors_import;
 pub(crate) use behaviors_import::BehaviorsImport;
@@ -38,8 +40,10 @@ mod service_roles;
 pub(crate) use service_roles::ServiceRoles;
 mod stored_state;
 pub(crate) use stored_state::StoredState;
+mod test_assert;
 mod testing;
 mod validation;
+mod value_source;
 
 fn retired(name: &str) -> Option<&'static str> {
     let normalized = name.replace('_', "").to_ascii_lowercase();
@@ -93,8 +97,9 @@ struct Marker {
 }
 
 impl Marker {
-    const NAMES: [&str; 47] = [
+    const NAMES: [&str; 48] = [
         "Test",
+        "ValueSource",
         "TestSetup",
         "Fake",
         "UseProfiles",
@@ -489,6 +494,12 @@ fn lower_annotated_module(
     );
     if let Some(clients) = clients {
         output.push_str(&clients);
+    }
+    if registrations
+        .iter()
+        .any(|registration| registration.data.contains_key("test"))
+    {
+        output.push_str(TestAssert::JAVASCRIPT);
     }
     Ok(output)
 }
@@ -1268,6 +1279,10 @@ fn apply(
     if marker.name == "Fake" {
         let name = injected_field(input, marker)?;
         return testing::mocked(input, marker, &name, &mut registration.data);
+    }
+    if marker.name == ValueSource::NAME {
+        let method = method(input, registration, marker.target)?;
+        return ValueSource::record(input, marker, &method.name, &mut registration.data);
     }
     if validation::field_marker(&marker.name) {
         return apply_validation_field(input, registration, marker);

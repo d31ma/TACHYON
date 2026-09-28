@@ -32,6 +32,7 @@ mod ruby_handlers;
 mod single_class_layout;
 mod sockets;
 mod support;
+mod test_assertions;
 mod test_units;
 mod topic_events;
 mod yon_annotations_discovery;
