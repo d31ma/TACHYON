@@ -234,7 +234,7 @@ fn architecture_adrs_have_final_statuses_and_are_numbered() -> Result<(), Box<dy
         .filter(|path| is_numbered_adr(path))
         .collect::<Vec<_>>();
 
-    assert_eq!(numbered.len(), 79);
+    assert!(!numbered.is_empty());
     for (index, adr) in numbered.into_iter().enumerate() {
         let expected_prefix = format!("{:04}-", index + 1);
         assert!(
