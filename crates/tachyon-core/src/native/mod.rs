@@ -2,6 +2,7 @@ mod android;
 mod browser_api_grants;
 mod compiler;
 mod config;
+mod dotnet_web_release;
 mod events;
 mod fsharp_service;
 mod fsharp_web_project;
@@ -16,6 +17,7 @@ mod ios;
 mod kotlin_web_services;
 mod linux;
 mod macos;
+mod manifest_setting;
 #[cfg(test)]
 mod model_tests;
 #[cfg(test)]

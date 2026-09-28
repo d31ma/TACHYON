@@ -118,7 +118,9 @@ async fn build_language(
             WebEngine::RUST_ENGINE.replace("__WASM__", &base64(&module.binary))
         }
         WebLanguage::CSharp => {
-            published.extend(dotnet_framework(snapshot_root, &chosen, profile).await?);
+            let (framework, reason) = dotnet_framework(snapshot_root, &chosen, profile).await?;
+            published.extend(framework);
+            note = reason;
             String::from(WebEngine::CSHARP_ENGINE)
         }
         WebLanguage::Go => {
@@ -169,12 +171,13 @@ async fn dotnet_framework(
     snapshot_root: &Path,
     chosen: &[(String, String, PathBuf)],
     profile: crate::BuildProfile,
-) -> Result<Vec<(String, Vec<u8>)>, Failure> {
+) -> Result<(Vec<(String, Vec<u8>)>, Option<String>), Failure> {
+    let (framework, note) = crate::native::web_dotnet(snapshot_root, chosen, profile).await?;
     let mut files = Vec::new();
-    for (name, bytes) in crate::native::web_dotnet(snapshot_root, chosen, profile).await? {
+    for (name, bytes) in framework {
         files.push((format!("dotnet/{name}"), bytes));
     }
-    Ok(files)
+    Ok((files, note))
 }
 
 fn ruby_engine(
@@ -1188,8 +1191,13 @@ mod tests {
                 Fixtures::TALLY_SERVICE,
             );
             let service = ("tally", "TallyService");
-            build_and_publish_with(root.path(), service, WebLanguage::CSharp, source, profile)
-                .await;
+            let (notes, _) =
+                build_and_publish_with(root.path(), service, WebLanguage::CSharp, source, profile)
+                    .await;
+            let explained = notes
+                .iter()
+                .any(|note| note.starts_with("C#: the trimmed .NET interpreter"));
+            assert_eq!(explained, profile == crate::BuildProfile::Release, "{notes:?}");
             let report = run_driver(root.path(), Fixtures::TALLY_DRIVER);
             assert_eq!(report["size"], 3, "{profile:?}");
             assert_eq!(report["other"], -1);

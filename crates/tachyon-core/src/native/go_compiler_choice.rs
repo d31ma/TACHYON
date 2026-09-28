@@ -1,7 +1,7 @@
 use super::go_compiler::GoCompiler;
 use super::host::native_tool_failure;
+use super::manifest_setting::ManifestSetting;
 use crate::Failure;
-use serde_json::Value;
 use std::path::Path;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -12,7 +12,6 @@ pub(super) struct GoCompilerChoice {
 }
 
 impl GoCompilerChoice {
-    const MANIFEST: &'static str = "client/manifest.json";
     const SETTING: &'static str = "/tac/go/compiler";
     const TINYGO_SETTING: &'static str = "tinygo";
     const STANDARD_SETTING: &'static str = "go";
@@ -47,9 +46,8 @@ impl GoCompilerChoice {
     }
 
     fn setting(snapshot_root: &Path) -> Option<String> {
-        let bytes = std::fs::read(snapshot_root.join(Self::MANIFEST)).ok()?;
-        let manifest: Value = serde_json::from_slice(&bytes).ok()?;
-        manifest.pointer(Self::SETTING)?.as_str().map(String::from)
+        let value = ManifestSetting::read(snapshot_root, Self::SETTING)?;
+        value.as_str().map(String::from)
     }
 
     fn for_setting(setting: Option<&str>, profile: crate::BuildProfile) -> Result<Self, Failure> {

@@ -1,4 +1,5 @@
 use super::config::NativeApplication;
+use super::dotnet_web_release::DotnetWebRelease;
 use super::host::{
     GeneratedHost, c_string_escape, first_line, native_tool_failure, run_tool, stage_application,
     write, write_host_source,
@@ -121,10 +122,10 @@ impl WindowsHostGenerator {
     const CSHARP_WEB_INVARIANT_OPTION: &str = "  <ItemGroup><RuntimeHostConfigurationOption \
         Include=\"System.Globalization.Invariant\" Value=\"true\" Trim=\"true\" /></ItemGroup>\n";
 
-    fn csharp_web_project(profile: crate::BuildProfile) -> String {
+    fn csharp_web_project(profile: crate::BuildProfile, smallest: &DotnetWebRelease) -> String {
         let release = Self::CSHARP_WEB_PROJECT;
         match profile {
-            crate::BuildProfile::Release => String::from(release),
+            crate::BuildProfile::Release => smallest.project(release),
             crate::BuildProfile::Development => release
                 .replace(
                     "    <InvariantGlobalization>true</InvariantGlobalization>\n",
@@ -214,12 +215,12 @@ pub(crate) async fn web_dotnet(
     snapshot_root: &Path,
     services: &[(String, String, PathBuf)],
     profile: crate::BuildProfile,
-) -> Result<Vec<(String, Vec<u8>)>, Failure> {
+) -> Result<(Vec<(String, Vec<u8>)>, Option<String>), Failure> {
     let companions = web_companion_inputs(snapshot_root, services);
     let Some(authored) =
         super::registry::source(&companions, crate::project::NativeCompanion::CSharp)?
     else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), None));
     };
     let (authored, fsharp) = crate::fsharp_source::FsharpSource::web_split(&authored);
     let fsharp_files = super::fsharp_web_project::FsharpWebProject::files(snapshot_root, fsharp)?;
@@ -231,8 +232,9 @@ pub(crate) async fn web_dotnet(
              or later, then run `dotnet workload install wasm-tools`.",
         )
     })?;
+    let smallest = DotnetWebRelease::read(snapshot_root);
     let project = super::fsharp_web_project::FsharpWebProject::referenced(
-        &WindowsHostGenerator::csharp_web_project(profile),
+        &WindowsHostGenerator::csharp_web_project(profile, &smallest),
         fsharp,
     );
     let mut keyed_source = source.clone();
@@ -244,7 +246,8 @@ pub(crate) async fn web_dotnet(
     if !cached.is_dir() {
         publish_web_framework(&project, &source, &fsharp_files, &cached).await?;
     }
-    read_web_framework(&cached)
+    let note = (profile == crate::BuildProfile::Release).then(|| smallest.note());
+    Ok((read_web_framework(&cached)?, note))
 }
 
 fn web_companion_inputs(
@@ -1236,9 +1239,15 @@ mod tests {
 
     #[test]
     fn the_development_web_project_skips_the_native_relink_and_stays_invariant() {
-        let release = super::WindowsHostGenerator::csharp_web_project(crate::BuildProfile::Release);
-        let development =
-            super::WindowsHostGenerator::csharp_web_project(crate::BuildProfile::Development);
+        let smallest = super::DotnetWebRelease::read(std::path::Path::new("/definitely/missing"));
+        let release = super::WindowsHostGenerator::csharp_web_project(
+            crate::BuildProfile::Release,
+            &smallest,
+        );
+        let development = super::WindowsHostGenerator::csharp_web_project(
+            crate::BuildProfile::Development,
+            &smallest,
+        );
         assert!(release.contains("<InvariantGlobalization>true</InvariantGlobalization>"));
         assert!(release.contains("<BlazorCacheBootResources>false</BlazorCacheBootResources>"));
         assert!(!release.contains("WasmBuildNative"));
@@ -1248,6 +1257,8 @@ mod tests {
             r#"<RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" Trim="true" />"#
         ));
         assert!(development.contains("<PublishTrimmed>true</PublishTrimmed>"));
+        assert!(release.contains("<TrimMode>full</TrimMode>"));
+        assert!(!development.contains("TrimMode"));
         assert_ne!(
             super::web_cache_key("9.0", &release, "source"),
             super::web_cache_key("9.0", &development, "source")
