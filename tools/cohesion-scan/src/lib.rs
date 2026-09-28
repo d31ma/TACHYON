@@ -1,17 +1,17 @@
 mod file_name;
-mod files;
 mod function;
+mod function_scanner;
 mod parsed_file;
 mod rust_tokens;
-mod scanner;
+mod source_files;
 mod structure;
 
 use file_name::FileName;
-use files::SourceFiles;
 use function::Function;
+use function_scanner::FunctionScanner;
 use parsed_file::ParsedFile;
-use scanner::FunctionScanner;
 use serde::Serialize;
+use source_files::SourceFiles;
 use std::collections::BTreeSet;
 use std::fmt;
 use std::path::{Path, PathBuf};

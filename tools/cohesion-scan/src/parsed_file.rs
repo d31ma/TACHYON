@@ -1,6 +1,6 @@
 use crate::ScanError;
-use crate::files::SourceFiles;
 use crate::rust_tokens::RustTokens;
+use crate::source_files::SourceFiles;
 use std::fs;
 use std::path::Path;
 use syn::File;
