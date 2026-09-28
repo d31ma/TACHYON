@@ -6718,7 +6718,7 @@
             },
             {
               "name": "client/components/catalog/panel/tac.html",
-              "code": "<main><h1>Catalog</h1><p>Loaded {catalog.count} products</p></main>\n"
+              "code": "<main><h1>Catalog</h1><button on:click=\"catalog.load()\">Load</button><p>Loaded {catalog.count} products</p></main>\n"
             },
             {
               "name": "client/clients/CatalogClient.js",

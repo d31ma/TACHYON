@@ -63,6 +63,7 @@ class Progress {
 
 class Patterns {
   static tutorials = new Set(['first-app'])
+  static excerptManifest = JSON.stringify({ tac: { visibility: { check: false } } })
   static roleFile = /\/(controllers|services|stores|clients|helpers|setups|converters|entities)\/[^/]+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)$/
   static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb)$/
   static identityProviderPath = /^server\/controllers\/[A-Z]\w*IdentityProvider\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb)$/
@@ -216,14 +217,25 @@ function filesForHandlerLanguage(files, handler) {
   const extension = path.extname(handler.name)
   const sameLanguage = files.filter(file => path.extname(file.name) === extension)
   const gatewayFiles = gatewayFileNames(sameLanguage)
+  const foreignGatewayFiles = gatewayFileNames(files.filter(file => path.extname(file.name) !== extension))
   const sameLanguageCode = sameLanguage.map(file => file.code).join('\n')
   return files.filter(file => {
     if (file.name.startsWith('client/')) return false
+    if (foreignGatewayFiles.has(file.name) && !isNamedByOtherFiles(file, sameLanguage)) return false
     const fileExtension = path.extname(file.name)
     const realmImportPath = `/${file.name.split('/').slice(1).join('/')}`
     if (gatewayFiles.has(file.name) || sameLanguageCode.includes(file.name) || sameLanguageCode.includes(realmImportPath)) return true
     return !Languages.sourceExtensions.has(fileExtension) || fileExtension === extension
   })
+}
+
+/**
+ * @param {Snippet} file
+ * @param {Snippet[]} sameLanguage
+ */
+function isNamedByOtherFiles(file, sameLanguage) {
+  const className = path.basename(file.name, path.extname(file.name))
+  return sameLanguage.some(other => other.name !== file.name && other.code.includes(className))
 }
 
 /**
@@ -770,7 +782,8 @@ async function bundleServiceClass(label, code) {
     skip(label, 'class excerpt without a <Name>Service default export; not a complete service file')
     return
   }
-  await bundleServices(label, [{ name: `client/services/${name}.js`, code }])
+  const excerptManifest = { name: 'client/manifest.json', code: Patterns.excerptManifest }
+  await bundleServices(label, [{ name: `client/services/${name}.js`, code }, excerptManifest])
 }
 
 /**
