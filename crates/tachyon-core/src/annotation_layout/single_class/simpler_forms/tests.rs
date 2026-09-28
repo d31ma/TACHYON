@@ -578,6 +578,14 @@ fn boolean_compare_is_suggested_and_applied() {
         "server/services/Shop.js",
         &js("    return user === true;\n"),
     );
+    none(
+        "server/services/shop.go",
+        "package services\n\nfunc (s *Shop) Run(values map[string]any) bool {\n\treturn values[\"enabled\"] != false\n}\n",
+    );
+    none(
+        "server/services/shop.go",
+        "package services\n\nfunc (s *Shop) Run(exists any) bool {\n\treturn exists != true\n}\n",
+    );
 }
 
 #[test]

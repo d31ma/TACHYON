@@ -10,7 +10,7 @@ use super::simpler_form::SimplerForm;
 pub(super) struct BooleanCompare;
 
 impl BooleanCompare {
-    const LANGUAGES: [CodeLanguage; 3] = [CodeLanguage::Java, CodeLanguage::Go, CodeLanguage::Rust];
+    const LANGUAGES: [CodeLanguage; 2] = [CodeLanguage::Java, CodeLanguage::Rust];
     const COMPARISONS: [&'static str; 2] = ["==", "!="];
 
     pub(super) fn find(pieces: &Pieces<'_>) -> Vec<SimplerForm> {

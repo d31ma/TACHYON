@@ -1685,6 +1685,9 @@ machine contracts have their own, independent major versions.
   `OnEvent` listeners changed was not saved, so a reload brought back the
   old value. The page now reads the saved fields after each call into the
   service and stores the ones that changed.
+- `TY1341` (comparison with true or false) is no longer suggested in Go. A
+  Go value of type `any` can be compared with `true`, but it cannot be a
+  condition by itself, so `ty migrate fix` wrote Go that did not compile.
 - A Kotlin Android service method that takes arguments now compiles; before,
   the generated table always called it with none. A model-typed or `Float`
   Kotlin field can be set from the page.

@@ -38,8 +38,9 @@ over items instead of indexes (1354) and a boolean assignment (1355).
 - **Same behaviour or no suggestion.** A pattern is suggested only where the
   simpler form behaves the same. JavaScript, TypeScript, PHP, Python and
   Ruby conditions need a comparison, a `!` or another true-or-false value
-  before `return cond` is suggested; `x == true` is suggested only in Java,
-  Go and Rust; `+=` in Python and Kotlin only for a variable that started as
+  before `return cond` is suggested; `x == true` is suggested only in Java
+  and Rust (a Go value of type `any` compares with `true` but is not a
+  condition by itself); `+=` in Python and Kotlin only for a variable that started as
   a number or text; no edit crosses a comment, a multi-line string, or a
   block-scoped declaration.
 - **Per realm.** `tac.simplify.suggest` in `client/manifest.json` and
