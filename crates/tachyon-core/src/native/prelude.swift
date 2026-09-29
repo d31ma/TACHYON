@@ -109,7 +109,8 @@ private func tacEncode(_ value: Any?) -> String {
     case let values as [Any?]: return "[" + values.map(tacEncode).joined(separator: ",") + "]"
     case let values as [String: Any?]:
         return "{"
-            + values.map { tacEncode($0.key) + ":" + tacEncode($0.value) }.joined(separator: ",")
+            + values.sorted { $0.key < $1.key }.map { tacEncode($0.key) + ":" + tacEncode($0.value) }
+                .joined(separator: ",")
             + "}"
     case let model as any Encodable: return tacEncode(tacModelValue(model))
     case let value: return tacEncode(String(describing: value!))
