@@ -521,6 +521,15 @@ machine contracts have their own, independent major versions.
   class, so services never clash over the runtime classes. The Java behavior
   runtime gained a built-in adapter lookup (no adapter on the JVM). The
   storage gate has Java cache, Store and AllOrNothing rows.
+- Swift test units can use Tachyon's browser APIs: `BrowserFakes.answer("clock",
+  "now", 1000)` gives a call its answer, as in Go and Ruby, and a unit can
+  call a listener with a built-in event model such as
+  `ConnectivityChanged(online: false)`. A call without an answer throws an
+  error that names `BrowserFakes.answer` (ADR 0082).
+- The macOS CI job installs the swift.org 6.3.3 toolchain (signature checked)
+  and the checksum-pinned Swift SDK for WebAssembly, and runs the Swift web
+  service, Swift test unit and Apple companion tests.
+
 - `scripts/wasm-worker-measure.mjs` measures every Tac WebAssembly runtime
   (Rust, Go, C#, F#, Dart, Ruby, Kotlin, Swift, and JavaScript as the
   baseline) on the page thread and in a Web Worker prototype: long tasks
@@ -1484,6 +1493,11 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- ADR 0082 and the WebAssembly compiler page record the Swift size
+  measurements: linker flags, leaving out reflection metadata, leaving out
+  the `Codable` coder and Embedded Swift either save nothing or change how
+  services behave, so Swift web builds keep their flags.
+
 - The website's type sizes follow the average of six other framework
   websites (Svelte, Vue, React, Angular, Astro, Solid), set by one set of
   CSS custom properties in `site.css`: docs text 16px with line height 1.7
@@ -1935,6 +1949,11 @@ machine contracts have their own, independent major versions.
   not bring back its runtime shims.
 
 ### Fixed
+
+- A Swift companion with an `async` method (for example a `@Cached` method)
+  now compiles and runs on macOS and iOS. The host waits for the method on
+  the main thread and keeps the run loop turning, so main-actor work
+  finishes.
 
 - A Swift service method without arguments can throw: the generated member
   calls it with `try` (before, such a service did not compile). A Swift or

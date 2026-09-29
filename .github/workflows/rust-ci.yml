@@ -411,6 +411,26 @@ jobs:
           unzip -q "${sdk}" -d "${RUNNER_TEMP}/dart"
           echo "${RUNNER_TEMP}/dart/dart-sdk/bin" >> "${GITHUB_PATH}"
 
+      - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
+        run: |
+          set -euo pipefail
+          release=https://download.swift.org/swift-6.3.3-release
+          package="${RUNNER_TEMP}/swift-6.3.3-RELEASE-osx.pkg"
+          curl --fail --location --silent --show-error --max-time 900 \
+            --output "${package}" \
+            "${release}/xcode/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-osx.pkg"
+          pkgutil --check-signature "${package}" | grep -q "Swift Open Source (V9AUD2URP3)"
+          installer -pkg "${package}" -target CurrentUserHomeDirectory
+          toolchain="${HOME}/Library/Developer/Toolchains/swift-6.3.3-RELEASE.xctoolchain"
+          sdks="${RUNNER_TEMP}/swift-sdks"
+          "${toolchain}/usr/bin/swift" sdk install --swift-sdks-path "${sdks}" \
+            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
+            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
+          test -d "${sdk}/WASI.sdk"
+          echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/usr/bin/swiftc" >> "${GITHUB_ENV}"
+          echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
       - name: Build the Phase 4 CLI
         run: cargo build --locked --bin ty
 
@@ -442,6 +462,12 @@ jobs:
             behavior_annotations:: behavior_dynamic:: \
             behavior_jvm:: behavior_csharp:: behavior_rust:: behavior_go:: --test-threads=1
 
+      - name: Execute Swift web services, Swift test units and Apple async companions
+        run: |
+          cargo test --locked -p tachyon-core --lib -- \
+            tac_web::swift_tests:: a_swift_web_service_ web_fake_tests::a_swift \
+            a_swift_native_companion --test-threads=1
+
       - name: Verify managed repository resources in every Yon language
         run: |
           cargo test --locked -p tachyon-core --test it -- managed_resources:: --test-threads=1
@@ -450,7 +476,8 @@ jobs:
           TAC_STORAGE_REQUIRE_TOOLCHAINS: "1"
 
       - name: Verify local events and lifecycle in every Yon language
-        run: cargo test --locked -p tachyon-core --test it -- local_events:: --test-threads=1
+        run: |
+          cargo test --locked -p tachyon-core --test it -- local_events:: --test-threads=1
         env:
           TAC_EVENTS_REQUIRE_TOOLCHAINS: "1"
 
@@ -784,7 +811,8 @@ jobs:
           rustup default 1.97.1
 
       - name: Run interruption, corruption, contention, and load drills
-        run: cargo test --locked -p tachyon-cli --test it -- phase7_cli:: --test-threads=1
+        run: |
+          cargo test --locked -p tachyon-cli --test it -- phase7_cli:: --test-threads=1
         env:
           TAC_SOAK_ITERATIONS: "200"
 

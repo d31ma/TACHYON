@@ -1,7 +1,7 @@
 # ADR 0082: Swift Services Reach the Web as WebAssembly
 
 - Status: Accepted; amended 2026-09-29 (models, events, topics and storage;
-  browser APIs and waits)
+  browser APIs and waits; test units, Apple waits, size and CI)
 - Date: 2026-09-28
 - Amends: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   and [ADR 0078](0078-kotlin-services-reach-the-web-as-webassembly.md)
@@ -336,3 +336,98 @@ Foundation and no JavaScriptKit.
   `tac_web::swift_tests::a_swift_service_retries_after_a_delay_and_binds_settings_as_webassembly`
   (one `poll_oneoff` call per delay) failed before the change and pass
   after it. The web-apis browser gate has a Swift row.
+
+## Amendment (2026-09-29): test units, Apple waits, size and CI
+
+### Browser APIs in Swift test units
+
+- A Swift test unit runs as a native program without a page. Its program
+  now holds the browser API classes and event models that its code names,
+  and `BrowserFakes`, like Go and Ruby (ADR 0065):
+  `BrowserFakes.answer("clock", "now", 1000)` makes `Clock().nowMs()`
+  answer 1000. A call without an answer throws a `TacBrowserError` that
+  names `BrowserFakes.answer`. `nowMs()` and `monotonicMs()` cannot throw,
+  so without an answer they read the computer's clock. An answer goes
+  through JSON once, so the service sees the same types as on the page (a
+  whole number answers a `Double`).
+- The web host is split in two. `TacWebHost` (the calls, text, flags and
+  typed answers) is shared. `TacPage` is the page: the `tachyon` imports on
+  the web (`native/swift_web_services/TacPage.swift`) and `BrowserFakes` in
+  a test unit (`native/swift_test_units/`).
+- A unit can call a listener with a built-in event model, for example
+  `service.hearConnectivity(ConnectivityChanged(online: false))`.
+
+### Async methods in Apple companions
+
+- The generated member of an `async` method calls `tacAwait`, which only
+  the web prelude had, so a Swift companion with an `async` method (such
+  as a `@Cached` method) did not compile for macOS or iOS. The Apple
+  prelude now has its own `tacAwait`: it starts the work in a detached task
+  and waits on the owner (main) thread for it, and while it waits it keeps
+  the main run loop turning (`TacOwnerThread`). So work that the method
+  sends to the main actor finishes instead of blocking forever. The
+  `TacAwaited` result holder is shared by the web and Apple preludes.
+
+### Size
+
+We measured the release build of the counter and of the service that
+uses all nine browser APIs (sizes in bytes; the Brotli size is what the
+browser downloads):
+
+| Program | Before this step | After this step | Brotli before | Brotli after |
+| --- | --- | --- | --- | --- |
+| Counter | 3,681,899 | 3,681,955 | 1,001,786 | 1,002,208 |
+| All nine browser APIs | 3,714,732 | 3,716,562 | 1,003,559 | 1,006,896 |
+
+`tachyon-swift.js` stays 9,031 bytes. We also built the counter with other
+settings (Binaryen `-Oz` after each, Brotli at quality 11):
+
+| Setting | Release | Brotli | Adopted |
+| --- | --- | --- | --- |
+| Today's flags | 3,681,955 | 1,000,764 | yes |
+| `-Xlinker --strip-all` | 3,681,955 | 1,000,770 | no: Binaryen already strips |
+| `-Xlinker --gc-sections` | 3,681,955 | 1,000,781 | no: wasm-ld already does it |
+| `-Xfrontend -disable-reflection-metadata` | 3,679,868 | 999,819 | no: changes `String(describing:)` |
+| `-enforce-exclusivity=unchecked` | 3,681,508 | 1,000,117 | no: removes a safety check |
+| No `Codable` coder (hand-made) | 3,636,553 | 980,830 | no: see below |
+
+- Without the `Codable` encoder and decoder the counter is 20 KB smaller
+  with Brotli (2%), not 80 KB: most of the cost is the standard library's
+  own `Codable` code, which stays. The coder also turns a whole number into
+  a `Double` argument, so a program without it would behave differently.
+- Embedded Swift (`-enable-experimental-feature Embedded`, from the same
+  SDK) does not compile the Swift web program: 207 errors for the counter
+  and 247 for the browser API service. It has no `Codable`, no
+  `String(describing:)`, no `Any` values, no `as?` casts and no untyped
+  `throws`, and the runtime and authored services use all of them. A
+  hand-written Embedded counter with the same two methods, but without the
+  page bridge or saved state, is 33,260 bytes (11,774 with Brotli): about
+  110 times smaller, 85 times with Brotli. Adopting it would need a
+  second runtime and would refuse ordinary Swift services, so the web
+  program keeps the full standard library. A service where the download
+  matters most can be written in Rust or Dart.
+
+### Continuous integration
+
+- The macOS job installs the swift.org 6.3.3 toolchain (the package's
+  signature must be Swift Open Source, V9AUD2URP3) and the Swift SDK for
+  WebAssembly with `swift sdk install --checksum`
+  (`cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7`),
+  sets `TAC_SWIFT_WASM_COMPILER` and `TAC_SWIFT_WASM_SDK`, and runs
+  `tac_web::swift_tests`, the `a_swift_web_service_*` tests, the Swift test
+  unit with `BrowserFakes` and the Apple companion tests.
+
+### Checks
+
+- `client_tests::web_fake_tests::a_swift_unit_answers_the_browser_apis_with_browser_fakes`
+  and
+  `native::model_tests::a_swift_native_companion_awaits_an_async_method_on_the_owner_thread`
+  failed before the change (the unit did not compile; `cannot find
+  'tacAwait' in scope`) and pass after it.
+- In a release build the web program still answers in Chromium, Firefox and
+  WebKit: every browser API, the event models, the refused clipboard call,
+  the `@Retry` waits (36 to 38 ms) and `@MaxAtOnce`. No errors were logged.
+
+### Still open
+
+- A Swift `Task.sleep` still blocks the page while it waits (ADR 0084).
