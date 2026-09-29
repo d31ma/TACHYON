@@ -88,15 +88,13 @@ impl SocketProcess {
         let written = Self::write_first_request(&mut stdin, request).await;
         Self::stop_when_unwritten(written, &mut child, &request_id, &stderr_task).await?;
         let mut writer = SocketWriter::spawn(stdin, channels.input, request_id.clone());
-        let mut reader = SocketReader::spawn(stdout, channels.output, request_id.clone());
-        let read = Self::first_finish(&mut reader, cancellation, deadline).await;
+        let reader = SocketReader::spawn(stdout, channels.output, request_id.clone());
+        let read = Self::first_finish(reader, cancellation, deadline).await;
         let read = Self::reading_result(read, cancellation);
         let result = Self::exit_after_reading(read, &mut child, deadline).await;
         ProcessReaper::terminate(&mut child, &request_id).await;
         writer.abort();
-        reader.abort();
         let _writer = (&mut writer).await;
-        let _reader = (&mut reader).await;
         let stderr = Drained::settle(stderr_task, Instant::now() + Self::SOCKET_GRACE).await;
         Self::socket_outcome(result, stderr)
     }
@@ -126,15 +124,20 @@ impl SocketProcess {
     }
 
     async fn first_finish(
-        reader: &mut JoinHandle<Result<(), Failure>>,
+        mut reader: JoinHandle<Result<(), Failure>>,
         cancellation: &HandlerCancellation,
         deadline: Instant,
     ) -> Option<Result<Result<(), Failure>, JoinError>> {
-        tokio::select! {
-            read = reader => Some(read),
+        let read = tokio::select! {
+            read = &mut reader => Some(read),
             () = cancellation.cancelled() => None,
             () = sleep_until(deadline) => None,
+        };
+        if read.is_none() {
+            reader.abort();
+            let _reader = reader.await;
         }
+        read
     }
 
     fn reading_result(
@@ -180,5 +183,55 @@ impl SocketProcess {
             Ok(Err(_)) => Err(SocketOutput::failure("Cannot see the socket handler stop.")),
             Err(_) => Err(ProcessFailure::timed_out()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use super::{SocketChannels, SocketProcess};
+    use crate::handler::HandlerCancellation;
+    use command_group::AsyncCommandGroup as _;
+    use std::process::Stdio;
+    use std::time::Duration;
+    use tachyon_contracts::{HandlerRequest, HttpMethod};
+    use tokio::process::Command;
+    use tokio::sync::mpsc;
+    use tokio::time::Instant;
+
+    #[tokio::test]
+    async fn a_handler_that_stops_after_the_close_frame_ends_the_socket_cleanly() {
+        let mut child = Command::new("sh")
+            .args(["-c", "cat > /dev/null"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .group_spawn()
+            .expect("a handler that reads until its input ends");
+        let process = SocketProcess {
+            stdin: child.inner().stdin.take().expect("stdin"),
+            stdout: child.inner().stdout.take().expect("stdout"),
+            stderr: child.inner().stderr.take().expect("stderr"),
+            child,
+        };
+        let (input, inputs) = mpsc::channel(1);
+        let (output, _outputs) = mpsc::channel(1);
+        drop(input);
+        let request = HandlerRequest::route("socket-1", "/chat", HttpMethod::Get);
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let finished = process
+            .drive(
+                4096,
+                &request,
+                SocketChannels {
+                    input: inputs,
+                    output,
+                },
+                &HandlerCancellation::default(),
+                deadline,
+            )
+            .await;
+        assert!(finished.is_ok(), "{finished:?}");
     }
 }
