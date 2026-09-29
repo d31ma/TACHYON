@@ -246,7 +246,7 @@ fn a_csharp_module_without_a_test_class_has_no_assert() {
 
 #[test]
 fn a_go_value_source_calls_the_case_once_for_each_literal() {
-    let source = "// @Test(CatalogTestSetup)\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\n// @ValueSource([1, \"a\\\"b\", true])\nfunc (test *CatalogServiceTest) TestKeepsAnInput(value any) {\n\tAssert.IsTrue(value != nil)\n}\n\nfunc (test *CatalogServiceTest) TestStillReturnsAnError() error {\n\treturn nil\n}\n";
+    let source = "// @Test(CatalogTestSetup)\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\n// @ValueSource([1, \"a\\\"b\", true])\nfunc (test *CatalogServiceTest) TestKeepsAnInput(value any) {\n\tAssert.IsTrue(value != nil)\n}\n\nfunc (test *CatalogServiceTest) TestStillReturnsAnError() error {\n\tAssert.IsTrue(true)\n\treturn nil\n}\n";
     let lowered = ValueSourceCase::native("server/tests/CatalogServiceTest.go", source, "yon")
         .expect("lowered")
         .expect("a test unit");
