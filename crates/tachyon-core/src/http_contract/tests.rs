@@ -1,0 +1,410 @@
+use super::HttpContract;
+use std::path::Path;
+
+struct Samples;
+
+impl Samples {
+    const CONTRACTS: [(&'static str, &'static str); 13] = [
+        (
+            "java",
+            "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    Object all(@RequestParam(\"page\") long page);\n\n    @Gateway({\"command\":[\"python3\"]})\n    Object ping();\n}\n",
+        ),
+        (
+            "groovy",
+            "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    Object all(@RequestParam(\"page\") long page)\n}\n",
+        ),
+        (
+            "kt",
+            "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    fun all(@RequestParam(\"page\") page: Long): Any?\n}\n",
+        ),
+        (
+            "cs",
+            "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/products\")]\n    Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page);\n}\n",
+        ),
+        (
+            "php",
+            "<?php\n#[HTTPClient]\ninterface CatalogClient {\n    #[GetRequest(\"/products\")]\n    public function all(#[RequestParam(\"page\")] int $page): array;\n}\n",
+        ),
+        (
+            "go",
+            "// @HTTPClient\ntype CatalogClient interface {\n\t// @GetRequest(\"/products\")\n\tAll(\n\t\t// @RequestParam(\"page\")\n\t\tpage BehaviorValue,\n\t) (BehaviorValue, error)\n}\n",
+        ),
+        (
+            "dart",
+            "@HTTPClient\nabstract interface class CatalogClient {\n  @GetRequest(\"/products\")\n  Future<Object?> all(@RequestParam(\"page\") int page);\n}\n",
+        ),
+        (
+            "rs",
+            "#[HTTPClient]\ntrait CatalogClient {\n    #[GetRequest(\"/products\")]\n    fn all(&self, #[RequestParam(\"page\")] page: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n}\n",
+        ),
+        (
+            "swift",
+            "@HTTPClient\nprotocol CatalogClient {\n    @GetRequest(\"/products\")\n    func all(@RequestParam(\"page\") page: BehaviorJSON) async throws -> BehaviorJSON\n}\n",
+        ),
+        (
+            "py",
+            "from typing import Annotated, Protocol\n\n@http_client\nclass CatalogClient(Protocol):\n    @get_request(\"/products\")\n    async def all(self, page: Annotated[int, request_param(\"page\")]) -> object: ...\n",
+        ),
+        (
+            "js",
+            "@HTTPClient\nclass CatalogClient {\n  /** @param {number} page */\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page) {}\n}\n",
+        ),
+        (
+            "ts",
+            "@HTTPClient\nclass CatalogClient {\n  declare send: SocketSend<Product>;\n\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page: number): Promise<Product | void> {}\n}\n",
+        ),
+        (
+            "rb",
+            "#[HTTPClient]\nclass CatalogClient\n  # @param page [Integer]\n  # @return [Hash]\n  #[GetRequest(\"/products\")]\n  def all(\n    #[RequestParam(\"page\")]\n    page\n  )\n  end\nend\n",
+        ),
+    ];
+
+    const CLASS_FORMS: [(&'static str, &'static str); 10] = [
+        (
+            "java",
+            "@HTTPClient\nclass CatalogClient {\n    @GetRequest(\"/products\")\n    Object all() {}\n}\n",
+        ),
+        (
+            "groovy",
+            "@HTTPClient\nclass CatalogClient {\n    @GetRequest(\"/products\")\n    Object all() {}\n}\n",
+        ),
+        (
+            "kt",
+            "@HTTPClient\nclass CatalogClient {\n    @GetRequest(\"/products\")\n    fun all(): Any? {}\n}\n",
+        ),
+        (
+            "cs",
+            "[HTTPClient]\nclass CatalogClient {\n    [GetRequest(\"/products\")]\n    public async Task<BehaviorJSON> All() {}\n}\n",
+        ),
+        (
+            "php",
+            "<?php\n#[HTTPClient]\nclass CatalogClient {\n    #[GetRequest(\"/products\")]\n    public function all(): array {}\n}\n",
+        ),
+        ("go", "// @HTTPClient\ntype CatalogClient struct {\n}\n"),
+        (
+            "dart",
+            "@HTTPClient\nclass CatalogClient {\n  @GetRequest(\"/products\")\n  Future<Object?> all() async {}\n}\n",
+        ),
+        ("rs", "#[HTTPClient]\nstruct CatalogClient;\n"),
+        (
+            "swift",
+            "@HTTPClient\nfinal class CatalogClient {\n    @GetRequest(\"/products\")\n    func all() async throws -> BehaviorJSON {}\n}\n",
+        ),
+        (
+            "py",
+            "@http_client\nclass CatalogClient:\n    @get_request(\"/products\")\n    async def all(self):\n        pass\n",
+        ),
+    ];
+
+    const BODIES: [(&'static str, &'static str); 13] = [
+        (
+            "java",
+            "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    default Object all() { return 2; }\n}\n",
+        ),
+        (
+            "groovy",
+            "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    default Object all() { return 2 }\n}\n",
+        ),
+        (
+            "kt",
+            "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    fun all(): Any? = 2\n}\n",
+        ),
+        (
+            "cs",
+            "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/products\")]\n    BehaviorJSON All() { return null; }\n}\n",
+        ),
+        (
+            "php",
+            "<?php\n#[HTTPClient]\ninterface CatalogClient {\n    #[GetRequest(\"/products\")]\n    public function all(): array { return []; }\n}\n",
+        ),
+        (
+            "go",
+            "// @HTTPClient\ntype CatalogClient interface {\n\t// @GetRequest(\"/products\")\n\tAll() (BehaviorValue, error)\n}\n\nfunc (client *CatalogClient) Extra() int {\n\treturn 2\n}\n",
+        ),
+        (
+            "dart",
+            "@HTTPClient\nabstract interface class CatalogClient {\n  @GetRequest(\"/products\")\n  Future<Object?> all() async { return 2; }\n}\n",
+        ),
+        (
+            "rs",
+            "#[HTTPClient]\ntrait CatalogClient {\n    #[GetRequest(\"/products\")]\n    fn all(&self) -> BehaviorResult<BehaviorValue> { Ok(BehaviorValue::Null) }\n}\n",
+        ),
+        (
+            "swift",
+            "@HTTPClient\nprotocol CatalogClient {\n    var count: Int { get }\n}\n",
+        ),
+        (
+            "py",
+            "from typing import Protocol\n\n@http_client\nclass CatalogClient(Protocol):\n    @get_request(\"/products\")\n    async def all(self):\n        return {'query': {'page': 1}}\n",
+        ),
+        (
+            "js",
+            "@HTTPClient\nclass CatalogClient {\n  @GetRequest(\"/products\")\n  async all() { return { query: { page: 1 } }; }\n}\n",
+        ),
+        (
+            "ts",
+            "@HTTPClient\nclass CatalogClient {\n  surcharge(): number { return 2; }\n}\n",
+        ),
+        (
+            "rb",
+            "#[HTTPClient]\nclass CatalogClient\n  #[GetRequest(\"/products\")]\n  def all\n    { \"query\" => { \"page\" => 1 } }\n  end\nend\n",
+        ),
+    ];
+
+    const LOWERED: [(&'static str, [&'static str; 3]); 12] = [
+        (
+            "java",
+            [
+                "class CatalogClient",
+                "Object all(@RequestParam(\"page\") long page) {}",
+                "Behaviors.create(\"CatalogSetup\"",
+            ],
+        ),
+        (
+            "groovy",
+            [
+                "class CatalogClient",
+                "Object all(@RequestParam(\"page\") long page) {}",
+                "@OnStart",
+            ],
+        ),
+        (
+            "kt",
+            [
+                "class CatalogClient",
+                "fun all(@RequestParam(\"page\") page: Long): Any? {}",
+                "lateinit var behaviors",
+            ],
+        ),
+        (
+            "cs",
+            [
+                "class CatalogClient",
+                "public async Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page) {}",
+                "typeof(CatalogSetup)",
+            ],
+        ),
+        (
+            "php",
+            [
+                "class CatalogClient",
+                "public function all(#[RequestParam(\"page\")] int $page): array {}",
+                "CatalogSetup::class",
+            ],
+        ),
+        (
+            "go",
+            [
+                "type CatalogClient struct {",
+                "func (client *CatalogClient) All(",
+                "BehaviorsCreate[CatalogSetup]",
+            ],
+        ),
+        (
+            "dart",
+            [
+                "class CatalogClient",
+                "Future<Object?> all(@RequestParam(\"page\") int page) async {}",
+                "late BehaviorContext behaviors;",
+            ],
+        ),
+        (
+            "rs",
+            [
+                "struct CatalogClient { behaviors: BehaviorContext }\nimpl CatalogClient {",
+                "BehaviorResult<BehaviorValue> {}",
+                "Behaviors::create::<CatalogSetup>",
+            ],
+        ),
+        (
+            "py",
+            [
+                "class CatalogClient:",
+                "-> object: ...",
+                "\n    @on_start\n    async def start_context(self):\n        self.behaviors = await",
+            ],
+        ),
+        (
+            "js",
+            [
+                "class CatalogClient",
+                "async all(@RequestParam(\"page\") page) {}",
+                "@OnStart",
+            ],
+        ),
+        (
+            "ts",
+            [
+                "class CatalogClient",
+                "behaviors!: BehaviorContext;",
+                "partition: 'catalog'",
+            ],
+        ),
+        (
+            "rb",
+            [
+                "class CatalogClient",
+                "\n  #[OnStart]\n  def start_context\n",
+                "Behaviors.create(CatalogSetup, partition: \"catalog\"",
+            ],
+        ),
+    ];
+
+    fn path(extension: &str) -> String {
+        format!("server/clients/CatalogClient.{extension}")
+    }
+
+    fn refusal(extension: &str, source: &str) -> String {
+        let path = Self::path(extension);
+        let failure = HttpContract::check(Path::new(&path), source)
+            .expect_err(&format!("{extension} must be refused: {source}"));
+        let text = failure.to_string();
+        assert!(text.contains("TY1308"), "{extension}: {text}");
+        text
+    }
+
+    fn concrete(extension: &str, realm: &str) -> String {
+        let source = Self::CONTRACTS
+            .iter()
+            .find(|(language, _)| *language == extension)
+            .map(|(_, source)| *source)
+            .expect("sample");
+        HttpContract::concrete(Path::new(&Self::path(extension)), source, realm)
+            .unwrap_or_else(|| panic!("{extension} was not lowered"))
+    }
+}
+
+#[test]
+fn every_language_accepts_its_contract_form() {
+    for (extension, source) in Samples::CONTRACTS {
+        let path = Samples::path(extension);
+        let checked = HttpContract::check(Path::new(&path), source);
+        assert!(checked.is_ok(), "{extension}: {checked:?}");
+    }
+}
+
+#[test]
+fn a_class_client_is_refused_where_the_language_has_a_contract_form() {
+    for (extension, source) in Samples::CLASS_FORMS {
+        let message = Samples::refusal(extension, source);
+        assert!(message.contains("declare it as"), "{extension}: {message}");
+    }
+}
+
+#[test]
+fn any_method_body_is_refused_in_every_language() {
+    for (extension, source) in Samples::BODIES {
+        let message = Samples::refusal(extension, source);
+        assert!(
+            message.contains("An HTTPClient has no implementation"),
+            "{extension}: {message}"
+        );
+    }
+}
+
+#[test]
+fn a_method_without_a_request_annotation_is_refused() {
+    let source = "@HTTPClient\ninterface CatalogClient {\n    Object all();\n}\n";
+    let message = Samples::refusal("java", source);
+    assert!(message.contains("has no request annotation"), "{message}");
+}
+
+#[test]
+fn a_client_that_keeps_state_is_refused() {
+    let source = "@HTTPClient\nclass CatalogClient {\n  behaviors;\n\n  @GetRequest(\"/products\")\n  async all() {}\n}\n";
+    let message = Samples::refusal("js", source);
+    assert!(message.contains("keeps no other state"), "{message}");
+}
+
+#[test]
+fn a_client_with_another_role_is_refused() {
+    let source = "@Service\n@HTTPClient\nclass CatalogService {\n  @GetRequest(\"/products\")\n  async all() {}\n}\n";
+    let message = Samples::refusal("js", source);
+    assert!(message.contains("is its own role"), "{message}");
+}
+
+#[test]
+fn every_contract_lowers_into_its_concrete_client() {
+    for (extension, parts) in Samples::LOWERED {
+        let lowered = Samples::concrete(extension, "yon");
+        for part in parts {
+            assert!(
+                lowered.contains(part),
+                "{extension} lacks {part:?}:\n{lowered}"
+            );
+        }
+        for contract in [
+            "interface CatalogClient",
+            "trait CatalogClient",
+            "(Protocol)",
+        ] {
+            assert!(
+                !lowered.contains(contract),
+                "{extension} kept {contract:?}:\n{lowered}"
+            );
+        }
+    }
+}
+
+#[test]
+fn tac_clients_create_their_context_when_they_are_built() {
+    let expected = [
+        (
+            "kt",
+            "val behaviors: Behaviors.Context = Behaviors.create(\"CatalogSetup\"",
+        ),
+        (
+            "cs",
+            "public BehaviorContext behaviors = Behaviors.create(typeof(CatalogSetup)",
+        ),
+        (
+            "dart",
+            "late final BehaviorContext behaviors = Behaviors.create(CatalogSetup",
+        ),
+        (
+            "swift",
+            "let behaviors: BehaviorContext = try! Behaviors.create(CatalogSetup.self",
+        ),
+        ("go", "func NewCatalogClient() (*CatalogClient, error) {"),
+        ("rs", "fn new() -> Self {"),
+    ];
+    for (extension, part) in expected {
+        let lowered = Samples::concrete(extension, "tac");
+        assert!(
+            lowered.contains(part),
+            "{extension} lacks {part:?}:\n{lowered}"
+        );
+        assert!(!lowered.contains("OnStart"), "{extension}:\n{lowered}");
+    }
+}
+
+#[test]
+fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
+    let gateway = "#[HTTPClient]\ntrait ReportClient {\n    #[Gateway({\"command\":[\"python3\"]})]\n    fn ping(&self) -> BehaviorResult<BehaviorValue>;\n}\n";
+    let lowered =
+        HttpContract::concrete(Path::new("server/clients/ReportClient.rs"), gateway, "yon")
+            .expect("lowered");
+    assert!(
+        lowered.contains("struct ReportClient;\nimpl ReportClient {"),
+        "{lowered}"
+    );
+    assert!(lowered.contains("fn new() -> Self { Self }"), "{lowered}");
+    let named = "@HTTPClient({\"adapter\":\"api\",\"setup\":\"RuntimeAdaptersSetup\"})\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    Object all();\n}\n";
+    let lowered =
+        HttpContract::concrete(Path::new("server/clients/CatalogClient.java"), named, "yon")
+            .expect("lowered");
+    assert!(
+        lowered
+            .contains("Behaviors.create(\"RuntimeAdaptersSetup\", new Behaviors.Options(\"api\""),
+        "{lowered}"
+    );
+}
+
+#[test]
+fn tac_browser_clients_stay_as_written() {
+    let source = Samples::CONTRACTS[10].1;
+    assert!(
+        HttpContract::concrete(Path::new("client/clients/CatalogClient.js"), source, "tac")
+            .is_none()
+    );
+}

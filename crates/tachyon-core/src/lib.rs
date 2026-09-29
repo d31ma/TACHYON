@@ -22,6 +22,7 @@ mod groovy_source;
 mod handler;
 mod hot_update;
 mod html;
+mod http_contract;
 mod lexical;
 pub mod method_coverage;
 mod migrate;

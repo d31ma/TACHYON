@@ -119,7 +119,7 @@ impl HttpClientSource {
         output
     }
 
-    fn masked(source: &str, visible: &[bool]) -> String {
+    pub(crate) fn masked(source: &str, visible: &[bool]) -> String {
         let mut bytes = source.as_bytes().to_vec();
         for (byte, shown) in bytes.iter_mut().zip(visible) {
             if !shown && !matches!(*byte, b'\n' | b'\r') {
@@ -129,7 +129,7 @@ impl HttpClientSource {
         String::from_utf8(bytes).unwrap_or_default()
     }
 
-    fn normalized(name: &str) -> String {
+    pub(crate) fn normalized(name: &str) -> String {
         name.rsplit("::")
             .next()
             .unwrap_or(name)
@@ -401,7 +401,7 @@ impl SourceText<'_> {
         };
         let unknown = object
             .keys()
-            .any(|key| !matches!(key.as_str(), "path" | "adapter" | "cache"));
+            .any(|key| !matches!(key.as_str(), "path" | "adapter" | "cache" | "setup"));
         let cache = object
             .get("cache")
             .and_then(Value::as_str)
@@ -414,7 +414,7 @@ impl SourceText<'_> {
         if unknown {
             return Err(self.failure(
                 line.span.start,
-                "@HTTPClient accepts only \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them) and \"cache\" (the browser cache policy)",
+                "@HTTPClient accepts only \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them), \"cache\" (the browser cache policy) and \"setup\" (the Setup whose adapters send them)",
             ));
         }
         Ok((path.to_owned(), adapter, cache))

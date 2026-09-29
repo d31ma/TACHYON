@@ -42,7 +42,7 @@ pub(crate) fn assemble(
             "Annotation source exceeds 1 MiB or contains NUL.",
         ));
     }
-    let (mut modules, total) = read_modules(&root, entry, source, &paths, extension)?;
+    let (mut modules, total) = read_modules(&root, entry, source, &paths, environment)?;
     test_configuration::include(
         &root,
         entry,
@@ -130,8 +130,9 @@ fn read_modules(
     entry: &Path,
     entry_source: &str,
     paths: &[PathBuf],
-    extension: &str,
+    environment: &str,
 ) -> Result<(Vec<Module>, usize), Failure> {
+    let extension = entry_extension(entry, environment)?;
     let mut names = BTreeSet::new();
     register_names(entry, entry_source, &mut names)?;
     let mut total = entry_source.len();
@@ -163,6 +164,7 @@ fn read_modules(
         }
         register_names(path, &text, &mut names)?;
         validate_imports(path, &text, extension)?;
+        let text = crate::http_contract::HttpContract::concrete(path, &text, environment).unwrap_or(text);
         let text = crate::method_coverage::CallHooks::for_entry(entry, path, text)?;
         modules.push(Module {
             path: path.clone(),
@@ -888,7 +890,7 @@ fn python_relocates_imports(source: &str, words: &BTreeSet<&str>) -> bool {
             .is_some_and(|names| {
                 names
                     .split(',')
-                    .all(|name| matches!(name.trim(), "Any" | "Annotated"))
+                    .all(|name| matches!(name.trim(), "Any" | "Annotated" | "Protocol"))
             });
         let allowed = imports_models
             || imports_typing

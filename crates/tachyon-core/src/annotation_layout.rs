@@ -112,6 +112,7 @@ fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
         InlineModelCheck::check(path, source)?;
         FileNameCheck::check(path, source)?;
     }
+    crate::http_contract::HttpContract::check(path, source)?;
     crate::annotation_rules::AnnotationRules::check(path, source)
 }
 

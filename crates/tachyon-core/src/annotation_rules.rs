@@ -9,6 +9,8 @@ mod injected_field;
 mod nullable_field;
 mod scan;
 
+pub(crate) use scan::Messages;
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests;
