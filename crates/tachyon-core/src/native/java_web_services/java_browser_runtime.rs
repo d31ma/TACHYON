@@ -39,10 +39,10 @@ impl JavaBrowserRuntime {
             r#"name.matches("[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}")"#,
             "TacText.headerName(name)",
         ),
-        (r#"path.split("/", -1)"#, "TacText.split(path, '/')"),
+        (r#"path.split("/", -1)"#, "TacText.parts(path, '/')"),
         (
             r#"((String)item).split(":", -1)"#,
-            "TacText.split((String)item, ':')",
+            "TacText.parts((String)item, ':')",
         ),
         (
             r#"String.format(java.util.Locale.ROOT, "\\u%04x", (int)ch)"#,

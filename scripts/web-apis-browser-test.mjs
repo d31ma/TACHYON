@@ -539,12 +539,7 @@ class JavaStampService {
     }
 
     String attempt() {
-        try {
-            clipboard.writeText("without a click");
-            return "";
-        } catch (IllegalStateException refusal) {
-            return refusal.getMessage();
-        }
+        return refusal(() -> clipboard.writeText("without a click"));
     }
 
     void paste() {
@@ -596,6 +591,15 @@ class JavaStampService {
     @OnEvent
     void hearFailure(BrowserCallFailed failed) {
         failure = failed.message();
+    }
+
+    private String refusal(Runnable call) {
+        try {
+            call.run();
+            return "";
+        } catch (IllegalStateException refused) {
+            return refused.getMessage();
+        }
     }
 }
 ` } : {}),

@@ -255,7 +255,7 @@ impl TextCheck {
         same(sample, TacText.headerName(sample), "[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}");
         for (char separator : new char[] {'/', ':'}) {
             String[] expected = sample.split(java.util.regex.Pattern.quote(String.valueOf(separator)), -1);
-            if (!java.util.Arrays.equals(expected, TacText.split(sample, separator))) {
+            if (!java.util.Arrays.equals(expected, TacText.parts(sample, separator))) {
                 wrong++;
                 System.out.println("different split: " + sample);
             }

@@ -74,7 +74,7 @@ final class TacText {
         return end == text.length();
     }
 
-    static String[] split(String text, char separator) {
+    static String[] parts(String text, char separator) {
         java.util.List<String> parts = new java.util.ArrayList<>();
         int start = 0;
         int found = text.indexOf(separator);
