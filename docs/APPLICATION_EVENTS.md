@@ -21,7 +21,7 @@ a successful return value anymore.
 
 ## WebAssembly services in the browser
 
-Rust, C# and Go WebAssembly services participate in the same document-local
+Rust, C#, Go and Java WebAssembly services participate in the same document-local
 event bus as JavaScript, TypeScript and Dart services. A listener can receive
 another service's publication without an adapter or an authored bridge.
 
@@ -61,7 +61,7 @@ language declares the model in its own `models` folder.
 | TypeScript | `placed(order: OrderPlaced)` | `const order: OrderPlaced = {...}` then `publishEvent(order)`, or `publishEvent(value satisfies OrderPlaced)` | an interface in `models/` |
 | Python | `def placed(self, order: OrderPlaced)` | `publish_event(OrderPlaced(...))` | a dataclass in `server/models/` |
 | PHP | `function placed(OrderPlaced $order)` | `publishEvent(new OrderPlaced(...))` | a class in `server/models/` |
-| Java | `void placed(OrderPlaced order)` | `publishEvent(new OrderPlaced(...))` | a record in `server/models/` |
+| Java | `void placed(OrderPlaced order)` | `publishEvent(new OrderPlaced(...))` | a record in `server/models/`, or in `client/models/` for a Tac service (ADR 0083) |
 | Kotlin | `fun placed(order: OrderPlaced)` | `publishEvent(OrderPlaced(...))` | a data class in `models/` |
 | C# | `void Placed(OrderPlaced order)` | `PublishEvent(new OrderPlaced(...))` | a record in `models/` |
 | Rust | `fn placed(&self, order: OrderPlaced)` | `publish_event(OrderPlaced { ... }, false)` | a struct in `models/` |

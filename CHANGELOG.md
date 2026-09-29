@@ -504,6 +504,23 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Java web services now exchange models and events with the page and use the
+  built-in browser storage (ADR 0083 amendment). `client/models` may hold Java
+  records, classes with fields and enums (they were server-only); a service
+  field, argument or result may be a model or a `List` or `Map` of models, and
+  Tachyon generates the readers and writers because TeaVM has no reflection.
+  An `ApplicationEventPublisher` field with no value is constructed for the
+  service, `publishEvent` hands events to the page event bus after each call,
+  `@OnEvent` methods (with `@Order` and `@InBackground`) take one model and
+  may return one to publish again, and a listener for a `@Topic` model reads
+  the topic stream. Setups and entities from `client/setups` and
+  `client/entities` now compose with a Java service, and `@Cached`,
+  `@UpdateCache`, `@ClearCache`, `Store` repositories and `@AllOrNothing` run
+  synchronously against the page cache and IndexedDB when the Setup leaves
+  the adapters out. Each Java service is compiled inside its own holder
+  class, so services never clash over the runtime classes. The Java behavior
+  runtime gained a built-in adapter lookup (no adapter on the JVM). The
+  storage gate has Java cache, Store and AllOrNothing rows.
 - `scripts/wasm-worker-measure.mjs` measures every Tac WebAssembly runtime
   (Rust, Go, C#, F#, Dart, Ruby, Kotlin, Swift, and JavaScript as the
   baseline) on the page thread and in a Web Worker prototype: long tasks

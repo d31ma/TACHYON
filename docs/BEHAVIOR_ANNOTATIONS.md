@@ -26,7 +26,7 @@ markers.
 | JavaScript / TypeScript | Yes | Yes | Same JS/TS bundle in web-view hosts |
 | Python | Yes | No | No |
 | PHP | Yes | No | No |
-| Java | Yes | No | No |
+| Java | Yes | Yes, compiled to WebAssembly ([ADR 0083](adr/0083-java-services-reach-the-web-as-webassembly.md)) | No (runs as WebAssembly in the web view) |
 | Kotlin | Yes | No | Android |
 | C# | Yes | Yes, compiled to WebAssembly ([ADR 0037](adr/0037-csharp-services-reach-the-web-as-webassembly.md)) | Windows |
 | Rust | Yes | Yes, compiled to WebAssembly ([ADR 0035](adr/0035-rust-services-reach-the-web-as-webassembly.md)) | macOS / Windows / Linux |

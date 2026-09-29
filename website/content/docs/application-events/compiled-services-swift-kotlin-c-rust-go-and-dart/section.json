@@ -1,6 +1,6 @@
 {
   "heading": "Compiled services: Swift, Kotlin, C#, Rust, Go and Dart",
-  "body": "Each example injects the publisher and publishes a CatalogCount model during initialization. The model lives in client/models in the language of the service. A listener updates the count, and cleanup resets it. The prelude (code that Tachyon adds before your code) constructs any member of type ApplicationEventPublisher. That member is not in the page's member table. Each activation has a new owner. Tachyon rejects old callbacks. Listener work waits in a queue until the active callback returns. Native and Go service hooks and event methods are synchronous. A Go service is not native: it runs as WebAssembly in the web view on every target, with the same rules. A Dart service compiles to WebAssembly (WasmGC) and follows the same shape. A Kotlin service links into the Android app and compiles to WebAssembly (WasmGC) for every other target. A Swift service links into the macOS and iOS apps. On the other targets it runs as WebAssembly. There, as for Kotlin and Rust, its events go through the page's event bus: its listeners hear events from every service and component on the page, and a listener for a Topic model reads the topic stream (ADR 0082). A Java service runs as WebAssembly on every target and has no events yet either (ADR 0083). The same example works in both. It declares the publisher with Needs, and its hooks are synchronous. Helper types cannot own events. You cannot publish from background work that has no owner. You still configure native HTTP clients manually. Only JavaScript and TypeScript services receive the browser resources.",
+  "body": "Each example injects the publisher and publishes a CatalogCount model during initialization. The model lives in client/models in the language of the service. A listener updates the count, and cleanup resets it. The prelude (code that Tachyon adds before your code) constructs any member of type ApplicationEventPublisher. That member is not in the page's member table. Each activation has a new owner. Tachyon rejects old callbacks. Listener work waits in a queue until the active callback returns. Native and Go service hooks and event methods are synchronous. A Go service is not native: it runs as WebAssembly in the web view on every target, with the same rules. A Dart service compiles to WebAssembly (WasmGC) and follows the same shape. A Kotlin service links into the Android app and compiles to WebAssembly (WasmGC) for every other target. A Swift service links into the macOS and iOS apps. On the other targets it runs as WebAssembly. There, as for Kotlin and Rust, its events go through the page's event bus: its listeners hear events from every service and component on the page, and a listener for a Topic model reads the topic stream (ADR 0082). A Java service runs as WebAssembly on every target and uses the same page event bus: it publishes client/models records and classes with ApplicationEventPublisher, its OnEvent listeners take one model, and a listener for a Topic model reads the topic stream (ADR 0083). The same example works in both. It declares the publisher with Needs, and its hooks are synchronous. Helper types cannot own events. You cannot publish from background work that has no owner. You still configure native HTTP clients manually. Only JavaScript and TypeScript services receive the browser resources.",
   "axis": "language",
   "files": [
     {
@@ -25,6 +25,12 @@
       "name": "client/services/CatalogService.kt",
       "code": {
         "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
       }
     },
     {
@@ -61,6 +67,12 @@
       "name": "client/models/CatalogCount.kt",
       "code": {
         "file": "client/models/CatalogCount.kt"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.java",
+      "code": {
+        "file": "client/models/CatalogCount.java"
       }
     },
     {

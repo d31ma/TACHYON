@@ -86,7 +86,7 @@ not use TeaVM's JavaScript backend.
   example `char` or `int[]`), several fields in one statement, a private or
   static member marked `@OnStart`, `@OnStop`, `@LocalState` or
   `@SessionState`, a lifecycle method with parameters, or any other
-  annotation (such as `@Cached` or `@OnEvent`). The message says what works.
+  annotation that Java web services do not support (the first step also refused `@Cached` and `@OnEvent`; the amendment below adds them). The message says what works.
   It stops with `TY1406` when the file has no class of its name, or the class
   has nothing the page can use.
 
@@ -158,9 +158,105 @@ Kotlin.
   after a reload, and logs no errors.
 - A Java web service has no DOM. Like the other WebAssembly services, it
   holds state and logic.
-- The next step adds events and `@Topic`, models across the page boundary
-  (records and classes in `client/models`), the built-in storage host
-  (`Cached`, `Store`, `AllOrNothing`), the curated browser APIs and the
-  behavior runtime. Until then the build refuses them with a clear message.
+- Events and `@Topic`, models across the page boundary and the built-in
+  storage host came in the second step (see the amendment below). The
+  curated browser APIs, the rest of the behavior runtime (retries,
+  configuration binding, validation) and `ty init` for Java on the web come
+  next. Until then the build refuses them with a clear message.
 - Continuous integration skips the Java web tests unless `TAC_TEAVM_HOME`
   and `javac` are present.
+
+## Amendment: events, models and the storage host (2026-09-29)
+
+### Models
+
+- `client/models` may now hold Java types (they were server-only). A Java
+  models file holds one record without a body, one enum with constants, or
+  one class with fields, as in `server/models`. `@Topic` is blanked before
+  `javac` runs.
+- TeaVM has no reflection, so Tachyon reads each model from the source and
+  generates `TacModels.java`: a reader `read<Name>(Object)` for each model
+  (a record through its canonical constructor, a class through its fields
+  and its constructor without arguments, an enum by the name of its
+  constant), `plain(Object)`, which turns a model into a map (and an enum
+  into its name), and `name(Object)`, which gives the event name. A missing
+  primitive component (`int`, `long`, `double`, `float`, `boolean`) or a
+  value that is not an object stops the call with "A service argument or
+  field value has the wrong type."
+- A field, argument or result may now be a model, or a `List` or `Map` of
+  models. The JSON writer turns models into plain values on the way out.
+
+### Events and topics
+
+- The prelude constructs every `ApplicationEventPublisher` field that has no
+  value, so `ApplicationEventPublisher applicationEventPublisher;` (with or
+  without `@Needs`) works. `publishEvent(model)` and
+  `publishEvent(model, retain)` return the model, as in Yon.
+- `TacEvents` keeps a queue for each activation (128 events, 64 KiB each)
+  and hands the events to the page after each call, through
+  `TacHost.emit`, a `@JSBody` call to `Symbol.for('tachyon.java.host')`. The
+  page's event bus delivers them, as it does for Kotlin, Rust and Swift.
+- `@OnEvent` methods (with `@Order` and `@InBackground`) become listeners.
+  Each takes one model. `init` describes the listeners with their models,
+  condition, order and replay, and the page calls them with the `event`
+  operation. A listener that returns a model publishes it again, unless it
+  runs in the background.
+- A listener for a `@Topic` model reads the topic stream through the shared
+  page runtime (ADR 0082).
+
+### The storage host
+
+- Java services now go through the same pipeline as the other compiled
+  service languages: role annotations, `client/setups` and
+  `client/entities` modules (the service comes first, so its line numbers
+  stay), events, and then the behavior lowering for Tac.
+- Each service file becomes one holder class, `TacService<n>`, whose types
+  are static nested classes. So each service keeps its own copy of the
+  behavior runtime, its setups and its entities, and two services never
+  declare the same class twice. The holder opens on the line of the last
+  import, so compiler errors keep their line numbers.
+- The Java behavior runtime asks `BehaviorBuiltins` for a cache or entity
+  adapter that the Setup leaves out. On the JVM it has none. On the web it
+  uses the page storage host (`tac-storage.js`) through `TacHost.storage`,
+  synchronously, like Kotlin: the Cache API copy for `@Cached`, and
+  IndexedDB for `Store` rows and `@AllOrNothing`. A built-in adapter needs
+  no `authorize` function.
+- TeaVM runs a method that can wait (`synchronized`, `Thread.sleep`) as a
+  coroutine, and an exported call from the page has no coroutine to run in,
+  so it fails. Its class library also has no `Semaphore` or `StringJoiner`,
+  and `Map.copyOf` of an empty map fails on `get`. The web build therefore
+  swaps these in the runtime for small prelude classes (`TacPermits`,
+  `TacJoiner`, `TacPause`, `TacMaps`) and drops `synchronized`: the page has
+  one thread.
+
+### Size
+
+Release builds, `java/services.wasm` in bytes (Brotli in brackets):
+
+| Program | Release | Without Binaryen |
+| --- | --- | --- |
+| The counter of the first step | 73,320 (30,758) | not measured |
+| The website's tally example | 72,550 (30,520) | 137,890 (47,612) |
+| A library service with models, events and a topic | 79,043 (32,802) | not measured |
+| A notes service with `@Cached`, `Store` and `@AllOrNothing` | 375,346 (114,056) | 776,870 (194,601) |
+| Both services together | 384,263 (117,418) | 795,429 (199,319) |
+
+The event queue and the model readers add about 4 KB to every Java
+module (the counter was 69,420 bytes after the first step), and models and
+listeners about 6 KB more. The behavior runtime adds about 300 KB (about
+80 KB with Brotli), mostly TeaVM's regular expressions, `String.format`
+and the sorted maps that the runtime uses to copy values. It is only in
+the module when a service uses a behavior annotation or `Behaviors`.
+`java/runtime.js` stays 16,425 bytes and `tachyon-java.js` grew to 5,190
+bytes (1,686 with Brotli), because the page now gives the module its host
+(events, storage and browser calls).
+
+### Checks
+
+- `tac_web::java_tests` (a library with models, events and a topic; a
+  notes service with `@Cached`, `@ClearCache`, `Store` and `@AllOrNothing`)
+  and `model_sources` (a Java service that uses a model) failed before the
+  change and pass after it.
+- The storage gate has Java rows for the cache, the Store and
+  `AllOrNothing`, in Chromium, Firefox and WebKit. A demo with the same
+  library and notes services was checked in the three browsers.

@@ -216,7 +216,7 @@ describe('language coverage', () => {
     for (const file of [...services(browser), ...services(compiled)]) expect(file.name).toMatch(/^client\/services\/CatalogService\.[a-z]+$/)
     const yon = topic.sections.find(section => section.heading.startsWith('Yon:'))
     expect(services(browser).map(file => file.name.split('.').pop()).sort()).toEqual(['js', 'ts'])
-    expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'go', 'kt', 'rs', 'swift'])
+    expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'go', 'java', 'kt', 'rs', 'swift'])
     for (const file of compiled.files.filter(file => file.name.startsWith('client/models/'))) expect(file.name).toMatch(/^client\/models\/CatalogCount\.[a-z]+$/)
     expect(yon.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort())
       .toEqual(['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts'])

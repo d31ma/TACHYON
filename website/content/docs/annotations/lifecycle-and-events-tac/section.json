@@ -1,7 +1,7 @@
 {
   "heading": "Lifecycle and events: Tac",
   "axis": "language",
-  "summary": "The same two roles in the browser and on native hosts, used by one component view. A browser resource is autowired by the field's name, which is the name Spring uses: view, lifecycle, cacheManager, resourceLoader, taskScheduler and applicationEventPublisher. An uninitialised applicationEventPublisher field is already that resource, so its annotation is optional. Native services have no browser resources. The prelude constructs a member of type ApplicationEventPublisher. Listener parameters use the language's any type or a portable JSON scalar. Listeners have the same events list, condition, id, replay and Order as in Yon, and a returned {event, value} is published again. InBackground is allowed in every Tac language, because it delays delivery and does not need an asynchronous method. Native hooks and listeners stay synchronous. JavaScript and TypeScript bundle for the web. Swift builds for macOS, Kotlin for Android, C# for Windows and Rust for desktop Linux. A Rust or C# service with no browser script reaches the web, and every native target that does not link it, as WebAssembly, and a Go service always runs that way. On the web, WebAssembly listeners share the page event bus with browser services, including conditions, Order, InBackground microtasks, retained replay and cleanup. Publications from any service reach its own listeners and other services exactly once. A Dart service is a browser service compiled to WebAssembly (WasmGC). Its only resource is the ApplicationEventPublisher that it declares with Needs. This publisher publishes through the page runtime, so Dart and JavaScript listeners receive the same events. Its lifecycle and listener methods are public and take JSON values, because the runtime calls them by name across the bridge.",
+  "summary": "The same two roles in the browser and on native hosts, used by one component view. A browser resource is autowired by the field's name, which is the name Spring uses: view, lifecycle, cacheManager, resourceLoader, taskScheduler and applicationEventPublisher. An uninitialised applicationEventPublisher field is already that resource, so its annotation is optional. Native services have no browser resources. The prelude constructs a member of type ApplicationEventPublisher. Listener parameters use the language's any type or a portable JSON scalar. Listeners have the same events list, condition, id, replay and Order as in Yon, and a returned {event, value} is published again. InBackground is allowed in every Tac language, because it delays delivery and does not need an asynchronous method. Native hooks and listeners stay synchronous. JavaScript and TypeScript bundle for the web. Swift builds for macOS, Kotlin for Android, C# for Windows and Rust for desktop Linux. A Rust or C# service with no browser script reaches the web, and every native target that does not link it, as WebAssembly, and a Go or Java service always runs that way. A Java service declares an uninitialised ApplicationEventPublisher field (Needs is optional), and its listeners take one model from client/models. On the web, WebAssembly listeners share the page event bus with browser services, including conditions, Order, InBackground microtasks, retained replay and cleanup. Publications from any service reach its own listeners and other services exactly once. A Dart service is a browser service compiled to WebAssembly (WasmGC). Its only resource is the ApplicationEventPublisher that it declares with Needs. This publisher publishes through the page runtime, so Dart and JavaScript listeners receive the same events. Its lifecycle and listener methods are public and take JSON values, because the runtime calls them by name across the bridge.",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -58,9 +58,21 @@
       }
     },
     {
+      "name": "client/services/CheckoutService.java",
+      "code": {
+        "file": "client/services/CheckoutService.java"
+      }
+    },
+    {
       "name": "client/services/AuditService.kt",
       "code": {
         "file": "client/services/AuditService.kt"
+      }
+    },
+    {
+      "name": "client/services/AuditService.java",
+      "code": {
+        "file": "client/services/AuditService.java"
       }
     },
     {
@@ -154,9 +166,21 @@
       }
     },
     {
+      "name": "client/models/PlacedOrder.java",
+      "code": {
+        "file": "client/models/PlacedOrder.java"
+      }
+    },
+    {
       "name": "client/models/SettledOrder.kt",
       "code": {
         "file": "client/models/SettledOrder.kt"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.java",
+      "code": {
+        "file": "client/models/SettledOrder.java"
       }
     },
     {
