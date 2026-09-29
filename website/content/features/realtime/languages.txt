@@ -6,17 +6,18 @@ Which languages a stream is written in
   .kt        a Sequence, framed by the prelude
   .cs        an IEnumerable or IAsyncEnumerable, framed
              by the prelude
+  .fs        a seq or IAsyncEnumerable, framed by the prelude
   .dart      an async* Stream, framed by the prelude
   .rb        a method that yields, framed by the runner
 
-Eight of the eleven. A stream is a route method that answers more
+Every Yon language with a generator streams. A stream is a route method that answers more
 than once, and native generator syntax produces it.
 Each language adapter or protocol prelude keeps that generator open
 and emits one bounded frame per value.
 
 Java, Rust and Go are deliberately single-response because none of
 them has a native generator. Tachyon refuses StreamRoute on them. A
-streaming route can use any of the eight generator-capable Yon languages.
+streaming route can use any generator-capable Yon language.
 
 In one controller, either every GET route is a StreamRoute or none is.
 

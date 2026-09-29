@@ -6,6 +6,7 @@ Which languages a socket is written in
   .java      a @SocketRoute class; the session has getOpenSessions()
   .kt        a @SocketRoute class; the session has openSessions()
   .cs        a [SocketRoute] class; the session has OpenSessions()
+  .fs        a [<SocketRoute>] type; the session has OpenSessions()
   .php       a #[SocketRoute] class; the session has openSessions()
   .rb        a #[SocketRoute] class; the session has open_sessions
   .rs        a #[SocketRoute] struct; the session has open_sessions()

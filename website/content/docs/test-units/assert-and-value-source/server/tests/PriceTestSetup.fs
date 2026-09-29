@@ -1,2 +1,4 @@
 [<TestSetup>]
-type PriceTestSetup() = class end
+type PriceTestSetup() =
+    static member configure(execution: BehaviorExecution) : BehaviorAdapters =
+        BehaviorAdapters()

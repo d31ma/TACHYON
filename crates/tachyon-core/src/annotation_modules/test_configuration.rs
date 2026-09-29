@@ -3,6 +3,7 @@ use super::{
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::fsharp_source::FsharpView;
 use cap_std::fs::Dir;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -29,7 +30,10 @@ pub(super) fn include(
     if !entry.starts_with("client/tests") && !entry.starts_with("server/tests") {
         return Ok(());
     }
-    let Some(name) = crate::behavior::test_configuration_name(entry, source, environment)? else {
+    let Some(name) = FsharpView::either(entry, source, |path, text| {
+        crate::behavior::test_configuration_name(path, text, environment)
+    })?
+    else {
         return Ok(());
     };
     let path = entry.with_file_name(format!("{name}.{extension}"));
@@ -68,12 +72,9 @@ fn production_configuration(
     for module in modules {
         let names = crate::annotation_layout::declaration_names(&module.path, &module.source)?;
         if names.iter().any(|declared| declared == name) {
-            return crate::behavior::is_production_configuration(
-                &module.path,
-                &module.source,
-                environment,
-                name,
-            );
+            return FsharpView::either(&module.path, &module.source, |path, text| {
+                crate::behavior::is_production_configuration(path, text, environment, name)
+            });
         }
     }
     Ok(false)
@@ -115,7 +116,10 @@ fn validate(path: &Path, source: &str, name: &str, environment: &str) -> Result<
             "A test configuration file declares exactly the Setup class that Test names, and the filename matches that class.",
         ));
     }
-    if !crate::behavior::is_test_configuration(path, source, environment)? {
+    let marked = FsharpView::either(path, source, |path, text| {
+        crate::behavior::is_test_configuration(path, text, environment)
+    })?;
+    if !marked {
         return Err(invalid(
             path,
             "The named sibling configuration must carry TestSetup. Production Setup types belong in setups/.",

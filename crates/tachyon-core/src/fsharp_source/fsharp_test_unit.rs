@@ -1,6 +1,6 @@
 use super::{FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView, FsharpYon};
 use crate::Failure;
-use crate::behavior::{DetachedCsharp, TestAssert};
+use crate::behavior::{DetachedCsharp, ServiceRoles, TestAssert};
 use crate::yon::Lowered;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -14,6 +14,7 @@ impl FsharpTestUnit {
         "\npublic static class TestBehaviors\n{\n    public static BehaviorContext Current;\n}\n";
     const CONTEXT_MEMBER: &'static str = "\ntype __UNIT__ with\n    member this.behaviors : BehaviorContext = TestBehaviors.Current\n";
     const UNIT: &'static str = "__UNIT__";
+    const TAC: &'static str = "tac";
     const CONTEXT: &'static str = "__CONTEXT__";
     const NO_UNIT: &'static str = "A test unit declares Test on one class; this source declares none.";
 
@@ -71,11 +72,21 @@ impl FsharpTestUnit {
         view: &FsharpView,
         environment: &str,
     ) -> Result<DetachedCsharp, Failure> {
-        let detached = crate::behavior::detached_csharp(view.path(), view.text(), environment)
+        let text = Self::behavior_text(view, environment)?;
+        let detached = crate::behavior::detached_csharp(view.path(), &text, environment)
             .map_err(|failure| view.failure(&failure))?;
         detached
             .map(DetachedCsharp::without_page_storage)
             .ok_or_else(|| FsharpYon::failure(source, Self::NO_UNIT))
+    }
+
+    fn behavior_text(view: &FsharpView, environment: &str) -> Result<String, Failure> {
+        if environment != Self::TAC {
+            return Ok(view.text().to_owned());
+        }
+        ServiceRoles::read(view.path(), view.text())
+            .map(|roles| roles.source)
+            .map_err(|failure| view.failure(&failure))
     }
 
     fn driver(name: &str, calls: &[(String, String)], context: &str) -> String {

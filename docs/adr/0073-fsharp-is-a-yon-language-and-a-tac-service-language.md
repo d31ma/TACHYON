@@ -159,13 +159,66 @@ replay and a returned model that is published again), `OnStart` and
 - The Yon library makes `DataSource` and `RedisTemplate` public for F#, so
   an F# service takes them as constructor parameters.
 
+### Sockets and streams (added 2026-09-29)
+
+F# controllers hold `SocketRoute` with `OnOpen`, `OnMessage`, `OnClose` and
+`OnError` (ADR 0060), and `StreamRoute` (ADR 0058), with the same meaning as
+in C#.
+
+- Tachyon runs the C# socket and route lowering on the C# view of the F#
+  file, so the C# glue calls the F# members and the C# prelude runs the
+  socket or the stream.
+- A socket member takes the prelude's `SocketSession` (and an `exn` for
+  `OnError`) and returns `unit`. `session.OpenSessions()` returns a
+  `ResizeArray<SocketPeer>`. The message is an F# record from
+  `server/models/`, and Tachyon checks each message against it.
+- A stream member returns `seq<'T>` or `IAsyncEnumerable<'T>`. A `seq { }`
+  expression is the F# form of a C# iterator: the C# prelude recognises the
+  class that the F# compiler writes for it (a `GeneratedSequenceBase`) and
+  sends each value as one server-sent event.
+
+### Executed coverage (added 2026-09-29)
+
+F# classes follow ADR 0070: a public member of an F# role file or a public
+static member of an F# utility counts only when a test case called it.
+
+- Tachyon finds the counted members on the C# view of the F# file, so F# and
+  C# count the same members, and maps each one back to its F# line.
+- In a test build Tachyon adds one line at the start of each counted member:
+  `BehaviorCalls.Record("Type.Member")`, at the column of the member body.
+  The next line is an F# line directive (`# 12 "server/services/A.fs"`), so
+  the author's code keeps its file and line numbers in compiler messages. A
+  body on the same line as `=` moves to the next line at the same column.
+- Composed F# code starts each role file with a line directive too, and a
+  moved `open` line leaves an empty line, so every line of a composed test
+  unit keeps its own file and line number.
+- The recorder is the one in the C# behavior runtime. Every F# test build
+  now compiles that runtime into a C# library that the F# assembly
+  references: the Yon prelude library, or a `behaviors` library next to the
+  Tac test unit. The test driver clears the recorder before each case and
+  reports the recorded names with the case.
+
+### Behavior context in test units (added 2026-09-29)
+
+An F# test unit has a behavior context in each case, as a C# unit has.
+
+- The `TestSetup` class declares
+  `static member configure(execution: BehaviorExecution) : BehaviorAdapters`,
+  as in C#; `type CatalogTestSetup() = class end` is no longer enough.
+- `Test(typeof<CatalogTestSetup>, {"partition":"tests"})` takes the same
+  options as in C#. Before each case the driver opens a context with them and
+  closes it after the case.
+- The case reads the context as `this.behaviors`. Tachyon adds this member
+  to the test class in an intrinsic type extension.
+- Role files composed into the unit keep their behavior annotations: Tachyon
+  lowers them as it does for a route.
+
 ### Not yet available in F#
 
-Sockets and streams, field injection with `Needs`, behavior context in test
-units (`TestSetup` stays `class end`), and the executed-coverage check of
-ADR 0070 are not available in F# yet. A file that uses one is refused
-with a message that names the missing feature, so F# never ignores an
-annotation.
+Field injection with `Needs` is not available in F# yet: a type takes its
+dependencies as primary constructor parameters. A file that uses a `Needs`
+field is refused with a message that names the missing feature, so F# never
+ignores an annotation.
 
 ## Consequences
 

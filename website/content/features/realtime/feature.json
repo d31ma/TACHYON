@@ -83,6 +83,18 @@
       }
     },
     {
+      "name": "server/models/Tick.fs",
+      "code": {
+        "file": "server/models/Tick.fs"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.fs",
+      "code": {
+        "file": "server/controllers/TicksController.fs"
+      }
+    },
+    {
       "name": "server/models/Tick.dart",
       "code": {
         "file": "server/models/Tick.dart"

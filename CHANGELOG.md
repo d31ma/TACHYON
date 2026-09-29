@@ -22,6 +22,11 @@ machine contracts have their own, independent major versions.
   before it starts. A Ruby `attr_reader` documented with
   `# @return [ProductStore]` builds the store the first time it runs. F# Tac
   services cannot ask for a store yet.
+- An F# `TestSetup` declares
+  `static member configure(execution: BehaviorExecution) : BehaviorAdapters`,
+  as a C# one does (ADR 0073); `type CatalogTestSetup() = class end` no
+  longer compiles, because every F# test case now opens a behavior context
+  from its setup. The website, `ty init` and the examples declare it.
 
 - `@Converter` is a contract with no implementation, like a MapStruct
   `@Mapper` interface (`TY1308`, ADR 0022 amendment): the same bodiless form
@@ -534,6 +539,28 @@ machine contracts have their own, independent major versions.
   to delete; the guides list what is in them.
 
 ### Added
+
+- F# controllers hold `SocketRoute` (with `OnOpen`, `OnMessage`, `OnClose`
+  and `OnError`) and `StreamRoute` (ADR 0073). Tachyon runs the C# socket and
+  stream lowering on the C# view of the F# file; a socket member takes the
+  `SocketSession`, and a stream member returns `seq<'T>` or
+  `IAsyncEnumerable<'T>`. The C# prelude streams an F# `seq { }` expression as
+  it streams a C# iterator. The sockets, realtime and streaming pages have F#
+  tabs.
+
+- F# classes count for executed coverage (ADR 0070): in a test build each
+  public member of an F# role file and each public static member of an F#
+  utility records its call, and `ty test --coverage` reports the F# members
+  that no case called. F# line directives keep the author's file and line
+  numbers in compiler messages, also for composed test units.
+
+- An F# test unit has a behavior context in each case, read as
+  `this.behaviors`, and `Test(typeof<Setup>, {"partition":"tests"})` takes the
+  same options as in C#. Tachyon composes the unit's sibling `TestSetup`
+  file (before, it did not read the F# `Test` attribute, so it left the setup
+  out). Role files composed into an F# unit keep their
+  behavior annotations, and F# units in `client/tests` compile the C#
+  behavior runtime into a `behaviors` library.
 
 - Java web services now exchange models and events with the page and use the
   built-in browser storage (ADR 0083 amendment). `client/models` may hold Java

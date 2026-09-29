@@ -370,6 +370,11 @@ static class YonHttp
 static class YonStream
 {
     const int MaxFrameBytes = 16 * 1024 * 1024;
+    const string FsharpSequence = "Microsoft.FSharp.Core.CompilerServices.GeneratedSequenceBase`1";
+
+    public static bool Generated(Type type) =>
+        type.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false) ||
+        (type.BaseType is { IsGenericType: true } parent && parent.GetGenericTypeDefinition().FullName == FsharpSequence);
 
     static readonly Stream Output = Console.OpenStandardOutput();
 
@@ -965,8 +970,7 @@ static class Yon
             }
             return;
         }
-        if (result is IEnumerable sequence && result is IEnumerator &&
-            result.GetType().IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false))
+        if (result is IEnumerable sequence && result is IEnumerator && YonStream.Generated(result.GetType()))
         {
             try
             {

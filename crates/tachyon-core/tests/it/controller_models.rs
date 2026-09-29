@@ -815,7 +815,8 @@ impl BasketCheck {
             .unwrap_or_else(|failure| panic!("{}: {failure:?}", project.extension));
         for level in [2, 1] {
             let frame = receiver.recv().await.expect("tick frame");
-            let tick: serde_json::Value = serde_json::from_str(&frame.data).expect("JSON tick");
+            let tick: serde_json::Value = serde_json::from_str(&frame.data)
+                .unwrap_or_else(|_| panic!("JSON tick: {}", frame.data));
             assert_eq!(
                 tick,
                 serde_json::json!({"sku": "ANVIL-1", "level": level}),

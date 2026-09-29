@@ -1,2 +1,4 @@
 [<TestSetup>]
-type FSharpGreetingTestSetup() = class end
+type FSharpGreetingTestSetup() =
+    static member configure(execution: BehaviorExecution) : BehaviorAdapters =
+        BehaviorAdapters()

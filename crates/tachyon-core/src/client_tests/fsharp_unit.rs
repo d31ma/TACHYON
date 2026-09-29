@@ -21,7 +21,7 @@ impl FsharpUnit {
     ) -> Result<String, Failure> {
         let assembled = crate::annotation_modules::assemble(project, relative, source, "tac")?
             .unwrap_or_else(|| source.to_owned());
-        let view = FsharpView::new(relative, &assembled);
+        let view = FsharpView::tac(relative, &assembled);
         let lowered = FsharpTestUnit::lower(relative, &assembled, &view, "tac")?
             .ok_or_else(|| fail(portable, Self::NO_UNIT))?;
         let models = ModelSources::read(project, "client", FsharpSource::EXTENSION)?;
