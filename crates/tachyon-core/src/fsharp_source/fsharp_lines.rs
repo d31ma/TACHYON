@@ -6,10 +6,14 @@ impl FsharpLines {
     const NO_GAP: &'static str = "";
     const LINE_GAP: &'static str = "\n";
 
+    const LOCATIONS: [fn(&Path, &str) -> String; 2] = [Self::unlocated, Self::located];
+
     pub(crate) fn located_in(extension: &str, path: &Path, source: &str) -> String {
-        (extension == super::FsharpSource::EXTENSION)
-            .then(|| Self::located(path, source))
-            .unwrap_or_else(|| source.to_owned())
+        Self::LOCATIONS[usize::from(extension == super::FsharpSource::EXTENSION)](path, source)
+    }
+
+    fn unlocated(_path: &Path, source: &str) -> String {
+        source.to_owned()
     }
 
     pub(crate) fn hoisted_gap(extension: &str) -> &'static str {

@@ -1,8 +1,9 @@
 # ADR 0073: F# Is a Yon Language and a Tac Service Language
 
 - Status: Accepted
-- Date: 2026-09-28 (behavior annotations, events, lifecycle hooks and
-  `NeedsAll`: 2026-09-29)
+- Date: 2026-09-28 (behavior annotations, events, lifecycle hooks,
+  `NeedsAll`, sockets, streams, executed coverage and the test context:
+  2026-09-29)
 - Builds on: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   (the .NET browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
   (routes), [ADR 0062](0062-yon-uses-native-http-types.md) (native HTTP
