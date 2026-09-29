@@ -5,6 +5,7 @@ import path from 'node:path'
 /** @typedef {{heading:string,files?:Snippet[]}} ExampleSection */
 /** @typedef {{name:string,label:string,files:Snippet[]}} ExampleProject */
 /** @typedef {{name:string,label:string,extension:string,realms:string[],files:Snippet[]}} TypeCheckProject */
+/** @typedef {{name?:string,language?:string}} TypeCheckFilter */
 
 export class TypeCheckProjects {
   static extensions = ['.js', '.ts']
@@ -26,6 +27,37 @@ export class TypeCheckProjects {
       ...TypeCheckProjects.guideExamples(docs, tutorials),
     ]
     return examples.flatMap(example => TypeCheckProjects.projectsFor(example))
+  }
+
+  /**
+   * @param {TypeCheckProject[]} projects
+   * @param {TypeCheckFilter} filter
+   * @returns {TypeCheckProject[]}
+   */
+  static select(projects, filter) {
+    const selected = projects.filter(project => TypeCheckProjects.matches(project, filter))
+    TypeCheckProjects.requireProjectsWhenUnfiltered(selected, filter)
+    return selected
+  }
+
+  /**
+   * @param {TypeCheckProject} project
+   * @param {TypeCheckFilter} filter
+   * @returns {boolean}
+   */
+  static matches(project, filter) {
+    if (filter.name && project.name !== filter.name) return false
+    return !filter.language || project.extension === `.${filter.language}`
+  }
+
+  /**
+   * @param {TypeCheckProject[]} selected
+   * @param {TypeCheckFilter} filter
+   * @returns {void}
+   */
+  static requireProjectsWhenUnfiltered(selected, filter) {
+    if (selected.length > 0 || filter.name || filter.language) return
+    throw new Error('No JavaScript or TypeScript example project was found on the site')
   }
 
   /**

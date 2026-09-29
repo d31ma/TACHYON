@@ -1554,13 +1554,6 @@ async function typeCheckProject(project, scaffoldFiles) {
   })
 }
 
-/** @param {import('./type-check-projects.mjs').TypeCheckProject} project */
-function isSelectedTypeCheck(project) {
-  const onlyName = Settings.onlyFeature ?? Settings.onlySection
-  if (onlyName && project.name !== onlyName) return false
-  return isSelectedLanguage(`project${project.extension}`)
-}
-
 async function verifyTypeChecks() {
   console.log('== tsc over every JavaScript and TypeScript example project')
   const label = 'JavaScript and TypeScript example projects'
@@ -1570,9 +1563,15 @@ async function verifyTypeChecks() {
     else skip(label, missing.message)
     return
   }
-  const projects = TypeCheckProjects.collect(SiteData.features, SiteData.languages, SiteData.docs, Patterns.tutorials)
-    .filter(isSelectedTypeCheck)
-  assert.ok(projects.length > 0, 'No JavaScript or TypeScript example project matched the filters')
+  const filter = { name: Settings.onlyFeature ?? Settings.onlySection, language: Settings.onlyLanguage }
+  const projects = TypeCheckProjects.select(
+    TypeCheckProjects.collect(SiteData.features, SiteData.languages, SiteData.docs, Patterns.tutorials),
+    filter,
+  )
+  if (projects.length === 0) {
+    console.log('  --  0 tsc projects matched the filters; the tsc step has nothing to check')
+    return
+  }
   /** @type {Map<string, Snippet[]>} */
   const scaffolds = new Map()
   for (const extension of new Set(projects.map(project => project.extension))) {

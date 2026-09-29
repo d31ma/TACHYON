@@ -63,4 +63,32 @@ describe('tsc checks every JavaScript and TypeScript example project', () => {
     expect(labels).toContain('features/sockets [js]')
     expect(projects.some(project => project.realms.length === 2)).toBe(true)
   })
+
+  test('filters keep only the projects of the chosen example and language', () => {
+    const projects = [
+      { name: 'sockets', label: 'features/sockets [js]', extension: '.js', realms: ['client'], files: [] },
+      { name: 'sockets', label: 'features/sockets [ts]', extension: '.ts', realms: ['server'], files: [] },
+      { name: 'routing', label: 'features/routing [ts]', extension: '.ts', realms: ['server'], files: [] },
+    ]
+    /** @param {{name?:string,language?:string}} filter */
+    const labels = filter => TypeCheckProjects.select(projects, filter).map(project => project.label)
+    expect(labels({ name: 'sockets', language: 'ts' })).toEqual(['features/sockets [ts]'])
+    expect(labels({ language: 'js' })).toEqual(['features/sockets [js]'])
+    expect(labels({})).toHaveLength(3)
+  })
+
+  test('a filter that leaves no project skips the tsc step instead of failing', () => {
+    const projects = TypeCheckProjects.collect(
+      SiteContent.data('features.json').features,
+      SiteContent.data('languages.json'),
+      SiteContent.data('docs.json'),
+      new Set(['first-app']),
+    )
+    expect(TypeCheckProjects.select(projects, { name: 'Choose a service language' })).toEqual([])
+    expect(TypeCheckProjects.select(projects, { language: 'py' })).toEqual([])
+  })
+
+  test('an unfiltered run with no project still fails', () => {
+    expect(() => TypeCheckProjects.select([], {})).toThrow('No JavaScript or TypeScript example project')
+  })
 })
