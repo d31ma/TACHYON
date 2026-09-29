@@ -19,6 +19,8 @@ class BehaviorGate {
     'helpers/ApplicationValues.js',
     'helpers/BehaviorChecksHelper.js',
     'clients/CatalogClient.js',
+    'helpers/CatalogHelper.js',
+    'setups/CatalogSetup.js',
     'helpers/InputService.js',
     'helpers/ProductInput.js',
     'entities/ProductEntity.js',

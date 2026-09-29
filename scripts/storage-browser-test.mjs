@@ -453,6 +453,8 @@ class ${name} {
   @GetRequest("/api/range")
   async rangeUnasked(@RequestParam("partial") partial) {}
   @GetRequest("/api/range")
+  async rangeLegacy(@RequestParam("legacy") legacy) {}
+  @GetRequest("/api/range")
   async rangeMislabelled(@RequestParam("partial") partial, @RequestParam("mislabelled") mislabelled) {}
 }`);
   }
@@ -1017,7 +1019,7 @@ async function checkLegacyPartialResponses(page, origin) {
           transaction.onerror = () => { opened.result.close(); reject(transaction.error); };
         };
       });
-      return __root('storageClients').cacheFirstClient.range({legacy:String(status)});
+      return __root('storageClients').cacheFirstClient.rangeLegacy(String(status));
     },{origin,status});
     expect(restored.body,'abcdef',`legacy partial response (${status}) rejected`);
   }
@@ -1032,7 +1034,7 @@ async function checkOfflineBehavior(page, context, afterInvalidate) {
   });
   expect(refused,true,'no-store never answers from persistence');
   const offlineRange = await page.evaluate(async () => {
-    try { await __root('storageClients').cacheFirstClient.range({sample:'full-first'},{Range:'bytes=0-2'}); return false; }
+    try { await __root('storageClients').cacheFirstClient.rangePart('full-first', 'bytes=0-2'); return false; }
     catch { return true; }
   });
   expect(offlineRange,true,'offline Range never falls back to complete cached JSON');
