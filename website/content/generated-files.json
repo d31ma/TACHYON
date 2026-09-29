@@ -5,6 +5,14 @@
     "escapeNonAscii": true
   },
   {
+    "source": "docs/page.json",
+    "output": "client/shared/data/guides.json",
+    "escapeNonAscii": true,
+    "omit": [
+      "sections"
+    ]
+  },
+  {
     "source": "features/page.json",
     "output": "client/shared/data/features.json",
     "escapeNonAscii": false

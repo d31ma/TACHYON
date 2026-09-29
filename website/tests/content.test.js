@@ -33,6 +33,27 @@ class ContentFiles {
   }
 }
 
+class PageData {
+  static serviceInitLimit = 1_048_576
+  static client = path.join(SiteContent.website, 'client')
+
+  /** @returns {string[]} */
+  static namesInTemplates() {
+    const entries = readdirSync(PageData.client, { recursive: true, withFileTypes: true })
+    const templates = entries.filter(entry => entry.isFile() && entry.name.endsWith('.html'))
+    const texts = templates.map(entry => readFileSync(path.join(entry.parentPath, entry.name), 'utf8'))
+    return [...new Set(texts.flatMap(text => [...text.matchAll(/\bdata\.(\w+)/g)].map(match => match[1])))]
+  }
+
+  /**
+   * @param {string} name
+   * @returns {number}
+   */
+  static bytes(name) {
+    return readFileSync(path.join(PageData.client, 'shared', 'data', `${name}.json`)).byteLength
+  }
+}
+
 describe('site data is generated from website/content', () => {
   test('every generated file matches website/content; edit website/content, then run bun run content', () => {
     const staleFiles = SiteContent.generatedFiles()
@@ -67,5 +88,12 @@ describe('the docs guide reads in order', () => {
       expect(docs.topics[old]).toBeUndefined()
       expect(docs.topics[target]).toBeDefined()
     }
+  })
+})
+
+describe('the data a page passes to a service fits in one WebAssembly init request', () => {
+  test('every data file that a template names is at most 1 MiB', () => {
+    const oversized = PageData.namesInTemplates().filter(name => PageData.bytes(name) > PageData.serviceInitLimit)
+    expect(oversized).toEqual([])
   })
 })

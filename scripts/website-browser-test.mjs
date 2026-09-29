@@ -84,6 +84,22 @@ async function checkSearchTyping(page, width, route) {
 }
 
 /**
+ * @param {import('playwright').Page} page
+ * @param {number} width
+ * @param {string[]} errors
+ */
+async function checkDocsHome(page, width, errors) {
+  const guides = page.locator('section:has(#guides) .catalogue__card');
+  const featureGroups = page.locator('section:has(#features) .catalogue__card');
+  await guides.first().waitFor().catch(error => {
+    throw new Error(`${width}px /docs/: no guide cards; browser errors: ${errors.join('; ')}`, { cause: error });
+  });
+  assert.ok(await guides.count() > 1, `${width}px /docs/: every guide group lists its guides`);
+  assert.ok(await featureGroups.count() > 1, `${width}px /docs/: every feature group is listed`);
+  assert.match(await page.locator('section:has(#features) p').first().innerText(), /^\d+ features\./, `${width}px /docs/: the feature count renders`);
+}
+
+/**
  * @param {import('playwright').Browser} activeBrowser
  * @param {string} origin
  * @param {number} width
@@ -96,6 +112,7 @@ async function checkViewport(activeBrowser, origin, width) {
     const response = await page.goto(`${origin}${route}`);
     assert.ok(response, `${width}px ${route}: navigation response`);
     assert.equal(response.status(), 200, `${width}px ${route}: page is served`);
+    if (route === '/docs/') await checkDocsHome(page, width, errors);
     await openSearch(page, width, route, errors);
     await checkSearchTyping(page, width, route);
   }
@@ -116,7 +133,7 @@ async function main() {
       const origin = new URL((await request('/')).url).origin;
       for (const width of [1440, 390]) await checkViewport(activeBrowser, origin, width);
     });
-    console.log('Website browser input gate passed: desktop/mobile, home/docs/features, continuous typing, custom slots, middle caret, spaces, rapid input, Escape.');
+    console.log('Website browser input gate passed: desktop/mobile, home/docs (guides and features render)/features, continuous typing, custom slots, middle caret, spaces, rapid input, Escape.');
   } finally {
     if (browser) await browser.close();
     rmSync(output, { recursive: true, force: true });

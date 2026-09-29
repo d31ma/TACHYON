@@ -1720,6 +1720,14 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The website's Documentation page shows its guides again. Its C#
+  WebAssembly service received all of `docs.json`, with the text of every
+  guide. That file grew past the 1 MiB that `init` may carry (ADR 0037), so
+  the service refused the page's properties with "Native companion operation
+  failed.". The docs pages now pass `guides.json`: the reading order, the
+  groups and each guide's title and summary. A website test keeps every data
+  file that a template names at 1 MiB or less.
+
 - A page with both Kotlin and Go WebAssembly services now starts. Go's
   `wasm_exec.js` puts a small `process` object on the page, and the Kotlin
   loader read `process.release.name` from it and stopped; the published

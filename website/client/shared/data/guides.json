@@ -1,0 +1,531 @@
+{
+  "order": [
+    "install",
+    "first-app",
+    "project-folders",
+    "preview-and-build",
+    "pages",
+    "templates",
+    "services",
+    "browser-storage",
+    "application-events",
+    "controllers",
+    "models",
+    "checking-values",
+    "error-handlers",
+    "route-access",
+    "application-configuration",
+    "calling-the-server",
+    "server-data",
+    "streams",
+    "sockets",
+    "topics",
+    "service-languages",
+    "yon-languages",
+    "native-services",
+    "devices",
+    "native-hosts",
+    "platform-apis",
+    "window-controls",
+    "dependency-injection",
+    "behavior-annotations",
+    "middleware",
+    "relays-and-gateways",
+    "modules-and-lifecycle",
+    "isolation-and-security",
+    "cohesive-services",
+    "utilities",
+    "helpers",
+    "dependency-direction",
+    "plain-english-names",
+    "small-signatures",
+    "named-values",
+    "public-only-when-used",
+    "simpler-forms",
+    "types-in-every-language",
+    "test-units",
+    "build-and-deploy",
+    "request-ids",
+    "cookbook",
+    "annotations",
+    "routing-annotations",
+    "error-codes",
+    "glossary"
+  ],
+  "groups": [
+    {
+      "title": "Get started",
+      "summary": "Install Tachyon, build your first app, learn where each file goes, and preview it.",
+      "topics": [
+        "install",
+        "first-app",
+        "project-folders",
+        "preview-and-build"
+      ]
+    },
+    {
+      "title": "Pages (Tac)",
+      "summary": "Tac is the frontend part of Tachyon. Make pages, show values, and keep data in the browser.",
+      "topics": [
+        "pages",
+        "templates",
+        "services",
+        "browser-storage",
+        "application-events"
+      ]
+    },
+    {
+      "title": "Server (Yon)",
+      "summary": "Yon is the backend part of Tachyon. Answer requests, return models, check values, and read settings and data.",
+      "topics": [
+        "controllers",
+        "models",
+        "checking-values",
+        "error-handlers",
+        "route-access",
+        "application-configuration",
+        "calling-the-server",
+        "server-data"
+      ]
+    },
+    {
+      "title": "Real-time",
+      "summary": "Send messages while a page is open: streams, sockets and topics.",
+      "topics": [
+        "streams",
+        "sockets",
+        "topics"
+      ]
+    },
+    {
+      "title": "Languages",
+      "summary": "Choose the language of each service and controller.",
+      "topics": [
+        "service-languages",
+        "yon-languages",
+        "native-services"
+      ]
+    },
+    {
+      "title": "Apps on devices",
+      "summary": "Build the same pages as a desktop or mobile app.",
+      "topics": [
+        "devices",
+        "native-hosts",
+        "platform-apis",
+        "window-controls"
+      ]
+    },
+    {
+      "title": "Going further",
+      "summary": "Topics for later: injection, behavior annotations, middleware, other languages, modules, security, cohesive services, utilities, helpers the design rules and simpler forms.",
+      "topics": [
+        "dependency-injection",
+        "behavior-annotations",
+        "middleware",
+        "relays-and-gateways",
+        "modules-and-lifecycle",
+        "isolation-and-security",
+        "cohesive-services",
+        "utilities",
+        "helpers",
+        "dependency-direction",
+        "plain-english-names",
+        "small-signatures",
+        "named-values",
+        "public-only-when-used",
+        "simpler-forms",
+        "types-in-every-language"
+      ]
+    },
+    {
+      "title": "Operations",
+      "summary": "Test, build, deploy and follow requests in the logs.",
+      "topics": [
+        "test-units",
+        "build-and-deploy",
+        "request-ids"
+      ]
+    },
+    {
+      "title": "Cookbook",
+      "summary": "Examples for real applications that use Tac (the frontend) and Yon (the backend) together.",
+      "topics": [
+        "cookbook"
+      ]
+    },
+    {
+      "title": "Reference",
+      "summary": "Look up an annotation, a routing name, an error code or a word.",
+      "topics": [
+        "annotations",
+        "routing-annotations",
+        "error-codes",
+        "glossary"
+      ]
+    }
+  ],
+  "redirects": {
+    "introduction": "install",
+    "routing": "pages",
+    "yon": "controllers",
+    "companions": "services",
+    "polyglot": "service-languages",
+    "native-rendering": "native-hosts",
+    "storage": "browser-storage",
+    "strict-annotation-layout": "project-folders",
+    "operations": "build-and-deploy"
+  },
+  "topics": {
+    "install": {
+      "title": "Install",
+      "summary": "Tachyon is a full-stack framework: it makes both the frontend (the pages that run in the browser) and the backend (the server that answers requests). Tac is the frontend part. Yon is the backend part. You install one program, `ty`. It creates, previews, builds and tests your app."
+    },
+    "first-app": {
+      "title": "Your first app",
+      "summary": "Build a small app in five steps. First make a page. Then add a service with a field that updates the page. Then add a Yon controller that returns a model, and call the controller from the page. Last, test the service and the controller. Each step shows every file, where it goes, and what you see.",
+      "before": [
+        "install"
+      ]
+    },
+    "project-folders": {
+      "title": "Project folders and roles",
+      "summary": "Tachyon finds your code by its folder and its file name, so you write no setup code. A role is the job of a class, such as service or controller. The role decides the folder. A file in the wrong folder fails with `TY1310` before the app runs. Role types for `Allow`, such as `Admin`, are empty classes in `server/roles`.",
+      "before": [
+        "first-app"
+      ]
+    },
+    "preview-and-build": {
+      "title": "Preview and build",
+      "summary": "`ty preview` runs your app while you work, and it builds the app again when you save a file. `ty bundle` builds the files that you publish. `ty start` serves those files.",
+      "before": [
+        "first-app"
+      ]
+    },
+    "pages": {
+      "title": "Pages and URLs",
+      "summary": "Each folder under `client/pages` is one part of a URL. The `tac.html` file in a folder is the page for that URL. A folder whose name starts with `_`, such as `_topic`, matches any value in that part of the URL.",
+      "before": [
+        "first-app"
+      ]
+    },
+    "templates": {
+      "title": "Templates",
+      "summary": "A template is the `tac.html` file of a page or a component. It is HTML with a few additions. Braces show values. `on:` attributes run a method when an event happens. The `loop`, `logic` and `switch` elements repeat or hide parts of the page. A component is a part of a page that you can use again.",
+      "before": [
+        "pages"
+      ]
+    },
+    "services": {
+      "title": "Services",
+      "summary": "A service is a class in `client/services` that holds the data and the actions of a view. The view names the service, and Tachyon creates it. For example, a view refers to `BasketService` as `basket` and shows `{basket.count}`. When a field changes, the page updates.",
+      "before": [
+        "templates"
+      ]
+    },
+    "browser-storage": {
+      "title": "Saving data in the browser",
+      "summary": "A service can keep data in the browser. A field marked `@LocalState` or `@SessionState` keeps its value after a reload. A browser Store keeps records, and a cache keeps answers so that the page does not ask for them again.",
+      "before": [
+        "services"
+      ]
+    },
+    "application-events": {
+      "title": "Events between services",
+      "summary": "An event is a message that one service publishes and other services receive. The publisher does not need to know who listens. This page also shows the start and stop methods of a service (lifecycle hooks), in the browser and on the server.",
+      "before": [
+        "services"
+      ]
+    },
+    "controllers": {
+      "title": "Controllers",
+      "summary": "A controller is a class in `server/controllers` that answers HTTP requests. Each method with a route annotation, such as `GetRoute`, answers one kind of request on one path. An argument marked `FromPath`, `FromQuery` or `FromBody` gets its value from the request. Every route also says who may call it with `Public`, `SignedIn` or `Allow(Role)`; the build stops without it.",
+      "before": [
+        "first-app"
+      ]
+    },
+    "models": {
+      "title": "Models and JSON answers",
+      "summary": "A model is a data type in `server/models`. A controller method takes models and returns them. Yon turns the value that a method returns into a JSON answer.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "checking-values": {
+      "title": "Checking values",
+      "summary": "Yon checks the values that a caller sends before your method runs. A wrong value gets an error answer, and your method never sees it.",
+      "before": [
+        "controllers",
+        "models"
+      ]
+    },
+    "error-handlers": {
+      "title": "Error handlers",
+      "summary": "An error handler turns an error that your code throws into a clear answer for the caller. You write it once, and it works for every controller of its language.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "route-access": {
+      "title": "Who may call a route",
+      "summary": "Every route says who may call it: anyone, any signed-in user, or only some roles. One identity provider class tells Tachyon who is signed in, and Tachyon answers 401 or 403 before your code runs.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "application-configuration": {
+      "title": "Settings and configuration",
+      "summary": "Server settings live in `server/application.json`. Page settings live in `client/manifest.json`. Secrets, such as passwords, live in `.env` and never reach the browser. A class marked `Settings` gets its field values from these files.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "calling-the-server": {
+      "title": "Calling the server from a page",
+      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. A request to another host needs that host in `tac.outgoing.hosts`.",
+      "before": [
+        "services",
+        "controllers"
+      ]
+    },
+    "server-data": {
+      "title": "Server data",
+      "summary": "Yon can connect to a SQL database and to Redis for you. You name them in `server/application.json`, and a Store class gets them with `Needs`. Values always go in as parameters: Tachyon refuses query text built from pieces.",
+      "before": [
+        "controllers",
+        "application-configuration"
+      ]
+    },
+    "streams": {
+      "title": "Streams",
+      "summary": "A stream keeps one HTTP answer open and sends many messages on it. On the server, mark the method with `StreamRoute`. In the page, a client method marked `StreamRequest` receives the messages. A stream route says who may call it like any other route.",
+      "before": [
+        "controllers",
+        "calling-the-server"
+      ]
+    },
+    "sockets": {
+      "title": "Sockets",
+      "summary": "A socket (a WebSocket) is a connection that stays open, so the browser and the server can both send messages at any time. On the server, mark a controller with `SocketRoute`. In the page, a client method marked `SocketRequest` connects to it. The socket class also says who may connect: `Public`, `SignedIn` or `Allow(Role)` on the class.",
+      "before": [
+        "controllers",
+        "calling-the-server"
+      ]
+    },
+    "topics": {
+      "title": "Topics",
+      "summary": "A topic is a model marked `Topic`. When one part of the app publishes a value of that model, Tachyon sends it to the listeners in every Yon language and in open pages.",
+      "before": [
+        "application-events"
+      ]
+    },
+    "service-languages": {
+      "title": "Choosing a service language",
+      "summary": "You can write a Tac service in JavaScript, TypeScript, Dart, Swift, Kotlin, C#, F#, Rust, Go or Ruby. JavaScript and TypeScript services run on every target. A service in another language runs where its platform supports it.",
+      "before": [
+        "services"
+      ]
+    },
+    "yon-languages": {
+      "title": "The Yon languages",
+      "summary": "Yon runs controllers written in JavaScript, TypeScript, Python, Java, Groovy, Kotlin, C#, F#, PHP, Rust, Dart, Go and Ruby. Every language uses the same annotations and the same folders.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "native-services": {
+      "title": "Rust, Go and C# in the browser",
+      "summary": "A service written in Rust, Go or C# can run in the browser as WebAssembly, a compiled format that browsers run. In a desktop or mobile app, some of these services run as native code instead.",
+      "before": [
+        "service-languages"
+      ]
+    },
+    "devices": {
+      "title": "Targets",
+      "summary": "A target is the kind of app that you build: web, macos, windows, linux, ios or android. You write the pages once. The web target runs in a browser. The other targets put the same pages in a desktop or mobile app.",
+      "before": [
+        "preview-and-build"
+      ]
+    },
+    "native-hosts": {
+      "title": "Native hosts",
+      "summary": "A native host is the desktop or mobile app that Tachyon builds for a target. It shows your pages in the WebView, the browser view that is built into the operating system. So the app shows exactly what the browser shows.",
+      "before": [
+        "devices"
+      ]
+    },
+    "platform-apis": {
+      "title": "Platform APIs",
+      "summary": "A platform API is a feature of the device, such as the tray or the file system. In a native host, the page is the same as in the browser. A service that is compiled for the platform uses the platform API directly.",
+      "before": [
+        "native-hosts"
+      ]
+    },
+    "window-controls": {
+      "title": "Window controls",
+      "summary": "In a desktop or mobile app, `client/manifest.json` describes the window that the app opens. It also lists the window controls that a page may ask for. By default, a page may ask for none.",
+      "before": [
+        "native-hosts"
+      ]
+    },
+    "dependency-injection": {
+      "title": "Dependency injection",
+      "summary": "Dependency injection means that Tachyon creates the objects that a class needs and puts them into its fields. Mark a field with `Needs`, or mark the class with `NeedsAll`. `Lifetime` says how long one object lives.",
+      "before": [
+        "services",
+        "controllers"
+      ]
+    },
+    "behavior-annotations": {
+      "title": "Behavior annotations",
+      "summary": "Behavior annotations add common work to a method without extra code, such as caching, retries, value checks, stores and settings. The same annotations work in Tac and in Yon.",
+      "before": [
+        "dependency-injection"
+      ]
+    },
+    "middleware": {
+      "title": "Middleware",
+      "summary": "Middleware is code that runs before every request and after every response. Put it in a `middleware.<ext>` file at the project root. Who may call a route is not middleware work: routes say it with `Public`, `SignedIn` or `Allow(Role)`.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "relays-and-gateways": {
+      "title": "Relays and gateways",
+      "summary": "A gateway lets a method in one language call a class that is written in another language. A relay sends a request to a program that Yon does not run itself.",
+      "before": [
+        "controllers",
+        "yon-languages"
+      ]
+    },
+    "modules-and-lifecycle": {
+      "title": "Modules and lifecycle",
+      "summary": "This page explains how Tachyon groups your files into programs, and how it starts and stops the process that answers a request.",
+      "before": [
+        "project-folders",
+        "controllers"
+      ]
+    },
+    "isolation-and-security": {
+      "title": "Isolation and security",
+      "summary": "Tachyon refuses four dangerous mistakes when it builds, runs each request in its own process, and adds security headers to every answer. This page explains these rules and limits, and the rules for code that runs in the browser.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "cohesive-services": {
+      "title": "Cohesive services",
+      "summary": "A public method of a service or a controller only coordinates. Each private method holds at most one decision or one loop. The build checks this with TY1314.",
+      "before": [
+        "services",
+        "controllers"
+      ]
+    },
+    "utilities": {
+      "title": "Utilities",
+      "summary": "Tachyon refuses a block of code that repeats (TY1315). Move it into a static method of a utility class in client/utils or server/utils, and call it from both places.",
+      "before": [
+        "cohesive-services"
+      ]
+    },
+    "helpers": {
+      "title": "Helpers, utilities and private methods",
+      "summary": "One question decides where shared code goes: a helper when it needs other classes, saved state, lifecycle hooks or a Fake in tests; otherwise a utility, a private method or a service.",
+      "before": [
+        "utilities"
+      ]
+    },
+    "dependency-direction": {
+      "title": "Dependencies point down",
+      "summary": "A class needs only the classes below it, and no chain of classes loops back. The build checks this with TY1327.",
+      "before": [
+        "utilities"
+      ]
+    },
+    "plain-english-names": {
+      "title": "Plain-English names",
+      "summary": "Every word of a class, method, field or parameter name is an English word, a short technical word or a word of your domain. The build checks this with TY1328.",
+      "before": [
+        "dependency-direction"
+      ]
+    },
+    "small-signatures": {
+      "title": "Small signatures",
+      "summary": "A method takes at most four parameters, and a class needs at most five other classes. The build checks this with TY1329.",
+      "before": [
+        "plain-english-names"
+      ]
+    },
+    "named-values": {
+      "title": "Named values",
+      "summary": "A text or number used twice, or a number in a condition, gets a name: a class constant. The build checks this with TY1330.",
+      "before": [
+        "small-signatures"
+      ]
+    },
+    "public-only-when-used": {
+      "title": "Public only when used",
+      "summary": "A method or field of a class is public only when a view, another class or Tachyon uses it. Everything else is private. The build checks this with TY1333.",
+      "before": [
+        "cohesive-services",
+        "named-values"
+      ]
+    },
+    "types-in-every-language": {
+      "title": "Types in every language",
+      "summary": "Every field, parameter and return value of a class states its type: a type comment where the language has no type syntax, the native type where it has one. The build checks this with TY1356.",
+      "before": [
+        "public-only-when-used"
+      ]
+    },
+    "simpler-forms": {
+      "title": "Simpler forms",
+      "summary": "When a piece of code has a simpler form that reads more plainly, `ty build`, `ty preview` and `ty test` suggest it with codes TY1340 to TY1355. A suggestion never stops the build, and `ty migrate fix --write` applies it.",
+      "before": [
+        "public-only-when-used",
+        "cohesive-services"
+      ]
+    },
+    "test-units": {
+      "title": "Test units",
+      "summary": "A test unit is a class in `server/tests` or `client/tests` whose name ends with `Test`. `ty test` finds and runs every test unit. `ty preview` does not start while a public method of an annotated class has no test.",
+      "before": [
+        "first-app"
+      ]
+    },
+    "build-and-deploy": {
+      "title": "Build and deploy",
+      "summary": "`ty bundle` builds the files that you publish, and `ty start` serves them. This page shows the options for a release.",
+      "before": [
+        "preview-and-build"
+      ]
+    },
+    "request-ids": {
+      "title": "Request IDs and error reports",
+      "summary": "Every request has an ID that links its log lines. When something fails, the error report has a stable code, so you can find what happened.",
+      "before": [
+        "controllers"
+      ]
+    },
+    "cookbook": {
+      "title": "Cookbook",
+      "summary": "Practical recipes for building Tachyon apps with a frontend-first workflow (you build the client first). This website has only a frontend, so you can try these patterns with Tac services before a Yon server exists."
+    },
+    "annotations": {
+      "title": "Annotations A\u2013Z",
+      "summary": "An annotation is a marker that you put on a class, a field or a method. It tells Tachyon what to do. This page first lists every annotation from A to Z with one line about what it does. Then each group of annotations has a working example in every language that accepts it. Tac is the frontend realm (one side of the app), and Yon is the backend realm. When a realm or a language does not accept an annotation, the section says so and explains why."
+    },
+    "routing-annotations": {
+      "title": "Routing glossary",
+      "summary": "Routes answer incoming requests. Clients send outgoing requests. These names explain where paths and argument values come from. Access annotations say who may call a route."
+    },
+    "error-codes": {
+      "title": "Error codes",
+      "summary": "Every error from `ty` has a stable code, such as `TY1310`. The code stays the same when the message text changes, so you can search for it. This page explains the codes that the guides name."
+    },
+    "glossary": {
+      "title": "Glossary",
+      "summary": "Short meanings of the words that the guides use."
+    }
+  }
+}

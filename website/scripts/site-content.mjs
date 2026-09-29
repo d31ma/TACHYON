@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/** @typedef {{ source: string, output: string, escapeNonAscii: boolean }} GeneratedFile */
+/** @typedef {{ source: string, output: string, escapeNonAscii: boolean, omit?: string[] }} GeneratedFile */
 
 export class SiteContent {
   static website = fileURLToPath(new URL('..', import.meta.url))
@@ -21,7 +21,28 @@ export class SiteContent {
   static data(name) {
     const file = SiteContent.generatedFiles().find(entry => path.basename(entry.output) === name)
     if (!file) throw new Error(`website/content/generated-files.json does not list ${name}`)
-    return SiteContent.load(path.join(SiteContent.contentFolder, file.source))
+    return SiteContent.value(file)
+  }
+
+  /**
+   * @param {GeneratedFile} file
+   * @returns {any}
+   */
+  static value(file) {
+    const value = SiteContent.load(path.join(SiteContent.contentFolder, file.source))
+    return SiteContent.without(value, file.omit ?? [])
+  }
+
+  /**
+   * @param {any} value
+   * @param {string[]} keys the object keys to leave out, at any depth
+   * @returns {any}
+   */
+  static without(value, keys) {
+    if (Array.isArray(value)) return value.map(item => SiteContent.without(item, keys))
+    if (value === null || typeof value !== 'object') return value
+    const kept = Object.entries(value).filter(([key]) => !keys.includes(key))
+    return Object.fromEntries(kept.map(([key, item]) => [key, SiteContent.without(item, keys)]))
   }
 
   /**
@@ -29,8 +50,7 @@ export class SiteContent {
    * @returns {string}
    */
   static render(file) {
-    const value = SiteContent.load(path.join(SiteContent.contentFolder, file.source))
-    const text = `${JSON.stringify(value, null, 2)}\n`
+    const text = `${JSON.stringify(SiteContent.value(file), null, 2)}\n`
     if (!file.escapeNonAscii) return text
     return SiteContent.escapeNonAscii(text)
   }
