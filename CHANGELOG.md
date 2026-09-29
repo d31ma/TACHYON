@@ -12,14 +12,16 @@ machine contracts have their own, independent major versions.
 
 - A Tac service asks for an entity store with `@Needs`, like a Yon service
   (ADR 0022 amendment), in JavaScript, TypeScript, Dart, Kotlin, Swift, Java,
-  C#, Rust and Go; the store still opens the behavior context of its Setup.
+  C#, Rust, Go and Ruby; the store still opens the behavior context of its Setup.
   A JavaScript or TypeScript store is a provider in the service's owner
   graph: the owner creates its context before the service starts, so the
   store has no `@Needs behaviors` field and
   `Behaviors.construct(ProductStore, { behaviors: context })` no longer
   works. Kotlin, Swift, Java and C# fields get a new store, a Rust service
   fills its `Arc<Store>` field with `Default`, and a Go service gets its store
-  before it starts. Ruby and F# Tac services cannot ask for a store yet.
+  before it starts. A Ruby `attr_reader` documented with
+  `# @return [ProductStore]` builds the store the first time it runs. F# Tac
+  services cannot ask for a store yet.
 
 - `@Converter` is a contract with no implementation, like a MapStruct
   `@Mapper` interface (`TY1308`, ADR 0022 amendment): the same bodiless form

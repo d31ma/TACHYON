@@ -217,8 +217,8 @@ no implementation, and Tachyon generates each query.
 ## Amendment (2026-09-29): a Tac service asks for its store
 
 - A Tac service asks for an entity store with `@Needs`, like a Yon service,
-  in JavaScript, TypeScript, Dart, Kotlin, Swift, Java, C#, Rust and Go. It
-  no longer builds the store. The store still opens the behavior context of
+  in JavaScript, TypeScript, Dart, Kotlin, Swift, Java, C#, Rust, Go and
+  Ruby. It no longer builds the store. The store still opens the behavior context of
   its Setup, so a Tac store is a provider with no dependencies.
 - JavaScript and TypeScript: the store is a provider in the service's owner
   graph. It gets a static `tachyonContext(signal)` that creates the context
@@ -236,4 +236,9 @@ no implementation, and Tachyon generates each query.
   `Default` (derive it, or write no `fn new`). Go: Tachyon
   adds a method that builds each needed store with `New…Store()`, and the
   service's table calls it before the service starts.
-- Ruby and F# Tac services cannot ask for a store yet; that is planned.
+- Ruby: the field is an `attr_reader` documented with
+  `# @return [ProductStore]`; Tachyon replaces it with a private reader that
+  builds the store once, and the Tac Ruby store opens its context in
+  `initialize`.
+- F# Tac services cannot ask for a store yet (F# refuses field `Needs`, and
+  its constructor parameters are component props); that is planned.
