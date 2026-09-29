@@ -1,4 +1,4 @@
 [<Test(typeof<FSharpGreetingTestSetup>)>]
 type FSharpGreetingControllerTest() =
     member this.testGetGreetingSaysHello() : unit =
-        if FSharpGreetingController().GetGreeting() <> "Hello from F#" then failwith "expected a greeting"
+        Assert.equals("Hello from F#", FSharpGreetingController().GetGreeting())

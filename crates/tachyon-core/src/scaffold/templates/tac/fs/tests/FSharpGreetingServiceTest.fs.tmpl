@@ -3,4 +3,4 @@ type FSharpGreetingServiceTest() =
     member this.testGreetChangesTheMessage() : unit =
         let greeting = FSharpGreetingService()
         greeting.Greet()
-        if greeting.Message <> "F# says hello again." then failwith ("message is " + greeting.Message)
+        Assert.equals("F# says hello again.", greeting.Message)

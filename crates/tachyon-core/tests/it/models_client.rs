@@ -25,7 +25,7 @@ impl TestUnit {
         program: "dotnet",
         configuration: "[Setup]\npublic sealed class CatalogSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n",
         model: "public record Guide(string Title, int Pages);\n",
-        source: "using Models;\n\n[Test(typeof(CatalogSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    void testUsesAModel() {\n        var guide = new Guide(\"Guide\", 3);\n        if (guide.Pages != 3 || guide.Title != \"Guide\") throw new System.Exception(\"wrong guide\");\n    }\n}\n",
+        source: "using Models;\n\n[Test(typeof(CatalogSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    void testUsesAModel() {\n        var guide = new Guide(\"Guide\", 3);\n        Assert.equals(3, guide.Pages);\n        Assert.equals(\"Guide\", guide.Title);\n    }\n}\n",
     };
 
     const DART: Self = Self {

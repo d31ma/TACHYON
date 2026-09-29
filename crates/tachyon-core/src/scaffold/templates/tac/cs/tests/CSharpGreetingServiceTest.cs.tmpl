@@ -3,6 +3,6 @@ sealed class CSharpGreetingServiceTest {
     void testGreetChangesTheMessage() {
         var greeting = new CSharpGreetingService();
         greeting.Greet();
-        if (greeting.Message != "C# says hello again.") throw new System.Exception("message is " + greeting.Message);
+        Assert.equals("C# says hello again.", greeting.Message);
     }
 }

@@ -241,13 +241,13 @@ async fn every_compiled_language_runs_its_test_unit() {
             "cs",
             "dotnet",
             "[TestSetup]\npublic sealed class CatalogTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n",
-            "[Test(typeof(CatalogTestSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    void testOpensAContext() {\n        if (this.behaviors == null) throw new System.Exception(\"no context\");\n    }\n    void testReportsAFailure() {\n        throw new System.Exception(\"this case is meant to fail\");\n    }\n}\n",
+            "[Test(typeof(CatalogTestSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
         ),
         (
             "fs",
             "dotnet",
             "[<TestSetup>]\ntype CatalogTestSetup() = class end\n",
-            "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testDoublesAValue() : unit =\n        if 4 * 2 <> 8 then failwith \"expected 8\"\n\n    member this.testReportsAFailure() : unit =\n        failwith \"this case is meant to fail\"\n",
+            "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testDoublesAValue() : unit =\n        Assert.equals(8, 4 * 2)\n\n    member this.testReportsAFailure() : unit =\n        Assert.isTrue(false, \"this case is meant to fail\")\n",
         ),
         (
             "dart",
@@ -337,7 +337,7 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
             "dotnet",
             "[TestSetup]\npublic sealed class CatalogTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n",
             None,
-            "[Test(typeof(CatalogTestSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    void testHasAContext() {\n        if (this.behaviors == null) throw new System.Exception(\"no context\");\n    }\n    void testReportsAFailure() {\n        throw new System.Exception(\"this case is meant to fail\");\n    }\n}\n",
+            "[Test(typeof(CatalogTestSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    void testHasAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
         ),
         (
             "fs",
@@ -346,7 +346,7 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
             Some(
                 "[<Service>]\ntype CatalogService() =\n    member val Title = \"Catalog\" with get, set\n\n    member this.Double(value: int) : int =\n        value * 2\n",
             ),
-            "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testUsesAService() : unit =\n        if CatalogService().Double(4) <> 8 then failwith \"expected 8\"\n\n    member this.testReportsAFailure() : unit =\n        failwith \"this case is meant to fail\"\n",
+            "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testUsesAService() : unit =\n        Assert.equals(8, CatalogService().Double(4))\n\n    member this.testReportsAFailure() : unit =\n        Assert.isTrue(false, \"this case is meant to fail\")\n",
         ),
         (
             "rs",
