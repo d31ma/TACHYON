@@ -4915,7 +4915,7 @@
             },
             {
               "name": "server/entities/BillingEntity.js",
-              "code": "@Entity({\"adapter\":\"billing\"})\n@Table('invoices')\nclass BillingEntity {\n  @Id\n  id = 0;\n}\n"
+              "code": "@Entity({\"adapter\":\"billing\"})\n@Table('invoices')\nexport default class BillingEntity {\n  @Id\n  id = 0;\n}\n"
             },
             {
               "name": "server/controllers/BillingController.js",
@@ -4947,7 +4947,7 @@
             },
             {
               "name": "server/entities/BillingEntity.ts",
-              "code": "@Entity({\"adapter\":\"billing\"})\n@Table('invoices')\nclass BillingEntity {\n  @Id\n  id = 0;\n}\n"
+              "code": "@Entity({\"adapter\":\"billing\"})\n@Table('invoices')\nexport default class BillingEntity {\n  @Id\n  id = 0;\n}\n"
             },
             {
               "name": "server/controllers/BillingController.ts",
@@ -5294,7 +5294,7 @@
             },
             {
               "name": "client/entities/BillingEntity.js",
-              "code": "@Entity({\"adapter\":\"publicBilling\"})\n@Table('invoices')\nclass BillingEntity {\n  @Id\n  id = 0;\n}\n"
+              "code": "@Entity({\"adapter\":\"publicBilling\"})\n@Table('invoices')\nexport default class BillingEntity {\n  @Id\n  id = 0;\n}\n"
             },
             {
               "name": "client/services/BillingService.ts",
@@ -5314,7 +5314,7 @@
             },
             {
               "name": "client/entities/BillingEntity.ts",
-              "code": "@Entity({\"adapter\":\"publicBilling\"})\n@Table('invoices')\nclass BillingEntity {\n  @Id\n  id = 0;\n}\n"
+              "code": "@Entity({\"adapter\":\"publicBilling\"})\n@Table('invoices')\nexport default class BillingEntity {\n  @Id\n  id = 0;\n}\n"
             },
             {
               "name": "client/services/BillingService.swift",

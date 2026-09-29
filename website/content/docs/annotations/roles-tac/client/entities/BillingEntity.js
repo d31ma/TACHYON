@@ -1,6 +1,6 @@
 @Entity({"adapter":"publicBilling"})
 @Table('invoices')
-class BillingEntity {
+export default class BillingEntity {
   @Id
   id = 0;
 }
