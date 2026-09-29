@@ -42,6 +42,7 @@ impl<'a> FsharpContract<'a> {
     fn declarations(&self) -> Vec<FsharpDeclaration> {
         (0..self.code.len())
             .filter_map(|index| self.marked_role(index).map(|role| (index, role)))
+            .filter(|(_, role)| role.is_lowered_in(Self::EXTENSION))
             .filter_map(|(index, role)| self.declaration(index, role))
             .collect()
     }

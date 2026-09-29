@@ -512,6 +512,23 @@ mod tests {
     }
 
     #[test]
+    fn an_abstract_interface_class_converter_becomes_a_class_with_its_context() {
+        let lowered = super::super::lower(
+            std::path::Path::new("server/converters/ProductConverter.dart"),
+            "@Converter\nabstract interface class ProductConverter {\n  @Convert({\"fields\":[{\"source\":\"name\",\"target\":\"title\"}]})\n  Object? toSummary(Object? product);\n}\n",
+            "yon",
+        )
+        .expect("Dart converter lowering")
+        .expect("lowered source");
+        assert!(lowered.contains("class ProductConverter {"), "{lowered}");
+        assert!(!lowered.contains("interface class"), "{lowered}");
+        assert!(
+            lowered.contains("ProductConverter(this.behaviors);"),
+            "{lowered}"
+        );
+    }
+
+    #[test]
     fn a_gateway_result_must_be_a_future_object() {
         let failure = super::super::lower(
             std::path::Path::new("server/clients/ReportClient.dart"),

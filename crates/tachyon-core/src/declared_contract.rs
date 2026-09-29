@@ -21,6 +21,9 @@ mod rust_contract_rewrite;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
+mod converter_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
 mod store_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]

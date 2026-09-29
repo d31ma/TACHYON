@@ -1643,7 +1643,7 @@ pub(super) fn abstract_keyword(language: &str) -> &'static str {
     match language {
         "rs" => "trait",
         "swift" => "protocol",
-        "py" => "\0",
+        "py" | "dart" => "\0",
         _ => "interface",
     }
 }

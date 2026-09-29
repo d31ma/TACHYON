@@ -87,7 +87,8 @@ impl<'a> ConcreteContract<'a> {
             .form
             .declares_contract(&self.code[declaration.header.clone()]);
         let managed = [self.in_browser(), declaration.role.managed_in_browser] == [true, true];
-        [contract, managed] == [true, false]
+        let lowered = declaration.role.is_lowered_in(self.form.language);
+        [contract, managed, lowered] == [true, false, true]
     }
 
     fn in_browser(&self) -> bool {
@@ -159,7 +160,7 @@ impl<'a> ConcreteContract<'a> {
         let setup = declaration.setup();
         let context = ContextMembers {
             language: self.form.language,
-            tac: self.tac,
+            tac: [self.tac, declaration.role.context_from_caller].contains(&true),
             needs_context,
             owner: &declaration.name,
             receiver: declaration.role.noun,
@@ -314,7 +315,7 @@ impl<'a> ConcreteContract<'a> {
         let setup = declaration.setup();
         let context = ContextMembers {
             language: self.form.language,
-            tac: self.tac,
+            tac: [self.tac, declaration.role.context_from_caller].contains(&true),
             needs_context,
             owner: &declaration.name,
             receiver: declaration.role.noun,

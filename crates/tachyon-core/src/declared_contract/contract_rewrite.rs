@@ -42,7 +42,6 @@ impl<'a> ContractRewrite<'a> {
             .and_then(|value| value.to_str())
             .unwrap_or("");
         ContractForm::of(extension)
-            .filter(|form| form.has_contract())
             .filter(|_| ContractRole::is_mentioned(source))
             .map_or(Ok(Vec::new()), |form| Self::new(form, source).all_edits())
     }
@@ -57,17 +56,30 @@ impl<'a> ContractRewrite<'a> {
     }
 
     fn all_edits(&self) -> Result<Vec<SourceEdit>, String> {
-        let nested: Vec<Vec<SourceEdit>> =
-            ContractDeclaration::find(self.form, self.source, &self.code)
-                .iter()
-                .filter(|declaration| self.is_class_form(declaration))
-                .map(|declaration| {
-                    Self::role_check(declaration)
-                        .and_then(|()| Self::entity_check(declaration))
-                        .and_then(|()| self.declaration(declaration))
-                })
-                .collect::<Result<_, _>>()?;
-        Ok(nested.into_iter().flatten().collect())
+        let declarations = ContractDeclaration::find(self.form, self.source, &self.code);
+        let nested: Vec<Vec<SourceEdit>> = declarations
+            .iter()
+            .filter(|declaration| self.is_class_form(declaration))
+            .map(|declaration| {
+                Self::role_check(declaration)
+                    .and_then(|()| Self::entity_check(declaration))
+                    .and_then(|()| self.declaration(declaration))
+            })
+            .collect::<Result<_, _>>()?;
+        let scaffolding = declarations
+            .iter()
+            .filter(|declaration| !self.is_class_form(declaration))
+            .flat_map(|declaration| self.scaffolding_removals(declaration));
+        Ok(nested.into_iter().flatten().chain(scaffolding).collect())
+    }
+
+    fn scaffolding_removals(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
+        declaration
+            .members(self.form, &self.code)
+            .iter()
+            .filter(|member| self.is_context_scaffolding(member))
+            .map(|member| self.removal(member))
+            .collect()
     }
 
     fn is_class_form(&self, declaration: &ContractDeclaration) -> bool {
