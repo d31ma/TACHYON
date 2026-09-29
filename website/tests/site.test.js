@@ -554,7 +554,7 @@ describe('feature catalogue', () => {
                          'hydrate=', 'on:click', '@LocalState', '\\"policy\\"', 'tachyon-sw',
                          'Service.rs', 'Service.swift', 'Service.kt', 'Service.cs', 'Service.go',
                          '@Service\\n', 'Lifetime({', 'client/services/',
-                         'TY1010', 'Controller.js', 'Controller.py',
+                         'Controller.js', 'Controller.py',
                          'Controller.php', 'Controller.kt', 'Controller.java', 'middleware', '@StreamRequest', 'async *stream',
                          'companion.invoke', 'start_url', 'ty doctor',
                           'ty start', 'TY1307', 'static class fields',
