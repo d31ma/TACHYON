@@ -10,7 +10,7 @@ static bundle, so search also runs in the browser.
 client/
   pages/        the routes: /, /docs, /docs/:topic, /docs/features/:id
   components/   the site shell, the home page sections and the docs parts (tac.html, and tac.css if needed)
-  services/     one @Service class per file, in JavaScript, TypeScript, Dart, Rust, C# or Go
+  services/     one @Service class per file, in JavaScript, TypeScript, Dart, Rust, C#, F#, Go, Ruby, Kotlin or Swift
   utils/        utility classes with only static methods, such as NavigationUtils
   models/       TypeScript interfaces and Go structs the services share (ADR 0041, ADR 0045)
   tests/        a test unit for every service, plus separate test-only setups

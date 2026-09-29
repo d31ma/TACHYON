@@ -465,6 +465,19 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- The website has a Tac service in Kotlin, Swift and F#, each with a test
+  unit in its own language. `ReadingTimeService.kt` shows "About N minutes
+  to read" on every guide, from the word count of `TopicService.words()`.
+  `FeatureFilterService.swift` filters the feature list by words, and the
+  list hides a group that has no match. `InstallService.fs` lets the home
+  page show the macOS and Linux or the Windows install command; the commands
+  are data in `shared/data/hero.json`. A browser loads Swift (about 0.9 MB
+  with Brotli) only on the feature list and Kotlin (about 30 KB) only on a
+  guide; F# adds about 11 KB to the .NET files that the home page already
+  loads. The route size check, which counts every service on each route,
+  now sees 262 KB of script (budget 320 KB) and about 2.4 MB of WebAssembly
+  (default budget 3.5 MB).
+
 - `website/scripts/verify-snippets.mjs --suite=tsc` (also part of the default
   run) checks every JavaScript and TypeScript example project on the website
   with `tsc`, the way a `ty init` project checks itself: it stages each
