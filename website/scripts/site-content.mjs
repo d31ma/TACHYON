@@ -65,27 +65,37 @@ export class SiteContent {
 
   /**
    * @param {string} jsonFile
+   * @param {(file: string) => any} [readFile] turns each referenced code file into its value
    * @returns {any}
    */
-  static load(jsonFile) {
+  static load(jsonFile, readFile = SiteContent.readText) {
     const value = JSON.parse(readFileSync(jsonFile, 'utf8'))
-    return SiteContent.resolve(value, path.dirname(jsonFile))
+    return SiteContent.resolve(value, path.dirname(jsonFile), readFile)
   }
 
   /**
    * @param {any} value
    * @param {string} folder
+   * @param {(file: string) => any} [readFile]
    * @returns {any}
    */
-  static resolve(value, folder) {
-    if (Array.isArray(value)) return value.map(item => SiteContent.resolve(item, folder))
+  static resolve(value, folder, readFile = SiteContent.readText) {
+    if (Array.isArray(value)) return value.map(item => SiteContent.resolve(item, folder, readFile))
     if (value === null || typeof value !== 'object') return value
-    if (SiteContent.isReference(value, 'include')) return SiteContent.load(SiteContent.inside(folder, value.include))
-    if (SiteContent.isReference(value, 'file')) return readFileSync(SiteContent.inside(folder, value.file), 'utf8')
+    if (SiteContent.isReference(value, 'include')) return SiteContent.load(SiteContent.inside(folder, value.include), readFile)
+    if (SiteContent.isReference(value, 'file')) return readFile(SiteContent.inside(folder, value.file))
     /** @type {Record<string, any>} */
     const result = {}
-    for (const [key, item] of Object.entries(value)) result[key] = SiteContent.resolve(item, folder)
+    for (const [key, item] of Object.entries(value)) result[key] = SiteContent.resolve(item, folder, readFile)
     return result
+  }
+
+  /**
+   * @param {string} file
+   * @returns {string}
+   */
+  static readText(file) {
+    return readFileSync(file, 'utf8')
   }
 
   /**
