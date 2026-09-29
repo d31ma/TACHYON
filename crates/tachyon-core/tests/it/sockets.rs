@@ -9,6 +9,8 @@ use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
+use tokio_tungstenite::tungstenite::protocol::CloseFrame;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -857,6 +859,26 @@ async fn a_socket_route_keeps_one_object_for_each_connection_and_guards_it() {
         .expect("same origin opens");
     assert_eq!(Client::text(&mut same).await, r#"{"text":"welcome"}"#);
 
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn a_socket_closed_by_the_browser_gets_the_close_answer() {
+    if !ChatProject::TYPESCRIPT.available() {
+        return;
+    }
+    let server = Server::start(&ChatProject::TYPESCRIPT).await;
+    let mut socket = Client::open(server.port).await;
+    assert_eq!(Client::text(&mut socket).await, r#"{"text":"welcome"}"#);
+    socket
+        .close(Some(CloseFrame {
+            code: CloseCode::Normal,
+            reason: "bye".into(),
+        }))
+        .await
+        .expect("close sent");
+    let (code, reason) = Client::close_code(&mut socket).await;
+    assert_eq!((code, reason.as_str()), (1000, "bye"));
     server.stop().await;
 }
 

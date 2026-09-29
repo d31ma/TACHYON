@@ -178,6 +178,7 @@ impl SocketSession {
         let _sent = socket.send(Message::Close(Some(close))).await;
         let _closed = timeout(Self::CLOSE_GRACE, input.send(SocketInput::Close)).await;
         drop(input);
+        let _answered = timeout(Self::CLOSE_GRACE, Self::finish_closing(&mut socket)).await;
         let finished = timeout(
             Self::CLOSE_GRACE,
             Self::drain_then_join(&mut outputs, &mut process),
@@ -185,6 +186,10 @@ impl SocketSession {
         .await;
         let result = Self::finished_or_stopped(finished, &stop, process).await;
         self.log_failure(result);
+    }
+
+    async fn finish_closing(socket: &mut WebSocket) {
+        while let Some(Ok(_)) = socket.recv().await {}
     }
 
     async fn drain_then_join(
