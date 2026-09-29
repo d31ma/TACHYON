@@ -115,12 +115,24 @@ private func tacAssignProperties(_ activation: TacActivation, _ props: [String: 
     }
 }
 
+private func tacTooLarge(_ subject: String, _ size: Int, _ limit: Int) -> String {
+    "{\"error\":" + tacEncode("The \(subject) is \(size) bytes. The limit is \(limit) bytes. Pass less data to the service.") + "}"
+}
+
 private func tacHandle(_ raw: String) throws -> String {
+    let size = raw.utf8.count
+    guard size <= TacNativeState.startUpRequestLimit else {
+        return tacTooLarge("request", size, TacNativeState.startUpRequestLimit)
+    }
     guard let request = tachyonParseJSONRequest(raw) else {
         return "{\"error\":\"Malformed companion request.\"}"
     }
     guard let operation = request["op"] as? String else {
         return "{\"error\":\"Companion request has no operation.\"}"
+    }
+    guard operation == "init" || size <= TacNativeState.memberRequestLimit else {
+        let name = request["name"] as? String ?? ""
+        return tacTooLarge("request to " + (name.isEmpty ? operation : name), size, TacNativeState.memberRequestLimit)
     }
     if operation == "host-dispose" { tacDisposeAll(); return "{\"value\":null}" }
     guard let route = request["route"] as? String, let owner = request["owner"] as? String,
@@ -225,6 +237,8 @@ private final class TacActivation {
     }
 }
 private enum TacNativeState {
+    static let startUpRequestLimit = 1048576
+    static let memberRequestLimit = 65536
     nonisolated(unsafe) static var activations: [String: TacActivation] = [:]
     nonisolated(unsafe) static var executing: TacActivation?
     nonisolated(unsafe) static var handling = false

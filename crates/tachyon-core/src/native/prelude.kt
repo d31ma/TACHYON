@@ -79,7 +79,8 @@ private class TacActivation(val route: String, val service: String, val owner: S
     val listeners: List<TacListener> = sorted.filterIsInstance<TacListener>().sortedBy { it.order }
 }
 private object TacNativeState {
-    const val REQUEST_LIMIT = 65536
+    const val START_UP_REQUEST_LIMIT = 1048576
+    const val MEMBER_REQUEST_LIMIT = 65536
     val activations = linkedMapOf<String, TacActivation>()
     var executing: TacActivation? = null
     var handling = false
@@ -401,15 +402,20 @@ private fun tacInvokeOwned(request: String): String {
     TacNativeState.handling = true
     return try { tacHandle(request) } finally { TacNativeState.executing?.let { tacDrain(it) }; TacNativeState.executing = null; TacNativeState.handling = false }
 }
+private fun tacTooLarge(subject: String, size: Int, limit: Int): String =
+    "The $subject is $size bytes. The limit is $limit bytes. Pass less data to the service."
 private fun tacHandle(request: String): String {
     return try {
         val size = request.encodeToByteArray().size
-        require(size <= TacNativeState.REQUEST_LIMIT) {
-            "The request is $size bytes. The limit is ${TacNativeState.REQUEST_LIMIT} bytes. Pass less data to the service."
+        require(size <= TacNativeState.START_UP_REQUEST_LIMIT) {
+            tacTooLarge("request", size, TacNativeState.START_UP_REQUEST_LIMIT)
         }
         require(tacBoundedJSON(request)) { "Invalid companion request." }
         val parsed = tacObject(tacParseJson(request)) ?: throw IllegalArgumentException("Invalid companion request.")
         val operation = tacText(parsed["op"])
+        require(operation == "init" || size <= TacNativeState.MEMBER_REQUEST_LIMIT) {
+            tacTooLarge("request to " + tacText(parsed["name"]).ifEmpty { operation }, size, TacNativeState.MEMBER_REQUEST_LIMIT)
+        }
         if (operation == "host-dispose") { tacDisposeAll(); return "{\"value\":null}" }
         val route = tacText(parsed["route"])
         val owner = tacText(parsed["owner"])

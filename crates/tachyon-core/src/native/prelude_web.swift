@@ -9,7 +9,6 @@ func tachyonSwiftJSONValue(_ value: Any?) -> Any? {
 }
 
 func tachyonParseJSONRequest(_ raw: String) -> [String: Any]? {
-    guard raw.utf8.count <= 65536 else { return nil }
     var reader = TacJSONReader(raw)
     return reader.document() as? [String: Any]
 }

@@ -770,13 +770,17 @@ fn tac_use_member(
     }
 }
 
+fn tac_too_large(subject: &str, size: usize, limit: usize) -> String {
+    tac_error(&format!(
+        "The {subject} is {size} bytes. The limit is {limit} bytes. Pass less data to the service."
+    ))
+}
+
 fn tac_handle(raw: &str) -> String {
-    const REQUEST_LIMIT: usize = 65_536;
-    if raw.len() > REQUEST_LIMIT {
-        return tac_error(&format!(
-            "The request is {} bytes. The limit is {REQUEST_LIMIT} bytes. Pass less data to the service.",
-            raw.len()
-        ));
+    const START_UP_REQUEST_LIMIT: usize = 1_048_576;
+    const MEMBER_REQUEST_LIMIT: usize = 65_536;
+    if raw.len() > START_UP_REQUEST_LIMIT {
+        return tac_too_large("request", raw.len(), START_UP_REQUEST_LIMIT);
     }
     if !tac_bounded_json(raw) {
         return String::from("{\"error\":\"Invalid companion request.\"}");
@@ -785,6 +789,14 @@ fn tac_handle(raw: &str) -> String {
     let Some(operation) = tac_entry_text(&request, "op") else {
         return String::from("{\"error\":\"Companion request has no operation.\"}");
     };
+    if operation != "init" && raw.len() > MEMBER_REQUEST_LIMIT {
+        let subject = tac_entry_text(&request, "name").unwrap_or(operation);
+        return tac_too_large(
+            &format!("request to {subject}"),
+            raw.len(),
+            MEMBER_REQUEST_LIMIT,
+        );
+    }
     if operation == "host-dispose" {
         tac_dispose_all();
         return String::from("{\"value\":null}");
