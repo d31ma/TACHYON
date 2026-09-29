@@ -579,13 +579,14 @@ mod tests {
              const after = one.increment()\n\
              const label = one.label\n\
              const added = one.add(new Event('click'), 9, 'now')\n\
-             let bigStart = '', bigCall = ''\n\
+             let bigStart = '', bigCall = '', largeStart = ''\n\
              try { new CounterService({ label: 'x'.repeat(1100000) }) } catch (error) { bigStart = error.message }\n\
+             try { new CounterService({ label: 'x'.repeat(921600) }).__tachyonDispose() } catch (error) { largeStart = error.message }\n\
              try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
              one.__tachyonDispose()\n\
              let stale = false\n\
              try { one.count } catch { stale = true }\n\
-             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0], bigStart, bigCall }))\n";
+             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0], bigStart, bigCall, largeStart }))\n";
 
         const GO_COUNTER_MODELS: [(&str, &str); 2] = [
             (
@@ -905,11 +906,11 @@ mod tests {
         assert_counter_report(&report);
         assert_eq!(
             report["bigStart"],
-            "Web service counter: The request is 1100115 bytes. The limit is 65536 bytes. Pass less data to the service."
+            "Web service counter: The request is 1100115 bytes. The limit is 1048576 bytes. Pass less data to the service."
         );
         assert_eq!(
             report["bigCall"],
-            "Web service counter: The request is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
+            "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
         );
     }
 
@@ -1019,6 +1020,7 @@ mod tests {
         assert_eq!(report["otherLabel"], " clicks");
         assert_eq!(report["added"], "now 50");
         assert_eq!(report["stale"], true);
+        assert_eq!(report["largeStart"], "");
         assert_eq!(report["keys"], serde_json::json!(["count", "label"]));
         assert_eq!(
             report["events"],

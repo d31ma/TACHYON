@@ -30,10 +30,14 @@ impl SwiftFixtures {
          const scaled = one.scale(1.25)\n\
          let failed = ''\n\
          try { one.fail('broke') } catch (error) { failed = error.message }\n\
+         let bigStart = '', bigCall = '', largeStart = ''\n\
+         try { new CounterService({ label: 'x'.repeat(1100000) }) } catch (error) { bigStart = error.message }\n\
+         try { new CounterService({ label: 'x'.repeat(921600) }).__tachyonDispose() } catch (error) { largeStart = error.message }\n\
+         try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
          one.__tachyonDispose()\n\
          let stale = false\n\
          try { one.count } catch { stale = true }\n\
-         console.log(JSON.stringify({ doubled, after, other: two.count, label: two.label, added, scaled, runtime: two.runtime, failed, stale, keys: Object.keys(two).sort() }))\n\
+         console.log(JSON.stringify({ doubled, after, other: two.count, label: two.label, added, scaled, runtime: two.runtime, failed, stale, keys: Object.keys(two).sort(), bigStart, bigCall, largeStart }))\n\
          process.exit(0)\n";
 }
 
@@ -113,6 +117,9 @@ async fn a_swift_service_runs_in_the_page_as_webassembly() {
             "failed": "Web service counter: counter broke",
             "stale": true,
             "keys": ["count", "label", "price", "runtime"],
+            "bigStart": "Web service counter: The request is 1100115 bytes. The limit is 1048576 bytes. Pass less data to the service.",
+            "bigCall": "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service.",
+            "largeStart": "",
         })
     );
 }
