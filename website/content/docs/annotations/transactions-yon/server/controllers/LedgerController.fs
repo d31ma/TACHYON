@@ -4,16 +4,13 @@ open Models
 
 [<RequestRoute("/ledger")>]
 [<Public>]
-type LedgerController() =
+type LedgerController(ledger: LedgerService) =
     [<GetRoute>]
     member this.GetLedger() : LedgerReport = this.BuildReport().Result
 
     member private this.BuildReport() : Task<LedgerReport> =
         task {
-            use signal = new BehaviorSignal()
-            use context = Behaviors.create(typeof<LedgerSetup>, "ledger", signal)
-            let entries = EntryStore(context)
-            let! settled = entries.settle(BehaviorJSON.From("open"))
+            let! settled = ledger.settle(BehaviorJSON.From("open"))
             let commands = JsonArray()
             for command in LedgerAdapterHelper.commands do
                 commands.Add(JsonValue.Create(command))

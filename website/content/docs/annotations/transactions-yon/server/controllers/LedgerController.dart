@@ -3,12 +3,12 @@ import 'models/LedgerReport.dart';
 @RequestRoute("/ledger")
 @Public
 class LedgerController {
+  @Needs
+  final LedgerService ledger;
+
   @GetRoute
   Future<LedgerReport> getLedger() async {
-    final context = Behaviors.create(LedgerSetup, partition: 'ledger', signal: BehaviorSignal());
-    final entries = EntryStore(context);
-    final settled = await entries.settle('open');
-    context.dispose();
+    final settled = await ledger.settle('open');
     return LedgerReport(settled, LedgerAdapterHelper.commands);
   }
 }

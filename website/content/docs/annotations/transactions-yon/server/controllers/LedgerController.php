@@ -4,12 +4,12 @@ use Models\LedgerReport;
 #[RequestRoute("/ledger")]
 #[Public]
 class LedgerController {
+    #[Needs]
+    public LedgerService $ledgerService;
+
     #[GetRoute]
     public function getLedger(): LedgerReport {
-        $context = Behaviors::create(LedgerSetup::class, ['partition' => 'ledger', 'signal' => new BehaviorSignal()]);
-        $entries = Behaviors::construct(EntryStore::class, ['behaviors' => $context]);
-        $settled = $entries->settle('open');
-        $context->dispose();
+        $settled = $this->ledgerService->settle('open');
         return new LedgerReport($settled, LedgerAdapterHelper::$commands);
     }
 }

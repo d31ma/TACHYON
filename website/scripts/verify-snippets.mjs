@@ -1190,6 +1190,14 @@ function expectedGuideValue(slug, section) {
     return (/** @type {Record<string,unknown>} */ value) =>
       assert.deepEqual(value, { pageSize: 20, port: 0 }, 'Each language must bind the same private configuration snapshot')
   }
+  if (slug === 'annotations' && section.heading === 'Transactions: Yon') {
+    return (/** @type {{commands:string[],settled:{open:{transaction?:string}[]}}} */ value) => {
+      const storeLogged = value.commands.some(command => command.startsWith('find@'))
+      const expected = storeLogged ? ['begin', 'find@t1', 'count@t1', 'commit:t1'] : ['begin', 'commit:t1']
+      assert.deepEqual(value.commands.slice(0, expected.length), expected, 'The injected store must join the service transaction')
+      if (!storeLogged) assert.equal(value.settled.open[0].transaction, 't1', 'The injected store must query inside the service transaction')
+    }
+  }
   if (slug === 'project-folders' && section.heading.startsWith('Models')) {
     return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, { title: 'Models hold types', pages: 3 })
   }

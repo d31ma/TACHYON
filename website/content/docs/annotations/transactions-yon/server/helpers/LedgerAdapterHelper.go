@@ -37,7 +37,7 @@ func (adapter *LedgerAdapterHelper) Execute(command *BehaviorEntityCommand, exec
 	if kind == "count" {
 		return 1, nil
 	}
-	row := map[string]any{"id": 1, "status": "open"}
+	row := map[string]any{"id": 1, "status": "open", "transaction": transaction}
 	return []any{row}, nil
 }
 

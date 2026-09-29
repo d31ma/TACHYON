@@ -3,15 +3,12 @@ import type { LedgerReport } from '/models/LedgerReport.ts'
 @RequestRoute("/ledger")
 @Public
 class LedgerController {
+  @Needs
+  readonly ledgerService!: LedgerService;
+
   @GetRoute
   async getLedger(): Promise<LedgerReport> {
-    const context = await Behaviors.create(LedgerSetup, {
-      partition: 'ledger',
-      signal: AbortSignal.timeout(5000),
-    });
-    const entries = Behaviors.construct(EntryStore, { behaviors: context });
-    const settled = await entries.settle('open');
-    context.dispose();
+    const settled = await this.ledgerService.settle('open');
     return { settled, commands: LedgerSetup.commands };
   }
 }

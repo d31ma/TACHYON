@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- `@AllOrNothing` follows the call, like Spring's propagation REQUIRED
+  (ADR 0022 amendment): a store that a service injects, with its own behavior
+  context, joins the service's open transaction when its entity uses the same
+  entity adapter, so a failed second query rolls back the first. This works in
+  every Yon runtime (JavaScript, TypeScript, Python, Ruby, PHP, Java, Groovy,
+  Kotlin, C#, F#, Dart, Swift, Rust and Go). An `@AllOrNothing` method on a
+  Store is now refused with `TY1308`: put it on the service method that calls
+  the store. A Store or Query command carries `transaction` only when its
+  entity's adapter has the open transaction; before, a command for another
+  adapter of the same context carried it too.
 - The test rule `TY1339` (ADR 0080) is on by default: `ty build` and
   `ty preview` refuse a test case with no assertion (`Assert`, or an
   always-on assert of the language) or with a branch or loop (`if`, `for`,
@@ -29,9 +39,8 @@ machine contracts have their own, independent major versions.
   service, and SQL through `DataSource` into a service that asks for the
   `DataSource`. Tachyon builds the store and its behavior context from
   `{"setup":"…"}` in the Store options (default `<Name>Setup`), and in Yon
-  `@Needs` injects it instead of `new ProductStore(context)`. A Store with an
-  `@AllOrNothing` method keeps its class form until a transaction can join
-  across injected stores. `ty migrate fix --write` rewrites class stores whose
+  `@Needs` injects it instead of `new ProductStore(context)`.
+  `ty migrate fix --write` rewrites class stores whose
   methods are only queries. `Behaviors.construct` in TypeScript accepts the
   `behaviors` context for a Tac store.
 - `@HTTPClient` is a contract with no implementation, like a Spring

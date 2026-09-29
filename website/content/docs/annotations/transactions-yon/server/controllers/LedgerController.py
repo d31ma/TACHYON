@@ -1,13 +1,13 @@
+from typing import Annotated
 from models import LedgerReport
 
 
 @request_route("/ledger")
 @public
 class LedgerController:
+    ledger_service: Annotated[LedgerService, needs]
+
     @get_route
     async def get_ledger(self) -> LedgerReport:
-        context = await Behaviors.create(LedgerSetup, {'partition': 'ledger', 'signal': BehaviorSignal()})
-        entries = Behaviors.construct(EntryStore, {'behaviors': context})
-        settled = await entries.settle('open')
-        context.dispose()
+        settled = await self.ledger_service.settle('open')
         return LedgerReport(settled, LedgerAdapterHelper.commands)

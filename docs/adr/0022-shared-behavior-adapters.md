@@ -165,12 +165,36 @@ no implementation, and Tachyon generates each query.
   builds it with its constructor; a Tac JavaScript or TypeScript service
   passes a context that it created, with `Behaviors.construct`, because a
   browser creates a context asynchronously.
-- One exception is named here: a Store that declares an `@AllOrNothing`
-  method keeps its class form, takes its context through `@Needs`, and is
-  built by its caller. A transaction lives in one behavior context, and it
-  cannot yet follow a call from a service into a store that was injected with
-  its own context. When a transaction can join across injected stores
-  (Spring's propagation REQUIRED), `@AllOrNothing` moves to the service and
-  this exception ends.
+- A first slice kept one exception: a Store that declared an `@AllOrNothing`
+  method kept its class form, because a transaction lived in one behavior
+  context. The next amendment ends it.
 - `ty migrate fix --write` rewrites a class store whose methods are only
   queries; a store with logic, state or no Entity is a manual step.
+
+## Amendment (2026-09-29): a transaction follows the call
+
+- An open transaction no longer lives in one behavior context. Each runtime
+  keeps the open transactions of the current call in call-local storage, keyed
+  by entity adapter name: AsyncLocalStorage on the JavaScript server (one
+  instance shared by every module through
+  `globalThis[Symbol.for('tachyon.behavior.transactions')]`; the browser keeps
+  the context-local form), `ThreadLocal` in Java, Kotlin and Groovy,
+  `AsyncLocal` in C# and F#, a `ContextVar` in Python (one variable shared by
+  every module through `sys`), fiber storage in Ruby (a class variable in
+  mruby), a zone value in Dart, a `@TaskLocal` in Swift, a thread local in
+  Rust, one guarded entry for each goroutine in Go (TinyGo reports no
+  goroutine number, so its single-threaded browser build shares one entry),
+  and a static in PHP, which runs one request at a time.
+- `@AllOrNothing` joins when its adapter already has an open transaction
+  (Spring's propagation REQUIRED). Otherwise it sends `begin`, runs the body
+  with that adapter added, then restores the outer state and sends `commit` or
+  `rollback`. A Store or Query command carries `transaction` only when its
+  entity's adapter has an open transaction; before, any open transaction of
+  the same context was sent, also to another adapter.
+- So a service method with `@AllOrNothing` covers the stores it injects: a
+  failure in the store's second query rolls back the first. The Store
+  exception above ends: an `@AllOrNothing` method on a Store is refused with
+  `TY1308` like any other method that is not a query, and
+  `ty migrate fix --write` leaves that logic for a person to move into a
+  service. Each runtime has a test with two behavior contexts in which the
+  second write fails and the first is rolled back.
