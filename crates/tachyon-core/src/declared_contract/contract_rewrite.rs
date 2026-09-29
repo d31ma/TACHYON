@@ -19,6 +19,7 @@ type BodilessEdit<'a> = fn(&ContractRewrite<'a>, &ContractMember, usize) -> Sour
 
 impl<'a> ContractRewrite<'a> {
     pub(crate) const CONTEXT_FIELD: &'static str = "behaviors";
+    const FIELD_MODIFIERS: [char; 2] = ['!', '?'];
     const START_MARKER: &'static str = "onstart";
     const RUST_CONSTRUCTOR: &'static str = "new";
     const RUST: &'static str = "rs";
@@ -187,7 +188,8 @@ impl<'a> ContractRewrite<'a> {
             .markers
             .iter()
             .any(|marker| marker == Self::START_MARKER);
-        let context_field = [member.method, name == Self::CONTEXT_FIELD] == [false, true];
+        let field_name = name.trim_end_matches(Self::FIELD_MODIFIERS);
+        let context_field = [member.method, field_name == Self::CONTEXT_FIELD] == [false, true];
         let constructor = [member.method, name == Self::RUST_CONSTRUCTOR] == [true, true];
         [context_field, starts, constructor].contains(&true)
     }
