@@ -3041,7 +3041,7 @@
             },
             {
               "name": "client/services/StatusService.swift",
-              "code": "@Service\nfinal class StatusService {\n    private let pageVisibility = PageVisibility()\n    var online: Bool = false\n    var visible: Bool = false\n\n    @OnEvent({\"replay\":true})\n    func connectivityChanged(_ changed: ConnectivityChanged) {\n        online = changed.online\n    }\n\n    func check() {\n        visible = (try? pageVisibility.visible()) ?? true\n    }\n}\n"
+              "code": "@Service\nfinal class StatusService {\n    var online: Bool = false\n    var scheme: String = \"\"\n\n    @OnEvent({\"replay\":true})\n    func connectivityChanged(_ changed: ConnectivityChanged) {\n        online = changed.online\n    }\n\n    @OnEvent({\"replay\":true})\n    func preferencesChanged(_ changed: PreferencesChanged) {\n        scheme = changed.scheme\n    }\n}\n"
             }
           ]
         },

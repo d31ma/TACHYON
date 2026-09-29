@@ -145,7 +145,7 @@ impl SwiftBehaviorFixtures {
     const FILES: [(&str, &str); 5] = [
         (
             "client/setups/OrdersSetup.swift",
-            r##"@Setup
+            r"@Setup
 final class OrdersSetup {
     static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {
         var adapters = BehaviorAdapters()
@@ -153,11 +153,11 @@ final class OrdersSetup {
         return adapters
     }
 }
-"##,
+",
         ),
         (
             "client/services/OrdersService.swift",
-            r##"final class OrdersService {
+            r#"final class OrdersService {
     struct GatewayUnavailable: Error {}
 
     var behaviors: BehaviorContext!
@@ -194,11 +194,11 @@ final class OrdersSetup {
         try? Behaviors.create(OrdersSetup.self, partition: "orders", signal: BehaviorSignal())
     }
 }
-"##,
+"#,
         ),
         (
             "client/setups/CatalogSetup.swift",
-            r##"@Setup
+            r#"@Setup
 @Settings({"prefix":"TAC_CATALOG_"})
 @WhenProfile("public")
 @WhenSetting({"name":"TAC_CATALOG_CACHE_ENABLED","havingValue":"true","matchIfMissing":false})
@@ -210,19 +210,19 @@ final class CatalogSetup {
     var title: String = "Catalog"
     static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters { BehaviorAdapters() }
 }
-"##,
+"#,
         ),
         (
             "client/helpers/PublicValues.swift",
-            r##"final class PublicValues {
+            r#"final class PublicValues {
     @Setting("${tac.catalog.title:Catalog}")
     var title: String = ""
 }
-"##,
+"#,
         ),
         (
             "client/services/SettingsService.swift",
-            r##"final class SettingsService {
+            r#"final class SettingsService {
     var title: String = "Catalog"
     var pageSize: Int = 20
 
@@ -250,7 +250,7 @@ final class CatalogSetup {
         return (try values.get("title").text, try catalog.get("pageSize").integer)
     }
 }
-"##,
+"#,
         ),
     ];
 
