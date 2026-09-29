@@ -282,15 +282,69 @@ function javaWebAvailable() {
 }
 
 function writeJavaFixture(project) {
+  write(project, 'client/setups/JavaNotesSetup.java', `@Setup
+class JavaNotesSetup {
+    static Behaviors.Configuration configure(Behaviors.Execution execution) {
+        return new Behaviors.Configuration();
+    }
+}
+`);
+  write(project, 'client/entities/JavaNoteEntity.java', `@Entity({"adapter":"indexeddb"})
+@Table("javaNotes")
+class JavaNoteEntity {
+    @Id
+    String id = "";
+    String text = "";
+}
+`);
   write(project, 'client/components/storage/java/tac.html', '<button id="java-bump" on:click="javaCounter.increment()">+</button>\n<p id="java-count">{javaCounter.count}</p>\n');
-  write(project, 'client/services/JavaCounterService.java', `@Service
+  write(project, 'client/services/JavaCounterService.java', `import java.util.Map;
+
+@Service
+@CacheSettings({"name":"javanotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 class JavaCounterService {
     @LocalState
     int count = 0;
+    Behaviors.Context behaviors;
+    private long reads = 0;
+
+    @OnStart
+    void open() {
+        behaviors = Behaviors.create("JavaNotesSetup", new Behaviors.Options("java-notes", new Behaviors.Signal()));
+    }
 
     int increment() {
         count += 1;
         return count;
+    }
+
+    @Cached
+    Object find(String key) {
+        reads += 1;
+        return Map.of("key", key, "reads", reads);
+    }
+
+    @ClearCache({"method":"find"})
+    Object forget(String key) {
+        return key;
+    }
+
+    Object save(String id, String text) {
+        return notes().save(Map.of("id", id, "text", text));
+    }
+
+    @AllOrNothing({"adapter":"indexeddb"})
+    Object saveThenRefuse(String id) {
+        save(id, "draft");
+        throw new IllegalStateException("the note was refused");
+    }
+
+    Object list() {
+        return notes().find(Map.<String, Object>of("size", 10));
+    }
+
+    private Behaviors.Repository notes() {
+        return behaviors.repository("JavaNoteEntity");
     }
 }
 `);
@@ -863,6 +917,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   if (StorageGate.withCSharp) await checkCSharpStorage(page, evaluate);
   if (StorageGate.withKotlin) await checkKotlinStorage(page, evaluate);
   if (StorageGate.withSwift) await checkSwiftStorage(page, evaluate);
+  if (StorageGate.withJava) await checkJavaStorage(page, evaluate);
   await context.close();
 }
 
@@ -926,6 +981,19 @@ async function checkSwiftStorage(page, evaluate) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Swift cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').list())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'the Swift Store row survives a reload and the refused AllOrNothing saved nothing');
+}
+
+async function checkJavaStorage(page, evaluate) {
+  expect(JSON.stringify(await evaluate(() => [__root('javaCounter').find('a'), __root('javaCounter').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Java WebAssembly service reads its Cached value synchronously from memory');
+  await evaluate(() => __root('javaCounter').forget('a'));
+  expect(JSON.stringify(await evaluate(() => __root('javaCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the Java service read again');
+  await evaluate(() => __root('javaCounter').save('j1', 'kept'));
+  const refused = await evaluate(() => { try { __root('javaCounter').saveThenRefuse('j2'); return ''; } catch (error) { return error.message; } });
+  expect(refused.includes('the note was refused'), true, 'a refused Java AllOrNothing call reports its error');
+  await evaluate(StorageGate.settleCaches);
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(JSON.stringify(await evaluate(() => __root('javaCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Java cache entry survives a reload through the Cache API');
+  expect(JSON.stringify(await evaluate(() => __root('javaCounter').list())), JSON.stringify([{ id: 'j1', text: 'kept' }]), 'the Java Store row survives a reload and the refused AllOrNothing saved nothing');
 }
 
 async function checkInjectedClients(page) {
