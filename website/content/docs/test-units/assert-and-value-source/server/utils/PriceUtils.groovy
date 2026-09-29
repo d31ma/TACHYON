@@ -1,6 +1,4 @@
 final class PriceUtils {
-    private PriceUtils() {}
-
     static long withTax(long cents) {
         requirePositive(cents)
         return Math.round(cents * 1.2d)
