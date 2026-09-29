@@ -1,7 +1,7 @@
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::route_types::ModelTable;
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::path::Path;
 
 pub(super) struct TopicStreams;
@@ -22,15 +22,18 @@ impl TopicStreams {
     }
 
     fn paths(names: &[String]) -> Value {
-        let mut paths = Map::new();
-        for name in names {
-            if let Some(slug) = crate::topics::Topics::slug(name) {
-                paths.insert(
-                    name.clone(),
-                    Value::String(format!("{}{slug}", Self::TOPIC_PATH)),
-                );
-            }
-        }
-        Value::Object(paths)
+        Value::Object(
+            names
+                .iter()
+                .map(String::as_str)
+                .filter_map(Self::entry)
+                .collect(),
+        )
+    }
+
+    fn entry(name: &str) -> Option<(String, Value)> {
+        let slug = crate::topics::Topics::slug(name)?;
+        let path = format!("{}{slug}", Self::TOPIC_PATH);
+        Some((name.to_owned(), Value::String(path)))
     }
 }
