@@ -49,6 +49,7 @@ impl GoCompiler {
             "wasm",
             "-opt=z",
             "-no-debug",
+            "-gc=boehm",
             "-o",
             Self::OUTPUT,
             ".",
@@ -134,5 +135,16 @@ impl GoCompiler {
                 self.name
             ),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GoCompiler;
+
+    #[test]
+    fn tinygo_builds_with_the_boehm_collector_so_calls_do_not_pause_for_milliseconds() {
+        assert!(GoCompiler::TINYGO.arguments.contains(&"-gc=boehm"));
+        assert!(!GoCompiler::STANDARD.arguments.contains(&"-gc=boehm"));
     }
 }
