@@ -47,9 +47,8 @@ impl LuaSource {
     }
 
     pub(crate) fn syntax(extension: &str) -> &str {
-        if extension == Self::EXTENSION {
-            return Self::SYNTAX;
-        }
-        extension
+        (extension == Self::EXTENSION)
+            .then_some(Self::SYNTAX)
+            .unwrap_or(extension)
     }
 }

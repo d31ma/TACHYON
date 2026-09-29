@@ -26,7 +26,8 @@ impl RuntimeRequirement {
     pub(super) const OLDEST_LUA_VERSION: (u32, u32) = (5, 4);
     const LUA_PROBE: &str = "io.write((_VERSION:gsub('^Lua ', '')))";
     pub(crate) const LUA_LABEL: &str = "Yon Lua runtime 'lua'";
-    pub(crate) const LUA_HELP: &str = "Install Lua 5.4 or newer and put its `lua` program on PATH before starting Tachyon.";
+    pub(crate) const LUA_HELP: &str =
+        "Install Lua 5.4 or newer and put its `lua` program on PATH before starting Tachyon.";
     const RUBY_PROBE: &str = "require \"json\"; JSON.generate(1, strict: true); print RUBY_VERSION";
     pub(super) const GO_LABEL: &str = "Yon Go compiler 'go'";
     pub(super) const GO_HELP: &str = "Install Go 1.27 or newer before starting Tachyon.";

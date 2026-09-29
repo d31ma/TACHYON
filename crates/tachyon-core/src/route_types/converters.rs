@@ -13,20 +13,32 @@ impl Converters {
             "rs" => Ok(RustConverters::text(&files)),
             "dart" => Ok(DartConverters::text(&files)),
             "rb" => Ok(RubyConverters::text(&files)),
-            "lua" => Ok(crate::lua_source::LuaModels::converters(&Self::records(&files, extension))),
+            "lua" => Ok(crate::lua_source::LuaModels::converters(&Self::records(
+                &files, extension,
+            ))),
             _ => Ok(String::new()),
         }
     }
 
     fn records(files: &[(String, String)], extension: &str) -> Vec<(String, super::Record)> {
+        Self::models(files, extension)
+            .into_iter()
+            .filter_map(Self::record_entry)
+            .collect()
+    }
+
+    fn models(files: &[(String, String)], extension: &str) -> Vec<(String, Model)> {
         files
             .iter()
             .flat_map(|(_, source)| ModelParser::models(extension, source))
-            .filter_map(|(name, model)| match model {
-                Model::Record(record) => Some((name, record)),
-                Model::Alias(_) => None,
-            })
             .collect()
+    }
+
+    fn record_entry((name, model): (String, Model)) -> Option<(String, super::Record)> {
+        match model {
+            Model::Record(record) => Some((name, record)),
+            Model::Alias(_) => None,
+        }
     }
 
     pub(crate) fn program_imports(extension: &str, root: &Path) -> Result<String, String> {

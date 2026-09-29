@@ -241,16 +241,6 @@ pub(crate) fn test_configuration_name(
     source: &str,
     environment: &str,
 ) -> Result<Option<String>, Failure> {
-    crate::lua_source::LuaView::only(path, source, |path, source| {
-        written_test_configuration_name(path, source, environment)
-    })
-}
-
-fn written_test_configuration_name(
-    path: &Path,
-    source: &str,
-    environment: &str,
-) -> Result<Option<String>, Failure> {
     let (input, markers) = test_source_markers(path, source, environment)?;
     let mut configuration = None;
     for marker in markers.iter().filter(|marker| marker.name == "Test") {
@@ -268,16 +258,6 @@ fn written_test_configuration_name(
 }
 
 pub(crate) fn is_test_configuration(
-    path: &Path,
-    source: &str,
-    environment: &str,
-) -> Result<bool, Failure> {
-    crate::lua_source::LuaView::only(path, source, |path, source| {
-        is_written_test_configuration(path, source, environment)
-    })
-}
-
-fn is_written_test_configuration(
     path: &Path,
     source: &str,
     environment: &str,
@@ -308,17 +288,6 @@ fn is_written_test_configuration(
 }
 
 pub(crate) fn is_production_configuration(
-    path: &Path,
-    source: &str,
-    environment: &str,
-    name: &str,
-) -> Result<bool, Failure> {
-    crate::lua_source::LuaView::only(path, source, |path, source| {
-        is_written_production_configuration(path, source, environment, name)
-    })
-}
-
-fn is_written_production_configuration(
     path: &Path,
     source: &str,
     environment: &str,

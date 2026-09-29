@@ -1,34 +1,43 @@
 use super::LuaLexer;
+use std::ops::Range;
 
 pub(super) struct LuaBody;
 
 impl LuaBody {
-    const WORDS: [(&'static str, &'static str); 3] =
-        [("elseif", "elsif"), ("repeat", "begin"), ("local", "")];
+    const WORDS: [(&'static str, &'static str); 4] = [
+        ("elseif", "elsif"),
+        ("repeat", "begin"),
+        ("local", ""),
+        ("function", "proc do"),
+    ];
     const HIDDEN_IN_TEXT: &'static [u8] = b"#\\\"'";
-    const PROCEDURE: &'static str = "proc do";
-    const FUNCTION: &'static str = "function";
+    const REGION_KINDS: [fn(&mut [u8]); 3] = [Self::hide_comment, Self::hide_long, Self::hide_text];
     const UNTIL: &'static str = "until ";
+    const COMMENT_START: char = '#';
 
     pub(super) fn sanitized(source: &str) -> String {
         let mask = LuaLexer::code_mask(source).code;
         let bytes = source.as_bytes();
         let mut output = bytes.to_vec();
-        let mut at = 0;
-        while at < bytes.len() {
-            if mask[at] {
-                output[at] = Self::code_byte(bytes, at);
-                at += 1;
-                continue;
-            }
-            let end = mask[at..]
-                .iter()
-                .position(|visible| *visible)
-                .map_or(bytes.len(), |offset| at + offset);
-            Self::hide(bytes, &mut output[at..end], at);
-            at = end;
-        }
+        Self::clean_code(bytes, &mask, &mut output);
+        Self::hide_runs(bytes, &Self::hidden_runs(&mask), &mut output);
         String::from_utf8(output).unwrap_or_default()
+    }
+
+    pub(super) fn translated(line: &str) -> String {
+        let (code, comment) = line
+            .split_once(Self::COMMENT_START)
+            .map_or((line, String::new()), |(code, rest)| {
+                (code, format!("#{rest}"))
+            });
+        let translated = format!("{}{comment}", Self::joined_parts(code));
+        Self::until_line(&translated)
+    }
+
+    fn clean_code(bytes: &[u8], mask: &[bool], output: &mut [u8]) {
+        for (at, visible) in mask.iter().enumerate() {
+            output[at] = [output[at], Self::code_byte(bytes, at)][usize::from(*visible)];
+        }
     }
 
     fn code_byte(bytes: &[u8], at: usize) -> u8 {
@@ -40,107 +49,125 @@ impl LuaBody {
         }
     }
 
-    fn hide(bytes: &[u8], region: &mut [u8], start: usize) {
-        let first = bytes[start];
-        let comment = first == b'-';
-        let long = LuaLexer::long_level(bytes, start).is_some();
+    fn hidden_runs(mask: &[bool]) -> Vec<Range<usize>> {
+        let mut runs = Vec::new();
+        let mut open = None;
+        for (at, visible) in mask
+            .iter()
+            .copied()
+            .chain(std::iter::once(true))
+            .enumerate()
+        {
+            Self::track(&mut runs, &mut open, at, visible);
+        }
+        runs
+    }
+
+    fn track(runs: &mut Vec<Range<usize>>, open: &mut Option<usize>, at: usize, visible: bool) {
+        match (visible, *open) {
+            (false, None) => *open = Some(at),
+            (true, Some(start)) => {
+                runs.push(start..at);
+                *open = None;
+            }
+            _ => {}
+        }
+    }
+
+    fn hide_runs(bytes: &[u8], runs: &[Range<usize>], output: &mut [u8]) {
+        for run in runs {
+            Self::REGION_KINDS[Self::region_kind(bytes, run.start)](&mut output[run.clone()]);
+        }
+    }
+
+    fn region_kind(bytes: &[u8], start: usize) -> usize {
+        match bytes[start] {
+            b'-' => 0,
+            b'[' => 1,
+            _ => 2,
+        }
+    }
+
+    fn hide_comment(region: &mut [u8]) {
+        Self::blank_keeping_lines(region);
+        region[0] = b'#';
+    }
+
+    fn hide_long(region: &mut [u8]) {
+        Self::blank_keeping_lines(region);
+        Self::quote_ends(region);
+    }
+
+    fn hide_text(region: &mut [u8]) {
         for byte in region.iter_mut() {
-            if *byte == b'\n' {
-                continue;
-            }
-            if comment || Self::HIDDEN_IN_TEXT.contains(byte) || !byte.is_ascii() {
-                *byte = b' ';
-            }
+            *byte = Self::text_byte(*byte);
         }
-        if comment {
-            region[0] = b'#';
-            return;
+        Self::quote_ends(region);
+    }
+
+    fn blank_keeping_lines(region: &mut [u8]) {
+        for byte in region.iter_mut() {
+            *byte = [b' ', b'\n'][usize::from(*byte == b'\n')];
         }
-        if long {
-            region.fill_with(|| b' ');
-            Self::keep_newlines(bytes, region, start);
-        }
+    }
+
+    fn text_byte(byte: u8) -> u8 {
+        let hidden = [Self::HIDDEN_IN_TEXT.contains(&byte), !byte.is_ascii()].contains(&true);
+        [byte, b' '][usize::from(hidden)]
+    }
+
+    fn quote_ends(region: &mut [u8]) {
         let last = region.len() - 1;
         region[0] = b'"';
         region[last] = b'"';
     }
 
-    fn keep_newlines(bytes: &[u8], region: &mut [u8], start: usize) {
-        for (offset, byte) in region.iter_mut().enumerate() {
-            if bytes[start + offset] == b'\n' {
-                *byte = b'\n';
-            }
-        }
+    fn joined_parts(code: &str) -> String {
+        code.split('"')
+            .enumerate()
+            .map(|(index, part)| Self::part(index, part))
+            .collect::<Vec<_>>()
+            .join("\"")
     }
 
-    pub(super) fn translated(line: &str) -> String {
-        let code_end = line.find('#').unwrap_or(line.len());
-        let (code, comment) = line.split_at(code_end);
-        let mut output = String::new();
-        for (index, part) in code.split('"').enumerate() {
-            if index > 0 {
-                output.push('"');
-            }
-            if index % 2 == 1 {
-                output.push_str(part);
-            } else {
-                output.push_str(&Self::code_words(part));
-            }
-        }
-        output.push_str(comment);
-        Self::until_line(&output)
+    fn part(index: usize, part: &str) -> String {
+        [Self::code_words(part), part.to_owned()]
+            .into_iter()
+            .nth(index % 2)
+            .unwrap_or_default()
     }
 
     fn code_words(code: &str) -> String {
-        let mut output = String::new();
-        let mut rest = code;
-        while let Some(start) = rest.find(|character: char| character.is_ascii_alphabetic()) {
-            output.push_str(&rest[..start]);
-            let word_length = rest[start..]
-                .find(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
-                .unwrap_or(rest.len() - start);
-            let word = &rest[start..start + word_length];
-            let after = &rest[start + word_length..];
-            let joined = start > 0 && matches!(rest.as_bytes()[start - 1], b'_' | b'.');
-            let (text, consumed) = Self::word(word, after, joined);
-            output.push_str(&text);
-            rest = &rest[start + word_length + consumed..];
-        }
-        output.push_str(rest);
-        output
+        code.split_inclusive(Self::separates)
+            .map(Self::piece)
+            .collect()
     }
 
-    fn word(word: &str, after: &str, joined: bool) -> (String, usize) {
-        if joined {
-            return (word.to_owned(), 0);
-        }
-        if word == Self::FUNCTION {
-            return Self::procedure(after);
-        }
-        let replaced = Self::WORDS
+    fn separates(character: char) -> bool {
+        ![character.is_ascii_alphanumeric(), character == '_'].contains(&true)
+    }
+
+    fn piece(piece: &str) -> String {
+        let word = piece.trim_end_matches(Self::separates);
+        let replaced = Self::keyword(word);
+        let dropped = [replaced.is_empty(), !word.is_empty()] == [true, true];
+        let rest = [&piece[word.len()..], ""][usize::from(dropped)];
+        format!("{replaced}{rest}")
+    }
+
+    fn keyword(word: &str) -> &str {
+        Self::WORDS
             .iter()
             .find(|(lua, _)| *lua == word)
-            .map_or(word, |(_, ruby)| ruby);
-        let skip = usize::from(replaced.is_empty() && after.starts_with(' '));
-        (replaced.to_owned(), skip)
-    }
-
-    fn procedure(after: &str) -> (String, usize) {
-        let trimmed = after.trim_start();
-        let Some(close) = trimmed.find(')').filter(|_| trimmed.starts_with('(')) else {
-            return (String::from(Self::PROCEDURE), 0);
-        };
-        let parameters = &trimmed[1..close];
-        let consumed = after.len() - trimmed.len() + close + 1;
-        (format!("{} |{parameters}|", Self::PROCEDURE), consumed)
+            .map_or(word, |(_, ruby)| ruby)
     }
 
     fn until_line(line: &str) -> String {
         let trimmed = line.trim_start();
-        if !trimmed.starts_with(Self::UNTIL) {
-            return line.to_owned();
-        }
         let indent = &line[..line.len() - trimmed.len()];
-        format!("{indent}end {trimmed}")
+        [line.to_owned(), format!("{indent}end {trimmed}")]
+            .into_iter()
+            .nth(usize::from(trimmed.starts_with(Self::UNTIL)))
+            .unwrap_or_default()
     }
 }

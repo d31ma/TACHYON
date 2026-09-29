@@ -12,17 +12,29 @@ impl LuaTypes {
         ("function", "Proc"),
         ("self", "self"),
     ];
+    const OPENERS: [char; 3] = ['<', '(', '{'];
+    const CLOSERS: [char; 3] = ['>', ')', '}'];
     const LIST_SUFFIX: &'static str = "[]";
     const OPTIONAL_SUFFIX: char = '?';
     const MAP_START: &'static str = "table<";
+    const MAP_END: char = '>';
     const FUNCTION_START: &'static str = "fun(";
+    const FUNCTION_TYPE: &'static str = "Proc";
     const NOTHING: &'static str = "void";
 
     pub(super) fn yard(lua: &str) -> String {
         let text = lua.trim();
-        if text.is_empty() {
-            return String::from(Self::NOTHING);
-        }
+        (!text.is_empty())
+            .then(|| Self::union(text))
+            .unwrap_or_else(|| String::from(Self::NOTHING))
+    }
+
+    pub(super) fn type_word(text: &str) -> (&str, &str) {
+        let end = Self::word_end(text);
+        (&text[..end], text[end..].trim_start())
+    }
+
+    fn union(text: &str) -> String {
         Self::split_top(text, '|')
             .iter()
             .map(|part| Self::single(part.trim()))
@@ -30,38 +42,54 @@ impl LuaTypes {
             .join(", ")
     }
 
-    pub(super) fn type_word(text: &str) -> (&str, &str) {
-        let mut depth = 0_i32;
-        for (at, character) in text.char_indices() {
-            match character {
-                '<' | '(' | '{' => depth += 1,
-                '>' | ')' | '}' => depth -= 1,
-                ',' if depth == 0 => return (&text[..at], text[at..].trim_start()),
-                space if space.is_whitespace() && depth == 0 => {
-                    return (&text[..at], text[at..].trim_start());
-                }
-                _ => {}
-            }
-        }
-        (text, "")
+    fn word_end(text: &str) -> usize {
+        let mut depth = 0;
+        text.char_indices()
+            .find(|(_, character)| Self::ends_word(*character, &mut depth))
+            .map_or(text.len(), |(at, _)| at)
+    }
+
+    fn ends_word(character: char, depth: &mut i32) -> bool {
+        *depth += Self::depth_change(character);
+        let separates = [character.is_whitespace(), character == ','].contains(&true);
+        [*depth == 0, separates] == [true, true]
+    }
+
+    fn depth_change(character: char) -> i32 {
+        i32::from(Self::OPENERS.contains(&character))
+            - i32::from(Self::CLOSERS.contains(&character))
     }
 
     fn single(text: &str) -> String {
-        if let Some(inner) = text.strip_suffix(Self::OPTIONAL_SUFFIX) {
-            return format!("{}, nil", Self::single(inner));
-        }
-        if let Some(item) = text.strip_suffix(Self::LIST_SUFFIX) {
-            return format!("Array<{}>", Self::single(item));
-        }
-        if let Some(inner) = text
-            .strip_prefix(Self::MAP_START)
-            .and_then(|rest| rest.strip_suffix('>'))
-        {
-            return Self::map(inner);
-        }
-        if text.starts_with(Self::FUNCTION_START) {
-            return String::from("Proc");
-        }
+        Self::optional(text)
+            .or_else(|| Self::list(text))
+            .or_else(|| Self::map_type(text))
+            .or_else(|| Self::function(text))
+            .unwrap_or_else(|| Self::plain(text))
+    }
+
+    fn optional(text: &str) -> Option<String> {
+        text.strip_suffix(Self::OPTIONAL_SUFFIX)
+            .map(|inner| format!("{}, nil", Self::single(inner)))
+    }
+
+    fn list(text: &str) -> Option<String> {
+        text.strip_suffix(Self::LIST_SUFFIX)
+            .map(|item| format!("Array<{}>", Self::single(item)))
+    }
+
+    fn map_type(text: &str) -> Option<String> {
+        text.strip_prefix(Self::MAP_START)
+            .and_then(|rest| rest.strip_suffix(Self::MAP_END))
+            .map(Self::map)
+    }
+
+    fn function(text: &str) -> Option<String> {
+        text.starts_with(Self::FUNCTION_START)
+            .then(|| String::from(Self::FUNCTION_TYPE))
+    }
+
+    fn plain(text: &str) -> String {
         Self::PLAIN
             .iter()
             .find(|(lua, _)| *lua == text)
@@ -76,19 +104,25 @@ impl LuaTypes {
     }
 
     fn split_top(text: &str, separator: char) -> Vec<&str> {
-        let mut parts = Vec::new();
-        let mut depth = 0_i32;
+        let mut depth = 0;
+        let points = text
+            .char_indices()
+            .filter_map(|(at, character)| Self::split_point(at, character, separator, &mut depth))
+            .collect::<Vec<_>>();
+        Self::parts(text, &points)
+    }
+
+    fn split_point(at: usize, character: char, separator: char, depth: &mut i32) -> Option<usize> {
+        *depth += Self::depth_change(character);
+        ([*depth == 0, character == separator] == [true, true]).then_some(at)
+    }
+
+    fn parts<'t>(text: &'t str, points: &[usize]) -> Vec<&'t str> {
+        let mut parts = Vec::with_capacity(points.len() + 1);
         let mut start = 0;
-        for (at, character) in text.char_indices() {
-            match character {
-                '<' | '(' | '{' => depth += 1,
-                '>' | ')' | '}' => depth -= 1,
-                found if found == separator && depth == 0 => {
-                    parts.push(&text[start..at]);
-                    start = at + character.len_utf8();
-                }
-                _ => {}
-            }
+        for at in points {
+            parts.push(&text[start..*at]);
+            start = at + 1;
         }
         parts.push(&text[start..]);
         parts

@@ -3,7 +3,7 @@ use super::{
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
-use crate::fsharp_source::FsharpView;
+use crate::lua_source::LuaView;
 use cap_std::fs::Dir;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -30,7 +30,7 @@ pub(super) fn include(
     if !entry.starts_with("client/tests") && !entry.starts_with("server/tests") {
         return Ok(());
     }
-    let Some(name) = FsharpView::either(entry, source, |path, text| {
+    let Some(name) = LuaView::either(entry, source, |path, text| {
         crate::behavior::test_configuration_name(path, text, environment)
     })?
     else {
@@ -72,7 +72,7 @@ fn production_configuration(
     for module in modules {
         let names = crate::annotation_layout::declaration_names(&module.path, &module.source)?;
         if names.iter().any(|declared| declared == name) {
-            return FsharpView::either(&module.path, &module.source, |path, text| {
+            return LuaView::either(&module.path, &module.source, |path, text| {
                 crate::behavior::is_production_configuration(path, text, environment, name)
             });
         }
@@ -116,7 +116,7 @@ fn validate(path: &Path, source: &str, name: &str, environment: &str) -> Result<
             "A test configuration file declares exactly the Setup class that Test names, and the filename matches that class.",
         ));
     }
-    let marked = FsharpView::either(path, source, |path, text| {
+    let marked = LuaView::either(path, source, |path, text| {
         crate::behavior::is_test_configuration(path, text, environment)
     })?;
     if !marked {

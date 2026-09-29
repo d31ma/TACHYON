@@ -2400,12 +2400,24 @@ fn prepare_php(
         .map_err(|_| invalid_source(portable, "Handler source must be valid UTF-8."))?;
     let runtime = protocol_prelude("php", contents, EntryClass::of(portable));
     let workspace = RuntimeWorkspace::new(portable)?;
-    let runtime_copy = stage_php_file(cache, &workspace, "yon-runtime", &runtime, portable)?;
-    let handler_copy = stage_php_file(cache, &workspace, "yon-handler", contents, portable)?;
-    let entry_copy = stage_php_file(
+    let runtime_copy = stage_script_file(
         cache,
         &workspace,
-        "yon-entry",
+        ("yon-runtime", "php"),
+        &runtime,
+        portable,
+    )?;
+    let handler_copy = stage_script_file(
+        cache,
+        &workspace,
+        ("yon-handler", "php"),
+        contents,
+        portable,
+    )?;
+    let entry_copy = stage_script_file(
+        cache,
+        &workspace,
+        ("yon-entry", "php"),
         "<?php\nYonMain::run();\n",
         portable,
     )?;
@@ -2448,8 +2460,15 @@ fn prepare_lua(
         .map_err(|_| invalid_source(portable, "Handler source must be valid UTF-8."))?;
     let workspace = RuntimeWorkspace::new(portable)?;
     let runtime = include_str!("preludes/yon.lua");
-    let runtime_copy = stage_script_file(cache, &workspace, ("yon-runtime", "lua"), runtime, portable)?;
-    let handler_copy = stage_script_file(cache, &workspace, ("yon-handler", "lua"), contents, portable)?;
+    let runtime_copy =
+        stage_script_file(cache, &workspace, ("yon-runtime", "lua"), runtime, portable)?;
+    let handler_copy = stage_script_file(
+        cache,
+        &workspace,
+        ("yon-handler", "lua"),
+        contents,
+        portable,
+    )?;
     Ok(PreparedCommand {
         interpreter: vec![
             String::from(crate::lua_source::LuaSource::RUNTIME),
@@ -2458,16 +2477,6 @@ fn prepare_lua(
         ],
         workspace,
     })
-}
-
-fn stage_php_file(
-    cache: &CacheDirectory,
-    workspace: &RuntimeWorkspace,
-    name: &str,
-    contents: &str,
-    portable: &str,
-) -> Result<PathBuf, Failure> {
-    stage_script_file(cache, workspace, (name, "php"), contents, portable)
 }
 
 fn stage_script_file(

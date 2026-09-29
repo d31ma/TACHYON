@@ -104,7 +104,9 @@ table, and its methods are functions stored in the table.
 
 ### Not yet
 
-These are build errors that name this ADR, until a later step adds them:
+These stop the build until a later step adds them: the rule table says that
+the annotation is not available in Lua (`TY1308`), or the lowering names this
+ADR (`TY2015`):
 behavior annotations (for example Cached, Retry, Transactional), local
 events and lifecycle hooks, StreamRoute and SocketRoute, and Tac Lua
 services.

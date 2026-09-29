@@ -355,6 +355,7 @@ impl AnnotationRules {
             "puts a stand-in object into this field while a test runs",
         )
         .bare()
+        .reach(Self::TAC_BEHAVIOR, Self::YON)
         .class_needs(Self::TEST_CLASSES),
         Rule::new(
             "ValueSource",
@@ -967,15 +968,21 @@ impl AnnotationRules {
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
-        if let Some(view) = crate::lua_source::LuaView::of(path, source) {
-            return Self::check_as(view.path(), view.text(), crate::lua_source::LuaSource::EXTENSION)
-                .map_err(|failure| view.failure(&failure));
-        }
         let extension = path
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        Self::check_as(path, source, extension)
+        crate::lua_source::LuaView::of(path, source).map_or_else(
+            || Self::check_as(path, source, extension),
+            |view| {
+                Self::check_as(
+                    view.path(),
+                    view.text(),
+                    crate::lua_source::LuaSource::EXTENSION,
+                )
+                .map_err(|failure| view.failure(&failure))
+            },
+        )
     }
 
     fn check_as(path: &Path, source: &str, spelling: &str) -> Result<(), Failure> {

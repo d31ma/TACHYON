@@ -13,7 +13,7 @@ pub(crate) struct LuaView {
 
 impl LuaView {
     const ANALYSIS_EXTENSION: &'static str = "rb";
-    const WORDS: [(&'static str, &'static str); 12] = [
+    const WORDS: [(&'static str, &'static str); 11] = [
         ("`#[", "`-- @"),
         ("]`", "`"),
         ("# @param", "---@param"),
@@ -24,28 +24,21 @@ impl LuaView {
         ("YARD", "LuaCATS"),
         ("Ruby annotations", "Lua annotations"),
         ("Ruby class", "Lua class table"),
-        ("a Ruby", "a Lua"),
-        ("Ruby", "Lua"),
+        ("a Ruby ", "a Lua "),
     ];
 
     pub(crate) fn of(path: &Path, source: &str) -> Option<Self> {
-        LuaSource::is_lua(path).then(|| Self::with_shadow(path, source, LuaShadow::joined(source)))
+        LuaSource::is_lua(path).then(|| Self::joined(path, source))
     }
 
     pub(crate) fn joined(path: &Path, source: &str) -> Self {
-        Self::with_shadow(path, source, LuaShadow::joined(source))
-    }
-
-    fn with_shadow(path: &Path, source: &str, shadow: LuaShadow) -> Self {
         let shadow_path = path.with_extension(Self::ANALYSIS_EXTENSION);
-        let mut line_starts = vec![0];
-        line_starts.extend(source.match_indices('\n').map(|(at, _)| at + 1));
         Self {
             shadow_name: Self::portable(&shadow_path),
             source_name: Self::portable(path),
             shadow_path,
-            shadow,
-            line_starts,
+            shadow: LuaShadow::joined(source),
+            line_starts: Self::line_starts(source),
         }
     }
 
@@ -54,10 +47,10 @@ impl LuaView {
         source: &str,
         check: impl Fn(&Path, &str) -> Result<T, Failure>,
     ) -> Result<T, Failure> {
-        let Some(view) = Self::of(path, source) else {
-            return crate::fsharp_source::FsharpView::either(path, source, check);
-        };
-        check(view.path(), view.text()).map_err(|failure| view.failure(&failure))
+        Self::of(path, source).map_or_else(
+            || crate::fsharp_source::FsharpView::either(path, source, &check),
+            |view| view.checked(&check),
+        )
     }
 
     pub(crate) fn only<T>(
@@ -65,14 +58,7 @@ impl LuaView {
         source: &str,
         check: impl Fn(&Path, &str) -> Result<T, Failure>,
     ) -> Result<T, Failure> {
-        let Some(view) = Self::of(path, source) else {
-            return check(path, source);
-        };
-        check(view.path(), view.text()).map_err(|failure| view.failure(&failure))
-    }
-
-    fn portable(path: &Path) -> String {
-        path.to_string_lossy().replace('\\', "/")
+        Self::of(path, source).map_or_else(|| check(path, source), |view| view.checked(&check))
     }
 
     pub(crate) fn path(&self) -> &Path {
@@ -87,41 +73,59 @@ impl LuaView {
         &self.source_name
     }
 
-    pub(crate) fn source_offset(&self, shadow_offset: usize) -> usize {
-        let shadow_offset = shadow_offset.min(self.text().len());
-        let shadow_line = self.text()[..shadow_offset].matches('\n').count();
-        let source_line = self.shadow.source_line(shadow_line).unwrap_or_default();
-        self.line_start(source_line)
-    }
-
     pub(crate) fn line_start(&self, source_line: usize) -> usize {
-        self.line_starts.get(source_line).copied().unwrap_or_default()
+        self.line_starts
+            .get(source_line)
+            .copied()
+            .unwrap_or_default()
     }
 
     pub(crate) fn failure(&self, failure: &Failure) -> Failure {
-        let diagnostics = failure
-            .diagnostics()
-            .iter()
-            .map(|diagnostic| self.diagnostic(diagnostic))
-            .collect();
-        Failure::new(diagnostics)
+        Failure::new(self.diagnostics(failure.diagnostics()))
     }
 
-    fn diagnostic(&self, diagnostic: &Diagnostic) -> Diagnostic {
-        Diagnostic {
-            message: self.renamed(&diagnostic.message),
-            help: diagnostic.help.as_deref().map(|help| self.renamed(help)),
-            spans: diagnostic.spans.iter().map(|span| self.span(span)).collect(),
-            ..diagnostic.clone()
-        }
+    fn checked<T>(&self, check: &impl Fn(&Path, &str) -> Result<T, Failure>) -> Result<T, Failure> {
+        check(self.path(), self.text()).map_err(|failure| self.failure(&failure))
+    }
+
+    fn line_starts(source: &str) -> Vec<usize> {
+        std::iter::once(0)
+            .chain(source.match_indices('\n').map(|(at, _)| at + 1))
+            .collect()
+    }
+
+    fn portable(path: &Path) -> String {
+        path.to_string_lossy().replace('\\', "/")
+    }
+
+    fn diagnostics(&self, diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
+        diagnostics
+            .iter()
+            .map(|diagnostic| self.in_lua(diagnostic))
+            .collect()
+    }
+
+    fn in_lua(&self, diagnostic: &Diagnostic) -> Diagnostic {
+        let mut mapped = diagnostic.clone();
+        mapped.message = self.renamed(&diagnostic.message);
+        mapped.help = self.renamed_help(diagnostic.help.as_deref());
+        mapped.spans = self.spans(&diagnostic.spans);
+        mapped
+    }
+
+    fn renamed_help(&self, help: Option<&str>) -> Option<String> {
+        help.map(|help| self.renamed(help))
+    }
+
+    fn spans(&self, spans: &[SourceSpan]) -> Vec<SourceSpan> {
+        spans.iter().map(|span| self.span(span)).collect()
     }
 
     fn renamed(&self, text: &str) -> String {
-        let mut renamed = text.replace(&self.shadow_name, &self.source_name);
-        for (ruby, lua) in Self::WORDS {
-            renamed = renamed.replace(ruby, lua);
-        }
-        renamed
+        Self::WORDS.iter().fold(
+            text.replace(&self.shadow_name, &self.source_name),
+            |renamed, (ruby, lua)| renamed.replace(ruby, lua),
+        )
     }
 
     fn span(&self, span: &SourceSpan) -> SourceSpan {
@@ -139,5 +143,12 @@ impl LuaView {
     fn mapped(&self, offset: u64) -> u64 {
         let offset = usize::try_from(offset).unwrap_or(usize::MAX);
         u64::try_from(self.source_offset(offset)).unwrap_or(u64::MAX)
+    }
+
+    fn source_offset(&self, shadow_offset: usize) -> usize {
+        let shadow_offset = shadow_offset.min(self.text().len());
+        let shadow_line = self.text()[..shadow_offset].matches('\n').count();
+        let source_line = self.shadow.source_line(shadow_line).unwrap_or_default();
+        self.line_start(source_line)
     }
 }

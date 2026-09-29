@@ -198,15 +198,23 @@ pub(super) fn unit_tables(
     source: &str,
     environment: &str,
 ) -> Result<Vec<super::UnitTable>, Failure> {
-    let Some(Prepared::Annotated(module)) = prepare(path, source, environment)? else {
-        return Ok(Vec::new());
-    };
-    Ok(module
+    Ok(prepare(path, source, environment)?
+        .map_or_else(Vec::new, |prepared| annotated_units(&prepared)))
+}
+
+fn annotated_units(prepared: &Prepared) -> Vec<super::UnitTable> {
+    match prepared {
+        Prepared::Annotated(module) => module_units(module),
+        Prepared::Erased(_) => Vec::new(),
+    }
+}
+
+fn module_units(module: &Module) -> Vec<super::UnitTable> {
+    module
         .types
         .iter()
-        .filter_map(super::testing::polyglot_unit)
-        .map(|unit| super::UnitTable::of(&unit))
-        .collect())
+        .filter_map(|ty| Some(super::UnitTable::of(&super::testing::polyglot_unit(ty)?)))
+        .collect()
 }
 
 pub(super) fn detached_csharp(

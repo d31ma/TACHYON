@@ -1,6 +1,8 @@
 use super::LuaModels;
 use crate::route_types::TypeText;
-use crate::yon::plan::{ParameterSource, Plan, Provider, Route, Scope};
+use crate::yon::plan::{
+    ErrorMethod, ParameterSource, Plan, Provider, Route, RouteParameter, Scope,
+};
 use crate::yon::route_calls::RouteCalls;
 use std::fmt::Write as _;
 
@@ -11,6 +13,8 @@ pub(super) struct LuaLowering<'p> {
 impl<'p> LuaLowering<'p> {
     const TYPE_SYNTAX: &'static str = "rb";
     const NO_ROUTE: &'static str = "error(setmetatable({ message = \"No controller method answers this route.\" }, YonNoRoute), 0)";
+    const INDENTS: [&'static str; 2] = ["  ", "    "];
+    const REQUEST: &'static str = "YonRequest.of(request)";
 
     pub(super) fn new(plan: &'p Plan) -> Self {
         Self { plan }
@@ -18,74 +22,78 @@ impl<'p> LuaLowering<'p> {
 
     pub(super) fn program(&self, authored: &str) -> Result<String, String> {
         let controller = self.provider_index(&self.plan.controller)?;
-        let mut output = format!("{authored}\n{}", self.providers()?);
-        for verb in RouteCalls::verbs(self.plan) {
-            self.route_function(&mut output, verb);
-        }
-        self.error_function(&mut output);
-        output.push_str("Handler = { YON_FRAMES = true }\n\n");
-        for verb in RouteCalls::verbs(self.plan) {
-            let _ = writeln!(
-                output,
-                "function Handler.{verb}(request)\n  local cache = {{}}\n  return YonGenerated.route_{verb}(YonGenerated.resolve_{controller}(cache), request{})\nend\n",
-                self.error_owner_calls()
-            );
-        }
-        Ok(output)
+        Ok(format!(
+            "{authored}\n{}{}{}Handler = {{ YON_FRAMES = true }}\n\n{}",
+            self.providers()?,
+            self.route_functions(),
+            self.error_function(),
+            self.handler_functions(controller)
+        ))
     }
 
     pub(super) fn providers(&self) -> Result<String, String> {
-        let mut output = String::from("YonGenerated = { providers = {} }\n\n");
-        for (index, provider) in self.plan.providers.iter().enumerate() {
-            self.provider(&mut output, provider, index)?;
-        }
-        Ok(output)
+        Ok(format!(
+            "YonGenerated = {{ providers = {{}} }}\n\n{}",
+            self.provider_texts()?
+        ))
     }
 
     pub(super) fn provider_index(&self, name: &str) -> Result<usize, String> {
+        self.index_of(name)
+            .ok_or_else(|| format!("Yon provider {name} is not declared"))
+    }
+
+    fn index_of(&self, name: &str) -> Option<usize> {
         self.plan
             .providers
             .iter()
             .position(|provider| provider.name == name)
-            .ok_or_else(|| format!("Yon provider {name} is not declared"))
     }
 
-    fn provider(&self, output: &mut String, provider: &Provider, index: usize) -> Result<(), String> {
+    fn provider_texts(&self) -> Result<String, String> {
+        self.plan
+            .providers
+            .iter()
+            .enumerate()
+            .map(|(index, provider)| self.provider(provider, index))
+            .collect()
+    }
+
+    fn provider(&self, provider: &Provider, index: usize) -> Result<String, String> {
         let cached = provider.scope != Scope::Transient;
-        let _ = writeln!(output, "function YonGenerated.resolve_{index}(cache)");
-        if cached {
-            let _ = writeln!(output, "  if cache[{index}] ~= nil then\n    return cache[{index}]\n  end");
-        }
-        let _ = writeln!(
-            output,
-            "  local value = setmetatable({{}}, {{ __index = {} }})",
-            provider.name
-        );
-        for (injection, name) in provider.injections.iter().zip(&provider.dependencies) {
-            let dependency = self.provider_index(name)?;
-            let _ = writeln!(
-                output,
-                "  value.{} = YonGenerated.resolve_{dependency}(cache)",
-                injection.field
-            );
-        }
-        if cached {
-            let _ = writeln!(output, "  cache[{index}] = value");
-        }
-        let _ = writeln!(
-            output,
-            "  return value\nend\nYonGenerated.providers[{}] = YonGenerated.resolve_{index}\n",
-            provider.name
-        );
-        Ok(())
+        let name = &provider.name;
+        Ok(format!(
+            "function YonGenerated.resolve_{index}(cache)\n{}  local value = setmetatable({{}}, {{ __index = {name} }})\n{}{}  return value\nend\nYonGenerated.providers[{name}] = YonGenerated.resolve_{index}\n\n",
+            Self::when(
+                cached,
+                &format!("  if cache[{index}] ~= nil then\n    return cache[{index}]\n  end\n")
+            ),
+            self.injections(provider)?,
+            Self::when(cached, &format!("  cache[{index}] = value\n")),
+        ))
     }
 
-    fn error_owner_calls(&self) -> String {
-        self.owner_list(", YonGenerated.resolve_", "(cache)")
+    fn when(wanted: bool, text: &str) -> String {
+        [String::new(), text.to_owned()]
+            .into_iter()
+            .nth(usize::from(wanted))
+            .unwrap_or_default()
     }
 
-    fn error_owner_names(&self) -> String {
-        self.owner_list(", handler", "")
+    fn injections(&self, provider: &Provider) -> Result<String, String> {
+        provider
+            .injections
+            .iter()
+            .zip(&provider.dependencies)
+            .map(|(injection, name)| self.injection(&injection.field, name))
+            .collect()
+    }
+
+    fn injection(&self, field: &str, dependency: &str) -> Result<String, String> {
+        let index = self.provider_index(dependency)?;
+        Ok(format!(
+            "  value.{field} = YonGenerated.resolve_{index}(cache)\n"
+        ))
     }
 
     fn owner_list(&self, before: &str, after: &str) -> String {
@@ -97,82 +105,115 @@ impl<'p> LuaLowering<'p> {
             })
     }
 
-    fn route_function(&self, output: &mut String, verb: &str) {
-        let owners = self.error_owner_names();
+    fn route_functions(&self) -> String {
+        RouteCalls::verbs(self.plan)
+            .iter()
+            .map(|verb| self.route_function(verb))
+            .collect()
+    }
+
+    fn handler_functions(&self, controller: usize) -> String {
+        let owners = self.owner_list(", YonGenerated.resolve_", "(cache)");
+        RouteCalls::verbs(self.plan)
+            .iter()
+            .map(|verb| format!("function Handler.{verb}(request)\n  local cache = {{}}\n  return YonGenerated.route_{verb}(YonGenerated.resolve_{controller}(cache), request{owners})\nend\n\n"))
+            .collect()
+    }
+
+    fn route_function(&self, verb: &str) -> String {
+        let owners = self.owner_list(", handler", "");
         let guarded = !self.plan.errors.is_empty();
-        let _ = writeln!(
-            output,
-            "function YonGenerated.route_{verb}(controller, request{owners})\n  local values = request.arguments or {{}}\n  local route = request.route"
+        let indent = Self::INDENTS[usize::from(guarded)];
+        let checks = self.route_checks(verb, indent);
+        let plain = format!("{checks}{indent}{}\n", Self::NO_ROUTE);
+        let protected = format!(
+            "  local ok, result = pcall(function()\n{plain}  end)\n  if ok then\n    return result\n  end\n  return YonGenerated.handle_error(result, request{owners})\n"
         );
-        let indent = if guarded { "    " } else { "  " };
-        if guarded {
-            output.push_str("  local ok, result = pcall(function()\n");
-        }
-        for route in RouteCalls::routes_for(self.plan, verb) {
-            let _ = writeln!(
-                output,
-                "{indent}if route == {} then\n{indent}  return {}\n{indent}end",
-                RouteCalls::pattern(route),
-                Self::call(route)
-            );
-        }
-        let _ = writeln!(output, "{indent}{}", Self::NO_ROUTE);
-        if guarded {
-            let _ = writeln!(
-                output,
-                "  end)\n  if ok then\n    return result\n  end\n  return YonGenerated.handle_error(result, request{owners})"
-            );
-        }
-        output.push_str("end\n\n");
+        let body = Self::when(guarded, &protected) + &Self::when(!guarded, &plain);
+        format!(
+            "function YonGenerated.route_{verb}(controller, request{owners})\n  local values = request.arguments or {{}}\n  local route = request.route\n{body}end\n\n"
+        )
+    }
+
+    fn route_checks(&self, verb: &str, indent: &str) -> String {
+        RouteCalls::routes_for(self.plan, verb)
+            .iter()
+            .map(|route| {
+                format!(
+                    "{indent}if route == {} then\n{indent}  return {}\n{indent}end\n",
+                    RouteCalls::pattern(route),
+                    Self::call(route)
+                )
+            })
+            .collect()
     }
 
     fn call(route: &Route) -> String {
-        let arguments = route
-            .parameters
+        Self::read(
+            &route.returns,
+            &format!(
+                "controller:{}({})",
+                route.method,
+                Self::arguments(&route.parameters)
+            ),
+        )
+    }
+
+    fn arguments(parameters: &[RouteParameter]) -> String {
+        parameters
             .iter()
             .enumerate()
-            .map(|(index, parameter)| {
-                if parameter.source == ParameterSource::Request {
-                    return String::from("YonRequest.of(request)");
-                }
-                let value = format!("values[{}]", index + 1);
-                Self::read(&parameter.type_text, &value)
-            })
+            .map(|(index, parameter)| Self::argument(index, parameter))
             .collect::<Vec<_>>()
-            .join(", ");
-        Self::read(&route.returns, &format!("controller:{}({arguments})", route.method))
+            .join(", ")
+    }
+
+    fn argument(index: usize, parameter: &RouteParameter) -> String {
+        let value = Self::read(&parameter.type_text, &format!("values[{}]", index + 1));
+        [value, String::from(Self::REQUEST)]
+            .into_iter()
+            .nth(usize::from(parameter.source == ParameterSource::Request))
+            .unwrap_or_default()
     }
 
     fn read(type_text: &str, value: &str) -> String {
         TypeText::shape(Self::TYPE_SYNTAX, type_text)
             .ok()
             .and_then(|shape| LuaModels::descriptor(&shape))
-            .map_or_else(|| value.to_owned(), |descriptor| format!("YonModels.read({descriptor}, {value})"))
+            .map_or_else(
+                || value.to_owned(),
+                |descriptor| format!("YonModels.read({descriptor}, {value})"),
+            )
     }
 
-    fn error_function(&self, output: &mut String) {
-        if self.plan.errors.is_empty() {
-            return;
-        }
-        let owners = self.error_owner_names();
-        let _ = writeln!(
-            output,
-            "function YonGenerated.handle_error(failure, request{owners})\n  return YonErrors.handle(failure, {{"
+    fn error_function(&self) -> String {
+        let owners = self.owner_list(", handler", "");
+        let function = format!(
+            "function YonGenerated.handle_error(failure, request{owners})\n  return YonErrors.handle(failure, {{\n{}  }})\nend\n\n",
+            self.candidates()
         );
-        for method in &self.plan.errors {
-            let Some((index, _)) = RouteCalls::error_owners(self.plan)
-                .into_iter()
-                .find(|(_, name)| *name == method.owner)
-            else {
-                continue;
-            };
-            let request = if method.takes_request { ", YonRequest.of(request)" } else { "" };
-            let _ = writeln!(
-                output,
-                "    {{ {}, {}, function() return handler{index}:{}(failure{request}) end }},",
-                method.error_type, method.status, method.method
-            );
-        }
-        output.push_str("  })\nend\n\n");
+        Self::when(!self.plan.errors.is_empty(), &function)
+    }
+
+    fn candidates(&self) -> String {
+        self.plan
+            .errors
+            .iter()
+            .filter_map(|method| self.candidate(method))
+            .collect()
+    }
+
+    fn candidate(&self, method: &ErrorMethod) -> Option<String> {
+        let request = Self::when(method.takes_request, &format!(", {}", Self::REQUEST));
+        RouteCalls::error_owners(self.plan)
+            .into_iter()
+            .find_map(|(index, name)| {
+                (name == method.owner).then(|| {
+                    format!(
+                        "    {{ {}, {}, function() return handler{index}:{}(failure{request}) end }},\n",
+                        method.error_type, method.status, method.method
+                    )
+                })
+            })
     }
 }

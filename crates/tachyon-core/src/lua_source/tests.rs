@@ -6,7 +6,8 @@ struct Sources;
 impl Sources {
     const CONTROLLER: &'static str = "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {\n  -- @Needs\n  ---@type OrderService\n  order_service = nil,\n}\n\n---@param id integer\n---@return Order[]\n-- @GetRoute(\"/{id}\")\nfunction OrdersController:get_orders(\n  -- @FromPath\n  id\n)\n  return self.order_service:list(id)\nend\n";
     const SHADOW: &'static str = "#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController\n  # @return [OrderService]\n  #[Needs]\n  attr_reader :order_service\n\n\n  # @param id [Integer]\n  # @return [Array<Order>]\n  #[GetRoute(\"/{id}\")]\n  def get_orders(\n    #[FromPath]\n    id\n  )\n    return self.order_service.list(id)\n  end\nend\n";
-    const MODEL: &'static str = "---@class Order\n---@field name string\n---@field count integer\nOrder = {}\n";
+    const MODEL: &'static str =
+        "---@class Order\n---@field name string\n---@field count integer\nOrder = {}\n";
     const MODEL_SHADOW: &'static str = "class Order\n  # @return [String]\n  attr_reader :name\n  # @return [Integer]\n  attr_reader :count\nend\n";
 }
 
@@ -44,10 +45,13 @@ fn luacats_types_read_as_yard_types() {
 #[test]
 fn lua_bodies_keep_their_words_and_hide_their_text() {
     let clean = LuaBody::sanitized("x = #items ~= 0 -- note\ny = \"a#b\" .. obj:call()\n");
-    assert_eq!(clean, "x =  items != 0 #      \ny = \"a b\" .. obj.call()\n");
+    assert_eq!(
+        clean,
+        "x =  items != 0 #      \ny = \"a b\" .. obj.call()\n"
+    );
     assert_eq!(
         LuaBody::translated("    elseif ok then local total = function(a) return a end"),
-        "    elsif ok then total = proc do |a| return a end"
+        "    elsif ok then total = proc do(a) return a end"
     );
     assert_eq!(LuaBody::translated("  until done"), "  end until done");
 }
@@ -57,14 +61,28 @@ fn forms_tachyon_cannot_read_are_refused_with_the_right_advice() {
     let path = Path::new("server/services/OrderService.lua");
     for (source, advice) in [
         ("local OrderService = {}\n", LuaShadow::LOCAL_TABLE),
-        ("OrderService = {}\nreturn OrderService\n", LuaShadow::RETURNED_TABLE),
+        (
+            "OrderService = {}\nreturn OrderService\n",
+            LuaShadow::RETURNED_TABLE,
+        ),
         ("OrderService = {}\nOther = {}\n", LuaShadow::SECOND_TYPE),
-        ("OrderService = {}\nfunction Other:list()\nend\n", LuaShadow::FOREIGN_METHOD),
-        ("OrderService = {}\nfunction OrderService:list() return 1 end\n", LuaShadow::ONE_LINE),
+        (
+            "OrderService = {}\nfunction Other:list()\nend\n",
+            LuaShadow::FOREIGN_METHOD,
+        ),
+        (
+            "OrderService = {}\nfunction OrderService:list() return 1 end\n",
+            LuaShadow::ONE_LINE,
+        ),
     ] {
-        let failure = LuaStyle::validate(path, source).err().map(|failure| failure.to_string());
+        let failure = LuaStyle::validate(path, source)
+            .err()
+            .map(|failure| failure.to_string());
         let text = failure.unwrap_or_default();
-        assert!(text.contains("TY1357") && text.contains(advice), "{source}: {text}");
+        assert!(
+            text.contains("TY1357") && text.contains(advice),
+            "{source}: {text}"
+        );
     }
     assert!(LuaStyle::validate(path, "OrderService = {}\n").is_ok());
 }
@@ -75,8 +93,16 @@ fn a_lua_test_unit_lowers_to_a_post_driver() {
     let lowered = super::LuaYon::lower(Path::new("server/tests/CatalogServiceTest.lua"), program)
         .unwrap_or_else(|failure| panic!("{failure}"))
         .unwrap_or_else(|| panic!("a test unit"));
-    assert!(lowered.source.contains("function Handler.POST(request)"), "{}", lowered.source);
-    assert!(lowered.source.contains("unit.catalog_service = nil"), "{}", lowered.source);
+    assert!(
+        lowered.source.contains("function Handler.POST(request)"),
+        "{}",
+        lowered.source
+    );
+    assert!(
+        lowered.source.contains("unit.catalog_service = nil"),
+        "{}",
+        lowered.source
+    );
 }
 
 #[test]
@@ -84,7 +110,11 @@ fn a_lua_controller_lowers_to_route_functions() {
     let lowered = super::LuaYon::lower(Path::new("server/controllers/OrdersController.lua"), "-- @RequestRoute(\"/orders\")\n-- @Public\nOrdersController = {}\n\n---@return integer\n-- @GetRoute\nfunction OrdersController:get_count()\n  return 2\nend\n")
         .unwrap_or_else(|failure| panic!("{failure}"))
         .unwrap_or_else(|| panic!("a controller"));
-    assert!(lowered.source.contains("function Handler.GET(request)"), "{}", lowered.source);
+    assert!(
+        lowered.source.contains("function Handler.GET(request)"),
+        "{}",
+        lowered.source
+    );
     assert_eq!(lowered.routes.len(), 1);
 }
 

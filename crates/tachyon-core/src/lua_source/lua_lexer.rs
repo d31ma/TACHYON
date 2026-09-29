@@ -1,9 +1,12 @@
 use crate::lexical::LexicalMask;
+use std::ops::Range;
 
 pub(crate) struct LuaLexer<'a> {
     bytes: &'a [u8],
     code: Vec<bool>,
 }
+
+type LexicalError = (usize, &'static str);
 
 impl<'a> LuaLexer<'a> {
     const UNTERMINATED_STRING: &'static str = "Unterminated Lua string";
@@ -15,7 +18,17 @@ impl<'a> LuaLexer<'a> {
             code: vec![true; source.len()],
         };
         let error = lexer.scan().err();
-        let mut code = lexer.code;
+        lexer.finished(error)
+    }
+
+    pub(crate) fn long_level(bytes: &[u8], at: usize) -> Option<usize> {
+        (bytes.get(at) == Some(&b'['))
+            .then(|| Self::level_after(bytes, at))
+            .flatten()
+    }
+
+    fn finished(self, error: Option<LexicalError>) -> LexicalMask {
+        let mut code = self.code;
         let error = error.map(|(start, message)| {
             code[start..].fill(false);
             message
@@ -27,65 +40,92 @@ impl<'a> LuaLexer<'a> {
         }
     }
 
-    fn scan(&mut self) -> Result<(), (usize, &'static str)> {
+    fn scan(&mut self) -> Result<(), LexicalError> {
         let mut at = 0;
         while at < self.bytes.len() {
-            let end = match self.bytes[at] {
-                b'-' if self.bytes.get(at + 1) == Some(&b'-') => self.comment(at)?,
-                b'"' | b'\'' => self.quoted(at)?,
-                b'[' if Self::long_level(self.bytes, at).is_some() => self.long(at, at)?,
-                _ => {
-                    at += 1;
-                    continue;
-                }
-            };
-            self.code[at..end].fill(false);
-            at = end;
+            let hidden = self.hidden_range(at)?;
+            self.code[hidden.clone()].fill(false);
+            at = hidden.end.max(at + 1);
         }
         Ok(())
     }
 
-    fn comment(&self, start: usize) -> Result<usize, (usize, &'static str)> {
-        let body = start + 2;
-        if Self::long_level(self.bytes, body).is_some() {
-            return self.long(start, body);
+    fn hidden_range(&self, at: usize) -> Result<Range<usize>, LexicalError> {
+        Ok(at..self.region_end(at)?.unwrap_or(at))
+    }
+
+    fn region_end(&self, at: usize) -> Result<Option<usize>, LexicalError> {
+        match self.bytes[at] {
+            b'-' => self.comment_at(at),
+            b'"' | b'\'' => self.quoted(at),
+            b'[' => self.long_string_at(at),
+            _ => Ok(None),
         }
-        Ok(self.bytes[body..]
+    }
+
+    fn comment_at(&self, start: usize) -> Result<Option<usize>, LexicalError> {
+        (self.bytes.get(start + 1) == Some(&b'-'))
+            .then(|| self.comment(start))
+            .transpose()
+    }
+
+    fn comment(&self, start: usize) -> Result<usize, LexicalError> {
+        let body = start + 2;
+        Self::long_level(self.bytes, body)
+            .map_or_else(|| Ok(self.line_end(body)), |_| self.long(start, body))
+    }
+
+    fn long_string_at(&self, start: usize) -> Result<Option<usize>, LexicalError> {
+        Self::long_level(self.bytes, start)
+            .map(|_| self.long(start, start))
+            .transpose()
+    }
+
+    fn line_end(&self, body: usize) -> usize {
+        self.bytes[body..]
             .iter()
             .position(|byte| *byte == b'\n')
-            .map_or(self.bytes.len(), |offset| body + offset))
+            .map_or(self.bytes.len(), |offset| body + offset)
     }
 
-    fn quoted(&self, start: usize) -> Result<usize, (usize, &'static str)> {
+    fn quoted(&self, start: usize) -> Result<Option<usize>, LexicalError> {
+        self.closing_quote(start)
+            .map_or(Err((start, Self::UNTERMINATED_STRING)), |end| Ok(Some(end)))
+    }
+
+    fn closing_quote(&self, start: usize) -> Option<usize> {
         let quote = self.bytes[start];
-        let mut at = start + 1;
-        while let Some(byte) = self.bytes.get(at) {
-            match *byte {
-                b'\\' => at += 2,
-                b'\n' => break,
-                byte if byte == quote => return Ok(at + 1),
-                _ => at += 1,
-            }
-        }
-        Err((start, Self::UNTERMINATED_STRING))
+        let mut escaped = false;
+        let offset = self.bytes[start + 1..]
+            .iter()
+            .position(|byte| Self::quote_stop(*byte, quote, &mut escaped))?;
+        let end = start + 1 + offset;
+        (self.bytes[end] == quote).then_some(end + 1)
     }
 
-    fn long(&self, start: usize, open: usize) -> Result<usize, (usize, &'static str)> {
+    fn quote_stop(byte: u8, quote: u8, escaped: &mut bool) -> bool {
+        let closes = [!*escaped, byte == quote] == [true, true];
+        *escaped = [!*escaped, byte == b'\\'] == [true, true];
+        [closes, byte == b'\n'].contains(&true)
+    }
+
+    fn long(&self, start: usize, open: usize) -> Result<usize, LexicalError> {
         let level = Self::long_level(self.bytes, open).unwrap_or_default();
         let closing = format!("]{}]", "=".repeat(level));
-        let body = open + level + 2;
-        let text = &self.bytes[body.min(self.bytes.len())..];
-        text.windows(closing.len())
+        let body = (open + level + 2).min(self.bytes.len());
+        self.bytes[body..]
+            .windows(closing.len())
             .position(|window| window == closing.as_bytes())
-            .map(|offset| body + offset + closing.len())
-            .ok_or((start, Self::UNTERMINATED_LONG))
+            .map_or(Err((start, Self::UNTERMINATED_LONG)), |offset| {
+                Ok(body + offset + closing.len())
+            })
     }
 
-    pub(crate) fn long_level(bytes: &[u8], at: usize) -> Option<usize> {
-        if bytes.get(at) != Some(&b'[') {
-            return None;
-        }
-        let level = bytes[at + 1..].iter().take_while(|byte| **byte == b'=').count();
+    fn level_after(bytes: &[u8], at: usize) -> Option<usize> {
+        let level = bytes[at + 1..]
+            .iter()
+            .take_while(|byte| **byte == b'=')
+            .count();
         (bytes.get(at + 1 + level) == Some(&b'[')).then_some(level)
     }
 }

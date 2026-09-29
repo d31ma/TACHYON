@@ -13,7 +13,11 @@ impl<'u> LuaTestUnit<'u> {
         Self { unit }
     }
 
-    pub(super) fn program(&self, authored: &str, lowering: &LuaLowering<'_>) -> Result<String, String> {
+    pub(super) fn program(
+        &self,
+        authored: &str,
+        lowering: &LuaLowering<'_>,
+    ) -> Result<String, String> {
         let unit = &self.unit.name;
         let resolve = lowering.provider_index(unit)?;
         let mut output = format!("{authored}\n{}\n{}", Self::ASSERT, lowering.providers()?);
@@ -46,10 +50,13 @@ impl<'u> LuaTestUnit<'u> {
     }
 
     fn clear_fakes(&self) -> String {
-        self.unit.fakes.iter().fold(String::new(), |mut lines, name| {
-            let _ = writeln!(lines, "    unit.{name} = nil");
-            lines
-        })
+        self.unit
+            .fakes
+            .iter()
+            .fold(String::new(), |mut lines, name| {
+                let _ = writeln!(lines, "    unit.{name} = nil");
+                lines
+            })
     }
 
     fn execution(&self) -> String {
