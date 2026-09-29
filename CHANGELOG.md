@@ -1844,6 +1844,14 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The runtime check before a server or `ty test` starts no longer reports a
+  working .NET SDK as not usable (TY2101) on a busy machine. Each check now
+  has its own time limit: 10 seconds, and 60 seconds for the C# check, which
+  builds a small project. Before, all checks shared 10 seconds, so a slow
+  Kotlin or Java check could use up the time of the C# check.
+- `verify-snippets --section=...` on a section with no JavaScript or
+  TypeScript example now reports 0 tsc projects instead of stopping at the tsc
+  step.
 - Rust, Kotlin and Swift web services now accept a start-up request of up to
   1 MiB, like Go, C# and Ruby, so a view can pass them a bigger data file.
   A method call keeps the 64 KiB limit and its error names the method, for

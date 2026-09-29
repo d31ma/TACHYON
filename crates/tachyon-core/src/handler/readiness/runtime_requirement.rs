@@ -18,7 +18,8 @@ pub(crate) struct RuntimeRequirement {
 }
 
 impl RuntimeRequirement {
-    pub(super) const PREFLIGHT_DEADLINE: Duration = Duration::from_secs(10);
+    pub(super) const PROBE_TIME_LIMIT: Duration = Duration::from_secs(10);
+    pub(super) const DOTNET_BUILD_TIME_LIMIT: Duration = Duration::from_mins(1);
     pub(super) const PROBE_OUTPUT_BYTES: usize = 64 * 1024;
     pub(super) const OLDEST_GO_MINOR_VERSION: u32 = 27;
     pub(super) const OLDEST_RUBY_VERSION: (u32, u32) = (3, 3);

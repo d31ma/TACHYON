@@ -532,6 +532,76 @@ mod tests {
     }
 
     #[cfg(unix)]
+    fn fake_program(directory: &std::path::Path, name: &str, script: &str) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+
+        let program = directory.join(name);
+        std::fs::write(&program, script).expect("fake program");
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700))
+            .expect("permissions");
+        program
+    }
+
+    #[cfg(unix)]
+    fn slow_toolchain_requirements(directory: &std::path::Path) -> Vec<RuntimeRequirement> {
+        let slow_compiler = fake_program(
+            directory,
+            "slow-compiler",
+            "#!/bin/sh\n/bin/sleep 6\necho 'compiler 2.1.10'\n",
+        );
+        let slow_dotnet = fake_program(
+            directory,
+            "slow-dotnet",
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 10.0.302; exit 0; fi\n/bin/sleep 5\nexit 0\n",
+        );
+        vec![
+            RuntimeRequirement {
+                key: RuntimeRequirementKey::KotlinCompiler,
+                program: slow_compiler,
+                command_label: String::from("kotlinc"),
+                label: String::from(RuntimeRequirement::KOTLIN_LABEL),
+                help: String::from(RuntimeRequirement::KOTLIN_HELP),
+                probe: ProbeKind::Version(&["-version"]),
+            },
+            RuntimeRequirement {
+                key: RuntimeRequirementKey::Dotnet,
+                program: slow_dotnet,
+                command_label: String::from("dotnet"),
+                label: String::from(RuntimeRequirement::DOTNET_LABEL),
+                help: String::from(RuntimeRequirement::DOTNET_HELP),
+                probe: ProbeKind::DotnetBuild,
+            },
+        ]
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn slow_working_toolchains_each_get_their_own_time_limit() {
+        let directory = tempfile::tempdir().expect("fake toolchain directory");
+        let requirements = slow_toolchain_requirements(directory.path());
+        let blocking_requirements = requirements.clone();
+        let synchronous = tokio::task::spawn_blocking(move || {
+            RuntimeProbe::all_sync(blocking_requirements, &EnvironmentPolicy::default())
+        });
+        let asynchronous = RuntimeProbe::all(requirements, &EnvironmentPolicy::default())
+            .await
+            .expect("asynchronous probe");
+        let synchronous = synchronous
+            .await
+            .expect("probe thread")
+            .expect("synchronous probe");
+        for results in [&asynchronous, &synchronous] {
+            let states: Vec<RuntimeProbeState> =
+                results.iter().map(RuntimeProbeResult::state).collect();
+            assert_eq!(
+                states,
+                vec![RuntimeProbeState::Ready, RuntimeProbeState::Ready]
+            );
+            assert!(RuntimeProbeResult::failure(results).is_none());
+        }
+    }
+
+    #[cfg(unix)]
     #[tokio::test]
     async fn runtime_only_dotnet_fake_fails_the_real_build_probe_without_path_disclosure() {
         use std::fs;

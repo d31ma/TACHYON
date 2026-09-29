@@ -6,7 +6,7 @@ use crate::external_command::{ToolError, ToolOutput, run, run_sync};
 use crate::handler::EnvironmentPolicy;
 use std::fs;
 use std::path::Path;
-use std::time::Instant;
+use std::time::Duration;
 use tokio::process::Command;
 
 pub(crate) struct RuntimeProbe;
@@ -16,16 +16,14 @@ impl RuntimeProbe {
         requirements: Vec<RuntimeRequirement>,
         environment: &EnvironmentPolicy,
     ) -> Result<Vec<RuntimeProbeResult>, Failure> {
-        let deadline = tokio::time::Instant::now() + RuntimeRequirement::PREFLIGHT_DEADLINE;
-        Self::probe_each(requirements, environment, deadline).await
+        Self::probe_each(requirements, environment).await
     }
 
     pub(crate) fn all_sync(
         requirements: Vec<RuntimeRequirement>,
         environment: &EnvironmentPolicy,
     ) -> Result<Vec<RuntimeProbeResult>, Failure> {
-        let deadline = Instant::now() + RuntimeRequirement::PREFLIGHT_DEADLINE;
-        Self::probe_each_sync(requirements, environment, deadline)
+        Self::probe_each_sync(requirements, environment)
     }
 
     pub(super) fn supports_ruby_version(output: &str) -> bool {
@@ -51,11 +49,10 @@ impl RuntimeProbe {
     async fn probe_each(
         requirements: Vec<RuntimeRequirement>,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<Vec<RuntimeProbeResult>, Failure> {
         let mut results = Vec::with_capacity(requirements.len());
         for requirement in requirements {
-            let state = Self::probe_one(&requirement, environment, deadline).await?;
+            let state = Self::probe_one(&requirement, environment).await?;
             results.push(RuntimeProbeResult::new(requirement, state));
         }
         Ok(results)
@@ -64,11 +61,10 @@ impl RuntimeProbe {
     fn probe_each_sync(
         requirements: Vec<RuntimeRequirement>,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<Vec<RuntimeProbeResult>, Failure> {
         let mut results = Vec::with_capacity(requirements.len());
         for requirement in requirements {
-            let state = Self::probe_one_sync(&requirement, environment, deadline)?;
+            let state = Self::probe_one_sync(&requirement, environment)?;
             results.push(RuntimeProbeResult::new(requirement, state));
         }
         Ok(results)
@@ -77,30 +73,27 @@ impl RuntimeProbe {
     async fn probe_one(
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let known = Self::probe_without_running(requirement.probe, &requirement.program);
-        Self::run_unless_known(known, requirement, environment, deadline).await
+        Self::run_unless_known(known, requirement, environment).await
     }
 
     fn probe_one_sync(
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let known = Self::probe_without_running(requirement.probe, &requirement.program);
-        Self::run_unless_known_sync(known, requirement, environment, deadline)
+        Self::run_unless_known_sync(known, requirement, environment)
     }
 
     async fn run_unless_known(
         known: Option<RuntimeProbeState>,
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         match known {
             Some(state) => Ok(state),
-            None => Self::run_probe(requirement, environment, deadline).await,
+            None => Self::run_probe(requirement, environment).await,
         }
     }
 
@@ -108,68 +101,54 @@ impl RuntimeProbe {
         known: Option<RuntimeProbeState>,
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         match known {
             Some(state) => Ok(state),
-            None => Self::run_probe_sync(requirement, environment, deadline),
+            None => Self::run_probe_sync(requirement, environment),
         }
     }
 
     async fn run_probe(
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let mut prepared = requirement.prepare()?;
         environment.apply_std(&mut prepared.command);
         let mut command = Command::from(prepared.command);
-        let result = Self::run_in_time(&mut command, deadline).await;
-        Self::state_after_run(requirement, result, environment, deadline).await
+        let result = Self::run_limited(&mut command, RuntimeRequirement::PROBE_TIME_LIMIT).await;
+        Self::state_after_run(requirement, result, environment).await
     }
 
     fn run_probe_sync(
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let mut prepared = requirement.prepare()?;
         environment.apply_std(&mut prepared.command);
-        let result = Self::run_in_time_sync(&mut prepared.command, deadline);
-        Self::state_after_run_sync(requirement, result, environment, deadline)
+        let result =
+            Self::run_limited_sync(&mut prepared.command, RuntimeRequirement::PROBE_TIME_LIMIT);
+        Self::state_after_run_sync(requirement, result, environment)
     }
 
-    async fn run_in_time(
-        command: &mut Command,
-        deadline: tokio::time::Instant,
-    ) -> Result<ToolOutput, ToolError> {
-        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-        if remaining.is_zero() {
-            return Err(ToolError::TimedOut);
-        }
-        run(command, remaining, RuntimeRequirement::PROBE_OUTPUT_BYTES).await
+    async fn run_limited(command: &mut Command, limit: Duration) -> Result<ToolOutput, ToolError> {
+        run(command, limit, RuntimeRequirement::PROBE_OUTPUT_BYTES).await
     }
 
-    fn run_in_time_sync(
+    fn run_limited_sync(
         command: &mut std::process::Command,
-        deadline: Instant,
+        limit: Duration,
     ) -> Result<ToolOutput, ToolError> {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Err(ToolError::TimedOut);
-        }
-        run_sync(command, remaining, RuntimeRequirement::PROBE_OUTPUT_BYTES)
+        run_sync(command, limit, RuntimeRequirement::PROBE_OUTPUT_BYTES)
     }
 
     async fn state_after_run(
         requirement: &RuntimeRequirement,
         result: Result<ToolOutput, ToolError>,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         match requirement.probe {
             ProbeKind::DotnetBuild => {
-                Self::probe_dotnet_build(requirement, result, environment, deadline).await
+                Self::probe_dotnet_build(requirement, result, environment).await
             }
             ProbeKind::GoVersion => Ok(Self::go_version_state(result)),
             ProbeKind::RubyVersion => Ok(Self::ruby_version_state(result)),
@@ -181,11 +160,10 @@ impl RuntimeProbe {
         requirement: &RuntimeRequirement,
         result: Result<ToolOutput, ToolError>,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         match requirement.probe {
             ProbeKind::DotnetBuild => {
-                Self::probe_dotnet_build_sync(requirement, result, environment, deadline)
+                Self::probe_dotnet_build_sync(requirement, result, environment)
             }
             ProbeKind::GoVersion => Ok(Self::go_version_state(result)),
             ProbeKind::RubyVersion => Ok(Self::ruby_version_state(result)),
@@ -197,32 +175,29 @@ impl RuntimeProbe {
         requirement: &RuntimeRequirement,
         initial: Result<ToolOutput, ToolError>,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let outcome = Self::dotnet_version_outcome(initial);
-        Self::build_when_sdk_found(outcome, requirement, environment, deadline).await
+        Self::build_when_sdk_found(outcome, requirement, environment).await
     }
 
     fn probe_dotnet_build_sync(
         requirement: &RuntimeRequirement,
         initial: Result<ToolOutput, ToolError>,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let outcome = Self::dotnet_version_outcome(initial);
-        Self::build_when_sdk_found_sync(outcome, requirement, environment, deadline)
+        Self::build_when_sdk_found_sync(outcome, requirement, environment)
     }
 
     async fn build_when_sdk_found(
         outcome: DotnetVersionOutcome,
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         match outcome {
             DotnetVersionOutcome::Finished(state) => Ok(state),
             DotnetVersionOutcome::SdkMajor(sdk_major) => {
-                Self::run_dotnet_build(requirement, sdk_major, environment, deadline).await
+                Self::run_dotnet_build(requirement, sdk_major, environment).await
             }
         }
     }
@@ -231,12 +206,11 @@ impl RuntimeProbe {
         outcome: DotnetVersionOutcome,
         requirement: &RuntimeRequirement,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         match outcome {
             DotnetVersionOutcome::Finished(state) => Ok(state),
             DotnetVersionOutcome::SdkMajor(sdk_major) => {
-                Self::run_dotnet_build_sync(requirement, sdk_major, environment, deadline)
+                Self::run_dotnet_build_sync(requirement, sdk_major, environment)
             }
         }
     }
@@ -245,12 +219,12 @@ impl RuntimeProbe {
         requirement: &RuntimeRequirement,
         sdk_major: u32,
         environment: &EnvironmentPolicy,
-        deadline: tokio::time::Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let mut prepared = requirement.prepare_dotnet_build(sdk_major)?;
         prepared.apply_dotnet_build_environment(environment);
         let mut command = Command::from(prepared.command);
-        let result = Self::run_in_time(&mut command, deadline).await;
+        let limit = RuntimeRequirement::DOTNET_BUILD_TIME_LIMIT;
+        let result = Self::run_limited(&mut command, limit).await;
         Ok(Self::probe_state(result))
     }
 
@@ -258,11 +232,11 @@ impl RuntimeProbe {
         requirement: &RuntimeRequirement,
         sdk_major: u32,
         environment: &EnvironmentPolicy,
-        deadline: Instant,
     ) -> Result<RuntimeProbeState, Failure> {
         let mut prepared = requirement.prepare_dotnet_build(sdk_major)?;
         prepared.apply_dotnet_build_environment(environment);
-        let result = Self::run_in_time_sync(&mut prepared.command, deadline);
+        let limit = RuntimeRequirement::DOTNET_BUILD_TIME_LIMIT;
+        let result = Self::run_limited_sync(&mut prepared.command, limit);
         Ok(Self::probe_state(result))
     }
 
