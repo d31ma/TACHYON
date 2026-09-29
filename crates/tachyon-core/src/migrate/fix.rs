@@ -460,6 +460,7 @@ impl MigrationFixPlan {
         );
         Self::add_renames(relative, &source, roles, &mut edits, &mut notes);
         self.add_clients(relative, &source, &mut edits, &mut notes);
+        self.add_contracts(relative, &source, &mut edits, &mut notes);
         self.add_arguments(relative, &source, &mut edits, &mut notes);
         self.add_events(root, relative, &source, &mut edits, &mut notes);
         self.add_streams(relative, &source, &mut edits, &mut notes);
@@ -545,6 +546,43 @@ impl MigrationFixPlan {
             }
             Err(step) => self.manual_steps.push(step),
         }
+    }
+
+    fn add_contracts(
+        &mut self,
+        relative: &str,
+        source: &str,
+        edits: &mut Vec<TextEdit>,
+        notes: &mut Vec<String>,
+    ) {
+        let planned = match crate::http_contract::HttpContract::rewrite(Path::new(relative), source)
+        {
+            Ok(planned) => planned,
+            Err(problem) => {
+                self.manual_steps.push(ManualStep::new(
+                    relative,
+                    problem,
+                    String::from("Declare the HTTPClient as a contract without bodies (TY1308), then run 'ty migrate fix --write' again."),
+                ));
+                return;
+            }
+        };
+        let contract: Vec<TextEdit> = planned
+            .iter()
+            .filter(|(range, text)| !range.is_empty() || !text.is_empty())
+            .map(|(range, text)| TextEdit::replace(range.start, range.end, text))
+            .collect();
+        if contract.is_empty() {
+            return;
+        }
+        if !Self::all_fit(edits, &contract) {
+            self.manual_steps.push(Self::overlap(relative));
+            return;
+        }
+        edits.extend(contract);
+        notes.push(String::from(
+            "Declared the HTTPClient as a contract without an implementation: Tachyon generates each request (TY1308).",
+        ));
     }
 
     fn add_arguments(

@@ -26,9 +26,7 @@ impl<'a> ConcreteClient<'a> {
         let form = ContractForm::of(extension)?;
         let tac = environment == Self::TAC;
         let managed_browser_client = tac && matches!(form.language, "js" | "ts");
-        if managed_browser_client
-            || !ClientDeclaration::is_mentioned(source)
-        {
+        if managed_browser_client || !ClientDeclaration::is_mentioned(source) {
             return None;
         }
         let mask = crate::lexical::code_mask(extension, source);

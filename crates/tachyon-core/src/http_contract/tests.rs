@@ -408,3 +408,93 @@ fn tac_browser_clients_stay_as_written() {
             .is_none()
     );
 }
+
+struct Migrations;
+
+impl Migrations {
+    const CLASS_CLIENTS: [(&'static str, &'static str); 11] = [
+        (
+            "java",
+            "@HTTPClient\nclass CatalogClient {\n    Behaviors.Context behaviors;\n\n    @GetRequest(\"/products\")\n    Object all(@RequestParam(\"page\") long page) {}\n\n    @OnStart\n    void initialize() {\n        behaviors = Behaviors.create(\"CatalogSetup\", new Behaviors.Options(\"catalog\", new Behaviors.Signal()));\n    }\n}\n",
+        ),
+        (
+            "groovy",
+            "@HTTPClient\nclass CatalogClient {\n    Behaviors.Context behaviors\n\n    @GetRequest(\"/products\")\n    Object all(@RequestParam(\"page\") long page) {}\n}\n",
+        ),
+        (
+            "kt",
+            "@HTTPClient\nclass CatalogClient {\n    lateinit var behaviors: Behaviors.Context\n\n    @GetRequest(\"/products\")\n    fun all(@RequestParam(\"page\") page: Long): Any? {}\n\n    @OnStart\n    fun initialize() {\n        behaviors = Behaviors.create(\"CatalogSetup\", Behaviors.Options(\"catalog\", Behaviors.Signal()))\n    }\n}\n",
+        ),
+        (
+            "cs",
+            "[HTTPClient]\nclass CatalogClient {\n    public BehaviorContext behaviors;\n\n    [GetRequest(\"/products\")]\n    public async System.Threading.Tasks.Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page) {}\n}\n",
+        ),
+        (
+            "php",
+            "<?php\n#[HTTPClient]\nclass CatalogClient {\n    public BehaviorContext $behaviors;\n\n    #[GetRequest(\"/products\")]\n    public function all(#[RequestParam(\"page\")] int $page): array {}\n}\n",
+        ),
+        (
+            "dart",
+            "@HTTPClient\nclass CatalogClient {\n  late BehaviorContext behaviors;\n\n  @GetRequest(\"/products\")\n  Future<Object?> all(@RequestParam(\"page\") int page) async {}\n}\n",
+        ),
+        (
+            "swift",
+            "@HTTPClient\nfinal class CatalogClient {\n    let behaviors: BehaviorContext = try! Behaviors.create(CatalogSetup.self, partition: \"catalog\", signal: BehaviorSignal())\n\n    @GetRequest(\"/products\")\n    func all() async throws -> BehaviorJSON {}\n}\n",
+        ),
+        (
+            "rs",
+            "#[HTTPClient]\nstruct CatalogClient { behaviors: BehaviorContext }\nimpl CatalogClient {\n    fn new() -> Self {\n        let options = BehaviorOptions::new(\"catalog\", BehaviorSignal::new());\n        Self { behaviors: Behaviors::create::<CatalogSetup>(options).expect(\"catalog context\") }\n    }\n\n    #[GetRequest(\"/products\")]\n    fn all(&self, #[RequestParam(\"page\")] page: BehaviorValue) -> BehaviorResult<BehaviorValue> {}\n}\n",
+        ),
+        (
+            "go",
+            "// @HTTPClient\ntype CatalogClient struct {\n\tbehaviors *BehaviorContext\n}\n\n// @OnStart\nfunc (client *CatalogClient) Start() error {\n\tcontext, err := BehaviorsCreate[CatalogSetup](NewBehaviorOptions(\"catalog\", NewBehaviorSignal()))\n\tclient.behaviors = context\n\treturn err\n}\n\n// @GetRequest(\"/products\")\nfunc (client *CatalogClient) All(\n\t// @RequestParam(\"page\")\n\tpage BehaviorValue,\n) (BehaviorValue, error) {\n}\n",
+        ),
+        (
+            "py",
+            "from typing import Annotated\n\n@http_client\nclass CatalogClient:\n    behaviors: object\n\n    @get_request(\"/products\")\n    async def all(self, page: Annotated[object, request_param(\"page\")]) -> None:\n        pass\n\n    @on_start\n    async def initialize(self):\n        self.behaviors = await Behaviors.create(CatalogSetup, {'partition': 'catalog', 'signal': BehaviorSignal()})\n",
+        ),
+        (
+            "rs",
+            "#[HTTPClient]\nstruct ReportClient;\nimpl ReportClient {\n    fn new() -> Self { Self }\n\n    #[Gateway({\"command\":[\"python3\"]})]\n    fn ping(&self) -> BehaviorResult<BehaviorValue> {}\n}\n",
+        ),
+    ];
+
+    fn rewritten(extension: &str, source: &str) -> String {
+        let path = format!("server/clients/CatalogClient.{extension}");
+        let mut edits = HttpContract::rewrite(Path::new(&path), source)
+            .unwrap_or_else(|problem| panic!("{extension}: {problem}"));
+        assert!(!edits.is_empty(), "{extension} was not rewritten");
+        edits.sort_by_key(|(range, _)| std::cmp::Reverse(range.start));
+        let mut output = source.to_owned();
+        for (range, text) in edits {
+            output.replace_range(range, &text);
+        }
+        output
+    }
+}
+
+#[test]
+fn the_fix_turns_every_class_client_into_a_contract_that_passes_the_check() {
+    for (extension, source) in Migrations::CLASS_CLIENTS {
+        let rewritten = Migrations::rewritten(extension, source);
+        let path = format!("server/clients/CatalogClient.{extension}");
+        let checked = HttpContract::check(Path::new(&path), &rewritten);
+        assert!(checked.is_ok(), "{extension}: {checked:?}\n{rewritten}");
+        assert!(
+            !rewritten.contains("Behaviors.create"),
+            "{extension}:\n{rewritten}"
+        );
+        assert!(
+            !rewritten.contains("create::<"),
+            "{extension}:\n{rewritten}"
+        );
+    }
+}
+
+#[test]
+fn the_fix_leaves_a_client_with_logic_to_the_author() {
+    let source = "@HTTPClient\nclass BillingClient {\n  int surcharge() { return 2; }\n}\n";
+    let problem = HttpContract::rewrite(Path::new("server/clients/BillingClient.java"), source)
+        .expect_err("logic stays manual");
+    assert!(problem.contains("move it into a service"), "{problem}");
+}

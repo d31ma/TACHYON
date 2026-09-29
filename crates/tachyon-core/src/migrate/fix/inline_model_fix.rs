@@ -126,7 +126,10 @@ impl InlineModelFix {
         let name = &model.block.name;
         let target = format!("{}/models/{name}.js", file.realm);
         let imports = self.referenced_imports(file.realm, &model.model);
-        let text = format!("{imports}{}\nexport {{}}\n", file.block_text(model).trim_end());
+        let text = format!(
+            "{imports}{}\nexport {{}}\n",
+            file.block_text(model).trim_end()
+        );
         let known = KnownModel::planned(&target, file.relative, model.model.clone());
         self.models.add(file.realm, name, known);
         let edits = [TextEdit::insert(0, &text)];
