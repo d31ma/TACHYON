@@ -1,7 +1,7 @@
 @CacheSettings({"name":"products","ttlMs":30000,"maxBytes":65536,"maxEntries":256})
 @Helper
 class CatalogHelper {
-  static FIRST_WORKING_CALL = 3;
+  static _FIRST_WORKING_CALL = 3;
   calls = 0;
 
   @Cached
@@ -21,7 +21,7 @@ class CatalogHelper {
   @AllOrNothing({"adapter":"catalog"})
   async flaky() {
     this.calls++;
-    if (this.calls < CatalogHelper.FIRST_WORKING_CALL) throw Error('transient');
+    if (this.calls < CatalogHelper._FIRST_WORKING_CALL) throw Error('transient');
     return this.calls;
   }
 }
