@@ -82,8 +82,8 @@ it used and why, for example
   3 to 5 ms (p95 3.4 ms, 13 ms at 4x CPU throttling). Boehm sweeps lazily,
   so a collection costs about as much as the live data. Measured with
   `scripts/wasm-worker-measure.mjs --runtimes go` (ADR 0084), 3 runs,
-  medians: p95 3,395 us to 765 us at 1x and 12,805 us to 2,045 us at 4x,
-  mean 837 us to 101 us; the module grows by 47 KiB raw and 14 KiB with
+  medians: p95 3,395 us to 710 us at 1x and 12,805 us to 1,915 us at 4x,
+  mean 837 us to 111 us; the module grows by 47 KiB raw and 14 KiB with
   Brotli (about 15%), and a page that makes thousands of calls holds a few
   MB more memory. The alternatives were worse: the conservative collector
   pauses the same, and a smaller goroutine stack (`-stack-size`) removes the

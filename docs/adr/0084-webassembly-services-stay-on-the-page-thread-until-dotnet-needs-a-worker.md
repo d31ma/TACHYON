@@ -182,7 +182,7 @@ and renders the page, with 40 to 205 ms of forced style and layout. The
    at 4x), which looks like garbage collection pauses inside TinyGo.
    (Follow-up, 2026-09-29: it was. Every call left a 64 KB goroutine stack
    as garbage and TinyGo's precise collector swept the whole heap every few
-   calls. TinyGo now builds with `-gc=boehm`: p95 765 us at 1x and 2.0 ms at
+   calls. TinyGo now builds with `-gc=boehm`: p95 710 us at 1x and 1.9 ms at
    4x; see ADR 0081.)
 3. **The worker's cost per call.** The postMessage round trip with a
    structured clone adds about 10 us at 1x (the JavaScript row: 10.6 us
@@ -220,7 +220,7 @@ worker per runtime by default. Per runtime:
 | --- | --- | --- |
 | JavaScript | never | no bridge at all; a call is 0.3 us, a worker adds 10 us |
 | Rust | no | 25 us calls, no long task, 2.7 MB |
-| Go (TinyGo) | no | no long task; the 3.4 ms p95 came from TinyGo's garbage collector and is 0.8 ms with `-gc=boehm` (ADR 0081) |
+| Go (TinyGo) | no | no long task; the 3.4 ms p95 came from TinyGo's garbage collector and is 0.7 ms with `-gc=boehm` (ADR 0081) |
 | C# and F# (.NET) | yes, first, when the two conditions below are met | the only runtime that blocks start-up (55 to 137 ms long tasks, 407 ms of script on `/docs` at 4x), the slowest calls (150 to 690 us p50) and the most memory (35 MB) |
 | Dart | no | 7 us calls, no long task, 1.5 MB |
 | Ruby | no by default; a candidate for opt-in | 100 us calls, one 64 ms task at 4x, but loops are 20 times slower, so heavy Ruby work blocks input first |

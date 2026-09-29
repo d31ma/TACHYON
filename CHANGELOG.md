@@ -1534,8 +1534,8 @@ machine contracts have their own, independent major versions.
   every call from the page, and its default collector swept the whole heap
   every few calls, so about one call in five paused for 3 to 5 ms. Measured
   with `scripts/wasm-worker-measure.mjs --runtimes go` (3 runs, medians), the
-  p95 of a page call falls from 3.4 ms to 0.77 ms at 1x and from 12.8 ms to
-  2.0 ms at 4x CPU throttling; the module grows by about 47 KiB (14 KiB with
+  p95 of a page call falls from 3.4 ms to 0.71 ms at 1x and from 12.8 ms to
+  1.9 ms at 4x CPU throttling; the module grows by about 47 KiB (14 KiB with
   Brotli).
 - The website's type sizes follow the average of six other framework
   websites (Svelte, Vue, React, Angular, Astro, Solid), set by one set of
