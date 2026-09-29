@@ -104,16 +104,20 @@ describe('annotation routes and clients in published examples', () => {
     expect(controllers.map(file => file.name.split('.').pop()).sort()).toEqual(PublishedData.withRuby)
   })
 
-  test('compiled HTTP examples keep their Service role alongside transport metadata', async () => {
+  test('compiled HTTP examples declare a client contract that the service builds', async () => {
     const docs = await PublishedData.load('docs')
     const section = docs.topics.annotations.sections.find(section => section.heading === 'Outgoing HTTP: Tac')
     assert.ok(section)
     for (const extension of ['cs', 'dart', 'go', 'kt', 'rs', 'swift']) {
       const service = section.files.find(file => file.name === `client/services/CatalogService.${extension}`)
+      const client = section.files.find(file => file.name === `client/clients/CatalogClient.${extension}`)
       assert.ok(service)
+      assert.ok(client)
       expect(service.code).toMatch(/(?:@|#\[|\[)Service\b/)
-      expect(service.code).toMatch(/(?:@|#\[|\[)HTTPClient\b/)
-      expect(service.code).toMatch(/(?:@|#\[|\[)GetRequest\b/)
+      expect(service.code).not.toMatch(/(?:@|#\[|\[)HTTPClient\b/)
+      expect(client.code).toMatch(/(?:@|#\[|\[)HTTPClient\b/)
+      expect(client.code).toMatch(/(?:@|#\[|\[)GetRequest\b/)
+      expect(client.code).toMatch(/\b(interface|trait|protocol)\b/)
     }
   })
 })
