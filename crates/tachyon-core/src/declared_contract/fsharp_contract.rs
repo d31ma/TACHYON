@@ -54,7 +54,7 @@ impl<'a> FsharpContract<'a> {
             .find_map(|name| ContractRole::of_marker(name))
     }
 
-    fn attribute_names(line: &str) -> Vec<String> {
+    pub(crate) fn attribute_names(line: &str) -> Vec<String> {
         let inside = line
             .trim()
             .trim_start_matches(Self::ATTRIBUTE_OPEN)

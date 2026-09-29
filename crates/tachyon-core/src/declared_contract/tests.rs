@@ -565,3 +565,18 @@ fn an_object_type_in_a_typescript_signature_is_not_a_body() {
         "{refused}"
     );
 }
+
+#[test]
+fn the_fix_turns_an_fsharp_class_client_into_a_contract() {
+    let path = Path::new(FsharpSamples::PATH);
+    let mut edits = DeclaredContract::rewrite(path, FsharpSamples::CLASS_FORM).expect("rewritten");
+    edits.sort_by_key(|(range, _)| std::cmp::Reverse(range.start));
+    let mut rewritten = FsharpSamples::CLASS_FORM.to_owned();
+    for (range, text) in edits {
+        rewritten.replace_range(range, &text);
+    }
+    assert!(rewritten.contains("type CatalogClient =\n"), "{rewritten}");
+    assert!(!rewritten.contains("behaviors"), "{rewritten}");
+    let checked = crate::annotation_layout::validate(path, &rewritten);
+    assert!(checked.is_ok(), "{checked:?}\n{rewritten}");
+}

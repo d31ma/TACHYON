@@ -451,3 +451,29 @@ fn an_fsharp_store_is_an_interface_that_lowers_into_an_injected_class() {
         .to_string();
     assert!(refused.contains("TY1308"), "{refused}");
 }
+
+#[test]
+fn the_fix_turns_an_fsharp_class_store_into_a_contract() {
+    let path = Path::new("server/stores/ProductStore.fs");
+    let class_form = StoreSamples::filled(
+        "open System.Threading.Tasks\n\n[<Store(typeof<ProductEntity>, OPTIONS)>]\ntype ProductStore(context: BehaviorContext) =\n    member val behaviors : BehaviorContext = context\n\n    abstract findByStatus: status: BehaviorJSON -> Task<BehaviorJSON>\n",
+    );
+    let mut edits = DeclaredContract::rewrite(path, &class_form).expect("rewritten");
+    edits.sort_by_key(|(range, _)| std::cmp::Reverse(range.start));
+    let mut rewritten = class_form.clone();
+    for (range, text) in edits {
+        rewritten.replace_range(range, &text);
+    }
+    assert!(rewritten.contains("type ProductStore =\n"), "{rewritten}");
+    let checked = crate::annotation_layout::validate(path, &rewritten);
+    assert!(checked.is_ok(), "{checked:?}\n{rewritten}");
+    let written = class_form.replace(
+        "    abstract findByStatus",
+        "    member this.bounded(request: BehaviorJSON) : BehaviorJSON = request\n\n    abstract findByStatus",
+    );
+    let problem = DeclaredContract::rewrite(path, &written).expect_err("logic stays manual");
+    assert!(
+        problem.contains("A Store has no implementation"),
+        "{problem}"
+    );
+}

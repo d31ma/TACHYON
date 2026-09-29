@@ -35,17 +35,29 @@ pub(super) fn repository(input: &Input<'_>, marker: &Marker) -> Result<Value, Fa
         ));
     };
     let options_marker = Marker {
-        arguments: options.to_owned(),
+        arguments: without_setup(options),
         ..marker.clone()
     };
     let mut object = super::object(
         input,
         &options_marker,
-        &["fields", "defaultSize", "maxSize", "setup"],
+        &["fields", "defaultSize", "maxSize"],
     )?;
-    object.remove("setup");
     object.insert("entity".to_owned(), Value::String(entity.to_owned()));
     repository_object(input, marker, object)
+}
+
+fn without_setup(options: &str) -> String {
+    super::literal::parse(options)
+        .ok()
+        .and_then(|value| value.as_object().cloned())
+        .map_or_else(
+            || options.to_owned(),
+            |mut object| {
+                object.remove("setup");
+                Value::Object(object).to_string()
+            },
+        )
 }
 
 fn repository_object(
