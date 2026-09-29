@@ -579,8 +579,6 @@ class NoteEntity {
 `);
   write(project, 'client/stores/NoteStore.js', `@Store(NoteEntity, {"fields":["id","status","rank"],"defaultSize":20,"maxSize":100})
 class NoteStore {
-  @Needs
-  behaviors;
   async findByStatus(status) {}
   async countByStatus(status) {}
   @Query({"operation":"find","where":[{"field":"rank","operator":"gte","argument":0}],"orderBy":[{"field":"rank","direction":"desc"}]})

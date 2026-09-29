@@ -10,7 +10,7 @@
       "include": "../storage/yon-managed-sql-and-redis/section.json"
     },
     {
-      "include": "../storage/store-injection-in-every-yon-language/section.json"
+      "include": "../storage/datasource-in-a-service/section.json"
     },
     {
       "include": "../storage/redis-in-a-repository/section.json"

@@ -3,8 +3,8 @@ from typing import Annotated
 @helper
 @lifetime('transient')
 class LedgerHelper:
-    repository: Annotated[LedgerStore, needs]
+    amounts: Annotated[LedgerAmountsHelper, needs]
 
     def settle(self, subtotal: int) -> int:
-        surcharge = self.repository.surcharge()
+        surcharge = self.amounts.surcharge()
         return subtotal + surcharge

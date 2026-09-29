@@ -1,5 +1,5 @@
 [Service]
 class OrderService
 {
-    public static string[] List() => OrderStore.All();
+    public static string[] List() => new[] { "anvil" };
 }

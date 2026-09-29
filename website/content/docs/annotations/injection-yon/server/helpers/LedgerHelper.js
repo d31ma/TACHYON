@@ -1,16 +1,16 @@
 @Helper
 @Lifetime('transient')
 export default class LedgerHelper {
-  /** @type {LedgerStore} */
+  /** @type {LedgerAmountsHelper} */
   @Needs
-  ledgerStore;
+  ledgerAmountsHelper;
 
   /**
    * @param {number} subtotal
    * @returns {number}
    */
   settle(subtotal) {
-    const surcharge = this.ledgerStore.surcharge();
+    const surcharge = this.ledgerAmountsHelper.surcharge();
     return subtotal + surcharge;
   }
 }

@@ -1,12 +1,11 @@
 [Service]
 class BillingService {
-  [Needs]
-  BillingStore _repository;
+  private const int Subtotal = 40;
+
   [Needs]
   BillingHelper _helper;
 
   public int total() {
-    int subtotal = _repository.subtotal();
-    return _helper.settle(subtotal);
+    return _helper.settle(Subtotal);
   }
 }

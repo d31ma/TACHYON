@@ -1,4 +1,5 @@
-@store
-class BillingStore:
-    def subtotal(self) -> int:
-        return 40
+from typing import Protocol
+
+@store(BillingEntity, {"fields":["id"],"defaultSize":20,"maxSize":100})
+class BillingStore(Protocol):
+    async def exists_by_id(self, id: int) -> None: ...

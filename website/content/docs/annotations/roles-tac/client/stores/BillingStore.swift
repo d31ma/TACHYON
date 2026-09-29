@@ -1,4 +1,4 @@
-@Store
-final class BillingStore {
-    func subtotal() -> Int { 40 }
+@Store(BillingEntity, {"fields":["id"],"defaultSize":20,"maxSize":100})
+protocol BillingStore {
+    func existsById(_ id: BehaviorJSON) async throws -> BehaviorJSON
 }

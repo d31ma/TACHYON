@@ -1,12 +1,11 @@
 @Service
 class BillingService {
-  @Needs
-  BillingStore repository
+  private static final int SUBTOTAL = 40
+
   @Needs
   BillingHelper helper
 
   int total() {
-    int subtotal = repository.subtotal()
-    return helper.settle(subtotal)
+    return helper.settle(SUBTOTAL)
   }
 }

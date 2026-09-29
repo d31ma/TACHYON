@@ -1,15 +1,13 @@
 @Service
 export default class BillingService {
-  /** @type {BillingStore} */
-  @Needs
-  billingStore;
+  static _SUBTOTAL = 40;
+
   /** @type {BillingHelper} */
   @Needs
   billingHelper;
 
   /** @returns {number} */
   total() {
-    const subtotal = this.billingStore.subtotal();
-    return this.billingHelper.settle(subtotal);
+    return this.billingHelper.settle(BillingService._SUBTOTAL);
   }
 }

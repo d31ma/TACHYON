@@ -1,12 +1,12 @@
 {
   "heading": "Injection: Yon",
-  "body": "GET /ledger returns {\"total\":42}. Three annotations connect every class to the classes it needs. Needs marks each field that the framework fills. The field must be an instance field, not static, and it must have no starting value. The framework fills the fields in the order that you declare them. The field itself decides which provider it gets. LedgerService declares one LedgerStore field. It writes no constructor and nothing else. When the field does not decide the provider, Named gives the provider's name directly. So you can give a field any words you want, written in the language's variable case (TY1332): lowerCamel case in most languages, snake_case in Python, Ruby and Rust, and an underscore with lowerCamel case for a private C# field, such as `_service`. In LedgerController, the fields service and settlement have Named(\"LedgerService\") and Named(\"LedgerHelper\"). If a name matches no provider in the entry scope, the build fails. Without Named, the field selects its provider in the way its language allows. JavaScript uses the lowerCamel field name, and Ruby uses the snake_case attr_reader name. Every other language uses the declared type. Lifetime takes one literal string: singleton, request or transient. A singleton is one instance that everything shares. A request-scoped instance lives for one request. A transient instance is new each time something needs it. Without Lifetime, a controller is request-scoped and everything else is a singleton. So you write Lifetime only to change that. Tachyon rejects a singleton that would depend, directly or through other providers, on a request-scoped provider.",
+  "body": "GET /ledger returns {\"total\":42}. Three annotations connect every class to the classes it needs. Needs marks each field that the framework fills. The field must be an instance field, not static, and it must have no starting value. The framework fills the fields in the order that you declare them. The field itself decides which provider it gets. LedgerService declares one LedgerAmountsHelper field. It writes no constructor and nothing else. When the field does not decide the provider, Named gives the provider's name directly. So you can give a field any words you want, written in the language's variable case (TY1332): lowerCamel case in most languages, snake_case in Python, Ruby and Rust, and an underscore with lowerCamel case for a private C# field, such as `_service`. In LedgerController, the fields service and settlement have Named(\"LedgerService\") and Named(\"LedgerHelper\"). If a name matches no provider in the entry scope, the build fails. Without Named, the field selects its provider in the way its language allows. JavaScript uses the lowerCamel field name, and Ruby uses the snake_case attr_reader name. Every other language uses the declared type. Lifetime takes one literal string: singleton, request or transient. A singleton is one instance that everything shares. A request-scoped instance lives for one request. A transient instance is new each time something needs it. Without Lifetime, a controller is request-scoped and everything else is a singleton. So you write Lifetime only to change that. Tachyon rejects a singleton that would depend, directly or through other providers, on a request-scoped provider.",
   "axis": "language",
   "files": [
     {
-      "name": "server/stores/LedgerStore.js",
+      "name": "server/helpers/LedgerAmountsHelper.js",
       "code": {
-        "file": "server/stores/LedgerStore.js"
+        "file": "server/helpers/LedgerAmountsHelper.js"
       }
     },
     {
@@ -34,9 +34,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.ts",
+      "name": "server/helpers/LedgerAmountsHelper.ts",
       "code": {
-        "file": "server/stores/LedgerStore.ts"
+        "file": "server/helpers/LedgerAmountsHelper.ts"
       }
     },
     {
@@ -64,9 +64,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.py",
+      "name": "server/helpers/LedgerAmountsHelper.py",
       "code": {
-        "file": "server/stores/LedgerStore.py"
+        "file": "server/helpers/LedgerAmountsHelper.py"
       }
     },
     {
@@ -94,9 +94,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.php",
+      "name": "server/helpers/LedgerAmountsHelper.php",
       "code": {
-        "file": "server/stores/LedgerStore.php"
+        "file": "server/helpers/LedgerAmountsHelper.php"
       }
     },
     {
@@ -130,15 +130,15 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.java",
+      "name": "server/helpers/LedgerAmountsHelper.java",
       "code": {
-        "file": "server/stores/LedgerStore.java"
+        "file": "server/helpers/LedgerAmountsHelper.java"
       }
     },
     {
-      "name": "server/stores/LedgerStore.groovy",
+      "name": "server/helpers/LedgerAmountsHelper.groovy",
       "code": {
-        "file": "server/stores/LedgerStore.groovy"
+        "file": "server/helpers/LedgerAmountsHelper.groovy"
       }
     },
     {
@@ -184,9 +184,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.kt",
+      "name": "server/helpers/LedgerAmountsHelper.kt",
       "code": {
-        "file": "server/stores/LedgerStore.kt"
+        "file": "server/helpers/LedgerAmountsHelper.kt"
       }
     },
     {
@@ -220,15 +220,15 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.cs",
+      "name": "server/helpers/LedgerAmountsHelper.cs",
       "code": {
-        "file": "server/stores/LedgerStore.cs"
+        "file": "server/helpers/LedgerAmountsHelper.cs"
       }
     },
     {
-      "name": "server/stores/LedgerStore.fs",
+      "name": "server/helpers/LedgerAmountsHelper.fs",
       "code": {
-        "file": "server/stores/LedgerStore.fs"
+        "file": "server/helpers/LedgerAmountsHelper.fs"
       }
     },
     {
@@ -274,9 +274,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.rs",
+      "name": "server/helpers/LedgerAmountsHelper.rs",
       "code": {
-        "file": "server/stores/LedgerStore.rs"
+        "file": "server/helpers/LedgerAmountsHelper.rs"
       }
     },
     {
@@ -304,9 +304,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.go",
+      "name": "server/helpers/LedgerAmountsHelper.go",
       "code": {
-        "file": "server/stores/LedgerStore.go"
+        "file": "server/helpers/LedgerAmountsHelper.go"
       }
     },
     {
@@ -334,9 +334,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.dart",
+      "name": "server/helpers/LedgerAmountsHelper.dart",
       "code": {
-        "file": "server/stores/LedgerStore.dart"
+        "file": "server/helpers/LedgerAmountsHelper.dart"
       }
     },
     {
@@ -364,9 +364,9 @@
       }
     },
     {
-      "name": "server/stores/LedgerStore.rb",
+      "name": "server/helpers/LedgerAmountsHelper.rb",
       "code": {
-        "file": "server/stores/LedgerStore.rb"
+        "file": "server/helpers/LedgerAmountsHelper.rb"
       }
     },
     {

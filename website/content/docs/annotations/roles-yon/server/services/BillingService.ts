@@ -1,12 +1,11 @@
 @Service
 export default class BillingService {
-  @Needs
-  repository!: BillingStore;
+  private static readonly SUBTOTAL = 40;
+
   @Needs
   helper!: BillingHelper;
 
   total(): number {
-    const subtotal = this.repository.subtotal();
-    return this.helper.settle(subtotal);
+    return this.helper.settle(BillingService.SUBTOTAL);
   }
 }

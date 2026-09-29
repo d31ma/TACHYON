@@ -2,8 +2,8 @@ from typing import Annotated
 
 @helper
 class TaxHelper:
-    store: Annotated[TaxRateStore, needs]
+    rates: Annotated[TaxRateHelper, needs]
 
     def add_tax(self, subtotal: int) -> int:
-        tax = self.store.rate()
+        tax = self.rates.rate()
         return subtotal + tax

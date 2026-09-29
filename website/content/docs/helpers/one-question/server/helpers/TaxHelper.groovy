@@ -1,10 +1,10 @@
 @Helper
 class TaxHelper {
   @Needs
-  TaxRateStore store
+  TaxRateHelper rates
 
   int addTax(int subtotal) {
-    int tax = store.rate()
+    int tax = rates.rate()
     return subtotal + tax
   }
 }

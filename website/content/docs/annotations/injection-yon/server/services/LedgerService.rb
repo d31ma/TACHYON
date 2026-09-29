@@ -1,11 +1,11 @@
 #[Service]
 class LedgerService
   #[Needs]
-  # @return [LedgerStore]
-  attr_reader :ledger_store
+  # @return [LedgerAmountsHelper]
+  attr_reader :ledger_amounts_helper
 
   # @return [Integer]
   def subtotal
-    ledger_store.subtotal
+    ledger_amounts_helper.subtotal
   end
 end

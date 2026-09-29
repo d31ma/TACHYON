@@ -1,9 +1,6 @@
 // @Service
-type OrderService struct {
-	// @Needs
-	repository *OrderStore
-}
+type OrderService struct{}
 
 func (service *OrderService) List() []string {
-	return service.repository.All()
+	return []string{"anvil"}
 }

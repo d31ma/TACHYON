@@ -2,10 +2,10 @@
 @Lifetime("transient")
 class LedgerHelper {
   @Needs
-  final LedgerStore repository;
+  final LedgerAmountsHelper amounts;
 
   int settle(int subtotal) {
-    final surcharge = repository.surcharge();
+    final surcharge = amounts.surcharge();
     return subtotal + surcharge;
   }
 }

@@ -1,7 +1,7 @@
 {
   "id": "java",
   "name": "Java",
-  "note": "Java keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+  "note": "Java keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
   "files": [
     {
       "name": "server/models/OrderList.java",
@@ -13,12 +13,6 @@
       "name": "server/services/OrderService.java",
       "code": {
         "file": "server/services/OrderService.java"
-      }
-    },
-    {
-      "name": "server/stores/OrderStore.java",
-      "code": {
-        "file": "server/stores/OrderStore.java"
       }
     },
     {

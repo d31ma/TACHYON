@@ -1,10 +1,10 @@
 [Helper]
 class TaxHelper {
   [Needs]
-  TaxRateStore _store;
+  TaxRateHelper _rates;
 
   public int addTax(int subtotal) {
-    int tax = _store.rate();
+    int tax = _rates.rate();
     return subtotal + tax;
   }
 }

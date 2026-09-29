@@ -1,10 +1,10 @@
 @Helper
 class TaxHelper {
   @Needs
-  val store: TaxRateStore
+  val rates: TaxRateHelper
 
   fun addTax(subtotal: Int): Int {
-    val tax = store.rate()
+    val tax = rates.rate()
     return subtotal + tax
   }
 }

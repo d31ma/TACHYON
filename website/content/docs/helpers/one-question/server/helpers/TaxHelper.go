@@ -1,10 +1,10 @@
 // @Helper
 type TaxHelper struct {
 	// @Needs
-	store *TaxRateStore
+	rates *TaxRateHelper
 }
 
 func (helper *TaxHelper) AddTax(subtotal int) int {
-	tax := helper.store.Rate()
+	tax := helper.rates.Rate()
 	return subtotal + tax
 }

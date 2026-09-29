@@ -1,12 +1,11 @@
 @Service
 class BillingService {
   @Needs
-  val repository: BillingStore
-  @Needs
   val helper: BillingHelper
 
-  fun total(): Int {
-    val subtotal = repository.subtotal()
-    return helper.settle(subtotal)
+  fun total(): Int = helper.settle(SUBTOTAL)
+
+  companion object {
+    private const val SUBTOTAL = 40
   }
 }

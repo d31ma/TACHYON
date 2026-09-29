@@ -1,12 +1,12 @@
 {
   "heading": "Helpers, utilities and private methods",
-  "body": "GET /checkout returns {\"total\":42}. When two classes share code, or one class has a long job, ask one question: does this code need other classes (stores, clients, settings or other helpers), saved state, OnStart or OnStop, or a Fake in tests? If the answer is yes, write a helper. A helper is a class that other classes use for part of their work. Mark it with Helper, put it in client/helpers or server/helpers, and end its name with Helper. Tachyon creates it and gives it to each class that asks for it with Needs. A view or a controller does not call a helper directly: it calls a service, and the service calls the helper.\n\nIf the answer is no, you do not need a helper:\n\n| The code | Write it as |\n| --- | --- |\n| needs other classes, saved state, OnStart or OnStop, or a Fake in tests | a helper: Helper, in helpers, with a name that ends with Helper |\n| has only static methods and no state | a utility: a class named like PriceUtils in client/utils or server/utils, with no annotation (see Utilities) |\n| is used by one class only | a private method of that class |\n| is called by a view or a controller | a service |\n\nThe layers go in one order: a view or a controller calls a service, a service calls a helper, and a helper calls a store or a client. Any layer can call a utility. The build refuses a dependency that points up, such as a helper that needs a service (TY1327, see Dependencies point down).\n\nIn this example, CheckoutService adds the tax through TaxHelper. TaxHelper is a helper because it needs another class, TaxRateStore. Only CheckoutService uses the subtotal, so the subtotal is a private method of CheckoutService, not a helper and not a utility. The controller calls the service, never the helper.\n\nHelper was called Component before. The name changed because client/components holds views. The build refuses Component with its new name (TY1308) and a file in a delegates folder with the helpers folder (TY1310). `ty migrate fix --write` moves the files from delegates to helpers, renames each class from a name that ends with Component to a name that ends with Helper, and changes the Needs fields and types that use it.",
+  "body": "GET /checkout returns {\"total\":42}. When two classes share code, or one class has a long job, ask one question: does this code need other classes (stores, clients, settings or other helpers), saved state, OnStart or OnStop, or a Fake in tests? If the answer is yes, write a helper. A helper is a class that other classes use for part of their work. Mark it with Helper, put it in client/helpers or server/helpers, and end its name with Helper. Tachyon creates it and gives it to each class that asks for it with Needs. A view or a controller does not call a helper directly: it calls a service, and the service calls the helper.\n\nIf the answer is no, you do not need a helper:\n\n| The code | Write it as |\n| --- | --- |\n| needs other classes, saved state, OnStart or OnStop, or a Fake in tests | a helper: Helper, in helpers, with a name that ends with Helper |\n| has only static methods and no state | a utility: a class named like PriceUtils in client/utils or server/utils, with no annotation (see Utilities) |\n| is used by one class only | a private method of that class |\n| is called by a view or a controller | a service |\n\nThe layers go in one order: a view or a controller calls a service, a service calls a helper, and a helper calls a store or a client. Any layer can call a utility. The build refuses a dependency that points up, such as a helper that needs a service (TY1327, see Dependencies point down).\n\nIn this example, CheckoutService adds the tax through TaxHelper. TaxHelper is a helper because it needs another class, TaxRateHelper. Only CheckoutService uses the subtotal, so the subtotal is a private method of CheckoutService, not a helper and not a utility. The controller calls the service, never the helper.\n\nHelper was called Component before. The name changed because client/components holds views. The build refuses Component with its new name (TY1308) and a file in a delegates folder with the helpers folder (TY1310). `ty migrate fix --write` moves the files from delegates to helpers, renames each class from a name that ends with Component to a name that ends with Helper, and changes the Needs fields and types that use it.",
   "axis": "language",
   "files": [
     {
-      "name": "server/stores/TaxRateStore.js",
+      "name": "server/helpers/TaxRateHelper.js",
       "code": {
-        "file": "server/stores/TaxRateStore.js"
+        "file": "server/helpers/TaxRateHelper.js"
       }
     },
     {
@@ -34,9 +34,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.ts",
+      "name": "server/helpers/TaxRateHelper.ts",
       "code": {
-        "file": "server/stores/TaxRateStore.ts"
+        "file": "server/helpers/TaxRateHelper.ts"
       }
     },
     {
@@ -64,9 +64,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.py",
+      "name": "server/helpers/TaxRateHelper.py",
       "code": {
-        "file": "server/stores/TaxRateStore.py"
+        "file": "server/helpers/TaxRateHelper.py"
       }
     },
     {
@@ -94,9 +94,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.php",
+      "name": "server/helpers/TaxRateHelper.php",
       "code": {
-        "file": "server/stores/TaxRateStore.php"
+        "file": "server/helpers/TaxRateHelper.php"
       }
     },
     {
@@ -130,15 +130,15 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.java",
+      "name": "server/helpers/TaxRateHelper.java",
       "code": {
-        "file": "server/stores/TaxRateStore.java"
+        "file": "server/helpers/TaxRateHelper.java"
       }
     },
     {
-      "name": "server/stores/TaxRateStore.groovy",
+      "name": "server/helpers/TaxRateHelper.groovy",
       "code": {
-        "file": "server/stores/TaxRateStore.groovy"
+        "file": "server/helpers/TaxRateHelper.groovy"
       }
     },
     {
@@ -184,9 +184,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.kt",
+      "name": "server/helpers/TaxRateHelper.kt",
       "code": {
-        "file": "server/stores/TaxRateStore.kt"
+        "file": "server/helpers/TaxRateHelper.kt"
       }
     },
     {
@@ -214,9 +214,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.cs",
+      "name": "server/helpers/TaxRateHelper.cs",
       "code": {
-        "file": "server/stores/TaxRateStore.cs"
+        "file": "server/helpers/TaxRateHelper.cs"
       }
     },
     {
@@ -244,9 +244,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.rs",
+      "name": "server/helpers/TaxRateHelper.rs",
       "code": {
-        "file": "server/stores/TaxRateStore.rs"
+        "file": "server/helpers/TaxRateHelper.rs"
       }
     },
     {
@@ -274,9 +274,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.go",
+      "name": "server/helpers/TaxRateHelper.go",
       "code": {
-        "file": "server/stores/TaxRateStore.go"
+        "file": "server/helpers/TaxRateHelper.go"
       }
     },
     {
@@ -304,9 +304,9 @@
       }
     },
     {
-      "name": "server/stores/TaxRateStore.dart",
+      "name": "server/helpers/TaxRateHelper.dart",
       "code": {
-        "file": "server/stores/TaxRateStore.dart"
+        "file": "server/helpers/TaxRateHelper.dart"
       }
     },
     {

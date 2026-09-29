@@ -4,20 +4,16 @@ open Models
 
 [<RequestRoute("/products")>]
 [<Public>]
-type ProductController() =
+type ProductController(products: ProductStore) =
     [<GetRoute>]
     member this.GetProduct() : ProductReport = this.BuildReport().Result
 
     member private this.BuildReport() : Task<ProductReport> =
         task {
-            use signal = new BehaviorSignal()
-            use context = Behaviors.create(typeof<CatalogSetup>, "public-catalog", signal)
-            let products = ProductStore(context)
             let activeStatus = BehaviorJSON.From("active")
             let! active = products.findByStatus(activeStatus)
             let! activeCount = products.countByStatus(activeStatus)
-            let page = products.bounded(BehaviorJSON.Parse("{\"size\":5}"))
-            let! others = products.excluding(activeStatus, page)
+            let! others = products.excluding(activeStatus, BehaviorJSON.Parse("{\"size\":5}"))
             return
                 { Active = JsonNode.Parse(active.ToString())
                   Count = JsonNode.Parse(activeCount.ToString())

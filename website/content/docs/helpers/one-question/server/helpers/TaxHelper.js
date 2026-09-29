@@ -1,15 +1,15 @@
 @Helper
 export default class TaxHelper {
-  /** @type {TaxRateStore} */
+  /** @type {TaxRateHelper} */
   @Needs
-  taxRateStore;
+  taxRateHelper;
 
   /**
    * @param {number} subtotal
    * @returns {number}
    */
   addTax(subtotal) {
-    const tax = this.taxRateStore.rate();
+    const tax = this.taxRateHelper.rate();
     return subtotal + tax;
   }
 }

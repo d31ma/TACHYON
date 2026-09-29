@@ -1,15 +1,15 @@
 @Helper
 export default class CartHelper {
-  /** @type {CartStore} */
+  /** @type {CartPricesHelper} */
   @Needs
-  cartStore;
+  cartPricesHelper;
 
   /**
    * @param {number} subtotal
    * @returns {number}
    */
   settle(subtotal) {
-    const surcharge = this.cartStore.surcharge();
+    const surcharge = this.cartPricesHelper.surcharge();
     return subtotal + surcharge;
   }
 }

@@ -51,42 +51,42 @@ export default class Products${extension.toUpperCase()}Service {
 }
 
 function writeProviderFixtures(root) {
-  write(root, 'client/stores/CatalogStore.js', `@Store()
-class CatalogStore {
+  write(root, 'client/helpers/CatalogPriceHelper.js', `@Helper()
+class CatalogPriceHelper {
   prices = { 1: 5 };
   price(id) { return this.prices[id] ?? 0; }
 }`)
   write(root, 'client/helpers/PricingHelper.js', `@Helper()
 @NeedsAll()
 class PricingHelper {
-  catalogStore;
+  catalogPriceHelper;
   productsJSClient;
   async quote() {
     const [product] = await this.productsJSClient.all('normal');
-    return product.name + '=' + this.catalogStore.price(product.id);
+    return product.name + '=' + this.catalogPriceHelper.price(product.id);
   }
 }`)
   write(root, 'client/pages/providers/tac.html', '<providers-panel />')
   write(root, 'client/components/providers/panel/tac.html', '<main><p id="quote">{providersPanel.quote}</p></main>')
   write(root, 'client/services/ProvidersPanelService.js', `
 @Service()
-@Needs(PricingHelper, CatalogStore)
+@Needs(PricingHelper, CatalogPriceHelper)
 export default class ProvidersPanelService {
   static _NOT_INJECTED = 'providers were not injected'
   pricingHelper;
-  catalogStore;
+  catalogPriceHelper;
   quote = 'pending';
   @OnStart()
   async initialize() {
     this.#requirePricingHelper();
-    this.#requireSharedStore();
-    this.quote = await this.pricingHelper.quote() + ' direct=' + this.catalogStore.price(1);
+    this.#requireSharedHelper();
+    this.quote = await this.pricingHelper.quote() + ' direct=' + this.catalogPriceHelper.price(1);
   }
   #requirePricingHelper() {
     if (!(this.pricingHelper instanceof PricingHelper)) throw new Error(ProvidersPanelService._NOT_INJECTED);
   }
-  #requireSharedStore() {
-    if (this.pricingHelper.catalogStore !== this.catalogStore) throw new Error(ProvidersPanelService._NOT_INJECTED);
+  #requireSharedHelper() {
+    if (this.pricingHelper.catalogPriceHelper !== this.catalogPriceHelper) throw new Error(ProvidersPanelService._NOT_INJECTED);
   }
 }`)
 }

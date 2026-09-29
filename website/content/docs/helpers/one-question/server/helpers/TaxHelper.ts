@@ -1,10 +1,10 @@
 @Helper
 export default class TaxHelper {
   @Needs
-  store!: TaxRateStore;
+  rates!: TaxRateHelper;
 
   addTax(subtotal: number): number {
-    const tax = this.store.rate();
+    const tax = this.rates.rate();
     return subtotal + tax;
   }
 }

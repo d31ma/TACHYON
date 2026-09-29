@@ -1,4 +1,4 @@
 [<Service>]
-type LedgerService(ledgerStore: LedgerStore) =
+type LedgerService(ledgerAmountsHelper: LedgerAmountsHelper) =
     member this.Subtotal() : int =
-        ledgerStore.Subtotal()
+        ledgerAmountsHelper.Subtotal()

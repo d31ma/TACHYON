@@ -1,4 +1,4 @@
-@Store
+@Store(BillingEntity, {"fields":["id"],"defaultSize":20,"maxSize":100})
 export default class BillingStore {
-  subtotal(): number { return 40; }
+  async existsById(id: number): Promise<boolean | void> {}
 }

@@ -1,4 +1,4 @@
-@Store
-class BillingStore {
-  int subtotal() { return 40; }
+@Store(BillingEntity.class, {"fields":["id"],"defaultSize":20,"maxSize":100})
+interface BillingStore {
+  Object existsById(long id);
 }

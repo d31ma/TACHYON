@@ -1,8 +1,8 @@
 @Service
 class AuditService {
   @Needs
-  @Named("CartStore")
-  final CartStore ledger;
+  @Named("CartPricesHelper")
+  final CartPricesHelper ledger;
 
   int get lines => ledger.count();
 }

@@ -1,6 +1,6 @@
 [Service]
 class LedgerService {
   [Needs]
-  LedgerStore _repository;
-  public int subtotal() { return _repository.subtotal(); }
+  LedgerAmountsHelper _amounts;
+  public int subtotal() { return _amounts.subtotal(); }
 }

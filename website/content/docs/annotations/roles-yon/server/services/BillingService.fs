@@ -1,4 +1,6 @@
 [<Service>]
-type BillingService(billingStore: BillingStore, billingHelper: BillingHelper) =
+type BillingService(billingHelper: BillingHelper) =
+    static member private Subtotal = 40
+
     member this.Total() : int =
-        billingHelper.Settle(billingStore.Subtotal())
+        billingHelper.Settle(BillingService.Subtotal)

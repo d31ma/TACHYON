@@ -2,11 +2,11 @@
 #[Lifetime("transient")]
 struct LedgerHelper {
     #[Needs]
-    repository: std::sync::Arc<LedgerStore>,
+    amounts: std::sync::Arc<LedgerAmountsHelper>,
 }
 impl LedgerHelper {
     fn settle(&self, subtotal: i64) -> i64 {
-        let surcharge = self.repository.surcharge();
+        let surcharge = self.amounts.surcharge();
         subtotal + surcharge
     }
 }

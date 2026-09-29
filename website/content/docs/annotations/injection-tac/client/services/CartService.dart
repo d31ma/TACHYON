@@ -2,12 +2,12 @@
 @Lifetime({"value":"prototype"})
 class CartService {
   @Needs
-  final CartStore cartStore;
+  final CartPricesHelper cartPricesHelper;
   @Needs
   final CartHelper cartHelper;
 
   int get total {
-    final subtotal = cartStore.subtotal();
+    final subtotal = cartPricesHelper.subtotal();
     return cartHelper.settle(subtotal);
   }
 }

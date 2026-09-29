@@ -2,10 +2,10 @@
 // @Lifetime("transient")
 type LedgerHelper struct {
 	// @Needs
-	repository *LedgerStore
+	amounts *LedgerAmountsHelper
 }
 
 func (helper *LedgerHelper) Settle(subtotal int) int {
-	surcharge := helper.repository.Surcharge()
+	surcharge := helper.amounts.Surcharge()
 	return subtotal + surcharge
 }

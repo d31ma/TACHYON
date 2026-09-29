@@ -1,9 +1,9 @@
 @Service
 class LedgerService {
   @Needs
-  final LedgerStore repository;
+  final LedgerAmountsHelper amounts;
 
   int subtotal() {
-    return repository.subtotal();
+    return amounts.subtotal();
   }
 }

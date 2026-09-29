@@ -2,7 +2,7 @@ from typing import Annotated
 
 @service
 class LedgerService:
-    repository: Annotated[LedgerStore, needs]
+    amounts: Annotated[LedgerAmountsHelper, needs]
 
     def subtotal(self) -> int:
-        return self.repository.subtotal()
+        return self.amounts.subtotal()

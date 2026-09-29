@@ -2,12 +2,13 @@
 #[Service]
 class BillingService {
   #[Needs]
-  private BillingStore $repository;
-  #[Needs]
   private BillingHelper $helper;
 
   public function total(): int {
-    $subtotal = $this->repository->subtotal();
-    return $this->helper->settle($subtotal);
+    return $this->helper->settle($this->subtotal());
+  }
+
+  private function subtotal(): int {
+    return 40;
   }
 }

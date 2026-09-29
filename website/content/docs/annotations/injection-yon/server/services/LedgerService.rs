@@ -1,8 +1,8 @@
 #[Service]
 struct LedgerService {
     #[Needs]
-    repository: std::sync::Arc<LedgerStore>,
+    amounts: std::sync::Arc<LedgerAmountsHelper>,
 }
 impl LedgerService {
-    fn subtotal(&self) -> i64 { self.repository.subtotal() }
+    fn subtotal(&self) -> i64 { self.amounts.subtotal() }
 }

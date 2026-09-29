@@ -3,10 +3,10 @@
 #[Lifetime('transient')]
 class LedgerHelper {
   #[Needs]
-  private LedgerStore $repository;
+  private LedgerAmountsHelper $amounts;
 
   public function settle(int $subtotal): int {
-    $surcharge = $this->repository->surcharge();
+    $surcharge = $this->amounts->surcharge();
     return $subtotal + $surcharge;
   }
 }

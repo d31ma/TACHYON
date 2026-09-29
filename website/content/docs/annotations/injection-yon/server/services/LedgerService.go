@@ -1,9 +1,9 @@
 // @Service
 type LedgerService struct {
 	// @Needs
-	repository *LedgerStore
+	amounts *LedgerAmountsHelper
 }
 
 func (service *LedgerService) Subtotal() int {
-	return service.repository.Subtotal()
+	return service.amounts.Subtotal()
 }

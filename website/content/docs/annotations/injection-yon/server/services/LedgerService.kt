@@ -1,6 +1,6 @@
 @Service
 class LedgerService {
   @Needs
-  val repository: LedgerStore
-  fun subtotal(): Int = repository.subtotal()
+  val amounts: LedgerAmountsHelper
+  fun subtotal(): Int = amounts.subtotal()
 }

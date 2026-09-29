@@ -1,8 +1,8 @@
 @Service
 export default class AuditService {
-  /** @type {CartStore} */
+  /** @type {CartPricesHelper} */
   @Needs
-  @Named("CartStore")
+  @Named("CartPricesHelper")
   ledger;
   /** @returns {number} */
   get lines() { return this.ledger.count(); }

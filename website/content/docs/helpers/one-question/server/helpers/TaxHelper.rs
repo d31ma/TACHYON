@@ -1,11 +1,11 @@
 #[Helper]
 struct TaxHelper {
     #[Needs]
-    store: std::sync::Arc<TaxRateStore>,
+    rates: std::sync::Arc<TaxRateHelper>,
 }
 impl TaxHelper {
     fn add_tax(&self, subtotal: i64) -> i64 {
-        let tax = self.store.rate();
+        let tax = self.rates.rate();
         subtotal + tax
     }
 }

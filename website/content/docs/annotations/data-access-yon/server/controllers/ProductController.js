@@ -2,20 +2,17 @@
 @RequestRoute("/products")
 @Public
 class ProductController {
+  /** @type {ProductStore} */
+  @Needs
+  productStore;
+
   /** @returns {Promise<ProductReport>} */
   @GetRoute
   async getProduct() {
-    const context = await Behaviors.create(CatalogSetup, {
-      partition: 'public-catalog',
-      signal: AbortSignal.timeout(5000),
-    });
-    const products = Behaviors.construct(ProductStore, { behaviors: context });
     const activeStatus = 'active';
-    const active = await products.findByStatus(activeStatus);
-    const activeCount = await products.countByStatus(activeStatus);
-    const page = products.bounded({ size: 5 });
-    const others = await products.excluding(activeStatus, page);
-    context.dispose();
+    const active = await this.productStore.findByStatus(activeStatus);
+    const activeCount = await this.productStore.countByStatus(activeStatus);
+    const others = await this.productStore.excluding(activeStatus, { size: 5 });
     return { active, count: activeCount, others };
   }
 }

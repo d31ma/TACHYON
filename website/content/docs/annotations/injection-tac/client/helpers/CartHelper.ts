@@ -1,10 +1,10 @@
 @Helper
 export default class CartHelper {
   @Needs
-  cartStore!: CartStore;
+  cartPricesHelper!: CartPricesHelper;
 
   settle(subtotal: number): number {
-    const surcharge = this.cartStore.surcharge();
+    const surcharge = this.cartPricesHelper.surcharge();
     return subtotal + surcharge;
   }
 }

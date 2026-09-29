@@ -2,6 +2,6 @@
 #[Service]
 class LedgerService {
   #[Needs]
-  private LedgerStore $repository;
-  public function subtotal(): int { return $this->repository->subtotal(); }
+  private LedgerAmountsHelper $amounts;
+  public function subtotal(): int { return $this->amounts->subtotal(); }
 }

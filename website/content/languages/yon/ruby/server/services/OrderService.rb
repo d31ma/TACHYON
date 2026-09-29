@@ -1,11 +1,7 @@
 #[Service]
 class OrderService
-  def initialize
-    @store = OrderStore.new
-  end
-
   # @return [Array<Order>]
   def list
-    @store.all
+    [Order.new(sku: "anvil", level: 4)]
   end
 end

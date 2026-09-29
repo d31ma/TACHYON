@@ -1,5 +1,5 @@
 [<Helper>]
 [<Lifetime("transient")>]
-type LedgerHelper(ledgerStore: LedgerStore) =
+type LedgerHelper(ledgerAmountsHelper: LedgerAmountsHelper) =
     member this.Settle(subtotal: int) : int =
-        subtotal + ledgerStore.Surcharge()
+        subtotal + ledgerAmountsHelper.Surcharge()

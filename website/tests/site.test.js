@@ -317,13 +317,13 @@ describe('language coverage', () => {
 
   test('storage documents managed resources in every Yon language and browser Client discovery', async () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
-    const repositories = docs.topics['server-data'].sections.find(section => section.heading === 'Store injection in every Yon language')
+    const repositories = docs.topics['server-data'].sections.find(section => section.heading === 'DataSource in a service, in every Yon language')
     expect(repositories.axis).toBe('language')
     const extensions = ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts']
     expect(repositories.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort()).toEqual(extensions)
     for (const extension of extensions) {
       const files = repositories.files.filter(file => file.name.endsWith(`.${extension}`))
-      expect(files.some(file => file.name.endsWith(`/stores/CatalogStore.${extension}`))).toBe(true)
+      expect(files.some(file => file.name.endsWith(`/services/CatalogService.${extension}`))).toBe(true)
       expect(files.some(file => file.name.endsWith(`/controllers/CatalogController.${extension}`))).toBe(true)
       expect(files.map(file => file.code).join('\n')).toMatch(/DataSource|dataSource/)
       expect(files.map(file => file.code).join('\n')).toMatch(Patterns.needs)
@@ -433,13 +433,11 @@ describe('language coverage', () => {
       const names = entry.files.map((file) => file.name)
       expect(names.some((name) => name.startsWith('server/controllers/'))).toBe(true)
       expect(names.some((name) => name.startsWith('server/services/OrderService.'))).toBe(true)
-      expect(names.some((name) => name.startsWith('server/stores/OrderStore.'))).toBe(true)
       const controller = entry.files.find((file) => /\/controllers\/OrdersController\./.test(file.name))
       expect(controller.code).toMatch(/RequestRoute|request_route/)
       expect(controller.code).toMatch(/GetRoute|get_route/)
       expect(controller.code).toContain('OrderService')
       expect(controller.code).not.toMatch(/(?:class|struct|object) OrderService/)
-      expect(controller.code).not.toMatch(/(?:class|struct|object) OrderStore/)
     }
   })
 

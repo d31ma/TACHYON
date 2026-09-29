@@ -2,21 +2,18 @@ use crate::models::ProductReport;
 
 #[RequestRoute("/products")]
 #[Public]
-struct ProductController {}
+struct ProductController {
+    #[Needs]
+    products: std::sync::Arc<ProductStore>,
+}
 impl ProductController {
-    fn new() -> Self { Self {} }
     #[GetRoute]
     fn get_product(&self) -> Result<ProductReport, YonResourceError> {
-        let options = BehaviorOptions::new("public-catalog", BehaviorSignal::new());
-        let context = Behaviors::create::<CatalogSetup>(options).map_err(|_| YonResourceError)?;
-        let products = ProductStore::new(context.clone());
-        let page_request = BehaviorValue::object([("size", BehaviorValue::Number(5.0))]);
-        let page = products.bounded(page_request).map_err(|_| YonResourceError)?;
+        let page = BehaviorValue::object([("size", BehaviorValue::Number(5.0))]);
         let active_status = "active";
-        let active = products.find_by_status(active_status.into()).map_err(|_| YonResourceError)?;
-        let active_count = products.count_by_status(active_status.into()).map_err(|_| YonResourceError)?;
-        let others = products.excluding(active_status.into(), page).map_err(|_| YonResourceError)?;
-        context.dispose();
+        let active = self.products.find_by_status(active_status.into()).map_err(|_| YonResourceError)?;
+        let active_count = self.products.count_by_status(active_status.into()).map_err(|_| YonResourceError)?;
+        let others = self.products.excluding(active_status.into(), page).map_err(|_| YonResourceError)?;
         Ok(ProductReport { active: Self::json(active), count: Self::json(active_count), others: Self::json(others) })
     }
 

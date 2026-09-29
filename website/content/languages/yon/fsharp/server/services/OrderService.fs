@@ -1,4 +1,4 @@
 [<Service>]
-type OrderService(orderStore: OrderStore) =
+type OrderService() =
     member this.List() : string[] =
-        orderStore.All()
+        [| "anvil" |]

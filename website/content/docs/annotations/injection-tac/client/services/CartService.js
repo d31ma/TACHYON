@@ -1,16 +1,16 @@
 @Service
 @Lifetime({"value":"prototype"})
 export default class CartService {
-  /** @type {CartStore} */
+  /** @type {CartPricesHelper} */
   @Needs
-  cartStore;
+  cartPricesHelper;
   /** @type {CartHelper} */
   @Needs
   cartHelper;
 
   /** @returns {number} */
   get total() {
-    const subtotal = this.cartStore.subtotal();
+    const subtotal = this.cartPricesHelper.subtotal();
     return this.cartHelper.settle(subtotal);
   }
 }

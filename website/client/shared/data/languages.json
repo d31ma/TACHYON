@@ -71,15 +71,11 @@
       {
         "id": "javascript",
         "name": "JavaScript",
-        "note": "JavaScript keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "JavaScript keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/services/OrderService.js",
-            "code": "@Service\nexport class OrderService {\n  /** @type {OrderStore} */\n  _repository = new OrderStore()\n\n  /** @returns {Order[]} */\n  list() {\n    return this._repository.all()\n  }\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.js",
-            "code": "@Store\nexport class OrderStore {\n  /** @returns {Order[]} */\n  all() {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
+            "code": "@Service\nexport class OrderService {\n  /** @returns {Order[]} */\n  list() {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.js",
@@ -98,7 +94,7 @@
       {
         "id": "typescript",
         "name": "TypeScript",
-        "note": "TypeScript keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "TypeScript keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.ts",
@@ -106,15 +102,11 @@
           },
           {
             "name": "server/services/OrderService.ts",
-            "code": "import type { Order } from '/models/Order.ts';\n@Service\nexport class OrderService {\n  private repository = new OrderStore()\n\n  list(): Order[] {\n    return this.repository.all()\n  }\n}\n"
+            "code": "import type { Order } from '/models/Order.ts';\n@Service\nexport class OrderService {\n  list(): Order[] {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
           },
           {
             "name": "server/models/Order.ts",
             "code": "export interface Order {\n  sku: string\n  level: number\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.ts",
-            "code": "import type { Order } from '/models/Order.ts';\n@Store\nexport class OrderStore {\n  all(): Order[] {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.ts",
@@ -125,7 +117,7 @@
       {
         "id": "python",
         "name": "Python",
-        "note": "Python keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Python keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/Order.py",
@@ -137,11 +129,7 @@
           },
           {
             "name": "server/services/OrderService.py",
-            "code": "from models import Order\n\n\n@Service\nclass OrderService:\n    def __init__(self):\n        self.repository = OrderStore()\n\n    def list(self) -> list[Order]:\n        return self.repository.all()\n"
-          },
-          {
-            "name": "server/stores/OrderStore.py",
-            "code": "from models import Order\n\n\n@Store\nclass OrderStore:\n    def all(self) -> list[Order]:\n        return [Order(\"anvil\", 4)]\n"
+            "code": "from models import Order\n\n\n@Service\nclass OrderService:\n    def list(self) -> list[Order]:\n        return [Order(\"anvil\", 4)]\n"
           },
           {
             "name": "server/controllers/OrdersController.py",
@@ -152,7 +140,7 @@
       {
         "id": "php",
         "name": "PHP",
-        "note": "PHP keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "PHP keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/Order.php",
@@ -164,11 +152,7 @@
           },
           {
             "name": "server/services/OrderService.php",
-            "code": "<?php\n\n#[Service]\nclass OrderService\n{\n    public static function list(): array\n    {\n        return OrderStore::all();\n    }\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.php",
-            "code": "<?php\nuse Models\\Order;\n\n#[Store]\nclass OrderStore\n{\n    /** @return list<Order> */\n    public static function all(): array\n    {\n        return [new Order('anvil', 4)];\n    }\n}\n"
+            "code": "<?php\nuse Models\\Order;\n\n#[Service]\nclass OrderService\n{\n    /** @return list<Order> */\n    public static function list(): array\n    {\n        return [new Order('anvil', 4)];\n    }\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.php",
@@ -179,7 +163,7 @@
       {
         "id": "java",
         "name": "Java",
-        "note": "Java keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Java keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.java",
@@ -187,11 +171,7 @@
           },
           {
             "name": "server/services/OrderService.java",
-            "code": "@Service\nclass OrderService {\n    static java.util.List<String> list() {\n        return OrderStore.all();\n    }\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.java",
-            "code": "@Store\nclass OrderStore {\n    static java.util.List<String> all() {\n        return java.util.List.of(\"anvil\");\n    }\n}\n"
+            "code": "@Service\nclass OrderService {\n    static java.util.List<String> list() {\n        return java.util.List.of(\"anvil\");\n    }\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.java",
@@ -202,7 +182,7 @@
       {
         "id": "groovy",
         "name": "Groovy",
-        "note": "Groovy keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Every field and method has a declared type, not def, so that Tachyon can read the route types. Tachyon checks each file that you write. Then it joins the roles that use the same language, adds the protocol runtime and compiles your Groovy with its Java runtime on the same JVM. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Groovy keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Every field and method has a declared type, not def, so that Tachyon can read the route types. Tachyon checks each file that you write. Then it joins the roles that use the same language, adds the protocol runtime and compiles your Groovy with its Java runtime on the same JVM. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.groovy",
@@ -210,11 +190,7 @@
           },
           {
             "name": "server/services/OrderService.groovy",
-            "code": "@Service\nclass OrderService {\n    static List<String> list() {\n        return OrderStore.all()\n    }\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.groovy",
-            "code": "@Store\nclass OrderStore {\n    static List<String> all() {\n        return ['anvil']\n    }\n}\n"
+            "code": "@Service\nclass OrderService {\n    static List<String> list() {\n        return ['anvil']\n    }\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.groovy",
@@ -225,7 +201,7 @@
       {
         "id": "csharp",
         "name": "C#",
-        "note": "C# keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "C# keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.cs",
@@ -233,11 +209,7 @@
           },
           {
             "name": "server/services/OrderService.cs",
-            "code": "[Service]\nclass OrderService\n{\n    public static string[] List() => OrderStore.All();\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.cs",
-            "code": "[Store]\nclass OrderStore\n{\n    public static string[] All() => new[] { \"anvil\" };\n}\n"
+            "code": "[Service]\nclass OrderService\n{\n    public static string[] List() => new[] { \"anvil\" };\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.cs",
@@ -248,19 +220,15 @@
       {
         "id": "fsharp",
         "name": "F#",
-        "note": "F# keeps the OrdersController, OrderService and OrderStore in separate files, one type in each file. The attributes are F# attributes: RequestRoute on the controller type and GetRoute on its member declare GET /orders, and Public says that anyone may call its routes. A type takes the roles it needs as the parameters of its primary constructor, as Spring does with one constructor, so OrderService receives the OrderStore. F# runs on .NET: Tachyon compiles your F# code and adds the same protocol runtime that C# uses.",
+        "note": "F# keeps the OrdersController and OrderService in separate files, one type in each file. The attributes are F# attributes: RequestRoute on the controller type and GetRoute on its member declare GET /orders, and Public says that anyone may call its routes. A type takes the roles it needs as the parameters of its primary constructor, as Spring does with one constructor. F# runs on .NET: Tachyon compiles your F# code and adds the same protocol runtime that C# uses.",
         "files": [
           {
             "name": "server/models/OrderList.fs",
             "code": "type OrderList = { Orders: string[] }\n"
           },
           {
-            "name": "server/stores/OrderStore.fs",
-            "code": "[<Store>]\ntype OrderStore() =\n    member this.All() : string[] =\n        [| \"anvil\" |]\n"
-          },
-          {
             "name": "server/services/OrderService.fs",
-            "code": "[<Service>]\ntype OrderService(orderStore: OrderStore) =\n    member this.List() : string[] =\n        orderStore.All()\n"
+            "code": "[<Service>]\ntype OrderService() =\n    member this.List() : string[] =\n        [| \"anvil\" |]\n"
           },
           {
             "name": "server/controllers/OrdersController.fs",
@@ -271,7 +239,7 @@
       {
         "id": "kotlin",
         "name": "Kotlin",
-        "note": "Kotlin keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Kotlin keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.kt",
@@ -279,11 +247,7 @@
           },
           {
             "name": "server/services/OrderService.kt",
-            "code": "@Service\nclass OrderService {\n    companion object {\n    fun list(): List<String> = OrderStore.all()\n}\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.kt",
-            "code": "@Store\nclass OrderStore {\n    companion object {\n    fun all(): List<String> = listOf(\"anvil\")\n}\n}\n"
+            "code": "@Service\nclass OrderService {\n    companion object {\n    fun list(): List<String> = listOf(\"anvil\")\n}\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.kt",
@@ -294,7 +258,7 @@
       {
         "id": "rust",
         "name": "Rust",
-        "note": "Rust keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Rust keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.rs",
@@ -302,11 +266,7 @@
           },
           {
             "name": "server/services/OrderService.rs",
-            "code": "#[Service]\nstruct OrderService;\n\nimpl OrderService {\n    fn list() -> Vec<&'static str> {\n        OrderStore::all()\n    }\n}\n\nimpl OrderService {\n    fn new() -> Self { Self }\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.rs",
-            "code": "#[Store]\nstruct OrderStore;\n\nimpl OrderStore {\n    fn all() -> Vec<&'static str> {\n        vec![\"anvil\"]\n    }\n}\n\nimpl OrderStore {\n    fn new() -> Self { Self }\n}\n"
+            "code": "#[Service]\nstruct OrderService;\n\nimpl OrderService {\n    fn list() -> Vec<&'static str> {\n        vec![\"anvil\"]\n    }\n}\n\nimpl OrderService {\n    fn new() -> Self { Self }\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.rs",
@@ -317,7 +277,7 @@
       {
         "id": "go",
         "name": "Go",
-        "note": "Go keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Go keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.go",
@@ -325,11 +285,7 @@
           },
           {
             "name": "server/services/OrderService.go",
-            "code": "// @Service\ntype OrderService struct {\n\t// @Needs\n\trepository *OrderStore\n}\n\nfunc (service *OrderService) List() []string {\n\treturn service.repository.All()\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.go",
-            "code": "// @Store\ntype OrderStore struct{}\n\nfunc (repository *OrderStore) All() []string {\n\treturn []string{\"anvil\"}\n}\n"
+            "code": "// @Service\ntype OrderService struct{}\n\nfunc (service *OrderService) List() []string {\n\treturn []string{\"anvil\"}\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.go",
@@ -340,7 +296,7 @@
       {
         "id": "dart",
         "name": "Dart",
-        "note": "Dart keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Dart keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/OrderList.dart",
@@ -348,11 +304,7 @@
           },
           {
             "name": "server/services/OrderService.dart",
-            "code": "@Service\nclass OrderService {\n  static List<String> list() => OrderStore.all();\n}\n"
-          },
-          {
-            "name": "server/stores/OrderStore.dart",
-            "code": "@Store\nclass OrderStore {\n  static List<String> all() => ['anvil'];\n}\n"
+            "code": "@Service\nclass OrderService {\n  static List<String> list() => ['anvil'];\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.dart",
@@ -363,7 +315,7 @@
       {
         "id": "ruby",
         "name": "Ruby",
-        "note": "Ruby keeps the OrdersController, OrderService and OrderStore in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Ruby keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
         "files": [
           {
             "name": "server/models/Order.rb",
@@ -375,11 +327,7 @@
           },
           {
             "name": "server/services/OrderService.rb",
-            "code": "#[Service]\nclass OrderService\n  def initialize\n    @store = OrderStore.new\n  end\n\n  # @return [Array<Order>]\n  def list\n    @store.all\n  end\nend\n"
-          },
-          {
-            "name": "server/stores/OrderStore.rb",
-            "code": "#[Store]\nclass OrderStore\n  # @return [Array<Order>]\n  def all\n    [Order.new(sku: \"anvil\", level: 4)]\n  end\nend\n"
+            "code": "#[Service]\nclass OrderService\n  # @return [Array<Order>]\n  def list\n    [Order.new(sku: \"anvil\", level: 4)]\n  end\nend\n"
           },
           {
             "name": "server/controllers/OrdersController.rb",

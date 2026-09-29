@@ -4,16 +4,16 @@ using Models;
 [RequestRoute("/products")]
 [Public]
 sealed class ProductController {
+    [Needs]
+    ProductStore _products;
+
     [GetRoute]
     public ProductReport GetProduct() {
-        using var signal = new BehaviorSignal();
-        using var context = Behaviors.create(typeof(CatalogSetup), "public-catalog", signal);
-        var products = new ProductStore(context);
         var activeStatus = BehaviorJSON.From("active");
-        var active = products.findByStatus(activeStatus).GetAwaiter().GetResult();
-        var activeCount = products.countByStatus(activeStatus).GetAwaiter().GetResult();
-        var page = products.bounded(BehaviorJSON.Parse("{\"size\":5}"));
-        var others = products.excluding(activeStatus, page).GetAwaiter().GetResult();
+        var active = _products.findByStatus(activeStatus).GetAwaiter().GetResult();
+        var activeCount = _products.countByStatus(activeStatus).GetAwaiter().GetResult();
+        var page = BehaviorJSON.Parse("{\"size\":5}");
+        var others = _products.excluding(activeStatus, page).GetAwaiter().GetResult();
         return new ProductReport(
             JsonNode.Parse(active.ToString()),
             JsonNode.Parse(activeCount.ToString()),
