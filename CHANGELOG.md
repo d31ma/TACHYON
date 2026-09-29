@@ -1876,6 +1876,16 @@ machine contracts have their own, independent major versions.
   fails when the entry is lost. The insecure-origin and service worker checks
   stay in Chromium, which can map the test host name.
 
+- A socket that the browser closes now gets the server's close answer, so
+  the browser's `close` event reports a clean close with the browser's own
+  code. Before, the server never sent that answer, and a browser saw code
+  1006. The server also no longer panics in the socket handler task on
+  every normal close; the panic skipped the handler's cleanup.
+- `verify-snippets` reads the first socket message before it closes the
+  socket. Under Bun, which reports the close inside `close()`, every
+  `sockets` example failed with "The socket closed with 1000". A socket that
+  closes too early is now reported with its close code, its reason and
+  whether it had opened.
 - The runtime check before a server or `ty test` starts no longer reports a
   working .NET SDK as not usable (TY2101) on a busy machine. Each check now
   has its own time limit: 10 seconds, and 60 seconds for the C# check, which
