@@ -14,13 +14,18 @@ fn counter_project(elements: &str) -> tempfile::TempDir {
     write(root.path(), "client/manifest.json", &manifest);
     write(
         root.path(),
+        "client/pages/tac.html",
+        "<shop-counter label=\"Page\" start=\"1\" />",
+    );
+    write(
+        root.path(),
         "client/components/shop/counter/tac.html",
         r#"<section aria-label="Counter"><h2>{label}</h2><p>{counter.count}</p><slot></slot></section>"#,
     );
     write(
         root.path(),
         "client/components/counter/tac.html",
-        r#"<p aria-label="Plain">plain</p>"#,
+        "<p>plain</p>",
     );
     write(
         root.path(),

@@ -48,6 +48,7 @@ class WebComponentsGate {
   static writeFixture() {
     rmSync(WebComponentsGate.project, { recursive: true, force: true })
     WebComponentsGate.write('client/manifest.json', `{ "name": "Shop", "tac": { "elements": ["${WebComponentsGate.counter}"] } }\n`)
+    WebComponentsGate.write('client/pages/tac.html', '<shop-counter label="Page" start="1" hydrate="load" />\n')
     WebComponentsGate.write('client/components/shop/counter/tac.html', `<section aria-label="Counter">
   <h2 id="label">{label}</h2>
   <p id="count">{counter.count}</p>
@@ -144,7 +145,7 @@ export default class CounterService {
     await WebComponentsGate.expectShadowText(page, '#label', 'Pears', 'attribute change')
     await page.evaluate((tag) => { document.querySelector(tag).label = 'Plums' }, WebComponentsGate.counter)
     await WebComponentsGate.expectShadowText(page, '#label', 'Plums', 'property change')
-    await page.focus('#add')
+    await page.focus('#add', { timeout: 5000 })
     await page.keyboard.press('Enter')
     await WebComponentsGate.expectShadowText(page, '#count', '6', 'button inside the shadow root')
     const heard = await page.evaluate(() => window.heardEvent ?? null)

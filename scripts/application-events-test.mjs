@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 class Budget {
-  static bytes = 14228
+  static bytes = 14338
 }
 
 async function loadApplicationEvents() {

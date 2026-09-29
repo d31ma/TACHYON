@@ -78,5 +78,6 @@ impl<'a> ExportedElements<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 #[path = "exported_elements_tests.rs"]
 mod tests;
