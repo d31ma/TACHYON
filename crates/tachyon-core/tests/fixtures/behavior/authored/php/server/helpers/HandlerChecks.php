@@ -122,14 +122,16 @@ class HandlerChecks {
     }
 
     public static function exercise($context, $signal): array {
-        $catalog = new CatalogClient();
+        $catalog = new CatalogService();
         $catalog->behaviors = $context;
+        $client = new CatalogClient();
+        $client->behaviors = $context;
         $page = ['page' => 2, 'size' => 5];
         [$first, $cached, $fresh] = self::exerciseCache($catalog, $context, $page);
-        $remote = $catalog->remote();
+        $remote = $client->remote();
         $repository = $context->repository(ProductEntity::class);
-        if ($catalog->remote() !== $remote || Backend::$exchanges !== 1) throw new Exception('cached exchange');
-        if ($catalog->find(7) !== ['path' => '/products/7']) throw new Exception('path variable');
+        if ($client->remote() !== $remote || Backend::$exchanges !== 1) throw new Exception('cached exchange');
+        if ($client->find(7) !== ['path' => '/products/7']) throw new Exception('path variable');
         $saved = $repository->save(['id' => 'one']);
         $found = $repository->find();
         $deleted = $repository->delete('one');
@@ -137,7 +139,7 @@ class HandlerChecks {
         self::checkQueries($context);
         self::checkMapping($context);
         $signal->abort();
-        $cancelled = self::isCancelled($catalog);
+        $cancelled = self::isCancelled($client);
         return [
             'first' => $first,
             'cached' => $cached,

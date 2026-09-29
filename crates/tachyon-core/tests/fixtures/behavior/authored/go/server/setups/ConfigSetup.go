@@ -14,7 +14,7 @@ func (ConfigSetup) Configure(execution *BehaviorExecution) (*BehaviorConfigurati
 		if err := execution.Check(); err != nil {
 			return false, err
 		}
-		if call.Cache != products || call.Owner != "CatalogClient" {
+		if call.Cache != products || call.Owner != "CatalogService" {
 			return false, &BehaviorError{Code: adapter, Message: "unexpected cache authorization"}
 		}
 		return execution.Partition == tenant, nil

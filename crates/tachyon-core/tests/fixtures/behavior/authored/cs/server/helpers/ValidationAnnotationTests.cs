@@ -45,7 +45,8 @@ public class ValidationAnnotationTests {
     private static async System.Threading.Tasks.Task CheckCachedValidation() {
         using var signal = new BehaviorSignal();
         using var context = Behaviors.create(typeof(AnnotatedConfigSetup), "tenant-validation", signal);
-        var cached = new AnnotatedValidatedCacheClient { behaviors = context };
+        var cached = new AnnotatedValidatedCacheService { behaviors = context };
+        var client = new AnnotatedValidatedCacheClient { behaviors = context };
         int authorizations = Config.Authorizations;
         int reads = Config.Store.Reads;
         try {
@@ -58,7 +59,7 @@ public class ValidationAnnotationTests {
             throw new System.Exception("invalid page accepted");
         } catch (BehaviorError error) when (error.Code == "validation" && error.Path == "size.min") { }
         try {
-            await cached.remote(BehaviorJSON.Parse("{}"));
+            await client.remote(BehaviorJSON.Parse("{}"));
             throw new System.Exception("invalid HTTP accepted");
         } catch (BehaviorError error) when (error.Code == "validation") { }
         if (cached.calls != 0 || cached.page(BehaviorJSON.Parse("{\"size\":2,\"page\":3}")).Get("offset").Integer != 6) throw new System.Exception("validation before page/HTTP");

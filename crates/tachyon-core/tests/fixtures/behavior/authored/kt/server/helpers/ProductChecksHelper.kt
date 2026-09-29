@@ -4,18 +4,19 @@ class ProductChecksHelper {
         val context = Behaviors.create("RuntimeAdaptersSetup", Behaviors.Options(TENANT, Behaviors.Signal()))
         context.use {
             checkConfiguration()
-            val catalog = CatalogClient()
+            val catalog = CatalogService()
             catalog.behaviors = context
-            checkValidation(catalog)
+            val client = CatalogClient()
+            client.behaviors = context
+            checkValidation(catalog, client)
             val page = mapOf<String, Any?>(PAGE to 2, "size" to PAGE_SIZE)
             val first = catalog.list(page)
             val cached = catalog.list(page)
             catalog.remove("ignored", page)
             val fresh = catalog.list(page)
             checkCachePut(catalog, page)
-            checkRemoteCachePut(catalog, page)
             checkDefaultPage(catalog)
-            checkDeclaredExchange(catalog)
+            checkDeclaredExchange(client)
             checkResilience(context)
             val queries = ProductQueriesStore(context)
             checkDerivedQueries(queries)
@@ -25,7 +26,7 @@ class ProductChecksHelper {
             val repository = context.repository("ProductEntity")
             return mapOf(
                 "first" to first, "cached" to cached, "fresh" to fresh,
-                "remote" to catalog.remote(), "saved" to repository.save(mapOf(ID to ONE)),
+                "remote" to client.remote(1L), "saved" to repository.save(mapOf(ID to ONE)),
                 "found" to repository.find(), "deleted" to repository.delete(ONE))
         }
     }
@@ -47,7 +48,7 @@ class ProductChecksHelper {
         val selected = Behaviors.Options(TENANT, Behaviors.Signal(), profiles = listOf("development"), properties = mapOf("YON_ENABLED" to "true"))
         Behaviors.create(SELECTED_SETUP, selected).close()
     }
-    private fun checkValidation(catalog: CatalogClient) {
+    private fun checkValidation(catalog: CatalogService, client: CatalogClient) {
         val validInput = mapOf(ID to ONE, NAME to "é", "price" to PRICE, "unknown" to true)
         val validator = Validator()
         check(validator.accept(validInput) == validInput && validator.calls == 1)
@@ -56,11 +57,10 @@ class ProductChecksHelper {
         check(failure.path == "name.size")
         check(RuntimeAdaptersSetup.authorized == authorizedBefore && catalog.validCalls == 0)
         check(catalog.checked(validInput) == catalog.checked(validInput) && catalog.validCalls == 1)
-        expectFailure(VALIDATION, "expected validation before HTTP") { catalog.checkedRemote(emptyMap<String, Any?>()) }
-        check(catalog.validCalls == 1)
-        check((catalog.checkedRemote(validInput) as Map<*, *>)[PATH] == "/validated")
+        expectFailure(VALIDATION, "expected validation before HTTP") { client.checkedRemote(emptyMap<String, Any?>()) }
+        check((client.checkedRemote(validInput) as Map<*, *>)[PATH] == "/validated")
     }
-    private fun checkCachePut(catalog: CatalogClient, page: Map<String, Any?>) {
+    private fun checkCachePut(catalog: CatalogService, page: Map<String, Any?>) {
         val updated = catalog.update("replacement", page)
         check(updated == catalog.list(page) && catalog.calls == EXPECTED_CALLS && catalog.mutations == EXPECTED_CALLS)
         RuntimeAdaptersSetup.allow = false
@@ -70,11 +70,7 @@ class ProductChecksHelper {
         expectFailure(JSON_VALUE, "expected bounded JSON") { catalog.invalid(page) }
         check(updated == catalog.list(page))
     }
-    private fun checkRemoteCachePut(catalog: CatalogClient, page: Map<String, Any?>) {
-        val exchanged = catalog.remoteUpdate(page)
-        check(exchanged == catalog.list(page) && (exchanged as Map<*, *>)[PATH] == "/products")
-    }
-    private fun checkDefaultPage(catalog: CatalogClient) {
+    private fun checkDefaultPage(catalog: CatalogService) {
         val defaultUpdated = catalog.update("default", emptyMap())
         check(defaultUpdated == catalog.list(emptyMap()))
     }

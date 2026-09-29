@@ -112,14 +112,16 @@ class HandlerChecks
   end
 
   def self.exercise(context, signal)
-    catalog = CatalogClient.new
+    catalog = CatalogService.new
     catalog.behaviors = context
+    client = CatalogClient.new
+    client.instance_variable_set(:@behaviors, context)
     page = { "page" => 2, "size" => 5 }
     first, cached, fresh = exercise_cache(catalog, context, page)
-    remote = catalog.remote
+    remote = client.remote
     repository = context.repository(ProductEntity)
-    raise "cached exchange" unless catalog.remote == remote && Backend.exchanges == 1
-    raise "path variable" unless catalog.find(7) == { "path" => "/products/7" }
+    raise "cached exchange" unless client.remote == remote && Backend.exchanges == 1
+    raise "path variable" unless client.find(7) == { "path" => "/products/7" }
     saved = repository.save({ "id" => "one" })
     found = repository.find
     deleted = repository.delete("one")
@@ -135,7 +137,7 @@ class HandlerChecks
       "saved" => saved,
       "found" => found,
       "deleted" => deleted,
-      "cancelled" => cancelled?(catalog),
+      "cancelled" => cancelled?(client),
       "authorizations" => Backend.authorizations
     }
   end

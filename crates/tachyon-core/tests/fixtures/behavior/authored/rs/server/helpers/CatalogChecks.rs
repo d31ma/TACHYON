@@ -85,10 +85,10 @@ fn check_selected_config() -> BehaviorResult<()> {
     Ok(())
 }
 
-fn check_validation_before_authorization(catalog: &CatalogClient) -> BehaviorResult<()> {
+fn check_validation_before_authorization(catalog: &CatalogService) -> BehaviorResult<()> {
     let input = CatalogChecks::product_input();
     let denied_context = Behaviors::create::<ConfigSetup>(BehaviorOptions::new("denied", BehaviorSignal::new()))?;
-    let denied_catalog = CatalogClient { behaviors: denied_context, calls: CatalogChecks::new_counter() };
+    let denied_catalog = CatalogService { behaviors: denied_context, calls: CatalogChecks::new_counter() };
     let invalid = denied_catalog.validated(CatalogChecks::blank_product_input()).expect_err("validation precedes cache authorization");
     assert_eq!(invalid.code, "validation");
     let unauthorized = denied_catalog.validated(input.clone()).expect_err("valid input still requires authorization");
@@ -97,21 +97,19 @@ fn check_validation_before_authorization(catalog: &CatalogClient) -> BehaviorRes
     Ok(())
 }
 
-fn check_catalog_cache(context: &BehaviorContext, catalog: &CatalogClient) -> BehaviorResult<Vec<(String, BehaviorValue)>> {
+fn check_catalog_cache(context: &BehaviorContext, catalog: &CatalogService, client: &CatalogClient) -> BehaviorResult<Vec<(String, BehaviorValue)>> {
     let page = BehaviorValue::object([("page", 2.into()), ("size", 5.into())]);
     let first = catalog.list(page.clone())?;
     let cached = catalog.list(page.clone())?;
     assert_eq!(first, cached);
     context.evict(catalog, "list", vec![page.clone()])?;
     let fresh = catalog.list(page.clone())?;
-    let remote = catalog.remote()?;
+    let remote = client.remote()?;
     catalog.refresh(page.clone(), "replacement".into())?;
     assert_eq!(catalog.list(page.clone())?, BehaviorValue::from("replacement"));
     catalog.invalidate(page.clone())?;
     assert_eq!(catalog.list(page.clone())?.get("calls"), Some(&BehaviorValue::Number(3.0)));
-    assert_eq!(catalog.refresh_remote(page.clone())?, BehaviorValue::from("/products"));
-    assert_eq!(catalog.find(7.into())?, BehaviorValue::from("/products/7"));
-    assert_eq!(catalog.list(page)?, BehaviorValue::from("/products"));
+    assert_eq!(client.find(7.into())?, BehaviorValue::from("/products/7"));
     Ok(vec![("first".into(), first), ("cached".into(), cached), ("fresh".into(), fresh), ("remote".into(), remote)])
 }
 
@@ -179,16 +177,17 @@ fn exercise() -> BehaviorResult<BehaviorValue> {
     CatalogChecks::check_selected_config()?;
     let signal = BehaviorSignal::new();
     let context = Behaviors::create::<ConfigSetup>(BehaviorOptions::new("tenant-a", signal.clone()))?;
-    let catalog = CatalogClient { behaviors: context.clone(), calls: CatalogChecks::new_counter() };
+    let catalog = CatalogService { behaviors: context.clone(), calls: CatalogChecks::new_counter() };
+    let client = CatalogClient { behaviors: context.clone() };
     CatalogChecks::check_validation_before_authorization(&catalog)?;
-    let mut results = CatalogChecks::check_catalog_cache(&context, &catalog)?;
+    let mut results = CatalogChecks::check_catalog_cache(&context, &catalog, &client)?;
     results.extend(CatalogChecks::check_repository(&context)?);
     CatalogChecks::check_resilience(&context)?;
     CatalogChecks::check_transactions(&context)?;
     CatalogChecks::check_queries(&context)?;
     CatalogChecks::check_mapper(&context)?;
     signal.abort();
-    assert_eq!(catalog.remote().expect_err("cancelled").code, "aborted");
+    assert_eq!(client.remote().expect_err("cancelled").code, "aborted");
     context.dispose();
     Ok(BehaviorValue::object(results))
 }

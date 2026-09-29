@@ -120,13 +120,13 @@ func (checks CatalogChecks) checkSelectedConfig() error {
 	return nil
 }
 
-func (checks CatalogChecks) checkValidationBeforeAuthorization(catalog *CatalogClient) error {
+func (checks CatalogChecks) checkValidationBeforeAuthorization(catalog *CatalogService) error {
 	input := checks.productInput()
 	denied, err := BehaviorsCreate[ConfigSetup](NewBehaviorOptions("denied", NewBehaviorSignal()))
 	if err != nil {
 		return err
 	}
-	deniedCatalog := &CatalogClient{behaviors: denied, calls: &atomic.Int64{}}
+	deniedCatalog := &CatalogService{behaviors: denied, calls: &atomic.Int64{}}
 	_, err = deniedCatalog.Validated(checks.blankProductInput())
 	if BehaviorErrorCode(err) != "validation" {
 		return checks.fail("validation must run before cache authorization")
@@ -145,7 +145,7 @@ func (checks CatalogChecks) checkValidationBeforeAuthorization(catalog *CatalogC
 	return nil
 }
 
-func (checks CatalogChecks) checkCatalogCache(context *BehaviorContext, catalog *CatalogClient) (map[string]any, error) {
+func (checks CatalogChecks) checkCatalogCache(context *BehaviorContext, catalog *CatalogService, client *CatalogClient) (map[string]any, error) {
 	page := map[string]any{"page": 2, "size": 5}
 	first, err := catalog.List(page)
 	if err != nil {
@@ -165,7 +165,7 @@ func (checks CatalogChecks) checkCatalogCache(context *BehaviorContext, catalog 
 	if err != nil {
 		return nil, err
 	}
-	remote, err := catalog.Remote()
+	remote, err := client.Remote()
 	if err != nil {
 		return nil, err
 	}
@@ -183,15 +183,7 @@ func (checks CatalogChecks) checkCatalogCache(context *BehaviorContext, catalog 
 	if err != nil || listed.(map[string]any)["calls"] != 3.0 {
 		return nil, checks.fail("CacheEvict did not remove the entry")
 	}
-	refreshed, err := catalog.RefreshRemote(page)
-	if err != nil || refreshed != "/products" {
-		return nil, checks.fail("CachePut with HttpExchange did not answer the exchange")
-	}
-	listed, err = catalog.List(page)
-	if err != nil || listed != "/products" {
-		return nil, checks.fail("CachePut with HttpExchange did not store the exchange")
-	}
-	found, err := catalog.Find(7)
+	found, err := client.Find(7)
 	if err != nil || found != "/products/7" {
 		return nil, checks.fail("the path variable did not reach the adapter")
 	}
@@ -320,11 +312,12 @@ func (checks CatalogChecks) Exercise() (BehaviorValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	catalog := &CatalogClient{behaviors: context, calls: &atomic.Int64{}}
+	catalog := &CatalogService{behaviors: context, calls: &atomic.Int64{}}
+	client := &CatalogClient{behaviors: context}
 	if err := checks.checkValidationBeforeAuthorization(catalog); err != nil {
 		return nil, err
 	}
-	results, err := checks.checkCatalogCache(context, catalog)
+	results, err := checks.checkCatalogCache(context, catalog, client)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +337,7 @@ func (checks CatalogChecks) Exercise() (BehaviorValue, error) {
 		return nil, err
 	}
 	signal.Abort()
-	if _, err := catalog.Remote(); BehaviorErrorCode(err) != "aborted" {
+	if _, err := client.Remote(); BehaviorErrorCode(err) != "aborted" {
 		return nil, checks.fail("an aborted signal must stop the exchange")
 	}
 	context.Dispose()

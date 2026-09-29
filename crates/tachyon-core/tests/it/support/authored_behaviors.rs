@@ -65,6 +65,10 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/js/server/clients/CatalogClient.js"),
         ),
         (
+            "server/helpers/CatalogHelper.js",
+            include_str!("../../fixtures/behavior/authored/js/server/helpers/CatalogHelper.js"),
+        ),
+        (
             "server/helpers/InputService.js",
             include_str!("../../fixtures/behavior/authored/js/server/helpers/InputService.js"),
         ),
@@ -99,6 +103,10 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.py",
             include_str!("../../fixtures/behavior/authored/py/server/clients/CatalogClient.py"),
+        ),
+        (
+            "server/services/CatalogService.py",
+            include_str!("../../fixtures/behavior/authored/py/server/services/CatalogService.py"),
         ),
         (
             "server/helpers/HandlerChecks.py",
@@ -157,6 +165,10 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.php",
             include_str!("../../fixtures/behavior/authored/php/server/clients/CatalogClient.php"),
+        ),
+        (
+            "server/services/CatalogService.php",
+            include_str!("../../fixtures/behavior/authored/php/server/services/CatalogService.php"),
         ),
         (
             "server/helpers/HandlerChecks.php",
@@ -243,6 +255,10 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/rb/server/clients/CatalogClient.rb"),
         ),
         (
+            "server/services/CatalogService.rb",
+            include_str!("../../fixtures/behavior/authored/rb/server/services/CatalogService.rb"),
+        ),
+        (
             "server/entities/ProductEntity.rb",
             include_str!("../../fixtures/behavior/authored/rb/server/entities/ProductEntity.rb"),
         ),
@@ -280,6 +296,12 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.java",
             include_str!("../../fixtures/behavior/authored/java/server/clients/CatalogClient.java"),
+        ),
+        (
+            "server/services/CatalogService.java",
+            include_str!(
+                "../../fixtures/behavior/authored/java/server/services/CatalogService.java"
+            ),
         ),
         (
             "server/helpers/Input.java",
@@ -354,6 +376,12 @@ impl AuthoredFixtures {
             ),
         ),
         (
+            "server/services/CatalogService.groovy",
+            include_str!(
+                "../../fixtures/behavior/authored/groovy/server/services/CatalogService.groovy"
+            ),
+        ),
+        (
             "server/helpers/Input.groovy",
             include_str!("../../fixtures/behavior/authored/groovy/server/helpers/Input.groovy"),
         ),
@@ -422,6 +450,10 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/kt/server/clients/CatalogClient.kt"),
         ),
         (
+            "server/services/CatalogService.kt",
+            include_str!("../../fixtures/behavior/authored/kt/server/services/CatalogService.kt"),
+        ),
+        (
             "server/helpers/Input.kt",
             include_str!("../../fixtures/behavior/authored/kt/server/helpers/Input.kt"),
         ),
@@ -486,6 +518,10 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.rs",
             include_str!("../../fixtures/behavior/authored/rs/server/clients/CatalogClient.rs"),
+        ),
+        (
+            "server/services/CatalogService.rs",
+            include_str!("../../fixtures/behavior/authored/rs/server/services/CatalogService.rs"),
         ),
         (
             "server/helpers/Ledger.rs",
@@ -554,6 +590,12 @@ impl AuthoredFixtures {
             ),
         ),
         (
+            "server/services/AnnotatedCatalogService.cs",
+            include_str!(
+                "../../fixtures/behavior/authored/cs/server/services/AnnotatedCatalogService.cs"
+            ),
+        ),
+        (
             "server/helpers/AnnotatedInput.cs",
             include_str!("../../fixtures/behavior/authored/cs/server/helpers/AnnotatedInput.cs"),
         ),
@@ -583,6 +625,12 @@ impl AuthoredFixtures {
             "server/clients/AnnotatedValidatedCacheClient.cs",
             include_str!(
                 "../../fixtures/behavior/authored/cs/server/clients/AnnotatedValidatedCacheClient.cs"
+            ),
+        ),
+        (
+            "server/services/AnnotatedValidatedCacheService.cs",
+            include_str!(
+                "../../fixtures/behavior/authored/cs/server/services/AnnotatedValidatedCacheService.cs"
             ),
         ),
         (
@@ -678,6 +726,10 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.go",
             include_str!("../../fixtures/behavior/authored/go/server/clients/CatalogClient.go"),
+        ),
+        (
+            "server/services/CatalogService.go",
+            include_str!("../../fixtures/behavior/authored/go/server/services/CatalogService.go"),
         ),
         (
             "server/helpers/Ledger.go",

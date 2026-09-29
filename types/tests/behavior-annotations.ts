@@ -35,12 +35,12 @@ class CatalogSettings {
 @HTTPClient({"cache":"network-first","adapter":"api"})
 class ProductsClient {
   @GetRequest("/products")
-  async list(): Promise<BehaviorJsonValue> { return {}; }
+  async list(): Promise<BehaviorJsonValue | void> {}
 }
 class ProductsPage {
   @Needs()
   readonly productsClient!: ProductsClient;
-  async load(): Promise<BehaviorJsonValue> { return this.productsClient.list(); }
+  async load(): Promise<BehaviorJsonValue | void> { return this.productsClient.list(); }
 }
 void ProductsPage;
 
@@ -159,8 +159,14 @@ class GeneratedArguments {
 }
 void GeneratedArguments;
 
-@CacheSettings({"name":"products","ttlMs":1000,"maxBytes":4096,"maxEntries":20})
 @HTTPClient({"adapter":"catalog"})
+class ProductRemoteClient {
+  @GetRequest("/products")
+  async remote(): Promise<BehaviorJsonValue | void> {}
+}
+void ProductRemoteClient;
+
+@CacheSettings({"name":"products","ttlMs":1000,"maxBytes":4096,"maxEntries":20})
 class ProductService {
   @Needs()
   behaviors!: BehaviorContext;
@@ -184,9 +190,9 @@ class ProductService {
     return this.behaviors.repository(Product).find(page);
   }
 
-  @GetRequest("/products")
   async remote(id: number): Promise<BehaviorJsonValue> {
-    return { query: { id }, headers: { accept: 'application/json' } } satisfies BehaviorHttpInput;
+    const input = { query: { id }, headers: { accept: 'application/json' } } satisfies BehaviorHttpInput;
+    return input;
   }
 }
 

@@ -27,18 +27,19 @@ class ProductChecksHelper {
     static Object run() {
         try (Behaviors.Context context = Behaviors.create("RuntimeAdaptersSetup", new Behaviors.Options(TENANT, new Behaviors.Signal()))) {
             checkConfiguration();
-            CatalogClient catalog = new CatalogClient();
+            CatalogService catalog = new CatalogService();
             catalog.behaviors = context;
-            checkValidation(catalog);
+            CatalogClient client = new CatalogClient();
+            client.behaviors = context;
+            checkValidation(catalog, client);
             java.util.Map<String, Object> page = java.util.Map.of(PAGE, 2, "size", PAGE_SIZE);
             Object first = catalog.list(page);
             Object cached = catalog.list(page);
             catalog.remove("ignored", page);
             Object fresh = catalog.list(page);
             checkCachePut(catalog, page);
-            checkRemoteCachePut(catalog, page);
             checkDefaultPage(catalog);
-            checkDeclaredExchange(catalog);
+            checkDeclaredExchange(client);
             checkResilience(context);
             ProductQueriesStore queries = new ProductQueriesStore(context);
             checkDerivedQueries(queries);
@@ -48,7 +49,7 @@ class ProductChecksHelper {
             Behaviors.Repository repository = context.repository("ProductEntity");
             return java.util.Map.of(
                 "first", first, "cached", cached, "fresh", fresh,
-                "remote", catalog.remote(), "saved", repository.save(java.util.Map.of(ID, ONE)),
+                "remote", client.remote(1L), "saved", repository.save(java.util.Map.of(ID, ONE)),
                 "found", repository.find(java.util.Map.of()), "deleted", repository.delete(ONE));
         }
     }
@@ -78,7 +79,7 @@ class ProductChecksHelper {
         Behaviors.Options selected = new Behaviors.Options(TENANT, new Behaviors.Signal(), 10000, java.util.List.of("development"), java.util.Map.of("YON_ENABLED", "true"));
         Behaviors.create(SELECTED_SETUP, selected).close();
     }
-    private static void checkValidation(CatalogClient catalog) {
+    private static void checkValidation(CatalogService catalog, CatalogClient client) {
         Object validInput = java.util.Map.of(ID, ONE, NAME, "é", "price", PRICE, "unknown", true);
         Validator validator = new Validator();
         expect(validator.accept(validInput).equals(validInput) && validator.calls == 1, "standalone Valid");
@@ -89,11 +90,10 @@ class ProductChecksHelper {
         }
         expect(RuntimeAdaptersSetup.authorized == authorizedBefore && catalog.validCalls == 0, "invalid input reached cache/body");
         expect(catalog.checked(validInput).equals(catalog.checked(validInput)) && catalog.validCalls == 1, "Valid Cacheable pipeline");
-        expectFailure(VALIDATION, "expected validation before HTTP", () -> catalog.checkedRemote(java.util.Map.of()));
-        expect(catalog.validCalls == 1, "invalid input reached HTTP descriptor");
-        expect(Behaviors.map(catalog.checkedRemote(validInput)).get(PATH).equals("/validated"), "Valid HttpExchange pipeline");
+        expectFailure(VALIDATION, "expected validation before HTTP", () -> client.checkedRemote(java.util.Map.of()));
+        expect(Behaviors.map(client.checkedRemote(validInput)).get(PATH).equals("/validated"), "Valid HttpExchange pipeline");
     }
-    private static void checkCachePut(CatalogClient catalog, java.util.Map<String, Object> page) {
+    private static void checkCachePut(CatalogService catalog, java.util.Map<String, Object> page) {
         Object updated = catalog.update("replacement", page);
         expect(updated.equals(catalog.list(page)) && catalog.calls == EXPECTED_CALLS && catalog.mutations == EXPECTED_CALLS, "CachePut target mapping");
         RuntimeAdaptersSetup.allow = false;
@@ -103,11 +103,7 @@ class ProductChecksHelper {
         expectFailure(JSON_VALUE, "expected bounded JSON", () -> catalog.invalid(page));
         expect(updated.equals(catalog.list(page)), "invalid result changed cache");
     }
-    private static void checkRemoteCachePut(CatalogClient catalog, java.util.Map<String, Object> page) {
-        Object exchanged = catalog.remoteUpdate(page);
-        expect(exchanged.equals(catalog.list(page)) && Behaviors.map(exchanged).get(PATH).equals("/products"), "HTTP CachePut");
-    }
-    private static void checkDefaultPage(CatalogClient catalog) {
+    private static void checkDefaultPage(CatalogService catalog) {
         Object defaultUpdated = catalog.update("default", java.util.Map.of());
         expect(defaultUpdated.equals(catalog.list(java.util.Map.of())), "raw mutation Pageable mapping");
     }

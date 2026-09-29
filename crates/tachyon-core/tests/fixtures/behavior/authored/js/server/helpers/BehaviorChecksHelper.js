@@ -153,20 +153,21 @@ static async exerciseBehaviors(signal) {
   const context = await Behaviors.create(ApplicationAdaptersSetup, { partition: BehaviorChecksHelper._PARTITION, signal, profiles: ['development'], properties: supplied });
   try {
     const validation = await BehaviorChecksHelper._exerciseValidation();
-    const catalog = Object.assign(new CatalogClient(), { behaviors: context });
+    const catalog = Object.assign(new CatalogHelper(), { behaviors: context });
+    const client = Object.assign(new CatalogClient(), { behaviors: context });
     const { first, cached, fresh } = await BehaviorChecksHelper._exerciseCache(catalog, context);
     await BehaviorChecksHelper._checkQueries(context);
     const page = catalog.page({ page: BehaviorChecksHelper._PAGE, size: BehaviorChecksHelper._PAGE_SIZE, sort: ['id'] });
     const repository = context.repository(ProductEntity);
     const calls = ApplicationAdaptersSetup.configured - configuredBefore;
-    const located = await catalog.lookup(BehaviorChecksHelper._PRODUCT_ID);
+    const located = await client.lookup(BehaviorChecksHelper._PRODUCT_ID);
     if (located.path !== '/products/7') throw new Error('path variable');
     return {
       first, cached, fresh, page,
       configuration: { settings, inactive, selectionErrors, propertyError, calls },
       validation,
-      remote: await catalog.remote(),
-      declared: await catalog.search(BehaviorChecksHelper._PAGE, 'acme'),
+      remote: await client.remote(),
+      declared: await client.search(BehaviorChecksHelper._PAGE, 'acme'),
       saved: await repository.save({ id: 1 }),
       found: await repository.find({ page: 0, size: BehaviorChecksHelper._PAGE_SIZE, sort: [] }),
       deleted: await repository.delete(1),

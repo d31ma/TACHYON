@@ -14,7 +14,7 @@ impl ConfigSetup {
         config.authorize = Some(std::sync::Arc::new(|call, execution| {
             execution.check()?;
             assert_eq!(call.cache, Self::PRODUCTS);
-            assert_eq!(call.owner, "CatalogClient");
+            assert_eq!(call.owner, "CatalogService");
             Ok(execution.partition == Self::TENANT)
         }));
         config.authorize_entity = Some(std::sync::Arc::new(|command, execution| {

@@ -116,13 +116,15 @@ class HandlerChecks:
 
     @staticmethod
     async def exercise(context, signal):
-        catalog = CatalogClient()
+        catalog = CatalogService()
         catalog.behaviors = context
+        client = CatalogClient()
+        client.behaviors = context
         page = {'page': 2, 'size': 5}
         first, cached, fresh = await HandlerChecks.exercise_cache(catalog, context, page)
-        remote = await catalog.remote()
-        assert await catalog.remote() == remote and Backend.exchanges == 1
-        assert await catalog.find(7) == {'path': '/products/7'}
+        remote = await client.remote()
+        assert await client.remote() == remote and Backend.exchanges == 1
+        assert await client.find(7) == {'path': '/products/7'}
         await HandlerChecks.check_resilience(context)
         repository = context.repository(ProductEntity)
         saved = await repository.save({'id': 'one'})
@@ -131,7 +133,7 @@ class HandlerChecks:
         await HandlerChecks.check_queries(context)
         await HandlerChecks.check_mapping(context)
         signal.abort()
-        cancelled = await HandlerChecks.is_cancelled(catalog)
+        cancelled = await HandlerChecks.is_cancelled(client)
         return {
             'first': first,
             'cached': cached,

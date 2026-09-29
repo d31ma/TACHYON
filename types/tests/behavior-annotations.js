@@ -17,7 +17,6 @@ class Settings {
 }
 
 @CacheSettings({"name":"products","ttlMs":1000,"maxBytes":4096,"maxEntries":20})
-@HTTPClient({"adapter":"catalog"})
 class Catalog {
   /** @param {BehaviorContext} behaviors */
   constructor(behaviors) { this.behaviors = behaviors; }
@@ -27,9 +26,16 @@ class Catalog {
   async load(id) { return { id }; }
 
   /** @returns {Promise<BehaviorJsonValue>} */
-  @GetRequest("/products")
   async remote() { return { query: { page: 0 } }; }
 }
+
+@HTTPClient({"adapter":"catalog"})
+class CatalogRemoteClient {
+  /** @returns {Promise<BehaviorJsonValue | void>} */
+  @GetRequest("/products")
+  async remote() {}
+}
+void CatalogRemoteClient;
 
 async function explicitOwnership() {
   const context = await Behaviors.create(Settings, {

@@ -40,29 +40,19 @@ class OrdersController {
 @HTTPClient('/api/orders')
 class OrdersClient {
   @GetRequest('/{id}')
-  async getOrder(@PathVariable id: string, @RequestParam('view') view: string): Promise<BehaviorJsonValue> {
-    return { id, view };
-  }
+  async getOrder(@PathVariable id: string, @RequestParam('view') view: string): Promise<BehaviorJsonValue | void> {}
 
   @PostRequest
-  async postOrder(@RequestBody order: BehaviorJsonObject, @RequestHeader('x-tenant') tenant: string): Promise<BehaviorJsonValue> {
-    return { order, tenant };
-  }
+  async postOrder(@RequestBody order: BehaviorJsonObject, @RequestHeader('x-tenant') tenant: string): Promise<BehaviorJsonValue | void> {}
 
   @PutRequest('/{id}')
-  async putOrder(@PathVariable('id') id: string): Promise<BehaviorJsonValue> {
-    return id;
-  }
+  async putOrder(@PathVariable('id') id: string): Promise<BehaviorJsonValue | void> {}
 
   @PatchRequest('/{id}')
-  async patchOrder(@PathVariable id: string): Promise<BehaviorJsonValue> {
-    return id;
-  }
+  async patchOrder(@PathVariable id: string): Promise<BehaviorJsonValue | void> {}
 
   @DeleteRequest('/{id}')
-  async deleteOrder(@PathVariable id: string): Promise<BehaviorJsonValue> {
-    return id;
-  }
+  async deleteOrder(@PathVariable id: string): Promise<BehaviorJsonValue | void> {}
 }
 
 @HTTPClient({ path: '/api', adapter: 'catalog', cache: 'no-store' })
