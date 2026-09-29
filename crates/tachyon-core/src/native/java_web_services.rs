@@ -30,6 +30,7 @@ mod java_type_declaration;
 mod java_value_type;
 mod java_wasm_program;
 mod java_web_apis;
+mod tea_vm_runtime;
 mod tea_vm_toolchain;
 
 pub(crate) struct JavaWebServices;

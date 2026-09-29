@@ -32,15 +32,12 @@ impl JavaWebApis {
     const EXTENSION: &'static str = "java";
 
     pub(super) fn clients(folder: &Path, authored: &str) -> Vec<(PathBuf, String)> {
-        let used: Vec<&(&str, &str)> = Self::CLIENTS
-            .iter()
-            .filter(|(name, _)| authored.contains(name))
-            .collect();
-        if used.is_empty() {
-            return Vec::new();
-        }
         std::iter::once(&Self::HOST)
-            .chain(used)
+            .chain(
+                Self::CLIENTS
+                    .iter()
+                    .filter(|(name, _)| authored.contains(name)),
+            )
             .map(|(name, text)| Self::file(folder, name, text))
             .collect()
     }

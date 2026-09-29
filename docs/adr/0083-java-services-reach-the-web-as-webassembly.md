@@ -319,6 +319,23 @@ Release builds, `java/services.wasm` in bytes (Brotli in brackets):
 `tachyon-java.js` grew from 5,190 to 5,310 bytes (1,734 with Brotli) for the
 `pause` call.
 
+### The content security policy
+
+Tachyon serves every page with `script-src 'self' 'wasm-unsafe-eval'`, so
+the page may not make code from text. TeaVM's `runtime.js` did that while it
+loaded: it made its call helpers, its export wrappers and each `@JSBody`
+function with `new Function`. The browser stopped the Java services on every
+page that `ty start`, `ty preview` or a native host served. The earlier checks
+did not see it, because their test servers sent no policy.
+
+The build now replaces those five parts of the TeaVM 0.15.0 runtime with
+plain functions that do the same work. A `@JSBody` function can only come
+from Tachyon's own prelude, because `TY1317` refuses TeaVM interop in a
+service, so the runtime accepts only the host calls of the prelude
+(`globalThis[Symbol.for('tachyon.java.host')].<call>(<value>)`) and throws for
+any other body. When the runtime is not the one that Tachyon knows, the build
+stops and asks for TeaVM 0.15.0. The patch is part of the build cache key.
+
 ### Continuous integration
 
 The macOS job installs the five TeaVM 0.15.0 jars from Maven Central, checks
@@ -333,7 +350,11 @@ Java web service tests with a JDK 21.
   `java_behavior_tests` (a retry that makes two host waits and waits at least
   30 ms, `@MaxAtOnce`, configuration binding and validation) failed before
   the change and pass after it.
-- A page with the same services was checked in Chromium, Firefox and WebKit:
+- `a_java_service_runs_in_the_page_as_webassembly` checks that the published
+  `runtime.js` contains no `new Function`; it failed before the patch.
+- A page with the same services was checked in Chromium, Firefox and WebKit,
+  served with Tachyon's content security policy (before the patch, the Java
+  services did not start there):
   the browser APIs, the events, the clipboard refusal without a click,
   geolocation and a retry that waited 34 to 39 ms. The web-apis gate has a
   Java row when TeaVM is installed.

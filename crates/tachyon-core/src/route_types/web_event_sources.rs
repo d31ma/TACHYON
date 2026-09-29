@@ -174,12 +174,22 @@ impl WebEventSources {
     }
 
     fn kotlin_model(name: &str, fields: &[ModelField]) -> String {
-        let mut parameters = Vec::new();
-        for field in fields {
-            let kind = Self::kind(&Self::KOTLIN, &field.shape);
-            parameters.push(format!("val {}: {kind}", field.name));
-        }
-        format!("\nclass {name}({})\n", parameters.join(", "))
+        let parameters = Self::listed(&Self::KOTLIN, fields, |kind, field| {
+            format!("val {field}: {kind}")
+        });
+        format!("\nclass {name}({parameters})\n")
+    }
+
+    fn listed(
+        kinds: &LanguageKinds,
+        fields: &[ModelField],
+        write_field: fn(&str, &str) -> String,
+    ) -> String {
+        let written: Vec<String> = fields
+            .iter()
+            .map(|field| write_field(Self::kind(kinds, &field.shape), &field.name))
+            .collect();
+        written.join(", ")
     }
 
     fn swift_model(name: &str, fields: &[ModelField]) -> String {
@@ -192,12 +202,8 @@ impl WebEventSources {
     }
 
     fn java_model(name: &str, fields: &[ModelField]) -> String {
-        let mut components = Vec::new();
-        for field in fields {
-            let kind = Self::kind(&Self::JAVA, &field.shape);
-            components.push(format!("{kind} {}", field.name));
-        }
-        format!("\nrecord {name}({}) {{\n}}\n", components.join(", "))
+        let components = Self::listed(&Self::JAVA, fields, |kind, field| format!("{kind} {field}"));
+        format!("\nrecord {name}({components}) {{\n}}\n")
     }
 
     fn ruby_model(name: &str, fields: &[ModelField]) -> String {

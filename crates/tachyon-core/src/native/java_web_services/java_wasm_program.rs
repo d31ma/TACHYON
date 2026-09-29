@@ -1,4 +1,5 @@
 use super::super::web_program_build::WebProgramBuild;
+use super::tea_vm_runtime::TeaVmRuntime;
 use super::tea_vm_toolchain::TeaVmToolchain;
 use crate::Failure;
 use crate::wasm_release_note::WasmReleaseNote;
@@ -48,6 +49,7 @@ impl JavaWasmProgram {
         "--strip-producers",
     ];
     const MISSING_TEAVM: &'static str = "Java web services need TeaVM 0.15. Download the TeaVM command-line jar (org.teavm:cli:0.15.0, the -all jar) and the teavm-classlib, teavm-jso-impl, teavm-platform and teavm-metaprogramming-impl jars of the same version from Maven Central into one folder, and point TAC_TEAVM_HOME at it. Run ty doctor";
+    const UNKNOWN_RUNTIME: &'static str = "The TeaVM runtime.js is not the one of TeaVM 0.15.0, so Tachyon cannot make it run without code made from text, which the page's content security policy forbids. Install TeaVM 0.15.0 and point TAC_TEAVM_HOME at it.";
     const MISSING_JDK: &'static str = "Install a JDK 21 or newer and put its bin folder on PATH";
 
     pub(super) fn is_installed() -> bool {
@@ -136,7 +138,11 @@ impl JavaWasmProgram {
 
     fn with_runtime(folder: &Path) -> Result<PathBuf, Failure> {
         let output = folder.join(Self::FOLDERS[1]);
-        std::fs::rename(folder.join(Self::RUNTIME_ENTRY), output.join(Self::RUNTIME))
+        let runtime = std::fs::read_to_string(folder.join(Self::RUNTIME_ENTRY))
+            .map_err(|error| Self::BUILD.failure(&error.to_string()))?;
+        let allowed = TeaVmRuntime::without_code_from_text(&runtime)
+            .ok_or_else(|| Self::BUILD.failure(Self::UNKNOWN_RUNTIME))?;
+        std::fs::write(output.join(Self::RUNTIME), allowed)
             .map_err(|error| Self::BUILD.failure(&error.to_string()))?;
         Ok(output)
     }
@@ -148,7 +154,8 @@ impl JavaWasmProgram {
         sources: &[(PathBuf, String)],
     ) -> String {
         let identity = toolchain.identity();
-        let mut parts: Vec<&[u8]> = vec![version, &identity, release];
+        let patch = TeaVmRuntime::identity();
+        let mut parts: Vec<&[u8]> = vec![version, &identity, &patch, release];
         parts.extend(sources.iter().flat_map(Self::source_parts));
         crate::compiler::hex_digest(Sha256::digest(parts.join(&Self::SEPARATOR)))
     }

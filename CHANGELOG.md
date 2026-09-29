@@ -2085,6 +2085,15 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Java web services now start under Tachyon's content security policy
+  (`script-src 'self' 'wasm-unsafe-eval'`), which `ty start`, `ty preview`
+  and the native hosts send. TeaVM's `runtime.js` made functions from text
+  (`new Function`) while it loaded, so the browser stopped every Java service
+  on a page that Tachyon served. The build now replaces those parts of the
+  TeaVM 0.15.0 runtime with plain functions, refuses a runtime that it does
+  not recognize, and the Java tests check that the published `runtime.js`
+  makes no code from text (ADR 0083 amendment).
+
 - A Swift companion with an `async` method (for example a `@Cached` method)
   now compiles and runs on macOS and iOS. The host waits for the method on
   the main thread and keeps the run loop turning, so main-actor work

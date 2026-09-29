@@ -199,7 +199,11 @@ async fn a_java_service_runs_in_the_page_as_webassembly() {
     let notes = build_counter(root.path(), crate::BuildProfile::Development).await;
     assert!(notes.is_empty(), "{notes:?}");
     assert!(root.path().join("java/services.wasm").is_file());
-    assert!(root.path().join("java/runtime.js").is_file());
+    let runtime = std::fs::read_to_string(root.path().join("java/runtime.js")).expect("runtime");
+    assert!(
+        !runtime.contains("new Function"),
+        "runtime.js makes code from text"
+    );
     assert!(root.path().join("tachyon-java.js").is_file());
 
     let counter = run_driver(root.path(), JavaFixtures::COUNTER_DRIVER);
