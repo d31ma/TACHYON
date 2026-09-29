@@ -1529,6 +1529,14 @@ machine contracts have their own, independent major versions.
   the `Codable` coder and Embedded Swift either save nothing or change how
   services behave, so Swift web builds keep their flags.
 
+- Go web services built with TinyGo use its Boehm garbage collector
+  (`-gc=boehm`, ADR 0081). TinyGo starts a goroutine with a 64 KB stack for
+  every call from the page, and its default collector swept the whole heap
+  every few calls, so about one call in five paused for 3 to 5 ms. Measured
+  with `scripts/wasm-worker-measure.mjs --runtimes go` (3 runs, medians), the
+  p95 of a page call falls from 3.4 ms to 0.77 ms at 1x and from 12.8 ms to
+  2.0 ms at 4x CPU throttling; the module grows by about 47 KiB (14 KiB with
+  Brotli).
 - The website's type sizes follow the average of six other framework
   websites (Svelte, Vue, React, Angular, Astro, Solid), set by one set of
   CSS custom properties in `site.css`: docs text 16px with line height 1.7

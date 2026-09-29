@@ -49,7 +49,7 @@ it used and why, for example
 | Language | Release compiler and settings | Development build |
 | --- | --- | --- |
 | Rust | rustc `opt-level=z`, LTO, one codegen unit, `panic=abort`, symbols stripped, then `wasm-opt -Oz` | rustc `opt-level=s`, no `wasm-opt` |
-| Go | TinyGo `-target wasm -opt=z -no-debug`, then `wasm-opt -Oz`; the standard Go compiler plus `wasm-opt -O2` when TinyGo is missing or cannot build the services | the standard Go compiler |
+| Go | TinyGo `-target wasm -opt=z -no-debug -gc=boehm`, then `wasm-opt -Oz`; the standard Go compiler plus `wasm-opt -O2` when TinyGo is missing or cannot build the services | the standard Go compiler |
 | C# and F# | the .NET interpreter with IL trimming, invariant globalization and Emscripten `-Oz` for the native runtime; AOT when `tac.dotnet.aot` is true | no native relink |
 | Kotlin | Kotlin/Wasm production build: Binaryen with Kotlin's own flags (ADR 0078) | no Binaryen |
 | Dart | `dart compile wasm -O4` (dart2wasm runs Binaryen itself) | `-O2` |
@@ -73,6 +73,22 @@ it used and why, for example
   returns, which is what the standard Go runtime does. The change looks for
   exact lines of TinyGo 0.42's glue; if a different TinyGo changed them, the
   build stops with a message instead of shipping wrong glue.
+- TinyGo builds with the Boehm garbage collector (`-gc=boehm`), not its
+  default precise collector. TinyGo's JavaScript glue starts a new goroutine
+  for every call from the page, and each goroutine gets its own 64 KB stack
+  on the heap, so every call leaves about 64 KB of garbage. The precise
+  collector then runs every few calls and sweeps the whole heap (it grew to
+  6 MB) each time: most calls took 25 us, but one call in four or five took
+  3 to 5 ms (p95 3.4 ms, 13 ms at 4x CPU throttling). Boehm sweeps lazily,
+  so a collection costs about as much as the live data. Measured with
+  `scripts/wasm-worker-measure.mjs --runtimes go` (ADR 0084), 3 runs,
+  medians: p95 3,395 us to 765 us at 1x and 12,805 us to 2,045 us at 4x,
+  mean 837 us to 101 us; the module grows by 47 KiB raw and 14 KiB with
+  Brotli (about 15%), and a page that makes thousands of calls holds a few
+  MB more memory. The alternatives were worse: the conservative collector
+  pauses the same, and a smaller goroutine stack (`-stack-size`) removes the
+  pauses only by lowering the recursion a service may use; at 16 KB a
+  62-level JSON request already overflowed the stack and hung the page.
 - Development builds use the standard Go compiler because it compiles in
   about a second. A service that works in development can still meet a
   TinyGo limit in release; the fallback covers compile errors, and
@@ -125,6 +141,11 @@ that the page embeds), raw and after Brotli level 11.
 For the whole Tachyon website, a release build publishes 8.7 MB instead of
 11.7 MB, and sends 2.25 MB instead of 2.86 MB with Brotli. Its Go module goes
 from 3.2 MB (684 KiB as sent) to 318 KiB (101 KiB as sent).
+
+Later, TinyGo moved to the Boehm garbage collector (see the Go section above).
+The tally's Go module is now 356.5 KiB raw and 112.7 KiB with Brotli (309.2 KiB
+and 98.3 KiB with TinyGo's default collector on the same day), still 83%
+smaller with Brotli than the standard Go compiler's.
 
 Go gains the most: TinyGo leaves out most of the Go runtime. The .NET
 browser runtime was already trimmed before this decision, and Emscripten

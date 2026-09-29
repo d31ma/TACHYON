@@ -180,6 +180,10 @@ and renders the page, with 40 to 205 ms of forced style and layout. The
    Kotlin and Swift, about 100 us for Ruby and 150 us (p50; 660 us p95) for
    .NET. Go through TinyGo has a fast p50 (30 us) but a p95 of 3.4 ms (13 ms
    at 4x), which looks like garbage collection pauses inside TinyGo.
+   (Follow-up, 2026-09-29: it was. Every call left a 64 KB goroutine stack
+   as garbage and TinyGo's precise collector swept the whole heap every few
+   calls. TinyGo now builds with `-gc=boehm`: p95 765 us at 1x and 2.0 ms at
+   4x; see ADR 0081.)
 3. **The worker's cost per call.** The postMessage round trip with a
    structured clone adds about 10 us at 1x (the JavaScript row: 10.6 us
    against 0.3 us) and about 45 us on average at 4x, with a p95 up to 0.36
@@ -216,7 +220,7 @@ worker per runtime by default. Per runtime:
 | --- | --- | --- |
 | JavaScript | never | no bridge at all; a call is 0.3 us, a worker adds 10 us |
 | Rust | no | 25 us calls, no long task, 2.7 MB |
-| Go (TinyGo) | no | no long task; look at TinyGo's garbage collector for the 3.4 ms p95 separately |
+| Go (TinyGo) | no | no long task; the 3.4 ms p95 came from TinyGo's garbage collector and is 0.8 ms with `-gc=boehm` (ADR 0081) |
 | C# and F# (.NET) | yes, first, when the two conditions below are met | the only runtime that blocks start-up (55 to 137 ms long tasks, 407 ms of script on `/docs` at 4x), the slowest calls (150 to 690 us p50) and the most memory (35 MB) |
 | Dart | no | 7 us calls, no long task, 1.5 MB |
 | Ruby | no by default; a candidate for opt-in | 100 us calls, one 64 ms task at 4x, but loops are 20 times slower, so heavy Ruby work blocks input first |
@@ -296,7 +300,8 @@ language. The decision is by workload, not by language.
 - The measurement script stays in `scripts/` so the numbers can be taken
   again after a runtime, compiler or bridge change.
 - Two follow-ups come out of the numbers even without workers: .NET start-up
-  (the largest page cost) and TinyGo's garbage collection pauses.
+  (the largest page cost) and TinyGo's garbage collection pauses (done:
+  `-gc=boehm`, ADR 0081).
 - If .NET moves to a worker, views that call .NET methods inside
   expressions (`documentation.count()`, `quantity.describe(...)` on the
   website) render in two steps; the design above keeps them correct, not
