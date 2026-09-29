@@ -462,8 +462,8 @@ describe('language coverage', () => {
 
   test('every service language shows the same class, spelled its own way', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
-    const companions = languages.tac.files.filter((file) => /\.(js|ts|dart|rs|swift|kt|cs|fs|go|rb)$/.test(file.name))
-    expect(companions.length).toBe(10)
+    const companions = languages.tac.files.filter((file) => /\.(js|ts|dart|rs|swift|kt|java|cs|fs|go|rb)$/.test(file.name))
+    expect(companions.length).toBe(11)
     for (const entry of companions) {
       const code = entry.code
       expect(code).toMatch(/\b(class|struct|type)\b/)
@@ -479,9 +479,9 @@ describe('language coverage', () => {
   test('every service language marks the class as a service, spelled its own way', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const markers = { js: '@Service', ts: '@Service', dart: '@Service', swift: '@Service',
-                      kt: '@Service', cs: '[Service]', fs: '[<Service>]', rs: '#[Service]', go: '// @Service', rb: '#[Service]' }
+                      kt: '@Service', java: '@Service', cs: '[Service]', fs: '[<Service>]', rs: '#[Service]', go: '// @Service', rb: '#[Service]' }
     const services = languages.tac.files.filter((file) => file.name.startsWith('client/services/'))
-    expect(services.length).toBe(10)
+    expect(services.length).toBe(11)
     for (const service of services) {
       const extension = service.name.split('.').pop()
       expect(service.code.split('\n')).toContain(markers[extension])
@@ -889,7 +889,7 @@ describe('documentation structure', () => {
       .filter((file) => isCompanion(file.name))
       .map((file) => languageOf(file.name))
 
-    const browser = ['JavaScript', 'TypeScript', 'Dart']
+    const browser = ['JavaScript', 'TypeScript', 'Dart', 'Java']
     const everywhere = ['C#', 'F#', 'Rust', 'Go', 'Ruby']
     expect(shownOn('web')).toEqual([...browser, ...everywhere])
     expect(shownOn('macos')).toEqual([...browser, 'Swift', ...everywhere])
