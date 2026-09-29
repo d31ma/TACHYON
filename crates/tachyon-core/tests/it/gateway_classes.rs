@@ -23,7 +23,7 @@ import os
 class ReportService:
     LANGUAGE = {"language": "python"}
 
-    report_store: Annotated[ReportStore, needs]
+    report_archive_service: Annotated[ReportArchiveService, needs]
 
     def summarize(self, mode, detail):
         self._fail_when(mode)
@@ -56,7 +56,7 @@ class ReportService:
         return {**self.LANGUAGE, "seen": detail}
 
     def _stored(self, mode, detail):
-        stored = self.report_store.store(detail)
+        stored = self.report_archive_service.store(detail)
         return {**self.LANGUAGE, "mode": mode, "detail": detail, "stored": stored}
 
     def count(self):
@@ -64,10 +64,10 @@ class ReportService:
 "#,
     );
 
-    const PYTHON_REPOSITORY: (&str, &str) = (
-        "server/stores/ReportStore.py",
-        r#"@store
-class ReportStore:
+    const PYTHON_DATA_SERVICE: (&str, &str) = (
+        "server/services/ReportArchiveService.py",
+        r#"@service
+class ReportArchiveService:
     data_source: Annotated[DataSource, needs]
 
     def store(self, detail):
@@ -139,7 +139,7 @@ final class ReportService
         r#"@Service
 @NeedsAll()
 class ReportService {
-    ReportStore reportStore;
+    ReportArchiveService reportArchiveService;
     Object summarize(Object mode, Object detail) {
         failWhen(mode);
         return answerFor(mode, detail);
@@ -156,7 +156,7 @@ class ReportService {
         answer.put("language", "java");
         answer.put("mode", mode);
         answer.put("detail", detail);
-        answer.put("stored", reportStore.store(detail));
+        answer.put("stored", reportArchiveService.store(detail));
         answer.put("shape", shape(java.util.Map.of("id", 7L)));
         return answer;
     }
@@ -166,11 +166,11 @@ class ReportService {
 "#,
     );
 
-    const JAVA_REPOSITORY: (&str, &str) = (
-        "server/stores/ReportStore.java",
-        r#"@Store
+    const JAVA_DATA_SERVICE: (&str, &str) = (
+        "server/services/ReportArchiveService.java",
+        r#"@Service
 @NeedsAll()
-class ReportStore {
+class ReportArchiveService {
     DataSource dataSource;
     Object store(Object detail) {
         dataSource.execute("CREATE TABLE IF NOT EXISTS reports (detail TEXT)", java.util.List.of());
@@ -286,7 +286,7 @@ class ReportService {
 // @Service
 type ReportService struct {
 	// @Needs
-	reportStore *ReportStore
+	reportArchiveService *ReportArchiveService
 }
 
 func (service *ReportService) Summarize(mode BehaviorValue, detail BehaviorValue) (BehaviorValue, error) {
@@ -340,29 +340,29 @@ func (service *ReportService) hop(mode BehaviorValue, detail BehaviorValue) (Beh
 }
 
 func (service *ReportService) stored(mode BehaviorValue, detail BehaviorValue) (BehaviorValue, error) {
-	stored, err := service.reportStore.Store(detail)
+	stored, err := service.reportArchiveService.Store(detail)
 	return map[string]any{"language": "go", "mode": mode, "detail": detail, "stored": stored}, err
 }
 "#,
     );
 
-    const GO_REPOSITORY: (&str, &str) = (
-        "server/stores/ReportStore.go",
+    const GO_DATA_SERVICE: (&str, &str) = (
+        "server/services/ReportArchiveService.go",
         r#"import "fmt"
 
-// @Store
-type ReportStore struct {
+// @Service
+type ReportArchiveService struct {
 	dataSource DataSource
 }
 
-func (repository *ReportStore) Store(detail BehaviorValue) (any, error) {
-	if _, err := repository.dataSource.Execute("CREATE TABLE IF NOT EXISTS reports (detail TEXT)", nil); err != nil {
+func (service *ReportArchiveService) Store(detail BehaviorValue) (any, error) {
+	if _, err := service.dataSource.Execute("CREATE TABLE IF NOT EXISTS reports (detail TEXT)", nil); err != nil {
 		return nil, err
 	}
-	if _, err := repository.dataSource.Execute("INSERT INTO reports (detail) VALUES (?)", []any{fmt.Sprint(detail)}); err != nil {
+	if _, err := service.dataSource.Execute("INSERT INTO reports (detail) VALUES (?)", []any{fmt.Sprint(detail)}); err != nil {
 		return nil, err
 	}
-	return repository.dataSource.Query("SELECT COUNT(*) AS total FROM reports", nil)
+	return service.dataSource.Query("SELECT COUNT(*) AS total FROM reports", nil)
 }
 "#,
     );
@@ -710,12 +710,12 @@ async fn call_with(
 }
 
 #[tokio::test]
-async fn a_javascript_service_calls_a_python_class_with_its_own_repository() {
+async fn a_javascript_service_calls_a_python_class_with_its_own_data_service() {
     if !usable("node") || !usable("python3") {
         return;
     }
     let project = Project::new(
-        &[Targets::PYTHON, Targets::PYTHON_REPOSITORY],
+        &[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE],
         &Callers::javascript(Targets::PYTHON.0),
     );
     let source = project.discover("js");
@@ -788,7 +788,7 @@ async fn a_php_service_calls_a_python_class() {
         return;
     }
     let project = Project::new(
-        &[Targets::PYTHON, Targets::PYTHON_REPOSITORY],
+        &[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE],
         &Callers::php(Targets::PYTHON.0),
     );
     let source = project.discover("php");
@@ -806,7 +806,7 @@ async fn a_ruby_service_calls_a_python_class() {
         return;
     }
     let project = Project::new(
-        &[Targets::PYTHON, Targets::PYTHON_REPOSITORY],
+        &[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE],
         &Callers::ruby(Targets::PYTHON.0),
     );
     let source = project.discover("rb");
@@ -858,11 +858,11 @@ async fn assert_python_reaches_compiled_target(
 }
 
 #[tokio::test]
-async fn a_python_service_calls_a_java_class_with_its_own_repository() {
+async fn a_python_service_calls_a_java_class_with_its_own_data_service() {
     if !usable("python3") || !jvm_available("java") {
         return;
     }
-    let files = [Targets::JAVA, Targets::JAVA_REPOSITORY];
+    let files = [Targets::JAVA, Targets::JAVA_DATA_SERVICE];
     let answer = assert_python_reaches_compiled_target(&files, "java").await;
     assert_eq!(answer["stored"][0]["total"], 1, "{answer}");
     assert_eq!(answer["shape"]["kind"], "report", "{answer}");
@@ -877,7 +877,7 @@ async fn a_python_service_calls_a_kotlin_class() {
 }
 
 async fn assert_compiled_caller_reaches_python(extension: &str, caller: &[(String, String)]) {
-    let project = Project::new(&[Targets::PYTHON, Targets::PYTHON_REPOSITORY], caller);
+    let project = Project::new(&[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE], caller);
     let source = project.discover(extension);
     let detail = serde_json::json!({"period": "2026-Q3", "values": [1, 2.5]});
     let answer = call(&project, &source, &serde_json::json!(["store", detail])).await;
@@ -929,7 +929,7 @@ fn jvm_callers_must_use_the_json_value_type() {
     let kotlin = "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    fun summarize(mode: String, detail: Any?): Any?\n}\n";
     for (extension, contents) in [("java", java), ("kt", kotlin)] {
         let caller = Callers::with_client(extension, contents);
-        let project = Project::new(&[Targets::PYTHON, Targets::PYTHON_REPOSITORY], &caller);
+        let project = Project::new(&[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE], &caller);
         let failure = project.failure(extension);
         assert!(failure.contains("TY1312"), "{extension}: {failure}");
     }
@@ -1152,7 +1152,7 @@ async fn a_dart_service_calls_a_python_class() {
 }
 
 async fn assert_caller_reaches_go(extension: &str, caller: &[(String, String)]) {
-    let project = Project::new(&[Targets::GO, Targets::GO_REPOSITORY], caller);
+    let project = Project::new(&[Targets::GO, Targets::GO_DATA_SERVICE], caller);
     let source = project.discover(extension);
     let supervisor = if extension == "ts" {
         project.supervisor_with_bun()
@@ -1170,7 +1170,7 @@ async fn assert_caller_reaches_go(extension: &str, caller: &[(String, String)]) 
 }
 
 #[tokio::test]
-async fn a_javascript_service_calls_a_go_class_with_its_own_repository() {
+async fn a_javascript_service_calls_a_go_class_with_its_own_data_service() {
     if !usable("node") || !usable("go") {
         return;
     }
@@ -1192,7 +1192,7 @@ async fn a_python_service_calls_a_go_class() {
     }
     let caller = Callers::python(Targets::GO.0);
     assert_caller_reaches_go("py", &caller).await;
-    let project = Project::new(&[Targets::GO, Targets::GO_REPOSITORY], &caller);
+    let project = Project::new(&[Targets::GO, Targets::GO_DATA_SERVICE], &caller);
     let source = project.discover("py");
     let nothing = call(&project, &source, &serde_json::json!(["nothing", null])).await;
     assert!(nothing.is_null(), "{nothing}");
@@ -1279,11 +1279,11 @@ async fn a_go_service_calls_a_php_class() {
 }
 
 #[tokio::test]
-async fn a_go_service_calls_a_java_class_with_its_own_repository() {
+async fn a_go_service_calls_a_java_class_with_its_own_data_service() {
     if !jvm_available("java") || !usable("go") {
         return;
     }
-    let files = [Targets::JAVA, Targets::JAVA_REPOSITORY];
+    let files = [Targets::JAVA, Targets::JAVA_DATA_SERVICE];
     let answer = assert_go_caller_reaches(&files, "java").await;
     assert_eq!(answer["stored"][0]["total"], 1, "{answer}");
 }
@@ -1330,7 +1330,7 @@ async fn go_class_targets_accept_value_and_pointer_receivers() {
         "func (service ReportService)",
     );
     let project = Project::new(
-        &[(Targets::GO.0, &value_receiver), Targets::GO_REPOSITORY],
+        &[(Targets::GO.0, &value_receiver), Targets::GO_DATA_SERVICE],
         &Callers::python(Targets::GO.0),
     );
     let source = project.discover("py");
@@ -1454,7 +1454,7 @@ fn native_targets_must_use_the_json_value_type() {
 fn native_callers_must_use_the_json_value_type() {
     for (extension, contents) in TypedTargets::NATIVE_CALLERS {
         let caller = Callers::with_client(extension, contents);
-        let project = Project::new(&[Targets::PYTHON, Targets::PYTHON_REPOSITORY], &caller);
+        let project = Project::new(&[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE], &caller);
         let failure = project.failure(extension);
         assert!(failure.contains("TY1312"), "{extension}: {failure}");
     }
@@ -1462,7 +1462,7 @@ fn native_callers_must_use_the_json_value_type() {
 
 fn python_target_project() -> (Project, HandlerSource) {
     let project = Project::new(
-        &[Targets::PYTHON, Targets::PYTHON_REPOSITORY],
+        &[Targets::PYTHON, Targets::PYTHON_DATA_SERVICE],
         &Callers::javascript(Targets::PYTHON.0),
     );
     let source = project.discover("js");
@@ -1471,7 +1471,7 @@ fn python_target_project() -> (Project, HandlerSource) {
 
 fn go_target_project() -> (Project, HandlerSource) {
     let project = Project::new(
-        &[Targets::GO, Targets::GO_REPOSITORY],
+        &[Targets::GO, Targets::GO_DATA_SERVICE],
         &Callers::python(Targets::GO.0),
     );
     let source = project.discover("py");

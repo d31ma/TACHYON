@@ -1,8 +1,9 @@
-Store(Entity, {fields, defaultSize, maxSize}) is shared query behavior.
-Bare Store is a role provider in both realms (ADR 0031). Referenced
-Entity/Table and query classes use exact role filenames in their realm's
-shared role folder. Empty methods become find/count/exists
-commands; derived findByStatus/countByStatus/existsByStatus are supported.
+Store(Entity, {fields, defaultSize, maxSize}) is a contract with no
+implementation, like a Spring Data repository interface. A Store without
+an Entity is refused (TY1308). Referenced Entity/Table and query classes
+use exact role filenames in their realm's shared role folder. Methods
+without a body become find/count/exists commands; derived
+findByStatus/countByStatus/existsByStatus are supported.
 Predicates combine with AND; no SQL, OR, joins or arbitrary expressions.
 authorizeEntity(command, execution) must return true before adapter execute.
 Find is bounded to page size <=100 with annotation-owned ordering and

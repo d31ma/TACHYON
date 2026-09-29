@@ -1,10 +1,10 @@
 @Test(NoteTestSetup, {"partition":"tests"})
 export default class NoteControllerTest {
   @Fake
-  noteStore!: NoteStore;
+  noteService!: NoteService;
 
-  async testGetNotesAsksTheStore(): Promise<void> {
-    this.noteStore = { countNotes: async () => [{ notes: 3 }] } as unknown as NoteStore;
+  async testGetNotesAsksTheService(): Promise<void> {
+    this.noteService = { countNotes: async () => [{ notes: 3 }] } as unknown as NoteService;
     const rows = await this.construct(NoteController).getNotes();
     Assert.equals(1, rows.length);
   }

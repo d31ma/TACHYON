@@ -132,7 +132,8 @@ static async _exerciseCache(catalog, context) {
 }
 
 static async _checkQueries(context) {
-  const queries = Behaviors.construct(ProductQueriesStore, { behaviors: context });
+  const queries = new ProductQueriesStore();
+  queries.behaviors = context;
   const rows = await queries.findById(BehaviorChecksHelper._PRODUCT_ID);
   if (rows[0].id !== BehaviorChecksHelper._PRODUCT_ID) throw new Error(BehaviorChecksHelper._QUERY_FAILED);
   const count = await queries.count_by_id(BehaviorChecksHelper._PRODUCT_ID);

@@ -318,16 +318,16 @@ async fn ruby_providers_receive_needs_fields_and_named_providers() {
     }
     let project = RubyProject::new();
     project.write(
-        "server/stores/LedgerStore.rb",
-        "#[Store]\n#[Lifetime(\"singleton\")]\nclass LedgerStore\n  def subtotal\n    40\n  end\n\n  def surcharge\n    2\n  end\nend\n",
+        "server/helpers/LedgerAmountsHelper.rb",
+        "#[Helper]\n#[Lifetime(\"singleton\")]\nclass LedgerAmountsHelper\n  def subtotal\n    40\n  end\n\n  def surcharge\n    2\n  end\nend\n",
     );
     project.write(
         "server/services/LedgerService.rb",
-        "#[Service]\nclass LedgerService\n  #[Needs]\n  attr_reader :ledger_store\n\n  def subtotal\n    ledger_store.subtotal\n  end\nend\n",
+        "#[Service]\nclass LedgerService\n  #[Needs]\n  attr_reader :ledger_amounts_helper\n\n  def subtotal\n    ledger_amounts_helper.subtotal\n  end\nend\n",
     );
     project.write(
         "server/helpers/LedgerHelper.rb",
-        "#[Helper]\n#[Lifetime(\"transient\")]\nclass LedgerHelper\n  #[Needs]\n  attr_reader :ledger_store\n\n  def settle(subtotal)\n    subtotal + ledger_store.surcharge\n  end\nend\n",
+        "#[Helper]\n#[Lifetime(\"transient\")]\nclass LedgerHelper\n  #[Needs]\n  attr_reader :ledger_amounts_helper\n\n  def settle(subtotal)\n    subtotal + ledger_amounts_helper.surcharge\n  end\nend\n",
     );
     project.write(
         "server/controllers/LedgerController.rb",
@@ -355,16 +355,16 @@ async fn a_ruby_needs_all_class_receives_every_attr_field() {
     }
     let project = RubyProject::new();
     project.write(
-        "server/stores/LedgerStore.rb",
-        "#[Store]\nclass LedgerStore\n  def subtotal\n    40\n  end\nend\n",
+        "server/helpers/LedgerAmountsHelper.rb",
+        "#[Helper]\nclass LedgerAmountsHelper\n  def subtotal\n    40\n  end\nend\n",
     );
     project.write(
         "server/services/LedgerService.rb",
-        "#[Service]\n#[NeedsAll]\nclass LedgerService\n  attr_reader :ledger_store\n\n  def subtotal\n    ledger_store.subtotal + 2\n  end\nend\n",
+        "#[Service]\n#[NeedsAll]\nclass LedgerService\n  attr_reader :ledger_amounts_helper\n\n  def subtotal\n    ledger_amounts_helper.subtotal + 2\n  end\nend\n",
     );
     project.write(
         "server/controllers/LedgerController.rb",
-        "#[RequestRoute(\"/ledger\")]\n#[Public]\n#[NeedsAll]\nclass LedgerController\n  #[Needs]\n  #[Named(\"LedgerService\")]\n  attr_reader :service\n  attr_reader :ledger_store\n\n  #[GetRoute]\n  def get_ledger\n    { \"total\" => service.subtotal, \"store\" => ledger_store.subtotal }\n  end\nend\n",
+        "#[RequestRoute(\"/ledger\")]\n#[Public]\n#[NeedsAll]\nclass LedgerController\n  #[Needs]\n  #[Named(\"LedgerService\")]\n  attr_reader :service\n  attr_reader :ledger_amounts_helper\n\n  #[GetRoute]\n  def get_ledger\n    { \"total\" => service.subtotal, \"store\" => ledger_amounts_helper.subtotal }\n  end\nend\n",
     );
     let source = HandlerSource::discover(
         project.root.path(),

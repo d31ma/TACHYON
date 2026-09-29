@@ -84,7 +84,8 @@ class HandlerChecks
   end
 
   def self.check_queries(context)
-    products = Behaviors.construct(ProductsStore, behaviors: context)
+    products = ProductsStore.new
+    products.instance_variable_set(:@behaviors, context)
     raise "query results" unless products.find_by_status("active") == [{ "id" => "one", "status" => "active" }]
     raise "query results" unless products.count_by_status("active") == 1
     raise "query results" unless products.available("active") == true

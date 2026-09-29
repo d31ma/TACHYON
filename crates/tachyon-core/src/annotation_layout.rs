@@ -994,7 +994,12 @@ mod tests {
 
     fn check_shared_role_folder(folder: &str, role: &str) {
         let marker = if role == "Client" { "HTTPClient" } else { role };
-        let source = format!("@{marker}\nclass Money{role} {{}}");
+        let arguments = if role == "Store" {
+            "(MoneyEntity, {\"fields\":[\"id\"],\"defaultSize\":20,\"maxSize\":100})"
+        } else {
+            ""
+        };
+        let source = format!("@{marker}{arguments}\nclass Money{role} {{}}");
         for realm in ["client", "server"] {
             assert_valid(&format!("{realm}/{folder}/Money{role}.ts"), &source);
         }
@@ -1327,7 +1332,11 @@ mod tests {
             ("RequestRoute", "Controller", "controllers"),
             ("SocketRoute", "Controller", "controllers"),
             ("Service", "Service", "services"),
-            ("Store", "Store", "stores"),
+            (
+                "Store(MoneyEntity, {\"fields\":[\"id\"],\"defaultSize\":20,\"maxSize\":100})",
+                "Store",
+                "stores",
+            ),
             ("HTTPClient", "Client", "clients"),
             ("Helper", "Helper", "helpers"),
             ("Setup", "Setup", "setups"),

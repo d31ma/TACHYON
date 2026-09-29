@@ -269,7 +269,7 @@ fn only_the_chosen_realms_languages_and_features_are_generated() {
         "server/models/ChatMessage.js",
         "client/services/ChatService.ts",
         "client/models/ChatMessage.ts",
-        "server/stores/NoteStore.js",
+        "server/services/NoteService.js",
     ] {
         assert!(app.join(file).is_file(), "{file}");
     }
@@ -441,7 +441,7 @@ fn add_writes_a_new_language_feature_and_target_without_overwriting() {
     let application = fs::read_to_string(app.join("server/application.json")).expect("application");
     assert!(application.contains("sqlite::memory:"), "{application}");
     assert!(application.contains("8080"), "{application}");
-    assert!(app.join("server/tests/NoteStoreTest.js").is_file());
+    assert!(app.join("server/tests/NoteServiceTest.js").is_file());
     ProjectAddition::target(&app, AppTarget::Android).expect("android");
     let package = fs::read_to_string(app.join("package.json")).expect("package");
     let package: serde_json::Value = serde_json::from_str(&package).expect("JSON package");

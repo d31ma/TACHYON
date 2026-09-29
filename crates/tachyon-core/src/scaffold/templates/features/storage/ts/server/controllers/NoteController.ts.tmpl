@@ -2,10 +2,10 @@
 @Public
 export class NoteController {
   @Needs
-  readonly noteStore!: NoteStore;
+  readonly noteService!: NoteService;
 
   @GetRoute
   getNotes(): Promise<unknown[]> {
-    return this.noteStore.countNotes();
+    return this.noteService.countNotes();
   }
 }

@@ -41,7 +41,8 @@ class ProductChecksHelper {
             checkDefaultPage(catalog);
             checkDeclaredExchange(client);
             checkResilience(context);
-            ProductQueriesStore queries = new ProductQueriesStore(context);
+            ProductQueriesStore queries = new ProductQueriesStore();
+            queries.behaviors = context;
             checkDerivedQueries(queries);
             checkExplicitQuery(queries, page);
             checkMapping(context);

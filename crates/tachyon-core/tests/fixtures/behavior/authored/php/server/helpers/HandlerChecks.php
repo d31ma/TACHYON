@@ -91,7 +91,8 @@ class HandlerChecks {
     }
 
     public static function checkQueries($context): void {
-        $products = Behaviors::construct(ProductsStore::class, ['behaviors' => $context]);
+        $products = new ProductsStore();
+        $products->behaviors = $context;
         if ($products->find_by_status('active') !== [['id' => 'one', 'status' => 'active']]) throw new Exception('query results');
         if ($products->countByStatus('active') !== 1) throw new Exception('query results');
         if ($products->available('active') !== true) throw new Exception('query results');

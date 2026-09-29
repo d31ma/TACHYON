@@ -1,7 +1,5 @@
-#[Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})]
+#[Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"CatalogSetup"})]
 class ProductsStore
-  attr_accessor :behaviors
-
   def find_by_status(status)
   end
 

@@ -1,12 +1,12 @@
 @Test(NoteTestSetup, {"partition":"tests"})
-export default class NoteStoreTest {
+export default class NoteServiceTest {
   @Fake
   dataSource!: DataSource;
 
   async testCountNotesRunsOneQuery(): Promise<void> {
     const queries: string[] = [];
     this.dataSource = { query: async (sql: string) => { queries.push(sql); return []; } } as unknown as DataSource;
-    await this.construct(NoteStore).countNotes();
+    await this.construct(NoteService).countNotes();
     Assert.equals(1, queries.length);
   }
 }

@@ -18,7 +18,8 @@ class ProductChecksHelper {
             checkDefaultPage(catalog)
             checkDeclaredExchange(client)
             checkResilience(context)
-            val queries = ProductQueriesStore(context)
+            val queries = ProductQueriesStore()
+            queries.behaviors = context
             checkDerivedQueries(queries)
             checkExplicitQuery(queries, page)
             checkMapping(context)

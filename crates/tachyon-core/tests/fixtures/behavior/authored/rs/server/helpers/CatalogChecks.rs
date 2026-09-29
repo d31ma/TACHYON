@@ -141,7 +141,7 @@ fn check_transactions(context: &BehaviorContext) -> BehaviorResult<()> {
 }
 
 fn check_queries(context: &BehaviorContext) -> BehaviorResult<()> {
-    let products = ProductQueriesStore::new(context.clone());
+    let products = ProductQueriesStore { behaviors: context.clone() };
     let query_rows = products.find_by_status("active".into())?;
     assert!(matches!(query_rows, BehaviorValue::Array(ref rows) if rows.len() == 1));
     assert_eq!(products.count_by_status("active".into())?, 1.into());

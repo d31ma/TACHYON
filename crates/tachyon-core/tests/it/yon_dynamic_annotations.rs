@@ -131,18 +131,18 @@ struct Fixtures;
 
 impl Fixtures {
     const JAVASCRIPT: &str = r#"
-@Store()
-class InventoryStore {
+@Service()
+class InventoryService {
   static created = 0;
-  constructor() { this.id = ++InventoryStore.created; }
+  constructor() { this.id = ++InventoryService.created; }
 }
 @Service()
-@Needs(InventoryStore)
+@Needs(InventoryService)
 class LeftService {
   constructor(inventory) { this.inventory = inventory; }
 }
 @Service()
-@Needs(InventoryStore)
+@Needs(InventoryService)
 class RightService {
   constructor(inventory) { this.inventory = inventory; }
 }
@@ -153,7 +153,7 @@ class ProductsController {
   constructor(left, right) { this.left = left; this.right = right; }
   @GetRoute
   async getProducts(request) {
-    return {same: this.left.inventory === this.right.inventory, count: InventoryStore.created, method: request.method};
+    return {same: this.left.inventory === this.right.inventory, count: InventoryService.created, method: request.method};
   }
   @PostRoute
   postProduct() {
@@ -163,23 +163,23 @@ class ProductsController {
 "#;
 
     const TYPESCRIPT: &str = r#"
-@Store()
-class InventoryStore {
+@Service()
+class InventoryService {
   static created = 0;
   id: number;
-  constructor() { this.id = ++InventoryStore.created; }
+  constructor() { this.id = ++InventoryService.created; }
 }
 @Service()
-@Needs(InventoryStore)
+@Needs(InventoryService)
 class LeftService {
-  inventory: InventoryStore;
-  constructor(inventory: InventoryStore) { this.inventory = inventory; }
+  inventory: InventoryService;
+  constructor(inventory: InventoryService) { this.inventory = inventory; }
 }
 @Service()
-@Needs(InventoryStore)
+@Needs(InventoryService)
 class RightService {
-  inventory: InventoryStore;
-  constructor(inventory: InventoryStore) { this.inventory = inventory; }
+  inventory: InventoryService;
+  constructor(inventory: InventoryService) { this.inventory = inventory; }
 }
 @RequestRoute("/products")
 @Public
@@ -190,7 +190,7 @@ class ProductsController {
   constructor(left: LeftService, right: RightService) { this.left = left; this.right = right; }
   @GetRoute
   async getProducts(request: Request) {
-    return {same: this.left.inventory === this.right.inventory, count: InventoryStore.created, method: request.method};
+    return {same: this.left.inventory === this.right.inventory, count: InventoryService.created, method: request.method};
   }
   @PostRoute
   postProduct() {
@@ -200,21 +200,21 @@ class ProductsController {
 "#;
 
     const PYTHON: &str = r#"
-@store()
-class InventoryStore:
+@service()
+class InventoryService:
     created = 0
     def __init__(self):
-        InventoryStore.created += 1
-        self.id = InventoryStore.created
+        InventoryService.created += 1
+        self.id = InventoryService.created
 
 @service()
-@needs(InventoryStore)
+@needs(InventoryService)
 class LeftService:
     def __init__(self, inventory):
         self.inventory = inventory
 
 @service()
-@needs(InventoryStore)
+@needs(InventoryService)
 class RightService:
     def __init__(self, inventory):
         self.inventory = inventory
@@ -229,28 +229,28 @@ class ProductsController:
         self.right = right
     @get_route
     async def get_products(self, request):
-        return {"same": self.left.inventory is self.right.inventory, "count": InventoryStore.created, "method": request.get_method()}
+        return {"same": self.left.inventory is self.right.inventory, "count": InventoryService.created, "method": request.get_method()}
     @post_route
     def post_product(self):
         return (http.HTTPStatus.ACCEPTED, {"content-type": "text/html"}, "<if true>{{ untouched }}</if>")
 "#;
 
     const PHP: &str = r#"<?php
-#[Store]
-class InventoryStore {
+#[Service]
+class InventoryService {
     public static int $created = 0;
     public int $id;
     public function __construct() { $this->id = ++self::$created; }
 }
 #[Service]
-#[Needs(InventoryStore::class)]
+#[Needs(InventoryService::class)]
 class LeftService {
-    public function __construct(public InventoryStore $inventory) {}
+    public function __construct(public InventoryService $inventory) {}
 }
 #[Service]
-#[Needs(InventoryStore::class)]
+#[Needs(InventoryService::class)]
 class RightService {
-    public function __construct(public InventoryStore $inventory) {}
+    public function __construct(public InventoryService $inventory) {}
 }
 #[RequestRoute("/products")]
 #[Public]
@@ -259,7 +259,7 @@ class ProductsController {
     public function __construct(public LeftService $left, public RightService $right) {}
     #[GetRoute]
     public function getProducts() {
-        return ['same' => $this->left->inventory === $this->right->inventory, 'count' => InventoryStore::$created, 'method' => $_SERVER['REQUEST_METHOD']];
+        return ['same' => $this->left->inventory === $this->right->inventory, 'count' => InventoryService::$created, 'method' => $_SERVER['REQUEST_METHOD']];
     }
     #[PostRoute]
     public function postProduct() {
@@ -282,9 +282,18 @@ fn fixture(extension: &str, transient: bool) -> String {
     if !transient {
         return text.to_owned();
     }
-    text.replace("@Store()", "@Store()\n@Lifetime('transient')")
-        .replace("@store()", "@store()\n@lifetime('transient')")
-        .replace("#[Store]", "#[Store]\n#[Lifetime('transient')]")
+    text.replace(
+        "@Service()\nclass InventoryService",
+        "@Service()\n@Lifetime('transient')\nclass InventoryService",
+    )
+    .replace(
+        "@service()\nclass InventoryService",
+        "@service()\n@lifetime('transient')\nclass InventoryService",
+    )
+    .replace(
+        "#[Service]\nclass InventoryService",
+        "#[Service]\n#[Lifetime('transient')]\nclass InventoryService",
+    )
 }
 
 #[tokio::test]

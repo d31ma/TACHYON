@@ -1,5 +1,5 @@
 @Test(NoteTestSetup, {"partition":"tests"})
-export default class NoteStoreTest {
+export default class NoteServiceTest {
   /** @type {DataSource} */
   @Fake
   dataSource
@@ -12,7 +12,7 @@ export default class NoteStoreTest {
       execute: async () => ({ affectedRows: 0 }),
       command: async () => null,
     }
-    await this.construct(NoteStore).countNotes()
+    await this.construct(NoteService).countNotes()
     Assert.equals(1, queries.length)
   }
 }

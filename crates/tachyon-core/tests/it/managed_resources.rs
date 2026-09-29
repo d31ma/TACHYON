@@ -119,9 +119,9 @@ async fn assert_stored_values(
 #[tokio::test]
 async fn javascript_resources_are_inferred_and_shared() {
     round_trip("js", r#"
-@Store()
+@Service()
 @NeedsAll()
-class ProductStore {
+class ProductService {
   dataSource;
   async initialize() {
     await this.dataSource.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)");
@@ -133,11 +133,11 @@ class ProductStore {
 @Public
 @NeedsAll()
 class ProductController {
-  productStore;
+  productService;
   @PostRoute
-  postProducts() { return this.productStore.initialize(); }
+  postProducts() { return this.productService.initialize(); }
   @GetRoute
-  getProducts() { return this.productStore.find(); }
+  getProducts() { return this.productService.find(); }
 }
 "#).await;
 }
@@ -145,9 +145,9 @@ class ProductController {
 #[tokio::test]
 async fn typescript_resources_are_inferred_and_shared() {
     round_trip("ts", r#"
-@Store()
+@Service()
 @NeedsAll()
-class ProductStore {
+class ProductService {
   dataSource: DataSource;
   async initialize() {
     await this.dataSource.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)", []);
@@ -159,11 +159,11 @@ class ProductStore {
 @Public
 @NeedsAll()
 class ProductController {
-  productStore: ProductStore;
+  productService: ProductService;
   @PostRoute
-  postProducts() { return this.productStore.initialize(); }
+  postProducts() { return this.productService.initialize(); }
   @GetRoute
-  getProducts() { return this.productStore.find(); }
+  getProducts() { return this.productService.find(); }
 }
 "#).await;
 }
@@ -171,9 +171,9 @@ class ProductController {
 #[tokio::test]
 async fn python_resources_are_inferred_and_shared() {
     round_trip("py", r#"
-@store()
+@service()
 @needs_all()
-class ProductStore:
+class ProductService:
     data_source: DataSource
     def initialize(self):
         self.data_source.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)")
@@ -184,7 +184,7 @@ class ProductStore:
 @public
 @needs_all()
 class ProductController:
-    products: ProductStore
+    products: ProductService
     @post_route
     def post_products(self):
         return self.products.initialize()
@@ -197,10 +197,10 @@ class ProductController:
 #[tokio::test]
 async fn rust_resources_are_inferred_and_shared() {
     round_trip("rs", r#"
-#[Store()]
+#[Service()]
 #[NeedsAll()]
-struct ProductStore { data_source: std::sync::Arc<DataSource> }
-impl ProductStore {
+struct ProductService { data_source: std::sync::Arc<DataSource> }
+impl ProductService {
     fn initialize(&self) -> Result<Json, YonResourceError> {
         self.data_source.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)", vec![])?;
         self.data_source.execute("INSERT INTO products (id, name) VALUES (?, ?)", vec![1.into(), "quoted'; SELECT secret; --".into()])
@@ -212,7 +212,7 @@ impl ProductStore {
 #[RequestRoute("/products")]
 #[Public]
 #[NeedsAll()]
-struct ProductController { products: std::sync::Arc<ProductStore> }
+struct ProductController { products: std::sync::Arc<ProductService> }
 impl ProductController {
     #[PostRoute]
     fn post_products(&self) -> Result<Json, YonResourceError> { self.products.initialize() }
@@ -225,9 +225,9 @@ impl ProductController {
 #[tokio::test]
 async fn java_resources_are_inferred_and_shared() {
     round_trip("java", r#"
-@Store()
+@Service()
 @NeedsAll()
-class ProductStore {
+class ProductService {
     DataSource dataSource;
     Object initialize() {
         dataSource.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)", java.util.List.of());
@@ -239,7 +239,7 @@ class ProductStore {
 @Public
 @NeedsAll()
 class ProductController {
-    ProductStore products;
+    ProductService products;
     @PostRoute
     Object postProducts() { return products.initialize(); }
     @GetRoute
@@ -251,9 +251,9 @@ class ProductController {
 #[tokio::test]
 async fn kotlin_resources_are_inferred_and_shared() {
     round_trip("kt", r#"
-@Store()
+@Service()
 @NeedsAll()
-class ProductStore {
+class ProductService {
     val dataSource: DataSource
     fun initialize(): Any? {
         dataSource.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)", emptyList())
@@ -265,7 +265,7 @@ class ProductStore {
 @Public
 @NeedsAll()
 class ProductController {
-    val products: ProductStore
+    val products: ProductService
     @PostRoute
     fun postProducts(): Any? = products.initialize()
     @GetRoute
@@ -277,9 +277,9 @@ class ProductController {
 #[tokio::test]
 async fn csharp_resources_are_inferred_and_shared() {
     round_trip("cs", r#"
-[Store()]
+[Service()]
 [NeedsAll()]
-class ProductStore {
+class ProductService {
     DataSource _dataSource;
     public object initialize() {
         _dataSource.Execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)", new object[] {});
@@ -291,7 +291,7 @@ class ProductStore {
 [Public]
 [NeedsAll()]
 class ProductController {
-    ProductStore _products;
+    ProductService _products;
     [PostRoute]
     public object PostProducts() { return _products.initialize(); }
     [GetRoute]
@@ -303,9 +303,9 @@ class ProductController {
 #[tokio::test]
 async fn php_resources_are_inferred_and_shared() {
     round_trip("php", r#"<?php
-#[Store()]
+#[Service()]
 #[NeedsAll()]
-class ProductStore {
+class ProductService {
     private DataSource $dataSource;
     public function initialize(): mixed {
         $this->dataSource->execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)", []);
@@ -317,7 +317,7 @@ class ProductStore {
 #[Public]
 #[NeedsAll()]
 class ProductController {
-    private ProductStore $products;
+    private ProductService $products;
     #[PostRoute]
     public function postProducts(): mixed { return $this->products->initialize(); }
     #[GetRoute]

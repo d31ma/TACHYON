@@ -88,7 +88,8 @@ class HandlerChecks:
 
     @staticmethod
     async def check_queries(context):
-        products = Behaviors.construct(ProductsStore, {'behaviors': context})
+        products = ProductsStore()
+        products.behaviors = context
         assert await products.find_by_status('active') == [{'id': 'one', 'status': 'active'}]
         assert await products.countByStatus('active') == 1
         assert await products.available('active') is True

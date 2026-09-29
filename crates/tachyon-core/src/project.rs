@@ -238,19 +238,23 @@ mod tests {
             "client/components/money/panel/tac.html",
             "<main>{money.total}</main>",
         );
-        for (folder, role, name) in [
-            ("services", "Service", "MoneyService"),
-            ("stores", "Store", "MoneyStore"),
-            ("clients", "HTTPClient", "MoneyClient"),
-            ("helpers", "Helper", "MoneyHelper"),
-            ("converters", "Converter", "MoneySummaryConverter"),
-            ("setups", "Setup", "MoneySetup"),
-            ("entities", "Entity", "MoneyEntity"),
+        for (folder, marker, name) in [
+            ("services", "Service()", "MoneyService"),
+            (
+                "stores",
+                "Store(MoneyEntity, {\"fields\":[\"id\"],\"defaultSize\":20,\"maxSize\":100})",
+                "MoneyStore",
+            ),
+            ("clients", "HTTPClient()", "MoneyClient"),
+            ("helpers", "Helper()", "MoneyHelper"),
+            ("converters", "Converter()", "MoneySummaryConverter"),
+            ("setups", "Setup()", "MoneySetup"),
+            ("entities", "Entity()", "MoneyEntity"),
         ] {
             write_file(
                 root.path(),
                 &format!("client/{folder}/{name}.js"),
-                format!("@{role}()\nclass {name} {{}}\n"),
+                format!("@{marker}\nclass {name} {{}}\n"),
             );
         }
 

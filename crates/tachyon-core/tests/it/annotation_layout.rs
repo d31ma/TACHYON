@@ -50,8 +50,8 @@ fn write_basket_roles(root: &Path, constructor: &str, fields: &str) {
     );
     write(
         root,
-        "client/stores/BasketStore.js",
-        "@Store()\nclass BasketStore {\nitems = [];\n}",
+        "client/helpers/BasketItemsHelper.js",
+        "@Helper()\nclass BasketItemsHelper {\n_items = [];\n}",
     );
     write(
         root,
@@ -278,15 +278,15 @@ async fn shared_yon_roles_compose_into_every_controller() {
 }
 
 #[test]
-fn a_tac_service_receives_bare_repositories_helpers_and_injected_providers() {
+fn a_tac_service_receives_helpers_and_injected_providers() {
     for (constructor, fields) in [
         (
             "@NeedsAll()",
-            "basketStore;\npricingHelper;\nproductsClient;",
+            "basketItemsHelper;\npricingHelper;\nproductsClient;",
         ),
         (
-            "@Needs(BasketStore, PricingHelper, ProductsClient)",
-            "basketStore;\npricingHelper;\nproductsClient;",
+            "@Needs(BasketItemsHelper, PricingHelper, ProductsClient)",
+            "basketItemsHelper;\npricingHelper;\nproductsClient;",
         ),
     ] {
         let root = tempfile::tempdir().expect("project");
@@ -297,19 +297,19 @@ fn a_tac_service_receives_bare_repositories_helpers_and_injected_providers() {
             fs::read_to_string(root.path().join("dist/.tachyon/services/BasketService.js"))
                 .expect("service module");
         for role in [
-            "class BasketStore",
+            "class BasketItemsHelper",
             "class PricingHelper",
             "class ProductsClient",
         ] {
             assert!(module.contains(role), "{constructor}: {role}");
         }
         assert!(
-            module.contains("constructor(basketStore, pricingHelper, productsClient)"),
+            module.contains("constructor(basketItemsHelper, pricingHelper, productsClient)"),
             "{constructor}: {module}"
         );
         assert!(
             module.contains(
-                "new BasketService(resolve('BasketStore'),resolve('PricingHelper'),resolve('ProductsClient'))"
+                "new BasketService(resolve('BasketItemsHelper'),resolve('PricingHelper'),resolve('ProductsClient'))"
             ),
             "{constructor}: {module}"
         );

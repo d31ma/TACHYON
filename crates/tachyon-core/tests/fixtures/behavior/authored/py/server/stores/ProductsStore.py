@@ -1,13 +1,8 @@
-from typing import Annotated
+from typing import Protocol
 
-@store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})
-class ProductsStore:
-    behaviors: Annotated[object, needs]
-    async def find_by_status(self, status):
-        pass
-    async def countByStatus(self, status):
-        pass
+@store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"CatalogSetup"})
+class ProductsStore(Protocol):
+    async def find_by_status(self, status): ...
+    async def countByStatus(self, status): ...
     @query({"operation":"exists","where":[{"field":"status","operator":"eq","argument":0}],"orderBy":[]})
-    async def available(self, status):
-        pass
-
+    async def available(self, status): ...
