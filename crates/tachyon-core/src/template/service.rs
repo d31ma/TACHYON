@@ -24,6 +24,7 @@ pub(crate) struct ServiceDefinition {
     native: Vec<(NativeCompanion, PathBuf)>,
     go: Option<PathBuf>,
     ruby: Option<PathBuf>,
+    java: Option<PathBuf>,
     fsharp: Option<PathBuf>,
     prototype: bool,
     required: Vec<String>,
@@ -40,6 +41,7 @@ impl ServiceDefinition {
             native: Vec::new(),
             go: None,
             ruby: None,
+            java: None,
             fsharp: None,
             prototype: false,
             required: Vec::new(),
@@ -116,6 +118,7 @@ impl ServiceDefinition {
         let native = match language {
             WebLanguage::Go => return self.go.as_deref(),
             WebLanguage::Ruby => return self.ruby.as_deref(),
+            WebLanguage::Java => return self.java.as_deref(),
             WebLanguage::Rust => NativeCompanion::Rust,
             WebLanguage::CSharp => NativeCompanion::CSharp,
             WebLanguage::Kotlin => NativeCompanion::Kotlin,
@@ -285,7 +288,7 @@ fn add_service_file(
     let Some((class, extension)) = service_file_name(path) else {
         diagnostics.push(service_diagnostic(
             relative,
-            "A service file is named <Name>Service with a js, ts, dart, swift, kt, cs, fs, rs, go or rb extension.",
+            "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go or rb extension.",
             "Rename it, for example client/services/BasketService.js declaring class BasketService.",
         ));
         return false;
@@ -307,6 +310,10 @@ fn add_service_file(
     }
     if extension == "rb" {
         definition.ruby = Some(path.to_path_buf());
+        return true;
+    }
+    if extension == "java" {
+        definition.java = Some(path.to_path_buf());
         return true;
     }
     if extension == crate::fsharp_source::FsharpSource::EXTENSION {
@@ -432,6 +439,9 @@ fn marked_source(definition: &ServiceDefinition) -> Option<&Path> {
     if let Some(ruby) = &definition.ruby {
         return Some(ruby);
     }
+    if let Some(java) = &definition.java {
+        return Some(java);
+    }
     if let Some(fsharp) = &definition.fsharp {
         return Some(fsharp);
     }
@@ -456,6 +466,7 @@ fn service_file_name(path: &Path) -> Option<(String, &'static str)> {
         "dart" => "dart",
         "swift" => "swift",
         "kt" => "kt",
+        "java" => "java",
         "cs" => "cs",
         "fs" => "fs",
         "rs" => "rs",

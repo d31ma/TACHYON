@@ -1,0 +1,229 @@
+use super::super::web_program_build::WebProgramBuild;
+use super::teavm_toolchain::TeaVmToolchain;
+use crate::Failure;
+use crate::wasm_optimizer::WasmOptimizer;
+use sha2::{Digest, Sha256};
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+
+pub(super) struct JavaWasmProgram {
+    binary: Vec<u8>,
+    runtime: Vec<u8>,
+    made_smaller: bool,
+}
+
+impl JavaWasmProgram {
+    const BUILD: WebProgramBuild = WebProgramBuild {
+        language: "Java",
+        composed: "service files",
+        optimized_note: "Java: TeaVM WebAssembly release build — optimized by Binaryen",
+        unoptimized_note: "Java: shipped without Binaryen optimization; install Binaryen or run `ty doctor`",
+    };
+    const JAVA_COMPILER: &'static str = "javac";
+    const JAVA_RUNTIME: &'static str = "java";
+    const ARCHIVE_TOOL: &'static str = "jar";
+    const JAVA_FLAGS: [&'static str; 5] = ["--release", "21", "-encoding", "UTF-8", "-nowarn"];
+    const TEAVM_RUNNER: &'static str = "org.teavm.cli.TeaVMRunner";
+    const TEAVM_FLAGS: [&'static str; 4] = ["-t", "wasm-gc", "-O", "2"];
+    const ENTRY_CLASS: &'static str = "TacServices";
+    const CLASS_FOLDER: &'static str = "classes";
+    const OUTPUT_FOLDER: &'static str = "program";
+    const BINARY: &'static str = "services.wasm";
+    const RUNTIME_ENTRY: &'static str = "org/teavm/backend/wasm/wasm-gc-module-runtime.min.js";
+    const RUNTIME: &'static str = "runtime.js";
+    const PUBLISHED_BINARY: &'static str = "java/services.wasm";
+    const PUBLISHED_RUNTIME: &'static str = "java/runtime.js";
+    const CACHE_FOLDER: &'static str = "java-wasm";
+    const RELEASE_FLAGS: [&'static str; 10] = [
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-exception-handling",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--enable-sign-ext",
+        "--enable-mutable-globals",
+        "-Oz",
+        "--strip-debug",
+        "--strip-producers",
+    ];
+    const MISSING_TEAVM: &'static str = "Java web services need TeaVM 0.15. Download the TeaVM command-line jar (org.teavm:cli:0.15.0, the -all jar) and the teavm-classlib, teavm-jso-impl, teavm-platform and teavm-metaprogramming-impl jars of the same version from Maven Central into one folder, and point TAC_TEAVM_HOME at it. Run ty doctor";
+    const MISSING_JDK: &'static str = "Install a JDK 21 or newer and put its bin folder on PATH";
+
+    pub(super) fn is_installed() -> bool {
+        TeaVmToolchain::find().is_some()
+    }
+
+    pub(super) async fn compile(
+        sources: &[(PathBuf, String)],
+        profile: crate::BuildProfile,
+    ) -> Result<Self, Failure> {
+        let toolchain =
+            TeaVmToolchain::find().ok_or_else(|| Self::BUILD.failure(Self::MISSING_TEAVM))?;
+        let version = Self::BUILD
+            .tool_version(
+                OsStr::new(Self::JAVA_COMPILER),
+                "-version",
+                Self::MISSING_JDK,
+            )
+            .await?;
+        let optimizer = WebProgramBuild::release_optimizer(profile).await;
+        let key = Self::cache_key(&version, &toolchain, optimizer.as_ref(), sources);
+        let cached = crate::cache::root().join(Self::CACHE_FOLDER).join(key);
+        Self::cached_or_built((&toolchain, optimizer.as_ref()), sources, &cached).await
+    }
+
+    pub(super) fn note(&self, profile: crate::BuildProfile) -> Option<&'static str> {
+        Self::BUILD.note(profile, self.made_smaller)
+    }
+
+    pub(super) fn published(self) -> Vec<(String, Vec<u8>)> {
+        vec![
+            (Self::PUBLISHED_BINARY.to_owned(), self.binary),
+            (Self::PUBLISHED_RUNTIME.to_owned(), self.runtime),
+        ]
+    }
+
+    async fn cached_or_built(
+        build: (&TeaVmToolchain, Option<&WasmOptimizer>),
+        sources: &[(PathBuf, String)],
+        cached: &Path,
+    ) -> Result<Self, Failure> {
+        let (_, optimizer) = build;
+        if let Ok(program) = Self::read(cached, optimizer.is_some()) {
+            return Ok(program);
+        }
+        Self::built(build, sources, cached).await
+    }
+
+    async fn built(
+        (toolchain, optimizer): (&TeaVmToolchain, Option<&WasmOptimizer>),
+        sources: &[(PathBuf, String)],
+        cached: &Path,
+    ) -> Result<Self, Failure> {
+        let staged = Self::stage(sources)?;
+        let folder = staged.path();
+        Self::BUILD
+            .run(&mut Self::java_compiler(folder, toolchain, sources), folder)
+            .await?;
+        Self::BUILD
+            .run(&mut Self::translator(folder, toolchain), folder)
+            .await?;
+        Self::BUILD
+            .run(&mut Self::runtime_extractor(folder, toolchain), folder)
+            .await?;
+        let output = Self::with_runtime(folder)?;
+        let made_smaller =
+            WebProgramBuild::optimize(optimizer, &output.join(Self::BINARY), &Self::RELEASE_FLAGS)
+                .await;
+        Self::keep(&output, cached, made_smaller == optimizer.is_some());
+        Self::read(&output, made_smaller).map_err(|error| Self::BUILD.failure(&error.to_string()))
+    }
+
+    fn keep(built: &Path, cached: &Path, as_expected: bool) {
+        if as_expected {
+            let _ = WebProgramBuild::save(built, &[Self::BINARY, Self::RUNTIME], cached);
+        }
+    }
+
+    fn read(folder: &Path, made_smaller: bool) -> std::io::Result<Self> {
+        Ok(Self {
+            binary: std::fs::read(folder.join(Self::BINARY))?,
+            runtime: std::fs::read(folder.join(Self::RUNTIME))?,
+            made_smaller,
+        })
+    }
+
+    fn with_runtime(folder: &Path) -> Result<PathBuf, Failure> {
+        let output = folder.join(Self::OUTPUT_FOLDER);
+        std::fs::rename(folder.join(Self::RUNTIME_ENTRY), output.join(Self::RUNTIME))
+            .map_err(|error| Self::BUILD.failure(&error.to_string()))?;
+        Ok(output)
+    }
+
+    fn cache_key(
+        version: &[u8],
+        toolchain: &TeaVmToolchain,
+        optimizer: Option<&WasmOptimizer>,
+        sources: &[(PathBuf, String)],
+    ) -> String {
+        let mut material = version.to_vec();
+        material.push(0);
+        material.extend_from_slice(&toolchain.identity());
+        material.push(0);
+        material.extend_from_slice(optimizer.map_or(&[][..], WasmOptimizer::identity));
+        for (path, text) in sources {
+            material.push(0);
+            material.extend_from_slice(path.to_string_lossy().as_bytes());
+            material.push(0);
+            material.extend_from_slice(text.as_bytes());
+        }
+        crate::compiler::hex_digest(Sha256::digest(material))
+    }
+
+    fn stage(sources: &[(PathBuf, String)]) -> Result<tempfile::TempDir, Failure> {
+        let staged = tempfile::Builder::new()
+            .prefix(".tachyon-java-wasm-")
+            .tempdir()
+            .map_err(|error| Self::BUILD.failure(&error.to_string()))?;
+        for (path, text) in sources {
+            Self::write(&staged.path().join(path), text)?;
+        }
+        Ok(staged)
+    }
+
+    fn write(path: &Path, text: &str) -> Result<(), Failure> {
+        let folder = path.parent().unwrap_or(path);
+        std::fs::create_dir_all(folder)
+            .and_then(|()| std::fs::write(path, text))
+            .map_err(|error| Self::BUILD.failure(&error.to_string()))
+    }
+
+    fn java_compiler(
+        folder: &Path,
+        toolchain: &TeaVmToolchain,
+        sources: &[(PathBuf, String)],
+    ) -> tokio::process::Command {
+        let mut command = Self::command(Self::JAVA_COMPILER, folder);
+        command
+            .args(Self::JAVA_FLAGS)
+            .arg("-cp")
+            .arg(toolchain.compiler())
+            .args(["-d", Self::CLASS_FOLDER])
+            .args(sources.iter().map(|(path, _)| path));
+        command
+    }
+
+    fn translator(folder: &Path, toolchain: &TeaVmToolchain) -> tokio::process::Command {
+        let mut command = Self::command(Self::JAVA_RUNTIME, folder);
+        command
+            .arg("-cp")
+            .arg(toolchain.tool_class_path())
+            .arg(Self::TEAVM_RUNNER)
+            .args(Self::TEAVM_FLAGS)
+            .arg("-p")
+            .arg(folder.join(Self::CLASS_FOLDER))
+            .arg("-p")
+            .arg(toolchain.compiler())
+            .arg("-d")
+            .arg(folder.join(Self::OUTPUT_FOLDER))
+            .args(["-f", Self::BINARY, Self::ENTRY_CLASS]);
+        command
+    }
+
+    fn runtime_extractor(folder: &Path, toolchain: &TeaVmToolchain) -> tokio::process::Command {
+        let mut command = Self::command(Self::ARCHIVE_TOOL, folder);
+        command
+            .arg("xf")
+            .arg(toolchain.compiler())
+            .arg(Self::RUNTIME_ENTRY);
+        command
+    }
+
+    fn command(program: &str, folder: &Path) -> tokio::process::Command {
+        let mut command = tokio::process::Command::new(program);
+        command
+            .current_dir(folder)
+            .stdin(std::process::Stdio::null());
+        command
+    }
+}

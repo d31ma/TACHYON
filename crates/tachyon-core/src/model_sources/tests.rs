@@ -107,6 +107,7 @@ async fn build_web_service(root: &Path, language: WebLanguage, extension: &str) 
         WebLanguage::Ruby => (Sources::RUBY_MODEL, Sources::RUBY_SERVICE),
         WebLanguage::Kotlin => (Sources::KOTLIN_MODEL, Sources::KOTLIN_SERVICE),
         WebLanguage::Swift => (Sources::SWIFT_MODEL, Sources::SWIFT_SERVICE),
+        WebLanguage::Java => panic!("Java web services read no client models yet"),
     };
     write(root, &format!("client/models/Guide.{extension}"), model);
     if matches!(language, WebLanguage::CSharp) {

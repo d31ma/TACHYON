@@ -147,6 +147,28 @@ impl KnownToolchains {
         }
     }
 
+    pub(super) fn java_web() -> Toolchain {
+        let state = match (
+            crate::native::JavaWebServices::teavm_installed(),
+            crate::wasm_optimizer::WasmOptimizer::is_installed(),
+        ) {
+            (false, _) => ToolchainState::Missing,
+            (true, false) => ToolchainState::Incomplete(String::from(
+                "wasm-opt (Binaryen) was not found, so release builds ship Java about 2x larger. Install Binaryen or put Emscripten on PATH",
+            )),
+            (true, true) => CommandProbe::version_state("javac", &["-version"]),
+        };
+        Toolchain {
+            requirement: String::from("Java services on the web"),
+            command: String::from("javac + TAC_TEAVM_HOME"),
+            state,
+            install: String::from(
+                "Install a JDK 21 or newer. Download TeaVM 0.15.0 from Maven Central (the org.teavm:cli -all jar and the teavm-classlib, teavm-jso-impl, teavm-platform and teavm-metaprogramming-impl jars) into one folder and set TAC_TEAVM_HOME to it.",
+            ),
+            required: true,
+        }
+    }
+
     pub(super) fn swift_web() -> Toolchain {
         let compiler = crate::native::SwiftWebServices::compiler();
         let compiler = compiler.to_string_lossy();

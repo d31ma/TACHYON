@@ -12,16 +12,18 @@ pub(crate) enum WebLanguage {
     Go,
     Kotlin,
     Swift,
+    Java,
     Ruby,
 }
 
 impl WebLanguage {
-    pub(crate) const PREFERENCE: [Self; 6] = [
+    pub(crate) const PREFERENCE: [Self; 7] = [
         Self::Rust,
         Self::Go,
         Self::CSharp,
         Self::Swift,
         Self::Kotlin,
+        Self::Java,
         Self::Ruby,
     ];
 
@@ -32,6 +34,7 @@ impl WebLanguage {
             Self::Go => "tachyon-go.js",
             Self::Kotlin => "tachyon-kotlin.js",
             Self::Swift => "tachyon-swift.js",
+            Self::Java => "tachyon-java.js",
             Self::Ruby => "tachyon-ruby-services.js",
         }
     }
@@ -161,6 +164,13 @@ async fn build_language(
             published.extend(program);
             note = reason;
             WebEngine::linear_memory(WebEngine::SWIFT_INSTANCE)
+        }
+        WebLanguage::Java => {
+            let (program, reason) =
+                crate::native::JavaWebServices::build(snapshot_root, &chosen, profile).await?;
+            published.extend(program);
+            note = reason;
+            String::from(WebEngine::JAVA_ENGINE)
         }
         WebLanguage::Ruby => {
             published.extend(crate::tac_ruby::RubyWebServices::runtime_files().await?);
@@ -441,6 +451,16 @@ const kotlin = await import('./kotlin/services.js')
 const transport = (text) => kotlin.tacInvoke(text)
 ";
 
+    const JAVA_ENGINE: &str = r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
+if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
+  throw new Error('Java services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
+}
+const { load } = await import('./java/runtime.js')
+const javaResponse = await fetch(new URL('./java/services.wasm', import.meta.url))
+const java = await load(new Uint8Array(await javaResponse.arrayBuffer()))
+const transport = (text) => java.exports.tacInvoke(text)
+";
+
     const RUBY_ENGINE: &str = r"const { TachyonRuby } = await import('./ruby/tachyon-ruby.js')
 const rubyResponse = await fetch(new URL('./ruby/tachyon-ruby.wasm', import.meta.url))
 const rubyModule = await WebAssembly.compile(await rubyResponse.arrayBuffer())
@@ -566,6 +586,9 @@ mod kotlin_tests;
 
 #[cfg(test)]
 pub(crate) mod swift_tests;
+
+#[cfg(test)]
+mod java_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]

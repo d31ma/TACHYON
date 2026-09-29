@@ -15,6 +15,7 @@ mod go_events;
 mod go_web_build;
 mod host;
 mod ios;
+mod java_web_services;
 mod kotlin_web_services;
 mod linux;
 mod macos;
@@ -46,6 +47,7 @@ pub(crate) use go::{
     in_package as go_in_package, module_file as go_module_file,
     publisher_alias as go_publisher_alias, runtime_files as go_runtime_files, web_go,
 };
+pub(crate) use java_web_services::JavaWebServices;
 pub(crate) use kotlin_web_services::KotlinWebServices;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
 pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};

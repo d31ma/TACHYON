@@ -74,6 +74,19 @@ fn a_swift_service_may_not_use_javascript_interop() {
 }
 
 #[test]
+fn a_java_service_may_not_use_teavm_javascript_interop() {
+    let source = "import org.teavm.jso.JSBody;\n\n@Service\nclass PlaceService {\n    @JSBody(script = \"return location.href;\")\n    static native String where();\n    int nativeCount = 0;\n    // JSObject JSExport\n}\n";
+    let found = found_text("client/services/PlaceService.java", source);
+    assert_eq!(found.len(), 4, "{found:?}");
+    assert!(found[0].starts_with("Remove `org.teavm`."), "{found:?}");
+    assert!(found[1].starts_with("Remove `JSBody`."), "{found:?}");
+    assert!(found[2].starts_with("Remove `JSBody`."), "{found:?}");
+    assert!(found[3].starts_with("Remove `native`."), "{found:?}");
+    let problems = refused("client/services/PlaceService.java", source);
+    assert!(problems[0].starts_with("TY1317 Java services cannot call browser APIs."));
+}
+
+#[test]
 fn a_csharp_service_may_not_use_javascript_interop() {
     let source = "using System.Runtime.InteropServices.JavaScript;\n\n[Service]\npublic partial class PlaceService\n{\n    [JSImport(\"navigator.geolocation\", \"main.js\")]\n    internal static partial string Where();\n}\n";
     let found = found_text("client/services/PlaceService.cs", source);
