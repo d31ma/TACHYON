@@ -605,6 +605,19 @@ machine contracts have their own, independent major versions.
   a report for tools, and `--strict` fails on a gap with no example and no
   stated reason; the website test keeps that gate off until the examples exist.
 
+- Java web services now use Tachyon's browser APIs (`Clock`, `SecureRandom`,
+  `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
+  `Notifications` and `Geolocation`) under the same names as Kotlin and Swift,
+  and take the built-in browser events (`ConnectivityChanged`,
+  `PositionFound`, `BrowserCallFailed` and the others) in `@OnEvent` methods
+  as Java records (ADR 0083 amendment). The build adds only the APIs and
+  events that a service names. The wait between two `@Retry` tries is now one
+  host call instead of a loop in Java. The browser copy of the Java behavior
+  runtime no longer uses regular expressions or `String.format`, which makes
+  a service with behavior annotations about 70 % smaller (a notes service:
+  375,346 to 108,377 bytes, 43,669 with Brotli); the JVM runtime is
+  unchanged. CI installs the checksum-pinned TeaVM jars and runs the Java web
+  service tests.
 - Java web services now exchange models and events with the page and use the
   built-in browser storage (ADR 0083 amendment). `client/models` may hold Java
   records, classes with fields and enums (they were server-only); a service

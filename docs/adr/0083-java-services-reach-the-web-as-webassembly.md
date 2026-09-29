@@ -260,3 +260,85 @@ bytes (1,686 with Brotli), because the page now gives the module its host
 - The storage gate has Java rows for the cache, the Store and
   `AllOrNothing`, in Chromium, Firefox and WebKit. A demo with the same
   library and notes services was checked in the three browsers.
+
+## Amendment: browser APIs, clock waits and a smaller behavior runtime (2026-09-29)
+
+### Browser APIs and built-in events
+
+A Java web service now uses Tachyon's browser APIs under the same names as
+Kotlin and Swift: `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`,
+`Preferences`, `Clipboard`, `Share`, `Notifications` and `Geolocation`. The
+service creates them itself, for example
+`private final Clock clock = new Clock();`. Each class sends one request
+through the host's `web` call, the same request that Kotlin sends. A call that
+the page refuses at once throws an `IllegalStateException` with the page's
+message. `SecureRandom.bytes(count)` gives a `byte[]`.
+
+The built-in event models (`ConnectivityChanged`, `PositionFound`,
+`BrowserCallFailed` and the others) become Java records, so an `@OnEvent`
+method takes them like any other model, and Tachyon generates their readers
+with the project's models. The build adds an API class, and an event
+record, only when a service names it, so a service that uses none of them
+does not grow. A Java web service runs in the page, so the build no longer
+refuses these names in it (`TY1317` still refuses them in a service that is
+linked into a native app, and still refuses TeaVM's JavaScript interop).
+
+### Waits
+
+`Thread.sleep` in the behavior runtime (the wait between two tries of
+`@Retry`) becomes one host call, `pause(milliseconds)`, which waits in
+JavaScript until the time has passed. Before, the Java code read the clock in
+a loop. The page still waits for that time, as with Swift. A blocking
+`@MaxAtOnce` that finds no free slot fails with `timeout` at once: only one
+call runs on the page at a time, so no other call can free the slot while it
+waits.
+
+### A smaller behavior runtime
+
+TeaVM compiles `String.matches`, `String.split` and `String.format` with its
+own regular expression and formatting code, which was most of the 300 KB
+that the behavior runtime added. The browser copy of the runtime now calls
+`TacText` instead: small checks that accept the same text as each regular
+expression (profile names, setting names, path segments, header names,
+integer and number text), a split on one character, and the `\uXXXX`
+escape. A unit test runs every check against its regular expression on the
+JVM (all strings of up to four characters from a mixed alphabet, and long
+strings at each length limit), and another test fails if the browser copy
+still calls `matches`, `split` or `String.format`. The JVM (Yon) runtime does
+not change.
+
+Release builds, `java/services.wasm` in bytes (Brotli in brackets):
+
+| Program | Before | After |
+| --- | --- | --- |
+| The counter of the first step | 73,320 (30,758) | 73,320 (30,758) |
+| A notes service with `@Cached`, `Store` and `@AllOrNothing` | 375,346 (114,056) | 108,377 (43,669) |
+| The website's `@Retry` and `@MaxAtOnce` example | not measured | 98,996 (40,211) |
+| A service that uses all nine browser APIs and their events | not possible | 84,784 (33,731) |
+
+`tachyon-java.js` grew from 5,190 to 5,310 bytes (1,734 with Brotli) for the
+`pause` call.
+
+### Continuous integration
+
+The macOS job installs the five TeaVM 0.15.0 jars from Maven Central, checks
+each one against its pinned SHA-256, sets `TAC_TEAVM_HOME`, and runs the
+Java web service tests with a JDK 21.
+
+### Checks
+
+- `web_api_tests` (three Java services: the clock and secure random numbers;
+  connectivity, visibility and preferences with their events; clipboard,
+  share, notifications and geolocation with their answers) and
+  `java_behavior_tests` (a retry that makes two host waits and waits at least
+  30 ms, `@MaxAtOnce`, configuration binding and validation) failed before
+  the change and pass after it.
+- A page with the same services was checked in Chromium, Firefox and WebKit:
+  the browser APIs, the events, the clipboard refusal without a click,
+  geolocation and a retry that waited 34 to 39 ms. The web-apis gate has a
+  Java row when TeaVM is installed.
+
+### Not done yet
+
+- `ty init` does not offer Java for the pages yet, and does not install
+  TeaVM; a project points `TAC_TEAVM_HOME` at the jars itself.
