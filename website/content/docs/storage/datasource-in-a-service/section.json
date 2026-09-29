@@ -1,7 +1,7 @@
 {
   "heading": "DataSource in a service, in every Yon language",
   "axis": "language",
-  "body": "Choose one language. Copy server/application.json and that language's service and controller. GET /catalog queries the managed in-memory SQLite datasource. It returns [{\"amount\":42}]. In the controller language, you need no constructor of your own, no module manifest and no database library. The same query works with each SQL dialect. For real tables, bind values as parameters (do not paste them into the SQL text). Use the driver's placeholder syntax shown above. Run database schema migrations (changes to tables) outside controllers. The service asks for DataSource with Needs, like a Spring service that asks for a JdbcTemplate, and the controller asks for the service. Raw SQL belongs in a service because a Store has no implementation: a Store names an Entity, and Tachyon writes each of its queries (see Data access). The query text is one literal, and values go in the parameter list; Tachyon refuses query text built from pieces (`TY1325`).",
+  "body": "Choose one language. Copy server/application.json and that language's service and controller. GET /catalog queries the managed in-memory SQLite datasource. It returns [{\"amount\":42}]. In the controller language, you need no constructor of your own, no module manifest and no database library. The same query works with each SQL dialect. For real tables, bind values as parameters (do not paste them into the SQL text). Use the driver's placeholder syntax shown above. Run database schema migrations (changes to tables) outside controllers. The service asks for DataSource with Needs, like a Spring service that asks for a JdbcTemplate, and the controller asks for the service. F# takes the DataSource, and the controller takes the service, as primary constructor parameters. Raw SQL belongs in a service because a Store has no implementation: a Store names an Entity, and Tachyon writes each of its queries (see Data access). The query text is one literal, and values go in the parameter list; Tachyon refuses query text built from pieces (`TY1325`).",
   "files": [
     {
       "name": "server/application.json",
@@ -88,9 +88,21 @@
       }
     },
     {
+      "name": "server/services/CatalogService.fs",
+      "code": {
+        "file": "server/services/CatalogService.fs"
+      }
+    },
+    {
       "name": "server/controllers/CatalogController.cs",
       "code": {
         "file": "server/controllers/CatalogController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.fs",
+      "code": {
+        "file": "server/controllers/CatalogController.fs"
       }
     },
     {

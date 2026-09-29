@@ -753,8 +753,21 @@ machine contracts have their own, independent major versions.
   in Tac. They run on the C# behavior runtime, so F# gets the same checks and
   errors as C#. A member whose body Tachyon writes (a query, Convert, Gateway,
   a request without a body) is an F# `abstract` member; the behavior context
-  is a `behaviors` member of the class. Events, lifecycle hooks, `NeedsAll`,
-  sockets, streams and executed coverage are still refused by name.
+  is a `behaviors` member of the class. Sockets, streams, field `Needs` and
+  executed coverage are still refused by name.
+- F# classes hold events and lifecycle hooks (ADR 0073): `OnEvent` with
+  `Order`, conditions, ids, replay and a returned model that is published
+  again, `OnStart` and `OnStop`, in Yon and in Tac, with the same checks and
+  runtime as C#. A class takes its `ApplicationEventPublisher` as a primary
+  constructor parameter in both realms and publishes F# records; listeners
+  take and return F# records. `InBackground` is refused in Yon, as in C#, and
+  allowed in Tac. `[<NeedsAll>]` on an F# type states that its primary
+  constructor takes every dependency; a field list and field `Needs` stay
+  refused. The .NET realm reads both C# and F# models, so event conditions
+  and the Tac JSON model context see F# records. An F# service takes
+  `DataSource` or `RedisTemplate` as a constructor parameter. A Tac F#
+  service takes no other constructor parameter. The website shows F# in
+  Lifecycle and events (Yon and Tac) and in DataSource in a service.
 - F# is a Yon language and a Tac service language (ADR 0073). Annotations are
   F# attributes, `[<Service>]` or `[<GetRoute("/{id}")>]`, on their own line;
   several may share one pair of brackets. A type takes the roles it needs as
@@ -773,9 +786,9 @@ machine contracts have their own, independent major versions.
   ADR 0037 on every target, sharing one download with C#. `ty doctor` checks
   .NET for F#, and `ty init` offers F# in both realms. TY1335 refuses an F#
   file with a `module` or `namespace` line, a file-level `let` or `do`, or an
-  attribute on the same line as its declaration. Events, lifecycle hooks,
-  sockets, streams and the executed-coverage check are not available in F#
-  yet and are refused by name.
+  attribute on the same line as its declaration. Sockets, streams and the
+  executed-coverage check are not available in F# yet and are refused by
+  name.
 - Compressed files (ADR 0075): a release build of the web target (`ty build`,
   `ty bundle`) writes a Brotli `.br` and a gzip `.gz` copy next to each script,
   style, page, JSON, SVG, source map and WebAssembly file of 1 KiB or more,

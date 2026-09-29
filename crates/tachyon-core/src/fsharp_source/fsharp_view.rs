@@ -76,8 +76,12 @@ impl FsharpView {
     }
 
     pub(crate) fn authored_usings(&self) -> String {
+        Self::using_lines_in(self.text())
+    }
+
+    fn using_lines_in(text: &str) -> String {
         let mut usings = String::new();
-        for line in self.text().lines() {
+        for line in text.lines() {
             Self::add_using(&mut usings, line.trim());
         }
         usings

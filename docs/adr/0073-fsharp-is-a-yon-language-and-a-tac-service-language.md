@@ -157,7 +157,7 @@ replay and a returned model that is published again), `OnStart` and
   service takes no other constructor parameter. F# records join the .NET
   JSON model context, so listeners read and publish them.
 - The Yon library makes `DataSource` and `RedisTemplate` public for F#, so
-  an F# store takes them as constructor parameters.
+  an F# service takes them as constructor parameters.
 
 ### Not yet available in F#
 
