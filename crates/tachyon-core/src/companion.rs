@@ -893,6 +893,9 @@ fn name_first(
             continue;
         }
         let annotation = rest[name.len()..].trim_start();
+        if is_runtime_resource(annotation) {
+            return Ok(None);
+        }
         let declared_type = annotated_type(annotation);
         if writable && declared_type.is_none() {
             return Err(missing_type(&name, source_path, language));
@@ -969,6 +972,18 @@ fn swift_label(declaration: &str) -> String {
         Some("_") | None => String::new(),
         Some(label) => format!("{label}: "),
     }
+}
+
+fn is_runtime_resource(annotation: &str) -> bool {
+    let declared = annotated_type(annotation).unwrap_or_default();
+    let initializer = annotation.split_once('=').map_or("", |(_, value)| value);
+    let constructed = initializer.split('(').next().unwrap_or_default();
+    [declared.trim_end_matches(['!', '?']), constructed.trim()]
+        .iter()
+        .any(|name| {
+            *name == "BehaviorContext"
+                || crate::web_api_clients::WebApiClients::is_client_type(name)
+        })
 }
 
 fn annotated_type(annotation: &str) -> Option<String> {
@@ -1138,7 +1153,7 @@ fn swift_entry(member: &Member) -> String {
         return member.swift_behavior_entry(parameters);
     }
     if member.method && parameters.is_empty() {
-        return format!("    \"{name}\": .method({{ _ in tacInstance.{name}() }}),\n");
+        return format!("    \"{name}\": .method({{ _ in try tacInstance.{name}() }}),\n");
     }
     if member.method {
         let arguments = swift_arguments(parameters);
@@ -1366,7 +1381,8 @@ mod tests {
                  public string Runtime => \"C#\";\n}\n";
 
         const SWIFT_CLASS: &str = "final class CompanionService {\n    var count: Int = 6\n    \
-             let label: String = \"a\"\n    func doubled() -> Int { count * 2 }\n}\n";
+             let label: String = \"a\"\n    var behaviors: BehaviorContext!\n    let clock = Clock()\n    \
+             func doubled() -> Int { count * 2 }\n}\n";
 
         const RUST_ARGUMENTS: &str = "#[derive(Default)]\nstruct DrawerService {\n    open: bool,\n}\n\n\
              impl DrawerService {\n    fn dismiss(&mut self, key: &str, times: u8) {}\n    \
@@ -1543,9 +1559,12 @@ mod tests {
             "let tacInstance = CompanionService()",
             "tacField(Int.self, $0) ?? tacInstance.count",
             "\"label\": .field({ tacInstance.label }),",
-            ".method({ _ in tacInstance.doubled() })",
+            ".method({ _ in try tacInstance.doubled() })",
         ] {
             assert!(generated.contains(expected), "{generated}");
+        }
+        for hidden in ["\"behaviors\"", "\"clock\""] {
+            assert!(!generated.contains(hidden), "{generated}");
         }
     }
 

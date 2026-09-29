@@ -24,7 +24,17 @@ impl SwiftWebServices {
         include_str!("swift_web_services/TacListValueEncoder.swift"),
         include_str!("swift_web_services/TacWebStorage.swift"),
         include_str!("swift_web_services/TacWebHost.swift"),
-        include_str!("swift_web_services/TacAwaited.swift")
+        include_str!("swift_web_services/TacBrowserError.swift"),
+        include_str!("swift_web_services/TacAwaited.swift"),
+        include_str!("web_apis/Clock.swift"),
+        include_str!("web_apis/SecureRandom.swift"),
+        include_str!("web_apis/Connectivity.swift"),
+        include_str!("web_apis/PageVisibility.swift"),
+        include_str!("web_apis/Preferences.swift"),
+        include_str!("web_apis/Clipboard.swift"),
+        include_str!("web_apis/Share.swift"),
+        include_str!("web_apis/Notifications.swift"),
+        include_str!("web_apis/Geolocation.swift")
     );
     const BEHAVIOR_PLATFORM: &'static str = concat!(
         include_str!("swift_web_services/BehaviorPlatform.swift"),
@@ -62,7 +72,11 @@ impl SwiftWebServices {
         };
         let authored =
             crate::behavior::SwiftPlatform::in_browser(&authored, Self::BEHAVIOR_PLATFORM);
-        let program = format!("{authored}\n{}", Self::PRELUDE);
+        let program = format!(
+            "{authored}\n{}{}",
+            Self::PRELUDE,
+            crate::route_types::WebEventSources::swift()
+        );
         let built = SwiftWasmProgram::compile(&program, profile).await?;
         let note = built.note(profile);
         Ok((built.published(), note))

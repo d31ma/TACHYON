@@ -30,6 +30,11 @@ impl WebEventSources {
         number: "Double",
         flag: "Boolean",
     };
+    const SWIFT: LanguageKinds = LanguageKinds {
+        text: "String",
+        number: "Double",
+        flag: "Bool",
+    };
     const GO_PACKAGE: &'static str = "package tac\n";
 
     pub(crate) fn rust() -> String {
@@ -50,6 +55,10 @@ impl WebEventSources {
 
     pub(crate) fn kotlin() -> String {
         Self::each(Self::kotlin_model)
+    }
+
+    pub(crate) fn swift() -> String {
+        Self::each(Self::swift_model)
     }
 
     pub(crate) fn ruby() -> String {
@@ -154,6 +163,15 @@ impl WebEventSources {
             parameters.push(format!("val {}: {kind}", field.name));
         }
         format!("\nclass {name}({})\n", parameters.join(", "))
+    }
+
+    fn swift_model(name: &str, fields: &[ModelField]) -> String {
+        let mut declared = String::new();
+        for field in fields {
+            let kind = Self::kind(&Self::SWIFT, &field.shape);
+            let _ = writeln!(declared, "    let {}: {kind}", field.name);
+        }
+        format!("\nstruct {name}: Codable {{\n{declared}}}\n")
     }
 
     fn ruby_model(name: &str, fields: &[ModelField]) -> String {

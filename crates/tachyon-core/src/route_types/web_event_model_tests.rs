@@ -6,7 +6,7 @@ use std::path::Path;
 struct Preludes;
 
 impl Preludes {
-    const LISTENERS: [(&str, &str); 7] = [
+    const LISTENERS: [(&str, &str); 8] = [
         (
             "ts",
             "class ProbeService {\n@OnEvent\nchanged(event: ConnectivityChanged) {}\n}\n",
@@ -30,6 +30,10 @@ impl Preludes {
         (
             "dart",
             "@Service()\nclass ProbeService {\n  @OnEvent\n  void changed(ConnectivityChanged event) {}\n}\n",
+        ),
+        (
+            "swift",
+            "@Service\nfinal class ProbeService {\n    @OnEvent\n    func changed(_ event: ConnectivityChanged) {}\n}\n",
         ),
         (
             "rb",
@@ -75,6 +79,7 @@ fn every_language_declares_the_web_event_models_with_their_fields() {
         ("cs", WebEventSources::csharp()),
         ("dart", WebEventSources::dart()),
         ("rb", WebEventSources::ruby()),
+        ("swift", WebEventSources::swift()),
     ];
     for (extension, source) in sources {
         let declared = ModelParser::models(extension, &source);

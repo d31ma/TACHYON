@@ -139,6 +139,144 @@ impl SwiftFixtures {
          process.exit(0)\n";
 }
 
+struct SwiftBehaviorFixtures;
+
+impl SwiftBehaviorFixtures {
+    const FILES: [(&str, &str); 5] = [
+        (
+            "client/setups/OrdersSetup.swift",
+            r##"@Setup
+final class OrdersSetup {
+    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {
+        var adapters = BehaviorAdapters()
+        adapters.authorize = { _, _ in true }
+        return adapters
+    }
+}
+"##,
+        ),
+        (
+            "client/services/OrdersService.swift",
+            r##"final class OrdersService {
+    struct GatewayUnavailable: Error {}
+
+    var behaviors: BehaviorContext!
+    private static let firstWorkingAttempt = 3
+
+    var attempts: Int = 0
+
+    @OnStart
+    func open() {
+        behaviors = Self.openOrders()
+    }
+
+    @Retry({"maxRetries":3,"delayMs":10,"multiplier":2,"maxDelayMs":200,"jitterMs":5})
+    func submit(_ id: BehaviorJSON) async throws -> BehaviorJSON {
+        attempts += 1
+        try failFirstTwoAttempts()
+        return reportOf(id)
+    }
+
+    @MaxAtOnce({"limit":2,"policy":"block"})
+    func report(_ id: BehaviorJSON) async throws -> BehaviorJSON {
+        return reportOf(id)
+    }
+
+    private func reportOf(_ id: BehaviorJSON) -> BehaviorJSON {
+        .object(["id": id, "attempts": .number(Double(attempts))])
+    }
+
+    private func failFirstTwoAttempts() throws {
+        if attempts < Self.firstWorkingAttempt { throw GatewayUnavailable() }
+    }
+
+    private static func openOrders() -> BehaviorContext? {
+        try? Behaviors.create(OrdersSetup.self, partition: "orders", signal: BehaviorSignal())
+    }
+}
+"##,
+        ),
+        (
+            "client/setups/CatalogSetup.swift",
+            r##"@Setup
+@Settings({"prefix":"TAC_CATALOG_"})
+@WhenProfile("public")
+@WhenSetting({"name":"TAC_CATALOG_CACHE_ENABLED","havingValue":"true","matchIfMissing":false})
+final class CatalogSetup {
+    @Min(1)
+    @Max(100)
+    var pageSize: Int = 20
+    var cacheEnabled: Bool = false
+    var title: String = "Catalog"
+    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters { BehaviorAdapters() }
+}
+"##,
+        ),
+        (
+            "client/helpers/PublicValues.swift",
+            r##"final class PublicValues {
+    @Setting("${tac.catalog.title:Catalog}")
+    var title: String = ""
+}
+"##,
+        ),
+        (
+            "client/services/SettingsService.swift",
+            r##"final class SettingsService {
+    var title: String = "Catalog"
+    var pageSize: Int = 20
+
+    init() {
+        (title, pageSize) = Self.settingsOrFallback()
+    }
+
+    private static func settingsOrFallback() -> (String, Int) {
+        do {
+            return try readSettings()
+        } catch {
+            return ("Configuration unavailable", 20)
+        }
+    }
+
+    private static func readSettings() throws -> (String, Int) {
+        let published = try BehaviorJSON.parse(
+            "{\"tac\":{\"catalog\":{\"title\":\"Catalog\",\"page\":{\"size\":20},\"cache\":{\"enabled\":true}}}}")
+        let catalog = try Behaviors.properties(CatalogSetup.self, published)
+        let values = try Behaviors.values(PublicValues.self, published)
+        let context = try Behaviors.create(
+            CatalogSetup.self, partition: "public-catalog", signal: BehaviorSignal(),
+            profiles: ["public"], properties: published)
+        context.dispose()
+        return (try values.get("title").text, try catalog.get("pageSize").integer)
+    }
+}
+"##,
+        ),
+    ];
+
+    const DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         let polls = 0\n\
+         const instantiate = WebAssembly.instantiate\n\
+         WebAssembly.instantiate = (module, imports) => {\n\
+         \x20 const wasi = imports?.wasi_snapshot_preview1\n\
+         \x20 const poll = wasi?.poll_oneoff\n\
+         \x20 if (poll) wasi.poll_oneoff = (...values) => { polls += 1; return poll(...values) }\n\
+         \x20 return instantiate(module, imports)\n\
+         }\n\
+         const { default: OrdersService } = await import('./OrdersService.js')\n\
+         const { default: SettingsService } = await import('./SettingsService.js')\n\
+         const orders = new OrdersService({})\n\
+         orders.__tachyonStarted()\n\
+         const started = performance.now()\n\
+         const submitted = orders.submit('a')\n\
+         const waited = performance.now() - started\n\
+         const reported = orders.report('b')\n\
+         const settings = new SettingsService({})\n\
+         console.log(JSON.stringify({ submitted, waited, polls, reported, title: settings.title, pageSize: settings.pageSize }))\n\
+         process.exit(0)\n";
+}
+
 pub(crate) fn swift_web_ready() -> bool {
     let sdk = std::env::var_os("TAC_SWIFT_WASM_SDK").map(PathBuf::from);
     let has_sdk = sdk.is_some_and(|path| path.join("WASI.sdk").is_dir());
@@ -343,4 +481,56 @@ async fn a_swift_service_reads_the_builtin_cache_and_store_synchronously() {
         report["listed"],
         serde_json::json!([{"id": "n1", "text": "hello"}])
     );
+}
+
+#[tokio::test]
+async fn a_swift_service_retries_after_a_delay_and_binds_settings_as_webassembly() {
+    if !swift_web_ready() {
+        eprintln!("skipping: the Swift SDK for WebAssembly, swiftc or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in SwiftBehaviorFixtures::FILES {
+        write(root.path(), relative, text);
+    }
+    let services =
+        [("orders", "OrdersService"), ("settings", "SettingsService")].map(|(instance, class)| {
+            (
+                String::from(instance),
+                String::from(class),
+                WebLanguage::Swift,
+                root.path().join(format!("client/services/{class}.swift")),
+            )
+        });
+    let built = build_all(
+        root.path(),
+        &services,
+        &BuildJobs::new(1),
+        crate::BuildProfile::Development,
+    )
+    .await
+    .expect("the Swift services build");
+    for (name, bytes) in built.files {
+        let path = root.path().join(name);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+        std::fs::write(path, bytes).expect("publish");
+    }
+    let report = run_driver(root.path(), SwiftBehaviorFixtures::DRIVER);
+    assert_eq!(
+        report["submitted"],
+        serde_json::json!({"id": "a", "attempts": 3})
+    );
+    assert_eq!(
+        report["reported"],
+        serde_json::json!({"id": "b", "attempts": 3})
+    );
+    assert!(
+        report["waited"]
+            .as_f64()
+            .is_some_and(|waited| waited >= 30.0),
+        "{report}"
+    );
+    assert_eq!(report["polls"], 2, "{report}");
+    assert_eq!(report["title"], "Catalog");
+    assert_eq!(report["pageSize"], 20);
 }

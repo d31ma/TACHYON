@@ -13,7 +13,7 @@ class WebApiGate {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-  static languages = ['js', 'rust', 'go']
+  static languages = ['js', 'rust', 'go', 'swift']
   static permissions = ['clipboard-read', 'clipboard-write', 'geolocation', 'notifications']
   static position = { latitude: 48.85, longitude: 2.35 }
   static settleTimeout = 5_000
@@ -378,6 +378,113 @@ func (stamp *GoStampService) HearShare(finished ShareFinished) {
 // @OnEvent
 func (stamp *GoStampService) HearFailure(failed BrowserCallFailed) {
 	stamp.Failure = failed.Message
+}
+`,
+    'client/services/SwiftStampService.swift': `@Service
+final class SwiftStampService {
+    private let clock = Clock()
+    private let secureRandom = SecureRandom()
+    private let preferences = Preferences()
+    private let clipboard = Clipboard()
+    private let share = Share()
+    private let notifications = Notifications()
+    private let geolocation = Geolocation()
+    var label: String = "swift"
+    var online: Bool = false
+    var scheme: String = ""
+    var pasted: String = ""
+    var permission: String = ""
+    var latitude: Double = 0
+    var failure: String = ""
+    var shared: Bool = false
+
+    func now() -> Double {
+        clock.nowMs()
+    }
+
+    func zone() throws -> String {
+        try clock.timeZone()
+    }
+
+    func token() throws -> String {
+        try secureRandom.uuid()
+    }
+
+    func count() throws -> Int {
+        try secureRandom.bytes(16).count
+    }
+
+    func motion() throws -> String {
+        try preferences.motion()
+    }
+
+    func locale() throws -> String {
+        try preferences.language()
+    }
+
+    func copy(_ text: String) throws {
+        try clipboard.writeText(text)
+    }
+
+    func attempt() -> String {
+        do {
+            try clipboard.writeText("without a click")
+            return ""
+        } catch {
+            return String(describing: error)
+        }
+    }
+
+    func paste() throws {
+        try clipboard.readText()
+    }
+
+    func ask() throws {
+        try notifications.requestPermission()
+    }
+
+    func tell() throws {
+        try share.open(title: "Tachyon", text: "Shared from a test", url: "https://example.com/")
+    }
+
+    func locate() throws {
+        try geolocation.currentPosition()
+    }
+
+    @OnEvent({"replay":true})
+    func hearConnectivity(_ changed: ConnectivityChanged) {
+        online = changed.online
+    }
+
+    @OnEvent({"replay":true})
+    func hearPreferences(_ changed: PreferencesChanged) {
+        scheme = changed.scheme
+    }
+
+    @OnEvent
+    func hearClipboard(_ read: ClipboardTextRead) {
+        pasted = read.text
+    }
+
+    @OnEvent
+    func hearPermission(_ changed: NotificationPermissionChanged) {
+        permission = changed.permission
+    }
+
+    @OnEvent
+    func hearPosition(_ found: PositionFound) {
+        latitude = found.latitude
+    }
+
+    @OnEvent
+    func hearShare(_ finished: ShareFinished) {
+        shared = true
+    }
+
+    @OnEvent
+    func hearFailure(_ failed: BrowserCallFailed) {
+        failure = failed.message
+    }
 }
 `,
   }

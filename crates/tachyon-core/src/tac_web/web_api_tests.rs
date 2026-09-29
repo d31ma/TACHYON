@@ -45,6 +45,13 @@ impl WebApis {
          func (stamp *StampService) Count() int {\n\tbytes, _ := stamp.secureRandom.Bytes(16)\n\treturn len(bytes)\n}\n\n\
          func (stamp *StampService) Refused() string {\n\t_, err := stamp.secureRandom.Bytes(65537)\n\treturn err.Error()\n}\n";
 
+    const SWIFT_SERVICE: &str = "@Service\nfinal class StampService {\n    private let clock = Clock()\n    private let secureRandom = SecureRandom()\n\n    \
+         func now() -> Double {\n        clock.nowMs()\n    }\n\n    \
+         func zone() throws -> String {\n        try clock.timeZone()\n    }\n\n    \
+         func token() throws -> String {\n        try secureRandom.uuid()\n    }\n\n    \
+         func count() -> Int {\n        (try? secureRandom.bytes(16).count) ?? -1\n    }\n\n    \
+         func refused() -> String {\n        do {\n            _ = try secureRandom.bytes(65537)\n            return \"\"\n        } catch {\n            return String(describing: error)\n        }\n    }\n}\n";
+
     const CSHARP_SERVICE: &str = "[Service]\npublic class StampService\n{\n    \
          private readonly Clock clock = new();\n    private readonly SecureRandom secureRandom = new();\n\n    \
          public double Now() => clock.NowMs();\n\n    \
@@ -118,6 +125,54 @@ impl StampService {
     }
 }
 ";
+
+    const SWIFT_LISTENER: &str = r#"@Service
+final class StampService {
+    private let connectivity = Connectivity()
+    private let pageVisibility = PageVisibility()
+    private let preferences = Preferences()
+    var online: Bool = false
+    var visible: Bool = false
+    var scheme: String = ""
+    var language: String = ""
+
+    func reachable() throws -> Bool {
+        try connectivity.online()
+    }
+
+    func shown() throws -> Bool {
+        try pageVisibility.visible()
+    }
+
+    func theme() throws -> String {
+        try preferences.scheme()
+    }
+
+    func motion() throws -> String {
+        try preferences.motion()
+    }
+
+    func locale() throws -> String {
+        try preferences.language()
+    }
+
+    @OnEvent
+    func connectivityChanged(_ changed: ConnectivityChanged) {
+        online = changed.online
+    }
+
+    @OnEvent
+    func visibilityChanged(_ changed: VisibilityChanged) {
+        visible = changed.visible
+    }
+
+    @OnEvent
+    func preferencesChanged(_ changed: PreferencesChanged) {
+        scheme = changed.scheme
+        language = changed.language
+    }
+}
+"#;
 
     const GO_LISTENER: &str = "// @Service
 type StampService struct {
@@ -518,6 +573,78 @@ func (stamp *StampService) HearPosition(found PositionFound) {
 // @OnEvent
 func (stamp *StampService) HearFailure(failed BrowserCallFailed) {
 	stamp.Failure = failed.Api + "." + failed.Call + ": " + failed.Message
+}
+"#;
+
+    const SWIFT_PROMPTS: &str = r#"@Service
+final class StampService {
+    private let clipboard = Clipboard()
+    private let share = Share()
+    private let notifications = Notifications()
+    private let geolocation = Geolocation()
+    var pasted: String = ""
+    var shared: Bool = false
+    var permission: String = ""
+    var latitude: Double = 0
+    var failure: String = ""
+
+    func copy(_ text: String) {
+        try? clipboard.writeText(text)
+    }
+
+    func paste() throws {
+        try clipboard.readText()
+    }
+
+    func tell() throws {
+        try share.open(title: "Title", text: "Text", url: "https://example.com/")
+    }
+
+    func ask() throws {
+        try notifications.requestPermission()
+    }
+
+    func notify() throws {
+        try notifications.show(title: "Hello", body: "Body")
+    }
+
+    func locate() throws {
+        try geolocation.currentPosition()
+    }
+
+    func denied() -> String {
+        do {
+            try notifications.show(title: "Hello", body: "Body")
+            return ""
+        } catch {
+            return String(describing: error)
+        }
+    }
+
+    @OnEvent
+    func hearClipboard(_ read: ClipboardTextRead) {
+        pasted = read.text
+    }
+
+    @OnEvent
+    func hearShare(_ finished: ShareFinished) {
+        shared = true
+    }
+
+    @OnEvent
+    func hearPermission(_ changed: NotificationPermissionChanged) {
+        permission = changed.permission
+    }
+
+    @OnEvent
+    func hearPosition(_ found: PositionFound) {
+        latitude = found.latitude
+    }
+
+    @OnEvent
+    func hearFailure(_ failed: BrowserCallFailed) {
+        failure = failed.api + "." + failed.call + ": " + failed.message
+    }
 }
 "#;
 
@@ -1312,5 +1439,45 @@ async fn a_ruby_web_service_hears_the_answers_to_its_own_browser_calls() {
     }
     let root = tempfile::tempdir().expect("project");
     WebApis::publish(root.path(), WebLanguage::Ruby, "rb", WebApis::RUBY_PROMPTS).await;
+    WebApis::assert_answered(root.path(), true);
+}
+
+async fn publish_swift(root: &Path, source: &str) -> bool {
+    if !super::swift_tests::swift_web_ready() {
+        eprintln!("skipping: the Swift SDK for WebAssembly, swiftc or node is unavailable");
+        return false;
+    }
+    let source = ("swift", source);
+    let profile = crate::BuildProfile::Development;
+    WebApis::publish_with(root, WebLanguage::Swift, source, profile).await;
+    true
+}
+
+#[tokio::test]
+async fn a_swift_web_service_reads_the_clock_and_secure_random_from_the_page() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_swift(root.path(), WebApis::SWIFT_SERVICE).await {
+        return;
+    }
+    let driver = format!("{}{}", WebApis::FILE_FETCH, WebApis::SERVICE_DRIVER);
+    let report = WebApis::run(root.path(), &driver);
+    WebApis::assert_stamp(&report);
+}
+
+#[tokio::test]
+async fn a_swift_web_service_reads_and_hears_connectivity_visibility_and_preferences() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_swift(root.path(), WebApis::SWIFT_LISTENER).await {
+        return;
+    }
+    WebApis::assert_heard(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_swift_web_service_hears_the_answers_to_its_own_browser_calls() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_swift(root.path(), WebApis::SWIFT_PROMPTS).await {
+        return;
+    }
     WebApis::assert_answered(root.path(), true);
 }

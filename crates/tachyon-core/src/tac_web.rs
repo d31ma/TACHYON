@@ -324,14 +324,37 @@ const wasiWrite = (descriptor, text) => {
   for (const line of lines) (descriptor === 2 ? console.error : console.log)(line)
 }
 const wasiNothing = (count, size) => { wasiView().setUint32(count, 0, true); wasiView().setUint32(size, 0, true); return 0 }
+const wasiNow = (clock) => clock === 0 ? Date.now() : performance.now()
+const wasiClockWait = (view, subscription) => {
+  const milliseconds = Number(view.getBigUint64(subscription + 24, true)) / 1e6
+  const absolute = (view.getUint16(subscription + 40, true) & 1) === 1
+  return absolute ? milliseconds - wasiNow(view.getUint32(subscription + 16, true)) : milliseconds
+}
 const wasi = {
   args_get: () => 0,
   args_sizes_get: wasiNothing,
   environ_get: () => 0,
   environ_sizes_get: wasiNothing,
   clock_time_get: (clock, precision, target) => {
-    const milliseconds = clock === 0 ? Date.now() : performance.now()
-    wasiView().setBigUint64(target, BigInt(Math.round(milliseconds * 1e6)), true)
+    wasiView().setBigUint64(target, BigInt(Math.round(wasiNow(clock) * 1e6)), true)
+    return 0
+  },
+  poll_oneoff: (subscriptions, events, count, happened) => {
+    const view = wasiView()
+    let soonest = -1
+    let wait = Infinity
+    for (let index = 0; index < count; index += 1) {
+      const subscription = subscriptions + index * 48
+      if (view.getUint8(subscription + 8) !== 0) return wasiNotSupported
+      const milliseconds = wasiClockWait(view, subscription)
+      if (milliseconds < wait) [soonest, wait] = [subscription, milliseconds]
+    }
+    if (soonest < 0) return wasiNotSupported
+    const end = performance.now() + wait
+    while (performance.now() < end);
+    new Uint8Array(exports.memory.buffer, events, 32).fill(0)
+    view.setBigUint64(events, view.getBigUint64(soonest, true), true)
+    view.setUint32(happened, 1, true)
     return 0
   },
   random_get: (pointer, length) => {
