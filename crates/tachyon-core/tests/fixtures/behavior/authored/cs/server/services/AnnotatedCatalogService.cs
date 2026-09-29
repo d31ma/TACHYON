@@ -2,7 +2,7 @@
 [Service]
 public sealed class AnnotatedCatalogService {
     public BehaviorContext behaviors;
-    public int calls = 0;
+    private int calls = 0;
     [Cached]
     public async System.Threading.Tasks.Task<BehaviorJSON> list([PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]})] BehaviorJSON page) {
         await System.Threading.Tasks.Task.CompletedTask;
