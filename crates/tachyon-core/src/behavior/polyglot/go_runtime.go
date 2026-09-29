@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1630,7 +1631,6 @@ type BehaviorContext struct {
 	active        atomic.Int64
 	lock          sync.Mutex
 	slots         map[string]int
-	transaction   string
 }
 
 type behaviorOperation struct {
@@ -1908,20 +1908,57 @@ func (context *BehaviorContext) releaseSlot(key string) {
 	}
 }
 
-func (context *BehaviorContext) joined() string {
-	context.lock.Lock()
-	defer context.lock.Unlock()
-	return context.transaction
+type behaviorOpenTransactions struct {
+	mutex sync.Mutex
+	open  map[uint64]map[string]string
 }
 
-func (context *BehaviorContext) setTransaction(id string) {
-	context.lock.Lock()
-	defer context.lock.Unlock()
-	context.transaction = id
+var behaviorTransactions behaviorOpenTransactions
+
+func (transactions *behaviorOpenTransactions) goroutine() uint64 {
+	var buffer [64]byte
+	text := strings.TrimPrefix(string(buffer[:runtime.Stack(buffer[:], false)]), "goroutine ")
+	number, _, _ := strings.Cut(text, " ")
+	id, _ := strconv.ParseUint(number, 10, 64)
+	return id
+}
+
+func (transactions *behaviorOpenTransactions) of(adapter string) string {
+	goroutine := transactions.goroutine()
+	transactions.mutex.Lock()
+	defer transactions.mutex.Unlock()
+	return transactions.open[goroutine][adapter]
+}
+
+func (transactions *behaviorOpenTransactions) replace(goroutine uint64, open map[string]string) {
+	transactions.mutex.Lock()
+	defer transactions.mutex.Unlock()
+	if transactions.open == nil {
+		transactions.open = map[uint64]map[string]string{}
+	}
+	if open == nil {
+		delete(transactions.open, goroutine)
+		return
+	}
+	transactions.open[goroutine] = open
+}
+
+func (transactions *behaviorOpenTransactions) within(adapter string, id string, body func() (BehaviorValue, error)) (BehaviorValue, error) {
+	goroutine := transactions.goroutine()
+	transactions.mutex.Lock()
+	outer := transactions.open[goroutine]
+	transactions.mutex.Unlock()
+	joined := map[string]string{adapter: id}
+	for name, open := range outer {
+		joined[name] = open
+	}
+	transactions.replace(goroutine, joined)
+	defer transactions.replace(goroutine, outer)
+	return body()
 }
 
 func (context *BehaviorContext) transacted(operation *behaviorOperation, policy BehaviorMethodPolicy, args []BehaviorValue, original func([]BehaviorValue) (BehaviorValue, error)) (BehaviorValue, error) {
-	if policy.Transactional == nil || context.joined() != "" {
+	if policy.Transactional == nil || behaviorTransactions.of(policy.Transactional.Adapter) != "" {
 		return context.execute(operation, policy, args, original)
 	}
 	adapter, present := context.entities(policy.Transactional.Adapter)
@@ -1946,9 +1983,9 @@ func (context *BehaviorContext) transacted(operation *behaviorOperation, policy 
 	if !isText || id == "" || len(id) > 128 {
 		return nil, behaviorInvalid()
 	}
-	context.setTransaction(id)
-	value, err := context.execute(operation, policy, args, original)
-	context.setTransaction("")
+	value, err := behaviorTransactions.within(policy.Transactional.Adapter, id, func() (BehaviorValue, error) {
+		return context.execute(operation, policy, args, original)
+	})
 	if err != nil {
 		control("rollback", id)
 		return nil, err
@@ -2127,7 +2164,7 @@ func (context *BehaviorContext) Query(policy BehaviorQueryPolicy, input []Behavi
 	if !present {
 		return nil, behaviorInvalid()
 	}
-	command := &BehaviorEntityCommand{Transaction: context.joined(), Operation: "query", Entity: policy.Entity.Name, Table: policy.Entity.Table, IdField: policy.Entity.Id, Query: query}
+	command := &BehaviorEntityCommand{Transaction: behaviorTransactions.of(policy.Entity.Adapter), Operation: "query", Entity: policy.Entity.Name, Table: policy.Entity.Table, IdField: policy.Entity.Id, Query: query}
 	if err := behaviorCheckQueryCommand(command); err != nil {
 		return nil, err
 	}
@@ -2533,7 +2570,7 @@ func (repository *BehaviorRepository) execute(operationName string, value Behavi
 		return nil, behaviorInvalid()
 	}
 	command := &BehaviorEntityCommand{
-		Transaction: repository.context.joined(),
+		Transaction: behaviorTransactions.of(repository.metadata.Adapter),
 		Entity:      repository.metadata.Name,
 		Table:       repository.metadata.Table,
 		IdField:     repository.metadata.Id,

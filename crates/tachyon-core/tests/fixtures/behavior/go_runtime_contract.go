@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -875,6 +876,102 @@ func checkJSONCodec() {
 	expect(err != nil, "a function is not JSON")
 }
 
+type Ledger struct{}
+
+type LedgerAdapter struct {
+	log      *[]string
+	sequence *int
+}
+
+func (ledger LedgerAdapter) Execute(command *BehaviorEntityCommand, execution *BehaviorExecution) (BehaviorValue, error) {
+	joined := command.Transaction
+	if joined == "" {
+		joined = "none"
+	}
+	*ledger.log = append(*ledger.log, command.Operation+"@"+joined)
+	if value, isObject := command.Value.(map[string]any); isObject && value["id"] == "broken" {
+		return nil, errors.New("the second write failed")
+	}
+	return command.Operation, nil
+}
+
+func (ledger LedgerAdapter) Transaction(command *BehaviorTransactionCommand, execution *BehaviorExecution) (BehaviorValue, error) {
+	entry := command.Action
+	if command.Transaction != "" {
+		entry += ":" + command.Transaction
+	}
+	*ledger.log = append(*ledger.log, entry)
+	if command.Action != "begin" {
+		return nil, nil
+	}
+	*ledger.sequence++
+	return fmt.Sprintf("t%d", *ledger.sequence), nil
+}
+
+type LedgerLog struct {
+	entries  []string
+	sequence int
+}
+
+var ledgerLog LedgerLog
+
+func (Ledger) behaviorConditions() BehaviorConfigurationConditions {
+	return BehaviorConfigurationConditions{}
+}
+
+func (Ledger) behaviorConfigure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {
+	adapter := LedgerAdapter{log: &ledgerLog.entries, sequence: &ledgerLog.sequence}
+	config := NewBehaviorConfiguration()
+	config.Entities["ledger"] = adapter
+	config.Entities["audit"] = adapter
+	config.AuthorizeEntity = func(*BehaviorEntityCommand, *BehaviorExecution) (bool, error) { return true, nil }
+	return config, nil
+}
+
+type Entry struct{}
+
+func (Entry) behaviorEntity() BehaviorEntityMetadata {
+	return BehaviorEntityMetadata{Name: "Entry", Adapter: "ledger", Table: "entries", Id: "id"}
+}
+
+type Note struct{}
+
+func (Note) behaviorEntity() BehaviorEntityMetadata {
+	return BehaviorEntityMetadata{Name: "Note", Adapter: "audit", Table: "notes", Id: "id"}
+}
+
+func settle(service *BehaviorContext, store *BehaviorContext, second string) (BehaviorValue, error) {
+	ledger := plainPolicy()
+	ledger.Owner = "LedgerService"
+	ledger.Name = "settle"
+	ledger.Transactional = &BehaviorTransactionPolicy{Adapter: "ledger"}
+	return service.Invoke(ledger, []BehaviorValue{}, func([]BehaviorValue) (BehaviorValue, error) {
+		entries := must(BehaviorsRepository[Entry](store))
+		notes := must(BehaviorsRepository[Note](store))
+		if _, err := entries.Save(map[string]any{"id": "first"}); err != nil {
+			return nil, err
+		}
+		if _, err := notes.Save(map[string]any{"id": "note"}); err != nil {
+			return nil, err
+		}
+		if _, err := entries.Save(map[string]any{"id": second}); err != nil {
+			return nil, err
+		}
+		return "settled", nil
+	})
+}
+
+func checkJoinedTransaction() {
+	service := must(BehaviorsCreate[Ledger](NewBehaviorOptions("ledger", NewBehaviorSignal())))
+	store := must(BehaviorsCreate[Ledger](NewBehaviorOptions("entries", NewBehaviorSignal())))
+	expect(must(settle(service, store, "second")) == "settled", "a joined transaction answers its body")
+	expect(same(ledgerLog.entries, []string{"begin", "save@t1", "save@none", "save@t1", "commit:t1"}), fmt.Sprint("a store in another context joins the open transaction: ", ledgerLog.entries))
+	ledgerLog.entries = nil
+	_, err := settle(service, store, "broken")
+	expect(err != nil, "a failed second write fails the transaction")
+	expect(same(ledgerLog.entries, []string{"begin", "save@t2", "save@none", "save@t2", "rollback:t2"}), fmt.Sprint("a failed second write rolls back the first: ", ledgerLog.entries))
+}
+
 func main() {
 	checkJSONCodec()
 	validationContracts()
@@ -885,6 +982,7 @@ func main() {
 	context := must(BehaviorsCreate[Config](NewBehaviorOptions("tenant-a", signal)))
 	checkCachedInvocation(context)
 	checkRepository(context)
+	checkJoinedTransaction()
 	checkHttpInvocation(context)
 	checkRejectedValues()
 	negativeContracts(context)
