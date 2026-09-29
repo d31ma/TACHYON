@@ -1279,6 +1279,10 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The JavaScript, TypeScript, Python and Rust test units that `ty init` and
+  `ty add` write, and those in the website examples, check their results with
+  `Assert.equals`, `Assert.isTrue` or `Assert.throws` (ADR 0080) instead of an
+  `if` and a thrown error, so they pass the test rule `TY1339`.
 - `ty preview` and `ty serve` (while watching) never exit because of a
   problem in the project (ADR 0077). A failed rebuild keeps serving the last
   good build and prints the problems; open pages show them in an accessible

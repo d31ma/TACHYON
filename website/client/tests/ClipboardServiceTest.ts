@@ -17,12 +17,12 @@ export default class ClipboardServiceTest {
     const { renders } = this.mounted(clipboard)
     const written: string[] = []
     this.clipboard(async (text) => { written.push(text) })
-    if (clipboard.label('install') !== 'Copy') throw Error('a button starts as Copy')
+    Assert.equals('Copy', clipboard.label('install'), 'a button starts as Copy')
     await clipboard.copy(null, 'install', 'ty init')
     clipboard.dispose()
-    if (written[0] !== 'ty init') throw Error('copy writes the text it was given')
-    if (clipboard.label('install') !== 'Copied' || clipboard.label('02') !== 'Copy') throw Error('only that button says so')
-    if (renders() !== 1) throw Error('and renders once')
+    Assert.equals('ty init', written[0], 'copy writes the text it was given')
+    Assert.isTrue(clipboard.label('install') === 'Copied' && clipboard.label('02') === 'Copy', 'only that button says so')
+    Assert.equals(1, renders(), 'and renders once')
   }
 
   async testABlockedClipboardSuggestsTheShortcut() {
@@ -31,7 +31,7 @@ export default class ClipboardServiceTest {
     this.clipboard(async () => { throw Error('denied') })
     await clipboard.copy(null, '01', 'ty preview')
     clipboard.dispose()
-    if (clipboard.label('01') !== 'Press ⌘C') throw Error(clipboard.label('01'))
+    Assert.equals('Press ⌘C', clipboard.label('01'))
   }
 
   async testCopyDoesNothingOnceUnmounted() {
@@ -42,6 +42,6 @@ export default class ClipboardServiceTest {
     this.clipboard(async () => { touched = true })
     await clipboard.copy(null, 'install', 'ty init')
     clipboard.dispose()
-    if (touched || renders() !== 0) throw Error('an unmounted button neither writes nor renders')
+    Assert.isTrue(!touched && renders() === 0, 'an unmounted button neither writes nor renders')
   }
 }

@@ -7,14 +7,19 @@ impl TocServiceTest {
         Self { behaviors: std::cell::RefCell::new(None) }
     }
 
-    fn testWorthShowingNeedsMoreThanOneEntry(&self) -> BehaviorResult<BehaviorValue> {
-        let toc = |count: usize| TocService { entries: TacValue::List(vec![TacValue::Null; count]) };
-        if toc(0).worth_showing() || toc(1).worth_showing() {
-            return Err(BehaviorError { code: "assertion", message: "no entries, or one, is not a table of contents", path: None });
-        }
-        if !toc(2).worth_showing() {
-            return Err(BehaviorError { code: "assertion", message: "two entries are", path: None });
-        }
-        Ok(BehaviorValue::Null)
+    fn toc(count: usize) -> TocService {
+        TocService { entries: TacValue::List(vec![TacValue::Null; count]) }
+    }
+
+    fn testNoEntryIsNotWorthShowing(&self) {
+        Assert::is_true(!Self::toc(0).worth_showing());
+    }
+
+    fn testOneEntryIsNotWorthShowing(&self) {
+        Assert::is_true(!Self::toc(1).worth_showing());
+    }
+
+    fn testTwoEntriesAreWorthShowing(&self) {
+        Assert::is_true(Self::toc(2).worth_showing());
     }
 }

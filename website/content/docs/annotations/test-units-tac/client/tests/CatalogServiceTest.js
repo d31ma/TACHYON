@@ -3,10 +3,10 @@
 export default class CatalogServiceTest {
   async testUsesAClientRole() {
     const service = new CatalogService();
-    if (service.double(4) !== 8) throw Error('expected 8');
+    Assert.equals(8, service.double(4));
   }
 
   async testHasAContext() {
-    if (!this.behaviors) throw Error('no context');
+    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');
   }
 }

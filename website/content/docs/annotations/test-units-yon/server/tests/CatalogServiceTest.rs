@@ -2,10 +2,7 @@
 struct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }
 impl CatalogServiceTest {
     fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }
-    fn testOpensAContext(&self) -> BehaviorResult<BehaviorValue> {
-        if self.behaviors.borrow().is_none() {
-            return Err(BehaviorError { code: "adapter", message: "no context", path: None });
-        }
-        Ok(BehaviorValue::Null)
+    fn testOpensAContext(&self) {
+        Assert::is_true_with_message(self.behaviors.borrow().is_some(), "the case has a context");
     }
 }

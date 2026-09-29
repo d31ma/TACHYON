@@ -3,6 +3,6 @@ export default class GreetingControllerTest {
   async testGetGreetingSaysHello(): Promise<void> {
     const controller = this.construct(GreetingController)
     const greeting = controller.getGreeting()
-    if (greeting.message !== 'Hello from Yon') throw Error(`message is ${greeting.message}`)
+    Assert.equals('Hello from Yon', greeting.message)
   }
 }

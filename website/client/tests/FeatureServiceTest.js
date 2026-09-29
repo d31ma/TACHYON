@@ -5,26 +5,26 @@ export default class FeatureServiceTest {
   async testEntryIsTheFeatureTheUrlNames() {
     history.pushState({}, '', '/docs/features/routing')
     const feature = new FeatureService()
-    if (feature.id !== 'routing') throw Error(feature.id)
-    if (feature.path() !== '/docs/features/routing') throw Error(feature.path())
-    if (feature.entry().id !== 'routing') throw Error('entry is the routing feature')
-    if (feature.files().length === 0) throw Error('the routing feature ships its files')
-    if (!feature.groupAnchor().startsWith('/docs/features#')) throw Error(feature.groupAnchor())
-    if (feature.source !== 'website/content/features/routing/feature.json') throw Error(feature.source)
+    Assert.equals('routing', feature.id)
+    Assert.equals('/docs/features/routing', feature.path())
+    Assert.equals('routing', feature.entry().id, 'entry is the routing feature')
+    Assert.isTrue(feature.files().length > 0, 'the routing feature ships its files')
+    Assert.isTrue(feature.groupAnchor().startsWith('/docs/features#'), feature.groupAnchor())
+    Assert.equals('website/content/features/routing/feature.json', feature.source)
   }
 
   async testAnUnknownFeatureIsNotFoundRatherThanBroken() {
     history.pushState({}, '', '/docs/features/no-such-feature')
     const feature = new FeatureService()
-    if (feature.entry().title !== 'Feature not found') throw Error('an unknown id is the not-found entry')
-    if (feature.files().length !== 0) throw Error('and has no files')
-    if (feature.source !== 'website/content/features/page.json') throw Error(feature.source)
+    Assert.equals('Feature not found', feature.entry().title, 'an unknown id is the not-found entry')
+    Assert.equals([], feature.files(), 'and has no files')
+    Assert.equals('website/content/features/page.json', feature.source)
   }
 
   async testInitializeTitlesTheDocumentAfterTheFeature() {
     history.pushState({}, '', '/docs/features/routing')
     const feature = new FeatureService()
     feature.initialize()
-    if (document.title !== `${feature.entry().title} — Tachyon docs`) throw Error(document.title)
+    Assert.equals(`${feature.entry().title} — Tachyon docs`, document.title)
   }
 }

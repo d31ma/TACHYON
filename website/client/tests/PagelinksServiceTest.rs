@@ -7,36 +7,38 @@ impl PagelinksServiceTest {
         Self { behaviors: std::cell::RefCell::new(None) }
     }
 
-    fn testEditHrefPointsAtTheSourceItWasGiven(&self) -> BehaviorResult<BehaviorValue> {
+    fn testEditHrefPointsAtTheSourceItWasGiven(&self) {
         let links = PagelinksService { source: String::from("website/content/features/routing/feature.json"), path: String::new() };
-        if links.edit_href() != "https://github.com/d31ma/Tachyon/edit/main/website/content/features/routing/feature.json" {
-            return Err(BehaviorError { code: "assertion", message: "edit links the source it was given", path: None });
-        }
+        Assert::equals_with_message(
+            "https://github.com/d31ma/Tachyon/edit/main/website/content/features/routing/feature.json",
+            links.edit_href(),
+            "edit links the source it was given",
+        );
         let default_links = PagelinksService { source: String::new(), path: String::new() };
-        if !default_links.edit_href().ends_with("/website/content/docs/page.json") {
-            return Err(BehaviorError { code: "assertion", message: "the docs page is the default source", path: None });
-        }
-        Ok(BehaviorValue::Null)
+        Assert::is_true_with_message(
+            default_links.edit_href().ends_with("/website/content/docs/page.json"),
+            "the docs page is the default source",
+        );
     }
 
-    fn testReportHrefNamesThePageInTheIssueTitle(&self) -> BehaviorResult<BehaviorValue> {
+    fn testReportHrefNamesThePageInTheIssueTitle(&self) {
         let links = PagelinksService { source: String::new(), path: String::from("/docs/routing") };
-        if links.report_href() != "https://github.com/d31ma/Tachyon/issues/new?title=Docs%3A%20%2Fdocs%2Frouting" {
-            return Err(BehaviorError { code: "assertion", message: "the issue title names the page, encoded", path: None });
-        }
-        Ok(BehaviorValue::Null)
+        Assert::equals_with_message(
+            "https://github.com/d31ma/Tachyon/issues/new?title=Docs%3A%20%2Fdocs%2Frouting",
+            links.report_href(),
+            "the issue title names the page, encoded",
+        );
     }
 
-    fn testEncodeComponentPreservesSafeCharactersAndEncodesUtf8(&self) -> BehaviorResult<BehaviorValue> {
-        for (input, expected) in [
-            ("AZaz09-_.!~*'()", "AZaz09-_.!~*'()"),
-            ("a/b c?", "a%2Fb%20c%3F"),
-            ("é", "%C3%A9"),
-        ] {
-            if PagelinksService::encode_component(input) != expected {
-                return Err(BehaviorError { code: "assertion", message: "component encoding preserves safe characters and percent-encodes UTF-8", path: None });
-            }
-        }
-        Ok(BehaviorValue::Null)
+    fn testEncodeComponentKeepsSafeCharacters(&self) {
+        Assert::equals("AZaz09-_.!~*'()", PagelinksService::encode_component("AZaz09-_.!~*'()"));
+    }
+
+    fn testEncodeComponentEncodesReservedCharacters(&self) {
+        Assert::equals("a%2Fb%20c%3F", PagelinksService::encode_component("a/b c?"));
+    }
+
+    fn testEncodeComponentPercentEncodesUtf8(&self) {
+        Assert::equals("%C3%A9", PagelinksService::encode_component("é"));
     }
 }

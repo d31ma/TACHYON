@@ -304,7 +304,7 @@
             },
             {
               "name": "client/tests/CounterServiceTest.js",
-              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  @Fake\n  greetingClient;\n\n  async testIncrementAddsOne() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    counter.increment()\n    if (counter.count !== 1) throw Error(`count is ${counter.count}`)\n  }\n\n  async testAskServerSavesTheMessage() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    await counter.askServer()\n    if (counter.message !== 'Hi') throw Error(`message is ${counter.message}`)\n  }\n}\n"
+              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  @Fake\n  greetingClient;\n\n  async testIncrementAddsOne() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    counter.increment()\n    Assert.equals(1, counter.count)\n  }\n\n  async testAskServerSavesTheMessage() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    await counter.askServer()\n    Assert.equals('Hi', counter.message)\n  }\n}\n"
             },
             {
               "name": "server/tests/GreetingTestSetup.js",
@@ -312,7 +312,7 @@
             },
             {
               "name": "server/tests/GreetingControllerTest.js",
-              "code": "@Test(GreetingTestSetup, {\"partition\":\"tests\"})\nexport default class GreetingControllerTest {\n  async testGetGreetingSaysHello() {\n    const controller = this.construct(GreetingController)\n    const greeting = controller.getGreeting()\n    if (greeting.message !== 'Hello from Yon') throw Error(`message is ${greeting.message}`)\n  }\n}\n"
+              "code": "@Test(GreetingTestSetup, {\"partition\":\"tests\"})\nexport default class GreetingControllerTest {\n  async testGetGreetingSaysHello() {\n    const controller = this.construct(GreetingController)\n    const greeting = controller.getGreeting()\n    Assert.equals('Hello from Yon', greeting.message)\n  }\n}\n"
             },
             {
               "name": "client/tests/HelloTestSetup.ts",
@@ -320,7 +320,7 @@
             },
             {
               "name": "client/tests/CounterServiceTest.ts",
-              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  @Fake\n  greetingClient!: GreetingClient;\n\n  async testIncrementAddsOne(): Promise<void> {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) } as GreetingClient\n    const counter = this.construct(CounterService)\n    counter.increment()\n    if (counter.count !== 1) throw Error(`count is ${counter.count}`)\n  }\n\n  async testAskServerSavesTheMessage(): Promise<void> {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) } as GreetingClient\n    const counter = this.construct(CounterService)\n    await counter.askServer()\n    if (counter.message !== 'Hi') throw Error(`message is ${counter.message}`)\n  }\n}\n"
+              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  @Fake\n  greetingClient!: GreetingClient;\n\n  async testIncrementAddsOne(): Promise<void> {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) } as GreetingClient\n    const counter = this.construct(CounterService)\n    counter.increment()\n    Assert.equals(1, counter.count)\n  }\n\n  async testAskServerSavesTheMessage(): Promise<void> {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) } as GreetingClient\n    const counter = this.construct(CounterService)\n    await counter.askServer()\n    Assert.equals('Hi', counter.message)\n  }\n}\n"
             },
             {
               "name": "server/tests/GreetingTestSetup.ts",
@@ -328,7 +328,7 @@
             },
             {
               "name": "server/tests/GreetingControllerTest.ts",
-              "code": "@Test(GreetingTestSetup, {\"partition\":\"tests\"})\nexport default class GreetingControllerTest {\n  async testGetGreetingSaysHello(): Promise<void> {\n    const controller = this.construct(GreetingController)\n    const greeting = controller.getGreeting()\n    if (greeting.message !== 'Hello from Yon') throw Error(`message is ${greeting.message}`)\n  }\n}\n"
+              "code": "@Test(GreetingTestSetup, {\"partition\":\"tests\"})\nexport default class GreetingControllerTest {\n  async testGetGreetingSaysHello(): Promise<void> {\n    const controller = this.construct(GreetingController)\n    const greeting = controller.getGreeting()\n    Assert.equals('Hello from Yon', greeting.message)\n  }\n}\n"
             }
           ]
         },
@@ -4123,7 +4123,7 @@
             },
             {
               "name": "client/tests/PriceUtilsTest.js",
-              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nexport default class PriceUtilsTest {\n  async testLabelShowsDollars() {\n    if (PriceUtils.label(1250) !== '$12.50') throw Error('expected $12.50')\n  }\n\n  async testBasketUsesTheUtility() {\n    const basket = new BasketService()\n    if (basket.totalLabel() !== '$12.50') throw Error('expected $12.50')\n  }\n}\n"
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nexport default class PriceUtilsTest {\n  async testLabelShowsDollars() {\n    Assert.equals('$12.50', PriceUtils.label(1250))\n  }\n\n  async testBasketUsesTheUtility() {\n    const basket = new BasketService()\n    Assert.equals('$12.50', basket.totalLabel())\n  }\n}\n"
             },
             {
               "name": "server/utils/PriceUtils.py",
@@ -4135,7 +4135,7 @@
             },
             {
               "name": "server/tests/PriceUtilsTest.py",
-              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nclass PriceUtilsTest:\n    async def test_label_shows_dollars(self):\n        if PriceUtils.label(1250) != \"$12.50\":\n            raise Exception(\"expected $12.50\")\n"
+              "code": "@Test(PriceTestSetup, {\"partition\":\"tests\"})\nclass PriceUtilsTest:\n    async def test_label_shows_dollars(self):\n        Assert.equals(\"$12.50\", PriceUtils.label(1250))\n"
             }
           ]
         }
@@ -8309,7 +8309,7 @@
             },
             {
               "name": "server/tests/CatalogServiceTest.js",
-              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    if (service.total() !== 8) throw Error('expected 8');\n  }\n\n  async testHasAContext() {\n    if (!this.behaviors) throw Error('no context');\n  }\n}\n"
+              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testHasAContext() {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n}\n"
             },
             {
               "name": "server/tests/CatalogTestSetup.ts",
@@ -8333,7 +8333,7 @@
             },
             {
               "name": "server/tests/CatalogServiceTest.ts",
-              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake\n  catalogCounterHelper!: CatalogCounterHelper;\n\n  async testDoublesTheCount(): Promise<void> {\n    this.catalogCounterHelper = { count: () => 4 } as CatalogCounterHelper;\n    const service = this.construct(CatalogService);\n    if (service.total() !== 8) throw Error('expected 8');\n  }\n\n  async testHasAContext(): Promise<void> {\n    if (!this.behaviors) throw Error('no context');\n  }\n}\n"
+              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake\n  catalogCounterHelper!: CatalogCounterHelper;\n\n  async testDoublesTheCount(): Promise<void> {\n    this.catalogCounterHelper = { count: () => 4 } as CatalogCounterHelper;\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testHasAContext(): Promise<void> {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n}\n"
             },
             {
               "name": "server/tests/CatalogTestSetup.py",
@@ -8341,7 +8341,7 @@
             },
             {
               "name": "server/tests/CatalogServiceTest.py",
-              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    async def test_opens_a_context(self):\n        if self.behaviors is None:\n            raise Exception('no context')\n\n    def twice(self, value):\n        return value * 2\n\n    async def test_doubles_a_value(self):\n        if self.twice(4) != 8:\n            raise Exception('expected 8')\n"
+              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest:\n    async def test_opens_a_context(self):\n        Assert.is_true(self.behaviors is not None, 'the case has a context')\n\n    def twice(self, value):\n        return value * 2\n\n    async def test_doubles_a_value(self):\n        Assert.equals(8, self.twice(4))\n"
             },
             {
               "name": "server/tests/CatalogTestSetup.php",
@@ -8397,7 +8397,7 @@
             },
             {
               "name": "server/tests/CatalogServiceTest.rs",
-              "code": "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testOpensAContext(&self) -> BehaviorResult<BehaviorValue> {\n        if self.behaviors.borrow().is_none() {\n            return Err(BehaviorError { code: \"adapter\", message: \"no context\", path: None });\n        }\n        Ok(BehaviorValue::Null)\n    }\n}\n"
+              "code": "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testOpensAContext(&self) {\n        Assert::is_true_with_message(self.behaviors.borrow().is_some(), \"the case has a context\");\n    }\n}\n"
             },
             {
               "name": "server/tests/CatalogTestSetup.go",
@@ -8449,7 +8449,7 @@
             },
             {
               "name": "client/tests/CatalogServiceTest.js",
-              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  async testUsesAClientRole() {\n    const service = new CatalogService();\n    if (service.double(4) !== 8) throw Error('expected 8');\n  }\n\n  async testHasAContext() {\n    if (!this.behaviors) throw Error('no context');\n  }\n}\n"
+              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  async testUsesAClientRole() {\n    const service = new CatalogService();\n    Assert.equals(8, service.double(4));\n  }\n\n  async testHasAContext() {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n}\n"
             },
             {
               "name": "client/tests/CatalogTestSetup.ts",
@@ -8461,7 +8461,7 @@
             },
             {
               "name": "client/tests/CatalogServiceTest.ts",
-              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  async testUsesAClientRole(): Promise<void> {\n    const service = new CatalogService();\n    if (service.double(4) !== 8) throw Error('expected 8');\n  }\n\n  async testHasAContext(): Promise<void> {\n    if (!this.behaviors) throw Error('no context');\n  }\n}\n"
+              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  async testUsesAClientRole(): Promise<void> {\n    const service = new CatalogService();\n    Assert.equals(8, service.double(4));\n  }\n\n  async testHasAContext(): Promise<void> {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n}\n"
             },
             {
               "name": "client/tests/CatalogTestSetup.swift",
@@ -8501,7 +8501,7 @@
             },
             {
               "name": "client/tests/CatalogServiceTest.rs",
-              "code": "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testHasAContext(&self) -> BehaviorResult<BehaviorValue> {\n        if self.behaviors.borrow().is_none() {\n            return Err(BehaviorError { code: \"adapter\", message: \"no context\", path: None });\n        }\n        Ok(BehaviorValue::Null)\n    }\n}\n"
+              "code": "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testHasAContext(&self) {\n        Assert::is_true_with_message(self.behaviors.borrow().is_some(), \"the case has a context\");\n    }\n}\n"
             },
             {
               "name": "client/tests/CatalogTestSetup.go",

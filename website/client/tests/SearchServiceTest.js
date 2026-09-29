@@ -18,38 +18,38 @@ export default class SearchServiceTest {
     const search = new SearchService()
     this.mounted(search)
     search.open()
-    if (!search.showing) throw Error('open shows the dialog')
+    Assert.isTrue(Boolean(search.showing), 'open shows the dialog')
     search.term = 'stale'
     search.dismiss(null, 'Tab')
-    if (!search.showing) throw Error('only Escape dismisses')
+    Assert.isTrue(Boolean(search.showing), 'only Escape dismisses')
     search.dismiss(null, 'Escape')
-    if (search.showing || search.term !== '') throw Error('Escape closes and clears')
+    Assert.isTrue(!search.showing && search.term === '', 'Escape closes and clears')
     search.open()
     search.close()
     search.dispose()
-    if (search.showing || search.results.length !== 0) throw Error('close hides and forgets')
+    Assert.isTrue(!search.showing && search.results.length === 0, 'close hides and forgets')
   }
 
   async testStatusDescribesTheQuery() {
     const search = new SearchService()
-    if (search.status() !== 'Search titles and body text across every guide.') throw Error('idle prompt')
+    Assert.equals('Search titles and body text across every guide.', search.status(), 'idle prompt')
     search.term = 'r'
-    if (search.status() !== 'Keep typing…') throw Error('one letter is not a search')
+    Assert.equals('Keep typing…', search.status(), 'one letter is not a search')
     search.term = 'zzzz'
-    if (search.status() !== 'Nothing matches “zzzz”.') throw Error(search.status())
+    Assert.equals('Nothing matches “zzzz”.', search.status())
     search.results = [{}]
-    if (search.status() !== '1 result') throw Error(search.status())
+    Assert.equals('1 result', search.status())
   }
 
   async testFindSearchesTheDocsAfterAPause() {
     const search = new SearchService()
     this.mounted(search)
     search.find(null, 'routing')
-    if (search.status() !== 'Searching…') throw Error('a two-letter term starts a search')
+    Assert.equals('Searching…', search.status(), 'a two-letter term starts a search')
     await new Promise((resolve) => setTimeout(resolve, 200))
     search.dispose()
-    if (search.status() === 'Searching…' || search.results.length === 0) throw Error('routing is in the docs')
-    if (search.renders !== 1) throw Error('one render for one search')
+    Assert.isTrue(search.status() !== 'Searching…' && search.results.length > 0, 'routing is in the docs')
+    Assert.equals(1, search.renders, 'one render for one search')
   }
 
   async testInitializeOpensOnCommandKUntilUnmounted() {
@@ -57,11 +57,11 @@ export default class SearchServiceTest {
     const lifetime = this.mounted(search)
     search.initialize()
     dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
-    if (!search.showing) throw Error('⌘K opens search')
+    Assert.isTrue(Boolean(search.showing), '⌘K opens search')
     lifetime.abort()
     search.close()
     dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
     search.dispose()
-    if (search.showing) throw Error('the listener dies with the component')
+    Assert.isTrue(!search.showing, 'the listener dies with the component')
   }
 }

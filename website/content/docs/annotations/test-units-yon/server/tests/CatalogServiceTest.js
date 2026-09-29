@@ -7,10 +7,10 @@ export default class CatalogServiceTest {
   async testDoublesTheCount() {
     this.catalogCounterHelper = { count: () => 4 };
     const service = this.construct(CatalogService);
-    if (service.total() !== 8) throw Error('expected 8');
+    Assert.equals(8, service.total());
   }
 
   async testHasAContext() {
-    if (!this.behaviors) throw Error('no context');
+    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');
   }
 }
