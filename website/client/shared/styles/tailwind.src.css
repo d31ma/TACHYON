@@ -10,7 +10,7 @@
   --text-sm--line-height: 1.5;
   --text-card-title: var(--step-md);
   --text-card-title--line-height: 1.35;
-  --text-lede: var(--step-lg);
+  --text-lede: var(--step-md);
   --text-lede--line-height: 1.6;
   --text-subheading: var(--step-xl);
   --text-subheading--line-height: 1.3;
