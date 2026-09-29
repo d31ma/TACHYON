@@ -24,6 +24,7 @@ final class TacBridge {
             String message = problem.getMessage();
             return error(message == null ? "Java service operation failed." : message);
         } finally {
+            TacEvents.drain();
             handling = false;
         }
     }
@@ -59,6 +60,7 @@ final class TacBridge {
             dispose(owner);
             return NOTHING;
         }
+        TacEvents.runFor(activation);
         if (operation.equals("init")) {
             return describe(activation.members);
         }
@@ -78,7 +80,7 @@ final class TacBridge {
             return UNKNOWN_SERVICE;
         }
         require(ACTIVATIONS.size() < MOST_ACTIVATIONS, "Too many native activations.");
-        TacActivation activation = new TacActivation(route, service, members);
+        TacActivation activation = new TacActivation(route, service, owner, members);
         try {
             if (!assign(activation, props)) {
                 return MISSING_REQUIRED;
@@ -87,6 +89,7 @@ final class TacBridge {
             return MISSING_REQUIRED;
         }
         ACTIVATIONS.put(owner, activation);
+        TacEvents.runFor(activation);
         try {
             activation.runHooks(false);
         } catch (RuntimeException problem) {
@@ -120,7 +123,7 @@ final class TacBridge {
     private static String use(java.util.Map<String, Object> members, String operation, String name, java.util.Map<String, Object> parsed) {
         Object member = members.get(name);
         if (operation.equals("event")) {
-            return error("Unknown companion listener: " + name);
+            return receive(member, name, parsed.get("value"));
         }
         if (member instanceof TacField field && operation.equals("get")) {
             return "{\"value\":" + TacJsonWriter.write(field.read.get()) + "}";
@@ -145,24 +148,38 @@ final class TacBridge {
         return error("Unknown companion member: " + name);
     }
 
+    private static String receive(Object member, String name, Object value) {
+        if (!(member instanceof TacListener listener)) {
+            return error("Unknown companion listener: " + name);
+        }
+        Object result = listener.invoke.apply(value);
+        if (listener.republishes()) {
+            TacEvents.republish(result);
+        }
+        return NOTHING;
+    }
+
     private static String describe(java.util.Map<String, Object> members) {
         java.util.List<String> fields = new java.util.ArrayList<>();
         java.util.List<String> methods = new java.util.ArrayList<>();
+        java.util.List<Object> listeners = new java.util.ArrayList<>();
         for (java.util.Map.Entry<String, Object> member : members.entrySet()) {
             if (member.getValue() instanceof TacField) {
                 fields.add(member.getKey());
             } else if (member.getValue() instanceof TacMethod) {
                 methods.add(member.getKey());
+            } else if (member.getValue() instanceof TacListener listener) {
+                listeners.add(listener.described(member.getKey()));
             }
         }
         return "{\"value\":{\"fields\":" + TacJsonWriter.write(fields) + ",\"methods\":"
-                + TacJsonWriter.write(methods) + ",\"listeners\":[]}}";
+                + TacJsonWriter.write(methods) + ",\"listeners\":" + TacJsonWriter.write(listeners) + "}}";
     }
 
     private static void dispose(String owner) {
         TacActivation activation = ACTIVATIONS.remove(owner);
         if (activation != null) {
-            activation.runHooks(true);
+            activation.dispose();
         }
     }
 

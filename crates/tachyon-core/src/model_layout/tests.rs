@@ -60,12 +60,7 @@ fn each_realm_holds_its_own_languages() {
         "'Guide.swift' is a Swift file, and only 'client/models/' holds Swift types",
         "Swift is not a Yon language. Declare this type in a server language in 'server/models/', or move it to 'client/models/'.",
     );
-    for (extension, language) in [
-        ("java", "Java"),
-        ("groovy", "Groovy"),
-        ("py", "Python"),
-        ("php", "PHP"),
-    ] {
+    for (extension, language) in [("groovy", "Groovy"), ("py", "Python"), ("php", "PHP")] {
         assert_language_refused(
             &format!("client/models/Guide.{extension}"),
             &format!(
@@ -79,7 +74,7 @@ fn each_realm_holds_its_own_languages() {
     assert_language_refused(
         "client/models/Guide.lua",
         "'Guide.lua' is in a language that a models folder does not hold",
-        "'client/models/' holds data types in TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Swift and Ruby. Move code to its role folder, for example 'client/services/'.",
+        "'client/models/' holds data types in TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Swift, Java and Ruby. Move code to its role folder, for example 'client/services/'.",
     );
     assert_language_refused(
         "server/models/nested/Guide.lua",

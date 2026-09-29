@@ -337,11 +337,25 @@ final class Behaviors {
             try { execution.check(); Object value = operation.run(execution); execution.check(); return value; }
             finally { synchronized (this) { active--; } }
         }
+        private CacheAdapter cacheAdapter(String name) {
+            CacheAdapter configured = configuration.caches.get(name);
+            return configured != null ? configured : BehaviorBuiltins.cache(name);
+        }
+        private EntityAdapter entityAdapter(String name) {
+            EntityAdapter configured = configuration.entities.get(name);
+            return configured != null ? configured : BehaviorBuiltins.entities(name);
+        }
+        private boolean builtinCache(String name) {
+            return configuration.authorize == null && !configuration.caches.containsKey(name) && BehaviorBuiltins.cache(name) != null;
+        }
+        private boolean builtinEntities(String name) {
+            return configuration.authorizeEntity == null && !configuration.entities.containsKey(name) && BehaviorBuiltins.entities(name) != null;
+        }
         private final java.util.Map<String, java.util.concurrent.Semaphore> slots = new java.util.concurrent.ConcurrentHashMap<>();
         private volatile String transaction;
         private Object transacted(Transaction policy, Execution execution, Call call) {
             if (policy == null || transaction != null) return call.run();
-            EntityAdapter adapter = configuration.entities.get(policy.adapter);
+            EntityAdapter adapter = entityAdapter(policy.adapter);
             if (adapter == null) throw fail("entity-adapter");
             Object begun = control(adapter, execution, "begin", null);
             Object identifier = begun instanceof java.util.Map<?, ?> ? map(begun).get("transaction") : null;
@@ -406,7 +420,7 @@ final class Behaviors {
                 CacheAdapter cache = null;
                 if (policy != null) {
                     key = cacheKey(type, method, arguments, indices, policy, execution, "cache:read");
-                    cache = configuration.caches.get(policy.name);
+                    cache = cacheAdapter(policy.name);
                     if (cache == null) throw fail("cache-adapter");
                     Entry entry;
                     try { entry = cache.get(key, execution); } catch (RuntimeException error) { throw fail("cache-adapter"); }
@@ -432,7 +446,7 @@ final class Behaviors {
             Exchange exchange = declaredExchange == null ? null : declaredExchange.filled(arguments);
             return operation(execution -> {
                 String key = cacheKey(type, target, arguments, indices, policy, execution, put ? "cache:put" : "cache:evict");
-                CacheAdapter cache = configuration.caches.get(policy.name);
+                CacheAdapter cache = cacheAdapter(policy.name);
                 if (cache == null) throw fail("cache-adapter");
                 Object value = resilient(type, target, retry, limit, transactional, execution, call); execution.check();
                 if (exchange != null) value = exchange(value, exchange, execution);
@@ -449,11 +463,13 @@ final class Behaviors {
             java.util.List<Object> selected = new java.util.ArrayList<>();
             for (int index : indices) { if (index < 0 || index >= arguments.length) throw fail("cache-key"); selected.add(copy(arguments[index], 4096)); }
             Object immutable = copy(selected, 4096);
-            if (configuration.authorize == null) throw fail("authorization");
-            java.util.Map<String, Object> call = record("operation", operation, "cache", policy.name, "type", type, "method", method, "keyArguments", immutable);
-            boolean allowed;
-            try { allowed = configuration.authorize.allow(call, execution); } catch (RuntimeException error) { throw fail("authorization"); }
-            execution.check(); if (!allowed) throw fail("authorization");
+            if (!builtinCache(policy.name)) {
+                if (configuration.authorize == null) throw fail("authorization");
+                java.util.Map<String, Object> call = record("operation", operation, "cache", policy.name, "type", type, "method", method, "keyArguments", immutable);
+                boolean allowed;
+                try { allowed = configuration.authorize.allow(call, execution); } catch (RuntimeException error) { throw fail("authorization"); }
+                execution.check(); if (!allowed) throw fail("authorization");
+            }
             Object key = java.util.Arrays.asList(options.partition, policy.name, MODULE, type, method, immutable);
             return encode(copy(key, 4096));
         }
@@ -467,12 +483,14 @@ final class Behaviors {
                 java.util.Map<String, Object> command = map(copy(transaction == null
                     ? record("operation", "query", "entity", entity.name, "table", entity.table, "idField", entity.id, "query", query)
                     : record("operation", "query", "entity", entity.name, "table", entity.table, "idField", entity.id, "query", query, "transaction", transaction), 1048576));
-                Authorization authorize = configuration.authorizeEntity;
-                if (authorize == null) throw fail("authorization");
-                boolean allowed;
-                try { allowed = authorize.allow(command, execution); } catch (RuntimeException error) { throw fail("authorization"); }
-                execution.check(); if (!allowed) throw fail("authorization");
-                EntityAdapter adapter = configuration.entities.get(entity.adapter); if (adapter == null) throw fail("entity-adapter");
+                if (!builtinEntities(entity.adapter)) {
+                    Authorization authorize = configuration.authorizeEntity;
+                    if (authorize == null) throw fail("authorization");
+                    boolean allowed;
+                    try { allowed = authorize.allow(command, execution); } catch (RuntimeException error) { throw fail("authorization"); }
+                    execution.check(); if (!allowed) throw fail("authorization");
+                }
+                EntityAdapter adapter = entityAdapter(entity.adapter); if (adapter == null) throw fail("entity-adapter");
                 Object result;
                 try { result = adapter.execute(command, execution); } catch (RuntimeException error) { throw fail("entity-adapter"); }
                 execution.check(); result = copy(result, 1048576);
@@ -574,7 +592,7 @@ final class Behaviors {
         Object delete(Object id) { identifier(id); return execute("delete", "id", id); }
         Object execute(String operation, String key, Object value) {
             return context.operation(execution -> {
-                EntityAdapter adapter = context.configuration.entities.get(entity.adapter); if (adapter == null) throw fail("entity-adapter");
+                EntityAdapter adapter = context.entityAdapter(entity.adapter); if (adapter == null) throw fail("entity-adapter");
                 java.util.Map<String, Object> command = context.transaction == null
                     ? record("operation", operation, "entity", entity.name, "table", entity.table, "idField", entity.id, key, value)
                     : record("operation", operation, "entity", entity.name, "table", entity.table, "idField", entity.id, key, value, "transaction", context.transaction);

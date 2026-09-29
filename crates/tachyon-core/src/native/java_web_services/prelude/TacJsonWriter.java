@@ -28,8 +28,19 @@ final class TacJsonWriter {
             appendItems(written, items);
         } else if (value instanceof Object[] items) {
             appendItems(written, java.util.Arrays.asList(items));
+        } else if (value instanceof String text) {
+            appendText(written, text);
         } else {
+            appendModel(written, value);
+        }
+    }
+
+    private static void appendModel(StringBuilder written, Object value) {
+        Object plain = TacModels.plain(value);
+        if (plain == value) {
             appendText(written, value.toString());
+        } else {
+            append(written, plain);
         }
     }
 

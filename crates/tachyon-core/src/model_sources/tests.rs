@@ -19,6 +19,8 @@ impl Sources {
     const KOTLIN_MODEL: &str = "data class Guide(val title: String, val pages: Int)\n";
     const KOTLIN_SERVICE: &str = "import models.Guide\n\n@Service\nclass GuideService {\n    var pages: Int = 0\n\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + guide.pages\n    }\n}\n";
     const SWIFT_MODEL: &str = "struct Guide {\n    let title: String\n    let pages: Int\n}\n";
+    const JAVA_MODEL: &str = "record Guide(String title, int pages) {}\n";
+    const JAVA_SERVICE: &str = "import models.Guide;\n\n@Service\nclass GuideService {\n    int pages = 0;\n\n    String read() {\n        Guide guide = new Guide(\"Guide\", 3);\n        pages = guide.pages();\n        return guide.title() + \" \" + guide.pages();\n    }\n}\n";
     const SWIFT_SERVICE: &str = "@Service\nfinal class GuideService {\n    var pages: Int = 0\n\n    func read() -> String {\n        let guide = Guide(title: \"Guide\", pages: 3)\n        pages = guide.pages\n        return guide.title + \" \" + String(guide.pages)\n    }\n}\n";
     const FILE_FETCH: &str = "import { readFile } from 'node:fs/promises'\n\
          globalThis.fetch = async (url) => new Response(await readFile(url))\n";
@@ -107,7 +109,7 @@ async fn build_web_service(root: &Path, language: WebLanguage, extension: &str) 
         WebLanguage::Ruby => (Sources::RUBY_MODEL, Sources::RUBY_SERVICE),
         WebLanguage::Kotlin => (Sources::KOTLIN_MODEL, Sources::KOTLIN_SERVICE),
         WebLanguage::Swift => (Sources::SWIFT_MODEL, Sources::SWIFT_SERVICE),
-        WebLanguage::Java => panic!("Java web services read no client models yet"),
+        WebLanguage::Java => (Sources::JAVA_MODEL, Sources::JAVA_SERVICE),
     };
     write(root, &format!("client/models/Guide.{extension}"), model);
     if matches!(language, WebLanguage::CSharp) {
@@ -208,6 +210,21 @@ async fn a_swift_web_assembly_service_uses_a_model() {
     }
     let root = tempfile::tempdir().expect("project");
     build_web_service(root.path(), WebLanguage::Swift, "swift").await;
+    let report = run_driver(root.path(), &fetching_driver());
+    assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
+}
+
+#[tokio::test]
+async fn a_java_web_assembly_service_uses_a_model() {
+    if !crate::native::JavaWebServices::teavm_installed()
+        || !available("javac", "-version")
+        || !available("node", "--version")
+    {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    build_web_service(root.path(), WebLanguage::Java, "java").await;
     let report = run_driver(root.path(), &fetching_driver());
     assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
 }

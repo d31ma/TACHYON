@@ -1,14 +1,27 @@
-pub(super) struct JavaValueType;
+pub(super) struct JavaValueType {
+    models: Vec<String>,
+}
 
 impl JavaValueType {
     const LISTS: [&'static str; 2] = ["List", "java.util.List"];
     const MAPS: [&'static str; 2] = ["Map", "java.util.Map"];
     const MAP_KEY: &'static str = "String,";
     const NOTHING: &'static str = "void";
+    const MODEL_READERS: &'static str = "TacModels";
+    const MODEL_READER_PREFIX: &'static str = "read";
 
-    pub(super) fn reading(kind: &str, value: &str) -> Option<String> {
+    pub(super) fn new(models: Vec<String>) -> Self {
+        Self { models }
+    }
+
+    pub(super) fn reading(&self, kind: &str, value: &str) -> Option<String> {
         let kind = Self::compact(kind);
-        Self::scalar_reading(&kind, value).or_else(|| Self::collection_reading(&kind, value, 0))
+        self.single_reading(&kind, value)
+            .or_else(|| self.collection_reading(&kind, value, 0))
+    }
+
+    pub(super) fn model_reader(name: &str) -> String {
+        format!("{}{name}", Self::MODEL_READER_PREFIX)
     }
 
     pub(super) fn is_nothing(kind: &str) -> bool {
@@ -38,32 +51,40 @@ impl JavaValueType {
         Some(reading)
     }
 
-    fn scalar_reading(kind: &str, value: &str) -> Option<String> {
-        Self::scalar(kind).map(|reading| format!("TacValues.{reading}({value})"))
+    fn single(&self, kind: &str) -> Option<(&'static str, String)> {
+        let scalar = Self::scalar(kind).map(|reading| ("TacValues", String::from(reading)));
+        let model = self.models.iter().any(|model| model == kind);
+        scalar.or_else(|| model.then(|| (Self::MODEL_READERS, Self::model_reader(kind))))
     }
 
-    fn function(kind: &str, depth: usize) -> Option<String> {
+    fn single_reading(&self, kind: &str, value: &str) -> Option<String> {
+        self.single(kind)
+            .map(|(owner, reading)| format!("{owner}.{reading}({value})"))
+    }
+
+    fn function(&self, kind: &str, depth: usize) -> Option<String> {
         let item = format!("item{depth}");
-        let collection = Self::collection_reading(kind, &item, depth + 1);
-        Self::scalar(kind)
-            .map(|reading| format!("TacValues::{reading}"))
+        let collection = self.collection_reading(kind, &item, depth + 1);
+        self.single(kind)
+            .map(|(owner, reading)| format!("{owner}::{reading}"))
             .or_else(|| collection.map(|reading| format!("{item} -> {reading}")))
     }
 
-    fn collection_reading(kind: &str, value: &str, depth: usize) -> Option<String> {
-        Self::list_reading(kind, value, depth).or_else(|| Self::map_reading(kind, value, depth))
+    fn collection_reading(&self, kind: &str, value: &str, depth: usize) -> Option<String> {
+        self.list_reading(kind, value, depth)
+            .or_else(|| self.map_reading(kind, value, depth))
     }
 
-    fn list_reading(kind: &str, value: &str, depth: usize) -> Option<String> {
+    fn list_reading(&self, kind: &str, value: &str, depth: usize) -> Option<String> {
         let item = Self::generic_argument(kind, &Self::LISTS)?;
-        let function = Self::function(item, depth)?;
+        let function = self.function(item, depth)?;
         Some(format!("TacValues.list({value}, {function})"))
     }
 
-    fn map_reading(kind: &str, value: &str, depth: usize) -> Option<String> {
+    fn map_reading(&self, kind: &str, value: &str, depth: usize) -> Option<String> {
         let arguments = Self::generic_argument(kind, &Self::MAPS)?;
         let item = arguments.strip_prefix(Self::MAP_KEY)?;
-        let function = Self::function(item, depth)?;
+        let function = self.function(item, depth)?;
         Some(format!("TacValues.map({value}, {function})"))
     }
 
@@ -80,22 +101,42 @@ impl JavaValueType {
 mod tests {
     use super::JavaValueType;
 
+    fn plain() -> JavaValueType {
+        JavaValueType::new(Vec::new())
+    }
+
     #[test]
     fn plain_values_read_through_the_prelude() {
         assert_eq!(
-            JavaValueType::reading("int", "value").as_deref(),
+            plain().reading("int", "value").as_deref(),
             Some("TacValues.integer(value)")
         );
         assert_eq!(
-            JavaValueType::reading("String", "value").as_deref(),
+            plain().reading("String", "value").as_deref(),
             Some("TacValues.text(value)")
         );
     }
 
     #[test]
+    fn models_read_through_the_generated_readers() {
+        let values = JavaValueType::new(vec![String::from("Guide")]);
+        assert_eq!(
+            values.reading("Guide", "value").as_deref(),
+            Some("TacModels.readGuide(value)")
+        );
+        assert_eq!(
+            values.reading("List<Guide>", "value").as_deref(),
+            Some("TacValues.list(value, TacModels::readGuide)")
+        );
+        assert_eq!(plain().reading("Guide", "value"), None);
+    }
+
+    #[test]
     fn collections_read_each_item() {
         assert_eq!(
-            JavaValueType::reading("List<Map<String, List<Long>>>", "value").as_deref(),
+            plain()
+                .reading("List<Map<String, List<Long>>>", "value")
+                .as_deref(),
             Some(
                 "TacValues.list(value, item0 -> TacValues.map(item0, item1 -> TacValues.list(item1, TacValues::optionalWhole)))"
             )
@@ -111,7 +152,7 @@ mod tests {
             "Basket",
             "List<? extends Number>",
         ] {
-            assert_eq!(JavaValueType::reading(kind, "value"), None, "{kind}");
+            assert_eq!(plain().reading(kind, "value"), None, "{kind}");
         }
     }
 }

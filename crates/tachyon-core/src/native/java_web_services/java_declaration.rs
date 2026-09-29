@@ -27,21 +27,28 @@ impl JavaDeclaration {
     const HIDDEN: [&'static str; 2] = ["private", "static"];
     const NESTED_TYPES: [&'static str; 4] = ["class", "interface", "enum", "record"];
     const LIFECYCLE: [(&'static str, bool); 2] = [("OnStart", false), ("OnStop", true)];
-    const MARKERS: [&'static str; 4] = ["OnStart", "OnStop", "LocalState", "SessionState"];
-    const KNOWN: [&'static str; 7] = [
+    const MARKERS: [&'static str; 5] =
+        ["OnStart", "OnStop", "OnEvent", "LocalState", "SessionState"];
+    const KNOWN: [&'static str; 11] = [
         "OnStart",
         "OnStop",
+        "OnEvent",
+        "Order",
+        "InBackground",
+        "Needs",
         "LocalState",
         "SessionState",
         "Override",
         "SuppressWarnings",
         "Deprecated",
     ];
+    const LISTENER: &'static str = "OnEvent";
+    const INSIDE_TYPES: [&'static str; 2] = ["ApplicationEventPublisher", "Behaviors."];
     const READ_ONLY: &'static str = "final";
     const OPENERS: [char; 4] = ['<', '(', '[', '{'];
     const CLOSERS: [char; 4] = ['>', ')', ']', '}'];
-    const SUPPORTED: &'static str = "Java web services support @OnStart and @OnStop on methods and @LocalState and @SessionState on fields.";
-    const VALUES: &'static str = "A Java web service passes int, long, double, float, boolean, their boxed types, String, Object, List and Map with String keys to the page.";
+    const SUPPORTED: &'static str = "Java web services support @OnStart, @OnStop, @OnEvent, @Order and @InBackground on methods, @LocalState, @SessionState and @Needs on fields, and the behavior annotations such as @Cached, @ClearCache and @AllOrNothing.";
+    const VALUES: &'static str = "A Java web service passes int, long, double, float, boolean, their boxed types, String, Object, the models in client/models, and List and Map with String keys of these to the page.";
 
     pub(super) fn parse(header: &str) -> Self {
         let (annotations, after_annotations) = Self::split_annotations(header);
@@ -53,30 +60,49 @@ impl JavaDeclaration {
         }
     }
 
+    pub(super) fn named_parameters(list: &str) -> Vec<(String, String)> {
+        Self::pieces(list)
+            .iter()
+            .map(|piece| Self::named(piece))
+            .filter(|(value_type, _)| !value_type.is_empty())
+            .collect()
+    }
+
+    pub(super) fn model_field(&self) -> Option<(String, String)> {
+        let declared = self.rest.split('=').next().unwrap_or_default();
+        let is_field = [self.is_skipped(), self.is_method()] == [false, false];
+        is_field.then(|| Self::type_and_name(declared))
+    }
+
     pub(super) fn refuse_class_annotations(&self) -> Result<(), String> {
         self.refuse_unknown_annotations()
     }
 
-    pub(super) fn member(&self) -> Result<Option<JavaMember>, String> {
+    pub(super) fn member(&self, values: &JavaValueType) -> Result<Option<JavaMember>, String> {
         self.refuse_unknown_annotations()?;
         self.refuse_hidden_markers()?;
-        self.visible_member()
+        self.visible_member(values)
     }
 
-    fn visible_member(&self) -> Result<Option<JavaMember>, String> {
+    fn visible_member(&self, values: &JavaValueType) -> Result<Option<JavaMember>, String> {
         match (self.is_skipped(), self.is_method()) {
             (true, _) => Ok(None),
-            (false, true) => self.method(),
-            (false, false) => self.field(),
+            (false, true) => self.method(values),
+            (false, false) => self.field(values),
         }
     }
 
     fn is_skipped(&self) -> bool {
         let first = self.rest.split_whitespace().next().unwrap_or_default();
+        let stays_inside = Self::INSIDE_TYPES
+            .iter()
+            .any(|inside| first.starts_with(inside));
         let skipped = [
             !self.is_visible(),
             first.is_empty(),
             Self::NESTED_TYPES.contains(&first),
+            self.has_annotation(Self::LISTENER),
+            [stays_inside, self.is_method()] == [true, false],
         ];
         skipped.contains(&true)
     }
@@ -193,25 +219,30 @@ impl JavaDeclaration {
         })
     }
 
-    fn method(&self) -> Result<Option<JavaMember>, String> {
+    fn method(&self, values: &JavaValueType) -> Result<Option<JavaMember>, String> {
         let open = self.rest.find('(').unwrap_or_default();
         let (value_type, name) = Self::type_and_name(&self.rest[..open]);
         let inside = &self.rest[open + 1..];
         let close = inside.len() - Self::after_closing_parenthesis(inside).len();
         let parameters = Self::parameters(&inside[..close.saturating_sub(1)]);
-        self.method_member(&JavaMember {
+        let member = JavaMember {
             name,
             value_type,
             parameters,
             kind: JavaMemberKind::Method,
-        })
+        };
+        self.method_member(member, values)
     }
 
-    fn method_member(&self, member: &JavaMember) -> Result<Option<JavaMember>, String> {
+    fn method_member(
+        &self,
+        member: JavaMember,
+        values: &JavaValueType,
+    ) -> Result<Option<JavaMember>, String> {
         match (member.value_type.is_empty(), self.lifecycle()) {
             (true, _) => Ok(None),
-            (false, Some(destroy)) => Self::hook(member.clone(), destroy),
-            (false, None) => Self::checked_method(member.clone()),
+            (false, Some(destroy)) => Self::hook(member, destroy),
+            (false, None) => Self::checked_method(member, values),
         }
     }
 
@@ -233,22 +264,25 @@ impl JavaDeclaration {
         ))
     }
 
-    fn checked_method(member: JavaMember) -> Result<Option<JavaMember>, String> {
+    fn checked_method(
+        member: JavaMember,
+        values: &JavaValueType,
+    ) -> Result<Option<JavaMember>, String> {
         let returns_value = !JavaValueType::is_nothing(&member.value_type);
         let mut types: Vec<&String> = member.parameters.iter().collect();
         types.extend(returns_value.then_some(&member.value_type));
-        Self::require_values(&member.name, &types)?;
+        Self::require_values(&member.name, &types, values)?;
         Ok(Some(member))
     }
 
-    fn field(&self) -> Result<Option<JavaMember>, String> {
+    fn field(&self, values: &JavaValueType) -> Result<Option<JavaMember>, String> {
         let (declared, value) = self
             .rest
             .split_once('=')
             .unwrap_or((self.rest.as_str(), ""));
         Self::refuse_many_names(declared, value)?;
         let (value_type, name) = Self::type_and_name(declared);
-        Self::require_values(&name, &[&value_type])?;
+        Self::require_values(&name, &[&value_type], values)?;
         let read_only = self
             .modifiers
             .iter()
@@ -317,18 +351,22 @@ impl JavaDeclaration {
     }
 
     fn parameter_type(parameter: &str) -> String {
+        Self::named(parameter).0
+    }
+
+    fn named(parameter: &str) -> (String, String) {
         let (_, without_annotations) = Self::split_annotations(parameter);
         let without_final = without_annotations
             .trim_start()
             .strip_prefix("final ")
             .unwrap_or(without_annotations);
-        Self::type_and_name(without_final).0
+        Self::type_and_name(without_final)
     }
 
-    fn require_values(name: &str, types: &[&String]) -> Result<(), String> {
+    fn require_values(name: &str, types: &[&String], values: &JavaValueType) -> Result<(), String> {
         let unsupported = types
             .iter()
-            .find(|kind| JavaValueType::reading(kind, "value").is_none());
+            .find(|kind| values.reading(kind, "value").is_none());
         unsupported.map_or(Ok(()), |kind| {
             Err(format!(
                 "{name} uses {kind}. {} Make the member private to keep it inside the service.",

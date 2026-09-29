@@ -1,20 +1,27 @@
+use super::java_enclosure::JavaEnclosure;
 use super::java_member::JavaMember;
 use super::java_member_kind::JavaMemberKind;
 use super::java_service::JavaService;
 use super::java_value_type::JavaValueType;
 use std::fmt::Write as _;
 
-pub(super) struct JavaServiceTable;
+pub(super) struct JavaServiceTable<'a> {
+    values: &'a JavaValueType,
+}
 
-impl JavaServiceTable {
+impl<'a> JavaServiceTable<'a> {
     const FILE: &'static str = "TacServiceTable.java";
     const NOTHING: &'static str = "null";
 
-    pub(super) fn file(services: &[JavaService]) -> (String, String) {
-        (String::from(Self::FILE), Self::source(services))
+    pub(super) fn new(values: &'a JavaValueType) -> Self {
+        Self { values }
     }
 
-    fn source(services: &[JavaService]) -> String {
+    pub(super) fn file(&self, services: &[JavaService]) -> (String, String) {
+        (String::from(Self::FILE), self.source(services))
+    }
+
+    fn source(&self, services: &[JavaService]) -> String {
         let mut members = String::new();
         let mut required = String::new();
         let mut factories = String::new();
@@ -26,7 +33,7 @@ impl JavaServiceTable {
                 "            case {instance} -> new String[] {{{}}};",
                 Self::names(&service.required)
             );
-            factories.push_str(&Self::factory(index, service));
+            factories.push_str(&self.factory(index, service));
         }
         format!(
             "final class TacServiceTable {{\n    private TacServiceTable() {{\n    }}\n\n    \
@@ -35,15 +42,15 @@ impl JavaServiceTable {
         )
     }
 
-    fn factory(index: usize, service: &JavaService) -> String {
-        let class = &service.class;
+    fn factory(&self, index: usize, service: &JavaService) -> String {
+        let class = format!("{}.{}", JavaEnclosure::holder(index), service.class);
         let mut entries = String::new();
         for member in &service.members {
             let _ = writeln!(
                 entries,
                 "        members.put({}, {});",
-                Self::quoted(&member.name),
-                Self::entry(member)
+                Self::quoted(Self::key(member)),
+                self.entry(member)
             );
         }
         format!(
@@ -52,32 +59,61 @@ impl JavaServiceTable {
         )
     }
 
-    fn entry(member: &JavaMember) -> String {
-        match member.kind {
-            JavaMemberKind::Field { read_only } => Self::field(member, read_only),
-            JavaMemberKind::Method => Self::method(member),
-            JavaMemberKind::Hook { destroy } => Self::hook(member, destroy),
+    fn key(member: &JavaMember) -> &str {
+        match &member.kind {
+            JavaMemberKind::Listener { key, .. } => key,
+            _ => &member.name,
         }
     }
 
-    fn field(member: &JavaMember, read_only: bool) -> String {
+    fn entry(&self, member: &JavaMember) -> String {
+        match &member.kind {
+            JavaMemberKind::Field { read_only } => self.field(member, *read_only),
+            JavaMemberKind::Method => self.method(member),
+            JavaMemberKind::Hook { destroy } => Self::hook(member, *destroy),
+            JavaMemberKind::Listener { description, .. } => self.listener(member, description),
+        }
+    }
+
+    fn field(&self, member: &JavaMember, read_only: bool) -> String {
         let name = &member.name;
-        let reading = JavaValueType::reading(&member.value_type, "value").unwrap_or_default();
+        let reading = self
+            .values
+            .reading(&member.value_type, "value")
+            .unwrap_or_default();
         let write = format!("value -> service.{name} = {reading}");
         let writer = [write.as_str(), Self::NOTHING][usize::from(read_only)];
         format!("new TacField(() -> service.{name}, {writer})")
     }
 
-    fn method(member: &JavaMember) -> String {
-        let call = format!(
-            "service.{}({})",
-            member.name,
-            Self::arguments(&member.parameters)
-        );
+    fn method(&self, member: &JavaMember) -> String {
+        let arguments = self.arguments(&member.parameters);
+        let body = Self::call(member, &arguments);
+        format!("new TacMethod(arguments -> TacCall.result(() -> {body}))")
+    }
+
+    fn listener(&self, member: &JavaMember, description: &str) -> String {
+        let value = member
+            .parameters
+            .first()
+            .and_then(|kind| self.values.reading(kind, "value"))
+            .unwrap_or_default();
+        let body = Self::call(member, &value);
+        format!(
+            "new TacListener({}, value -> TacCall.result(() -> {body}))",
+            Self::quoted(description)
+        )
+    }
+
+    fn call(member: &JavaMember, arguments: &str) -> String {
+        let call = format!("service.{}({arguments})", member.name);
         let without_result = format!("{{ {call}; return null; }}");
         let returns_nothing = JavaValueType::is_nothing(&member.value_type);
-        let body = [&call, &without_result][usize::from(returns_nothing)];
-        format!("new TacMethod(arguments -> TacCall.result(() -> {body}))")
+        if returns_nothing {
+            without_result
+        } else {
+            call
+        }
     }
 
     fn hook(member: &JavaMember, destroy: bool) -> String {
@@ -87,11 +123,11 @@ impl JavaServiceTable {
         )
     }
 
-    fn arguments(parameters: &[String]) -> String {
+    fn arguments(&self, parameters: &[String]) -> String {
         let mut arguments = Vec::new();
         for (index, kind) in parameters.iter().enumerate() {
             let value = format!("TacValues.argument(arguments, {index})");
-            arguments.push(JavaValueType::reading(kind, &value).unwrap_or_default());
+            arguments.push(self.values.reading(kind, &value).unwrap_or_default());
         }
         arguments.join(", ")
     }

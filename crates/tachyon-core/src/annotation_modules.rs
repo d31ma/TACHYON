@@ -73,7 +73,7 @@ fn refuse_tac_helpers(
     extension: &str,
     environment: &str,
 ) -> Result<(), Failure> {
-    let composed_after_entry = matches!(extension, "rs" | "cs" | "swift" | "kt");
+    let composed_after_entry = matches!(extension, "rs" | "cs" | "swift" | "kt" | "java");
     if environment != "tac" || !composed_after_entry {
         return Ok(());
     }
@@ -93,7 +93,7 @@ fn entry_extension<'a>(entry: &'a Path, environment: &str) -> Result<&'a str, Fa
         .unwrap_or("");
     let supported = Module::EXTENSIONS.contains(&extension)
         && !(environment == "yon" && extension == "swift")
-        && !(environment == "tac" && matches!(extension, "java" | "groovy" | "py" | "php"));
+        && !(environment == "tac" && matches!(extension, "groovy" | "py" | "php"));
     if !supported {
         return Err(invalid(
             entry,
@@ -1178,7 +1178,7 @@ fn compose(
     environment: &str,
 ) -> Result<String, Failure> {
     let entry_first = extension == "rb"
-        || (environment == "tac" && matches!(extension, "swift" | "kt" | "cs" | "rs"));
+        || (environment == "tac" && matches!(extension, "swift" | "kt" | "cs" | "rs" | "java"));
     if entry_first {
         modules.insert(0, entry.to_owned());
     } else {
@@ -1764,7 +1764,7 @@ mod tests {
             ("yon", "server/controllers/MoneyController.swift"),
             ("tac", "client/services/ShellService.py"),
             ("tac", "client/services/ShellService.php"),
-            ("tac", "client/services/ShellService.java"),
+            ("tac", "client/services/ShellService.groovy"),
         ] {
             let root = project();
             let failure = assemble(root.path(), Path::new(entry), "", realm)

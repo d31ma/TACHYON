@@ -18,6 +18,8 @@ use prepared::Prepared;
 mod go;
 mod go_syntax;
 mod java;
+mod java_builtins;
+pub(crate) use java_builtins::JavaBuiltins;
 mod kotlin;
 mod kotlin_builtins;
 pub(crate) use kotlin_builtins::KotlinBuiltins;

@@ -1,5 +1,26 @@
 final class TacValues {
+    private static final String WRONG_TYPE = "A service argument or field value has the wrong type.";
+
     private TacValues() {
+    }
+
+    static java.util.Map<?, ?> fields(Object value) {
+        if (value instanceof java.util.Map<?, ?> fields) {
+            return fields;
+        }
+        throw wrongType();
+    }
+
+    static Object field(java.util.Map<?, ?> fields, String name, boolean required) {
+        Object value = fields.get(name);
+        if (required && value == null) {
+            throw wrongType();
+        }
+        return value;
+    }
+
+    static IllegalArgumentException wrongType() {
+        return new IllegalArgumentException(WRONG_TYPE);
     }
 
     static Object argument(java.util.List<Object> arguments, int index) {

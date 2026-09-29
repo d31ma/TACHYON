@@ -1,11 +1,15 @@
 final class TacActivation {
     final String route;
     final String service;
+    final String owner;
     final java.util.Map<String, Object> members;
+    final java.util.ArrayDeque<TacEvent> queue = new java.util.ArrayDeque<>();
+    boolean disposed;
 
-    TacActivation(String route, String service, java.util.Map<String, Object> members) {
+    TacActivation(String route, String service, String owner, java.util.Map<String, Object> members) {
         this.route = route;
         this.service = service;
+        this.owner = owner;
         this.members = members;
     }
 
@@ -19,5 +23,11 @@ final class TacActivation {
                 hook.invoke.run();
             }
         }
+    }
+
+    void dispose() {
+        disposed = true;
+        queue.clear();
+        runHooks(true);
     }
 }

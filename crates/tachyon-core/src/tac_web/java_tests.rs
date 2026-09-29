@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{BuildJobs, WebLanguage, build_all};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 struct JavaFixtures;
@@ -40,6 +40,103 @@ impl JavaFixtures {
          let stale = false\n\
          try { one.count } catch { stale = true }\n\
          console.log(JSON.stringify({ doubled, after, other: two.count, label: two.label, added, scaled, total, runtime: two.runtime, failed, readOnly, stale, keys: Object.keys(two).sort(), bigStart, bigCall, largeStart }))\n\
+         process.exit(0)\n";
+    const LIBRARY_FILES: [(&str, &str); 7] = [
+        (
+            "client/models/Author.java",
+            "class Author {\n    String name = \"\";\n}\n",
+        ),
+        (
+            "client/models/Size.java",
+            "enum Size {\n    SHORT, LONG\n}\n",
+        ),
+        (
+            "client/models/Guide.java",
+            "import java.util.List;\n\nrecord Guide(String title, int pages, double rating, boolean draft, List<String> tags, String note, Size size, Author author) {}\n",
+        ),
+        (
+            "client/models/GuideSaved.java",
+            "record GuideSaved(String title, int pages) {}\n",
+        ),
+        (
+            "client/models/GuideEcho.java",
+            "record GuideEcho(int pages) {}\n",
+        ),
+        (
+            "client/models/ShelfChanged.java",
+            "@Topic\nrecord ShelfChanged(int count) {}\n",
+        ),
+        (
+            "client/services/LibraryService.java",
+            "import java.util.ArrayList;\nimport java.util.List;\nimport models.Guide;\nimport models.GuideEcho;\nimport models.GuideSaved;\nimport models.ShelfChanged;\n\n@Service\nclass LibraryService {\n    Guide latest = null;\n    List<Integer> heard = new ArrayList<>();\n    ApplicationEventPublisher applicationEventPublisher;\n\n    \
+             Guide longer(Guide guide, int extra) {\n        Guide copy = new Guide(guide.title(), guide.pages() + extra, guide.rating(), guide.draft(), guide.tags(), guide.note(), guide.size(), guide.author());\n        latest = copy;\n        \
+             applicationEventPublisher.publishEvent(new GuideSaved(copy.title(), copy.pages()));\n        return copy;\n    }\n\n    \
+             List<Guide> shelf() {\n        return latest == null ? List.of() : List.of(latest);\n    }\n\n    \
+             @OnEvent({\"condition\":\"value.pages > 10\"})\n    GuideEcho saved(GuideSaved value) {\n        heard.add(value.pages());\n        return new GuideEcho(value.pages() * 10);\n    }\n\n    \
+             @OnEvent\n    void shelfChanged(ShelfChanged value) {\n        heard.add(value.count());\n    }\n}\n",
+        ),
+    ];
+
+    const LIBRARY_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         const sources = []\n\
+         globalThis.EventSource = class { constructor(url) { this.url = url; sources.push(this) } addEventListener() {} close() {} }\n\
+         const { default: LibraryService, __tachyon_event_plan__: plan } = await import('./LibraryService.js')\n\
+         const { default: ApplicationEvents } = await import('./application-events.mjs')\n\
+         const events = []\n\
+         const bus = new ApplicationEvents({ changed: () => {}, failed: () => { throw new Error('Event delivery failed') } })\n\
+         for (const event of ['GuideSaved', 'GuideEcho']) bus.attach({ receive: (value) => events.push([event, value]) }, { listeners: [{ method: 'receive', event, order: -100 }] }, {})\n\
+         const library = new LibraryService({})\n\
+         bus.attach(library, plan.types[0], { applicationEventPublisher: null })\n\
+         await bus.initialize(library)\n\
+         const guide = { title: 'Java', pages: 8, rating: 4.5, draft: false, tags: ['wasm'], note: null, size: 'LONG', author: { name: 'Ann' } }\n\
+         const small = library.longer(guide, 1)\n\
+         const large = library.longer(guide, 4)\n\
+         for (const source of sources) source.onmessage({ data: JSON.stringify({ count: 3 }), lastEventId: '1' })\n\
+         let refused = ''\n\
+         try { library.longer({ title: 'broken' }, 1) } catch (error) { refused = error.message }\n\
+         console.log(JSON.stringify({ small, large, latest: library.latest, shelf: library.shelf(), heard: library.heard, events, topics: sources.map((source) => source.url), refused }))\n\
+         process.exit(0)\n";
+
+    const STORAGE_FILES: [(&str, &str); 3] = [
+        (
+            "client/setups/BrowserSetup.java",
+            "@Setup\nclass BrowserSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration();\n    }\n}\n",
+        ),
+        (
+            "client/entities/NoteEntity.java",
+            "@Entity({\"adapter\":\"indexeddb\"})\n@Table(\"notes\")\nclass NoteEntity {\n    @Id\n    String id = \"\";\n    String text = \"\";\n}\n",
+        ),
+        (
+            "client/services/NotesService.java",
+            "import java.util.Map;\n\n@Service\n@CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\nclass NotesService {\n    \
+             Behaviors.Context behaviors;\n    private long reads = 0;\n\n    \
+             @OnStart\n    void open() {\n        behaviors = Behaviors.create(\"BrowserSetup\", new Behaviors.Options(\"notes\", new Behaviors.Signal()));\n    }\n\n    \
+             @Cached\n    Object find(String key) {\n        reads += 1;\n        return Map.of(\"key\", key, \"reads\", reads);\n    }\n\n    \
+             @ClearCache({\"method\":\"find\"})\n    Object forget(String key) {\n        return key;\n    }\n\n    \
+             Object save(String id, String text) {\n        return notes().save(Map.of(\"id\", id, \"text\", text));\n    }\n\n    \
+             @AllOrNothing({\"adapter\":\"indexeddb\"})\n    Object saveThenRefuse(String id) {\n        save(id, \"draft\");\n        throw new IllegalStateException(\"the note was refused\");\n    }\n\n    \
+             Object list() {\n        return notes().find(Map.<String, Object>of(\"size\", 10));\n    }\n\n    \
+             private Behaviors.Repository notes() {\n        return behaviors.repository(\"NoteEntity\");\n    }\n}\n",
+        ),
+    ];
+
+    const STORAGE_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         console.info = () => {}\n\
+         globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
+         ;(0, eval)(await readFile('./tac-storage.js', 'utf8'))\n\
+         const { default: NotesService } = await import('./NotesService.js')\n\
+         const notes = new NotesService({})\n\
+         notes.__tachyonStarted()\n\
+         const first = notes.find('a')\n\
+         const second = notes.find('a')\n\
+         notes.forget('a')\n\
+         const third = notes.find('a')\n\
+         notes.save('n1', 'hello')\n\
+         let refused = ''\n\
+         try { notes.saveThenRefuse('n2') } catch (error) { refused = error.message }\n\
+         console.log(JSON.stringify({ first, second, third, refused, listed: notes.list() }))\n\
          process.exit(0)\n";
 }
 
@@ -160,7 +257,7 @@ async fn a_java_service_names_the_annotation_it_cannot_use_yet() {
     std::fs::create_dir_all(source.parent().expect("parent")).expect("folder");
     std::fs::write(
         &source,
-        "@Service\nclass NoteService {\n    String text = \"\";\n\n    @Cached\n    String read() {\n        return text;\n    }\n}\n",
+        "@Service\nclass NoteService {\n    String text = \"\";\n\n    @SafeVarargs\n    final String read(String... parts) {\n        return text;\n    }\n}\n",
     )
     .expect("service");
     let services = [(
@@ -182,7 +279,112 @@ async fn a_java_service_names_the_annotation_it_cannot_use_yet() {
     let text = failure.to_string();
     assert!(text.contains("TY1405"), "{text}");
     assert!(
-        text.contains("@Cached does not work in a Java web service yet"),
+        text.contains("@SafeVarargs does not work in a Java web service yet"),
         "{text}"
+    );
+}
+
+fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
+    let path = root.join(relative);
+    std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+    std::fs::write(&path, text).expect("file");
+    path
+}
+
+async fn publish(root: &Path, instance: &str, class: &str) {
+    let services = [(
+        String::from(instance),
+        String::from(class),
+        WebLanguage::Java,
+        root.join(format!("client/services/{class}.java")),
+    )];
+    let built = build_all(
+        root,
+        &services,
+        &BuildJobs::new(1),
+        crate::BuildProfile::Development,
+    )
+    .await
+    .expect("the Java service builds");
+    for (name, bytes) in built.files {
+        let path = root.join(name);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+        std::fs::write(path, bytes).expect("publish");
+    }
+}
+
+#[tokio::test]
+async fn a_java_service_exchanges_models_and_events_with_the_page() {
+    if !java_web_ready() {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in JavaFixtures::LIBRARY_FILES {
+        write(root.path(), relative, text);
+    }
+    write(
+        root.path(),
+        "application-events.mjs",
+        concat!(
+            include_str!("../template/application-events.js"),
+            "\nexport default TacApplicationEvents\n"
+        ),
+    );
+    publish(root.path(), "library", "LibraryService").await;
+    let report = run_driver(root.path(), JavaFixtures::LIBRARY_DRIVER);
+    let guide = |pages: i64| serde_json::json!({"title": "Java", "pages": pages, "rating": 4.5, "draft": false, "tags": ["wasm"], "note": null, "size": "LONG", "author": {"name": "Ann"}});
+    assert_eq!(report["small"], guide(9));
+    assert_eq!(report["large"], guide(12));
+    assert_eq!(report["latest"], guide(12));
+    assert_eq!(report["shelf"], serde_json::json!([guide(12)]));
+    assert_eq!(report["heard"], serde_json::json!([12, 3]));
+    assert_eq!(
+        report["events"],
+        serde_json::json!([
+            ["GuideSaved", {"title": "Java", "pages": 9}],
+            ["GuideSaved", {"title": "Java", "pages": 12}],
+            ["GuideEcho", {"pages": 120}],
+        ])
+    );
+    assert_eq!(
+        report["topics"],
+        serde_json::json!(["/.tachyon/topics/shelf-changed"])
+    );
+    assert_eq!(
+        report["refused"],
+        "Web service library: A service argument or field value has the wrong type."
+    );
+}
+
+#[tokio::test]
+async fn a_java_service_reads_the_builtin_cache_and_store_synchronously() {
+    if !java_web_ready() {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in JavaFixtures::STORAGE_FILES {
+        write(root.path(), relative, text);
+    }
+    write(
+        root.path(),
+        "tac-storage.js",
+        include_str!("../template/tac-storage.js"),
+    );
+    publish(root.path(), "notes", "NotesService").await;
+    let report = run_driver(root.path(), JavaFixtures::STORAGE_DRIVER);
+    assert_eq!(report["first"], serde_json::json!({"key": "a", "reads": 1}));
+    assert_eq!(report["second"], report["first"]);
+    assert_eq!(report["third"], serde_json::json!({"key": "a", "reads": 2}));
+    assert!(
+        report["refused"]
+            .as_str()
+            .is_some_and(|message| message.contains("the note was refused")),
+        "{report}"
+    );
+    assert_eq!(
+        report["listed"],
+        serde_json::json!([{"id": "n1", "text": "hello"}])
     );
 }

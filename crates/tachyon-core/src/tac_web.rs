@@ -479,6 +479,11 @@ const transport = (text) => kotlin.tacInvoke(text)
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
   throw new Error('Java services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
 }
+globalThis[Symbol.for('tachyon.java.host')] = {
+  emit: (payload) => { published.push(payload) },
+  storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
+  web: (text) => webHost(text),
+}
 const { load } = await import('./java/runtime.js')
 const javaResponse = await fetch(new URL('./java/services.wasm', import.meta.url))
 const java = await load(new Uint8Array(await javaResponse.arrayBuffer()))

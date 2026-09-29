@@ -13,6 +13,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         lower_type(module, type_declaration, &mut sections, &mut edits)?;
     }
     let mut runtime = sections.fill_runtime(module);
+    runtime.push_str(super::JavaBuiltins::NONE);
     runtime.push_str(super::super::testing::unit_helper(
         &module.types,
         super::super::TestAssert::JAVA,

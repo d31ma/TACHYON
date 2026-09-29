@@ -103,6 +103,13 @@ impl ModelSources {
         staged
     }
 
+    pub(crate) fn project_files(&self) -> Vec<(PathBuf, String)> {
+        self.files
+            .iter()
+            .map(|file| (PathBuf::from(&file.portable), file.source.clone()))
+            .collect()
+    }
+
     pub(crate) fn rust_module(&self) -> String {
         if self.files.is_empty() {
             return String::new();

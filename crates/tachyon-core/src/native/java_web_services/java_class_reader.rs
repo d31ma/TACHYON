@@ -1,51 +1,56 @@
+use super::java_code::JavaCode;
 use super::java_declaration::JavaDeclaration;
 use super::java_member::JavaMember;
+use super::java_value_type::JavaValueType;
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use std::ops::Range;
 
 pub(super) struct JavaClassReader<'a> {
     path: &'a str,
-    code: Vec<u8>,
-    braces: Vec<i32>,
-    parens: Vec<i32>,
+    code: JavaCode,
 }
 
 impl<'a> JavaClassReader<'a> {
-    const LANGUAGE: &'static str = "java";
     const SHAPE_CODE: u16 = 1405;
     const OWNER_CODE: u16 = 1406;
-    const OPEN: u8 = b'{';
-    const CLOSE: u8 = b'}';
-    const STATEMENT_END: u8 = b';';
-    const OPEN_ARGUMENTS: u8 = b'(';
-    const CLOSE_ARGUMENTS: u8 = b')';
-    const MARKERS: [&'static str; 4] = ["@OnStart", "@OnStop", "@LocalState", "@SessionState"];
+    const CLASS: &'static str = "class";
+    const MARKERS: [&'static str; 8] = [
+        "@OnStart",
+        "@OnStop",
+        "@OnEvent",
+        "@Order",
+        "@InBackground",
+        "@Needs",
+        "@LocalState",
+        "@SessionState",
+    ];
     const BLANK: u8 = b' ';
-    const HEADER_ENDS: [u8; 2] = [Self::STATEMENT_END, Self::CLOSE];
+    const HEADER_ENDS: [u8; 2] = *b";}";
 
     pub(super) fn new(path: &'a str, source: &str) -> Self {
-        let code = Self::visible(source);
-        let braces = Self::depths(&code, Self::OPEN, Self::CLOSE);
-        let parens = Self::depths(&code, Self::OPEN_ARGUMENTS, Self::CLOSE_ARGUMENTS);
         Self {
             path,
-            code,
-            braces,
-            parens,
+            code: JavaCode::new(source),
         }
     }
 
-    pub(super) fn members(&self, class: &str) -> Result<Vec<JavaMember>, Failure> {
+    pub(super) fn members(
+        &self,
+        class: &str,
+        values: &JavaValueType,
+    ) -> Result<Vec<JavaMember>, Failure> {
         let declared = self
-            .class_declaration(class)
+            .code
+            .declaration(Self::CLASS, class)
             .ok_or_else(|| self.missing_class(class))?;
         self.check_class_header(declared)?;
         let body = self
-            .class_body(declared)
+            .code
+            .body_after(declared)
             .ok_or_else(|| self.missing_class(class))?;
-        let headers = self.headers(&body);
-        let members = self.declared(&headers)?;
+        let headers = self.code.member_headers(&body);
+        let members = self.declared(&headers, values)?;
         self.require_members(members, class)
     }
 
@@ -62,19 +67,19 @@ impl<'a> JavaClassReader<'a> {
     }
 
     fn spans_of(&self, marker: &str) -> Vec<Range<usize>> {
-        let text = String::from_utf8_lossy(&self.code);
+        let text = String::from_utf8_lossy(self.code.bytes());
         text.match_indices(marker)
             .map(|(at, _)| at..at + marker.len())
-            .filter(|span| self.ends_word(span.end))
+            .filter(|span| self.code.ends_word(span.end))
             .map(|span| self.with_arguments(span))
             .collect()
     }
 
     fn with_arguments(&self, span: Range<usize>) -> Range<usize> {
-        if self.code.get(span.end) != Some(&Self::OPEN_ARGUMENTS) {
+        if !self.code.is_open_arguments(span.end) {
             return span;
         }
-        let close = Self::closing(&self.parens, span.end).unwrap_or(span.end);
+        let close = self.code.closing_parenthesis(span.end).unwrap_or(span.end);
         span.start..close + 1
     }
 
@@ -86,111 +91,40 @@ impl<'a> JavaClassReader<'a> {
         String::from_utf8_lossy(&bytes).into_owned()
     }
 
-    fn visible(source: &str) -> Vec<u8> {
-        let mask = crate::lexical::code_mask(Self::LANGUAGE, source);
-        source
-            .bytes()
-            .zip(mask.code)
-            .map(|(byte, visible)| [Self::BLANK, byte][usize::from(visible)])
-            .collect()
-    }
-
-    fn depths(code: &[u8], open: u8, close: u8) -> Vec<i32> {
-        let mut depth = 0;
-        let mut depths = Vec::with_capacity(code.len() + 1);
-        for byte in code {
-            depths.push(depth);
-            depth += i32::from(*byte == open) - i32::from(*byte == close);
-        }
-        depths.push(depth);
-        depths
-    }
-
     fn check_class_header(&self, declared: usize) -> Result<(), Failure> {
         let header = self.header_start(declared)..declared;
-        let text = String::from_utf8_lossy(&self.code[header.clone()]);
-        JavaDeclaration::parse(&text)
+        JavaDeclaration::parse(&self.code.text(&header))
             .refuse_class_annotations()
             .map_err(|message| self.failure(Self::SHAPE_CODE, message, &header))
     }
 
     fn header_start(&self, declared: usize) -> usize {
+        let code = self.code.bytes();
         (0..declared)
             .rev()
-            .find(|at| Self::HEADER_ENDS.contains(&self.code[*at]))
+            .find(|at| Self::HEADER_ENDS.contains(&code[*at]))
             .map_or(0, |at| at + 1)
     }
 
-    fn class_body(&self, declared: usize) -> Option<Range<usize>> {
-        let open = self.next_open_brace(declared)?;
-        let close = Self::closing(&self.braces, open)?;
-        Some(open + 1..close)
-    }
-
-    fn class_declaration(&self, class: &str) -> Option<usize> {
-        let wanted = format!("class {class}");
-        let text = String::from_utf8_lossy(&self.code);
-        text.match_indices(&wanted)
-            .map(|(at, _)| at + wanted.len())
-            .find(|end| self.ends_word(*end))
-    }
-
-    fn ends_word(&self, end: usize) -> bool {
-        let next = self.code.get(end).copied().unwrap_or(b' ');
-        !next.is_ascii_alphanumeric() && next != b'_'
-    }
-
-    fn next_open_brace(&self, from: usize) -> Option<usize> {
-        (from..self.code.len()).find(|at| self.code[*at] == Self::OPEN)
-    }
-
-    fn closing(depths: &[i32], open: usize) -> Option<usize> {
-        let outside = depths[open];
-        let after = (open + 1..depths.len()).find(|at| depths[*at] == outside)?;
-        Some(after - 1)
-    }
-
-    fn headers(&self, body: &Range<usize>) -> Vec<Range<usize>> {
-        let level = self.braces[body.start];
-        let mut headers = Vec::new();
-        let mut start = body.start;
-        for end in self.statement_ends(body, level) {
-            headers.push(start..end);
-            start = self.member_end(end) + 1;
-        }
-        headers
-    }
-
-    fn statement_ends(&self, body: &Range<usize>, level: i32) -> Vec<usize> {
-        body.clone()
-            .filter(|at| self.ends_statement(*at, level))
-            .collect()
-    }
-
-    fn ends_statement(&self, at: usize, level: i32) -> bool {
-        let ends = matches!(self.code[at], Self::STATEMENT_END | Self::OPEN);
-        (self.braces[at], self.parens[at], ends) == (level, 0, true)
-    }
-
-    fn member_end(&self, end: usize) -> usize {
-        if self.code[end] == Self::OPEN {
-            return Self::closing(&self.braces, end).unwrap_or(end);
-        }
-        end
-    }
-
-    fn declared(&self, headers: &[Range<usize>]) -> Result<Vec<JavaMember>, Failure> {
+    fn declared(
+        &self,
+        headers: &[Range<usize>],
+        values: &JavaValueType,
+    ) -> Result<Vec<JavaMember>, Failure> {
         let mut members = Vec::new();
         for header in headers {
-            members.extend(self.member(header)?);
+            members.extend(self.member(header, values)?);
         }
         Ok(members)
     }
 
-    fn member(&self, header: &Range<usize>) -> Result<Option<JavaMember>, Failure> {
-        let text = String::from_utf8_lossy(&self.code[header.clone()]);
-        JavaDeclaration::parse(&text)
-            .member()
+    fn member(
+        &self,
+        header: &Range<usize>,
+        values: &JavaValueType,
+    ) -> Result<Option<JavaMember>, Failure> {
+        JavaDeclaration::parse(&self.code.text(header))
+            .member(values)
             .map_err(|message| self.failure(Self::SHAPE_CODE, message, header))
     }
 
@@ -217,7 +151,7 @@ impl<'a> JavaClassReader<'a> {
 
     fn failure(&self, code: u16, message: String, at: &Range<usize>) -> Failure {
         let start = at.start
-            + self.code[at.clone()]
+            + self.code.bytes()[at.clone()]
                 .iter()
                 .take_while(|byte| byte.is_ascii_whitespace())
                 .count();
@@ -235,12 +169,13 @@ impl<'a> JavaClassReader<'a> {
 mod tests {
     use super::JavaClassReader;
     use crate::native::java_web_services::java_member_kind::JavaMemberKind;
+    use crate::native::java_web_services::java_value_type::JavaValueType;
 
     const PATH: &str = "client/services/ShelfService.java";
 
     fn read(source: &str) -> Result<Vec<(String, String, Vec<String>, JavaMemberKind)>, String> {
         let members = JavaClassReader::new(PATH, source)
-            .members("ShelfService")
+            .members("ShelfService", &JavaValueType::new(Vec::new()))
             .map_err(|failure| failure.to_string())?;
         Ok(members
             .into_iter()
@@ -269,7 +204,7 @@ mod tests {
         let members = read(&source).expect("members");
         let names: Vec<(&str, &str, JavaMemberKind)> = members
             .iter()
-            .map(|(name, kind, _, member)| (name.as_str(), kind.as_str(), *member))
+            .map(|(name, kind, _, member)| (name.as_str(), kind.as_str(), member.clone()))
             .collect();
         assert_eq!(
             names,
@@ -286,6 +221,14 @@ mod tests {
             ]
         );
         assert_eq!(members[4].2, ["List<String>", "int"]);
+    }
+
+    #[test]
+    fn listeners_publishers_and_behavior_contexts_stay_off_the_page() {
+        let source = "class ShelfService {\n    ApplicationEventPublisher applicationEventPublisher;\n    Behaviors.Context behaviors;\n    int count = 0;\n\n    @OnEvent\n    @Order(-1)\n    void heard(Object value) {}\n}\n";
+        let members = read(source).expect("members");
+        let names: Vec<&str> = members.iter().map(|(name, ..)| name.as_str()).collect();
+        assert_eq!(names, ["count"]);
     }
 
     #[test]
@@ -313,6 +256,10 @@ mod tests {
             (
                 "    @OnStart\n    void open(int times) {}\n",
                 "takes no arguments",
+            ),
+            (
+                "    @OnEvent\n    private void heard(Object value) {}\n",
+                "cannot be private or static",
             ),
             (
                 "    @Retry\n    void save() {}\n",
