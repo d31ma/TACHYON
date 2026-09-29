@@ -71,7 +71,7 @@ fn policy_line(type_declaration: &Type) -> String {
     )
 }
 
-fn configuration_line(type_declaration: &Type) -> String {
+pub(super) fn configuration_line(type_declaration: &Type) -> String {
     format!(
         "if (configuration == typeof({})) return {}.configure(execution);\n",
         type_declaration.name, type_declaration.name

@@ -7,6 +7,14 @@ use std::path::Path;
 
 mod csharp;
 mod dart;
+mod detached_csharp;
+pub(crate) use detached_csharp::DetachedCsharp;
+mod planned_method;
+pub(crate) use planned_method::PlannedMethod;
+mod planned_type;
+pub(crate) use planned_type::PlannedType;
+mod prepared;
+use prepared::Prepared;
 mod go;
 mod go_syntax;
 mod java;
@@ -169,6 +177,40 @@ pub(super) fn lower(
     source: &str,
     environment: &str,
 ) -> Result<Option<String>, Failure> {
+    let Some(prepared) = prepare(path, source, environment)? else {
+        return Ok(None);
+    };
+    match prepared {
+        Prepared::Erased(erased) => Ok(Some(erased)),
+        Prepared::Annotated(module) => lower_module(&module)
+            .map(Some)
+            .map_err(|message| module_failure(path, source, message)),
+    }
+}
+
+pub(super) fn detached_csharp(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Option<DetachedCsharp>, Failure> {
+    let Some(Prepared::Annotated(module)) = prepare(path, source, environment)? else {
+        return Ok(None);
+    };
+    DetachedCsharp::of(&module)
+        .map(Some)
+        .map_err(|message| module_failure(path, source, message))
+}
+
+fn module_failure(path: &Path, source: &str, message: String) -> Failure {
+    let input = Input {
+        path,
+        source,
+        code: String::new(),
+    };
+    input.failure(0, message)
+}
+
+fn prepare(path: &Path, source: &str, environment: &str) -> Result<Option<Prepared>, Failure> {
     let language = path
         .extension()
         .and_then(|value| value.to_str())
@@ -200,7 +242,7 @@ pub(super) fn lower(
         .into_iter()
         .partition(|marker| marker.name == "Schedule" || super::StoredState::marks(&marker.name));
     if markers.is_empty() {
-        return Ok(Some(erase(source, &schedules)));
+        return Ok(Some(Prepared::Erased(erase(source, &schedules))));
     }
     check_behavior_source(&input, mask.error, environment)?;
     mask_annotations(&mut input, &markers, language);
@@ -211,17 +253,14 @@ pub(super) fn lower(
         .filter(|marker| marker.parameter)
         .cloned()
         .collect();
-    let module = Module {
+    Ok(Some(Prepared::Annotated(Module {
         source: erase(source, &marked_parameters),
         language: language.to_owned(),
         environment: environment.to_owned(),
         module_id: super::module_id(path),
         types,
         edits,
-    };
-    lower_module(&module)
-        .map(Some)
-        .map_err(|message| input.failure(0, message))
+    })))
 }
 
 fn visible_code(source: &str, visibility: Vec<bool>) -> String {
@@ -2363,6 +2402,7 @@ fn is_method_modifier(word: &str) -> bool {
             | "protected"
             | "internal"
             | "static"
+            | "abstract"
             | "async"
             | "final"
             | "synchronized"

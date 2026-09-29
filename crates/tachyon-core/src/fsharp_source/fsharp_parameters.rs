@@ -1,4 +1,4 @@
-use super::FsharpType;
+use super::{AttributeLine, FsharpType};
 
 pub(crate) struct FsharpParameters;
 
@@ -96,9 +96,10 @@ impl FsharpParameters {
         let mut attributes = String::new();
         let mut rest = text;
         while let Some((inside, next)) = Self::next_attribute(rest) {
-            attributes.push('[');
-            attributes.push_str(inside);
-            attributes.push_str("] ");
+            for attribute in AttributeLine::read(&format!("[<{inside}>]")) {
+                attributes.push_str(&attribute.csharp);
+                attributes.push(' ');
+            }
             rest = next.trim_start();
         }
         (attributes, rest)
@@ -137,11 +138,11 @@ mod tests {
     #[test]
     fn parameter_attributes_keep_their_arguments() {
         let (parameters, _) = FsharpParameters::read(
-            "([<FromBody>] order: Order, [<PathVariable(\"id\")>] id: int) =",
+            "([<FromBody>] order: Order, [<PathVariable(\"id\")>] id: int, [<Check(typeof<OrderInput>)>] input: BehaviorJSON) =",
         );
         assert_eq!(
             parameters,
-            "[FromBody] Order order, [PathVariable(\"id\")] int id"
+            "[FromBody] Order order, [PathVariable(\"id\")] int id, [Check(typeof(OrderInput))] BehaviorJSON input"
         );
     }
 }

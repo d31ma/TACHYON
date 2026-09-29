@@ -51,14 +51,20 @@ pub(super) fn source(
     let mut namespaces = String::new();
     let mut services = Vec::new();
     let mut fsharp = String::new();
+    let mut runtimes = String::new();
     for (index, item) in selected.iter().enumerate() {
         let body = service_body(language, item, &mut imports)?;
         let namespace = format!("TachyonService{index}");
         let (body, fsharp_body) = crate::fsharp_source::FsharpSource::web_split(&body);
+        let (fsharp_body, runtime) =
+            crate::fsharp_source::FsharpSource::runtime_split(fsharp_body);
         namespaces.push_str(&namespace_source(language, &namespace, body));
         fsharp.push_str(&crate::fsharp_source::FsharpSource::web_namespace(
             &namespace,
             fsharp_body,
+        ));
+        runtimes.push_str(&crate::fsharp_source::FsharpSource::runtime_namespace(
+            &namespace, runtime,
         ));
         services.push((item.service.clone(), namespace));
     }
@@ -69,7 +75,8 @@ pub(super) fn source(
     result.push_str(&models);
     result.push_str(&dispatch(language, &services));
     Ok(Some(crate::fsharp_source::FsharpSource::web_body(
-        &result, &fsharp,
+        &result,
+        &crate::fsharp_source::FsharpSource::with_runtime(&fsharp, &runtimes),
     )))
 }
 

@@ -1,5 +1,9 @@
-use super::{FsharpMarkers, FsharpSource, FsharpTestUnit, FsharpView, LaterFeatures};
+use super::{
+    FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpTestUnit, FsharpView, LaterFeatures,
+};
 use crate::Failure;
+use crate::behavior::DetachedCsharp;
+use crate::failure::{diagnostic, source_span};
 use crate::yon::Lowered;
 use std::path::Path;
 
@@ -26,18 +30,53 @@ impl FsharpYon {
         view: &FsharpView,
     ) -> Result<Option<Lowered>, Failure> {
         LaterFeatures::refuse(view, source, contents, "yon")?;
+        let detached = crate::behavior::detached_csharp(view.path(), view.text(), "yon")
+            .map_err(|failure| view.failure(&failure))?;
         let lowered = crate::yon::lower_with_routes(view.path(), view.text(), models_root)
             .map_err(|failure| view.failure(&failure))?;
-        Ok(lowered.map(|lowered| Self::program(view, contents, lowered)))
+        let Some(lowered) = lowered else {
+            return Ok(None);
+        };
+        Self::program(view, source, contents, lowered, detached.as_ref()).map(Some)
     }
 
-    fn program(view: &FsharpView, contents: &str, lowered: Lowered) -> Lowered {
-        let generated = lowered.source.get(view.text().len()..).unwrap_or_default();
-        let csharp = format!("{}{generated}", view.usings());
-        Lowered {
-            source: FsharpSource::with_generated(&FsharpMarkers::strip(contents), &csharp),
+    fn program(
+        view: &FsharpView,
+        source: &Path,
+        contents: &str,
+        lowered: Lowered,
+        detached: Option<&DetachedCsharp>,
+    ) -> Result<Lowered, Failure> {
+        let authored = detached.map_or(view.text().len(), |detached| detached.lowered.len());
+        let generated = lowered.source.get(authored..).unwrap_or_default();
+        let stripped = FsharpMarkers::strip(contents);
+        let (fsharp, setups, runtime) = match detached {
+            Some(detached) => (
+                FsharpBehaviors::program(view, &stripped, detached)
+                    .map_err(|message| Self::failure(source, &message))?,
+                detached.setups.as_str(),
+                detached.runtime.as_str(),
+            ),
+            None => (stripped, "", ""),
+        };
+        let csharp = format!("{}{generated}\n{setups}", view.usings());
+        Ok(Lowered {
+            source: FsharpSource::with_generated(
+                &fsharp,
+                &FsharpSource::with_runtime(&csharp, runtime),
+            ),
             routes: lowered.routes,
             topics: lowered.topics,
-        }
+        })
+    }
+
+    fn failure(source: &Path, message: &str) -> Failure {
+        let portable = source.to_string_lossy().replace('\\', "/");
+        Failure::one(diagnostic(
+            1308,
+            message,
+            None,
+            source_span(&portable, 0, 0),
+        ))
     }
 }

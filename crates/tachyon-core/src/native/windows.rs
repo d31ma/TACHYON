@@ -223,7 +223,9 @@ pub(crate) async fn web_dotnet(
         return Ok((Vec::new(), None));
     };
     let (authored, fsharp) = crate::fsharp_source::FsharpSource::web_split(&authored);
-    let fsharp_files = super::fsharp_web_project::FsharpWebProject::files(snapshot_root, fsharp)?;
+    let (fsharp, runtime) = crate::fsharp_source::FsharpSource::runtime_split(fsharp);
+    let fsharp_files =
+        super::fsharp_web_project::FsharpWebProject::files(snapshot_root, fsharp, runtime)?;
     let source = web_source(authored);
     let version = run_tool("dotnet", &["--version"]).await.map_err(|_| {
         native_tool_failure(

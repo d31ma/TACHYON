@@ -21,7 +21,10 @@ pub(crate) use gateway::{
     GatewayDeclaration, GatewayLimits, GatewayTarget, declarations as gateway_declarations,
     target_failure as gateway_target_failure, target_signature as gateway_target_signature,
 };
-pub(crate) use polyglot::{HelperRole, KotlinBuiltins, NativeStorage, gateway_unit_runtime};
+pub(crate) use polyglot::{
+    DetachedCsharp, HelperRole, KotlinBuiltins, NativeStorage, PlannedMethod, PlannedType,
+    gateway_unit_runtime,
+};
 #[cfg(test)]
 mod extensions_tests;
 pub(crate) mod literal;
@@ -375,6 +378,27 @@ pub(crate) fn lower_with_resources(
     }
     let lowered = lower_source(path, &rewritten, environment, resources)?;
     Ok(Some(lowered.unwrap_or(rewritten)))
+}
+
+pub(crate) fn detached_csharp(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Option<DetachedCsharp>, Failure> {
+    let Some(lowered) = lower(path, source, environment)? else {
+        return Ok(None);
+    };
+    let rewritten = http_client::HttpClientSource::rewrite(path, source)?;
+    let text = match rewritten {
+        Some(text) if environment == "tac" => ServiceRoles::read(path, &text)?.source,
+        Some(text) => text,
+        None => source.to_owned(),
+    };
+    let detached = polyglot::detached_csharp(path, &text, environment)?;
+    Ok(Some(match detached {
+        Some(detached) => detached.with_lowered(lowered),
+        None => DetachedCsharp::plain(lowered),
+    }))
 }
 
 fn lower_source(

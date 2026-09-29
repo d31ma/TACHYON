@@ -1,5 +1,7 @@
 mod attribute_line;
+mod behavior_body;
 mod block_kind;
+mod fsharp_behaviors;
 mod fsharp_body;
 mod fsharp_lexer;
 mod fsharp_markers;
@@ -16,6 +18,7 @@ mod fsharp_yon;
 mod later_features;
 mod line_kind;
 mod member_header;
+mod member_line;
 mod member_words;
 mod open_block;
 mod record_fields;
@@ -26,7 +29,9 @@ mod type_header;
 mod type_name;
 
 use attribute_line::AttributeLine;
+use behavior_body::BehaviorBody;
 use block_kind::BlockKind;
+pub(crate) use fsharp_behaviors::FsharpBehaviors;
 use fsharp_body::FsharpBody;
 pub(crate) use fsharp_lexer::FsharpLexer;
 pub(crate) use fsharp_markers::FsharpMarkers;
@@ -43,6 +48,7 @@ pub(crate) use fsharp_yon::FsharpYon;
 use later_features::LaterFeatures;
 use line_kind::LineKind;
 use member_header::MemberHeader;
+use member_line::MemberLine;
 use member_words::MemberWords;
 use open_block::OpenBlock;
 use record_fields::RecordFields;
@@ -62,6 +68,7 @@ impl FsharpSource {
     const SYNTAX: [(&'static str, &'static str); 1] = [(Self::EXTENSION, "cs")];
     const GENERATED_PART: &'static str = "\n//__YON_CSHARP__\n";
     const WEB_PART: &'static str = "\n//__TAC_FSHARP__\n";
+    const RUNTIME_PART: &'static str = "\n//__FSHARP_BEHAVIOR_RUNTIME__\n";
     const MODELS_NAMESPACE: &'static str = "namespace rec Models\n";
 
     pub(crate) fn is_fsharp(source: &Path) -> bool {
@@ -99,7 +106,7 @@ impl FsharpSource {
     }
 
     pub(crate) fn web_namespace(namespace: &str, fsharp: &str) -> String {
-        let written = (!fsharp.is_empty()).then(|| format!("namespace {namespace}\n{fsharp}\n"));
+        let written = (!fsharp.is_empty()).then(|| format!("namespace rec {namespace}\n{fsharp}\n"));
         written.unwrap_or_default()
     }
 
@@ -113,6 +120,20 @@ impl FsharpSource {
             let _ = write!(file, "# 1 \"{}\"\n{source}\n", path.to_string_lossy());
         }
         file
+    }
+
+    pub(crate) fn with_runtime(csharp: &str, runtime: &str) -> String {
+        let joined = (!runtime.is_empty()).then(|| format!("{csharp}{}{runtime}", Self::RUNTIME_PART));
+        joined.unwrap_or_else(|| csharp.to_owned())
+    }
+
+    pub(crate) fn runtime_namespace(namespace: &str, runtime: &str) -> String {
+        let written = (!runtime.is_empty()).then(|| format!("namespace {namespace} {{\n{runtime}\n}}\n"));
+        written.unwrap_or_default()
+    }
+
+    pub(crate) fn runtime_split(csharp: &str) -> (&str, &str) {
+        csharp.split_once(Self::RUNTIME_PART).unwrap_or((csharp, ""))
     }
 
     pub(crate) fn split(program: &str) -> (&str, &str) {

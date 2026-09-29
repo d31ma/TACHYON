@@ -58,6 +58,7 @@ fn annotation_prefix(language: &str) -> &'static str {
     match language {
         "rs" | "php" | "rb" => "#[",
         "cs" => "[",
+        "fs" => "[<",
         _ => "@",
     }
 }
@@ -190,6 +191,10 @@ mod tests {
             (
                 "server/workers/beat.rs",
                 "#[Schedule({\"fixedDelaySeconds\":30})]\nstruct BeatController {}",
+            ),
+            (
+                "server/workers/beat.fs",
+                "[<Schedule({\"fixedDelaySeconds\":30})>]\ntype Handler() =\n    static member POST() = ()",
             ),
             (
                 "server/workers/beat.dart",

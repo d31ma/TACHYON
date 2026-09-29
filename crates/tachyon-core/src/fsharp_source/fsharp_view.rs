@@ -59,6 +59,10 @@ impl FsharpView {
         self.shadow.text()
     }
 
+    pub(crate) fn source_line(&self, shadow_line: usize) -> Option<usize> {
+        self.shadow.source_line(shadow_line)
+    }
+
     pub(crate) fn usings(&self) -> String {
         self.using_lines()
     }

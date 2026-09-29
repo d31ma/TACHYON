@@ -763,6 +763,37 @@ mod tests {
              member this.Add(by: int, why: string) : string =\n        this.Count <- this.Count + by\n        \
              why + \" \" + string this.Count\n";
 
+        const FSHARP_NOTES_FILES: [(&str, &str); 2] = [
+            (
+                "client/setups/NotesSetup.fs",
+                "[<Setup>]\ntype NotesSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters = BehaviorAdapters()\n",
+            ),
+            (
+                "client/services/NotesService.fs",
+                "open System.Threading.Tasks\n\n[<Service>]\n[<CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})>]\n\
+                 type NotesService() =\n    let mutable reads = 0\n\n    \
+                 member val behaviors : BehaviorContext = Behaviors.create(typeof<NotesSetup>, \"notes\", new BehaviorSignal()) with get\n\n    \
+                 [<Cached>]\n    member this.find(key: BehaviorJSON) : Task<BehaviorJSON> =\n        reads <- reads + 1\n        \
+                 Task.FromResult(BehaviorJSON.Object(dict [ \"key\", key; \"reads\", BehaviorJSON.From(reads) ]))\n\n    \
+                 [<ClearCache({\"method\":\"find\"})>]\n    member this.forget(key: BehaviorJSON) : Task<BehaviorJSON> = Task.FromResult(key)\n\n    \
+                 member this.Look(key: string) : string = this.find(BehaviorJSON.From(key)).Result.ToString()\n\n    \
+                 member this.DropKey(key: string) : string = this.forget(BehaviorJSON.From(key)).Result.ToString()\n",
+            ),
+        ];
+
+        const FSHARP_NOTES_DRIVER: &str = "console.info = () => {}\n\
+             globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
+             ;(0, eval)(await readFile('./tac-storage.js', 'utf8'))\n\
+             const { default: NotesService } = await import('./NotesService.js')\n\
+             const notes = new NotesService({})\n\
+             notes.__tachyonStarted()\n\
+             const first = JSON.parse(notes.look('a'))\n\
+             const second = JSON.parse(notes.look('a'))\n\
+             notes.dropKey('a')\n\
+             const third = JSON.parse(notes.look('a'))\n\
+             console.log(JSON.stringify({ first, second, third }))\n\
+             process.exit(0)\n";
+
         const FSHARP_TALLY_DRIVER: &str = "import TallyService from './TallyService.js'\n\
              const one = new TallyService({})\n\
              one.__tachyonStarted()\n\
@@ -1344,6 +1375,39 @@ mod tests {
         let report = run_driver(root.path(), Fixtures::FSHARP_TALLY_DRIVER);
         assert_eq!(report["added"], "clicks 5");
         assert_eq!(report["count"], 5);
+    }
+
+    #[tokio::test]
+    async fn an_fsharp_service_caches_through_the_page_storage_host() {
+        if !dotnet_web_workload_installed() || !node_available() {
+            eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let mut source = PathBuf::new();
+        for (relative, text) in Fixtures::FSHARP_NOTES_FILES {
+            source = write_service(root.path(), relative, text);
+        }
+        std::fs::write(
+            root.path().join("tac-storage.js"),
+            include_str!("template/tac-storage.js"),
+        )
+        .expect("storage runtime");
+        build_and_publish(
+            root.path(),
+            "notes",
+            "NotesService",
+            WebLanguage::CSharp,
+            source,
+        )
+        .await;
+        let report = run_driver(
+            root.path(),
+            &format!("{}{}", Fixtures::FILE_FETCH, Fixtures::FSHARP_NOTES_DRIVER),
+        );
+        assert_eq!(report["first"], serde_json::json!({"key": "a", "reads": 1}));
+        assert_eq!(report["second"], report["first"]);
+        assert_eq!(report["third"], serde_json::json!({"key": "a", "reads": 2}));
     }
 
     #[test]

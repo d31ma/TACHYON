@@ -7,14 +7,12 @@ pub(crate) struct LaterFeatures;
 
 impl LaterFeatures {
     const MESSAGE: &'static str = "F# classes do not support {} yet (ADR 0073). Write this class in C#, or leave the annotation out.";
-    const NAMES: [&'static str; 4] = [
+    const NAMES: [&'static str; 3] = [
         "local events and lifecycle hooks (OnEvent, OnStart, OnStop, EventPublisher)",
         "NeedsAll and field injection with Needs: take dependencies as primary constructor parameters",
-        "behavior annotations such as Cached, Retry or AllOrNothing",
         "streams and sockets (StreamRoute, SocketRoute)",
     ];
     const STREAM_MARKERS: [&'static str; 2] = ["[StreamRoute", "[SocketRoute"];
-    const TAC: &'static str = "tac";
 
     pub(crate) fn refuse(
         view: &FsharpView,
@@ -27,23 +25,14 @@ impl LaterFeatures {
         first.map_or(Ok(()), |index| Err(Self::failure(source, contents, index)))
     }
 
-    fn found(view: &FsharpView, environment: &str) -> Result<[bool; 4], Failure> {
+    fn found(view: &FsharpView, environment: &str) -> Result<[bool; 3], Failure> {
         let path = view.path();
         let text = view.text();
-        let behavior_text = Self::without_tac_roles(path, text, environment)?;
         Ok([
             crate::events::extract(path, text, environment)?.is_some(),
             crate::yon::prepare_required_args(path, text)?.is_some(),
-            crate::behavior::lower(path, &behavior_text, environment)?.is_some(),
             Self::streams(text),
         ])
-    }
-
-    fn without_tac_roles(path: &Path, text: &str, environment: &str) -> Result<String, Failure> {
-        if environment == Self::TAC {
-            return Ok(crate::behavior::ServiceRoles::read(path, text)?.source);
-        }
-        Ok(text.to_owned())
     }
 
     fn streams(text: &str) -> bool {
@@ -80,7 +69,7 @@ mod tests {
     }
 
     #[test]
-    fn streams_and_behaviors_are_refused_by_name() {
+    fn streams_are_refused_by_name_and_behaviors_are_accepted() {
         let stream = "[<RequestRoute(\"/ticks\")>]\n[<Public>]\ntype TicksController() =\n    [<StreamRoute>]\n    member this.StreamTicks() : seq<int> = seq { yield 1 }\n";
         assert!(
             refused("server/controllers/TicksController.fs", stream, "yon")
@@ -88,7 +77,8 @@ mod tests {
         );
         let cached = "[<Service>]\ntype PriceService() =\n    [<Cached>]\n    member this.Price(sku: string) : int = 1\n";
         let tac = refused("client/services/PriceService.fs", cached, "tac");
-        assert!(tac.is_some(), "{tac:?}");
+        assert!(tac.is_none(), "{tac:?}");
+        assert!(refused("server/services/PriceService.fs", cached, "yon").is_none());
     }
 
     #[test]

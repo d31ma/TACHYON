@@ -28,6 +28,10 @@ impl FsharpShadow {
         &self.text
     }
 
+    pub(crate) fn source_line(&self, shadow_line: usize) -> Option<usize> {
+        self.origins.get(shadow_line).copied()
+    }
+
     pub(crate) fn source_offset(&self, shadow_offset: usize) -> usize {
         let line = self
             .shadow_starts
@@ -130,7 +134,7 @@ mod tests {
                 "",
                 "[Service]",
                 "public class TallyService {",
-                "    public int Count { get; set; } = 6;",
+                "    public int Count = 6;",
                 "    public int Doubled() {  this.Count * 2 } }",
                 "",
             ]

@@ -27,6 +27,7 @@ impl FsharpHandler {
     const ENTRY_PLACEHOLDER: &'static str = "__YON_HANDLER__";
     const PRELUDE_ACCESS: &'static str = "[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"service\")]\n[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"handler\")]\n";
     const PRELUDE_FOLDER: &'static str = "yon";
+    const RUNTIME_FILE: &'static str = "behaviors.cs";
     const BUILD_PREFIX: &'static str = "tachyon-fsharp-build-";
 
     pub(super) fn compile(
@@ -36,11 +37,13 @@ impl FsharpHandler {
         models: &[(PathBuf, String)],
     ) -> Result<PreparedCommand, Failure> {
         let text = String::from_utf8_lossy(bytes).into_owned();
-        let (fsharp, csharp) = FsharpSource::split(&text);
+        let (fsharp, generated) = FsharpSource::split(&text);
+        let (csharp, runtime) = FsharpSource::runtime_split(generated);
         let framework = installed_dotnet_framework(portable)?;
         let program = FsharpProgram {
             fsharp,
             csharp,
+            runtime,
             models,
             entry: EntryClass::of(portable),
             portable,
@@ -61,6 +64,7 @@ impl FsharpHandler {
         let mut keyed = FsharpSource::models_file(program.models);
         keyed.push_str(program.fsharp);
         keyed.push_str(&Self::entry_file(program));
+        keyed.push_str(program.runtime);
         keyed.push_str(Self::PRELUDE);
         keyed.push_str(&compiler_identity("dotnet"));
         keyed.push_str(std::env::consts::ARCH);
@@ -136,6 +140,11 @@ impl FsharpHandler {
         write_compiler_file(
             &prelude.join("yon.cs"),
             Self::prelude_library().as_bytes(),
+            portable,
+        )?;
+        write_compiler_file(
+            &prelude.join(Self::RUNTIME_FILE),
+            program.runtime.as_bytes(),
             portable,
         )?;
         write_compiler_file(
@@ -229,7 +238,7 @@ impl FsharpHandler {
              <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    \
              <ImplicitUsings>enable</ImplicitUsings>\n  \
              </PropertyGroup>\n  <ItemGroup><Compile Include=\"yon.cs\" />\
-             <Compile Include=\"access.cs\" /></ItemGroup>\n\
+             <Compile Include=\"access.cs\" /><Compile Include=\"behaviors.cs\" /></ItemGroup>\n\
              </Project>\n"
         )
     }
@@ -249,6 +258,7 @@ mod tests {
         FsharpProgram {
             fsharp,
             csharp,
+            runtime: "",
             models,
             entry: EntryClass::Handler,
             portable: "server/controllers/OrdersController.fs",

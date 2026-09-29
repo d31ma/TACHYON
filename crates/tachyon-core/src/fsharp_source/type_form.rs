@@ -10,9 +10,14 @@ pub(crate) enum TypeForm {
 
 impl TypeForm {
     const DATA_CASE: &'static str = " of ";
+    const ATTRIBUTE: &'static str = "[<";
 
     pub(crate) fn of(after_equals: &str, body: &[&str]) -> Self {
-        let first = body.first().copied().unwrap_or("");
+        let first = body
+            .iter()
+            .copied()
+            .find(|line| !line.starts_with(Self::ATTRIBUTE))
+            .unwrap_or("");
         let written = after_equals.trim();
         let shown = Some(written)
             .filter(|text| !text.is_empty())
@@ -67,6 +72,16 @@ mod tests {
         );
         assert_eq!(
             TypeForm::of("", &["abstract member Find : int -> Order"]),
+            TypeForm::Interface
+        );
+        assert_eq!(
+            TypeForm::of(
+                "",
+                &[
+                    "[<Convert({})>]",
+                    "abstract toSummary: BehaviorJSON -> BehaviorJSON"
+                ]
+            ),
             TypeForm::Interface
         );
         assert_eq!(

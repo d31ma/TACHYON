@@ -19,6 +19,8 @@ impl MemberHeader {
         ("default", "virtual "),
     ];
     const MISSING_TYPE: &'static str = "object";
+    const UNIT: &'static str = "unit";
+    const TASKS: [&'static str; 2] = ["Task<", "System.Threading.Tasks.Task<"];
     const PROPERTY_ACCESSORS: &'static str = " with ";
 
     pub(crate) fn member(trimmed: &str, body_code: &[bool]) -> Self {
@@ -44,9 +46,8 @@ impl MemberHeader {
             .unwrap_or("")
             .trim();
         let kind = FsharpValue::type_or_guess(kind, initial);
-        let accessors = Self::auto_accessors(words.rest);
         Self {
-            text: format!("{modifiers}{kind} {} {accessors} = {initial}", name.trim()),
+            text: format!("{modifiers}{kind} {} = {initial}", name.trim()),
             closer: String::from(";"),
         }
     }
@@ -181,10 +182,18 @@ impl MemberHeader {
         let name = &rest[..end];
         let (parameters, after) = FsharpParameters::read(&rest[end..]);
         let (kind, body) = Self::typed_body(after, rest, code);
+        let asynchronous = Self::asynchronous(&kind);
         Self {
-            text: format!("{modifiers}{kind} {name}({parameters}) {{ {body}"),
+            text: format!("{modifiers}{asynchronous}{kind} {name}({parameters}) {{ {body}"),
             closer: String::from(" }"),
         }
+    }
+
+    fn asynchronous(kind: &str) -> &'static str {
+        if Self::TASKS.iter().any(|task| kind.starts_with(task)) {
+            return "async ";
+        }
+        ""
     }
 
     fn property(modifiers: &str, rest: &str, code: &[bool]) -> Self {
@@ -216,18 +225,34 @@ impl MemberHeader {
         let parts = FsharpType::split_top_level(signature, "->");
         let result = FsharpType::csharp(parts.last().copied().unwrap_or(Self::MISSING_TYPE));
         let parameters = Self::abstract_parameters(&parts[..parts.len() - 1]);
+        let asynchronous = Self::asynchronous(&result);
         Self {
-            text: format!("{modifiers}abstract {result} {}({parameters})", name.trim()),
+            text: format!(
+                "{modifiers}abstract {asynchronous}{result} {}({parameters})",
+                name.trim()
+            ),
             closer: String::from(";"),
         }
     }
 
     fn abstract_parameters(parts: &[&str]) -> String {
         let mut parameters = Vec::new();
-        for (index, part) in parts.iter().enumerate() {
-            parameters.push(format!("{} value{index}", FsharpType::csharp(part)));
+        for part in parts {
+            for piece in FsharpType::split_top_level(part, "*") {
+                if piece != Self::UNIT {
+                    parameters.push(Self::abstract_parameter(piece, parameters.len()));
+                }
+            }
         }
         parameters.join(", ")
+    }
+
+    fn abstract_parameter(piece: &str, index: usize) -> String {
+        let named = FsharpType::split_top_level(piece, ":").len() > 1;
+        if named {
+            return FsharpParameters::parameter(piece);
+        }
+        format!("{} value{index}", FsharpType::csharp(piece))
     }
 
     fn typed_body(after: &str, whole: &str, code: &[bool]) -> (String, String) {
@@ -242,13 +267,6 @@ impl MemberHeader {
         let kind = kind.split(Self::PROPERTY_ACCESSORS).next().unwrap_or(kind);
         let known = (!kind.is_empty()).then(|| FsharpType::csharp(kind));
         known.unwrap_or_else(|| String::from(Self::MISSING_TYPE))
-    }
-
-    fn auto_accessors(rest: &str) -> &'static str {
-        if rest.contains("set") {
-            return "{ get; set; }";
-        }
-        "{ get; }"
     }
 }
 
@@ -271,6 +289,10 @@ mod tests {
             )
         );
         assert_eq!(
+            member("member this.find(sku: BehaviorJSON) : Task<BehaviorJSON> =").0,
+            "public async Task<BehaviorJSON> find(BehaviorJSON sku) { "
+        );
+        assert_eq!(
             member("static member GET() : obj = box 1").0,
             "public static object GET() {  box 1"
         );
@@ -289,6 +311,10 @@ mod tests {
         assert_eq!(
             member("abstract member Find : int -> Order").0,
             "public abstract Order Find(int value0)"
+        );
+        assert_eq!(
+            member("abstract excluding: status: BehaviorJSON * [<PageDefaults>] page: BehaviorJSON -> Task<BehaviorJSON>").0,
+            "public abstract async Task<BehaviorJSON> excluding(BehaviorJSON status, [PageDefaults] BehaviorJSON page)"
         );
         assert_eq!(
             member("member this.Name with get () = name").0,
@@ -315,9 +341,9 @@ mod tests {
     #[test]
     fn auto_properties_and_constructors() {
         let value = MemberHeader::value("member val Count = 6 with get, set");
-        assert_eq!(value.text, "public int Count { get; set; } = 6");
+        assert_eq!(value.text, "public int Count = 6");
         let value = MemberHeader::value("member val Label : string = \"x\"");
-        assert_eq!(value.text, "public string Label { get; } = \"x\"");
+        assert_eq!(value.text, "public string Label = \"x\"");
         let built = MemberHeader::constructor("new(count: int) = { count = count }", "Tally");
         assert_eq!(built.text, "public Tally(int count) { { count = count }");
     }

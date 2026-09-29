@@ -2,6 +2,7 @@ mod annotation_layout;
 mod application_config;
 mod behavior_annotations;
 mod behavior_csharp;
+mod behavior_fsharp;
 mod behavior_dynamic;
 mod behavior_go;
 mod behavior_jvm;
