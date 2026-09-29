@@ -121,9 +121,11 @@ pub(crate) fn owner_table(table: &GoTable<'_>) -> Result<String, Failure> {
     }
     let start = crate::declared_contract::DeclaredContract::GO_STORE_START;
     let starts_stores = code.contains(&format!("func (service *{}) {start}() error", table.class));
-    let injection = starts_stores
-        .then(|| format!("\tif err := instance.{start}(); err != nil {{\n\t\tpanic(err)\n\t}}\n"))
-        .unwrap_or_default();
+    let injection = if starts_stores {
+        format!("\tif err := instance.{start}(); err != nil {{\n\t\tpanic(err)\n\t}}\n")
+    } else {
+        String::new()
+    };
     let mut output = format!(
         "func TacCreate() []tac.Member {{\n\tinstance := &{}{{}}\n{injection}\treturn []tac.Member{{\n",
         table.class

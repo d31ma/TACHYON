@@ -77,21 +77,35 @@ impl<'a> InjectedStore<'a> {
             filled,
             stores,
         };
-        let mut lines: Vec<String> = source.split('\n').map(str::to_owned).collect();
-        let marked: Vec<usize> = (0..lines.len())
-            .filter(|at| injected.is_marker(&lines[*at]))
+        injected.rewritten(source, owner)
+    }
+
+    fn rewritten(&self, source: &str, owner: &str) -> Option<String> {
+        let lines: Vec<&str> = source.split('\n').collect();
+        let edits: Vec<(usize, usize, StoreField)> = (0..lines.len())
+            .filter(|at| self.is_marker(lines[*at]))
+            .filter_map(|at| self.edit(&lines, at))
             .collect();
-        let edits: Vec<(usize, usize, StoreField)> = marked
-            .into_iter()
-            .filter_map(|at| injected.edit(&lines, at))
+        let written: Vec<String> = lines
+            .iter()
+            .enumerate()
+            .map(|(at, line)| self.written_line(at, line, &edits))
             .collect();
-        for (marker_at, field_at, field) in &edits {
-            lines[*marker_at] = String::new();
-            lines[*field_at] = field.filled(injected.filled);
-        }
         let fields: Vec<&StoreField> = edits.iter().map(|(_, _, field)| field).collect();
-        let start = injected.go_start(owner, &fields);
-        (!edits.is_empty()).then(|| format!("{}{start}", lines.join("\n")))
+        let start = self.go_start(owner, &fields);
+        (!edits.is_empty()).then(|| format!("{}{start}", written.join("\n")))
+    }
+
+    fn written_line(&self, at: usize, line: &str, edits: &[(usize, usize, StoreField)]) -> String {
+        let marker = edits
+            .iter()
+            .any(|(marker_at, _, _)| *marker_at == at)
+            .then(String::new);
+        let field = edits
+            .iter()
+            .find(|(_, field_at, _)| *field_at == at)
+            .map(|(_, _, field)| field.filled(self.filled));
+        field.or(marker).unwrap_or_else(|| line.to_owned())
     }
 
     fn is_marker(&self, line: &str) -> bool {
@@ -100,12 +114,12 @@ impl<'a> InjectedStore<'a> {
         [Some(""), Some(Self::EMPTY_ARGUMENTS)].contains(&arguments)
     }
 
-    fn edit(&self, lines: &[String], marker_at: usize) -> Option<(usize, usize, StoreField)> {
-        let field_at = (marker_at + 1..lines.len()).find(|at| self.is_field(&lines[*at]))?;
+    fn edit(&self, lines: &[&str], marker_at: usize) -> Option<(usize, usize, StoreField)> {
+        let field_at = (marker_at + 1..lines.len()).find(|at| self.is_field(lines[*at]))?;
         let field = if self.language == Self::RUBY {
-            StoreField::read_ruby(&lines[marker_at + 1..field_at], &lines[field_at])?
+            StoreField::read_ruby(&lines[marker_at + 1..field_at], lines[field_at])?
         } else {
-            StoreField::read(&lines[field_at], self.language == Self::GO)?
+            StoreField::read(lines[field_at], self.language == Self::GO)?
         };
         self.stores
             .contains(&field.type_name)
@@ -127,10 +141,12 @@ impl<'a> InjectedStore<'a> {
             .map(|field| field.filled(Self::GO_ASSIGNMENT))
             .collect();
         let wanted = [self.language == Self::GO, !fields.is_empty()] == [true, true];
-        let method = Self::GO_METHOD
+        if !wanted {
+            return String::new();
+        }
+        Self::GO_METHOD
             .replace("{owner}", owner)
             .replace("{start}", Self::GO_START)
-            .replace("{assignments}", &assignments);
-        wanted.then_some(method).unwrap_or_default()
+            .replace("{assignments}", &assignments)
     }
 }

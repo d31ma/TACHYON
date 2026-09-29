@@ -32,8 +32,10 @@ impl<'a> ConcreteContract<'a> {
     const GO_FIELDS: [&'static str; 2] = ["struct{}", "struct {\n\tbehaviors *BehaviorContext\n}"];
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
     const TRAIT: &'static str = "trait";
-    const RUST_DEFAULT: &'static str =
-        "impl Default for {name} {\n    fn default() -> Self {\n        Self::new()\n    }\n}\n";
+    const RUST_DEFAULTS: [&'static str; 2] = [
+        "",
+        "impl Default for {name} {\n    fn default() -> Self {\n        Self::new()\n    }\n}\n",
+    ];
     const HEADER_WORDS: [(&'static str, &'static str, &'static str); 7] = [
         ("java", "interface", "class"),
         ("groovy", "interface", "class"),
@@ -224,10 +226,7 @@ impl<'a> ConcreteContract<'a> {
     fn rust_header(&self, text: &str, name: &str, needs_context: bool) -> String {
         let fields = Self::RUST_FIELDS[usize::from(needs_context)];
         let visibility = text.split(Self::TRAIT).next().unwrap_or("");
-        let default = self
-            .tac
-            .then(|| Self::RUST_DEFAULT.replace("{name}", name))
-            .unwrap_or_default();
+        let default = Self::RUST_DEFAULTS[usize::from(self.tac)].replace("{name}", name);
         format!("{visibility}struct {name}{fields}\n{default}impl {name} ")
     }
 

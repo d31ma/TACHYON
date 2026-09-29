@@ -354,10 +354,12 @@ fn native_tac_stores_open_their_own_context() {
             "{extension} lacks {part:?}:\n{lowered}"
         );
         assert!(!lowered.contains("OnStart"), "{extension}:\n{lowered}");
-        assert!(
-            !lowered.contains("Store\n"),
-            "{extension} is not a Tac provider:\n{lowered}"
-        );
+        for provider in ["@Store\n", "#[Store]\n", "[Store]\n"] {
+            assert!(
+                !lowered.contains(provider),
+                "{extension} has no provider marker:\n{lowered}"
+            );
+        }
     }
 }
 

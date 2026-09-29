@@ -38,7 +38,7 @@ impl StoreField {
         })
     }
 
-    pub(super) fn read_ruby(documentation: &[String], line: &str) -> Option<Self> {
+    pub(super) fn read_ruby(documentation: &[&str], line: &str) -> Option<Self> {
         let indent = &line[..line.len() - line.trim_start().len()];
         let name = line.trim().strip_prefix(Self::RUBY_READER)?;
         let type_name = documentation.iter().find_map(|comment| {
