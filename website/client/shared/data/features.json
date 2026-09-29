@@ -1244,6 +1244,14 @@
           "code": "using Models;\n\n[RequestRoute(\"/ticks\")]\n[Public]\nclass TicksController {\n    [StreamRoute]\n    public IAsyncEnumerable<Tick> StreamTicks() {\n        return TicksFor(new[] { \"ANVIL-1\", \"ANVIL-2\" });\n    }\n\n    private static async IAsyncEnumerable<Tick> TicksFor(string[] skus) {\n        foreach (var sku in skus) {\n            await Task.Delay(1000);\n            yield return new Tick(sku, 3);\n        }\n    }\n}\n"
         },
         {
+          "name": "server/models/Tick.fs",
+          "code": "type Tick = { Sku: string; Level: int }\n"
+        },
+        {
+          "name": "server/controllers/TicksController.fs",
+          "code": "open Models\n\n[<RequestRoute(\"/ticks\")>]\n[<Public>]\ntype TicksController() =\n    [<StreamRoute>]\n    member this.StreamTicks() : seq<Tick> =\n        TicksController.TicksFor([| \"ANVIL-1\"; \"ANVIL-2\" |])\n\n    static member private TicksFor(skus: string[]) : seq<Tick> =\n        seq {\n            for sku in skus do\n                System.Threading.Thread.Sleep(1000)\n                yield { Sku = sku; Level = 3 }\n        }\n"
+        },
+        {
           "name": "server/models/Tick.dart",
           "code": "class Tick {\n  final String sku;\n  final int level;\n\n  const Tick(this.sku, this.level);\n}\n"
         },
@@ -1269,7 +1277,7 @@
         },
         {
           "name": "languages",
-          "code": "Which languages a stream is written in\n\n  .js, .ts   an async generator\n  .py        a generator\n  .php       a generator, framed by the prelude\n  .kt        a Sequence, framed by the prelude\n  .cs        an IEnumerable or IAsyncEnumerable, framed\n             by the prelude\n  .dart      an async* Stream, framed by the prelude\n  .rb        a method that yields, framed by the runner\n\nEight of the eleven. A stream is a route method that answers more\nthan once, and native generator syntax produces it.\nEach language adapter or protocol prelude keeps that generator open\nand emits one bounded frame per value.\n\nJava, Rust and Go are deliberately single-response because none of\nthem has a native generator. Tachyon refuses StreamRoute on them. A\nstreaming route can use any of the eight generator-capable Yon languages.\n\nIn one controller, either every GET route is a StreamRoute or none is.\n\nJavaScript and TypeScript require a runtime supporting the authored\nstream syntax; Node is the default. Other languages still require\ntheir supported interpreter or compiler toolchain.\n"
+          "code": "Which languages a stream is written in\n\n  .js, .ts   an async generator\n  .py        a generator\n  .php       a generator, framed by the prelude\n  .kt        a Sequence, framed by the prelude\n  .cs        an IEnumerable or IAsyncEnumerable, framed\n             by the prelude\n  .fs        a seq or IAsyncEnumerable, framed by the prelude\n  .dart      an async* Stream, framed by the prelude\n  .rb        a method that yields, framed by the runner\n\nEvery Yon language with a generator streams. A stream is a route method that answers more\nthan once, and native generator syntax produces it.\nEach language adapter or protocol prelude keeps that generator open\nand emits one bounded frame per value.\n\nJava, Rust and Go are deliberately single-response because none of\nthem has a native generator. Tachyon refuses StreamRoute on them. A\nstreaming route can use any generator-capable Yon language.\n\nIn one controller, either every GET route is a StreamRoute or none is.\n\nJavaScript and TypeScript require a runtime supporting the authored\nstream syntax; Node is the default. Other languages still require\ntheir supported interpreter or compiler toolchain.\n"
         },
         {
           "name": "client/models/Tick.ts",
@@ -1288,7 +1296,7 @@
     {
       "id": "sockets",
       "title": "Socket controllers",
-      "summary": "SocketRoute marks a controller class that keeps a WebSocket open, as Jakarta's @ServerEndpoint does. Tachyon makes one object of the class for each connection, so its fields hold that connection's state. OnOpen, OnMessage, OnClose and OnError mark the methods that run when a browser connects, sends a message, leaves, or when a method fails. Each message is JSON text, and Tachyon checks it against the model type of the OnMessage parameter first. The session sends messages back, and openSessions() (open_sessions() in Python, Ruby and Rust, OpenSessions() in Go and C#, getOpenSessions() in Java) returns every open connection of the same path, so one message can go to every tab. When OnOpen or OnMessage fails, OnError runs and the socket stays open, as in Jakarta. In the browser, SocketRequest on an HTTPClient method receives the messages and publishes each one as its model's event, and the client's send(message) writes to the socket. Sockets are written in any Yon language. `Public`, `SignedIn` or `Allow(Role)` on the class says who may connect; Tachyon answers 401 or 403 before it opens the socket.",
+      "summary": "SocketRoute marks a controller class that keeps a WebSocket open, as Jakarta's @ServerEndpoint does. Tachyon makes one object of the class for each connection, so its fields hold that connection's state. OnOpen, OnMessage, OnClose and OnError mark the methods that run when a browser connects, sends a message, leaves, or when a method fails. Each message is JSON text, and Tachyon checks it against the model type of the OnMessage parameter first. The session sends messages back, and openSessions() (open_sessions() in Python, Ruby and Rust, OpenSessions() in Go, C# and F#, getOpenSessions() in Java) returns every open connection of the same path, so one message can go to every tab. When OnOpen or OnMessage fails, OnError runs and the socket stays open, as in Jakarta. In the browser, SocketRequest on an HTTPClient method receives the messages and publishes each one as its model's event, and the client's send(message) writes to the socket. Sockets are written in any Yon language. `Public`, `SignedIn` or `Allow(Role)` on the class says who may connect; Tachyon answers 401 or 403 before it opens the socket.",
       "group": "Yon server",
       "files": [
         {
@@ -1376,6 +1384,14 @@
           "code": "public record ChatMessage(string Text);\n"
         },
         {
+          "name": "server/controllers/ChatController.fs",
+          "code": "open Models\n\n[<SocketRoute(\"/chat\")>]\n[<Public>]\ntype ChatController() =\n    [<OnOpen>]\n    member this.OnOpen(session: SocketSession) : unit =\n        session.Send({ Text = \"Welcome to the room\" })\n\n    [<OnMessage>]\n    member this.OnMessage(session: SocketSession, message: ChatMessage) : unit =\n        ChatController.SendToEveryone(session.OpenSessions(), message)\n\n    static member private SendToEveryone(peers: ResizeArray<SocketPeer>, message: ChatMessage) : unit =\n        for peer in peers do\n            peer.Send(message)\n"
+        },
+        {
+          "name": "server/models/ChatMessage.fs",
+          "code": "type ChatMessage = { Text: string }\n"
+        },
+        {
           "name": "server/models/ChatMessage.php",
           "code": "<?php\nclass ChatMessage {\n    public function __construct(public string $text) {}\n}\n"
         },
@@ -1413,7 +1429,7 @@
         },
         {
           "name": "languages",
-          "code": "Which languages a socket is written in\n\n  .js, .ts   a @SocketRoute class; the session has openSessions()\n  .py        a @socket_route class; the session has open_sessions()\n  .go        a // @SocketRoute type; the session has OpenSessions()\n  .java      a @SocketRoute class; the session has getOpenSessions()\n  .kt        a @SocketRoute class; the session has openSessions()\n  .cs        a [SocketRoute] class; the session has OpenSessions()\n  .php       a #[SocketRoute] class; the session has openSessions()\n  .rb        a #[SocketRoute] class; the session has open_sessions\n  .rs        a #[SocketRoute] struct; the session has open_sessions()\n  .dart      a @SocketRoute class; the session has openSessions()\n\nEvery Yon language holds a socket. Tachyon keeps one handler\nprocess running for the whole connection, and the runner or\nprelude of each language reads the socket's message frames while\nthe class runs. Each language names the session methods in its\nown style (above). A method that throws, panics or returns an\nerror counts as a failure. In Rust the object is shared, so its\nfields keep state in a Cell or a lock.\n\nWhen OnOpen or OnMessage fails, OnError runs and the socket stays\nopen, as in Jakarta. The error text goes to the server log only.\n\nIn the browser, @SocketRequest is JavaScript or TypeScript.\nEvery Tac language receives the messages with @OnEvent.\n\nLimits: messages are JSON text of at most 64 KiB, at most 32\nsockets are open at once, five idle minutes or one hour close a\nsocket, and only pages from the same origin may open it.\n"
+          "code": "Which languages a socket is written in\n\n  .js, .ts   a @SocketRoute class; the session has openSessions()\n  .py        a @socket_route class; the session has open_sessions()\n  .go        a // @SocketRoute type; the session has OpenSessions()\n  .java      a @SocketRoute class; the session has getOpenSessions()\n  .kt        a @SocketRoute class; the session has openSessions()\n  .cs        a [SocketRoute] class; the session has OpenSessions()\n  .fs        a [<SocketRoute>] type; the session has OpenSessions()\n  .php       a #[SocketRoute] class; the session has openSessions()\n  .rb        a #[SocketRoute] class; the session has open_sessions\n  .rs        a #[SocketRoute] struct; the session has open_sessions()\n  .dart      a @SocketRoute class; the session has openSessions()\n\nEvery Yon language holds a socket. Tachyon keeps one handler\nprocess running for the whole connection, and the runner or\nprelude of each language reads the socket's message frames while\nthe class runs. Each language names the session methods in its\nown style (above). A method that throws, panics or returns an\nerror counts as a failure. In Rust the object is shared, so its\nfields keep state in a Cell or a lock.\n\nWhen OnOpen or OnMessage fails, OnError runs and the socket stays\nopen, as in Jakarta. The error text goes to the server log only.\n\nIn the browser, @SocketRequest is JavaScript or TypeScript.\nEvery Tac language receives the messages with @OnEvent.\n\nLimits: messages are JSON text of at most 64 KiB, at most 32\nsockets are open at once, five idle minutes or one hour close a\nsocket, and only pages from the same origin may open it.\n"
         }
       ]
     },
