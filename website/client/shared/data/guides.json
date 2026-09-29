@@ -45,6 +45,7 @@
     "types-in-every-language",
     "test-units",
     "build-and-deploy",
+    "webassembly-compilers",
     "request-ids",
     "cookbook",
     "annotations",
@@ -144,6 +145,7 @@
       "topics": [
         "test-units",
         "build-and-deploy",
+        "webassembly-compilers",
         "request-ids"
       ]
     },
@@ -498,6 +500,13 @@
       "summary": "`ty bundle` builds the files that you publish, and `ty start` serves them. This page shows the options for a release.",
       "before": [
         "preview-and-build"
+      ]
+    },
+    "webassembly-compilers": {
+      "title": "WebAssembly compilers per language",
+      "summary": "A release build compiles each WebAssembly service language with the compiler and settings that give the smallest download. This page shows which compiler each language uses, why, and what it costs.",
+      "before": [
+        "build-and-deploy"
       ]
     },
     "request-ids": {
