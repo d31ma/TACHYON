@@ -65,7 +65,7 @@ export class SiteContent {
 
   /**
    * @param {string} jsonFile
-   * @param {(file: string) => any} [readFile] turns each referenced code file into its value
+   * @param {(file: string) => any} [readFile]
    * @returns {any}
    */
   static load(jsonFile, readFile = SiteContent.readText) {

@@ -22,7 +22,7 @@ export class RuleTableParser {
   static retiredReach = { tac: 'NOWHERE', yon: 'NOWHERE', code: '1308' }
 
   /**
-   * @param {string} source the text of annotation_rules.rs
+   * @param {string} source
    * @returns {RuleTable}
    */
   static parse(source) {
@@ -57,7 +57,7 @@ export class RuleTableParser {
   }
 
   /**
-   * @param {string} body the fields that one builder method sets
+   * @param {string} body
    * @returns {ReachSettings}
    */
   static presetSettings(body) {
@@ -99,7 +99,7 @@ export class RuleTableParser {
   }
 
   /**
-   * @param {string} text the source of one rule
+   * @param {string} text
    * @param {Map<string, string[]>} lists
    * @param {Map<string, ReachSettings>} presets
    * @returns {AnnotationRule}
@@ -127,7 +127,7 @@ export class RuleTableParser {
   }
 
   /**
-   * @param {RegExpMatchArray} call one builder call, such as .reach(Self::TAC, Self::YON)
+   * @param {RegExpMatchArray} call
    * @param {Map<string, ReachSettings>} presets
    * @returns {ReachSettings}
    */

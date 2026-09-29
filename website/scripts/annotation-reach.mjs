@@ -16,7 +16,7 @@ export class AnnotationReach {
   rules
 
   /**
-   * @param {Record<Realm, string[]>} realmLanguages the languages whose annotations the build checks, per realm
+   * @param {Record<Realm, string[]>} realmLanguages
    * @param {AnnotationRule[]} rules
    */
   constructor(realmLanguages, rules) {
@@ -30,7 +30,7 @@ export class AnnotationReach {
   }
 
   /**
-   * @param {string} source the text of annotation_rules.rs
+   * @param {string} source
    * @returns {AnnotationReach}
    */
   static parse(source) {
@@ -39,7 +39,7 @@ export class AnnotationReach {
   }
 
   /**
-   * @param {string} name an annotation in any spelling, such as OnStart, on_start or onStart
+   * @param {string} name
    * @returns {string}
    */
   static plainName(name) {
@@ -56,9 +56,9 @@ export class AnnotationReach {
 
   /**
    * @param {Realm} realm
-   * @param {string} language a file extension, such as rs
-   * @param {string[]} annotations the annotation names that the other languages' examples use
-   * @param {string[]} shownLanguages the languages that already have an example
+   * @param {string} language
+   * @param {string[]} annotations
+   * @param {string[]} shownLanguages
    * @returns {Refusal | undefined}
    */
   refusal(realm, language, annotations, shownLanguages) {

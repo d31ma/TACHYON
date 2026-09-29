@@ -15,13 +15,14 @@ import { languageOf } from '../client/shared/scripts/platforms.js'
 export class CoverageAudit {
   static kinds = { missing: 'missing example', unsupported: 'not supported yet', notApplicable: 'not applicable' }
   static realms = /** @type {Realm[]} */ (['tac', 'yon'])
-  static tacPrefix = 'client/'
-  static yonPrefixes = ['server/', 'middleware.']
+  static pathRealms = /** @type {[string, Realm][]} */ ([['client/', 'tac'], ['server/', 'yon'], ['middleware.', 'yon']])
   static controllerPrefix = 'server/controllers/'
   static viewExtensions = ['html', 'css']
   static modelFolder = '/models/'
-  static routeMarker = /(?:@|#\[|\[<?|\/\/ @)\s*(?:RequestRoute|request_route|SocketRoute|socket_route)\b/
-  static serviceMarker = /(?:@|#\[|\[<?|\/\/ @)\s*Service\b/
+  static codeRealms = /** @type {[RegExp, Realm][]} */ ([
+    [/(?:@|#\[|\[<?|\/\/ @)\s*(?:RequestRoute|request_route|SocketRoute|socket_route)\b/, 'yon'],
+    [/(?:@|#\[|\[<?|\/\/ @)\s*Service\b/, 'tac'],
+  ])
   static snakeCaseLanguage = 'py'
   static pascalCase = /^[A-Z]/
   static annotationMarker = /(?:@|#\[|\[<|^\s*\[)\s*([A-Za-z_]\w*)/gm
@@ -34,7 +35,7 @@ export class CoverageAudit {
   reach
 
   /**
-   * @param {Record<Realm, string[]>} realmLanguages the languages each realm supports, from the Languages page
+   * @param {Record<Realm, string[]>} realmLanguages
    * @param {AnnotationReach} reach
    */
   constructor(realmLanguages, reach) {
@@ -67,7 +68,7 @@ export class CoverageAudit {
   }
 
   /**
-   * @param {string} language a file extension, such as cs
+   * @param {string} language
    * @returns {string}
    */
   static languageName(language) {
@@ -140,18 +141,23 @@ export class CoverageAudit {
    * @returns {Realm | undefined}
    */
   static realmOf(file) {
-    if (!file.named) return CoverageAudit.guessedRealm(file.code)
-    if (file.name.startsWith(CoverageAudit.tacPrefix)) return 'tac'
-    return CoverageAudit.yonPrefixes.some(prefix => file.name.startsWith(prefix)) ? 'yon' : undefined
+    return file.named ? CoverageAudit.pathRealm(file.name) : CoverageAudit.guessedRealm(file.code)
   }
 
   /**
-   * @param {string} code a snippet shown without a file path
+   * @param {string} name
+   * @returns {Realm | undefined}
+   */
+  static pathRealm(name) {
+    return CoverageAudit.pathRealms.find(([prefix]) => name.startsWith(prefix))?.[1]
+  }
+
+  /**
+   * @param {string} code
    * @returns {Realm | undefined}
    */
   static guessedRealm(code) {
-    if (CoverageAudit.routeMarker.test(code)) return 'yon'
-    return CoverageAudit.serviceMarker.test(code) ? 'tac' : undefined
+    return CoverageAudit.codeRealms.find(([marker]) => marker.test(code))?.[1]
   }
 
   /**

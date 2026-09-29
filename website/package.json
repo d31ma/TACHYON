@@ -12,6 +12,7 @@
     "styles:check": "bun run styles && git diff --exit-code -- client/shared/styles/tailwind.css",
     "test": "bun test",
     "verify:snippets": "node scripts/verify-snippets.mjs",
+    "coverage:languages": "node scripts/language-coverage.mjs",
     "check:responsive": "node scripts/check-responsive.mjs"
   },
   "devDependencies": {
