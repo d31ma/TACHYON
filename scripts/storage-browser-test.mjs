@@ -437,9 +437,23 @@ ${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}${StorageGate.withKotlin ? 
     write(project, 'client/clients/' + name + '.js', `@HTTPClient({"cache":"${policy}","adapter":"${name}"})
 class ${name} {
   @GetRequest("/api/counter")
-  async counter(query = {}, headers = {}) { return {query, headers}; }
+  async counter() {}
+  @GetRequest("/api/counter")
+  async counterAsking(@RequestParam("ambient") ambient) {}
+  @GetRequest("/api/counter")
+  async counterSigned(@RequestParam("auth") auth, @RequestHeader("authorization") authorization) {}
+  @GetRequest("/api/counter")
+  async counterWithPolicy(@RequestParam("policy") policy) {}
   @GetRequest("/api/range")
-  async range(query = {}, headers = {}) { return {query, headers}; }
+  async range(@RequestParam("sample") sample) {}
+  @GetRequest("/api/range")
+  async rangePart(@RequestParam("sample") sample, @RequestHeader("Range") range) {}
+  @GetRequest("/api/range")
+  async rangeIf(@RequestParam("sample") sample, @RequestHeader("If-Range") ifRange) {}
+  @GetRequest("/api/range")
+  async rangeUnasked(@RequestParam("partial") partial) {}
+  @GetRequest("/api/range")
+  async rangeMislabelled(@RequestParam("partial") partial, @RequestParam("mislabelled") mislabelled) {}
 }`);
   }
   write(project, 'client/services/StoragePageService.js', `@Service()
@@ -946,16 +960,16 @@ async function checkCachePolicies(page, origin, context) {
   await context.addCookies([{name:'private-session',value:'test-only',url:origin}]);
   const privacy = await page.evaluate(async () => {
     const client = __root('storageClients').cacheFirstClient;
-    const bypassed = async (query, headers = {}) => {
-      const first = await client.counter(query, headers);
-      const second = await client.counter(query, headers);
+    const bypassed = async (read) => {
+      const first = await read();
+      const second = await read();
       return second.value > first.value;
     };
     return {
-      cookiesOmitted: !(await client.counter({ambient:'yes'})).cookie,
-      authorization: await bypassed({auth:'yes'}, {authorization:'test-fixture'}),
-      noStore: await bypassed({policy:'no-store'}),
-      private: await bypassed({policy:'private'}),
+      cookiesOmitted: !(await client.counterAsking('yes')).cookie,
+      authorization: await bypassed(() => client.counterSigned('yes', 'test-fixture')),
+      noStore: await bypassed(() => client.counterWithPolicy('no-store')),
+      private: await bypassed(() => client.counterWithPolicy('private')),
     };
   });
   for (const [name, allowed] of Object.entries(privacy)) expect(allowed, true, `${name} preserves cache privacy`);
@@ -965,16 +979,16 @@ async function checkCachePolicies(page, origin, context) {
 async function checkRangeRequests(page) {
   const range = await page.evaluate(async () => {
     const client = __root('storageClients').cacheFirstClient;
-    const partial = await client.range({sample:'partial-first'}, {Range:'bytes=0-2'});
-    const full = await client.range({sample:'partial-first'});
-    const warmed = await client.range({sample:'full-first'});
-    const rangedAfterFull = await client.range({sample:'full-first'}, {Range:'bytes=0-2'});
-    const stillFull = await client.range({sample:'full-first'});
-    const ifRange = await client.range({sample:'full-first'}, {'If-Range':'"fixture-etag"'});
-    const unsolicited = await client.range({partial:'yes'});
-    const repeatedPartial = await client.range({partial:'yes'});
-    const mislabelled = await client.range({partial:'yes',mislabelled:'yes'});
-    const repeatedMislabelled = await client.range({partial:'yes',mislabelled:'yes'});
+    const partial = await client.rangePart('partial-first', 'bytes=0-2');
+    const full = await client.range('partial-first');
+    const warmed = await client.range('full-first');
+    const rangedAfterFull = await client.rangePart('full-first', 'bytes=0-2');
+    const stillFull = await client.range('full-first');
+    const ifRange = await client.rangeIf('full-first', '"fixture-etag"');
+    const unsolicited = await client.rangeUnasked('yes');
+    const repeatedPartial = await client.rangeUnasked('yes');
+    const mislabelled = await client.rangeMislabelled('yes', 'yes');
+    const repeatedMislabelled = await client.rangeMislabelled('yes', 'yes');
     return {partial,full,warmed,rangedAfterFull,stillFull,ifRange,unsolicited,repeatedPartial,mislabelled,repeatedMislabelled};
   });
   expect(range.partial.status, 206, 'Range receives a partial network response');

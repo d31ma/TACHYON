@@ -39,7 +39,7 @@ function writeFixture() {
   write('client/clients/RuntimeClient.js', `@HTTPClient
 class RuntimeClient {
   @GetRequest("/api/runtime")
-  async read() { return {}; }
+  async read() {}
 }`);
   write('client/services/WorkerPageService.js', `@Service
 export default class WorkerPageService {

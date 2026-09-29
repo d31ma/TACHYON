@@ -117,7 +117,7 @@ class SlowAdaptersSetup {
 @HTTPClient({"adapter":"slow"})
 class SlowClient {
   @GetRequest("/slow")
-  async request() { return {}; }
+  async request() {}
 }
 `);
   write(project, 'client/services/PendingRequestService.js', `

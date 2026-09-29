@@ -128,9 +128,9 @@ class ReportController {
 
     const PHP_CLIENT: &str = r#"<?php
 #[HTTPClient]
-class ReportClient {
+interface ReportClient {
     #[Gateway({"command":["python3","server/helpers/report.py"]})]
-    public function summarize($mode, $detail) {}
+    public function summarize($mode, $detail);
 }
 "#;
 
@@ -154,9 +154,9 @@ class ReportController {
 "#;
 
     const JAVA_CLIENT: &str = r#"@HTTPClient
-class ReportClient {
+interface ReportClient {
     @Gateway({"command":["python3","server/helpers/report.py"]})
-    Object summarize(Object mode, Object detail) {}
+    Object summarize(Object mode, Object detail);
 }
 "#;
 
@@ -202,9 +202,9 @@ class ReportController(val reportClient: ReportClient) {
 "#;
 
     const CSHARP_CLIENT: &str = r#"[HTTPClient]
-class ReportClient {
+interface ReportClient {
     [Gateway({"command":["python3","server/helpers/report.py"]})]
-    public BehaviorJSON summarize(BehaviorJSON mode, BehaviorJSON detail) {}
+    BehaviorJSON summarize(BehaviorJSON mode, BehaviorJSON detail);
 }
 "#;
 
@@ -227,11 +227,9 @@ class ReportController {
 "#;
 
     const RUST_CLIENT: &str = r#"#[HTTPClient]
-struct ReportClient;
-impl ReportClient {
-    fn new() -> Self { Self }
+trait ReportClient {
     #[Gateway({"command":["python3","server/helpers/report.py"]})]
-    fn summarize(&self, mode: BehaviorValue, detail: BehaviorValue) -> BehaviorResult<BehaviorValue> {}
+    fn summarize(&self, mode: BehaviorValue, detail: BehaviorValue) -> BehaviorResult<BehaviorValue>;
 }
 "#;
 
@@ -254,9 +252,9 @@ impl ReportController {
 "#;
 
     const DART_CLIENT: &str = r#"@HTTPClient
-class ReportClient {
+abstract interface class ReportClient {
   @Gateway({"command":["python3","server/helpers/report.py"]})
-  Future<Object?> summarize(Object? mode, Object? detail) async {}
+  Future<Object?> summarize(Object? mode, Object? detail);
 }
 "#;
 
@@ -282,10 +280,10 @@ class ReportController {
 "#;
 
     const GO_CLIENT: &str = r#"// @HTTPClient
-type ReportClient struct{}
-
-// @Gateway({"command":["python3","server/helpers/report.py"]})
-func (client *ReportClient) Summarize(mode BehaviorValue, detail BehaviorValue) (BehaviorValue, error) {}
+type ReportClient interface {
+	// @Gateway({"command":["python3","server/helpers/report.py"]})
+	Summarize(mode BehaviorValue, detail BehaviorValue) (BehaviorValue, error)
+}
 "#;
 
     const GO_CONTROLLER: &str = r#"import (
@@ -317,7 +315,7 @@ func (controller *ReportController) PostReport(request *http.Request) any {
 "#;
 
     const PYTHON_CLIENT: &str = r#"@http_client
-class ReportClient:
+class ReportClient(Protocol):
     @gateway({"command":["python3","server/helpers/report.py"]})
     def summarize(self, mode, detail): ...
 

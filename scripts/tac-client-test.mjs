@@ -11,7 +11,7 @@ class ClientTest {
   static clientSource = `@HTTPClient({"adapter":"api"})
 class ProductsClient {
   @GetRequest("/api/products")
-  async all(mode) { return {query:{mode}}; }
+  async all(@RequestParam("mode") mode) {}
 }`
 }
 

@@ -61,7 +61,7 @@ fn write_basket_roles(root: &Path, constructor: &str, fields: &str) {
     write(
         root,
         "client/clients/ProductsClient.js",
-        "@HTTPClient({\"adapter\":\"api\"})\nclass ProductsClient {\n@GetRequest(\"/api/products\")\nasync all() { return {}; }\n}",
+        "@HTTPClient({\"adapter\":\"api\"})\nclass ProductsClient {\n@GetRequest(\"/api/products\")\nasync all() {}\n}",
     );
 }
 
