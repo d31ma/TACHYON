@@ -2533,7 +2533,7 @@ fn exchange_policy(
 ) -> Result<Value, Failure> {
     let mut policy = http_exchange(input, marker)?;
     let body = body.trim();
-    if body.is_empty() || (language == "py" && body == "pass") {
+    if body.is_empty() || (language == "py" && matches!(body, "pass" | "...")) {
         policy["generated"] = Value::Bool(true);
     } else if ["query", "headers", "body", "pathVariables"]
         .iter()

@@ -40,6 +40,14 @@ impl ClientDeclaration {
         "errorhandler",
     ];
 
+    pub(crate) fn is_mentioned(source: &str) -> bool {
+        source.contains("HTTPClient")
+            || source
+                .to_ascii_lowercase()
+                .replace('_', "")
+                .contains(Self::CLIENT)
+    }
+
     pub(crate) fn find(form: ContractForm, source: &str, code: &str) -> Vec<Self> {
         let lines = Self::marker_lines(form, source, code);
         let mut found = Vec::new();

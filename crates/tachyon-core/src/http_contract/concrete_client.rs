@@ -27,7 +27,7 @@ impl<'a> ConcreteClient<'a> {
         let tac = environment == Self::TAC;
         let managed_browser_client = tac && matches!(form.language, "js" | "ts");
         if managed_browser_client
-            || (!source.contains("HTTPClient") && !source.contains("http_client"))
+            || !ClientDeclaration::is_mentioned(source)
         {
             return None;
         }

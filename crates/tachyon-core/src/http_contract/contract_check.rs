@@ -39,7 +39,7 @@ impl<'a> ContractCheck<'a> {
         let Some(form) = ContractForm::of(extension) else {
             return Ok(());
         };
-        if !source.contains(Self::MARKER) && !source.contains("http_client") {
+        if !ClientDeclaration::is_mentioned(source) {
             return Ok(());
         }
         let mask = crate::lexical::code_mask(extension, source);
