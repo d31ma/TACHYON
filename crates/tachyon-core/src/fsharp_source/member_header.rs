@@ -1,4 +1,6 @@
-use super::{FsharpBody, FsharpParameters, FsharpType, FsharpValue, MemberWords, TypeForm};
+use super::{
+    FsharpBody, FsharpParameters, FsharpType, FsharpValue, MemberLine, MemberWords, TypeForm,
+};
 
 pub(crate) struct MemberHeader {
     pub(crate) text: String,
@@ -21,7 +23,6 @@ impl MemberHeader {
     const MISSING_TYPE: &'static str = "object";
     const DECLARATION_END: &'static str = ";";
     const ABSTRACT_WORD: &'static str = "abstract ";
-    const UNIT: &'static str = "unit";
     const TASKS: [&'static str; 2] = ["Task<", "System.Threading.Tasks.Task<"];
     const PROPERTY_ACCESSORS: &'static str = " with ";
 
@@ -38,15 +39,17 @@ impl MemberHeader {
     }
 
     pub(crate) fn owned_by(self, form: Option<TypeForm>) -> Self {
-        let abstract_in_class =
-            form == Some(TypeForm::Class) && self.closer == Self::DECLARATION_END;
-        if !abstract_in_class {
-            return self;
-        }
-        Self {
-            text: format!("{} {{", self.text.replacen(Self::ABSTRACT_WORD, "", 1)),
-            closer: String::from(" }"),
-        }
+        let abstract_in_class = [
+            form == Some(TypeForm::Class),
+            self.closer == Self::DECLARATION_END,
+        ] == [true, true];
+        let with_body = (
+            format!("{} {{", self.text.replacen(Self::ABSTRACT_WORD, "", 1)),
+            String::from(" }"),
+        );
+        let (text, closer) =
+            [(self.text, self.closer), with_body][usize::from(abstract_in_class)].clone();
+        Self { text, closer }
     }
 
     pub(crate) fn value(trimmed: &str) -> Self {
@@ -250,14 +253,11 @@ impl MemberHeader {
     }
 
     fn abstract_parameters(parts: &[&str]) -> String {
-        let mut parameters = Vec::new();
-        for part in parts {
-            for piece in FsharpType::split_top_level(part, "*") {
-                if piece != Self::UNIT {
-                    parameters.push(Self::abstract_parameter(piece, parameters.len()));
-                }
-            }
-        }
+        let parameters: Vec<String> = MemberLine::pieces(parts)
+            .into_iter()
+            .enumerate()
+            .map(|(index, piece)| Self::abstract_parameter(piece, index))
+            .collect();
         parameters.join(", ")
     }
 
@@ -344,7 +344,10 @@ mod tests {
         let owned = header.owned_by(Some(TypeForm::Class));
         assert_eq!(
             (owned.text.as_str(), owned.closer.as_str()),
-            ("public async Task<BehaviorJSON> findByStatus(BehaviorJSON status) {", " }")
+            (
+                "public async Task<BehaviorJSON> findByStatus(BehaviorJSON status) {",
+                " }"
+            )
         );
         let header = MemberHeader::member(line, &vec![true; line.len()]);
         assert_eq!(header.owned_by(Some(TypeForm::Interface)).closer, ";");

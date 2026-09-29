@@ -33,9 +33,18 @@ impl<'a> FsharpBehaviors<'a> {
     }
 
     fn rewrite(&mut self) -> Result<(), String> {
+        self.give_constructors()?;
+        self.lower_methods()
+    }
+
+    fn give_constructors(&mut self) -> Result<(), String> {
         for planned in self.detached.types.iter().filter(|ty| ty.declared) {
             self.give_constructor(planned)?;
         }
+        Ok(())
+    }
+
+    fn lower_methods(&mut self) -> Result<(), String> {
         for method in &self.detached.methods {
             self.lower_method(method)?;
         }
@@ -44,11 +53,8 @@ impl<'a> FsharpBehaviors<'a> {
 
     fn give_constructor(&mut self, planned: &PlannedType) -> Result<(), String> {
         let index = self.line_of(planned.line)?;
-        let parameters = if planned.takes_context {
-            Self::CONTEXT_PARAMETER
-        } else {
-            Self::NO_PARAMETERS
-        };
+        let parameters =
+            [Self::NO_PARAMETERS, Self::CONTEXT_PARAMETER][usize::from(planned.takes_context)];
         let line = &self.lines[index];
         let at = Self::type_name_end(line, &planned.name)
             .ok_or_else(|| format!("Cannot find the F# type {}", planned.name))?;
@@ -63,7 +69,8 @@ impl<'a> FsharpBehaviors<'a> {
 
     fn lower_method(&mut self, method: &PlannedMethod) -> Result<(), String> {
         let index = self.line_of(method.line)?;
-        if method.declared || MemberLine::is_abstract(&self.lines[index]) {
+        let declared = [method.declared, MemberLine::is_abstract(&self.lines[index])];
+        if declared.contains(&true) {
             return self.write_declared(index, method);
         }
         self.wrap_written(index, method)
@@ -82,21 +89,14 @@ impl<'a> FsharpBehaviors<'a> {
             .detached
             .types
             .iter()
-            .any(|ty| ty.name == owner && ty.declared);
-        if given {
-            return Self::GIVEN_CONTEXT;
-        }
-        Self::OWN_CONTEXT
+            .filter(|ty| ty.declared)
+            .any(|ty| ty.name == owner);
+        [Self::OWN_CONTEXT, Self::GIVEN_CONTEXT][usize::from(given)]
     }
 
     fn wrap_written(&mut self, index: usize, method: &PlannedMethod) -> Result<(), String> {
         let line = &self.lines[index];
-        if MemberLine::is_static(line.trim_start()) {
-            return Err(format!(
-                "The F# member {} holds a behavior annotation, so it must be an instance member",
-                method.name
-            ));
-        }
+        Self::instance_only(line, &method.name)?;
         let unreadable = || format!("Cannot read the F# member {}", method.name);
         let signature = MemberLine::signature(line, &method.name).ok_or_else(unreadable)?;
         let renamed = MemberLine::renamed(line, &method.name).ok_or_else(unreadable)?;
@@ -116,6 +116,15 @@ impl<'a> FsharpBehaviors<'a> {
                 method.name
             ));
         Ok(())
+    }
+
+    fn instance_only(line: &str, name: &str) -> Result<(), String> {
+        let instance = !MemberLine::is_static(line.trim_start());
+        instance.then_some(()).ok_or_else(|| {
+            format!(
+                "The F# member {name} holds a behavior annotation, so it must be an instance member"
+            )
+        })
     }
 
     fn line_of(&self, shadow_line: usize) -> Result<usize, String> {

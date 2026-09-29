@@ -34,10 +34,9 @@ impl FsharpYon {
             .map_err(|failure| view.failure(&failure))?;
         let lowered = crate::yon::lower_with_routes(view.path(), view.text(), models_root)
             .map_err(|failure| view.failure(&failure))?;
-        let Some(lowered) = lowered else {
-            return Ok(None);
-        };
-        Self::program(view, source, contents, lowered, detached.as_ref()).map(Some)
+        lowered
+            .map(|lowered| Self::program(view, source, contents, lowered, detached.as_ref()))
+            .transpose()
     }
 
     fn program(
@@ -50,15 +49,10 @@ impl FsharpYon {
         let authored = detached.map_or(view.text().len(), |detached| detached.lowered.len());
         let generated = lowered.source.get(authored..).unwrap_or_default();
         let stripped = FsharpMarkers::strip(contents);
-        let (fsharp, setups, runtime) = match detached {
-            Some(detached) => (
-                FsharpBehaviors::program(view, &stripped, detached)
-                    .map_err(|message| Self::failure(source, &message))?,
-                detached.setups.as_str(),
-                detached.runtime.as_str(),
-            ),
-            None => (stripped, "", ""),
-        };
+        let behaviors = detached
+            .map(|detached| Self::behaviors(view, source, &stripped, detached))
+            .transpose()?;
+        let (fsharp, setups, runtime) = behaviors.unwrap_or((stripped, "", ""));
         let csharp = format!("{}{generated}\n{setups}", view.usings());
         Ok(Lowered {
             source: FsharpSource::with_generated(
@@ -68,6 +62,17 @@ impl FsharpYon {
             routes: lowered.routes,
             topics: lowered.topics,
         })
+    }
+
+    fn behaviors<'d>(
+        view: &FsharpView,
+        source: &Path,
+        stripped: &str,
+        detached: &'d DetachedCsharp,
+    ) -> Result<(String, &'d str, &'d str), Failure> {
+        let fsharp = FsharpBehaviors::program(view, stripped, detached)
+            .map_err(|message| Self::failure(source, &message))?;
+        Ok((fsharp, &detached.setups, &detached.runtime))
     }
 
     fn failure(source: &Path, message: &str) -> Failure {

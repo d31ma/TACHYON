@@ -139,16 +139,23 @@ impl<'a> ShadowWriter<'a> {
     }
 
     fn write_attributes(&mut self, index: usize) {
-        for attribute in AttributeLine::read(self.lines[index].trimmed()) {
+        let attributes = AttributeLine::read(self.lines[index].trimmed());
+        for attribute in &attributes {
             self.push(index, &attribute.csharp);
-            if !Self::is_store_with_options(&attribute) {
-                self.attributes.push(attribute.name);
-            }
         }
+        self.attributes.extend(
+            attributes
+                .into_iter()
+                .filter(|attribute| !Self::is_store_with_options(attribute))
+                .map(|attribute| attribute.name),
+        );
     }
 
     fn is_store_with_options(attribute: &AttributeLine) -> bool {
-        attribute.name == Self::STORE && attribute.csharp != Self::BARE_STORE
+        [
+            attribute.name == Self::STORE,
+            attribute.csharp == Self::BARE_STORE,
+        ] == [true, false]
     }
 
     fn write_type(&mut self, index: usize) {

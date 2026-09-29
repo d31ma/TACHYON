@@ -1,3 +1,4 @@
+use super::fsharp_behaviors_project::FsharpBehaviorsProject;
 use crate::Failure;
 use crate::fsharp_source::FsharpSource;
 use crate::model_sources::ModelSources;
@@ -7,10 +8,6 @@ pub(super) struct FsharpWebProject;
 
 impl FsharpWebProject {
     const FOLDER: &'static str = "FsharpServices";
-    const BEHAVIORS_FOLDER: &'static str = "FsharpBehaviors";
-    const BEHAVIORS_REFERENCE: &'static str = "  <ItemGroup><ProjectReference Include=\"../FsharpBehaviors/FsharpBehaviors.csproj\" /></ItemGroup>\n";
-    const BEHAVIORS_ACCESS: &'static str = "[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"FsharpServices\")]\n[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"TachyonServices\")]\n";
-    const BEHAVIORS_PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n    <OutputType>Library</OutputType>\n    <AssemblyName>FsharpBehaviors</AssemblyName>\n    <Nullable>disable</Nullable>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n  </PropertyGroup>\n  <ItemGroup><Compile Include=\"Behaviors.cs\" /></ItemGroup>\n</Project>\n";
     const PROJECT_END: &'static str = "</Project>";
     const REFERENCE: &'static str = "  <ItemGroup><ProjectReference Include=\"FsharpServices/FsharpServices.fsproj\" /></ItemGroup>\n";
     const PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n    <OutputType>Library</OutputType>\n    <AssemblyName>FsharpServices</AssemblyName>\n    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>\n  </PropertyGroup>\n  <ItemGroup><Compile Include=\"Services.fs\" /></ItemGroup>\n</Project>\n";
@@ -45,16 +42,7 @@ impl FsharpWebProject {
             ),
             (format!("{}/Services.fs", Self::FOLDER), services),
         ];
-        if !runtime.is_empty() {
-            files.push((
-                format!("{}/FsharpBehaviors.csproj", Self::BEHAVIORS_FOLDER),
-                String::from(Self::BEHAVIORS_PROJECT),
-            ));
-            files.push((
-                format!("{}/Behaviors.cs", Self::BEHAVIORS_FOLDER),
-                format!("{}{runtime}", Self::BEHAVIORS_ACCESS),
-            ));
-        }
+        files.extend(FsharpBehaviorsProject::files(runtime));
         Ok(Self::wanted(files, fsharp))
     }
 
@@ -62,7 +50,7 @@ impl FsharpWebProject {
         if runtime.is_empty() {
             return String::from(Self::PROJECT);
         }
-        let reference = format!("{}{}", Self::BEHAVIORS_REFERENCE, Self::PROJECT_END);
+        let reference = format!("{}{}", FsharpBehaviorsProject::REFERENCE, Self::PROJECT_END);
         Self::PROJECT.replace(Self::PROJECT_END, &reference)
     }
 }

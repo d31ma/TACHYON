@@ -4,6 +4,7 @@ mod compiler;
 mod config;
 mod dotnet_web_release;
 mod events;
+mod fsharp_behaviors_project;
 mod fsharp_service;
 mod fsharp_web_project;
 mod go;

@@ -7,6 +7,8 @@ impl MemberLine {
     const NAME_ENDS: [char; 3] = ['(', ' ', ':'];
     const ABSTRACT_WORDS: [&'static str; 2] = ["abstract", "member"];
     const UNNAMED: &'static str = "value";
+    const UNIT: &'static str = "unit";
+    const NAME_STARTS: [char; 2] = ['.', ' '];
 
     pub(crate) fn hidden_name(name: &str) -> String {
         format!("{}{name}", Self::HIDDEN_PREFIX)
@@ -63,17 +65,20 @@ impl MemberLine {
         rest
     }
 
+    pub(crate) fn pieces<'p>(parts: &[&'p str]) -> Vec<&'p str> {
+        parts
+            .iter()
+            .flat_map(|part| FsharpType::split_top_level(part, "*"))
+            .filter(|piece| *piece != Self::UNIT)
+            .collect()
+    }
+
     fn parameters(parts: &[&str]) -> String {
-        let mut written = Vec::new();
-        for part in parts {
-            for piece in FsharpType::split_top_level(part, "*") {
-                written.push(Self::parameter(piece, written.len()));
-            }
-        }
-        let unit = written.len() == 1 && written[0].ends_with(": unit");
-        if unit {
-            return String::new();
-        }
+        let written: Vec<String> = Self::pieces(parts)
+            .into_iter()
+            .enumerate()
+            .map(|(index, piece)| Self::parameter(piece, index))
+            .collect();
         written.join(", ")
     }
 
@@ -87,22 +92,15 @@ impl MemberLine {
     }
 
     fn name_start(line: &str, name: &str) -> Option<usize> {
-        let mut searched = 0;
-        while let Some(found) = line[searched..].find(name) {
-            let at = searched + found;
-            if Self::is_member_name(line, at, name) {
-                return Some(at);
-            }
-            searched = at + name.len();
-        }
-        None
+        line.match_indices(name)
+            .map(|(at, _)| at)
+            .find(|at| Self::is_member_name(line, *at, name))
     }
 
     fn is_member_name(line: &str, at: usize, name: &str) -> bool {
-        let before = line[..at].chars().next_back();
-        let after = line[at + name.len()..].chars().next();
-        matches!(before, Some('.' | ' '))
-            && after.is_some_and(|character| Self::NAME_ENDS.contains(&character))
+        let before = line[..at].ends_with(Self::NAME_STARTS);
+        let after = line[at + name.len()..].starts_with(Self::NAME_ENDS);
+        [before, after] == [true, true]
     }
 }
 

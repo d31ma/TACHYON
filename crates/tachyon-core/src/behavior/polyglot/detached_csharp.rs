@@ -17,6 +17,7 @@ impl DetachedCsharp {
     const WRITTEN_BODIES: [&'static str; 3] = ["gateway", "query", "mapping"];
     const CONTEXT: &'static str = "behaviors";
     const TAC: &'static str = "tac";
+    const NO_STORAGE: &'static str = "";
     const PAGE_STORAGE: &'static str = " BehaviorStorage.Host ??= TacWeb.Storage;";
 
     pub(super) fn of(module: &Module) -> Result<Self, String> {
@@ -45,46 +46,60 @@ impl DetachedCsharp {
     }
 
     fn runtime(module: &Module) -> String {
-        let mut registrations = Map::new();
-        let mut entities = String::new();
-        let mut policies = String::new();
-        for type_declaration in &module.types {
-            policies.push_str(&Self::named_line(
-                "type",
-                &type_declaration.name,
-                &Value::Object(type_declaration.policies.clone()),
-            ));
-            if let Some(entity) = &type_declaration.entity {
-                let mapping = serde_json::json!({
-                    "entity": type_declaration.name,
-                    "adapter": entity["adapter"],
-                    "idField": entity["id"],
-                    "table": type_declaration.table
-                });
-                entities.push_str(&Self::named_line(
-                    "entity",
-                    &type_declaration.name,
-                    &mapping,
-                ));
-            }
-            registrations.insert(
-                type_declaration.name.clone(),
-                serde_json::json!({"cache": type_declaration.cache, "methods": Self::registered(type_declaration)}),
-            );
-        }
         let runtime = csharp::runtime(
             &module.module_id,
             &module.environment,
-            &Value::Object(registrations).to_string(),
+            &Self::registry(module),
             Self::CONFIGURATIONS_CALL,
-            &entities,
-            &policies,
+            &Self::entities(module),
+            &Self::policies(module),
         );
         runtime.replacen(
             Self::CONFIGURE,
             &format!("{}{}", Self::CONFIGURATIONS_FIELD, Self::CONFIGURE),
             1,
         )
+    }
+
+    fn policies(module: &Module) -> String {
+        module.types.iter().map(Self::policy_line).collect()
+    }
+
+    fn policy_line(type_declaration: &Type) -> String {
+        Self::named_line(
+            "type",
+            &type_declaration.name,
+            &Value::Object(type_declaration.policies.clone()),
+        )
+    }
+
+    fn entities(module: &Module) -> String {
+        module.types.iter().filter_map(Self::entity_line).collect()
+    }
+
+    fn entity_line(type_declaration: &Type) -> Option<String> {
+        let entity = type_declaration.entity.as_ref()?;
+        let mapping = serde_json::json!({
+            "entity": type_declaration.name,
+            "adapter": entity["adapter"],
+            "idField": entity["id"],
+            "table": type_declaration.table
+        });
+        Some(Self::named_line("entity", &type_declaration.name, &mapping))
+    }
+
+    fn registry(module: &Module) -> String {
+        let registrations: Map<String, Value> = module
+            .types
+            .iter()
+            .map(|type_declaration| {
+                (
+                    type_declaration.name.clone(),
+                    serde_json::json!({"cache": type_declaration.cache, "methods": Self::registered(type_declaration)}),
+                )
+            })
+            .collect();
+        Value::Object(registrations).to_string()
     }
 
     fn named_line(parameter: &str, name: &str, value: &Value) -> String {
@@ -100,34 +115,29 @@ impl DetachedCsharp {
     }
 
     fn registered(type_declaration: &Type) -> Map<String, Value> {
-        let mut methods = Map::new();
-        for method in type_declaration
+        type_declaration
             .methods
             .iter()
             .filter(|method| Self::invoked(method))
-        {
-            methods.insert(method.name.clone(), Value::Object(method.metadata.clone()));
-        }
-        methods
+            .map(|method| (method.name.clone(), Value::Object(method.metadata.clone())))
+            .collect()
     }
 
     fn invoked(method: &Method) -> bool {
-        !method.metadata.is_empty()
-            && !Self::WRITTEN_BODIES
-                .iter()
-                .any(|key| method.metadata.contains_key(*key))
+        let written = Self::WRITTEN_BODIES
+            .iter()
+            .any(|key| method.metadata.contains_key(*key));
+        [method.metadata.is_empty(), written] == [false, false]
     }
 
     fn setups(module: &Module) -> String {
-        let mut lines = String::new();
-        for type_declaration in module.types.iter().filter(|ty| ty.configuration) {
-            lines.push_str(&csharp::configuration_line(type_declaration));
-        }
-        let storage = if module.environment == Self::TAC {
-            Self::PAGE_STORAGE
-        } else {
-            ""
-        };
+        let lines: String = module
+            .types
+            .iter()
+            .filter(|type_declaration| type_declaration.configuration)
+            .map(csharp::configuration_line)
+            .collect();
+        let storage = Self::storage(module);
         format!(
             "static class BehaviorSetups {{\n    \
              [System.Runtime.CompilerServices.ModuleInitializer]\n    \
@@ -136,31 +146,40 @@ impl DetachedCsharp {
         )
     }
 
+    fn storage(module: &Module) -> &'static str {
+        let tac = module.environment == Self::TAC;
+        [Self::NO_STORAGE, Self::PAGE_STORAGE][usize::from(tac)]
+    }
+
     fn methods(module: &Module) -> Vec<PlannedMethod> {
-        let mut planned = Vec::new();
-        for type_declaration in &module.types {
-            for method in type_declaration
-                .methods
+        module
+            .types
+            .iter()
+            .flat_map(|type_declaration| {
+                type_declaration
+                    .methods
+                    .iter()
+                    .filter(|method| !method.metadata.is_empty())
+                    .map(move |method| Self::planned_method(module, type_declaration, method))
+            })
+            .collect()
+    }
+
+    fn planned_method(module: &Module, type_declaration: &Type, method: &Method) -> PlannedMethod {
+        PlannedMethod {
+            owner: type_declaration.name.clone(),
+            name: method.name.clone(),
+            line: Self::line(module, method.signature.start),
+            parameters: method
+                .parameters
                 .iter()
-                .filter(|method| !method.metadata.is_empty())
-            {
-                planned.push(PlannedMethod {
-                    owner: type_declaration.name.clone(),
-                    name: method.name.clone(),
-                    line: Self::line(module, method.signature.start),
-                    parameters: method
-                        .parameters
-                        .iter()
-                        .map(|parameter| parameter.name.clone())
-                        .collect(),
-                    metadata: method.metadata.clone(),
-                    declared: method.declared,
-                    asynchronous: method.asynchronous,
-                    mapped_argument: Self::mapped_argument(method),
-                });
-            }
+                .map(|parameter| parameter.name.clone())
+                .collect(),
+            metadata: method.metadata.clone(),
+            declared: method.declared,
+            asynchronous: method.asynchronous,
+            mapped_argument: Self::mapped_argument(method),
         }
-        planned
     }
 
     fn mapped_argument(method: &Method) -> Option<usize> {
@@ -169,19 +188,23 @@ impl DetachedCsharp {
     }
 
     fn types(module: &Module) -> Vec<PlannedType> {
-        let mut planned = Vec::new();
-        for type_declaration in &module.types {
-            planned.push(PlannedType {
+        module
+            .types
+            .iter()
+            .map(|type_declaration| PlannedType {
                 name: type_declaration.name.clone(),
                 line: Self::line(module, type_declaration.keyword.start),
                 declared: type_declaration.declared,
-                takes_context: type_declaration
-                    .constructor
-                    .as_ref()
-                    .is_some_and(|fields| fields.iter().any(|field| field == Self::CONTEXT)),
-            });
-        }
-        planned
+                takes_context: Self::takes_context(type_declaration),
+            })
+            .collect()
+    }
+
+    fn takes_context(type_declaration: &Type) -> bool {
+        type_declaration
+            .constructor
+            .as_ref()
+            .is_some_and(|fields| fields.iter().any(|field| field == Self::CONTEXT))
     }
 
     fn line(module: &Module, offset: usize) -> usize {

@@ -1,6 +1,5 @@
 use crate::behavior::PlannedMethod;
 use serde_json::Value;
-use std::fmt::Write as _;
 
 pub(crate) struct BehaviorBody<'a> {
     method: &'a PlannedMethod,
@@ -9,6 +8,7 @@ pub(crate) struct BehaviorBody<'a> {
 
 impl<'a> BehaviorBody<'a> {
     const INVOKED: [&'static str; 4] = ["cacheable", "httpExchange", "cacheEvict", "cachePut"];
+    const ABSTRACT_ONLY: &'static str = "An abstract F# member can only hold Query, Convert, Gateway or a generated WebCall; write a member with a body instead";
     const NULL_ANSWER: &'static str =
         "System.Threading.Tasks.Task.FromResult(BehaviorJSON.Parse(\"null\"))";
 
@@ -17,9 +17,10 @@ impl<'a> BehaviorBody<'a> {
     }
 
     pub(crate) fn expression(&self, original: Option<&str>) -> Result<String, String> {
-        if let Some(written) = self.written()? {
-            return Ok(written);
-        }
+        self.written()?.map_or_else(|| self.composed(original), Ok)
+    }
+
+    fn composed(&self, original: Option<&str>) -> Result<String, String> {
         let prefix = self.prefix()?;
         let body = self.wrapped(original)?;
         Ok(format!("{prefix}{body}"))
@@ -27,21 +28,22 @@ impl<'a> BehaviorBody<'a> {
 
     fn written(&self) -> Result<Option<String>, String> {
         let metadata = &self.method.metadata;
-        if let Some(policy) = metadata.get("gateway") {
-            return Ok(Some(self.gateway(policy)));
-        }
-        if let Some(query) = metadata.get("query") {
-            return Ok(Some(format!(
-                "{}.Query(BehaviorJSON.Parse({}), {})",
-                self.receiver,
-                Self::quote(&query.to_string()),
-                self.arguments()
-            )));
-        }
-        if let Some(policy) = metadata.get("mapping") {
-            return self.mapping(policy).map(Some);
-        }
-        Ok(None)
+        let gateway = metadata.get("gateway").map(|policy| self.gateway(policy));
+        let query = metadata.get("query").map(|query| self.query(query));
+        let mapping = metadata
+            .get("mapping")
+            .map(|policy| self.mapping(policy))
+            .transpose()?;
+        Ok(gateway.or(query).or(mapping))
+    }
+
+    fn query(&self, query: &Value) -> String {
+        format!(
+            "{}.Query(BehaviorJSON.Parse({}), {})",
+            self.receiver,
+            Self::quote(&query.to_string()),
+            self.arguments()
+        )
     }
 
     fn gateway(&self, policy: &Value) -> String {
@@ -67,24 +69,36 @@ impl<'a> BehaviorBody<'a> {
     }
 
     fn prefix(&self) -> Result<String, String> {
-        let mut prefix = String::new();
-        if let Some(policy) = self.method.metadata.get("valid") {
-            let name = self.parameter(policy, "Check")?;
-            let _ = write!(
-                prefix,
-                "let {name} = Behaviors.ValidateSchema(BehaviorJSON.Parse({}), {name}) in ",
-                Self::quote(&policy["schema"].to_string())
-            );
-        }
-        if let Some(policy) = self.method.metadata.get("pageable") {
-            let name = self.parameter(policy, "PageDefaults")?;
-            let _ = write!(
-                prefix,
-                "let {name} = BehaviorPage.Normalize({name}, BehaviorJSON.Parse({})) in ",
-                Self::quote(&policy.to_string())
-            );
-        }
-        Ok(prefix)
+        let metadata = &self.method.metadata;
+        let validation = metadata
+            .get("valid")
+            .map(|policy| self.validation(policy))
+            .transpose()?;
+        let page = metadata
+            .get("pageable")
+            .map(|policy| self.page(policy))
+            .transpose()?;
+        Ok(format!(
+            "{}{}",
+            validation.unwrap_or_default(),
+            page.unwrap_or_default()
+        ))
+    }
+
+    fn validation(&self, policy: &Value) -> Result<String, String> {
+        let name = self.parameter(policy, "Check")?;
+        Ok(format!(
+            "let {name} = Behaviors.ValidateSchema(BehaviorJSON.Parse({}), {name}) in ",
+            Self::quote(&policy["schema"].to_string())
+        ))
+    }
+
+    fn page(&self, policy: &Value) -> Result<String, String> {
+        let name = self.parameter(policy, "PageDefaults")?;
+        Ok(format!(
+            "let {name} = BehaviorPage.Normalize({name}, BehaviorJSON.Parse({})) in ",
+            Self::quote(&policy.to_string())
+        ))
     }
 
     fn parameter(&self, policy: &Value, annotation: &str) -> Result<&str, String> {
@@ -97,25 +111,38 @@ impl<'a> BehaviorBody<'a> {
     }
 
     fn wrapped(&self, original: Option<&str>) -> Result<String, String> {
-        let metadata = &self.method.metadata;
-        let generated = metadata
+        let generated = self.generated().then(|| String::from(Self::NULL_ANSWER));
+        let body = generated
+            .or_else(|| original.map(str::to_owned))
+            .ok_or(Self::ABSTRACT_ONLY)?;
+        Ok(self.around(&body))
+    }
+
+    fn around(&self, body: &str) -> String {
+        match [self.only_validates(), self.invoked()] {
+            [true, _] => body.to_owned(),
+            [false, true] => self.invoke(body),
+            [false, false] => format!("{}.Paginate(fun () -> {body})", self.receiver),
+        }
+    }
+
+    fn generated(&self) -> bool {
+        self.method
+            .metadata
             .get("httpExchange")
-            .is_some_and(|exchange| exchange.get("generated").is_some());
-        if generated {
-            return Ok(self.invoke(Self::NULL_ANSWER));
-        }
-        let original = original.ok_or(
-            "An abstract F# member can only hold Query, Convert, Gateway or a generated WebCall; write a member with a body instead",
-        )?;
-        if metadata.len() == 1 && metadata.contains_key("valid") {
-            return Ok(original.to_owned());
-        }
-        let invoked =
-            self.method.asynchronous || Self::INVOKED.iter().any(|key| metadata.contains_key(*key));
-        if invoked {
-            return Ok(self.invoke(original));
-        }
-        Ok(format!("{}.Paginate(fun () -> {original})", self.receiver))
+            .is_some_and(|exchange| exchange.get("generated").is_some())
+    }
+
+    fn only_validates(&self) -> bool {
+        let metadata = &self.method.metadata;
+        [metadata.len() == 1, metadata.contains_key("valid")] == [true, true]
+    }
+
+    fn invoked(&self) -> bool {
+        let marked = Self::INVOKED
+            .iter()
+            .any(|key| self.method.metadata.contains_key(*key));
+        [self.generated(), self.method.asynchronous, marked].contains(&true)
     }
 
     fn invoke(&self, body: &str) -> String {
