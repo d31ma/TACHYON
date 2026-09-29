@@ -102,6 +102,7 @@ class Adapters {
   static entityAdapter: EntityAdapter = {
     execute(command, execution) {
       execution.signal.throwIfAborted();
+      if (command.operation === 'transaction') return { transaction: 't1' };
       if (command.operation === 'find') return { offset: command.page.offset, rows: [] };
       if (command.operation === 'save') return command.value;
       if (command.operation === 'query') return [];

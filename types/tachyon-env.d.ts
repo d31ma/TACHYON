@@ -20,6 +20,20 @@ declare global {
     set(key: string, value: unknown, ttlSeconds: number): Promise<boolean>;
     delete(key: string): Promise<boolean>;
   }
+  namespace NodeJS {
+    interface ProcessEnv {
+      [name: string]: string | undefined;
+    }
+    interface Process {
+      env: ProcessEnv;
+    }
+  }
+  /** Native targets only: the window controls that `client/manifest.json` grants, such as `tachyonWindow?.minimize()`. A control that is not granted is missing, so check that its function exists first. */
+  var tachyonWindow: Readonly<Record<string, (payload?: BehaviorJsonObject) => unknown>> | undefined;
+  /** Yon only: the handler process. A handler reads its private `YON_APPLICATION_JSON` snapshot from `process.env`. */
+  var process: NodeJS.Process;
+  /** Yon only: send the request to another program, like `relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)`, and answer with its response. */
+  function relay(command: readonly [string, ...string[]], request: Request): Promise<Response>;
   interface HTMLElement {
     tachyonComponent?: {
       instance?: object;

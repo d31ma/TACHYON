@@ -6,6 +6,7 @@ pub(super) struct CompositionCheck;
 
 impl CompositionCheck {
     const CONTROLLERS: &'static str = "server/controllers";
+    const ROLES: &'static str = "server/roles";
 
     pub(super) fn is_composed(path: &Path, source: &str) -> bool {
         Self::test_answer(path, source)
@@ -15,6 +16,7 @@ impl CompositionCheck {
             .or_else(|| Self::test_annotation_answer(path, source))
             .or_else(|| Self::error_source_answer(path))
             .or_else(|| Self::utility_answer(path))
+            .or_else(|| Self::role_answer(path))
             .unwrap_or_else(|| Self::annotation_answer(path, source))
     }
 
@@ -81,6 +83,10 @@ impl CompositionCheck {
 
     fn utility_answer(path: &Path) -> Option<bool> {
         annotation_layout::UtilityLayout::is_utility(path).then_some(true)
+    }
+
+    fn role_answer(path: &Path) -> Option<bool> {
+        path.starts_with(Self::ROLES).then_some(true)
     }
 
     fn annotation_answer(path: &Path, source: &str) -> bool {

@@ -182,15 +182,20 @@ declare global {
     readonly idField: string;
   }
 
-  type BehaviorEntityCommand = BehaviorEntityIdentity & (
+  type BehaviorEntityCommand = BehaviorEntityIdentity & { readonly transaction?: string } & (
     | { readonly operation: 'find'; readonly page: BehaviorPage }
     | { readonly operation: 'save'; readonly value: BehaviorJsonObject }
     | { readonly operation: 'delete'; readonly id: string | number }
     | { readonly operation: 'query'; readonly query: BehaviorQueryPlan }
   );
 
+  /** An AllOrNothing method first sends `begin`, which answers `{ transaction: "<id>" }`, then `commit` or `rollback` with that id. */
+  type BehaviorTransactionCommand =
+    | { readonly operation: 'transaction'; readonly action: 'begin' }
+    | { readonly operation: 'transaction'; readonly action: 'commit' | 'rollback'; readonly transaction: string };
+
   interface EntityAdapter {
-    execute(command: BehaviorEntityCommand, execution: BehaviorExecution): BehaviorJsonValue | Promise<BehaviorJsonValue>;
+    execute(command: BehaviorEntityCommand | BehaviorTransactionCommand, execution: BehaviorExecution): BehaviorJsonValue | Promise<BehaviorJsonValue>;
   }
 
   interface BehaviorAuthorizationCall {
@@ -589,7 +594,8 @@ declare global {
   /** Entity: this class is stored by the named entity adapter. Mark its identifier field with @Id. */
   function Entity(options: BehaviorEntityOptions): BehaviorClassAnnotation;
   function Table(name: string): BehaviorClassAnnotation;
-  function Gateway(options: BehaviorGatewayOptions): BehaviorAsyncMethodAnnotation;
+  /** Gateway: Tachyon writes this method: it calls the named class or command. Leave its body empty and declare the answer as `Promise<Report | void>`. */
+  function Gateway(options: BehaviorGatewayOptions): BehaviorRequestMethodAnnotation;
   function Description(text: string): BehaviorClassAnnotation;
   function Retry(options: BehaviorRetryableOptions): BehaviorAsyncMethodAnnotation;
   function MaxAtOnce(options: BehaviorConcurrencyLimitOptions): BehaviorAsyncMethodAnnotation;

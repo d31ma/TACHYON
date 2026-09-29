@@ -78,6 +78,25 @@ fn the_types_command_writes_each_realm_and_drops_deleted_classes() {
 }
 
 #[test]
+fn a_role_type_is_declared_for_the_routes_that_allow_it() {
+    let project = tempfile::tempdir().expect("project");
+    write(
+        project.path(),
+        "server/roles/Admin.ts",
+        "export default class Admin {}\n",
+    );
+    let output = run(ty().arg("types").arg(project.path()));
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let server = composed(project.path(), "server");
+    assert!(
+        server.contains(
+            "  const Admin: typeof import(\"../../../server/roles/Admin.ts\").default;\n"
+        ),
+        "{server}"
+    );
+}
+
+#[test]
 fn the_types_command_reports_a_missing_project() {
     let workspace = tempfile::tempdir().expect("workspace");
     let output = run(ty().arg("types").arg(workspace.path().join("missing")));
