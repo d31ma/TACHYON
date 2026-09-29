@@ -37,8 +37,13 @@ function writeBehaviorProviders(project, extension) {
   for (const relative of BehaviorGate.fixtureFiles) {
     const source = readFileSync(path.join(directory, relative), 'utf8')
       .replaceAll('TAC_', BehaviorGate.frameworkPrefix);
-    write(project, `client/${relative.replace(/\.js$/, `.${extension}`)}`, source);
+    write(project, `client/${relative.replace(/\.js$/, `.${extension}`)}`, withPrivateMembers(source, extension));
   }
+}
+
+function withPrivateMembers(source, extension) {
+  if (extension === 'js') return source;
+  return source.replace(/^static _/gm, 'private static _');
 }
 
 function writePublishedExample(project, features) {
@@ -51,6 +56,7 @@ function writePublishedExample(project, features) {
 
 function writeBehaviorServices(project) {
   const suffix = { js: 'Js', ts: 'Ts' };
+  const privateStatic = { js: 'static', ts: 'private static' };
   for (const extension of ['js', 'ts']) {
     writeBehaviorProviders(project, extension);
     write(project, `client/pages/${extension}/tac.html`, `<behaviors-${extension} />`);
@@ -58,7 +64,7 @@ function writeBehaviorServices(project) {
     write(project, `client/services/Behaviors${suffix[extension]}Service.${extension}`, `
 @Service()
 export default class Behaviors${suffix[extension]}Service {
-  static NOT_THE_HOST = 'Service owner root is not the component host';
+  ${privateStatic[extension]} _NOT_THE_HOST = 'Service owner root is not the component host';
   @Needs
   view;
   @Needs
@@ -72,10 +78,10 @@ export default class Behaviors${suffix[extension]}Service {
     this.result = JSON.stringify(await this.#exercise(this.lifecycle));
   }
   #requireConnected(root) {
-    if (!root?.isConnected) throw new Error(Behaviors${suffix[extension]}Service.NOT_THE_HOST);
+    if (!root?.isConnected) throw new Error(Behaviors${suffix[extension]}Service._NOT_THE_HOST);
   }
   #requireNotBody(root) {
-    if (root === document.body) throw new Error(Behaviors${suffix[extension]}Service.NOT_THE_HOST);
+    if (root === document.body) throw new Error(Behaviors${suffix[extension]}Service._NOT_THE_HOST);
   }
   #markAborted() {
     document.documentElement.dataset.pageBehaviorAborted = 'yes';

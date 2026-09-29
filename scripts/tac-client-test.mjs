@@ -72,7 +72,7 @@ class PricingHelper {
 @Service()
 @Needs(PricingHelper, CatalogStore)
 export default class ProvidersPanelService {
-  static NOT_INJECTED = 'providers were not injected'
+  static _NOT_INJECTED = 'providers were not injected'
   pricingHelper;
   catalogStore;
   quote = 'pending';
@@ -83,10 +83,10 @@ export default class ProvidersPanelService {
     this.quote = await this.pricingHelper.quote() + ' direct=' + this.catalogStore.price(1);
   }
   #requirePricingHelper() {
-    if (!(this.pricingHelper instanceof PricingHelper)) throw new Error(ProvidersPanelService.NOT_INJECTED);
+    if (!(this.pricingHelper instanceof PricingHelper)) throw new Error(ProvidersPanelService._NOT_INJECTED);
   }
   #requireSharedStore() {
-    if (this.pricingHelper.catalogStore !== this.catalogStore) throw new Error(ProvidersPanelService.NOT_INJECTED);
+    if (this.pricingHelper.catalogStore !== this.catalogStore) throw new Error(ProvidersPanelService._NOT_INJECTED);
   }
 }`)
 }
