@@ -21,7 +21,7 @@ class WebApiGate {
   static activationLifespan = 6_000
 
   static files = {
-    'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js"]}}}\n',
+    'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js"]},"visibility":{"check":false}}}\n',
     'client/pages/tac.html': '<stamp-page />\n',
     'client/components/stamp/page/tac.html': `<main>${WebApiGate.languages.map((language) => `<p id="${language}">{${language}Stamp.label}</p>
 <button id="${language}-copy" on:click="${language}Stamp.copy('from ${language}')">Copy</button>
