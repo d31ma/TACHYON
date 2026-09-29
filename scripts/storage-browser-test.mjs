@@ -187,9 +187,9 @@ function swiftWebAvailable() {
 }
 
 function writeSwiftFixture(project) {
-  write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swCounter.increment()">+</button>\n<p id="swift-count">{swCounter.count}</p>\n');
-  write(project, 'client/services/SwCounterService.swift', `@Service
-final class SwCounterService {
+  write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swiftCounter.increment()">+</button>\n<p id="swift-count">{swiftCounter.count}</p>\n');
+  write(project, 'client/services/SwiftCounterService.swift', `@Service
+final class SwiftCounterService {
     @LocalState
     var count: Int = 0
 
@@ -761,7 +761,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
   const services = [['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
   if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#']);
   if (StorageGate.withKotlin) services.push(['kt', 'ktNotes', 'Kotlin']);
-  if (StorageGate.withSwift) services.push(['swift', 'swCounter', 'Swift']);
+  if (StorageGate.withSwift) services.push(['swift', 'swiftCounter', 'Swift']);
   for (const [id, , language] of services) {
     for (let click = 0; click < 3; click += 1) await page.click(`#${id}-bump`);
     await page.waitForFunction((selector) => document.querySelector(selector)?.textContent === '3', `#${id}-count`);
