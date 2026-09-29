@@ -11,7 +11,7 @@
     <h2 id="guides" class="text-heading font-semibold">Guides</h2>
     <loop :for="group of documentation.guides()">
       <logic :if="group.title">
-        <h3 class="mt-8 font-semibold">{group.title}</h3>
+        <h3 class="mt-8 text-subheading font-semibold">{group.title}</h3>
         <p class="mt-2 opacity-85 text-pretty">{group.summary}</p>
       </logic>
       <ul class="catalogue mt-4 list-none p-0 m-0">

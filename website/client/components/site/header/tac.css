@@ -9,6 +9,10 @@
   flex-wrap: nowrap;
 }
 
+.site-bar__nav .w-btn {
+  font-size: var(--step-nav);
+}
+
 .site-bar__nav::-webkit-scrollbar {
   display: none;
 }

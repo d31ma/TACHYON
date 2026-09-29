@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: .125rem;
-  font-size: var(--step-sm);
+  font-size: var(--step-nav);
   line-height: 1.5;
 }
 
@@ -126,7 +126,7 @@
 
 .docs-nav__heading {
   margin: 1rem .5rem .25rem;
-  font-size: .75rem;
+  font-size: var(--step-xs);
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;

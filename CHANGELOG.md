@@ -1330,6 +1330,13 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The website's type sizes follow the average of six other framework
+  websites (Svelte, Vue, React, Angular, Astro, Solid), set by one set of
+  CSS custom properties in `site.css`: docs text 16px with line height 1.7
+  and a 68ch measure, docs titles 40px, section headings 28px, sub-headings
+  24px, inline code 0.85em of its text, code blocks 14px, sidebar and header
+  links 15px, the home title 56px, its lead 20px, home section intros 17px
+  and home card text 16px. Small screens still scale the titles down.
 - The JavaScript, TypeScript, Python, Rust, Java, Kotlin and Groovy test
   units that `ty init` and `ty add` write, and those in the website examples, check their results with
   `Assert.equals`, `Assert.isTrue` or `Assert.throws` (ADR 0080) instead of an

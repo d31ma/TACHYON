@@ -12,11 +12,17 @@
 
   --step-xs: clamp(.75rem, .72rem + .12vw, .8125rem);
   --step-sm: clamp(.8125rem, .76rem + .15vw, .875rem);
+  --step-nav: .9375rem;
   --step-base: 1rem;
   --step-md: 1.0625rem;
   --step-lg: clamp(1.0625rem, .95rem + .35vw, 1.25rem);
+  --step-xl: clamp(1.25rem, 1rem + .8vw, 1.5rem);
   --step-2xl: clamp(1.375rem, 1rem + 1.2vw, 1.75rem);
-  --step-3xl: clamp(1.75rem, 1.2rem + 1.6vw, 2.25rem);
+  --step-3xl: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
+  --step-hero: clamp(2.5rem, 7.5vw, 3.5rem);
+  --inline-code-size: max(.75rem, .85em);
+  --body-line-height: 1.7;
+  --text-measure: 68ch;
 
   --gutter: clamp(1rem, .62rem + 1.9vw, 2.5rem);
   --section-space: clamp(2.75rem, 1.4rem + 6.6vw, 7rem);
@@ -57,7 +63,7 @@ body {
   color: var(--w-text);
   font-family: var(--w-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: var(--step-base);
-  line-height: 1.6;
+  line-height: var(--body-line-height);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -124,7 +130,7 @@ w-app-bar {
 .section-lede {
   margin: 1rem auto 0;
   max-width: 62ch;
-  font-size: var(--step-lg);
+  font-size: var(--step-md);
   line-height: 1.6;
   color: var(--w-text-subtle);
   text-wrap: pretty;
@@ -188,7 +194,7 @@ w-app-bar {
 }
 
 .docs-article :is(p, li, h1, h2, h3) {
-  max-width: 72ch;
+  max-width: var(--text-measure);
   overflow-wrap: break-word;
 }
 
@@ -296,7 +302,7 @@ w-app-bar {
   border-radius: 6px;
   background: var(--w-surface-container-low);
   font-family: var(--tachyon-mono);
-  font-size: max(.8125rem, .9em);
+  font-size: var(--inline-code-size);
   overflow-wrap: anywhere;
 }
 
@@ -423,12 +429,12 @@ w-app-bar {
 
 .hero-title {
   line-height: 1.02;
-  font-size: clamp(2.5rem, 7.5vw, 4.5rem);
+  font-size: var(--step-hero);
 }
 
 .hero-promise {
   max-width: 26ch;
-  font-size: clamp(1rem, .9rem + .6vw, 1.375rem);
+  font-size: var(--step-lg);
   font-weight: 500;
 }
 

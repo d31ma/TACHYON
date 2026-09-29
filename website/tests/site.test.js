@@ -646,6 +646,21 @@ describe('responsive system', () => {
     expect(css).toMatch(/--step-2xl: clamp\([^)]*vw/)
   })
 
+  test('the type scale matches the average of other framework websites', async () => {
+    const css = await read('client/shared/styles/site.css')
+    expect(css).toContain('--step-nav: .9375rem;')
+    expect(css).toContain('--step-3xl: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);')
+    expect(css).toContain('--step-xl: clamp(1.25rem, 1rem + .8vw, 1.5rem);')
+    expect(css).toContain('--step-hero: clamp(2.5rem, 7.5vw, 3.5rem);')
+    expect(css).toContain('--inline-code-size: max(.75rem, .85em);')
+    expect(css).toContain('--body-line-height: 1.7;')
+    expect(css).toContain('--text-measure: 68ch;')
+    expect(css).not.toMatch(/font-size: clamp\(/)
+    expect(await read('client/components/docs/sidebar/tac.css')).toContain('font-size: var(--step-nav);')
+    expect(await read('client/components/site/header/tac.css')).toContain('font-size: var(--step-nav);')
+    expect(await read('client/components/home/pillars/tac.css')).toContain('font-size: var(--step-base);')
+  })
+
   test('the site answers to more than viewport width', async () => {
     const css = await read('client/shared/styles/site.css')
     expect(css).toContain('@media (pointer: coarse)')

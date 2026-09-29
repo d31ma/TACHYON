@@ -20,7 +20,7 @@
 }
 
 .pillar__body {
-  font-size: var(--step-sm);
+  font-size: var(--step-base);
   line-height: 1.5;
   opacity: .75;
   text-wrap: pretty;

@@ -17,7 +17,7 @@
         <pre class="code-block mt-3"><code>{step.command}</code><button
           type="button" class="code-copy" on:click="clipboard.copy(step.number, step.command)"
           :aria-label="'Copy step ' + step.number">{clipboard.label(step.number)}</button></pre>
-        <p class="mt-3 text-sm opacity-70 text-pretty"><loop :for="part of inlineCode.parts(step.note)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></p>
+        <p class="mt-3 opacity-70 text-pretty"><loop :for="part of inlineCode.parts(step.note)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></p>
       </div>
     </loop>
   </div>
