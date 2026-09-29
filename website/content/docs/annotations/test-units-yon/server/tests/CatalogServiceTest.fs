@@ -4,4 +4,4 @@ type CatalogServiceTest() =
         value * 2
 
     member this.testDoublesAValue() : unit =
-        if this.Twice(4) <> 8 then failwith "expected 8"
+        Assert.equals(8, this.Twice(4))

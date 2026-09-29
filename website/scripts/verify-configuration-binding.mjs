@@ -59,7 +59,7 @@ export function configurationTestFiles(extension, service) {
 function csharpConfigurationTests(service) {
   return [
     { name: 'client/tests/BindingTestSetup.cs', code: '[TestSetup]\npublic sealed class BindingTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n' },
-    { name: 'client/tests/BindingServiceTest.cs', code: `[Test(typeof(BindingTestSetup), {"partition":"tests"})]\nsealed class BindingServiceTest {\n${service}\n    void testBindsPublishedConfiguration() {\n        var settings = new SettingsService();\n        if (settings.title != "Catalog" || settings.pageSize != 20) throw new System.Exception("WRONG_CONFIGURATION");\n    }\n}\n` },
+    { name: 'client/tests/BindingServiceTest.cs', code: `[Test(typeof(BindingTestSetup), {"partition":"tests"})]\nsealed class BindingServiceTest {\n${service}\n    void testBindsPublishedConfiguration() {\n        var settings = new SettingsService();\n        Assert.equals("Catalog", settings.title);\n        Assert.equals(20, settings.pageSize);\n    }\n}\n` },
   ]
 }
 

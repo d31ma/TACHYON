@@ -521,6 +521,13 @@ machine contracts have their own, independent major versions.
   Java, Kotlin and Groovy units too (`when` counts as a branch). A Java or
   Groovy case that fails an `assert` now fails as one case instead of stopping
   the unit.
+- C# and F# test units get the same `Assert` class (ADR 0080):
+  `Assert.equals`, `Assert.isTrue` and `Assert.throws(action)`, each with an
+  optional last message; `throws` also waits for an `async` lambda (C#) or an
+  action that returns a task (F#). `[ValueSource([1, 2, 3])]` (C#) and
+  `[<ValueSource([1, 2, 3])>]` (F#) run one case per input (numbers, strings
+  or booleans). The test rule `TY1339` now reads C# and F# units too
+  (`foreach`, `switch`, `when`, and the F# `match`, count as branches).
 - Release builds compile every WebAssembly service language with the
   compiler and settings that make the smallest download, and `ty build`
   prints one line per language that says which compiler it used and why
@@ -1356,8 +1363,8 @@ machine contracts have their own, independent major versions.
   24px, inline code 0.85em of its text, code blocks 14px, sidebar and header
   links 15px, the home title 56px, its lead 20px, home section intros 17px
   and home card text 16px. Small screens still scale the titles down.
-- The JavaScript, TypeScript, Python, Rust, Java, Kotlin and Groovy test
-  units that `ty init` and `ty add` write, and those in the website examples, check their results with
+- The JavaScript, TypeScript, Python, Rust, Java, Kotlin, Groovy, C# and F#
+  test units that `ty init` and `ty add` write, and those in the website examples, check their results with
   `Assert.equals`, `Assert.isTrue` or `Assert.throws` (ADR 0080) instead of an
   `if` and a thrown error, so they pass the test rule `TY1339`.
 - `ty preview` and `ty serve` (while watching) never exit because of a

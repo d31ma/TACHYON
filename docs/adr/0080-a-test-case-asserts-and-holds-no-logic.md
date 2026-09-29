@@ -33,6 +33,7 @@ The driver of every test unit gives the unit a class `Assert`:
 | Rust | `Assert::equals(expected, actual)` | `Assert::is_true(condition)` | `Assert::throws(action)` |
 | Java, Groovy | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throwsError(action)` |
 | Kotlin | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws { action }` |
+| C#, F# | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws(action)` |
 
 Each check takes an optional last message, like JUnit. Rust has no optional
 arguments, so it has `equals_with_message`, `is_true_with_message` and
@@ -46,7 +47,13 @@ closure returns an `Err` or panics. `throws` is a reserved word in Java and
 Groovy, so there the method is `throwsError`. In Java, Kotlin and Groovy,
 `equals` treats two whole numbers of different sizes (`int` and `long`) as
 equal when their values are equal, so `Assert.equals(1200, total)` passes for
-a `long` total; the helper throws `AssertionError`, as JUnit does.
+a `long` total; the helper throws `AssertionError`, as JUnit does. C# and
+F# compare whole numbers the same way and compare two sequences item by
+item. In C#, `throws` also takes an `async` lambda, and in F# an action that
+returns a task; both wait for the task. The C# helper is added to a lowered
+C# test unit (Yon and Tac alike), not to the `yon.cs` prelude, so that other
+handlers never see a class named `Assert`; F# test units get an F# `Assert`
+type next to the test class.
 
 The assert of the language counts too, when it is always on: the Python
 `assert` statement and the Rust macros `assert!`, `assert_eq!` and
@@ -57,7 +64,9 @@ and workers keep assertions off. Groovy runs its `assert` always. The Kotlin
 `assert` function does not count, because it runs only with `-ea`. A Rust case that panics now fails as one case; before, the
 panic stopped the whole unit. `console.assert` does not count, because it
 only logs. `debug_assert!` does not count, because a release build removes
-it.
+it. For the same reason the C# `Debug.Assert` and the F# `assert` do not
+count: Tachyon builds .NET test units in Release mode. .NET has no assert
+that is always on and throws.
 
 ### 2. Data-driven cases, like JUnit's @ValueSource
 
@@ -74,8 +83,9 @@ async testKeepsPositiveInputs(value: number): Promise<void> {
 ```
 
 As in JUnit, the list holds literal values (at most 256). In Rust, Java,
-Kotlin and Groovy it holds numbers, strings and booleans, because the driver
-writes each input into a typed call (a `$` in a string is written as
+Kotlin, Groovy, C# and F# it holds numbers, strings and booleans, because the
+driver writes each input into a typed call (F# writes the JSON list with
+commas: `[<ValueSource([0, 5, 1000])>]`) (a `$` in a string is written as
 `\u0024`, which all three JVM languages read as a plain `$`). The annotation belongs on a `test` method of a `Test` class.
 Methods are found by name, so no `@ParameterizedTest` is needed.
 
@@ -84,7 +94,9 @@ Methods are found by name, so no `@ParameterizedTest` is needed.
 The build refuses a test case (a `test` method of a `Test` class in
 `client/tests` or `server/tests`) that has no assertion, or that holds a
 branch or a loop: `if`, `else`, `for`, `while`, `do`, `switch`, `case`,
-`match`, `loop`, `elif`, `when` (Kotlin) and the choice operator `? :`. The Python form
+`match`, `loop`, `elif`, `when` (Kotlin, C#, F#), `foreach` (C#) and the
+choice operator `? :`. F# is read through its C# view, so `match` and
+`function` count as `switch` there; `ty build` names the F# word. The Python form
 `a if condition else b` is a branch too. `&&` and `||` inside a check are
 allowed. A helper method of the unit (a name that does not begin with
 `test`) may hold logic.
@@ -99,8 +111,8 @@ the website, the fixtures and the `ty init` templates is rewritten.
 
 The first slice covers JavaScript, TypeScript, Python and Rust (helper,
 `ValueSource` and rule); the second rewrites their test units. The third
-adds Java, Kotlin and Groovy and rewrites their units. Later slices add the
-other test languages; the last slice turns the rule on.
+adds Java, Kotlin and Groovy and rewrites their units. The fourth adds C#
+and F# and rewrites their units. Later slices add the other test languages; the last slice turns the rule on.
 
 ## Consequences
 
