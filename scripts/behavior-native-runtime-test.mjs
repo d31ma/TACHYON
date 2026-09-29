@@ -15,7 +15,8 @@ class NativeBehaviorTest {
     update: { cachePut: { method: 'list', arguments: [1], target: NativeBehaviorTest.cacheTarget } },
     remove: { cacheEvict: { method: 'list', arguments: [0], target: NativeBehaviorTest.cacheTarget } },
     updateRemote: { cachePut: { method: 'list', arguments: [0], target: NativeBehaviorTest.cacheTarget }, httpExchange: { client: 'catalog', method: 'GET', path: '/products' } },
-  } }, Ledger: { methods: { settle: { transactional: { adapter: 'data' } } } } });
+  } } });
+  static swiftFoundation = ['BehaviorPlatform.swift', 'BehaviorLock.swift'];
   static mapping = JSON.stringify({ entity: 'Product', adapter: 'data', idField: 'id', table: 'products' });
   static configurationPolicies = {
     Config: {},
@@ -73,13 +74,19 @@ async function checkSwift(directory, code, fixtures, emittedPath) {
   run(directory, join(directory, 'behavior-swift'), []);
 }
 
+async function platformCode(language) {
+  if (language === 'cs') return '';
+  const folder = join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot/swift_foundation');
+  const files = await Promise.all(NativeBehaviorTest.swiftFoundation.map(name => readFile(join(folder, name), 'utf8')));
+  return '\n' + files.join('');
+}
+
 async function checkLanguage(directory, language, emittedPath) {
   assert.ok(['cs', 'swift'].includes(language), `Unknown language ${language}`);
   const stem = language === 'cs' ? 'csharp' : 'swift';
   const template = await readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot', `${stem}_runtime.${language}`), 'utf8');
   const fixtures = await readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/tests/fixtures/behavior', `${stem}-runtime.${language}`), 'utf8');
-  const foundation = language === 'cs' ? [] : await Promise.all(['BehaviorLock', 'BehaviorPlatform'].map(name => readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot/swift_foundation', `${name}.swift`), 'utf8')));
-  const code = emittedPath ? await readFile(emittedPath, 'utf8') : [emitCode(language, template), ...foundation].join('\n');
+  const code = emittedPath ? await readFile(emittedPath, 'utf8') : emitCode(language, template) + await platformCode(language);
   if (language === 'cs') await checkCSharp(directory, code, fixtures, emittedPath);
   else await checkSwift(directory, code, fixtures, emittedPath);
 }

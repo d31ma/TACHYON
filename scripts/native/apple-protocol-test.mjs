@@ -158,7 +158,8 @@ print("PASS: " + CommandLine.arguments.last!)
 function compileProbe(temporary) {
   const helper = path.join(AppleProtocolTest.native, 'apple_json.swift');
   const preludes = readFileSync(helper, 'utf8') + '\n' +
-    readFileSync(path.join(AppleProtocolTest.native, 'prelude.swift'), 'utf8');
+    readFileSync(path.join(AppleProtocolTest.native, 'prelude.swift'), 'utf8') +
+    readFileSync(path.join(AppleProtocolTest.native, 'prelude_apple.swift'), 'utf8');
   const source = path.join(temporary, 'main.swift');
   const binary = path.join(temporary, 'probe');
   writeFileSync(source, preludes + companionFixture() + hostBridge('macos') + hostBridge('ios') + protocolProbes());
