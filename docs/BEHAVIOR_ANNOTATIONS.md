@@ -861,8 +861,8 @@ instead of `Store`. The partition is the store name in lowerCamel case without
   context asynchronously. A root service that asks for a store does not
   declare its own `behaviors` member.
 - In a Tac Kotlin, Swift, Java or C# service, Tachyon gives the field a new
-  store. A Rust service fills it with `Default` (derive it, or write no
-  `fn new`). In Go, Tachyon builds the store before the service starts. Dart
+  store. A Rust service declares a `std::sync::Arc<ProductStore>` field and
+  fills it with `Default` (derive it, or write no `fn new`). In Go, Tachyon builds the store before the service starts. Dart
   builds it with the service. Ruby and F# Tac services cannot ask for a store
   yet.
 - A Store without an Entity fails with `TY1308`. Code that only runs SQL

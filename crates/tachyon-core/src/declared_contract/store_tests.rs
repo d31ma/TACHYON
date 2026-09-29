@@ -343,7 +343,7 @@ fn native_tac_stores_open_their_own_context() {
         ("rs", "impl Default for ProductStore {"),
         (
             "java",
-            "Behaviors.Context behaviors = Behaviors.create(\"ProductSetup\"",
+            "ProductStore() {\n        behaviors = Behaviors.create(\"ProductSetup\"",
         ),
     ];
     for (extension, part) in expected {

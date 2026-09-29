@@ -9,6 +9,8 @@ pub(super) struct StoreField {
 impl StoreField {
     const TYPED_PUNCTUATION: [char; 4] = ['!', '?', ';', ','];
     const POINTER: char = '*';
+    const SHARED: [&'static str; 2] = ["std::sync::Arc<", "Arc<"];
+    const SHARED_END: char = '>';
 
     pub(super) fn read(line: &str, name_first: bool) -> Option<Self> {
         let indent = &line[..line.len() - line.trim_start().len()];
@@ -25,11 +27,21 @@ impl StoreField {
         Some(Self {
             indent: indent.to_owned(),
             name: name.trim_end_matches(Self::TYPED_PUNCTUATION).to_owned(),
-            type_name: type_name
-                .trim_start_matches(Self::POINTER)
-                .trim_end_matches(Self::TYPED_PUNCTUATION)
-                .to_owned(),
+            type_name: Self::unshared(
+                type_name
+                    .trim_start_matches(Self::POINTER)
+                    .trim_end_matches(Self::TYPED_PUNCTUATION),
+            ),
         })
+    }
+
+    fn unshared(type_name: &str) -> String {
+        Self::SHARED
+            .iter()
+            .find_map(|shared| type_name.strip_prefix(shared))
+            .and_then(|inner| inner.strip_suffix(Self::SHARED_END))
+            .unwrap_or(type_name)
+            .to_owned()
     }
 
     fn two_words<'w>(words: &[&'w str], name_first: bool) -> Option<(&'w str, &'w str)> {

@@ -38,8 +38,8 @@ impl TacInjection {
         ),
         (
             "rs",
-            "#[Service]\n#[derive(Default)]\nstruct ProductService {\n    #[Needs]\n    products: ProductStore,\n    summary: String,\n}\n",
-            "struct ProductService {\n\n    products: ProductStore,",
+            "#[Service]\n#[derive(Default)]\nstruct ProductService {\n    #[Needs]\n    products: std::sync::Arc<ProductStore>,\n    summary: String,\n}\n",
+            "struct ProductService {\n\n    products: std::sync::Arc<ProductStore>,",
         ),
         (
             "go",

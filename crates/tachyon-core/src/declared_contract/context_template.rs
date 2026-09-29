@@ -13,8 +13,8 @@ impl ContextTemplate {
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new(
             "java-tac",
-            "Behaviors.Context behaviors = Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal()));",
-            "",
+            Self::JAVA_FIELD,
+            "{owner}() {\n    behaviors = Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal()));\n}",
         ),
         Self::new("groovy", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new(

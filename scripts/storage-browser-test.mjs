@@ -88,7 +88,7 @@ type GoNoteEntity struct {
 }
 `);
   write(project, 'client/components/storage/go/tac.html', '<p id="go">{goNotes.reads}</p>\n<button id="go-bump" on:click="goNotes.increment()">+</button>\n<p id="go-count">{goNotes.count}</p>\n');
-  write(project, 'client/stores/GoNoteStore.go', `// @Store(GoNoteEntity, {"fields":["id","text"],"setup":"GoNotesSetup"})
+  write(project, 'client/stores/GoNoteStore.go', `// @Store(GoNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"GoNotesSetup"})
 type GoNoteStore interface {
 \tFindByText(text BehaviorValue) (BehaviorValue, error)
 }
@@ -199,14 +199,44 @@ end
 
 function writeRustFixture(project) {
   write(project, 'client/components/storage/rs/tac.html', '<button id="rs-bump" on:click="rsCounter.increment()">+</button>\n<p id="rs-count">{rsCounter.count}</p>\n');
+  write(project, 'client/setups/RsNotesSetup.rs', `#[Setup]
+struct RsNotesSetup {}
+impl RsNotesSetup {
+    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {
+        Ok(BehaviorConfiguration::default())
+    }
+}
+`);
+  write(project, 'client/entities/RsNoteEntity.rs', `#[Entity({"adapter":"indexeddb"})]
+#[Table("rsNotes")]
+struct RsNoteEntity {
+    #[Id]
+    id: String,
+    text: String,
+}
+`);
+  write(project, 'client/stores/RsNoteStore.rs', `#[Store(RsNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"RsNotesSetup"})]
+trait RsNoteStore {
+    fn count_by_text(&self, text: BehaviorValue) -> BehaviorResult<BehaviorValue>;
+}
+`);
   write(project, 'client/services/RsCounterService.rs', `#[Service]
 #[derive(Default)]
 struct RsCounterService {
     #[LocalState]
     count: i64,
+    #[Needs]
+    note_store: std::sync::Arc<RsNoteStore>,
 }
 
 impl RsCounterService {
+    fn kept_count(&self) -> f64 {
+        match self.note_store.count_by_text(BehaviorValue::String(String::from("kept"))) {
+            Ok(BehaviorValue::Number(count)) => count,
+            _ => -1.0,
+        }
+    }
+
     fn increment(&mut self) -> i64 {
         self.count += 1;
         self.count
@@ -237,7 +267,7 @@ final class SwiftNoteEntity {
 }
 `);
   write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swiftCounter.increment()">+</button>\n<p id="swift-count">{swiftCounter.count}</p>\n');
-  write(project, 'client/stores/SwiftNoteStore.swift', `@Store(SwiftNoteEntity, {"fields":["id","text"],"setup":"SwiftNotesSetup"})
+  write(project, 'client/stores/SwiftNoteStore.swift', `@Store(SwiftNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"SwiftNotesSetup"})
 protocol SwiftNoteStore {
     func findByText(_ text: BehaviorJSON) async throws -> BehaviorJSON
 }
@@ -320,7 +350,7 @@ class JavaNoteEntity {
 }
 `);
   write(project, 'client/components/storage/java/tac.html', '<button id="java-bump" on:click="javaCounter.increment()">+</button>\n<p id="java-count">{javaCounter.count}</p>\n');
-  write(project, 'client/stores/JavaNoteStore.java', `@Store(JavaNoteEntity.class, {"fields":["id","text"],"setup":"JavaNotesSetup"})
+  write(project, 'client/stores/JavaNoteStore.java', `@Store(JavaNoteEntity.class, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"JavaNotesSetup"})
 interface JavaNoteStore {
     Object findByText(String text);
 }
@@ -412,7 +442,7 @@ class KtNoteEntity {
 }
 `);
   write(project, 'client/components/storage/kt/tac.html', '<p id="kt">{ktNotes.reads}</p>\n<button id="kt-bump" on:click="ktNotes.increment()">+</button>\n<p id="kt-count">{ktNotes.count}</p>\n');
-  write(project, 'client/stores/KtNoteStore.kt', `@Store(KtNoteEntity::class, {"fields":["id","text"],"setup":"KtNotesSetup"})
+  write(project, 'client/stores/KtNoteStore.kt', `@Store(KtNoteEntity::class, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"KtNotesSetup"})
 interface KtNoteStore {
     fun findByText(text: String): Any?
 }
@@ -486,7 +516,7 @@ public sealed class CsNoteEntity {
 }
 `);
   write(project, 'client/components/storage/cs/tac.html', '<p id="cs">{csNotes.reads}</p>\n<button id="cs-bump" on:click="csNotes.increment()">+</button>\n<p id="cs-count">{csNotes.count}</p>\n');
-  write(project, 'client/stores/CsNoteStore.cs', `[Store(typeof(CsNoteEntity), {"fields":["id","text"],"setup":"CsNotesSetup"})]
+  write(project, 'client/stores/CsNoteStore.cs', `[Store(typeof(CsNoteEntity), {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"CsNotesSetup"})]
 public interface CsNoteStore {
     System.Threading.Tasks.Task<BehaviorJSON> findByText(BehaviorJSON text);
 }
@@ -497,10 +527,10 @@ public sealed class CsNotesService {
     public BehaviorContext behaviors;
     public int reads = 0;
     [Needs]
-    CsNoteStore noteStore;
+    CsNoteStore _noteStore;
 
     public System.Threading.Tasks.Task<BehaviorJSON> kept() {
-        return noteStore.findByText(BehaviorJSON.From("kept"));
+        return _noteStore.findByText(BehaviorJSON.From("kept"));
     }
     [LocalState]
     public int count = 0;
@@ -980,6 +1010,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   expect(JSON.stringify(await evaluate(() => __root('goNotes').find('b'))), JSON.stringify({ key: 'b', reads: 2 }), 'the Go cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').list())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'the Go Store row survives a reload through the IndexedDB copy');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').kept())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'a Go service that needs GoNoteStore reads through the store, which opens the context of its Setup');
+  expect(await evaluate(() => __root('rsCounter').keptCount()), 0, 'a Rust service that needs RsNoteStore counts through the store, which opens the context of its Setup');
   expect(JSON.stringify(await evaluate(() => [__root('rubyNotes').find('a'), __root('rubyNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Ruby WebAssembly service reads its Cached value synchronously from memory');
   await evaluate(() => __root('rubyNotes').forget('a'));
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the Ruby service read again');

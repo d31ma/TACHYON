@@ -231,8 +231,9 @@ no implementation, and Tachyon generates each query.
 - Dart builds the store with the service, as it builds other collaborators.
 - Kotlin, Swift, Java and C#: the field that needs a store gets a new store
   as its private initial value, and the `@Needs` marker is removed before
-  the build. Rust: the Tac store implements `Default`, and the service fills
-  the field with `Default` (derive it, or write no `fn new`). Go: Tachyon
+  the build. Rust: the Tac store implements `Default`, the field is a
+  `std::sync::Arc<ProductStore>` (as in Yon), and the service fills it with
+  `Default` (derive it, or write no `fn new`). Go: Tachyon
   adds a method that builds each needed store with `New…Store()`, and the
   service's table calls it before the service starts.
 - Ruby and F# Tac services cannot ask for a store yet; that is planned.

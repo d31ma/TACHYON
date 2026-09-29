@@ -31,7 +31,7 @@ impl<'a> InjectedStore<'a> {
             "[Needs]",
             "{indent}private readonly {type} {name} = new {type}();",
         ),
-        ("rs", "#[Needs]", "{indent}{name}: {type},"),
+        ("rs", "#[Needs]", "{indent}{name}: std::sync::Arc<{type}>,"),
         ("go", "// @Needs", "{indent}{name} *{type}"),
     ];
     pub(super) const MODIFIERS: [&'static str; 9] = [
