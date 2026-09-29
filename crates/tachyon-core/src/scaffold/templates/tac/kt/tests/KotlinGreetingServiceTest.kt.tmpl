@@ -3,6 +3,6 @@ class KotlinGreetingServiceTest {
     fun testGreetChangesTheMessage() {
         val greeting = KotlinGreetingService()
         greeting.greet()
-        if (greeting.message != "Kotlin says hello again.") throw IllegalStateException("message is ${greeting.message}")
+        Assert.equals("Kotlin says hello again.", greeting.message)
     }
 }

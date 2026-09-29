@@ -311,9 +311,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "@Service\nclass CounterService {\n    int total() {\n        return 2;\n    }\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);\n    }\n}\n",
-            unit: "@Test(CounterTestSetup.class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    void testCounts() {\n        if (CHECK) throw new IllegalStateException(\"failed\");\n    }\n}\n",
-            named: "\"CounterService.total\".isEmpty()",
-            called: "new CounterService().total() != 2",
+            unit: "@Test(CounterTestSetup.class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    void testCounts() {\n        Assert.isTrue(CHECK, \"counted\");\n    }\n}\n",
+            named: "!\"CounterService.total\".isEmpty()",
+            called: "new CounterService().total() == 2",
         },
         NamedMethod {
             realm: "server",
@@ -323,9 +323,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "@Service\nclass CounterService {\n    fun total(): Int = 2\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
-            unit: "@Test(CounterTestSetup::class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    fun testCounts() {\n        if (CHECK) throw IllegalStateException(\"failed\")\n    }\n}\n",
-            named: "\"CounterService.total\".isEmpty()",
-            called: "CounterService().total() != 2",
+            unit: "@Test(CounterTestSetup::class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    fun testCounts() {\n        Assert.isTrue(CHECK, \"counted\")\n    }\n}\n",
+            named: "\"CounterService.total\".isNotEmpty()",
+            called: "CounterService().total() == 2",
         },
         NamedMethod {
             realm: "server",
@@ -479,9 +479,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "@Service\nclass CounterService {\n    fun total(): Int = 2\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
-            unit: "@Test(CounterTestSetup::class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    fun testCounts() {\n        if (CHECK) throw IllegalStateException(\"failed\")\n    }\n}\n",
-            named: "\"CounterService.total\".isEmpty()",
-            called: "CounterService().total() != 2",
+            unit: "@Test(CounterTestSetup::class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    fun testCounts() {\n        Assert.isTrue(CHECK, \"counted\")\n    }\n}\n",
+            named: "\"CounterService.total\".isNotEmpty()",
+            called: "CounterService().total() == 2",
         },
     ];
 

@@ -41,7 +41,7 @@ impl TestUnit {
         program: "kotlinc",
         configuration: "@Setup\nclass CatalogSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
         model: "data class Guide(val title: String, val pages: Int)\n",
-        source: "import models.Guide\n\n@Test(CatalogSetup::class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    fun testUsesAModel() {\n        val guide = Guide(\"Guide\", 3)\n        if (guide.pages != 3 || guide.title != \"Guide\") throw IllegalStateException(\"wrong guide\")\n    }\n}\n",
+        source: "import models.Guide\n\n@Test(CatalogSetup::class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    fun testUsesAModel() {\n        val guide = Guide(\"Guide\", 3)\n        Assert.equals(3, guide.pages)\n        Assert.equals(\"Guide\", guide.title)\n    }\n}\n",
     };
 
     const SWIFT: Self = Self {

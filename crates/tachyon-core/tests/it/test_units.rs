@@ -204,7 +204,7 @@ async fn a_java_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.java",
-        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    void testOpensAContext() {\n        if (this.behaviors == null) throw new IllegalStateException(\"no context\");\n    }\n    void testReportsAFailure() {\n        throw new IllegalStateException(\"this case is meant to fail\");\n    }\n}\n",
+        "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nclass CatalogServiceTest {\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, \"the case has a context\");\n    }\n    void testReportsAFailure() {\n        Assert.isTrue(false, \"this case is meant to fail\");\n    }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.java")
@@ -229,13 +229,13 @@ async fn every_compiled_language_runs_its_test_unit() {
             "groovy",
             "groovyc",
             "@TestSetup\nclass CatalogTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration([:], [:], [:], null, null)\n    }\n}\n",
-            "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    void testOpensAContext() {\n        if (this.behaviors == null) {\n            throw new IllegalStateException('no context')\n        }\n    }\n\n    void testReportsAFailure() {\n        throw new IllegalStateException('this case is meant to fail')\n    }\n}\n",
+            "@Test(CatalogTestSetup.class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    void testOpensAContext() {\n        Assert.isTrue(this.behaviors != null, 'the case has a context')\n    }\n\n    void testReportsAFailure() {\n        Assert.isTrue(false, 'this case is meant to fail')\n    }\n}\n",
         ),
         (
             "kt",
             "kotlinc",
             "@TestSetup\nclass CatalogTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
-            "@Test(CatalogTestSetup::class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    fun testOpensAContext() {\n        if (behaviors == null) throw IllegalStateException(\"no context\")\n    }\n    fun testReportsAFailure() {\n        throw IllegalStateException(\"this case is meant to fail\")\n    }\n}\n",
+            "@Test(CatalogTestSetup::class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    fun testOpensAContext() {\n        Assert.isTrue(behaviors != null, \"the case has a context\")\n    }\n    fun testReportsAFailure() {\n        Assert.isTrue(false, \"this case is meant to fail\")\n    }\n}\n",
         ),
         (
             "cs",
@@ -330,7 +330,7 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
             "kotlinc",
             "@TestSetup\nclass CatalogTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
             None,
-            "@Test(CatalogTestSetup::class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    fun testHasAContext() {\n        if (behaviors == null) throw IllegalStateException(\"no context\")\n    }\n    fun testReportsAFailure() {\n        throw IllegalStateException(\"this case is meant to fail\")\n    }\n}\n",
+            "@Test(CatalogTestSetup::class, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n    fun testHasAContext() {\n        Assert.isTrue(behaviors != null, \"the case has a context\")\n    }\n    fun testReportsAFailure() {\n        Assert.isTrue(false, \"this case is meant to fail\")\n    }\n}\n",
         ),
         (
             "cs",
