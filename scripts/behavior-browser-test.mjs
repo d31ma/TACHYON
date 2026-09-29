@@ -45,7 +45,7 @@ function writeBehaviorProviders(project, extension) {
 
 function withPrivateMembers(source, extension) {
   if (extension === 'js') return source;
-  return source.replace(/^static _/gm, 'private static _');
+  return source.replace(/^(\s*)static _/gm, '$1private static _');
 }
 
 function writePublishedExample(project, features) {
