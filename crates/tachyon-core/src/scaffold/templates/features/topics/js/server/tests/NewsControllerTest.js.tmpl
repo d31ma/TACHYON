@@ -1,11 +1,13 @@
 @Test(NewsTestSetup, {"partition":"tests"})
 export default class NewsControllerTest {
+  /** @type {ApplicationEventPublisher} */
   @Fake
   applicationEventPublisher
 
   async testPostNewsPublishesTheItem() {
+    /** @type {object[]} */
     const published = []
-    this.applicationEventPublisher = { publishEvent: (item) => published.push(item) }
+    this.applicationEventPublisher = { publishEvent: (item) => { published.push(item) } }
     this.construct(NewsController).postNews({ text: 'Hello' })
     Assert.equals(1, published.length)
   }

@@ -1,7 +1,7 @@
 @Test(NoteTestSetup, {"partition":"tests"})
 export default class NoteControllerTest {
   @Fake
-  noteStore: NoteStore;
+  noteStore!: NoteStore;
 
   async testGetNotesAsksTheStore(): Promise<void> {
     this.noteStore = { countNotes: async () => [{ notes: 3 }] } as unknown as NoteStore;

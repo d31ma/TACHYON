@@ -1,7 +1,7 @@
 @Test(NoteTestSetup, {"partition":"tests"})
 export default class NoteStoreTest {
   @Fake
-  dataSource: DataSource;
+  dataSource!: DataSource;
 
   async testCountNotesRunsOneQuery(): Promise<void> {
     const queries: string[] = [];

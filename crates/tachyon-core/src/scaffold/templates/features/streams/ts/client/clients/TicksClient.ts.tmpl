@@ -1,7 +1,7 @@
-import type { Tick } from '/models/Tick';
+import type { Tick } from '/models/Tick.ts';
 
 @HTTPClient('/ticks')
-class TicksClient {
+export default class TicksClient {
   @StreamRequest
   streamTicks(tick: Tick): void {}
 }

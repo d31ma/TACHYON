@@ -6,6 +6,6 @@ export default class HelloService {
 
   async askServer(): Promise<void> {
     const hello = await this.helloClient.getHello()
-    this.message = hello.message
+    if (hello) this.message = hello.message
   }
 }

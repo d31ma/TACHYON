@@ -1,7 +1,7 @@
-import type { ChatMessage } from '/models/ChatMessage';
+import type { ChatMessage } from '/models/ChatMessage.ts';
 
 @HTTPClient('/chat')
-class ChatClient {
+export default class ChatClient {
   declare send: SocketSend<ChatMessage>
 
   @SocketRequest

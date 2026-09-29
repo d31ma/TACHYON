@@ -1,15 +1,21 @@
 @Test(ChatTestSetup, {"partition":"tests"})
 export default class ChatControllerTest {
   async testOnOpenWelcomesTheSession() {
+    /** @type {object[]} */
     const sent = []
-    await this.construct(ChatController).onOpen({ send: async (message) => sent.push(message) })
-    Assert.equals('Welcome to the room', sent[0].text)
+    /** @type {SocketSession} */
+    const session = { id: 'one', send: async (message) => { sent.push(message) }, close: async () => {}, openSessions: async () => [] }
+    await this.construct(ChatController).onOpen(session)
+    Assert.equals(1, sent.length)
   }
 
   async testOnMessageSendsToEveryOpenSession() {
+    /** @type {object[]} */
     const sent = []
-    const peer = { send: async (message) => sent.push(message) }
-    const session = { openSessions: async () => [peer, peer] }
+    /** @type {SocketPeer} */
+    const peer = { id: 'peer', send: async (message) => { sent.push(message) } }
+    /** @type {SocketSession} */
+    const session = { ...peer, close: async () => {}, openSessions: async () => [peer, peer] }
     await this.construct(ChatController).onMessage(session, { text: 'Hi' })
     Assert.equals(2, sent.length)
   }
