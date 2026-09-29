@@ -1,8 +1,8 @@
 use super::model::{ConditionalBranch, EventArgument, EventBinding};
 use super::{
-    AttributeValue, ComponentRegistry, Expression, HydrationPolicy, Scope, ServiceDefinition,
-    ServiceRegistry, TemplateAttribute, TemplateNode, TemplateNodeKind, TemplateProgram, TextPart,
-    is_trivia,
+    AttributeValue, ComponentDefinition, ComponentRegistry, Expression, HydrationPolicy, Scope,
+    ServiceDefinition, ServiceRegistry, TemplateAttribute, TemplateNode, TemplateNodeKind,
+    TemplateProgram, TextPart, is_trivia,
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
@@ -83,9 +83,13 @@ impl<'a> ClientViewRenderer<'a> {
         })
     }
 
-    pub(crate) fn element(self, name: &str) -> Result<Value, Failure> {
+    pub(crate) fn element(
+        self,
+        name: &str,
+        component: &ComponentDefinition,
+    ) -> Result<Value, Failure> {
         let mut encoder = Encoder::new(self.components, self.services);
-        let mut element = encoder.exported_component(name)?;
+        let mut element = encoder.exported_component(name, component)?;
         element["services"] = Value::Object(self.service_catalog());
         Ok(element)
     }
@@ -378,10 +382,11 @@ impl<'a> Encoder<'a> {
         }))
     }
 
-    fn exported_component(&mut self, name: &str) -> Result<Value, Failure> {
-        let Some(component) = self.components.get(name) else {
-            return Ok(Value::Null);
-        };
+    fn exported_component(
+        &mut self,
+        name: &str,
+        component: &ComponentDefinition,
+    ) -> Result<Value, Failure> {
         let template_nodes = &component.program().nodes;
         let service_names = self.named_services(template_nodes);
         let props = self.element_props(template_nodes, &service_names);
@@ -394,13 +399,8 @@ impl<'a> Encoder<'a> {
         });
         let template = self.component_template(template_nodes, active);
         self.enclosing.pop();
-        let slot = if contains_slot(template_nodes) {
-            vec![
-                json!({ "k": "element", "tag": "slot", "attributes": [], "children": [], "void": false }),
-            ]
-        } else {
-            Vec::new()
-        };
+        let slot = contains_slot(template_nodes)
+            .then(|| json!({ "k": "element", "tag": "slot", "attributes": [], "children": [], "void": false }));
         Ok(json!({
             "props": props,
             "node": {
@@ -412,7 +412,7 @@ impl<'a> Encoder<'a> {
                 "services": services,
                 "scope": component.style_path().is_some(),
                 "template": template?,
-                "slot": slot,
+                "slot": slot.into_iter().collect::<Vec<_>>(),
             },
         }))
     }
@@ -424,17 +424,18 @@ impl<'a> Encoder<'a> {
     ) -> BTreeSet<String> {
         let mut props = BTreeSet::new();
         collect_identifiers(template_nodes, &mut props);
-        for service in service_names
+        let required = service_names
             .iter()
             .filter_map(|name| self.services.get(name))
-        {
-            props.extend(service.required().iter().cloned());
-        }
-        props.retain(|prop| {
-            !service_names.contains(prop)
-                && !ClientViewRenderer::VIEW_ROOTS.contains(&prop.as_str())
-        });
+            .flat_map(ServiceDefinition::required);
+        props.extend(required.cloned());
+        props.retain(|prop| Self::is_element_prop(prop, service_names));
         props
+    }
+
+    fn is_element_prop(name: &str, service_names: &[String]) -> bool {
+        let service = service_names.iter().any(|service| service == name);
+        !service && !ClientViewRenderer::VIEW_ROOTS.contains(&name)
     }
 
     fn check_required(

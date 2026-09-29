@@ -1,6 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
-use crate::template::{ClientViewRenderer, ComponentRegistry};
+use crate::template::{ClientViewRenderer, ComponentDefinition, ComponentRegistry};
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -29,39 +29,42 @@ impl<'a> ExportedElements<'a> {
     }
 
     pub(super) fn files(&self, names: &[String]) -> Result<Vec<(PathBuf, Vec<u8>)>, Failure> {
-        let mut files = Vec::new();
-        for name in names {
-            self.check(name)?;
-            let path = PathBuf::from(format!("{}/{name}.js", Self::FOLDER));
-            files.push((path, self.module(name)?));
-        }
-        Ok(files)
+        names.iter().map(|name| self.file(name)).collect()
     }
 
-    fn check(&self, name: &str) -> Result<(), Failure> {
-        if self.components.get(name).is_none() {
-            return Err(Self::failure(
+    fn file(&self, name: &str) -> Result<(PathBuf, Vec<u8>), Failure> {
+        let component = self.component(name)?;
+        Self::check_hyphen(name)?;
+        let path = PathBuf::from(format!("{}/{name}.js", Self::FOLDER));
+        Ok((path, self.module(name, component)?))
+    }
+
+    fn component(&self, name: &str) -> Result<&'a ComponentDefinition, Failure> {
+        self.components.get(name).ok_or_else(|| {
+            Self::failure(
                 format!("tac.elements names `{name}`, but no component has that tag."),
                 String::from(
                     "Use the tag of a folder under client/components: client/components/shop/counter is `shop-counter`.",
                 ),
-            ));
-        }
-        if !name.contains('-') {
-            return Err(Self::failure(
+            )
+        })
+    }
+
+    fn check_hyphen(name: &str) -> Result<(), Failure> {
+        name.contains('-').then_some(()).ok_or_else(|| {
+            Self::failure(
                 format!(
                     "`{name}` cannot be a custom element, because the name of a custom element must contain a hyphen."
                 ),
                 format!(
                     "Move client/components/{name} into a folder with two parts, such as client/components/app/{name}, and export `app-{name}`."
                 ),
-            ));
-        }
-        Ok(())
+            )
+        })
     }
 
-    fn module(&self, name: &str) -> Result<Vec<u8>, Failure> {
-        let mut definition = self.renderer.element(name)?;
+    fn module(&self, name: &str, component: &ComponentDefinition) -> Result<Vec<u8>, Failure> {
+        let mut definition = self.renderer.element(name, component)?;
         definition["styles"] = Value::Bool(self.has_styles);
         let module = format!("{}TacElements.define({definition})\n", Self::RUNTIME_IMPORT);
         Ok(module.into_bytes())

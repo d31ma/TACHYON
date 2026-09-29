@@ -1,12 +1,18 @@
 {
   "heading": "Export a component",
   "axis": "language",
-  "body": "List the component in `tac.elements` in `client/manifest.json`. Write its tag, as a page writes it: the folder `client/components/shop/counter` is `shop-counter`. `ty build` and `ty preview` then write `.tachyon/elements/shop-counter.js`, beside the runtime and the services that a Tac page already loads. A custom element is a tag that JavaScript defines, and the HTML standard says that its name must contain a hyphen. So a component in a folder with one part, such as `client/components/counter`, cannot be exported: the build stops with `TY1358`. `TY1358` also stops a name that is not a component (ADR 0086).\n\nThe element accepts a prop (a value that it receives) for each name that the template reads, except service names, loop names, `data` and `page`. It also accepts each field that a service needs with `@NeedsAll`. Here those props are `label` and `start`. When a service publishes an event, the element also sends it to the page as a DOM event. The event name is the model name in kebab case (words in small letters, joined by hyphens): `CountChanged` becomes `count-changed`. Choose JavaScript or TypeScript above the code.",
+  "body": "List the component in `tac.elements` in `client/manifest.json`. Write its tag, as a page writes it: the folder `client/components/shop/counter` is `shop-counter`. `ty build` and `ty preview` then write `.tachyon/elements/shop-counter.js`, beside the runtime and the services that a Tac page already loads. A custom element is a tag that JavaScript defines, and the HTML standard says that its name must contain a hyphen. So a component in a folder with one part, such as `client/components/counter`, cannot be exported: the build stops with `TY1358`. `TY1358` also stops a name that is not a component (ADR 0086).\n\nThe element accepts a prop (a value that it receives) for each name that the template reads, except service names, loop names, `data` and `page`. It also accepts each field that a service needs with `@NeedsAll`. Here those props are `label` and `start`. When a service publishes an event, the element also sends it to the page as a DOM event. The event name is the model name in kebab case (words in small letters, joined by hyphens): `CountChanged` becomes `count-changed`. The component still works on your own Tac pages, such as `/shop` here. Choose JavaScript or TypeScript above the code.",
   "files": [
     {
       "name": "client/manifest.json",
       "code": {
         "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/pages/shop/tac.html",
+      "code": {
+        "file": "client/pages/shop/tac.html"
       }
     },
     {
