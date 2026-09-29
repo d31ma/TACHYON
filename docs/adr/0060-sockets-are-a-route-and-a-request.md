@@ -131,3 +131,10 @@ Two-way messages need no hand-written `WebSocket` code. Each connection costs
 one handler process, so the session limit is small and fixed. Every Yon
 language reads the same `message` frames, so a socket class can be written in
 the language of the rest of the server.
+
+## Amendment (2026-09-29)
+
+The `@SocketRequest` method belongs to an `HTTPClient` contract (ADR 0048
+amendment): a class with empty method bodies in JavaScript and TypeScript.
+`declare send: SocketSend<Message>` stays allowed, because it declares a type
+and holds no state.

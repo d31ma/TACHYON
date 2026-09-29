@@ -76,7 +76,9 @@ Rules and results:
   route parameters use parameter annotations such as `@FromBody`, and maps
   `/models/Hello.ts` to the realm folder.
 - A request method such as `@GetRequest` keeps an empty body, because
-  Tachyon writes it. An empty body returns nothing to TypeScript, so declare
+  Tachyon writes it. TypeScript accepts annotations only on a method with a
+  body, so a TypeScript `HTTPClient` is a class whose methods have empty
+  bodies. An empty body returns nothing to TypeScript, so declare
   the answer as `Promise<Hello | void>` and check the value before use.
 
 A type that has a role needs three things: a matching name suffix, the exact
@@ -251,11 +253,11 @@ These restrictions fail before any adapter runs.
 | `@Table('products')` | Gives the required table mapping for an entity. The mapping cannot change. Tachyon runs no DDL, creates no schema and runs no migration. |
 | `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares bounded query methods on a service in the same source. The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, the bare name elsewhere. The bare `Store` is the injectable role, in both realms. |
 | `@Query({"operation":"find","where":[{"field":"status","operator":"eq","argument":0}],"orderBy":[]})` | Turns an empty method into an authorized, structured query to the entity adapter. Never SQL text. A `find` reads its page request from the parameter marked `@PageDefaults`. |
-| `@HTTPClient({"adapter":"catalog","path":"/products"})` with `@GetRequest` | Declares an outgoing call through the selected HTTP adapter. It does not register a Yon route. `GetRequest`, `PostRequest`, `PutRequest`, `PatchRequest` and `DeleteRequest` select the verb and optional method path. `PathVariable`, `RequestParam`, `RequestHeader` and `RequestBody` select argument values. A marked signature has an empty body. An unmarked method may return its own `{query, headers, body}` descriptor. GET requests cannot have a body. See ADR 0048. |
+| `@HTTPClient({"adapter":"catalog","path":"/products"})` with `@GetRequest` | Declares an outgoing call through the selected HTTP adapter. It does not register a Yon route. `GetRequest`, `PostRequest`, `PutRequest`, `PatchRequest` and `DeleteRequest` select the verb and optional method path. `PathVariable`, `RequestParam`, `RequestHeader` and `RequestBody` select argument values. An `HTTPClient` is a contract with no implementation, like a Spring `@HttpExchange` interface: declare it in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). A class form where the language has a contract form, a method body, a field, a constructor, a method without a request annotation, or another role on the same class fails with `TY1308`. `ty migrate fix --write` rewrites a class client. `{"setup":"CatalogSetup"}` names the Setup whose adapters send the requests; the default is the client name with `Setup` instead of `Client`. GET requests cannot have a body. See ADR 0048. |
 | `@StreamRequest("/ticks")` on an `@HTTPClient` method in JavaScript or TypeScript | Tac keeps a stream of server-sent events open at the path: it opens it when a component or service first uses the client, reconnects with a growing wait (1, 2, 4, 8 and 16 seconds, then it stops), reconnects after 60 seconds without a message, and closes it with its owner or when the server sends `end`. The method takes one parameter whose model type describes each message. A message that does not fit the model is dropped. Tac passes each message to the method and then publishes it as that model's event, so an `@OnEvent` listener in any Tac language receives it. It pairs with `@StreamRoute` on the server. See ADR 0058. |
 | `@Topic` on a model in a models folder | Makes the model a topic (ADR 0061). `publishEvent(model)` of a Topic model also appends the value to `data/topics/<kebab-name>.jsonl` (the folder is `topics.directory` in `server/application.json`), and the server calls each `@OnEvent` listener of that model in the other Yon files and languages once; the publishing request's own listeners are not called again. A Tac `@OnEvent` listener for a Topic model opens `/.tachyon/topics/<kebab-name>` by itself. Spelled `@topic` in Python, `#[Topic]` in Rust, PHP and Ruby, `[Topic]` in C#, `// @Topic` in Go, `/** @Topic */` in TypeScript and ` * @Topic` in a JavaScript `@typedef` block. Refused outside a models folder and when no model follows it. |
 | `@SocketRequest("/chat")` on an `@HTTPClient` method in JavaScript or TypeScript | Tac keeps a WebSocket open at the path (`ws:` or `wss:` on the page's origin): it opens it when a component or service first uses the client, reconnects with a growing wait (1, 2, 4, 8 and 16 seconds, then it stops) unless the server closed it normally or refused a message, and closes it with its owner. The method takes one parameter whose model type describes each incoming message; Tac checks it, passes it to the method and publishes it as that model's event for `@OnEvent`. The client also gets `send(message)`, which sends JSON text (TypeScript declares it with `declare send: SocketSend<ChatMessage>`). A class has at most one `@SocketRequest`. It pairs with `@SocketRoute` on the server. See ADR 0060. |
-| `@Gateway({"class":"server/services/ReportService.java","method":"summarize"})` or `@Gateway({"command":["ruby","server/helpers/report.rb"]})` | Yon only. Declares a method that another language answers: a class in another Yon language, or a program. Like a declared HTTP request, it is **declared as a signature with an empty body**. The positional arguments (at most 32) travel as bounded JSON, and the other side's return value is the result. A failure is a BehaviorError with the code `invalid`, `timeout`, `capacity` or `adapter` and the fixed message `Gateway call failed.`. It cannot be combined with another method annotation. See [Gateways](#gateways). |
+| `@Gateway({"class":"server/services/ReportService.java","method":"summarize"})` or `@Gateway({"command":["ruby","server/helpers/report.rb"]})` | Yon only. Declares a method that another language answers: a class in another Yon language, or a program. Like a declared HTTP request, it is **declared as a signature**: a method of the client contract. The positional arguments (at most 32) travel as bounded JSON, and the other side's return value is the result. A failure is a BehaviorError with the code `invalid`, `timeout`, `capacity` or `adapter` and the fixed message `Gateway call failed.`. It cannot be combined with another method annotation. See [Gateways](#gateways). |
 | `@Settings({"prefix":"YON_APP_"})` | Defines explicit binding of a string map into typed, bounded JSON. The class's instance fields are the settings: each field's declared type and initial value give its type and default, and `@Min`/`@Max` on a field give its range. The environment name is the field name in capitals with underscores (`pageSize` is `YON_APP_PAGE_SIZE`); `"names":{"pageSize":"SIZE"}` renames one. Rust and Go fields have no initial values, so their defaults go in `"defaults":{...}`. Use `TAC_` prefixes in Tac. |
 | `@WhenProfile('development', 'test')` | Selects a Setup when any listed profile is active (an explicit OR allowlist of active profiles). |
 | `@WhenSetting({"name":"YON_CACHE_ENABLED","havingValue":"true","matchIfMissing":false})` | Requires an exact, explicitly supplied string value before the Setup runs. |
@@ -572,16 +574,36 @@ members: the behavior context, the constructor and every body.
 
 | Language | Declaration | Method |
 | --- | --- | --- |
-| Java, Groovy, Kotlin, C#, PHP | `interface ProductStore` | no body |
-| TypeScript | `abstract class ProductStore` | `abstract` member, no body |
-| Swift | `protocol ProductStore` | no body |
-| Rust | `trait ProductStore` | no body |
-| Python | `class ProductStore(Protocol)` | `...` |
-| JavaScript | `class ProductStore` | `{}` |
+| Java, Groovy, Kotlin, C#, PHP | `interface CatalogClient` | no body |
+| Go | `type CatalogClient interface { … }` | a method of the interface |
+| Dart | `abstract interface class CatalogClient` | no body |
+| Swift | `protocol CatalogClient` | no body |
+| Rust | `trait CatalogClient` | no body |
+| Python | `class CatalogClient(Protocol)` | `...` |
+| JavaScript, TypeScript, Ruby | `class CatalogClient` | an empty body |
 
-JavaScript has no method without a body, and Python has no `def` without a
-body. So those two languages write the closest equivalent. Everywhere else, the
-declaration has the same shape as Spring's.
+JavaScript and Ruby have no method without a body, and TypeScript accepts
+annotations only on a method with a body (an interface or an `abstract` member
+cannot carry `@GetRequest`). So those languages write a class whose methods
+have empty bodies. Everywhere else, the declaration has the same shape as
+Spring's.
+
+An `HTTPClient` must use this form (ADR 0048). A client written as a class in a
+language that has a contract form, any method body, a field, a constructor, a
+method without a request or gateway annotation, or a client that also carries
+another role fails with `TY1308`: "An HTTPClient has no implementation:
+Tachyon generates each request. Move the logic into a service."
+`ty migrate fix --write` rewrites a class client into the contract form when
+its methods only send requests.
+
+Tachyon builds the client and its behavior context. The context comes from a
+Setup: `{"setup":"CatalogSetup"}` on `@HTTPClient` names it, and the default is
+the client name with `Setup` instead of `Client`. The partition is the adapter
+name. A client whose methods are all `@Gateway` methods needs no context. In
+Yon, `@Needs` injects the client. A Tac service in Rust, Go, C#, Kotlin, Swift
+or Dart builds it: `CatalogClient::new()`, `NewCatalogClient()`,
+`new CatalogClient()` or `CatalogClient()`. Tac JavaScript and TypeScript
+clients stay managed by the page.
 
 In the example below, `findByStatus` and `countByStatus` are derived from their
 names and checked against the field allowlist. The client methods are declared
@@ -604,24 +626,9 @@ interface CatalogClient {
 }
 ```
 
-An abstract declaration accepts signatures only. Tachyon refuses a member with
-a body, an authored constructor and a `@Needs` field, because it generates
-each of them. The concrete form below is still available wherever a role also
-has ordinary methods:
-
 ```javascript
-@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})
-class ProductStore {
-  @Needs
-  behaviors;
-  async findByStatus(status) {}
-  async countByStatus(status) {}
-}
-
 @HTTPClient
 class CatalogClient {
-  @Needs
-  behaviors;
   @GetRequest("/products")
   async search(@RequestParam("page") page, @RequestHeader("X-Tenant") tenant) {}
 
@@ -629,6 +636,9 @@ class CatalogClient {
   async save(@RequestBody product) {}
 }
 ```
+
+A Store may still use the concrete form wherever it also has ordinary methods
+(ADR 0059).
 
 The request is built only from the arguments. Tachyon resolves parameter
 annotations at compile time and evaluates no configuration expressions.
@@ -1121,9 +1131,10 @@ mass assignment.
 
 ### Outbound HTTP
 
-An HTTPClient class selects a transport and optional base path. Its request
-methods use parameter annotations with empty bodies. Alternatively, an unmarked
-method returns `{query?,headers?,body?}`. The wrapper calls the named transport's
+An HTTPClient contract selects a transport and optional base path. Its request
+methods are signatures whose parameter annotations map each argument. Use
+`RestClient` from a service when the shape of the request is known only at
+call time. The wrapper calls the named transport's
 `exchange(request, execution)` and returns its bounded JSON result.
 
 - The adapter owns a trusted base origin.
@@ -1146,8 +1157,7 @@ policy.
 ### Gateways
 
 A Gateway method is answered by code in another language. It works only in
-Yon. Declare it on a managed role, usually an `HTTPClient`, as a signature with an
-empty body. The configuration names one of two targets:
+Yon. Declare it on a managed role, usually an `HTTPClient` contract, as a signature. The configuration names one of two targets:
 
 - `{"class":"server/services/ReportService.java","method":"summarize"}` names
   a role file in another Yon language. `method` is optional and defaults to the
@@ -1224,17 +1234,20 @@ fails the start-up preflight with `TY2112`; the program is looked up on the
 `PATH`, not run. A target language whose role files use local events or
 lifecycle hooks cannot host a generated unit yet (`TY1312`).
 
-| Language | Declaration |
+| Language | Declaration in the `HTTPClient` contract |
 | --- | --- |
 | JavaScript | `@Gateway({...})` then `async summarize(period) {}` |
 | TypeScript | `@Gateway({...})` then `async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}` |
-| Python | `@gateway({...})` then `def summarize(self, period): ...` (or `async def`) |
-| PHP | `#[Gateway({...})]` then `public function summarize($period) {}` |
-| Java | `@Gateway({...})` then `Object summarize(Object period) {}` |
-| Kotlin | `@Gateway({...})` then `fun summarize(period: Any?): Any? {}` |
-| C# | `[Gateway({...})]` then `public BehaviorJSON Summarize(BehaviorJSON period) {}` |
-| Rust | `#[Gateway({...})]` then `fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue> {}` |
-| Dart | `@Gateway({...})` then `Future<Object?> summarize(Object? period) async {}` |
+| Ruby | `#[Gateway({...})]` then `def summarize(period)` and `end` |
+| Python | `@gateway({...})` then `def summarize(self, period): ...` (or `async def`) in a `Protocol` class |
+| PHP | `#[Gateway({...})]` then `public function summarize($period);` in an `interface` |
+| Java | `@Gateway({...})` then `Object summarize(Object period);` in an `interface` |
+| Groovy | `@Gateway({...})` then `Object summarize(Object period)` in an `interface` |
+| Kotlin | `@Gateway({...})` then `fun summarize(period: Any?): Any?` in an `interface` |
+| C# | `[Gateway({...})]` then `BehaviorJSON Summarize(BehaviorJSON period);` in an `interface` |
+| Rust | `#[Gateway({...})]` then `fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;` in a `trait` |
+| Dart | `@Gateway({...})` then `Future<Object?> summarize(Object? period);` in an `abstract interface class` |
+| Go | `// @Gateway({...})` then `Summarize(period BehaviorValue) (BehaviorValue, error)` in an `interface` |
 
 A target method uses the same JSON value type for its parameters. Its result
 may be that type or the language's asynchronous or result form. Overloads in

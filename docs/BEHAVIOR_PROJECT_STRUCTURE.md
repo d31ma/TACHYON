@@ -86,8 +86,11 @@ both realms (ADR 0031).
 - A Tac Helper is an injectable role with no process rights.
 - A Tac bare Store and a Tac Client are providers. They are injected into
   services through NeedsAll.
-- HTTPClient also supports automatic browser Tac JS/TS construction. Native
-  clients keep explicitly configured HTTP adapters.
+- HTTPClient also supports automatic browser Tac JS/TS construction. A client
+  is a contract with no implementation (an interface, trait, protocol,
+  Protocol class, or a class with empty methods in JavaScript, TypeScript and
+  Ruby). Tachyon generates it; a native Tac service builds it, and its Setup
+  configures the HTTP adapter.
 - Object-form query Store, Setup and Entity are shared.
 
 These rules do not enable a role on a framework or target that does not

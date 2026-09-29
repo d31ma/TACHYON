@@ -159,3 +159,32 @@ on the website.
   `ty migrate fix --write` or move their routes by hand.
 - The Tac and Yon realms no longer mirror each other in routing: pages stay
   folders, and APIs are annotations.
+
+## Amendment (2026-09-29): an HTTPClient is a contract
+
+`HTTPClient` follows Spring's `@HttpExchange` interface clients: it has no
+implementation, and Tachyon generates each request.
+
+- A client is declared in the bodiless form of its language: an `interface`
+  in Java, Groovy, Kotlin, C# and PHP; `type XClient interface { … }` in Go;
+  an `abstract interface class` in Dart; a `trait` in Rust; a `protocol` in
+  Swift; a `Protocol` class with `...` bodies in Python. JavaScript and Ruby
+  have no method without a body, and TypeScript accepts annotations only on
+  a method with a body, so those languages write a class whose methods are
+  empty. F# gets an interface when F# clients arrive.
+- The build fails with `TY1308` (fail closed, rule table of ADR 0056) for a
+  class client where the language has a contract form, any method body, a
+  field, a constructor, a method without a request or gateway annotation, and
+  a client that also carries another role: "An HTTPClient has no
+  implementation: Tachyon generates each request. Move the logic into a
+  service." The old unmarked descriptor methods that returned
+  `{query, headers, body}` are gone; `RestClient` covers requests whose shape
+  is known only at call time.
+- Before events, lifecycle and injection read the role files, the compiler
+  turns each contract into the concrete client it used to be, with the
+  behavior context created from a Setup: `{"setup":"CatalogSetup"}`, by
+  default the client name with `Setup` instead of `Client`, and the adapter
+  name as partition. Gateway-only clients get no context. Tac JavaScript and
+  TypeScript clients stay managed by the page.
+- `ty migrate fix --write` rewrites a class client whose methods only send
+  requests; a client with logic or state is a manual step.

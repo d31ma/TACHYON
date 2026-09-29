@@ -27,7 +27,7 @@ The example below shows two files:
 @HTTPClient({"cache":"network-first"})
 class CatalogClient {
   @GetRequest("/api/catalog")
-  async list() { return {}; }
+  async list() {}
 
   @PostRequest("/api/catalog")
   async save(@RequestBody item) {}

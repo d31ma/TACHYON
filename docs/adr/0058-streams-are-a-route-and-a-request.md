@@ -80,3 +80,10 @@ an `@OnEvent` listener replace it. The browser event bus
 behaviour with a fake `EventSource`. `tac-client.js` did not change. Existing
 controllers that stream must be renamed; the migration fix does this for the
 common case.
+
+## Amendment (2026-09-29)
+
+The `@StreamRequest` method belongs to an `HTTPClient` contract (ADR 0048
+amendment). In JavaScript and TypeScript the contract is a class whose
+methods have empty bodies, so the stream method keeps its empty body and
+Tachyon writes it.

@@ -276,7 +276,7 @@ bind it explicitly. Put this role in `client/clients/SettingsClient.js`:
 @HTTPClient
 class SettingsClient {
   @GetRequest("/manifest.webmanifest")
-  async load() { return {}; }
+  async load() {}
 }
 ```
 

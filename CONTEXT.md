@@ -27,8 +27,10 @@ The rewrite never imports private code from the legacy implementation.
 - **Yon** is the server-side layer for REST endpoints and handlers.
   `RequestRoute` and method route annotations on classes in
   `server/controllers/` declare paths and HTTP verbs (ADR 0048).
-- **HTTPClient** is Tachyon's declarative HTTP role. `GetRequest` and the
-  other request annotations give the request metadata. Tachyon finds browser JavaScript/TypeScript clients next
+- **HTTPClient** is Tachyon's declarative HTTP role, like a Spring
+  `@HttpExchange` interface: a contract with no implementation that Tachyon
+  generates. `GetRequest` and the other request annotations give the request
+  metadata. Tachyon finds browser JavaScript/TypeScript clients next
   to their entry point. It injects them with a cancellation that is bound to
   their owner. Native HTTP adapters still need explicit configuration.
 - **Managed resource** is a datasource or Redis connection that the server
