@@ -83,3 +83,15 @@ object Thread {
 
     fun interrupt() = Unit
 }
+
+class ThreadLocal<T>(private var value: T) {
+    fun get(): T = value
+
+    fun set(replacement: T) {
+        value = replacement
+    }
+
+    companion object {
+        fun <T> withInitial(initial: () -> T): ThreadLocal<T> = ThreadLocal(initial())
+    }
+}
