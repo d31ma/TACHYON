@@ -76,11 +76,13 @@ check refused every `@Needs` field. The `jsconfig.json` that `ty init`
 writes for a realm with JavaScript code turns only this check off; a realm
 that uses only TypeScript keeps the full `strict` check. The type rule
 checks the fields instead: in a JavaScript class file, a field without a
-starting value is refused with `TY1356` unless Tachyon fills it. Tachyon
-fills a field marked `@Needs`, `@Setting` or `@Fake`, every field of a class
-marked `@NeedsAll` or `@Needs(...)`, and the fields of an `@Entity`. The
-message names the field; the help shows both fixes, a starting value or
-`@Needs`.
+starting value is refused with `TY1356` unless the constructor or an
+`@OnStart` method sets it (`this.name = ...`, as `tsc` accepts a constructor
+assignment) or Tachyon fills it. Tachyon fills a field marked `@Needs`,
+`@Setting` or `@Fake`, every field of a class marked `@NeedsAll` or
+`@Needs(...)`, the fields of an `@Entity`, and `applicationEventPublisher`.
+The message names the field; the help shows the fixes: a starting value, a
+setter in the constructor or `@OnStart`, or `@Needs`.
 
 ### No escape hatches in class files
 

@@ -33,6 +33,12 @@ impl KnownClasses {
         }
     }
 
+    pub(super) fn is_framework_field(field: &str) -> bool {
+        Self::FRAMEWORK_FIELDS
+            .iter()
+            .any(|(name, _)| *name == field)
+    }
+
     pub(super) fn contains(&self, name: &str) -> bool {
         self.names.contains(name)
     }

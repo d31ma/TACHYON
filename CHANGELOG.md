@@ -29,9 +29,10 @@ machine contracts have their own, independent major versions.
   website, fixtures, corpus and `ty init` templates pass it. The website's
   own services no longer start with `// @ts-nocheck`.
 - The type rule (`TY1356`) also refuses a JavaScript class field that has no
-  starting value and that Tachyon does not fill (`@Needs`, `@Setting`,
-  `@Fake`, a class marked `@NeedsAll`, or an `@Entity`). The help shows both
-  fixes. It replaces `tsc`'s `strictPropertyInitialization` check, which the
+  starting value, that the constructor or an `@OnStart` method does not set,
+  and that Tachyon does not fill (`@Needs`, `@Setting`, `@Fake`, a class
+  marked `@NeedsAll`, an `@Entity`, or `applicationEventPublisher`). The help
+  shows the fixes. It replaces `tsc`'s `strictPropertyInitialization` check, which the
   `jsconfig.json` of `ty init` now turns off for realms with JavaScript code,
   because JavaScript cannot mark an injected field with `!`. A realm that uses
   only TypeScript keeps the full `strict` check (ADR 0079 amendment).

@@ -62,7 +62,7 @@ fn javascript_members_need_jsdoc_types() {
 
 #[test]
 fn a_javascript_field_starts_with_a_value_or_is_filled_by_tachyon() {
-    let service = "@Service\nexport default class ShelfService {\n  /** @type {ShelfStore} */\n  @Needs\n  shelfStore;\n  /** @type {string} */\n  @Setting(\"${tac.shelf.name:Main}\")\n  name;\n  /** @type {string[]} */\n  labels = [];\n  /** @type {number | undefined} */\n  chosen;\n}\n";
+    let service = "@Service\nexport default class ShelfService {\n  /** @type {ShelfStore} */\n  @Needs\n  shelfStore;\n  /** @type {string} */\n  @Setting(\"${tac.shelf.name:Main}\")\n  name;\n  /** @type {string[]} */\n  labels = [];\n  /** @type {number | undefined} */\n  chosen;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  /** @type {number} */\n  opened;\n  /** @type {number} */\n  made;\n\n  constructor() {\n    this.made = 1;\n  }\n\n  @OnStart\n  open() {\n    this.opened = 2;\n  }\n}\n";
     let filled = "@Service\n@NeedsAll\nexport default class BoxService {\n  /** @type {ShelfStore} */\n  shelfStore;\n}\n";
     let entity = "@Entity\nclass BoxEntity {\n  /** @type {number} */\n  @Id\n  id;\n}\n";
     let typescript = "@Service\nexport default class TrayService {\n  chosen!: number;\n}\n";
@@ -78,7 +78,7 @@ fn a_javascript_field_starts_with_a_value_or_is_filled_by_tachyon() {
     );
     let helps = TypedProject::helps(&files);
     assert!(
-        helps[0].starts_with("Give it a starting value (`chosen = value`), or put `@Needs` above it when Tachyon should fill it."),
+        helps[0].starts_with("Give it a starting value (`chosen = value`) or set it in the constructor or an `@OnStart` method; put `@Needs` above it when Tachyon should fill it."),
         "{helps:?}"
     );
 }
