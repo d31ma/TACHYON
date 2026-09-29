@@ -517,9 +517,6 @@ fn tac_write(value: &TacValue) -> String {
 }
 
 fn tac_bounded_json(raw: &str) -> bool {
-    if raw.len() > 65_536 {
-        return false;
-    }
     let mut depth = 0u8;
     let mut quoted = false;
     let mut escaped = false;
@@ -774,8 +771,15 @@ fn tac_use_member(
 }
 
 fn tac_handle(raw: &str) -> String {
+    const REQUEST_LIMIT: usize = 65_536;
+    if raw.len() > REQUEST_LIMIT {
+        return tac_error(&format!(
+            "The request is {} bytes. The limit is {REQUEST_LIMIT} bytes. Pass less data to the service.",
+            raw.len()
+        ));
+    }
     if !tac_bounded_json(raw) {
-        return String::from("{\"error\":\"Invalid or oversized companion request.\"}");
+        return String::from("{\"error\":\"Invalid companion request.\"}");
     }
     let request = TacScanner::new(raw).object();
     let Some(operation) = tac_entry_text(&request, "op") else {

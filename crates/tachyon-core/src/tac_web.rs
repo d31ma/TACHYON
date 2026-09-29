@@ -501,10 +501,13 @@ mod tests {
              const after = one.increment()\n\
              const label = one.label\n\
              const added = one.add(new Event('click'), 9, 'now')\n\
+             let bigStart = '', bigCall = ''\n\
+             try { new CounterService({ label: 'x'.repeat(1100000) }) } catch (error) { bigStart = error.message }\n\
+             try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
              one.__tachyonDispose()\n\
              let stale = false\n\
              try { one.count } catch { stale = true }\n\
-             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0] }))\n";
+             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0], bigStart, bigCall }))\n";
 
         const GO_COUNTER_MODELS: [(&str, &str); 2] = [
             (
@@ -694,7 +697,10 @@ mod tests {
              Object.defineProperty(one, '__tachyonPublisher', { value: { publishEvent: (event, value) => events.push([event, value]) } })\n\
              one.__tachyonStarted()\n\
              const added = one.add(new Event('click'), 5, 'clicks')\n\
-             console.log(JSON.stringify({ size: one.size(), other: two.size(), added, count: one.count, otherCount: two.count, events }))\n\
+             let bigStart = '', bigCall = ''\n\
+             try { new TallyService({ source: 'x'.repeat(1100000) }) } catch (error) { bigStart = error.message }\n\
+             try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
+             console.log(JSON.stringify({ size: one.size(), other: two.size(), added, count: one.count, otherCount: two.count, events, bigStart, bigCall }))\n\
              process.exit(0)\n";
     }
 
@@ -819,6 +825,14 @@ mod tests {
         .await;
         let report = run_driver(root.path(), Fixtures::COUNTER_DRIVER);
         assert_counter_report(&report);
+        assert_eq!(
+            report["bigStart"],
+            "Web service counter: The request is 1100115 bytes. The limit is 65536 bytes. Pass less data to the service."
+        );
+        assert_eq!(
+            report["bigCall"],
+            "Web service counter: The request is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
+        );
     }
 
     async fn rust_counter(profile: crate::BuildProfile) -> (Vec<String>, usize) {
@@ -978,6 +992,14 @@ mod tests {
             &format!("{}{driver}process.exit(0)\n", Fixtures::FILE_FETCH),
         );
         assert_counter_report(&report);
+        assert_eq!(
+            report["bigStart"],
+            "Web service counter: The request is 1100115 bytes. The limit is 1048576 bytes. Pass less data to the service."
+        );
+        assert_eq!(
+            report["bigCall"],
+            "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
+        );
         assert!(root.path().join("go/services.wasm").is_file());
         let glue = std::fs::read_to_string(root.path().join("go/wasm_exec.js")).expect("glue");
         assert!(glue.contains("globalThis.Go = class"));
@@ -1207,6 +1229,14 @@ mod tests {
             assert_eq!(
                 report["events"],
                 serde_json::json!([["TallyAdded", {"count": 5}]])
+            );
+            assert_eq!(
+                report["bigStart"],
+                "Web service tally: The request is 1100114 bytes. The limit is 1048576 bytes. Pass less data to the service."
+            );
+            assert_eq!(
+                report["bigCall"],
+                "Web service tally: The request to add is 70119 bytes. The limit is 65536 bytes. Pass less data to the service."
             );
         }
     }

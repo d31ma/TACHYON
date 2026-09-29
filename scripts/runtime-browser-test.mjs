@@ -1119,6 +1119,10 @@ async function checkNativeBridge(browser, origin) {
       rendered: document.querySelector('#native-value').textContent };
   });
   assert.deepEqual(bridge, { atStart: 0, answer: 'called', queued: 'queued', owned: true, routes: true, services: true, reserved: false, set: true, rendered: 'changed' });
+  const tooBig = await native.evaluate(async () => {
+    try { await __root('runtimeNative').act('x'.repeat(70000)); return 'accepted'; } catch (error) { return error.message; }
+  });
+  assert.equal(tooBig, 'Native service runtimeNative: The request to act is 70129 bytes. The limit is 65536 bytes. Pass less data to the service.');
   await native.click('#native-argument');
   await native.waitForFunction(() => nativeCalls.some((call) => call.op === 'call' && call.args?.[0] === 7));
   await native.fill('#native-explicit-event', 'authored');

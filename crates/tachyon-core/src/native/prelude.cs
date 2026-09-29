@@ -475,15 +475,20 @@ public partial class Tac
         Activations.Clear(); Executing = null;
         foreach (var owner in owners) DisposeActivation(owner);
     }
+    private const int StartUpRequestLimit = 1048576;
+    private const int MemberRequestLimit = 65536;
+    private static string TooLarge(string subject, int size, int limit) =>
+        "{\"error\":" + Encode($"The {subject} is {size} bytes. The limit is {limit} bytes. Pass less data to the service.") + "}";
     private static string Handle(string request)
     {
         try
         {
             var size = Encoding.UTF8.GetByteCount(request);
-            if (size > 1048576) throw new ArgumentException("Oversized native request.");
+            if (size > StartUpRequestLimit) return TooLarge("request", size, StartUpRequestLimit);
             var parsed = JsonNode.Parse(request)?.AsObject();
             var operation = parsed?["op"]?.GetValue<string>();
-            if (operation != "init" && size > 65536) throw new ArgumentException("Oversized native request.");
+            if (operation != "init" && size > MemberRequestLimit)
+                return TooLarge("request to " + (parsed?["name"]?.GetValue<string>() ?? operation), size, MemberRequestLimit);
             if (operation == "host-dispose") { DisposeAll(); return "{\"value\":null}"; }
             var route = parsed?["route"]?.GetValue<string>() ?? "";
             var owner = parsed?["owner"]?.GetValue<string>() ?? "";

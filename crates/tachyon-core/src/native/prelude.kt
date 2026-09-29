@@ -79,6 +79,7 @@ private class TacActivation(val route: String, val service: String, val owner: S
     val listeners: List<TacListener> = sorted.filterIsInstance<TacListener>().sortedBy { it.order }
 }
 private object TacNativeState {
+    const val REQUEST_LIMIT = 65536
     val activations = linkedMapOf<String, TacActivation>()
     var executing: TacActivation? = null
     var handling = false
@@ -334,7 +335,6 @@ private fun tacEncode(value: Any?): String =
     }
 
 private fun tacBoundedJSON(raw: String): Boolean {
-    if (raw.length > 65536 || raw.encodeToByteArray().size > 65536) return false
     var depth = 0
     var quoted = false
     var escaped = false
@@ -403,7 +403,11 @@ private fun tacInvokeOwned(request: String): String {
 }
 private fun tacHandle(request: String): String {
     return try {
-        require(tacBoundedJSON(request)) { "Invalid or oversized companion request." }
+        val size = request.encodeToByteArray().size
+        require(size <= TacNativeState.REQUEST_LIMIT) {
+            "The request is $size bytes. The limit is ${TacNativeState.REQUEST_LIMIT} bytes. Pass less data to the service."
+        }
+        require(tacBoundedJSON(request)) { "Invalid companion request." }
         val parsed = tacObject(tacParseJson(request)) ?: throw IllegalArgumentException("Invalid companion request.")
         val operation = tacText(parsed["op"])
         if (operation == "host-dispose") { tacDisposeAll(); return "{\"value\":null}" }

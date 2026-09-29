@@ -42,6 +42,14 @@ class NativeState {
   static writeCount = 0
   static methods = new WeakSet()
   static owners = new Map()
+  static startUpRequestLimit = 1048576
+  static memberRequestLimit = 65536
+
+  static tooLarge(request, service, payload, limit) {
+    const subject = request.op === 'init' ? 'start-up request' : `request to ${request.name ?? request.op}`
+    const size = new TextEncoder().encode(payload).byteLength
+    return `Native service ${service}: The ${subject} is ${size} bytes. The limit is ${limit} bytes. Pass less data to the service.`
+  }
 }
 
 class SharedData {
@@ -1403,7 +1411,8 @@ const disposeOwner = (owner) => {
 const nativeHost = () => typeof globalThis.__tachyonNativeHostCall === 'function'
 const nativeCall = async (request, ownerId, service) => {
   const payload = JSON.stringify({ ...request, route: ClientView.plan.route, service, owner: ownerId })
-  if (payload.length > (request.op === 'init' ? 1048576 : 65536)) throw new RangeError('Tac native request exceeds its bound.')
+  const limit = request.op === 'init' ? NativeState.startUpRequestLimit : NativeState.memberRequestLimit
+  if (payload.length > limit) throw new RangeError(NativeState.tooLarge(request, service, payload, limit))
   let timer
   try {
     const raw = await Promise.race([

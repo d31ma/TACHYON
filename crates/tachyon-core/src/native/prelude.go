@@ -114,9 +114,21 @@ func Invoke(text string) (reply string) {
 }
 
 func handle(text string) string {
+	const startUpRequestLimit = 1048576
+	const memberRequestLimit = 65536
+	if len(text) > startUpRequestLimit {
+		return tooLarge("request", len(text), startUpRequestLimit)
+	}
 	request, readable := readRequest(text)
 	if !readable {
-		return `{"error":"Invalid or oversized companion request."}`
+		return `{"error":"Invalid companion request."}`
+	}
+	if request.operation != "init" && len(text) > memberRequestLimit {
+		subject := request.name
+		if subject == "" {
+			subject = request.operation
+		}
+		return tooLarge("request to "+subject, len(text), memberRequestLimit)
 	}
 	if request.operation == "" {
 		return `{"error":"Companion request has no operation."}`
@@ -138,9 +150,6 @@ func handle(text string) string {
 }
 
 func readRequest(text string) (*companionRequest, bool) {
-	if len(text) > 1048576 {
-		return nil, false
-	}
 	parsed, err := parseJSON(text)
 	record, isRecord := parsed.(map[string]any)
 	if err != nil || !isRecord {
@@ -154,9 +163,6 @@ func readRequest(text string) (*companionRequest, bool) {
 	request.name, _ = record["name"].(string)
 	request.arguments, _ = record["args"].([]any)
 	request.properties, _ = record["props"].(map[string]any)
-	if request.operation != "init" && len(text) > 65536 {
-		return nil, false
-	}
 	return request, true
 }
 
@@ -365,6 +371,11 @@ func valueAnswer(value any) string {
 		return errorAnswer("Companion answer is not JSON.")
 	}
 	return `{"value":` + encoded + `}`
+}
+
+func tooLarge(subject string, size int, limit int) string {
+	return errorAnswer("The " + subject + " is " + strconv.Itoa(size) + " bytes. The limit is " +
+		strconv.Itoa(limit) + " bytes. Pass less data to the service.")
 }
 
 func errorAnswer(message string) string {

@@ -142,9 +142,13 @@ class TacServices
   end
 
   def self.handle(text)
+    return too_large("request", text.bytesize, MAX_REQUEST_BYTES) if text.bytesize > MAX_REQUEST_BYTES
     request = read(text)
-    return TacAnswer.failure("Invalid or oversized companion request.") if request.nil?
+    return TacAnswer.failure("Invalid companion request.") if request.nil?
     operation = request["op"]
+    if operation != "init" && text.bytesize > MAX_MEMBER_REQUEST_BYTES
+      return too_large("request to #{request['name'] || operation}", text.bytesize, MAX_MEMBER_REQUEST_BYTES)
+    end
     return TacAnswer.failure("Companion request has no operation.") unless operation.is_a?(String) && !operation.empty?
     if operation == "host-dispose"
       dispose_all
@@ -156,13 +160,14 @@ class TacServices
   end
 
   def self.read(text)
-    return nil if text.bytesize > MAX_REQUEST_BYTES
     request = JSON.parse(text)
-    return nil unless request.is_a?(Hash)
-    return nil if request["op"] != "init" && text.bytesize > MAX_MEMBER_REQUEST_BYTES
-    request
+    request.is_a?(Hash) ? request : nil
   rescue StandardError
     nil
+  end
+
+  def self.too_large(subject, size, limit)
+    TacAnswer.failure("The #{subject} is #{size} bytes. The limit is #{limit} bytes. Pass less data to the service.")
   end
 
   def self.identity_problem(request)
