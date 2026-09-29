@@ -90,3 +90,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [81. Release WebAssembly Uses the Smallest Compiler per Language](0081-release-webassembly-uses-the-smallest-compiler-per-language.md)
 - [82. Swift Services Reach the Web as WebAssembly](0082-swift-services-reach-the-web-as-webassembly.md)
 - [83. Java Services Reach the Web as WebAssembly](0083-java-services-reach-the-web-as-webassembly.md)
+- [84. WebAssembly Services Stay on the Page Thread Until .NET Needs a Worker](0084-webassembly-services-stay-on-the-page-thread-until-dotnet-needs-a-worker.md) (Proposed)

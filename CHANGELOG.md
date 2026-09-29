@@ -465,6 +465,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `scripts/wasm-worker-measure.mjs` measures every Tac WebAssembly runtime
+  (Rust, Go, C#, F#, Dart, Ruby, Kotlin, Swift, and JavaScript as the
+  baseline) on the page thread and in a Web Worker prototype: long tasks
+  while a route starts, the time of one call (p50 and p95), the input delay
+  while a service computes for 200 ms, and memory, at 1x and 4x CPU. It
+  can also load the built website's routes. ADR 0084 (Proposed) holds the
+  results and recommends keeping services on the page thread, with .NET as
+  the first runtime to move to a worker once its loader starts in one. No
+  runtime behavior changes.
 - The website has two Tac services in each of Kotlin, Swift and F#, so every
   service language of the site has two or three, each with a test unit in
   its own language. `ReadingTimeService.kt` shows "About N minutes to read"
