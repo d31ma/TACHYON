@@ -68,8 +68,16 @@ Rules and results:
   `.tachyon/types/<realm>/composed.d.ts`, which declares every exported,
   annotated JavaScript or TypeScript class that the realm composes as a
   global with its real type; each realm's `jsconfig.json` includes its own
-  file (ADR 0053). The server realm also declares the route controllers,
-  because a Yon test unit reaches them. Run `ty types` to write it without building.
+  file (ADR 0053). The server realm also declares the route and socket
+  controllers, because a Yon test unit reaches them. Each `@Test` class gets
+  `BehaviorTestUnit` (`behaviors` and `construct(Type)`, which `ty test`
+  adds). Run `ty types` to write it without building.
+- Each realm's `jsconfig.json` turns on `experimentalDecorators`, because
+  route parameters use parameter annotations such as `@FromBody`, and maps
+  `/models/Hello.ts` to the realm folder.
+- A request method such as `@GetRequest` keeps an empty body, because
+  Tachyon writes it. An empty body returns nothing to TypeScript, so declare
+  the answer as `Promise<Hello | void>` and check the value before use.
 
 A type that has a role needs three things: a matching name suffix, the exact
 file name, and a plural parent folder. Each realm shares these folders:

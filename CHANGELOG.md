@@ -1742,6 +1742,19 @@ machine contracts have their own, independent major versions.
 - The test rule (`TY1339`) now reads only test units. Before, it scanned
   every JavaScript, TypeScript, Python and Rust file, and a large minified
   library made `ty build` of the website take more than ten minutes.
+- A JavaScript or TypeScript app made by `ty init --features ...` now passes
+  `tsc -p client/jsconfig.json` and `tsc -p server/jsconfig.json` (after
+  `ty types`), and its `ty test --coverage` passes on Node.js as well as Bun.
+  Node.js stopped every server test with "Invalid or unexpected token",
+  because the test module kept route parameter annotations such as
+  `@FromBody`; a test module now removes them, as a served controller does.
+  `ty types` now gives each `@Test` class `behaviors` and `construct(Type)`
+  (`BehaviorTestUnit`) and declares socket controllers too. Each realm's
+  `jsconfig.json` turns on `experimentalDecorators` and maps `/models/...`
+  imports. `@GetRequest` and the other request annotations accept
+  `Promise<Hello | void>`, so a request method keeps its empty body. The
+  example clients and errors are exported, and the JavaScript tests state
+  their types.
 
 - A page with both Kotlin and Go WebAssembly services now starts. Go's
   `wasm_exec.js` puts a small `process` object on the page, and the Kotlin
