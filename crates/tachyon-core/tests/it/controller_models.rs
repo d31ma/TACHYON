@@ -647,6 +647,21 @@ impl TickProject {
         ],
     };
 
+    const FSHARP: BasketProject = BasketProject {
+        extension: "fs",
+        program: "dotnet",
+        files: &[
+            (
+                "server/models/Tick.fs",
+                "type Tick = { Sku: string; Level: int }\n",
+            ),
+            (
+                "server/controllers/TicksController.fs",
+                "open Models\n\n[<RequestRoute(\"/ticks\")>]\n[<Public>]\ntype TicksController() =\n    [<StreamRoute>]\n    member this.StreamTicks() : seq<Tick> =\n        TicksController.Countdown(2)\n\n    static member private Countdown(start: int) : seq<Tick> =\n        seq {\n            for level in start .. -1 .. 1 do\n                yield { Sku = \"ANVIL-1\"; Level = level }\n        }\n",
+            ),
+        ],
+    };
+
     const DART: BasketProject = BasketProject {
         extension: "dart",
         program: "dart",
@@ -990,6 +1005,11 @@ fn a_controller_return_type_that_is_not_json_is_refused_at_build_time() {
 #[tokio::test]
 async fn a_csharp_stream_sends_models() {
     BasketCheck::assert_ticks(&TickProject::CSHARP).await;
+}
+
+#[tokio::test]
+async fn an_fsharp_stream_sends_models() {
+    BasketCheck::assert_ticks(&TickProject::FSHARP).await;
 }
 
 #[tokio::test]

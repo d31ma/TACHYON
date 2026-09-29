@@ -1,6 +1,7 @@
-use super::{PublicMethod, PublicMethods, RoleFiles};
+use super::{FsharpMembers, PublicMethod, PublicMethods, RoleFiles};
 use crate::Failure;
 use crate::annotation_layout::UtilityLayout;
+use crate::fsharp_source::FsharpView;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -51,7 +52,7 @@ impl RoleClass {
     ) -> Result<Self, Failure> {
         let masked = Self::masked(relative, source, utility)?;
         let language = Self::text(relative.extension());
-        let methods = PublicMethods::find(&language, &masked);
+        let methods = Self::methods(relative, source, utility, &language, &masked)?;
         Ok(Self {
             file: relative.to_string_lossy().replace('\\', "/"),
             realm: Self::text(relative.iter().next()),
@@ -60,6 +61,20 @@ impl RoleClass {
             masked,
             methods,
         })
+    }
+
+    fn methods(
+        relative: &Path,
+        source: &str,
+        utility: bool,
+        language: &str,
+        masked: &str,
+    ) -> Result<Vec<PublicMethod>, Failure> {
+        let Some(view) = FsharpView::of(relative, source) else {
+            return Ok(PublicMethods::find(language, masked));
+        };
+        let masked_view = Self::masked(view.path(), view.text(), utility)?;
+        Ok(FsharpMembers::find(&view, &masked_view))
     }
 
     fn masked(relative: &Path, source: &str, utility: bool) -> Result<String, Failure> {

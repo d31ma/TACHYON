@@ -5,13 +5,14 @@ impl HookStatement {
     const RECORD: &'static str = " BehaviorCalls.record(\"KEY\");";
     const LINE_RECORD: &'static str = "BehaviorCalls.record(\"KEY\")";
     const KOTLIN_EXPRESSION: &'static str = " BehaviorCalls.record(\"KEY\") behaviorThen";
-    const STATEMENTS: [(&'static str, &'static str); 12] = [
+    const STATEMENTS: [(&'static str, &'static str); 13] = [
         ("js", " Behaviors.called(\"KEY\");"),
         ("ts", " Behaviors.called(\"KEY\");"),
         ("java", Self::RECORD),
         ("kt", Self::RECORD),
         ("swift", Self::RECORD),
         ("cs", " BehaviorCalls.Record(\"KEY\");"),
+        ("fs", "BehaviorCalls.Record(\"KEY\")"),
         ("php", " \\BehaviorCalls::record('KEY');"),
         ("py", Self::LINE_RECORD),
         ("rb", Self::LINE_RECORD),

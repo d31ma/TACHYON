@@ -1273,7 +1273,7 @@ fn validate_streaming_method(
     if streaming && matches!(input.extension, "rs" | "java" | "go") {
         return Err(input.failure(
             start,
-            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, Dart or Ruby: Java, Groovy, Rust and Go have no generator to produce the stream",
+            "@StreamRoute needs JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart or Ruby: Java, Groovy, Rust and Go have no generator to produce the stream",
         ));
     }
     Ok(())

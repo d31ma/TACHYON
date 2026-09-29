@@ -39,12 +39,29 @@ impl FsharpUnit {
         program: &str,
         models: &ModelSources,
     ) -> Result<(), Failure> {
-        let (fsharp, csharp) = FsharpSource::split(program);
+        let (fsharp, generated) = FsharpSource::split(program);
+        let (csharp, runtime) = FsharpSource::runtime_split(generated);
         let framework = dotnet_framework(portable)?;
         let library = directory.join(FsharpProject::LIBRARY_FOLDER);
-        let reference =
-            FsharpProject::reference(&format!("{}/service.fsproj", FsharpProject::LIBRARY_FOLDER));
+        let behaviors = directory.join(FsharpProject::BEHAVIORS_FOLDER);
+        let behaviors_project = format!(
+            "{0}/{0}.csproj",
+            FsharpProject::BEHAVIORS_FOLDER
+        );
+        let references = format!(
+            "{}{}",
+            FsharpProject::reference(&format!("{}/service.fsproj", FsharpProject::LIBRARY_FOLDER)),
+            FsharpProject::reference(&behaviors_project)
+        );
         let files = [
+            (
+                behaviors.join(format!("{}.cs", FsharpProject::BEHAVIORS_FOLDER)),
+                FsharpProject::behaviors_file(runtime),
+            ),
+            (
+                behaviors.join(format!("{}.csproj", FsharpProject::BEHAVIORS_FOLDER)),
+                FsharpProject::behaviors_library(&framework),
+            ),
             (
                 library.join(FsharpProject::MODELS_FILE),
                 FsharpSource::models_file(&models.separate_files()),
@@ -55,15 +72,20 @@ impl FsharpUnit {
             ),
             (
                 library.join("service.fsproj"),
-                FsharpProject::library(&framework, ""),
+                FsharpProject::library(
+                    &framework,
+                    &FsharpProject::reference(&format!("../{behaviors_project}")),
+                ),
             ),
             (directory.join("unit.cs"), format!("{csharp}{}", Self::MAIN)),
             (
                 directory.join("unit.csproj"),
-                FsharpProject::executable(&framework, Self::UNIT, &reference),
+                FsharpProject::executable(&framework, Self::UNIT, &references),
             ),
         ];
-        std::fs::create_dir(&library).map_err(|error| stage_failure(portable, &error))?;
+        for folder in [&library, &behaviors] {
+            std::fs::create_dir(folder).map_err(|error| stage_failure(portable, &error))?;
+        }
         for (path, contents) in files {
             std::fs::write(path, contents).map_err(|error| stage_failure(portable, &error))?;
         }

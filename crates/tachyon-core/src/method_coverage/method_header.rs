@@ -1,6 +1,7 @@
 use super::{HookStatement, PublicMethod, RoleClass};
 
 pub(crate) struct MethodHeader<'a> {
+    pub(crate) file: &'a str,
     pub(crate) masked: &'a str,
     pub(crate) source: &'a str,
     pub(crate) start: usize,
@@ -13,6 +14,7 @@ impl<'a> MethodHeader<'a> {
     pub(crate) fn new(role: &'a RoleClass, source: &'a str, method: &PublicMethod) -> Self {
         let key = role.key(&method.name);
         Self {
+            file: &role.file,
             masked: &role.masked,
             source,
             start: Self::line_start(&role.masked, method.line),

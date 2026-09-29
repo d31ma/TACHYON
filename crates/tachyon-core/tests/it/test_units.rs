@@ -246,8 +246,8 @@ async fn every_compiled_language_runs_its_test_unit() {
         (
             "fs",
             "dotnet",
-            "[<TestSetup>]\ntype CatalogTestSetup() = class end\n",
-            "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testDoublesAValue() : unit =\n        Assert.equals(8, 4 * 2)\n\n    member this.testReportsAFailure() : unit =\n        Assert.isTrue(false, \"this case is meant to fail\")\n",
+            "[<TestSetup>]\ntype CatalogTestSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n",
+            "[<Test(typeof<CatalogTestSetup>, {\"partition\":\"tests\"})>]\ntype CatalogServiceTest() =\n    member this.testOpensAContext() : unit =\n        Assert.isTrue(not (isNull this.behaviors), \"the case has a context\")\n\n    member this.testReportsAFailure() : unit =\n        Assert.isTrue(false, \"this case is meant to fail\")\n",
         ),
         (
             "dart",
@@ -342,11 +342,11 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
         (
             "fs",
             "dotnet",
-            "[<TestSetup>]\ntype CatalogTestSetup() = class end\n",
+            "[<TestSetup>]\ntype CatalogTestSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n",
             Some(
                 "[<Service>]\ntype CatalogService() =\n    member val Title = \"Catalog\" with get, set\n\n    member this.Double(value: int) : int =\n        value * 2\n",
             ),
-            "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testUsesAService() : unit =\n        Assert.equals(8, CatalogService().Double(4))\n\n    member this.testReportsAFailure() : unit =\n        Assert.isTrue(false, \"this case is meant to fail\")\n",
+            "[<Test(typeof<CatalogTestSetup>, {\"partition\":\"tests\"})>]\ntype CatalogServiceTest() =\n    member this.testUsesAService() : unit =\n        Assert.equals(8, CatalogService().Double(4))\n\n    member this.testHasAContext() : unit =\n        Assert.isTrue(not (isNull this.behaviors), \"the case has a context\")\n\n    member this.testReportsAFailure() : unit =\n        Assert.isTrue(false, \"this case is meant to fail\")\n",
         ),
         (
             "rs",

@@ -1,4 +1,5 @@
 use super::super::mapper;
+use super::super::testing::polyglot_unit;
 use super::{Method, Module, PlannedMethod, PlannedType, Type, csharp};
 use serde_json::{Map, Value};
 
@@ -8,6 +9,7 @@ pub(crate) struct DetachedCsharp {
     pub(crate) setups: String,
     pub(crate) methods: Vec<PlannedMethod>,
     pub(crate) types: Vec<PlannedType>,
+    pub(crate) test_context: String,
 }
 
 impl DetachedCsharp {
@@ -28,6 +30,7 @@ impl DetachedCsharp {
             setups: Self::setups(module),
             methods: Self::methods(module),
             types: Self::types(module),
+            test_context: Self::test_context(module),
         })
     }
 
@@ -42,7 +45,22 @@ impl DetachedCsharp {
             setups: String::new(),
             methods: Vec::new(),
             types: Vec::new(),
+            test_context: String::new(),
         }
+    }
+
+    pub(crate) fn without_page_storage(self) -> Self {
+        let setups = self.setups.replace(Self::PAGE_STORAGE, Self::NO_STORAGE);
+        Self { setups, ..self }
+    }
+
+    fn test_context(module: &Module) -> String {
+        module
+            .types
+            .iter()
+            .find_map(polyglot_unit)
+            .map(|unit| csharp::test_context(&unit))
+            .unwrap_or_default()
     }
 
     fn runtime(module: &Module) -> String {

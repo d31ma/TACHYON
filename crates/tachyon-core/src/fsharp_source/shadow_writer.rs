@@ -1,5 +1,5 @@
 use super::{
-    AttributeLine, BlockKind, FsharpBody, LineKind, MemberHeader, OpenBlock, RecordFields,
+    AttributeLine, BlockKind, FsharpBody, FsharpLines, LineKind, MemberHeader, OpenBlock, RecordFields,
     SourceLine, TypeForm, TypeHeader,
 };
 
@@ -47,7 +47,8 @@ impl<'a> ShadowWriter<'a> {
     }
 
     fn write_line(&mut self, index: usize) {
-        if self.lines[index].trimmed().is_empty() {
+        let trimmed = self.lines[index].trimmed();
+        if trimmed.is_empty() || FsharpLines::is_directive(trimmed) {
             self.blank.push(index);
             return;
         }

@@ -1,5 +1,5 @@
 use super::{
-    BraceBody, DartBody, KotlinBody, MethodHeader, PublicMethod, PythonBody, RoleClass, RubyBody,
+    BraceBody, DartBody, FsharpCallBody, KotlinBody, MethodHeader, PublicMethod, PythonBody, RoleClass, RubyBody,
     SourceEdit, SwiftBody,
 };
 
@@ -18,6 +18,7 @@ impl MethodBody {
             "kt" => KotlinBody::edits(header),
             "dart" => DartBody::edits(header),
             "swift" => SwiftBody::edits(header),
+            "fs" => FsharpCallBody::edits(header),
             _ => BraceBody::edits(header),
         }
     }

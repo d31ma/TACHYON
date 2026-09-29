@@ -14,6 +14,7 @@ mod controller_errors_native;
 mod controller_languages;
 mod controller_models;
 mod controller_routes;
+mod coverage_fsharp;
 mod dispatch;
 mod events_fsharp;
 mod gateway_classes;

@@ -399,12 +399,10 @@ fn test_members(unit: &Unit, environment: &str) -> String {
     let dispatch = joined(&calls, |(name, call)| {
         format!("case {}: {call}; return;", quote(name))
     });
-    let profiles = profile_list(unit);
-    let properties = property_entries(unit);
+    let context = test_context(unit);
     format!(
         "\npublic BehaviorContext behaviors;\n\
-         public void startBehaviors() {{ stopBehaviors(); this.behaviors = Behaviors.create(typeof({}), {}, new BehaviorSignal(), 10000, new string[] {{{profiles}}}, \
-         new System.Collections.Generic.Dictionary<string, string> {{ {properties} }}); }}\n\
+         public void startBehaviors() {{ stopBehaviors(); this.behaviors = {context}; }}\n\
          public void stopBehaviors() {{ if (this.behaviors != null) {{ this.behaviors.Dispose(); this.behaviors = null; }} }}\n\
          void runCase(string name) {{ switch (name) {{ {dispatch} default: return; }} }}\n\
          public {report} POST() {{\n\
@@ -422,9 +420,18 @@ fn test_members(unit: &Unit, environment: &str) -> String {
          return {answer};\n\
          }}\n\
          static string Quoted(string value) => BehaviorJSON.Quote(value);\n",
+        quote(&unit.name),
+    )
+}
+
+pub(super) fn test_context(unit: &Unit) -> String {
+    format!(
+        "Behaviors.create(typeof({}), {}, new BehaviorSignal(), 10000, new string[] {{{}}}, \
+         new System.Collections.Generic.Dictionary<string, string> {{ {} }})",
         unit.configuration,
         quote(&unit.partition),
-        quote(&unit.name),
+        profile_list(unit),
+        property_entries(unit),
     )
 }
 

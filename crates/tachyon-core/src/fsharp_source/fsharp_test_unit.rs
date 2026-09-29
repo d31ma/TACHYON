@@ -1,6 +1,6 @@
-use super::{FsharpMarkers, FsharpSource, FsharpView};
+use super::{FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView, FsharpYon};
 use crate::Failure;
-use crate::behavior::TestAssert;
+use crate::behavior::{DetachedCsharp, TestAssert};
 use crate::yon::Lowered;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -9,7 +9,13 @@ pub(crate) struct FsharpTestUnit;
 
 impl FsharpTestUnit {
     const DRIVER_START: &'static str = "\nsealed class Handler\n{\n    public static object POST()\n    {\n        var cases = new List<object>();\n";
-    const DRIVER_END: &'static str = "        return new Dictionary<string, object> { [\"unit\"] = __UNIT__, [\"cases\"] = cases };\n    }\n\n    static void Run(List<object> cases, string name, Action test)\n    {\n        try\n        {\n            test();\n            cases.Add(new Dictionary<string, object> { [\"name\"] = name, [\"passed\"] = true, [\"called\"] = Array.Empty<string>() });\n        }\n        catch (Exception error)\n        {\n            cases.Add(new Dictionary<string, object> { [\"name\"] = name, [\"passed\"] = false, [\"error\"] = error.Message, [\"called\"] = Array.Empty<string>() });\n        }\n    }\n}\n";
+    const DRIVER_END: &'static str = "        return new Dictionary<string, object> { [\"unit\"] = __UNIT__, [\"cases\"] = cases };\n    }\n\n    static void Run(List<object> cases, string name, Action test)\n    {\n        TestBehaviors.Current = __CONTEXT__;\n        BehaviorCalls.TakeJson();\n        try\n        {\n            test();\n            cases.Add(new Dictionary<string, object> { [\"name\"] = name, [\"passed\"] = true, [\"called\"] = Called() });\n        }\n        catch (Exception error)\n        {\n            cases.Add(new Dictionary<string, object> { [\"name\"] = name, [\"passed\"] = false, [\"error\"] = error.Message, [\"called\"] = Called() });\n        }\n        finally\n        {\n            TestBehaviors.Current.Dispose();\n            TestBehaviors.Current = null;\n        }\n    }\n\n    static string[] Called() => System.Text.Json.JsonSerializer.Deserialize<string[]>(BehaviorCalls.TakeJson());\n}\n";
+    const CURRENT_CONTEXT: &'static str =
+        "\npublic static class TestBehaviors\n{\n    public static BehaviorContext Current;\n}\n";
+    const CONTEXT_MEMBER: &'static str = "\ntype __UNIT__ with\n    member this.behaviors : BehaviorContext = TestBehaviors.Current\n";
+    const UNIT: &'static str = "__UNIT__";
+    const CONTEXT: &'static str = "__CONTEXT__";
+    const NO_UNIT: &'static str = "A test unit declares Test on one class; this source declares none.";
 
     pub(crate) fn lower(
         source: &Path,
@@ -35,16 +41,44 @@ impl FsharpTestUnit {
             .unwrap_or_default();
         let calls = crate::behavior::csharp_case_calls(view.path(), view.text(), environment)
             .map_err(|failure| view.failure(&failure))?;
-        let driver = format!("{}{}", view.usings(), Self::driver(name, &calls));
-        let fsharp = format!("{}{}", FsharpMarkers::strip(contents), TestAssert::FSHARP);
+        let detached = Self::detached(source, view, environment)?;
+        let roles = FsharpBehaviors::program(view, &FsharpMarkers::strip(contents), &detached)
+            .map_err(|message| FsharpYon::failure(source, &message))?;
+        let fsharp = format!(
+            "{roles}{}{}",
+            TestAssert::FSHARP,
+            Self::CONTEXT_MEMBER.replace(Self::UNIT, name)
+        );
+        let driver = format!(
+            "{}{}{}",
+            view.usings(),
+            detached.setups,
+            Self::driver(name, &calls, &detached.test_context)
+        );
+        let runtime = format!("{}{}", detached.runtime, Self::CURRENT_CONTEXT);
         Ok(Lowered {
-            source: FsharpSource::with_generated(&fsharp, &driver),
+            source: FsharpSource::with_generated(
+                &fsharp,
+                &FsharpSource::with_runtime(&driver, &runtime),
+            ),
             routes: Vec::new(),
             topics: crate::events::TopicUse::default(),
         })
     }
 
-    fn driver(name: &str, calls: &[(String, String)]) -> String {
+    fn detached(
+        source: &Path,
+        view: &FsharpView,
+        environment: &str,
+    ) -> Result<DetachedCsharp, Failure> {
+        let detached = crate::behavior::detached_csharp(view.path(), view.text(), environment)
+            .map_err(|failure| view.failure(&failure))?;
+        detached
+            .map(DetachedCsharp::without_page_storage)
+            .ok_or_else(|| FsharpYon::failure(source, Self::NO_UNIT))
+    }
+
+    fn driver(name: &str, calls: &[(String, String)], context: &str) -> String {
         let mut driver = String::from(Self::DRIVER_START);
         for (case, call) in calls {
             let _ = writeln!(
@@ -53,7 +87,11 @@ impl FsharpTestUnit {
                 Self::quoted(case)
             );
         }
-        driver.push_str(&Self::DRIVER_END.replace("__UNIT__", &Self::quoted(name)));
+        driver.push_str(
+            &Self::DRIVER_END
+                .replace(Self::UNIT, &Self::quoted(name))
+                .replace(Self::CONTEXT, context),
+        );
         driver
     }
 
@@ -73,7 +111,7 @@ mod tests {
             (String::from("testDoubles"), String::from("testDoubles()")),
             (String::from("testKeeps[1]"), String::from("testKeeps(5)")),
         ];
-        let driver = FsharpTestUnit::driver("CatalogServiceTest", &calls);
+        let driver = FsharpTestUnit::driver("CatalogServiceTest", &calls, "Behaviors.create()");
         assert!(driver.contains(
             "Run(cases, \"testDoubles\", () => new CatalogServiceTest().testDoubles());"
         ));

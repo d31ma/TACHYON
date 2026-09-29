@@ -7,11 +7,8 @@ pub(crate) struct LaterFeatures;
 
 impl LaterFeatures {
     const MESSAGE: &'static str = "F# classes do not support {} yet (ADR 0073). Write this class in C#, or leave the annotation out.";
-    const NAMES: [&'static str; 2] = [
-        "field injection with Needs: take dependencies as primary constructor parameters",
-        "streams and sockets (StreamRoute, SocketRoute)",
-    ];
-    const STREAM_MARKERS: [&'static str; 2] = ["[StreamRoute", "[SocketRoute"];
+    const NAMES: [&'static str; 1] =
+        ["field injection with Needs: take dependencies as primary constructor parameters"];
 
     pub(crate) fn refuse(view: &FsharpView, source: &Path, contents: &str) -> Result<(), Failure> {
         let found = Self::found(view).map_err(|failure| view.failure(&failure))?;
@@ -19,21 +16,8 @@ impl LaterFeatures {
         first.map_or(Ok(()), |index| Err(Self::failure(source, contents, index)))
     }
 
-    fn found(view: &FsharpView) -> Result<[bool; 2], Failure> {
-        let path = view.path();
-        let text = view.text();
-        Ok([
-            crate::yon::prepare_required_args(path, text)?.is_some(),
-            Self::streams(text),
-        ])
-    }
-
-    fn streams(text: &str) -> bool {
-        text.lines().map(str::trim_start).any(|line| {
-            Self::STREAM_MARKERS
-                .iter()
-                .any(|marker| line.starts_with(marker))
-        })
+    fn found(view: &FsharpView) -> Result<[bool; 1], Failure> {
+        Ok([crate::yon::prepare_required_args(view.path(), view.text())?.is_some()])
     }
 
     fn failure(source: &Path, contents: &str, index: usize) -> Failure {
@@ -62,12 +46,13 @@ mod tests {
     }
 
     #[test]
-    fn streams_are_refused_by_name_and_behaviors_are_accepted() {
+    fn streams_sockets_and_behaviors_are_accepted() {
         let stream = "[<RequestRoute(\"/ticks\")>]\n[<Public>]\ntype TicksController() =\n    [<StreamRoute>]\n    member this.StreamTicks() : seq<int> = seq { yield 1 }\n";
-        assert!(
-            refused("server/controllers/TicksController.fs", stream)
-                .is_some_and(|text| text.contains("streams and sockets"))
-        );
+        let streams = refused("server/controllers/TicksController.fs", stream);
+        assert!(streams.is_none(), "{streams:?}");
+        let socket = "[<SocketRoute(\"/chat\")>]\n[<Public>]\ntype ChatController() =\n    [<OnMessage>]\n    member this.OnMessage(session: SocketSession, message: ChatMessage) : unit =\n        session.Send(message)\n";
+        let sockets = refused("server/controllers/ChatController.fs", socket);
+        assert!(sockets.is_none(), "{sockets:?}");
         let cached = "[<Service>]\ntype PriceService() =\n    [<Cached>]\n    member this.Price(sku: string) : int = 1\n";
         let tac = refused("client/services/PriceService.fs", cached);
         assert!(tac.is_none(), "{tac:?}");

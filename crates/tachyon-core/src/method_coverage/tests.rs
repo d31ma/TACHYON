@@ -563,3 +563,39 @@ fn every_language_reports_its_own_public_methods() {
         );
     }
 }
+
+const FSHARP_CATALOG: &str = "[<Service>]\ntype CatalogService() =\n    member this.Total() : int = 2\n\n    member this.Load(name: string) : string =\n        let trimmed = name.Trim()\n        trimmed\n\n    member private this.Hidden() : int = 3\n";
+
+#[test]
+fn an_fsharp_class_and_utility_report_their_public_members() {
+    let report = report_for(&[
+        ("server/services/CatalogService.fs", FSHARP_CATALOG),
+        (
+            "server/utils/PriceUtils.fs",
+            "type PriceUtils =\n    static member WithTax(cents: int64) : int64 =\n        cents + 1L\n\n    static member private Round(cents: int64) : int64 = cents\n",
+        ),
+    ]);
+    assert_eq!(
+        uncovered_methods(&report),
+        ["Total", "Load", "WithTax"],
+        "{report:?}"
+    );
+}
+
+#[test]
+fn an_fsharp_member_records_its_call_and_keeps_its_line_numbers() {
+    let output = hooked("server/services/CatalogService.fs", FSHARP_CATALOG);
+    let single = format!(
+        "    member this.Total() : int = \n{0}BehaviorCalls.Record(\"CatalogService.Total\")\n# 3 \"server/services/CatalogService.fs\"\n{0}2\n",
+        " ".repeat(32)
+    );
+    assert!(output.contains(&single), "{output}");
+    assert!(
+        output.contains("    member this.Load(name: string) : string =\n        BehaviorCalls.Record(\"CatalogService.Load\")\n# 6 \"server/services/CatalogService.fs\"\n        let trimmed = name.Trim()\n"),
+        "{output}"
+    );
+    assert!(
+        output.contains("    member private this.Hidden() : int = 3\n"),
+        "{output}"
+    );
+}

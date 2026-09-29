@@ -377,6 +377,54 @@ public class ChatController
         ],
     };
 
+    const FSHARP: Self = Self {
+        program: "dotnet",
+        files: &[
+            (
+                "server/models/ChatMessage.fs",
+                "type ChatMessage = { Text: string }\n",
+            ),
+            (
+                "server/controllers/ChatController.fs",
+                r#"open System
+open Models
+
+[<SocketRoute("/chat")>]
+[<Public>]
+type ChatController() =
+    let mutable count = 0
+
+    [<OnOpen>]
+    member this.OnOpen(session: SocketSession) : unit =
+        session.Send({ Text = "welcome" })
+
+    [<OnMessage>]
+    member this.OnMessage(session: SocketSession, message: ChatMessage) : unit =
+        count <- count + 1
+        ChatController.SendHello(ChatController.PeersFor(session, message))
+        this.Answer(session, message)
+
+    [<OnError>]
+    member this.OnError(session: SocketSession, error: Exception) : unit =
+        session.Send({ Text = "sorry" })
+
+    static member private PeersFor(session: SocketSession, message: ChatMessage) : ResizeArray<SocketPeer> =
+        if message.Text = "all" then session.OpenSessions() else ResizeArray<SocketPeer>()
+
+    static member private SendHello(peers: ResizeArray<SocketPeer>) : unit =
+        for peer in peers do
+            peer.Send({ Text = "hello all" })
+
+    member private this.Answer(session: SocketSession, message: ChatMessage) : unit =
+        match message.Text with
+        | "fail" -> raise (InvalidOperationException("secret-canary"))
+        | "all" -> ()
+        | text -> session.Send({ Text = sprintf "%s %d" text count })
+"#,
+            ),
+        ],
+    };
+
     const PHP: Self = Self {
         program: "php-cgi",
         files: &[
@@ -928,6 +976,16 @@ async fn a_csharp_socket_route_keeps_one_object_for_each_connection() {
         return;
     }
     let server = Server::start(&ChatProject::CSHARP).await;
+    server.chat().await;
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn an_fsharp_socket_route_keeps_one_object_for_each_connection() {
+    if !ChatProject::FSHARP.available() {
+        return;
+    }
+    let server = Server::start(&ChatProject::FSHARP).await;
     server.chat().await;
     server.stop().await;
 }

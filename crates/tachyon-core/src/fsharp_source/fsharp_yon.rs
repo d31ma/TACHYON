@@ -77,7 +77,7 @@ impl FsharpYon {
         Ok((fsharp, &detached.setups, &detached.runtime))
     }
 
-    fn failure(source: &Path, message: &str) -> Failure {
+    pub(super) fn failure(source: &Path, message: &str) -> Failure {
         let portable = source.to_string_lossy().replace('\\', "/");
         Failure::one(diagnostic(
             1308,

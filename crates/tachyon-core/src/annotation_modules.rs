@@ -61,8 +61,9 @@ pub(crate) fn assemble(
     let output = if extension == "go" {
         compose_go(entry, source, &modules)?
     } else {
-        let modules = declaration_order(entry, modules, extension)?;
-        compose(entry, source, modules, extension, environment)?
+        let modules = declaration_order(entry, located_modules(modules, extension), extension)?;
+        let source = located_entry(entry, source, extension);
+        compose(entry, &source, modules, extension, environment)?
     };
     if output.len() > Module::MAX_SOURCE {
         return Err(invalid(entry, "Combined annotation source exceeds 1 MiB."));
@@ -82,6 +83,26 @@ fn injected_stores(
     wanted
         .then(|| crate::declared_contract::DeclaredContract::injected(entry, source, &stores))
         .flatten()
+}
+
+fn located_entry(entry: &Path, source: &str, extension: &str) -> String {
+    if extension != crate::fsharp_source::FsharpSource::EXTENSION {
+        return source.to_owned();
+    }
+    crate::fsharp_source::FsharpLines::located(entry, source)
+}
+
+fn located_modules(modules: Vec<Module>, extension: &str) -> Vec<Module> {
+    if extension != crate::fsharp_source::FsharpSource::EXTENSION {
+        return modules;
+    }
+    modules
+        .into_iter()
+        .map(|module| Module {
+            source: crate::fsharp_source::FsharpLines::located(&module.path, &module.source),
+            ..module
+        })
+        .collect()
 }
 
 fn refuse_tac_helpers(
@@ -1305,12 +1326,20 @@ fn hoist_imports(path: &Path, source: &str, extension: &str) -> Result<String, F
     {
         if depth == 0 && code.trim_start().starts_with(keyword) {
             imports.insert(line.trim());
+            body.push_str(hoisted_gap(extension));
         } else {
             body.push_str(line);
         }
         depth = brace_depth_after(code, depth);
     }
     Ok(imports_then_body(&imports, &body))
+}
+
+fn hoisted_gap(extension: &str) -> &'static str {
+    if extension == crate::fsharp_source::FsharpSource::EXTENSION {
+        return "\n";
+    }
+    ""
 }
 
 fn imports_then_body(imports: &BTreeSet<&str>, body: &str) -> String {

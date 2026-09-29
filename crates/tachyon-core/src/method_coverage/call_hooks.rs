@@ -6,13 +6,14 @@ pub(crate) struct CallHooks;
 
 impl CallHooks {
     const TEST_FOLDER: &'static str = "tests";
-    const RECORDED: [(&'static str, &'static str); 20] = [
+    const RECORDED: [(&'static str, &'static str); 22] = [
         ("client", "js"),
         ("client", "ts"),
         ("client", "rb"),
         ("client", "dart"),
         ("client", "rs"),
         ("client", "cs"),
+        ("client", "fs"),
         ("client", "go"),
         ("client", "swift"),
         ("client", "kt"),
@@ -24,6 +25,7 @@ impl CallHooks {
         ("server", "java"),
         ("server", "kt"),
         ("server", "cs"),
+        ("server", "fs"),
         ("server", "rs"),
         ("server", "dart"),
         ("server", "go"),

@@ -5,6 +5,7 @@ mod fsharp_behaviors;
 mod fsharp_body;
 mod fsharp_events;
 mod fsharp_lexer;
+mod fsharp_lines;
 mod fsharp_markers;
 mod fsharp_parameters;
 mod fsharp_project;
@@ -36,6 +37,7 @@ pub(crate) use fsharp_behaviors::FsharpBehaviors;
 use fsharp_body::FsharpBody;
 use fsharp_events::FsharpEvents;
 pub(crate) use fsharp_lexer::FsharpLexer;
+pub(crate) use fsharp_lines::FsharpLines;
 pub(crate) use fsharp_markers::FsharpMarkers;
 use fsharp_parameters::FsharpParameters;
 pub(crate) use fsharp_project::FsharpProject;
@@ -60,7 +62,6 @@ use type_form::TypeForm;
 use type_header::TypeHeader;
 use type_name::TypeName;
 
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct FsharpSource;
@@ -128,7 +129,8 @@ impl FsharpSource {
     fn models_text(models: &[(PathBuf, String)]) -> String {
         let mut file = String::from(Self::MODELS_NAMESPACE);
         for (path, source) in models {
-            let _ = write!(file, "# 1 \"{}\"\n{source}\n", path.to_string_lossy());
+            file.push_str(&FsharpLines::located(path, source));
+            file.push('\n');
         }
         file
     }
