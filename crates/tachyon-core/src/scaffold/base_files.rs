@@ -29,7 +29,7 @@ impl BaseFiles {
     pub(crate) fn jsconfig(realm: &str, typescript_only: bool) -> String {
         let fields = Self::field_check(typescript_only);
         format!(
-            "{{\n  \"compilerOptions\": {{\n    \"strict\": true,\n{fields}    \"allowJs\": true,\n    \"checkJs\": true,\n    \"target\": \"ESNext\",\n    \"module\": \"NodeNext\",\n    \"moduleResolution\": \"NodeNext\",\n    \"types\": []\n  }},\n  \"include\": [\n    \"../tachyon-env.d.ts\",\n    \"../.tachyon/types/{realm}\",\n    \"**/*.js\",\n    \"**/*.ts\"\n  ]\n}}\n"
+            "{{\n  \"compilerOptions\": {{\n    \"strict\": true,\n{fields}    \"allowJs\": true,\n    \"checkJs\": true,\n    \"experimentalDecorators\": true,\n    \"target\": \"ESNext\",\n    \"module\": \"NodeNext\",\n    \"moduleResolution\": \"NodeNext\",\n    \"allowImportingTsExtensions\": true,\n    \"noEmit\": true,\n    \"paths\": {{\n      \"/*\": [\"./*\"]\n    }},\n    \"types\": []\n  }},\n  \"include\": [\n    \"../tachyon-env.d.ts\",\n    \"../.tachyon/types/{realm}\",\n    \"**/*.js\",\n    \"**/*.ts\"\n  ]\n}}\n"
         )
     }
 

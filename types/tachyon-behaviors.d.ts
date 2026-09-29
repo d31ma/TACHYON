@@ -291,6 +291,12 @@ declare global {
     <Owner, Arguments extends unknown[], Result extends BehaviorJsonValue>(target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
   }
 
+  /** A request method: leave its body empty, because Tachyon writes it. An empty body returns nothing to TypeScript, so declare the answer as `Promise<Hello | void>`. */
+  interface BehaviorRequestMethodAnnotation {
+    <Owner, Arguments extends unknown[], Result extends BehaviorJsonValue | void>(value: (this: Owner, ...arguments_: Arguments) => Promise<Result>, context: ClassMethodDecoratorContext<Owner, (this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
+    <Owner, Arguments extends unknown[], Result extends BehaviorJsonValue | void>(target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
+  }
+
   interface BehaviorPromiseMethodAnnotation {
     <Owner, Arguments extends unknown[], Result>(value: (this: Owner, ...arguments_: Arguments) => Promise<Result>, context: ClassMethodDecoratorContext<Owner, (this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
     <Owner, Arguments extends unknown[], Result>(target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
@@ -447,6 +453,13 @@ declare global {
   type BehaviorTestProperties = Record<`tac.${string}` | `yon.${string}`, BehaviorTestPropertyValue>;
   /** Test: this class is a test unit. Pass the Setup class it uses, like `@Test(CatalogTestSetup)`, and optionally `{ partition: "tests" }`. */
   function Test(configuration: BehaviorConstructor, options?: BehaviorTestOptions): BehaviorClassAnnotation;
+  /** The members that `ty test` gives every @Test class; `ty types` adds them to each test class it finds. */
+  interface BehaviorTestUnit {
+    /** The context of the running test case. */
+    readonly behaviors: BehaviorContext;
+    /** Builds the class and fills its needed fields with the test's @Fake fields, like `this.construct(CatalogService)`. */
+    construct<Value extends BehaviorConstructor>(type: Value): InstanceType<Value>;
+  }
   const TestSetup: BehaviorBareMarker<BehaviorConfigurationAnnotation>;
   function UseProfiles(...profiles: [string, ...string[]]): BehaviorClassAnnotation;
   function TestSettings(properties: BehaviorTestProperties): BehaviorClassAnnotation;
@@ -523,15 +536,15 @@ declare global {
   /** HTTPClient: this class sends HTTP requests, and their paths start with this path, like "/api/orders". */
   const HTTPClient: BehaviorClassAnnotation & ((options?: string | BehaviorHttpClientOptions) => BehaviorClassAnnotation);
   /** GetRequest: calling this method sends a GET request to this path (added to the class path). */
-  const GetRequest: BehaviorPathAnnotation<BehaviorAsyncMethodAnnotation>;
+  const GetRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
   /** PostRequest: calling this method sends a POST request to this path (added to the class path). */
-  const PostRequest: BehaviorPathAnnotation<BehaviorAsyncMethodAnnotation>;
+  const PostRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
   /** PutRequest: calling this method sends a PUT request to this path (added to the class path). */
-  const PutRequest: BehaviorPathAnnotation<BehaviorAsyncMethodAnnotation>;
+  const PutRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
   /** PatchRequest: calling this method sends a PATCH request to this path (added to the class path). */
-  const PatchRequest: BehaviorPathAnnotation<BehaviorAsyncMethodAnnotation>;
+  const PatchRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
   /** DeleteRequest: calling this method sends a DELETE request to this path (added to the class path). */
-  const DeleteRequest: BehaviorPathAnnotation<BehaviorAsyncMethodAnnotation>;
+  const DeleteRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
   /** StreamRequest: Tachyon opens a stream of server-sent events at this path (added to the class path) when the client is first used, and closes it with the component or service that uses it. Each message is checked against the model type of the method's one parameter, passed to the method, and then published as that model's event for OnEvent listeners, like `streamTicks(tick: Tick) {}`. */
   const StreamRequest: BehaviorPathAnnotation<BehaviorStreamRequestAnnotation>;
   /** SocketRequest: Tachyon opens a WebSocket at this path (added to the class path) when the client is first used, and closes it with the component or service that uses it. Each message is checked against the model type of the method's one parameter, passed to the method, and published as that model's event for OnEvent listeners, like `receive(message: ChatMessage) {}`. The client also gets `send(message)`: declare it with `declare send: SocketSend<ChatMessage>`. */

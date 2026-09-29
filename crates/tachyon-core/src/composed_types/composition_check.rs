@@ -18,6 +18,11 @@ impl CompositionCheck {
             .unwrap_or_else(|| Self::annotation_answer(path, source))
     }
 
+    pub(super) fn is_test_unit(path: &Path, source: &str) -> bool {
+        let marked = annotation_layout::has_test_annotation(path, source).unwrap_or(false);
+        marked && Self::test_answer(path, source) == Some(false)
+    }
+
     fn test_answer(path: &Path, source: &str) -> Option<bool> {
         Self::test_environment(path).map(|environment| {
             crate::behavior::is_test_configuration(path, source, environment).unwrap_or(false)
@@ -44,7 +49,7 @@ impl CompositionCheck {
 
     fn is_routed_controller(path: &Path, source: &str) -> bool {
         Self::is_directly_in_controllers(path)
-            && annotation_layout::has_route_controller(path, source).unwrap_or(false)
+            && annotation_layout::has_tested_controller(path, source).unwrap_or(false)
     }
 
     fn error_handler_answer(path: &Path, source: &str) -> Option<bool> {

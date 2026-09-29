@@ -2,6 +2,7 @@ use super::composition_check::CompositionCheck;
 use super::declaration::Declaration;
 use super::exported_class::ExportedClass;
 use super::model_declaration::ModelDeclaration;
+use super::test_unit_declaration::TestUnitDeclaration;
 use cap_std::fs::{Dir, DirEntry, Metadata};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -13,6 +14,7 @@ pub(super) struct RealmTypes<'a> {
     entry_count: usize,
     declarations: BTreeMap<String, Declaration>,
     models: BTreeMap<String, ModelDeclaration>,
+    test_units: BTreeMap<String, TestUnitDeclaration>,
 }
 
 impl<'a> RealmTypes<'a> {
@@ -30,6 +32,7 @@ impl<'a> RealmTypes<'a> {
             entry_count: 0,
             declarations: BTreeMap::new(),
             models: BTreeMap::new(),
+            test_units: BTreeMap::new(),
         };
         types.search_role_folders();
         types.text()
@@ -135,6 +138,24 @@ impl<'a> RealmTypes<'a> {
         self.add_declarations(path, classes);
         let models = self.model_names(path);
         self.add_models(path, models);
+        let test_units = self.test_unit_classes(path);
+        self.add_test_units(path, test_units);
+    }
+
+    fn test_unit_classes(&self, path: &Path) -> Vec<ExportedClass> {
+        self.read_source(path)
+            .filter(|source| CompositionCheck::is_test_unit(path, source))
+            .map(|source| ExportedClass::find(path, &source))
+            .unwrap_or_default()
+    }
+
+    fn add_test_units(&mut self, path: &Path, classes: Vec<ExportedClass>) {
+        let portable = Self::portable(path);
+        for class in classes {
+            self.test_units
+                .entry(class.name)
+                .or_insert_with(|| TestUnitDeclaration::new(portable.clone(), class.member));
+        }
     }
 
     fn model_names(&self, path: &Path) -> Vec<String> {
@@ -202,7 +223,15 @@ impl<'a> RealmTypes<'a> {
     fn text(&self) -> String {
         let mut text = String::from("export {};\n");
         text.push_str(&self.global_block());
+        text.push_str(&self.test_unit_blocks());
         text
+    }
+
+    fn test_unit_blocks(&self) -> String {
+        self.test_units
+            .iter()
+            .map(|(name, test_unit)| test_unit.lines(name))
+            .collect()
     }
 
     fn global_block(&self) -> String {
