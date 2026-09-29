@@ -1,3 +1,5 @@
+import type { Hello } from '/models/Hello.ts'
+
 @Service
 export default class HelloService {
   @Needs
@@ -6,6 +8,10 @@ export default class HelloService {
 
   async askServer(): Promise<void> {
     const hello = await this.helloClient.getHello()
-    if (hello) this.message = hello.message
+    this.message = this.messageOf(hello)
+  }
+
+  private messageOf(hello: Hello | void): string {
+    return hello ? hello.message : ''
   }
 }

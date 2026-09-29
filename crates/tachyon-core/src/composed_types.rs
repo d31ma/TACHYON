@@ -3,7 +3,6 @@ mod declaration;
 mod exported_class;
 mod model_declaration;
 mod realm_types;
-mod test_unit_declaration;
 
 use crate::Failure;
 use crate::failure::diagnostic;

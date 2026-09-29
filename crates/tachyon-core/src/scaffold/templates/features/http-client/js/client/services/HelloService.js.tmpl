@@ -7,6 +7,14 @@ export default class HelloService {
 
   async askServer() {
     const hello = await this.helloClient.getHello()
-    if (hello) this.message = hello.message
+    this.message = this.#messageOf(hello)
+  }
+
+  /**
+   * @param {Hello | void} hello
+   * @returns {string}
+   */
+  #messageOf(hello) {
+    return hello ? hello.message : ''
   }
 }

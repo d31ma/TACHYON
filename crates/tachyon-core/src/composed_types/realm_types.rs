@@ -2,7 +2,6 @@ use super::composition_check::CompositionCheck;
 use super::declaration::Declaration;
 use super::exported_class::ExportedClass;
 use super::model_declaration::ModelDeclaration;
-use super::test_unit_declaration::TestUnitDeclaration;
 use cap_std::fs::{Dir, DirEntry, Metadata};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -14,7 +13,7 @@ pub(super) struct RealmTypes<'a> {
     entry_count: usize,
     declarations: BTreeMap<String, Declaration>,
     models: BTreeMap<String, ModelDeclaration>,
-    test_units: BTreeMap<String, TestUnitDeclaration>,
+    test_units: BTreeMap<String, Declaration>,
 }
 
 impl<'a> RealmTypes<'a> {
@@ -134,28 +133,12 @@ impl<'a> RealmTypes<'a> {
     }
 
     fn add_file(&mut self, path: &Path) {
-        let classes = self.composed_classes(path);
-        self.add_declarations(path, classes);
+        let classes = self.classes_where(path, CompositionCheck::is_composed);
+        Self::declare(&mut self.declarations, path, classes);
         let models = self.model_names(path);
         self.add_models(path, models);
-        let test_units = self.test_unit_classes(path);
-        self.add_test_units(path, test_units);
-    }
-
-    fn test_unit_classes(&self, path: &Path) -> Vec<ExportedClass> {
-        self.read_source(path)
-            .filter(|source| CompositionCheck::is_test_unit(path, source))
-            .map(|source| ExportedClass::find(path, &source))
-            .unwrap_or_default()
-    }
-
-    fn add_test_units(&mut self, path: &Path, classes: Vec<ExportedClass>) {
-        let portable = Self::portable(path);
-        for class in classes {
-            self.test_units
-                .entry(class.name)
-                .or_insert_with(|| TestUnitDeclaration::new(portable.clone(), class.member));
-        }
+        let test_units = self.classes_where(path, CompositionCheck::is_test_unit);
+        Self::declare(&mut self.test_units, path, test_units);
     }
 
     fn model_names(&self, path: &Path) -> Vec<String> {
@@ -183,17 +166,21 @@ impl<'a> RealmTypes<'a> {
         }
     }
 
-    fn composed_classes(&self, path: &Path) -> Vec<ExportedClass> {
+    fn classes_where(&self, path: &Path, wanted: fn(&Path, &str) -> bool) -> Vec<ExportedClass> {
         self.read_source(path)
-            .filter(|source| CompositionCheck::is_composed(path, source))
+            .filter(|source| wanted(path, source))
             .map(|source| ExportedClass::find(path, &source))
             .unwrap_or_default()
     }
 
-    fn add_declarations(&mut self, path: &Path, classes: Vec<ExportedClass>) {
+    fn declare(
+        declarations: &mut BTreeMap<String, Declaration>,
+        path: &Path,
+        classes: Vec<ExportedClass>,
+    ) {
         let portable = Self::portable(path);
         for class in classes {
-            self.declarations
+            declarations
                 .entry(class.name)
                 .or_insert_with(|| Declaration::new(portable.clone(), class.member));
         }
@@ -230,7 +217,7 @@ impl<'a> RealmTypes<'a> {
     fn test_unit_blocks(&self) -> String {
         self.test_units
             .iter()
-            .map(|(name, test_unit)| test_unit.lines(name))
+            .map(|(name, test_unit)| test_unit.test_unit_lines(name))
             .collect()
     }
 

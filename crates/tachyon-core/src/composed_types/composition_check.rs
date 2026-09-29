@@ -19,8 +19,14 @@ impl CompositionCheck {
     }
 
     pub(super) fn is_test_unit(path: &Path, source: &str) -> bool {
-        let marked = annotation_layout::has_test_annotation(path, source).unwrap_or(false);
-        marked && Self::test_answer(path, source) == Some(false)
+        Self::marked_test_answer(path, source) == Some(false)
+    }
+
+    fn marked_test_answer(path: &Path, source: &str) -> Option<bool> {
+        if !annotation_layout::has_test_annotation(path, source).unwrap_or(false) {
+            return None;
+        }
+        Self::test_answer(path, source)
     }
 
     fn test_answer(path: &Path, source: &str) -> Option<bool> {
