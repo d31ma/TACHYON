@@ -1,12 +1,18 @@
 mod client_declaration;
 mod concrete_client;
 mod context_members;
+mod context_template;
 mod contract_check;
 mod contract_form;
 mod contract_member;
 mod contract_rewrite;
+mod go_contract_rewrite;
+mod go_method;
 mod indented_members;
+mod indented_syntax;
+mod marker_line;
 mod member_scanner;
+mod rust_contract_rewrite;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]

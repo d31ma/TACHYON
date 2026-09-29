@@ -22,50 +22,65 @@ impl ContractMember {
         "streamrequest",
         "socketrequest",
     ];
-    const GATEWAY: &'static str = "gateway";
+    const CALLS: [&'static str; 8] = [
+        "getrequest",
+        "postrequest",
+        "putrequest",
+        "patchrequest",
+        "deleterequest",
+        "streamrequest",
+        "socketrequest",
+        "gateway",
+    ];
     const CONSTRUCTORS: [&'static str; 4] =
         ["constructor", "__construct", "initialize", "__init__"];
+    const EMPTY_BODIES: [&'static str; 3] = ["", "...", "pass"];
+    const NAME_ENDS: [char; 3] = ['(', '=', ':'];
+    const NAME_SIGILS: [char; 3] = ['$', '*', '&'];
 
     pub(crate) fn sends_request(&self) -> bool {
-        self.markers
-            .iter()
-            .any(|marker| Self::REQUESTS.contains(&marker.as_str()))
+        Self::marked_with(&self.markers, &Self::REQUESTS)
     }
 
     pub(crate) fn is_declared_call(&self) -> bool {
-        self.sends_request() || self.markers.iter().any(|marker| marker == Self::GATEWAY)
+        Self::marked_with(&self.markers, &Self::CALLS)
     }
 
     pub(crate) fn has_code(&self, code: &str) -> bool {
-        self.expression
-            || self
-                .body
-                .as_ref()
-                .is_some_and(|body| !Self::is_blank(code, body))
+        let written = self
+            .body
+            .as_ref()
+            .is_some_and(|body| Self::is_written(code, body));
+        [self.expression, written].contains(&true)
     }
 
     pub(crate) fn has_block(&self) -> bool {
-        self.body.is_some() || self.expression
+        [self.expression, self.body.is_some()].contains(&true)
     }
 
     pub(crate) fn is_constructor(&self, code: &str) -> bool {
-        self.method && Self::CONSTRUCTORS.contains(&self.name(code).as_str())
+        let named = Self::CONSTRUCTORS.contains(&self.name(code).as_str());
+        [self.method, named] == [true, true]
     }
 
     pub(crate) fn name(&self, code: &str) -> String {
         let text = &code[self.start..self.end];
-        let before = text.split('(').next().unwrap_or(text);
-        let before = before.split(['=', ':']).next().unwrap_or(before);
+        let before = text.split(Self::NAME_ENDS).next().unwrap_or(text);
         before
             .split_whitespace()
             .last()
             .unwrap_or("")
-            .trim_start_matches(['$', '*', '&'])
+            .trim_start_matches(Self::NAME_SIGILS)
             .to_owned()
     }
 
-    fn is_blank(code: &str, body: &Range<usize>) -> bool {
-        let text = code[body.clone()].trim();
-        text.is_empty() || text == "..." || text == "pass"
+    fn marked_with(markers: &[String], names: &[&str]) -> bool {
+        markers
+            .iter()
+            .any(|marker| names.contains(&marker.as_str()))
+    }
+
+    fn is_written(code: &str, body: &Range<usize>) -> bool {
+        !Self::EMPTY_BODIES.contains(&code[body.clone()].trim())
     }
 }
