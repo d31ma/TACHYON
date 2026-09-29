@@ -38,7 +38,7 @@ impl DesignRule {
         "types.every_member",
         "tests.assert_without_logic",
     ];
-    const ON_BY_DEFAULT: [bool; 7] = [true, true, true, true, true, false, false];
+    const ON_BY_DEFAULT: [bool; 7] = [true, true, true, true, true, false, true];
 
     pub(super) const fn code(self) -> u16 {
         Self::CODES[self as usize]

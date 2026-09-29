@@ -123,8 +123,8 @@ allowed. A helper method of the unit (a name that does not begin with
 The rule is the seventh design rule of ADR 0069: same module, same
 diagnostics, same `ty migrate check` findings, and the same switch per
 realm: `tests.check` in `server/application.json` and `tac.tests.check` in
-`client/manifest.json`. It is **off by default** until every test unit of
-the website, the fixtures and the `ty init` templates is rewritten.
+`client/manifest.json`. It is on by default; a realm turns it off with
+`"check": false`.
 
 ### Slices
 
@@ -132,7 +132,7 @@ The first slice covers JavaScript, TypeScript, Python and Rust (helper,
 `ValueSource` and rule); the second rewrites their test units. The third
 adds Java, Kotlin and Groovy and rewrites their units. The fourth adds C#
 and F# and rewrites their units. The fifth adds Go, Ruby, PHP, Dart and
-Swift and rewrites their units. The last slice turns the rule on.
+Swift and rewrites their units. The sixth slice turns the rule on by default.
 
 ## Consequences
 

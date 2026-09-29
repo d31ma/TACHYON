@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- The test rule `TY1339` (ADR 0080) is on by default: `ty build` and
+  `ty preview` refuse a test case with no assertion (`Assert`, or an
+  always-on assert of the language) or with a branch or loop (`if`, `for`,
+  `while`, `switch`, `? :` and the like). Existing units that check with
+  `if (...) throw`, `raise ... unless` or a Go `if ... { return errors.New(...) }`
+  now fail; `ty migrate check` lists the cases to rewrite with `Assert` or
+  `ValueSource`. A Go case that returns `error` still runs; only its `if` is
+  refused. `"tests": {"check": false}` in `server/application.json` or
+  `"tac": {"tests": {"check": false}}` in `client/manifest.json` turns the
+  rule off for one realm.
 - `@HTTPClient` is a contract with no implementation, like a Spring
   `@HttpExchange` interface (`TY1308`, ADR 0048 amendment). Declare it as an
   `interface` (Java, Groovy, Kotlin, C#, PHP), a Go `interface`, an
@@ -551,9 +561,7 @@ machine contracts have their own, independent major versions.
   `Assert::`) now fails as one case instead of stopping the unit. The new
   design rule `TY1339` refuses a test case with no assertion or with a branch
   or loop; the Python `assert` and the Rust `assert!`, `assert_eq!` and
-  `assert_ne!` count as assertions. It is off by default (`tests.check` /
-  `tac.tests.check`) until every test unit is rewritten; `ty migrate check`
-  lists the cases to change.
+  `assert_ne!` count as assertions.
 - Java, Kotlin and Groovy test units get the same `Assert` class (ADR 0080):
   `Assert.equals`, `Assert.isTrue` and, because `throws` is a reserved word in
   Java and Groovy, `Assert.throwsError(action)` there (Kotlin:

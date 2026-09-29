@@ -184,16 +184,16 @@ fn only_test_units_are_checked() {
 }
 
 #[test]
-fn the_rule_is_off_until_a_realm_turns_it_on() {
+fn the_rule_is_on_unless_a_realm_turns_it_off() {
     let files = [("server/tests/CatalogServiceTest.js", JAVASCRIPT_UNIT)];
-    assert!(TestedProject::with_settings(&files, &[]).is_empty());
-    let turned_on = [("server/application.json", "{\"tests\":{\"check\":true}}")];
-    assert_eq!(TestedProject::with_settings(&files, &turned_on).len(), 3);
+    assert_eq!(TestedProject::with_settings(&files, &[]).len(), 3);
+    let turned_off = [("server/application.json", "{\"tests\":{\"check\":false}}")];
+    assert!(TestedProject::with_settings(&files, &turned_off).is_empty());
     let client_only = [(
         "client/manifest.json",
-        "{\"tac\":{\"tests\":{\"check\":true}}}",
+        "{\"tac\":{\"tests\":{\"check\":false}}}",
     )];
-    assert!(TestedProject::with_settings(&files, &client_only).is_empty());
+    assert_eq!(TestedProject::with_settings(&files, &client_only).len(), 3);
 }
 
 #[test]
