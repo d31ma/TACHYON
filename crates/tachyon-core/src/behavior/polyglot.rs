@@ -31,6 +31,7 @@ mod query_frontend;
 mod ruby;
 mod ruby_syntax;
 mod rust;
+mod string_literal;
 mod swift;
 mod swift_platform;
 pub(crate) use swift_platform::SwiftPlatform;

@@ -1,6 +1,7 @@
 use super::super::call_style::CallStyle;
 use super::super::mapper;
 use super::super::testing::{Unit, joined, polyglot_unit};
+use super::string_literal::StringLiteral;
 use super::{Edit, Method, Module, Parameter, Type, block, concrete_edit, declared_fields, render};
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
@@ -340,22 +341,7 @@ fn json_arguments(method: &Method) -> String {
 }
 
 fn quote(value: &str) -> String {
-    let mut result = String::from("\"");
-    for character in value.chars() {
-        match character {
-            '"' => result.push_str("\\\""),
-            '\\' => result.push_str("\\\\"),
-            '\n' => result.push_str("\\n"),
-            '\r' => result.push_str("\\r"),
-            '\t' => result.push_str("\\t"),
-            control if control.is_control() => {
-                let _ = write!(result, "\\u{{{:x}}}", u32::from(control));
-            }
-            other => result.push(other),
-        }
-    }
-    result.push('"');
-    result
+    StringLiteral::SWIFT.of(value)
 }
 
 fn test_members(unit: &Unit) -> String {
