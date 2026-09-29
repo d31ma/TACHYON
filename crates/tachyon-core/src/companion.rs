@@ -400,6 +400,19 @@ pub(crate) enum CompanionLanguage {
 }
 
 impl Member {
+    fn is_runtime_resource(annotation: &str) -> bool {
+        let declared = annotated_type(annotation).unwrap_or_default();
+        let initializer = annotation.split_once('=').map_or("", |(_, value)| value);
+        let constructed = initializer.split('(').next().unwrap_or_default();
+        [declared.trim_end_matches(['!', '?']), constructed.trim()]
+            .iter()
+            .any(|name| Self::is_resource_type(name))
+    }
+
+    fn is_resource_type(name: &str) -> bool {
+        name == "BehaviorContext" || crate::web_api_clients::WebApiClients::is_client_type(name)
+    }
+
     const BEHAVIOR_JSON: &'static str = "BehaviorJSON";
 
     fn method_effects(signature: &str) -> &str {
@@ -893,7 +906,7 @@ fn name_first(
             continue;
         }
         let annotation = rest[name.len()..].trim_start();
-        if is_runtime_resource(annotation) {
+        if Member::is_runtime_resource(annotation) {
             return Ok(None);
         }
         let declared_type = annotated_type(annotation);
@@ -972,18 +985,6 @@ fn swift_label(declaration: &str) -> String {
         Some("_") | None => String::new(),
         Some(label) => format!("{label}: "),
     }
-}
-
-fn is_runtime_resource(annotation: &str) -> bool {
-    let declared = annotated_type(annotation).unwrap_or_default();
-    let initializer = annotation.split_once('=').map_or("", |(_, value)| value);
-    let constructed = initializer.split('(').next().unwrap_or_default();
-    [declared.trim_end_matches(['!', '?']), constructed.trim()]
-        .iter()
-        .any(|name| {
-            *name == "BehaviorContext"
-                || crate::web_api_clients::WebApiClients::is_client_type(name)
-        })
 }
 
 fn annotated_type(annotation: &str) -> Option<String> {

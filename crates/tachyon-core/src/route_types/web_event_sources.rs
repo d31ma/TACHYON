@@ -58,13 +58,11 @@ impl WebEventSources {
     }
 
     pub(crate) fn swift_used_by(source: &str) -> String {
-        let mut declared = String::new();
-        for (name, model) in WebEventModels::models() {
-            if source.contains(&name) {
-                declared.push_str(&Self::swift_model(&name, &Self::fields(model)));
-            }
-        }
-        declared
+        WebEventModels::models()
+            .into_iter()
+            .filter(|(name, _)| source.contains(name.as_str()))
+            .map(|(name, model)| Self::swift_model(&name, &Self::fields(model)))
+            .collect()
     }
 
     pub(crate) fn ruby() -> String {
