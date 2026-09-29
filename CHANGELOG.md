@@ -596,6 +596,14 @@ machine contracts have their own, independent major versions.
   Lua services are refused for now: the rule table says that the annotation
   is not available in Lua (`TY1308`), and the lowering names ADR 0085
   (`TY2015`).
+- `bun run coverage:languages` in `website/` audits the code tabs of every docs
+  section and feature. For each realm it lists the languages with a tab and
+  sorts every missing language into a missing example, a language the build
+  refuses (read from the compiler's annotation rule table, with its `TY` code
+  and whether the section says so), or not applicable (views, configuration,
+  commands, or a section whose heading names other languages). `--json` prints
+  a report for tools, and `--strict` fails on a gap with no example and no
+  stated reason; the website test keeps that gate off until the examples exist.
 
 - Java web services now exchange models and events with the page and use the
   built-in browser storage (ADR 0083 amendment). `client/models` may hold Java
