@@ -30,14 +30,14 @@
   <section class="mt-10">
     <h2 id="features" class="text-heading font-semibold">Features</h2>
     <p class="mt-2 opacity-85 text-pretty">
-      {documentation.count()} features. Each feature has its own page, with code that shows that it works.
+      {quantity.describe(documentation.count(), 'feature')}. Each feature has its own page, with code that shows that it works.
     </p>
     <ul class="catalogue mt-4 list-none p-0 m-0">
       <loop :for="group of documentation.list()">
         <li>
           <a class="catalogue__card" :href="'/docs/features#' + group.slug">
             <span class="catalogue__title">{group.name}</span>
-            <span class="catalogue__summary">{group.features.length} features</span>
+            <span class="catalogue__summary">{quantity.describe(group.features.length, 'feature')}</span>
           </a>
         </li>
       </loop>

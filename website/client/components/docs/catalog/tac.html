@@ -16,22 +16,35 @@
          placeholder="Filter the features, such as storage or sockets"
          aria-label="Filter the features" autocomplete="off">
 
+  <div class="w-row ga-2 mt-4 flex-wrap" role="group" aria-label="Feature group">
+    <w-btn :variant="groupFilter.group === '' ? 'filled' : 'outlined'" size="sm"
+           :aria-pressed="groupFilter.group === '' ? 'true' : 'false'"
+           on:click="groupFilter.pick('')">Every group</w-btn>
+    <loop :for="group of catalog.list()">
+      <w-btn :variant="groupFilter.group === group.name ? 'filled' : 'outlined'" size="sm"
+             :aria-pressed="groupFilter.group === group.name ? 'true' : 'false'"
+             on:click="groupFilter.pick(group.name)">{group.name}</w-btn>
+    </loop>
+  </div>
+
   <loop :for="group of catalog.list()">
-    <section class="catalogue-group mt-10">
-      <h2 :id="group.slug" class="text-heading font-semibold">{group.name}</h2>
-      <ul class="catalogue mt-4 list-none p-0 m-0">
-        <loop :for="entry of group.features">
-          <logic :if="featureFilter.shows(entry.title, entry.summary)">
-            <li>
-              <a class="catalogue__card" :href="entry.path">
-                <span class="catalogue__title">{entry.title}</span>
-                <span class="catalogue__summary"><loop :for="part of inlineCode.parts(entry.summary)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></span>
-              </a>
-            </li>
-          </logic>
-        </loop>
-      </ul>
-    </section>
+    <logic :if="groupFilter.shows(group.name)">
+      <section class="catalogue-group mt-10">
+        <h2 :id="group.slug" class="text-heading font-semibold">{group.name}</h2>
+        <ul class="catalogue mt-4 list-none p-0 m-0">
+          <loop :for="entry of group.features">
+            <logic :if="featureFilter.shows(entry.title, entry.summary)">
+              <li>
+                <a class="catalogue__card" :href="entry.path">
+                  <span class="catalogue__title">{entry.title}</span>
+                  <span class="catalogue__summary"><loop :for="part of inlineCode.parts(entry.summary)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></span>
+                </a>
+              </li>
+            </logic>
+          </loop>
+        </ul>
+      </section>
+    </logic>
   </loop>
   <p class="catalogue-empty mt-10 opacity-70">No feature matches. Try another word, or search the whole site.</p>
 

@@ -465,13 +465,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
-- The website has a Tac service in Kotlin, Swift and F#, each with a test
-  unit in its own language. `ReadingTimeService.kt` shows "About N minutes
-  to read" on every guide, from the word count of `TopicService.words()`.
-  `FeatureFilterService.swift` filters the feature list by words, and the
-  list hides a group that has no match. `InstallService.fs` lets the home
-  page show the macOS and Linux or the Windows install command; the commands
-  are data in `shared/data/hero.json`. A browser loads Swift (about 0.9 MB
+- The website has two Tac services in each of Kotlin, Swift and F#, so every
+  service language of the site has two or three, each with a test unit in
+  its own language. `ReadingTimeService.kt` shows "About N minutes to read"
+  on every guide, from the word count of `TopicService.words()`, and
+  `GuidePositionService.kt` adds "Guide N of M" from the reading order.
+  `FeatureFilterService.swift` filters the feature list by words and
+  `GroupFilterService.swift` by group; the list hides a group that has no
+  match. `InstallService.fs` lets the home page show the macOS and Linux or
+  the Windows install command (the commands are data in
+  `shared/data/hero.json`), and `QuantityService.fs` writes "1 feature" or
+  "12 features" on the documentation index. A browser loads Swift (about 0.9 MB
   with Brotli) only on the feature list and Kotlin (about 30 KB) only on a
   guide; F# adds about 11 KB to the .NET files that the home page already
   loads. The route size check, which counts every service on each route,

@@ -69,9 +69,18 @@ function expectServiceShape(source, className, extension) {
     expect(source).toContain(`public class ${className}`)
     return
   }
+  if (extension === 'fs') {
+    expect(source).toMatch(/^\[<Service>\]$/m)
+    expect(source).toContain(`type ${className}() =`)
+    return
+  }
   expect(source).toMatch(/^@Service$/m)
-  if (extension === 'dart') {
+  if (extension === 'dart' || extension === 'kt') {
     expect(source).toContain(`class ${className} `)
+    return
+  }
+  if (extension === 'swift') {
+    expect(source).toContain(`final class ${className} `)
     return
   }
   expect(source).toContain(`export default class ${className} `)
@@ -167,12 +176,12 @@ describe('published output', () => {
     const services = (await readdir(fileURLToPath(new URL('../client/services', import.meta.url))))
     expect(services.length).toBeGreaterThanOrEqual(15)
     const counts = countByExtension(services)
-    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'go', 'js', 'rb', 'rs', 'ts'])
+    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'js', 'kt', 'rb', 'rs', 'swift', 'ts'])
     const serviceCounts = Object.values(counts)
     expect(Math.max(...serviceCounts) - Math.min(...serviceCounts), JSON.stringify(counts)).toBeLessThanOrEqual(1)
     const instances = new Set()
     for (const file of services) {
-      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|dart|rs|cs|go|rb)$/) ?? []
+      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|dart|rs|cs|fs|go|rb|kt|swift)$/) ?? []
       expect(className, file).toBeDefined()
       const source = await read(`client/services/${file}`)
       expectServiceShape(source, className, extension)
