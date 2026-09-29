@@ -1,15 +1,15 @@
 @Test(SiteTestSetup, {"partition":"tests"})
 final class GroupFilterServiceTest {
   func testNoChoiceShowsEveryGroup() async throws {
-    if !GroupFilterService().shows("Routing") { throw BehaviorError("NO_CHOICE_SHOWS_ALL") }
+    try Assert.isTrue(GroupFilterService().shows("Routing"), "no choice shows every group")
   }
 
   func testPickShowsOnlyTheChosenGroup() async throws {
     let filter = GroupFilterService()
     filter.pick("Native")
-    if !filter.shows("Native") { throw BehaviorError("CHOSEN_GROUP_SHOWS") }
-    if filter.shows("Routing") { throw BehaviorError("OTHER_GROUPS_HIDE") }
+    try Assert.isTrue(filter.shows("Native"), "the chosen group shows")
+    try Assert.equals(false, filter.shows("Routing"), "the other groups hide")
     filter.pick("")
-    if !filter.shows("Routing") { throw BehaviorError("ALL_SHOWS_EVERY_GROUP_AGAIN") }
+    try Assert.isTrue(filter.shows("Routing"), "no choice shows every group again")
   }
 }

@@ -571,6 +571,21 @@ machine contracts have their own, independent major versions.
   `[<ValueSource([1, 2, 3])>]` (F#) run one case per input (numbers, strings
   or booleans). The test rule `TY1339` now reads C# and F# units too
   (`foreach`, `switch`, `when`, and the F# `match`, count as branches).
+- Go, Ruby, PHP, Dart and Swift test units get the same `Assert` class
+  (ADR 0080): Go `Assert.Equals`, `Assert.IsTrue` and `Assert.Throws(func()
+  error)`; Ruby `Assert.equals`, `Assert.is_true` and `Assert.throws { }`;
+  PHP `Assert::equals`, `Assert::isTrue` and `Assert::throws($action)`; Dart
+  `Assert.equals`, `Assert.isTrue` and `await Assert.throws(action)`; Swift
+  `try Assert.equals`, `try Assert.isTrue` and `try await Assert.throws { }`.
+  A failed Go check panics and fails its case; a Go case may now return
+  nothing instead of `error`. PHP test units run with `zend.assertions=1` and
+  Dart test units with `--enable-asserts`, so the PHP `assert` function and
+  the Dart `assert` statement count, as the Swift `precondition` does.
+  `ValueSource` runs one case per input in the five languages (numbers,
+  strings or booleans in Go, Dart and Swift; any JSON value in Ruby and PHP).
+  The test rule `TY1339` now reads the units of every test language
+  (`unless`, `until`, `case`, `guard`, `repeat` and `select` count as
+  branches); Go cases are the methods that begin with `Test`.
 - Release builds compile every WebAssembly service language with the
   compiler and settings that make the smallest download, and `ty build`
   prints one line per language that says which compiler it used and why

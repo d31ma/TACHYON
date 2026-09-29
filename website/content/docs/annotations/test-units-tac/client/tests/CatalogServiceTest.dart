@@ -3,10 +3,10 @@
 class CatalogServiceTest {
   Future<void> testUsesAService() async {
     final service = CatalogService();
-    if (service.double(4) != 8) throw StateError('expected 8');
+    Assert.equals(8, service.double(4));
   }
 
   Future<void> testHasAContext() async {
-    if (behaviors == null) throw StateError('no context');
+    Assert.isTrue(behaviors != null, 'a context');
   }
 }

@@ -3,9 +3,6 @@ type CatalogServiceTest struct {
 	behaviors *BehaviorContext
 }
 
-func (test *CatalogServiceTest) TestOpensAContext() error {
-	if test.behaviors == nil {
-		return &BehaviorError{Code: "adapter", Message: "no context"}
-	}
-	return nil
+func (test *CatalogServiceTest) TestOpensAContext() {
+	Assert.IsTrue(test.behaviors != nil, "a context")
 }

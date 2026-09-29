@@ -3,10 +3,9 @@ class ShowcaseServiceTest
   def test_pick_layer_changes_the_layer
     showcase = ShowcaseService.new
     showcase.start
-    raise "Tac first" unless showcase.layer == "tac"
-
+    Assert.equals("tac", showcase.layer, "Tac first")
     showcase.pick_layer("yon")
-    raise "pick_layer selects a layer" unless showcase.layer == "yon"
+    Assert.equals("yon", showcase.layer, "pick_layer selects a layer")
   end
 
   def test_summary_follows_the_layer
@@ -14,6 +13,6 @@ class ShowcaseServiceTest
     showcase.start
     tac = showcase.summary
     showcase.pick_layer("yon")
-    raise "each layer has its own summary" if showcase.summary == tac
+    Assert.is_true(showcase.summary != tac, "each layer has its own summary")
   end
 end

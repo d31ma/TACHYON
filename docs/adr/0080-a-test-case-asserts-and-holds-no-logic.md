@@ -58,7 +58,8 @@ type next to the test class.
 The assert of the language counts too, when it is always on: the Python
 `assert` statement and the Rust macros `assert!`, `assert_eq!` and
 `assert_ne!`, the Java and Groovy `assert` statement and the Kotlin functions
-`check` and `require`. Java needs `-ea` to run `assert`, so Tachyon starts a
+`check` and `require`, the PHP `assert` function, the Dart `assert` statement
+and the Swift `precondition` function. Java needs `-ea` to run `assert`, so Tachyon starts a
 Java test unit (a handler under `server/tests`) with `java -ea`; controllers
 and workers keep assertions off. Groovy runs its `assert` always. The Kotlin
 `assert` function does not count, because it runs only with `-ea`. A Rust case that panics now fails as one case; before, the
@@ -66,7 +67,23 @@ panic stopped the whole unit. `console.assert` does not count, because it
 only logs. `debug_assert!` does not count, because a release build removes
 it. For the same reason the C# `Debug.Assert` and the F# `assert` do not
 count: Tachyon builds .NET test units in Release mode. .NET has no assert
-that is always on and throws.
+that is always on and throws. PHP turns `assert` off in production
+(`zend.assertions=-1`), so Tachyon starts a PHP test unit with
+`zend.assertions=1`; Dart runs `assert` only with `--enable-asserts`, which
+Tachyon passes to the Tac `dart run` and to the Yon AOT compile of a test
+unit. A failed Swift `precondition` stops the whole process, so the unit
+reports one failure instead of one per case; `Assert` is the better check in
+Swift. The Swift `assert` does not count, because optimized builds leave it
+out. Go and Ruby have no assert of their own.
+
+Go spells the helper with capitals (`Assert.Equals`, `Assert.IsTrue`,
+`Assert.Throws`), because only capitalized Go names are exported; Ruby uses
+`is_true` and a block for `throws`; PHP uses `Assert::`; Dart awaits
+`Assert.throws`; Swift writes `try` before a check, because a failed check
+throws. `throws` is not reserved in these five languages (Swift allows it
+after a dot), so only Java and Groovy use `throwsError`. A failed Go check
+panics, and the driver recovers the panic into one failed case, so a Go case
+may return nothing; a case that returns `error` still works.
 
 ### 2. Data-driven cases, like JUnit's @ValueSource
 
@@ -83,8 +100,8 @@ async testKeepsPositiveInputs(value: number): Promise<void> {
 ```
 
 As in JUnit, the list holds literal values (at most 256). In Rust, Java,
-Kotlin, Groovy, C# and F# it holds numbers, strings and booleans, because the
-driver writes each input into a typed call (F# writes the JSON list with
+Kotlin, Groovy, C#, F#, Go, Dart and Swift it holds numbers, strings and
+booleans, because the driver writes each input into a typed call (F# writes the JSON list with
 commas: `[<ValueSource([0, 5, 1000])>]`) (a `$` in a string is written as
 `\u0024`, which all three JVM languages read as a plain `$`). The annotation belongs on a `test` method of a `Test` class.
 Methods are found by name, so no `@ParameterizedTest` is needed.
@@ -94,8 +111,10 @@ Methods are found by name, so no `@ParameterizedTest` is needed.
 The build refuses a test case (a `test` method of a `Test` class in
 `client/tests` or `server/tests`) that has no assertion, or that holds a
 branch or a loop: `if`, `else`, `for`, `while`, `do`, `switch`, `case`,
-`match`, `loop`, `elif`, `when` (Kotlin, C#, F#), `foreach` (C#) and the
-choice operator `? :`. F# is read through its C# view, so `match` and
+`match`, `loop`, `elif`, `when` (Kotlin, C#, F#, Ruby), `foreach` (C#, PHP),
+`elseif` (PHP), `elsif`, `unless` and `until` (Ruby), `guard` and `repeat`
+(Swift), `select` and `goto` (Go) and the choice operator `? :`. A Go case is a
+method whose name begins with `Test`. F# is read through its C# view, so `match` and
 `function` count as `switch` there; `ty build` names the F# word. The Python form
 `a if condition else b` is a branch too. `&&` and `||` inside a check are
 allowed. A helper method of the unit (a name that does not begin with
@@ -112,7 +131,8 @@ the website, the fixtures and the `ty init` templates is rewritten.
 The first slice covers JavaScript, TypeScript, Python and Rust (helper,
 `ValueSource` and rule); the second rewrites their test units. The third
 adds Java, Kotlin and Groovy and rewrites their units. The fourth adds C#
-and F# and rewrites their units. Later slices add the other test languages; the last slice turns the rule on.
+and F# and rewrites their units. The fifth adds Go, Ruby, PHP, Dart and
+Swift and rewrites their units. The last slice turns the rule on.
 
 ## Consequences
 

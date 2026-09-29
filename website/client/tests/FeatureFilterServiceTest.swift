@@ -1,13 +1,13 @@
 @Test(SiteTestSetup, {"partition":"tests"})
 final class FeatureFilterServiceTest {
   func testAnEmptyQueryShowsEveryFeature() async throws {
-    if !FeatureFilterService().shows("Page routing", "Folders define the pages.") { throw BehaviorError("EMPTY_QUERY_SHOWS_ALL") }
+    try Assert.isTrue(FeatureFilterService().shows("Page routing", "Folders define the pages."), "an empty query shows every feature")
   }
 
   func testEveryWordMustMatchTheTitleOrTheSummary() async throws {
     let filter = FeatureFilterService()
     filter.find("  Folders ROUTING ")
-    if !filter.shows("Page routing", "Folders define the pages.") { throw BehaviorError("WORDS_MATCH_ANY_CASE") }
-    if filter.shows("Browser storage", "Folders define the pages.") { throw BehaviorError("EVERY_WORD_MUST_MATCH") }
+    try Assert.isTrue(filter.shows("Page routing", "Folders define the pages."), "words match in any case")
+    try Assert.equals(false, filter.shows("Browser storage", "Folders define the pages."), "every word must match")
   }
 }

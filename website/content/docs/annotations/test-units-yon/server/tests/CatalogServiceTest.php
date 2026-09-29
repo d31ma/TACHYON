@@ -3,10 +3,10 @@
 #[UseProfiles("test")]
 class CatalogServiceTest {
     public function testOpensAContext(): void {
-        if ($this->behaviors === null) throw new Exception('no context');
+        Assert::isTrue($this->behaviors !== null, 'a context');
     }
     private function twice(int $value): int { return $value * 2; }
     public function testDoublesAValue(): void {
-        if ($this->twice(4) !== 8) throw new Exception('expected 8');
+        Assert::equals(8, $this->twice(4));
     }
 }

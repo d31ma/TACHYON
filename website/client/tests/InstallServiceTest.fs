@@ -5,11 +5,11 @@ type InstallServiceTest() =
 
     member this.testMacOSAndLinuxShowFirst() : unit =
         let install = InstallService()
-        if not (install.Shows(unix)) then failwith "the macOS and Linux command shows first"
-        if install.Shows(windows) then failwith "the Windows command waits for its button"
+        Assert.isTrue(install.Shows(unix), "the macOS and Linux command shows first")
+        Assert.equals(false, install.Shows(windows), "the Windows command waits for its button")
 
     member this.testPickShowsOnlyTheChosenSystem() : unit =
         let install = InstallService()
         install.Pick(windows)
-        if not (install.Shows(windows)) then failwith "Windows shows after its button"
-        if install.Shows(unix) then failwith "only one command shows at a time"
+        Assert.isTrue(install.Shows(windows), "Windows shows after its button")
+        Assert.equals(false, install.Shows(unix), "only one command shows at a time")

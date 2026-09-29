@@ -2,7 +2,7 @@
   "heading": "Assert and ValueSource",
   "axis": "language",
   "summary": "Check a result with Assert.equals, Assert.isTrue or Assert.throws, like JUnit. List the inputs of a case in ValueSource and Tachyon runs one case per input. A test case asserts and holds no logic (TY1339).",
-  "body": "A test case prepares values, calls the code and checks the result. Tachyon gives every test unit a class `Assert` for the checks, named like JUnit 5's `Assertions`:\n\n| Language | Equal | True | Throws |\n| --- | --- | --- | --- |\n| JavaScript, TypeScript | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws(action)` |\n| Python | `Assert.equals(expected, actual)` | `Assert.is_true(condition)` | `Assert.throws(action)` |\n| Rust | `Assert::equals(expected, actual)` | `Assert::is_true(condition)` | `Assert::throws(action)` |\n| Java, Groovy | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throwsError(action)` |\n| Kotlin | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws { action }` |\n| C#, F# | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws(action)` |\n\nEach check takes an optional last message. Rust has no optional arguments, so it writes `Assert::equals_with_message(expected, actual, \"the total\")` and the other `_with_message` forms. When a check fails, the case fails with the message and what it expected, like `the total ==> expected: <3> but was: <2>`. `equals` compares values: two lists or two objects are equal when their items are equal. `throws` returns the error, so the case can check its message. When the action is asynchronous, `throws` returns a promise (JavaScript, TypeScript) or an awaitable (Python), and the case writes `await Assert.throws(...)`. In C#, `throws` also takes an `async` lambda, and in F# an action that returns a task; both wait for the task to finish. In Rust, `throws` passes when the closure returns an `Err` or panics. Java and Groovy name it `throwsError`, because `throws` is a reserved word in both. In Java, Kotlin, Groovy, C# and F#, `equals` treats two whole numbers of different sizes as equal when their values are equal, so `Assert.equals(1200, total)` passes for a `long` total. In F#, a case that does not read the error of `throws` passes it to `ignore`, as in `Assert.throws(fun () -> parse \"x\") |> ignore`.\n\nThe assert of your language counts too, when it always runs: the Python `assert` statement, the Rust macros `assert!`, `assert_eq!` and `assert_ne!`, the Java and Groovy `assert` statement, and the Kotlin functions `check` and `require`. Tachyon runs Java test units with assertions turned on (`java -ea`), and Groovy always runs its `assert`. The Kotlin `assert` function does not count, because it runs only when assertions are turned on. A Rust case that panics fails as one case, and the other cases still run. `console.assert` does not count, because it only writes a message. The C# `Debug.Assert` and the F# `assert` do not count either, because Tachyon builds .NET test units in Release mode, which leaves them out.\n\n`ValueSource` lists the inputs of a test case, like JUnit's `@ValueSource`. Tachyon runs the case once for each input and passes the input as the one argument. `ty test` names each run with its position, such as `testNeverLowersAPrice[2]`, so one failing input does not hide the others. The list holds literal values, at most 256. In Rust, Java, Kotlin, Groovy, C# and F# it holds numbers, strings and booleans. F# writes the list with commas too, as in `[<ValueSource([0, 5, 1000])>]`, because Tachyon reads it as JSON. `ValueSource` goes on a method whose name begins with `test` in a `Test` class.\n\nA test case asserts and holds no logic: no `if`, `else`, loop, `switch`, `match`, `when` or `? :` choice. When a case needs a branch, write one case for each path. When it needs a loop, list the inputs in `ValueSource`. `&&` and `||` inside a check are fine, and a helper method of the unit (its name does not begin with `test`) may hold logic. `ty build` and `ty preview` refuse a case that breaks this with `TY1339` (ADR 0080), and `ty migrate check` lists every case to change. While the test units of a project move to `Assert`, the check is off by default. Turn it on for Yon tests with `tests.check: true` in `server/application.json`, and for Tac tests with `tac.tests.check: true` in `client/manifest.json`. The check reads JavaScript, TypeScript, Python, Rust, Java, Kotlin, Groovy, C# and F# test units; the other test languages keep their own checks for now.",
+  "body": "A test case prepares values, calls the code and checks the result. Tachyon gives every test unit a class `Assert` for the checks, named like JUnit 5's `Assertions`:\n\n| Language | Equal | True | Throws |\n| --- | --- | --- | --- |\n| JavaScript, TypeScript | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws(action)` |\n| Python | `Assert.equals(expected, actual)` | `Assert.is_true(condition)` | `Assert.throws(action)` |\n| Rust | `Assert::equals(expected, actual)` | `Assert::is_true(condition)` | `Assert::throws(action)` |\n| Java, Groovy | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throwsError(action)` |\n| Kotlin | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws { action }` |\n| C#, F# | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws(action)` |\n| Go | `Assert.Equals(expected, actual)` | `Assert.IsTrue(condition)` | `Assert.Throws(action)` |\n| Ruby | `Assert.equals(expected, actual)` | `Assert.is_true(condition)` | `Assert.throws { action }` |\n| PHP | `Assert::equals($expected, $actual)` | `Assert::isTrue($condition)` | `Assert::throws($action)` |\n| Dart | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `await Assert.throws(action)` |\n| Swift | `try Assert.equals(expected, actual)` | `try Assert.isTrue(condition)` | `try await Assert.throws { action }` |\n\nEach check takes an optional last message. Rust has no optional arguments, so it writes `Assert::equals_with_message(expected, actual, \"the total\")` and the other `_with_message` forms. When a check fails, the case fails with the message and what it expected, like `the total ==> expected: <3> but was: <2>`. `equals` compares values: two lists or two objects are equal when their items are equal. `throws` returns the error, so the case can check its message. When the action is asynchronous, `throws` returns a promise (JavaScript, TypeScript) or an awaitable (Python), and the case writes `await Assert.throws(...)`. In C#, `throws` also takes an `async` lambda, and in F# an action that returns a task; both wait for the task to finish. In Rust, `throws` passes when the closure returns an `Err` or panics. Java and Groovy name it `throwsError`, because `throws` is a reserved word in both. In Java, Kotlin, Groovy, C# and F#, `equals` treats two whole numbers of different sizes as equal when their values are equal, so `Assert.equals(1200, total)` passes for a `long` total. In F#, a case that does not read the error of `throws` passes it to `ignore`, as in `Assert.throws(fun () -> parse \"x\") |> ignore`. Go writes the names with a capital letter, like every exported Go name. In Go, a failed check stops the case, and `Assert.Throws` takes a `func() error` and passes when it returns an error or panics. A Go case returns nothing, or `error` as before. In Ruby, `throws` takes a block. In Dart, `throws` always returns a future, so the case writes `await Assert.throws(...)`. In Swift, a check throws when it fails, so the case writes `try`, and `try await` for `throws`. In Go, `Equals` treats two numbers of different types as equal when their values are equal. In Ruby, PHP and Dart, two lists or two maps are equal when their items are equal.\n\nThe assert of your language counts too, when it always runs: the Python `assert` statement, the Rust macros `assert!`, `assert_eq!` and `assert_ne!`, the Java and Groovy `assert` statement, the Kotlin functions `check` and `require`, the PHP `assert` function, the Dart `assert` statement and the Swift `precondition` function. Tachyon runs Java test units with assertions turned on (`java -ea`), PHP test units with `zend.assertions=1` and Dart test units with `--enable-asserts`, and Groovy always runs its `assert`. A failed Swift `precondition` stops the whole unit, so prefer `Assert` in Swift; the Swift `assert` does not count, because optimized builds leave it out. Go and Ruby have no assert of their own. The Kotlin `assert` function does not count, because it runs only when assertions are turned on. A Rust case that panics fails as one case, and the other cases still run. `console.assert` does not count, because it only writes a message. The C# `Debug.Assert` and the F# `assert` do not count either, because Tachyon builds .NET test units in Release mode, which leaves them out.\n\n`ValueSource` lists the inputs of a test case, like JUnit's `@ValueSource`. Tachyon runs the case once for each input and passes the input as the one argument. `ty test` names each run with its position, such as `testNeverLowersAPrice[2]`, so one failing input does not hide the others. The list holds literal values, at most 256. In Rust, Java, Kotlin, Groovy, C#, F#, Go, Dart and Swift it holds numbers, strings and booleans. A Swift case names its input without a label, as in `func testNeverLowersAPrice(_ cents: Int)`. F# writes the list with commas too, as in `[<ValueSource([0, 5, 1000])>]`, because Tachyon reads it as JSON. `ValueSource` goes on a method whose name begins with `test` (`Test` in Go) in a `Test` class.\n\nA test case asserts and holds no logic: no `if`, `else`, loop, `switch`, `match`, `when`, `case`, `unless`, `until`, `guard` or `? :` choice. When a case needs a branch, write one case for each path. When it needs a loop, list the inputs in `ValueSource`. `&&` and `||` inside a check are fine, and a helper method of the unit (its name does not begin with `test`) may hold logic. `ty build` and `ty preview` refuse a case that breaks this with `TY1339` (ADR 0080), and `ty migrate check` lists every case to change. While the test units of a project move to `Assert`, the check is off by default. Turn it on for Yon tests with `tests.check: true` in `server/application.json`, and for Tac tests with `tac.tests.check: true` in `client/manifest.json`. The check reads the test units of every test language.",
   "files": [
     {
       "name": "server/utils/PriceUtils.js",
@@ -164,6 +164,78 @@
       "name": "server/tests/PriceUtilsTest.fs",
       "code": {
         "file": "server/tests/PriceUtilsTest.fs"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.go",
+      "code": {
+        "file": "server/utils/PriceUtils.go"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.go",
+      "code": {
+        "file": "server/tests/PriceTestSetup.go"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.go",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.go"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.rb",
+      "code": {
+        "file": "server/utils/PriceUtils.rb"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.rb",
+      "code": {
+        "file": "server/tests/PriceTestSetup.rb"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.rb",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.rb"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.php",
+      "code": {
+        "file": "server/utils/PriceUtils.php"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.php",
+      "code": {
+        "file": "server/tests/PriceTestSetup.php"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.php",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.php"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.dart",
+      "code": {
+        "file": "server/utils/PriceUtils.dart"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.dart",
+      "code": {
+        "file": "server/tests/PriceTestSetup.dart"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.dart",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.dart"
       }
     }
   ]

@@ -2,10 +2,10 @@
 @UseProfiles("test")
 final class CatalogServiceTest {
     func testHasAContext() async throws {
-        if behaviors == nil { throw BehaviorError("NO_CONTEXT") }
+        try Assert.isTrue(behaviors != nil, "a context")
     }
     func twice(_ value: Int) -> Int { value * 2 }
     func testDoublesAValue() async throws {
-        if twice(4) != 8 { throw BehaviorError("EXPECTED_8") }
+        try Assert.equals(8, twice(4))
     }
 }

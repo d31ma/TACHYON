@@ -1,8 +1,8 @@
 [<Test(typeof<SiteTestSetup>)>]
 type QuantityServiceTest() =
     member this.testOneThingIsSingular() : unit =
-        if QuantityService().Describe(1, "feature") <> "1 feature" then failwith "one feature is singular"
+        Assert.equals("1 feature", QuantityService().Describe(1, "feature"), "one feature is singular")
 
     member this.testOtherCountsArePlural() : unit =
-        if QuantityService().Describe(12, "feature") <> "12 features" then failwith "twelve features are plural"
-        if QuantityService().Describe(0, "guide") <> "0 guides" then failwith "no guides are plural"
+        Assert.equals("12 features", QuantityService().Describe(12, "feature"), "twelve features are plural")
+        Assert.equals("0 guides", QuantityService().Describe(0, "guide"), "no guides are plural")

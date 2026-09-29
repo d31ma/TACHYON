@@ -6,6 +6,6 @@ class CatalogServiceTest
   end
 
   def test_doubles_a_value
-    raise "expected 8" unless twice(4) == 8
+    Assert.equals(8, twice(4))
   end
 end

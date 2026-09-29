@@ -1,7 +1,4 @@
-import (
-	"errors"
-	"strings"
-)
+import "strings"
 
 // @Test(SiteTestSetup, {"partition":"tests"})
 type CatalogServiceTest struct {
@@ -19,38 +16,30 @@ func (test *CatalogServiceTest) catalogue() Catalogue {
 	}
 }
 
-func (test *CatalogServiceTest) TestListGroupsEveryFeatureInTheCataloguesOrder() error {
-	catalog := &CatalogService{Features: test.catalogue()}
-	listed := catalog.List()
+func (test *CatalogServiceTest) slugs(groups []FeatureGroup) string {
 	slugs := []string{}
-	for _, group := range listed {
+	for _, group := range groups {
 		slugs = append(slugs, group.Slug)
 	}
-	if strings.Join(slugs, ",") != "tac-views,native" {
-		return errors.New("an empty group is dropped, the rest keep their order")
-	}
-	if catalog.Count() != 3 {
-		return errors.New("count agrees with the groups")
-	}
-	first := listed[0].Features[0]
-	if first.Path != "/docs/features/loops" || first.Summary != "About loops" {
-		return errors.New("a feature links to its page")
-	}
-	return nil
+	return strings.Join(slugs, ",")
 }
 
-func (test *CatalogServiceTest) TestContentsAnchorEachGroupAndStartNamesTheData() error {
+func (test *CatalogServiceTest) TestListGroupsEveryFeatureInTheCataloguesOrder() {
+	catalog := &CatalogService{Features: test.catalogue()}
+	listed := catalog.List()
+	Assert.Equals("tac-views,native", test.slugs(listed), "an empty group is dropped, the rest keep their order")
+	Assert.Equals(3, catalog.Count(), "count agrees with the groups")
+	first := listed[0].Features[0]
+	Assert.Equals("/docs/features/loops", first.Path, "a feature links to its page")
+	Assert.Equals("About loops", first.Summary)
+}
+
+func (test *CatalogServiceTest) TestContentsAnchorEachGroupAndStartNamesTheData() {
 	catalog := &CatalogService{Features: test.catalogue()}
 	contents := catalog.Contents()
-	if len(contents) != 2 || contents[0].Anchor != "#tac-views" {
-		return errors.New("one fragment per group")
-	}
+	Assert.Equals(2, len(contents), "one fragment per group")
+	Assert.Equals("#tac-views", contents[0].Anchor)
 	catalog.Start()
-	if catalog.Source != "website/content/features/page.json" {
-		return errors.New(catalog.Source)
-	}
-	if (&CatalogService{}).Count() != 0 {
-		return errors.New("no catalogue is no features")
-	}
-	return nil
+	Assert.Equals("website/content/features/page.json", catalog.Source)
+	Assert.Equals(0, (&CatalogService{}).Count(), "no catalogue is no features")
 }
