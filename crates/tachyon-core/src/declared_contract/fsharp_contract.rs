@@ -153,13 +153,17 @@ impl<'a> FsharpContract<'a> {
         format!("{header}{context}")
     }
 
-    fn context_line(&self, declaration: &FsharpDeclaration) -> String {
+    fn needs_context(&self, declaration: &FsharpDeclaration) -> bool {
         let members: Vec<ContractMember> = declaration
             .body
             .iter()
             .map(|index| Self::member_of(&self.code[*index]))
             .collect();
-        if !declaration.role.needs_context(&members) {
+        declaration.role.needs_context(&members)
+    }
+
+    fn context_line(&self, declaration: &FsharpDeclaration) -> String {
+        if !self.needs_context(declaration) {
             return String::new();
         }
         let text = Self::CONTEXT

@@ -110,6 +110,7 @@ declare global {
     fields: (keyof Record & string)[];
     defaultSize: number;
     maxSize: number;
+    setup?: string;
   }
   type BehaviorQueryPredicate =
     | { field: string; operator: 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'in'; argument: number }
@@ -603,11 +604,8 @@ declare global {
   const Converter: BehaviorBareMarker<BehaviorClassAnnotation>;
   /** Convert: the compiler writes this method. It reads its one parameter and builds the result from `fields`. */
   function Convert(options: BehaviorMappingOptions): BehaviorPromiseMethodAnnotation;
-  /** Store: this class reads and writes the given Entity class, like `@Store(Product, { fields: ["id"], defaultSize: 20, maxSize: 100 })`. */
-  const Store: BehaviorClassAnnotation & {
-    (): BehaviorClassAnnotation;
-    <Entity extends BehaviorConstructor>(entity: Entity, options: BehaviorRepositoryOptions<InstanceType<Entity>>): BehaviorClassAnnotation;
-  };
+  /** Store: a contract with no implementation, like a Spring Data repository interface. It names the Entity class it keeps, like `@Store(Product, { fields: ["id"], defaultSize: 20, maxSize: 100 })`, and Tachyon writes each query. `setup` names the Setup that builds its behavior context. */
+  function Store<Entity extends BehaviorConstructor>(entity: Entity, options: BehaviorRepositoryOptions<InstanceType<Entity>>): BehaviorClassAnnotation;
   /** Query: the compiler writes this Store method from the query plan. Mark its page parameter with @PageDefaults. */
   function Query(options: BehaviorQueryOptions): BehaviorPromiseMethodAnnotation;
   /** Settings: fill this class's fields from environment variables that start with `prefix`. Field types and defaults come from the field declarations; put @Min and @Max on number fields. */
