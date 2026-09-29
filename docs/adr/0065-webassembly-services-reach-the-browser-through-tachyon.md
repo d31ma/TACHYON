@@ -176,3 +176,10 @@ unit), and a native target has no browser at all.
   `native::site_tests`, `native::native_web_api_tests` (the native refusal)
   and `client_tests::web_fake_tests` (JavaScript `@Fake`, failed before the
   change; Go and Ruby `BrowserFakes`).
+- Note (2026-09-29, ADR 0082 amendment): Swift web services get the nine
+  clients too, as Swift classes created in `private let` fields, with the
+  built-in event models as `Codable` structs. On the web, Tachyon's `Clock`
+  class hides the standard library's `Clock` protocol; write `Swift.Clock`
+  for the protocol. Evidence: the three `a_swift_web_service_*` tests in
+  `tac_web::web_api_tests` and the Swift row of
+  `scripts/web-apis-browser-test.mjs`.

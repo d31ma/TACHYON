@@ -1,7 +1,7 @@
 {
   "heading": "Connectivity, page visibility and preferences",
   "target": "web",
-  "body": "Three small browser APIs tell a Tac service about the browser: `Connectivity` (is the browser online?), `PageVisibility` (is the page shown?) and `Preferences` (the color scheme, the motion setting and the language). A service reads the current value with a call, and hears each change as a built-in event model.\n\n| API | JavaScript, TypeScript | Rust | Go, C# | Dart | Ruby | Event model |\n| --- | --- | --- | --- | --- | --- | --- |\n| Connectivity | `@Needs connectivity`, `online()` | `connectivity: Connectivity`, `online()` | `Online()` | `online()` | `Connectivity.new.online` | `ConnectivityChanged { online }` |\n| PageVisibility | `@Needs pageVisibility`, `visible()` | `page_visibility: PageVisibility`, `visible()` | `Visible()` | `visible()` | `PageVisibility.new.visible` | `VisibilityChanged { visible }` |\n| Preferences | `@Needs preferences`, `scheme()`, `motion()`, `language()` | `preferences: Preferences`, same names | `Scheme()`, `Motion()`, `Language()` | same as JavaScript | `Preferences.new.scheme` | `PreferencesChanged { scheme, motion, language }` |\n\n`scheme` is `light` or `dark`, `motion` is `reduce` or `no-preference`, and `language` is the language of the browser, such as `fr-FR`. The service fields are created the same way as `Clock` (see above): Rust fields that `Default` fills, Go `// @Needs` fields, C# `new()` fields and Dart `@Needs()` fields.\n\nThe event models are built in: do not declare them in `client/models/`. Write a listener with a parameter of the model type, like any `@OnEvent` listener. The page publishes the current values when it starts and keeps them, so a listener with `replay` hears the current value first and then every change. These APIs need no permission, so the manifest grants nothing for them.",
+  "body": "Three small browser APIs tell a Tac service about the browser: `Connectivity` (is the browser online?), `PageVisibility` (is the page shown?) and `Preferences` (the color scheme, the motion setting and the language). A service reads the current value with a call, and hears each change as a built-in event model.\n\n| API | JavaScript, TypeScript | Rust | Go, C# | Dart, Kotlin, Swift | Ruby | Event model |\n| --- | --- | --- | --- | --- | --- | --- |\n| Connectivity | `@Needs connectivity`, `online()` | `connectivity: Connectivity`, `online()` | `Online()` | `online()` | `Connectivity.new.online` | `ConnectivityChanged { online }` |\n| PageVisibility | `@Needs pageVisibility`, `visible()` | `page_visibility: PageVisibility`, `visible()` | `Visible()` | `visible()` | `PageVisibility.new.visible` | `VisibilityChanged { visible }` |\n| Preferences | `@Needs preferences`, `scheme()`, `motion()`, `language()` | `preferences: Preferences`, same names | `Scheme()`, `Motion()`, `Language()` | same as JavaScript | `Preferences.new.scheme` | `PreferencesChanged { scheme, motion, language }` |\n\n`scheme` is `light` or `dark`, `motion` is `reduce` or `no-preference`, and `language` is the language of the browser, such as `fr-FR`. The service fields are created the same way as `Clock` (see above): Rust fields that `Default` fills, Go `// @Needs` fields, C# `new()` fields, Kotlin `Connectivity()` fields, Swift `private let connectivity = Connectivity()` fields and Dart `@Needs()` fields. In Swift, a call can throw, so call it with `try`.\n\nThe event models are built in: do not declare them in `client/models/`. Write a listener with a parameter of the model type, like any `@OnEvent` listener. The page publishes the current values when it starts and keeps them, so a listener with `replay` hears the current value first and then every change. These APIs need no permission, so the manifest grants nothing for them.",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -25,6 +25,12 @@
       "name": "client/services/StatusService.rs",
       "code": {
         "file": "client/services/StatusService.rs"
+      }
+    },
+    {
+      "name": "client/services/StatusService.swift",
+      "code": {
+        "file": "client/services/StatusService.swift"
       }
     }
   ]

@@ -1306,7 +1306,7 @@ async function verifyTacConfiguration(label, files) {
 
 /** @param {string} extension */
 async function hasConfigurationWebTarget(extension) {
-  if (extension === '.swift') return false
+  if (extension === '.swift') return Boolean(process.env.TAC_SWIFT_WASM_SDK) && await isToolAvailable(process.env.TAC_SWIFT_WASM_COMPILER ?? 'swiftc')
   if (extension === '.kt') return Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && await isToolAvailable('kotlinc-js')
   if (extension === '.java') return Boolean(process.env.TAC_TEAVM_HOME) && await isToolAvailable('javac')
   if (extension === '.rs') {

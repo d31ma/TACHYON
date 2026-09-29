@@ -625,6 +625,20 @@ machine contracts have their own, independent major versions.
   Kotlin, C#, PHP, Go, Rust, Swift and Dart where the rewrite behaves the
   same. `tac.simplify.suggest` and `simplify.suggest` hide them per realm.
   Docs: Going further > Simpler forms.
+- Swift web services use Tachyon's browser APIs (ADR 0082 amendment of
+  browser APIs and waits): `Clock`, `SecureRandom`, `Connectivity`,
+  `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications` and
+  `Geolocation`, created in a field such as `private let clock = Clock()`.
+  A call that the page refuses throws, so it is called with `try`. The
+  built-in event models such as `ConnectivityChanged` and `PositionFound`
+  reach Swift `@OnEvent` listeners. `@Retry` delays and a blocking
+  `@MaxAtOnce` now wait with one host call: the Swift WASI layer answers
+  `poll_oneoff` for a clock, where before the wait spun through hundreds of
+  failed calls. verify-snippets bundles the Swift configuration-binding
+  example for the web when `TAC_SWIFT_WASM_SDK` is set, and the web-apis
+  browser gate has a Swift row. A program holds only the browser APIs and
+  event models that its services name; a service that uses all nine is
+  about 33 KB larger (1 KB with Brotli).
 - Swift web services exchange models and events with the page and use the
   built-in cache and Store (ADR 0082 amendment). A model in `client/models`
   may be a field, an argument, a result or an event: it crosses through
@@ -1883,6 +1897,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Swift service method without arguments can throw: the generated member
+  calls it with `try` (before, such a service did not compile). A Swift or
+  Kotlin field whose type is `BehaviorContext` or a browser API client is
+  no longer shown to the view; the website's Swift `OrdersService`
+  (`var behaviors: BehaviorContext!`) did not build for the web.
 - The browser storage check (`scripts/storage-browser-test.mjs`) now runs in
   Chromium, Firefox and WebKit, not only Chromium. WebKit runs with a
   persistent profile, because WebKit storage that is not kept on disk (such

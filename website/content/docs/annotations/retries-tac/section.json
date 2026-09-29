@@ -2,7 +2,7 @@
   "heading": "Retries: Tac",
   "axis": "language",
   "summary": "The same two annotations in the eight Tac service languages, with the same bounds and the same refusals.",
-  "body": "A Tac service can reach its own context, so the policy is the same in both realms (ADR 0031). The annotation, its keys and its limits do not change between realms. Only the spelling in the host language changes. A Rust behavior method takes and returns BehaviorValue, which the page cannot pass, so the Rust service gives the page a plain submit(&mut self, id: String) method and an attempts field, and calls its Retry method send from there.",
+  "body": "A Tac service can reach its own context, so the policy is the same in both realms (ADR 0031). The annotation, its keys and its limits do not change between realms. Only the spelling in the host language changes. A Rust behavior method takes and returns BehaviorValue, which the page cannot pass, so the Rust service gives the page a plain submit(&mut self, id: String) method and an attempts field, and calls its Retry method send from there. In a Swift service on the web, the wait between two tries and the wait of a blocking MaxAtOnce happen inside the call, so the page waits for that time, as with a sleep in Go or C#.",
   "files": [
     {
       "name": "client/pages/tac.html",

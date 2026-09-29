@@ -79,7 +79,10 @@ fn every_language_declares_the_web_event_models_with_their_fields() {
         ("cs", WebEventSources::csharp()),
         ("dart", WebEventSources::dart()),
         ("rb", WebEventSources::ruby()),
-        ("swift", WebEventSources::swift()),
+        (
+            "swift",
+            WebEventSources::swift_used_by(&WebEventModels::names().join(" ")),
+        ),
     ];
     for (extension, source) in sources {
         let declared = ModelParser::models(extension, &source);

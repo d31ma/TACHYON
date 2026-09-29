@@ -1,6 +1,7 @@
 # ADR 0082: Swift Services Reach the Web as WebAssembly
 
-- Status: Accepted; amended 2026-09-29 (models, events, topics and storage)
+- Status: Accepted; amended 2026-09-29 (models, events, topics and storage;
+  browser APIs and waits)
 - Date: 2026-09-28
 - Amends: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   and [ADR 0078](0078-kotlin-services-reach-the-web-as-webassembly.md)
@@ -259,12 +260,79 @@ Foundation and no JavaScriptKit.
   After a reload, the Store row is still there in every engine, and the
   cache entry is still there in Chromium and Firefox. No errors were logged.
 
-### What comes next
+### What came next
 
-- The curated browser APIs in Swift over `tachyon.tac_host_web`.
-- The rest of the behavior runtime: `@Retryable` and a blocking
-  concurrency limit wait with `Task.sleep`, and the small WASI layer has no
-  timer yet. Then verify-snippets can bundle `.swift` for the web.
-- Size work: dead-code flags and Embedded Swift for small services.
-- A macOS continuous-integration step with the pinned SDK.
+- The curated browser APIs and the behavior runtime's waits came in the
+  third step (see the next amendment).
+- Still open: size work (dead-code flags, Embedded Swift for small
+  services) and a macOS continuous-integration step with the pinned SDK.
 
+## Amendment (2026-09-29): browser APIs and waits
+
+### Browser APIs
+
+- Swift web services get the same curated browser APIs as the other Tac
+  languages (ADR 0065): `Clock`, `SecureRandom`, `Connectivity`,
+  `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications`
+  and `Geolocation`. Each is a small Swift class in the web program
+  (`native/web_apis/*.swift`), and the service creates it in a field:
+  `private let clock = Clock()`. The names are Kotlin's; Swift names the
+  arguments of `open(title:text:url:)` and `show(title:body:)`.
+- Every call goes to the page through the host import
+  `tachyon.tac_host_web`, with the same JSON request as Rust and Kotlin.
+  `nowMs()` and `monotonicMs()` use the direct imports `tac_host_epoch_ms`
+  and `tac_host_monotonic_ms`. A call that the page refuses throws a
+  `TacBrowserError` whose text is the page's message, so a service calls
+  these methods with `try`.
+- The built-in event models (`ConnectivityChanged`, `PositionFound`,
+  `BrowserCallFailed` and the others) are `Codable` structs in the program,
+  so an `@OnEvent` listener takes them like any model.
+- A service method without arguments may now throw (the generated member
+  calls it with `try`). A field whose type is `BehaviorContext` or a browser
+  API client, or that is set to a new client such as `Clock()`, is not shown
+  to the view; the page cannot read such a value. Before this, the website's
+  Swift `OrdersService` did not build for the web.
+- A native (Apple) Swift service still cannot use these APIs: there is no
+  page, and the build refuses them (`TY1317`).
+
+### Waits
+
+- `@Retry` delays and a blocking `@MaxAtOnce` wait with `Task.sleep`. The
+  cooperative executor then asks WASI `poll_oneoff` to wait for a clock.
+  The small WASI layer did not have it, so each wait spun through hundreds
+  of failed host calls. The layer now answers clock subscriptions: it waits
+  in JavaScript until the deadline and reports the event. A wait is one host
+  call. The call is synchronous, so the page waits, as with a sleep in Go or
+  C# on the web. A Web Worker could wait without blocking the page; ADR 0084
+  keeps services on the page thread for now.
+- verify-snippets now bundles the Swift configuration-binding example for
+  the web when `TAC_SWIFT_WASM_SDK` is set, and checks it in Chromium.
+
+### Sizes and checks
+
+- A program holds only the browser API classes and event models that its
+  services name, so a service that uses none of them pays nothing for them.
+- Release sizes in bytes, built with Binaryen:
+
+  | Program | `swift/services.wasm` | Brotli |
+  | --- | --- | --- |
+  | The counter, before this step | 3,681,583 | 1,002,867 |
+  | The same counter now | 3,681,899 | 1,002,487 |
+  | A service that uses all nine browser APIs and six event models | 3,714,732 | 1,003,345 |
+
+  `tachyon-swift.js` grows from 7,957 to 9,031 bytes for the clock wait.
+- It was checked in Chromium 151, Firefox 153 and WebKit 26.5, in a release
+  build: `Clock`, `SecureRandom`, `Preferences`, the replayed and changed
+  color scheme, going offline and online again, a clipboard call refused
+  without a click and accepted from a click, and `PositionFound`. In
+  Chromium, which can grant the permissions, `ClipboardTextRead` and
+  `NotificationPermissionChanged` also reached the service. The website's
+  Swift `OrdersService` answered after three tries and waited 37 to 43 ms
+  for its 10 ms and 20 ms delays, and `@MaxAtOnce` answered. No errors
+  were logged.
+- Tests: `tac_web::web_api_tests::a_swift_web_service_*` (clock and random
+  numbers, connectivity, visibility and preferences, and the answers to its
+  own calls) and
+  `tac_web::swift_tests::a_swift_service_retries_after_a_delay_and_binds_settings_as_webassembly`
+  (one `poll_oneoff` call per delay) failed before the change and pass
+  after it. The web-apis browser gate has a Swift row.

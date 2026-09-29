@@ -427,12 +427,7 @@ final class SwiftStampService {
     }
 
     func attempt() -> String {
-        do {
-            try clipboard.writeText("without a click")
-            return ""
-        } catch {
-            return String(describing: error)
-        }
+        refusal { try clipboard.writeText("without a click") }
     }
 
     func paste() throws {
@@ -484,6 +479,15 @@ final class SwiftStampService {
     @OnEvent
     func hearFailure(_ failed: BrowserCallFailed) {
         failure = failed.message
+    }
+
+    private func refusal(_ call: () throws -> Void) -> String {
+        do {
+            try call()
+            return ""
+        } catch {
+            return String(describing: error)
+        }
     }
 }
 `,

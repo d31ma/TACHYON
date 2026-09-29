@@ -25,17 +25,25 @@ impl SwiftWebServices {
         include_str!("swift_web_services/TacWebStorage.swift"),
         include_str!("swift_web_services/TacWebHost.swift"),
         include_str!("swift_web_services/TacBrowserError.swift"),
-        include_str!("swift_web_services/TacAwaited.swift"),
-        include_str!("web_apis/Clock.swift"),
-        include_str!("web_apis/SecureRandom.swift"),
-        include_str!("web_apis/Connectivity.swift"),
-        include_str!("web_apis/PageVisibility.swift"),
-        include_str!("web_apis/Preferences.swift"),
-        include_str!("web_apis/Clipboard.swift"),
-        include_str!("web_apis/Share.swift"),
-        include_str!("web_apis/Notifications.swift"),
-        include_str!("web_apis/Geolocation.swift")
+        include_str!("swift_web_services/TacAwaited.swift")
     );
+    const WEB_APIS: [(&'static str, &'static str); 9] = [
+        ("Clock", include_str!("web_apis/Clock.swift")),
+        ("SecureRandom", include_str!("web_apis/SecureRandom.swift")),
+        ("Connectivity", include_str!("web_apis/Connectivity.swift")),
+        (
+            "PageVisibility",
+            include_str!("web_apis/PageVisibility.swift"),
+        ),
+        ("Preferences", include_str!("web_apis/Preferences.swift")),
+        ("Clipboard", include_str!("web_apis/Clipboard.swift")),
+        ("Share", include_str!("web_apis/Share.swift")),
+        (
+            "Notifications",
+            include_str!("web_apis/Notifications.swift"),
+        ),
+        ("Geolocation", include_str!("web_apis/Geolocation.swift")),
+    ];
     const BEHAVIOR_PLATFORM: &'static str = concat!(
         include_str!("swift_web_services/BehaviorPlatform.swift"),
         include_str!("swift_web_services/BehaviorLock.swift"),
@@ -73,13 +81,22 @@ impl SwiftWebServices {
         let authored =
             crate::behavior::SwiftPlatform::in_browser(&authored, Self::BEHAVIOR_PLATFORM);
         let program = format!(
-            "{authored}\n{}{}",
+            "{authored}\n{}{}{}",
             Self::PRELUDE,
-            crate::route_types::WebEventSources::swift()
+            Self::used_web_apis(&authored),
+            crate::route_types::WebEventSources::swift_used_by(&authored)
         );
         let built = SwiftWasmProgram::compile(&program, profile).await?;
         let note = built.note(profile);
         Ok((built.published(), note))
+    }
+
+    fn used_web_apis(authored: &str) -> String {
+        Self::WEB_APIS
+            .iter()
+            .filter(|(name, _)| authored.contains(name))
+            .map(|(_, source)| *source)
+            .collect()
     }
 }
 
@@ -100,6 +117,20 @@ mod tests {
             }
         }
         patterns
+    }
+
+    #[test]
+    fn a_program_holds_only_the_browser_apis_and_event_models_it_names() {
+        let authored =
+            "private let clock = Clock()\nfunc heard(_ changed: ConnectivityChanged) {}\n";
+        let apis = SwiftWebServices::used_web_apis(authored);
+        assert!(apis.contains("final class Clock"), "{apis}");
+        assert!(!apis.contains("final class Geolocation"), "{apis}");
+        let models = crate::route_types::WebEventSources::swift_used_by(authored);
+        assert_eq!(
+            models,
+            "\nstruct ConnectivityChanged: Codable {\n    let online: Bool\n}\n"
+        );
     }
 
     #[test]

@@ -57,8 +57,14 @@ impl WebEventSources {
         Self::each(Self::kotlin_model)
     }
 
-    pub(crate) fn swift() -> String {
-        Self::each(Self::swift_model)
+    pub(crate) fn swift_used_by(source: &str) -> String {
+        let mut declared = String::new();
+        for (name, model) in WebEventModels::models() {
+            if source.contains(&name) {
+                declared.push_str(&Self::swift_model(&name, &Self::fields(model)));
+            }
+        }
+        declared
     }
 
     pub(crate) fn ruby() -> String {
