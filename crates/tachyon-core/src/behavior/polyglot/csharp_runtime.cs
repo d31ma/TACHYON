@@ -406,6 +406,17 @@ public static class Behaviors {
         if (!double.IsFinite(minimum) || !double.IsFinite(maximum) || System.Math.Abs(minimum) > 9007199254740991d || System.Math.Abs(maximum) > 9007199254740991d || minimum > maximum || number < minimum || number > maximum) throw new BehaviorError("configuration-properties");
     }
 }
+internal static class BehaviorOpenTransactions {
+    private static readonly System.Threading.AsyncLocal<System.Collections.Generic.Dictionary<string, string>> open = new System.Threading.AsyncLocal<System.Collections.Generic.Dictionary<string, string>>();
+    public static string Of(string adapter) => open.Value != null && open.Value.TryGetValue(adapter, out var identifier) ? identifier : null;
+    public static async System.Threading.Tasks.Task<BehaviorJSON> Within(string adapter, string identifier, System.Func<System.Threading.Tasks.Task<BehaviorJSON>> body) {
+        var outer = open.Value;
+        var joined = outer == null ? new System.Collections.Generic.Dictionary<string, string>() : new System.Collections.Generic.Dictionary<string, string>(outer);
+        joined[adapter] = identifier;
+        open.Value = joined;
+        try { return await body(); } finally { open.Value = outer; }
+    }
+}
 public sealed class BehaviorContext : System.IDisposable {
     private readonly BehaviorAdapters adapters;
     private readonly string partition;
@@ -523,23 +534,20 @@ public sealed class BehaviorContext : System.IDisposable {
         return result;
     }
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> slots = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>();
-    private string transaction;
     private async System.Threading.Tasks.Task<BehaviorJSON> Transacted(BehaviorJSON metadata, System.Func<System.Threading.Tasks.Task<BehaviorJSON>> body, BehaviorExecution execution) {
-        if (!metadata.Has("transactional") || transaction != null) return await Attempt(metadata, body, execution);
+        if (!metadata.Has("transactional")) return await Attempt(metadata, body, execution);
         var name = metadata.Get("transactional").Get("adapter").Text;
+        if (BehaviorOpenTransactions.Of(name) != null) return await Attempt(metadata, body, execution);
         var adapter = EntityAdapter(name);
         var begun = await Control(adapter, execution, "begin", null);
         var identifier = begun.Has("transaction") ? begun.Get("transaction").Text : "";
         if (identifier.Length == 0 || System.Text.Encoding.UTF8.GetByteCount(identifier) > 128) throw new BehaviorError("ENTITY_TRANSACTION");
-        transaction = identifier;
         BehaviorJSON value;
-        try { value = await Attempt(metadata, body, execution); }
+        try { value = await BehaviorOpenTransactions.Within(name, identifier, () => Attempt(metadata, body, execution)); }
         catch {
-            transaction = null;
             try { await Control(adapter, execution, "rollback", identifier); } catch { }
             throw;
         }
-        transaction = null;
         await Control(adapter, execution, "commit", identifier);
         return value;
     }
@@ -633,8 +641,9 @@ public sealed class BehaviorContext : System.IDisposable {
     public BehaviorRepository repository(System.Type entity) => new BehaviorRepository(this, Behaviors.Entity(entity));
     public System.Threading.Tasks.Task<BehaviorJSON> Query(BehaviorJSON metadata, BehaviorJSON[] arguments) => Operation(async execution => {
         var command = QueryCommand(metadata, arguments);
-        if (transaction != null) { var joined = command.Members; joined["transaction"] = BehaviorJSON.From(transaction); command = BehaviorJSON.Object(joined); }
         var entityAdapter = metadata.Get("entity").Get("adapter").Text;
+        var transaction = BehaviorOpenTransactions.Of(entityAdapter);
+        if (transaction != null) { var joined = command.Members; joined["transaction"] = BehaviorJSON.From(transaction); command = BehaviorJSON.Object(joined); }
         var builtin = adapters.authorizeEntity == null && !adapters.entities.ContainsKey(entityAdapter) && BehaviorStorage.Entities(entityAdapter) != null;
         if (!builtin && (adapters.authorizeEntity == null || !await Adapter(execution, () => adapters.authorizeEntity(command, execution)))) throw new BehaviorError("FORBIDDEN");
         var adapter = EntityAdapter(entityAdapter);
@@ -686,6 +695,7 @@ public sealed class BehaviorContext : System.IDisposable {
     }
     internal System.Threading.Tasks.Task<BehaviorJSON> ExecuteEntity(BehaviorJSON mapping, string operation, BehaviorJSON value) => Operation(async execution => {
         var adapter = EntityAdapter(mapping.Get("adapter").Text);
+        var transaction = BehaviorOpenTransactions.Of(mapping.Get("adapter").Text);
         var command = mapping.Members; command.Remove("adapter"); command["operation"] = BehaviorJSON.From(operation); command[operation == "find" ? "page" : operation == "save" ? "value" : "id"] = value;
         if (transaction != null) command["transaction"] = BehaviorJSON.From(transaction);
         return await Adapter(execution, () => adapter.execute(BehaviorJSON.Object(command), execution));

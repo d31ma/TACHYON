@@ -32,6 +32,8 @@ public sealed class Config {
     public static int EntityExecutions;
     public static BehaviorJSON QueryResult;
     public static BehaviorJSON LastQuery;
+    public static readonly System.Collections.Generic.List<string> Ledger = new System.Collections.Generic.List<string>();
+    public static int Transactions;
     public static readonly MemoryCache Store = new MemoryCache();
     public static BehaviorAdapters configure(BehaviorExecution execution) {
         var adapters = new BehaviorAdapters();
@@ -88,15 +90,28 @@ public sealed class Transport : BehaviorHTTPAdapter {
 }
 public sealed class Database : BehaviorEntityAdapter {
     public System.Threading.Tasks.Task<BehaviorJSON> execute(BehaviorJSON command, BehaviorExecution execution) {
+        if (command.Get("operation").Text == "transaction") return System.Threading.Tasks.Task.FromResult(Transaction(command));
         Config.EntityExecutions++;
         if (command.Get("table").Text != "products" || command.Get("idField").Text != "id") throw new System.Exception("mapping missing");
-        if (command.Get("operation").Text != "query") return System.Threading.Tasks.Task.FromResult(command);
+        if (command.Get("operation").Text != "query") return System.Threading.Tasks.Task.FromResult(Persist(command));
         Config.LastQuery = command;
         if (Config.QueryResult != null) return System.Threading.Tasks.Task.FromResult(Config.QueryResult);
         string kind = command.Get("query").Get("kind").Text;
         if (kind == "find") return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Parse("[{\"id\":1}]"));
         if (kind == "count") return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(1));
         return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(true));
+    }
+    private static BehaviorJSON Transaction(BehaviorJSON command) {
+        Config.Ledger.Add(command.Get("action").Text + (command.Has("transaction") ? ":" + command.Get("transaction").Text : ""));
+        if (command.Get("action").Text != "begin") return BehaviorJSON.Parse("{}");
+        Config.Transactions++;
+        return BehaviorJSON.Parse("{\"transaction\":\"t" + Config.Transactions + "\"}");
+    }
+    private static BehaviorJSON Persist(BehaviorJSON command) {
+        Config.Ledger.Add(command.Get("operation").Text + "@" + (command.Has("transaction") ? command.Get("transaction").Text : "none"));
+        var id = command.Get("value").Get("id");
+        if (id.Value.ValueKind == System.Text.Json.JsonValueKind.String && id.Text == "broken") throw new System.Exception("the second write failed");
+        return command;
     }
 }
 public static class NativeBehaviorTests {
@@ -333,6 +348,23 @@ public static class NativeBehaviorTests {
         signal.Abort();
         await ExpectErrorAsync("CANCELLED", async () => { await ownerContext.Invoke("Catalog", "list", listArguments, Load); });
     }
+    private static System.Threading.Tasks.Task<BehaviorJSON> SettleInTransaction(BehaviorContext service, BehaviorContext store, string second) {
+        return service.Invoke("Ledger", "settle", System.Array.Empty<BehaviorJSON>(), async () => {
+            await store.repository(typeof(Product)).save(BehaviorJSON.Parse("{\"id\":\"first\"}"));
+            await store.repository(typeof(Product)).save(BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["id"] = BehaviorJSON.From(second) }));
+            return BehaviorJSON.From("settled");
+        });
+    }
+    private static async System.Threading.Tasks.Task CheckJoinedTransaction(BehaviorSignal signal) {
+        using var service = Behaviors.create(typeof(Config), "ledger", signal);
+        using var store = Behaviors.create(typeof(Config), "entries", signal);
+        Config.Ledger.Clear();
+        Assert((await SettleInTransaction(service, store, "second")).Text == "settled", "joined transaction result");
+        Assert(string.Join(",", Config.Ledger) == "begin,save@t1,save@t1,commit:t1", "a store in another context joins the open transaction: " + string.Join(",", Config.Ledger));
+        Config.Ledger.Clear();
+        await ExpectErrorAsync("ADAPTER_FAILED", async () => { await SettleInTransaction(service, store, "broken"); });
+        Assert(string.Join(",", Config.Ledger) == "begin,save@t2,save@t2,rollback:t2", "a failed second write rolls back the first: " + string.Join(",", Config.Ledger));
+    }
     public static async System.Threading.Tasks.Task Main() {
         using var signal = new BehaviorSignal();
         using var context = Behaviors.create(typeof(Config), "tenant-one", signal);
@@ -354,6 +386,7 @@ public static class NativeBehaviorTests {
         await CheckHttpCachePut(context, argument, listArguments);
         await CheckInterruptedMutations(signal, argument, replacement);
         await CheckQueries(context, signal);
+        await CheckJoinedTransaction(signal);
         await CheckDeadlineAndCancellation(context, signal, listArguments);
         System.Console.WriteLine("C# behavior runtime: cache mutations, authorized queries, pagination, HTTP, persistence, strict JSON, deadlines, disposal passed");
     }

@@ -76,7 +76,8 @@ async function checkLanguage(temporary, language) {
   const extension = language === 'java' ? 'java' : 'kt';
   const template = await readFile(new URL(`crates/tachyon-core/src/behavior/polyglot/${language}_runtime.${extension}`, JvmTest.root), 'utf8');
   const sources = await readFixtures(extension);
-  const runtime = fillRuntime(template, language);
+  const builtins = language === 'java' ? '' : '\n@Suppress("UNUSED_PARAMETER")\nprivate fun behaviorBuiltinCache(name: String): Behaviors.CacheAdapter? = null\n\n@Suppress("UNUSED_PARAMETER")\nprivate fun behaviorBuiltinEntities(name: String): Behaviors.EntityAdapter? = null\n';
+  const runtime = fillRuntime(template, language) + builtins;
   const { fixture, queries, configuration, validation } = sources;
   const file = join(temporary, `RuntimeChecks.${extension}`);
   await writeFile(file, `${fixture}\n${queries}\n${configuration}\n${validation}\n${runtime}`);

@@ -54,9 +54,16 @@ class RuntimeAdapters {
         }
         return request;
     }
+    static final java.util.List<String> ledger = new java.util.ArrayList<>();
+    static int transactions = 0;
     static Object runEntityCommand(java.util.Map<String, Object> command, Behaviors.Execution current) {
         current.check();
+        if (command.get("operation").equals("transaction")) {
+            return runTransactionCommand(command);
+        }
         if (!command.get("operation").equals("query")) {
+            ledger.add(command.get("operation") + "@" + command.getOrDefault("transaction", "none"));
+            refuseBrokenValue(command);
             return command;
         }
         String kind = (String)Behaviors.map(command.get("query")).get("kind");
@@ -67,6 +74,19 @@ class RuntimeAdapters {
             return true;
         }
         return java.util.List.of(java.util.Map.of("id", "one", "query", command.get("query")));
+    }
+    static Object runTransactionCommand(java.util.Map<String, Object> command) {
+        ledger.add(command.get("action") + (command.containsKey("transaction") ? ":" + command.get("transaction") : ""));
+        if (!command.get("action").equals("begin")) {
+            return java.util.Map.of();
+        }
+        transactions++;
+        return java.util.Map.of("transaction", "t" + transactions);
+    }
+    static void refuseBrokenValue(java.util.Map<String, Object> command) {
+        if (command.get("value") instanceof java.util.Map<?, ?> value && "broken".equals(value.get("id"))) {
+            throw new IllegalStateException("the second write failed");
+        }
     }
     static boolean authorizeCache(java.util.Map<String, Object> call, Behaviors.Execution current) {
         current.check();
@@ -220,6 +240,7 @@ class RuntimeChecks {
         checkPagination();
         checkHttpExchange(context);
         checkRepository(context);
+        checkJoinedTransaction();
         checkJsonCopies();
         checkTimeout();
         checkCancellation(signal, context, other);
@@ -279,6 +300,24 @@ class RuntimeChecks {
         check(Behaviors.map(repository.save(java.util.Map.of("id", "one"))).get("operation").equals("save"));
         check(Behaviors.map(repository.delete("one")).get("operation").equals("delete"));
         fails("entity-id", () -> repository.save(java.util.Map.of("id", "")));
+    }
+    static Object settle(Behaviors.Context store, String second) {
+        store.repository("Product").save(java.util.Map.of("id", "first"));
+        store.repository("Product").save(java.util.Map.of("id", second));
+        return "settled";
+    }
+    static Object settleInTransaction(Behaviors.Context service, Behaviors.Context store, String second) {
+        return service.invoke("Ledger", "settle", new Object[0], new int[0], null, null, null, null, new Behaviors.Transaction("data"), () -> settle(store, second));
+    }
+    static void checkJoinedTransaction() {
+        Behaviors.Context service = Behaviors.create("RuntimeAdapters", new Behaviors.Options("ledger", new Behaviors.Signal()));
+        Behaviors.Context store = Behaviors.create("RuntimeAdapters", new Behaviors.Options("entries", new Behaviors.Signal()));
+        RuntimeAdapters.ledger.clear();
+        check(settleInTransaction(service, store, "second").equals("settled"));
+        check(RuntimeAdapters.ledger.equals(java.util.List.of("begin", "save@t1", "save@t1", "commit:t1")));
+        RuntimeAdapters.ledger.clear();
+        fails("entity-adapter", () -> settleInTransaction(service, store, "broken"));
+        check(RuntimeAdapters.ledger.equals(java.util.List.of("begin", "save@t2", "save@t2", "rollback:t2")));
     }
     static void checkJsonCopies() {
         fails("json-number", () -> Behaviors.copy(Double.NaN, 100));

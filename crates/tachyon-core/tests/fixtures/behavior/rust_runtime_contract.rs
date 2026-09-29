@@ -1085,6 +1085,124 @@ fn check_rejected_values() {
     assert!(reserved_key.checked(1024).is_err());
 }
 
+struct LedgerConfig;
+impl LedgerConfig {
+    fn log() -> &'static std::sync::Mutex<Vec<String>> {
+        static LOG: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+        &LOG
+    }
+
+    fn sequence() -> &'static std::sync::atomic::AtomicUsize {
+        static SEQUENCE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        &SEQUENCE
+    }
+
+    fn record(entry: String) {
+        LedgerConfig::log().lock().expect("ledger log").push(entry);
+    }
+
+    fn take() -> Vec<String> {
+        std::mem::take(&mut *LedgerConfig::log().lock().expect("ledger log"))
+    }
+}
+impl BehaviorConfigurationSource for LedgerConfig {
+    fn behavior_configure(_: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {
+        let mut config = BehaviorConfiguration::default();
+        config.entities.insert("ledger".into(), std::sync::Arc::new(LedgerAdapter));
+        config.entities.insert("audit".into(), std::sync::Arc::new(LedgerAdapter));
+        config.authorize_entity = Some(std::sync::Arc::new(|_, _| Ok(true)));
+        Ok(config)
+    }
+}
+struct LedgerAdapter;
+impl BehaviorEntityAdapter for LedgerAdapter {
+    fn execute(
+        &self,
+        command: &BehaviorEntityCommand,
+        _: &BehaviorExecution,
+    ) -> BehaviorResult<BehaviorValue> {
+        let joined = command.transaction.as_deref().unwrap_or("none");
+        LedgerConfig::record(format!("{}@{joined}", command.operation));
+        let broken = BehaviorValue::from("broken");
+        if command.value.as_ref().and_then(|value| value.get("id")) == Some(&broken) {
+            return Err(behavior_invalid());
+        }
+        Ok(BehaviorValue::from(command.operation))
+    }
+
+    fn transaction(
+        &self,
+        command: &BehaviorTransactionCommand,
+        _: &BehaviorExecution,
+    ) -> BehaviorResult<BehaviorValue> {
+        let entry = match &command.transaction {
+            Some(id) => format!("{}:{id}", command.action),
+            None => command.action.to_owned(),
+        };
+        LedgerConfig::record(entry);
+        if command.action != "begin" {
+            return Ok(BehaviorValue::Null);
+        }
+        let number = LedgerConfig::sequence().fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        Ok(BehaviorValue::from(format!("t{number}").as_str()))
+    }
+}
+struct Entry;
+impl BehaviorEntity for Entry {
+    fn behavior_entity() -> BehaviorEntityMetadata {
+        BehaviorEntityMetadata {
+            name: "Entry",
+            adapter: "ledger",
+            table: "entries",
+            id: "id",
+        }
+    }
+}
+struct Note;
+impl BehaviorEntity for Note {
+    fn behavior_entity() -> BehaviorEntityMetadata {
+        BehaviorEntityMetadata {
+            name: "Note",
+            adapter: "audit",
+            table: "notes",
+            id: "id",
+        }
+    }
+}
+
+fn settle(
+    service: &BehaviorContext,
+    store: &BehaviorContext,
+    second: &str,
+) -> BehaviorResult<BehaviorValue> {
+    let mut policy = plain_policy();
+    policy.owner = "LedgerService";
+    policy.name = "settle";
+    policy.transactional = Some(BehaviorTransactionPolicy { adapter: "ledger" });
+    service.invoke(policy, vec![], |_| {
+        store.repository::<Entry>()?.save(BehaviorValue::object([("id", "first".into())]))?;
+        store.repository::<Note>()?.save(BehaviorValue::object([("id", "note".into())]))?;
+        store.repository::<Entry>()?.save(BehaviorValue::object([("id", second.into())]))?;
+        Ok(BehaviorValue::from("settled"))
+    })
+}
+
+fn check_joined_transaction() -> BehaviorResult<()> {
+    let service = Behaviors::create::<LedgerConfig>(BehaviorOptions::new("ledger", BehaviorSignal::new()))?;
+    let store = Behaviors::create::<LedgerConfig>(BehaviorOptions::new("entries", BehaviorSignal::new()))?;
+    assert_eq!(settle(&service, &store, "second")?, BehaviorValue::from("settled"));
+    assert_eq!(
+        LedgerConfig::take(),
+        ["begin", "save@t1", "save@none", "save@t1", "commit:t1"]
+    );
+    assert!(settle(&service, &store, "broken").is_err());
+    assert_eq!(
+        LedgerConfig::take(),
+        ["begin", "save@t2", "save@none", "save@t2", "rollback:t2"]
+    );
+    Ok(())
+}
+
 fn main() -> BehaviorResult<()> {
     validation_contracts()?;
     configuration_contracts()?;
@@ -1094,6 +1212,7 @@ fn main() -> BehaviorResult<()> {
     let context = Behaviors::create::<Config>(BehaviorOptions::new("tenant-a", signal.clone()))?;
     check_cached_invocation(&context)?;
     check_repository(&context)?;
+    check_joined_transaction()?;
     check_http_invocation(&context)?;
     check_rejected_values();
     negative_contracts(&context)?;

@@ -236,27 +236,32 @@ object Behaviors {
     class Retry(val maxRetries: Int, val delayMs: Int, val multiplier: Double, val maxDelayMs: Int, val jitterMs: Int)
     class Limit(val limit: Int, val blocking: Boolean)
     class Transaction(val adapter: String)
+    object OpenTransactions {
+        private val open: ThreadLocal<Map<String, String>> = ThreadLocal.withInitial { emptyMap() }
+        fun of(adapter: String): String? = open.get()[adapter]
+        fun within(adapter: String, identifier: String, call: () -> Any?): Any? {
+            val outer = open.get()
+            open.set(outer + (adapter to identifier))
+            try { return call() } finally { open.set(outer) }
+        }
+    }
     private fun retryable(error: RuntimeException): Boolean = error !is Failure || error.code.endsWith("-adapter")
     class Context internal constructor(private val options: Options, private val configuration: Configuration) : AutoCloseable {
         @Volatile internal var closed = false
         private var active = 0
         private val slots = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.Semaphore>()
-        @Volatile internal var transaction: String? = null
         private fun transacted(policy: Transaction?, execution: Execution, call: () -> Any?): Any? {
-            if (policy == null || transaction != null) return call()
+            if (policy == null || OpenTransactions.of(policy.adapter) != null) return call()
             val adapter = entityAdapter(policy.adapter)
             val begun = control(adapter, execution, "begin", null)
             val identifier = (begun as? Map<*, *>)?.get("transaction")
             if (identifier !is String || identifier.isEmpty() || identifier.toByteArray().size > 128) fail("entity-adapter")
-            transaction = identifier
             val value: Any?
-            try { value = call() }
+            try { value = OpenTransactions.within(policy.adapter, identifier, call) }
             catch (error: RuntimeException) {
-                transaction = null
                 try { control(adapter, execution, "rollback", identifier) } catch (ignored: RuntimeException) { }
                 throw error
             }
-            transaction = null
             control(adapter, execution, "commit", identifier)
             return value
         }
@@ -376,7 +381,7 @@ object Behaviors {
         fun repository(name: String): Repository = Repository(this, entity(name))
         fun query(entity: Entity, kind: String, fields: Array<String>, where: Array<Array<Any?>>, orderBy: Array<Array<String>>, input: Any?, defaultSize: Int, maxSize: Int): Any? = operation { execution ->
             val query = queryDescriptor(kind, fields, where, orderBy, input, defaultSize, maxSize)
-            val joined = transaction
+            val joined = OpenTransactions.of(entity.adapter)
             val command = map(copy(if (joined == null) record("operation" to "query", "entity" to entity.name, "table" to entity.table, "idField" to entity.id, "query" to query)
                 else record("operation" to "query", "entity" to entity.name, "table" to entity.table, "idField" to entity.id, "query" to query, "transaction" to joined), 1048576))
             allowEntity(command, entity, execution)
@@ -412,7 +417,7 @@ object Behaviors {
         }
         internal fun persist(entity: Entity, operation: String, key: String, value: Any?): Any? = operation { execution ->
             val adapter = entityAdapter(entity.adapter)
-            val joined = transaction
+            val joined = OpenTransactions.of(entity.adapter)
             val command = if (joined == null) record("operation" to operation, "entity" to entity.name, "table" to entity.table, "idField" to entity.id, key to value)
                 else record("operation" to operation, "entity" to entity.name, "table" to entity.table, "idField" to entity.id, key to value, "transaction" to joined)
             try { val result = adapter.execute(command, execution); execution.check(); copy(result, 1048576) }

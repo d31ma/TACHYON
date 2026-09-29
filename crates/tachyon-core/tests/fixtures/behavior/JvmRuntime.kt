@@ -10,6 +10,8 @@ class RuntimeAdapters {
         var configured = 0
         var allow = true
         var cacheUnavailable = false
+        val ledger = mutableListOf<String>()
+        var transactions = 0
         fun configure(execution: Behaviors.Execution): Behaviors.Configuration {
             configured++
             execution.check()
@@ -53,7 +55,12 @@ class RuntimeAdapters {
         }
         private fun runEntityCommand(command: Map<String, Any?>, current: Behaviors.Execution): Any? {
             current.check()
+            if (command["operation"] == "transaction") {
+                return runTransactionCommand(command)
+            }
             if (command["operation"] != "query") {
+                ledger.add("${command["operation"]}@${command["transaction"] ?: "none"}")
+                check((command["value"] as? Map<*, *>)?.get("id") != "broken") { "the second write failed" }
                 return command
             }
             val query = command["query"] as Map<*, *>
@@ -62,6 +69,14 @@ class RuntimeAdapters {
                 "exists" -> true
                 else -> listOf(mapOf("id" to "one", "query" to command["query"]))
             }
+        }
+        private fun runTransactionCommand(command: Map<String, Any?>): Any? {
+            ledger.add(command["action"].toString() + (command["transaction"]?.let { ":$it" } ?: ""))
+            if (command["action"] != "begin") {
+                return emptyMap<String, Any?>()
+            }
+            transactions++
+            return mapOf("transaction" to "t$transactions")
         }
         private fun authorizeCache(call: Map<String, Any?>, current: Behaviors.Execution): Boolean {
             current.check()
@@ -208,6 +223,7 @@ object RuntimeChecks {
         checkPagination()
         checkHttpExchange(context)
         checkRepository(context)
+        checkJoinedTransaction()
         checkJsonCopies()
         checkTimeout()
         checkCancellation(signal, context, other)
@@ -267,6 +283,22 @@ object RuntimeChecks {
         check((repository.save(mapOf("id" to "one")) as Map<*, *>)["operation"] == "save")
         check((repository.delete("one") as Map<*, *>)["operation"] == "delete")
         fails("entity-id") { repository.save(mapOf("id" to "")) }
+    }
+    private fun settleInTransaction(service: Behaviors.Context, store: Behaviors.Context, second: String): Any? =
+        service.invoke("Ledger", "settle", arrayOf(), intArrayOf(), null, null, transactional = Behaviors.Transaction("data")) {
+            store.repository("Product").save(mapOf("id" to "first"))
+            store.repository("Product").save(mapOf("id" to second))
+            "settled"
+        }
+    private fun checkJoinedTransaction() {
+        val service = Behaviors.create("RuntimeAdapters", Behaviors.Options("ledger", Behaviors.Signal()))
+        val store = Behaviors.create("RuntimeAdapters", Behaviors.Options("entries", Behaviors.Signal()))
+        RuntimeAdapters.ledger.clear()
+        check(settleInTransaction(service, store, "second") == "settled")
+        check(RuntimeAdapters.ledger == listOf("begin", "save@t1", "save@t1", "commit:t1"))
+        RuntimeAdapters.ledger.clear()
+        fails("entity-adapter") { settleInTransaction(service, store, "broken") }
+        check(RuntimeAdapters.ledger == listOf("begin", "save@t2", "save@t2", "rollback:t2"))
     }
     private fun checkJsonCopies() {
         fails("json-number") { Behaviors.copy(Double.NaN, 100) }

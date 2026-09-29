@@ -80,6 +80,18 @@ final class Behaviors {
         final String adapter;
         Transaction(String adapter) { this.adapter = adapter; }
     }
+    static final class OpenTransactions {
+        private static final ThreadLocal<java.util.Map<String, String>> OPEN = ThreadLocal.withInitial(java.util.Map::of);
+        private OpenTransactions() {}
+        static String of(String adapter) { return OPEN.get().get(adapter); }
+        static Object within(String adapter, String identifier, Call call) {
+            java.util.Map<String, String> outer = OPEN.get();
+            java.util.Map<String, String> joined = new java.util.HashMap<>(outer);
+            joined.put(adapter, identifier);
+            OPEN.set(java.util.Collections.unmodifiableMap(joined));
+            try { return call.run(); } finally { OPEN.set(outer); }
+        }
+    }
     static boolean retryable(RuntimeException error) {
         return !(error instanceof Failure) || String.valueOf(error.getMessage()).endsWith("-adapter");
     }
@@ -352,23 +364,19 @@ final class Behaviors {
             return configuration.authorizeEntity == null && !configuration.entities.containsKey(name) && BehaviorBuiltins.entities(name) != null;
         }
         private final java.util.Map<String, java.util.concurrent.Semaphore> slots = new java.util.concurrent.ConcurrentHashMap<>();
-        private volatile String transaction;
         private Object transacted(Transaction policy, Execution execution, Call call) {
-            if (policy == null || transaction != null) return call.run();
+            if (policy == null || OpenTransactions.of(policy.adapter) != null) return call.run();
             EntityAdapter adapter = entityAdapter(policy.adapter);
             if (adapter == null) throw fail("entity-adapter");
             Object begun = control(adapter, execution, "begin", null);
             Object identifier = begun instanceof java.util.Map<?, ?> ? map(begun).get("transaction") : null;
             if (!(identifier instanceof String) || ((String)identifier).isEmpty() || bytes((String)identifier) > 128) throw fail("entity-adapter");
-            transaction = (String)identifier;
             Object value;
-            try { value = call.run(); }
+            try { value = OpenTransactions.within(policy.adapter, (String)identifier, call); }
             catch (RuntimeException error) {
-                transaction = null;
                 try { control(adapter, execution, "rollback", (String)identifier); } catch (RuntimeException ignored) { }
                 throw error;
             }
-            transaction = null;
             control(adapter, execution, "commit", (String)identifier);
             return value;
         }
@@ -480,6 +488,7 @@ final class Behaviors {
         Object query(Entity entity, String kind, String[] fields, Object[][] where, String[][] orderBy, Object input, int defaultSize, int maxSize) {
             return operation(execution -> {
                 java.util.Map<String, Object> query = queryDescriptor(kind, fields, where, orderBy, input, defaultSize, maxSize);
+                String transaction = OpenTransactions.of(entity.adapter);
                 java.util.Map<String, Object> command = map(copy(transaction == null
                     ? record("operation", "query", "entity", entity.name, "table", entity.table, "idField", entity.id, "query", query)
                     : record("operation", "query", "entity", entity.name, "table", entity.table, "idField", entity.id, "query", query, "transaction", transaction), 1048576));
@@ -593,9 +602,10 @@ final class Behaviors {
         Object execute(String operation, String key, Object value) {
             return context.operation(execution -> {
                 EntityAdapter adapter = context.entityAdapter(entity.adapter); if (adapter == null) throw fail("entity-adapter");
-                java.util.Map<String, Object> command = context.transaction == null
+                String transaction = OpenTransactions.of(entity.adapter);
+                java.util.Map<String, Object> command = transaction == null
                     ? record("operation", operation, "entity", entity.name, "table", entity.table, "idField", entity.id, key, value)
-                    : record("operation", operation, "entity", entity.name, "table", entity.table, "idField", entity.id, key, value, "transaction", context.transaction);
+                    : record("operation", operation, "entity", entity.name, "table", entity.table, "idField", entity.id, key, value, "transaction", transaction);
                 try { Object result = adapter.execute(command, execution); execution.check(); return copy(result, 1048576); }
                 catch (Failure error) { throw error; } catch (RuntimeException error) { throw fail("entity-adapter"); }
             });

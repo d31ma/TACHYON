@@ -21,6 +21,8 @@ final class MissingConfig {
 }
 final class MemoryCache {
     var values: [String: BehaviorJSON] = [:]
+    var ledger: [String] = []
+    var transactions = 0
     var authorizations = 0
     var allowed = true
     var includeCache = true
@@ -28,6 +30,19 @@ final class MemoryCache {
     var writes = 0
     var deletes = 0
     var lastCall: BehaviorJSON = .null
+    func transaction(_ command: BehaviorJSON) throws -> BehaviorJSON {
+        let action = try command.get("action").text
+        ledger.append(command.has("transaction") ? action + ":" + (try command.get("transaction").text) : action)
+        guard action == "begin" else { return .object([:]) }
+        transactions += 1
+        return .object(["transaction": .string("t\(transactions)")])
+    }
+    func persist(_ command: BehaviorJSON) throws -> BehaviorJSON {
+        let joined = command.has("transaction") ? try command.get("transaction").text : "none"
+        ledger.append((try command.get("operation").text) + "@" + joined)
+        guard command.get("value").get("id") != .string("broken") else { throw BehaviorError("SECOND_WRITE") }
+        return command
+    }
     var entityAllowed = true
     var includeEntityAuthorization = true
     var entityAuthorizations = 0
@@ -65,9 +80,10 @@ final class Config {
             return .object(["transport": .bool(true)])
         }
         adapters.entities["data"] = BehaviorEntityAdapter { command, execution in
+            if command.get("operation") == .string("transaction") { return try store.transaction(command) }
             store.entityExecutions += 1
             guard command.get("table") == .string("products"), command.get("idField") == .string("id") else { throw BehaviorError("MAPPING") }
-            guard command.get("operation") == .string("query") else { return command }
+            guard command.get("operation") == .string("query") else { return try store.persist(command) }
             store.lastQuery = command
             if let result = store.queryResult { return result }
             switch command.get("query").get("kind") {
@@ -343,6 +359,24 @@ enum NativeBehaviorTests {
         signal.abort()
         try await expectError("CANCELLED") { _ = try await owned.invoke("Catalog", "list", arguments: [normalized], body: load) }
     }
+    static func settleInTransaction(_ service: BehaviorContext, _ store: BehaviorContext, _ second: String) async throws -> BehaviorJSON {
+        try await service.invoke("Ledger", "settle", arguments: []) {
+            _ = try await store.repository(Product.self).save(.object(["id": .string("first")]))
+            _ = try await store.repository(Product.self).save(.object(["id": .string(second)]))
+            return .string("settled")
+        }
+    }
+    static func checkJoinedTransaction(_ signal: BehaviorSignal, _ memory: MemoryCache) async throws {
+        let service = try Behaviors.create(Config.self, partition: "ledger", signal: signal)
+        let store = try Behaviors.create(Config.self, partition: "entries", signal: signal)
+        defer { service.dispose(); store.dispose() }
+        memory.ledger = []
+        try check(try await settleInTransaction(service, store, "second") == .string("settled"), "JOINED_RESULT")
+        try check(memory.ledger == ["begin", "save@t1", "save@t1", "commit:t1"], "JOINED_TRANSACTION")
+        memory.ledger = []
+        try await expectError("SECOND_WRITE") { _ = try await settleInTransaction(service, store, "broken") }
+        try check(memory.ledger == ["begin", "save@t2", "save@t2", "rollback:t2"], "JOINED_ROLLBACK")
+    }
     static func run() async throws {
         let signal = BehaviorSignal()
         let context = try Behaviors.create(Config.self, partition: "tenant-one", signal: signal)
@@ -364,6 +398,7 @@ enum NativeBehaviorTests {
         try await checkHttpCachePut(context, argument, normalized)
         try await checkInterruptedMutations(signal, argument, replacement)
         try await checkQueries(context, signal)
+        try await checkJoinedTransaction(signal, Config.store)
         try await checkDeadlineAndCancellation(context, signal, normalized)
         print("Swift behavior runtime: cache mutations, authorized queries, pagination, HTTP, persistence, strict JSON, deadlines, disposal passed")
     }

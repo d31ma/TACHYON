@@ -15,7 +15,7 @@ class NativeBehaviorTest {
     update: { cachePut: { method: 'list', arguments: [1], target: NativeBehaviorTest.cacheTarget } },
     remove: { cacheEvict: { method: 'list', arguments: [0], target: NativeBehaviorTest.cacheTarget } },
     updateRemote: { cachePut: { method: 'list', arguments: [0], target: NativeBehaviorTest.cacheTarget }, httpExchange: { client: 'catalog', method: 'GET', path: '/products' } },
-  } } });
+  } }, Ledger: { methods: { settle: { transactional: { adapter: 'data' } } } } });
   static mapping = JSON.stringify({ entity: 'Product', adapter: 'data', idField: 'id', table: 'products' });
   static configurationPolicies = {
     Config: {},
@@ -78,7 +78,8 @@ async function checkLanguage(directory, language, emittedPath) {
   const stem = language === 'cs' ? 'csharp' : 'swift';
   const template = await readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot', `${stem}_runtime.${language}`), 'utf8');
   const fixtures = await readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/tests/fixtures/behavior', `${stem}-runtime.${language}`), 'utf8');
-  const code = emittedPath ? await readFile(emittedPath, 'utf8') : emitCode(language, template);
+  const foundation = language === 'cs' ? [] : await Promise.all(['BehaviorLock', 'BehaviorPlatform'].map(name => readFile(join(NativeBehaviorTest.root, 'crates/tachyon-core/src/behavior/polyglot/swift_foundation', `${name}.swift`), 'utf8')));
+  const code = emittedPath ? await readFile(emittedPath, 'utf8') : [emitCode(language, template), ...foundation].join('\n');
   if (language === 'cs') await checkCSharp(directory, code, fixtures, emittedPath);
   else await checkSwift(directory, code, fixtures, emittedPath);
 }

@@ -341,10 +341,17 @@ enum Behaviors {
         guard minimum <= maximum, number >= minimum, number <= maximum else { throw BehaviorError("configuration-properties") }
     }
 }
+enum BehaviorOpenTransactions {
+    @TaskLocal static var open: [String: String] = [:]
+    static func within(_ adapter: String, _ identifier: String, _ body: () async throws -> BehaviorJSON) async throws -> BehaviorJSON {
+        var joined = open
+        joined[adapter] = identifier
+        return try await $open.withValue(joined) { try await body() }
+    }
+}
 final class BehaviorContext {
     private let adapters: BehaviorAdapters; private let partition: String; private let owner: BehaviorSignal; private let signal: BehaviorSignal; private let timeoutMs: Int
     private let lock = BehaviorLock(); private var active = 0; private var slots: [String: Int] = [:]
-    private var transaction: String?
     init(adapters: BehaviorAdapters, partition: String, owner: BehaviorSignal, timeoutMs: Int) { self.adapters = adapters; self.partition = partition; self.owner = owner; self.signal = BehaviorSignal(parent: owner); self.timeoutMs = timeoutMs }
     func dispose() { signal.abort() }
     private func acquire() throws { lock.lock(); defer { lock.unlock() }; guard active < 64 else { throw BehaviorError("OPERATION_LIMIT") }; active += 1 }
@@ -469,10 +476,9 @@ final class BehaviorContext {
     }
     private func retryable(_ error: Error) -> Bool { (error as? BehaviorError).map { $0.code == "ADAPTER_FAILED" } ?? true }
     private func transacted(_ metadata: BehaviorJSON, body: () async throws -> BehaviorJSON, execution: BehaviorExecution) async throws -> BehaviorJSON {
-        guard metadata.has("transactional"), transaction == nil else {
-            return try await attempt(metadata, body: body, execution: execution)
-        }
+        guard metadata.has("transactional") else { return try await attempt(metadata, body: body, execution: execution) }
         let name = try metadata.get("transactional").get("adapter").text
+        guard BehaviorOpenTransactions.open[name] == nil else { return try await attempt(metadata, body: body, execution: execution) }
         let adapter = try entities(name)
         let control = { (action: String, identifier: String?) async throws -> BehaviorJSON in
             var command: [String: BehaviorJSON] = ["operation": .string("transaction"), "action": .string(action)]
@@ -482,15 +488,12 @@ final class BehaviorContext {
         let begun = try await control("begin", nil)
         let identifier = begun.has("transaction") ? (try? begun.get("transaction").text) ?? "" : ""
         guard !identifier.isEmpty, identifier.utf8.count <= 128 else { throw BehaviorError("ENTITY_TRANSACTION") }
-        transaction = identifier
         let value: BehaviorJSON
-        do { value = try await attempt(metadata, body: body, execution: execution) }
+        do { value = try await BehaviorOpenTransactions.within(name, identifier) { try await attempt(metadata, body: body, execution: execution) } }
         catch {
-            transaction = nil
             _ = try? await control("rollback", identifier)
             throw error
         }
-        transaction = nil
         _ = try await control("commit", identifier)
         return value
     }
@@ -634,14 +637,14 @@ final class BehaviorContext {
         }
         let entity = metadata.get("entity")
         var command: [String: BehaviorJSON] = ["operation": .string("query"), "entity": entity.get("name"), "table": entity.get("table"), "idField": entity.get("id"), "query": .object(query)]
-        if let joined = transaction { command["transaction"] = .string(joined) }
+        if let joined = try BehaviorOpenTransactions.open[entity.get("adapter").text] { command["transaction"] = .string(joined) }
         return .object(command)
     }
     fileprivate func executeEntity(_ mapping: BehaviorJSON, operation: String, value: BehaviorJSON) async throws -> BehaviorJSON {
         try await self.operation { execution in
             let adapter = try self.entities(mapping.get("adapter").text)
             var command = try mapping.members; command.removeValue(forKey: "adapter"); command["operation"] = .string(operation); command[operation == "find" ? "page" : operation == "save" ? "value" : "id"] = value
-            if let joined = self.transaction { command["transaction"] = .string(joined) }
+            if let joined = try BehaviorOpenTransactions.open[mapping.get("adapter").text] { command["transaction"] = .string(joined) }
             return try await self.adapter(execution, { try await adapter.execute(.object(command), execution) })
         }
     }

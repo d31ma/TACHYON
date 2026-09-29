@@ -519,6 +519,36 @@ pub struct BehaviorValidationField {
 pub trait BehaviorValidated {
     fn behavior_validation() -> BehaviorValidationSchema;
 }
+struct BehaviorOpenTransactions {
+    outer: Vec<(&'static str, String)>,
+}
+impl BehaviorOpenTransactions {
+    fn with<R>(action: impl FnOnce(&std::cell::RefCell<Vec<(&'static str, String)>>) -> R) -> R {
+        thread_local! {
+            static OPEN: std::cell::RefCell<Vec<(&'static str, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
+        OPEN.with(action)
+    }
+    fn of(adapter: &str) -> Option<String> {
+        Self::with(|open| {
+            open.borrow()
+                .iter()
+                .find(|(name, _)| *name == adapter)
+                .map(|(_, id)| id.clone())
+        })
+    }
+    fn open(adapter: &'static str, id: String) -> Self {
+        let outer = Self::with(|open| open.borrow().clone());
+        Self::with(|open| open.borrow_mut().push((adapter, id)));
+        Self { outer }
+    }
+}
+impl Drop for BehaviorOpenTransactions {
+    fn drop(&mut self) {
+        let outer = std::mem::take(&mut self.outer);
+        Self::with(|open| *open.borrow_mut() = outer);
+    }
+}
 struct BehaviorContextState {
     options: BehaviorOptions,
     configuration: BehaviorConfiguration,
@@ -526,7 +556,6 @@ struct BehaviorContextState {
     active: std::sync::atomic::AtomicUsize,
     slots: std::sync::Mutex<std::collections::BTreeMap<(&'static str, &'static str), usize>>,
     released: std::sync::Condvar,
-    transaction: std::sync::Mutex<Option<String>>,
 }
 impl Drop for BehaviorContextState {
     fn drop(&mut self) {
@@ -621,7 +650,6 @@ impl Behaviors {
             active: std::sync::atomic::AtomicUsize::new(0),
             slots: std::sync::Mutex::new(std::collections::BTreeMap::new()),
             released: std::sync::Condvar::new(),
-            transaction: std::sync::Mutex::new(None),
         })))
     }
     pub fn gateway_arguments(arguments: Vec<BehaviorValue>) -> BehaviorResult<String> {
@@ -1297,7 +1325,7 @@ impl BehaviorContext {
         }
         let adapter = self.entity_adapter(policy.entity.adapter)?;
         let command = BehaviorEntityCommand {
-            transaction: self.joined()?,
+            transaction: BehaviorOpenTransactions::of(policy.entity.adapter),
             operation: "query",
             entity: policy.entity.name,
             table: policy.entity.table,
@@ -1495,15 +1523,6 @@ impl BehaviorContext {
         }
         self.0.released.notify_one();
     }
-    fn joined(&self) -> BehaviorResult<Option<String>> {
-        Ok(self
-            .0
-            .transaction
-            .lock()
-            .map_err(|_| behavior_invalid())?
-            .clone())
-    }
-
     fn transacted(
         &self,
         operation: &BehaviorOperation<'_>,
@@ -1511,8 +1530,11 @@ impl BehaviorContext {
         args: Vec<BehaviorValue>,
         original: &impl Fn(Vec<BehaviorValue>) -> BehaviorResult<BehaviorValue>,
     ) -> BehaviorResult<BehaviorValue> {
-        let open = self.joined()?;
-        let Some(transactional) = policy.transactional.as_ref().filter(|_| open.is_none()) else {
+        let Some(transactional) = policy
+            .transactional
+            .as_ref()
+            .filter(|transactional| BehaviorOpenTransactions::of(transactional.adapter).is_none())
+        else {
             return self.execute(operation, policy, args, original);
         };
         let adapter = self.entity_adapter(transactional.adapter)?;
@@ -1528,9 +1550,9 @@ impl BehaviorContext {
             BehaviorValue::String(id) if !id.is_empty() && id.len() <= 128 => id,
             _ => return Err(behavior_invalid()),
         };
-        *self.0.transaction.lock().map_err(|_| behavior_invalid())? = Some(id.clone());
+        let open = BehaviorOpenTransactions::open(transactional.adapter, id.clone());
         let value = self.execute(operation, policy, args, original);
-        *self.0.transaction.lock().map_err(|_| behavior_invalid())? = None;
+        drop(open);
         if value.is_err() {
             let _ = control("rollback", Some(id));
             return value;
@@ -2016,7 +2038,7 @@ impl BehaviorRepository {
         let active = self.context.operation()?;
         let adapter = self.context.entity_adapter(self.metadata.adapter)?;
         let command = BehaviorEntityCommand {
-            transaction: self.context.joined()?,
+            transaction: BehaviorOpenTransactions::of(self.metadata.adapter),
             entity: self.metadata.name,
             table: self.metadata.table,
             id_field: self.metadata.id,
