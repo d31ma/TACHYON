@@ -12,6 +12,7 @@ import { withServer } from '../../scripts/release/server-probe.mjs'
 import { checkConfigurationBrowser, configurationTestFiles } from './verify-configuration-binding.mjs'
 import { SiteContent } from './site-content.mjs'
 import { SnippetRequest } from './snippet-request.mjs'
+import { SocketProbe } from './socket-probe.mjs'
 import { TypeCheckProjects } from './type-check-projects.mjs'
 
 /** @typedef {{name:string,code:string}} Snippet */
@@ -1008,12 +1009,7 @@ async function checkSocket(label, request, routePath) {
   assert.equal(plain.status, 426, `A socket path answers a plain request with 426, not ${plain.status}`)
   const url = new URL(plain.url)
   url.protocol = 'ws:'
-  const first = await new Promise((resolve, reject) => {
-    const socket = new WebSocket(url)
-    const timer = setTimeout(() => { socket.close(); reject(new Error('The socket did not open')) }, 10_000)
-    socket.onmessage = ({ data }) => { clearTimeout(timer); socket.close(1000); resolve(String(data)) }
-    socket.onclose = ({ code }) => { clearTimeout(timer); reject(new Error(`The socket closed with ${code}`)) }
-  })
+  const first = await SocketProbe.firstMessage(url)
   checkJsonData(`${label} WebSocket message`, first)
 }
 
