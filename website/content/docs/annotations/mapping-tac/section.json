@@ -65,12 +65,24 @@
       "code": { "file": "client/setups/CatalogSetup.cs" }
     },
     {
+      "name": "client/setups/CatalogSetup.fs",
+      "code": { "file": "client/setups/CatalogSetup.fs" }
+    },
+    {
       "name": "client/converters/ProductConverter.cs",
       "code": { "file": "client/converters/ProductConverter.cs" }
     },
     {
+      "name": "client/converters/ProductConverter.fs",
+      "code": { "file": "client/converters/ProductConverter.fs" }
+    },
+    {
       "name": "client/services/CatalogService.cs",
       "code": { "file": "client/services/CatalogService.cs" }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": { "file": "client/services/CatalogService.fs" }
     },
     {
       "name": "client/setups/CatalogSetup.rs",

@@ -201,9 +201,19 @@
       "code": { "file": "server/models/LedgerReport.cs" }
     },
     {
+      "name": "server/models/LedgerReport.fs",
+      "code": { "file": "server/models/LedgerReport.fs" }
+    },
+    {
       "name": "server/entities/EntryEntity.cs",
       "code": {
         "file": "server/entities/EntryEntity.cs"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.fs",
+      "code": {
+        "file": "server/entities/EntryEntity.fs"
       }
     },
     {
@@ -213,15 +223,33 @@
       }
     },
     {
+      "name": "server/stores/EntryStore.fs",
+      "code": {
+        "file": "server/stores/EntryStore.fs"
+      }
+    },
+    {
       "name": "server/setups/LedgerSetup.cs",
       "code": {
         "file": "server/setups/LedgerSetup.cs"
       }
     },
     {
+      "name": "server/setups/LedgerSetup.fs",
+      "code": {
+        "file": "server/setups/LedgerSetup.fs"
+      }
+    },
+    {
       "name": "server/controllers/LedgerController.cs",
       "code": {
         "file": "server/controllers/LedgerController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.fs",
+      "code": {
+        "file": "server/controllers/LedgerController.fs"
       }
     },
     {
@@ -314,6 +342,12 @@
       "name": "server/helpers/LedgerAdapterHelper.cs",
       "code": {
         "file": "server/helpers/LedgerAdapterHelper.cs"
+      }
+    },
+    {
+      "name": "server/helpers/LedgerAdapterHelper.fs",
+      "code": {
+        "file": "server/helpers/LedgerAdapterHelper.fs"
       }
     },
     {

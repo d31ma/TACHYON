@@ -159,9 +159,19 @@
       "code": { "file": "server/models/OrderReport.cs" }
     },
     {
+      "name": "server/models/OrderReport.fs",
+      "code": { "file": "server/models/OrderReport.fs" }
+    },
+    {
       "name": "server/setups/OrdersSetup.cs",
       "code": {
         "file": "server/setups/OrdersSetup.cs"
+      }
+    },
+    {
+      "name": "server/setups/OrdersSetup.fs",
+      "code": {
+        "file": "server/setups/OrdersSetup.fs"
       }
     },
     {
@@ -171,9 +181,21 @@
       }
     },
     {
+      "name": "server/services/OrdersService.fs",
+      "code": {
+        "file": "server/services/OrdersService.fs"
+      }
+    },
+    {
       "name": "server/controllers/OrdersController.cs",
       "code": {
         "file": "server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.fs",
+      "code": {
+        "file": "server/controllers/OrdersController.fs"
       }
     },
     {

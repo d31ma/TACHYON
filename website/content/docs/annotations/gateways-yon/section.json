@@ -2,7 +2,7 @@
   "heading": "Gateways: Yon",
   "axis": "language",
   "summary": "Gateway declares a method that another language answers. Declare it on an HTTPClient as a signature with an empty body. In JavaScript and TypeScript its answer is Promise<BehaviorJsonValue | void>, because an empty body returns nothing to the type checker. It names a class in another Yon language or a program under server/helpers.",
-  "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# uses `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. The C# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language.",
+  "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# and F# use `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. The C#, F# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language.",
   "files": [
     {
       "name": "server/clients/ReportClient.js",
@@ -24,7 +24,9 @@
     },
     {
       "name": "server/models/Report.ts",
-      "code": { "file": "server/models/Report.ts" }
+      "code": {
+        "file": "server/models/Report.ts"
+      }
     },
     {
       "name": "server/clients/ReportClient.ts",
@@ -40,7 +42,9 @@
     },
     {
       "name": "server/models/Report.py",
-      "code": { "file": "server/models/Report.py" }
+      "code": {
+        "file": "server/models/Report.py"
+      }
     },
     {
       "name": "server/clients/ReportClient.py",
@@ -68,7 +72,9 @@
     },
     {
       "name": "server/models/Report.php",
-      "code": { "file": "server/models/Report.php" }
+      "code": {
+        "file": "server/models/Report.php"
+      }
     },
     {
       "name": "server/clients/ReportClient.php",
@@ -84,11 +90,15 @@
     },
     {
       "name": "server/models/Report.java",
-      "code": { "file": "server/models/Report.java" }
+      "code": {
+        "file": "server/models/Report.java"
+      }
     },
     {
       "name": "server/models/Report.groovy",
-      "code": { "file": "server/models/Report.groovy" }
+      "code": {
+        "file": "server/models/Report.groovy"
+      }
     },
     {
       "name": "server/clients/ReportClient.java",
@@ -116,7 +126,9 @@
     },
     {
       "name": "server/models/Report.kt",
-      "code": { "file": "server/models/Report.kt" }
+      "code": {
+        "file": "server/models/Report.kt"
+      }
     },
     {
       "name": "server/clients/ReportClient.kt",
@@ -132,7 +144,9 @@
     },
     {
       "name": "server/models/Report.cs",
-      "code": { "file": "server/models/Report.cs" }
+      "code": {
+        "file": "server/models/Report.cs"
+      }
     },
     {
       "name": "server/clients/ReportClient.cs",
@@ -148,7 +162,9 @@
     },
     {
       "name": "server/models/Report.rs",
-      "code": { "file": "server/models/Report.rs" }
+      "code": {
+        "file": "server/models/Report.rs"
+      }
     },
     {
       "name": "server/clients/ReportClient.rs",
@@ -164,7 +180,9 @@
     },
     {
       "name": "server/models/Report.go",
-      "code": { "file": "server/models/Report.go" }
+      "code": {
+        "file": "server/models/Report.go"
+      }
     },
     {
       "name": "server/clients/ReportClient.go",
@@ -186,7 +204,9 @@
     },
     {
       "name": "server/models/Report.dart",
-      "code": { "file": "server/models/Report.dart" }
+      "code": {
+        "file": "server/models/Report.dart"
+      }
     },
     {
       "name": "server/clients/ReportClient.dart",
@@ -202,7 +222,9 @@
     },
     {
       "name": "server/models/Report.rb",
-      "code": { "file": "server/models/Report.rb" }
+      "code": {
+        "file": "server/models/Report.rb"
+      }
     },
     {
       "name": "server/clients/ReportClient.rb",
@@ -214,6 +236,24 @@
       "name": "server/controllers/ReportController.rb",
       "code": {
         "file": "server/controllers/ReportController.rb"
+      }
+    },
+    {
+      "name": "server/models/Report.fs",
+      "code": {
+        "file": "server/models/Report.fs"
+      }
+    },
+    {
+      "name": "server/clients/ReportClient.fs",
+      "code": {
+        "file": "server/clients/ReportClient.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.fs",
+      "code": {
+        "file": "server/controllers/ReportController.fs"
       }
     }
   ]

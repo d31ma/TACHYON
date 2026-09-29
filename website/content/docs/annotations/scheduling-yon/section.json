@@ -37,6 +37,10 @@
       "code": { "file": "server/workers/reconcile.cs" }
     },
     {
+      "name": "server/workers/reconcile.fs",
+      "code": { "file": "server/workers/reconcile.fs" }
+    },
+    {
       "name": "server/workers/reconcile.rs",
       "code": { "file": "server/workers/reconcile.rs" }
     },

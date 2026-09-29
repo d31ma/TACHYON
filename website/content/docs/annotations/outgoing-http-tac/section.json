@@ -70,9 +70,21 @@
       }
     },
     {
+      "name": "client/setups/CatalogSetup.fs",
+      "code": {
+        "file": "client/setups/CatalogSetup.fs"
+      }
+    },
+    {
       "name": "client/services/CatalogService.cs",
       "code": {
         "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
       }
     },
     {

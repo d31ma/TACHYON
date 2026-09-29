@@ -96,12 +96,24 @@
       "code": { "file": "server/models/Settings.cs" }
     },
     {
+      "name": "server/models/Settings.fs",
+      "code": { "file": "server/models/Settings.fs" }
+    },
+    {
       "name": "server/setups/CatalogSetup.cs",
       "code": { "file": "server/setups/CatalogSetup.cs" }
     },
     {
+      "name": "server/setups/CatalogSetup.fs",
+      "code": { "file": "server/setups/CatalogSetup.fs" }
+    },
+    {
       "name": "server/controllers/SettingsController.cs",
       "code": { "file": "server/controllers/SettingsController.cs" }
+    },
+    {
+      "name": "server/controllers/SettingsController.fs",
+      "code": { "file": "server/controllers/SettingsController.fs" }
     },
     {
       "name": "server/models/Settings.rs",
@@ -158,6 +170,10 @@
     {
       "name": "server/helpers/Endpoint.cs",
       "code": { "file": "server/helpers/Endpoint.cs" }
+    },
+    {
+      "name": "server/helpers/Endpoint.fs",
+      "code": { "file": "server/helpers/Endpoint.fs" }
     },
     {
       "name": "server/helpers/Endpoint.rs",

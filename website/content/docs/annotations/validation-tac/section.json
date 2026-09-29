@@ -32,6 +32,10 @@
       "code": { "file": "client/services/OrderService.cs" }
     },
     {
+      "name": "client/services/OrderService.fs",
+      "code": { "file": "client/services/OrderService.fs" }
+    },
+    {
       "name": "client/services/OrderService.rs",
       "code": { "file": "client/services/OrderService.rs" }
     },
@@ -58,6 +62,10 @@
     {
       "name": "client/helpers/OrderInput.cs",
       "code": { "file": "client/helpers/OrderInput.cs" }
+    },
+    {
+      "name": "client/helpers/OrderInput.fs",
+      "code": { "file": "client/helpers/OrderInput.fs" }
     },
     {
       "name": "client/helpers/OrderInput.rs",

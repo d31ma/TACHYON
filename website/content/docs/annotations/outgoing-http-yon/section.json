@@ -178,9 +178,21 @@
       }
     },
     {
+      "name": "server/clients/CatalogClient.fs",
+      "code": {
+        "file": "server/clients/CatalogClient.fs"
+      }
+    },
+    {
       "name": "server/setups/CatalogSetup.cs",
       "code": {
         "file": "server/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.fs",
+      "code": {
+        "file": "server/setups/CatalogSetup.fs"
       }
     },
     {
@@ -190,9 +202,21 @@
       }
     },
     {
+      "name": "server/services/CatalogService.fs",
+      "code": {
+        "file": "server/services/CatalogService.fs"
+      }
+    },
+    {
       "name": "server/controllers/CatalogController.cs",
       "code": {
         "file": "server/controllers/CatalogController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.fs",
+      "code": {
+        "file": "server/controllers/CatalogController.fs"
       }
     },
     {
@@ -259,6 +283,12 @@
       "name": "server/helpers/CatalogTransportHelper.cs",
       "code": {
         "file": "server/helpers/CatalogTransportHelper.cs"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogTransportHelper.fs",
+      "code": {
+        "file": "server/helpers/CatalogTransportHelper.fs"
       }
     },
     {

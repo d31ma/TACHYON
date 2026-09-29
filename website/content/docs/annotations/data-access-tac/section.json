@@ -119,9 +119,21 @@
       }
     },
     {
+      "name": "client/services/ProductService.fs",
+      "code": {
+        "file": "client/services/ProductService.fs"
+      }
+    },
+    {
       "name": "client/entities/ProductEntity.cs",
       "code": {
         "file": "client/entities/ProductEntity.cs"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.fs",
+      "code": {
+        "file": "client/entities/ProductEntity.fs"
       }
     },
     {
@@ -131,9 +143,21 @@
       }
     },
     {
+      "name": "client/stores/ProductStore.fs",
+      "code": {
+        "file": "client/stores/ProductStore.fs"
+      }
+    },
+    {
       "name": "client/setups/CatalogSetup.cs",
       "code": {
         "file": "client/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.fs",
+      "code": {
+        "file": "client/setups/CatalogSetup.fs"
       }
     },
     {

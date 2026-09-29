@@ -60,8 +60,16 @@
       "code": { "file": "client/setups/CatalogSetup.cs" }
     },
     {
+      "name": "client/setups/CatalogSetup.fs",
+      "code": { "file": "client/setups/CatalogSetup.fs" }
+    },
+    {
       "name": "client/services/SettingsService.cs",
       "code": { "file": "client/services/SettingsService.cs" }
+    },
+    {
+      "name": "client/services/SettingsService.fs",
+      "code": { "file": "client/services/SettingsService.fs" }
     },
     {
       "name": "client/setups/CatalogSetup.rs",
@@ -90,6 +98,10 @@
     {
       "name": "client/helpers/PublicValues.cs",
       "code": { "file": "client/helpers/PublicValues.cs" }
+    },
+    {
+      "name": "client/helpers/PublicValues.fs",
+      "code": { "file": "client/helpers/PublicValues.fs" }
     },
     {
       "name": "client/helpers/PublicValues.rs",

@@ -71,9 +71,21 @@
       }
     },
     {
+      "name": "client/setups/OrdersSetup.fs",
+      "code": {
+        "file": "client/setups/OrdersSetup.fs"
+      }
+    },
+    {
       "name": "client/services/OrdersService.cs",
       "code": {
         "file": "client/services/OrdersService.cs"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.fs",
+      "code": {
+        "file": "client/services/OrdersService.fs"
       }
     },
     {

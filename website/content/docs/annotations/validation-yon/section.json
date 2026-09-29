@@ -94,9 +94,21 @@
       }
     },
     {
+      "name": "server/services/OrderService.fs",
+      "code": {
+        "file": "server/services/OrderService.fs"
+      }
+    },
+    {
       "name": "server/controllers/OrdersController.cs",
       "code": {
         "file": "server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.fs",
+      "code": {
+        "file": "server/controllers/OrdersController.fs"
       }
     },
     {
@@ -169,6 +181,12 @@
       "name": "server/helpers/OrderInput.cs",
       "code": {
         "file": "server/helpers/OrderInput.cs"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.fs",
+      "code": {
+        "file": "server/helpers/OrderInput.fs"
       }
     },
     {

@@ -2,7 +2,7 @@
   "heading": "Mapping: Yon",
   "axis": "language",
   "summary": "Converter and Convert do the work of Converter and Convert from MapStruct, the Java mapping library, with the same shape that Spring gives a repository. You declare only signatures, and the compiler writes their bodies from a literal field plan.",
-  "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. The compiler finds it and injects it like any other role. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nThe declaration has no body in every language that allows this. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go. It is a trait in Rust. It is an abstract class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript has no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. JavaScript and TypeScript declare the answer as Promise<BehaviorJsonObject | void> for the same reason. In every case, the compiler writes the constructor, the behavior context and the method. So the source declares nothing else.",
+  "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. The compiler finds it and injects it like any other role. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nThe declaration has no body in every language that allows this. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go, and an interface of `abstract` members in F#. It is a trait in Rust. It is an abstract class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript has no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. JavaScript and TypeScript declare the answer as Promise<BehaviorJsonObject | void> for the same reason. In every case, the compiler writes the constructor, the behavior context and the method. So the source declares nothing else.",
   "files": [
     {
       "name": "server/setups/CatalogSetup.js",
@@ -24,7 +24,9 @@
     },
     {
       "name": "server/models/CatalogSummary.ts",
-      "code": { "file": "server/models/CatalogSummary.ts" }
+      "code": {
+        "file": "server/models/CatalogSummary.ts"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.ts",
@@ -46,7 +48,9 @@
     },
     {
       "name": "server/models/CatalogSummary.py",
-      "code": { "file": "server/models/CatalogSummary.py" }
+      "code": {
+        "file": "server/models/CatalogSummary.py"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.py",
@@ -68,7 +72,9 @@
     },
     {
       "name": "server/models/CatalogSummary.php",
-      "code": { "file": "server/models/CatalogSummary.php" }
+      "code": {
+        "file": "server/models/CatalogSummary.php"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.php",
@@ -90,11 +96,15 @@
     },
     {
       "name": "server/models/CatalogSummary.java",
-      "code": { "file": "server/models/CatalogSummary.java" }
+      "code": {
+        "file": "server/models/CatalogSummary.java"
+      }
     },
     {
       "name": "server/models/CatalogSummary.groovy",
-      "code": { "file": "server/models/CatalogSummary.groovy" }
+      "code": {
+        "file": "server/models/CatalogSummary.groovy"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.java",
@@ -134,7 +144,9 @@
     },
     {
       "name": "server/models/CatalogSummary.kt",
-      "code": { "file": "server/models/CatalogSummary.kt" }
+      "code": {
+        "file": "server/models/CatalogSummary.kt"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.kt",
@@ -156,7 +168,9 @@
     },
     {
       "name": "server/models/CatalogSummary.cs",
-      "code": { "file": "server/models/CatalogSummary.cs" }
+      "code": {
+        "file": "server/models/CatalogSummary.cs"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.cs",
@@ -178,7 +192,9 @@
     },
     {
       "name": "server/models/CatalogSummary.rs",
-      "code": { "file": "server/models/CatalogSummary.rs" }
+      "code": {
+        "file": "server/models/CatalogSummary.rs"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.rs",
@@ -200,7 +216,9 @@
     },
     {
       "name": "server/models/CatalogSummary.go",
-      "code": { "file": "server/models/CatalogSummary.go" }
+      "code": {
+        "file": "server/models/CatalogSummary.go"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.go",
@@ -222,7 +240,9 @@
     },
     {
       "name": "server/models/CatalogSummary.dart",
-      "code": { "file": "server/models/CatalogSummary.dart" }
+      "code": {
+        "file": "server/models/CatalogSummary.dart"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.dart",
@@ -240,6 +260,30 @@
       "name": "server/controllers/CatalogController.dart",
       "code": {
         "file": "server/controllers/CatalogController.dart"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.fs",
+      "code": {
+        "file": "server/models/CatalogSummary.fs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.fs",
+      "code": {
+        "file": "server/setups/CatalogSetup.fs"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.fs",
+      "code": {
+        "file": "server/converters/ProductConverter.fs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.fs",
+      "code": {
+        "file": "server/controllers/CatalogController.fs"
       }
     }
   ]
