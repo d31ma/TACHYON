@@ -431,6 +431,25 @@ jobs:
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/usr/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
 
+      - name: Install the checksum-pinned TeaVM 0.15 jars for Java web services
+        run: |
+          set -euo pipefail
+          teavm="${RUNNER_TEMP}/teavm"
+          mkdir -p "${teavm}"
+          maven=https://repo1.maven.org/maven2/org/teavm
+          while read -r artifact jar checksum; do
+            curl --fail --location --silent --show-error --max-time 180 \
+              --output "${teavm}/${jar}" "${maven}/${artifact}/0.15.0/${jar}"
+            echo "${checksum}  ${teavm}/${jar}" | shasum -a 256 --check
+          done <<'JARS'
+          cli cli-0.15.0-all.jar c6a1ecb81dd90b66985ac7b0f09db55bec2076fa024428c7fe72b800b6b48cae
+          teavm-classlib teavm-classlib-0.15.0.jar 7d805be4670a892a34c89d9d750a8afd65e2f8201b7b3a10343634ea19d1c410
+          teavm-jso-impl teavm-jso-impl-0.15.0.jar 9a8d15205807b70d7efdfbd4c1356304954e20146e464aec3830dbc6616ef57c
+          teavm-metaprogramming-impl teavm-metaprogramming-impl-0.15.0.jar 616d30aa28f7b0180a61c2289b11c77bf84c715bd79f255e1e42400edb5b6d70
+          teavm-platform teavm-platform-0.15.0.jar 999d369ab15aa83c17987d048ba59560759169891de7e13a5a1c2bd93dd060a8
+          JARS
+          echo "TAC_TEAVM_HOME=${teavm}" >> "${GITHUB_ENV}"
+
       - name: Build the Phase 4 CLI
         run: cargo build --locked --bin ty
 
@@ -467,6 +486,14 @@ jobs:
           cargo test --locked -p tachyon-core --lib -- \
             tac_web::swift_tests:: a_swift_web_service_ web_fake_tests::a_swift \
             a_swift_native_companion --test-threads=1
+
+      - name: Execute Java web services on TeaVM with a JDK 21
+        run: |
+          export PATH="${JAVA_HOME_21_arm64}/bin:${PATH}"
+          javac -version
+          cargo test --locked -p tachyon-core --lib -- \
+            tac_web::java_tests:: tac_web::java_behavior_tests:: a_java_web_service_ \
+            --test-threads=1
 
       - name: Verify managed repository resources in every Yon language
         run: |

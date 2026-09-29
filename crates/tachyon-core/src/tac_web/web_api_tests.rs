@@ -648,6 +648,158 @@ final class StampService {
 }
 "#;
 
+    const JAVA_SERVICE: &str = r#"@Service
+class StampService {
+    private final Clock clock = new Clock();
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    double now() {
+        return clock.nowMs();
+    }
+
+    String zone() {
+        return clock.timeZone();
+    }
+
+    String token() {
+        return secureRandom.uuid();
+    }
+
+    int count() {
+        return secureRandom.bytes(16).length;
+    }
+
+    String refused() {
+        try {
+            secureRandom.bytes(65537);
+            return "";
+        } catch (IllegalStateException refusal) {
+            return refusal.getMessage();
+        }
+    }
+}
+"#;
+
+    const JAVA_LISTENER: &str = r#"@Service
+class StampService {
+    private final Connectivity connectivity = new Connectivity();
+    private final PageVisibility pageVisibility = new PageVisibility();
+    private final Preferences preferences = new Preferences();
+    boolean online = false;
+    boolean visible = false;
+    String scheme = "";
+    String language = "";
+
+    boolean reachable() {
+        return connectivity.online();
+    }
+
+    boolean shown() {
+        return pageVisibility.visible();
+    }
+
+    String theme() {
+        return preferences.scheme();
+    }
+
+    String motion() {
+        return preferences.motion();
+    }
+
+    String locale() {
+        return preferences.language();
+    }
+
+    @OnEvent
+    void connectivityChanged(ConnectivityChanged changed) {
+        online = changed.online();
+    }
+
+    @OnEvent
+    void visibilityChanged(VisibilityChanged changed) {
+        visible = changed.visible();
+    }
+
+    @OnEvent
+    void preferencesChanged(PreferencesChanged changed) {
+        scheme = changed.scheme();
+        language = changed.language();
+    }
+}
+"#;
+
+    const JAVA_PROMPTS: &str = r#"@Service
+class StampService {
+    private final Clipboard clipboard = new Clipboard();
+    private final Share share = new Share();
+    private final Notifications notifications = new Notifications();
+    private final Geolocation geolocation = new Geolocation();
+    String pasted = "";
+    boolean shared = false;
+    String permission = "";
+    double latitude = 0;
+    String failure = "";
+
+    void copy(String text) {
+        clipboard.writeText(text);
+    }
+
+    void paste() {
+        clipboard.readText();
+    }
+
+    void tell() {
+        share.open("Title", "Text", "https://example.com/");
+    }
+
+    void ask() {
+        notifications.requestPermission();
+    }
+
+    void notifyPage() {
+        notifications.show("Hello", "Body");
+    }
+
+    void locate() {
+        geolocation.currentPosition();
+    }
+
+    String denied() {
+        try {
+            notifications.show("Hello", "Body");
+            return "";
+        } catch (IllegalStateException refusal) {
+            return refusal.getMessage();
+        }
+    }
+
+    @OnEvent
+    void hearClipboard(ClipboardTextRead read) {
+        pasted = read.text();
+    }
+
+    @OnEvent
+    void hearShare(ShareFinished finished) {
+        shared = true;
+    }
+
+    @OnEvent
+    void hearPermission(NotificationPermissionChanged changed) {
+        permission = changed.permission();
+    }
+
+    @OnEvent
+    void hearPosition(PositionFound found) {
+        latitude = found.latitude();
+    }
+
+    @OnEvent
+    void hearFailure(BrowserCallFailed failed) {
+        failure = failed.api() + "." + failed.call() + ": " + failed.message();
+    }
+}
+"#;
+
     const CSHARP_PROMPTS: &str = r#"[Service]
 public class StampService
 {
@@ -1021,9 +1173,10 @@ process.exit(0)
         let path = Self::write(root, "client/services/StampService.dart", source.as_bytes());
         let services = [("StampService", path.as_path())];
         let instances = std::collections::BTreeSet::from([String::from("stamp")]);
-        let modules = crate::tac_dart::build_all(root, &services, &instances, crate::BuildProfile::Release)
-            .await
-            .expect("build");
+        let modules =
+            crate::tac_dart::build_all(root, &services, &instances, crate::BuildProfile::Release)
+                .await
+                .expect("build");
         for (name, bytes) in modules {
             Self::write(root, &name, &bytes);
         }
@@ -1054,12 +1207,16 @@ process.exit(0)
     }
 
     fn assert_answered(root: &Path, fetches_files: bool) {
+        Self::assert_answered_by(root, fetches_files, Self::PROMPTS_DRIVER);
+    }
+
+    fn assert_answered_by(root: &Path, fetches_files: bool, driver: &str) {
         Self::write(
             root,
             "application-events.mjs",
             Self::EVENTS_RUNTIME.as_bytes(),
         );
-        let prompts = Self::PROMPTS_DRIVER.replace("__GRANT_STUBS__", Self::GRANT_STUBS);
+        let prompts = driver.replace("__GRANT_STUBS__", Self::GRANT_STUBS);
         let driver = if fetches_files {
             format!("{}{prompts}", Self::FILE_FETCH)
         } else {
@@ -1480,4 +1637,45 @@ async fn a_swift_web_service_hears_the_answers_to_its_own_browser_calls() {
         return;
     }
     WebApis::assert_answered(root.path(), true);
+}
+
+async fn publish_java(root: &Path, source: &str) -> bool {
+    if !super::java_tests::java_web_ready() {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return false;
+    }
+    let source = ("java", source);
+    let profile = crate::BuildProfile::Development;
+    WebApis::publish_with(root, WebLanguage::Java, source, profile).await;
+    true
+}
+
+#[tokio::test]
+async fn a_java_web_service_reads_the_clock_and_secure_random_from_the_page() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_java(root.path(), WebApis::JAVA_SERVICE).await {
+        return;
+    }
+    let driver = format!("{}{}", WebApis::FILE_FETCH, WebApis::SERVICE_DRIVER);
+    let report = WebApis::run(root.path(), &driver);
+    WebApis::assert_stamp(&report);
+}
+
+#[tokio::test]
+async fn a_java_web_service_reads_and_hears_connectivity_visibility_and_preferences() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_java(root.path(), WebApis::JAVA_LISTENER).await {
+        return;
+    }
+    WebApis::assert_heard(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_java_web_service_hears_the_answers_to_its_own_browser_calls() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_java(root.path(), WebApis::JAVA_PROMPTS).await {
+        return;
+    }
+    let driver = WebApis::PROMPTS_DRIVER.replace("stamp.notify()", "stamp.notifyPage()");
+    WebApis::assert_answered_by(root.path(), true, &driver);
 }

@@ -44,8 +44,16 @@
       "code": { "file": "client/setups/CatalogSetup.swift" }
     },
     {
+      "name": "client/setups/CatalogSetup.java",
+      "code": { "file": "client/setups/CatalogSetup.java" }
+    },
+    {
       "name": "client/services/SettingsService.swift",
       "code": { "file": "client/services/SettingsService.swift" }
+    },
+    {
+      "name": "client/services/SettingsService.java",
+      "code": { "file": "client/services/SettingsService.java" }
     },
     {
       "name": "client/setups/CatalogSetup.kt",
@@ -90,6 +98,10 @@
     {
       "name": "client/helpers/PublicValues.swift",
       "code": { "file": "client/helpers/PublicValues.swift" }
+    },
+    {
+      "name": "client/helpers/PublicValues.java",
+      "code": { "file": "client/helpers/PublicValues.java" }
     },
     {
       "name": "client/helpers/PublicValues.kt",

@@ -2,6 +2,7 @@ use super::java_model::JavaModel;
 use super::java_model_reader::JavaModelReader;
 use super::java_model_table::JavaModelTable;
 use super::java_value_type::JavaValueType;
+use super::java_web_apis::JavaWebApis;
 use crate::Failure;
 use std::path::{Path, PathBuf};
 
@@ -13,10 +14,10 @@ impl JavaModels {
     const REALM: &'static str = "client";
     const EXTENSION: &'static str = "java";
 
-    pub(super) fn read(snapshot_root: &Path) -> Result<Self, Failure> {
+    pub(super) fn read(snapshot_root: &Path, authored: &str) -> Result<Self, Failure> {
         let sources =
             crate::model_sources::ModelSources::read(snapshot_root, Self::REALM, Self::EXTENSION)?;
-        let files = sources
+        let mut files: Vec<(PathBuf, Vec<JavaModel>, String)> = sources
             .project_files()
             .into_iter()
             .map(|(path, source)| {
@@ -25,6 +26,10 @@ impl JavaModels {
                 (path, models, compiled)
             })
             .collect();
+        files.extend(JavaWebApis::events(authored).map(|(path, source)| {
+            let models = JavaModelReader::models(&source);
+            (path, models, source)
+        }));
         Ok(Self { files })
     }
 

@@ -13,7 +13,8 @@ class WebApiGate {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-  static languages = ['js', 'rust', 'go', 'swift']
+  static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
+  static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : [])]
   static permissions = ['clipboard-read', 'clipboard-write', 'geolocation', 'notifications']
   static position = { latitude: 48.85, longitude: 2.35 }
   static settleTimeout = 5_000
@@ -491,6 +492,113 @@ final class SwiftStampService {
     }
 }
 `,
+    ...(WebApiGate.withJava ? { 'client/services/JavaStampService.java': `@Service
+class JavaStampService {
+    private final Clock clock = new Clock();
+    private final SecureRandom secureRandom = new SecureRandom();
+    private final Preferences preferences = new Preferences();
+    private final Clipboard clipboard = new Clipboard();
+    private final Share share = new Share();
+    private final Notifications notifications = new Notifications();
+    private final Geolocation geolocation = new Geolocation();
+    String label = "java";
+    boolean online = false;
+    String scheme = "";
+    String pasted = "";
+    String permission = "";
+    double latitude = 0;
+    String failure = "";
+    boolean shared = false;
+
+    double now() {
+        return clock.nowMs();
+    }
+
+    String zone() {
+        return clock.timeZone();
+    }
+
+    String token() {
+        return secureRandom.uuid();
+    }
+
+    int count() {
+        return secureRandom.bytes(16).length;
+    }
+
+    String motion() {
+        return preferences.motion();
+    }
+
+    String locale() {
+        return preferences.language();
+    }
+
+    void copy(String text) {
+        clipboard.writeText(text);
+    }
+
+    String attempt() {
+        try {
+            clipboard.writeText("without a click");
+            return "";
+        } catch (IllegalStateException refusal) {
+            return refusal.getMessage();
+        }
+    }
+
+    void paste() {
+        clipboard.readText();
+    }
+
+    void ask() {
+        notifications.requestPermission();
+    }
+
+    void tell() {
+        share.open("Tachyon", "Shared from a test", "https://example.com/");
+    }
+
+    void locate() {
+        geolocation.currentPosition();
+    }
+
+    @OnEvent({"replay":true})
+    void hearConnectivity(ConnectivityChanged changed) {
+        online = changed.online();
+    }
+
+    @OnEvent({"replay":true})
+    void hearPreferences(PreferencesChanged changed) {
+        scheme = changed.scheme();
+    }
+
+    @OnEvent
+    void hearClipboard(ClipboardTextRead read) {
+        pasted = read.text();
+    }
+
+    @OnEvent
+    void hearPermission(NotificationPermissionChanged changed) {
+        permission = changed.permission();
+    }
+
+    @OnEvent
+    void hearPosition(PositionFound found) {
+        latitude = found.latitude();
+    }
+
+    @OnEvent
+    void hearShare(ShareFinished finished) {
+        shared = true;
+    }
+
+    @OnEvent
+    void hearFailure(BrowserCallFailed failed) {
+        failure = failed.message();
+    }
+}
+` } : {}),
   }
 
   static write(project) {

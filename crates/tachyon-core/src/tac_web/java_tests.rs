@@ -140,7 +140,7 @@ impl JavaFixtures {
          process.exit(0)\n";
 }
 
-fn java_web_ready() -> bool {
+pub(super) fn java_web_ready() -> bool {
     let runs = |program: &str, flag: &str| {
         Command::new(program)
             .arg(flag)
@@ -152,7 +152,7 @@ fn java_web_ready() -> bool {
         && runs("node", "--version")
 }
 
-fn run_driver(root: &Path, script: &str) -> serde_json::Value {
+pub(super) fn run_driver(root: &Path, script: &str) -> serde_json::Value {
     std::fs::write(root.join("drive.mjs"), script).expect("driver");
     let output = Command::new("node")
         .arg("drive.mjs")
@@ -284,7 +284,7 @@ async fn a_java_service_names_the_annotation_it_cannot_use_yet() {
     );
 }
 
-fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
+pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
     let path = root.join(relative);
     std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
     std::fs::write(&path, text).expect("file");

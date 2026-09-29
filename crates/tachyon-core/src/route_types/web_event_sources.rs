@@ -35,6 +35,11 @@ impl WebEventSources {
         number: "Double",
         flag: "Bool",
     };
+    const JAVA: LanguageKinds = LanguageKinds {
+        text: "String",
+        number: "double",
+        flag: "boolean",
+    };
     const GO_PACKAGE: &'static str = "package tac\n";
 
     pub(crate) fn rust() -> String {
@@ -62,6 +67,14 @@ impl WebEventSources {
             .into_iter()
             .filter(|(name, _)| source.contains(name.as_str()))
             .map(|(name, model)| Self::swift_model(&name, &Self::fields(model)))
+            .collect()
+    }
+
+    pub(crate) fn java_used_by(source: &str) -> String {
+        WebEventModels::models()
+            .into_iter()
+            .filter(|(name, _)| source.contains(name.as_str()))
+            .map(|(name, model)| Self::java_model(&name, &Self::fields(model)))
             .collect()
     }
 
@@ -176,6 +189,15 @@ impl WebEventSources {
             let _ = writeln!(declared, "    let {}: {kind}", field.name);
         }
         format!("\nstruct {name}: Codable {{\n{declared}}}\n")
+    }
+
+    fn java_model(name: &str, fields: &[ModelField]) -> String {
+        let mut components = Vec::new();
+        for field in fields {
+            let kind = Self::kind(&Self::JAVA, &field.shape);
+            components.push(format!("{kind} {}", field.name));
+        }
+        format!("\nrecord {name}({}) {{\n}}\n", components.join(", "))
     }
 
     fn ruby_model(name: &str, fields: &[ModelField]) -> String {

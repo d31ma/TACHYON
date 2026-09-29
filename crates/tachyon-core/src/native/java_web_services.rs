@@ -8,6 +8,7 @@ use java_service::JavaService;
 use java_service_table::JavaServiceTable;
 use java_value_type::JavaValueType;
 use java_wasm_program::JavaWasmProgram;
+use java_web_apis::JavaWebApis;
 use std::path::{Path, PathBuf};
 
 mod java_browser_runtime;
@@ -28,12 +29,13 @@ mod java_service_table;
 mod java_type_declaration;
 mod java_value_type;
 mod java_wasm_program;
+mod java_web_apis;
 mod tea_vm_toolchain;
 
 pub(crate) struct JavaWebServices;
 
 impl JavaWebServices {
-    const PRELUDE: [(&'static str, &'static str); 20] = [
+    const PRELUDE: [(&'static str, &'static str); 21] = [
         (
             "TacServices.java",
             include_str!("java_web_services/prelude/TacServices.java"),
@@ -114,6 +116,10 @@ impl JavaWebServices {
             "TacMaps.java",
             include_str!("java_web_services/prelude/TacMaps.java"),
         ),
+        (
+            "TacText.java",
+            include_str!("java_web_services/prelude/TacText.java"),
+        ),
     ];
     const PRELUDE_FOLDER: &'static str = "tachyon";
 
@@ -126,29 +132,43 @@ impl JavaWebServices {
         services: &[(String, String, PathBuf)],
         profile: crate::BuildProfile,
     ) -> Result<(Vec<(String, Vec<u8>)>, Option<String>), Failure> {
-        let models = JavaModels::read(snapshot_root)?;
+        let authored = Self::authored(services)?;
+        let all_authored = authored.concat();
+        let models = JavaModels::read(snapshot_root, &all_authored)?;
         let values = models.values();
-        let read = Self::services(snapshot_root, services, &values)?;
+        let read = Self::services(snapshot_root, services, &authored, &values)?;
         let mut sources: Vec<(PathBuf, String)> = read
             .iter()
             .map(|service| (service.path.clone(), service.source.clone()))
             .collect();
         sources.extend(models.sources(&values)?);
         sources.extend(Self::prelude(&read, &values));
+        sources.extend(JavaWebApis::clients(
+            Path::new(Self::PRELUDE_FOLDER),
+            &all_authored,
+        ));
         let program = JavaWasmProgram::compile(&sources, profile).await?;
         let note = program.note(profile);
         Ok((program.published(), note))
     }
 
+    fn authored(services: &[(String, String, PathBuf)]) -> Result<Vec<String>, Failure> {
+        services
+            .iter()
+            .map(|(_, _, path)| Self::read(path))
+            .collect()
+    }
+
     fn services(
         snapshot_root: &Path,
         services: &[(String, String, PathBuf)],
+        texts: &[String],
         values: &JavaValueType,
     ) -> Result<Vec<JavaService>, Failure> {
         let mut read = Vec::new();
-        for (index, (instance, class, path)) in services.iter().enumerate() {
+        for (index, ((instance, class, path), authored)) in services.iter().zip(texts).enumerate() {
             let relative = path.strip_prefix(snapshot_root).unwrap_or(path);
-            let authored = Self::read(path)?;
+            let authored = authored.clone();
             let service = JavaService {
                 instance: instance.to_owned(),
                 class: class.to_owned(),
@@ -169,7 +189,6 @@ impl JavaWebServices {
         values: &JavaValueType,
     ) -> Result<JavaService, Failure> {
         let relative = authored.path.as_path();
-        crate::annotation_layout::NativeWebApis::refuse(relative, &authored.source)?;
         let roles = crate::behavior::ServiceRoles::read(relative, &authored.source)?;
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, &roles.source, "tac")?;

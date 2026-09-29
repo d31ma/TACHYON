@@ -483,6 +483,10 @@ globalThis[Symbol.for('tachyon.java.host')] = {
   emit: (payload) => { published.push(payload) },
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
   web: (text) => webHost(text),
+  pause: (milliseconds) => {
+    const end = performance.now() + milliseconds
+    while (performance.now() < end);
+  },
 }
 const { load } = await import('./java/runtime.js')
 const javaResponse = await fetch(new URL('./java/services.wasm', import.meta.url))
@@ -616,6 +620,8 @@ mod kotlin_tests;
 #[cfg(test)]
 pub(crate) mod swift_tests;
 
+#[cfg(test)]
+mod java_behavior_tests;
 #[cfg(test)]
 mod java_tests;
 
