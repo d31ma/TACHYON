@@ -325,10 +325,67 @@ async def transactions():
     except RuntimeError:
         pass
     assert log == ['begin', 'save@t2', 'rollback:t2'], log
-    assert context.transaction is None
     log.clear()
     await context.repository(order).save({'id': 'two'})
     assert log == ['save@none'], log
+
+
+def ledger_types(log, state):
+    class LedgerSetup:
+        @staticmethod
+        def configure(execution):
+            async def execute(command, execution):
+                if command['operation'] == 'transaction':
+                    log.append(command['action'] + (':' + command['transaction'] if 'transaction' in command else ''))
+                    if command['action'] != 'begin':
+                        return {'ok': True}
+                    state['sequence'] += 1
+                    return {'transaction': 't%d' % state['sequence']}
+                log.append('%s@%s' % (command['operation'], command.get('transaction', 'none')))
+                if command['value']['id'] == 'broken':
+                    raise RuntimeError('the second write failed')
+                return {'id': command['value']['id']}
+            return {'entities': {'ledger': {'execute': execute}, 'audit': {'execute': execute}}}
+    class Entry:
+        pass
+    class Note:
+        pass
+    class LedgerService:
+        async def settle(self, second):
+            await self.entries.repository(Entry).save({'id': 'first'})
+            await self.entries.repository(Note).save({'id': 'note'})
+            await self.entries.repository(Entry).save({'id': second})
+            return 'settled'
+    return LedgerSetup, Entry, Note, LedgerService
+
+
+async def joined_transactions():
+    log = []
+    state = {'sequence': 0}
+    setup, entry, note, service_type = ledger_types(log, state)
+    setup_record = {'name': 'LedgerSetup', 'configuration': True, 'methods': {}}
+    store_runtime = load_runtime()
+    stores = store_runtime._BehaviorFactory({
+        setup: setup_record,
+        entry: {'name': 'Entry', 'configuration': False, 'entity': {'adapter': 'ledger', 'id': 'id'}, 'table': 'entries', 'methods': {}},
+        note: {'name': 'Note', 'configuration': False, 'entity': {'adapter': 'audit', 'id': 'id'}, 'table': 'notes', 'methods': {}},
+    }, 'yon', 'b' * 64)
+    services = Contract.runtime._BehaviorFactory({
+        setup: setup_record,
+        service_type: {'name': 'LedgerService', 'configuration': False, 'methods': {'settle': {'transactional': {'adapter': 'ledger'}}}},
+    }, 'yon', 'a' * 64)
+    ledger = service_type()
+    ledger.behaviors = await services.create(setup, {'partition': 'ledger', 'signal': Contract.runtime.BehaviorSignal()})
+    ledger.entries = await stores.create(setup, {'partition': 'entries', 'signal': store_runtime.BehaviorSignal()})
+    assert await ledger.settle('second') == 'settled'
+    assert log == ['begin', 'save@t1', 'save@none', 'save@t1', 'commit:t1'], log
+    log.clear()
+    try:
+        await ledger.settle('broken')
+        Contract.failures.append('a failed second write was accepted')
+    except Exception:
+        pass
+    assert log == ['begin', 'save@t2', 'save@none', 'save@t2', 'rollback:t2'], log
 
 
 async def rest_client():
@@ -367,6 +424,7 @@ async def main():
     await scenario()
     await resilience()
     await transactions()
+    await joined_transactions()
     await rest_client()
     assert not Contract.failures, '\n'.join(Contract.failures)
     print('Python behavior boundary contracts passed')

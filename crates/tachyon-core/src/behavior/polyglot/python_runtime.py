@@ -1,12 +1,28 @@
 import asyncio as _behavior_asyncio
 import builtins as _behavior_builtins
+import contextvars as _behavior_contextvars
 import inspect as _behavior_inspect
 import json as _behavior_json
 import math as _behavior_math
 import random as _behavior_random
 import re as _behavior_re
+import sys as _behavior_sys
 import time as _behavior_time
 
+class _BehaviorOpenTransactions:
+    OPEN = vars(_behavior_sys).setdefault('_tachyon_behavior_transactions', _behavior_contextvars.ContextVar('tachyon_behavior_transactions', default=None))
+    @classmethod
+    def of(cls, adapter):
+        return (cls.OPEN.get() or {}).get(adapter)
+    @classmethod
+    async def within(cls, adapter, identifier, run):
+        joined = dict(cls.OPEN.get() or {})
+        joined[adapter] = identifier
+        token = cls.OPEN.set(joined)
+        try:
+            return await run()
+        finally:
+            cls.OPEN.reset(token)
 class _BehaviorLimits:
     MAX_SAFE_INTEGER = 9007199254740991
     MAX_JSON_BYTES = 1048576
@@ -642,7 +658,6 @@ class _BehaviorContext:
         self.adapters = {}
         self.active = 0
         self._slots = {}
-        self.transaction = None
     def dispose(self):
         self.signal.abort()
         if hasattr(self, '_remove'):
@@ -767,21 +782,18 @@ class _BehaviorContext:
         return identifier
     async def _transacted(self, call):
         policy = call.metadata.get('transactional')
-        if policy is None or self.transaction is not None:
+        if policy is None or _BehaviorOpenTransactions.of(policy['adapter']) is not None:
             return await self._run_target(call)
         adapter = self._adapter('entities', policy['adapter'], 'execute')
         identifier = await self._begin_transaction(adapter, call.execution)
-        self.transaction = identifier
         try:
-            result = await self._run_target(call)
+            result = await _BehaviorOpenTransactions.within(policy['adapter'], identifier, lambda: self._run_target(call))
         except BaseException:
-            self.transaction = None
             try:
                 await self._transaction_control(adapter, 'rollback', identifier, call.execution)
             except Exception:
                 pass
             raise
-        self.transaction = None
         await self._transaction_control(adapter, 'commit', identifier, call.execution)
         return result
     async def _retried(self, call):
@@ -891,8 +903,9 @@ class _BehaviorContext:
             query['page'] = _behavior_query_page(policy, args)
         entity = policy['entity']
         command = {'operation': 'query', 'entity': entity['name'], 'table': entity['table'], 'idField': entity['id'], 'query': query}
-        if self.transaction is not None:
-            command['transaction'] = self.transaction
+        joined = _BehaviorOpenTransactions.of(entity['adapter'])
+        if joined is not None:
+            command['transaction'] = joined
         authorize = self.adapters.get('authorizeEntity')
         if not callable(authorize):
             _behavior_invalid('Store query requires entity authorization.')
@@ -992,8 +1005,9 @@ class _BehaviorRepository:
                 command['value'] = copied
             else:
                 command['id'] = copied
-            if context.transaction is not None:
-                command['transaction'] = context.transaction
+            joined = _BehaviorOpenTransactions.of(record['entity']['adapter'])
+            if joined is not None:
+                command['transaction'] = joined
             function = context._adapter('entities', record['entity']['adapter'], 'execute')
             return _behavior_copy(await _behavior_adapter(function, (command, execution), execution))
         finally:

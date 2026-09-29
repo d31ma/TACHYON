@@ -704,6 +704,50 @@ await test('AllOrNothing commits on success, rolls back on failure, and marks th
   } finally { context.dispose() }
 })
 
+await test('a store in another module joins the open AllOrNothing, and its failed second query rolls back the first', async () => {
+  const log = []
+  let sequence = 0
+  const execute = (command) => {
+    log.push(command.operation === 'transaction' ? `${command.action}${command.transaction ? ':' + command.transaction : ''}` : `${command.operation}@${command.transaction ?? 'none'}`)
+    if (command.operation === 'transaction' && command.action === 'begin') return { transaction: `t${++sequence}` }
+    if (command.value?.id === 'broken') throw Error('the second write failed')
+    return { ok: true }
+  }
+  class LedgerSetup { static configure() { return { entities: { ledger: { execute }, audit: { execute } } } } }
+  class Entry { }
+  class Note { }
+  class EntryStore { constructor(behaviors) { this.behaviors = behaviors } }
+  class LedgerService {
+    constructor(behaviors, entries) { this.behaviors = behaviors; this.entries = entries }
+    async settle(second) {
+      await this.entries.behaviors.repository(Entry).save({ id: 'first' })
+      await this.entries.behaviors.repository(Note).save({ id: 'note' })
+      await this.entries.behaviors.repository(Entry).save({ id: second })
+      return 'settled'
+    }
+  }
+  const stores = BehaviorRuntimeTest.createBehaviors([
+    { type: LedgerSetup, name: 'LedgerSetup', configuration: true, methods: [] },
+    { type: Entry, name: 'Entry', entity: { adapter: 'ledger', id: 'id', table: 'entries' }, methods: [] },
+    { type: Note, name: 'Note', entity: { adapter: 'audit', id: 'id', table: 'notes' }, methods: [] },
+    { type: EntryStore, name: 'EntryStore', methods: [] },
+  ], 'yon', 'b'.repeat(64))
+  const services = BehaviorRuntimeTest.createBehaviors([
+    { type: LedgerSetup, name: 'LedgerSetup', configuration: true, methods: [] },
+    { type: LedgerService, name: 'LedgerService', methods: [{ name: 'settle', transactional: { adapter: 'ledger' } }] },
+  ], 'yon', BehaviorRuntimeTest.moduleId)
+  const storeContext = await stores.create(LedgerSetup, { partition: 'entries', signal: new AbortController().signal })
+  const serviceContext = await services.create(LedgerSetup, { partition: 'ledger', signal: new AbortController().signal })
+  try {
+    const ledger = new LedgerService(serviceContext, new EntryStore(storeContext))
+    assert.equal(await ledger.settle('second'), 'settled')
+    assert.deepEqual(log, ['begin', 'save@t1', 'save@none', 'save@t1', 'commit:t1'])
+    log.length = 0
+    await assert.rejects(ledger.settle('broken'), { code: 'adapter' })
+    assert.deepEqual(log, ['begin', 'save@t2', 'save@none', 'save@t2', 'rollback:t2'])
+  } finally { storeContext.dispose(); serviceContext.dispose() }
+})
+
 await test('a transactional adapter that answers no identifier is refused before the body runs', async () => {
   let bodies = 0
   class Config {

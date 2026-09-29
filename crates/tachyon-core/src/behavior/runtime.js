@@ -351,6 +351,27 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     }
   }
 
+  class OpenTransactions {
+    static #key = Symbol.for('tachyon.behavior.transactions')
+    static #shared = OpenTransactions.#scope()
+    static #scope() {
+      const Storage = globalThis.process?.getBuiltinModule?.('node:async_hooks')?.AsyncLocalStorage
+      if (!Storage) return null
+      globalThis[OpenTransactions.#key] ??= new Storage()
+      return globalThis[OpenTransactions.#key]
+    }
+    #local = Object.freeze({})
+    current() {
+      return OpenTransactions.#shared?.getStore() ?? this.#local
+    }
+    async within(open, run) {
+      if (OpenTransactions.#shared) return OpenTransactions.#shared.run(open, run)
+      const outer = this.#local
+      this.#local = open
+      try { return await run() } finally { this.#local = outer }
+    }
+  }
+
   class BehaviorContext {
     #configuration
     #partition
@@ -358,7 +379,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     #timeoutMs
     #active = new Set()
     #slots = new Map()
-    #transaction = null
+    #transactions = new OpenTransactions()
     #disposed = false
     #onAbort
     constructor(options) {
@@ -450,7 +471,8 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     }
     async #transacted(operation, method, run) {
       const policy = method.transactional
-      if (!policy || this.#transaction) return run()
+      const open = this.#transactions.current()
+      if (!policy || own(open, policy.adapter)) return run()
       const adapter = this.#adapter('entities', policy.adapter, 'execute')
       const control = (action, transaction) => operation.call(() => adapter.execute(
         freeze(transaction ? { operation: 'transaction', action, transaction } : { operation: 'transaction', action }),
@@ -458,16 +480,13 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       const begun = json(await control('begin'), 4096)
       const id = plain(begun) ? begun.transaction : undefined
       if (typeof id !== 'string' || !id.length || id.length > 128) invalid('A transactional adapter must answer a bounded transaction identifier.')
-      this.#transaction = id
       let value
       try {
-        value = await run()
+        value = await this.#transactions.within(freeze({ ...open, [policy.adapter]: id }), run)
       } catch (error) {
-        this.#transaction = null
         try { await control('rollback', id) } catch {}
         throw error
       }
-      this.#transaction = null
       await control('commit', id)
       return value
     }
@@ -573,7 +592,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
         if (page.sort.length && policy.orderBy.length) invalid('Query sort conflicts with its declared ordering.')
         query.page = page
       }
-      const command = freeze({ operation: 'query', entity: policy.entity.name, table: policy.entity.table, idField: policy.entity.id, query, ...this.#joined() })
+      const command = freeze({ operation: 'query', entity: policy.entity.name, table: policy.entity.table, idField: policy.entity.id, query, ...this.#joined(policy.entity.adapter) })
       const authorize = this.#configuration?.authorizeEntity
       const builtin = this.#builtin('entities', policy.entity.adapter)
       if (typeof authorize !== 'function' && !builtin) invalid('Store query requires entity authorization.')
@@ -620,8 +639,9 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       }
       return value
     }
-    #joined() {
-      return this.#transaction ? { transaction: this.#transaction } : {}
+    #joined(adapter) {
+      const open = this.#transactions.current()
+      return own(open, adapter) ? { transaction: open[adapter] } : {}
     }
     #liveEntry(hit, policy) {
       if (!Number.isFinite(hit.expiresAt)) invalid('Cached behavior value requires a finite expiry.')
@@ -647,7 +667,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       if (!record?.entity) invalid('Store requires a registered behavior entity.')
       const run = (details) => this.#perform(async (operation) => {
         const adapter = this.#adapter('entities', record.entity.adapter, 'execute')
-        const command = freeze({ entity: record.name, table: record.entity.table, idField: record.entity.id, ...details, ...this.#joined() })
+        const command = freeze({ entity: record.name, table: record.entity.table, idField: record.entity.id, ...details, ...this.#joined(record.entity.adapter) })
         return json(await operation.call(() => adapter.execute(command, operation.execution), true))
       })
       return Object.freeze({

@@ -146,10 +146,18 @@ final class BehaviorBoundary {
         self::copy($id,1024);
     }
 }
+final class BehaviorOpenTransactions {
+    private static array $open=[];
+    public static function of(string $adapter): ?string {return self::$open[$adapter]??null;}
+    public static function within(string $adapter,string $identifier,callable $body): mixed {
+        $outer=self::$open;
+        self::$open[$adapter]=$identifier;
+        try {return $body();} finally {self::$open=$outer;}
+    }
+}
 final class BehaviorContext {
     private array $adapters=[];
     private array $slots=[];
-    private ?string $transaction=null;
     private int $active=0;
     private readonly BehaviorSignal $signal;
     private readonly BehaviorSignal $owner;
@@ -268,7 +276,7 @@ final class BehaviorContext {
     }
     private function transacted(array $metadata,array $args,callable $original,BehaviorExecution $execution): mixed {
         $policy=$metadata['transactional']??null;
-        if($policy===null||$this->transaction!==null)return $this->body($metadata,$args,$original,$execution);
+        if($policy===null||BehaviorOpenTransactions::of($policy['adapter'])!==null)return $this->body($metadata,$args,$original,$execution);
         $adapter=$this->adapter('entities',$policy['adapter'],'execute');
         $control=function(string $action,?string $identifier=null)use($adapter,$execution) {
             $command=['operation'=>'transaction','action'=>$action];
@@ -278,15 +286,12 @@ final class BehaviorContext {
         $begun=BehaviorBoundary::copy($control('begin'),4096);
         $identifier=is_array($begun)?($begun['transaction']??null):null;
         if(!is_string($identifier)||$identifier===''||strlen($identifier)>128)BehaviorBoundary::invalid('A transactional adapter must answer a bounded transaction identifier.');
-        $this->transaction=$identifier;
         try {
-            $result=$this->body($metadata,$args,$original,$execution);
+            $result=BehaviorOpenTransactions::within($policy['adapter'],$identifier,fn()=>$this->body($metadata,$args,$original,$execution));
         } catch(\Throwable $error) {
-            $this->transaction=null;
             try {$control('rollback',$identifier);} catch(\Throwable) {}
             throw $error;
         }
-        $this->transaction=null;
         $control('commit',$identifier);
         return $result;
     }
@@ -352,7 +357,8 @@ final class BehaviorContext {
             $query['page']=$page;
         }
         $entity=$policy['entity'];$command=['operation'=>'query','entity'=>$entity['name'],'table'=>$entity['table'],'idField'=>$entity['id'],'query'=>$query];
-        if($this->transaction!==null)$command['transaction']=$this->transaction;
+        $joined=BehaviorOpenTransactions::of($entity['adapter']);
+        if($joined!==null)$command['transaction']=$joined;
         $authorize=$this->adapters['authorizeEntity']??null;
         if(!is_callable($authorize))BehaviorBoundary::invalid('Store query requires entity authorization.');
         $adapter=$this->adapter('entities',$entity['adapter'],'execute');
@@ -398,7 +404,8 @@ final class BehaviorContext {
         try {
             $command=['operation'=>$operation,'entity'=>$record['name'],'table'=>$record['table'],'idField'=>$record['entity']['id']];
             $command[$operation==='find'?'page':($operation==='save'?'value':'id')]=BehaviorBoundary::copy($value);
-            if($this->transaction!==null)$command['transaction']=$this->transaction;
+            $joined=BehaviorOpenTransactions::of($record['entity']['adapter']);
+            if($joined!==null)$command['transaction']=$joined;
             return BehaviorBoundary::copy(BehaviorBoundary::adapter($this->adapter('entities',$record['entity']['adapter'],'execute'),[$command,$execution],$execution));
         } finally {$this->active--;}
     }

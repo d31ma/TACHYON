@@ -265,6 +265,37 @@ class BehaviorBoundary
   end
 end
 
+class BehaviorOpenTransactions
+  KEY = :tachyon_behavior_transactions
+
+  def self.current
+    open = defined?(Thread) ? Thread.current[KEY] : @open
+    open || {}
+  end
+
+  def self.replace(open)
+    if defined?(Thread)
+      Thread.current[KEY] = open
+    else
+      @open = open
+    end
+  end
+
+  def self.of(adapter)
+    current[adapter]
+  end
+
+  def self.within(adapter, identifier)
+    outer = current
+    replace(outer.merge(adapter => identifier))
+    begin
+      yield
+    ensure
+      replace(outer)
+    end
+  end
+end
+
 class BehaviorContext
   ADAPTER_GROUPS = ["caches", "http", "entities"].freeze
   ADAPTER_KEYS = ["caches", "http", "entities", "authorize", "authorizeEntity"].freeze
@@ -288,7 +319,6 @@ class BehaviorContext
     @timeout_ms = timeout
     @adapters = {}
     @slots = {}
-    @transaction = nil
     @active = 0
   end
 
@@ -387,7 +417,8 @@ class BehaviorContext
       field = { "find" => "page", "save" => "value", "delete" => "id" }[operation]
       command = { "operation" => operation, "entity" => record["name"], "table" => record["table"], "idField" => record["entity"]["id"] }
       command[field] = BehaviorBoundary.copy(value)
-      command["transaction"] = @transaction if @transaction
+      joined = BehaviorOpenTransactions.of(record["entity"]["adapter"])
+      command["transaction"] = joined if joined
       function = adapter("entities", record["entity"]["adapter"], "execute")
       BehaviorBoundary.copy(BehaviorBoundary.adapter(function, [command, execution], execution))
     ensure
@@ -517,7 +548,7 @@ class BehaviorContext
 
   def transacted(metadata, arguments, original, execution)
     policy = metadata["transactional"]
-    return body(metadata, arguments, original, execution) if policy.nil? || @transaction
+    return body(metadata, arguments, original, execution) if policy.nil? || BehaviorOpenTransactions.of(policy["adapter"])
     function = adapter("entities", policy["adapter"], "execute")
     control = lambda do |action, identifier = nil|
       command = { "operation" => "transaction", "action" => action }
@@ -528,11 +559,9 @@ class BehaviorContext
     identifier = begun.is_a?(Hash) ? begun["transaction"] : nil
     valid = identifier.is_a?(String) && !identifier.empty? && identifier.bytesize <= 128
     BehaviorBoundary.invalid("A transactional adapter must answer a bounded transaction identifier.") unless valid
-    @transaction = identifier
     begin
-      result = body(metadata, arguments, original, execution)
+      result = BehaviorOpenTransactions.within(policy["adapter"], identifier) { body(metadata, arguments, original, execution) }
     rescue StandardError
-      @transaction = nil
       begin
         control.call("rollback", identifier)
       rescue StandardError
@@ -540,7 +569,6 @@ class BehaviorContext
       end
       raise
     end
-    @transaction = nil
     control.call("commit", identifier)
     result
   end
@@ -619,7 +647,8 @@ class BehaviorContext
     query["page"] = query_page(policy, arguments) if policy["operation"] == "find"
     entity = policy["entity"]
     command = { "operation" => "query", "entity" => entity["name"], "table" => entity["table"], "idField" => entity["id"], "query" => query }
-    command["transaction"] = @transaction if @transaction
+    joined = BehaviorOpenTransactions.of(entity["adapter"])
+    command["transaction"] = joined if joined
     authorize = @adapters["authorizeEntity"]
     built_in = authorize.nil? && builtin?("entities", entity["adapter"])
     BehaviorBoundary.invalid("Store query requires entity authorization.") unless built_in || BehaviorBoundary.callable?(authorize)

@@ -226,6 +226,49 @@ final class RuntimeContract {
         if (self::$log !== ['save@none']) throw new Exception('transaction leaked past its method: '.implode(',', self::$log));
     }
 
+    public static function executeJoined(array $command, $execution): array {
+        if ($command['operation'] === 'transaction') return self::executeLedger($command, $execution);
+        self::$log[] = $command['operation'].'@'.($command['transaction'] ?? 'none');
+        if ($command['value']['id'] === 'broken') throw new Exception('the second write failed');
+        return ['id' => $command['value']['id']];
+    }
+
+    public static function joinedContext(array $records, string $partition): BehaviorContext {
+        $context = new BehaviorContext($records, ['partition' => $partition, 'signal' => new BehaviorSignal()]);
+        $adapter = ['execute' => fn($command, $execution) => self::executeJoined($command, $execution)];
+        $context->configure(fn($execution) => ['entities' => ['ledger' => $adapter, 'audit' => $adapter]]);
+        return $context;
+    }
+
+    public static function settle(BehaviorContext $service, BehaviorContext $store, string $second) {
+        $ledger = new Ledger();
+        $ledger->behaviors = $service;
+        return $service->invoke($ledger, Ledger::class, 'post', [], function ($args) use ($store, $second) {
+            $store->repository('Entry')->save(['id' => 'first']);
+            $store->repository('Note')->save(['id' => 'note']);
+            $store->repository('Entry')->save(['id' => $second]);
+            return 'settled';
+        });
+    }
+
+    public static function checkJoinedTransactions(): void {
+        self::$log = [];
+        self::$sequence = 0;
+        $service = self::joinedContext([Ledger::class => ['name' => 'Ledger', 'methods' => ['post' => ['transactional' => ['adapter' => 'ledger']]]]], 'ledger');
+        $entry = ['name' => 'Entry', 'entity' => ['adapter' => 'ledger', 'id' => 'id'], 'table' => 'entries', 'methods' => []];
+        $note = ['name' => 'Note', 'entity' => ['adapter' => 'audit', 'id' => 'id'], 'table' => 'notes', 'methods' => []];
+        $store = self::joinedContext(['Entry' => $entry, 'Note' => $note], 'entries');
+        if (self::settle($service, $store, 'second') !== 'settled') throw new Exception('joined transaction: '.implode(',', self::$log));
+        if (self::$log !== ['begin', 'save@t1', 'save@none', 'save@t1', 'commit:t1']) throw new Exception('joined transaction: '.implode(',', self::$log));
+        self::$log = [];
+        try {
+            self::settle($service, $store, 'broken');
+            self::$failures[] = 'a failed second write was accepted';
+        } catch (Exception $error) {
+        }
+        if (self::$log !== ['begin', 'save@t2', 'save@none', 'save@t2', 'rollback:t2']) throw new Exception('joined rollback: '.implode(',', self::$log));
+    }
+
     public static function restContext(): BehaviorContext {
         $context = new BehaviorContext([], ['partition' => 'tenant', 'signal' => new BehaviorSignal()]);
         $exchange = function ($request, $execution) {
@@ -275,6 +318,7 @@ final class RuntimeContract {
         self::checkBoundaries();
         self::checkResilience();
         self::checkTransactions();
+        self::checkJoinedTransactions();
         self::checkRestClient();
         self::checkCancellation($signal, $context, $service);
         if (self::$failures) throw new Exception(implode("\n", self::$failures));

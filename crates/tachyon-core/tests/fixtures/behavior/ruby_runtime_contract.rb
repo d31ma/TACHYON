@@ -223,6 +223,54 @@ class RuntimeContract
     raise "transaction leaked past its method: #{@log.join(',')}" unless @log == ["save@none"]
   end
 
+  def execute_joined(command)
+    if command["operation"] == "transaction"
+      execute_ledger(command)
+    else
+      @log << "#{command['operation']}@#{command['transaction'] || 'none'}"
+      raise "the second write failed" if command["value"]["id"] == "broken"
+
+      { "id" => command["value"]["id"] }
+    end
+  end
+
+  def joined_context(records, partition)
+    context = BehaviorContext.new(records, { "partition" => partition, "signal" => BehaviorSignal.new })
+    adapter = { execute: ->(command, _execution) { execute_joined(command) } }
+    context.configure { |_execution| { entities: { ledger: adapter, audit: adapter } } }
+    context
+  end
+
+  def settle(service, store, second)
+    ledger = Ledger.new
+    ledger.behaviors = service
+    service.invoke(ledger, "Ledger", "post", [], lambda do
+      store.repository("Entry").save({ "id" => "first" })
+      store.repository("Note").save({ "id" => "note" })
+      store.repository("Entry").save({ "id" => second })
+      "settled"
+    end)
+  end
+
+  def check_joined_transactions
+    @log = []
+    @sequence = 0
+    service = joined_context({ "Ledger" => { "name" => "Ledger", "methods" => { "post" => { "transactional" => { "adapter" => "ledger" } } } } }, "ledger")
+    entry = { "name" => "Entry", "entity" => { "adapter" => "ledger", "id" => "id" }, "table" => "entries", "methods" => {} }
+    note = { "name" => "Note", "entity" => { "adapter" => "audit", "id" => "id" }, "table" => "notes", "methods" => {} }
+    store = joined_context({ "Entry" => entry, "Note" => note }, "entries")
+    raise "joined transaction: #{@log.join(',')}" unless settle(service, store, "second") == "settled"
+    raise "joined transaction: #{@log.join(',')}" unless @log == ["begin", "save@t1", "save@none", "save@t1", "commit:t1"]
+    @log = []
+    begin
+      settle(service, store, "broken")
+      @failures << "a failed second write was accepted"
+    rescue StandardError
+      nil
+    end
+    raise "joined rollback: #{@log.join(',')}" unless @log == ["begin", "save@t2", "save@none", "save@t2", "rollback:t2"]
+  end
+
   def rest_context
     context = BehaviorContext.new({}, { "partition" => "tenant", "signal" => BehaviorSignal.new })
     exchange = lambda do |request, _execution|
@@ -271,6 +319,7 @@ class RuntimeContract
     check_boundaries
     check_resilience
     check_transactions
+    check_joined_transactions
     check_rest_client
     check_cancellation(signal, context, service)
     raise @failures.join("\n") unless @failures.empty?
