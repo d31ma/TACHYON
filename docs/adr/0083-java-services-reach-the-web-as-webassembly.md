@@ -329,12 +329,19 @@ page that `ty start`, `ty preview` or a native host served. The earlier checks
 did not see it, because their test servers sent no policy.
 
 The build now replaces those five parts of the TeaVM 0.15.0 runtime with
-plain functions that do the same work. A `@JSBody` function can only come
-from Tachyon's own prelude, because `TY1317` refuses TeaVM interop in a
-service, so the runtime accepts only the host calls of the prelude
-(`globalThis[Symbol.for('tachyon.java.host')].<call>(<value>)`) and throws for
-any other body. When the runtime is not the one that Tachyon knows, the build
-stops and asks for TeaVM 0.15.0. The patch is part of the build cache key.
+plain functions that do the same work. A `@JSBody` function cannot be made
+from its text any more, so the runtime takes it from a table that is part of
+Tachyon (`tea_vm_bodies.js`): every `@JSBody` of TeaVM 0.15.0's class
+library, platform and JSO core, typed array and implementation packages (read
+from the jars with `javap`), and the host calls of Tachyon's prelude. The
+table is keyed by the parameter names and the script; TeaVM rewrites a
+script before it hands it to the runtime (a host call gains `return`), so
+the lookup also compares the text without spaces and with one kind of quote.
+A service cannot add a body of its own, because `TY1317` refuses TeaVM
+interop in a service. A body that is not in the table throws a clear error.
+When the runtime is not the one that Tachyon knows, the build stops and asks
+for TeaVM 0.15.0. The patch is part of the build cache key, and it adds
+about 11 KB to `runtime.js` (1.5 KB with Brotli).
 
 ### Continuous integration
 
