@@ -7998,7 +7998,7 @@
             },
             {
               "name": "server/converters/ProductConverter.js",
-              "code": "@Converter\nexport default class ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {BehaviorJsonObject} product\n   * @returns {Promise<BehaviorJsonObject | void>}\n   */\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product) {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {BehaviorJsonValue} product\n   * @returns {Promise<BehaviorJsonObject | void>}\n   */\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product) {}\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.js",
@@ -8014,7 +8014,7 @@
             },
             {
               "name": "server/converters/ProductConverter.ts",
-              "code": "@Converter\nexport default class ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: BehaviorJsonObject): Promise<BehaviorJsonObject | void> {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: BehaviorJsonValue): Promise<BehaviorJsonObject | void> {}\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.ts",
@@ -8186,7 +8186,7 @@
             },
             {
               "name": "client/converters/ProductConverter.js",
-              "code": "@Converter\nexport default class ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {BehaviorJsonObject} product\n   * @returns {Promise<BehaviorJsonObject | void>}\n   */\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product) {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {BehaviorJsonValue} product\n   * @returns {Promise<BehaviorJsonObject | void>}\n   */\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product) {}\n}\n"
             },
             {
               "name": "client/services/CatalogService.js",
@@ -8198,7 +8198,7 @@
             },
             {
               "name": "client/converters/ProductConverter.ts",
-              "code": "@Converter\nexport default class ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: BehaviorJsonObject): Promise<BehaviorJsonObject | void> {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: BehaviorJsonValue): Promise<BehaviorJsonObject | void> {}\n}\n"
             },
             {
               "name": "client/services/CatalogService.ts",

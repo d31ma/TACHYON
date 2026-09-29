@@ -4,7 +4,7 @@ export default class ProductConverter {
   @Needs
   behaviors;
   /**
-   * @param {BehaviorJsonObject} product
+   * @param {BehaviorJsonValue} product
    * @returns {Promise<BehaviorJsonObject | void>}
    */
   @Convert({"fields":[{"source":"detail.id","target":"productId"},{"source":"name","target":"title"},{"source":"missing.deep","target":"absent"},{"target":"kind","constant":"product"}]})
