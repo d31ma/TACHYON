@@ -1,3 +1,4 @@
+import 'dart:async' as behavior_async;
 import 'dart:convert' as behavior_convert;
 import 'dart:math' as behavior_math;
 //__BEHAVIOR_BODY__
@@ -638,7 +639,19 @@ __TAC_BEHAVIOR_CONFIGURATIONS__
   }
 }
 
-final class BehaviorContext {
+final class BehaviorOpenTransactions {
+  static const Symbol _key = #tachyonBehaviorTransactions;
+
+  static Map<String, String> get _open =>
+      (behavior_async.Zone.current[_key] as Map<String, String>?) ?? const <String, String>{};
+
+  static String? of(String adapter) => _open[adapter];
+
+  static Future<Object?> within(String adapter, String identifier, Future<Object?> Function() body) =>
+      behavior_async.runZoned(body, zoneValues: {_key: <String, String>{..._open, adapter: identifier}});
+}
+
+class BehaviorContext {
   BehaviorContext._(this._adapters, this._partition, this._owner, this._timeoutMs) : _signal = BehaviorSignal._child(_owner);
   final BehaviorAdapters _adapters;
   final String _partition;
@@ -647,8 +660,6 @@ final class BehaviorContext {
   final int _timeoutMs;
   int _active = 0;
   final Map<String, int> _slots = {};
-
-  String? _transaction;
 
   void dispose() => _signal.abort();
 
@@ -861,8 +872,9 @@ final class BehaviorContext {
   static bool _retryable(Object error) => error is! BehaviorError || error.code == 'ADAPTER_FAILED';
 
   Future<Object?> _transacted(Object? metadata, Future<Object?> Function() body, BehaviorExecution execution) async {
-    if (!BehaviorJson.has(metadata, 'transactional') || _transaction != null) return _attempt(metadata, body, execution);
+    if (!BehaviorJson.has(metadata, 'transactional')) return _attempt(metadata, body, execution);
     final name = BehaviorJson.text(BehaviorJson.get(BehaviorJson.get(metadata, 'transactional'), 'adapter'));
+    if (BehaviorOpenTransactions.of(name) != null) return _attempt(metadata, body, execution);
     final adapter = _entities(name);
     Future<Object?> control(String action, [String? identifier]) => _adapter(
         execution,
@@ -873,18 +885,15 @@ final class BehaviorContext {
     if (identifier is! String || identifier.isEmpty || behavior_convert.utf8.encode(identifier).length > 128) {
       throw BehaviorError('ENTITY_TRANSACTION');
     }
-    _transaction = identifier;
     final Object? value;
     try {
-      value = await _attempt(metadata, body, execution);
+      value = await BehaviorOpenTransactions.within(name, identifier, () => _attempt(metadata, body, execution));
     } catch (_) {
-      _transaction = null;
       try {
         await control('rollback', identifier);
       } catch (_) {}
       rethrow;
     }
-    _transaction = null;
     await control('commit', identifier);
     return value;
   }
@@ -1139,13 +1148,14 @@ final class BehaviorContext {
       query['page'] = page;
     }
     final entity = BehaviorJson.get(metadata, 'entity');
+    final joined = BehaviorOpenTransactions.of(BehaviorJson.text(BehaviorJson.get(entity, 'adapter')));
     return <String, Object?>{
       'operation': 'query',
       'entity': BehaviorJson.get(entity, 'name'),
       'table': BehaviorJson.get(entity, 'table'),
       'idField': BehaviorJson.get(entity, 'id'),
       'query': query,
-      if (_transaction != null) 'transaction': _transaction,
+      if (joined != null) 'transaction': joined,
     };
   }
 
@@ -1158,7 +1168,8 @@ final class BehaviorContext {
             : operation == 'save'
                 ? 'value'
                 : 'id'] = value;
-        if (_transaction != null) command['transaction'] = _transaction;
+        final joined = BehaviorOpenTransactions.of(BehaviorJson.text(BehaviorJson.get(mapping, 'adapter')));
+        if (joined != null) command['transaction'] = joined;
         return _adapter(execution, () => adapter.execute(command, execution));
       });
 }

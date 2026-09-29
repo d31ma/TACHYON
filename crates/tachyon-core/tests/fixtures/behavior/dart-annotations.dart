@@ -67,6 +67,19 @@ abstract class AnnotatedSummaries {
 
 final class TransientFailure implements Exception {}
 
+class AnnotatedLedger {
+  @Needs
+  final BehaviorContext behaviors;
+  late BehaviorContext entries;
+
+  @AllOrNothing({"adapter":"data"})
+  Future<Object?> settle(Object? second) async {
+    await entries.repository(AnnotatedProduct).save(<String, Object?>{'id': 'first'});
+    await entries.repository(AnnotatedProduct).save(<String, Object?>{'id': second});
+    return 'settled';
+  }
+}
+
 class AnnotatedResilient {
   @Needs
   final BehaviorContext behaviors;
@@ -87,6 +100,8 @@ class AnnotatedResilient {
 
 final class MemoryAdapters {
   static final Map<String, Map<String, Object?>> _entries = {};
+  static final List<String> ledger = [];
+  static int transactions = 0;
 
   static Future<Object?> readEntry(String key, BehaviorExecution execution) async {
     final entry = _entries[key];
@@ -108,12 +123,27 @@ final class MemoryAdapters {
     final fields = command as Map;
     switch (fields['operation']) {
       case 'transaction':
-        return <String, Object?>{'transaction': 'tx-1'};
+        return transaction(fields);
       case 'query':
         return queryResult((fields['query'] as Map)['kind']);
       default:
-        return <String, Object?>{...fields.cast<String, Object?>()};
+        return persist(fields);
     }
+  }
+
+  static Object? transaction(Map fields) {
+    final joined = fields['transaction'];
+    ledger.add(joined == null ? '${fields['action']}' : '${fields['action']}:$joined');
+    if (fields['action'] != 'begin') return <String, Object?>{};
+    transactions += 1;
+    return <String, Object?>{'transaction': 't$transactions'};
+  }
+
+  static Object? persist(Map fields) {
+    ledger.add('${fields['operation']}@${fields['transaction'] ?? 'none'}');
+    final value = fields['value'];
+    if (value is Map && value['id'] == 'broken') throw StateError('the second write failed');
+    return <String, Object?>{...fields.cast<String, Object?>()};
   }
 
   static Object? queryResult(Object? kind) {
@@ -201,6 +231,28 @@ void checkSummaries(BehaviorContext context) {
   }
 }
 
+Future<void> checkJoinedTransaction(BehaviorSignal signal) async {
+  final service = Behaviors.create(AnnotatedConfig, partition: 'ledger', signal: signal);
+  final store = Behaviors.create(AnnotatedConfig, partition: 'entries', signal: signal);
+  try {
+    final ledger = AnnotatedLedger(service)..entries = store;
+    MemoryAdapters.ledger.clear();
+    check(await ledger.settle('second') == 'settled', 'JOINED_RESULT');
+    check(MemoryAdapters.ledger.join(',') == 'begin,save@t1,save@t1,commit:t1', 'JOINED_TRANSACTION');
+    MemoryAdapters.ledger.clear();
+    try {
+      await ledger.settle('broken');
+      check(false, 'JOINED_FAILURE');
+    } on BehaviorError catch (error) {
+      check(error.code == 'ADAPTER_FAILED', 'JOINED_FAILURE_CODE');
+    }
+    check(MemoryAdapters.ledger.join(',') == 'begin,save@t2,save@t2,rollback:t2', 'JOINED_ROLLBACK');
+  } finally {
+    service.dispose();
+    store.dispose();
+  }
+}
+
 Future<void> main() async {
   final signal = BehaviorSignal();
   final context = Behaviors.create(AnnotatedConfig, partition: 'tenant-one', signal: signal);
@@ -210,6 +262,7 @@ Future<void> main() async {
     await checkResilience(context);
     await checkQueries(context, input);
     checkSummaries(context);
+    await checkJoinedTransaction(signal);
   } finally {
     context.dispose();
   }
