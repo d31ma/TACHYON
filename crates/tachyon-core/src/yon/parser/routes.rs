@@ -77,7 +77,7 @@ impl RouteMarker {
         ))
     }
 
-    fn source(name: &str) -> Option<(ParameterSource, &'static str)> {
+    pub(super) fn source(name: &str) -> Option<(ParameterSource, &'static str)> {
         let normalized = name
             .rsplit("::")
             .next()

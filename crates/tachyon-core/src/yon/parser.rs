@@ -11,6 +11,7 @@ mod access_marker;
 mod access_tests;
 mod errors;
 mod identity_marker;
+mod parameter_markers;
 mod routes;
 mod ruby;
 mod sockets;
@@ -124,7 +125,10 @@ fn parse_with_root(
     }
     let mut markers = Vec::new();
     let plan = match gateway_target {
-        Some(target) => build_gateway_plan(&input, &declarations, target)?,
+        Some(target) => {
+            markers.extend(parameter_markers::ParameterMarkers::spans(&input));
+            build_gateway_plan(&input, &declarations, target)?
+        }
         None => build_plan(&input, &declarations, &mut markers)?,
     };
     Ok(Some(Parsed {
@@ -2180,6 +2184,16 @@ mod tests {
             assert!(!result.source.contains(marker), "{}", result.source);
         }
         assert!(result.source.contains("async getProducts"));
+    }
+
+    #[test]
+    fn a_test_unit_module_drops_the_route_parameter_markers_of_its_controllers() {
+        let source = "@Service\nclass NewsCaller {\n call() { return 1; }\n}\n@RequestRoute(\"/news\")\nclass NewsController {\n @PostRoute\n postNews(@FromBody item, @FromHeader('x-id') id) { return item; }\n}\n";
+        let result = parse_test(Path::new("server/tests/NewsCaller.js"), source)
+            .expect("test module")
+            .expect("managed types");
+        assert!(!result.source.contains('@'), "{}", result.source);
+        assert_eq!(result.source.len(), source.len());
     }
 
     #[test]
