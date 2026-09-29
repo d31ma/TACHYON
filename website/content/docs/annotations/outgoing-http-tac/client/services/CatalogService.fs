@@ -1,10 +1,8 @@
 open System.Threading.Tasks
 
 [<Service>]
-[<HTTPClient>]
 type CatalogService() =
-    member val behaviors : BehaviorContext = Behaviors.create(typeof<CatalogSetup>, "catalog", new BehaviorSignal())
+    let catalog = CatalogClient()
     member val count : int = 0 with get, set
 
-    [<GetRequest("/api/products")>]
-    member this.All() : Task<BehaviorJSON> = Task.FromResult(BehaviorJSON.Parse("{}"))
+    member this.All() : Task<BehaviorJSON> = catalog.All()

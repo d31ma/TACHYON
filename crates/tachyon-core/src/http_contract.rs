@@ -6,6 +6,7 @@ mod contract_check;
 mod contract_form;
 mod contract_member;
 mod contract_rewrite;
+mod fsharp_client;
 mod go_contract_rewrite;
 mod go_method;
 mod indented_members;
@@ -23,6 +24,7 @@ use concrete_client::ConcreteClient;
 use contract_check::ContractCheck;
 use contract_rewrite::ContractRewrite;
 pub(crate) use contract_rewrite::SourceEdit;
+use fsharp_client::FsharpClient;
 use std::path::Path;
 
 pub(crate) struct HttpContract;
@@ -37,6 +39,7 @@ impl HttpContract {
     }
 
     pub(crate) fn concrete(path: &Path, source: &str, environment: &str) -> Option<String> {
-        ConcreteClient::lower(path, source, environment)
+        FsharpClient::lower(path, source)
+            .or_else(|| ConcreteClient::lower(path, source, environment))
     }
 }

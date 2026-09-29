@@ -579,6 +579,7 @@ members: the behavior context, the constructor and every body.
 | Dart | `abstract interface class CatalogClient` | no body |
 | Swift | `protocol CatalogClient` | no body |
 | Rust | `trait CatalogClient` | no body |
+| F# | `type CatalogClient =` with only `abstract` members (an F# interface) | an `abstract` member |
 | Python | `class CatalogClient(Protocol)` | `...` |
 | JavaScript, TypeScript, Ruby | `class CatalogClient` | an empty body |
 
@@ -600,8 +601,8 @@ Tachyon builds the client and its behavior context. The context comes from a
 Setup: `{"setup":"CatalogSetup"}` on `@HTTPClient` names it, and the default is
 the client name with `Setup` instead of `Client`. The partition is the adapter
 name. A client whose methods are all `@Gateway` methods needs no context. In
-Yon, `@Needs` injects the client. A Tac service in Rust, Go, C#, Kotlin, Swift
-or Dart builds it: `CatalogClient::new()`, `NewCatalogClient()`,
+Yon, `@Needs` injects the client. A Tac service in Rust, Go, C#, F#, Kotlin,
+Swift or Dart builds it: `CatalogClient::new()`, `NewCatalogClient()`,
 `new CatalogClient()` or `CatalogClient()`. Tac JavaScript and TypeScript
 clients stay managed by the page.
 
@@ -1247,6 +1248,7 @@ lifecycle hooks cannot host a generated unit yet (`TY1312`).
 | C# | `[Gateway({...})]` then `BehaviorJSON Summarize(BehaviorJSON period);` in an `interface` |
 | Rust | `#[Gateway({...})]` then `fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;` in a `trait` |
 | Dart | `@Gateway({...})` then `Future<Object?> summarize(Object? period);` in an `abstract interface class` |
+| F# | `[<Gateway({...})>]` then `abstract Summarize: period: BehaviorJSON -> BehaviorJSON` in an interface type |
 | Go | `// @Gateway({...})` then `Summarize(period BehaviorValue) (BehaviorValue, error)` in an `interface` |
 
 A target method uses the same JSON value type for its parameters. Its result

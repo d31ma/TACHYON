@@ -171,7 +171,8 @@ implementation, and Tachyon generates each request.
   Swift; a `Protocol` class with `...` bodies in Python. JavaScript and Ruby
   have no method without a body, and TypeScript accepts annotations only on
   a method with a body, so those languages write a class whose methods are
-  empty. F# gets an interface when F# clients arrive.
+  empty. F# writes an interface: a type with only `abstract` members, which
+  Tachyon turns into a class for the F# behavior bodies of ADR 0073.
 - The build fails with `TY1308` (fail closed, rule table of ADR 0056) for a
   class client where the language has a contract form, any method body, a
   field, a constructor, a method without a request or gateway annotation, and

@@ -1,5 +1,5 @@
 [<HTTPClient>]
-type ReportClient() =
+type ReportClient =
     [<Gateway({"class":"server/services/ReportService.py","method":"summarize"})>]
     abstract Summarize: period: BehaviorJSON -> BehaviorJSON
 

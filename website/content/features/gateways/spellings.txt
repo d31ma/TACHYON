@@ -16,6 +16,7 @@ empty method bodies in JavaScript, TypeScript and Ruby).
   C#          [Gateway({...})]   BehaviorJSON Summarize(BehaviorJSON period);
   Rust        #[Gateway({...})]  fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;
   Dart        @Gateway({...})    Future<Object?> summarize(Object? period);
+  F#          [<Gateway({...})>] abstract Summarize: period: BehaviorJSON -> BehaviorJSON
   Go          // @Gateway({...}) on the line before Summarize(period BehaviorValue) (BehaviorValue, error) in the interface
 
 The options name one target:

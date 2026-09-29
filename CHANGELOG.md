@@ -13,15 +13,16 @@ machine contracts have their own, independent major versions.
 - `@HTTPClient` is a contract with no implementation, like a Spring
   `@HttpExchange` interface (`TY1308`, ADR 0048 amendment). Declare it as an
   `interface` (Java, Groovy, Kotlin, C#, PHP), a Go `interface`, an
-  `abstract interface class` (Dart), a `trait` (Rust), a `protocol` (Swift)
-  or a `Protocol` class with `...` bodies (Python); JavaScript, TypeScript
-  and Ruby write a class whose methods have empty bodies. A class client in
+  `abstract interface class` (Dart), a `trait` (Rust), a `protocol` (Swift),
+  a type with only `abstract` members (F#) or a `Protocol` class with `...`
+  bodies (Python); JavaScript, TypeScript and Ruby write a class whose
+  methods have empty bodies. A class client in
   a language with a contract form, any method body (including the old
   `{query, headers, body}` descriptor methods), a field, a constructor, a
   method without a request annotation, and a service that is also an
   `HTTPClient` are refused. Tachyon builds the client and its behavior
   context from `{"setup":"…"}` (default `<Name>Setup`); Tac services in Rust,
-  Go, C#, Kotlin, Swift and Dart build their client instead of being one.
+  Go, C#, F#, Kotlin, Swift and Dart build their client instead of being one.
   `ty migrate fix --write` rewrites class clients whose methods only send
   requests.
 - Every field, method parameter and return value of a class states its type

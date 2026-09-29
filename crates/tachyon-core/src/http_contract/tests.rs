@@ -495,3 +495,54 @@ fn the_fix_leaves_a_client_with_logic_to_the_author() {
         .expect_err("logic stays manual");
     assert!(problem.contains("move it into a service"), "{problem}");
 }
+
+struct FsharpSamples;
+
+impl FsharpSamples {
+    const CONTRACT: &'static str = "open System.Threading.Tasks\n\n[<HTTPClient({\"adapter\":\"api\"})>]\ntype CatalogClient =\n    [<GetRequest(\"/products\")>]\n    abstract All: [<RequestParam(\"page\")>] page: BehaviorJSON -> Task<BehaviorJSON>\n";
+    const GATEWAY: &'static str = "[<HTTPClient>]\ntype ReportClient =\n    [<Gateway({\"command\":[\"python3\"]})>]\n    abstract Forecast: months: BehaviorJSON -> BehaviorJSON\n";
+    const CLASS_FORM: &'static str = "open System.Threading.Tasks\n\n[<HTTPClient>]\ntype CatalogClient() =\n    member val behaviors : BehaviorContext = Behaviors.create(typeof<CatalogSetup>, \"catalog\", new BehaviorSignal())\n\n    [<GetRequest(\"/products\")>]\n    abstract All: page: BehaviorJSON -> Task<BehaviorJSON>\n";
+    const PATH: &'static str = "server/clients/CatalogClient.fs";
+}
+
+#[test]
+fn an_fsharp_client_is_an_interface_and_a_class_client_is_refused() {
+    let path = Path::new(FsharpSamples::PATH);
+    let accepted = crate::annotation_layout::validate(path, FsharpSamples::CONTRACT);
+    assert!(accepted.is_ok(), "{accepted:?}");
+    let refused = crate::annotation_layout::validate(path, FsharpSamples::CLASS_FORM)
+        .expect_err("an F# class client is refused")
+        .to_string();
+    assert!(refused.contains("TY1308"), "{refused}");
+}
+
+#[test]
+fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
+    let lowered = HttpContract::concrete(
+        Path::new(FsharpSamples::PATH),
+        FsharpSamples::CONTRACT,
+        "yon",
+    )
+    .expect("lowered");
+    assert!(
+        lowered.contains("type CatalogClient() =\n    member val behaviors : BehaviorContext = Behaviors.create(typeof<CatalogSetup>, \"api\", new BehaviorSignal())\n\n    [<GetRequest"),
+        "{lowered}"
+    );
+    let gateway = HttpContract::concrete(
+        Path::new("server/clients/ReportClient.fs"),
+        FsharpSamples::GATEWAY,
+        "yon",
+    )
+    .expect("lowered");
+    assert!(
+        gateway.contains("type ReportClient() =\n    [<Gateway"),
+        "{gateway}"
+    );
+    assert!(!gateway.contains("behaviors"), "{gateway}");
+    let class_form = HttpContract::concrete(
+        Path::new(FsharpSamples::PATH),
+        FsharpSamples::CLASS_FORM,
+        "yon",
+    );
+    assert!(class_form.is_none(), "{class_form:?}");
+}
