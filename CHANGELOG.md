@@ -583,6 +583,15 @@ machine contracts have their own, independent major versions.
   (ADR 0078), as Go, Rust and C# do: a `Cached` method or an `"indexeddb"`
   Entity needs no adapter in the Setup. Android Kotlin services still name
   their own adapters, and the build still refuses them otherwise.
+- F# classes hold behavior annotations (ADR 0073): caching (CacheSettings,
+  Cached, UpdateCache, ClearCache), Retry, MaxAtOnce, AllOrNothing, Check and
+  Checked, PageDefaults, Entity, Table, Store and Query, Converter and Convert,
+  configuration binding, HTTPClient requests, Gateway and Schedule, in Yon and
+  in Tac. They run on the C# behavior runtime, so F# gets the same checks and
+  errors as C#. A member whose body Tachyon writes (a query, Convert, Gateway,
+  a request without a body) is an F# `abstract` member; the behavior context
+  is a `behaviors` member of the class. Events, lifecycle hooks, `NeedsAll`,
+  sockets, streams and executed coverage are still refused by name.
 - F# is a Yon language and a Tac service language (ADR 0073). Annotations are
   F# attributes, `[<Service>]` or `[<GetRoute("/{id}")>]`, on their own line;
   several may share one pair of brackets. A type takes the roles it needs as
@@ -601,9 +610,9 @@ machine contracts have their own, independent major versions.
   ADR 0037 on every target, sharing one download with C#. `ty doctor` checks
   .NET for F#, and `ty init` offers F# in both realms. TY1335 refuses an F#
   file with a `module` or `namespace` line, a file-level `let` or `do`, or an
-  attribute on the same line as its declaration. Behavior annotations,
-  events, lifecycle hooks, sockets, streams and the executed-coverage check
-  are not available in F# yet and are refused by name.
+  attribute on the same line as its declaration. Events, lifecycle hooks,
+  sockets, streams and the executed-coverage check are not available in F#
+  yet and are refused by name.
 - Compressed files (ADR 0075): a release build of the web target (`ty build`,
   `ty bundle`) writes a Brotli `.br` and a gzip `.gz` copy next to each script,
   style, page, JSON, SVG, source map and WebAssembly file of 1 KiB or more,

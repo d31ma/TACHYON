@@ -1,7 +1,7 @@
 # ADR 0073: F# Is a Yon Language and a Tac Service Language
 
 - Status: Accepted
-- Date: 2026-09-28
+- Date: 2026-09-28 (behavior annotations: 2026-09-29)
 - Builds on: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   (the .NET browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
   (routes), [ADR 0062](0062-yon-uses-native-http-types.md) (native HTTP
@@ -92,14 +92,47 @@ C# work.
 - `ty doctor` reports the .NET SDK for F# handlers, and the .NET WebAssembly
   workload for F# services. `ty init` offers F# for both realms.
 
+### Behavior annotations (added 2026-09-29)
+
+F# classes hold the shared behavior annotations with their Spring meaning:
+CacheSettings, Cached, UpdateCache, ClearCache, Retry, MaxAtOnce,
+AllOrNothing, Check and Checked, PageDefaults, Entity, Table, Store and
+Query, Converter and Convert, Settings, Setting, WhenProfile, WhenSetting,
+HTTPClient with its request annotations, Gateway and Schedule.
+
+- Tachyon runs the C# behavior lowering on the C# view of the F# file, so
+  F# gets the same checks, the same errors and the same runtime as C#.
+- The C# behavior runtime is compiled into a C# library that the F#
+  assembly references: the Yon prelude library, or a `FsharpBehaviors`
+  project next to the F# services in the WebAssembly build. That library
+  cannot see the F# types, so it compares types by name, and a generated
+  module initializer in the C# glue (which can see them) registers each
+  Setup's `configure` method. In Tac the same initializer connects the page
+  storage.
+- A member with a body keeps its code: Tachyon renames it to
+  `__tachyon_<name>` and adds the real member in an intrinsic type extension
+  (`type X with ...`) at the end of the file. The extension calls the
+  behavior context and then the renamed member. Line numbers of the author's
+  code do not change.
+- A member whose body Tachyon writes (Query and derived `findBy` queries,
+  Convert, Gateway, request annotations without a body) is an F# `abstract`
+  member. In an interface-shaped type the type gets a constructor that takes
+  the `BehaviorContext` (or no parameters for gateway-only clients); in a
+  class the class keeps its own `behaviors` member. Tachyon replaces each
+  abstract line with a concrete member on the same line.
+- The behavior context is a `behaviors` member of the class, usually
+  `member val behaviors : BehaviorContext = Behaviors.create(...)`, because
+  F# has no `OnStart` yet. Methods return `Task<BehaviorJSON>`; an F#
+  lambda for `authorize` is written as `Func<_, _, _>(fun ...)`.
+
 ### Not yet available in F#
 
-Behavior annotations (Cached, Retry, AllOrNothing, validation, mapping,
-configuration binding, gateways, outgoing HTTP requests), local and topic
-events, `OnStart`/`OnStop`, sockets and streams, and the executed-coverage
-check of ADR 0070 are not available in F# yet. A file that uses one is
-refused with a message that names the missing feature, so F# never ignores
-an annotation.
+Local and topic events, `OnStart`/`OnStop`, `NeedsAll` and field
+injection, sockets and streams, behavior context in test units
+(`TestSetup` stays `class end`), and the executed-coverage check of
+ADR 0070 are not available in F# yet. A file that uses one is refused
+with a message that names the missing feature, so F# never ignores an
+annotation.
 
 ## Consequences
 
