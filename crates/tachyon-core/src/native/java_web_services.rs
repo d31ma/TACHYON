@@ -13,7 +13,7 @@ mod java_service;
 mod java_service_table;
 mod java_value_type;
 mod java_wasm_program;
-mod teavm_toolchain;
+mod tea_vm_toolchain;
 
 pub(crate) struct JavaWebServices;
 

@@ -1,20 +1,6 @@
 pub(super) struct JavaValueType;
 
 impl JavaValueType {
-    const SCALARS: [(&'static str, &'static str); 12] = [
-        ("int", "integer"),
-        ("long", "whole"),
-        ("double", "decimal"),
-        ("float", "single"),
-        ("boolean", "truth"),
-        ("Integer", "optionalInteger"),
-        ("Long", "optionalWhole"),
-        ("Double", "optionalDecimal"),
-        ("Float", "optionalSingle"),
-        ("Boolean", "optionalTruth"),
-        ("String", "text"),
-        ("Object", "same"),
-    ];
     const LISTS: [&'static str; 2] = ["List", "java.util.List"];
     const MAPS: [&'static str; 2] = ["Map", "java.util.Map"];
     const MAP_KEY: &'static str = "String,";
@@ -34,10 +20,22 @@ impl JavaValueType {
     }
 
     fn scalar(kind: &str) -> Option<&'static str> {
-        Self::SCALARS
-            .iter()
-            .find(|(name, _)| *name == kind)
-            .map(|(_, reading)| *reading)
+        let reading = match kind {
+            "int" => "integer",
+            "long" => "whole",
+            "double" => "decimal",
+            "float" => "single",
+            "boolean" => "truth",
+            "Integer" => "optionalInteger",
+            "Long" => "optionalWhole",
+            "Double" => "optionalDecimal",
+            "Float" => "optionalSingle",
+            "Boolean" => "optionalTruth",
+            "String" => "text",
+            "Object" => "same",
+            _ => return None,
+        };
+        Some(reading)
     }
 
     fn scalar_reading(kind: &str, value: &str) -> Option<String> {

@@ -1,5 +1,5 @@
 use super::super::web_program_build::WebProgramBuild;
-use super::teavm_toolchain::TeaVmToolchain;
+use super::tea_vm_toolchain::TeaVmToolchain;
 use crate::Failure;
 use crate::wasm_optimizer::WasmOptimizer;
 use sha2::{Digest, Sha256};
@@ -20,20 +20,18 @@ impl JavaWasmProgram {
         unoptimized_note: "Java: shipped without Binaryen optimization; install Binaryen or run `ty doctor`",
     };
     const JAVA_COMPILER: &'static str = "javac";
-    const JAVA_RUNTIME: &'static str = "java";
-    const ARCHIVE_TOOL: &'static str = "jar";
     const JAVA_FLAGS: [&'static str; 5] = ["--release", "21", "-encoding", "UTF-8", "-nowarn"];
+    const JAVA_RUNTIME: &'static str = "java";
     const TEAVM_RUNNER: &'static str = "org.teavm.cli.TeaVMRunner";
     const TEAVM_FLAGS: [&'static str; 4] = ["-t", "wasm-gc", "-O", "2"];
     const ENTRY_CLASS: &'static str = "TacServices";
-    const CLASS_FOLDER: &'static str = "classes";
-    const OUTPUT_FOLDER: &'static str = "program";
-    const BINARY: &'static str = "services.wasm";
+    const ARCHIVE_TOOL: &'static str = "jar";
     const RUNTIME_ENTRY: &'static str = "org/teavm/backend/wasm/wasm-gc-module-runtime.min.js";
+    const FOLDERS: [&'static str; 3] = ["classes", "program", "java-wasm"];
+    const BINARY: &'static str = "services.wasm";
     const RUNTIME: &'static str = "runtime.js";
-    const PUBLISHED_BINARY: &'static str = "java/services.wasm";
-    const PUBLISHED_RUNTIME: &'static str = "java/runtime.js";
-    const CACHE_FOLDER: &'static str = "java-wasm";
+    const PUBLISHED: [&'static str; 2] = ["java/services.wasm", "java/runtime.js"];
+    const SEPARATOR: u8 = 0;
     const RELEASE_FLAGS: [&'static str; 10] = [
         "--enable-gc",
         "--enable-reference-types",
@@ -68,7 +66,7 @@ impl JavaWasmProgram {
             .await?;
         let optimizer = WebProgramBuild::release_optimizer(profile).await;
         let key = Self::cache_key(&version, &toolchain, optimizer.as_ref(), sources);
-        let cached = crate::cache::root().join(Self::CACHE_FOLDER).join(key);
+        let cached = crate::cache::root().join(Self::FOLDERS[2]).join(key);
         Self::cached_or_built((&toolchain, optimizer.as_ref()), sources, &cached).await
     }
 
@@ -78,8 +76,8 @@ impl JavaWasmProgram {
 
     pub(super) fn published(self) -> Vec<(String, Vec<u8>)> {
         vec![
-            (Self::PUBLISHED_BINARY.to_owned(), self.binary),
-            (Self::PUBLISHED_RUNTIME.to_owned(), self.runtime),
+            (Self::PUBLISHED[0].to_owned(), self.binary),
+            (Self::PUBLISHED[1].to_owned(), self.runtime),
         ]
     }
 
@@ -134,7 +132,7 @@ impl JavaWasmProgram {
     }
 
     fn with_runtime(folder: &Path) -> Result<PathBuf, Failure> {
-        let output = folder.join(Self::OUTPUT_FOLDER);
+        let output = folder.join(Self::FOLDERS[1]);
         std::fs::rename(folder.join(Self::RUNTIME_ENTRY), output.join(Self::RUNTIME))
             .map_err(|error| Self::BUILD.failure(&error.to_string()))?;
         Ok(output)
@@ -146,18 +144,15 @@ impl JavaWasmProgram {
         optimizer: Option<&WasmOptimizer>,
         sources: &[(PathBuf, String)],
     ) -> String {
-        let mut material = version.to_vec();
-        material.push(0);
-        material.extend_from_slice(&toolchain.identity());
-        material.push(0);
-        material.extend_from_slice(optimizer.map_or(&[][..], WasmOptimizer::identity));
-        for (path, text) in sources {
-            material.push(0);
-            material.extend_from_slice(path.to_string_lossy().as_bytes());
-            material.push(0);
-            material.extend_from_slice(text.as_bytes());
-        }
-        crate::compiler::hex_digest(Sha256::digest(material))
+        let identity = toolchain.identity();
+        let optimizer = optimizer.map_or(&[][..], WasmOptimizer::identity);
+        let mut parts: Vec<&[u8]> = vec![version, &identity, optimizer];
+        parts.extend(sources.iter().flat_map(Self::source_parts));
+        crate::compiler::hex_digest(Sha256::digest(parts.join(&Self::SEPARATOR)))
+    }
+
+    fn source_parts((path, text): &(PathBuf, String)) -> [&[u8]; 2] {
+        [path.as_os_str().as_encoded_bytes(), text.as_bytes()]
     }
 
     fn stage(sources: &[(PathBuf, String)]) -> Result<tempfile::TempDir, Failure> {
@@ -188,7 +183,7 @@ impl JavaWasmProgram {
             .args(Self::JAVA_FLAGS)
             .arg("-cp")
             .arg(toolchain.compiler())
-            .args(["-d", Self::CLASS_FOLDER])
+            .args(["-d", Self::FOLDERS[0]])
             .args(sources.iter().map(|(path, _)| path));
         command
     }
@@ -201,11 +196,11 @@ impl JavaWasmProgram {
             .arg(Self::TEAVM_RUNNER)
             .args(Self::TEAVM_FLAGS)
             .arg("-p")
-            .arg(folder.join(Self::CLASS_FOLDER))
+            .arg(folder.join(Self::FOLDERS[0]))
             .arg("-p")
             .arg(toolchain.compiler())
             .arg("-d")
-            .arg(folder.join(Self::OUTPUT_FOLDER))
+            .arg(folder.join(Self::FOLDERS[1]))
             .args(["-f", Self::BINARY, Self::ENTRY_CLASS]);
         command
     }

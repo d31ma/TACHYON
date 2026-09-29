@@ -38,6 +38,8 @@ impl JavaDeclaration {
         "Deprecated",
     ];
     const READ_ONLY: &'static str = "final";
+    const OPENERS: [char; 4] = ['<', '(', '[', '{'];
+    const CLOSERS: [char; 4] = ['>', ')', ']', '}'];
     const SUPPORTED: &'static str = "Java web services support @OnStart and @OnStop on methods and @LocalState and @SessionState on fields.";
     const VALUES: &'static str = "A Java web service passes int, long, double, float, boolean, their boxed types, String, Object, List and Map with String keys to the page.";
 
@@ -62,10 +64,11 @@ impl JavaDeclaration {
     }
 
     fn visible_member(&self) -> Result<Option<JavaMember>, String> {
-        if self.is_skipped() {
-            return Ok(None);
+        match (self.is_skipped(), self.is_method()) {
+            (true, _) => Ok(None),
+            (false, true) => self.method(),
+            (false, false) => self.field(),
         }
-        self.method_or_field()
     }
 
     fn is_skipped(&self) -> bool {
@@ -76,13 +79,6 @@ impl JavaDeclaration {
             Self::NESTED_TYPES.contains(&first),
         ];
         skipped.contains(&true)
-    }
-
-    fn method_or_field(&self) -> Result<Option<JavaMember>, String> {
-        if self.is_method() {
-            return self.method();
-        }
-        self.field()
     }
 
     fn split_annotations(header: &str) -> (Vec<String>, &str) {
@@ -212,26 +208,29 @@ impl JavaDeclaration {
     }
 
     fn method_member(&self, member: &JavaMember) -> Result<Option<JavaMember>, String> {
-        if member.value_type.is_empty() {
-            return Ok(None);
+        match (member.value_type.is_empty(), self.lifecycle()) {
+            (true, _) => Ok(None),
+            (false, Some(destroy)) => Self::hook(member.clone(), destroy),
+            (false, None) => Self::checked_method(member.clone()),
         }
-        self.lifecycle().map_or_else(
-            || Self::checked_method(member.clone()),
-            |destroy| Self::hook(member.clone(), destroy),
-        )
     }
 
     fn hook(member: JavaMember, destroy: bool) -> Result<Option<JavaMember>, String> {
-        if !member.parameters.is_empty() {
-            return Err(format!(
-                "The lifecycle method {} takes no arguments. Remove its parameters.",
-                member.name
-            ));
-        }
+        Self::refuse_hook_parameters(&member)?;
         Ok(Some(JavaMember {
             kind: JavaMemberKind::Hook { destroy },
             ..member
         }))
+    }
+
+    fn refuse_hook_parameters(member: &JavaMember) -> Result<(), String> {
+        if member.parameters.is_empty() {
+            return Ok(());
+        }
+        Err(format!(
+            "The lifecycle method {} takes no arguments. Remove its parameters.",
+            member.name
+        ))
     }
 
     fn checked_method(member: JavaMember) -> Result<Option<JavaMember>, String> {
@@ -276,8 +275,8 @@ impl JavaDeclaration {
         let mut depth = 0;
         let mut outside = String::new();
         for character in text.chars() {
-            depth += i32::from(matches!(character, '<' | '(' | '[' | '{'))
-                - i32::from(matches!(character, '>' | ')' | ']' | '}'));
+            depth += i32::from(Self::OPENERS.contains(&character))
+                - i32::from(Self::CLOSERS.contains(&character));
             Self::push_outside(&mut outside, character, depth);
         }
         outside

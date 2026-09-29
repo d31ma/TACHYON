@@ -22,6 +22,7 @@ impl<'a> JavaClassReader<'a> {
     const CLOSE_ARGUMENTS: u8 = b')';
     const MARKERS: [&'static str; 4] = ["@OnStart", "@OnStop", "@LocalState", "@SessionState"];
     const BLANK: u8 = b' ';
+    const HEADER_ENDS: [u8; 2] = [Self::STATEMENT_END, Self::CLOSE];
 
     pub(super) fn new(path: &'a str, source: &str) -> Self {
         let code = Self::visible(source);
@@ -90,7 +91,7 @@ impl<'a> JavaClassReader<'a> {
         source
             .bytes()
             .zip(mask.code)
-            .map(|(byte, visible)| if visible { byte } else { Self::BLANK })
+            .map(|(byte, visible)| [Self::BLANK, byte][usize::from(visible)])
             .collect()
     }
 
@@ -116,7 +117,7 @@ impl<'a> JavaClassReader<'a> {
     fn header_start(&self, declared: usize) -> usize {
         (0..declared)
             .rev()
-            .find(|at| matches!(self.code[*at], Self::STATEMENT_END | Self::CLOSE))
+            .find(|at| Self::HEADER_ENDS.contains(&self.code[*at]))
             .map_or(0, |at| at + 1)
     }
 
@@ -230,6 +231,7 @@ impl<'a> JavaClassReader<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::type_complexity)]
 mod tests {
     use super::JavaClassReader;
     use crate::native::java_web_services::java_member_kind::JavaMemberKind;
