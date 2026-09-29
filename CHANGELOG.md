@@ -465,6 +465,18 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `website/scripts/verify-snippets.mjs --suite=tsc` (also part of the default
+  run) checks every JavaScript and TypeScript example project on the website
+  with `tsc`, the way a `ty init` project checks itself: it stages each
+  project once per language with the `ty init` `jsconfig.json` files, runs
+  `ty types`, and runs `tsc -p` for each realm that holds the language.
+- `tachyon-env.d.ts` declares `process.env` and `relay(command, request)` for
+  Yon code and `tachyonWindow` for native window controls, and
+  `tachyon-behaviors.d.ts` declares `BehaviorTransactionCommand`, the
+  `begin`, `commit` and `rollback` commands that an `AllOrNothing` method
+  sends to its entity adapter. An `EntityAdapter.execute` written in
+  TypeScript checks `operation` before it reads `entity`, `table` or `query`.
+
 - Test units get a JUnit 5-style `Assert` class (ADR 0080) in JavaScript,
   TypeScript, Python and Rust: `Assert.equals(expected, actual)`,
   `Assert.isTrue(condition)` (Python and Rust: `is_true`) and
@@ -1760,6 +1772,13 @@ machine contracts have their own, independent major versions.
   example "The request to add is 70121 bytes. The limit is 65536 bytes." Before,
   they refused every request over 64 KiB, and Swift answered only "Malformed
   companion request." (ADR 0037).
+- `ty types` declares the role types in `server/roles`, so `@Allow(Admin)`
+  type-checks. A `Gateway` method, like a request method, may declare its
+  answer as `Promise<Report | void>`, because Tachyon writes its empty body.
+  The website examples pass `tsc`: every class that another file uses is
+  `export default`, model imports end in `.ts`, empty bodies that Tachyon
+  writes answer `Promise<X | void>`, and JavaScript members carry JSDoc types.
+
 - A Tac service request that is too big now fails with an error that names
   the size and the limit, for example "Web service documentation: The request
   is 1072202 bytes. The limit is 1048576 bytes. Pass less data to the
