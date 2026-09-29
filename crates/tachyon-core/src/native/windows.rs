@@ -1257,8 +1257,8 @@ mod tests {
             r#"<RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" Trim="true" />"#
         ));
         assert!(development.contains("<PublishTrimmed>true</PublishTrimmed>"));
-        assert!(release.contains("<TrimMode>full</TrimMode>"));
-        assert!(!development.contains("TrimMode"));
+        assert!(release.contains("<EmccLinkOptimizationFlag>-Oz</EmccLinkOptimizationFlag>"));
+        assert!(!development.contains("EmccLinkOptimizationFlag"));
         assert_ne!(
             super::web_cache_key("9.0", &release, "source"),
             super::web_cache_key("9.0", &development, "source")

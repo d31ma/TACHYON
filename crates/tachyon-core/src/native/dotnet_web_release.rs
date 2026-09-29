@@ -8,9 +8,10 @@ pub(super) struct DotnetWebRelease {
 impl DotnetWebRelease {
     const AHEAD_OF_TIME_SETTING: &'static str = "/tac/dotnet/aot";
     const TRIMMED: &'static str = "    <PublishTrimmed>true</PublishTrimmed>\n";
-    const SMALLEST_INTERPRETER: &'static str = "    <TrimMode>full</TrimMode>\n    <EventSourceSupport>false</EventSourceSupport>\n    <DebuggerSupport>false</DebuggerSupport>\n    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>\n    <EmccLinkOptimizationFlag>-Oz</EmccLinkOptimizationFlag>\n";
+    const SMALLEST_INTERPRETER: &'static str =
+        "    <EmccLinkOptimizationFlag>-Oz</EmccLinkOptimizationFlag>\n";
     const AHEAD_OF_TIME: &'static str = "    <RunAOTCompilation>true</RunAOTCompilation>\n    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>\n";
-    const INTERPRETER_NOTE: &'static str = "C#: the trimmed .NET interpreter (full IL trimming, invariant globalization, Emscripten -Oz) for the smallest download; set tac.dotnet.aot to true in client/manifest.json when a service does heavy computing";
+    const INTERPRETER_NOTE: &'static str = "C#: the trimmed .NET interpreter (IL trimming, invariant globalization, Emscripten -Oz) for the smallest download; set tac.dotnet.aot to true in client/manifest.json when a service does heavy computing";
     const AHEAD_OF_TIME_NOTE: &'static str = "C#: .NET compiled ahead of time to WebAssembly (tac.dotnet.aot is true): faster for heavy computing, but a larger download";
 
     pub(super) fn read(snapshot_root: &Path) -> Self {
@@ -63,8 +64,10 @@ mod tests {
             ahead_of_time: false,
         };
         let project = interpreter.project(PROJECT);
-        assert!(project.contains("<TrimMode>full</TrimMode>"), "{project}");
-        assert!(project.contains("<EmccLinkOptimizationFlag>-Oz</EmccLinkOptimizationFlag>"));
+        assert!(
+            project.contains("<EmccLinkOptimizationFlag>-Oz</EmccLinkOptimizationFlag>"),
+            "{project}"
+        );
         assert!(!project.contains("RunAOTCompilation"), "{project}");
         assert!(interpreter.note().contains("tac.dotnet.aot"));
         let compiled = DotnetWebRelease {
