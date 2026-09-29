@@ -142,16 +142,16 @@ Raw SQL:
 - The FYLO subset has no aggregate functions. Do aggregation in the
   application or with a derived count.
 
-## Store injection
+## DataSource injection
 
 Declare a RequestRoute controller in `server/controllers/CatalogController.ts`.
-Put the store below in the shared file of the realm,
-`server/stores/CatalogStore.ts` (ADR 0031):
+Put the service below in the shared file of the realm,
+`server/services/CatalogService.ts` (ADR 0031):
 
 ```typescript
-@Store
+@Service
 @NeedsAll
-class CatalogStore {
+class CatalogService {
   dataSource: DataSource;
 
   findByName(name: string) {
@@ -162,15 +162,16 @@ class CatalogStore {
 }
 ```
 
-- This bare Store declares a managed provider. The example method
-  contains explicit parameterized SQL.
-- The existing entity-bound Store annotation takes `fields`, `entity` and
-  pagination options. It provides derived query methods.
-- The adapter of that annotation can pass the generated command object to
-  `dataSource.command(command)`. The existing ownership of the behavior
-  context and the entity authorization checks still apply.
+- This service is a managed provider, like a Spring service that asks for a
+  `JdbcTemplate`. The example method contains explicit parameterized SQL.
+- A Store cannot hold this code: a Store is a contract that names its Entity,
+  and Tachyon writes each of its queries (`TY1308`). It takes `fields`,
+  pagination options and an optional `setup`, and provides derived query
+  methods.
+- The entity adapter of a Store can pass the generated command object to
+  `dataSource.command(command)`. The entity authorization checks still apply.
 - Do not interpolate values into SQL strings.
-- The same store runs against the `fylo` driver, except for the raw SQL
+- The same service runs against the `fylo` driver, except for the raw SQL
   features that FYLO does not have.
 
 Redis:

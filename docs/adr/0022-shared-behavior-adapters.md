@@ -7,6 +7,7 @@
 - Amended by: [ADR 0044](0044-an-annotated-file-holds-one-class.md): "source-local" means the unit that discovery composes, and a behavior-only class, such as a `Validated` input, lives in its own file in a role folder
 - Amended by: [ADR 0046](0046-tachyon-annotations-are-global.md): the annotations and types are global in every language, and JS/TS refuses an import from `tachyon:behaviors`
 - Amended by: [ADR 0047](0047-annotation-names-are-plain-english.md): annotations and role folders have plain English names (for example `Needs`, `NeedsAll`, `Store`, `OnStart`, `stores/`); the old names are refused and `ty migrate fix --write` renames them
+- Amended on 2026-09-29 (see the end): a `Store` is a contract with no implementation, like a Spring Data repository interface; a bare Store is refused
 
 ## Decision
 
@@ -135,3 +136,41 @@ Polyglot CI (continuous integration) also compiles and executes real JVM (Java
 virtual machine), .NET, Swift and Rust fixtures. It also runs supervised
 Python/PHP endpoints. It requires a toolchain preflight check. See
 [the behavior contract](../BEHAVIOR_ANNOTATIONS.md).
+
+## Amendment (2026-09-29): a Store is a contract
+
+`Store` follows Spring Data repository interfaces: it names its Entity, it has
+no implementation, and Tachyon generates each query.
+
+- A store is declared in the bodiless form of its language, the same form as
+  an `HTTPClient` (ADR 0048 amendment): an `interface`, a Go interface, an
+  `abstract interface class`, a `trait`, a `protocol`, a `Protocol` class, an
+  F# type with only `abstract` members, or a class with empty methods in
+  JavaScript, TypeScript and Ruby. Each method is a derived query
+  (`findBy…`, `countBy…`, `existsBy…`) or a `@Query`.
+- The build fails with `TY1308` for a Store without an Entity (a Spring Data
+  repository always names its entity), a class store where the language has a
+  contract form, any method body, a field, a constructor, a method that is not
+  a query, and a store that also carries another role: "A Store has no
+  implementation: Tachyon generates each query. Move the logic into a
+  service." A bare Store no longer means a Yon provider with hand-written
+  methods; that code moves into a service, and SQL through a `DataSource`
+  moves into a service that asks for the `DataSource`, like a Spring service
+  with a `JdbcTemplate`.
+- Before events, lifecycle and injection read the role files, the compiler
+  turns each contract into a concrete store whose behavior context comes from
+  a Setup: `{"setup":"CatalogSetup"}` in the Store options, by default the
+  store name with `Setup` instead of `Store`. In Yon the store is a provider
+  that `@Needs` injects. A Tac service in Dart or a WebAssembly language
+  builds it with its constructor; a Tac JavaScript or TypeScript service
+  passes a context that it created, with `Behaviors.construct`, because a
+  browser creates a context asynchronously.
+- One exception is named here: a Store that declares an `@AllOrNothing`
+  method keeps its class form, takes its context through `@Needs`, and is
+  built by its caller. A transaction lives in one behavior context, and it
+  cannot yet follow a call from a service into a store that was injected with
+  its own context. When a transaction can join across injected stores
+  (Spring's propagation REQUIRED), `@AllOrNothing` moves to the service and
+  this exception ends.
+- `ty migrate fix --write` rewrites a class store whose methods are only
+  queries; a store with logic, state or no Entity is a manual step.

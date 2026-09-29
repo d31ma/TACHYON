@@ -84,8 +84,9 @@ both realms (ADR 0031).
 - Lifetime applies to both. A Tac service is a page singleton by default.
   `@Lifetime({"value":"prototype"})` creates one for each component instance.
 - A Tac Helper is an injectable role with no process rights.
-- A Tac bare Store and a Tac Client are providers. They are injected into
-  services through NeedsAll.
+- A Tac Helper and a Tac Client are providers. They are injected into
+  services through NeedsAll. A Tac Store is a contract that names its Entity;
+  a Tac service builds it (ADR 0022 amendment).
 - HTTPClient also supports automatic browser Tac JS/TS construction. A client
   is a contract with no implementation (an interface, trait, protocol,
   Protocol class, or a class with empty methods in JavaScript, TypeScript and

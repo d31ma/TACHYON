@@ -74,9 +74,9 @@ them. Tachyon does the following:
 A shared service is one class. Each Yon invocation still owns its own graph of
 instances. The leaf store also uses an empty constructor marker.
 
-A bare Store does not connect to a database by itself. You can inject
-configured Yon resources through DataSource, Redis or
-ApplicationEventPublisher fields. See [managed storage](MANAGED_STORAGE.md) and
+A Store is a contract that names its Entity, and Tachyon writes each of its
+queries (ADR 0022 amendment). A service can inject configured Yon resources
+through DataSource, Redis or ApplicationEventPublisher fields. See [managed storage](MANAGED_STORAGE.md) and
 [application events](APPLICATION_EVENTS.md).
 
 Run source annotations through `ty`, not directly through the language runtime.
@@ -91,7 +91,7 @@ roles. The markers are global, so no example imports them (ADR 0046).
 
 ## Required-field inference
 
-These rules apply to RequestRoute controllers, Service, bare Store, HTTPClient and
+These rules apply to RequestRoute controllers, Service, HTTPClient and
 Helper types:
 
 - `NeedsAll()` selects direct fields that are not initialized

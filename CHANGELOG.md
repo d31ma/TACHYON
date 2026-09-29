@@ -20,6 +20,20 @@ machine contracts have their own, independent major versions.
   refused. `"tests": {"check": false}` in `server/application.json` or
   `"tac": {"tests": {"check": false}}` in `client/manifest.json` turns the
   rule off for one realm.
+- `@Store` is a contract with no implementation, like a Spring Data
+  repository interface (`TY1308`, ADR 0022 amendment). It names its Entity and
+  uses the same bodiless form as `@HTTPClient`; each method is a derived query
+  or a `@Query`. A Store without an Entity (the old bare Store), a class store
+  in a language with a contract form, any method body, a field, a constructor
+  and a method that is not a query are refused: move that logic into a
+  service, and SQL through `DataSource` into a service that asks for the
+  `DataSource`. Tachyon builds the store and its behavior context from
+  `{"setup":"…"}` in the Store options (default `<Name>Setup`), and in Yon
+  `@Needs` injects it instead of `new ProductStore(context)`. A Store with an
+  `@AllOrNothing` method keeps its class form until a transaction can join
+  across injected stores. `ty migrate fix --write` rewrites class stores whose
+  methods are only queries. `Behaviors.construct` in TypeScript accepts the
+  `behaviors` context for a Tac store.
 - `@HTTPClient` is a contract with no implementation, like a Spring
   `@HttpExchange` interface (`TY1308`, ADR 0048 amendment). Declare it as an
   `interface` (Java, Groovy, Kotlin, C#, PHP), a Go `interface`, an

@@ -12,7 +12,7 @@ Apart from that, the two realms mirror each other (ADR 0031). These annotations
 exist in both Yon and Tac:
 
 - `Service`, `Lifetime`, `HTTPClient`, `Helper`, `Converter`;
-- `Store` in its bare role form;
+- `Store`;
 - `Needs`, `Named`;
 - `OnStart`, `OnStop`, `OnEvent`, `Order` and `InBackground`.
 
@@ -251,7 +251,7 @@ These restrictions fail before any adapter runs.
 | `@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id","name"]})` (on a parameter) | Before the method runs and before cache lookup, turns that parameter into `{page,size,offset,sort}`. It never fetches a collection and cuts it into pages. On a Store query, `@PageDefaults` without sizes marks the page parameter; the Store gives the sizes. |
 | `@Entity({"adapter":"data"})` with `@Id` on one field | Declares the model identity that `context.repository(Model)` uses through `configuration.entities.data`. The field marked `@Id` is the identifier; an Entity without exactly one `@Id` field fails the build. |
 | `@Table('products')` | Gives the required table mapping for an entity. The mapping cannot change. Tachyon runs no DDL, creates no schema and runs no migration. |
-| `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares bounded query methods on a service in the same source. The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, the bare name elsewhere. The bare `Store` is the injectable role, in both realms. |
+| `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares a Store: a contract with no implementation, like a Spring Data repository interface, in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, `typeof<ProductEntity>` in F#, the bare name elsewhere. Each method is a derived query or a `@Query`, and Tachyon writes it. `{"setup":"CatalogSetup"}` in the options names the Setup that builds its behavior context; the default is the store name with `Setup` instead of `Store`. In Yon, `@Needs` injects the store. A Store without an Entity, a class form where the language has a contract form, a method body, a field, a constructor or a method that is not a query fails with `TY1308`. The one exception is a Store with an `@AllOrNothing` method (see [Structured stores and derived queries](#structured-stores-and-derived-queries)). |
 | `@Query({"operation":"find","where":[{"field":"status","operator":"eq","argument":0}],"orderBy":[]})` | Turns an empty method into an authorized, structured query to the entity adapter. Never SQL text. A `find` reads its page request from the parameter marked `@PageDefaults`. |
 | `@HTTPClient({"adapter":"catalog","path":"/products"})` with `@GetRequest` | Declares an outgoing call through the selected HTTP adapter. It does not register a Yon route. `GetRequest`, `PostRequest`, `PutRequest`, `PatchRequest` and `DeleteRequest` select the verb and optional method path. `PathVariable`, `RequestParam`, `RequestHeader` and `RequestBody` select argument values. An `HTTPClient` is a contract with no implementation, like a Spring `@HttpExchange` interface: declare it in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). A class form where the language has a contract form, a method body, a field, a constructor, a method without a request annotation, or another role on the same class fails with `TY1308`. `ty migrate fix --write` rewrites a class client. `{"setup":"CatalogSetup"}` names the Setup whose adapters send the requests; the default is the client name with `Setup` instead of `Client`. GET requests cannot have a body. See ADR 0048. |
 | `@StreamRequest("/ticks")` on an `@HTTPClient` method in JavaScript or TypeScript | Tac keeps a stream of server-sent events open at the path: it opens it when a component or service first uses the client, reconnects with a growing wait (1, 2, 4, 8 and 16 seconds, then it stops), reconnects after 60 seconds without a message, and closes it with its owner or when the server sends `end`. The method takes one parameter whose model type describes each message. A message that does not fit the model is dropped. Tac passes each message to the method and then publishes it as that model's event, so an `@OnEvent` listener in any Tac language receives it. It pairs with `@StreamRoute` on the server. See ADR 0058. |
@@ -545,7 +545,7 @@ including hits and eviction. Only literal `true` allows access.
 
 Controller, StreamRoute, SocketRoute and Schedule are the only Yon-only APIs. These are
 mirrored in both realms (ADR 0031): Service, Lifetime, HTTPClient, Helper, Converter,
-bare Store, Needs, Retry, MaxAtOnce, AllOrNothing,
+Store, Needs, Retry, MaxAtOnce, AllOrNothing,
 Description, and the lifecycle and event markers.
 
 **Transaction limits.** A transaction is bounded on both sides:
@@ -638,8 +638,13 @@ class CatalogClient {
 }
 ```
 
-A Store may still use the concrete form wherever it also has ordinary methods
-(ADR 0059).
+A `Store` uses the same form. A Store written as a class in a language that
+has a contract form, any method body, a field, a constructor, a method that is
+neither a derived query nor a `@Query`, or a Store without an Entity fails with
+`TY1308`: "A Store has no implementation: Tachyon generates each query. Move
+the logic into a service." `ty migrate fix --write` rewrites a class store
+into the contract form when its methods are only queries (ADR 0059
+amendment).
 
 The request is built only from the arguments. Tachyon resolves parameter
 annotations at compile time and evaluates no configuration expressions.
@@ -647,7 +652,7 @@ A missing argument is refused before the call reaches the adapter.
 
 ### Managed constructor inference
 
-On RequestRoute controllers, Service, bare Store, HTTPClient, Helper or Converter, each
+On RequestRoute controllers, Service, Helper or Converter, each
 field that carries `@Needs` becomes a parameter of the generated
 constructor, in declaration order. The field must be direct, without an initial
 value, and not static. You do not need to write a constructor.
@@ -698,7 +703,7 @@ This inference does not cover:
 
 ADR 0027 and ADR 0031 manage these separately: the reserved Yon provider tokens
 (DataSource, Redis and ApplicationEventPublisher), and the browser provider
-graph of Clients, bare Stores and Delegates. Use explicit configuration
+graph of Clients and Helpers. Use explicit configuration
 factories, `Behaviors.values`/`Behaviors.properties` and context ownership as
 before. See [Yon annotations](YON_ANNOTATIONS.md),
 [ADR 0025](adr/0025-required-constructor-inference.md) and
@@ -842,12 +847,29 @@ authorization system.
 
 ### Structured stores and derived queries
 
-The object form of Store does not register a DI provider.
+A Store is a contract, like a Spring Data repository interface. It names its
+Entity, and each method is a query that Tachyon writes. Tachyon builds the
+store and its behavior context from a Setup: the one that
+`{"setup":"CatalogSetup"}` names, or by default the store name with `Setup`
+instead of `Store`. The partition is the store name in lowerCamel case without
+`Store`.
 
-- A plain Yon Handler may construct it explicitly.
-- To use Yon DI, put a separate managed Service wrapper in its own role file.
-  Do not put the Service role and the query Store role on one type.
-- Bare `Store` keeps its meaning as a Yon provider.
+- In Yon, the store is a provider: a controller or service asks for it with
+  `@Needs`, and never builds it.
+- A Tac service in Dart, Rust, Go, C#, F#, Kotlin or Swift builds it:
+  `ProductStore()`, `ProductStore::new()`, `NewProductStore()` or
+  `new ProductStore()`. A Tac JavaScript or TypeScript service creates the
+  context first, because a browser creates it asynchronously, and passes it:
+  `Behaviors.construct(ProductsStore, { behaviors: context })`.
+- A Store without an Entity fails with `TY1308`. Code that only runs SQL
+  belongs in a service that asks for a `DataSource`.
+- Do not put the Service role and the Store role on one type.
+
+One exception remains until a transaction can follow a call into a store that
+was injected with its own context: a Store that declares an `@AllOrNothing`
+method keeps its class form. It takes its behavior context through `@Needs`,
+its caller builds it with that context, and its `@AllOrNothing` method may call
+the store's own queries. Its other methods are still queries without a body.
 
 Entity, Store and the schemas they reference belong to the same
 explicitly assembled language unit. Each primary role is in its own matching
@@ -866,9 +888,6 @@ class ProductEntity {}
 ```javascript
 @Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})
 class ProductsStore {
-  @Needs
-  behaviors;
-
   @Query({"operation":"find","where":[{"field":"status","operator":"eq","argument":0}],"orderBy":[]})
   async byStatus(status, @PageDefaults page) {}
 
@@ -878,15 +897,12 @@ class ProductsStore {
 ```
 
 Put both role files in the shared role folders of their realm
-(`client/entities` and `client/stores` for Tac). Supply the explicitly
-owned context with `Behaviors.construct(ProductsStore, { behaviors:
-context })`. This shared query store does not use managed-role dependency
-inference.
+(`client/entities` and `client/stores` for Tac).
 
-**Query methods.** Query methods have empty bodies (Python uses `pass`) and the
-language's bounded JSON result type. The compiler supplies the execution. A
-body that is not empty is an error. Tachyon does not silently throw that logic
-away.
+**Query methods.** Query methods have no body (Python writes `...`, and
+JavaScript, TypeScript and Ruby write an empty body) and the language's bounded
+JSON result type. The compiler supplies the execution. A body that is not
+empty is an error. Tachyon does not silently throw that logic away.
 
 **Derived methods.** Derived method names use
 `(find|count|exists)By<Field><Operator>[And...]`, or the equivalent snake_case
