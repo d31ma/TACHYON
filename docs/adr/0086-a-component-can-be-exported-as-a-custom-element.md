@@ -171,6 +171,8 @@ A host page loads the element with one script tag and uses the tag:
 - Serving an export from another origin (CORS headers, and resolving service
   URLs against the runtime's own URL).
 - Named slots (Tac has one default slot today).
+- A project that only exports elements and has no page (today the build
+  still asks for one page or controller with `TY1002`).
 - A `hydrate` attribute on the element (`idle`, `visible`, `interaction`).
 - Fields that a service needs follow prop changes after the service starts.
 - One stylesheet per element, with only the components it uses.
