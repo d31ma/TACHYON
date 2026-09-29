@@ -22,7 +22,7 @@ impl GatewayProject {
         ),
         (
             "server/tests/ReportServiceTest.js",
-            "@Test(ReportTestConfiguration)\nexport default class ReportServiceTest {\n  async testTotal() {\n    await this.construct(ReportService).total();\n  }\n}\n",
+            "@Test(ReportTestConfiguration)\nexport default class ReportServiceTest {\n  async testTotal() {\n    Assert.equals(1, await this.construct(ReportService).total());\n  }\n}\n",
         ),
     ];
 

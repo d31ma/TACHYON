@@ -251,9 +251,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "@Service\nclass CounterService {\n  total() { return 2; }\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n  static configure() { return {}; }\n}\n",
-            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    if (CHECK) throw Error('failed');\n  }\n}\n",
-            named: "'CounterService.total' === ''",
-            called: "this.construct(CounterService).total() !== 2",
+            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    Assert.isTrue(CHECK, 'counted');\n  }\n}\n",
+            named: "'CounterService.total' !== ''",
+            called: "this.construct(CounterService).total() === 2",
         },
         NamedMethod {
             realm: "server",
@@ -263,9 +263,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "@Service\nclass CounterService {\n  total() { return 2; }\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n  static configure() { return {}; }\n}\n",
-            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    if (CHECK) throw Error('failed');\n  }\n}\n",
-            named: "'CounterService.total' === ''",
-            called: "this.construct(CounterService).total() !== 2",
+            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    Assert.isTrue(CHECK, 'counted');\n  }\n}\n",
+            named: "'CounterService.total' !== ''",
+            called: "this.construct(CounterService).total() === 2",
         },
         NamedMethod {
             realm: "server",
@@ -275,9 +275,9 @@ impl NamedMethod {
             case: "test_counts",
             service: "@service\nclass CounterService:\n    def total(self):\n        return 2\n",
             setup: "@TestSetup\nclass CounterTestSetup:\n    @staticmethod\n    def configure(execution):\n        return {}\n",
-            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nclass CounterServiceTest:\n    async def test_counts(self):\n        if CHECK:\n            raise Exception('failed')\n",
-            named: "'CounterService.total' == ''",
-            called: "CounterService().total() != 2",
+            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nclass CounterServiceTest:\n    async def test_counts(self):\n        Assert.is_true(CHECK, 'counted')\n",
+            named: "'CounterService.total' != ''",
+            called: "CounterService().total() == 2",
         },
         NamedMethod {
             realm: "server",
@@ -347,9 +347,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "#[Service]\nstruct CounterService {}\nimpl CounterService {\n    fn new() -> Self { Self {} }\n    fn total(&self) -> i32 { 2 }\n}\n",
             setup: "#[TestSetup]\nstruct CounterTestSetup {}\nimpl CounterTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n",
-            unit: "#[Test(CounterTestSetup, {\"partition\":\"tests\"})]\nstruct CounterServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CounterServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testCounts(&self) -> BehaviorResult<BehaviorValue> {\n        if CHECK {\n            return Err(BehaviorError { code: \"adapter\", message: \"failed\", path: None });\n        }\n        Ok(BehaviorValue::Null)\n    }\n}\n",
-            named: "\"CounterService.total\".is_empty()",
-            called: "CounterService::new().total() != 2",
+            unit: "#[Test(CounterTestSetup, {\"partition\":\"tests\"})]\nstruct CounterServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CounterServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testCounts(&self) {\n        Assert::is_true_with_message(CHECK, \"counted\");\n    }\n}\n",
+            named: "!\"CounterService.total\".is_empty()",
+            called: "CounterService::new().total() == 2",
         },
         NamedMethod {
             realm: "server",
@@ -383,9 +383,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "@Service\nexport default class CounterService {\n  total() {\n    return 2\n  }\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n  static configure() {\n    return {}\n  }\n}\n",
-            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    if (CHECK) throw Error('failed')\n  }\n}\n",
-            named: "'CounterService.total' === ''",
-            called: "new CounterService().total() !== 2",
+            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    Assert.isTrue(CHECK, 'counted')\n  }\n}\n",
+            named: "'CounterService.total' !== ''",
+            called: "new CounterService().total() === 2",
         },
         NamedMethod {
             realm: "client",
@@ -395,9 +395,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "@Service\nexport default class CounterService {\n  total(): number {\n    return 2\n  }\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n  static configure() {\n    return {}\n  }\n}\n",
-            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    if (CHECK) throw Error('failed')\n  }\n}\n",
-            named: "'CounterService.total' === ''",
-            called: "new CounterService().total() !== 2",
+            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    Assert.isTrue(CHECK, 'counted')\n  }\n}\n",
+            named: "'CounterService.total' !== ''",
+            called: "new CounterService().total() === 2",
         },
         NamedMethod {
             realm: "client",
@@ -431,9 +431,9 @@ impl NamedMethod {
             case: "testCounts",
             service: "#[Service]\n#[derive(Default)]\nstruct CounterService {}\n\nimpl CounterService {\n    fn total(&self) -> i32 {\n        2\n    }\n}\n",
             setup: "#[TestSetup]\nstruct CounterTestSetup {}\nimpl CounterTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n",
-            unit: "#[Test(CounterTestSetup, {\"partition\":\"tests\"})]\nstruct CounterServiceTest {\n    behaviors: std::cell::RefCell<Option<BehaviorContext>>,\n}\nimpl CounterServiceTest {\n    fn new() -> Self {\n        Self { behaviors: std::cell::RefCell::new(None) }\n    }\n\n    fn testCounts(&self) -> BehaviorResult<BehaviorValue> {\n        if CHECK {\n            return Err(BehaviorError { code: \"assertion\", message: \"failed\", path: None });\n        }\n        Ok(BehaviorValue::Null)\n    }\n}\n",
-            named: "\"CounterService.total\".is_empty()",
-            called: "CounterService::default().total() != 2",
+            unit: "#[Test(CounterTestSetup, {\"partition\":\"tests\"})]\nstruct CounterServiceTest {\n    behaviors: std::cell::RefCell<Option<BehaviorContext>>,\n}\nimpl CounterServiceTest {\n    fn new() -> Self {\n        Self { behaviors: std::cell::RefCell::new(None) }\n    }\n\n    fn testCounts(&self) {\n        Assert::is_true_with_message(CHECK, \"counted\");\n    }\n}\n",
+            named: "!\"CounterService.total\".is_empty()",
+            called: "CounterService::default().total() == 2",
         },
         NamedMethod {
             realm: "client",
@@ -658,7 +658,7 @@ fn preview_rechecks_stale_calls_and_shows_newly_uncovered_methods() {
 fn preview_shows_failed_tests_even_when_they_called_every_method() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
-    case.project(root.path(), "this.construct(CounterService).total() === 2");
+    case.project(root.path(), "this.construct(CounterService).total() !== 2");
     CoverageProject::preview_files(root.path());
     let refused = CoverageProject::preview(root.path());
     assert!(!refused.passed, "{}", refused.report);
@@ -682,7 +682,7 @@ fn preview_shows_failed_tests_even_when_they_called_every_method() {
 fn preview_does_not_accept_a_fresh_record_from_a_failed_explicit_test_run() {
     let case = &NamedMethod::CASES[0];
     let root = tempfile::tempdir().expect("project");
-    case.project(root.path(), "this.construct(CounterService).total() === 2");
+    case.project(root.path(), "this.construct(CounterService).total() !== 2");
     CoverageProject::preview_files(root.path());
     let tested = CoverageProject::test(root.path());
     assert!(!tested.passed, "{}", tested.report);
