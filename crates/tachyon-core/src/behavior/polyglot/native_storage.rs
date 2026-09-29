@@ -14,7 +14,7 @@ struct NeededAdapter {
 
 impl NativeStorage {
     const CACHE_METHODS: [&'static str; 3] = ["cacheable", "cacheEvict", "cachePut"];
-    const BUILT_IN: &'static str = "The built-in browser cache and Store work for JavaScript, TypeScript, Dart and Ruby services and for Go, Rust, C# and Kotlin WebAssembly services";
+    const BUILT_IN: &'static str = "The built-in browser cache and Store work for JavaScript, TypeScript, Dart and Ruby services and for Go, Rust, C#, Kotlin and Swift WebAssembly services";
 
     pub(crate) fn refuse_builtins(path: &Path, source: &str) -> Result<(), Failure> {
         let Some(rewritten) = crate::behavior::HttpClientSource::rewrite(path, source)? else {
@@ -159,7 +159,7 @@ mod tests {
         );
         assert!(message.contains("\"catalog\""), "{message}");
         assert!(
-            message.contains("Go, Rust, C# and Kotlin WebAssembly"),
+            message.contains("Go, Rust, C#, Kotlin and Swift WebAssembly"),
             "{message}"
         );
         let empty = format!("{KOTLIN_SERVICE}{KOTLIN_EMPTY_SETUP}");

@@ -1,6 +1,9 @@
 use crate::Failure;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+use topic_streams::TopicStreams;
+
+mod topic_streams;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum WebLanguage {
@@ -30,6 +33,17 @@ impl WebLanguage {
             Self::Kotlin => "tachyon-kotlin.js",
             Self::Swift => "tachyon-swift.js",
             Self::Ruby => "tachyon-ruby-services.js",
+        }
+    }
+
+    const fn model_extension(self) -> &'static str {
+        match self {
+            Self::Rust => "rs",
+            Self::CSharp => "cs",
+            Self::Go => "go",
+            Self::Kotlin => "kt",
+            Self::Swift => "swift",
+            Self::Ruby => "rb",
         }
     }
 }
@@ -158,8 +172,9 @@ async fn build_language(
     let tail = WebEngine::SHARED_TAIL;
     let shared_source = format!("{head}{engine}{tail}");
     published.push((shared.to_owned(), shared_source.into_bytes()));
+    let topics = TopicStreams::read(snapshot_root, language.model_extension())?;
     for (instance, class, _) in &chosen {
-        let service_module = module(instance, class, shared);
+        let service_module = module(instance, class, shared, &topics);
         published.push((format!("{class}.js"), service_module.into_bytes()));
     }
     Ok((language, published, started.elapsed(), note))
@@ -200,13 +215,14 @@ fn ruby_engine(
     Ok(WebEngine::RUBY_ENGINE.replace("__RUBY_PROGRAM__", &literal))
 }
 
-fn module(instance: &str, class: &str, shared: &str) -> String {
+fn module(instance: &str, class: &str, shared: &str, topics: &serde_json::Value) -> String {
     let plan = serde_json::json!({ "types": [{
         "name": class,
         "post_construct": "__tachyonStarted",
         "pre_destroy": "__tachyonDispose",
         "resources": [{ "field": "__tachyonPublisher", "name": "applicationEventPublisher" }],
         "listeners": [],
+        "topics": topics,
     }] });
     let instance = serde_json::to_string(instance).unwrap_or_default();
     format!(
@@ -475,8 +491,21 @@ const props = (properties) => {
   try { return JSON.parse(JSON.stringify(properties ?? {})) ?? {} } catch { return {} }
 }
 
+const topicStreams = (plan, listeners) => {
+  const streams = new Map()
+  for (const listener of listeners) {
+    const [event] = listener.events
+    const path = plan.topics?.[event]
+    if (path && !streams.has(path)) streams.set(path, { method: '', path, event, socket: false, models: listener.models, topic: true })
+  }
+  return [...streams.values()]
+}
+
 const listen = (target, call, plan, listeners) => {
-  if (!plan.listeners.length) plan.listeners = listeners.map((listener) => ({ ...listener, method: `__tachyonListen:${listener.key}` }))
+  if (!plan.listeners.length) {
+    plan.listeners = listeners.map((listener) => ({ ...listener, method: `__tachyonListen:${listener.key}` }))
+    plan.streams = topicStreams(plan, listeners)
+  }
   for (const listener of listeners) {
     hidden(target, `__tachyonListen:${listener.key}`, (value) => { call({ op: 'event', name: listener.key, value }) })
   }
@@ -1454,8 +1483,10 @@ mod tests {
 
     #[test]
     fn a_service_module_addresses_its_instance() {
-        let source = module("clock", "ClockService", "tachyon-rust.js");
+        let topics = serde_json::json!({ "ClockTicked": "/.tachyon/topics/clock-ticked" });
+        let source = module("clock", "ClockService", "tachyon-rust.js", &topics);
         assert!(source.contains("export default class ClockService {"));
+        assert!(source.contains("\"topics\":{\"ClockTicked\":\"/.tachyon/topics/clock-ticked\"}"));
         assert!(
             source
                 .contains("activate(this, \"clock\", properties, __tachyon_event_plan__.types[0])")

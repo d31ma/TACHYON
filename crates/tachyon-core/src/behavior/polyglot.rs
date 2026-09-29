@@ -32,6 +32,8 @@ mod ruby;
 mod ruby_syntax;
 mod rust;
 mod swift;
+mod swift_platform;
+pub(crate) use swift_platform::SwiftPlatform;
 
 #[derive(Clone, Debug)]
 pub(super) struct Parameter {

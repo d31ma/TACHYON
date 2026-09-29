@@ -37,7 +37,8 @@ indirect enum BehaviorJSON: Equatable {
     func get(_ key: String) -> BehaviorJSON { if case .object(let fields) = self { return fields[key] ?? .null }; return .null }
     func has(_ key: String) -> Bool { if case .object(let fields) = self { return fields[key] != nil }; return false }
     var text: String { get throws { guard case .string(let value) = self else { throw BehaviorError("JSON_STRING") }; return value } }
-    var integer: Int { get throws { guard case .number(let value) = self, value.isFinite, abs(value) <= 9_007_199_254_740_991, value.rounded() == value else { throw BehaviorError("JSON_INTEGER") }; return Int(value) } }
+    var integer: Int { get throws { guard let whole = Int(exactly: try milliseconds) else { throw BehaviorError("JSON_INTEGER") }; return whole } }
+    var milliseconds: Int64 { get throws { guard case .number(let value) = self, value.isFinite, abs(value) <= 9_007_199_254_740_991, value.rounded() == value else { throw BehaviorError("JSON_INTEGER") }; return Int64(value) } }
     var number: Double { get throws { guard case .number(let value) = self, value.isFinite else { throw BehaviorError("JSON_NUMBER") }; return value } }
     var boolean: Bool { get throws { guard case .bool(let value) = self else { throw BehaviorError("JSON_BOOLEAN") }; return value } }
     var items: [BehaviorJSON] { get throws { guard case .array(let value) = self else { throw BehaviorError("JSON_ARRAY") }; return value } }
@@ -52,8 +53,7 @@ indirect enum BehaviorJSON: Equatable {
         case .number(let value): _ = try Self.checkedNumber(value); return value.rounded() == value ? String(Int64(value)) : String(value)
         case .string(let value):
             guard value.utf8.count <= 1_048_576 else { throw BehaviorError("JSON_LIMIT") }
-            let data = try Foundation.JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed, .withoutEscapingSlashes])
-            guard let text = String(data: data, encoding: .utf8) else { throw BehaviorError("JSON_STRING") }; return text
+            return try BehaviorPlatform.quoted(value)
         case .array(let values):
             var result = "["
             for (index, value) in values.enumerated() { result += (index == 0 ? "" : ",") + (try value.encode(depth + 1)); guard result.utf8.count <= 1_048_576 else { throw BehaviorError("JSON_LIMIT") } }; return result + "]"
@@ -87,8 +87,7 @@ private struct BehaviorJSONReader {
         while index < bytes.count && ![9, 10, 13, 32, 44, 93, 125].contains(bytes[index]) { index += 1 }
         guard index > start else { throw BehaviorError("JSON_INVALID") }
         do {
-            let value = try Foundation.JSONSerialization.jsonObject(with: Foundation.Data(bytes[start..<index]), options: [.fragmentsAllowed])
-            guard let number = value as? Foundation.NSNumber else { throw BehaviorError("JSON_INVALID") }; return try BehaviorJSON.checkedNumber(number.doubleValue)
+            return try BehaviorJSON.checkedNumber(BehaviorPlatform.number(bytes[start..<index]))
         } catch let error as BehaviorError { throw error } catch { throw BehaviorError("JSON_INVALID") }
     }
     mutating func string() throws -> String {
@@ -97,7 +96,7 @@ private struct BehaviorJSONReader {
         while index < bytes.count {
             let byte = bytes[index]; index += 1
             if byte == 34 && !escaped {
-                do { let value = try Foundation.JSONSerialization.jsonObject(with: Foundation.Data(bytes[start..<index]), options: [.fragmentsAllowed]); guard let text = value as? String else { throw BehaviorError("JSON_STRING") }; return text } catch { throw BehaviorError("JSON_STRING") }
+                do { return try BehaviorPlatform.text(bytes[start..<index]) } catch { throw BehaviorError("JSON_STRING") }
             }
             if byte == 92 && !escaped { escaped = true } else { escaped = false }
         }
@@ -105,21 +104,21 @@ private struct BehaviorJSONReader {
     }
 }
 final class BehaviorSignal {
-    private let lock = Foundation.NSLock(); private var cancelled = false; private let parent: BehaviorSignal?
+    private let lock = BehaviorLock(); private var cancelled = false; private let parent: BehaviorSignal?
     init() { parent = nil }
     fileprivate init(parent: BehaviorSignal) { self.parent = parent }
     var aborted: Bool { lock.lock(); let local = cancelled; lock.unlock(); return local || (parent?.aborted ?? false) }
     func abort() { lock.lock(); cancelled = true; lock.unlock() }
 }
 struct BehaviorExecution {
-    let environment: String; let partition: String; let signal: BehaviorSignal; let owner: BehaviorSignal; let deadline: Int
+    let environment: String; let partition: String; let signal: BehaviorSignal; let owner: BehaviorSignal; let deadline: Int64
     func check() throws { guard !signal.aborted && !owner.aborted && !Task.isCancelled else { throw BehaviorError("CANCELLED") }; guard Behaviors.now < deadline else { throw BehaviorError("DEADLINE") } }
 }
 final class BehaviorCacheAdapter {
     let get: (String, BehaviorExecution) async throws -> BehaviorJSON
-    let set: (String, BehaviorJSON, BehaviorJSON, Int, BehaviorExecution) async throws -> Void
+    let set: (String, BehaviorJSON, BehaviorJSON, Int64, BehaviorExecution) async throws -> Void
     let delete: (String, BehaviorExecution) async throws -> Void
-    init(get: @escaping (String, BehaviorExecution) async throws -> BehaviorJSON, set: @escaping (String, BehaviorJSON, BehaviorJSON, Int, BehaviorExecution) async throws -> Void, delete: @escaping (String, BehaviorExecution) async throws -> Void) { self.get = get; self.set = set; self.delete = delete }
+    init(get: @escaping (String, BehaviorExecution) async throws -> BehaviorJSON, set: @escaping (String, BehaviorJSON, BehaviorJSON, Int64, BehaviorExecution) async throws -> Void, delete: @escaping (String, BehaviorExecution) async throws -> Void) { self.get = get; self.set = set; self.delete = delete }
 }
 final class BehaviorHTTPAdapter {
     let exchange: (BehaviorJSON, BehaviorExecution) async throws -> BehaviorJSON
@@ -152,7 +151,7 @@ enum BehaviorPage {
     }
 }
 enum Behaviors {
-    static var now: Int { Int(Foundation.Date().timeIntervalSince1970 * 1000) }
+    static var now: Int64 { BehaviorPlatform.now }
     static var module: String { __TAC_BEHAVIOR_MODULE__ }
     static var environment: String { __TAC_BEHAVIOR_ENVIRONMENT__ }
     static func registration(_ type: String) throws -> BehaviorJSON { let value = try BehaviorJSON.parse(__TAC_BEHAVIOR_REGISTRY__).get(type); guard value != .null else { throw BehaviorError("UNREGISTERED") }; return value }
@@ -209,7 +208,7 @@ enum Behaviors {
     }
     static func create(_ configuration: Any.Type, partition: String, signal: BehaviorSignal, timeoutMs: Int = 10000, profiles: [String] = [], properties: [String: String] = [:]) throws -> BehaviorContext {
         guard !partition.isEmpty, partition.utf8.count <= 256, (1...60000).contains(timeoutMs) else { throw BehaviorError("CONTEXT_INVALID") }
-        let execution = BehaviorExecution(environment: environment, partition: partition, signal: signal, owner: signal, deadline: now + timeoutMs); try execution.check()
+        let execution = BehaviorExecution(environment: environment, partition: partition, signal: signal, owner: signal, deadline: now + Int64(timeoutMs)); try execution.check()
         let selected = try snapshotProfiles(profiles); let values = try snapshotProperties(properties, code: "configuration")
         try activeConfiguration(typePolicies(configuration), profiles: selected, values: values)
         let adapters: BehaviorAdapters
@@ -217,7 +216,7 @@ enum Behaviors {
         try execution.check(); return BehaviorContext(adapters: adapters, partition: partition, owner: signal, timeoutMs: timeoutMs)
     }
     private static var frameworkPrefix: String { environment == "tac" ? "TAC_" : "YON_" }
-    private static func matches(_ value: String, _ pattern: String) -> Bool { value.range(of: pattern, options: .regularExpression) == value.startIndex..<value.endIndex }
+    private static func matches(_ value: String, _ pattern: String) -> Bool { BehaviorPlatform.matches(value, pattern) }
     private static func snapshotProfiles(_ profiles: [String]) throws -> [String] {
         guard profiles.count <= 32 else { throw BehaviorError("configuration") }; var seen = Set<String>()
         for profile in profiles { guard matches(profile, "[A-Za-z_$][A-Za-z0-9_$]{0,63}"), seen.insert(profile).inserted else { throw BehaviorError("configuration") } }; return Array(profiles)
@@ -298,7 +297,7 @@ enum Behaviors {
     private static func applicationProperties(_ application: BehaviorJSON) throws -> [String: String] {
         var result: [String: String] = [:]
         for (path, value) in try applicationInputs(application) where path.hasPrefix(environment + ".") {
-            result[path.replacingOccurrences(of: ".", with: "_").uppercased()] = value
+            result[BehaviorPlatform.replaced(path, ".", "_").uppercased()] = value
         }
         return result
     }
@@ -344,30 +343,44 @@ enum Behaviors {
 }
 final class BehaviorContext {
     private let adapters: BehaviorAdapters; private let partition: String; private let owner: BehaviorSignal; private let signal: BehaviorSignal; private let timeoutMs: Int
-    private let lock = Foundation.NSLock(); private var active = 0; private var slots: [String: Int] = [:]
+    private let lock = BehaviorLock(); private var active = 0; private var slots: [String: Int] = [:]
     private var transaction: String?
     init(adapters: BehaviorAdapters, partition: String, owner: BehaviorSignal, timeoutMs: Int) { self.adapters = adapters; self.partition = partition; self.owner = owner; self.signal = BehaviorSignal(parent: owner); self.timeoutMs = timeoutMs }
     func dispose() { signal.abort() }
     private func acquire() throws { lock.lock(); defer { lock.unlock() }; guard active < 64 else { throw BehaviorError("OPERATION_LIMIT") }; active += 1 }
     private func release() { lock.lock(); active -= 1; lock.unlock() }
     func paginate<T>(_ body: () throws -> T) throws -> T {
-        try acquire(); defer { release() }; let execution = BehaviorExecution(environment: Behaviors.environment, partition: partition, signal: signal, owner: owner, deadline: Behaviors.now + timeoutMs)
+        try acquire(); defer { release() }; let execution = BehaviorExecution(environment: Behaviors.environment, partition: partition, signal: signal, owner: owner, deadline: Behaviors.now + Int64(timeoutMs))
         try execution.check(); let result = try body(); try execution.check(); return result
     }
     private func operation(_ body: (BehaviorExecution) async throws -> BehaviorJSON) async throws -> BehaviorJSON {
-        try acquire(); defer { release() }; let execution = BehaviorExecution(environment: Behaviors.environment, partition: partition, signal: signal, owner: owner, deadline: Behaviors.now + timeoutMs)
+        try acquire(); defer { release() }; let execution = BehaviorExecution(environment: Behaviors.environment, partition: partition, signal: signal, owner: owner, deadline: Behaviors.now + Int64(timeoutMs))
         try execution.check(); let result = try await body(execution); try execution.check(); _ = try result.encoded(); return result
     }
     private func adapter<T>(_ execution: BehaviorExecution, _ body: () async throws -> T) async throws -> T {
         try execution.check(); let result: T
         do { result = try await body() } catch let error as BehaviorError { throw error } catch { try execution.check(); throw BehaviorError("ADAPTER_FAILED") }; try execution.check(); return result
     }
+    private func cache(_ name: String) throws -> BehaviorCacheAdapter {
+        guard let cache = adapters.caches[name] ?? BehaviorPlatform.builtinCache(name) else { throw BehaviorError("CACHE_MISSING") }
+        return cache
+    }
+    private func entities(_ name: String) throws -> BehaviorEntityAdapter {
+        guard let adapter = adapters.entities[name] ?? BehaviorPlatform.builtinEntities(name) else { throw BehaviorError("ENTITY_MISSING") }
+        return adapter
+    }
+    private func builtinCache(_ name: String) -> Bool { adapters.caches[name] == nil && BehaviorPlatform.builtinCache(name) != nil }
+    private func builtinEntities(_ name: String) -> Bool { adapters.entities[name] == nil && BehaviorPlatform.builtinEntities(name) != nil }
+    private func authorizeEntity(_ name: String, _ command: BehaviorJSON, _ execution: BehaviorExecution) async throws {
+        guard let authorize = adapters.authorizeEntity else { guard builtinEntities(name) else { throw BehaviorError("FORBIDDEN") }; return }
+        guard try await adapter(execution, { try await authorize(command, execution) }) else { throw BehaviorError("FORBIDDEN") }
+    }
     private func method(_ type: String, _ method: String) throws -> BehaviorJSON { let metadata = try Behaviors.registration(type).get("methods").get(method); guard metadata != .null else { throw BehaviorError("METHOD_UNKNOWN") }; return metadata }
     private func authorize(_ operation: String, _ type: String, _ method: String, policy: BehaviorJSON, metadata: BehaviorJSON, arguments: [BehaviorJSON], execution: BehaviorExecution) async throws -> String {
         let selected = try metadata.get("cacheable").get("keyArgs").items.map { item -> BehaviorJSON in let index = try item.integer; guard arguments.indices.contains(index) else { throw BehaviorError("CACHE_KEY") }; return arguments[index] }
         let key = try BehaviorJSON.array([.string(partition), policy.get("name"), .string(Behaviors.module), .string(type), .string(method), .array(selected)]).encoded(maximum: 4096)
         let call = BehaviorJSON.object(["operation": .string(operation), "cache": policy.get("name"), "type": .string(type), "method": .string(method), "keyArguments": .array(selected)])
-        guard let authorize = adapters.authorize else { throw BehaviorError("FORBIDDEN") }; guard try await adapter(execution, { try await authorize(call, execution) }) else { throw BehaviorError("FORBIDDEN") }; return key
+        guard let authorize = adapters.authorize else { guard try builtinCache(policy.get("name").text) else { throw BehaviorError("FORBIDDEN") }; return key }; guard try await adapter(execution, { try await authorize(call, execution) }) else { throw BehaviorError("FORBIDDEN") }; return key
     }
     func invoke(_ type: String, _ method: String, arguments: [BehaviorJSON], body: () async throws -> BehaviorJSON) async throws -> BehaviorJSON {
         try await operation { execution in
@@ -379,14 +392,14 @@ final class BehaviorContext {
             if metadata.has("cacheEvict") || metadata.has("cachePut") { return try await self.mutation(type, metadata: metadata, arguments: arguments, body: body, execution: execution) }
             guard metadata.has("cacheable") else { return try await self.resilient(type, method, metadata, body: body, execution: execution) }
             let policy = try Behaviors.registration(type).get("cache"); let key = try await self.authorize("cache:read", type, method, policy: policy, metadata: metadata, arguments: arguments, execution: execution)
-            guard let cache = self.adapters.caches[try policy.get("name").text] else { throw BehaviorError("CACHE_MISSING") }
+            let cache = try self.cache(policy.get("name").text)
             let entry = try await self.adapter(execution, { try await cache.get(key, execution) }); _ = try entry.encoded(); try entry.keys(["hit", "value", "expiresAt"])
             if try entry.get("hit").boolean {
-                let expiry = try entry.get("expiresAt").integer; guard expiry <= Behaviors.now + (try policy.get("ttlMs").integer) else { throw BehaviorError("CACHE_EXPIRY") }
+                let expiry = try entry.get("expiresAt").milliseconds; guard expiry <= Behaviors.now + (try policy.get("ttlMs").milliseconds) else { throw BehaviorError("CACHE_EXPIRY") }
                 if expiry > Behaviors.now { guard entry.has("value") else { throw BehaviorError("CACHE_VALUE") }; let value = entry.get("value"); _ = try value.encoded(maximum: policy.get("maxBytes").integer); return value }
             }
             let result = try await self.resilient(type, method, metadata, body: body, execution: execution); try execution.check(); _ = try result.encoded(maximum: policy.get("maxBytes").integer)
-            try await self.adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").integer, execution) }); return result
+            try await self.adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").milliseconds, execution) }); return result
         }
     }
     private static func withFilledPath(_ metadata: BehaviorJSON, _ arguments: [BehaviorJSON]) throws -> BehaviorJSON {
@@ -407,7 +420,7 @@ final class BehaviorContext {
                 (byte >= 48 && byte <= 57) || (byte >= 65 && byte <= 90) || (byte >= 97 && byte <= 122) || byte == 46 || byte == 95 || byte == 126 || byte == 45
             }
             guard allowed else { throw BehaviorError("HTTP_ARGUMENT") }
-            path = path.replacingOccurrences(of: "{\(name)}", with: text)
+            path = BehaviorPlatform.replaced(path, "{\(name)}", text)
         }
         var exchange = try policy.members; exchange["path"] = .string(path)
         var copy = try metadata.members; copy["httpExchange"] = .object(exchange)
@@ -436,9 +449,9 @@ final class BehaviorContext {
         let put = metadata.has("cachePut"); let mutation = metadata.get(put ? "cachePut" : "cacheEvict"); let target = mutation.get("target")
         let policy = try Behaviors.registration(type).get("cache"); let normalized = try mutationArguments(mutation, arguments: arguments)
         let key = try await authorize(put ? "cache:put" : "cache:evict", type, target.get("method").text, policy: policy, metadata: target, arguments: normalized, execution: execution)
-        guard let cache = adapters.caches[try policy.get("name").text] else { throw BehaviorError("CACHE_MISSING") }
+        let cache = try self.cache(policy.get("name").text)
         let result = try await self.resilient(type, try target.get("method").text, metadata, body: body, execution: execution); try execution.check(); _ = try result.encoded(maximum: put ? policy.get("maxBytes").integer : 1_048_576)
-        if put { try await adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").integer, execution) }) }
+        if put { try await adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").milliseconds, execution) }) }
         else { try await adapter(execution, { try await cache.delete(key, execution) }) }
         return result
     }
@@ -460,7 +473,7 @@ final class BehaviorContext {
             return try await attempt(metadata, body: body, execution: execution)
         }
         let name = try metadata.get("transactional").get("adapter").text
-        guard let adapter = adapters.entities[name] else { throw BehaviorError("ENTITY_MISSING") }
+        let adapter = try entities(name)
         let control = { (action: String, identifier: String?) async throws -> BehaviorJSON in
             var command: [String: BehaviorJSON] = ["operation": .string("transaction"), "action": .string(action)]
             if let identifier { command["transaction"] = .string(identifier) }
@@ -503,7 +516,7 @@ final class BehaviorContext {
             catch {
                 guard attempt < maxRetries, retryable(error) else { throw error }
                 try execution.check()
-                let delay = min(Double(try policy.get("delayMs").integer) * pow(try policy.get("multiplier").number, Double(attempt)), Double(try policy.get("maxDelayMs").integer))
+                let delay = min(Double(try policy.get("delayMs").integer) * BehaviorPlatform.power(try policy.get("multiplier").number, Double(attempt)), Double(try policy.get("maxDelayMs").integer))
                 let wait = delay + Double.random(in: 0...1) * Double(try policy.get("jitterMs").integer)
                 if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait.rounded() * 1_000_000)) }
                 try execution.check()
@@ -531,7 +544,7 @@ final class BehaviorContext {
             let metadata = try self.method(type, method); guard metadata.has("cacheable") else { throw BehaviorError("CACHE_METHOD") }; var arguments = arguments
             if metadata.has("pageable") { let page = metadata.get("pageable"); let index = try page.get("argument").integer; guard arguments.indices.contains(index) else { throw BehaviorError("PAGE_ARGUMENT") }; arguments[index] = try BehaviorPage.normalize(arguments[index], policy: page) }
             let policy = try Behaviors.registration(type).get("cache"); let key = try await self.authorize("cache:evict", type, method, policy: policy, metadata: metadata, arguments: arguments, execution: execution)
-            guard let cache = self.adapters.caches[try policy.get("name").text] else { throw BehaviorError("CACHE_MISSING") }; try await self.adapter(execution, { try await cache.delete(key, execution) }); return .null
+            let cache = try self.cache(policy.get("name").text); try await self.adapter(execution, { try await cache.delete(key, execution) }); return .null
         }
     }
     func restClient(_ name: String) throws -> BehaviorRestClient {
@@ -579,9 +592,9 @@ final class BehaviorContext {
     func query(_ metadata: BehaviorJSON, arguments: [BehaviorJSON]) async throws -> BehaviorJSON {
         try await operation { execution in
             let command = try self.queryCommand(metadata, arguments: arguments)
-            guard let authorize = self.adapters.authorizeEntity else { throw BehaviorError("FORBIDDEN") }
-            guard try await self.adapter(execution, { try await authorize(command, execution) }) else { throw BehaviorError("FORBIDDEN") }
-            guard let adapter = self.adapters.entities[try metadata.get("entity").get("adapter").text] else { throw BehaviorError("ENTITY_MISSING") }
+            let name = try metadata.get("entity").get("adapter").text
+            try await self.authorizeEntity(name, command, execution)
+            let adapter = try self.entities(name)
             let result = try await self.adapter(execution, { try await adapter.execute(command, execution) }); _ = try result.encoded()
             switch try metadata.get("operation").text {
             case "find": let rows = try result.items; guard rows.count <= (try command.get("query").get("page").get("size").integer) else { throw BehaviorError("QUERY_RESULT") }; for row in rows { _ = try row.members }
@@ -626,7 +639,7 @@ final class BehaviorContext {
     }
     fileprivate func executeEntity(_ mapping: BehaviorJSON, operation: String, value: BehaviorJSON) async throws -> BehaviorJSON {
         try await self.operation { execution in
-            guard let adapter = self.adapters.entities[try mapping.get("adapter").text] else { throw BehaviorError("ENTITY_MISSING") }
+            let adapter = try self.entities(mapping.get("adapter").text)
             var command = try mapping.members; command.removeValue(forKey: "adapter"); command["operation"] = .string(operation); command[operation == "find" ? "page" : operation == "save" ? "value" : "id"] = value
             if let joined = self.transaction { command["transaction"] = .string(joined) }
             return try await self.adapter(execution, { try await adapter.execute(.object(command), execution) })

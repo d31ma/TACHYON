@@ -46,6 +46,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", &configurations)
         .replace("__TAC_BEHAVIOR_ENTITIES__", &entities)
         .replace("__TAC_BEHAVIOR_TYPES__", &policies);
+    let generated = format!("{generated}\n{}", super::SwiftPlatform::FOUNDATION);
     render(module, edits, &generated)
 }
 

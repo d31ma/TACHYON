@@ -12,7 +12,24 @@ impl SwiftWebServices {
     const PRELUDE: &'static str = concat!(
         include_str!("prelude.swift"),
         include_str!("prelude_web.swift"),
-        include_str!("swift_web_services/TacJSONReader.swift")
+        include_str!("swift_web_services/TacJSONReader.swift"),
+        include_str!("swift_web_services/TacValueDecoder.swift"),
+        include_str!("swift_web_services/TacSingleValueDecoder.swift"),
+        include_str!("swift_web_services/TacKeyedValueDecoder.swift"),
+        include_str!("swift_web_services/TacListValueDecoder.swift"),
+        include_str!("swift_web_services/TacEncodedNode.swift"),
+        include_str!("swift_web_services/TacValueEncoder.swift"),
+        include_str!("swift_web_services/TacSingleValueEncoder.swift"),
+        include_str!("swift_web_services/TacKeyedValueEncoder.swift"),
+        include_str!("swift_web_services/TacListValueEncoder.swift"),
+        include_str!("swift_web_services/TacWebStorage.swift"),
+        include_str!("swift_web_services/TacWebHost.swift"),
+        include_str!("swift_web_services/TacAwaited.swift")
+    );
+    const BEHAVIOR_PLATFORM: &'static str = concat!(
+        include_str!("swift_web_services/BehaviorPlatform.swift"),
+        include_str!("swift_web_services/BehaviorLock.swift"),
+        include_str!("swift_web_services/BehaviorBrowserStorage.swift")
     );
 
     pub(crate) fn sdk_installed() -> bool {
@@ -41,6 +58,8 @@ impl SwiftWebServices {
         let Some(authored) = authored else {
             return Ok((Vec::new(), None));
         };
+        let authored =
+            crate::behavior::SwiftPlatform::in_browser(&authored, Self::BEHAVIOR_PLATFORM);
         let program = format!("{authored}\n{}", Self::PRELUDE);
         let built = SwiftWasmProgram::compile(&program, profile).await?;
         let note = built.note(profile).map(String::from);

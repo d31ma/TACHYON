@@ -46,6 +46,10 @@ func tacArgument<T>(_ values: [Any?], _ index: Int) throws -> T {
     return value
 }
 
+func tacArgumentText(_ values: [Any?], _ index: Int) -> String {
+    tacEncode(index < values.count ? values[index] : nil)
+}
+
 func tacField<T: Decodable>(_ type: T.Type, _ value: Any?) -> T? {
     try? tacModel(T.self, value)
 }
@@ -54,7 +58,11 @@ func tacField<T>(_ type: T.Type, _ value: Any?) -> T? {
     value as? T
 }
 
-enum TacWrongArgument: Error { case value }
+enum TacWrongArgument: Error, CustomStringConvertible {
+    case value
+
+    var description: String { "A service argument or field value has the wrong type." }
+}
 
 public final class ApplicationEventPublisher {
     public init() {}
@@ -103,6 +111,7 @@ private func tacEncode(_ value: Any?) -> String {
         return "{"
             + values.map { tacEncode($0.key) + ":" + tacEncode($0.value) }.joined(separator: ",")
             + "}"
+    case let model as any Encodable: return tacEncode(tacModelValue(model))
     case let value: return tacEncode(String(describing: value!))
     }
 }
@@ -170,12 +179,15 @@ private func tacHandle(_ raw: String) throws -> String {
     if operation == "init" {
         var fields: [Any?] = []
         var methods: [Any?] = []
+        var listeners: [Any?] = []
         for (name, member) in tac {
             if case .field = member { fields.append(name) }
             if case .method = member { methods.append(name) }
+            if case .listener(let listener) = member { listeners.append(tacDescribeListener(name, listener)) }
         }
+        let described = TacPlatform.pageListeners ? ",\"listeners\":" + tacEncode(listeners) : ""
         return "{\"value\":{\"fields\":" + tacEncode(fields) + ",\"methods\":"
-            + tacEncode(methods) + "}}"
+            + tacEncode(methods) + described + "}}"
     }
     guard let name = request["name"] as? String, let member = tac[name] else {
         return "{\"error\":\"Unknown companion member.\"}"
@@ -189,6 +201,8 @@ private func tacHandle(_ raw: String) throws -> String {
         }
         write(tachyonSwiftJSONValue(request["value"]))
         return "{\"value\":null}"
+    case ("event", .listener(let listener)):
+        return tacReceive(listener, tachyonSwiftJSONValue(request["value"]))
     case ("call", .method(let invoke)):
         let arguments: [Any?]
         if let values = request["args"] as? [Any] {
@@ -425,6 +439,28 @@ private func tacFits(_ models: Any?, _ shape: String, _ value: Any?) -> Bool {
     return true
 }
 
+private func tacDescribeListener(_ key: String, _ listener: TacListener) -> [String: Any?] {
+    [
+        "key": key, "events": listener.events.map { $0 as Any? }, "replay": listener.replay,
+        "order": listener.order, "asynchronous": listener.asynchronous,
+        "condition": listener.condition, "models": listener.models,
+    ]
+}
+
+private func tacReceive(_ listener: TacListener, _ value: Any?) -> String {
+    do {
+        let result = try listener.invoke(value)
+        if !listener.asynchronous { tacRepublish(result, listener.returns) }
+        return "{\"value\":null}"
+    } catch {
+        return "{\"error\":\"Native event listener failed.\"}"
+    }
+}
+
+private func tacSendEvent(_ owner: TacActivation, _ name: String, _ json: String, _ retain: Bool) {
+    TacBridge.emit?("{\"route\":" + tacEncode(owner.route) + ",\"service\":" + tacEncode(owner.service) + ",\"owner\":" + tacEncode(owner.owner) + ",\"name\":" + tacEncode(name) + ",\"value\":" + json + ",\"retain\":" + String(retain) + "}")
+}
+
 private func tacDeliver(_ listener: TacListener, _ json: String, _ republish: Bool) {
     do {
         let result = try listener.invoke(tacParseJSON(json))
@@ -444,6 +480,7 @@ private func tacDrain(_ owner: TacActivation) {
         if delivered == 128 { owner.queue.removeAll(); tacEventFailure(); return }
         delivered += 1
         let (name, json, retain) = owner.queue.removeFirst()
+        if TacPlatform.pageListeners { tacSendEvent(owner, name, json, retain); continue }
         if retain { if owner.retained[name] == nil && owner.retained.count == 32 { tacEventFailure(); continue }; owner.retained[name] = json }
         let value = tacParseJSON(json)
         for listener in owner.listeners where listener.events.contains(name) {
@@ -456,7 +493,7 @@ private func tacDrain(_ owner: TacActivation) {
             }
             tacDeliver(listener, json, true)
         }
-        TacBridge.emit?("{\"route\":" + tacEncode(owner.route) + ",\"service\":" + tacEncode(owner.service) + ",\"owner\":" + tacEncode(owner.owner) + ",\"name\":" + tacEncode(name) + ",\"value\":" + json + ",\"retain\":" + String(retain) + "}")
+        tacSendEvent(owner, name, json, retain)
     }
 }
 

@@ -38,6 +38,10 @@ func tacValidOwner(_ owner: String) -> Bool { UUID(uuidString: owner) != nil }
 
 func tacFailureAnswer(_ error: Error) -> String { "{\"error\":\"Native companion operation failed.\"}" }
 
+enum TacPlatform {
+    static let pageListeners = false
+}
+
 func tacOnOwnerThread() -> Bool { Thread.isMainThread }
 
 func tacEventFailure() { FileHandle.standardError.write(Data("Tachyon native event delivery failed.\n".utf8)) }

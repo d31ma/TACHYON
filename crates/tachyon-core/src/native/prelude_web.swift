@@ -19,18 +19,11 @@ func tacParseJSON(_ text: String) -> Any? {
 }
 
 func tacModel<T: Decodable>(_ type: T.Type, _ value: Any?) throws -> T {
-    if let same = value as? T { return same }
-    if let whole = value as? Int, let integer = T.self as? any BinaryInteger.Type,
-       let converted = integer.init(exactly: whole) as? T { return converted }
-    if let number = value as? Int, let real = T.self as? any BinaryFloatingPoint.Type,
-       let converted = real.init(number) as? T { return converted }
-    if let number = value as? Double, let real = T.self as? any BinaryFloatingPoint.Type,
-       let converted = real.init(number) as? T { return converted }
-    throw TacWrongArgument.value
+    do { return try TacValueDecoder.model(type, value) } catch { throw TacWrongArgument.value }
 }
 
 func tacModelValue<T: Encodable>(_ value: T) -> Any? {
-    tacEventValid(value) ? value : nil
+    (try? TacValueEncoder.plain(value)) ?? nil
 }
 
 func tacValidOwner(_ owner: String) -> Bool {
@@ -48,6 +41,10 @@ func tacValidOwner(_ owner: String) -> Bool {
 
 func tacFailureAnswer(_ error: Error) -> String {
     "{\"error\":" + tacEncode(String(describing: error)) + "}"
+}
+
+enum TacPlatform {
+    static let pageListeners = true
 }
 
 func tacOnOwnerThread() -> Bool { true }

@@ -388,6 +388,7 @@ struct Member {
     method: bool,
     mutable: bool,
     parameters: Option<Vec<String>>,
+    asynchronous: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -396,6 +397,10 @@ pub(crate) enum CompanionLanguage {
     Kotlin,
     CSharp,
     Rust,
+}
+
+impl Member {
+    const BEHAVIOR_JSON: &'static str = "BehaviorJSON";
 }
 
 struct Modifiers;
@@ -611,6 +616,7 @@ fn rust_field(line: &str) -> Option<Member> {
         method: false,
         mutable: true,
         parameters: Some(Vec::new()),
+        asynchronous: false,
     })
 }
 
@@ -641,6 +647,7 @@ fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
         method: true,
         mutable: false,
         parameters: Some(Vec::new()),
+        asynchronous: false,
     };
     Some((member, parameters))
 }
@@ -846,6 +853,7 @@ fn name_first(
             method: false,
             mutable: writable,
             parameters: Some(Vec::new()),
+            asynchronous: false,
         }));
     }
     Ok(None)
@@ -856,17 +864,29 @@ fn name_first_method(rest: &str) -> Option<Member> {
     if name.is_empty() {
         return None;
     }
-    let parameters = rest[name.len()..]
-        .trim_start()
+    let signature = rest[name.len()..].trim_start();
+    let parameters = signature
         .strip_prefix('(')
         .map_or_else(Vec::new, typed_parameters);
+    let effects = method_effects(signature);
     Some(Member {
         name,
-        declared_type: None,
+        declared_type: returned_type(effects),
         method: true,
         mutable: false,
         parameters: Some(parameters),
+        asynchronous: effects.split_whitespace().any(|word| word == "async"),
     })
+}
+
+fn method_effects(signature: &str) -> &str {
+    let after = closing_parenthesis(signature).map_or("", |close| &signature[close + 1..]);
+    after.split('{').next().unwrap_or_default()
+}
+
+fn returned_type(effects: &str) -> Option<String> {
+    let (_, returned) = effects.split_once("->")?;
+    Some(returned.trim().to_owned())
 }
 
 fn typed_parameters(list: &str) -> Vec<String> {
@@ -950,6 +970,7 @@ fn type_first(line: &str) -> Option<Member> {
         method,
         mutable: !method && !fixed && !getter,
         parameters,
+        asynchronous: false,
     })
 }
 
@@ -1073,6 +1094,9 @@ fn entry(language: CompanionLanguage, member: &Member) -> String {
 fn swift_entry(member: &Member) -> String {
     let name = &member.name;
     let parameters = member.parameters.as_deref().unwrap_or_default();
+    if member.asynchronous || member.declared_type.as_deref() == Some(Member::BEHAVIOR_JSON) {
+        return swift_behavior_entry(member, parameters);
+    }
     if member.method && parameters.is_empty() {
         return format!("    \"{name}\": .method({{ _ in tacInstance.{name}() }}),\n");
     }
@@ -1091,18 +1115,43 @@ fn swift_entry(member: &Member) -> String {
     }
 }
 
+fn swift_behavior_entry(member: &Member, parameters: &[String]) -> String {
+    let name = &member.name;
+    let arguments = swift_arguments(parameters);
+    let call = format!("tacInstance.{name}({arguments})");
+    let call = if member.asynchronous {
+        format!("tacAwait {{ try await {call} }}")
+    } else {
+        call
+    };
+    let answer = if member.declared_type.as_deref() == Some(Member::BEHAVIOR_JSON) {
+        format!("tacParseJSON(try {call}.encoded())")
+    } else {
+        format!("try {call}")
+    };
+    format!("    \"{name}\": .method({{ tacArguments in {answer} }}),\n")
+}
+
 fn swift_arguments(parameters: &[String]) -> String {
     parameters
         .iter()
         .enumerate()
         .map(|(index, declaration)| {
             format!(
-                "{}tacArgument(tacArguments, {index})",
-                swift_label(declaration)
+                "{}{}",
+                swift_label(declaration),
+                swift_argument(parameter_type(declaration), index)
             )
         })
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn swift_argument(kind: &str, index: usize) -> String {
+    if kind == Member::BEHAVIOR_JSON {
+        return format!("BehaviorJSON.parse(tacArgumentText(tacArguments, {index}))");
+    }
+    format!("tacArgument(tacArguments, {index})")
 }
 
 fn kotlin_entry(member: &Member) -> String {
