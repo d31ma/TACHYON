@@ -39,6 +39,104 @@ impl SwiftFixtures {
          try { one.count } catch { stale = true }\n\
          console.log(JSON.stringify({ doubled, after, other: two.count, label: two.label, added, scaled, runtime: two.runtime, failed, stale, keys: Object.keys(two).sort(), bigStart, bigCall, largeStart }))\n\
          process.exit(0)\n";
+    const LIBRARY_FILES: [(&str, &str); 7] = [
+        (
+            "client/models/Author.swift",
+            "struct Author {\n    let name: String\n}\n",
+        ),
+        (
+            "client/models/Size.swift",
+            "enum Size: String {\n    case short, long\n}\n",
+        ),
+        (
+            "client/models/Guide.swift",
+            "struct Guide {\n    let title: String\n    var pages: Int\n    let rating: Double\n    let draft: Bool\n    let tags: [String]\n    let note: String?\n    let size: Size\n    let author: Author\n}\n",
+        ),
+        (
+            "client/models/GuideSaved.swift",
+            "struct GuideSaved {\n    let title: String\n    let pages: Int\n}\n",
+        ),
+        (
+            "client/models/GuideEcho.swift",
+            "struct GuideEcho {\n    let pages: Int\n}\n",
+        ),
+        (
+            "client/models/ShelfChanged.swift",
+            "@Topic\nstruct ShelfChanged {\n    let count: Int\n}\n",
+        ),
+        (
+            "client/services/LibraryService.swift",
+            "@Service\nfinal class LibraryService {\n    var latest: Guide? = nil\n    var heard: [Int] = []\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    \
+             func longer(_ guide: Guide, by extra: Int) -> Guide {\n        var copy = guide\n        copy.pages += extra\n        latest = copy\n        \
+             applicationEventPublisher.publishEvent(GuideSaved(title: copy.title, pages: copy.pages))\n        return copy\n    }\n\n    \
+             func shelf() -> [Guide] {\n        latest.map { [$0] } ?? []\n    }\n\n    \
+             @OnEvent({\"condition\":\"value.pages > 10\"})\n    func saved(_ value: GuideSaved) -> GuideEcho {\n        heard.append(value.pages)\n        return GuideEcho(pages: value.pages * 10)\n    }\n\n    \
+             @OnEvent\n    func shelfChanged(_ value: ShelfChanged) {\n        heard.append(value.count)\n    }\n}\n",
+        ),
+    ];
+
+    const LIBRARY_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         const sources = []\n\
+         globalThis.EventSource = class { constructor(url) { this.url = url; sources.push(this) } addEventListener() {} close() {} }\n\
+         const { default: LibraryService, __tachyon_event_plan__: plan } = await import('./LibraryService.js')\n\
+         const { default: ApplicationEvents } = await import('./application-events.mjs')\n\
+         const events = []\n\
+         const bus = new ApplicationEvents({ changed: () => {}, failed: () => { throw new Error('Event delivery failed') } })\n\
+         for (const event of ['GuideSaved', 'GuideEcho']) bus.attach({ receive: (value) => events.push([event, value]) }, { listeners: [{ method: 'receive', event, order: -100 }] }, {})\n\
+         const library = new LibraryService({})\n\
+         bus.attach(library, plan.types[0], { applicationEventPublisher: null })\n\
+         await bus.initialize(library)\n\
+         const guide = { title: 'Swift', pages: 8, rating: 4.5, draft: false, tags: ['wasm'], note: null, size: 'long', author: { name: 'Ann' } }\n\
+         const small = library.longer(guide, 1)\n\
+         const large = library.longer(guide, 4)\n\
+         for (const source of sources) source.onmessage({ data: JSON.stringify({ count: 3 }), lastEventId: '1' })\n\
+         let refused = ''\n\
+         try { library.longer({ title: 'broken' }, 1) } catch (error) { refused = error.message }\n\
+         console.log(JSON.stringify({ small, large, latest: library.latest, shelf: library.shelf(), heard: library.heard, events, topics: sources.map((source) => source.url), refused }))\n\
+         process.exit(0)\n";
+
+    const STORAGE_FILES: [(&str, &str); 3] = [
+        (
+            "client/setups/BrowserSetup.swift",
+            "@Setup\nfinal class BrowserSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        BehaviorAdapters()\n    }\n}\n",
+        ),
+        (
+            "client/entities/NoteEntity.swift",
+            "@Entity({\"adapter\":\"indexeddb\"})\n@Table(\"notes\")\nfinal class NoteEntity {\n    @Id\n    var id: String = \"\"\n    var text: String = \"\"\n}\n",
+        ),
+        (
+            "client/services/NotesService.swift",
+            "@Service\n@CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\nfinal class NotesService {\n    \
+             private var behaviors: BehaviorContext!\n    private var reads: Int = 0\n\n    \
+             @OnStart\n    func open() {\n        behaviors = try? Behaviors.create(BrowserSetup.self, partition: \"notes\", signal: BehaviorSignal())\n    }\n\n    \
+             @Cached\n    func find(_ key: BehaviorJSON) async throws -> BehaviorJSON {\n        reads += 1\n        return .object([\"key\": key, \"reads\": .number(Double(reads))])\n    }\n\n    \
+             @ClearCache({\"method\":\"find\"})\n    func forget(_ key: BehaviorJSON) async throws -> BehaviorJSON {\n        key\n    }\n\n    \
+             func save(_ id: String, _ text: String) async throws -> BehaviorJSON {\n        try await notes().save(.object([\"id\": .string(id), \"text\": .string(text)]))\n    }\n\n    \
+             @AllOrNothing({\"adapter\":\"indexeddb\"})\n    func saveThenRefuse(_ id: BehaviorJSON) async throws -> BehaviorJSON {\n        \
+             _ = try await notes().save(.object([\"id\": id, \"text\": .string(\"draft\")]))\n        throw BehaviorError(\"the note was refused\")\n    }\n\n    \
+             func list() async throws -> BehaviorJSON {\n        try await notes().find()\n    }\n\n    \
+             private func notes() throws -> BehaviorRepository {\n        try behaviors.repository(NoteEntity.self)\n    }\n}\n",
+        ),
+    ];
+
+    const STORAGE_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         console.info = () => {}\n\
+         globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
+         ;(0, eval)(await readFile('./tac-storage.js', 'utf8'))\n\
+         const { default: NotesService } = await import('./NotesService.js')\n\
+         const notes = new NotesService({})\n\
+         notes.__tachyonStarted()\n\
+         const first = notes.find('a')\n\
+         const second = notes.find('a')\n\
+         notes.forget('a')\n\
+         const third = notes.find('a')\n\
+         notes.save('n1', 'hello')\n\
+         let refused = ''\n\
+         try { notes.saveThenRefuse('n2') } catch (error) { refused = error.message }\n\
+         console.log(JSON.stringify({ first, second, third, refused, listed: notes.list() }))\n\
+         process.exit(0)\n";
 }
 
 pub(crate) fn swift_web_ready() -> bool {
@@ -140,4 +238,109 @@ async fn a_swift_release_build_is_made_smaller_by_binaryen() {
     );
     let counter = run_driver(root.path(), SwiftFixtures::COUNTER_DRIVER);
     assert_eq!(counter["after"], 41);
+}
+
+fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
+    let path = root.join(relative);
+    std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+    std::fs::write(&path, text).expect("file");
+    path
+}
+
+async fn publish(root: &Path, instance: &str, class: &str) {
+    let services = [(
+        String::from(instance),
+        String::from(class),
+        WebLanguage::Swift,
+        root.join(format!("client/services/{class}.swift")),
+    )];
+    let built = build_all(
+        root,
+        &services,
+        &BuildJobs::new(1),
+        crate::BuildProfile::Development,
+    )
+    .await
+    .expect("the Swift service builds");
+    for (name, bytes) in built.files {
+        let path = root.join(name);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+        std::fs::write(path, bytes).expect("publish");
+    }
+}
+
+#[tokio::test]
+async fn a_swift_service_exchanges_models_and_events_with_the_page() {
+    if !swift_web_ready() {
+        eprintln!("skipping: the Swift SDK for WebAssembly, swiftc or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in SwiftFixtures::LIBRARY_FILES {
+        write(root.path(), relative, text);
+    }
+    write(
+        root.path(),
+        "application-events.mjs",
+        concat!(
+            include_str!("../template/application-events.js"),
+            "\nexport default TacApplicationEvents\n"
+        ),
+    );
+    publish(root.path(), "library", "LibraryService").await;
+    let report = run_driver(root.path(), SwiftFixtures::LIBRARY_DRIVER);
+    let guide = |pages: i64| serde_json::json!({"title": "Swift", "pages": pages, "rating": 4.5, "draft": false, "tags": ["wasm"], "size": "long", "author": {"name": "Ann"}});
+    assert_eq!(report["small"], guide(9));
+    assert_eq!(report["large"], guide(12));
+    assert_eq!(report["latest"], guide(12));
+    assert_eq!(report["shelf"], serde_json::json!([guide(12)]));
+    assert_eq!(report["heard"], serde_json::json!([12, 3]));
+    assert_eq!(
+        report["events"],
+        serde_json::json!([
+            ["GuideSaved", {"title": "Swift", "pages": 9}],
+            ["GuideSaved", {"title": "Swift", "pages": 12}],
+            ["GuideEcho", {"pages": 120}],
+        ])
+    );
+    assert_eq!(
+        report["topics"],
+        serde_json::json!(["/.tachyon/topics/shelf-changed"])
+    );
+    assert_eq!(
+        report["refused"],
+        "Web service library: A service argument or field value has the wrong type."
+    );
+}
+
+#[tokio::test]
+async fn a_swift_service_reads_the_builtin_cache_and_store_synchronously() {
+    if !swift_web_ready() {
+        eprintln!("skipping: the Swift SDK for WebAssembly, swiftc or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in SwiftFixtures::STORAGE_FILES {
+        write(root.path(), relative, text);
+    }
+    write(
+        root.path(),
+        "tac-storage.js",
+        include_str!("../template/tac-storage.js"),
+    );
+    publish(root.path(), "notes", "NotesService").await;
+    let report = run_driver(root.path(), SwiftFixtures::STORAGE_DRIVER);
+    assert_eq!(report["first"], serde_json::json!({"key": "a", "reads": 1}));
+    assert_eq!(report["second"], report["first"]);
+    assert_eq!(report["third"], serde_json::json!({"key": "a", "reads": 2}));
+    assert!(
+        report["refused"]
+            .as_str()
+            .is_some_and(|message| message.contains("the note was refused")),
+        "{report}"
+    );
+    assert_eq!(
+        report["listed"],
+        serde_json::json!([{"id": "n1", "text": "hello"}])
+    );
 }
