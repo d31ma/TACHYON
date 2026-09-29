@@ -86,9 +86,8 @@ impl<'a> ConcreteContract<'a> {
         let contract = self
             .form
             .declares_contract(&self.code[declaration.header.clone()]);
-        let class_form = declaration.keeps_class_form(self.form, &self.code);
         let managed = [self.in_browser(), declaration.role.managed_in_browser] == [true, true];
-        [contract, class_form, managed] == [true, false, false]
+        [contract, managed] == [true, false]
     }
 
     fn in_browser(&self) -> bool {

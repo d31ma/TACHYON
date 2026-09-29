@@ -49,7 +49,6 @@ impl<'a> FsharpContractRewrite<'a> {
     fn all_edits(&self) -> Result<Vec<SourceEdit>, String> {
         let nested: Vec<Vec<SourceEdit>> = (0..self.lines.len())
             .filter_map(|index| self.class_type(index))
-            .filter(|class_type| !self.keeps_class_form(class_type))
             .map(|class_type| self.type_edits(&class_type))
             .collect::<Result<_, _>>()?;
         Ok(nested.into_iter().flatten().collect())
@@ -107,15 +106,6 @@ impl<'a> FsharpContractRewrite<'a> {
 
     fn is_name_character(character: char) -> bool {
         [character.is_alphanumeric(), character == Self::NAME_JOINER].contains(&true)
-    }
-
-    fn keeps_class_form(&self, class_type: &FsharpClassType) -> bool {
-        let names: Vec<String> = class_type
-            .body
-            .iter()
-            .flat_map(|index| FsharpContract::attribute_names(self.code_line(*index).trim()))
-            .collect();
-        class_type.role.keeps_class_form(&names)
     }
 
     fn type_edits(&self, class_type: &FsharpClassType) -> Result<Vec<SourceEdit>, String> {

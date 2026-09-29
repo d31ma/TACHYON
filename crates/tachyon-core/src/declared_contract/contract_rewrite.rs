@@ -71,11 +71,9 @@ impl<'a> ContractRewrite<'a> {
     }
 
     fn is_class_form(&self, declaration: &ContractDeclaration) -> bool {
-        let contract = self
+        !self
             .form
-            .declares_contract(&self.code[declaration.header.clone()]);
-        let kept = declaration.keeps_class_form(self.form, &self.code);
-        [contract, kept] == [false, false]
+            .declares_contract(&self.code[declaration.header.clone()])
     }
 
     fn role_check(declaration: &ContractDeclaration) -> Result<(), String> {

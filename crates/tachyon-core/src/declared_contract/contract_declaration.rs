@@ -27,8 +27,6 @@ type BlockReader = fn(&str, usize, usize) -> Parts;
 
 impl ContractDeclaration {
     const SETUP_SUFFIX: &'static str = "Setup";
-    const GO_COMMENT: &'static str = "//";
-    const NAME_PUNCTUATION: [char; 2] = ['_', ':'];
     const RUBY: &'static str = "rb";
 
     pub(crate) fn find(form: ContractForm, source: &str, code: &str) -> Vec<Self> {
@@ -59,35 +57,6 @@ impl ContractDeclaration {
     pub(crate) fn adapter(&self) -> String {
         self.option("adapter")
             .map_or_else(|| HttpClientSource::adapter_name(&self.name), str::to_owned)
-    }
-
-    pub(crate) fn keeps_class_form(&self, form: ContractForm, code: &str) -> bool {
-        let names: Vec<String> = code
-            .lines()
-            .filter_map(|line| Self::marker_name(form, line))
-            .collect();
-        self.role.keeps_class_form(&names)
-    }
-
-    fn marker_name(form: ContractForm, line: &str) -> Option<String> {
-        let text = line
-            .trim()
-            .trim_start_matches(Self::GO_COMMENT)
-            .trim_start();
-        let rest = text.strip_prefix(form.marker_prefix())?;
-        let name: String = rest
-            .chars()
-            .take_while(|character| Self::is_name_character(*character))
-            .collect();
-        Some(HttpClientSource::normalized(&name))
-    }
-
-    fn is_name_character(character: char) -> bool {
-        [
-            character.is_ascii_alphanumeric(),
-            Self::NAME_PUNCTUATION.contains(&character),
-        ]
-        .contains(&true)
     }
 
     pub(crate) fn setup(&self) -> String {

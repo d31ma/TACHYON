@@ -76,12 +76,6 @@ impl<'a> ContractCheck<'a> {
     }
 
     fn contract_problem(&self, declaration: &ContractDeclaration) -> Option<Located> {
-        (!declaration.keeps_class_form(self.form, &self.code))
-            .then(|| self.shape_problem(declaration))
-            .flatten()
-    }
-
-    fn shape_problem(&self, declaration: &ContractDeclaration) -> Option<Located> {
         self.form_problem(declaration)
             .or_else(|| self.member_problem(declaration))
             .or_else(|| self.implementation_problem(declaration))

@@ -14,7 +14,6 @@ pub(crate) struct ContractRole {
     pub(crate) managed_in_browser: bool,
     member_markers: &'static [&'static str],
     member_rule: &'static str,
-    exception_marker: &'static str,
 }
 
 impl ContractRole {
@@ -42,7 +41,6 @@ impl ContractRole {
         managed_in_browser: true,
         member_markers: &Self::CLIENT_CALLS,
         member_rule: "{owner}.{method} has no request annotation. Each method of an HTTPClient sends a request: mark it with {markers}",
-        exception_marker: "",
     };
     const STORE: Self = Self {
         marker: "Store",
@@ -52,12 +50,11 @@ impl ContractRole {
         noun: "store",
         works: "queries",
         no_implementation: "A Store has no implementation: Tachyon generates each query. Move the logic into a service.",
-        help: "A Store is a contract, like a Spring Data repository interface: it names its Entity, each method is a derived query (findBy, countBy or existsBy) or a Query, and Tachyon writes the body, the constructor and the behavior context from the Setup. A service or controller injects it with Needs. One exception: a Store with an AllOrNothing method keeps the class form and its caller builds it with a behavior context, until a transaction can join across injected stores. `ty migrate fix --write` rewrites a class store. See docs/BEHAVIOR_ANNOTATIONS.md.",
+        help: "A Store is a contract, like a Spring Data repository interface: it names its Entity, each method is a derived query (findBy, countBy or existsBy) or a Query, and Tachyon writes the body, the constructor and the behavior context from the Setup. A service or controller injects it with Needs. AllOrNothing goes on the service method: a store call inside it joins the open transaction, like Spring's @Transactional. `ty migrate fix --write` rewrites a class store. See docs/BEHAVIOR_ANNOTATIONS.md.",
         names_entity: true,
         managed_in_browser: false,
         member_markers: &Self::STORE_CALLS,
         member_rule: "{owner}.{method} is not a query. Each method of a Store runs a query: start its name with findBy, countBy or existsBy (find_by_, count_by_ or exists_by_ in snake_case), or mark it with {markers}",
-        exception_marker: "allornothing",
     };
     const ALL: [Self; 2] = [Self::CLIENT, Self::STORE];
     const OTHER_ROLES: [&'static str; 12] = [
@@ -112,13 +109,6 @@ impl ContractRole {
             .replace("{owner}", owner)
             .replace("{method}", method)
             .replace("{markers}", markers)
-    }
-
-    pub(crate) fn keeps_class_form(self, marker_names: &[String]) -> bool {
-        let marked = marker_names
-            .iter()
-            .any(|name| name == self.exception_marker);
-        [self.exception_marker.is_empty(), marked] == [false, true]
     }
 
     pub(crate) fn needs_context(self, members: &[ContractMember]) -> bool {

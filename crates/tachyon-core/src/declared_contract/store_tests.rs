@@ -280,14 +280,21 @@ fn a_store_without_an_entity_is_refused() {
 }
 
 #[test]
-fn a_store_with_an_all_or_nothing_method_keeps_its_class_form() {
+fn a_store_with_an_all_or_nothing_method_is_refused_and_the_service_owns_the_transaction() {
     let source = "@Store(EntryEntity.class, OPTIONS)\nclass EntryStore {\n    @Needs\n    Behaviors.Context behaviors;\n    Object findByStatus(String status) {}\n\n    @AllOrNothing({\"adapter\":\"ledger\"})\n    Object settle(String status) {\n        return findByStatus(status);\n    }\n}\n";
-    let source = StoreSamples::filled(source);
+    let message = StoreSamples::refusal("java", source);
+    assert!(
+        message.contains("declare it as an `interface`"),
+        "{message}"
+    );
+    assert!(!message.contains("One exception"), "{message}");
     let path = Path::new("server/stores/EntryStore.java");
-    assert!(DeclaredContract::check(path, &source).is_ok());
-    assert!(DeclaredContract::concrete(path, &source, "yon").is_none());
-    let edits = DeclaredContract::rewrite(path, &source).expect("left as written");
-    assert!(edits.is_empty(), "{edits:?}");
+    let problem = DeclaredContract::rewrite(path, &StoreSamples::filled(source))
+        .expect_err("the transaction moves into a service by hand");
+    assert!(
+        problem.contains("A Store has no implementation"),
+        "{problem}"
+    );
 }
 
 #[test]
