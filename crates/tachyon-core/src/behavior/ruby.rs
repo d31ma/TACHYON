@@ -207,7 +207,9 @@ mod tests {
             "{lowered}"
         );
         assert!(
-            lowered.contains("cases = [\"test_counts\",\"test_fails\"].map do |name|"),
+            lowered.contains(
+                "cases = JSON.parse('[[\"test_counts\",\"test_counts\",[]],[\"test_fails\",\"test_fails\",[]]]').map do |name, method, input|"
+            ),
             "{lowered}"
         );
         assert_eq!(lowered.lines().take(12).count(), source.lines().count());

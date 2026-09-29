@@ -23,11 +23,12 @@ impl RubyLowering {
         }
         let encoded = serde_json::to_string(&records).map_err(|error| error.to_string())?;
         let suffix = format!(
-            "{}\nBehaviors.register({}, {:?}, {:?})\n{units}",
+            "{}\nBehaviors.register({}, {:?}, {:?})\n{units}{}",
             include_str!("ruby_runtime.rb"),
             Self::single_quoted(&encoded),
             module.environment,
-            module.module_id
+            module.module_id,
+            super::super::testing::unit_helper(&module.types, super::super::TestAssert::RUBY),
         );
         render(module, edits, &suffix)
     }
@@ -121,7 +122,9 @@ impl RubyLowering {
     }
 
     fn test_members(unit: &Unit) -> String {
-        let cases = serde_json::to_string(&unit.cases).unwrap_or_else(|_| String::from("[]"));
+        let cases = Self::single_quoted(
+            &super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string(),
+        );
         let mut clear_fakes = String::new();
         let mut fakes = String::new();
         for name in &unit.mocks {
@@ -148,12 +151,12 @@ impl RubyLowering {
              \x20   Behaviors.construct_with(type, @behaviors, {{ {fakes} }})\n\
              \x20 end\n\n\
              \x20 def POST\n\
-             \x20   cases = {cases}.map do |name|\n\
+             \x20   cases = JSON.parse({cases}).map do |name, method, input|\n\
              {clear_fakes}\
              \x20     begin\n\
              \x20       start_behaviors\n\
              \x20       BehaviorCalls.take\n\
-             \x20       public_send(name)\n\
+             \x20       public_send(method, *input)\n\
              \x20       {{ \"name\" => name, \"passed\" => true, \"called\" => BehaviorCalls.take }}\n\
              \x20     rescue StandardError => error\n\
              \x20       {{ \"name\" => name, \"passed\" => false, \"error\" => error.message, \"called\" => BehaviorCalls.take }}\n\

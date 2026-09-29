@@ -14,12 +14,21 @@ impl CallStyle {
         receiver: "",
         literal: Self::jvm_literal,
     };
-    pub(super) const CSHARP: Self = Self {
+    pub(super) const JSON: Self = Self {
         receiver: "",
         literal: Self::json_literal,
     };
+    pub(super) const DART: Self = Self {
+        receiver: "",
+        literal: Self::dart_literal,
+    };
+    pub(super) const SWIFT: Self = Self {
+        receiver: "",
+        literal: Self::rust_literal,
+    };
     const DOLLAR: char = '$';
     const ESCAPED_DOLLAR: &'static str = "\\u0024";
+    const DART_DOLLAR: &'static str = "\\$";
     const LONG_MARK: &'static str = "L";
 
     pub(super) fn call(&self, method: &str, argument: &str) -> String {
@@ -35,6 +44,10 @@ impl CallStyle {
 
     fn json_literal(value: &Value) -> String {
         value.to_string()
+    }
+
+    fn dart_literal(value: &Value) -> String {
+        value.to_string().replace(Self::DOLLAR, Self::DART_DOLLAR)
     }
 
     fn jvm_literal(value: &Value) -> String {

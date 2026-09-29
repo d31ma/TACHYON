@@ -52,7 +52,8 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", &configurations)
         .replace("__TAC_BEHAVIOR_ENTITIES__", &entities)
         .replace("__TAC_BEHAVIOR_TYPES__", &policies);
-    render(module, edits, &generated)
+    let helper = super::super::testing::unit_helper(&module.types, super::super::TestAssert::DART);
+    render(module, edits, &format!("{generated}{helper}"))
 }
 
 fn policy_line(type_declaration: &Type) -> String {
@@ -365,9 +366,10 @@ fn quote(value: &str) -> String {
 }
 
 fn test_members(unit: &Unit) -> String {
-    let names = joined(&unit.cases, |name| format!("{}, ", quote(name)));
-    let dispatch = joined(&unit.cases, |name| {
-        format!("      case {}:\n        await {name}();\n", quote(name))
+    let calls = super::super::ValueSource::dart_calls(&unit.cases, &unit.inputs);
+    let names = joined(&calls, |(name, _)| format!("{}, ", quote(name)));
+    let dispatch = joined(&calls, |(name, call)| {
+        format!("      case {}:\n        await {call};\n", quote(name))
     });
     let profiles = profile_list(unit);
     let properties = property_list(unit);

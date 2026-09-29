@@ -65,6 +65,14 @@ impl ValueSourceCase {
         )
     }
 
+    fn native(
+        relative: &str,
+        source: &str,
+        environment: &str,
+    ) -> Result<Option<String>, crate::Failure> {
+        lower(Path::new(relative), source, environment)
+    }
+
     fn refusal(result: Result<Option<String>, crate::Failure>) -> String {
         let Err(failure) = result else {
             panic!("the source was accepted");
@@ -234,4 +242,81 @@ fn a_csharp_module_without_a_test_class_has_no_assert() {
     .expect("lowered")
     .expect("a service with a behavior");
     assert!(!lowered.contains("class Assert"), "{lowered}");
+}
+
+#[test]
+fn a_go_value_source_calls_the_case_once_for_each_literal() {
+    let source = "// @Test(CatalogTestSetup)\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\n// @ValueSource([1, \"a\\\"b\", true])\nfunc (test *CatalogServiceTest) TestKeepsAnInput(value any) {\n\tAssert.IsTrue(value != nil)\n}\n\nfunc (test *CatalogServiceTest) TestStillReturnsAnError() error {\n\treturn nil\n}\n";
+    let lowered = ValueSourceCase::native("server/tests/CatalogServiceTest.go", source, "yon")
+        .expect("lowered")
+        .expect("a test unit");
+    for call in [
+        "case \"TestKeepsAnInput[1]\":\n\t\t__tachyon_receiver.TestKeepsAnInput(1)\n\t\treturn nil",
+        "__tachyon_receiver.TestKeepsAnInput(\"a\\\"b\")",
+        "__tachyon_receiver.TestKeepsAnInput(true)",
+        "return __tachyon_receiver.TestStillReturnsAnError()",
+        "var Assert BehaviorAssert",
+    ] {
+        assert!(lowered.contains(call), "{call} missing from {lowered}");
+    }
+}
+
+#[test]
+fn a_go_value_source_lists_numbers_strings_or_booleans() {
+    let source = "// @Test(CatalogTestSetup)\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\n// @ValueSource([[1, 2]])\nfunc (test *CatalogServiceTest) TestKeepsAnInput(value []int) {\n\tAssert.IsTrue(len(value) > 0)\n}\n";
+    let message = ValueSourceCase::refusal(ValueSourceCase::native(
+        "server/tests/CatalogServiceTest.go",
+        source,
+        "yon",
+    ));
+    assert!(
+        message.contains("numbers, strings or booleans"),
+        "{message}"
+    );
+}
+
+#[test]
+fn a_dart_value_source_keeps_a_dollar_sign_literal() {
+    let source = "@Test(CatalogTestSetup)\nclass CatalogServiceTest {\n  @ValueSource([2, \"a$b\"])\n  Future<void> testKeepsAnInput(Object value) async {\n    Assert.isTrue(value != null);\n  }\n}\n";
+    let lowered = ValueSourceCase::native("server/tests/CatalogServiceTest.dart", source, "yon")
+        .expect("lowered")
+        .expect("a test unit");
+    for call in [
+        "case 'testKeepsAnInput[1]':\n        await testKeepsAnInput(2);",
+        "await testKeepsAnInput(\"a\\$b\");",
+        "class Assert",
+    ] {
+        assert!(lowered.contains(call), "{call} missing from {lowered}");
+    }
+}
+
+#[test]
+fn a_swift_value_source_calls_the_case_with_swift_literals() {
+    let source = "@Test(CatalogTestSetup)\nfinal class CatalogServiceTest {\n  @ValueSource([\"a\\\"b\", 2.5])\n  func testKeepsAnInput(_ value: Any) async throws {\n    try Assert.isTrue(true)\n  }\n}\n";
+    let lowered = ValueSourceCase::native("client/tests/CatalogServiceTest.swift", source, "tac")
+        .expect("lowered")
+        .expect("a test unit");
+    for call in [
+        "case \"testKeepsAnInput[1]\": try await testKeepsAnInput(\"a\\\"b\")",
+        "try await testKeepsAnInput(2.5)",
+        "enum Assert",
+    ] {
+        assert!(lowered.contains(call), "{call} missing from {lowered}");
+    }
+}
+
+#[test]
+fn ruby_and_php_value_sources_pass_any_json_input() {
+    let ruby = "#[Test(CatalogTestSetup)]\nclass CatalogServiceTest\n  #[ValueSource([[1, 2], {\"a\": 1}])]\n  def test_keeps_an_input(value)\n    Assert.is_true(!value.nil?)\n  end\nend\n";
+    let lowered = ValueSourceCase::native("server/tests/CatalogServiceTest.rb", ruby, "yon")
+        .expect("lowered")
+        .expect("a test unit");
+    assert!(lowered.contains("test_keeps_an_input[2]"), "{lowered}");
+    assert!(lowered.contains("class Assert"), "{lowered}");
+    let php = "<?php\n#[Test(CatalogTestSetup::class)]\nclass CatalogServiceTest {\n    #[ValueSource([[1, 2], {\"a\": 1}])]\n    public function testKeepsAnInput($value): void {\n        Assert::isTrue($value !== null);\n    }\n}\n";
+    let lowered = ValueSourceCase::native("server/tests/CatalogServiceTest.php", php, "yon")
+        .expect("lowered")
+        .expect("a test unit");
+    assert!(lowered.contains("testKeepsAnInput[2]"), "{lowered}");
+    assert!(lowered.contains("final class Assert"), "{lowered}");
 }

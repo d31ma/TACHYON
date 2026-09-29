@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn a_go_test_unit_becomes_a_controller_whose_post_reports_its_cases() {
-        let source = "// @Setup()\ntype CatalogConfiguration struct{}\n\n// @Test(CatalogConfiguration, {\"partition\":\"tests\"})\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CatalogServiceTest) TestFirst() error { return nil }\n\nfunc (test *CatalogServiceTest) helper() {}\n";
+        let source = "// @Setup()\ntype CatalogConfiguration struct{}\n\n// @Test(CatalogConfiguration, {\"partition\":\"tests\"})\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CatalogServiceTest) TestFirst() { Assert.IsTrue(true) }\n\nfunc (test *CatalogServiceTest) helper() {}\n";
         let lowered = lower(
             Path::new("server/tests/CatalogServiceTest.go"),
             source,
@@ -414,7 +414,9 @@ mod tests {
             "{lowered}"
         );
         assert!(
-            lowered.contains("case \"TestFirst\":\n\t\treturn __tachyon_receiver.TestFirst()"),
+            lowered.contains(
+                "case \"TestFirst\":\n\t\t__tachyon_receiver.TestFirst()\n\t\treturn nil"
+            ),
             "{lowered}"
         );
         assert!(
@@ -431,15 +433,15 @@ mod tests {
         .expect("test unit");
         assert!(executable.routes.is_empty());
         assert!(executable.source.contains("type Handler struct"));
-        let wrong = source.replace("TestFirst() error", "TestFirst() (BehaviorValue, error)");
+        let wrong = source.replace("TestFirst() {", "TestFirst() (BehaviorValue, error) {");
         let failure = lower(
             Path::new("server/tests/CatalogServiceTest.go"),
             &wrong,
             "yon",
         )
-        .expect_err("a case returns error only");
+        .expect_err("a case returns nothing or error");
         assert!(
-            failure.to_string().contains("must return error"),
+            failure.to_string().contains("must return nothing or error"),
             "{failure}"
         );
     }

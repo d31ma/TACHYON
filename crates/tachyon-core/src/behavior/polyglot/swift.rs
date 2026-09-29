@@ -46,7 +46,8 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", &configurations)
         .replace("__TAC_BEHAVIOR_ENTITIES__", &entities)
         .replace("__TAC_BEHAVIOR_TYPES__", &policies);
-    let generated = format!("{generated}\n{}", super::SwiftPlatform::FOUNDATION);
+    let helper = super::super::testing::unit_helper(&module.types, super::super::TestAssert::SWIFT);
+    let generated = format!("{generated}\n{}{helper}", super::SwiftPlatform::FOUNDATION);
     render(module, edits, &generated)
 }
 
@@ -357,9 +358,10 @@ fn quote(value: &str) -> String {
 }
 
 fn test_members(unit: &Unit) -> String {
-    let names = joined(&unit.cases, |name| format!("{}, ", quote(name)));
-    let dispatch = joined(&unit.cases, |name| {
-        format!("case {}: try await {name}()\n", quote(name))
+    let calls = super::super::ValueSource::swift_calls(&unit.cases, &unit.inputs);
+    let names = joined(&calls, |(name, _)| format!("{}, ", quote(name)));
+    let dispatch = joined(&calls, |(name, call)| {
+        format!("case {}: try await {call}\n", quote(name))
     });
     let profiles = profile_list(unit);
     let mut properties = property_list(unit);

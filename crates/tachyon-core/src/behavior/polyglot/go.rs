@@ -9,7 +9,8 @@ impl GoNames {
     const RECEIVER: &str = "__tachyon_receiver";
     const CONTEXT_TYPE: &str = "*BehaviorContext";
     const RESULTS: &str = "(BehaviorValue,error)";
-    const TEST_RESULTS: &str = "error";
+    const TEST_RESULTS: [&str; 2] = ["", "error"];
+    const ASSERT_FILE: &str = "assert";
     const NO_BUILTINS: &str = "\nfunc behaviorBuiltinCache(name string) (BehaviorCacheAdapter, bool) {\n\treturn nil, false\n}\n\nfunc behaviorBuiltinEntities(name string) (BehaviorEntityAdapter, bool) {\n\treturn nil, false\n}\n";
 }
 
@@ -26,6 +27,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
     }
     let mut suffix = runtime(&module.module_id, &module.environment);
     suffix.push_str(&generated);
+    suffix.push_str(&assert_file(&module.types));
     render(module, edits, &suffix)
 }
 
@@ -56,8 +58,8 @@ fn lower_type(
         edits.push(declared_struct(declaration));
     }
     if let Some(unit) = super::super::testing::polyglot_unit(declaration) {
-        check_test_cases(module, declaration, &unit)?;
-        generated.push_str(&test_members(&unit));
+        let silent = silent_test_cases(module, declaration, &unit)?;
+        generated.push_str(&test_members(&unit, &silent));
     }
     configuration(declaration, generated)?;
     properties(declaration, generated)?;
@@ -819,47 +821,66 @@ fn optional_index(value: Option<&Value>) -> Result<Option<u64>, String> {
     }
 }
 
-fn check_test_cases(
+fn assert_file(types: &[Type]) -> String {
+    let helper = super::super::testing::unit_helper(types, super::super::TestAssert::GO);
+    if helper.is_empty() {
+        return String::new();
+    }
+    format!("\n{}{}\n{helper}", GoFile::MARKER, GoNames::ASSERT_FILE)
+}
+
+fn silent_test_cases(
     module: &Module,
     declaration: &Type,
     unit: &super::super::testing::Unit,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     let code =
         crate::annotation_layout::masked_source(std::path::Path::new("unit.go"), &module.source)
             .map_err(|_| String::from("Cannot read the Go test unit"))?;
     let methods = crate::go_source::methods(&code);
+    let mut silent = Vec::new();
     for method in crate::go_source::methods_of(&methods, &declaration.name) {
         if !unit.cases.contains(&method.name) {
             continue;
         }
-        if compact(&code[method.results.clone()]) != GoNames::TEST_RESULTS {
+        let results = compact(&code[method.results.clone()]);
+        if !GoNames::TEST_RESULTS.contains(&results.as_str()) {
             return Err(format!(
-                "Go test case {} must return error; return nil when the case passes",
+                "Go test case {} must return nothing or error; check it with Assert, or return nil when it passes",
                 method.name
             ));
         }
+        if results.is_empty() {
+            silent.push(method.name.clone());
+        }
     }
-    Ok(())
+    Ok(silent)
 }
 
-fn test_members(unit: &super::super::testing::Unit) -> String {
+fn test_members(unit: &super::super::testing::Unit, silent: &[String]) -> String {
     let receiver = GoNames::RECEIVER;
     let name = &unit.name;
+    let calls = super::super::ValueSource::go_calls(&unit.cases, &unit.inputs);
     let mut dispatch = String::new();
-    for case in &unit.cases {
-        let _ = write!(
-            dispatch,
-            "\n\tcase {}:\n\t\treturn {receiver}.{case}()",
-            quoted(case)
-        );
+    for (case, call) in &calls {
+        let returns_nothing = silent
+            .iter()
+            .any(|method| call.starts_with(&format!("{method}(")));
+        let statement = if returns_nothing {
+            format!("{receiver}.{call}\n\t\treturn nil")
+        } else {
+            format!("return {receiver}.{call}")
+        };
+        let _ = write!(dispatch, "\n\tcase {}:\n\t\t{statement}", quoted(case));
     }
+    let names: Vec<String> = calls.into_iter().map(|(case, _)| case).collect();
     format!(
-        "\nfunc ({receiver} *{name}) startBehaviors() error {{\n\t{receiver}.stopBehaviors()\n\toptions := NewBehaviorOptions({}, NewBehaviorSignal())\n{}{}\tcontext, err := BehaviorsCreate[{}](options)\n\tif err != nil {{\n\t\treturn err\n\t}}\n\t{receiver}.behaviors = context\n\treturn nil\n}}\n\nfunc ({receiver} *{name}) stopBehaviors() {{\n\tif {receiver}.behaviors != nil {{\n\t\t{receiver}.behaviors.Dispose()\n\t\t{receiver}.behaviors = nil\n\t}}\n}}\n\nfunc ({receiver} *{name}) runCase(name string) error {{\n\tswitch name {{{dispatch}\n\t}}\n\treturn nil\n}}\n\nfunc ({receiver} *{name}) POST() any {{\n\tcases := []any{{}}\n\tfor _, name := range []string{{{}}} {{\n\t\terr := {receiver}.startBehaviors()\n\t\tbehaviorCallsTake()\n\t\tif err == nil {{\n\t\t\terr = {receiver}.runCase(name)\n\t\t}}\n\t\tif err == nil {{\n\t\t\tcases = append(cases, map[string]any{{\"name\": name, \"passed\": true, \"called\": behaviorCallsTake()}})\n\t\t}} else {{\n\t\t\tcases = append(cases, map[string]any{{\"name\": name, \"passed\": false, \"error\": behaviorErrorMessage(err), \"called\": behaviorCallsTake()}})\n\t\t}}\n\t\t{receiver}.stopBehaviors()\n\t}}\n\treturn map[string]any{{\"unit\": {}, \"cases\": cases}}\n}}\n",
+        "\nfunc ({receiver} *{name}) startBehaviors() error {{\n\t{receiver}.stopBehaviors()\n\toptions := NewBehaviorOptions({}, NewBehaviorSignal())\n{}{}\tcontext, err := BehaviorsCreate[{}](options)\n\tif err != nil {{\n\t\treturn err\n\t}}\n\t{receiver}.behaviors = context\n\treturn nil\n}}\n\nfunc ({receiver} *{name}) stopBehaviors() {{\n\tif {receiver}.behaviors != nil {{\n\t\t{receiver}.behaviors.Dispose()\n\t\t{receiver}.behaviors = nil\n\t}}\n}}\n\nfunc ({receiver} *{name}) runCase(name string) (err error) {{\n\tdefer func() {{\n\t\tif recovered := recover(); recovered != nil {{\n\t\t\terr = behaviorAssertRecovered(recovered)\n\t\t}}\n\t}}()\n\tswitch name {{{dispatch}\n\t}}\n\treturn nil\n}}\n\nfunc ({receiver} *{name}) POST() any {{\n\tcases := []any{{}}\n\tfor _, name := range []string{{{}}} {{\n\t\terr := {receiver}.startBehaviors()\n\t\tbehaviorCallsTake()\n\t\tif err == nil {{\n\t\t\terr = {receiver}.runCase(name)\n\t\t}}\n\t\tif err == nil {{\n\t\t\tcases = append(cases, map[string]any{{\"name\": name, \"passed\": true, \"called\": behaviorCallsTake()}})\n\t\t}} else {{\n\t\t\tcases = append(cases, map[string]any{{\"name\": name, \"passed\": false, \"error\": behaviorErrorMessage(err), \"called\": behaviorCallsTake()}})\n\t\t}}\n\t\t{receiver}.stopBehaviors()\n\t}}\n\treturn map[string]any{{\"unit\": {}, \"cases\": cases}}\n}}\n",
         quoted(&unit.partition),
         profile_statements(unit),
         property_statements(unit),
         unit.configuration,
-        quoted_names(&unit.cases),
+        quoted_names(&names),
         quoted(name),
     )
 }

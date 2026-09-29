@@ -46,7 +46,8 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         .replace("__BEHAVIOR_MODULE_ID__", &module.module_id)
         .replace("__BEHAVIOR_CONFIGURATIONS__", &configurations)
         .replace("__BEHAVIOR_CONSTRUCTORS__", &constructors);
-    render(module, edits, &runtime)
+    let helper = super::super::testing::unit_helper(&module.types, super::super::TestAssert::PHP);
+    render(module, edits, &format!("{runtime}\n{helper}"))
 }
 
 fn type_record(type_declaration: &Type) -> Value {
@@ -251,7 +252,9 @@ fn query_argument_check(method: &Method, argument_count: usize) -> String {
 }
 
 fn test_members(unit: &Unit) -> String {
-    let cases = serde_json::to_string(&unit.cases).unwrap_or_else(|_| String::from("[]"));
+    let cases = escape_single_quoted(
+        &super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string(),
+    );
     let properties = unit.properties.to_string().replace('\'', "\\'");
     format!(
         "\npublic mixed $behaviors = null;\n\
@@ -264,10 +267,10 @@ fn test_members(unit: &Unit) -> String {
          }}\n\
          public function POST($request): mixed {{\n\
          $cases = [];\n\
-         foreach ({cases} as $name) {{\n\
+         foreach (json_decode('{cases}', true) as [$name, $method, $input]) {{\n\
          $this->startBehaviors();\n\
          \\BehaviorCalls::take();\n\
-         try {{ $this->$name(); $cases[] = ['name' => $name, 'passed' => true, 'called' => \\BehaviorCalls::take()]; }}\n\
+         try {{ $this->$method(...$input); $cases[] = ['name' => $name, 'passed' => true, 'called' => \\BehaviorCalls::take()]; }}\n\
          catch (\\Throwable $error) {{ $cases[] = ['name' => $name, 'passed' => false, 'error' => $error->getMessage(), 'called' => \\BehaviorCalls::take()]; }}\n\
          finally {{ $this->stopBehaviors(); }}\n\
          }}\n\

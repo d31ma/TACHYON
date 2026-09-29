@@ -8,13 +8,13 @@ pub(super) struct ValueSource;
 impl ValueSource {
     pub(super) const NAME: &'static str = "ValueSource";
     const DATA_KEY: &'static str = "caseInputs";
-    const CASE_PREFIX: &'static str = "test";
+    const CASE_PREFIXES: [&'static str; 2] = ["test", "Test"];
     const MAX_INPUTS: usize = 256;
     const NOT_A_CASE: &'static str =
-        "ValueSource goes on a test case: a method whose name begins with `test`.";
+        "ValueSource goes on a test case: a method whose name begins with `test` (`Test` in Go).";
     const NOT_A_LIST: &'static str = "ValueSource takes one list of 1 to 256 literal inputs, for example ValueSource([1, 2, 3]).";
     const REPEATED: &'static str = "A test case has at most one ValueSource.";
-    const NOT_SCALAR: &'static str = "In Rust, Java, Kotlin, Groovy, C# and F#, ValueSource lists numbers, strings or booleans, for example ValueSource([1, 2, 3]).";
+    const NOT_SCALAR: &'static str = "In Rust, Java, Kotlin, Groovy, C#, F#, Go, Dart and Swift, ValueSource lists numbers, strings or booleans, for example ValueSource([1, 2, 3]).";
 
     pub(super) fn record(
         input: &Input<'_>,
@@ -73,7 +73,25 @@ impl ValueSource {
         cases: &[String],
         inputs: &Map<String, Value>,
     ) -> Vec<(String, String)> {
-        Self::calls(cases, inputs, &CallStyle::CSHARP)
+        Self::calls(cases, inputs, &CallStyle::JSON)
+    }
+
+    pub(super) fn go_calls(cases: &[String], inputs: &Map<String, Value>) -> Vec<(String, String)> {
+        Self::calls(cases, inputs, &CallStyle::JSON)
+    }
+
+    pub(super) fn dart_calls(
+        cases: &[String],
+        inputs: &Map<String, Value>,
+    ) -> Vec<(String, String)> {
+        Self::calls(cases, inputs, &CallStyle::DART)
+    }
+
+    pub(super) fn swift_calls(
+        cases: &[String],
+        inputs: &Map<String, Value>,
+    ) -> Vec<(String, String)> {
+        Self::calls(cases, inputs, &CallStyle::SWIFT)
     }
 
     fn calls(
@@ -88,7 +106,10 @@ impl ValueSource {
     }
 
     fn require_case(input: &Input<'_>, marker: &Marker, method: &str) -> Result<(), Failure> {
-        if method.starts_with(Self::CASE_PREFIX) {
+        if Self::CASE_PREFIXES
+            .iter()
+            .any(|prefix| method.starts_with(prefix))
+        {
             return Ok(());
         }
         Err(input.failure(marker.span.start, Self::NOT_A_CASE))

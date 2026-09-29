@@ -25,6 +25,16 @@ impl AssertedUnit {
     const FSHARP_SETUP: &'static str = "[<TestSetup>]\ntype CatalogTestSetup() = class end\n";
     const FSHARP_UNIT: &'static str = "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testAddsTwoNumbers() : unit =\n        Assert.equals(4, 2 + 2)\n        Assert.equals(4L, 2 + 2)\n        Assert.equals([1; 2], [| 1; 2 |])\n\n    member this.testExplainsAWrongTotal() : unit =\n        Assert.equals(3, 1 + 1, \"the total\")\n\n    member this.testSeesAThrownError() : unit =\n        let error = Assert.throws(fun () -> int \"x\")\n        Assert.isTrue(error :? System.FormatException)\n        Assert.throws(fun () -> System.Threading.Tasks.Task.FromException(System.InvalidOperationException(\"later\"))) |> ignore\n\n    member this.testNeedsAThrownError() : unit =\n        Assert.throws(fun () -> int \"1\") |> ignore\n\n    [<ValueSource([1, 2, -3])>]\n    member this.testKeepsPositiveInputs(value: int) : unit =\n        Assert.isTrue(value > 0, \"a positive input\")\n";
 
+    const GO_SETUP: &'static str = "// @TestSetup\ntype CatalogTestSetup struct{}\n\nfunc (CatalogTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn &BehaviorConfiguration{}, nil\n}\n";
+    const GO_UNIT: &'static str = "import \"errors\"\n\n// @Test(CatalogTestSetup)\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CatalogServiceTest) TestAddsTwoNumbers() {\n\tAssert.Equals(4, 2+2)\n\tAssert.Equals(int64(4), 2+2)\n\tAssert.Equals([]int{1, 2}, []int{1, 2})\n}\n\nfunc (test *CatalogServiceTest) TestExplainsAWrongTotal() {\n\tAssert.Equals(3, 1+1, \"the total\")\n}\n\nfunc (test *CatalogServiceTest) TestSeesAnError() error {\n\terr := Assert.Throws(func() error { return errors.New(\"empty name\") })\n\tAssert.Equals(\"empty name\", err.Error())\n\tAssert.Throws(func() error { panic(\"stopped\") })\n\treturn nil\n}\n\nfunc (test *CatalogServiceTest) TestNeedsAnError() {\n\tAssert.Throws(func() error { return nil })\n}\n\n// @ValueSource([1, 2, -3])\nfunc (test *CatalogServiceTest) TestKeepsPositiveInputs(value int) {\n\tAssert.IsTrue(value > 0, \"a positive input\")\n}\n";
+    const RUBY_SETUP: &'static str = "#[TestSetup]\nclass CatalogTestSetup\n  def self.configure(execution)\n    {}\n  end\nend\n";
+    const RUBY_UNIT: &'static str = "#[Test(CatalogTestSetup)]\nclass CatalogServiceTest\n  def test_adds_two_numbers\n    Assert.equals(4, 2 + 2)\n    Assert.equals({ \"items\" => [1, 2] }, { \"items\" => [1, 2] })\n  end\n\n  def test_explains_a_wrong_total\n    Assert.equals(3, 1 + 1, \"the total\")\n  end\n\n  def test_sees_a_raised_error\n    error = Assert.throws { Integer(\"x\") }\n    Assert.is_true(error.is_a?(ArgumentError))\n  end\n\n  def test_needs_a_raised_error\n    Assert.throws { 1 }\n  end\n\n  #[ValueSource([1, 2, -3])]\n  def test_keeps_positive_inputs(value)\n    Assert.is_true(value > 0, \"a positive input\")\n  end\nend\n";
+    const PHP_SETUP: &'static str = "<?php\n#[TestSetup]\nclass CatalogTestSetup {\n    public static function configure($execution) { return []; }\n}\n";
+    const PHP_UNIT: &'static str = "<?php\n#[Test(CatalogTestSetup::class)]\nclass CatalogServiceTest {\n    public function testAddsTwoNumbers(): void {\n        Assert::equals(4, 2 + 2);\n        Assert::equals(['items' => [1, 2]], ['items' => [1, 2]]);\n        assert(2 + 2 === 4);\n    }\n    public function testExplainsAWrongTotal(): void {\n        Assert::equals(3, 1 + 1, 'the total');\n    }\n    public function testSeesAThrownError(): void {\n        $error = Assert::throws(fn() => intdiv(1, 0));\n        Assert::isTrue($error instanceof DivisionByZeroError);\n    }\n    public function testNeedsAThrownError(): void {\n        Assert::throws(fn() => 1);\n    }\n    #[ValueSource([1, 2, -3])]\n    public function testKeepsPositiveInputs(int $value): void {\n        assert($value > 0, 'a positive input');\n    }\n}\n";
+    const DART_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n";
+    const DART_UNIT: &'static str = "@Test(CatalogTestSetup)\nclass CatalogServiceTest {\n  Future<void> testAddsTwoNumbers() async {\n    Assert.equals(4, 2 + 2);\n    Assert.equals({'items': [1, 2]}, {'items': [1, 2]});\n    assert(2 + 2 == 4);\n  }\n\n  Future<void> testExplainsAWrongTotal() async {\n    Assert.equals(3, 1 + 1, 'the total');\n  }\n\n  Future<void> testSeesAThrownError() async {\n    final error = await Assert.throws(() => int.parse('x'));\n    Assert.isTrue(error is FormatException);\n    await Assert.throws(() async => throw StateError('later'));\n  }\n\n  Future<void> testNeedsAThrownError() async {\n    await Assert.throws(() => 1);\n  }\n\n  @ValueSource([1, 2, -3])\n  Future<void> testKeepsPositiveInputs(int value) async {\n    assert(value > 0, 'a positive input');\n  }\n}\n";
+    const SWIFT_SETUP: &'static str = "@TestSetup\nfinal class CatalogTestSetup {\n  static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n    BehaviorAdapters()\n  }\n}\n";
+    const SWIFT_UNIT: &'static str = "@Test(CatalogTestSetup)\nfinal class CatalogServiceTest {\n  func testAddsTwoNumbers() async throws {\n    try Assert.equals(4, 2 + 2)\n    try Assert.equals([1, 2], [1, 2])\n    precondition(2 + 2 == 4)\n  }\n\n  func testExplainsAWrongTotal() async throws {\n    try Assert.equals(3, 1 + 1, \"the total\")\n  }\n\n  func testSeesAThrownError() async throws {\n    let error = try await Assert.throws { throw BehaviorError(\"EMPTY_NAME\") }\n    try Assert.isTrue(error is BehaviorError)\n  }\n\n  func testNeedsAThrownError() async throws {\n    try await Assert.throws {}\n  }\n\n  @ValueSource([1, 2, -3])\n  func testKeepsPositiveInputs(_ value: Int) async throws {\n    try Assert.isTrue(value > 0, \"a positive input\")\n  }\n}\n";
     fn write(root: &std::path::Path, relative: &str, source: &str) {
         let path = root.join(relative);
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directories");
@@ -120,6 +130,42 @@ impl AssertedUnit {
                 "{extension} {name}: {error}"
             );
         }
+    }
+
+    fn named_expected(
+        names: [&'static str; 5],
+        last_error: &'static str,
+    ) -> [(String, bool, &'static str); 7] {
+        let [adds, explains, sees, needs, positive] = names;
+        [
+            (adds.to_owned(), true, ""),
+            (
+                explains.to_owned(),
+                false,
+                "the total ==> expected: <3> but was: <2>",
+            ),
+            (sees.to_owned(), true, ""),
+            (
+                needs.to_owned(),
+                false,
+                "Expected an error to be thrown, but nothing was thrown.",
+            ),
+            (format!("{positive}[1]"), true, ""),
+            (format!("{positive}[2]"), true, ""),
+            (format!("{positive}[3]"), false, last_error),
+        ]
+    }
+
+    fn check_named(
+        extension: &str,
+        cases: &[(String, bool, String)],
+        expected: &[(String, bool, &'static str)],
+    ) {
+        let borrowed: Vec<(&str, bool, &str)> = expected
+            .iter()
+            .map(|(name, passed, error)| (name.as_str(), *passed, *error))
+            .collect();
+        Self::check(extension, cases, &borrowed);
     }
 
     fn javascript_expected() -> [(&'static str, bool, &'static str); 7] {
@@ -323,5 +369,119 @@ async fn dotnet_units_assert_and_run_one_case_per_input() {
             &tac,
             &AssertedUnit::javascript_expected(),
         );
+    }
+}
+
+struct NativeUnit {
+    extension: &'static str,
+    program: &'static str,
+    flag: &'static str,
+    setup: &'static str,
+    unit: &'static str,
+    names: [&'static str; 5],
+    last_error: &'static str,
+    yon: bool,
+    tac: bool,
+}
+
+impl NativeUnit {
+    const POSITIVE: &'static str = "a positive input ==> expected: <true> but was: <false>";
+    const CAMEL_NAMES: [&'static str; 5] = [
+        "testAddsTwoNumbers",
+        "testExplainsAWrongTotal",
+        "testSeesAThrownError",
+        "testNeedsAThrownError",
+        "testKeepsPositiveInputs",
+    ];
+    const UNITS: [Self; 5] = [
+        Self {
+            extension: "go",
+            program: "go",
+            flag: "version",
+            setup: AssertedUnit::GO_SETUP,
+            unit: AssertedUnit::GO_UNIT,
+            names: [
+                "TestAddsTwoNumbers",
+                "TestExplainsAWrongTotal",
+                "TestSeesAnError",
+                "TestNeedsAnError",
+                "TestKeepsPositiveInputs",
+            ],
+            last_error: Self::POSITIVE,
+            yon: true,
+            tac: true,
+        },
+        Self {
+            extension: "rb",
+            program: "ruby",
+            flag: "--version",
+            setup: AssertedUnit::RUBY_SETUP,
+            unit: AssertedUnit::RUBY_UNIT,
+            names: [
+                "test_adds_two_numbers",
+                "test_explains_a_wrong_total",
+                "test_sees_a_raised_error",
+                "test_needs_a_raised_error",
+                "test_keeps_positive_inputs",
+            ],
+            last_error: Self::POSITIVE,
+            yon: true,
+            tac: true,
+        },
+        Self {
+            extension: "php",
+            program: "php-cgi",
+            flag: "-v",
+            setup: AssertedUnit::PHP_SETUP,
+            unit: AssertedUnit::PHP_UNIT,
+            names: Self::CAMEL_NAMES,
+            last_error: "a positive input",
+            yon: true,
+            tac: false,
+        },
+        Self {
+            extension: "dart",
+            program: "dart",
+            flag: "--version",
+            setup: AssertedUnit::DART_SETUP,
+            unit: AssertedUnit::DART_UNIT,
+            names: Self::CAMEL_NAMES,
+            last_error: "a positive input",
+            yon: true,
+            tac: true,
+        },
+        Self {
+            extension: "swift",
+            program: "swiftc",
+            flag: "--version",
+            setup: AssertedUnit::SWIFT_SETUP,
+            unit: AssertedUnit::SWIFT_UNIT,
+            names: Self::CAMEL_NAMES,
+            last_error: Self::POSITIVE,
+            yon: false,
+            tac: true,
+        },
+    ];
+}
+
+#[tokio::test]
+async fn go_ruby_php_dart_and_swift_units_assert_and_run_one_case_per_input() {
+    for native in NativeUnit::UNITS {
+        if !AssertedUnit::answers(native.program, native.flag) {
+            eprintln!(
+                "skipping the {} unit: {} is unavailable",
+                native.extension, native.program
+            );
+            continue;
+        }
+        let expected = AssertedUnit::named_expected(native.names, native.last_error);
+        if native.yon {
+            let yon = AssertedUnit::server_cases(native.extension, native.setup, native.unit).await;
+            AssertedUnit::check_named(native.extension, &yon, &expected);
+        }
+        if native.tac {
+            let tac = AssertedUnit::client_cases(native.extension, native.setup, native.unit);
+            AssertedUnit::check_named(&format!("tac {}", native.extension), &tac, &expected);
+        }
     }
 }

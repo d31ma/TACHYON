@@ -634,7 +634,12 @@ fn dart(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result<S
         ),
     )
     .map_err(|error| stage_failure(portable, &error))?;
-    execute(Command::new("dart").arg("run").arg(&path), portable)
+    execute(
+        Command::new("dart")
+            .args(["run", "--enable-asserts"])
+            .arg(&path),
+        portable,
+    )
 }
 
 fn dart_publisher_stub(lowered: &str) -> &'static str {
@@ -837,7 +842,7 @@ mod tests {
         const CONFIGURATION: &str = "// @TestSetup\ntype UnitTestConfiguration struct{}\n\nfunc (UnitTestConfiguration) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn &BehaviorConfiguration{}, nil\n}\n";
         const SERVICE: &str = "// @Service()\ntype CounterService struct {\n\tCount     int\n\tpublisher ApplicationEventPublisher\n}\n\nfunc (counter *CounterService) Increment() int {\n\tcounter.Count++\n\tcounter.publisher.PublishEvent(Tally{Total: counter.Count}, false)\n\treturn counter.Count\n}\n";
         const MODEL: &str = "type Tally struct {\n\tTotal int\n}\n";
-        const UNIT: &str = "import \"errors\"\n\n// @Test(UnitTestConfiguration)\ntype CounterServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CounterServiceTest) TestIncrementCountsOne() error {\n\tcounter := &CounterService{}\n\ttally := Tally{Total: counter.Increment()}\n\tif tally.Total != 1 {\n\t\treturn errors.New(\"one increment counts one\")\n\t}\n\treturn nil\n}\n\nfunc (test *CounterServiceTest) TestFailureIsReported() error {\n\treturn errors.New(\"expected failure\")\n}\n";
+        const UNIT: &str = "// @Test(UnitTestConfiguration)\ntype CounterServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CounterServiceTest) TestIncrementCountsOne() {\n\tcounter := &CounterService{}\n\ttally := Tally{Total: counter.Increment()}\n\tAssert.Equals(1, tally.Total, \"one increment counts one\")\n}\n\nfunc (test *CounterServiceTest) TestFailureIsReported() {\n\tAssert.IsTrue(false, \"expected failure\")\n}\n";
     }
 
     fn go_installed() -> bool {
@@ -860,7 +865,7 @@ mod tests {
         const SERVICE: &str = "#[Service]\nclass CounterService\n  attr_reader :count\n\n  def initialize\n    @count = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  def increment\n    @count += 1\n    @events.publish_event(Tally.new(total: @count))\n    @count\n  end\nend\n";
         const MODEL: &str =
             "# @!attribute [r] total\n#   @return [Integer]\nTally = Data.define(:total)\n";
-        const UNIT: &str = "#[Test(UnitTestSetup)]\nclass CounterServiceTest\n  def test_increment_counts_one\n    tally = Tally.new(total: CounterService.new.increment)\n    raise \"one increment counts one\" unless tally.total == 1\n  end\n\n  def test_failure_is_reported\n    raise \"expected failure\"\n  end\nend\n";
+        const UNIT: &str = "#[Test(UnitTestSetup)]\nclass CounterServiceTest\n  def test_increment_counts_one\n    tally = Tally.new(total: CounterService.new.increment)\n    Assert.equals(1, tally.total, \"one increment counts one\")\n  end\n\n  def test_failure_is_reported\n    Assert.is_true(false, \"expected failure\")\n  end\nend\n";
     }
 
     #[test]

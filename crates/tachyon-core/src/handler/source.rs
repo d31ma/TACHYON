@@ -23,9 +23,11 @@ mod fsharp_program;
 mod go;
 mod groovy_build;
 mod groovy_handler;
+mod test_unit_asserts;
 use fsharp_handler::FsharpHandler;
 use go::{GoHandler, GoSharedCode};
 use groovy_handler::GroovyHandler;
+use test_unit_asserts::TestUnitAsserts;
 
 #[derive(Debug)]
 struct CompilerOutput {
@@ -1489,6 +1491,7 @@ fn build_artifact(
         RustPackages::build(workspace.path(), source_name, &output, portable)?;
     } else {
         let mut arguments = compiler_arguments(compiler, &output, &staged);
+        arguments.extend(TestUnitAsserts::dart(compiler.compile[0], portable));
         if compiler.lists_model_files {
             for path in staged_models {
                 arguments.push(path.to_string_lossy().into_owned());
@@ -2370,9 +2373,7 @@ fn stage_with_prelude(
 
 fn java_launcher(portable: &str, runtime: &Path) -> Vec<String> {
     let mut launcher = vec![String::from("java")];
-    if portable.starts_with("server/tests/") {
-        launcher.push(String::from("-ea"));
-    }
+    launcher.extend(TestUnitAsserts::java(portable));
     launcher.push(runtime.to_string_lossy().into_owned());
     launcher
 }
@@ -2406,31 +2407,32 @@ fn prepare_php(
         "<?php\nYonMain::run();\n",
         portable,
     )?;
+    let mut interpreter = vec![String::from("php-cgi"), String::from("-C")];
+    interpreter.extend(TestUnitAsserts::php(portable));
+    interpreter.extend([
+        String::from("-d"),
+        String::from("display_errors=0"),
+        String::from("-d"),
+        String::from("log_errors=1"),
+        String::from("-d"),
+        String::from("error_log="),
+        String::from("-d"),
+        String::from("html_errors=0"),
+        String::from("-d"),
+        String::from("expose_php=0"),
+        String::from("-d"),
+        String::from("max_execution_time=0"),
+        String::from("-d"),
+        String::from("output_buffering=0"),
+        String::from("-d"),
+        format!("auto_prepend_file=\"{}\"", php_cli_path(&runtime_copy)),
+        String::from("-d"),
+        format!("auto_append_file=\"{}\"", php_cli_path(&entry_copy)),
+        String::from("-f"),
+        php_cli_path(&handler_copy),
+    ]);
     Ok(PreparedCommand {
-        interpreter: vec![
-            String::from("php-cgi"),
-            String::from("-C"),
-            String::from("-d"),
-            String::from("display_errors=0"),
-            String::from("-d"),
-            String::from("log_errors=1"),
-            String::from("-d"),
-            String::from("error_log="),
-            String::from("-d"),
-            String::from("html_errors=0"),
-            String::from("-d"),
-            String::from("expose_php=0"),
-            String::from("-d"),
-            String::from("max_execution_time=0"),
-            String::from("-d"),
-            String::from("output_buffering=0"),
-            String::from("-d"),
-            format!("auto_prepend_file=\"{}\"", php_cli_path(&runtime_copy)),
-            String::from("-d"),
-            format!("auto_append_file=\"{}\"", php_cli_path(&entry_copy)),
-            String::from("-f"),
-            php_cli_path(&handler_copy),
-        ],
+        interpreter,
         workspace,
     })
 }

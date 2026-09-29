@@ -195,3 +195,75 @@ fn the_rule_is_off_until_a_realm_turns_it_on() {
     )];
     assert!(TestedProject::with_settings(&files, &client_only).is_empty());
 }
+
+#[test]
+fn a_go_case_asserts_with_the_helper_and_holds_no_logic() {
+    let unit = "// @Test(CatalogTestSetup, {\"partition\":\"tests\"})\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CatalogServiceTest) twice(value int) int {\n\tif value < 0 {\n\t\treturn 0\n\t}\n\treturn value * 2\n}\n\nfunc (test *CatalogServiceTest) TestDoublesAValue() {\n\tAssert.Equals(8, test.twice(4))\n}\n\nfunc (test *CatalogServiceTest) TestSeesAnError() {\n\tAssert.Throws(func() error { return errors.New(\"no\") })\n}\n\nfunc (test *CatalogServiceTest) TestChecksEveryValue() {\n\tfor _, value := range []int{1, 2} {\n\t\tAssert.IsTrue(value > 0)\n\t}\n}\n\nfunc (test *CatalogServiceTest) TestPicksALabel() {\n\tswitch test.twice(1) {\n\tcase 2:\n\t\tAssert.IsTrue(true)\n\t}\n}\n\nfunc (test *CatalogServiceTest) TestReturnsAnError() error {\n\tif test.twice(4) != 8 {\n\t\treturn errors.New(\"expected 8\")\n\t}\n\treturn nil\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("server/tests/CatalogServiceTest.go", unit)]),
+        [
+            "The test case `TestChecksEveryValue` in CatalogServiceTest holds logic: `for`.",
+            "The test case `TestPicksALabel` in CatalogServiceTest holds logic: `switch`.",
+            "The test case `TestReturnsAnError` in CatalogServiceTest holds logic: `if`.",
+            "The test case `TestReturnsAnError` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
+fn a_ruby_case_asserts_with_the_helper_and_holds_no_logic() {
+    let unit = "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\nclass CatalogServiceTest\n  def twice(value)\n    return 0 if value < 0\n    value * 2\n  end\n\n  def test_doubles_a_value\n    Assert.equals(8, twice(4))\n  end\n\n  def test_sees_an_error\n    Assert.throws { Integer(\"x\") }\n  end\n\n  def test_picks_a_label\n    Assert.equals(\"many\", 2 > 1 ? \"many\" : \"one\")\n  end\n\n  def test_raises_by_hand\n    raise \"expected 8\" unless twice(4) == 8\n  end\n\n  def test_waits\n    Assert.is_true(true) until twice(1) > 0\n  end\n\n  def test_names_a_value\n    label = case twice(1)\n            when 2 then \"two\"\n            end\n    Assert.equals(\"two\", label)\n  end\nend\n";
+    assert_eq!(
+        TestedProject::messages(&[("client/tests/CatalogServiceTest.rb", unit)]),
+        [
+            "The test case `test_picks_a_label` in CatalogServiceTest holds logic: `? :`.",
+            "The test case `test_raises_by_hand` in CatalogServiceTest holds logic: `unless`.",
+            "The test case `test_raises_by_hand` in CatalogServiceTest has no assertion.",
+            "The test case `test_waits` in CatalogServiceTest holds logic: `until`.",
+            "The test case `test_names_a_value` in CatalogServiceTest holds logic: `case`.",
+        ]
+    );
+}
+
+#[test]
+fn a_php_case_may_use_the_assert_function() {
+    let unit = "<?php\n#[Test(CatalogTestSetup::class, {\"partition\":\"tests\"})]\nclass CatalogServiceTest {\n    private function twice(int $value): int { return $value < 0 ? 0 : $value * 2; }\n    public function testDoublesAValue(): void {\n        Assert::equals(8, $this->twice(4));\n    }\n    public function testUsesTheFunction(): void {\n        assert($this->twice(1) === 2);\n    }\n    public function testSeesAnError(): void {\n        Assert::throws(fn() => intdiv(1, 0));\n    }\n    public function testPicksALabel(): void {\n        Assert::equals('many', 2 > 1 ? 'many' : 'one');\n    }\n    public function testNamesAValue(): void {\n        $label = match ($this->twice(1)) { 2 => 'two', default => 'other' };\n        Assert::equals('two', $label);\n    }\n    public function testChecksEveryValue(): void {\n        foreach ([1, 2] as $value) {\n            Assert::isTrue($value > 0);\n        }\n    }\n    public function testThrowsByHand(): void {\n        if ($this->twice(4) !== 8) throw new Exception('expected 8');\n    }\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("server/tests/CatalogServiceTest.php", unit)]),
+        [
+            "The test case `testPicksALabel` in CatalogServiceTest holds logic: `? :`.",
+            "The test case `testNamesAValue` in CatalogServiceTest holds logic: `match`.",
+            "The test case `testChecksEveryValue` in CatalogServiceTest holds logic: `foreach`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest holds logic: `if`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
+fn a_dart_case_may_use_the_assert_statement() {
+    let unit = "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  int twice(int value) => value < 0 ? 0 : value * 2;\n\n  Future<void> testDoublesAValue() async {\n    Assert.equals(8, twice(4));\n  }\n\n  Future<void> testUsesTheStatement() async {\n    assert(twice(1) == 2, 'doubles');\n  }\n\n  Future<void> testSeesAnError() async {\n    await Assert.throws(() => int.parse('x'));\n  }\n\n  Future<void> testReadsAnOptionalName() async {\n    String? name;\n    Assert.equals(0, name?.length ?? 0);\n  }\n\n  Future<void> testPicksALabel() async {\n    Assert.equals('many', 2 > 1 ? 'many' : 'one');\n  }\n\n  Future<void> testChecksEveryValue() async {\n    for (final value in [1, 2]) {\n      Assert.isTrue(value > 0);\n    }\n  }\n\n  Future<void> testThrowsByHand() async {\n    if (twice(4) != 8) throw StateError('expected 8');\n  }\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("server/tests/CatalogServiceTest.dart", unit)]),
+        [
+            "The test case `testPicksALabel` in CatalogServiceTest holds logic: `? :`.",
+            "The test case `testChecksEveryValue` in CatalogServiceTest holds logic: `for`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest holds logic: `if`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
+fn a_swift_case_may_use_precondition() {
+    let unit = "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\nfinal class CatalogServiceTest {\n  func twice(_ value: Int) -> Int { value < 0 ? 0 : value * 2 }\n\n  func testDoublesAValue() async throws {\n    try Assert.equals(8, twice(4))\n  }\n\n  func testUsesPrecondition() async throws {\n    precondition(twice(1) == 2, \"doubles\")\n  }\n\n  func testSeesAnError() async throws {\n    try await Assert.throws { throw BehaviorError(\"no\") }\n  }\n\n  func testReadsAnOptionalName() async throws {\n    let name: String? = nil\n    try Assert.equals(0, name?.count ?? 0)\n  }\n\n  func testPicksALabel() async throws {\n    try Assert.equals(\"many\", 2 > 1 ? \"many\" : \"one\")\n  }\n\n  func testGuards() async throws {\n    guard twice(4) == 8 else { throw BehaviorError(\"expected 8\") }\n  }\n\n  func testOnlyAsserts() async throws {\n    assert(twice(4) == 8)\n  }\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("client/tests/CatalogServiceTest.swift", unit)]),
+        [
+            "The test case `testPicksALabel` in CatalogServiceTest holds logic: `? :`.",
+            "The test case `testGuards` in CatalogServiceTest holds logic: `guard`.",
+            "The test case `testGuards` in CatalogServiceTest has no assertion.",
+            "The test case `testOnlyAsserts` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}

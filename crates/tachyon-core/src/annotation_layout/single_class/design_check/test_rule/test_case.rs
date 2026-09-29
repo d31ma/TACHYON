@@ -11,7 +11,6 @@ pub(super) struct TestCase<'f, 'a> {
 }
 
 impl<'f, 'a> TestCase<'f, 'a> {
-    const CASE_PREFIX: &'static str = "test";
     const ASSERT_CLASS: &'static str = "Assert";
     const MEMBER_ACCESS: [&'static str; 2] = [".", ":"];
     const MACRO_MARK: &'static str = "!";
@@ -22,7 +21,7 @@ impl<'f, 'a> TestCase<'f, 'a> {
     pub(super) fn cases(file: &'f TestFile<'a>) -> Vec<Self> {
         file.methods
             .iter()
-            .filter(|method| method.name.starts_with(Self::CASE_PREFIX))
+            .filter(|method| method.name.starts_with(file.language.case_prefix))
             .map(|method| Self { file, method })
             .collect()
     }
