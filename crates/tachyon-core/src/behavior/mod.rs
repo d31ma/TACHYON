@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 use std::ops::Range;
 use std::path::Path;
-use test_assert::TestAssert;
+pub(crate) use test_assert::TestAssert;
 use value_source::ValueSource;
 
 mod behaviors_import;
@@ -378,6 +378,22 @@ pub(crate) fn lower_with_resources(
     }
     let lowered = lower_source(path, &rewritten, environment, resources)?;
     Ok(Some(lowered.unwrap_or(rewritten)))
+}
+
+pub(crate) fn csharp_case_calls(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Vec<(String, String)>, Failure> {
+    let unit = without_tac_roles(path, source, environment)?;
+    polyglot::csharp_case_calls(path, &unit, environment)
+}
+
+fn without_tac_roles(path: &Path, source: &str, environment: &str) -> Result<String, Failure> {
+    if environment == "tac" {
+        return Ok(ServiceRoles::read(path, source)?.source);
+    }
+    Ok(source.to_owned())
 }
 
 pub(crate) fn detached_csharp(

@@ -270,9 +270,9 @@ impl AnnotationRules {
     const YON_STREAM: &'static [&'static str] =
         &["js", "ts", "py", "php", "kt", "cs", "dart", "rb"];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts"];
-    const TAC_VALUE_SOURCE: &'static [&'static str] = &["js", "ts", "rs", "kt"];
+    const TAC_VALUE_SOURCE: &'static [&'static str] = &["js", "ts", "rs", "kt", "cs"];
     const YON_VALUE_SOURCE: &'static [&'static str] =
-        &["js", "ts", "py", "rs", "java", "groovy", "kt"];
+        &["js", "ts", "py", "rs", "java", "groovy", "kt", "cs"];
     const NOWHERE: &'static [&'static str] = &[];
     const TYPE: &'static [Target] = &[Target::Type];
     const METHOD: &'static [Target] = &[Target::Method];

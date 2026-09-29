@@ -14,6 +14,10 @@ impl CallStyle {
         receiver: "",
         literal: Self::jvm_literal,
     };
+    pub(super) const CSHARP: Self = Self {
+        receiver: "",
+        literal: Self::json_literal,
+    };
     const DOLLAR: char = '$';
     const ESCAPED_DOLLAR: &'static str = "\\u0024";
     const LONG_MARK: &'static str = "L";
@@ -27,6 +31,10 @@ impl CallStyle {
             Value::String(text) => format!("{text:?}"),
             other => other.to_string(),
         }
+    }
+
+    fn json_literal(value: &Value) -> String {
+        value.to_string()
     }
 
     fn jvm_literal(value: &Value) -> String {

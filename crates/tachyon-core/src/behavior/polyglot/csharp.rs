@@ -34,7 +34,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         );
     }
     let registry = Value::Object(registrations).to_string();
-    let generated = runtime(
+    let mut generated = runtime(
         &module.module_id,
         &module.environment,
         &registry,
@@ -42,6 +42,10 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         &entities,
         &policies,
     );
+    generated.push_str(super::super::testing::unit_helper(
+        &module.types,
+        super::super::TestAssert::CSHARP,
+    ));
     render(module, edits, &generated)
 }
 
@@ -390,9 +394,10 @@ fn test_members(unit: &Unit, environment: &str) -> String {
             "System.Text.Json.Nodes.JsonNode.Parse(report.ToString())",
         )
     };
-    let names = case_names(unit);
-    let dispatch = joined(&unit.cases, |name| {
-        format!("case {}: {name}(); return;", quote(name))
+    let calls = super::super::ValueSource::csharp_calls(&unit.cases, &unit.inputs);
+    let names = case_names(&calls);
+    let dispatch = joined(&calls, |(name, call)| {
+        format!("case {}: {call}; return;", quote(name))
     });
     let profiles = profile_list(unit);
     let properties = property_entries(unit);
@@ -423,9 +428,9 @@ fn test_members(unit: &Unit, environment: &str) -> String {
     )
 }
 
-fn case_names(unit: &Unit) -> String {
+fn case_names(calls: &[(String, String)]) -> String {
     let mut names = Vec::new();
-    for name in &unit.cases {
+    for (name, _) in calls {
         names.push(quote(name));
     }
     names.join(", ")

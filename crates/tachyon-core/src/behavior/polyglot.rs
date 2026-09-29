@@ -201,6 +201,27 @@ pub(super) fn detached_csharp(
         .map_err(|message| module_failure(path, source, message))
 }
 
+pub(super) fn csharp_case_calls(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Vec<(String, String)>, Failure> {
+    let prepared = prepare(path, source, environment)?;
+    Ok(annotated_case_calls(prepared.as_ref()))
+}
+
+fn annotated_case_calls(prepared: Option<&Prepared>) -> Vec<(String, String)> {
+    let Some(Prepared::Annotated(module)) = prepared else {
+        return Vec::new();
+    };
+    module
+        .types
+        .iter()
+        .filter_map(super::testing::polyglot_unit)
+        .flat_map(|unit| super::ValueSource::csharp_calls(&unit.cases, &unit.inputs))
+        .collect()
+}
+
 fn module_failure(path: &Path, source: &str, message: String) -> Failure {
     let input = Input {
         path,
@@ -889,7 +910,7 @@ fn apply_value_source(
     })?;
     let ty = &mut types[owner];
     let method = parse_method(input, language, marker.target, ty)?;
-    if matches!(language, "rs" | "java" | "kt") {
+    if matches!(language, "rs" | "java" | "kt" | "cs") {
         return super::ValueSource::record_scalars(input, marker, &method.name, &mut ty.policies);
     }
     super::ValueSource::record(input, marker, &method.name, &mut ty.policies)

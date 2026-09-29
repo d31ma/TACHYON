@@ -14,7 +14,7 @@ impl ValueSource {
         "ValueSource goes on a test case: a method whose name begins with `test`.";
     const NOT_A_LIST: &'static str = "ValueSource takes one list of 1 to 256 literal inputs, for example ValueSource([1, 2, 3]).";
     const REPEATED: &'static str = "A test case has at most one ValueSource.";
-    const NOT_SCALAR: &'static str = "In Rust, Java, Kotlin and Groovy, ValueSource lists numbers, strings or booleans, for example ValueSource([1, 2, 3]).";
+    const NOT_SCALAR: &'static str = "In Rust, Java, Kotlin, Groovy, C# and F#, ValueSource lists numbers, strings or booleans, for example ValueSource([1, 2, 3]).";
 
     pub(super) fn record(
         input: &Input<'_>,
@@ -67,6 +67,13 @@ impl ValueSource {
         inputs: &Map<String, Value>,
     ) -> Vec<(String, String)> {
         Self::calls(cases, inputs, &CallStyle::JVM)
+    }
+
+    pub(super) fn csharp_calls(
+        cases: &[String],
+        inputs: &Map<String, Value>,
+    ) -> Vec<(String, String)> {
+        Self::calls(cases, inputs, &CallStyle::CSHARP)
     }
 
     fn calls(

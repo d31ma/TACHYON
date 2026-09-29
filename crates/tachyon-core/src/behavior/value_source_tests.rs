@@ -11,6 +11,8 @@ impl ValueSourceCase {
     const JAVA_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return null;\n    }\n}\n";
     const KOTLIN_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n";
 
+    const CSHARP_SETUP: &'static str = "[TestSetup]\npublic sealed class CatalogTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n";
+
     fn javascript(method: &str) -> Result<Option<String>, crate::Failure> {
         let source = format!(
             "{}@Test(CatalogTestSetup)\nexport default class CatalogServiceTest {{\n{method}\n}}\n",
@@ -46,6 +48,18 @@ impl ValueSourceCase {
         );
         lower(
             Path::new(&format!("server/tests/CatalogServiceTest.{extension}")),
+            &source,
+            "yon",
+        )
+    }
+
+    fn csharp(method: &str) -> Result<Option<String>, crate::Failure> {
+        let source = format!(
+            "{}[Test(typeof(CatalogTestSetup), {{\"partition\":\"tests\"}})]\nsealed class CatalogServiceTest {{\n{method}\n}}\n",
+            Self::CSHARP_SETUP
+        );
+        lower(
+            Path::new("server/tests/CatalogServiceTest.cs"),
             &source,
             "yon",
         )
@@ -179,4 +193,45 @@ fn a_jvm_value_source_lists_numbers_strings_or_booleans() {
             "{extension}: {message}"
         );
     }
+}
+
+#[test]
+fn a_csharp_value_source_calls_the_case_once_for_each_literal() {
+    let method = "    [ValueSource([1, \"a\\\"b\", true, 3000000000])]\n    void testKeepsAnInput(object value) {\n        Assert.isTrue(value != null);\n    }";
+    let lowered = ValueSourceCase::csharp(method)
+        .expect("lowered")
+        .expect("a test unit");
+    for call in [
+        "case \"testKeepsAnInput[1]\": testKeepsAnInput(1); return;",
+        "testKeepsAnInput(\"a\\\"b\")",
+        "testKeepsAnInput(true)",
+        "testKeepsAnInput(3000000000)",
+        "\"testKeepsAnInput[4]\"",
+        "static class Assert",
+    ] {
+        assert!(lowered.contains(call), "{call} missing from {lowered}");
+    }
+}
+
+#[test]
+fn a_csharp_value_source_lists_numbers_strings_or_booleans() {
+    let method = "    [ValueSource([[1, 2]])]\n    void testKeepsAnInput(object value) {\n        Assert.isTrue(value != null);\n    }";
+    let message = ValueSourceCase::refusal(ValueSourceCase::csharp(method));
+    assert!(
+        message.contains("numbers, strings or booleans"),
+        "{message}"
+    );
+}
+
+#[test]
+fn a_csharp_module_without_a_test_class_has_no_assert() {
+    let source = "public sealed class CatalogService {\n    [Needs]\n    public BehaviorContext behaviors;\n    [Retry({\"maxRetries\":1,\"delayMs\":0,\"multiplier\":1,\"maxDelayMs\":10,\"jitterMs\":0})]\n    public async System.Threading.Tasks.Task<BehaviorJSON> load() {\n        await System.Threading.Tasks.Task.CompletedTask;\n        return BehaviorJSON.From(1);\n    }\n}\n";
+    let lowered = lower(
+        Path::new("server/services/CatalogService.cs"),
+        source,
+        "yon",
+    )
+    .expect("lowered")
+    .expect("a service with a behavior");
+    assert!(!lowered.contains("class Assert"), "{lowered}");
 }

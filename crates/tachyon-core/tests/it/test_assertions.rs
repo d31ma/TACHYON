@@ -20,6 +20,10 @@ impl AssertedUnit {
     const GROOVY_UNIT: &'static str = "@Test(CatalogTestSetup.class)\nclass CatalogServiceTest {\n    void testAddsTwoNumbers() {\n        Assert.equals(4, 2 + 2)\n        assert 2 + 2 == 4\n    }\n    void testExplainsAWrongTotal() {\n        Assert.equals(3, 1 + 1, 'the total')\n    }\n    void testSeesAThrownError() {\n        Throwable error = Assert.throwsError({ Integer.parseInt('x') })\n        Assert.isTrue(error instanceof NumberFormatException)\n    }\n    void testNeedsAThrownError() {\n        Assert.throwsError({ Integer.parseInt('1') })\n    }\n    @ValueSource([1, 2, -3])\n    void testKeepsPositiveInputs(int value) {\n        assert value > 0 : 'a positive input'\n    }\n}\n";
     const KOTLIN_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n";
     const KOTLIN_UNIT: &'static str = "@Test(CatalogTestSetup::class)\nclass CatalogServiceTest {\n    fun testAddsTwoNumbers() {\n        Assert.equals(4, 2 + 2)\n        Assert.equals(4L, 2 + 2)\n        check(2 + 2 == 4)\n    }\n    fun testExplainsAWrongTotal() {\n        Assert.equals(3, 1 + 1, \"the total\")\n    }\n    fun testSeesAThrownError() {\n        val error = Assert.throws { \"x\".toInt() }\n        Assert.isTrue(error is NumberFormatException)\n    }\n    fun testNeedsAThrownError() {\n        Assert.throws { \"1\".toInt() }\n    }\n    @ValueSource([1, 2, -3])\n    fun testKeepsPositiveInputs(value: Int) {\n        require(value > 0) { \"a positive input\" }\n    }\n}\n";
+    const CSHARP_SETUP: &'static str = "[TestSetup]\npublic sealed class CatalogTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n";
+    const CSHARP_UNIT: &'static str = "[Test(typeof(CatalogTestSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    void testAddsTwoNumbers() {\n        Assert.equals(4, 2 + 2);\n        Assert.equals(4L, 2 + 2);\n        Assert.equals(new List<int> { 1, 2 }, new[] { 1, 2 });\n    }\n    void testExplainsAWrongTotal() {\n        Assert.equals(3, 1 + 1, \"the total\");\n    }\n    void testSeesAThrownError() {\n        var error = Assert.throws(() => int.Parse(\"x\"));\n        Assert.isTrue(error is FormatException);\n        Assert.throws(async () => { await Task.Yield(); throw new InvalidOperationException(\"later\"); });\n    }\n    void testNeedsAThrownError() {\n        Assert.throws(() => int.Parse(\"1\"));\n    }\n    [ValueSource([1, 2, -3])]\n    void testKeepsPositiveInputs(int value) {\n        Assert.isTrue(value > 0, \"a positive input\");\n    }\n}\n";
+    const FSHARP_SETUP: &'static str = "[<TestSetup>]\ntype CatalogTestSetup() = class end\n";
+    const FSHARP_UNIT: &'static str = "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.testAddsTwoNumbers() : unit =\n        Assert.equals(4, 2 + 2)\n        Assert.equals(4L, 2 + 2)\n        Assert.equals([1; 2], [| 1; 2 |])\n\n    member this.testExplainsAWrongTotal() : unit =\n        Assert.equals(3, 1 + 1, \"the total\")\n\n    member this.testSeesAThrownError() : unit =\n        let error = Assert.throws(fun () -> int \"x\")\n        Assert.isTrue(error :? System.FormatException)\n        Assert.throws(fun () -> System.Threading.Tasks.Task.FromException(System.InvalidOperationException(\"later\"))) |> ignore\n\n    member this.testNeedsAThrownError() : unit =\n        Assert.throws(fun () -> int \"1\") |> ignore\n\n    [<ValueSource([1, 2, -3])>]\n    member this.testKeepsPositiveInputs(value: int) : unit =\n        Assert.isTrue(value > 0, \"a positive input\")\n";
 
     fn write(root: &std::path::Path, relative: &str, source: &str) {
         let path = root.join(relative);
@@ -299,4 +303,25 @@ fn a_tac_kotlin_unit_asserts_and_runs_one_case_per_input() {
     let cases =
         AssertedUnit::client_cases("kt", AssertedUnit::KOTLIN_SETUP, AssertedUnit::KOTLIN_UNIT);
     AssertedUnit::check("tac kt", &cases, &AssertedUnit::jvm_expected());
+}
+
+#[tokio::test]
+async fn dotnet_units_assert_and_run_one_case_per_input() {
+    if !AssertedUnit::available("dotnet") {
+        eprintln!("skipping: dotnet is unavailable");
+        return;
+    }
+    for (extension, setup, unit) in [
+        ("cs", AssertedUnit::CSHARP_SETUP, AssertedUnit::CSHARP_UNIT),
+        ("fs", AssertedUnit::FSHARP_SETUP, AssertedUnit::FSHARP_UNIT),
+    ] {
+        let yon = AssertedUnit::server_cases(extension, setup, unit).await;
+        AssertedUnit::check(extension, &yon, &AssertedUnit::javascript_expected());
+        let tac = AssertedUnit::client_cases(extension, setup, unit);
+        AssertedUnit::check(
+            &format!("tac {extension}"),
+            &tac,
+            &AssertedUnit::javascript_expected(),
+        );
+    }
 }

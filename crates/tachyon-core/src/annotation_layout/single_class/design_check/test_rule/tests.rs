@@ -26,6 +26,17 @@ impl TestedProject {
             .collect()
     }
 
+    fn fsharp_messages(path: &str, text: &str) -> Vec<String> {
+        let switches = DesignSwitches::every_realm(ProjectWords::default());
+        let files = [(Path::new(path), text.as_bytes())];
+        let found = DesignCheck::diagnostics(files.into_iter(), &switches);
+        crate::fsharp_source::FsharpSpans::restored(&found, files.into_iter())
+            .into_iter()
+            .filter(|problem| problem.code.number() == Self::CODE)
+            .map(|problem| problem.message)
+            .collect()
+    }
+
     fn with_settings(files: &[(&str, &str)], settings: &[(&str, &str)]) -> Vec<String> {
         let folder = tempfile::tempdir().expect("temporary project");
         for (path, text) in settings {
@@ -122,6 +133,37 @@ fn a_groovy_case_may_use_the_assert_statement() {
         TestedProject::messages(&[("server/tests/CatalogServiceTest.groovy", unit)]),
         [
             "The test case `testChecksEveryValue` in CatalogServiceTest holds logic: `while`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest holds logic: `if`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
+fn a_csharp_case_asserts_with_the_helper_and_holds_no_logic() {
+    let unit = "[Test(typeof(CatalogTestSetup), {\"partition\":\"tests\"})]\nsealed class CatalogServiceTest {\n    int twice(int value) { return value < 0 ? 0 : value * 2; }\n    void testDoublesAValue() {\n        Assert.equals(8, twice(4));\n    }\n    void testSeesAnError() {\n        var error = Assert.throws(() => int.Parse(\"x\"));\n        Assert.isTrue(error is System.FormatException);\n    }\n    void testReadsAnOptionalName() {\n        string name = null;\n        Assert.equals(0, name?.Length ?? 0);\n    }\n    void testPicksALabel() {\n        Assert.equals(\"many\", 2 > 1 ? \"many\" : \"one\");\n    }\n    void testChecksEveryValue() {\n        foreach (var value in new[] { 1, 2 }) {\n            Assert.isTrue(value > 0);\n        }\n    }\n    void testNamesAValue() {\n        var label = twice(1) switch { 2 => \"two\", _ => \"other\" };\n        Assert.equals(\"two\", label);\n    }\n    void testThrowsByHand() {\n        if (twice(4) != 8) throw new System.Exception(\"expected 8\");\n    }\n    void testOnlyDebugs() {\n        System.Diagnostics.Debug.Assert(twice(4) == 8);\n    }\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("client/tests/CatalogServiceTest.cs", unit)]),
+        [
+            "The test case `testPicksALabel` in CatalogServiceTest holds logic: `? :`.",
+            "The test case `testChecksEveryValue` in CatalogServiceTest holds logic: `foreach`.",
+            "The test case `testNamesAValue` in CatalogServiceTest holds logic: `switch`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest holds logic: `if`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest has no assertion.",
+            "The test case `testOnlyDebugs` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
+fn an_fsharp_case_asserts_with_the_helper_and_holds_no_logic() {
+    let unit = "[<Test(typeof<CatalogTestSetup>)>]\ntype CatalogServiceTest() =\n    member this.Twice(value: int) : int =\n        if value < 0 then 0 else value * 2\n\n    member this.testDoublesAValue() : unit =\n        Assert.equals(8, this.Twice(4))\n\n    member this.testSeesAnError() : unit =\n        Assert.throws(fun () -> int \"x\") |> ignore\n\n    member this.testPicksALabel() : unit =\n        let label = match this.Twice(1) with | 2 -> \"two\" | _ -> \"other\"\n        Assert.equals(\"two\", label)\n\n    member this.testChecksEveryValue() : unit =\n        for value in [1; 2] do\n            Assert.isTrue(value > 0)\n\n    member this.testWaits() : unit =\n        while this.Twice(1) < 0 do\n            Assert.isTrue(false)\n\n    member this.testThrowsByHand() : unit =\n        if this.Twice(4) <> 8 then failwith \"expected 8\"\n";
+    assert_eq!(
+        TestedProject::fsharp_messages("server/tests/CatalogServiceTest.fs", unit),
+        [
+            "The test case `testPicksALabel` in CatalogServiceTest holds logic: `match`.",
+            "The test case `testChecksEveryValue` in CatalogServiceTest holds logic: `for`.",
+            "The test case `testWaits` in CatalogServiceTest holds logic: `while`.",
             "The test case `testThrowsByHand` in CatalogServiceTest holds logic: `if`.",
             "The test case `testThrowsByHand` in CatalogServiceTest has no assertion.",
         ]

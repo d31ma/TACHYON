@@ -37,7 +37,15 @@ impl TestLanguage {
         macro_asserts: &[],
         assert_help: "Check the result with `Assert.equals(expected, actual)`, `Assert.isTrue(condition)`, `Assert.throws { action }`, `check(condition)` or `require(condition)`.",
     };
-    const LANGUAGES: [(&'static str, Self); 7] = [
+    const CSHARP: Self = Self {
+        logic_words: &[
+            "if", "else", "for", "foreach", "while", "do", "switch", "case", "when",
+        ],
+        statement_asserts: &[],
+        macro_asserts: &[],
+        assert_help: "Check the result with `Assert.equals(expected, actual)`, `Assert.isTrue(condition)` or `Assert.throws(action)`.",
+    };
+    const LANGUAGES: [(&'static str, Self); 8] = [
         ("js", Self::JAVASCRIPT),
         ("ts", Self::JAVASCRIPT),
         ("py", Self::PYTHON),
@@ -45,6 +53,7 @@ impl TestLanguage {
         ("java", Self::JAVA),
         ("groovy", Self::JAVA),
         ("kt", Self::KOTLIN),
+        ("cs", Self::CSHARP),
     ];
 
     pub(super) fn of(extension: &str) -> Option<Self> {
