@@ -341,6 +341,7 @@ fn native_tac_stores_open_their_own_context() {
         ("kt", "init {"),
         ("go", "func NewProductStore() (*ProductStore, error) {"),
         ("rs", "impl Default for ProductStore {"),
+        ("rb", "def initialize\n      @behaviors = Behaviors.create(ProductSetup"),
         (
             "java",
             "ProductStore() {\n        behaviors = Behaviors.create(\"ProductSetup\"",

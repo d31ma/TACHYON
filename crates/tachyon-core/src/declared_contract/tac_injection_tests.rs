@@ -15,7 +15,7 @@ impl TacInjection {
             "@Store(ProductEntity, {\"setup\":\"CatalogSetup\"})\nexport default class ProductStore {\n  async findByStatus(status: string): Promise<ProductEntity[] | void> {}\n}\n",
         ),
     ];
-    const NATIVE_SERVICES: [(&'static str, &'static str, &'static str); 6] = [
+    const NATIVE_SERVICES: [(&'static str, &'static str, &'static str); 7] = [
         (
             "kt",
             "@Service\nclass ProductService {\n    @Needs\n    val products: ProductStore\n    var summary: String = \"\"\n}\n",
@@ -45,6 +45,11 @@ impl TacInjection {
             "go",
             "// @Service\ntype ProductService struct {\n\t// @Needs\n\tproducts *ProductStore\n\tSummary string\n}\n",
             "\tproducts *ProductStore\n\tSummary string\n}\n\nfunc (service *ProductService) tachyonStores() error {\n\tproducts, err := NewProductStore()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.products = products\n\treturn nil\n}\n",
+        ),
+        (
+            "rb",
+            "#[Service]\nclass ProductService\n  #[Needs]\n  # @return [ProductStore]\n  attr_reader :products\nend\n",
+            "  private def products\n    @products ||= ProductStore.new\n  end",
         ),
     ];
 

@@ -10,7 +10,7 @@ pub(crate) struct InjectedStore<'a> {
 
 impl<'a> InjectedStore<'a> {
     pub(crate) const GO_START: &'static str = "tachyonStores";
-    const FORMS: [(&'static str, &'static str, &'static str); 6] = [
+    const FORMS: [(&'static str, &'static str, &'static str); 7] = [
         (
             "kt",
             "@Needs",
@@ -33,6 +33,11 @@ impl<'a> InjectedStore<'a> {
         ),
         ("rs", "#[Needs]", "{indent}{name}: std::sync::Arc<{type}>,"),
         ("go", "// @Needs", "{indent}{name} *{type}"),
+        (
+            "rb",
+            "#[Needs]",
+            "{indent}private def {name}\n{indent}  @{name} ||= {type}.new\n{indent}end",
+        ),
     ];
     pub(super) const MODIFIERS: [&'static str; 9] = [
         "private",
@@ -49,6 +54,8 @@ impl<'a> InjectedStore<'a> {
     const EMPTY_ARGUMENTS: &'static str = "()";
     const STORE_FOLDER: &'static str = "client/stores";
     const GO: &'static str = "go";
+    const RUBY: &'static str = "rb";
+    const RUBY_COMMENT: &'static str = "# ";
     const GO_METHOD: &'static str =
         "\nfunc (service *{owner}) {start}() error {\n{assignments}\treturn nil\n}\n";
     const GO_ASSIGNMENT: &'static str = "\t{name}, err := New{type}()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.{name} = {name}\n";
@@ -94,11 +101,24 @@ impl<'a> InjectedStore<'a> {
     }
 
     fn edit(&self, lines: &[String], marker_at: usize) -> Option<(usize, usize, StoreField)> {
-        let field_at = (marker_at + 1..lines.len()).find(|at| !lines[*at].trim().is_empty())?;
-        let field = StoreField::read(&lines[field_at], self.language == Self::GO)?;
+        let field_at = (marker_at + 1..lines.len()).find(|at| self.is_field(&lines[*at]))?;
+        let field = if self.language == Self::RUBY {
+            StoreField::read_ruby(&lines[marker_at + 1..field_at], &lines[field_at])?
+        } else {
+            StoreField::read(&lines[field_at], self.language == Self::GO)?
+        };
         self.stores
             .contains(&field.type_name)
             .then_some((marker_at, field_at, field))
+    }
+
+    fn is_field(&self, line: &str) -> bool {
+        let trimmed = line.trim();
+        let documentation = [
+            self.language == Self::RUBY,
+            trimmed.starts_with(Self::RUBY_COMMENT),
+        ] == [true, true];
+        [trimmed.is_empty(), documentation] == [false, false]
     }
 
     fn go_start(&self, owner: &str, fields: &[&StoreField]) -> String {

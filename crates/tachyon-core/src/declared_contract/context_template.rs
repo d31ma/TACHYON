@@ -9,7 +9,7 @@ impl ContextTemplate {
     const JAVA_FIELD: &'static str = "Behaviors.Context behaviors;";
     const JAVA_START: &'static str = "@OnStart\nvoid startContext() {\n    behaviors = Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal()));\n}";
     const KOTLIN_FIELD: &'static str = "lateinit var behaviors: Behaviors.Context";
-    const TEMPLATES: [Self; 21] = [
+    const TEMPLATES: [Self; 22] = [
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new(
             "java-tac",
@@ -88,6 +88,11 @@ impl ContextTemplate {
             "rb",
             "",
             "#[OnStart]\ndef start_context\n    @behaviors = Behaviors.create({setup}, partition: \"{partition}\", signal: BehaviorSignal.new)\nend",
+        ),
+        Self::new(
+            "rb-tac",
+            "",
+            "def initialize\n    @behaviors = Behaviors.create({setup}, partition: \"{partition}\", signal: BehaviorSignal.new)\nend",
         ),
         Self::new(
             "rs",

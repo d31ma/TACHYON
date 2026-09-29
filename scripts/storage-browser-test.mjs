@@ -149,12 +149,25 @@ func (notes *GoNotesService) useRepository(action func(*BehaviorRepository) (Beh
 
 function writeRubyFixture(project) {
   write(project, 'client/setups/RubyNotesSetup.rb', '#[Setup]\nclass RubyNotesSetup\n  def self.configure(_execution)\n    {}\n  end\nend\n');
-  write(project, 'client/entities/RubyNoteEntity.rb', '#[Entity({"adapter":"indexeddb"})]\n#[Table("rubyNotes")]\nclass RubyNoteEntity\n  # @return [String]\n  #[Id]\n  attr_reader :id\nend\n');
+  write(project, 'client/entities/RubyNoteEntity.rb', '#[Entity({"adapter":"indexeddb"})]\n#[Table("rubyNotes")]\nclass RubyNoteEntity\n  # @return [String]\n  #[Id]\n  attr_reader :id\n  # @return [String]\n  attr_reader :text\nend\n');
   write(project, 'client/components/storage/ruby/tac.html', '<p id="ruby">{rubyNotes.reads}</p>\n<button id="ruby-bump" on:click="rubyNotes.increment()">+</button>\n<p id="ruby-count">{rubyNotes.count}</p>\n');
+  write(project, 'client/stores/RubyNoteStore.rb', `#[Store(RubyNoteEntity, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"RubyNotesSetup"})]
+class RubyNoteStore
+  def find_by_text(text)
+  end
+end
+`);
   write(project, 'client/services/RubyNotesService.rb', `#[Service]
 #[CacheSettings({"name":"rubynotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
 class RubyNotesService
   attr_reader :reads
+  #[Needs]
+  # @return [RubyNoteStore]
+  attr_reader :ruby_note_store
+
+  def kept
+    ruby_note_store.find_by_text("kept")
+  end
   #[LocalState]
   attr_accessor :count
 
@@ -1021,6 +1034,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Ruby cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').list())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'the Ruby Store row survives a reload and the refused AllOrNothing saved nothing');
+  expect(JSON.stringify(await evaluate(() => __root('rubyNotes').kept())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'a Ruby service that needs RubyNoteStore reads through the store, which opens the context of its Setup');
   if (StorageGate.withCSharp) await checkCSharpStorage(page, evaluate);
   if (StorageGate.withKotlin) await checkKotlinStorage(page, evaluate);
   if (StorageGate.withSwift) await checkSwiftStorage(page, evaluate);

@@ -11,6 +11,9 @@ impl StoreField {
     const POINTER: char = '*';
     const SHARED: [&'static str; 2] = ["std::sync::Arc<", "Arc<"];
     const SHARED_END: char = '>';
+    const RUBY_READER: &'static str = "attr_reader :";
+    const RUBY_RETURN: &'static str = "# @return [";
+    const RUBY_TYPE_END: char = ']';
 
     pub(super) fn read(line: &str, name_first: bool) -> Option<Self> {
         let indent = &line[..line.len() - line.trim_start().len()];
@@ -32,6 +35,20 @@ impl StoreField {
                     .trim_start_matches(Self::POINTER)
                     .trim_end_matches(Self::TYPED_PUNCTUATION),
             ),
+        })
+    }
+
+    pub(super) fn read_ruby(documentation: &[String], line: &str) -> Option<Self> {
+        let indent = &line[..line.len() - line.trim_start().len()];
+        let name = line.trim().strip_prefix(Self::RUBY_READER)?;
+        let type_name = documentation.iter().find_map(|comment| {
+            let returned = comment.trim().strip_prefix(Self::RUBY_RETURN)?;
+            returned.strip_suffix(Self::RUBY_TYPE_END)
+        })?;
+        Some(Self {
+            indent: indent.to_owned(),
+            name: name.to_owned(),
+            type_name: type_name.to_owned(),
         })
     }
 
