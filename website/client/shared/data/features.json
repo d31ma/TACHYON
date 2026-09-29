@@ -504,7 +504,7 @@
         },
         {
           "name": "client/clients/ProductsClient.js",
-          "code": "@HTTPClient({\"adapter\":\"products\"})\nexport default class ProductsClient {\n  /**\n   * @param {BehaviorJsonValue} product\n   * @returns {Promise<BehaviorJsonValue>}\n   */\n  @PostRequest(\"/api/products\")\n  async save(product) { return {body: product}; }\n}"
+          "code": "@HTTPClient({\"adapter\":\"products\"})\nexport default class ProductsClient {\n  /**\n   * @param {BehaviorJsonValue} product\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @PostRequest(\"/api/products\")\n  async save(@RequestBody product) {}\n}\n"
         },
         {
           "name": "client/services/CatalogService.js",
@@ -512,7 +512,7 @@
         },
         {
           "name": "client/clients/ProductsClient.ts",
-          "code": "@HTTPClient({\"adapter\":\"products\"})\nexport default class ProductsClient {\n  @PostRequest(\"/api/products\")\n  async save(product: BehaviorJsonValue): Promise<BehaviorJsonValue> { return {body: product}; }\n}"
+          "code": "@HTTPClient({\"adapter\":\"products\"})\nexport default class ProductsClient {\n  @PostRequest(\"/api/products\")\n  async save(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
         },
         {
           "name": "client/services/CatalogService.ts",
@@ -948,7 +948,7 @@
         },
         {
           "name": "spellings",
-          "code": "Declaring a method that another language answers\n\nEvery Yon language declares a Gateway the same way: the marker on its own\nline, strict JSON options, and a signature with an empty body.\n\n  JavaScript  @Gateway({...})    async summarize(period) {}\n  TypeScript  @Gateway({...})    async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n  Python      @gateway({...})    def summarize(self, period): ...\n  PHP         #[Gateway({...})]  public function summarize($period) {}\n  Java        @Gateway({...})    Object summarize(Object period) {}\n  Kotlin      @Gateway({...})    fun summarize(period: Any?): Any? {}\n  C#          [Gateway({...})]   public BehaviorJSON Summarize(BehaviorJSON period) {}\n  Rust        #[Gateway({...})]  fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue> {}\n  Dart        @Gateway({...})    Future<Object?> summarize(Object? period) async {}\n  Go          // @Gateway({...}) on the line before func (client *ReportClient) Summarize(period BehaviorValue) (BehaviorValue, error) {}\n\nThe options name one target:\n\n  {\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}\n  {\"command\":[\"python3\",\"server/helpers/forecast.py\"]}\n"
+          "code": "Declaring a method that another language answers\n\nEvery Yon language declares a Gateway the same way: the marker on its own\nline, strict JSON options, and a signature in an HTTPClient contract (an\ninterface, trait, Protocol class or abstract interface class; a class with\nempty method bodies in JavaScript, TypeScript and Ruby).\n\n  JavaScript  @Gateway({...})    async summarize(period) {}\n  TypeScript  @Gateway({...})    async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n  Ruby        #[Gateway({...})]  def summarize(period) ... end\n  Python      @gateway({...})    def summarize(self, period): ...\n  PHP         #[Gateway({...})]  public function summarize($period);\n  Java        @Gateway({...})    Object summarize(Object period);\n  Groovy      @Gateway({...})    Object summarize(Object period)\n  Kotlin      @Gateway({...})    fun summarize(period: Any?): Any?\n  C#          [Gateway({...})]   BehaviorJSON Summarize(BehaviorJSON period);\n  Rust        #[Gateway({...})]  fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n  Dart        @Gateway({...})    Future<Object?> summarize(Object? period);\n  F#          [<Gateway({...})>] abstract Summarize: period: BehaviorJSON -> BehaviorJSON\n  Go          // @Gateway({...}) on the line before Summarize(period BehaviorValue) (BehaviorValue, error) in the interface\n\nThe options name one target:\n\n  {\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}\n  {\"command\":[\"python3\",\"server/helpers/forecast.py\"]}\n"
         },
         {
           "name": "server/clients/ReportClient.js",
@@ -968,7 +968,7 @@
         },
         {
           "name": "server/clients/ForecastClient.py",
-          "code": "@h_t_t_p_client\nclass ForecastClient:\n    @gateway({\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"})\n    def summary(self, period: str) -> None: ...\n\n    @gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    def forecast(self, months: int) -> None: ...\n"
+          "code": "from typing import Protocol\n\n@http_client\nclass ForecastClient(Protocol):\n    @gateway({\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"})\n    def summary(self, period: str) -> object: ...\n\n    @gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    def forecast(self, months: int) -> object: ...\n"
         },
         {
           "name": "server/controllers/ForecastController.py",
@@ -984,11 +984,11 @@
         },
         {
           "name": "server/clients/LedgerClient.java",
-          "code": "@HTTPClient\nclass LedgerClient {\n    @Gateway({\"class\":\"server/services/LedgerService.py\"})\n    Object balance(Object account) {}\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months) {}\n}\n"
+          "code": "@HTTPClient\ninterface LedgerClient {\n    @Gateway({\"class\":\"server/services/LedgerService.py\"})\n    Object balance(Object account);\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months);\n}\n"
         },
         {
           "name": "server/clients/LedgerClient.groovy",
-          "code": "@HTTPClient\nclass LedgerClient {\n    @Gateway({\"class\":\"server/services/LedgerService.py\"})\n    Object balance(Object account) {}\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months) {}\n}\n"
+          "code": "@HTTPClient\ninterface LedgerClient {\n    @Gateway({\"class\":\"server/services/LedgerService.py\"})\n    Object balance(Object account)\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months)\n}\n"
         },
         {
           "name": "server/controllers/LedgerController.java",
