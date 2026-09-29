@@ -7,6 +7,7 @@ mod contract_form;
 mod contract_member;
 mod contract_rewrite;
 mod fsharp_client;
+mod fsharp_declaration;
 mod go_contract_rewrite;
 mod go_method;
 mod indented_members;

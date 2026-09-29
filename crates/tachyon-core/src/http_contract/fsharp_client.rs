@@ -1,17 +1,11 @@
+use super::contract_member::ContractMember;
+use super::fsharp_declaration::FsharpDeclaration;
 use crate::behavior::HttpClientSource;
-use serde_json::Value;
 use std::path::Path;
 
 pub(crate) struct FsharpClient<'a> {
     lines: Vec<&'a str>,
     code: Vec<String>,
-}
-
-struct FsharpDeclaration {
-    header: usize,
-    name: String,
-    options: Value,
-    body: Vec<usize>,
 }
 
 impl<'a> FsharpClient<'a> {
@@ -21,20 +15,8 @@ impl<'a> FsharpClient<'a> {
     const CLIENT: &'static str = "httpclient";
     const TYPE_WORD: &'static str = "type ";
     const CONSTRUCTOR: &'static str = "()";
-    const CLIENT_SUFFIX: &'static str = "Client";
-    const SETUP_SUFFIX: &'static str = "Setup";
     const DEFAULT_INDENT: &'static str = "    ";
-    const SETUP_KEY: &'static str = "setup";
-    const ADAPTER_KEY: &'static str = "adapter";
-    const REQUESTS: [&'static str; 7] = [
-        "getrequest",
-        "postrequest",
-        "putrequest",
-        "patchrequest",
-        "deleterequest",
-        "streamrequest",
-        "socketrequest",
-    ];
+    const NAME_JOINER: char = '_';
     const CONTEXT: &'static str = "member val behaviors : BehaviorContext = Behaviors.create(typeof<{setup}>, \"{partition}\", new BehaviorSignal())";
 
     pub(crate) fn lower(path: &Path, source: &'a str) -> Option<String> {
@@ -89,7 +71,7 @@ impl<'a> FsharpClient<'a> {
         Some(FsharpDeclaration {
             header,
             name,
-            options: Self::options(self.lines[marker]),
+            options: FsharpDeclaration::options_of(self.lines[marker]),
             body,
         })
     }
@@ -114,31 +96,32 @@ impl<'a> FsharpClient<'a> {
     fn class_less_name(header: &str) -> Option<String> {
         let rest = header.strip_prefix(Self::TYPE_WORD)?.trim_start();
         let length = rest
-            .find(|character: char| !(character.is_alphanumeric() || character == '_'))
+            .find(|character: char| !Self::is_name_character(character))
             .unwrap_or(rest.len());
         let interface = rest[length..].trim_start().starts_with('=');
         ([length > 0, interface] == [true, true]).then(|| rest[..length].to_owned())
     }
 
-    fn options(marker: &str) -> Value {
-        let open = marker.find('(');
-        let close = marker.rfind(')');
-        open.zip(close)
-            .filter(|(open, close)| close > open)
-            .and_then(|(open, close)| serde_json::from_str(marker[open + 1..close].trim()).ok())
-            .unwrap_or(Value::Null)
+    fn is_name_character(character: char) -> bool {
+        [character.is_alphanumeric(), character == Self::NAME_JOINER].contains(&true)
     }
 
     fn lowered(&self, declarations: &[FsharpDeclaration]) -> String {
-        let mut output = String::new();
-        for (index, line) in self.lines.iter().enumerate() {
-            let declaration = declarations.iter().find(|found| found.header == index);
-            match declaration {
-                Some(declaration) => output.push_str(&self.concrete_header(declaration, line)),
-                None => output.push_str(line),
-            }
-        }
-        output
+        self.lines
+            .iter()
+            .enumerate()
+            .map(|(index, line)| self.lowered_line(declarations, index, line))
+            .collect()
+    }
+
+    fn lowered_line(&self, declarations: &[FsharpDeclaration], index: usize, line: &str) -> String {
+        declarations
+            .iter()
+            .find(|declaration| declaration.header == index)
+            .map_or_else(
+                || line.to_owned(),
+                |declaration| self.concrete_header(declaration, line),
+            )
     }
 
     fn concrete_header(&self, declaration: &FsharpDeclaration, line: &str) -> String {
@@ -157,19 +140,19 @@ impl<'a> FsharpClient<'a> {
             return String::new();
         }
         let text = Self::CONTEXT
-            .replace("{setup}", &Self::setup(declaration))
-            .replace("{partition}", &Self::partition(declaration));
+            .replace("{setup}", &declaration.setup())
+            .replace("{partition}", &declaration.partition());
         format!("{}{text}\n\n", self.indent(declaration))
     }
 
     fn sends_request(line: &str) -> bool {
         let trimmed = line.trim_start();
         let marker = trimmed.starts_with(Self::ATTRIBUTE_OPEN);
-        let names = Self::attribute_names(trimmed);
-        let request = names
-            .iter()
-            .any(|name| Self::REQUESTS.contains(&name.as_str()));
-        [marker, request] == [true, true]
+        let member = ContractMember {
+            markers: Self::attribute_names(trimmed),
+            ..ContractMember::default()
+        };
+        [marker, member.sends_request()] == [true, true]
     }
 
     fn indent(&self, declaration: &FsharpDeclaration) -> String {
@@ -182,25 +165,5 @@ impl<'a> FsharpClient<'a> {
                 || String::from(Self::DEFAULT_INDENT),
                 |line| line[..line.len() - line.trim_start().len()].to_owned(),
             )
-    }
-
-    fn option(declaration: &FsharpDeclaration, key: &str) -> Option<String> {
-        declaration
-            .options
-            .get(key)
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-    }
-
-    fn setup(declaration: &FsharpDeclaration) -> String {
-        let name = &declaration.name;
-        let stem = name.strip_suffix(Self::CLIENT_SUFFIX).unwrap_or(name);
-        Self::option(declaration, Self::SETUP_KEY)
-            .unwrap_or_else(|| format!("{stem}{}", Self::SETUP_SUFFIX))
-    }
-
-    fn partition(declaration: &FsharpDeclaration) -> String {
-        Self::option(declaration, Self::ADAPTER_KEY)
-            .unwrap_or_else(|| HttpClientSource::adapter_name(&declaration.name))
     }
 }
