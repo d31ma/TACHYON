@@ -196,6 +196,10 @@ pub(super) fn polyglot_unit(ty: &super::polyglot::Type) -> Option<Unit> {
 
 pub(super) fn unit_helper(types: &[super::polyglot::Type], helper: &'static str) -> &'static str {
     let tested = types.iter().any(|ty| ty.policies.contains_key("test"));
+    helper_when(tested, helper)
+}
+
+fn helper_when(tested: bool, helper: &'static str) -> &'static str {
     if tested {
         return helper;
     }
