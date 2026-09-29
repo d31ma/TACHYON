@@ -198,3 +198,18 @@ no implementation, and Tachyon generates each query.
   `ty migrate fix --write` leaves that logic for a person to move into a
   service. Each runtime has a test with two behavior contexts in which the
   second write fails and the first is rolled back.
+
+## Amendment (2026-09-29): a Converter is a contract
+
+- `@Converter` joins `@HTTPClient` and `@Store` in the declared contract
+  table: the same bodiless form per language, like a MapStruct `@Mapper`
+  interface. Each method is a `@Convert` signature, and the existing mapping
+  generation writes its body. A method body, a field, a constructor, a method
+  without `@Convert`, or a class form where the language has a contract form
+  fails with `TY1308`: "A Converter has no implementation: Tachyon generates
+  each mapping."
+- The concrete converter is still built by each language's behavior lowering,
+  as before; the contract lowering only adds the `@Needs behaviors` field of a
+  JavaScript or TypeScript converter, whose caller passes its context with
+  `Behaviors.construct`. `ty migrate fix --write` rewrites a class converter.
+

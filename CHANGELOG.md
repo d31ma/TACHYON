@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- `@Converter` is a contract with no implementation, like a MapStruct
+  `@Mapper` interface (`TY1308`, ADR 0022 amendment): the same bodiless form
+  as `@Store` and `@HTTPClient` (an `abstract interface class` in Dart). A
+  method body, a field, a constructor, a method without `@Convert` and a class
+  converter in a language with a contract form are refused: "A Converter has
+  no implementation: Tachyon generates each mapping." A JavaScript or
+  TypeScript converter no longer declares `@Needs behaviors`: Tachyon adds it,
+  and the caller still passes its context with `Behaviors.construct`.
+  `ty migrate fix --write` rewrites a class converter.
 - `@AllOrNothing` follows the call, like Spring's propagation REQUIRED
   (ADR 0022 amendment): a store that a service injects, with its own behavior
   context, joins the service's open transaction when its entity uses the same

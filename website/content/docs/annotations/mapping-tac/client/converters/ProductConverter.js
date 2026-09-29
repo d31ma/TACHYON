@@ -1,8 +1,5 @@
 @Converter
 export default class ProductConverter {
-  /** @type {BehaviorContext} */
-  @Needs
-  behaviors;
   /**
    * @param {BehaviorJsonValue} product
    * @returns {Promise<BehaviorJsonObject | void>}
