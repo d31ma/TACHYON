@@ -41,8 +41,8 @@
       },
       {
         "name": "client/services/TallyService.swift",
-        "code": "@Service\nfinal class TallyService {\n  var count: Int = 6\n  let runtime = \"Swift, compiled into the app\"\n\n  func doubled() -> Int { count * 2 }\n}",
-        "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts. The service can use AppKit and UIKit."
+        "code": "@Service\nfinal class TallyService {\n  var count: Int = 6\n  let runtime = \"Swift, in the app or as WebAssembly\"\n\n  func doubled() -> Int { count * 2 }\n}",
+        "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library."
       },
       {
         "name": "client/services/TallyService.kt",

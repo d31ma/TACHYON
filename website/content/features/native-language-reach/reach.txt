@@ -7,10 +7,11 @@ client/services/BasketService.cs     the .NET base class library, on Windows
 client/services/BasketService.rs     the Rust standard library, on three desktops
 client/services/BasketService.go     no platform: WebAssembly, on every target
 
-Where no host links it, a Rust or C# service is WebAssembly, and a
-Go service is WebAssembly everywhere: the web platform is out of
-reach, and the service is state and logic over what its tag passes
-(ADR 0035, ADR 0037, ADR 0045).
+Where no host links it, a Rust, C#, Swift or Kotlin service is
+WebAssembly, and a Go service is WebAssembly everywhere: the web
+platform is out of reach, and the service is state and logic over
+what its tag passes (ADR 0035, ADR 0037, ADR 0045, ADR 0078,
+ADR 0082).
 
 companion.invoke carries a service instance's asynchronous member
 requests to its selected native service, named by instance: basket.

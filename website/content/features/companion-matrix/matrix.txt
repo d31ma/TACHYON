@@ -1,8 +1,9 @@
 BasketService.js, .ts, .dart  web, and every native target
 BasketService.rs               linked on macos, windows, linux;
                                WebAssembly everywhere else
-BasketService.swift            macos, ios
-BasketService.kt               android
+BasketService.swift            linked on macos, ios;
+                               WebAssembly everywhere else
+BasketService.kt               linked on android; WebAssembly everywhere else
 BasketService.cs               linked on windows; WebAssembly everywhere else
 BasketService.go               WebAssembly on every target
 
@@ -11,5 +12,5 @@ more than one native language reaches the target being built, the
 platform's own language wins over Rust, and only the winner is
 compiled. When no language of the service links on the target, the
 build uses its browser script, or failing that its Rust, then its Go,
-then its C#, as WebAssembly. So only a service written only in Swift
-or Kotlin can fail to reach a target.
+then its C#, then its Swift, then its Kotlin, as WebAssembly. So
+every service reaches every target.

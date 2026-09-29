@@ -59,7 +59,7 @@
       "code": {
         "file": "client/services/TallyService.swift"
       },
-      "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts. The service can use AppKit and UIKit."
+      "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library."
     },
     {
       "name": "client/services/TallyService.kt",

@@ -1,2 +1,3 @@
-error[TY1010]: Route '{catalog}' has no companion that runs on android.
-               It declares Swift (macos, ios).
+error[TY1317]: Swift services cannot call browser APIs. Put this code in a JS or TS service and send the result to this service with an event.
+  --> client/services/CatalogService.swift
+  help: Remove `JavaScriptKit`. Browser work lives in a JavaScript or TypeScript service. That service publishes a typed event, and this service receives it with @OnEvent.
