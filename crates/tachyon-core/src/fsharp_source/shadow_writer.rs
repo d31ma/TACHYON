@@ -23,6 +23,9 @@ impl<'a> ShadowWriter<'a> {
         "IdentityProvider",
     ];
 
+    const STORE: &'static str = "Store";
+    const BARE_STORE: &'static str = "[Store]";
+
     pub(crate) fn write(text: &'a str, code: &'a [bool]) -> Vec<(String, usize)> {
         let mut writer = Self {
             lines: SourceLine::split(text, code),
@@ -138,8 +141,14 @@ impl<'a> ShadowWriter<'a> {
     fn write_attributes(&mut self, index: usize) {
         for attribute in AttributeLine::read(self.lines[index].trimmed()) {
             self.push(index, &attribute.csharp);
-            self.attributes.push(attribute.name);
+            if !Self::is_store_with_options(&attribute) {
+                self.attributes.push(attribute.name);
+            }
         }
+    }
+
+    fn is_store_with_options(attribute: &AttributeLine) -> bool {
+        attribute.name == Self::STORE && attribute.csharp != Self::BARE_STORE
     }
 
     fn write_type(&mut self, index: usize) {

@@ -411,6 +411,10 @@ pub(super) fn reject_in_tac(
 }
 
 pub(crate) fn declarations(path: &Path, source: &str) -> Result<Vec<GatewayDeclaration>, Failure> {
+    crate::fsharp_source::FsharpView::either(path, source, written_declarations)
+}
+
+fn written_declarations(path: &Path, source: &str) -> Result<Vec<GatewayDeclaration>, Failure> {
     if !source.contains("Gateway") && !source.contains("gateway") {
         return Ok(Vec::new());
     }

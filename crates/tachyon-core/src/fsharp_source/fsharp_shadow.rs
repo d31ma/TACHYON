@@ -140,4 +140,26 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn a_store_with_options_is_not_a_provider_and_its_abstract_members_have_bodies() {
+        let source = "[<Store(typeof<EntryEntity>, {\"fields\":[\"id\"],\"defaultSize\":20,\"maxSize\":100})>]\ntype EntryStore(context: BehaviorContext) =\n    member val behaviors : BehaviorContext = context\n\n    abstract findById: id: BehaviorJSON -> Task<BehaviorJSON>\n";
+        let shadow = FsharpShadow::of(source);
+        assert!(!shadow.text().contains("[Needs"), "{}", shadow.text());
+        assert!(
+            shadow
+                .text()
+                .contains("public async Task<BehaviorJSON> findById(BehaviorJSON id) { }"),
+            "{}",
+            shadow.text()
+        );
+        let bare = FsharpShadow::of(
+            "[<Store>]\ntype EntryStore(helper: EntryHelper) =\n    member this.All() : int = 1\n",
+        );
+        assert!(
+            bare.text().contains("[Needs(EntryHelper)]"),
+            "{}",
+            bare.text()
+        );
+    }
 }
