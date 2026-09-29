@@ -1,8 +1,8 @@
 @Helper
 class BillingHelper {
-  static const int surcharge = 2;
+  static const int _surcharge = 2;
 
   int settle(int subtotal) {
-    return subtotal + surcharge;
+    return subtotal + _surcharge;
   }
 }

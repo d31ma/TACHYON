@@ -1504,16 +1504,16 @@ class CounterService {
     }
 
     #[test]
-    fn a_service_can_also_declare_its_http_transport() {
+    fn a_service_cannot_also_be_its_http_client() {
         let project = tempfile::tempdir().expect("project");
         let relative = std::path::Path::new("client/services/CatalogService.dart");
         let source = "@Service\n@HTTPClient\nclass CatalogService {\n  @GetRequest(\"/products\")\n  Future<Object?> load() async {}\n}\n";
         std::fs::create_dir_all(project.path().join("client/services")).expect("services");
         std::fs::write(project.path().join(relative), source).expect("source");
-        let prepared = super::prepare(project.path(), relative, source).expect("HTTP service");
-        assert!(!prepared.source.contains("@HTTPClient"));
-        assert!(!prepared.source.contains("@Service"));
-        assert!(prepared.source.contains("/products"));
+        let Err(failure) = super::prepare(project.path(), relative, source) else {
+            panic!("a service that is also an HTTPClient must be refused");
+        };
+        assert!(failure.to_string().contains("is its own role"), "{failure}");
     }
 
     #[test]

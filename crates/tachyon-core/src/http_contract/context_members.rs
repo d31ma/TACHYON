@@ -102,7 +102,13 @@ impl ContextMembers<'_> {
             self.setup, self.partition
         );
         if self.tac {
-            return vec![format!("val behaviors: Behaviors.Context = {create}")];
+            return vec![
+                String::from("lateinit var behaviors: Behaviors.Context"),
+                String::new(),
+                String::from("init {"),
+                Self::body(&format!("behaviors = {create}")),
+                String::from("}"),
+            ];
         }
         vec![
             String::from("lateinit var behaviors: Behaviors.Context"),

@@ -410,7 +410,7 @@ mod tests {
         for (relative, text) in [
             (
                 "server/clients/ReportClient.py",
-                "@http_client\nclass ReportClient:\n    @gateway({\"command\":[\"python3\",\"server/helpers/report.py\"]})\n    def summarize(self, mode): ...\n",
+                "@http_client\nclass ReportClient(Protocol):\n    @gateway({\"command\":[\"python3\",\"server/helpers/report.py\"]})\n    def summarize(self, mode): ...\n",
             ),
             (
                 "server/controllers/ReportController.py",

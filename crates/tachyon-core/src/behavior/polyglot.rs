@@ -1337,10 +1337,7 @@ fn resolve_marker(
     at: usize,
 ) -> Result<Option<&'static &'static str>, Failure> {
     if name == "client" {
-        if environment == "yon" {
-            return Ok(None);
-        }
-        return Err(input.failure(at, "@HTTPClient alone makes a browser client, which only JavaScript and TypeScript have. In this service, keep @Service and add @HTTPClient: then it only says where the service's requests go"));
+        return Ok(None);
     }
     if matches!(name, "service" | "lifetime" | "helper") && environment == "yon" {
         return Ok(None);

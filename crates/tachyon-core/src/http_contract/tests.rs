@@ -349,10 +349,7 @@ fn every_contract_lowers_into_its_concrete_client() {
 #[test]
 fn tac_clients_create_their_context_when_they_are_built() {
     let expected = [
-        (
-            "kt",
-            "val behaviors: Behaviors.Context = Behaviors.create(\"CatalogSetup\"",
-        ),
+        ("kt", "init {"),
         (
             "cs",
             "public BehaviorContext behaviors = Behaviors.create(typeof(CatalogSetup)",

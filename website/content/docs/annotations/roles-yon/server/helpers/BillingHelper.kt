@@ -5,6 +5,6 @@ class BillingHelper {
   }
 
   companion object {
-    const val SURCHARGE: Int = 2
+    private const val SURCHARGE: Int = 2
   }
 }

@@ -9,7 +9,9 @@ pub(crate) struct ServiceRoles {
 }
 
 impl ServiceRoles {
-    const NAMES: [&str; 5] = ["Service", "Lifetime", "NeedsAll", "Helper", "Store"];
+    const NAMES: [&str; 6] = [
+        "Service", "Lifetime", "NeedsAll", "Helper", "Store", "Client",
+    ];
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
         crate::fsharp_source::FsharpView::either(path, source, |path, source| {
@@ -68,6 +70,7 @@ impl ServiceRoles {
                     }
                 }
                 "Store" if !marker.arguments.trim().is_empty() => continue,
+                "Client" => {}
                 "Helper" => {
                     let refusal = crate::annotation_rules::AnnotationRules::unavailable(
                         "Helper", extension, "tac",
@@ -219,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn an_http_service_keeps_its_role_until_behavior_lowering() {
+    fn a_service_that_is_also_an_http_client_is_refused() {
         for (extension, service, client, declaration) in [
             (
                 "rs",
@@ -246,16 +249,12 @@ mod tests {
             let source = format!("{service}\n{client}\n{declaration}\n");
             let relative = format!("client/services/CatalogService.{extension}");
             let roles = read(&relative, &source);
-            crate::annotation_layout::validate(Path::new(&relative), &roles.source)
-                .expect("service role");
-            let rewritten =
-                crate::behavior::HttpClientSource::rewrite(Path::new(&relative), &roles.source)
-                    .expect("HTTP metadata")
-                    .expect("rewritten");
-            assert!(rewritten.contains(service), "{extension}");
-            assert!(!rewritten.contains("Client"), "{extension}: {rewritten}");
-            crate::behavior::lower(Path::new(&relative), &roles.source, "tac")
-                .expect("service HTTP metadata lowers");
+            let failure = crate::annotation_layout::validate(Path::new(&relative), &roles.source)
+                .expect_err("a service is not also an HTTPClient");
+            assert!(
+                failure.to_string().contains("is its own role"),
+                "{extension}: {failure}"
+            );
         }
     }
 

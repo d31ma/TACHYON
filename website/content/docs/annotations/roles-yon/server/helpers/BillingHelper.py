@@ -1,6 +1,6 @@
 @helper
 class BillingHelper:
-    SURCHARGE = 2
+    _SURCHARGE = 2
 
     def settle(self, subtotal: int) -> int:
-        return subtotal + self.SURCHARGE
+        return subtotal + self._SURCHARGE

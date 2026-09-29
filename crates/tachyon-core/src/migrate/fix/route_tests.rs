@@ -399,10 +399,13 @@ fn spring_names_that_were_never_ours_are_renamed() {
     plan(project.path())
         .write(project.path())
         .expect("write again");
+    let contract = read(project.path(), "server/clients/OrdersClient.py");
     assert!(
-        read(project.path(), "server/clients/OrdersClient.py")
-            .starts_with("from typing import Annotated\n@http_client")
+        contract.starts_with("from typing import Annotated, Protocol\n@http_client"),
+        "{contract}"
     );
+    assert!(contract.contains("class OrdersClient(Protocol):"), "{contract}");
+    assert!(contract.contains("path_variable]): ...\n"), "{contract}");
 }
 
 #[test]

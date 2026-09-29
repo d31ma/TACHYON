@@ -545,7 +545,7 @@ mod tests {
             ("rs", "#[tac::client]"),
         ] {
             let source = format!("{annotation}\nclass HTTPClient {{}}");
-            assert!(lower_file(&format!("tac.{extension}"), &source, "tac").is_err());
+            assert!(lower_file(&format!("tac.{extension}"), &source, "tac").is_ok());
         }
         let yon = lower_file("yon.js", source, "yon").unwrap().unwrap();
         assert!(
