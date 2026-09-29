@@ -1,0 +1,6 @@
+{
+  "name": "Shop",
+  "tac": {
+    "elements": ["shop-counter"]
+  }
+}

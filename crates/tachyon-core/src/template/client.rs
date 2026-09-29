@@ -83,6 +83,13 @@ impl<'a> ClientViewRenderer<'a> {
         })
     }
 
+    pub(crate) fn element(self, name: &str) -> Result<Value, Failure> {
+        let mut encoder = Encoder::new(self.components, self.services);
+        let mut element = encoder.exported_component(name)?;
+        element["services"] = Value::Object(self.service_catalog());
+        Ok(element)
+    }
+
     fn service_catalog(&self) -> serde_json::Map<String, Value> {
         let mut catalog = serde_json::Map::new();
         for (instance, service) in self.services.iter() {
@@ -369,6 +376,65 @@ impl<'a> Encoder<'a> {
             "template": template,
             "slot": slot,
         }))
+    }
+
+    fn exported_component(&mut self, name: &str) -> Result<Value, Failure> {
+        let Some(component) = self.components.get(name) else {
+            return Ok(Value::Null);
+        };
+        let template_nodes = &component.program().nodes;
+        let service_names = self.named_services(template_nodes);
+        let props = self.element_props(template_nodes, &service_names);
+        let active = !service_names.is_empty();
+        let services = self.service_entries(&service_names);
+        self.enclosing.push(EnclosingComponent {
+            name: String::from(name),
+            props: props.clone(),
+            services: service_names,
+        });
+        let template = self.component_template(template_nodes, active);
+        self.enclosing.pop();
+        let slot = if contains_slot(template_nodes) {
+            vec![
+                json!({ "k": "element", "tag": "slot", "attributes": [], "children": [], "void": false }),
+            ]
+        } else {
+            Vec::new()
+        };
+        Ok(json!({
+            "props": props,
+            "node": {
+                "k": "component",
+                "name": name,
+                "exported": true,
+                "properties": [],
+                "mount": active.then_some(HydrationPolicy::Load.name()),
+                "services": services,
+                "scope": component.style_path().is_some(),
+                "template": template?,
+                "slot": slot,
+            },
+        }))
+    }
+
+    fn element_props(
+        &self,
+        template_nodes: &[TemplateNode],
+        service_names: &[String],
+    ) -> BTreeSet<String> {
+        let mut props = BTreeSet::new();
+        collect_identifiers(template_nodes, &mut props);
+        for service in service_names
+            .iter()
+            .filter_map(|name| self.services.get(name))
+        {
+            props.extend(service.required().iter().cloned());
+        }
+        props.retain(|prop| {
+            !service_names.contains(prop)
+                && !ClientViewRenderer::VIEW_ROOTS.contains(&prop.as_str())
+        });
+        props
     }
 
     fn check_required(

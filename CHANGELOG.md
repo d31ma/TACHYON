@@ -561,6 +561,16 @@ machine contracts have their own, independent major versions.
   out). Role files composed into an F# unit keep their
   behavior annotations, and F# units in `client/tests` compile the C#
   behavior runtime into a `behaviors` library.
+- A Tac component can be used by other apps as a standard custom element
+  (ADR 0086). List it in `tac.elements` in `client/manifest.json`, and
+  `ty build` writes `.tachyon/elements/<tag>.js`, which imports the shared
+  runtime. Attributes (strings) and properties (any value) set the props, a
+  service's application event also reaches the page as a DOM `CustomEvent`
+  (`CountChanged` becomes `count-changed`, the model in `detail`), and the
+  element renders in a shadow root with a native `<slot>` and the component
+  styles. `TY1358` stops a name without a hyphen or a name that is not a
+  component. The runtime now also starts on a page without a Tac view.
+  Slice 1 covers JavaScript and TypeScript services.
 
 - Java web services now exchange models and events with the page and use the
   built-in browser storage (ADR 0083 amendment). `client/models` may hold Java

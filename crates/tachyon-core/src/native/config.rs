@@ -375,10 +375,12 @@ pub(crate) struct TacMember {
     pub(super) sitemap: BTreeMap<String, SitemapValues>,
     #[serde(default, rename = "browserApis")]
     pub(super) browser_apis: Vec<String>,
+    #[serde(default)]
+    pub(super) elements: Vec<String>,
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 14] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 15] = [
         "origin",
         "application",
         "scripts",
@@ -393,6 +395,7 @@ impl TacMember {
         "signatures",
         "constants",
         "browserApis",
+        "elements",
     ];
 }
 

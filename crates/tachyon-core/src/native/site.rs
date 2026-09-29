@@ -14,6 +14,7 @@ pub(crate) struct SiteSettings {
     pub(crate) origin: Option<String>,
     pub(crate) sitemap: BTreeMap<String, SitemapValues>,
     pub(crate) browser_apis: Vec<String>,
+    pub(crate) elements: Vec<String>,
 }
 
 impl SiteSettings {
@@ -44,6 +45,7 @@ impl SiteSettings {
             origin: tac.origin,
             sitemap: tac.sitemap,
             browser_apis,
+            elements: tac.elements,
         })
     }
 

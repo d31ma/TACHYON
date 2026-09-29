@@ -7,6 +7,7 @@ mod build_state;
 mod component_script;
 mod component_styles;
 mod content_digest;
+mod exported_elements;
 mod output_path;
 mod page_composition;
 mod page_head;
@@ -333,7 +334,8 @@ impl WebCompiler {
         let manifest = project.route_graph().manifest();
         build.add_route_files(&programs, previous.as_ref(), &site)?;
         build.finish_phase("routes");
-        build.add_static_files(!programs.is_empty())?;
+        build.add_static_files(!programs.is_empty() || !site.elements.is_empty())?;
+        build.add_element_files(&site.elements)?;
         build.finish_phase("static files");
         build.add_service_files().await?;
         build.finish_phase(SiteBuild::SERVICES_PHASE);

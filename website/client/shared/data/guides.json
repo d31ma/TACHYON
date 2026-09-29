@@ -9,6 +9,7 @@
     "services",
     "browser-storage",
     "application-events",
+    "web-components",
     "controllers",
     "models",
     "checking-values",
@@ -72,7 +73,8 @@
         "templates",
         "services",
         "browser-storage",
-        "application-events"
+        "application-events",
+        "web-components"
       ]
     },
     {
@@ -237,6 +239,15 @@
       "summary": "An event is a message that one service publishes and other services receive. The publisher does not need to know who listens. This page also shows the start and stop methods of a service (lifecycle hooks), in the browser and on the server.",
       "before": [
         "services"
+      ]
+    },
+    "web-components": {
+      "title": "Components in other apps",
+      "summary": "A component can leave your Tac app. List it in `tac.elements`, and the build makes it a custom element: a standard HTML tag that a plain HTML page, React, Angular, Vue or another Tac app can use. Values go in as attributes or properties, events come out as DOM events, and the children of the tag show in its `<slot>`.",
+      "before": [
+        "templates",
+        "services",
+        "application-events"
       ]
     },
     "controllers": {

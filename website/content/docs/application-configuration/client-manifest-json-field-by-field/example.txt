@@ -43,6 +43,10 @@ tac.origin                                              build
 tac.scripts, tac.styles                                 build
   Up to 8 local paths each, linked into every page.
 
+tac.elements                                            build
+  Components to export as custom elements, such as
+  ["shop-counter"]: one module each in .tachyon/elements/.
+
 tac.cache                                               build
   Service-worker rules: [{ "path": "/api/*", "policy":
   "network-first" }]; cache-first, network-first or no-store.

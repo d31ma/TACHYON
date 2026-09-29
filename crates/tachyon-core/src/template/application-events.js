@@ -1,8 +1,9 @@
 class TacApplicationEvents {
-  constructor({ changed, failed, calling = (owner, work) => work() }) {
+  constructor({ changed, failed, calling = (owner, work) => work(), announced = () => {} }) {
     this.changed = changed
     this.failed = failed
     this.calling = calling
+    this.announced = announced
     this.listeners = new Map()
     this.retained = new Map()
     this.owners = new WeakMap()
@@ -159,6 +160,7 @@ class TacApplicationEvents {
     if (name === 'applicationEventPublisher') return { publishEvent: (event, value, retain = false) => {
       this.alive(state)
       this.publish(event, value, { retain: retain === true })
+      this.announced(state.resources.view, event, value)
     } }
     return Object.fromEntries(Object.keys(state.resources[name]).map(method => [method, (...args) => {
       this.alive(state)

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fruit stand</title>
+  <script type="module" src="/.tachyon/elements/shop-counter.js"></script>
+  <style>
+    shop-counter { --shop-accent: crimson; }
+  </style>
+</head>
+<body>
+  <shop-counter id="apples" label="Apples" start="5">
+    <p>Picked this morning.</p>
+  </shop-counter>
+  <p id="total">No clicks yet.</p>
+  <script type="module">
+    const apples = document.getElementById('apples');
+    apples.addEventListener('count-changed', (event) => {
+      document.getElementById('total').textContent = `Apples: ${event.detail.count}`;
+    });
+    apples.label = 'Green apples';
+  </script>
+</body>
+</html>

@@ -9,6 +9,7 @@
     "services",
     "browser-storage",
     "application-events",
+    "web-components",
     "controllers",
     "models",
     "checking-values",
@@ -72,7 +73,8 @@
         "templates",
         "services",
         "browser-storage",
-        "application-events"
+        "application-events",
+        "web-components"
       ]
     },
     {
@@ -205,6 +207,9 @@
     },
     "application-events": {
       "include": "application-events/topic.json"
+    },
+    "web-components": {
+      "include": "web-components/topic.json"
     },
     "controllers": {
       "include": "controllers/topic.json"

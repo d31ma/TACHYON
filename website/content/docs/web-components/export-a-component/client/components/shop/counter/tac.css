@@ -1,0 +1,4 @@
+.count {
+  color: var(--shop-accent, teal);
+  font-size: 2rem;
+}

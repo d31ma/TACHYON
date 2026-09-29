@@ -1,11 +1,11 @@
 const readViewPlan = () => {
   const planElement = document.getElementById('tachyon-view')
-  if (!planElement) throw new Error('Tac client view plan is missing.')
-  return JSON.parse(planElement.textContent || '{}')
+  return planElement ? JSON.parse(planElement.textContent || '{}') : null
 }
 
 class ClientView {
-  static plan = readViewPlan()
+  static page = readViewPlan()
+  static plan = ClientView.page ?? { nodes: [], services: {}, state: {} }
 }
 
 class Components {
@@ -950,22 +950,22 @@ const retainedPair = (old, freshChild) => {
   return { old, fresh, previous }
 }
 
-const focusChain = (active, fragment) => {
+const focusChain = (active, fragment, container) => {
   const chain = []
   let old = active
   let freshChild = null
-  while (old && old !== document.body) {
+  while (old && old !== container) {
     if (!Elements.records.has(old) && chain.length) {
-      old = old.parentElement
+      old = old.parentNode
       continue
     }
     const pair = retainedPair(old, freshChild)
     if (!pair) return []
     chain.unshift(pair)
     freshChild = pair.fresh
-    old = old.parentElement
+    old = old.parentNode
   }
-  if (old !== document.body || chain[0]?.fresh.parentNode !== fragment) return []
+  if (old !== container || chain[0]?.fresh.parentNode !== fragment) return []
   return chain
 }
 
@@ -999,12 +999,12 @@ const changesObservedAttribute = ({ old, fresh, previous }) => {
   } catch { return true }
 }
 
-const preflightFocus = (chain, fragment) => {
+const preflightFocus = (chain, fragment, container) => {
   const distributions = new Map()
   for (let depth = 0; depth < chain.length; depth += 1) {
     const pair = chain[depth]
     if (changesObservedAttribute(pair)) return null
-    const parent = depth ? chain[depth - 1].old : document.body
+    const parent = depth ? chain[depth - 1].old : container
     if (pair.old.parentNode === parent) continue
     const source = depth ? chain[depth - 1].fresh : fragment
     const groups = depth ? distributionGroups(parent, source, pair.old) : null
@@ -1014,9 +1014,9 @@ const preflightFocus = (chain, fragment) => {
   return distributions
 }
 
-const replaceAndRefocus = (fragment, active, replacement) => {
+const replaceAndRefocus = (container, fragment, active, replacement) => {
   const selection = [active.selectionStart, active.selectionEnd, active.selectionDirection]
-  document.body.replaceChildren(fragment)
+  container.replaceChildren(fragment)
   replacement.focus({ preventScroll: true })
   if (selection[0] !== null && selection[0] !== undefined) {
     try { replacement.setSelectionRange(...selection) } catch {}
@@ -1054,7 +1054,7 @@ const transferEventListeners = (element, fresh) => {
   Elements.listeners.set(element, listeners)
 }
 
-class FocusedBodyUpdate {
+class FocusedRootUpdate {
   constructor(chain, distributions, active, editingAtStart) {
     Object.assign(this, { chain, distributions, active, editingAtStart })
   }
@@ -1119,14 +1119,20 @@ class FocusedBodyUpdate {
   }
 }
 
-const commitBody = (fragment, editingAtStart) => {
-  const active = document.activeElement
-  const chain = focusChain(active, fragment)
-  if (!chain.length) { document.body.replaceChildren(fragment); return }
-  const distributions = preflightFocus(chain, fragment)
-  if (!distributions) { replaceAndRefocus(fragment, active, chain.at(-1).fresh); return }
-  const update = new FocusedBodyUpdate(chain, distributions, active, editingAtStart)
-  update.commit(document.body, fragment, 0)
+const focusedElement = () => {
+  let active = document.activeElement
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement
+  return active
+}
+
+const commitRoot = (container, fragment, editingAtStart) => {
+  const active = container.getRootNode().activeElement
+  const chain = focusChain(active, fragment, container)
+  if (!chain.length) { container.replaceChildren(fragment); return }
+  const distributions = preflightFocus(chain, fragment, container)
+  if (!distributions) { replaceAndRefocus(container, fragment, active, chain.at(-1).fresh); return }
+  const update = new FocusedRootUpdate(chain, distributions, active, editingAtStart)
+  update.commit(container, fragment, 0)
   update.finalize()
 }
 
@@ -1140,7 +1146,7 @@ const retainComponentRoots = () => {
       return [fresh, owner, policy, key]
     }
     syncAuthoredAttributes(previous, Elements.records.get(previous), Elements.records.get(fresh))
-    const active = document.activeElement
+    const active = focusedElement()
     const editing = active && fresh.contains(active) ? active : null
     const selection = editing && typeof editing.selectionStart === 'number'
       ? [editing.selectionStart, editing.selectionEnd, editing.selectionDirection] : null
@@ -1176,7 +1182,7 @@ const renderComponent = async (node, environment, path) => {
   const componentKey = `${path}:${node.name}`
   const owner = await componentOwner(node, properties, componentKey)
   for (const [name, value] of Object.entries(properties)) {
-    if (!(name in owner)) owner[name] = value
+    if (node.exported || !(name in owner)) owner[name] = value
   }
   const host = document.createElement('tachyon-component')
   host.dataset.tachyonComponent = node.name
@@ -1300,14 +1306,108 @@ const renderNodes = async (nodes, environment, path, slot) => {
   return fragment
 }
 
+class TacElements {
+  static connected = new Set()
+  static created = 0
+  static stylesheet = null
+
+  static define(definition) {
+    for (const [name, service] of Object.entries(definition.services || {})) {
+      if (!Object.hasOwn(Services.catalog, name)) Services.catalog[name] = service
+    }
+    if (!customElements.get(definition.node.name)) customElements.define(definition.node.name, TacElements.elementClass(definition))
+  }
+
+  static elementClass(definition) {
+    const attributes = new Map(definition.props.map((name) => [TacElements.kebab(name), name]))
+    const element = class extends HTMLElement {
+      static observedAttributes = [...attributes.keys()]
+      constructor() {
+        super()
+        this.attachShadow({ mode: 'open' })
+        this._tacDefinition = definition
+        this._tacPath = `element.${TacElements.created += 1}`
+        this._tacNode = { ...definition.node, properties: [] }
+        this._tacProperties = Object.create(null)
+        for (const name of definition.props) TacElements.upgradeProperty(this, name)
+      }
+      connectedCallback() { TacElements.connected.add(this); TacElements.refresh() }
+      disconnectedCallback() { TacElements.connected.delete(this); TacElements.refresh() }
+      attributeChangedCallback(attribute, _previous, value) { TacElements.change(this, attributes.get(attribute), value) }
+    }
+    for (const name of definition.props) {
+      Object.defineProperty(element.prototype, name, {
+        configurable: true,
+        enumerable: true,
+        get() { return this._tacProperties[name] },
+        set(value) { TacElements.change(this, name, value) },
+      })
+    }
+    return element
+  }
+
+  static upgradeProperty(element, name) {
+    if (!Object.hasOwn(element, name)) return
+    const value = element[name]
+    delete element[name]
+    element[name] = value
+  }
+
+  static kebab(name) {
+    return name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+  }
+
+  static change(element, name, value) {
+    element._tacProperties[name] = value
+    element._tacNode.properties = Object.entries(element._tacProperties).map(([key, given]) => ({ name: key, value: given }))
+    if (element.isConnected) TacElements.refresh()
+  }
+
+  static refresh() {
+    void render().catch(signalFailure)
+  }
+
+  static loadStylesheet() {
+    TacElements.stylesheet ??= fetch(new URL('components.css', import.meta.url))
+      .then((response) => response.ok ? response.text() : '')
+      .then((text) => {
+        const sheet = new CSSStyleSheet()
+        sheet.replaceSync(text)
+        return sheet
+      })
+    return TacElements.stylesheet
+  }
+
+  static async renderInto(element, environment, editingAtStart) {
+    try {
+      const root = element.shadowRoot
+      if (element._tacDefinition.styles && !root.adoptedStyleSheets.length) root.adoptedStyleSheets = [await TacElements.loadStylesheet()]
+      commitRoot(root, await renderNodes([element._tacNode], environment, element._tacPath, null), editingAtStart)
+      delete element.dataset.tachyonRenderError
+    } catch (error) {
+      element.dataset.tachyonRenderError = 'render_failed'
+      globalThis.reportError?.(error)
+    }
+  }
+
+  static announce(view, name, value) {
+    const root = view?.getRootNode?.()
+    if (!(root instanceof ShadowRoot) || !TacElements.connected.has(root.host)) return
+    const detail = JSON.parse(JSON.stringify(value))
+    view.dispatchEvent(new CustomEvent(TacElements.kebab(name), { detail, bubbles: true, composed: true }))
+  }
+}
+
 const renderDocument = async (environment) => {
   Rendering.nodeCount = 0
   Rendering.iterationCount = 0
   Rendering.instanceKeys = new Set()
   Rendering.elements = new Map()
   Rendering.mounts = []
-  const editingAtStart = { element: document.activeElement, value: document.activeElement?.value }
-  commitBody(await renderNodes(ClientView.plan.nodes || [], environment, 'body', null), editingAtStart)
+  const focused = focusedElement()
+  const editingAtStart = { element: focused, value: focused?.value }
+  if (ClientView.page) commitRoot(document.body, await renderNodes(ClientView.plan.nodes || [], environment, 'body', null), editingAtStart)
+  for (const element of TacElements.connected) await TacElements.renderInto(element, environment, editingAtStart)
   retainComponentRoots()
   for (const arguments_ of Rendering.mounts) mountComponent(...arguments_)
   for (const [key, record] of Components.records) {
@@ -1346,6 +1446,7 @@ class Runtime {
     changed: () => { void render().catch(signalFailure) },
     failed: signalFailure,
     calling: (owner, work) => TacWebApis.calling(owner, work),
+    announced: (view, name, value) => TacElements.announce(view, name, value),
   })
   static graphs = new WeakMap()
   static watching = TacWebApis.watch({
@@ -1537,3 +1638,5 @@ whenIdle(() => {
     markDocument('tachyonCacheError', 'precache_failed')
   })
 })
+
+export { TacElements }

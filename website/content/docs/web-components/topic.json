@@ -1,0 +1,17 @@
+{
+  "title": "Components in other apps",
+  "summary": "A component can leave your Tac app. List it in `tac.elements`, and the build makes it a custom element: a standard HTML tag that a plain HTML page, React, Angular, Vue or another Tac app can use. Values go in as attributes or properties, events come out as DOM events, and the children of the tag show in its `<slot>`.",
+  "before": [
+    "templates",
+    "services",
+    "application-events"
+  ],
+  "sections": [
+    {
+      "include": "export-a-component/section.json"
+    },
+    {
+      "include": "use-it-in-another-page/section.json"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ use super::build_stage::BuildStage;
 use super::build_state::BuildState;
 use super::component_styles::ComponentStyles;
 use super::content_digest::ContentDigest;
+use super::exported_elements::ExportedElements;
 use super::output_path::OutputPath;
 use super::page_composition::PageComposition;
 use super::page_head::PageHead;
@@ -136,6 +137,14 @@ impl<'a> SiteBuild<'a> {
         );
         self.add_component_styles_file();
         self.add_client_runtime_file(has_tac_routes);
+        Ok(())
+    }
+
+    pub(super) fn add_element_files(&mut self, names: &[String]) -> Result<(), Failure> {
+        let renderer = ClientViewRenderer::new(&self.components, &self.services, &self.shared_data);
+        let has_styles = !self.component_styles.is_empty();
+        let elements = ExportedElements::new(renderer, &self.components, has_styles);
+        self.files.extend(elements.files(names)?);
         Ok(())
     }
 
