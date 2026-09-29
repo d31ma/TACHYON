@@ -2,7 +2,7 @@ final class TacHost {
     private TacHost() {
     }
 
-    @org.teavm.jso.JSBody(params = "payload", script = "globalThis[Symbol.for('tachyon.java.host')].emit(payload);")
+    @org.teavm.jso.JSBody(params = "payload", script = "return globalThis[Symbol.for('tachyon.java.host')].emit(payload);")
     static native void emit(String payload);
 
     @org.teavm.jso.JSBody(params = "text", script = "return globalThis[Symbol.for('tachyon.java.host')].storage(text);")
@@ -11,6 +11,6 @@ final class TacHost {
     @org.teavm.jso.JSBody(params = "text", script = "return globalThis[Symbol.for('tachyon.java.host')].web(text);")
     static native String web(String text);
 
-    @org.teavm.jso.JSBody(params = "milliseconds", script = "globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);")
+    @org.teavm.jso.JSBody(params = "milliseconds", script = "return globalThis[Symbol.for('tachyon.java.host')].pause(milliseconds);")
     static native void pause(double milliseconds);
 }

@@ -49,7 +49,10 @@ impl TeaVmRuntime {
 } catch (e) {
     rethrowJsAsJava(e);
 }`).bind(null,x);t.teavmJso["arrayOf"+e]=new Function(...C,"return ["+F+"]");C.push("p"+(e+1))}"#,
-            r#"const C=/^(?:return )?globalThis\[Symbol\.for\('tachyon\.java\.host'\)\]\.(\w+)\(\w+\);?$/;const H=(b)=>{const m=C.exec(b.trim());if(m===null){throw new Error("Tachyon runs only its own TeaVM JavaScript bodies, because the page does not allow code made from text.")}return(v)=>globalThis[Symbol.for("tachyon.java.host")][m[1]](v)};for(let e=0;e<32;++e){t.teavmJso["createFunction"+e]=(...a)=>H(a[a.length-1]);t.teavmJso["bindFunction"+e]=(e,...t)=>e.bind(null,...t);t.teavmJso["callFunction"+e]=(f,...a)=>{try{return f(...a)}catch(r){x(r)}};t.teavmJso["callMethod"+e]=(i,m,...a)=>{try{return i!==null?i[m](...a):D(m)(...a)}catch(r){x(r)}};t.teavmJso["construct"+e]=(c,...a)=>{try{return new c(...a)}catch(r){x(r)}};t.teavmJso["arrayOf"+e]=(...a)=>a}"#,
+            concat!(
+                include_str!("tea_vm_bodies.js"),
+                r#"const N=(k)=>k.replace(/\s+/g,"").replace(/'/g,'"');let M=null;const H=(a)=>{const k=a.slice(0,-1).join(",")+"\n"+a[a.length-1];let f=tachyonBodies.get(k);if(f===void 0){M??=new Map([...tachyonBodies].map(([n,g])=>[N(n),g]));f=M.get(N(k))}if(f===void 0){throw new Error("Tachyon cannot run this TeaVM JavaScript body, because the page does not allow code made from text.")}return f};for(let e=0;e<32;++e){t.teavmJso["createFunction"+e]=(...a)=>H(a);t.teavmJso["bindFunction"+e]=(e,...t)=>e.bind(null,...t);t.teavmJso["callFunction"+e]=(f,...a)=>{try{return f(...a)}catch(r){x(r)}};t.teavmJso["callMethod"+e]=(i,m,...a)=>{try{return i!==null?i[m](...a):D(m)(...a)}catch(r){x(r)}};t.teavmJso["construct"+e]=(c,...a)=>{try{return new c(...a)}catch(r){x(r)}};t.teavmJso["arrayOf"+e]=(...a)=>a}"#
+            ),
         ),
     ];
     const MADE_FROM_TEXT: [&'static str; 2] = ["new Function", "eval("];
@@ -72,5 +75,39 @@ impl TeaVmRuntime {
 
     fn makes_code_from_text(text: &str) -> bool {
         Self::MADE_FROM_TEXT.iter().any(|made| text.contains(made))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TeaVmRuntime;
+
+    fn after<'a>(line: &'a str, start: &str) -> &'a str {
+        let rest = line.split_once(start).map_or("", |(_, rest)| rest);
+        rest.split_once('"').map_or("", |(value, _)| value)
+    }
+
+    #[test]
+    fn the_body_table_holds_every_host_call_of_the_prelude() {
+        let bodies = include_str!("tea_vm_bodies.js");
+        let host = include_str!("prelude/TacHost.java");
+        let calls: Vec<&str> = host
+            .lines()
+            .filter(|line| line.contains("JSBody("))
+            .collect();
+        assert!(!calls.is_empty());
+        for line in calls {
+            let key = format!(
+                "[\"{}\\n{}\",",
+                after(line, "params = \""),
+                after(line, "script = \"")
+            );
+            assert!(bodies.contains(&key), "{key} is missing");
+        }
+    }
+
+    #[test]
+    fn an_unknown_runtime_is_refused() {
+        assert!(TeaVmRuntime::without_code_from_text("new Function('x')").is_none());
     }
 }
