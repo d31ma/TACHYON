@@ -1,18 +1,22 @@
 Declaring a method that another language answers
 
 Every Yon language declares a Gateway the same way: the marker on its own
-line, strict JSON options, and a signature with an empty body.
+line, strict JSON options, and a signature in an HTTPClient contract (an
+interface, trait, Protocol class or abstract interface class; a class with
+empty method bodies in JavaScript, TypeScript and Ruby).
 
   JavaScript  @Gateway({...})    async summarize(period) {}
   TypeScript  @Gateway({...})    async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}
+  Ruby        #[Gateway({...})]  def summarize(period) ... end
   Python      @gateway({...})    def summarize(self, period): ...
-  PHP         #[Gateway({...})]  public function summarize($period) {}
-  Java        @Gateway({...})    Object summarize(Object period) {}
-  Kotlin      @Gateway({...})    fun summarize(period: Any?): Any? {}
-  C#          [Gateway({...})]   public BehaviorJSON Summarize(BehaviorJSON period) {}
-  Rust        #[Gateway({...})]  fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue> {}
-  Dart        @Gateway({...})    Future<Object?> summarize(Object? period) async {}
-  Go          // @Gateway({...}) on the line before func (client *ReportClient) Summarize(period BehaviorValue) (BehaviorValue, error) {}
+  PHP         #[Gateway({...})]  public function summarize($period);
+  Java        @Gateway({...})    Object summarize(Object period);
+  Groovy      @Gateway({...})    Object summarize(Object period)
+  Kotlin      @Gateway({...})    fun summarize(period: Any?): Any?
+  C#          [Gateway({...})]   BehaviorJSON Summarize(BehaviorJSON period);
+  Rust        #[Gateway({...})]  fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;
+  Dart        @Gateway({...})    Future<Object?> summarize(Object? period);
+  Go          // @Gateway({...}) on the line before Summarize(period BehaviorValue) (BehaviorValue, error) in the interface
 
 The options name one target:
 
