@@ -29,7 +29,7 @@ impl LuaView {
     ];
 
     pub(crate) fn of(path: &Path, source: &str) -> Option<Self> {
-        LuaSource::is_lua(path).then(|| Self::with_shadow(path, source, LuaShadow::of(source)))
+        LuaSource::is_lua(path).then(|| Self::with_shadow(path, source, LuaShadow::joined(source)))
     }
 
     pub(crate) fn joined(path: &Path, source: &str) -> Self {
@@ -81,10 +81,6 @@ impl LuaView {
 
     pub(crate) fn text(&self) -> &str {
         self.shadow.text()
-    }
-
-    pub(crate) fn shadow(&self) -> &LuaShadow {
-        &self.shadow
     }
 
     pub(crate) fn source_name(&self) -> &str {

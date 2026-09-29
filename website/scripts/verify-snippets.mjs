@@ -477,6 +477,7 @@ function runCommand(command, args, { cwd = Settings.repo, timeout = 120_000 } = 
 function versionFlag(tool) {
   if (tool === 'javac' || tool === 'kotlinc' || tool === 'kotlinc-js') return '-version'
   if (tool === 'go') return 'version'
+  if (tool === 'lua' || tool === 'luac') return '-v'
   return '--version'
 }
 

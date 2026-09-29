@@ -1,4 +1,4 @@
-use super::LuaView;
+use super::{LuaShadow, LuaView};
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use std::path::Path;
@@ -13,7 +13,7 @@ impl LuaStyle {
         let Some(view) = LuaView::of(path, source) else {
             return Ok(());
         };
-        let Some((line, message)) = view.shadow().first_problem() else {
+        let Some((line, message)) = LuaShadow::of(source).first_problem() else {
             return Ok(());
         };
         let start = view.line_start(line);
