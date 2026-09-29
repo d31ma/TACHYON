@@ -29,7 +29,9 @@ impl SwiftWebServices {
     const BEHAVIOR_PLATFORM: &'static str = concat!(
         include_str!("swift_web_services/BehaviorPlatform.swift"),
         include_str!("swift_web_services/BehaviorLock.swift"),
-        include_str!("swift_web_services/BehaviorBrowserStorage.swift")
+        include_str!("swift_web_services/BehaviorBrowserStorage.swift"),
+        include_str!("swift_web_services/BehaviorTextPattern.swift"),
+        include_str!("swift_web_services/BehaviorNumberText.swift")
     );
 
     pub(crate) fn sdk_installed() -> bool {
@@ -62,7 +64,39 @@ impl SwiftWebServices {
             crate::behavior::SwiftPlatform::in_browser(&authored, Self::BEHAVIOR_PLATFORM);
         let program = format!("{authored}\n{}", Self::PRELUDE);
         let built = SwiftWasmProgram::compile(&program, profile).await?;
-        let note = built.note(profile).map(String::from);
+        let note = built.note(profile);
         Ok((built.published(), note))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SwiftWebServices;
+
+    fn runtime_patterns() -> Vec<String> {
+        let runtime = include_str!("../behavior/polyglot/swift_runtime.swift");
+        let mut patterns = Vec::new();
+        for opening in ["\"[", "\"-?("] {
+            for (start, _) in runtime.match_indices(opening) {
+                let rest = &runtime[start + 1..];
+                let end = rest.find('"').unwrap_or(0);
+                if end > 1 {
+                    patterns.push(format!("\"{}\"", &rest[..end]));
+                }
+            }
+        }
+        patterns
+    }
+
+    #[test]
+    fn the_web_pattern_matcher_knows_every_runtime_pattern() {
+        let patterns = runtime_patterns();
+        assert!(patterns.len() >= 6, "{patterns:?}");
+        for pattern in patterns {
+            assert!(
+                SwiftWebServices::BEHAVIOR_PLATFORM.contains(&pattern),
+                "the web BehaviorTextPattern does not know {pattern}"
+            );
+        }
     }
 }

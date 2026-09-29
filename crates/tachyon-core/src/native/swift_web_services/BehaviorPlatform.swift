@@ -22,12 +22,22 @@ enum BehaviorPlatform {
     }
 
     static func matches(_ value: String, _ pattern: String) -> Bool {
-        guard let expression = try? Regex(pattern) else { return false }
-        return value.wholeMatch(of: expression) != nil
+        BehaviorTextPattern.matches(value, pattern)
     }
 
     static func replaced(_ text: String, _ target: String, _ replacement: String) -> String {
-        text.replacing(target, with: replacement)
+        guard !target.isEmpty else { return text }
+        var result = ""
+        var rest = Substring(text)
+        while !rest.isEmpty {
+            if rest.hasPrefix(target) {
+                result += replacement
+                rest = rest.dropFirst(target.count)
+            } else {
+                result.append(rest.removeFirst())
+            }
+        }
+        return result
     }
 
     static func power(_ base: Double, _ exponent: Double) -> Double {
