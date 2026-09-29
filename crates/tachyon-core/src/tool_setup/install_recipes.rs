@@ -1,6 +1,6 @@
 use super::{
     ArchiveRecipes, DotnetRecipes, EmscriptenRecipe, InstallContext, InstallPlan, NeededTool,
-    RustRecipes, SdkmanRecipes, SystemRecipes, TypeScriptRecipe,
+    RustRecipes, SdkmanRecipes, SystemRecipes, TinyGoRecipe, TypeScriptRecipe,
 };
 
 pub struct InstallRecipes;
@@ -23,6 +23,8 @@ impl InstallRecipes {
         match tool {
             NeededTool::Bun => ArchiveRecipes::bun(context),
             NeededTool::Go => ArchiveRecipes::go(context),
+            NeededTool::TinyGo => TinyGoRecipe::plan(context),
+            NeededTool::Binaryen => ArchiveRecipes::binaryen(context),
             NeededTool::Dart => ArchiveRecipes::dart(context),
             NeededTool::TypeScript => TypeScriptRecipe::plan(context),
             NeededTool::Emscripten => EmscriptenRecipe::plan(context),

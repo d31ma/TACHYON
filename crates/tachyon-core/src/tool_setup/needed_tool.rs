@@ -18,6 +18,8 @@ pub enum NeededTool {
     Rust,
     WasmTarget,
     Go,
+    TinyGo,
+    Binaryen,
     Dart,
     Xcode,
     AndroidSdk,
@@ -25,7 +27,7 @@ pub enum NeededTool {
 }
 
 impl NeededTool {
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 22] = [
         Self::Bun,
         Self::TypeScript,
         Self::Python,
@@ -42,12 +44,14 @@ impl NeededTool {
         Self::Rust,
         Self::WasmTarget,
         Self::Go,
+        Self::TinyGo,
+        Self::Binaryen,
         Self::Dart,
         Self::Xcode,
         Self::AndroidSdk,
         Self::LinuxDesktop,
     ];
-    const ENTRIES: [ToolEntry; 20] = [
+    const ENTRIES: [ToolEntry; 22] = [
         ToolEntry {
             label: "Bun, the JavaScript and TypeScript runtime",
             commands: &["bun", "node", "YON_JAVASCRIPT_RUNTIME"],
@@ -111,6 +115,14 @@ impl NeededTool {
         ToolEntry {
             label: "Go",
             commands: &["go"],
+        },
+        ToolEntry {
+            label: "TinyGo, the small Go compiler for release builds",
+            commands: &["tinygo"],
+        },
+        ToolEntry {
+            label: "Binaryen, whose wasm-opt makes release WebAssembly smaller",
+            commands: &["wasm-opt"],
         },
         ToolEntry {
             label: "the Dart SDK",

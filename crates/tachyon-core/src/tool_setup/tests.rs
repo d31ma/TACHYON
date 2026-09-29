@@ -279,3 +279,25 @@ fn a_command_text_quotes_arguments_with_spaces() {
     );
     assert_eq!(NeededTool::for_command("fylo"), None);
 }
+
+#[test]
+fn tinygo_and_binaryen_install_from_their_pinned_or_published_downloads() {
+    let home = tempfile::tempdir().expect("home");
+    let mac = context(home.path(), HostPlatform::MACOS);
+    let tinygo = InstallRecipes::plan(NeededTool::TinyGo, &mac);
+    let steps: Vec<String> = tinygo.steps.iter().map(InstallStep::text).collect();
+    assert!(
+        steps.iter().any(|step| step.contains("tinygo0.42.0.darwin-")),
+        "{steps:?}"
+    );
+    let binaryen = InstallRecipes::plan(NeededTool::Binaryen, &mac);
+    let steps: Vec<String> = binaryen.steps.iter().map(InstallStep::text).collect();
+    assert!(
+        steps
+            .iter()
+            .any(|step| step.contains("binaryen-version_133-") && step.contains(".tar.gz.sha256")),
+        "{steps:?}"
+    );
+    assert_eq!(NeededTool::for_command("wasm-opt"), Some(NeededTool::Binaryen));
+    assert_eq!(NeededTool::for_command("tinygo"), Some(NeededTool::TinyGo));
+}

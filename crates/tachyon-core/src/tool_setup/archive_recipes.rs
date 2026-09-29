@@ -7,6 +7,7 @@ impl ArchiveRecipes {
     const BUN: &'static str = "1.3.14";
     const GO: &'static str = "1.27.1";
     const DART: &'static str = "3.13.1";
+    const BINARYEN: &'static str = "version_133";
     const BIN: &'static str = "bin";
 
     pub(crate) fn bun(context: &InstallContext) -> InstallPlan {
@@ -65,6 +66,27 @@ impl ArchiveRecipes {
             url,
             archive,
             top: String::from("dart-sdk"),
+            bin: into.join(Self::BIN),
+            into,
+        }
+        .plan(context)
+    }
+
+    pub(crate) fn binaryen(context: &InstallContext) -> InstallPlan {
+        let release = format!("binaryen-{}", Self::BINARYEN);
+        let archive = format!("{release}-{}.tar.gz", context.platform.names().binaryen);
+        let url = format!(
+            "https://github.com/WebAssembly/binaryen/releases/download/{}/{archive}",
+            Self::BINARYEN
+        );
+        let into = context.in_home(&format!("sdk/{release}"));
+        ArchiveRecipe {
+            tool: NeededTool::Binaryen,
+            title: format!("Binaryen {}", Self::BINARYEN),
+            checksums: format!("{url}.sha256"),
+            url,
+            archive,
+            top: release,
             bin: into.join(Self::BIN),
             into,
         }

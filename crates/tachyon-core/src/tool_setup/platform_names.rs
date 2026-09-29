@@ -4,6 +4,7 @@ pub struct PlatformNames {
     pub arm: bool,
     pub bun: &'static str,
     pub go: &'static str,
+    pub binaryen: &'static str,
     pub dart: &'static str,
     pub rust: &'static str,
 }
