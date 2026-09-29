@@ -100,11 +100,14 @@ impl SwiftWebServices {
 
     pub(crate) fn test_unit_browser(unit: &str) -> String {
         let apis = Self::used_web_apis(unit);
+        let page = Self::test_unit_page(unit, &apis);
         let models = crate::route_types::WebEventSources::swift_used_by(unit);
-        if apis.is_empty() && !unit.contains("BrowserFakes") {
-            return models;
-        }
-        format!("{}{apis}{models}", Self::TEST_UNIT_PAGE)
+        format!("{page}{apis}{models}")
+    }
+
+    fn test_unit_page(unit: &str, apis: &str) -> &'static str {
+        let unused = [apis.is_empty(), unit.contains("BrowserFakes")] == [true, false];
+        if unused { "" } else { Self::TEST_UNIT_PAGE }
     }
 
     fn used_web_apis(authored: &str) -> String {
