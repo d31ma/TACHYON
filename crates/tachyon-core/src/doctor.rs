@@ -359,6 +359,23 @@ mod tests {
     }
 
     #[test]
+    fn lua_handlers_report_the_lua_runtime_once() {
+        let root = project_with(&[
+            ("server/controllers/AController.lua", "source"),
+            ("middleware.lua", "source"),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(commands, ["lua"], "{:?}", report.toolchains);
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Yon Lua runtime 'lua'");
+        assert_eq!(
+            entry.install,
+            "Install Lua 5.4 or newer and put its `lua` program on PATH before starting Tachyon."
+        );
+    }
+
+    #[test]
     fn a_ruby_web_service_reports_the_tools_that_build_its_runtime() {
         let root = project_with(&[(
             "client/services/BasketService.rb",

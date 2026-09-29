@@ -24,6 +24,7 @@ mod handler;
 mod hot_update;
 mod html;
 mod lexical;
+mod lua_source;
 pub mod method_coverage;
 mod migrate;
 mod model_layout;

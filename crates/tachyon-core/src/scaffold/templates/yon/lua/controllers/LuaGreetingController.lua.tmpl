@@ -1,0 +1,10 @@
+-- @RequestRoute("/api/lua")
+-- @Public
+---@class LuaGreetingController
+LuaGreetingController = {}
+
+---@return string
+-- @GetRoute
+function LuaGreetingController:get_greeting()
+  return "Hello from Lua"
+end

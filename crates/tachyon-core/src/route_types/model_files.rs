@@ -106,6 +106,9 @@ impl ModelParser {
         if extension == crate::fsharp_source::FsharpSource::EXTENSION {
             return Self::models("cs", crate::fsharp_source::FsharpShadow::of(source).text());
         }
+        if extension == crate::lua_source::LuaSource::EXTENSION {
+            return Self::models("rb", crate::lua_source::LuaShadow::joined(source).text());
+        }
         let typed = if extension == "php" {
             super::PhpDoc::typed_arrays(source)
         } else {

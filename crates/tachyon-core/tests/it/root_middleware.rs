@@ -18,7 +18,7 @@ struct Language {
 }
 
 impl Language {
-    const ALL: [Self; 12] = [
+    const ALL: [Self; 13] = [
         Self {
             extension: "js",
             program: "node",
@@ -323,6 +323,29 @@ func (Middleware) After(request *http.Request) *http.Response {
 "#,
         },
         Self {
+            extension: "lua",
+            program: "lua",
+            version_flag: "-v",
+            both_phases: r#"
+Middleware = {}
+
+function Middleware.before(request)
+  return { 204, { ["x-phase"] = "before-" .. request.method }, {} }
+end
+
+function Middleware.after(request)
+  return { 204, { ["x-phase"] = "after-" .. request.method }, {} }
+end
+"#,
+            after_only: r#"
+Middleware = {}
+
+function Middleware.after(request)
+  return { 204, { ["x-phase"] = "after" }, {} }
+end
+"#,
+        },
+        Self {
             extension: "rb",
             program: "ruby",
             version_flag: "--version",
@@ -567,6 +590,19 @@ sealed class Middleware {
 }
 "#;
 
+    const LUA: &str = r#"
+Middleware = {}
+
+function Middleware.before(request)
+  local path = request.path:match("^[^?]*")
+  if path:sub(1, 8) ~= "/private" or request:header("authorization") == "let-me-in" then
+    return nil
+  end
+  local body = '{"error":"Unauthorized","query":"' .. request:query("page") .. '"}'
+  return { 401, { ["content-type"] = "application/json" }, { body } }
+end
+"#;
+
     const DART: &str = r"
 import 'dart:convert';
 import 'package:shelf/shelf.dart';
@@ -674,6 +710,11 @@ async fn python_middleware_reads_a_urllib_request_and_answers_with_a_status_tupl
 #[tokio::test]
 async fn ruby_middleware_reads_a_net_http_request_and_answers_with_a_rack_triplet() {
     NativeRequest::check("rb", NativeRequest::RUBY).await;
+}
+
+#[tokio::test]
+async fn lua_middleware_reads_a_request_table_and_answers_with_a_status_list() {
+    NativeRequest::check("lua", NativeRequest::LUA).await;
 }
 
 #[tokio::test]

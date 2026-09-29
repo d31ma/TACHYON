@@ -17,6 +17,7 @@ fn tool_available(program: &str) -> bool {
     let version_flag = match program {
         "kotlinc" => "-version",
         "go" => "version",
+        "lua" => "-v",
         _ => "--version",
     };
     std::process::Command::new(program)
@@ -588,6 +589,61 @@ async fn a_ruby_test_unit_runs_its_cases_through_the_supervisor() {
     assert_python_report(response);
 }
 
+#[tokio::test]
+async fn a_lua_test_unit_runs_its_cases_through_the_supervisor() {
+    if !tool_available("lua") {
+        eprintln!("skipping: lua is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "server/tests/CatalogTestSetup.lua",
+        "-- @TestSetup\nCatalogTestSetup = {}\n\nfunction CatalogTestSetup.configure(execution)\n  return {}\nend\n",
+    );
+    write(
+        root.path(),
+        "server/helpers/CatalogCounterHelper.lua",
+        "-- @Helper\nCatalogCounterHelper = {}\n\nfunction CatalogCounterHelper:count()\n  return 21\nend\n",
+    );
+    write(
+        root.path(),
+        "server/services/CatalogService.lua",
+        "-- @Service\nCatalogService = {\n  -- @Needs\n  catalog_counter_helper = nil,\n}\n\nfunction CatalogService:total()\n  return self.catalog_counter_helper:count() * 2\nend\n",
+    );
+    write(
+        root.path(),
+        "server/tests/CatalogServiceTest.lua",
+        "-- @Test(CatalogTestSetup, {\"partition\":\"tests\"})\n-- @UseProfiles(\"test\")\nCatalogServiceTest = {\n  -- @Fake\n  catalog_counter_helper = nil,\n}\n\nfunction CatalogServiceTest:test_opens_a_context()\n  Assert.equals(nil, self.catalog_counter_helper, \"a fake starts empty\")\n  self.catalog_counter_helper = { count = function() return 4 end }\n  Assert.equals(8, self:construct(CatalogService):total(), \"the total\")\nend\n\n-- @ValueSource([1, 2])\nfunction CatalogServiceTest:test_reports_a_failure(value)\n  Assert.is_true(value > 1, \"this case is meant to fail\")\nend\n",
+    );
+    let relative = "server/tests/CatalogServiceTest.lua";
+    let source = HandlerSource::discover(root.path(), relative).expect("test unit discovery");
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let response = supervisor
+        .invoke(
+            &source,
+            &HandlerRequest::route("test_unit", "/", HttpMethod::Post),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("invocation");
+    assert!(response.error.is_none(), "{:?}", response.error);
+    let body = response.body.expect("body").data;
+    let value: serde_json::Value = serde_json::from_str(&body).expect("JSON report");
+    let cases = value["cases"].as_array().expect("cases");
+    assert_eq!(cases.len(), 3, "{body}");
+    assert_eq!(cases[0]["passed"], true, "{body}");
+    assert_eq!(cases[1]["passed"], false, "{body}");
+    assert_eq!(cases[2]["passed"], true, "{body}");
+    assert!(
+        cases[1]["error"]
+            .as_str()
+            .is_some_and(|error| error.contains("meant to fail")),
+        "{body}"
+    );
+}
+
 fn assert_python_report(response: tachyon_contracts::HandlerResponse) {
     assert!(response.error.is_none(), "{:?}", response.error);
     let body = response.body.expect("body").data;
@@ -624,10 +680,11 @@ fn assert_java_report(response: tachyon_contracts::HandlerResponse) {
 struct ControllerProject;
 
 impl ControllerProject {
-    const LANGUAGES: [(&str, &str); 12] = [
+    const LANGUAGES: [(&str, &str); 13] = [
         ("js", "node"),
         ("ts", "bun"),
         ("rb", "ruby"),
+        ("lua", "lua"),
         ("py", "python3"),
         ("php", "php-cgi"),
         ("java", "javac"),

@@ -14,6 +14,7 @@ pub(super) enum RuntimeIdentity {
     Ruby { configured: bool },
     Java,
     Php,
+    Lua,
     Dotnet,
     Firecracker,
     PreparedArtifact,
@@ -54,6 +55,7 @@ impl RuntimeIdentity {
             },
             Some(YonLanguage::Java | YonLanguage::Groovy | YonLanguage::Kotlin) => Self::Java,
             Some(YonLanguage::Php) => Self::Php,
+            Some(YonLanguage::Lua) => Self::Lua,
             Some(YonLanguage::CSharp | YonLanguage::FSharp) => Self::Dotnet,
             Some(YonLanguage::Rust | YonLanguage::Dart | YonLanguage::Go) | None => {
                 Self::PreparedArtifact
@@ -113,6 +115,7 @@ impl RuntimeIdentity {
             ),
             Self::Java => ("Yon Java runtime 'java'", "Install a supported JDK."),
             Self::Php => (RuntimeRequirement::PHP_LABEL, RuntimeRequirement::PHP_HELP),
+            Self::Lua => (RuntimeRequirement::LUA_LABEL, RuntimeRequirement::LUA_HELP),
             Self::Dotnet => (
                 "Yon C# runtime 'dotnet'",
                 "Install the .NET SDK and Microsoft.NETCore.App runtime.",

@@ -16,6 +16,7 @@ pub(crate) enum YonLanguage {
     Dart,
     Go,
     Ruby,
+    Lua,
 }
 
 impl YonLanguage {
@@ -48,6 +49,7 @@ impl YonLanguage {
             "dart" => Some(Self::Dart),
             "go" => Some(Self::Go),
             "rb" => Some(Self::Ruby),
+            "lua" => Some(Self::Lua),
             _ => None,
         }
     }
@@ -66,6 +68,7 @@ impl YonLanguage {
             Self::Dart => "dart",
             Self::Go => "go",
             Self::Ruby => "ruby",
+            Self::Lua => "lua",
         }
     }
 }

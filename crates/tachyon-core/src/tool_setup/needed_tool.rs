@@ -7,6 +7,7 @@ pub enum NeededTool {
     Python,
     Php,
     Ruby,
+    Lua,
     CCompiler,
     Emscripten,
     Java,
@@ -27,12 +28,13 @@ pub enum NeededTool {
 }
 
 impl NeededTool {
-    pub const ALL: [Self; 22] = [
+    pub const ALL: [Self; 23] = [
         Self::Bun,
         Self::TypeScript,
         Self::Python,
         Self::Php,
         Self::Ruby,
+        Self::Lua,
         Self::CCompiler,
         Self::Emscripten,
         Self::Java,
@@ -51,7 +53,7 @@ impl NeededTool {
         Self::AndroidSdk,
         Self::LinuxDesktop,
     ];
-    const ENTRIES: [ToolEntry; 22] = [
+    const ENTRIES: [ToolEntry; 23] = [
         ToolEntry {
             label: "Bun, the JavaScript and TypeScript runtime",
             commands: &["bun", "node", "YON_JAVASCRIPT_RUNTIME"],
@@ -71,6 +73,10 @@ impl NeededTool {
         ToolEntry {
             label: "Ruby",
             commands: &["ruby"],
+        },
+        ToolEntry {
+            label: "Lua 5.4 or newer",
+            commands: &["lua"],
         },
         ToolEntry {
             label: "a C compiler",

@@ -201,6 +201,18 @@
       "code": {
         "file": "server/tests/CatalogServiceTest.rb"
       }
+    },
+    {
+      "name": "server/tests/CatalogTestSetup.lua",
+      "code": {
+        "file": "server/tests/CatalogTestSetup.lua"
+      }
+    },
+    {
+      "name": "server/tests/CatalogServiceTest.lua",
+      "code": {
+        "file": "server/tests/CatalogServiceTest.lua"
+      }
     }
   ]
 }

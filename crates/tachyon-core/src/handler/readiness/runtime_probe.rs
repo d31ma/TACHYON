@@ -27,12 +27,18 @@ impl RuntimeProbe {
     }
 
     pub(super) fn supports_ruby_version(output: &str) -> bool {
+        Self::version_at_least(output, RuntimeRequirement::OLDEST_RUBY_VERSION)
+    }
+
+    pub(super) fn supports_lua_version(output: &str) -> bool {
+        Self::version_at_least(output, RuntimeRequirement::OLDEST_LUA_VERSION)
+    }
+
+    fn version_at_least(output: &str, oldest: (u32, u32)) -> bool {
         let mut parts = output.trim().split('.');
         let major = parts.next().and_then(|part| part.parse::<u32>().ok());
         let minor = parts.next().and_then(|part| part.parse::<u32>().ok());
-        major
-            .zip(minor)
-            .is_some_and(|version| version >= RuntimeRequirement::OLDEST_RUBY_VERSION)
+        major.zip(minor).is_some_and(|version| version >= oldest)
     }
 
     pub(crate) fn supports_go_version(output: &str) -> bool {
@@ -152,6 +158,7 @@ impl RuntimeProbe {
             }
             ProbeKind::GoVersion => Ok(Self::go_version_state(result)),
             ProbeKind::RubyVersion => Ok(Self::ruby_version_state(result)),
+            ProbeKind::LuaVersion => Ok(Self::lua_version_state(result)),
             _ => Ok(Self::probe_state(result)),
         }
     }
@@ -167,6 +174,7 @@ impl RuntimeProbe {
             }
             ProbeKind::GoVersion => Ok(Self::go_version_state(result)),
             ProbeKind::RubyVersion => Ok(Self::ruby_version_state(result)),
+            ProbeKind::LuaVersion => Ok(Self::lua_version_state(result)),
             _ => Ok(Self::probe_state(result)),
         }
     }
@@ -309,6 +317,14 @@ impl RuntimeProbe {
     fn ruby_version_state(result: Result<ToolOutput, ToolError>) -> RuntimeProbeState {
         let supported = result.as_ref().is_ok_and(|output| {
             Self::supports_ruby_version(&String::from_utf8_lossy(&output.stdout))
+        });
+        let state = Self::probe_state(result);
+        Self::unless_unsupported(state, supported)
+    }
+
+    fn lua_version_state(result: Result<ToolOutput, ToolError>) -> RuntimeProbeState {
+        let supported = result.as_ref().is_ok_and(|output| {
+            Self::supports_lua_version(&String::from_utf8_lossy(&output.stdout))
         });
         let state = Self::probe_state(result);
         Self::unless_unsupported(state, supported)

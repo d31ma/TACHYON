@@ -509,6 +509,7 @@ impl RouteTypes {
         models.check_all()?;
         let extension = crate::groovy_source::GroovySource::syntax(extension);
         let extension = crate::fsharp_source::FsharpSource::syntax(extension);
+        let extension = crate::lua_source::LuaSource::syntax(extension);
         for route in routes.iter_mut() {
             Self::resolve_route(extension, &models, route)?;
         }

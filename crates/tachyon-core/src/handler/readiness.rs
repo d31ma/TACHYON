@@ -247,6 +247,17 @@ impl RuntimeRequirements {
         );
         Self::push_if(
             requirements,
+            self.uses(YonLanguage::Lua),
+            RuntimeRequirement::fixed(
+                RuntimeRequirementKey::Lua,
+                crate::lua_source::LuaSource::RUNTIME,
+                RuntimeRequirement::LUA_LABEL,
+                RuntimeRequirement::LUA_HELP,
+                ProbeKind::LuaVersion,
+            ),
+        );
+        Self::push_if(
+            requirements,
             has_kotlin,
             RuntimeRequirement::fixed(
                 RuntimeRequirementKey::KotlinCompiler,
@@ -390,7 +401,7 @@ mod tests {
     #[test]
     fn language_requirements_are_complete_deduplicated_and_safe() {
         let requirements = RuntimeRequirements::from_extensions([
-            "js", "ts", "py", "java", "groovy", "php", "kt", "cs", "fs", "rs", "go", "rb",
+            "js", "ts", "py", "java", "groovy", "php", "kt", "cs", "fs", "rs", "go", "rb", "lua",
         ]);
         let runtimes = HandlerRuntimePrograms {
             javascript: PathBuf::from("/secret/canary-bun"),
@@ -410,6 +421,7 @@ mod tests {
                 RuntimeRequirementKey::JavaScript,
                 RuntimeRequirementKey::Python,
                 RuntimeRequirementKey::Ruby,
+                RuntimeRequirementKey::Lua,
                 RuntimeRequirementKey::Java,
                 RuntimeRequirementKey::GroovyRuntime,
                 RuntimeRequirementKey::Php,
@@ -462,6 +474,23 @@ mod tests {
         ] {
             assert_eq!(
                 super::RuntimeProbe::supports_ruby_version(output),
+                supported,
+                "{output}"
+            );
+        }
+    }
+
+    #[test]
+    fn lua_must_be_version_5_4_or_newer() {
+        for (output, supported) in [
+            ("5.4", true),
+            ("5.5", true),
+            ("5.3", false),
+            ("5.1", false),
+            ("", false),
+        ] {
+            assert_eq!(
+                super::RuntimeProbe::supports_lua_version(output),
                 supported,
                 "{output}"
             );

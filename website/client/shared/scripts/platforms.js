@@ -48,12 +48,13 @@ class FileTypes {
     fs: 'F#',
     rs: 'Rust',
     rb: 'Ruby',
+    lua: 'Lua',
     go: 'Go',
   }
 
-  static companionExtensions = new Set(['js', 'ts', 'dart', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'py', 'java', 'groovy', 'php'])
+  static companionExtensions = new Set(['js', 'ts', 'dart', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua', 'py', 'java', 'groovy', 'php'])
 
-  static readingOrder = ['js', 'ts', 'dart', 'py', 'java', 'groovy', 'php', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'html', 'css']
+  static readingOrder = ['js', 'ts', 'dart', 'py', 'java', 'groovy', 'php', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua', 'html', 'css']
 }
 
 function extension(name) {

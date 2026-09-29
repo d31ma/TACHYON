@@ -979,6 +979,7 @@ impl Messages {
             "rs" | "php" | "rb" => format!("#[{name}]"),
             "cs" => format!("[{name}]"),
             "go" => format!("// @{name}"),
+            "lua" => format!("-- @{name}"),
             _ => format!("@{name}"),
         }
     }
@@ -1019,6 +1020,7 @@ impl Messages {
             "go" => "Go",
             "swift" => "Swift",
             "rb" => "Ruby",
+            "lua" => "Lua",
             _ => "this language",
         }
     }

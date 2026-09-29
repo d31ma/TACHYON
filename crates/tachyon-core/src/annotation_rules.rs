@@ -254,11 +254,12 @@ impl Rule {
 pub(crate) struct AnnotationRules;
 
 impl AnnotationRules {
-    pub(crate) const LANGUAGES: [&'static str; 13] = [
+    pub(crate) const LANGUAGES: [&'static str; 14] = [
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "swift", "rb",
+        "lua",
     ];
     pub(crate) const YON: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb", "lua",
     ];
     const YON_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
@@ -275,7 +276,7 @@ impl AnnotationRules {
     const TAC_VALUE_SOURCE: &'static [&'static str] =
         &["js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift"];
     const YON_VALUE_SOURCE: &'static [&'static str] = &[
-        "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "go", "rb", "php", "dart",
+        "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "go", "rb", "php", "dart", "lua",
     ];
     const NOWHERE: &'static [&'static str] = &[];
     const TYPE: &'static [Target] = &[Target::Type];

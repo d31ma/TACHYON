@@ -39,6 +39,7 @@ impl InstallRecipes {
             NeededTool::Python
             | NeededTool::Php
             | NeededTool::Ruby
+            | NeededTool::Lua
             | NeededTool::CCompiler
             | NeededTool::Xcode
             | NeededTool::AndroidSdk

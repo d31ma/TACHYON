@@ -1,6 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
-use crate::fsharp_source::FsharpView;
+use crate::lua_source::LuaView;
 use std::path::Path;
 
 mod browser_interop;
@@ -36,7 +36,7 @@ pub(crate) fn masked_source(path: &Path, source: &str) -> Result<String, Failure
 }
 
 pub(crate) fn declaration_names(path: &Path, source: &str) -> Result<Vec<String>, Failure> {
-    FsharpView::either(path, source, declaration_names_source)
+    LuaView::either(path, source, declaration_names_source)
 }
 
 fn declaration_names_source(path: &Path, source: &str) -> Result<Vec<String>, Failure> {
@@ -94,7 +94,8 @@ pub(crate) fn brace_depth_after(text: &str, mut depth: usize) -> usize {
 
 pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
     crate::fsharp_source::FsharpStyle::check(path, source)?;
-    FsharpView::either(path, source, validate_source)
+    crate::lua_source::LuaStyle::validate(path, source)?;
+    LuaView::either(path, source, validate_source)
 }
 
 fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
@@ -298,11 +299,11 @@ fn is_in_reserved_folder(path: &Path) -> bool {
 }
 
 pub(crate) fn has_primary_role(path: &Path, source: &str) -> Result<bool, Failure> {
-    FsharpView::either(path, source, primary_role)
+    LuaView::either(path, source, primary_role)
 }
 
 pub(crate) fn has_framework_annotation(path: &Path, source: &str) -> Result<bool, Failure> {
-    FsharpView::either(path, source, has_framework_annotation_source)
+    LuaView::either(path, source, has_framework_annotation_source)
 }
 
 fn has_framework_annotation_source(path: &Path, source: &str) -> Result<bool, Failure> {
@@ -311,25 +312,25 @@ fn has_framework_annotation_source(path: &Path, source: &str) -> Result<bool, Fa
 }
 
 pub(crate) fn has_error_handler(path: &Path, source: &str) -> Result<bool, Failure> {
-    FsharpView::either(path, source, |path, source| {
+    LuaView::either(path, source, |path, source| {
         single_class::has_role(path, source, "ErrorHandler")
     })
 }
 
 pub(crate) fn has_identity_provider(path: &Path, source: &str) -> Result<bool, Failure> {
-    FsharpView::either(path, source, |path, source| {
+    LuaView::either(path, source, |path, source| {
         single_class::has_role(path, source, "IdentityProvider")
     })
 }
 
 pub(crate) fn has_route_controller(path: &Path, source: &str) -> Result<bool, Failure> {
-    FsharpView::either(path, source, |path, source| {
+    LuaView::either(path, source, |path, source| {
         single_class::has_role(path, source, "RequestRoute")
     })
 }
 
 pub(crate) fn has_tested_controller(path: &Path, source: &str) -> Result<bool, Failure> {
-    FsharpView::either(path, source, has_tested_controller_source)
+    LuaView::either(path, source, has_tested_controller_source)
 }
 
 fn has_tested_controller_source(path: &Path, source: &str) -> Result<bool, Failure> {
@@ -345,11 +346,11 @@ pub(crate) fn is_error_source(path: &Path) -> bool {
 }
 
 pub(crate) fn has_test_annotation(path: &Path, source: &str) -> Result<bool, Failure> {
-    FsharpView::either(path, source, single_class::has_test_annotation)
+    LuaView::either(path, source, single_class::has_test_annotation)
 }
 
 pub(crate) fn behaviour_types(path: &Path, source: &str) -> Result<Vec<String>, Failure> {
-    FsharpView::either(path, source, behaviour_types_source)
+    LuaView::either(path, source, behaviour_types_source)
 }
 
 fn behaviour_types_source(path: &Path, source: &str) -> Result<Vec<String>, Failure> {

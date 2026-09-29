@@ -12,6 +12,7 @@
     { "include": "rust/entry.json" },
     { "include": "go/entry.json" },
     { "include": "dart/entry.json" },
-    { "include": "ruby/entry.json" }
+    { "include": "ruby/entry.json" },
+    { "include": "lua/entry.json" }
   ]
 }

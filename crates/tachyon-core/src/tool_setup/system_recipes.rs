@@ -25,6 +25,11 @@ impl SystemRecipes {
         "sudo apt-get install -y ruby-full\nThese are the Debian and Ubuntu commands. On Fedora use dnf, and on Arch use pacman.",
         "Install Ruby with the Devkit from https://rubyinstaller.org/downloads/ for your user.",
     ];
+    const LUA: [&'static str; 3] = [
+        "Run: brew install lua, or build Lua 5.4 from https://www.lua.org/download.html (check the SHA-256 listed there)",
+        "sudo apt-get install -y lua5.4\nThese are the Debian and Ubuntu commands. On Fedora use dnf, and on Arch use pacman. Make sure `lua -v` prints Lua 5.4 or newer.",
+        "Run: winget install --scope user DEVCOM.Lua, or download a Lua 5.4 build from https://luabinaries.sourceforge.net/ and add its folder to your Path as lua.exe",
+    ];
     const C_COMPILER: [&'static str; 3] = [
         "Run: xcode-select --install\nA window opens. Choose Install and wait until it finishes.",
         "sudo apt-get install -y build-essential\nThese are the Debian and Ubuntu commands. On Fedora use dnf, and on Arch use pacman.",
@@ -55,6 +60,7 @@ impl SystemRecipes {
             NeededTool::Python => Self::PYTHON,
             NeededTool::Php => Self::PHP,
             NeededTool::Ruby => Self::RUBY,
+            NeededTool::Lua => Self::LUA,
             NeededTool::CCompiler => Self::C_COMPILER,
             NeededTool::Xcode => Self::XCODE,
             NeededTool::AndroidSdk => Self::ANDROID,

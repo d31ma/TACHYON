@@ -1,0 +1,7 @@
+-- @Test(LuaGreetingTestSetup, {"partition":"tests"})
+---@class LuaGreetingControllerTest
+LuaGreetingControllerTest = {}
+
+function LuaGreetingControllerTest:test_get_greeting_says_hello()
+  Assert.equals("Hello from Lua", self:construct(LuaGreetingController):get_greeting())
+end

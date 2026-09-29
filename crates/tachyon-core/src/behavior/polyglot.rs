@@ -193,6 +193,22 @@ pub(super) fn lower(
     }
 }
 
+pub(super) fn unit_tables(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Vec<super::UnitTable>, Failure> {
+    let Some(Prepared::Annotated(module)) = prepare(path, source, environment)? else {
+        return Ok(Vec::new());
+    };
+    Ok(module
+        .types
+        .iter()
+        .filter_map(super::testing::polyglot_unit)
+        .map(|unit| super::UnitTable::of(&unit))
+        .collect())
+}
+
 pub(super) fn detached_csharp(
     path: &Path,
     source: &str,

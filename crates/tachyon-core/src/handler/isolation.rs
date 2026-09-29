@@ -147,7 +147,7 @@ impl YonIsolationPolicy {
             Some(String::from(
                 "The current Firecracker driver contract transfers only project-contained \
                  JavaScript and Python source. Use process isolation for TypeScript, Java, Groovy, \
-                 PHP, Kotlin, C#, Rust, Ruby, or Go until an artifact-transfer contract is implemented.",
+                 PHP, Kotlin, C#, Rust, Ruby, Lua, or Go until an artifact-transfer contract is implemented.",
             )),
             None,
         ))
@@ -267,6 +267,7 @@ mod tests {
             YonLanguage::Rust,
             YonLanguage::Go,
             YonLanguage::Ruby,
+            YonLanguage::Lua,
         ] {
             let failure = firecracker
                 .validate_backend_yon_language(language)

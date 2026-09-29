@@ -66,31 +66,31 @@ class Progress {
 class Patterns {
   static tutorials = new Set(['first-app'])
   static excerptManifest = JSON.stringify({ tac: { visibility: { check: false } } })
-  static roleFile = /\/(controllers|services|stores|clients|helpers|setups|converters|entities)\/[^/]+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)$/
-  static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb)$/
-  static identityProviderPath = /^server\/controllers\/[A-Z]\w*IdentityProvider\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb)$/
-  static classRoute = /^\s*(?:\/\/ @|@|#\[|\[<|\[)(?:RequestRoute|request_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
-  static socketRoute = /^\s*(?:\/\/ @|@|#\[|\[<|\[)(?:SocketRoute|socket_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
-  static methodRoute = /^\s*(?:\/\/ @|@|#\[|\[<|\[)(Get|Post|Put|Patch|Delete|Stream|get|post|put|patch|delete|stream)(?:Route|_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/gm
+  static roleFile = /\/(controllers|services|stores|clients|helpers|setups|converters|entities)\/[^/]+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
+  static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
+  static identityProviderPath = /^server\/controllers\/[A-Z]\w*IdentityProvider\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
+  static classRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(?:RequestRoute|request_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
+  static socketRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(?:SocketRoute|socket_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
+  static methodRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(Get|Post|Put|Patch|Delete|Stream|get|post|put|patch|delete|stream)(?:Route|_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/gm
   static pathVariable = /\{[a-z0-9_]+\}/g
   static pagePath = /^client\/pages\/.*tac\.html$/
   static componentViewPath = /^client\/components\/.*\/tac\.html$/
   static servicePath = /^client\/services\/[A-Z]\w*Service\.(js|ts|dart|swift|kt|java|cs|fs|rs|go|rb)$/
-  static testUnitPath = /^(server|client)\/tests\/[A-Z]\w*Test\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)$/
-  static lastSourceExtension = /\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)\b(?!.*\.(?:js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)\b)/
-  static languageTag = /\[(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)\]/
+  static testUnitPath = /^(server|client)\/tests\/[A-Z]\w*Test\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
+  static lastSourceExtension = /\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\b(?!.*\.(?:js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\b)/
+  static languageTag = /\[(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\]/
   static handlerService = /\son:[\w-]+="\s*([A-Za-z_$][\w$]*)\.[A-Za-z_$]/g
   static serviceExcerpt = /^@Service(?:\(\))?\s*\n/
   static loadFailure = /Server readiness timed out|exceeded \d+ms|deadline|aborted due to timeout/
   static goSharedFile = /^server\/shared\/.+\.go$/
   static goSharedProbe = '// @RequestRoute("/probe")\n// @Public\ntype ProbeController struct{}\n\n// @GetRoute\nfunc (controller *ProbeController) GetProbe() any {\n\treturn map[string]any{"shared": true}\n}\n'
-  static middlewareFile = /^middleware\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb)$/
+  static middlewareFile = /^middleware\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
   static typeScaffoldFiles = ['package.json', 'tachyon-env.d.ts', 'tachyon-behaviors.d.ts', 'client/jsconfig.json', 'server/jsconfig.json']
   static middlewareController = '@RequestRoute("/private")\n@Public\nclass PrivateController {\n  @GetRoute\n  getPrivate() {\n    return { secret: 42 }\n  }\n}\n'
 }
 
 class Languages {
-  static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb'])
+  static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb', '.lua'])
   /** @type {Record<string,string>} */
   static nativeTargets = { '.swift': 'macos', '.kt': 'android', '.cs': 'windows', '.rs': 'linux' }
   static tacSourceExtensions = new Set(['.js', '.ts', '.dart', '.go', '.rb', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
@@ -112,6 +112,7 @@ class Toolchains {
     '.dart': ['dart'],
     '.go': ['go'],
     '.rb': ['ruby'],
+    '.lua': ['lua'],
   }
   /** @type {Map<string,Promise<boolean>>} */
   static checks = new Map()
@@ -247,7 +248,7 @@ function isNamedByOtherFiles(file, sameLanguage) {
  */
 function gatewayTargets(code) {
   const targets = []
-  for (const match of code.matchAll(/^\s*(?:\/\/ @|@|#\[|\[<|\[)[Gg]ateway\((\{.*\})\)\]?\s*$/gm)) {
+  for (const match of code.matchAll(/^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)[Gg]ateway\((\{.*\})\)\]?\s*$/gm)) {
     try {
       targets.push(JSON.parse(match[1]))
     } catch {
@@ -1060,6 +1061,7 @@ async function executeMiddleware(label, middleware) {
 function syntaxCheckCommand(extension, file) {
   if (extension === '.py') return ['python3', ['-m', 'py_compile', file]]
   if (extension === '.rb') return ['ruby', ['-c', file]]
+  if (extension === '.lua') return ['luac', ['-p', file]]
   if (extension === '.php') return ['php', ['-l', file]]
   if (extension === '.dart') return ['dart', ['analyze', '--fatal-warnings', file]]
   if (extension === '.go') return ['gofmt', ['-e', '-l', file]]

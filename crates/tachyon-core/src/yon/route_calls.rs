@@ -150,7 +150,7 @@ impl RouteCalls {
         format!("__yon_route_{verb}__")
     }
 
-    pub(super) fn verbs(plan: &Plan) -> Vec<&str> {
+    pub(crate) fn verbs(plan: &Plan) -> Vec<&str> {
         let mut verbs: Vec<&str> = Vec::new();
         for route in &plan.routes {
             if !verbs.contains(&route.verb.as_str()) {
@@ -160,14 +160,14 @@ impl RouteCalls {
         verbs
     }
 
-    pub(super) fn routes_for<'a>(plan: &'a Plan, verb: &str) -> Vec<&'a Route> {
+    pub(crate) fn routes_for<'a>(plan: &'a Plan, verb: &str) -> Vec<&'a Route> {
         plan.routes
             .iter()
             .filter(|route| route.verb == verb)
             .collect()
     }
 
-    pub(super) fn pattern(route: &Route) -> String {
+    pub(crate) fn pattern(route: &Route) -> String {
         serde_json::Value::String(route.pattern.clone().unwrap_or_default()).to_string()
     }
 

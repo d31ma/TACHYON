@@ -124,7 +124,7 @@ fn entry_extension<'a>(entry: &'a Path, environment: &str) -> Result<&'a str, Fa
         .unwrap_or("");
     let supported = Module::EXTENSIONS.contains(&extension)
         && !(environment == "yon" && extension == "swift")
-        && !(environment == "tac" && matches!(extension, "groovy" | "py" | "php"));
+        && !(environment == "tac" && matches!(extension, "groovy" | "py" | "php" | "lua"));
     if !supported {
         return Err(invalid(
             entry,
@@ -253,9 +253,9 @@ impl Module {
     ];
     const MAX_SOURCE: usize = 1024 * 1024;
     const MAX_MODULES: usize = 128;
-    const EXTENSIONS: [&str; 14] = [
+    const EXTENSIONS: [&str; 15] = [
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "swift", "dart", "go",
-        "rb",
+        "rb", "lua",
     ];
 }
 
@@ -843,6 +843,7 @@ fn relocates_imports(source: &str, masked: &str, extension: &str) -> bool {
             ],
         ),
         "dart" => dart_relocates_imports(source, masked, &words),
+        "lua" => has_any_word(&words, &["require", "dofile", "loadfile"]),
         "rs" => rust_relocates_imports(masked, &words),
         "py" => python_relocates_imports(source, &words),
         "rb" => has_any_word(&words, &["require_relative", "__FILE__", "__dir__"]),
@@ -1209,7 +1210,7 @@ fn compose(
     extension: &str,
     environment: &str,
 ) -> Result<String, Failure> {
-    let entry_first = extension == "rb"
+    let entry_first = matches!(extension, "rb" | "lua")
         || (environment == "tac" && matches!(extension, "swift" | "kt" | "cs" | "rs" | "java"));
     if entry_first {
         modules.insert(0, entry.to_owned());

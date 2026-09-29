@@ -3,6 +3,7 @@ pub(crate) enum RuntimeRequirementKey {
     JavaScript,
     Python,
     Ruby,
+    Lua,
     Java,
     GroovyRuntime,
     Php,

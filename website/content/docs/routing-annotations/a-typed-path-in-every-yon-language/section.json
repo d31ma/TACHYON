@@ -152,6 +152,18 @@
       "code": {
         "file": "server/controllers/ItemsController.rb"
       }
+    },
+    {
+      "name": "server/models/Item.lua",
+      "code": {
+        "file": "server/models/Item.lua"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.lua",
+      "code": {
+        "file": "server/controllers/ItemsController.lua"
+      }
     }
   ]
 }

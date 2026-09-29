@@ -423,10 +423,10 @@ describe('language coverage', () => {
       expect(tac).toContain(extension)
     }
     for (const id of ['javascript', 'typescript', 'python', 'java', 'groovy', 'csharp', 'fsharp',
-                      'kotlin', 'php', 'rust', 'dart', 'go', 'ruby']) {
+                      'kotlin', 'php', 'rust', 'dart', 'go', 'ruby', 'lua']) {
       expect(yon).toContain(id)
     }
-    expect(yon).toHaveLength(13)
+    expect(yon).toHaveLength(14)
     for (const file of languages.tac.files) {
       expect(file.code.length).toBeGreaterThan(20)
       expect(file.name).toMatch(/^client\/components\/basket\/tally\/tac\.(html|css)$|^client\/services\/TallyService\.[a-z]+$/)

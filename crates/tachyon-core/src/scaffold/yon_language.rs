@@ -13,13 +13,14 @@ pub enum YonLanguage {
     FSharp,
     Php,
     Ruby,
+    Lua,
     Rust,
     Dart,
 }
 
 impl YonLanguage {
     const OUTPUT: &'static str = "server/";
-    const NAMES: [&'static str; 13] = [
+    const NAMES: [&'static str; 14] = [
         "js,javascript",
         "ts,typescript",
         "py,python",
@@ -31,10 +32,11 @@ impl YonLanguage {
         "fs,fsharp,f#",
         "php",
         "rb,ruby",
+        "lua",
         "rs,rust",
         "dart",
     ];
-    const LABELS: [&'static str; 13] = [
+    const LABELS: [&'static str; 14] = [
         "JavaScript",
         "TypeScript",
         "Python",
@@ -46,6 +48,7 @@ impl YonLanguage {
         "F#",
         "PHP",
         "Ruby",
+        "Lua",
         "Rust",
         "Dart",
     ];
@@ -68,6 +71,7 @@ impl Choice for YonLanguage {
         Self::FSharp,
         Self::Php,
         Self::Ruby,
+        Self::Lua,
         Self::Rust,
         Self::Dart,
     ];

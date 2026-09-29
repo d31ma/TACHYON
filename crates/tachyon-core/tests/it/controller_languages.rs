@@ -44,6 +44,21 @@ impl OrderProject {
         ],
     };
 
+    const LUA: Self = Self {
+        extension: "lua",
+        program: "lua",
+        files: &[
+            (
+                "server/models/Order.lua",
+                "---@class Order\n---@field name string\n---@field count integer\nOrder = {}\n",
+            ),
+            (
+                "server/controllers/OrdersController.lua",
+                "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {}\n\n---@param id integer\n---@param note string\n---@param order Order\n---@return Order\n-- @PostRoute(\"/{id}\")\nfunction OrdersController:post_order(\n  -- @FromPath\n  id,\n  -- @FromQuery(\"note\")\n  note,\n  -- @FromBody\n  order\n)\n  return { name = order.name .. \":\" .. note, count = order.count + id }\nend\n\n---@return Order[]\n-- @GetRoute\nfunction OrdersController:get_orders()\n  return { { name = \"a\", count = 1 } }\nend\n",
+            ),
+        ],
+    };
+
     const PHP: Self = Self {
         extension: "php",
         program: "php-cgi",
@@ -184,6 +199,7 @@ fn available(program: &str) -> bool {
     let flag = match program {
         "kotlinc" => "-version",
         "go" => "version",
+        "lua" => "-v",
         _ => "--version",
     };
     Command::new(program)
@@ -272,6 +288,11 @@ async fn a_python_controller_binds_arguments_and_models() {
 #[tokio::test]
 async fn a_ruby_controller_binds_arguments_and_models() {
     assert_orders(&OrderProject::RUBY).await;
+}
+
+#[tokio::test]
+async fn a_lua_controller_binds_arguments_and_models() {
+    assert_orders(&OrderProject::LUA).await;
 }
 
 #[tokio::test]

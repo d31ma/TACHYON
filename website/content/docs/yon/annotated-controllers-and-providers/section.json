@@ -230,6 +230,24 @@
       "code": {
         "file": "server/controllers/ProductsController.rb"
       }
+    },
+    {
+      "name": "server/models/Product.lua",
+      "code": {
+        "file": "server/models/Product.lua"
+      }
+    },
+    {
+      "name": "server/services/ProductsService.lua",
+      "code": {
+        "file": "server/services/ProductsService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.lua",
+      "code": {
+        "file": "server/controllers/ProductsController.lua"
+      }
     }
   ]
 }

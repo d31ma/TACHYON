@@ -13,7 +13,7 @@ pub struct InitChoices {
     tac: Option<String>,
     #[arg(
         long,
-        help = "Yon (server) languages, separated by commas: js, ts, py, go, java, kt, cs, fs, php, rb, rs, dart (default js)"
+        help = "Yon (server) languages, separated by commas: js, ts, py, go, java, kt, cs, fs, php, rb, lua, rs, dart (default js)"
     )]
     yon: Option<String>,
     #[arg(

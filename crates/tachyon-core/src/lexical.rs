@@ -44,6 +44,9 @@ pub(crate) fn code_mask(extension: &str, source: &str) -> LexicalMask {
     if extension == "rb" {
         return crate::ruby_source::RubyLexer::code_mask(source);
     }
+    if extension == crate::lua_source::LuaSource::EXTENSION {
+        return crate::lua_source::LuaLexer::code_mask(source);
+    }
     if extension == crate::fsharp_source::FsharpSource::EXTENSION {
         return crate::fsharp_source::FsharpLexer::code_mask(source);
     }

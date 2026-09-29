@@ -14,8 +14,9 @@ pub(crate) use streaming_methods::StreamingMethods;
 pub(crate) struct YonConvention;
 
 impl YonConvention {
-    pub(crate) const EXTENSIONS: [&str; 13] = [
+    pub(crate) const EXTENSIONS: [&str; 14] = [
         "js", "ts", "py", "java", "groovy", "cs", "fs", "kt", "php", "rs", "dart", "go", "rb",
+        "lua",
     ];
 
     pub(crate) fn is_yon_language(source: &Path) -> bool {
@@ -115,7 +116,7 @@ pub fn is_yon_language(source: &Path) -> bool {
 }
 
 pub fn check_handler(source: &Path, contents: &str) -> Result<(), crate::Failure> {
-    crate::fsharp_source::FsharpView::either(source, contents, HandlerCheck::check)
+    crate::lua_source::LuaView::either(source, contents, HandlerCheck::check)
 }
 
 #[must_use]

@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises'
 
 class PublishedData {
   static languages = ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts']
-  static withRuby = ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts']
+  static withRuby = ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts']
   static rubySections = ['Annotated controllers and providers']
 
   /** @param {string} name @returns {Promise<Documentation>} */
@@ -71,7 +71,7 @@ describe('annotation routes and clients in published examples', () => {
       const files = PublishedData.files(await PublishedData.load(name))
       for (const file of files) {
         expect(file.name).not.toMatch(/^server\/routes\/|\/yon\.[a-z]+$|OPTIONS\.schema\.json$/)
-        if (!/\.(js|ts|py|php|java|kt|cs|rs|dart|go|swift|rb)$/.test(file.name)) continue
+        if (!/\.(js|ts|py|php|java|kt|cs|rs|dart|go|swift|rb|lua)$/.test(file.name)) continue
         expect(file.code).not.toMatch(/(?:@|#\[|\[)(?:Client|Controller|WebCall|HTTPExchange|HttpExchange|GetExchange|RequestMapping|GetMapping)\b/)
       }
     }

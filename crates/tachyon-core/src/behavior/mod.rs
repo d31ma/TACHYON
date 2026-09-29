@@ -47,6 +47,8 @@ mod stored_state;
 pub(crate) use stored_state::StoredState;
 mod test_assert;
 mod testing;
+mod unit_table;
+pub(crate) use unit_table::UnitTable;
 mod validation;
 mod value_source;
 #[cfg(test)]
@@ -224,6 +226,14 @@ fn own_markers(input: &Input<'_>, environment: &str) -> Result<Vec<Marker>, Fail
         .into_iter()
         .filter(|marker| !tac_only_marker(input, marker))
         .collect())
+}
+
+pub(crate) fn unit_tables(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Vec<UnitTable>, Failure> {
+    polyglot::unit_tables(path, source, environment)
 }
 
 pub(crate) fn test_configuration_name(

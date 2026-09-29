@@ -845,6 +845,8 @@ fn lower_annotated_source(
 ) -> Result<LoweredEntry, Failure> {
     let lowered = if crate::fsharp_source::FsharpSource::is_fsharp(relative_source) {
         crate::fsharp_source::FsharpYon::lower(relative_source, contents, Some(models_root))?
+    } else if crate::lua_source::LuaSource::is_lua(relative_source) {
+        crate::lua_source::LuaYon::lower(relative_source, contents)?
     } else {
         crate::yon::lower_with_routes(relative_source, contents, Some(models_root))?
     };
@@ -2437,6 +2439,27 @@ fn prepare_php(
     })
 }
 
+fn prepare_lua(
+    cache: &CacheDirectory,
+    portable: &str,
+    bytes: &[u8],
+) -> Result<PreparedCommand, Failure> {
+    let contents = std::str::from_utf8(bytes)
+        .map_err(|_| invalid_source(portable, "Handler source must be valid UTF-8."))?;
+    let workspace = RuntimeWorkspace::new(portable)?;
+    let runtime = include_str!("preludes/yon.lua");
+    let runtime_copy = stage_script_file(cache, &workspace, ("yon-runtime", "lua"), runtime, portable)?;
+    let handler_copy = stage_script_file(cache, &workspace, ("yon-handler", "lua"), contents, portable)?;
+    Ok(PreparedCommand {
+        interpreter: vec![
+            String::from(crate::lua_source::LuaSource::RUNTIME),
+            runtime_copy.to_string_lossy().into_owned(),
+            handler_copy.to_string_lossy().into_owned(),
+        ],
+        workspace,
+    })
+}
+
 fn stage_php_file(
     cache: &CacheDirectory,
     workspace: &RuntimeWorkspace,
@@ -2444,10 +2467,20 @@ fn stage_php_file(
     contents: &str,
     portable: &str,
 ) -> Result<PathBuf, Failure> {
+    stage_script_file(cache, workspace, (name, "php"), contents, portable)
+}
+
+fn stage_script_file(
+    cache: &CacheDirectory,
+    workspace: &RuntimeWorkspace,
+    (name, extension): (&str, &str),
+    contents: &str,
+    portable: &str,
+) -> Result<PathBuf, Failure> {
     let digest = crate::compiler::hex_digest(Sha256::digest(contents.as_bytes()));
     let cache_name = format!("{name}-{digest}");
-    let relative = PathBuf::from(format!("{cache_name}.php"));
-    let runtime = workspace.path().join(format!("{name}.php"));
+    let relative = PathBuf::from(format!("{cache_name}.{extension}"));
+    let runtime = workspace.path().join(format!("{name}.{extension}"));
     stage_and_copy(
         cache,
         &relative,
@@ -2605,6 +2638,10 @@ fn language(
     if extension.eq_ignore_ascii_case("php") {
         let cache = handler_cache(project, portable)?;
         return prepare_php(&cache, portable, bytes).map(prepared_resolution);
+    }
+    if crate::lua_source::LuaSource::is_lua(source) {
+        let cache = handler_cache(project, portable)?;
+        return prepare_lua(&cache, portable, bytes).map(prepared_resolution);
     }
     if extension.eq_ignore_ascii_case("java") {
         let cache = handler_cache(project, portable)?;
