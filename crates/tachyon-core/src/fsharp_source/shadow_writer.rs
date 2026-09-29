@@ -180,7 +180,8 @@ impl<'a> ShadowWriter<'a> {
 
     fn write_member(&mut self, index: usize) {
         let line = &self.lines[index];
-        let header = MemberHeader::member(line.trimmed(), line.trimmed_code());
+        let form = self.blocks.last().map(|block| block.form);
+        let header = MemberHeader::member(line.trimmed(), line.trimmed_code()).owned_by(form);
         self.open_member(index, &header);
     }
 

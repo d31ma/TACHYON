@@ -63,7 +63,7 @@ impl<'a> FsharpBehaviors<'a> {
 
     fn lower_method(&mut self, method: &PlannedMethod) -> Result<(), String> {
         let index = self.line_of(method.line)?;
-        if method.declared {
+        if method.declared || MemberLine::is_abstract(&self.lines[index]) {
             return self.write_declared(index, method);
         }
         self.wrap_written(index, method)

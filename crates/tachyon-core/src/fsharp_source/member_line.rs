@@ -31,6 +31,10 @@ impl MemberLine {
         Some(written.trim_end().to_owned())
     }
 
+    pub(crate) fn is_abstract(line: &str) -> bool {
+        line.split_whitespace().next() == Some(Self::ABSTRACT_WORDS[0])
+    }
+
     pub(crate) fn is_static(line: &str) -> bool {
         line.split_whitespace().next() == Some("static")
     }
