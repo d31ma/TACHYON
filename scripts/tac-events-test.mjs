@@ -9,6 +9,7 @@ import { chromium } from 'playwright'
 
 class EventTest {
   static suffix = { js: 'Js', ts: 'Ts' }
+  static manifest = { tac: { visibility: { check: false } } }
 }
 
 function write(root, name, source) {
@@ -38,28 +39,11 @@ class EventModels {
 `,
   }
 
-  static imports() {
+  static imports(extension) {
     return Object.keys(EventModels.typescript)
-      .map(name => `import type { ${name} } from '/models/${name}.ts'\n`)
+      .map(name => extension === 'ts' ? `import type { ${name} } from '/models/${name}.ts'\n` : `/** @import { ${name} } from '/models/${name}.ts' */\n`)
       .join('')
   }
-  static javascript = `/**
- * @typedef {Object} Counter
- * @property {integer} value
- */
-/**
- * @typedef {Object} Order
- * @property {string} status
- * @property {integer} total
- */
-/**
- * @typedef {Object} Moved
- * @property {string} id
- */
-/**
- * @typedef {Object} Invoice
- * @property {integer} total
- */`
 }
 
 function typed(extension, name, type) {
@@ -81,8 +65,7 @@ function serviceSource(extension) {
   const any = listener(extension, 'Order')
   const unpaid = listener(extension, 'Order', extension === 'ts' ? 'Promise<Invoice>' : 'Invoice')
   const invoiced = listener(extension, 'Invoice')
-  const models = extension === 'ts' ? EventModels.imports() : `${EventModels.javascript}\n`
-  return `${models}
+  return `${EventModels.imports(extension)}
 @Service()
 export default class ${name} {
   @Needs
@@ -95,7 +78,7 @@ export default class ${name} {
   result = 0;
   tag = '';
   visible = true;
-  trace = [];
+  #trace = [];
   @OnStart()
   initialize() {
     this.#requireValidOwner();
@@ -116,7 +99,7 @@ export default class ${name} {
   receive(${counter.parameter}) { this.result = value.value; }
   reject() { throw new Error('private rejected publication'); }
   exercise() {
-    this.trace = [];
+    this.#trace = [];
     ${typed(extension, 'large', 'Order')} = { status: 'paid', total: 12 };
     ${typed(extension, 'small', 'Order')} = { status: 'paid', total: 3 };
     ${typed(extension, 'open', 'Order')} = { status: 'open', total: 50 };
@@ -129,27 +112,28 @@ export default class ${name} {
     this.applicationEventPublisher.publishEvent(broken);
     this.applicationEventPublisher.publishEvent(shipped);
     this.applicationEventPublisher.publishEvent(returned);
-    return this.trace;
+    return this.#trace;
   }
   ${moved.doc}@OnEvent
-  moved(${moved.parameter}) { this.trace.push('moved:' + value.id); }
+  moved(${moved.parameter}) { this.#trace.push('moved:' + value.id); }
   ${large.doc}@OnEvent({"condition":"value.status == 'paid' && value.total >= 10"})
   @Order(5)
-  large(${large.parameter})${large.returns} { this.trace.push('large:' + value.total); return { total: value.total }; }
+  large(${large.parameter})${large.returns} { this.#trace.push('large:' + value.total); return { total: value.total }; }
   ${any.doc}@OnEvent
   @Order(-1)
-  any(${any.parameter}) { this.trace.push('any:' + value.total); }
+  any(${any.parameter}) { this.#trace.push('any:' + value.total); }
   ${unpaid.doc}@OnEvent({"condition":"value.status != 'paid'"})
   @InBackground()
-  async unpaid(${unpaid.parameter})${unpaid.returns} { this.trace.push('unpaid:' + value.total); return { total: -1 }; }
+  async unpaid(${unpaid.parameter})${unpaid.returns} { this.#trace.push('unpaid:' + value.total); return { total: -1 }; }
   ${invoiced.doc}@OnEvent
-  invoiced(${invoiced.parameter}) { this.trace.push('invoice:' + value.total); }
+  invoiced(${invoiced.parameter}) { this.#trace.push('invoice:' + value.total); }
   @OnStop()
   destroy() { globalThis.pageDestroyed = this.lifecycle.aborted; }
 }`
 }
 
 function writeServiceFixtures(root) {
+  write(root, 'client/manifest.json', JSON.stringify(EventTest.manifest))
   for (const [name, source] of Object.entries(EventModels.typescript)) {
     write(root, `client/models/${name}.ts`, source)
   }
@@ -163,11 +147,7 @@ function writeServiceFixtures(root) {
 
 function writeSharedComponents(root) {
   write(root, 'client/components/event/panel/tac.html', '<p id="panel">{eventPanel.value}</p><button id="delegated">Delegated</button>')
-  write(root, 'client/services/EventPanelService.js', `
-/**
- * @typedef {Object} Counter
- * @property {integer} value
- */
+  write(root, 'client/services/EventPanelService.js', `/** @import { Counter } from '/models/Counter.ts' */
 @Service()
 @Lifetime({"value":"prototype"})
 export default class EventPanelService {

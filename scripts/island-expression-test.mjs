@@ -41,7 +41,7 @@ function writeFixture() {
   <else><p id="empty">empty</p></else>
   <button id="bump" on:click="panelStatus.count += 1">bump</button>
   <button id="reset" on:click="panelStatus.reset()">reset</button>
-  <input id="typed" on:input="panelStatus.label = $event.target.value">
+  <input id="typed" aria-label="Label" on:input="panelStatus.label = $event.target.value">
   <p id="typedOut">{panelStatus.label}</p>
   <section id="lexical-scope">
     <loop :for="account of panelStatus.accounts">
@@ -68,7 +68,7 @@ function writeFixture() {
 `);
   write('client/services/PanelStatusService.js', `@Service()
 export default class PanelStatusService {
-  static MISSING = 'missing'
+  static _MISSING = 'missing'
   label = 'ready'
   count = 6
   report = { title: 'Report', rows: [1, 2, 3] }
@@ -88,8 +88,8 @@ export default class PanelStatusService {
     return \`\${this.#domainOf(account)}:\${this.#idOf(role)}:\${this.#idOf(folder)}\`
   }
   select(_event, domain, role) { this.selection = \`\${domain}:\${role}\` }
-  #domainOf(account) { return account?.domain || PanelStatusService.MISSING }
-  #idOf(item) { return item?.id || PanelStatusService.MISSING }
+  #domainOf(account) { return account?.domain || PanelStatusService._MISSING }
+  #idOf(item) { return item?.id || PanelStatusService._MISSING }
   #bothGiven(account, role) { return Boolean(account && role) }
   #folderId(account) { return account?.domain === 'example.com' ? 'primary' : 'archive' }
   #listWhen(given, item) {

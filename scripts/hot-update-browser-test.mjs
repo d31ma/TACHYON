@@ -22,6 +22,12 @@ class HotUpdateTest {
   static binary = process.env.TAC_BIN
     ?? CargoArtifacts.path('debug', process.platform === 'win32' ? 'ty.exe' : 'ty')
   static fixture = path.join(HotUpdateTest.repository, 'crates/tachyon-cli/tests/fixtures/hot-update-browser')
+  static brokenTemplate = `<section aria-label="Hot counter">
+  <button on:click="hotCounter.increment()">Increase</button>
+  <output>{hotCounter.count} {hotCounter.version}</output>
+  <logic :else>broken</logic>
+</section>
+`
 }
 
 function projectPaths(project) {
@@ -93,10 +99,7 @@ async function checkHotUpdates(page, address, paths, originalTemplate) {
   assert.equal(await page.evaluate(() => sessionStorage.getItem('tachyon-hot-disposed')), 'true')
   assert.equal(await page.evaluate(() => sessionStorage.getItem('tachyon-hot-aborted')), 'true')
 
-  writeFileSync(
-    templatePath,
-    '<section aria-label="Hot counter"><logic :else>broken</logic></section>\n',
-  )
+  writeFileSync(templatePath, HotUpdateTest.brokenTemplate)
   await page.locator('#tachyon-hot-diagnostics').waitFor()
   assert.equal(await page.textContent('#count'), '2', 'failed builds must retain last-good DOM')
   assert.match(await page.textContent('#tachyon-hot-diagnostics'), /TY1302/)

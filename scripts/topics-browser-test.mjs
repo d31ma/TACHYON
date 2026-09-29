@@ -32,12 +32,14 @@ function writeFixture() {
   <p id="audited">{audit.seen}</p>
 </main>
 `);
-  write('client/services/OrdersService.js', `/**
+  write('client/models/OrderPlaced.js', `/**
  * @Topic
  * @typedef {Object} OrderPlaced
  * @property {string} id
  */
-@Service()
+export {}
+`);
+  write('client/services/OrdersService.js', `@Service()
 export default class OrdersService {
   placed = '-'
   /** @param {OrderPlaced} order */
@@ -46,12 +48,7 @@ export default class OrdersService {
   #withId(id) { return this.placed === '-' ? id : this.placed + ',' + id }
 }
 `);
-  write('client/services/AuditService.js', `/**
- * @Topic
- * @typedef {Object} OrderPlaced
- * @property {string} id
- */
-@Service()
+  write('client/services/AuditService.js', `@Service()
 export default class AuditService {
   seen = 0
   /** @param {OrderPlaced} order */
