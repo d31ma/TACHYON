@@ -251,7 +251,7 @@ These restrictions fail before any adapter runs.
 | `@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id","name"]})` (on a parameter) | Before the method runs and before cache lookup, turns that parameter into `{page,size,offset,sort}`. It never fetches a collection and cuts it into pages. On a Store query, `@PageDefaults` without sizes marks the page parameter; the Store gives the sizes. |
 | `@Entity({"adapter":"data"})` with `@Id` on one field | Declares the model identity that `context.repository(Model)` uses through `configuration.entities.data`. The field marked `@Id` is the identifier; an Entity without exactly one `@Id` field fails the build. |
 | `@Table('products')` | Gives the required table mapping for an entity. The mapping cannot change. Tachyon runs no DDL, creates no schema and runs no migration. |
-| `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares a Store: a contract with no implementation, like a Spring Data repository interface, in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, `typeof<ProductEntity>` in F#, the bare name elsewhere. Each method is a derived query or a `@Query`, and Tachyon writes it. `{"setup":"CatalogSetup"}` in the options names the Setup that builds its behavior context; the default is the store name with `Setup` instead of `Store`. In Yon, `@Needs` injects the store. A Store without an Entity, a class form where the language has a contract form, a method body, a field, a constructor or a method that is not a query fails with `TY1308`, and so does an `@AllOrNothing` method on a Store: the transaction belongs to the service that calls the store. |
+| `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares a Store: a contract with no implementation, like a Spring Data repository interface, in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, `typeof<ProductEntity>` in F#, the bare name elsewhere. Each method is a derived query or a `@Query`, and Tachyon writes it. `{"setup":"CatalogSetup"}` in the options names the Setup that builds its behavior context; the default is the store name with `Setup` instead of `Store`. `@Needs` injects the store in Yon and in Tac. A Store without an Entity, a class form where the language has a contract form, a method body, a field, a constructor or a method that is not a query fails with `TY1308`, and so does an `@AllOrNothing` method on a Store: the transaction belongs to the service that calls the store. |
 | `@Query({"operation":"find","where":[{"field":"status","operator":"eq","argument":0}],"orderBy":[]})` | Turns an empty method into an authorized, structured query to the entity adapter. Never SQL text. A `find` reads its page request from the parameter marked `@PageDefaults`. |
 | `@HTTPClient({"adapter":"catalog","path":"/products"})` with `@GetRequest` | Declares an outgoing call through the selected HTTP adapter. It does not register a Yon route. `GetRequest`, `PostRequest`, `PutRequest`, `PatchRequest` and `DeleteRequest` select the verb and optional method path. `PathVariable`, `RequestParam`, `RequestHeader` and `RequestBody` select argument values. An `HTTPClient` is a contract with no implementation, like a Spring `@HttpExchange` interface: declare it in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). A class form where the language has a contract form, a method body, a field, a constructor, a method without a request annotation, or another role on the same class fails with `TY1308`. `ty migrate fix --write` rewrites a class client. `{"setup":"CatalogSetup"}` names the Setup whose adapters send the requests; the default is the client name with `Setup` instead of `Client`. GET requests cannot have a body. See ADR 0048. |
 | `@StreamRequest("/ticks")` on an `@HTTPClient` method in JavaScript or TypeScript | Tac keeps a stream of server-sent events open at the path: it opens it when a component or service first uses the client, reconnects with a growing wait (1, 2, 4, 8 and 16 seconds, then it stops), reconnects after 60 seconds without a message, and closes it with its owner or when the server sends `end`. The method takes one parameter whose model type describes each message. A message that does not fit the model is dropped. Tac passes each message to the method and then publishes it as that model's event, so an `@OnEvent` listener in any Tac language receives it. It pairs with `@StreamRoute` on the server. See ADR 0058. |
@@ -854,13 +854,17 @@ store and its behavior context from a Setup: the one that
 instead of `Store`. The partition is the store name in lowerCamel case without
 `Store`.
 
-- In Yon, the store is a provider: a controller or service asks for it with
-  `@Needs`, and never builds it.
-- A Tac service in Dart, Rust, Go, C#, F#, Kotlin or Swift builds it:
-  `ProductStore()`, `ProductStore::new()`, `NewProductStore()` or
-  `new ProductStore()`. A Tac JavaScript or TypeScript service creates the
-  context first, because a browser creates it asynchronously, and passes it:
-  `Behaviors.construct(ProductsStore, { behaviors: context })`.
+- The store is a provider: a controller or service asks for it with
+  `@Needs`, and never builds it. This is the same in Yon and in Tac.
+- In a Tac JavaScript or TypeScript service, the owner of the service creates
+  the store's context before the service starts, because a browser creates a
+  context asynchronously. A root service that asks for a store does not
+  declare its own `behaviors` member.
+- In a Tac Kotlin, Swift, Java or C# service, Tachyon gives the field a new
+  store. A Rust service fills it with `Default` (derive it, or write no
+  `fn new`). In Go, Tachyon builds the store before the service starts. Dart
+  builds it with the service. Ruby and F# Tac services cannot ask for a store
+  yet.
 - A Store without an Entity fails with `TY1308`. Code that only runs SQL
   belongs in a service that asks for a `DataSource`.
 - Do not put the Service role and the Store role on one type.

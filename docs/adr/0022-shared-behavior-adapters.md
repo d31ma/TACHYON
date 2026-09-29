@@ -213,3 +213,26 @@ no implementation, and Tachyon generates each query.
   JavaScript or TypeScript converter, whose caller passes its context with
   `Behaviors.construct`. `ty migrate fix --write` rewrites a class converter.
 
+
+## Amendment (2026-09-29): a Tac service asks for its store
+
+- A Tac service asks for an entity store with `@Needs`, like a Yon service,
+  in JavaScript, TypeScript, Dart, Kotlin, Swift, Java, C#, Rust and Go. It
+  no longer builds the store. The store still opens the behavior context of
+  its Setup, so a Tac store is a provider with no dependencies.
+- JavaScript and TypeScript: the store is a provider in the service's owner
+  graph. It gets a static `tachyonContext(signal)` that creates the context
+  from its Setup, and the owner creates that context before it builds the
+  service, because a browser creates a context asynchronously. The owner's
+  signal ends the context with the owner. A store no longer has a
+  `@Needs behaviors` field, so `Behaviors.construct(ProductStore, …)` is
+  gone. A root service that injects a store must not declare its own
+  `behaviors` member, like any managed Tac root.
+- Dart builds the store with the service, as it builds other collaborators.
+- Kotlin, Swift, Java and C#: the field that needs a store gets a new store
+  as its private initial value, and the `@Needs` marker is removed before
+  the build. Rust: the Tac store implements `Default`, and the service fills
+  the field with `Default` (derive it, or write no `fn new`). Go: Tachyon
+  adds a method that builds each needed store with `New…Store()`, and the
+  service's table calls it before the service starts.
+- Ruby and F# Tac services cannot ask for a store yet; that is planned.

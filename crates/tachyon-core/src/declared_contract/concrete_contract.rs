@@ -129,8 +129,7 @@ impl<'a> ConcreteContract<'a> {
             .rfind('\n')
             .map_or(0, |line| line + 1);
         let marker = Messages::spelled(self.form.language, declaration.role.marker);
-        let injected = [!self.tac, self.in_browser()].contains(&true);
-        let wanted = [declaration.role.names_entity, injected] == [true, true];
+        let wanted = [declaration.role.names_entity, self.tac] == [true, false];
         wanted.then(|| (at..at, format!("{marker}\n")))
     }
 

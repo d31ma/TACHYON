@@ -835,13 +835,14 @@ export default class Products {
         write_file(
             root.path(),
             "client/stores/ProductStore.js",
-            "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"setup\":\"CatalogSetup\"})\nexport default class ProductStore {\n  async countByStatus(status) {}\n}\n",
+            "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100,\"setup\":\"CatalogSetup\"})\nexport default class ProductStore {\n  async countByStatus(status) {}\n}\n",
         );
         let source = "@Service\nexport default class ProductService {\n  /** @type {ProductStore} */\n  @Needs\n  productStore;\n  summary = '';\n\n  async load() {\n    this.summary = String(await this.productStore.countByStatus('active'));\n  }\n}\n";
         let path = "client/services/ProductService.js";
         write_file(root.path(), path, source);
-        let output = ComponentScript::prepare(root.path(), source.as_bytes(), path)
-            .expect("the store is injected");
+        let output =
+            ComponentScript::prepare_captured(root.path(), source.as_bytes().to_vec(), path)
+                .expect("the store is injected");
         let output = String::from_utf8(output).expect("utf8");
         for part in [
             "for (const [name, store] of [['ProductStore',ProductStore]]) stores.set(name, await store.tachyonContext(signal));",

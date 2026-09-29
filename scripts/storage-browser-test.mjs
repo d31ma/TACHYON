@@ -88,12 +88,23 @@ type GoNoteEntity struct {
 }
 `);
   write(project, 'client/components/storage/go/tac.html', '<p id="go">{goNotes.reads}</p>\n<button id="go-bump" on:click="goNotes.increment()">+</button>\n<p id="go-count">{goNotes.count}</p>\n');
+  write(project, 'client/stores/GoNoteStore.go', `// @Store(GoNoteEntity, {"fields":["id","text"],"setup":"GoNotesSetup"})
+type GoNoteStore interface {
+\tFindByText(text BehaviorValue) (BehaviorValue, error)
+}
+`);
   write(project, 'client/services/GoNotesService.go', `// @CacheSettings({"name":"gonotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 type GoNotesService struct {
 \tbehaviors *BehaviorContext
+\t// @Needs
+\tnoteStore *GoNoteStore
 \tReads     int
 \t// @LocalState
 \tCount int
+}
+
+func (notes *GoNotesService) Kept() (BehaviorValue, error) {
+\treturn notes.noteStore.FindByText("kept")
 }
 
 func (notes *GoNotesService) Increment() int {
@@ -226,6 +237,11 @@ final class SwiftNoteEntity {
 }
 `);
   write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swiftCounter.increment()">+</button>\n<p id="swift-count">{swiftCounter.count}</p>\n');
+  write(project, 'client/stores/SwiftNoteStore.swift', `@Store(SwiftNoteEntity, {"fields":["id","text"],"setup":"SwiftNotesSetup"})
+protocol SwiftNoteStore {
+    func findByText(_ text: BehaviorJSON) async throws -> BehaviorJSON
+}
+`);
   write(project, 'client/services/SwiftCounterService.swift', `@Service
 @CacheSettings({"name":"swiftnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 final class SwiftCounterService {
@@ -233,6 +249,12 @@ final class SwiftCounterService {
     var count: Int = 0
     private var behaviors: BehaviorContext!
     private var reads: Int = 0
+    @Needs
+    let noteStore: SwiftNoteStore
+
+    func kept() async throws -> BehaviorJSON {
+        try await noteStore.findByText(.string("kept"))
+    }
 
     @OnStart
     func open() {
@@ -298,6 +320,11 @@ class JavaNoteEntity {
 }
 `);
   write(project, 'client/components/storage/java/tac.html', '<button id="java-bump" on:click="javaCounter.increment()">+</button>\n<p id="java-count">{javaCounter.count}</p>\n');
+  write(project, 'client/stores/JavaNoteStore.java', `@Store(JavaNoteEntity.class, {"fields":["id","text"],"setup":"JavaNotesSetup"})
+interface JavaNoteStore {
+    Object findByText(String text);
+}
+`);
   write(project, 'client/services/JavaCounterService.java', `import java.util.Map;
 
 @Service
@@ -307,6 +334,12 @@ class JavaCounterService {
     int count = 0;
     Behaviors.Context behaviors;
     private long reads = 0;
+    @Needs
+    JavaNoteStore noteStore;
+
+    Object kept() {
+        return noteStore.findByText("kept");
+    }
 
     @OnStart
     void open() {
@@ -379,11 +412,20 @@ class KtNoteEntity {
 }
 `);
   write(project, 'client/components/storage/kt/tac.html', '<p id="kt">{ktNotes.reads}</p>\n<button id="kt-bump" on:click="ktNotes.increment()">+</button>\n<p id="kt-count">{ktNotes.count}</p>\n');
+  write(project, 'client/stores/KtNoteStore.kt', `@Store(KtNoteEntity::class, {"fields":["id","text"],"setup":"KtNotesSetup"})
+interface KtNoteStore {
+    fun findByText(text: String): Any?
+}
+`);
   write(project, 'client/services/KtNotesService.kt', `@Service
 @CacheSettings({"name":"ktnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 class KtNotesService {
     lateinit var behaviors: Behaviors.Context
     var reads: Long = 0
+    @Needs
+    val noteStore: KtNoteStore
+
+    fun kept(): Any? = noteStore.findByText("kept")
     @LocalState
     var count: Long = 0
 
@@ -444,11 +486,22 @@ public sealed class CsNoteEntity {
 }
 `);
   write(project, 'client/components/storage/cs/tac.html', '<p id="cs">{csNotes.reads}</p>\n<button id="cs-bump" on:click="csNotes.increment()">+</button>\n<p id="cs-count">{csNotes.count}</p>\n');
+  write(project, 'client/stores/CsNoteStore.cs', `[Store(typeof(CsNoteEntity), {"fields":["id","text"],"setup":"CsNotesSetup"})]
+public interface CsNoteStore {
+    System.Threading.Tasks.Task<BehaviorJSON> findByText(BehaviorJSON text);
+}
+`);
   write(project, 'client/services/CsNotesService.cs', `[Service]
 [CacheSettings({"name":"csnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
 public sealed class CsNotesService {
     public BehaviorContext behaviors;
     public int reads = 0;
+    [Needs]
+    CsNoteStore noteStore;
+
+    public System.Threading.Tasks.Task<BehaviorJSON> kept() {
+        return noteStore.findByText(BehaviorJSON.From("kept"));
+    }
     [LocalState]
     public int count = 0;
 
@@ -926,6 +979,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('goNotes').find('b'))), JSON.stringify({ key: 'b', reads: 2 }), 'the Go cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').list())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'the Go Store row survives a reload through the IndexedDB copy');
+  expect(JSON.stringify(await evaluate(() => __root('goNotes').kept())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'a Go service that needs GoNoteStore reads through the store, which opens the context of its Setup');
   expect(JSON.stringify(await evaluate(() => [__root('rubyNotes').find('a'), __root('rubyNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Ruby WebAssembly service reads its Cached value synchronously from memory');
   await evaluate(() => __root('rubyNotes').forget('a'));
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the Ruby service read again');
@@ -977,6 +1031,7 @@ async function checkCSharpStorage(page, evaluate) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('csNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the C# cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').list())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'the C# Store row survives a reload and the refused AllOrNothing saved nothing');
+  expect(JSON.stringify(await evaluate(() => __root('csNotes').kept())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'a C# service that needs CsNoteStore reads through the store, which opens the context of its Setup');
 }
 
 async function checkKotlinStorage(page, evaluate) {
@@ -990,6 +1045,7 @@ async function checkKotlinStorage(page, evaluate) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Kotlin cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').list())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'the Kotlin Store row survives a reload and the refused AllOrNothing saved nothing');
+  expect(JSON.stringify(await evaluate(() => __root('ktNotes').kept())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'a Kotlin service that needs KtNoteStore reads through the store, which opens the context of its Setup');
 }
 
 async function checkSwiftStorage(page, evaluate) {
@@ -1003,6 +1059,7 @@ async function checkSwiftStorage(page, evaluate) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Swift cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').list())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'the Swift Store row survives a reload and the refused AllOrNothing saved nothing');
+  expect(JSON.stringify(await evaluate(() => __root('swiftCounter').kept())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'a Swift service that needs SwiftNoteStore reads through the store, which opens the context of its Setup');
 }
 
 async function checkJavaStorage(page, evaluate) {
@@ -1016,6 +1073,7 @@ async function checkJavaStorage(page, evaluate) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Java cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').list())), JSON.stringify([{ id: 'j1', text: 'kept' }]), 'the Java Store row survives a reload and the refused AllOrNothing saved nothing');
+  expect(JSON.stringify(await evaluate(() => __root('javaCounter').kept())), JSON.stringify([{ id: 'j1', text: 'kept' }]), 'a Java service that needs JavaNoteStore reads through the store, which opens the context of its Setup');
 }
 
 async function checkInjectedClients(page) {

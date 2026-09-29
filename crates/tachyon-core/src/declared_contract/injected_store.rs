@@ -2,7 +2,7 @@ use super::store_field::StoreField;
 use std::path::Path;
 
 pub(crate) struct InjectedStore<'a> {
-    language: &'a str,
+    language: &'static str,
     marker: &'static str,
     filled: &'static str,
     stores: &'a [String],
@@ -63,9 +63,9 @@ impl<'a> InjectedStore<'a> {
     pub(crate) fn filled(path: &Path, source: &str, stores: &'a [String]) -> Option<String> {
         let language = path.extension()?.to_str()?;
         let owner = path.file_stem()?.to_str()?;
-        let (_, marker, filled) = Self::FORMS.iter().find(|(form, _, _)| *form == language)?;
+        let (form, marker, filled) = Self::FORMS.iter().find(|(form, _, _)| *form == language)?;
         let injected = Self {
-            language,
+            language: form,
             marker,
             filled,
             stores,

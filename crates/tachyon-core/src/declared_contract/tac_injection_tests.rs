@@ -71,7 +71,6 @@ fn a_browser_store_is_a_provider_that_opens_the_context_of_its_setup() {
         let lowered = DeclaredContract::concrete(Path::new(&path), source, "tac")
             .expect("the store is lowered");
         for part in [
-            "@Store\n@Store(ProductEntity",
             "static tachyonContext(signal",
             "return Behaviors.create(CatalogSetup, { partition: 'product', signal });",
         ] {

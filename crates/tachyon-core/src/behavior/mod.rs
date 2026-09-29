@@ -1635,7 +1635,14 @@ fn class_value(
         "Entity" => entity(input, marker)?,
         "Table" => Value::String(single_string(input, marker)?),
         "Description" => description(input, marker)?,
-        "Store" => queries::repository(input, marker)?,
+        "Store" => {
+            if environment == "tac" {
+                registration
+                    .data
+                    .insert("repositoryRole".into(), Value::Bool(true));
+            }
+            queries::repository(input, marker)?
+        }
         "Settings" => configuration::properties(input, marker)?,
         "WhenProfile" | "UseProfiles" => configuration::profiles(input, marker)?,
         "WhenSetting" => configuration::conditional(input, marker)?,
