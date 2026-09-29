@@ -17,6 +17,22 @@ export default class LedgerService {
   async settle(status) {
     const open = await this.entryStore.findByStatus(status);
     const total = await this.entryStore.countByStatus(status);
-    return { open, total };
+    return { open: LedgerService._rows(open), total: LedgerService._count(total) };
+  }
+
+  /**
+   * @param {BehaviorJsonObject[] | void} open
+   * @returns {BehaviorJsonObject[]}
+   */
+  static _rows(open) {
+    return open ?? [];
+  }
+
+  /**
+   * @param {number | void} total
+   * @returns {number}
+   */
+  static _count(total) {
+    return total ?? 0;
   }
 }

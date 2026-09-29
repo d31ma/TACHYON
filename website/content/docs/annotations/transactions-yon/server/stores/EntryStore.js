@@ -2,7 +2,7 @@
 export default class EntryStore {
   /**
    * @param {string} status
-   * @returns {Promise<EntryEntity[] | void>}
+   * @returns {Promise<BehaviorJsonObject[] | void>}
    */
   async findByStatus(status) {}
   /**
