@@ -183,6 +183,8 @@ pub(super) struct GatewayMethod<'a> {
 struct JsonValueType;
 
 impl JsonValueType {
+    const TYPESCRIPT_EMPTY_ANSWER: &'static str = "Promise<BehaviorJsonValue | void>";
+
     fn for_language(language: &str) -> Option<(&'static str, &'static str, bool)> {
         match language {
             "ts" => Some(("BehaviorJsonValue", "Promise<BehaviorJsonValue>", false)),
@@ -203,6 +205,15 @@ impl JsonValueType {
             return !required;
         }
         written.replace(' ', "") == expected.replace(' ', "")
+    }
+
+    fn accepts_result(language: &str, expected: &str, written: &str, required: bool) -> bool {
+        Self::accepts(expected, written, required)
+            || Self::is_typescript_empty_answer(language, written)
+    }
+
+    fn is_typescript_empty_answer(language: &str, written: &str) -> bool {
+        language == "ts" && Self::accepts(Self::TYPESCRIPT_EMPTY_ANSWER, written, true)
     }
 }
 
@@ -255,7 +266,9 @@ fn check_types(
         .parameter_types
         .iter()
         .all(|written| JsonValueType::accepts(parameter, written, required));
-    if parameters_match && JsonValueType::accepts(result, method.result_type, required) {
+    let result_matches =
+        JsonValueType::accepts_result(method.language, result, method.result_type, required);
+    if parameters_match && result_matches {
         return Ok(());
     }
     let path = input.path.to_string_lossy();
@@ -580,6 +593,18 @@ mod tests {
         assert!(
             crate::behavior::lower(Path::new("server/clients/ReportClient.ts"), &untyped, "yon")
                 .is_ok()
+        );
+        let empty_answer = javascript(
+            r#"@Gateway({"command":["ruby"]})"#,
+            "async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}",
+        );
+        assert!(
+            crate::behavior::lower(
+                Path::new("server/clients/ReportClient.ts"),
+                &empty_answer,
+                "yon"
+            )
+            .is_ok()
         );
     }
 
