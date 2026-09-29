@@ -11,21 +11,29 @@
     A documented API that does not build is a bug.
   </p>
 
+  <input class="catalogue-filter mt-6" type="search" :value="featureFilter.query"
+         on:input="featureFilter.find($event.target.value)"
+         placeholder="Filter the features, such as storage or sockets"
+         aria-label="Filter the features" autocomplete="off">
+
   <loop :for="group of catalog.list()">
-    <section class="mt-10">
+    <section class="catalogue-group mt-10">
       <h2 :id="group.slug" class="text-heading font-semibold">{group.name}</h2>
       <ul class="catalogue mt-4 list-none p-0 m-0">
         <loop :for="entry of group.features">
-          <li>
-            <a class="catalogue__card" :href="entry.path">
-              <span class="catalogue__title">{entry.title}</span>
-              <span class="catalogue__summary"><loop :for="part of inlineCode.parts(entry.summary)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></span>
-            </a>
-          </li>
+          <logic :if="featureFilter.shows(entry.title, entry.summary)">
+            <li>
+              <a class="catalogue__card" :href="entry.path">
+                <span class="catalogue__title">{entry.title}</span>
+                <span class="catalogue__summary"><loop :for="part of inlineCode.parts(entry.summary)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></span>
+              </a>
+            </li>
+          </logic>
         </loop>
       </ul>
     </section>
   </loop>
+  <p class="catalogue-empty mt-10 opacity-70">No feature matches. Try another word, or search the whole site.</p>
 
   <docs-pager :path="page.path" :documents="data.guides" :features="data.features" />
 </main>

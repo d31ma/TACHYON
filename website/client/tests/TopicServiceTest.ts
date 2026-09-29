@@ -44,6 +44,13 @@ export default class TopicServiceTest {
     Assert.isTrue(blocks.some((block: SectionBlock) => Boolean(block.text)), 'other text stays paragraphs')
   }
 
+  async testWordsCountTheSummaryAndTheProse() {
+    history.pushState({}, '', '/docs/annotations')
+    Assert.isTrue(new TopicService().words() > 100, 'a guide has more than a hundred words')
+    history.pushState({}, '', '/docs/nowhere')
+    Assert.equals(10, new TopicService().words(), 'the not-found page counts only its summary')
+  }
+
   async testInitializeTitlesTheDocumentAfterTheGuide() {
     history.pushState({}, '', '/docs/nowhere')
     const topic = new TopicService()

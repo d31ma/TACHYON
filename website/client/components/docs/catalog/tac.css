@@ -1,0 +1,18 @@
+.catalogue-filter {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--w-border, color-mix(in srgb, var(--w-text) 14%, transparent));
+  border-radius: var(--w-radius-lg, 0.75rem);
+  background: transparent;
+  color: var(--w-text);
+  font: inherit;
+}
+
+.catalogue-group:not(:has(.catalogue__card)) {
+  display: none;
+}
+
+.docs-article:has(.catalogue__card) .catalogue-empty {
+  display: none;
+}

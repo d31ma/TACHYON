@@ -53,6 +53,10 @@ export default class TopicService {
     return TopicService.contentsOf(this.entry().sections)
   }
 
+  words(): number {
+    return TopicService.wordsIn(this.entry())
+  }
+
   @OnStart
   initialize(): void {
     this.followRedirect(this.redirectTarget())
@@ -129,6 +133,15 @@ export default class TopicService {
       heading: section.heading,
       anchor: TopicService.anchorFor(section.heading),
     }))
+  }
+
+  private static wordsIn(entry: Guide): number {
+    const texts = [entry.summary, ...entry.sections.map(TopicService.bodyOf)]
+    return texts.join(' ').split(/\s+/).filter(Boolean).length
+  }
+
+  private static bodyOf(section: Section): string {
+    return section.body ?? ''
   }
 
   private sourceOf(found: Guide | undefined): string {

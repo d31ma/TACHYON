@@ -23,13 +23,25 @@
       <w-btn href="/docs/features" variant="outlined">See all features</w-btn>
     </div>
 
+    <div class="w-row ga-2 mt-6 flex-wrap justify-center" role="group" aria-label="Operating system">
+      <loop :for="choice of data.hero.install">
+        <w-btn :variant="install.shows(choice.system) ? 'filled' : 'outlined'" size="sm"
+               :aria-pressed="install.shows(choice.system) ? 'true' : 'false'"
+               on:click="install.pick(choice.system)">{choice.label}</w-btn>
+      </loop>
+    </div>
+
     <div class="w-row justify-center mt-6">
-      <div class="command">
-        <span class="command__prompt" aria-hidden="true">❯</span>
-        <span class="command__text">{data.hero.install}</span>
-        <w-btn variant="text" size="sm" on:click="clipboard.copy('install', data.hero.install)"
-               :aria-label="clipboard.copied === 'install' ? 'Command copied' : 'Copy the install command'">{clipboard.label('install')}</w-btn>
-      </div>
+      <loop :for="choice of data.hero.install">
+        <logic :if="install.shows(choice.system)">
+          <div class="command">
+            <span class="command__prompt" aria-hidden="true">❯</span>
+            <span class="command__text">{choice.command}</span>
+            <w-btn variant="text" size="sm" on:click="clipboard.copy('install', choice.command)"
+                   :aria-label="clipboard.copied === 'install' ? 'Command copied' : 'Copy the install command'">{clipboard.label('install')}</w-btn>
+          </div>
+        </logic>
+      </loop>
     </div>
   </w-container>
 </section>
