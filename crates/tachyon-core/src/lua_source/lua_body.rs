@@ -107,7 +107,7 @@ impl LuaBody {
 
     fn blank_keeping_lines(region: &mut [u8]) {
         for byte in region.iter_mut() {
-            *byte = [b' ', b'\n'][usize::from(*byte == b'\n')];
+            *byte = b" \n"[usize::from(*byte == b'\n')];
         }
     }
 

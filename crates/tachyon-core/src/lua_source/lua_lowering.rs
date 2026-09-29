@@ -116,8 +116,13 @@ impl<'p> LuaLowering<'p> {
         let owners = self.owner_list(", YonGenerated.resolve_", "(cache)");
         RouteCalls::verbs(self.plan)
             .iter()
-            .map(|verb| format!("function Handler.{verb}(request)\n  local cache = {{}}\n  return YonGenerated.route_{verb}(YonGenerated.resolve_{controller}(cache), request{owners})\nend\n\n"))
-            .collect()
+            .fold(String::new(), |mut functions, verb| {
+                let _ = write!(
+                    functions,
+                    "function Handler.{verb}(request)\n  local cache = {{}}\n  return YonGenerated.route_{verb}(YonGenerated.resolve_{controller}(cache), request{owners})\nend\n\n"
+                );
+                functions
+            })
     }
 
     fn route_function(&self, verb: &str) -> String {
@@ -138,14 +143,15 @@ impl<'p> LuaLowering<'p> {
     fn route_checks(&self, verb: &str, indent: &str) -> String {
         RouteCalls::routes_for(self.plan, verb)
             .iter()
-            .map(|route| {
-                format!(
+            .fold(String::new(), |mut checks, route| {
+                let _ = write!(
+                    checks,
                     "{indent}if route == {} then\n{indent}  return {}\n{indent}end\n",
                     RouteCalls::pattern(route),
                     Self::call(route)
-                )
+                );
+                checks
             })
-            .collect()
     }
 
     fn call(route: &Route) -> String {

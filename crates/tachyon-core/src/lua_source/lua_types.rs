@@ -23,10 +23,14 @@ impl LuaTypes {
     const NOTHING: &'static str = "void";
 
     pub(super) fn yard(lua: &str) -> String {
-        let text = lua.trim();
-        (!text.is_empty())
-            .then(|| Self::union(text))
-            .unwrap_or_else(|| String::from(Self::NOTHING))
+        Self::written_type(lua.trim())
+    }
+
+    fn written_type(text: &str) -> String {
+        if text.is_empty() {
+            return String::from(Self::NOTHING);
+        }
+        Self::union(text)
     }
 
     pub(super) fn type_word(text: &str) -> (&str, &str) {

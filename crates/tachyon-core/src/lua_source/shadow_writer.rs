@@ -85,7 +85,7 @@ impl ShadowWriter {
                 );
             }
             LuaLine::TableEnd | LuaLine::Other => {
-                self.refuse(index, LuaShadow::statement_problem(line))
+                self.refuse(index, LuaShadow::statement_problem(line));
             }
         }
     }
