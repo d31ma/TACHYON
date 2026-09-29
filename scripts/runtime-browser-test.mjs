@@ -20,42 +20,17 @@ class RuntimeGate {
 }
 
 class RuntimeModels {
-  static home = `/**
- * @typedef {Object} Counter
- * @property {integer} value
- */
-/**
- * @typedef {Object} Method
- * @property {string} text
- */
-/**
- * @typedef {Object} Returned
- * @property {integer} value
- */`
-  static mesh = `/**
- * @typedef {Object} OrderPlaced
- * @property {integer} total
- */
-/**
- * @typedef {Object} OrderReturned
- * @property {string} language
- */
-/**
- * @typedef {Object} OrderRetained
- * @property {integer} total
- */
-/**
- * @typedef {Object} NativeOrdered
- * @property {string} language
- */
-/**
- * @typedef {Object} NativeFailure
- * @property {string} language
- */
-/**
- * @typedef {Object} LateHeard
- * @property {string} language
- */`
+  static home = [['Counter', 'integer', 'value'], ['Method', 'string', 'text'], ['Returned', 'integer', 'value']]
+  static native = [['Early', 'string', 'text']]
+  static go = [['GoCounted', 'integer', 'count']]
+  static mesh = [
+    ['OrderPlaced', 'integer', 'total'],
+    ['OrderReturned', 'string', 'language'],
+    ['OrderRetained', 'integer', 'total'],
+    ['NativeOrdered', 'string', 'language'],
+    ['NativeFailure', 'string', 'language'],
+    ['LateHeard', 'string', 'language'],
+  ]
   static rust = [
     ['OrderPlaced', 'pub struct OrderPlaced {\n    pub total: i64,\n}\n'],
     ['OrderReturned', 'pub struct OrderReturned {\n    pub language: String,\n}\n'],
@@ -65,7 +40,7 @@ class RuntimeModels {
     ['NativeFailure', 'pub struct NativeFailure {\n    pub language: String,\n}\n'],
     ['LateHeard', 'pub struct LateHeard {\n    pub language: String,\n}\n'],
   ]
-  static go = [
+  static goStructs = [
     ['OrderPlaced', 'type OrderPlaced struct {\n\tTotal int `json:"total"`\n}\n'],
     ['OrderReturned', 'type OrderReturned struct {\n\tLanguage string `json:"language"`\n}\n'],
     ['OrderSettled', 'type OrderSettled struct {\n\tTotal int `json:"total"`\n}\n'],
@@ -90,6 +65,12 @@ function write(project, name, source) {
   writeFileSync(file, source);
 }
 
+function writeJavaScriptModels(project, models) {
+  for (const [name, type, field] of models) {
+    write(project, `client/models/${name}.js`, `/**\n * @typedef {Object} ${name}\n * @property {${type}} ${field}\n */\nexport {}\n`);
+  }
+}
+
 async function closeServer(server) {
   if (!server) return;
   const closed = new Promise((resolve, reject) => server.close((error) => {
@@ -101,15 +82,15 @@ async function closeServer(server) {
 }
 
 function writeHomeFixtures(project) {
-  write(project, 'client/manifest.json', JSON.stringify({ icons: [{ src: RuntimeGate.iconSource, sizes: RuntimeGate.iconSizes }] }));
+  write(project, 'client/manifest.json', JSON.stringify({ icons: [{ src: RuntimeGate.iconSource, sizes: RuntimeGate.iconSizes }], tac: { visibility: { check: false } } }));
+  writeJavaScriptModels(project, RuntimeModels.home);
   write(project, 'client/shared/manifest-injection.js', 'globalThis.manifestInjectionExecuted = true;');
   write(project, 'client/pages/tac.html', '<runtime-home />');
   write(project, 'client/components/runtime/home/tac.html', `<main><p id="count">{runtimeHome.count}</p><p id="seen">{runtimeHome.seen}</p>
 <button id="increment" on:click="runtimeHome.increment()">Increment</button>
 <button id="hide" on:click="runtimeHome.visible = false">Hide</button>
 <logic :if="runtimeHome.visible"><signal-panel /></logic></main>`);
-  write(project, 'client/services/RuntimeHomeService.js', `${RuntimeModels.home}
-@Service()
+  write(project, 'client/services/RuntimeHomeService.js', `@Service()
 export default class RuntimeHomeService {
   applicationEventPublisher;
   @SessionState
@@ -141,8 +122,7 @@ export default class RuntimeHomeService {
   async reject() { throw new Error('private text'); }
 }`);
   write(project, 'client/components/signal/panel/tac.html', '<p id="panel">{signalPanel.seen}</p>');
-  write(project, 'client/services/SignalPanelService.js', `${RuntimeModels.home}
-@Service()
+  write(project, 'client/services/SignalPanelService.js', `@Service()
 @Lifetime({"value":"prototype"})
 export default class SignalPanelService {
   seen = 0;
@@ -160,13 +140,10 @@ export default class SignalPanelService {
 
 function writeNativeFixtures(project) {
   write(project, 'client/pages/native/tac.html', '<runtime-native />');
-  write(project, 'client/components/runtime/native/tac.html', '<main><p id="native-value">{runtimeNative.value}</p><input aria-label="Native name" :value="runtimeNative.value" on:input="runtimeNative.value = $event.target.value"><button id="native-append" on:click="runtimeNative.value += &quot;!&quot;">Append</button><button id="native-argument" on:click="runtimeNative.act(7)">Call</button><input id="native-explicit-event" on:input="runtimeNative.act($event.target.value)"></main>');
+  write(project, 'client/components/runtime/native/tac.html', '<main><p id="native-value">{runtimeNative.value}</p><input aria-label="Native name" :value="runtimeNative.value" on:input="runtimeNative.value = $event.target.value"><button id="native-append" on:click="runtimeNative.value += &quot;!&quot;">Append</button><button id="native-argument" on:click="runtimeNative.act(7)">Call</button><input id="native-explicit-event" aria-label="Explicit event" on:input="runtimeNative.act($event.target.value)"></main>');
   write(project, 'client/services/RuntimeNativeService.rs', '#[derive(Default)]\nstruct RuntimeNativeService { value: String, early: String }\nimpl RuntimeNativeService {\n    fn act(&self, value: String) -> String { value }\n}\n');
-  write(project, 'client/services/RuntimeNativeService.js', `/**
- * @typedef {Object} Early
- * @property {string} text
- */
-@Service()
+  writeJavaScriptModels(project, RuntimeModels.native);
+  write(project, 'client/services/RuntimeNativeService.js', `@Service()
 export default class RuntimeNativeService {
   value = 'browser';
   early = null;
@@ -293,11 +270,8 @@ func (counter *GoCounterService) Counted(value GoCounted) {
 }
 `);
   write(project, 'client/models/GoCounted.go', 'type GoCounted struct {\n\tCount int `json:"count"`\n}\n');
-  write(project, 'client/services/GoWatcherService.js', `/**
- * @typedef {Object} GoCounted
- * @property {integer} count
- */
-@Service()
+  writeJavaScriptModels(project, RuntimeModels.go);
+  write(project, 'client/services/GoWatcherService.js', `@Service()
 export default class GoWatcherService {
   last = 0;
   /** @param {GoCounted} counted */
@@ -371,15 +345,15 @@ class RubyDrawerService
     @open = !@open
   end
 
-  def close
-    @open = false
-  end
-
   def dismiss(key)
     close_on_escape(key)
   end
 
   private
+
+  def close
+    @open = false
+  end
 
   def close_on_escape(key)
     close if key == "Escape"
@@ -457,15 +431,20 @@ function writeEventMeshFixtures(project, withCSharp) {
 <button id="send-native-go" on:click="signal.sendNative('go')">Go event</button>
 <button id="send-native-rust" on:click="signal.sendNative('rust')">Rust event</button>
 ${withCSharp ? '<button id="send-native-cs" on:click="signal.sendNative(\'cs\')">C# event</button>' : ''}
+<button id="send-failure-go" on:click="signal.sendFailure('go')">Go failure</button>
+<button id="send-failure-rust" on:click="signal.sendFailure('rust')">Rust failure</button>
+${withCSharp ? '<button id="send-failure-cs" on:click="signal.sendFailure(\'cs\')">C# failure</button>' : ''}
+<p id="healthy-deliveries">{signal.healthyDeliveries}</p><p id="failed-publications">{signal.failedPublications}</p>
+<p id="late-deliveries">{signal.lateDeliveries}</p>
 <p id="native-before">{signal.nativeBefore}</p><p id="native-after">{signal.nativeAfter}</p>
 <p id="native-async-during">{signal.nativeAsyncDuring}</p><p id="native-async">{goAudit.ownAsync}</p>
 <logic :if="signal.showLate"><event-late /></logic>
 ${withCSharp ? '<p id="cs-records">{csAudit.records}</p>' : ''}</main>`);
-  write(project, 'client/services/SignalService.js', `${RuntimeModels.mesh}
-@Service()
+  writeJavaScriptModels(project, RuntimeModels.mesh);
+  write(project, 'client/services/SignalService.js', `@Service()
 export default class SignalService {
-  static AUDIT = 'Audit';
-  static SEPARATOR = ',';
+  static _AUDIT = 'Audit';
+  static _SEPARATOR = ',';
   applicationEventPublisher;
   firstSaw = -1;
   lastSaw = -1;
@@ -477,7 +456,7 @@ export default class SignalService {
   nativeAsyncDuring = -1;
   healthyDeliveries = 0;
   failedPublications = 0;
-  sendFailure(language) {
+  sendFailure(_event, language) {
     /** @type {NativeFailure} */
     const failure = { language };
     this.applicationEventPublisher.publishEvent(failure);
@@ -498,41 +477,41 @@ export default class SignalService {
     this.applicationEventPublisher.publishEvent(placed);
   }
   sendNative(_event, language) {
-    const audit = globalThis.__tachyonTac.service(language + SignalService.AUDIT);
+    const audit = globalThis.__tachyonTac.service(language + SignalService._AUDIT);
     audit.emitOrdered();
     this.nativeAsyncDuring = audit.ownAsync;
   }
   /** @param {NativeOrdered} ordered */
   @OnEvent
   @Order(0)
-  nativeFirst(ordered) { this.nativeBefore = globalThis.__tachyonTac.service(ordered.language + SignalService.AUDIT).ownOrdered; }
+  nativeFirst(ordered) { this.nativeBefore = globalThis.__tachyonTac.service(ordered.language + SignalService._AUDIT).ownOrdered; }
   /** @param {NativeOrdered} ordered */
   @OnEvent
   @Order(200)
-  nativeLast(ordered) { this.nativeAfter = globalThis.__tachyonTac.service(ordered.language + SignalService.AUDIT).ownOrdered; }
-  records() {
+  nativeLast(ordered) { this.nativeAfter = globalThis.__tachyonTac.service(ordered.language + SignalService._AUDIT).ownOrdered; }
+  _records() {
     return this.#recordsOf(['rustAudit', 'goAudit'${withCSharp ? ", 'csAudit'" : ''}]);
   }
   #recordsOf(services) {
-    return services.map((name) => globalThis.__tachyonTac.service(name).records).join(SignalService.SEPARATOR);
+    return services.map((name) => globalThis.__tachyonTac.service(name).records).join(SignalService._SEPARATOR);
   }
   /** @param {OrderPlaced} _placed */
   @OnEvent
   @Order(1)
-  before(_placed) { this.firstSaw = this.records(); }
+  before(_placed) { this.firstSaw = this._records(); }
   /** @param {OrderPlaced} _placed */
   @OnEvent
   @Order(3)
-  after(_placed) { this.lastSaw = this.records(); }
+  after(_placed) { this.lastSaw = this._records(); }
   /** @param {OrderReturned} returned */
   @OnEvent
-  receive(returned) { this.returned += returned.language + SignalService.SEPARATOR; }
+  receive(returned) { this.returned += returned.language + SignalService._SEPARATOR; }
   /** @param {LateHeard} _heard */
   @OnEvent
   heard(_heard) { this.lateDeliveries += 1; }
 }`);
   for (const [name, source] of RuntimeModels.rust) write(project, `client/models/${name}.rs`, source);
-  for (const [name, source] of RuntimeModels.go) write(project, `client/models/${name}.go`, source);
+  for (const [name, source] of RuntimeModels.goStructs) write(project, `client/models/${name}.go`, source);
   write(project, 'client/services/RustAuditService.rs', `use crate::models::{NativeFailure, NativeOrdered, OrderPlaced, OrderReturned, OrderSettled};
 
 #[Service]
@@ -779,16 +758,16 @@ async function checkWebAssemblyEvents(browser) {
 
 async function checkWebAssemblyListenerFailures(page, languages) {
   for (const [index, language] of languages.entries()) {
-    const result = await page.evaluate((name) => {
-      delete document.documentElement.dataset.tachyonSignalError;
+    await page.evaluate(() => { delete document.documentElement.dataset.tachyonSignalError; });
+    await page.click(`#send-failure-${language}`);
+    const result = await page.evaluate(() => {
       const signal = __tachyonTac.service('signal');
-      signal.sendFailure(name);
       return {
         error: document.documentElement.dataset.tachyonSignalError,
         healthy: signal.healthyDeliveries,
         completed: signal.failedPublications,
       };
-    }, language);
+    });
     assert.deepEqual(result, { error: 'listener_failed', healthy: index + 1, completed: index + 1 },
       `${language}: listener failure is observable without interrupting the publisher or healthy peers`);
   }
