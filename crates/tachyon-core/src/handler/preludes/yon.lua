@@ -5,7 +5,7 @@ YonLimits = {
   MAX_DEPTH = 64,
   JSON_CONTENT_TYPE = "application/json; charset=utf-8",
   NOT_SERIALIZABLE = "Handler returned a value that is not JSON-serializable.",
-  FRAME_TOO_LARGE = "Serialized handler result exceeds the protocol frame limit.",
+  MISSING_METHOD = 405,
   MIDDLEWARE_PHASES = { ["middleware.before"] = "before", ["middleware.after"] = "after" },
   PASSED = { 204, {}, {} },
 }
@@ -369,41 +369,17 @@ end
 
 YonFailures = {}
 
-function YonFailures.build(request_id, code, message, status)
-  return {
-    protocol_version = 1,
-    kind = "response",
-    request_id = request_id,
-    status = status or 500,
-    headers = setmetatable({}, YonJson.OBJECT),
-    error = { code = code, message = YonFailures.public_message(message), retryable = false },
-  }
-end
-
-function YonFailures.public_message(message)
-  local text = tostring(message or "")
-  if utf8.len(text) == nil then
-    text = text:gsub("[\128-\255]", "?")
-  end
-  text = text:sub(1, YonLimits.MAX_MESSAGE_CHARACTERS)
-  if text == "" then
-    return "Handler failed."
-  end
-  return text
-end
-
 function YonFailures.message(failure)
   if type(failure) == "table" then
-    return failure.message or tostring(failure)
+    return tostring(failure.message or failure)
   end
   return tostring(failure)
 end
 
-function YonFailures.for_error(request_id, failure)
-  if getmetatable(failure) == YonShapeError then
-    return YonFailures.build(request_id, "TY2203", failure.message)
-  end
-  return YonFailures.build(request_id, "TY2201", YonFailures.message(failure))
+function YonFailures.stop(failure)
+  io.stderr:write(YonFailures.message(failure), "\n")
+  io.stderr:flush()
+  os.exit(1)
 end
 
 YonAnswers = {}
@@ -417,24 +393,23 @@ function YonAnswers.is_answer(value)
     and YonAnswers.is_status(value[1]) and type(value[2]) == "table"
 end
 
-function YonAnswers.for_result(request_id, result)
+function YonAnswers.for_result(result)
   if YonAnswers.is_answer(result) then
-    return YonAnswers.explicit(request_id, result)
+    return YonAnswers.explicit(result)
   end
-  local response = YonAnswers.envelope(request_id, 200, { ["content-type"] = { YonLimits.JSON_CONTENT_TYPE } })
-  response.body = { encoding = "utf8", data = YonJson.encode(result) }
-  return response
+  return YonAnswers.envelope(200, { ["content-type"] = { YonLimits.JSON_CONTENT_TYPE } }, YonJson.encode(result))
 end
 
-function YonAnswers.explicit(request_id, answer)
-  local response = YonAnswers.envelope(request_id, answer[1], YonAnswers.headers(answer[2]))
-  response.body = { encoding = "utf8", data = YonAnswers.text(answer[3]) }
-  return response
+function YonAnswers.explicit(answer)
+  return YonAnswers.envelope(answer[1], YonAnswers.headers(answer[2]), YonAnswers.text(answer[3]))
 end
 
-function YonAnswers.envelope(request_id, status, headers)
-  setmetatable(headers, YonJson.OBJECT)
-  return { protocol_version = 1, kind = "response", request_id = request_id, status = status, headers = headers }
+function YonAnswers.empty(status)
+  return YonAnswers.envelope(status, {}, nil)
+end
+
+function YonAnswers.envelope(status, headers, body)
+  return { status = status, headers = setmetatable(headers, YonJson.OBJECT), body = body }
 end
 
 function YonAnswers.headers(raw)
@@ -519,47 +494,18 @@ function YonErrors.answer(status, result)
   return { status, { ["content-type"] = "application/json" }, { YonJson.encode(result) } }
 end
 
-YonFrames = {}
+YonInput = {}
 
-function YonFrames.protocol_error()
-  os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
-end
-
-function YonFrames.read()
-  local prefix = io.stdin:read(4)
-  if prefix == nil or #prefix < 4 then
-    return nil
+function YonInput.read()
+  local input = io.stdin:read("a") or ""
+  if #input > YonLimits.MAX_FRAME_BYTES then
+    YonFailures.stop("The request exceeds the protocol frame limit.")
   end
-  local length = string.unpack(">I4", prefix)
-  if length > YonLimits.MAX_FRAME_BYTES then
-    YonFrames.protocol_error()
-  end
-  local payload = io.stdin:read(length)
-  if payload == nil or #payload < length then
-    YonFrames.protocol_error()
-  end
-  local ok, envelope = pcall(YonJson.decode, payload)
+  local ok, envelope = pcall(YonJson.decode, input)
   if not ok or type(envelope) ~= "table" then
-    YonFrames.protocol_error()
+    os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
   end
   return envelope
-end
-
-function YonFrames.payload(envelope)
-  local ok, payload = pcall(YonJson.encode, envelope)
-  if not ok then
-    return YonJson.encode(YonFailures.build(envelope.request_id, "TY2203", YonLimits.NOT_SERIALIZABLE))
-  end
-  if #payload > YonLimits.MAX_FRAME_BYTES then
-    return YonJson.encode(YonFailures.build(envelope.request_id, "TY2203", YonLimits.FRAME_TOO_LARGE))
-  end
-  return payload
-end
-
-function YonFrames.write(envelope)
-  local payload = YonFrames.payload(envelope)
-  io.stdout:write(string.pack(">I4", #payload), payload)
-  io.stdout:flush()
 end
 
 YonInvocation = {}
@@ -569,32 +515,30 @@ function YonInvocation.answer(handler, request)
   if phase ~= nil then
     return YonInvocation.middleware(handler, request, phase)
   end
-  local name = tostring(request.method)
-  local method = rawget(handler, name)
+  local method = rawget(handler, tostring(request.method))
   if type(method) ~= "function" then
-    return YonFailures.build(request.request_id, "TY2202", "Handler does not define " .. name .. "().", 405)
+    return YonAnswers.empty(YonLimits.MISSING_METHOD)
   end
   local argument = request
   if not rawget(handler, "YON_FRAMES") then
     argument = YonRequest.of(request)
   end
-  return YonAnswers.for_result(request.request_id, method(argument))
+  return YonAnswers.for_result(method(argument))
 end
 
 function YonInvocation.middleware(handler, request, phase)
   local method = rawget(handler, phase)
   if method == nil then
-    return YonAnswers.for_result(request.request_id, YonLimits.PASSED)
+    return YonAnswers.for_result(YonLimits.PASSED)
   end
   local result = method(YonRequest.of(request))
   if result == nil then
-    return YonAnswers.for_result(request.request_id, YonLimits.PASSED)
+    return YonAnswers.for_result(YonLimits.PASSED)
   end
-  if YonAnswers.is_answer(result) then
-    return YonAnswers.for_result(request.request_id, result)
+  if not YonAnswers.is_answer(result) then
+    YonFailures.stop("Middleware " .. phase .. "() must return a { status, headers, body } list, or nil to let the request pass.")
   end
-  local message = "Middleware " .. phase .. "() must return a { status, headers, body } list, or nil to let the request pass."
-  return YonFailures.build(request.request_id, "TY2201", message)
+  return YonAnswers.for_result(result)
 end
 
 YonRunner = {}
@@ -602,31 +546,30 @@ YonRunner = {}
 function YonRunner.main(program)
   local standard_output = io.stdout
   io.output(io.stderr)
-  print = function(...)
-    local parts = table.pack(...)
-    for index = 1, parts.n do
-      parts[index] = tostring(parts[index])
-    end
-    io.stderr:write(table.concat(parts, "\t", 1, parts.n), "\n")
+  print = YonRunner.print
+  local request = YonInput.read()
+  local answer = YonRunner.run(program, request)
+  local ok, text = pcall(YonJson.encode, answer)
+  if not ok then
+    YonFailures.stop(YonLimits.NOT_SERIALIZABLE)
   end
-  io.stdout = standard_output
-  local request = YonFrames.read()
-  if not YonRunner.is_request(request) then
-    YonFrames.protocol_error()
-  end
-  YonFrames.write(YonRunner.run(program, request))
+  standard_output:write(text)
+  standard_output:flush()
   os.exit(0)
 end
 
-function YonRunner.is_request(envelope)
-  return type(envelope) == "table" and envelope.protocol_version == 1
-    and envelope.kind == "request" and type(envelope.request_id) == "string"
+function YonRunner.print(...)
+  local parts = table.pack(...)
+  for index = 1, parts.n do
+    parts[index] = tostring(parts[index])
+  end
+  io.stderr:write(table.concat(parts, "\t", 1, parts.n), "\n")
 end
 
 function YonRunner.run(program, request)
   local loaded, failure = pcall(dofile, program)
   if not loaded then
-    return YonFailures.build(request.request_id, "TY2201", YonFailures.message(failure))
+    YonFailures.stop(failure)
   end
   local name = "Handler"
   if YonLimits.MIDDLEWARE_PHASES[request.operation] ~= nil then
@@ -634,11 +577,11 @@ function YonRunner.run(program, request)
   end
   local handler = rawget(_G, name)
   if type(handler) ~= "table" then
-    return YonFailures.build(request.request_id, "TY2201", "Module must define a table named " .. name .. ".")
+    YonFailures.stop("Module must define a table named " .. name .. ".")
   end
-  local ok, answer = pcall(YonInvocation.answer, handler, request)
+  local ok, answer = xpcall(YonInvocation.answer, debug.traceback, handler, request)
   if not ok then
-    return YonFailures.for_error(request.request_id, answer)
+    YonFailures.stop(answer)
   end
   return answer
 end

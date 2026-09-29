@@ -60,6 +60,17 @@ impl LuaView {
         check(view.path(), view.text()).map_err(|failure| view.failure(&failure))
     }
 
+    pub(crate) fn only<T>(
+        path: &Path,
+        source: &str,
+        check: impl Fn(&Path, &str) -> Result<T, Failure>,
+    ) -> Result<T, Failure> {
+        let Some(view) = Self::of(path, source) else {
+            return check(path, source);
+        };
+        check(view.path(), view.text()).map_err(|failure| view.failure(&failure))
+    }
+
     fn portable(path: &Path) -> String {
         path.to_string_lossy().replace('\\', "/")
     }

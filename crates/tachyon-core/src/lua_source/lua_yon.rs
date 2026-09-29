@@ -32,7 +32,9 @@ impl LuaYon {
 
     fn test_unit(source: &Path, contents: &str, view: &LuaView) -> Result<Option<Lowered>, Failure> {
         let mapped = |failure: Failure| view.failure(&failure);
-        let Some(parsed) = crate::yon::parser::parse_test(view.path(), view.text()).map_err(mapped)? else {
+        let behaviors = crate::behavior::lower(view.path(), view.text(), "yon").map_err(mapped)?;
+        let text = behaviors.as_deref().unwrap_or(view.text());
+        let Some(parsed) = crate::yon::parser::parse_test(view.path(), text).map_err(mapped)? else {
             return Ok(None);
         };
         let units = crate::behavior::unit_tables(view.path(), view.text(), "yon").map_err(mapped)?;

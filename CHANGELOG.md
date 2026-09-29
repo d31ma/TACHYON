@@ -571,6 +571,29 @@ machine contracts have their own, independent major versions.
   styles. `TY1358` stops a name without a hyphen or a name that is not a
   component. The runtime now also starts on a page without a Tac view.
   Slice 1 covers JavaScript and TypeScript services.
+- Lua is a Yon language (ADR 0085). Controllers, services and the other
+  roles, error handlers and error types, root middleware (`middleware.lua`),
+  models and test units run on Lua 5.4 or newer. Lua has no annotation
+  syntax, so an annotation is a comment on its own line, `-- @Service` or
+  `-- @GetRoute("/{id}")`, and the file runs unchanged. A class is one global
+  table in its own file, `OrderService = {}`, with methods
+  `function OrderService:list()`; its fields sit in the table, one on each
+  line, such as `order_service = nil,` under `-- @Needs`. Every field,
+  parameter and return value has a LuaCATS type comment (`---@param id
+  integer`, `---@return Order[]`, `---@class`/`---@field` for models).
+  Tachyon reads each Lua file through a line-for-line Ruby shadow, so the rule
+  table, the strict layout, the type rule and the design rules check Lua, and
+  every message points at the Lua line. `local Name = {}`, `return Name`,
+  `require`, a second table, a method of another table, a method on one line
+  or code outside a method stops the build (`TY1357`). A request is a table
+  (`method`, `path`, `headers`, `body`, `header(name)`, `query(name)`),
+  middleware answers `{ status, headers, body }`, and an error is a table
+  whose metatable is its error type. Test units use `Assert.equals`,
+  `Assert.is_true`, `Assert.throws`, `-- @ValueSource`, `-- @Fake` and
+  `self:construct(Role)`. `ty init --yon lua` writes a Lua controller and its
+  test unit; `ty doctor` and the readiness check ask for `lua` 5.4 or newer.
+  Behavior annotations, events and lifecycle hooks, streams, sockets and Tac
+  Lua services are refused by name for now (`TY2015`).
 
 - Java web services now exchange models and events with the page and use the
   built-in browser storage (ADR 0083 amendment). `client/models` may hold Java

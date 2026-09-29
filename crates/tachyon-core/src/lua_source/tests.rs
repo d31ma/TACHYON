@@ -5,9 +5,9 @@ struct Sources;
 
 impl Sources {
     const CONTROLLER: &'static str = "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {\n  -- @Needs\n  ---@type OrderService\n  order_service = nil,\n}\n\n---@param id integer\n---@return Order[]\n-- @GetRoute(\"/{id}\")\nfunction OrdersController:get_orders(\n  -- @FromPath\n  id\n)\n  return self.order_service:list(id)\nend\n";
-    const SHADOW: &'static str = "#[RequestRoute(\"/orders\")]\n#[Public]\n\nclass OrdersController\n  #[Needs]\n  # @return [OrderService]\n  attr_reader :order_service\n\n\n  # @param id [Integer]\n  # @return [Array<Order>]\n  #[GetRoute(\"/{id}\")]\n  def get_orders(\n    #[FromPath]\n    id\n  )\n    return self.order_service.list(id)\n  end\nend\n";
+    const SHADOW: &'static str = "#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController\n  # @return [OrderService]\n  #[Needs]\n  attr_reader :order_service\n\n\n  # @param id [Integer]\n  # @return [Array<Order>]\n  #[GetRoute(\"/{id}\")]\n  def get_orders(\n    #[FromPath]\n    id\n  )\n    return self.order_service.list(id)\n  end\nend\n";
     const MODEL: &'static str = "---@class Order\n---@field name string\n---@field count integer\nOrder = {}\n";
-    const MODEL_SHADOW: &'static str = "\n\n\nclass Order\n  # @return [String]\n  attr_reader :name\n  # @return [Integer]\n  attr_reader :count\nend\n";
+    const MODEL_SHADOW: &'static str = "class Order\n  # @return [String]\n  attr_reader :name\n  # @return [Integer]\n  attr_reader :count\nend\n";
 }
 
 #[test]
@@ -15,8 +15,8 @@ fn a_lua_class_file_reads_as_a_ruby_class() {
     let shadow = LuaShadow::of(Sources::CONTROLLER);
     assert_eq!(shadow.text(), Sources::SHADOW);
     assert_eq!(shadow.first_problem(), None);
-    assert_eq!(shadow.source_line(3), Some(3));
-    assert_eq!(shadow.source_line(9), Some(9));
+    assert_eq!(shadow.source_line(2), Some(3));
+    assert_eq!(shadow.source_line(8), Some(9));
 }
 
 #[test]
@@ -70,8 +70,27 @@ fn forms_tachyon_cannot_read_are_refused_with_the_right_advice() {
 }
 
 #[test]
+fn a_lua_test_unit_lowers_to_a_post_driver() {
+    let program = "-- @Test(CatalogTestSetup, {\"partition\":\"tests\"})\n---@class CatalogServiceTest\nCatalogServiceTest = {\n  -- @Fake\n  ---@type CatalogService\n  catalog_service = nil,\n}\n\nfunction CatalogServiceTest:test_counts()\n  Assert.equals(2, 2)\nend\n\n\n-- @TestSetup\nCatalogTestSetup = {}\n\n---@param execution table\n---@return table\nfunction CatalogTestSetup.configure(execution)\n  return {}\nend\n\n\n-- @Service\nCatalogService = {}\n\n---@return integer\nfunction CatalogService:count()\n  return 2\nend\n";
+    let lowered = super::LuaYon::lower(Path::new("server/tests/CatalogServiceTest.lua"), program)
+        .unwrap_or_else(|failure| panic!("{failure}"))
+        .unwrap_or_else(|| panic!("a test unit"));
+    assert!(lowered.source.contains("function Handler.POST(request)"), "{}", lowered.source);
+    assert!(lowered.source.contains("unit.catalog_service = nil"), "{}", lowered.source);
+}
+
+#[test]
+fn a_lua_controller_lowers_to_route_functions() {
+    let lowered = super::LuaYon::lower(Path::new("server/controllers/OrdersController.lua"), "-- @RequestRoute(\"/orders\")\n-- @Public\nOrdersController = {}\n\n---@return integer\n-- @GetRoute\nfunction OrdersController:get_count()\n  return 2\nend\n")
+        .unwrap_or_else(|failure| panic!("{failure}"))
+        .unwrap_or_else(|| panic!("a controller"));
+    assert!(lowered.source.contains("function Handler.GET(request)"), "{}", lowered.source);
+    assert_eq!(lowered.routes.len(), 1);
+}
+
+#[test]
 fn a_joined_program_holds_every_class() {
     let joined = LuaShadow::joined("A = {}\n\nB = {}\n");
-    assert_eq!(joined.text(), "class A\n\nend\nclass B\nend\n");
+    assert_eq!(joined.text(), "class A\nend\n\nclass B\nend\n");
     assert_eq!(joined.first_problem(), None);
 }

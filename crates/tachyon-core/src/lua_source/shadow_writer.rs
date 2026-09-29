@@ -4,6 +4,8 @@ pub(super) struct ShadowWriter {
     lines: ShadowLines,
     problems: Vec<(usize, &'static str)>,
     fields: Vec<(String, String, usize)>,
+    field_markers: Vec<(String, usize)>,
+    pending: Vec<(String, usize)>,
     class: Option<String>,
     mode: WriterMode,
     joined: bool,
@@ -23,6 +25,8 @@ impl ShadowWriter {
             lines: ShadowLines::default(),
             problems: Vec::new(),
             fields: Vec::new(),
+            field_markers: Vec::new(),
+            pending: Vec::new(),
             class: None,
             mode: WriterMode::Top,
         };
@@ -31,6 +35,7 @@ impl ShadowWriter {
             writer.line(index, line, clean);
             last = index;
         }
+        writer.flush_pending();
         if writer.class.is_some() {
             writer.lines.push("end", last);
         }
@@ -52,26 +57,21 @@ impl ShadowWriter {
 
     fn top(&mut self, index: usize, line: &str) {
         match LuaLine::read(line) {
-            LuaLine::Blank | LuaLine::IndexSelf | LuaLine::ClassDoc { .. } => {
-                self.lines.push("", index);
-            }
+            LuaLine::Blank => self.pending.push((String::new(), index)),
+            LuaLine::IndexSelf | LuaLine::ClassDoc { .. } => {}
             LuaLine::FieldDoc { name, yard } => {
                 self.fields.push((name, yard, index));
             }
-            LuaLine::Doc(text) | LuaLine::Marker(text) => {
-                let indent = self.indent();
-                self.lines.push(format!("{indent}{text}"), index);
-            }
-            LuaLine::Comment => {
-                let indent = self.indent();
-                self.lines.push(format!("{indent}#"), index);
-            }
+            LuaLine::Doc(text) | LuaLine::Marker(text) => self.pending.push((text, index)),
+            LuaLine::Comment => self.pending.push((String::from("#"), index)),
             LuaLine::ClassTable { name, base, open } => self.class_table(index, name, base, open),
             LuaLine::Constant { class, text } => {
+                self.flush_pending();
                 self.check_owner(index, &class, LuaShadow::FOREIGN_METHOD);
                 self.lines.push(format!("{}{text}", Self::MEMBER), index);
             }
             LuaLine::Method { class, name, is_static, rest } => {
+                self.flush_pending();
                 self.method(index, &class, &name, is_static, &rest);
             }
             LuaLine::TableEnd | LuaLine::Other => {
@@ -80,7 +80,16 @@ impl ShadowWriter {
         }
     }
 
+    fn flush_pending(&mut self) {
+        let indent = self.indent();
+        for (text, index) in std::mem::take(&mut self.pending) {
+            let line = if text.is_empty() { text } else { format!("{indent}{text}") };
+            self.lines.push(line, index);
+        }
+    }
+
     fn refuse(&mut self, index: usize, message: &'static str) {
+        self.flush_pending();
         self.problems.push((index, message));
         self.lines.push(format!("{}#", self.indent()), index);
     }
@@ -99,6 +108,7 @@ impl ShadowWriter {
         if self.class.take().is_some() {
             self.lines.push("end", index);
         }
+        self.flush_pending();
         let header = base.map_or_else(|| format!("class {name}"), |base| format!("class {name} < {base}"));
         self.lines.push(header, index);
         self.class = Some(name);
@@ -115,15 +125,24 @@ impl ShadowWriter {
         let member = Self::MEMBER;
         match LuaLine::read(line.trim_start()) {
             LuaLine::Blank => self.lines.push("", index),
-            LuaLine::Doc(text) | LuaLine::Marker(text) => {
-                self.lines.push(format!("{member}{text}"), index);
-            }
+            LuaLine::Doc(text) => self.lines.push(format!("{member}{text}"), index),
+            LuaLine::Marker(text) => self.field_markers.push((format!("{member}{text}"), index)),
             LuaLine::Comment => self.lines.push(format!("{member}#"), index),
             LuaLine::TableEnd => {
+                self.flush_field_markers();
                 self.lines.push("", index);
                 self.mode = WriterMode::Top;
             }
-            _ => self.table_field(index, line.trim()),
+            _ => {
+                self.flush_field_markers();
+                self.table_field(index, line.trim());
+            }
+        }
+    }
+
+    fn flush_field_markers(&mut self) {
+        for (text, index) in std::mem::take(&mut self.field_markers) {
+            self.lines.push(text, index);
         }
     }
 

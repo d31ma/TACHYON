@@ -62,8 +62,9 @@ impl<'u> LuaTestUnit<'u> {
     }
 
     fn quoted(text: &str) -> String {
+        let probe = format!("{text}]");
         let mut level = 0;
-        while text.contains(&format!("]{}]", "=".repeat(level))) {
+        while probe.contains(&format!("]{}]", "=".repeat(level))) {
             level += 1;
         }
         let equals = "=".repeat(level);

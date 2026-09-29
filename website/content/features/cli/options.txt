@@ -7,7 +7,7 @@ ty init [directory]                 asks questions in a terminal; each one is al
   --name <name>                    the app name (TAC_APP_NAME also works)
   --realm client|server|both       the parts to create (both)
   --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, swift, kt (js)
-  --yon <l>[,<l>]                  js, ts, py, go, java, kt, cs, fs, php, rb, rs, dart (js)
+  --yon <l>[,<l>]                  js, ts, py, go, java, kt, cs, fs, php, rb, lua, rs, dart (js)
   --target <t>[,<t>]               web, macos, windows, linux, ios, android (web)
   --features <f>[,<f>]             storage, sockets, topics, streams, http-client,
                                    error-handlers
