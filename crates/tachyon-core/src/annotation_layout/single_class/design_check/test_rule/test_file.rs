@@ -27,14 +27,15 @@ impl<'a> TestFile<'a> {
         let path = Path::new(&source.path);
         let class_name = path.file_stem()?.to_str()?;
         let extension = source.extension();
+        Self::is_unit_path(&source.path, class_name).then_some(())?;
         let language = TestLanguage::of(extension)?;
         let spelling = Spelling::of(extension)?;
         let input = Input::new(path, &source.text);
         let tokens = Tokens::read(&input).ok()?;
-        let unit = Self::is_unit_path(&source.path, class_name) & tokens.has_test_marker();
+        tokens.has_test_marker().then_some(())?;
         let words = Words::read(&tokens, &source.text);
         let methods = CohesionCheck::methods(&words, &spelling);
-        unit.then(|| Self {
+        Some(Self {
             path: &source.path,
             text: &source.text,
             class_name,
