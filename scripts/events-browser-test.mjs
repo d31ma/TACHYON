@@ -14,6 +14,7 @@ class EventsGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty');
   static project = path.join(tmpdir(), 'ty-events-gate');
+  static models = ['Order', 'Invoice'];
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 }
 
@@ -30,11 +31,11 @@ function writeFixture() {
   <output id="count">{events.count}</output>
   <button on:click="events.increment()">Add one</button>
   <button on:click="events.addBy(5)">Add five</button>
-  <input id="name" on:input="events.rename()">
+  <input id="name" aria-label="Name" on:input="events.rename()">
   <p id="greeting">{events.greeting}</p>
-  <input id="typed" on:input="events.record($event.target.value)">
+  <input id="typed" aria-label="Typed text" on:input="events.record($event.target.value)">
   <p id="echo">{events.echo}</p>
-  <input id="labelled" on:input="events.labelled('email', $event.target.value)">
+  <input id="labelled" aria-label="Email" on:input="events.labelled('email', $event.target.value)">
   <p id="pair">{events.pair}</p>
   <button id="raw" on:click="events.describe($event)">Describe</button>
   <p id="described">{events.described}</p>
@@ -43,17 +44,12 @@ function writeFixture() {
   <p id="trace">{events.trace}</p>
 </main>
 `);
-  write('client/services/EventsService.js', `/**
- * @typedef {Object} Order
- * @property {integer} total
- */
-/**
- * @typedef {Object} Invoice
- * @property {integer} total
- */
-@Service()
+  for (const model of EventsGate.models) {
+    write(`client/models/${model}.js`, `/**\n * @typedef {Object} ${model}\n * @property {integer} total\n */\nexport {}\n`);
+  }
+  write('client/services/EventsService.js', `@Service()
 export default class EventsService {
-  static ANY = 'any:'
+  static _ANY = 'any:'
   applicationEventPublisher
   count = 0
   greeting = '-'
@@ -83,11 +79,11 @@ export default class EventsService {
   /** @param {Order} value */
   @OnEvent
   @Order(1)
-  any(value) { this.#note(EventsService.ANY + value.total) }
+  any(value) { this.#note(EventsService._ANY + value.total) }
   /** @param {Invoice} value */
   @OnEvent
   @Order(1)
-  invoiced(value) { this.#note(EventsService.ANY + value.total) }
+  invoiced(value) { this.#note(EventsService._ANY + value.total) }
   /** @param {Order} value */
   @OnEvent
   @InBackground()
