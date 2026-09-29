@@ -45,3 +45,14 @@ enum TacPlatform {
 func tacOnOwnerThread() -> Bool { Thread.isMainThread }
 
 func tacEventFailure() { FileHandle.standardError.write(Data("Tachyon native event delivery failed.\n".utf8)) }
+
+func tacAwait<Value>(_ work: @escaping () async throws -> Value) throws -> Value {
+    let awaited = TacAwaited<Value>()
+    let finished = DispatchSemaphore(value: 0)
+    Task.detached {
+        await awaited.finish(work)
+        finished.signal()
+    }
+    TacOwnerThread.wait(for: finished)
+    return try awaited.value()
+}

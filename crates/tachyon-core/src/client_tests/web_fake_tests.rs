@@ -20,6 +20,10 @@ impl Units {
     const RUBY_SERVICE: &str = "#[Service]\nclass StampService\n  def stamp\n    \"#{Clock.new.now_ms.to_i} #{Connectivity.new.online}\"\n  end\nend\n";
     const RUBY_UNIT: &str = "#[Test(StampTestSetup)]\nclass StampServiceTest\n  def test_uses_the_browser_fakes\n    BrowserFakes.answer(\"clock\", \"now\", 1000)\n    BrowserFakes.answer(\"connectivity\", \"online\", false)\n    Assert.equals(\"1000 false\", StampService.new.stamp)\n  end\n\n  def test_asks_for_an_answer\n    error = Assert.throws { SecureRandom.new.uuid }\n    Assert.is_true(error.message.include?(\"BrowserFakes.answer\"), \"a refusal that names BrowserFakes.answer\")\n  end\nend\n";
 
+    const SWIFT_SETUP: &str = "@TestSetup\nfinal class StampTestSetup {\n  static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n    return BehaviorAdapters()\n  }\n}\n";
+    const SWIFT_SERVICE: &str = "@Service\nfinal class StampService {\n  private let clock = Clock()\n  private let connectivity = Connectivity()\n  var online: Bool = false\n\n  func stamp() throws -> String {\n    \"\\(Int(clock.nowMs())) \\(try connectivity.online())\"\n  }\n\n  @OnEvent\n  func hearConnectivity(_ changed: ConnectivityChanged) {\n    online = changed.online\n  }\n}\n";
+    const SWIFT_UNIT: &str = "@Test(StampTestSetup)\nfinal class StampServiceTest {\n  func testUsesTheBrowserFakes() async throws {\n    BrowserFakes.answer(\"clock\", \"now\", 1000)\n    BrowserFakes.answer(\"connectivity\", \"online\", false)\n    try Assert.equals(\"1000 false\", try StampService().stamp())\n  }\n\n  func testHearsTheBuiltInEventModel() async throws {\n    let service = StampService()\n    service.hearConnectivity(ConnectivityChanged(online: true))\n    try Assert.isTrue(service.online, \"the listener hears the event model\")\n  }\n\n  func testAsksForAnAnswer() async throws {\n    let error = try await Assert.throws { _ = try SecureRandom().uuid() }\n    try Assert.isTrue(String(describing: error).contains(\"BrowserFakes.answer\"), \"a refusal that names BrowserFakes.answer\")\n  }\n}\n";
+
     fn available(program: &str, flag: &str) -> bool {
         Command::new(program)
             .arg(flag)
@@ -90,4 +94,15 @@ fn a_ruby_unit_answers_the_browser_apis_with_browser_fakes() {
     let files = [Units::RUBY_SETUP, Units::RUBY_SERVICE, Units::RUBY_UNIT];
     let results = Units::passed("rb", files);
     assert_eq!(results.len(), 2, "{results:?}");
+}
+
+#[test]
+fn a_swift_unit_answers_the_browser_apis_with_browser_fakes() {
+    if !cfg!(target_os = "macos") || !Units::available("swiftc", "--version") {
+        eprintln!("skipping: swiftc on macOS is unavailable");
+        return;
+    }
+    let files = [Units::SWIFT_SETUP, Units::SWIFT_SERVICE, Units::SWIFT_UNIT];
+    let results = Units::passed("swift", files);
+    assert_eq!(results.len(), 3, "{results:?}");
 }

@@ -92,3 +92,12 @@ func tacWebInvoke(_ request: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar
 func tacWebFree(_ answer: UnsafeMutablePointer<CChar>) {
     answer.deallocate()
 }
+
+@_spi(ExperimentalCustomExecutors) import _Concurrency
+
+func tacAwait<Value>(_ work: @escaping () async throws -> Value) throws -> Value {
+    let awaited = TacAwaited<Value>()
+    Task { await awaited.finish(work) }
+    try MainActor.executor.runUntil { awaited.result != nil }
+    return try awaited.value()
+}

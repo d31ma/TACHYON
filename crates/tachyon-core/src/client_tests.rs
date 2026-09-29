@@ -601,8 +601,9 @@ fn swift(
     let path = directory.join("Unit.swift");
     let binary = directory.join("unit");
     let models = models.joined_sources();
+    let browser = crate::native::SwiftWebServices::test_unit_browser(lowered);
     let wrapped = format!(
-        "import Foundation\n{models}private enum TachyonTestUnit {{\n{lowered}\n}}\n\
+        "import Foundation\n{models}{browser}private enum TachyonTestUnit {{\n{lowered}\n}}\n\
          @main struct TachyonTestMain {{\n\
          static func main() async throws {{\n\
          let unit = TachyonTestUnit.{name}()\n\

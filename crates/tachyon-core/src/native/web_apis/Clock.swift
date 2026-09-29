@@ -1,10 +1,10 @@
 final class Clock {
     func nowMs() -> Double {
-        tacHostEpochMilliseconds()
+        TacPage.epochMilliseconds()
     }
 
     func monotonicMs() -> Double {
-        tacHostMonotonicMilliseconds()
+        TacPage.monotonicMilliseconds()
     }
 
     func timeZone() throws -> String {

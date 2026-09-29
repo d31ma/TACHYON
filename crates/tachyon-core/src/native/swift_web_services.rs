@@ -23,9 +23,16 @@ impl SwiftWebServices {
         include_str!("swift_web_services/TacKeyedValueEncoder.swift"),
         include_str!("swift_web_services/TacListValueEncoder.swift"),
         include_str!("swift_web_services/TacWebStorage.swift"),
+        include_str!("swift_web_services/TacPage.swift"),
         include_str!("swift_web_services/TacWebHost.swift"),
         include_str!("swift_web_services/TacBrowserError.swift"),
-        include_str!("swift_web_services/TacAwaited.swift")
+        include_str!("TacAwaited.swift")
+    );
+    const TEST_UNIT_PAGE: &'static str = concat!(
+        include_str!("swift_test_units/TacPage.swift"),
+        include_str!("swift_test_units/BrowserFakes.swift"),
+        include_str!("swift_web_services/TacWebHost.swift"),
+        include_str!("swift_web_services/TacBrowserError.swift")
     );
     const WEB_APIS: [(&'static str, &'static str); 9] = [
         ("Clock", include_str!("web_apis/Clock.swift")),
@@ -89,6 +96,15 @@ impl SwiftWebServices {
         let built = SwiftWasmProgram::compile(&program, profile).await?;
         let note = built.note(profile);
         Ok((built.published(), note))
+    }
+
+    pub(crate) fn test_unit_browser(unit: &str) -> String {
+        let apis = Self::used_web_apis(unit);
+        let models = crate::route_types::WebEventSources::swift_used_by(unit);
+        if apis.is_empty() && !unit.contains("BrowserFakes") {
+            return models;
+        }
+        format!("{}{apis}{models}", Self::TEST_UNIT_PAGE)
     }
 
     fn used_web_apis(authored: &str) -> String {

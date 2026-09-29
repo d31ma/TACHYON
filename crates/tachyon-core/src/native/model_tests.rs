@@ -13,6 +13,8 @@ impl Sources {
     const SWIFT_MODEL: &str = "import Foundation\n\nstruct Guide: Codable, Equatable {\n    let title: String\n    var pages: Int = 0\n}\n";
     const SWIFT_KIND_MODEL: &str = "enum Kind: String, Codable {\n    case short, long\n}\n";
     const SWIFT_SERVICE: &str = "class GuideService {\n    var pages: Int = 0\n    func read() -> String {\n        let guide = Guide(title: \"Guide\", pages: 3)\n        pages = guide.pages\n        return guide.title + \" \" + Kind.long.rawValue\n    }\n}\n";
+    const SWIFT_WAITING_SERVICE: &str = "class GuideService {\n    func load(_ name: String) async throws -> String {\n        try await Task.sleep(nanoseconds: 1_000_000)\n        return await MainActor.run { name + \" loaded\" }\n    }\n}\n";
+    const SWIFT_CALLER: &str = "@main\nstruct CompanionCaller {\n    static let request = \"{\\\"route\\\":\\\"/\\\",\\\"owner\\\":\\\"6F9619FF-8B86-D011-B42D-00C04FC964FF\\\",\\\"service\\\":\\\"guide\\\",\"\n\n    static func main() {\n        print(tacNativeInvoke(request + \"\\\"op\\\":\\\"init\\\"}\"))\n        print(tacNativeInvoke(request + \"\\\"op\\\":\\\"call\\\",\\\"name\\\":\\\"load\\\",\\\"args\\\":[\\\"Guide\\\"]}\"))\n    }\n}\n";
     const KOTLIN_MODEL: &str = "data class Guide(val title: String, val pages: Int)\n";
     const KOTLIN_KIND_MODEL: &str = "enum class Kind { SHORT, LONG }\n";
     const KOTLIN_SERVICE: &str = "import models.Guide\nimport models.Kind\n\nclass GuideService {\n    var pages: Int = 0\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + Kind.LONG.name\n    }\n}\n";
@@ -119,6 +121,47 @@ fn a_swift_native_companion_compiles_with_its_models() {
             .args(["-parse-as-library", "-typecheck"])
             .arg(&staged)
             .arg(&json),
+    );
+}
+
+#[test]
+fn a_swift_native_companion_awaits_an_async_method_on_the_owner_thread() {
+    if !cfg!(target_os = "macos") || !available("swiftc", "--version") {
+        eprintln!("skipping: swiftc on macOS is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let input = companion(
+        root.path(),
+        NativeCompanion::Swift,
+        "swift",
+        Sources::SWIFT_MODEL,
+        Sources::SWIFT_WAITING_SERVICE,
+    );
+    let staged = super::macos::stage_swift_companion(&[input], root.path())
+        .expect("stage")
+        .expect("a Swift companion");
+    let json = write(
+        root.path(),
+        "apple_json.swift",
+        super::macos::MacOsHostGenerator::APPLE_JSON_REQUEST,
+    );
+    let caller = write(root.path(), "caller.swift", Sources::SWIFT_CALLER);
+    let program = root.path().join("caller");
+    assert_success(
+        Command::new("swiftc")
+            .arg("-parse-as-library")
+            .arg(&staged)
+            .arg(&json)
+            .arg(&caller)
+            .arg("-o")
+            .arg(&program),
+    );
+    let output = Command::new(&program).output().expect("the caller runs");
+    let printed = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        printed.contains("{\"value\":\"Guide loaded\"}"),
+        "{printed}"
     );
 }
 

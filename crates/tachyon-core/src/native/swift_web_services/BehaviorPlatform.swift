@@ -1,7 +1,7 @@
 enum BehaviorPlatform {
     static let browserEntities = "indexeddb"
 
-    static var now: Int64 { TacWebHost.epochMilliseconds() }
+    static var now: Int64 { Int64(TacPage.epochMilliseconds()) }
 
     static func quoted(_ value: String) throws -> String {
         tacEncode(value)
