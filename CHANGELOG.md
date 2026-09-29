@@ -1724,6 +1724,14 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Tac service request that is too big now fails with an error that names
+  the size and the limit, for example "Web service documentation: The request
+  is 1072202 bytes. The limit is 1048576 bytes. Pass less data to the
+  service." Before, C# answered only "Native companion operation failed.",
+  and Go, Ruby, Rust and Kotlin answered "Invalid or oversized companion
+  request.". Go, C# and Ruby also name the method of a call that is too big,
+  and the page's native bridge names the start-up request. The limits are
+  unchanged (ADR 0037).
 - The website's Documentation page shows its guides again. Its C#
   WebAssembly service received all of `docs.json`, with the text of every
   guide. That file grew past the 1 MiB that `init` may carry (ADR 0037), so

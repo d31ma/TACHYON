@@ -8,7 +8,11 @@ A service with several is Rust on the web, then Go, then C#, then F#: Rust's
 module is a small file, Go's carries the Go runtime, and C#'s is a
 runtime. On the web a service has no DOM and no platform;
 it is state and logic over the properties its tag passes, which may
-carry a data file of up to 1 MiB. ty doctor checks for the
+carry a data file of up to 1 MiB (64 KiB in Rust). A bigger request
+fails with an error that names the size and the limit:
+  Web service documentation: The request is 1072202 bytes.
+  The limit is 1048576 bytes. Pass less data to the service.
+ty doctor checks for the
 wasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,
 and, for Ruby, Emscripten 6.0.10 or newer and a C compiler.
 A release build also writes Brotli copies, so a browser downloads about

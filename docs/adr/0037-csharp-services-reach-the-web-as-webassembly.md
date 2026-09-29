@@ -65,6 +65,11 @@ page and import one method back.
 - `init` may carry up to 1 MiB, because its properties may be a data file that
   the view passed (ADR 0036). Every other request keeps the 64 KiB limit. This
   holds in the C# prelude and in the page's native bridge.
+- A request over its limit fails with an error that names the size and the
+  limit in bytes, for example "The request to add is 70121 bytes. The limit
+  is 65536 bytes. Pass less data to the service." The page adds the service
+  name in front. (Added 2026-09-28; before, C# answered only "Native
+  companion operation failed.")
 - The Linux host's CSP (Content Security Policy) allows `wasm-unsafe-eval`,
   because Linux links no C#.
 - `ty doctor` checks for the `wasm-tools` workload.
