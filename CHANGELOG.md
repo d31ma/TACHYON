@@ -476,11 +476,13 @@ machine contracts have their own, independent major versions.
   the Windows install command (the commands are data in
   `shared/data/hero.json`), and `QuantityService.fs` writes "1 feature" or
   "12 features" on the documentation index. A browser loads Swift (about 0.9 MB
-  with Brotli) only on the feature list and Kotlin (about 30 KB) only on a
+  with Brotli) only on the feature list and Kotlin (about 35 KB) only on a
   guide; F# adds about 11 KB to the .NET files that the home page already
-  loads. The route size check, which counts every service on each route,
-  now sees 262 KB of script (budget 320 KB) and about 2.4 MB of WebAssembly
-  (default budget 3.5 MB).
+  loads (an F# interpolated string, `$"..."`, would add about 100 KB of
+  FSharp.Core, so the services join strings with `+`). The route size
+  check, which counts every service on each route, now sees 263 KB of
+  script (budget 320 KB, was 254 KB) and about 2.4 MB of WebAssembly
+  (default budget 3.5 MB, was 1.4 MB).
 
 - `website/scripts/verify-snippets.mjs --suite=tsc` (also part of the default
   run) checks every JavaScript and TypeScript example project on the website
