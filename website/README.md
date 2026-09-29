@@ -47,6 +47,7 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `bun run test` | Runs the site tests. |
 | `ty test .` | Runs the services' test units. |
 | `bun run verify:snippets` | Builds and runs every code example on the site. |
+| `bun run verify:snippets --suite=tsc` | Type-checks every JavaScript and TypeScript example project with `tsc`, the way a `ty init` project checks itself. |
 | `bun run styles` | Creates `tailwind.css` again. Run it after you change a template. |
 | `bun run styles:check` | Fails when the committed `tailwind.css` is out of date. |
 | `bun run check:responsive` | Checks the layout at many screen widths. |

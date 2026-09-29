@@ -12,6 +12,7 @@ import { withServer } from '../../scripts/release/server-probe.mjs'
 import { checkConfigurationBrowser, configurationTestFiles } from './verify-configuration-binding.mjs'
 import { SiteContent } from './site-content.mjs'
 import { SnippetRequest } from './snippet-request.mjs'
+import { TypeCheckProjects } from './type-check-projects.mjs'
 
 /** @typedef {{name:string,code:string}} Snippet */
 /** @typedef {{id:string,files:Snippet[],verify?:string,target?:string}} Feature */
@@ -52,7 +53,7 @@ class SiteData {
 }
 
 class Progress {
-  static counts = { bundle: 0, browser: 0, http: 0, unit: 0, syntax: 0, data: 0, skipped: 0, failed: 0 }
+  static counts = { bundle: 0, browser: 0, http: 0, unit: 0, syntax: 0, types: 0, data: 0, skipped: 0, failed: 0 }
   static started = Date.now()
   static previousStepEnd = Progress.started
   /** @type {{label:string,kind:string,ms:number}[]} */
@@ -83,6 +84,7 @@ class Patterns {
   static goSharedFile = /^server\/shared\/.+\.go$/
   static goSharedProbe = '// @RequestRoute("/probe")\n// @Public\ntype ProbeController struct{}\n\n// @GetRoute\nfunc (controller *ProbeController) GetProbe() any {\n\treturn map[string]any{"shared": true}\n}\n'
   static middlewareFile = /^middleware\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb)$/
+  static typeScaffoldFiles = ['package.json', 'tachyon-env.d.ts', 'tachyon-behaviors.d.ts', 'client/jsconfig.json', 'server/jsconfig.json']
   static middlewareController = '@RequestRoute("/private")\n@Public\nclass PrivateController {\n  @GetRoute\n  getPrivate() {\n    return { secret: 42 }\n  }\n}\n'
 }
 
@@ -167,8 +169,8 @@ function readOption(prefix) {
 
 function readCheckedScope() {
   const scope = readOption('--suite=') ?? 'all'
-  const scopes = ['all', 'features', 'languages', 'guides', 'configuration', 'layout', 'annotations', 'gofmt', 'ruby', 'python']
-  assert.ok(scopes.includes(scope), 'Use --suite=all|features|languages|guides|configuration|layout|annotations|gofmt|ruby|python')
+  const scopes = ['all', 'features', 'languages', 'guides', 'configuration', 'layout', 'annotations', 'gofmt', 'ruby', 'python', 'tsc']
+  assert.ok(scopes.includes(scope), 'Use --suite=all|features|languages|guides|configuration|layout|annotations|gofmt|ruby|python|tsc')
   return scope
 }
 
@@ -333,7 +335,7 @@ function record(label, kind) {
 
 /**
  * @param {string} label
- * @param {'bundle'|'browser'|'http'|'unit'|'syntax'|'data'} kind
+ * @param {'bundle'|'browser'|'http'|'unit'|'syntax'|'types'|'data'} kind
  */
 function pass(label, kind) {
   Progress.counts[kind]++
@@ -1438,7 +1440,7 @@ function printTimingSummary() {
 function printResult() {
   const counts = Progress.counts
   const status = counts.failed ? 'FAIL' : 'PASS'
-  console.log(`\n${status}: ${counts.bundle} bundles, ${counts.browser} browser probes, ${counts.http} HTTP method probes, ${counts.unit} test units, ${counts.syntax} syntax checks, ${counts.data} JSON checks; ${counts.skipped} explicitly unexecuted examples; ${counts.failed} failures.`)
+  console.log(`\n${status}: ${counts.bundle} bundles, ${counts.browser} browser probes, ${counts.http} HTTP method probes, ${counts.unit} test units, ${counts.syntax} syntax checks, ${counts.types} tsc projects, ${counts.data} JSON checks; ${counts.skipped} explicitly unexecuted examples; ${counts.failed} failures.`)
   process.exitCode = counts.failed ? 1 : 0
 }
 
@@ -1520,6 +1522,64 @@ async function verifyPythonSyntax() {
   })
 }
 
+/**
+ * @param {string} extension
+ * @returns {Promise<Snippet[]>}
+ */
+async function scaffoldTypeFiles(extension) {
+  const language = extension.slice(1)
+  /** @type {Snippet[]} */
+  const files = []
+  await inStagingDirectory(`tsc scaffold [${language}]`, async root => {
+    const project = path.join(root, 'app')
+    await runCommand(Settings.binary, ['init', project, '--tac', language, '--yon', language, '--skip-tools'], { timeout: 60_000 })
+    for (const name of Patterns.typeScaffoldFiles) files.push({ name, code: readFileSync(path.join(project, name), 'utf8') })
+  })
+  return files
+}
+
+/**
+ * @param {import('./type-check-projects.mjs').TypeCheckProject} project
+ * @param {Snippet[]} scaffoldFiles
+ */
+async function typeCheckProject(project, scaffoldFiles) {
+  await inStagingDirectory(`${project.label} [tsc]`, async root => {
+    for (const file of [...scaffoldFiles, ...project.files]) writeSnippetFile(root, file.name, file.code)
+    await runCommand(Settings.binary, ['types', root], { timeout: 60_000 })
+    for (const realm of project.realms) {
+      await runCommand('tsc', ['-p', path.join(root, realm, 'jsconfig.json')], { cwd: root, timeout: 60_000 })
+    }
+    pass(`${project.label} [tsc]`, 'types')
+  })
+}
+
+/** @param {import('./type-check-projects.mjs').TypeCheckProject} project */
+function isSelectedTypeCheck(project) {
+  const onlyName = Settings.onlyFeature ?? Settings.onlySection
+  if (onlyName && project.name !== onlyName) return false
+  return isSelectedLanguage(`project${project.extension}`)
+}
+
+async function verifyTypeChecks() {
+  console.log('== tsc over every JavaScript and TypeScript example project')
+  const label = 'JavaScript and TypeScript example projects'
+  if (!await isToolAvailable('tsc')) {
+    const missing = new Error('tsc is not installed; run bun install at the repository root')
+    if (Settings.requireToolchains) fail(label, missing)
+    else skip(label, missing.message)
+    return
+  }
+  const projects = TypeCheckProjects.collect(SiteData.features, SiteData.languages, SiteData.docs, Patterns.tutorials)
+    .filter(isSelectedTypeCheck)
+  assert.ok(projects.length > 0, 'No JavaScript or TypeScript example project matched the filters')
+  /** @type {Map<string, Snippet[]>} */
+  const scaffolds = new Map()
+  for (const extension of new Set(projects.map(project => project.extension))) {
+    scaffolds.set(extension, await scaffoldTypeFiles(extension))
+  }
+  await runInParallel(projects.map(project => () => typeCheckProject(project, scaffolds.get(project.extension) ?? [])))
+}
+
 async function main() {
   const scope = Settings.scope
   console.log(`Selected CLI: ${Settings.binary}`)
@@ -1529,6 +1589,7 @@ async function main() {
   if (scope === 'all' || scope === 'gofmt') await verifyGoFormatting()
   if (scope === 'all' || scope === 'ruby') await verifyRubySyntax()
   if (scope === 'all' || scope === 'python') await verifyPythonSyntax()
+  if (scope === 'all' || scope === 'tsc') await verifyTypeChecks()
   if (scope === 'all' || scope === 'features') await verifyFeatureSnippets()
   if (scope === 'all' || scope === 'languages') await verifyLanguageSnippets()
   if (['all', 'guides', 'configuration', 'layout', 'annotations'].includes(scope)) await verifyGuideSnippets()
