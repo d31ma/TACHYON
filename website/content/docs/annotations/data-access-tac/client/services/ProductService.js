@@ -1,17 +1,14 @@
 @Service
 export default class ProductService {
+  /** @type {ProductStore} */
+  @Needs
+  productStore;
   summary = 'Not loaded.';
 
   async load() {
-    const context = await Behaviors.create(CatalogSetup, {
-      partition: 'public-catalog',
-      signal: AbortSignal.timeout(5000),
-    });
-    const products = Behaviors.construct(ProductStore, { behaviors: context });
-    const rows = await products.excluding('retired', { size: 5 });
-    const activeCount = await products.countByStatus('active');
+    const rows = await this.productStore.excluding('retired', { size: 5 });
+    const activeCount = await this.productStore.countByStatus('active');
     this.summary = this.#summaryOf(rows, activeCount);
-    context.dispose();
   }
 
   /**

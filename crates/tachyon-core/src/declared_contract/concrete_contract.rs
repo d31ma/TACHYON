@@ -32,6 +32,8 @@ impl<'a> ConcreteContract<'a> {
     const GO_FIELDS: [&'static str; 2] = ["struct{}", "struct {\n\tbehaviors *BehaviorContext\n}"];
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
     const TRAIT: &'static str = "trait";
+    const RUST_DEFAULT: &'static str =
+        "impl Default for {name} {\n    fn default() -> Self {\n        Self::new()\n    }\n}\n";
     const HEADER_WORDS: [(&'static str, &'static str, &'static str); 7] = [
         ("java", "interface", "class"),
         ("groovy", "interface", "class"),
@@ -91,6 +93,10 @@ impl<'a> ConcreteContract<'a> {
         [contract, managed, lowered] == [true, false, true]
     }
 
+    fn is_provided(&self, declaration: &ContractDeclaration) -> bool {
+        [self.in_browser(), declaration.role.names_entity] == [true, true]
+    }
+
     fn in_browser(&self) -> bool {
         [self.tac, Self::BROWSER.contains(&self.form.language)] == [true, true]
     }
@@ -123,7 +129,8 @@ impl<'a> ConcreteContract<'a> {
             .rfind('\n')
             .map_or(0, |line| line + 1);
         let marker = Messages::spelled(self.form.language, declaration.role.marker);
-        let wanted = [declaration.role.names_entity, self.tac] == [true, false];
+        let injected = [!self.tac, self.in_browser()].contains(&true);
+        let wanted = [declaration.role.names_entity, injected] == [true, true];
         wanted.then(|| (at..at, format!("{marker}\n")))
     }
 
@@ -161,6 +168,7 @@ impl<'a> ConcreteContract<'a> {
         let context = ContextMembers {
             language: self.form.language,
             tac: [self.tac, declaration.role.context_from_caller].contains(&true),
+            provided: self.is_provided(declaration),
             needs_context,
             owner: &declaration.name,
             receiver: declaration.role.noun,
@@ -197,7 +205,7 @@ impl<'a> ConcreteContract<'a> {
         let text = &self.source[declaration.header.clone()];
         match self.form.language {
             Self::PYTHON => Some(Self::without_protocol(text)),
-            Self::RUST => Some(Self::rust_header(text, &declaration.name, needs_context)),
+            Self::RUST => Some(self.rust_header(text, &declaration.name, needs_context)),
             _ => self.replaced_header(text),
         }
     }
@@ -214,10 +222,14 @@ impl<'a> ConcreteContract<'a> {
         padded.replacen(&format!(" {word} "), &format!(" {replacement} "), 1)[1..].to_owned()
     }
 
-    fn rust_header(text: &str, name: &str, needs_context: bool) -> String {
+    fn rust_header(&self, text: &str, name: &str, needs_context: bool) -> String {
         let fields = Self::RUST_FIELDS[usize::from(needs_context)];
         let visibility = text.split(Self::TRAIT).next().unwrap_or("");
-        format!("{visibility}struct {name}{fields}\nimpl {name} ")
+        let default = self
+            .tac
+            .then(|| Self::RUST_DEFAULT.replace("{name}", name))
+            .unwrap_or_default();
+        format!("{visibility}struct {name}{fields}\n{default}impl {name} ")
     }
 
     fn without_protocol(text: &str) -> String {
@@ -316,6 +328,7 @@ impl<'a> ConcreteContract<'a> {
         let context = ContextMembers {
             language: self.form.language,
             tac: [self.tac, declaration.role.context_from_caller].contains(&true),
+            provided: self.is_provided(declaration),
             needs_context,
             owner: &declaration.name,
             receiver: declaration.role.noun,

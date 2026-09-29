@@ -3,6 +3,7 @@ use super::context_template::ContextTemplate;
 pub(crate) struct ContextMembers<'a> {
     pub(crate) language: &'a str,
     pub(crate) tac: bool,
+    pub(crate) provided: bool,
     pub(crate) needs_context: bool,
     pub(crate) owner: &'a str,
     pub(crate) receiver: &'a str,
@@ -14,6 +15,7 @@ pub(crate) struct ContextMembers<'a> {
 impl ContextMembers<'_> {
     const REALMS: [&'static str; 2] = ["yon", "tac"];
     const BARE: &'static str = "bare";
+    const PROVIDED: &'static str = "provided";
 
     pub(crate) fn parts(&self) -> (String, String) {
         let template = ContextTemplate::find(&self.keys());
@@ -33,6 +35,7 @@ impl ContextMembers<'_> {
     fn keys(&self) -> Vec<String> {
         let realm = Self::REALMS[usize::from(self.tac)];
         let variant = [realm, Self::BARE][usize::from(!self.needs_context)];
+        let variant = [variant, Self::PROVIDED][usize::from(self.provided)];
         vec![
             format!("{}-{variant}", self.language),
             self.language.to_owned(),

@@ -56,6 +56,8 @@ pub(crate) fn assemble(
         return Ok(None);
     }
     refuse_tac_helpers(&modules, extension, environment)?;
+    let injected = injected_stores(entry, source, &modules, environment);
+    let source = injected.as_deref().unwrap_or(source);
     let output = if extension == "go" {
         compose_go(entry, source, &modules)?
     } else {
@@ -66,6 +68,20 @@ pub(crate) fn assemble(
         return Err(invalid(entry, "Combined annotation source exceeds 1 MiB."));
     }
     Ok(Some(output))
+}
+
+fn injected_stores(
+    entry: &Path,
+    source: &str,
+    modules: &[Module],
+    environment: &str,
+) -> Option<String> {
+    let paths = modules.iter().map(|module| module.path.as_path());
+    let stores = crate::declared_contract::DeclaredContract::store_names(paths);
+    let wanted = [environment == "tac", !stores.is_empty()] == [true, true];
+    wanted
+        .then(|| crate::declared_contract::DeclaredContract::injected(entry, source, &stores))
+        .flatten()
 }
 
 fn refuse_tac_helpers(
@@ -164,7 +180,8 @@ fn read_modules(
         }
         register_names(path, &text, &mut names)?;
         validate_imports(path, &text, extension)?;
-        let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment).unwrap_or(text);
+        let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment)
+            .unwrap_or(text);
         let text = crate::method_coverage::CallHooks::for_entry(entry, path, text)?;
         modules.push(Module {
             path: path.clone(),

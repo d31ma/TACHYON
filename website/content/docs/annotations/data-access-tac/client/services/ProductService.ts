@@ -1,17 +1,13 @@
 @Service
 export default class ProductService {
+  @Needs
+  products!: ProductStore;
   summary: string = 'Not loaded.';
 
   async load(): Promise<void> {
-    const context = await Behaviors.create(CatalogSetup, {
-      partition: 'public-catalog',
-      signal: AbortSignal.timeout(5000),
-    });
-    const products = Behaviors.construct(ProductStore, { behaviors: context });
-    const rows = await products.excluding('retired', { size: 5 });
-    const activeCount = await products.countByStatus('active');
+    const rows = await this.products.excluding('retired', { size: 5 });
+    const activeCount = await this.products.countByStatus('active');
     this.summary = this.summaryOf(rows, activeCount);
-    context.dispose();
   }
 
   private summaryOf(rows: ProductEntity[] | void, activeCount: number | void): string {

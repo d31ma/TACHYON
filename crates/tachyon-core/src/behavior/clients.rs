@@ -269,10 +269,14 @@ fn factory(
     adapters: &BTreeMap<String, String>,
 ) -> Result<String, Failure> {
     let mut cases = String::new();
+    let mut stores = Vec::new();
     for name in graph.keys() {
         let Some(registration) = registrations.iter().find(|item| &item.name == name) else {
             return Err(input.failure(0, "Managed client graph is incomplete"));
         };
+        if registration.data.contains_key("repositoryRole") {
+            stores.push(format!("['{name}',{name}]"));
+        }
         let arguments = if name == root && registration.constructor.is_none() {
             String::from("properties")
         } else {
@@ -286,10 +290,11 @@ fn factory(
     }
     let adapters = serde_json::to_string(adapters)
         .map_err(|_| input.failure(0, "Cannot encode client adapters"))?;
-    Ok(owner_factory_source(&cases, root, &adapters))
+    let stores = format!("[{}]", stores.join(","));
+    Ok(owner_factory_source(&cases, root, &adapters, &stores))
 }
 
-fn owner_factory_source(cases: &str, root: &str, adapters: &str) -> String {
+fn owner_factory_source(cases: &str, root: &str, adapters: &str, stores: &str) -> String {
     format!(
         r"
 const __tachyon_owner_graphs__ = new WeakMap();
@@ -297,23 +302,26 @@ export function __tachyon_event_owners__(root) {{ return __tachyon_owner_graphs_
 export async function __tachyon_create_owner__(properties, signal, transport) {{
   __tachyon_ClientConfiguration.bindTransport(transport);
   const context = await Behaviors.create(__tachyon_ClientConfiguration, {{partition:'tac-client',signal}});
+  const stores = new Map();
   const instances = new Map();
   function resolve(name) {{
     if (instances.has(name)) return instances.get(name);
     let instance;
     switch(name) {{ {cases} default: throw new TypeError('Unknown managed Tac client.'); }}
-    Object.defineProperty(instance, 'behaviors', {{value:context, configurable:true}});
+    Object.defineProperty(instance, 'behaviors', {{value:stores.get(name) || context, configurable:true}});
     instances.set(name,instance);
     return instance;
   }}
   try {{
+    for (const [name, store] of {stores}) stores.set(name, await store.{context_method}(signal));
     const root = resolve('{root}');
     __tachyon_owner_graphs__.set(root, Object.freeze([...instances.values()]));
     return root;
-  }} catch(error) {{ context.dispose(); throw error; }}
+  }} catch(error) {{ context.dispose(); for (const opened of stores.values()) opened.dispose(); throw error; }}
 }}
 __tachyon_ClientConfiguration.adapters = {adapters};
-"
+",
+        context_method = crate::declared_contract::DeclaredContract::STORE_CONTEXT,
     )
 }
 

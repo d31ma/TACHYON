@@ -15,9 +15,11 @@ mod go_contract_rewrite;
 mod go_method;
 mod indented_members;
 mod indented_syntax;
+mod injected_store;
 mod marker_line;
 mod member_scanner;
 mod rust_contract_rewrite;
+mod store_field;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -25,6 +27,9 @@ mod converter_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod store_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tac_injection_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests;
@@ -36,11 +41,15 @@ use contract_rewrite::ContractRewrite;
 pub(crate) use contract_rewrite::SourceEdit;
 use fsharp_contract::FsharpContract;
 use fsharp_contract_rewrite::FsharpContractRewrite;
+use injected_store::InjectedStore;
 use std::path::Path;
 
 pub(crate) struct DeclaredContract;
 
 impl DeclaredContract {
+    pub(crate) const STORE_CONTEXT: &'static str = "tachyonContext";
+    pub(crate) const GO_STORE_START: &'static str = InjectedStore::GO_START;
+
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
         ContractCheck::check(path, source)
     }
@@ -48,6 +57,14 @@ impl DeclaredContract {
     pub(crate) fn rewrite(path: &Path, source: &str) -> Result<Vec<SourceEdit>, String> {
         FsharpContractRewrite::edits(path, source)
             .unwrap_or_else(|| ContractRewrite::edits(path, source))
+    }
+
+    pub(crate) fn store_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
+        InjectedStore::store_names(paths)
+    }
+
+    pub(crate) fn injected(path: &Path, source: &str, stores: &[String]) -> Option<String> {
+        InjectedStore::filled(path, source, stores)
     }
 
     pub(crate) fn concrete(path: &Path, source: &str, environment: &str) -> Option<String> {

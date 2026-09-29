@@ -9,8 +9,13 @@ impl ContextTemplate {
     const JAVA_FIELD: &'static str = "Behaviors.Context behaviors;";
     const JAVA_START: &'static str = "@OnStart\nvoid startContext() {\n    behaviors = Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal()));\n}";
     const KOTLIN_FIELD: &'static str = "lateinit var behaviors: Behaviors.Context";
-    const TEMPLATES: [Self; 18] = [
+    const TEMPLATES: [Self; 21] = [
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),
+        Self::new(
+            "java-tac",
+            "Behaviors.Context behaviors = Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal()));",
+            "",
+        ),
         Self::new("groovy", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new(
             "kt-yon",
@@ -63,6 +68,16 @@ impl ContextTemplate {
             "behaviors;\n\n@OnStart\nasync startContext() {\n    this.behaviors = await Behaviors.create({setup}, { partition: '{partition}', signal: AbortSignal.timeout(10000) });\n}",
         ),
         Self::new("js-tac", "", "@Needs\nbehaviors;"),
+        Self::new(
+            "js-provided",
+            "",
+            "static tachyonContext(signal) {\n    return Behaviors.create({setup}, { partition: '{partition}', signal });\n}",
+        ),
+        Self::new(
+            "ts-provided",
+            "",
+            "static tachyonContext(signal: AbortSignal): Promise<BehaviorContext> {\n    return Behaviors.create({setup}, { partition: '{partition}', signal });\n}",
+        ),
         Self::new("ts-tac", "", "@Needs\nbehaviors!: BehaviorContext;"),
         Self::new(
             "ts",

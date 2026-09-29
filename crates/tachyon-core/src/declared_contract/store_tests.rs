@@ -332,7 +332,7 @@ fn a_named_setup_builds_the_store_context() {
 }
 
 #[test]
-fn tac_stores_are_built_by_their_service() {
+fn native_tac_stores_open_their_own_context() {
     let expected = [
         (
             "dart",
@@ -340,8 +340,11 @@ fn tac_stores_are_built_by_their_service() {
         ),
         ("kt", "init {"),
         ("go", "func NewProductStore() (*ProductStore, error) {"),
-        ("js", "@Needs\n  behaviors;"),
-        ("ts", "@Needs\n  behaviors!: BehaviorContext;"),
+        ("rs", "impl Default for ProductStore {"),
+        (
+            "java",
+            "Behaviors.Context behaviors = Behaviors.create(\"ProductSetup\"",
+        ),
     ];
     for (extension, part) in expected {
         let lowered = StoreSamples::concrete(extension, "tac");

@@ -820,6 +820,40 @@ export default class Products {
     }
 
     #[test]
+    fn a_service_that_needs_a_store_gets_the_store_with_the_context_of_its_setup() {
+        let root = tempfile::tempdir().expect("project");
+        write_file(
+            root.path(),
+            "client/setups/CatalogSetup.js",
+            "@Setup\nexport default class CatalogSetup {\n  static configure() {\n    return { entities: {} };\n  }\n}\n",
+        );
+        write_file(
+            root.path(),
+            "client/entities/ProductEntity.js",
+            "@Entity({\"adapter\":\"indexeddb\"})\n@Table('products')\nexport default class ProductEntity {\n  @Id\n  id;\n  status;\n}\n",
+        );
+        write_file(
+            root.path(),
+            "client/stores/ProductStore.js",
+            "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"setup\":\"CatalogSetup\"})\nexport default class ProductStore {\n  async countByStatus(status) {}\n}\n",
+        );
+        let source = "@Service\nexport default class ProductService {\n  /** @type {ProductStore} */\n  @Needs\n  productStore;\n  summary = '';\n\n  async load() {\n    this.summary = String(await this.productStore.countByStatus('active'));\n  }\n}\n";
+        let path = "client/services/ProductService.js";
+        write_file(root.path(), path, source);
+        let output = ComponentScript::prepare(root.path(), source.as_bytes(), path)
+            .expect("the store is injected");
+        let output = String::from_utf8(output).expect("utf8");
+        for part in [
+            "for (const [name, store] of [['ProductStore',ProductStore]]) stores.set(name, await store.tachyonContext(signal));",
+            "resolve('ProductStore')",
+            "value:stores.get(name) || context",
+            "static tachyonContext(signal) {",
+        ] {
+            assert!(output.contains(part), "missing {part:?}:\n{output}");
+        }
+    }
+
+    #[test]
     fn a_topic_listener_opens_the_topic_stream_without_a_client() {
         let root = tempfile::tempdir().expect("project");
         let source = r"

@@ -504,6 +504,7 @@ function writeFixture(project) {
   <storage-clients />
   <storage-catalog />
   <storage-notes />
+  <storage-store />
   <storage-go />
   <storage-ruby />
   <storage-rs />
@@ -631,7 +632,7 @@ class NoteEntity {
   rank;
 }
 `);
-  write(project, 'client/stores/NoteStore.js', `@Store(NoteEntity, {"fields":["id","status","rank"],"defaultSize":20,"maxSize":100})
+  write(project, 'client/stores/NoteStore.js', `@Store(NoteEntity, {"fields":["id","status","rank"],"defaultSize":20,"maxSize":100,"setup":"StorageSetup"})
 class NoteStore {
   async findByStatus(status) {}
   async countByStatus(status) {}
@@ -647,6 +648,30 @@ class NoteStore {
   if (StorageGate.withSwift) writeSwiftFixture(project);
   if (StorageGate.withJava) writeJavaFixture(project);
   write(project, 'client/components/storage/notes/tac.html', '<p id="notes">{storageNotes.label}</p>\n');
+  write(project, 'client/components/storage/store/tac.html', '<p id="store-notes">{storeNotes.label}</p>\n');
+  write(project, 'client/services/StoreNotesService.js', `@Service
+export default class StoreNotesService {
+  static OPEN = 'open';
+  static LOW_RANK = 2;
+  static PAGE_SIZE = 2;
+  /** @type {NoteStore} */
+  @Needs
+  noteStore;
+  label = 'store';
+
+  async report() {
+    return {
+      open: this._ids(await this.noteStore.findByStatus(StoreNotesService.OPEN)),
+      count: await this.noteStore.countByStatus(StoreNotesService.OPEN),
+      ranked: this._ids(await this.noteStore.ranked(StoreNotesService.LOW_RANK, { size: StoreNotesService.PAGE_SIZE })),
+    };
+  }
+
+  _ids(rows) {
+    return rows.map((row) => row.id);
+  }
+}
+`);
   write(project, 'client/services/StorageNotesService.js', `@Service
 export default class StorageNotesService {
   static OPEN = 'open';
@@ -688,11 +713,7 @@ export default class StorageNotesService {
   }
 
   async report() {
-    const store = Behaviors.construct(NoteStore, { behaviors: this.behaviors });
     return {
-      open: this.#ids(await store.findByStatus(StorageNotesService.OPEN)),
-      count: await store.countByStatus(StorageNotesService.OPEN),
-      ranked: this.#ids(await store.ranked(StorageNotesService.LOW_RANK, { size: StorageNotesService.PAGE_SIZE })),
       page: this.#ids(await this.behaviors.repository(NoteEntity).find({ size: StorageNotesService.PAGE_SIZE, page: 1 })),
     };
   }
@@ -868,12 +889,13 @@ async function checkIndexedStore(browser, origin) {
     return answer;
   });
   expect(JSON.stringify(upgraded), JSON.stringify({ version: 2, indexes: ['rank', 'status'] }), 'the schema upgrade adds the query indexes');
-  expect(JSON.stringify(await notes(() => __root('storageNotes').report())), JSON.stringify({ open: ['a', 'b', 'd', 'z'], count: 4, ranked: ['a', 'c'], page: ['c', 'd'] }), 'derived, Query and paged reads use the stored rows and the row kept before the upgrade');
+  const reports = async () => ({ ...(await __root('storeNotes').report()), ...(await __root('storageNotes').report()) });
+  expect(JSON.stringify(await notes(reports)), JSON.stringify({ open: ['a', 'b', 'd', 'z'], count: 4, ranked: ['a', 'c'], page: ['c', 'd'] }), 'derived, Query and paged reads of the injected NoteStore use the stored rows and the row kept before the upgrade');
   const failed = await notes(() => __root('storageNotes').failedBatch().then(() => 'saved', (error) => error.message));
   expect(failed, 'stop', 'AllOrNothing rethrows the failure');
   await notes(() => __root('storageNotes').batch());
   await page.reload({ waitUntil: 'networkidle' });
-  expect(JSON.stringify(await notes(() => __root('storageNotes').report())), JSON.stringify({ open: ['a', 'd', 'y', 'z'], count: 4, ranked: ['y', 'a'], page: ['d', 'y'] }), 'rows survive a reload; a failed AllOrNothing wrote nothing and a finished one wrote everything');
+  expect(JSON.stringify(await notes(reports)), JSON.stringify({ open: ['a', 'd', 'y', 'z'], count: 4, ranked: ['y', 'a'], page: ['d', 'y'] }), 'rows survive a reload; a failed AllOrNothing wrote nothing and a finished one wrote everything');
   await context.close();
 
   const changed = await browser.newContext();
