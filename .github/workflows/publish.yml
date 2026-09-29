@@ -456,7 +456,7 @@ jobs:
         run: |
           set -euo pipefail
           bun install --frozen-lockfile
-          bunx playwright install --with-deps chromium
+          bunx playwright install --with-deps chromium firefox webkit
           bun run test:storage-browser
           bun run test:runtime-browser
           bun run test:website-browser

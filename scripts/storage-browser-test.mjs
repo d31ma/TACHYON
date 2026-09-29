@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { CargoArtifacts } from './cargo-artifacts.mjs'
-import { chromium } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
 import { spawnSync } from 'node:child_process';
@@ -15,6 +15,8 @@ class StorageGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty');
   static host = 'tachyon.test';
+  static hostRule = `--host-resolver-rules=MAP ${StorageGate.host} 127.0.0.1`;
+  static browsers = (process.env.TAC_STORAGE_BROWSERS ?? 'chromium,firefox,webkit').split(',');
   static settleCaches = () => globalThis[Symbol.for('tachyon.tac.storage')].settled();
   static withCSharp = csharpWebAvailable();
   static withKotlin = kotlinWebAvailable();
@@ -22,6 +24,26 @@ class StorageGate {
   static withJava = javaWebAvailable();
   static scriptBudgetKilobytes = 320;
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' };
+
+  static open(name, project) {
+    if (name === 'chromium') return chromium.launch({ timeout: 30_000, args: [StorageGate.hostRule] });
+    if (name === 'firefox') return firefox.launch({ timeout: 30_000 });
+    if (name === 'webkit') return StorageGate.persistentWebKit(project);
+    throw new Error(`the storage gate has no browser named '${name}'`);
+  }
+
+  static persistentWebKit(project) {
+    const contexts = [];
+    return {
+      newContext: async (options) => {
+        const profile = mkdtempSync(path.join(project, 'webkit-profile-'));
+        const context = await webkit.launchPersistentContext(profile, { timeout: 30_000, ...options });
+        contexts.push(context);
+        return context;
+      },
+      close: () => Promise.all(contexts.map((context) => context.close())),
+    };
+  }
 }
 
 class ApiRequests {
@@ -824,10 +846,11 @@ async function checkWebAssemblyStorage(browser, origin) {
   await page.goto(origin, { waitUntil: 'networkidle' });
   const evaluate = (script) => page.evaluate(script);
   expect(JSON.stringify(await evaluate(() => [__root('goNotes').find('a'), __root('goNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Go WebAssembly service reads its Cached value synchronously from memory');
+  expect(JSON.stringify(await evaluate(() => __root('goNotes').find('b'))), JSON.stringify({ key: 'b', reads: 2 }), 'a Go WebAssembly service runs the method for a new key');
   await evaluate(() => __root('goNotes').save('g1', 'kept'));
   await evaluate(StorageGate.settleCaches);
   await page.reload({ waitUntil: 'networkidle' });
-  expect(JSON.stringify(await evaluate(() => __root('goNotes').find('a'))), JSON.stringify({ key: 'a', reads: 1 }), 'the Go cache entry survives a reload through the Cache API');
+  expect(JSON.stringify(await evaluate(() => __root('goNotes').find('b'))), JSON.stringify({ key: 'b', reads: 2 }), 'the Go cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').list())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'the Go Store row survives a reload through the IndexedDB copy');
   expect(JSON.stringify(await evaluate(() => [__root('rubyNotes').find('a'), __root('rubyNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Ruby WebAssembly service reads its Cached value synchronously from memory');
   await evaluate(() => __root('rubyNotes').forget('a'));
@@ -1111,6 +1134,25 @@ async function checkServiceWorkerOffline(secureContext, secureOrigin) {
   expect(await securePage.textContent('#detail'), 'detail', 'precached component rendered offline');
 }
 
+async function checkBrowser(browser, name, origin, port) {
+  const context = await browser.newContext();
+  await context.addInitScript(rootHelper);
+  context.setDefaultTimeout(15_000);
+  context.setDefaultNavigationTimeout(15_000);
+  const page = await checkFieldStorage(context, origin);
+  await checkKeptCaches(page);
+  if (name === 'chromium') await checkInsecureCaches(browser, port);
+  await checkIndexedStore(browser, origin);
+  await checkWebAssemblyStorage(browser, origin);
+  await checkWebAssemblyStoredFields(browser, origin);
+  await checkInjectedClients(page);
+  const afterInvalidate = await checkCachePolicies(page, origin, context);
+  await checkRangeRequests(page);
+  await checkLegacyPartialResponses(page, origin);
+  await checkOfflineBehavior(page, context, afterInvalidate);
+  await checkDeniedStorage(browser, origin);
+}
+
 async function main() {
   if (!StorageGate.withCSharp) {
     if (process.env.CI) fail('CI must provide .NET wasm-tools for the C# storage check');
@@ -1133,25 +1175,13 @@ async function main() {
     await listen(server);
     const origin = `http://127.0.0.1:${server.address().port}`;
 
-    browser = await chromium.launch({ timeout: 30_000, args: [`--host-resolver-rules=MAP ${StorageGate.host} 127.0.0.1`] });
-    const context = await browser.newContext();
-    await context.addInitScript(rootHelper);
-    context.setDefaultTimeout(15_000);
-    context.setDefaultNavigationTimeout(15_000);
-    const page = await checkFieldStorage(context, origin);
-    await checkKeptCaches(page);
-    await checkInsecureCaches(browser, server.address().port);
-    await checkIndexedStore(browser, origin);
-    await checkWebAssemblyStorage(browser, origin);
-    await checkWebAssemblyStoredFields(browser, origin);
-    await checkInjectedClients(page);
-    const afterInvalidate = await checkCachePolicies(page, origin, context);
-    await checkRangeRequests(page);
-    await checkLegacyPartialResponses(page, origin);
-    await checkOfflineBehavior(page, context, afterInvalidate);
-    await checkDeniedStorage(browser, origin);
-    await browser.close();
-    browser = undefined;
+    for (const name of StorageGate.browsers) {
+      console.log(`storage checks in ${name}`);
+      browser = await StorageGate.open(name, project);
+      await checkBrowser(browser, name, origin, server.address().port);
+      await browser.close();
+      browser = undefined;
+    }
     await closeServer(server);
     server = undefined;
 
@@ -1163,7 +1193,7 @@ async function main() {
     secureContext = await chromium.launchPersistentContext(profile, {
       timeout: 30_000,
       ignoreHTTPSErrors: true,
-      args: [`--host-resolver-rules=MAP ${StorageGate.host} 127.0.0.1`, '--ignore-certificate-errors'],
+      args: [StorageGate.hostRule, '--ignore-certificate-errors'],
     });
     secureContext.setDefaultTimeout(15_000);
     secureContext.setDefaultNavigationTimeout(15_000);
