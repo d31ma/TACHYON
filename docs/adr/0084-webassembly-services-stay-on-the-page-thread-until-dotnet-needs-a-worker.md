@@ -1,6 +1,6 @@
 # ADR 0084: WebAssembly Services Stay on the Page Thread Until .NET Needs a Worker
 
-- Status: Proposed
+- Status: Accepted (the decision is to keep every WebAssembly service on the page thread for now; the worker design below is the plan for when .NET needs a worker)
 - Date: 2026-09-29
 - Relates to: [ADR 0035](0035-rust-services-reach-the-web-as-webassembly.md)
   (the `invoke(op, json)` bridge), [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)

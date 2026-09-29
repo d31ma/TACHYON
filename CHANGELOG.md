@@ -485,7 +485,7 @@ machine contracts have their own, independent major versions.
   baseline) on the page thread and in a Web Worker prototype: long tasks
   while a route starts, the time of one call (p50 and p95), the input delay
   while a service computes for 200 ms, and memory, at 1x and 4x CPU. It
-  can also load the built website's routes. ADR 0084 (Proposed) holds the
+  can also load the built website's routes. ADR 0084 holds the
   results and recommends keeping services on the page thread, with .NET as
   the first runtime to move to a worker once its loader starts in one. No
   runtime behavior changes.
