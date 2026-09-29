@@ -25,11 +25,26 @@ impl TestLanguage {
         macro_asserts: &["assert", "assert_eq", "assert_ne"],
         assert_help: "Check the result with `Assert::equals(expected, actual)`, `Assert::is_true(condition)`, `Assert::throws(action)`, `assert!`, `assert_eq!` or `assert_ne!`.",
     };
-    const LANGUAGES: [(&'static str, Self); 4] = [
+    const JAVA: Self = Self {
+        logic_words: &["if", "else", "for", "while", "do", "switch", "case"],
+        statement_asserts: &["assert"],
+        macro_asserts: &[],
+        assert_help: "Check the result with `Assert.equals(expected, actual)`, `Assert.isTrue(condition)`, `Assert.throwsError(action)` or an `assert` statement.",
+    };
+    const KOTLIN: Self = Self {
+        logic_words: &["if", "else", "for", "while", "do", "when"],
+        statement_asserts: &["check", "require"],
+        macro_asserts: &[],
+        assert_help: "Check the result with `Assert.equals(expected, actual)`, `Assert.isTrue(condition)`, `Assert.throws { action }`, `check(condition)` or `require(condition)`.",
+    };
+    const LANGUAGES: [(&'static str, Self); 7] = [
         ("js", Self::JAVASCRIPT),
         ("ts", Self::JAVASCRIPT),
         ("py", Self::PYTHON),
         ("rs", Self::RUST),
+        ("java", Self::JAVA),
+        ("groovy", Self::JAVA),
+        ("kt", Self::KOTLIN),
     ];
 
     pub(super) fn of(extension: &str) -> Option<Self> {

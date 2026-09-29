@@ -194,6 +194,14 @@ pub(super) fn polyglot_unit(ty: &super::polyglot::Type) -> Option<Unit> {
     })
 }
 
+pub(super) fn unit_helper(types: &[super::polyglot::Type], helper: &'static str) -> &'static str {
+    let tested = types.iter().any(|ty| ty.policies.contains_key("test"));
+    if tested {
+        return helper;
+    }
+    ""
+}
+
 fn string_list(policies: &Map<String, Value>, key: &str) -> Vec<String> {
     let Some(values) = policies.get(key).and_then(Value::as_array) else {
         return Vec::new();

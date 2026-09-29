@@ -14,6 +14,12 @@ impl AssertedUnit {
     const PYTHON_UNIT: &'static str = "@Test(CatalogTestSetup)\nclass CatalogServiceTest:\n    async def test_adds_two_numbers(self):\n        Assert.equals(4, 2 + 2)\n        assert [1, 2] == [1, 2]\n\n    async def test_explains_a_wrong_total(self):\n        Assert.equals(3, 1 + 1, 'the total')\n\n    async def test_sees_a_raised_error(self):\n        error = Assert.throws(lambda: int('x'))\n        Assert.is_true(isinstance(error, ValueError))\n\n    async def test_needs_a_raised_error(self):\n        Assert.throws(lambda: 1)\n\n    @ValueSource([1, 2, -3])\n    async def test_keeps_positive_inputs(self, value):\n        assert value > 0, 'a positive input'\n";
     const RUST_SETUP: &'static str = "#[TestSetup()]\nstruct CatalogTestSetup {}\nimpl CatalogTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> { Ok(BehaviorConfiguration::default()) }\n}\n";
     const RUST_UNIT: &'static str = "#[Test(CatalogTestSetup)]\nstruct CatalogServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CatalogServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n    fn testAddsTwoNumbers(&self) {\n        Assert::equals(4, 2 + 2);\n        assert_eq!(String::from(\"ok\"), \"ok\");\n    }\n    fn testExplainsAWrongTotal(&self) {\n        Assert::equals_with_message(3, 1 + 1, \"the total\");\n    }\n    fn testSeesAnError(&self) -> BehaviorResult<BehaviorValue> {\n        Assert::throws(|| -> BehaviorResult<()> { Err(BehaviorError { code: \"adapter\", message: \"empty name\", path: None }) });\n        Assert::throws(|| -> Result<(), String> { panic!(\"stopped\") });\n        Ok(BehaviorValue::Null)\n    }\n    fn testNeedsAnError(&self) {\n        Assert::throws(|| -> Result<i32, String> { Ok(1) });\n    }\n    #[ValueSource([1, 2, -3])]\n    fn testKeepsPositiveInputs(&self, value: i64) {\n        assert!(value > 0, \"a positive input\");\n    }\n}\n";
+    const JAVA_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);\n    }\n}\n";
+    const JAVA_UNIT: &'static str = "@Test(CatalogTestSetup.class)\nclass CatalogServiceTest {\n    void testAddsTwoNumbers() {\n        Assert.equals(4, 2 + 2);\n        Assert.equals(4L, 2 + 2);\n        assert 2 + 2 == 4;\n    }\n    void testExplainsAWrongTotal() {\n        Assert.equals(3, 1 + 1, \"the total\");\n    }\n    void testSeesAThrownError() {\n        Throwable error = Assert.throwsError(() -> Integer.parseInt(\"x\"));\n        Assert.isTrue(error instanceof NumberFormatException);\n    }\n    void testNeedsAThrownError() {\n        Assert.throwsError(() -> Integer.parseInt(\"1\"));\n    }\n    @ValueSource([1, 2, -3])\n    void testKeepsPositiveInputs(int value) {\n        assert value > 0 : \"a positive input\";\n    }\n}\n";
+    const GROOVY_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration([:], [:], [:], null, null)\n    }\n}\n";
+    const GROOVY_UNIT: &'static str = "@Test(CatalogTestSetup.class)\nclass CatalogServiceTest {\n    void testAddsTwoNumbers() {\n        Assert.equals(4, 2 + 2)\n        assert 2 + 2 == 4\n    }\n    void testExplainsAWrongTotal() {\n        Assert.equals(3, 1 + 1, 'the total')\n    }\n    void testSeesAThrownError() {\n        Throwable error = Assert.throwsError({ Integer.parseInt('x') })\n        Assert.isTrue(error instanceof NumberFormatException)\n    }\n    void testNeedsAThrownError() {\n        Assert.throwsError({ Integer.parseInt('1') })\n    }\n    @ValueSource([1, 2, -3])\n    void testKeepsPositiveInputs(int value) {\n        assert value > 0 : 'a positive input'\n    }\n}\n";
+    const KOTLIN_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n";
+    const KOTLIN_UNIT: &'static str = "@Test(CatalogTestSetup::class)\nclass CatalogServiceTest {\n    fun testAddsTwoNumbers() {\n        Assert.equals(4, 2 + 2)\n        Assert.equals(4L, 2 + 2)\n        check(2 + 2 == 4)\n    }\n    fun testExplainsAWrongTotal() {\n        Assert.equals(3, 1 + 1, \"the total\")\n    }\n    fun testSeesAThrownError() {\n        val error = Assert.throws { \"x\".toInt() }\n        Assert.isTrue(error is NumberFormatException)\n    }\n    fun testNeedsAThrownError() {\n        Assert.throws { \"1\".toInt() }\n    }\n    @ValueSource([1, 2, -3])\n    fun testKeepsPositiveInputs(value: Int) {\n        require(value > 0) { \"a positive input\" }\n    }\n}\n";
 
     fn write(root: &std::path::Path, relative: &str, source: &str) {
         let path = root.join(relative);
@@ -22,8 +28,12 @@ impl AssertedUnit {
     }
 
     fn available(program: &str) -> bool {
+        Self::answers(program, "--version")
+    }
+
+    fn answers(program: &str, flag: &str) -> bool {
         std::process::Command::new(program)
-            .arg("--version")
+            .arg(flag)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()
@@ -132,6 +142,26 @@ impl AssertedUnit {
         ]
     }
 
+    fn jvm_expected() -> [(&'static str, bool, &'static str); 7] {
+        [
+            ("testAddsTwoNumbers", true, ""),
+            (
+                "testExplainsAWrongTotal",
+                false,
+                "the total ==> expected: <3> but was: <2>",
+            ),
+            ("testSeesAThrownError", true, ""),
+            (
+                "testNeedsAThrownError",
+                false,
+                "Expected an error to be thrown, but nothing was thrown.",
+            ),
+            ("testKeepsPositiveInputs[1]", true, ""),
+            ("testKeepsPositiveInputs[2]", true, ""),
+            ("testKeepsPositiveInputs[3]", false, "a positive input"),
+        ]
+    }
+
     fn rust_expected() -> [(&'static str, bool, &'static str); 7] {
         [
             ("testAddsTwoNumbers", true, ""),
@@ -227,4 +257,46 @@ fn tac_units_assert_and_run_one_case_per_input() {
     }
     let rust = AssertedUnit::client_cases("rs", AssertedUnit::RUST_SETUP, AssertedUnit::RUST_UNIT);
     AssertedUnit::check("tac rs", &rust, &AssertedUnit::rust_expected());
+}
+
+#[tokio::test]
+async fn jvm_units_assert_with_the_helper_and_the_language_assert() {
+    for (extension, program, setup, unit) in [
+        (
+            "java",
+            "java",
+            AssertedUnit::JAVA_SETUP,
+            AssertedUnit::JAVA_UNIT,
+        ),
+        (
+            "groovy",
+            "groovyc",
+            AssertedUnit::GROOVY_SETUP,
+            AssertedUnit::GROOVY_UNIT,
+        ),
+        (
+            "kt",
+            "kotlinc",
+            AssertedUnit::KOTLIN_SETUP,
+            AssertedUnit::KOTLIN_UNIT,
+        ),
+    ] {
+        if !AssertedUnit::answers(program, "-version") {
+            eprintln!("skipping the {extension} unit: {program} is unavailable");
+            continue;
+        }
+        let cases = AssertedUnit::server_cases(extension, setup, unit).await;
+        AssertedUnit::check(extension, &cases, &AssertedUnit::jvm_expected());
+    }
+}
+
+#[test]
+fn a_tac_kotlin_unit_asserts_and_runs_one_case_per_input() {
+    if !AssertedUnit::answers("kotlinc", "-version") {
+        eprintln!("skipping: kotlinc is unavailable");
+        return;
+    }
+    let cases =
+        AssertedUnit::client_cases("kt", AssertedUnit::KOTLIN_SETUP, AssertedUnit::KOTLIN_UNIT);
+    AssertedUnit::check("tac kt", &cases, &AssertedUnit::jvm_expected());
 }

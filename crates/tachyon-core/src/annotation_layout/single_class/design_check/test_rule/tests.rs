@@ -90,6 +90,45 @@ fn a_rust_case_may_use_the_assert_macros() {
 }
 
 #[test]
+fn a_java_case_may_use_the_assert_statement() {
+    let unit = "@Test(CatalogTestSetup.class)\nclass CatalogServiceTest {\n    int twice(int value) { return value * 2; }\n    void testDoublesAValue() {\n        Assert.equals(8, this.twice(4));\n    }\n    void testUsesTheStatement() {\n        assert this.twice(1) == 2 : \"doubles\";\n    }\n    void testSeesAnError() {\n        Assert.throwsError(() -> Integer.parseInt(\"x\"));\n    }\n    void testPicksALabel() {\n        Assert.equals(\"many\", 2 > 1 ? \"many\" : \"one\");\n    }\n    void testChecksEveryValue() {\n        for (int value : new int[] {1, 2}) {\n            Assert.isTrue(value > 0);\n        }\n    }\n    void testThrowsByHand() {\n        if (this.twice(4) != 8) throw new IllegalStateException(\"expected 8\");\n    }\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("server/tests/CatalogServiceTest.java", unit)]),
+        [
+            "The test case `testPicksALabel` in CatalogServiceTest holds logic: `? :`.",
+            "The test case `testChecksEveryValue` in CatalogServiceTest holds logic: `for`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest holds logic: `if`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
+fn a_kotlin_case_may_use_check_and_require() {
+    let unit = "@Test(CatalogTestSetup::class)\nclass CatalogServiceTest {\n    fun twice(value: Int): Int = value * 2\n    fun testDoublesAValue() {\n        Assert.equals(8, twice(4))\n    }\n    fun testUsesCheck() {\n        check(twice(1) == 2)\n        require(twice(2) == 4) { \"doubles\" }\n    }\n    fun testSeesAnError() {\n        Assert.throws { \"x\".toInt() }\n    }\n    fun testPicksALabel() {\n        val label = when (twice(1)) { 2 -> \"two\" else -> \"other\" }\n        Assert.equals(\"two\", label)\n    }\n    fun testOnlyAsserts() {\n        assert(twice(4) == 8)\n    }\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("client/tests/CatalogServiceTest.kt", unit)]),
+        [
+            "The test case `testPicksALabel` in CatalogServiceTest holds logic: `when`.",
+            "The test case `testOnlyAsserts` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
+fn a_groovy_case_may_use_the_assert_statement() {
+    let unit = "@Test(CatalogTestSetup.class)\nclass CatalogServiceTest {\n    int twice(int value) { return value * 2 }\n    void testDoublesAValue() {\n        Assert.equals(8, this.twice(4))\n        assert this.twice(1) == 2\n    }\n    void testSeesAnError() {\n        Assert.throwsError({ Integer.parseInt('x') })\n    }\n    void testChecksEveryValue() {\n        while (this.twice(1) < 0) {\n            Assert.isTrue(false)\n        }\n    }\n    void testThrowsByHand() {\n        if (this.twice(4) != 8) {\n            throw new IllegalStateException('expected 8')\n        }\n    }\n}\n";
+    assert_eq!(
+        TestedProject::messages(&[("server/tests/CatalogServiceTest.groovy", unit)]),
+        [
+            "The test case `testChecksEveryValue` in CatalogServiceTest holds logic: `while`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest holds logic: `if`.",
+            "The test case `testThrowsByHand` in CatalogServiceTest has no assertion.",
+        ]
+    );
+}
+
+#[test]
 fn only_test_units_are_checked() {
     let service = "@Service\nexport default class CatalogService {\n  testValue() {\n    if (1 > 0) return 1\n    return 0\n  }\n}\n";
     let setup = "@TestSetup\nexport default class CatalogTestSetup {\n  static configure() {\n    return {}\n  }\n}\n";

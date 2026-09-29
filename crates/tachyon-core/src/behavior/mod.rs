@@ -35,6 +35,7 @@ mod renamed;
 pub(crate) use http_client::HttpClientSource;
 pub(crate) use renamed::{RenamedAnnotation, RoutingRename};
 mod resilience;
+mod call_style;
 mod ruby;
 mod service_roles;
 pub(crate) use service_roles::ServiceRoles;

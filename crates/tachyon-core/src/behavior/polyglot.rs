@@ -850,7 +850,7 @@ fn apply_value_source(
     })?;
     let ty = &mut types[owner];
     let method = parse_method(input, language, marker.target, ty)?;
-    if language == "rs" {
+    if matches!(language, "rs" | "java" | "kt") {
         return super::ValueSource::record_scalars(input, marker, &method.name, &mut ty.policies);
     }
     super::ValueSource::record(input, marker, &method.name, &mut ty.policies)

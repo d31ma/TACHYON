@@ -2363,9 +2363,18 @@ fn stage_with_prelude(
         portable,
     )?;
     Ok(PreparedCommand {
-        interpreter: vec![String::from("java"), runtime.to_string_lossy().into_owned()],
+        interpreter: java_launcher(portable, &runtime),
         workspace,
     })
+}
+
+fn java_launcher(portable: &str, runtime: &Path) -> Vec<String> {
+    let mut launcher = vec![String::from("java")];
+    if portable.starts_with("server/tests/") {
+        launcher.push(String::from("-ea"));
+    }
+    launcher.push(runtime.to_string_lossy().into_owned());
+    launcher
 }
 
 fn php_cli_path(path: &Path) -> String {

@@ -12,7 +12,11 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         edits.extend(concrete_edit(module, type_declaration));
         lower_type(module, type_declaration, &mut sections, &mut edits)?;
     }
-    let runtime = sections.fill_runtime(module);
+    let mut runtime = sections.fill_runtime(module);
+    runtime.push_str(super::super::testing::unit_helper(
+        &module.types,
+        super::super::TestAssert::JAVA,
+    ));
     render(module, edits, &runtime)
 }
 
@@ -1000,9 +1004,11 @@ fn quote(value: &str) -> String {
 }
 
 fn test_members(unit: &Unit) -> String {
-    let names = quoted_list(&unit.cases);
-    let dispatch = super::super::testing::joined(&unit.cases, |name| {
-        format!("case {}: {name}(); return;", quote(name))
+    let calls = super::super::ValueSource::jvm_calls(&unit.cases, &unit.inputs);
+    let case_names: Vec<String> = calls.iter().map(|(name, _)| name.clone()).collect();
+    let names = quoted_list(&case_names);
+    let dispatch = super::super::testing::joined(&calls, |(name, call)| {
+        format!("case {}: {call}; return;", quote(name))
     });
     let profiles = profile_list(unit);
     let properties = property_entries(unit);
@@ -1018,7 +1024,7 @@ fn test_members(unit: &Unit) -> String {
          startBehaviors();\n\
          BehaviorCalls.take();\n\
          try {{ runCase(name); cases.add(Behaviors.record(\"name\", name, \"passed\", true, \"called\", BehaviorCalls.take())); }}\n\
-         catch (RuntimeException error) {{ cases.add(Behaviors.record(\"name\", name, \"passed\", false, \"error\", String.valueOf(error.getMessage()), \"called\", BehaviorCalls.take())); }}\n\
+         catch (RuntimeException | AssertionError error) {{ cases.add(Behaviors.record(\"name\", name, \"passed\", false, \"error\", java.util.Objects.requireNonNullElse(error.getMessage(), error.getClass().getName()), \"called\", BehaviorCalls.take())); }}\n\
          finally {{ stopBehaviors(); }}\n\
          }}\n\
          return Behaviors.record(\"unit\", {}, \"cases\", cases);\n\

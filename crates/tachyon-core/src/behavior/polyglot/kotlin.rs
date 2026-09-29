@@ -14,6 +14,10 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
     }
     let mut runtime = sections.fill_runtime(module);
     runtime.push_str(super::KotlinBuiltins::NONE);
+    runtime.push_str(super::super::testing::unit_helper(
+        &module.types,
+        super::super::TestAssert::KOTLIN,
+    ));
     render(module, edits, &runtime)
 }
 
@@ -1019,9 +1023,12 @@ fn quote(value: &str) -> String {
 fn test_members(unit: &Unit, environment: &str) -> String {
     let report = report_type(environment);
     let answer = report_value(unit, environment);
-    let names = quoted_list(&unit.cases);
-    let dispatch =
-        super::super::testing::joined(&unit.cases, |name| format!("{} -> {name}()\n", quote(name)));
+    let calls = super::super::ValueSource::jvm_calls(&unit.cases, &unit.inputs);
+    let case_names: Vec<String> = calls.iter().map(|(name, _)| name.clone()).collect();
+    let names = quoted_list(&case_names);
+    let dispatch = super::super::testing::joined(&calls, |(name, call)| {
+        format!("{} -> {call}\n", quote(name))
+    });
     let profiles = profile_list(unit);
     let properties = property_entries(unit);
     format!(

@@ -7,6 +7,7 @@ use super::super::super::duplication::ProjectSource;
 use super::super::design_problem::DesignProblem;
 use super::super::design_rule::DesignRule;
 use super::test_language::TestLanguage;
+use crate::groovy_source::GroovySource;
 use std::path::Path;
 
 pub(super) struct TestFile<'a> {
@@ -29,7 +30,7 @@ impl<'a> TestFile<'a> {
         let extension = source.extension();
         Self::is_unit_path(&source.path, class_name).then_some(())?;
         let language = TestLanguage::of(extension)?;
-        let spelling = Spelling::of(extension)?;
+        let spelling = Spelling::of(GroovySource::syntax(extension))?;
         let input = Input::new(path, &source.text);
         let tokens = Tokens::read(&input).ok()?;
         tokens.has_test_marker().then_some(())?;

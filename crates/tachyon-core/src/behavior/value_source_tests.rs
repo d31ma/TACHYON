@@ -8,6 +8,9 @@ impl ValueSourceCase {
         "@TestSetup()\nclass CatalogTestSetup {\n  static configure() { return {}; }\n}\n";
     const RUST_SETUP: &'static str = "#[TestSetup()]\nstruct CatalogTestSetup {}\nimpl CatalogTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> { Ok(BehaviorConfiguration::default()) }\n}\n";
 
+    const JAVA_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return null;\n    }\n}\n";
+    const KOTLIN_SETUP: &'static str = "@TestSetup\nclass CatalogTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n";
+
     fn javascript(method: &str) -> Result<Option<String>, crate::Failure> {
         let source = format!(
             "{}@Test(CatalogTestSetup)\nexport default class CatalogServiceTest {{\n{method}\n}}\n",
@@ -27,6 +30,22 @@ impl ValueSourceCase {
         );
         lower(
             Path::new("server/tests/CatalogServiceTest.rs"),
+            &source,
+            "yon",
+        )
+    }
+
+    fn jvm(extension: &str, method: &str) -> Result<Option<String>, crate::Failure> {
+        let (setup, class) = if extension == "kt" {
+            (Self::KOTLIN_SETUP, "::class")
+        } else {
+            (Self::JAVA_SETUP, ".class")
+        };
+        let source = format!(
+            "{setup}@Test(CatalogTestSetup{class})\nclass CatalogServiceTest {{\n{method}\n}}\n"
+        );
+        lower(
+            Path::new(&format!("server/tests/CatalogServiceTest.{extension}")),
             &source,
             "yon",
         )
@@ -100,4 +119,64 @@ fn a_rust_value_source_lists_numbers_strings_or_booleans() {
         message.contains("numbers, strings or booleans"),
         "{message}"
     );
+}
+
+#[test]
+fn a_jvm_value_source_calls_the_case_once_for_each_literal() {
+    let cases = [
+        (
+            "java",
+            "    @ValueSource([1, \"a$b\", true, 3000000000])\n    void testKeepsAnInput(Object value) {\n        Assert.isTrue(value != null);\n    }",
+        ),
+        (
+            "groovy",
+            "    @ValueSource([1, \"a$b\", true, 3000000000])\n    void testKeepsAnInput(Object value) {\n        Assert.isTrue(value != null)\n    }",
+        ),
+        (
+            "kt",
+            "    @ValueSource([1, \"a$b\", true, 3000000000])\n    fun testKeepsAnInput(value: Any) {\n        Assert.isTrue(value != null)\n    }",
+        ),
+    ];
+    for (extension, method) in cases {
+        let lowered = ValueSourceCase::jvm(extension, method)
+            .expect("lowered")
+            .expect("a test unit");
+        for call in [
+            "\"testKeepsAnInput[1]\"",
+            "testKeepsAnInput(1)",
+            "testKeepsAnInput(\"a\\u0024b\")",
+            "testKeepsAnInput(true)",
+            "testKeepsAnInput(3000000000L)",
+            if extension == "kt" {
+                "object Assert"
+            } else {
+                "final class Assert"
+            },
+        ] {
+            assert!(
+                lowered.contains(call),
+                "{extension}: {call} missing from {lowered}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_jvm_value_source_lists_numbers_strings_or_booleans() {
+    for (extension, method) in [
+        (
+            "java",
+            "    @ValueSource([[1, 2]])\n    void testKeepsAnInput(Object value) {\n        Assert.isTrue(value != null);\n    }",
+        ),
+        (
+            "kt",
+            "    @ValueSource([[1, 2]])\n    fun testKeepsAnInput(value: Any) {\n        Assert.isTrue(value != null)\n    }",
+        ),
+    ] {
+        let message = ValueSourceCase::refusal(ValueSourceCase::jvm(extension, method));
+        assert!(
+            message.contains("numbers, strings or booleans"),
+            "{extension}: {message}"
+        );
+    }
 }

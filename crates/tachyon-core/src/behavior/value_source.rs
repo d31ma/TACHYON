@@ -1,3 +1,4 @@
+use super::call_style::CallStyle;
 use super::{Input, Marker};
 use crate::Failure;
 use serde_json::{Map, Value};
@@ -13,7 +14,7 @@ impl ValueSource {
         "ValueSource goes on a test case: a method whose name begins with `test`.";
     const NOT_A_LIST: &'static str = "ValueSource takes one list of 1 to 256 literal inputs, for example ValueSource([1, 2, 3]).";
     const REPEATED: &'static str = "A test case has at most one ValueSource.";
-    const NOT_SCALAR: &'static str = "In Rust, ValueSource lists numbers, strings or booleans, for example #[ValueSource([1, 2, 3])].";
+    const NOT_SCALAR: &'static str = "In Rust, Java, Kotlin and Groovy, ValueSource lists numbers, strings or booleans, for example ValueSource([1, 2, 3]).";
 
     pub(super) fn record(
         input: &Input<'_>,
@@ -58,9 +59,24 @@ impl ValueSource {
         cases: &[String],
         inputs: &Map<String, Value>,
     ) -> Vec<(String, String)> {
+        Self::calls(cases, inputs, &CallStyle::RUST)
+    }
+
+    pub(super) fn jvm_calls(
+        cases: &[String],
+        inputs: &Map<String, Value>,
+    ) -> Vec<(String, String)> {
+        Self::calls(cases, inputs, &CallStyle::JVM)
+    }
+
+    fn calls(
+        cases: &[String],
+        inputs: &Map<String, Value>,
+        style: &CallStyle,
+    ) -> Vec<(String, String)> {
         cases
             .iter()
-            .flat_map(|method| Self::method_calls(method, inputs.get(method)))
+            .flat_map(|method| Self::method_calls(method, inputs.get(method), style))
             .collect()
     }
 
@@ -145,19 +161,23 @@ impl ValueSource {
             .collect()
     }
 
-    fn method_calls(method: &str, values: Option<&Value>) -> Vec<(String, String)> {
+    fn method_calls(
+        method: &str,
+        values: Option<&Value>,
+        style: &CallStyle,
+    ) -> Vec<(String, String)> {
         let Some(values) = values.and_then(Value::as_array) else {
-            return vec![(method.to_owned(), format!("self.{method}()"))];
+            return vec![(method.to_owned(), style.call(method, ""))];
         };
-        Self::input_calls(method, values)
+        Self::input_calls(method, values, style)
     }
 
-    fn input_calls(method: &str, values: &[Value]) -> Vec<(String, String)> {
+    fn input_calls(method: &str, values: &[Value], style: &CallStyle) -> Vec<(String, String)> {
         values
             .iter()
             .enumerate()
             .map(|(index, value)| {
-                let call = format!("self.{method}({})", Self::rust_literal(value));
+                let call = style.call(method, &(style.literal)(value));
                 (Self::case_name(method, index), call)
             })
             .collect()
@@ -165,12 +185,5 @@ impl ValueSource {
 
     fn case_name(method: &str, index: usize) -> String {
         format!("{method}[{}]", index + 1)
-    }
-
-    fn rust_literal(value: &Value) -> String {
-        match value {
-            Value::String(text) => format!("{text:?}"),
-            other => other.to_string(),
-        }
     }
 }
