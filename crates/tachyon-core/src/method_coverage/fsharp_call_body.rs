@@ -33,14 +33,20 @@ impl FsharpCallBody {
     fn split_line(header: &MethodHeader<'_>, expression: usize) -> SourceEdit {
         let indent = " ".repeat(expression - header.start);
         let recorded = Self::recorded(header, &indent, Self::line_number(header, header.start));
-        SourceEdit::insert(expression, format!("{}{recorded}{indent}", Self::LINE_BREAK))
+        SourceEdit::insert(
+            expression,
+            format!("{}{recorded}{indent}", Self::LINE_BREAK),
+        )
     }
 
     fn before_line(header: &MethodHeader<'_>, start: usize) -> SourceEdit {
         let line = &header.masked[start..];
         let text = line.lines().next().unwrap_or_default();
         let indent = " ".repeat(text.len() - text.trim_start().len());
-        SourceEdit::insert(start, Self::recorded(header, &indent, Self::line_number(header, start)))
+        SourceEdit::insert(
+            start,
+            Self::recorded(header, &indent, Self::line_number(header, start)),
+        )
     }
 
     fn recorded(header: &MethodHeader<'_>, indent: &str, line: usize) -> String {
@@ -53,14 +59,15 @@ impl FsharpCallBody {
     }
 
     fn next_body_line(header: &MethodHeader<'_>) -> Option<usize> {
-        let mut start = header.line_end() + 1;
-        for line in header.masked.get(start..)?.split_inclusive(Self::LINE_BREAK) {
-            if !line.trim().is_empty() {
-                return Some(start);
-            }
-            start += line.len();
-        }
-        None
+        let start = header.line_end() + 1;
+        let rest = header.masked.get(start..)?;
+        let blank: usize = rest
+            .split_inclusive(Self::LINE_BREAK)
+            .take_while(|line| line.trim().is_empty())
+            .map(str::len)
+            .sum();
+        let found = start + blank;
+        (found < header.masked.len()).then_some(found)
     }
 
     fn line_number(header: &MethodHeader<'_>, offset: usize) -> usize {

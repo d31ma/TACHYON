@@ -44,10 +44,7 @@ impl FsharpUnit {
         let framework = dotnet_framework(portable)?;
         let library = directory.join(FsharpProject::LIBRARY_FOLDER);
         let behaviors = directory.join(FsharpProject::BEHAVIORS_FOLDER);
-        let behaviors_project = format!(
-            "{0}/{0}.csproj",
-            FsharpProject::BEHAVIORS_FOLDER
-        );
+        let behaviors_project = format!("{0}/{0}.csproj", FsharpProject::BEHAVIORS_FOLDER);
         let references = format!(
             "{}{}",
             FsharpProject::reference(&format!("{}/service.fsproj", FsharpProject::LIBRARY_FOLDER)),
@@ -83,11 +80,16 @@ impl FsharpUnit {
                 FsharpProject::executable(&framework, Self::UNIT, &references),
             ),
         ];
-        for folder in [&library, &behaviors] {
-            std::fs::create_dir(folder).map_err(|error| stage_failure(portable, &error))?;
-        }
+        Self::create_folders(&[library, behaviors], portable)?;
         for (path, contents) in files {
             std::fs::write(path, contents).map_err(|error| stage_failure(portable, &error))?;
+        }
+        Ok(())
+    }
+
+    fn create_folders(folders: &[std::path::PathBuf], portable: &str) -> Result<(), Failure> {
+        for folder in folders {
+            std::fs::create_dir(folder).map_err(|error| stage_failure(portable, &error))?;
         }
         Ok(())
     }

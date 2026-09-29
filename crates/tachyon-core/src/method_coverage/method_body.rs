@@ -1,6 +1,6 @@
 use super::{
-    BraceBody, DartBody, FsharpCallBody, KotlinBody, MethodHeader, PublicMethod, PythonBody, RoleClass, RubyBody,
-    SourceEdit, SwiftBody,
+    BraceBody, DartBody, FsharpCallBody, KotlinBody, MethodHeader, PublicMethod, PythonBody,
+    RoleClass, RubyBody, SourceEdit, SwiftBody,
 };
 
 pub(crate) struct MethodBody;

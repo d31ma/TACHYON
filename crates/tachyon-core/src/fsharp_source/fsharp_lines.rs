@@ -3,6 +3,19 @@ use std::path::Path;
 pub(crate) struct FsharpLines;
 
 impl FsharpLines {
+    const NO_GAP: &'static str = "";
+    const LINE_GAP: &'static str = "\n";
+
+    pub(crate) fn located_in(extension: &str, path: &Path, source: &str) -> String {
+        (extension == super::FsharpSource::EXTENSION)
+            .then(|| Self::located(path, source))
+            .unwrap_or_else(|| source.to_owned())
+    }
+
+    pub(crate) fn hoisted_gap(extension: &str) -> &'static str {
+        [Self::NO_GAP, Self::LINE_GAP][usize::from(extension == super::FsharpSource::EXTENSION)]
+    }
+
     pub(crate) fn directive(line: usize, file: &str) -> String {
         format!("# {line} \"{file}\"\n")
     }

@@ -1,6 +1,6 @@
 use super::{
-    AttributeLine, BlockKind, FsharpBody, FsharpLines, LineKind, MemberHeader, OpenBlock, RecordFields,
-    SourceLine, TypeForm, TypeHeader,
+    AttributeLine, BlockKind, FsharpBody, FsharpLines, LineKind, MemberHeader, OpenBlock,
+    RecordFields, SourceLine, TypeForm, TypeHeader,
 };
 
 pub(crate) struct ShadowWriter<'a> {

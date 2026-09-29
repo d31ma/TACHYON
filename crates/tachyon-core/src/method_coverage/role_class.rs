@@ -70,11 +70,15 @@ impl RoleClass {
         language: &str,
         masked: &str,
     ) -> Result<Vec<PublicMethod>, Failure> {
-        let Some(view) = FsharpView::of(relative, source) else {
-            return Ok(PublicMethods::find(language, masked));
-        };
+        FsharpView::of(relative, source).map_or_else(
+            || Ok(PublicMethods::find(language, masked)),
+            |view| Self::fsharp_methods(&view, utility),
+        )
+    }
+
+    fn fsharp_methods(view: &FsharpView, utility: bool) -> Result<Vec<PublicMethod>, Failure> {
         let masked_view = Self::masked(view.path(), view.text(), utility)?;
-        Ok(FsharpMembers::find(&view, &masked_view))
+        Ok(FsharpMembers::find(view, &masked_view))
     }
 
     fn masked(relative: &Path, source: &str, utility: bool) -> Result<String, Failure> {

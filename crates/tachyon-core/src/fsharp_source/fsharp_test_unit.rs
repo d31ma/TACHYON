@@ -16,7 +16,8 @@ impl FsharpTestUnit {
     const UNIT: &'static str = "__UNIT__";
     const TAC: &'static str = "tac";
     const CONTEXT: &'static str = "__CONTEXT__";
-    const NO_UNIT: &'static str = "A test unit declares Test on one class; this source declares none.";
+    const NO_UNIT: &'static str =
+        "A test unit declares Test on one class; this source declares none.";
 
     pub(crate) fn lower(
         source: &Path,
