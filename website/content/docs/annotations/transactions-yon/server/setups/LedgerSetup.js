@@ -13,9 +13,11 @@ export default class LedgerSetup {
      */
     const execute = (command) => {
       if (command.operation === 'transaction') {
-        if (command.action === 'begin') LedgerSetup.commands.push('begin');
-        else LedgerSetup.commands.push(`${command.action}:${command.transaction}`);
-        if (command.action !== 'begin') return { ok: true };
+        if (command.action !== 'begin') {
+          LedgerSetup.commands.push(`${command.action}:${command.transaction}`);
+          return { ok: true };
+        }
+        LedgerSetup.commands.push(command.action);
         sequence += 1;
         return { transaction: `t${sequence}` };
       }
