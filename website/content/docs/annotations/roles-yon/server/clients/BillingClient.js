@@ -1,5 +1,6 @@
-@HTTPClient
+@HTTPClient("/billing")
 export default class BillingClient {
-  /** @returns {number} */
-  surcharge() { return 2; }
+  /** @returns {Promise<BehaviorJsonValue | void>} */
+  @GetRequest("/surcharge")
+  async surcharge() {}
 }

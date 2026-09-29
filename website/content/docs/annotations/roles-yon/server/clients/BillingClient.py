@@ -1,4 +1,6 @@
-@h_t_t_p_client
-class BillingClient:
-    def surcharge(self) -> int:
-        return 2
+from typing import Protocol
+
+@http_client("/billing")
+class BillingClient(Protocol):
+    @get_request("/surcharge")
+    async def surcharge(self) -> object: ...

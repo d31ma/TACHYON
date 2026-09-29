@@ -1,10 +1,7 @@
 // @Helper
-type BillingHelper struct {
-	// @Needs
-	client *BillingClient
-}
+type BillingHelper struct{}
 
 func (helper *BillingHelper) Settle(subtotal int) int {
-	surcharge := helper.client.Surcharge()
+	const surcharge = 2
 	return subtotal + surcharge
 }

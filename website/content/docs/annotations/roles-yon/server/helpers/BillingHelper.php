@@ -1,11 +1,9 @@
 <?php
 #[Helper]
 class BillingHelper {
-  #[Needs]
-  private BillingClient $client;
+  private const SURCHARGE = 2;
 
   public function settle(int $subtotal): int {
-    $surcharge = $this->client->surcharge();
-    return $subtotal + $surcharge;
+    return $subtotal + self::SURCHARGE;
   }
 }

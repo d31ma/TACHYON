@@ -1,10 +1,10 @@
 @Helper
 class BillingHelper {
-  @Needs
-  val client: BillingClient
-
   fun settle(subtotal: Int): Int {
-    val surcharge = client.surcharge()
-    return subtotal + surcharge
+    return subtotal + SURCHARGE
+  }
+
+  companion object {
+    const val SURCHARGE: Int = 2
   }
 }

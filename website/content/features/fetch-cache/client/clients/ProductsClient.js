@@ -2,8 +2,8 @@
 export default class ProductsClient {
   /**
    * @param {BehaviorJsonValue} product
-   * @returns {Promise<BehaviorJsonValue>}
+   * @returns {Promise<BehaviorJsonValue | void>}
    */
   @PostRequest("/api/products")
-  async save(product) { return {body: product}; }
+  async save(@RequestBody product) {}
 }

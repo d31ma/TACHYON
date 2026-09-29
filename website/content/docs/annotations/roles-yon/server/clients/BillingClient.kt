@@ -1,4 +1,5 @@
-@HTTPClient
-class BillingClient {
-  fun surcharge(): Int = 2
+@HTTPClient("/billing")
+interface BillingClient {
+  @GetRequest("/surcharge")
+  fun surcharge(): Any?
 }

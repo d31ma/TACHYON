@@ -1,10 +1,8 @@
 @Helper
 export default class BillingHelper {
-  @Needs
-  client!: BillingClient;
+  static readonly SURCHARGE: number = 2;
 
   settle(subtotal: number): number {
-    const surcharge = this.client.surcharge();
-    return subtotal + surcharge;
+    return subtotal + BillingHelper.SURCHARGE;
   }
 }

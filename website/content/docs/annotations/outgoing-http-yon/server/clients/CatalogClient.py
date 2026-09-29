@@ -1,24 +1,9 @@
-from typing import Annotated
+from typing import Annotated, Protocol
 
 @http_client
-class CatalogClient:
-    behaviors: object
-
+class CatalogClient(Protocol):
     @get_request("/products")
-    async def all(self, page: Annotated[object, request_param("page")]) -> None:
-        pass
+    async def all(self, page: Annotated[int, request_param("page")]) -> object: ...
 
     @post_request("/products")
-    async def add(self, product: Annotated[object, request_body]) -> None:
-        pass
-
-    @get_request("/products")
-    async def first(self) -> None:
-        return {'query': {'page': 1}}
-
-    @on_start
-    async def initialize(self):
-        self.behaviors = await Behaviors.create(CatalogSetup, {
-            'partition': 'catalog',
-            'signal': BehaviorSignal(),
-        })
+    async def add(self, product: Annotated[object, request_body]) -> object: ...

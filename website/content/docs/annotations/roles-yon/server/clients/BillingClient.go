@@ -1,6 +1,5 @@
-// @HTTPClient
-type BillingClient struct{}
-
-func (client *BillingClient) Surcharge() int {
-	return 2
+// @HTTPClient("/billing")
+type BillingClient interface {
+	// @GetRequest("/surcharge")
+	Surcharge() (BehaviorValue, error)
 }

@@ -1,4 +1,5 @@
-@HTTPClient
-class BillingClient {
-  int surcharge() { return 2 }
+@HTTPClient("/billing")
+interface BillingClient {
+  @GetRequest("/surcharge")
+  Object surcharge()
 }

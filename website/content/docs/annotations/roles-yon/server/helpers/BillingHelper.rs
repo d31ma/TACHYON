@@ -1,11 +1,11 @@
 #[Helper]
-struct BillingHelper {
-    #[Needs]
-    client: std::sync::Arc<BillingClient>,
-}
+struct BillingHelper {}
 impl BillingHelper {
+    const SURCHARGE: i64 = 2;
+
+    fn new() -> Self { Self {} }
+
     fn settle(&self, subtotal: i64) -> i64 {
-        let surcharge = self.client.surcharge();
-        subtotal + surcharge
+        subtotal + Self::SURCHARGE
     }
 }

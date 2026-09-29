@@ -1,10 +1,8 @@
 [Helper]
 class BillingHelper {
-  [Needs]
-  BillingClient _client;
+  const int Surcharge = 2;
 
   public int settle(int subtotal) {
-    int surcharge = _client.surcharge();
-    return subtotal + surcharge;
+    return subtotal + Surcharge;
   }
 }

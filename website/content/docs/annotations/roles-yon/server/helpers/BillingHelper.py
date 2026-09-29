@@ -1,9 +1,6 @@
-from typing import Annotated
-
 @helper
 class BillingHelper:
-    client: Annotated[BillingClient, needs]
+    SURCHARGE = 2
 
     def settle(self, subtotal: int) -> int:
-        surcharge = self.client.surcharge()
-        return subtotal + surcharge
+        return subtotal + self.SURCHARGE

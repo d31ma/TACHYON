@@ -1,8 +1,8 @@
 // @HTTPClient
-type ReportClient struct{}
+type ReportClient interface {
+	// @Gateway({"class":"server/services/ReportService.py","method":"summarize"})
+	Summarize(period BehaviorValue) (BehaviorValue, error)
 
-// @Gateway({"class":"server/services/ReportService.py","method":"summarize"})
-func (client *ReportClient) Summarize(period BehaviorValue) (BehaviorValue, error) {}
-
-// @Gateway({"command":["python3","server/helpers/forecast.py"]})
-func (client *ReportClient) Forecast(months BehaviorValue) (BehaviorValue, error) {}
+	// @Gateway({"command":["python3","server/helpers/forecast.py"]})
+	Forecast(months BehaviorValue) (BehaviorValue, error)
+}

@@ -1,7 +1,7 @@
 {
   "heading": "Outgoing HTTP: Tac",
   "axis": "language",
-  "summary": "In the browser, HTTPClient is the auto-managed transport. HTTPClient takes only cache: no-store by default, or cache-first, network-first or reload. A Tac HTTPClient must declare at least one request method, such as GetRequest. This transport works only in the browser (ADR 0027). A @standalone HTTPClient role marker in a native Tac companion fails with TY1308. So Swift, Kotlin, C#, Rust and Go keep HTTP request annotations on a service that owns its context and names an explicitly configured HTTP adapter. Dart does the same: the auto-managed transport is not available to a Dart service either, and a standalone HTTPClient role marker there also fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts.",
+  "summary": "In the browser, HTTPClient is the auto-managed transport. HTTPClient takes only cache: no-store by default, or cache-first, network-first or reload. A Tac HTTPClient must declare at least one request method, such as GetRequest. Like a Spring @HttpExchange interface, a client has no implementation: JavaScript and TypeScript write a class whose methods have empty bodies, and a service injects it with Needs. Swift, Kotlin, C#, Rust, Go and Dart write the client in their bodiless form (a protocol, an interface, a trait, a Go interface or an abstract interface class) in client/clients. Tachyon generates the client and its behavior context from the Setup with the same stem (CatalogClient uses CatalogSetup), whose HTTP adapter sends the request. The service builds the client: CatalogClient() in Swift, Kotlin and Dart, new CatalogClient() in C#, CatalogClient::new() in Rust and NewCatalogClient() in Go. A client with a method body, a field or another role, such as a service that is also an HTTPClient, fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts.",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -121,6 +121,42 @@
       "name": "client/services/CatalogService.dart",
       "code": {
         "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.swift",
+      "code": {
+        "file": "client/clients/CatalogClient.swift"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.kt",
+      "code": {
+        "file": "client/clients/CatalogClient.kt"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.cs",
+      "code": {
+        "file": "client/clients/CatalogClient.cs"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.rs",
+      "code": {
+        "file": "client/clients/CatalogClient.rs"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.go",
+      "code": {
+        "file": "client/clients/CatalogClient.go"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.dart",
+      "code": {
+        "file": "client/clients/CatalogClient.dart"
       }
     }
   ]

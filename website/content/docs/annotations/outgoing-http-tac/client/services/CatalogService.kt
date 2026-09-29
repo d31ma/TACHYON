@@ -1,14 +1,7 @@
 @Service
-@HTTPClient
 class CatalogService {
-    lateinit var behaviors: Behaviors.Context
+    private val catalog: CatalogClient = CatalogClient()
     var count: Int = 0
 
-    @OnStart
-    fun initialize() {
-        behaviors = Behaviors.create("CatalogSetup", Behaviors.Options("catalog", Behaviors.Signal()))
-    }
-
-    @GetRequest("/api/products")
-    fun all(): Any? { return mapOf<String, Any?>() }
+    fun all(): Any? = catalog.all()
 }

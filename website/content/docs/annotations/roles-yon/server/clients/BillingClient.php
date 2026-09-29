@@ -1,5 +1,6 @@
 <?php
-#[HTTPClient]
-class BillingClient {
-  public function surcharge(): int { return 2; }
+#[HTTPClient("/billing")]
+interface BillingClient {
+  #[GetRequest("/surcharge")]
+  public function surcharge(): array;
 }

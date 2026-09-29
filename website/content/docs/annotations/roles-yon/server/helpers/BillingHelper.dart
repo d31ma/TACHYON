@@ -1,10 +1,8 @@
 @Helper
 class BillingHelper {
-  @Needs
-  final BillingClient client;
+  static const int surcharge = 2;
 
   int settle(int subtotal) {
-    final surcharge = client.surcharge();
     return subtotal + surcharge;
   }
 }

@@ -1,19 +1,10 @@
 @Service
-@HTTPClient
 class CatalogService {
-  late BehaviorContext behaviors;
+  final CatalogClient catalog = CatalogClient();
   int count = 0;
 
-  @OnStart
-  void start() {
-    behaviors = Behaviors.create(CatalogSetup, partition: 'catalog', signal: BehaviorSignal());
-  }
-
-  @GetRequest("/api/products")
-  Future<Object?> all() async {}
-
   Future<void> load() async {
-    final answer = await all() as Map;
+    final answer = await catalog.all() as Map;
     count = (answer['items'] as List).length;
   }
 }

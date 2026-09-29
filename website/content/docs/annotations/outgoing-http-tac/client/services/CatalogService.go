@@ -1,19 +1,16 @@
 // @Service
-// @HTTPClient
 type CatalogService struct {
-	behaviors *BehaviorContext
-	Count     int
+	catalog *CatalogClient
+	Count   int
 }
 
 // @OnStart
-func (catalog *CatalogService) Start() error {
-	options := NewBehaviorOptions("catalog", NewBehaviorSignal())
-	context, err := BehaviorsCreate[CatalogSetup](options)
-	catalog.behaviors = context
+func (service *CatalogService) Start() error {
+	client, err := NewCatalogClient()
+	service.catalog = client
 	return err
 }
 
-// @GetRequest("/api/products")
-func (catalog *CatalogService) All() (BehaviorValue, error) {
-	return map[string]any{}, nil
+func (service *CatalogService) All() (BehaviorValue, error) {
+	return service.catalog.All()
 }

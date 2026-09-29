@@ -1,15 +1,12 @@
 @Helper
 export default class BillingHelper {
-  /** @type {BillingClient} */
-  @Needs
-  billingClient;
+  static SURCHARGE = 2;
 
   /**
    * @param {number} subtotal
    * @returns {number}
    */
   settle(subtotal) {
-    const surcharge = this.billingClient.surcharge();
-    return subtotal + surcharge;
+    return subtotal + BillingHelper.SURCHARGE;
   }
 }
