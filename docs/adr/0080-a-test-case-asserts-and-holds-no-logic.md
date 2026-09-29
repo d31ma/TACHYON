@@ -31,6 +31,8 @@ The driver of every test unit gives the unit a class `Assert`:
 | JavaScript, TypeScript | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws(action)` |
 | Python | `Assert.equals(expected, actual)` | `Assert.is_true(condition)` | `Assert.throws(action)` |
 | Rust | `Assert::equals(expected, actual)` | `Assert::is_true(condition)` | `Assert::throws(action)` |
+| Java, Groovy | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throwsError(action)` |
+| Kotlin | `Assert.equals(expected, actual)` | `Assert.isTrue(condition)` | `Assert.throws { action }` |
 
 Each check takes an optional last message, like JUnit. Rust has no optional
 arguments, so it has `equals_with_message`, `is_true_with_message` and
@@ -40,11 +42,19 @@ references: arrays and objects are equal when their items are equal.
 `throws` returns the error, so the case can check its message. When the
 action is asynchronous, `throws` returns a promise (JavaScript) or an
 awaitable (Python) that the case awaits. In Rust, `throws` passes when the
-closure returns an `Err` or panics.
+closure returns an `Err` or panics. `throws` is a reserved word in Java and
+Groovy, so there the method is `throwsError`. In Java, Kotlin and Groovy,
+`equals` treats two whole numbers of different sizes (`int` and `long`) as
+equal when their values are equal, so `Assert.equals(1200, total)` passes for
+a `long` total; the helper throws `AssertionError`, as JUnit does.
 
 The assert of the language counts too, when it is always on: the Python
 `assert` statement and the Rust macros `assert!`, `assert_eq!` and
-`assert_ne!`. A Rust case that panics now fails as one case; before, the
+`assert_ne!`, the Java and Groovy `assert` statement and the Kotlin functions
+`check` and `require`. Java needs `-ea` to run `assert`, so Tachyon starts a
+Java test unit (a handler under `server/tests`) with `java -ea`; controllers
+and workers keep assertions off. Groovy runs its `assert` always. The Kotlin
+`assert` function does not count, because it runs only with `-ea`. A Rust case that panics now fails as one case; before, the
 panic stopped the whole unit. `console.assert` does not count, because it
 only logs. `debug_assert!` does not count, because a release build removes
 it.
@@ -63,9 +73,10 @@ async testKeepsPositiveInputs(value: number): Promise<void> {
 }
 ```
 
-As in JUnit, the list holds literal values (at most 256). In Rust it holds
-numbers, strings and booleans, because the driver writes each input into a
-typed call. The annotation belongs on a `test` method of a `Test` class.
+As in JUnit, the list holds literal values (at most 256). In Rust, Java,
+Kotlin and Groovy it holds numbers, strings and booleans, because the driver
+writes each input into a typed call (a `$` in a string is written as
+`\u0024`, which all three JVM languages read as a plain `$`). The annotation belongs on a `test` method of a `Test` class.
 Methods are found by name, so no `@ParameterizedTest` is needed.
 
 ### 3. The rule (TY1339)
@@ -73,7 +84,7 @@ Methods are found by name, so no `@ParameterizedTest` is needed.
 The build refuses a test case (a `test` method of a `Test` class in
 `client/tests` or `server/tests`) that has no assertion, or that holds a
 branch or a loop: `if`, `else`, `for`, `while`, `do`, `switch`, `case`,
-`match`, `loop`, `elif` and the choice operator `? :`. The Python form
+`match`, `loop`, `elif`, `when` (Kotlin) and the choice operator `? :`. The Python form
 `a if condition else b` is a branch too. `&&` and `||` inside a check are
 allowed. A helper method of the unit (a name that does not begin with
 `test`) may hold logic.
@@ -87,8 +98,9 @@ the website, the fixtures and the `ty init` templates is rewritten.
 ### Slices
 
 The first slice covers JavaScript, TypeScript, Python and Rust (helper,
-`ValueSource` and rule). Later slices add the other test languages and
-rewrite the existing test units; the last slice turns the rule on.
+`ValueSource` and rule); the second rewrites their test units. The third
+adds Java, Kotlin and Groovy and rewrites their units. Later slices add the
+other test languages; the last slice turns the rule on.
 
 ## Consequences
 

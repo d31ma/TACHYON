@@ -2,10 +2,10 @@
 @UseProfiles("test")
 class CatalogServiceTest {
     void testOpensAContext() {
-        if (this.behaviors == null) throw new IllegalStateException("no context");
+        Assert.isTrue(this.behaviors != null, "the case has a context");
     }
     int twice(int value) { return value * 2; }
     void testDoublesAValue() {
-        if (this.twice(4) != 8) throw new IllegalStateException("expected 8");
+        Assert.equals(8, this.twice(4));
     }
 }

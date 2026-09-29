@@ -2,9 +2,9 @@
 class CatalogServiceTest {
     fun twice(value: Int): Int = value * 2
     fun testHasAContext() {
-        if (behaviors == null) throw IllegalStateException("no context")
+        Assert.isTrue(behaviors != null, "the case has a context")
     }
     fun testDoublesAValue() {
-        if (twice(4) != 8) throw IllegalStateException("expected 8")
+        Assert.equals(8, twice(4))
     }
 }

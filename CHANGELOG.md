@@ -480,6 +480,16 @@ machine contracts have their own, independent major versions.
   `assert_ne!` count as assertions. It is off by default (`tests.check` /
   `tac.tests.check`) until every test unit is rewritten; `ty migrate check`
   lists the cases to change.
+- Java, Kotlin and Groovy test units get the same `Assert` class (ADR 0080):
+  `Assert.equals`, `Assert.isTrue` and, because `throws` is a reserved word in
+  Java and Groovy, `Assert.throwsError(action)` there (Kotlin:
+  `Assert.throws { action }`). `ValueSource` runs one case per input in the
+  three languages (numbers, strings or booleans). Java test units run with
+  `java -ea`, so the Java `assert` statement counts, as the Groovy `assert`
+  and the Kotlin `check` and `require` do. The test rule `TY1339` now reads
+  Java, Kotlin and Groovy units too (`when` counts as a branch). A Java or
+  Groovy case that fails an `assert` now fails as one case instead of stopping
+  the unit.
 - Release builds compile every WebAssembly service language with the
   compiler and settings that make the smallest download, and `ty build`
   prints one line per language that says which compiler it used and why
@@ -1299,8 +1309,8 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
-- The JavaScript, TypeScript, Python and Rust test units that `ty init` and
-  `ty add` write, and those in the website examples, check their results with
+- The JavaScript, TypeScript, Python, Rust, Java, Kotlin and Groovy test
+  units that `ty init` and `ty add` write, and those in the website examples, check their results with
   `Assert.equals`, `Assert.isTrue` or `Assert.throws` (ADR 0080) instead of an
   `if` and a thrown error, so they pass the test rule `TY1339`.
 - `ty preview` and `ty serve` (while watching) never exit because of a
