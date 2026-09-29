@@ -320,7 +320,10 @@ describe('language coverage', () => {
     const repositories = docs.topics['server-data'].sections.find(section => section.heading === 'DataSource in a service, in every Yon language')
     expect(repositories.axis).toBe('language')
     const extensions = ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts']
-    expect(repositories.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort()).toEqual(extensions)
+    expect(repositories.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort()).toEqual([...extensions, 'fs'].sort())
+    const fsharp = repositories.files.filter(file => file.name.endsWith('.fs'))
+    expect(fsharp.map(file => file.name)).toEqual(['server/services/CatalogService.fs', 'server/controllers/CatalogController.fs'])
+    expect(fsharp[0].code).toContain('[<Service>]\ntype CatalogService(dataSource: DataSource) =')
     for (const extension of extensions) {
       const files = repositories.files.filter(file => file.name.endsWith(`.${extension}`))
       expect(files.some(file => file.name.endsWith(`/services/CatalogService.${extension}`))).toBe(true)
