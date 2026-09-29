@@ -59,6 +59,13 @@ table, the TypeScript hover text and the other Tac languages did not know it.
      local network address, or a native web view without a secure scheme),
      the cache lives in memory only, and the console says so once. It is
      never an error.
+   - WebKit storage that is not kept on disk (a Safari private window, a
+     web view with a non-persistent data store, and Playwright's default
+     WebKit context) drops the records of a Cache Storage cache once no open
+     page holds that cache. So there, a reload starts the cache empty and the
+     method runs again; IndexedDB rows stay. A persistent WebKit profile,
+     Chromium and Firefox keep the entries. Tachyon's iOS and macOS shells
+     use the default (persistent) data store.
    - Tabs do not share memory. A change in one tab reaches another tab only
      after that tab reloads (best effort).
    - A cache on the built-in storage needs no `authorize` hook, for the same
@@ -131,7 +138,8 @@ table, the TypeScript hover text and the other Tac languages did not know it.
 - The HTTP response cache of `@HTTPClient` stays on its own IndexedDB
   database (`tachyon-fetch-cache`).
 - Browser storage is not a secret store. None of these keeps credentials.
-- Evidence: `scripts/storage-browser-test.mjs` (reload and tab behavior of
+- Evidence: `scripts/storage-browser-test.mjs`, run in Chromium, Firefox and
+  WebKit with a persistent profile (reload and tab behavior of
   both markers, adoption of old keys, Cache API persistence, TTL, LRU
   eviction, ClearCache, the insecure-origin fallback, IndexedDB derived,
   Query and paged reads, AllOrNothing, the schema upgrade and the refused key

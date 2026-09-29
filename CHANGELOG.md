@@ -1868,6 +1868,14 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The browser storage check (`scripts/storage-browser-test.mjs`) now runs in
+  Chromium, Firefox and WebKit, not only Chromium. WebKit runs with a
+  persistent profile, because WebKit storage that is not kept on disk (such
+  as a Safari private window) drops Cache API entries when the page reloads.
+  The docs now say so. The Go check of a cached value after a reload now
+  fails when the entry is lost. The insecure-origin and service worker checks
+  stay in Chromium, which can map the test host name.
+
 - The runtime check before a server or `ty test` starts no longer reports a
   working .NET SDK as not usable (TY2101) on a busy machine. Each check now
   has its own time limit: 10 seconds, and 60 seconds for the C# check, which
