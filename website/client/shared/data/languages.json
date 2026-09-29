@@ -50,6 +50,11 @@
         "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer."
       },
       {
+        "name": "client/services/TallyService.java",
+        "code": "@Service\nclass TallyService {\n    int count = 6;\n    final String runtime = \"Java, compiled to WebAssembly by TeaVM\";\n\n    int doubled() {\n        return count * 2;\n    }\n}\n",
+        "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083)."
+      },
+      {
         "name": "client/services/TallyService.cs",
         "code": "[Service]\npublic class TallyService\n{\n    public int Count = 6;\n    public string Runtime => \"C#, compiled by .NET\";\n\n    public int Doubled() => Count * 2;\n}",
         "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the trimmed .NET browser runtime (compiled ahead of time when tac.dotnet.aot is true)."

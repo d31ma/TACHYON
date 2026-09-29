@@ -408,6 +408,25 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_java_web_service_reports_teavm_and_binaryen() {
+        let root = project_with(&[(
+            "client/services/BasketService.java",
+            "@Service\nclass BasketService {\n    int count = 0;\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        assert_eq!(
+            command_names(&report),
+            ["javac + TAC_TEAVM_HOME", "wasm-opt"],
+            "{:?}",
+            report.toolchains
+        );
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Java services on the web");
+        assert!(entry.required, "{entry:?}");
+        assert!(entry.install.contains("TeaVM 0.15.0"), "{entry:?}");
+    }
+
     #[cfg(unix)]
     #[test]
     fn yon_discovery_never_follows_outside_or_cyclic_directory_symlinks() {

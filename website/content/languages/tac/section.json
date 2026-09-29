@@ -69,6 +69,13 @@
       "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer."
     },
     {
+      "name": "client/services/TallyService.java",
+      "code": {
+        "file": "client/services/TallyService.java"
+      },
+      "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083)."
+    },
+    {
       "name": "client/services/TallyService.cs",
       "code": {
         "file": "client/services/TallyService.cs"

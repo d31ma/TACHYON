@@ -483,6 +483,25 @@ machine contracts have their own, independent major versions.
   check, which counts every service on each route, now sees 263 KB of
   script (budget 320 KB, was 254 KB) and about 2.4 MB of WebAssembly
   (default budget 3.5 MB, was 1.4 MB).
+- Java is a Tac service language on the web (ADR 0083). A
+  `client/services/<Name>Service.java` file with no browser sibling compiles
+  with `javac` and TeaVM 0.15's WebAssembly garbage collection (WasmGC)
+  backend, and runs on the web and in the web view of every target (no host
+  links Java). The page reads and sets its fields, calls its methods with
+  arguments, runs `@OnStart` and `@OnStop`, and saves `@LocalState` and
+  `@SessionState` fields after every call. Fields, arguments and results may
+  be `int`, `long`, `double`, `float`, `boolean`, their boxed types, `String`,
+  `Object`, and `List` and `Map` (with `String` keys) of them. A member of
+  another type, several fields in one statement, or an annotation that Java
+  web services do not support yet stops the build with `TY1405` and names
+  what works. A release build runs Binaryen `wasm-opt -Oz` on the module.
+  `TAC_TEAVM_HOME` names the folder of the TeaVM jars; `ty doctor` checks it,
+  `javac` and Binaryen. The browser-interop guard `TY1317` now also refuses
+  TeaVM's JavaScript interop in Java services (`org.teavm`, `@JSBody`,
+  `JSObject`, `@JSExport`, `native` methods and the other `JS*` annotations).
+  Events, models, the built-in storage host, the browser APIs and the
+  behavior runtime come in the next step. Groovy stays a Yon-only language:
+  its runtime does not compile with TeaVM.
 
 - `website/scripts/verify-snippets.mjs --suite=tsc` (also part of the default
   run) checks every JavaScript and TypeScript example project on the website

@@ -74,7 +74,7 @@ class Patterns {
   static pathVariable = /\{[a-z0-9_]+\}/g
   static pagePath = /^client\/pages\/.*tac\.html$/
   static componentViewPath = /^client\/components\/.*\/tac\.html$/
-  static servicePath = /^client\/services\/[A-Z]\w*Service\.(js|ts|dart|swift|kt|cs|fs|rs|go|rb)$/
+  static servicePath = /^client\/services\/[A-Z]\w*Service\.(js|ts|dart|swift|kt|java|cs|fs|rs|go|rb)$/
   static testUnitPath = /^(server|client)\/tests\/[A-Z]\w*Test\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)$/
   static lastSourceExtension = /\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)\b(?!.*\.(?:js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)\b)/
   static languageTag = /\[(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb)\]/
@@ -92,7 +92,7 @@ class Languages {
   static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb'])
   /** @type {Record<string,string>} */
   static nativeTargets = { '.swift': 'macos', '.kt': 'android', '.cs': 'windows', '.rs': 'linux' }
-  static tacSourceExtensions = new Set(['.js', '.ts', '.dart', '.go', '.rb', '.fs', ...Object.keys(Languages.nativeTargets)])
+  static tacSourceExtensions = new Set(['.js', '.ts', '.dart', '.go', '.rb', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
 }
 
 class Toolchains {
@@ -1312,6 +1312,7 @@ async function verifyTacConfiguration(label, files) {
 async function hasConfigurationWebTarget(extension) {
   if (extension === '.swift') return false
   if (extension === '.kt') return Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && await isToolAvailable('kotlinc-js')
+  if (extension === '.java') return Boolean(process.env.TAC_TEAVM_HOME) && await isToolAvailable('javac')
   if (extension === '.rs') {
     const targets = await runCommand('rustup', ['target', 'list', '--installed'])
     return targets.split('\n').includes('wasm32-unknown-unknown')

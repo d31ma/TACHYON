@@ -50,14 +50,14 @@ impl ServiceToolchains {
             Self::uses_web_service(services, WebLanguage::Kotlin).then(KnownToolchains::kotlin_web),
         );
         toolchains.extend(
+            Self::uses_web_service(services, WebLanguage::Java).then(KnownToolchains::java_web),
+        );
+        toolchains.extend(
             Self::uses_web_service(services, WebLanguage::Go).then(KnownToolchains::tinygo),
         );
         toolchains.extend(Self::uses_optimized_web_service(services).then(KnownToolchains::binaryen));
         toolchains.extend(
             Self::uses_web_service(services, WebLanguage::Swift).then(KnownToolchains::swift_web),
-        );
-        toolchains.extend(
-            Self::uses_web_service(services, WebLanguage::Java).then(KnownToolchains::java_web),
         );
         toolchains.extend(
             Self::uses_web_service(services, WebLanguage::Ruby)

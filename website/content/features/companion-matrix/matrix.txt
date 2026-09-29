@@ -6,11 +6,13 @@ BasketService.swift            linked on macos, ios;
 BasketService.kt               linked on android; WebAssembly everywhere else
 BasketService.cs               linked on windows; WebAssembly everywhere else
 BasketService.go               WebAssembly on every target
+BasketService.java             WebAssembly on every target
 
 A service may declare several. A browser script answers the web; when
 more than one native language reaches the target being built, the
 platform's own language wins over Rust, and only the winner is
 compiled. When no language of the service links on the target, the
 build uses its browser script, or failing that its Rust, then its Go,
-then its C#, then its Swift, then its Kotlin, as WebAssembly. So
+then its C#, then its Swift, then its Kotlin, then its Java, as
+WebAssembly. So
 every service reaches every target.

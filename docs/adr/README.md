@@ -89,3 +89,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [80. A Test Case Asserts and Holds No Logic](0080-a-test-case-asserts-and-holds-no-logic.md)
 - [81. Release WebAssembly Uses the Smallest Compiler per Language](0081-release-webassembly-uses-the-smallest-compiler-per-language.md)
 - [82. Swift Services Reach the Web as WebAssembly](0082-swift-services-reach-the-web-as-webassembly.md)
+- [83. Java Services Reach the Web as WebAssembly](0083-java-services-reach-the-web-as-webassembly.md)
