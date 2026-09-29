@@ -1,6 +1,7 @@
 use super::super::web_program_build::WebProgramBuild;
 use crate::Failure;
-use crate::wasm_optimizer::WasmOptimizer;
+use crate::wasm_release_note::WasmReleaseNote;
+use crate::wasm_release_step::WasmReleaseStep;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
@@ -32,8 +33,10 @@ impl KotlinWasmProgram {
     const BUILD: WebProgramBuild = WebProgramBuild {
         language: "Kotlin",
         composed: "services.kt",
-        optimized_note: "Kotlin: Kotlin/Wasm production build — optimized by Binaryen",
-        unoptimized_note: "Kotlin: shipped without Binaryen optimization (≈3× larger); install Binaryen or run `ty doctor`",
+        note: WasmReleaseNote {
+            optimized: "Kotlin: Kotlin/Wasm production build — optimized by Binaryen",
+            unoptimized: "Kotlin: shipped without Binaryen optimization (≈3× larger); install Binaryen or run `ty doctor`",
+        },
     };
     const PRODUCTION_FLAGS: [&'static str; 10] = [
         "--enable-gc",
@@ -53,45 +56,42 @@ impl KotlinWasmProgram {
         profile: crate::BuildProfile,
     ) -> Result<Self, Failure> {
         let library = Self::standard_library()?;
-        let optimizer = WebProgramBuild::release_optimizer(profile).await;
+        let release = WasmReleaseStep::prepare(profile).await;
         let version = Self::compiler_version().await?;
-        let key = Self::cache_key(&version, &library, optimizer.as_ref(), sources);
+        let key = Self::cache_key(&version, &library, release.identity().as_bytes(), sources);
         let cached = crate::cache::root().join(Self::CACHE_FOLDER).join(key);
-        let build = (sources, library.as_path(), optimizer.as_ref());
+        let build = (sources, library.as_path(), &release);
         Self::cached_or_built(build, &cached).await
     }
 
-    pub(super) fn note(&self, profile: crate::BuildProfile) -> Option<&'static str> {
-        Self::BUILD.note(profile, self.made_smaller)
+    pub(super) fn note(&self, profile: crate::BuildProfile) -> Option<String> {
+        Self::BUILD.note.for_build(profile, self.made_smaller)
     }
 
     async fn cached_or_built(
-        build: (&[(PathBuf, String)], &Path, Option<&WasmOptimizer>),
+        build: (&[(PathBuf, String)], &Path, &WasmReleaseStep),
         cached: &Path,
     ) -> Result<Self, Failure> {
-        let (_, _, optimizer) = build;
-        if let Ok(program) = Self::read(cached, optimizer.is_some()) {
+        let (_, _, release) = build;
+        if let Ok(program) = Self::read(cached, release.will_shrink()) {
             return Ok(program);
         }
         Self::built(build, cached).await
     }
 
     async fn built(
-        (sources, library, optimizer): (&[(PathBuf, String)], &Path, Option<&WasmOptimizer>),
+        (sources, library, release): (&[(PathBuf, String)], &Path, &WasmReleaseStep),
         cached: &Path,
     ) -> Result<Self, Failure> {
         let staged = Self::stage(sources)?;
         Self::run_compiler(staged.path(), library, sources).await?;
         let output = staged.path().join(Self::OUTPUT_FOLDER);
-        let made_smaller = WebProgramBuild::optimize(
-            optimizer,
-            &output.join(Self::BINARY),
-            &Self::PRODUCTION_FLAGS,
-        )
-        .await;
+        let made_smaller = release
+            .shrink(&output.join(Self::BINARY), &Self::PRODUCTION_FLAGS)
+            .await;
         let program = Self::read(&output, made_smaller)
             .map_err(|error| Self::BUILD.failure(&error.to_string()))?;
-        Self::keep(&output, cached, made_smaller == optimizer.is_some());
+        Self::keep(&output, cached, made_smaller == release.will_shrink());
         Ok(program)
     }
 
@@ -138,14 +138,14 @@ impl KotlinWasmProgram {
     fn cache_key(
         version: &[u8],
         library: &Path,
-        optimizer: Option<&WasmOptimizer>,
+        release_identity: &[u8],
         sources: &[(PathBuf, String)],
     ) -> String {
         let mut material = version.to_vec();
         material.extend_from_slice(library.to_string_lossy().as_bytes());
         let library_size = std::fs::metadata(library).map_or(0, |metadata| metadata.len());
         material.extend_from_slice(&library_size.to_le_bytes());
-        material.extend_from_slice(optimizer.map_or(&[][..], WasmOptimizer::identity));
+        material.extend_from_slice(release_identity);
         for (path, contents) in sources {
             material.push(0);
             material.extend_from_slice(path.to_string_lossy().as_bytes());

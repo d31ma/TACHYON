@@ -1,7 +1,6 @@
 use crate::Failure;
 use crate::external_command::{ToolOutput, run as run_tool};
-use crate::wasm_optimizer::WasmOptimizer;
-use futures_util::future::OptionFuture;
+use crate::wasm_release_note::WasmReleaseNote;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::time::Duration;
@@ -9,8 +8,7 @@ use std::time::Duration;
 pub(super) struct WebProgramBuild {
     pub(super) language: &'static str,
     pub(super) composed: &'static str,
-    pub(super) optimized_note: &'static str,
-    pub(super) unoptimized_note: &'static str,
+    pub(super) note: WasmReleaseNote,
 }
 
 impl WebProgramBuild {
@@ -58,32 +56,6 @@ impl WebProgramBuild {
             Self::FAILURE_CODE,
             &format!("Cannot build the {} web services: {detail}", self.language),
         )
-    }
-
-    pub(super) fn note(
-        &self,
-        profile: crate::BuildProfile,
-        made_smaller: bool,
-    ) -> Option<&'static str> {
-        let notes = [self.unoptimized_note, self.optimized_note];
-        (profile == crate::BuildProfile::Release).then_some(notes[usize::from(made_smaller)])
-    }
-
-    pub(super) async fn release_optimizer(profile: crate::BuildProfile) -> Option<WasmOptimizer> {
-        let release = profile == crate::BuildProfile::Release;
-        OptionFuture::from(release.then(WasmOptimizer::find))
-            .await
-            .flatten()
-    }
-
-    pub(super) async fn optimize(
-        optimizer: Option<&WasmOptimizer>,
-        binary: &Path,
-        flags: &[&str],
-    ) -> bool {
-        OptionFuture::from(optimizer.map(|optimizer| optimizer.run(binary, flags)))
-            .await
-            .unwrap_or(false)
     }
 
     pub(super) fn save(built: &Path, names: &[&str], cached: &Path) -> std::io::Result<()> {

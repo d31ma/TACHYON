@@ -1,6 +1,7 @@
 use super::super::web_program_build::WebProgramBuild;
 use crate::Failure;
-use crate::wasm_optimizer::WasmOptimizer;
+use crate::wasm_release_note::WasmReleaseNote;
+use crate::wasm_release_step::WasmReleaseStep;
 use sha2::{Digest, Sha256};
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
@@ -14,8 +15,10 @@ impl SwiftWasmProgram {
     const BUILD: WebProgramBuild = WebProgramBuild {
         language: "Swift",
         composed: "services.swift",
-        optimized_note: "Swift: WebAssembly release build — optimized by Binaryen",
-        unoptimized_note: "Swift: shipped without Binaryen optimization; install Binaryen or run `ty doctor`",
+        note: WasmReleaseNote {
+            optimized: "Swift: WebAssembly release build — optimized by Binaryen",
+            unoptimized: "Swift: shipped without Binaryen optimization; install Binaryen or run `ty doctor`",
+        },
     };
     const SDK: &'static str = "TAC_SWIFT_WASM_SDK";
     const COMPILER_SETTING: &'static str = "TAC_SWIFT_WASM_COMPILER";
@@ -55,15 +58,15 @@ impl SwiftWasmProgram {
         let version = Self::BUILD
             .tool_version(&compiler, "--version", Self::MISSING_COMPILER)
             .await?;
-        let optimizer = WebProgramBuild::release_optimizer(profile).await;
-        let key = Self::cache_key(&version, &sdk, optimizer.as_ref(), program);
+        let release = WasmReleaseStep::prepare(profile).await;
+        let key = Self::cache_key(&version, &sdk, release.identity().as_bytes(), program);
         let cached = crate::cache::root().join(Self::CACHE_FOLDER).join(key);
-        let build = (compiler.as_os_str(), sdk.as_path(), optimizer.as_ref());
+        let build = (compiler.as_os_str(), sdk.as_path(), &release);
         Self::cached_or_built(build, program, &cached).await
     }
 
-    pub(super) fn note(&self, profile: crate::BuildProfile) -> Option<&'static str> {
-        Self::BUILD.note(profile, self.made_smaller)
+    pub(super) fn note(&self, profile: crate::BuildProfile) -> Option<String> {
+        Self::BUILD.note.for_build(profile, self.made_smaller)
     }
 
     pub(super) fn published(self) -> Vec<(String, Vec<u8>)> {
@@ -83,22 +86,22 @@ impl SwiftWasmProgram {
     }
 
     async fn cached_or_built(
-        build: (&OsStr, &Path, Option<&WasmOptimizer>),
+        build: (&OsStr, &Path, &WasmReleaseStep),
         program: &str,
         cached: &Path,
     ) -> Result<Self, Failure> {
-        let (_, _, optimizer) = build;
+        let (_, _, release) = build;
         if let Ok(binary) = std::fs::read(cached.join(Self::BINARY)) {
             return Ok(Self {
                 binary,
-                made_smaller: optimizer.is_some(),
+                made_smaller: release.will_shrink(),
             });
         }
         Self::built(build, program, cached).await
     }
 
     async fn built(
-        (compiler, sdk, optimizer): (&OsStr, &Path, Option<&WasmOptimizer>),
+        (compiler, sdk, release): (&OsStr, &Path, &WasmReleaseStep),
         program: &str,
         cached: &Path,
     ) -> Result<Self, Failure> {
@@ -106,9 +109,8 @@ impl SwiftWasmProgram {
         let mut command = Self::command(compiler, sdk, staged.path());
         Self::BUILD.run(&mut command, staged.path()).await?;
         let binary = staged.path().join(Self::BINARY);
-        let made_smaller =
-            WebProgramBuild::optimize(optimizer, &binary, &Self::RELEASE_FLAGS).await;
-        Self::keep(staged.path(), cached, made_smaller == optimizer.is_some());
+        let made_smaller = release.shrink(&binary, &Self::RELEASE_FLAGS).await;
+        Self::keep(staged.path(), cached, made_smaller == release.will_shrink());
         let binary =
             std::fs::read(&binary).map_err(|error| Self::BUILD.failure(&error.to_string()))?;
         Ok(Self {
@@ -123,17 +125,12 @@ impl SwiftWasmProgram {
         }
     }
 
-    fn cache_key(
-        version: &[u8],
-        sdk: &Path,
-        optimizer: Option<&WasmOptimizer>,
-        program: &str,
-    ) -> String {
+    fn cache_key(version: &[u8], sdk: &Path, release_identity: &[u8], program: &str) -> String {
         let mut material = version.to_vec();
         material.push(0);
         material.extend_from_slice(sdk.to_string_lossy().as_bytes());
         material.push(0);
-        material.extend_from_slice(optimizer.map_or(&[][..], WasmOptimizer::identity));
+        material.extend_from_slice(release_identity);
         material.push(0);
         material.extend_from_slice(program.as_bytes());
         crate::compiler::hex_digest(Sha256::digest(material))
@@ -174,7 +171,7 @@ mod tests {
     #[test]
     fn the_cache_key_is_a_short_folder_name_for_any_program() {
         let program = "final class LongService {}\n".repeat(4_000);
-        let key = SwiftWasmProgram::cache_key(b"swift 6.3.3", Path::new("/sdk"), None, &program);
+        let key = SwiftWasmProgram::cache_key(b"swift 6.3.3", Path::new("/sdk"), b"", &program);
         assert_eq!(key.len(), 64, "{key}");
     }
 }
