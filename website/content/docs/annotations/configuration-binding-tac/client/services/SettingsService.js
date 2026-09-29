@@ -7,7 +7,7 @@ export default class SettingsService {
   pageSize = 20;
   @OnStart
   async initialize() {
-    const application = (await this.applicationClient.load()) ?? {};
+    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());
     const catalog = Behaviors.properties(CatalogSetup, application);
     const values = Behaviors.values(PublicValues, application);
     this.title = String(values.title);

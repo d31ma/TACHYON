@@ -2555,7 +2555,7 @@
             },
             {
               "name": "client/services/SettingsService.js",
-              "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = (await this.applicationClient.load()) ?? {};\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
+              "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
             },
             {
               "name": "client/clients/ApplicationClient.ts",
@@ -4788,7 +4788,7 @@
             },
             {
               "name": "client/services/UserListService.js",
-              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserListService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {{ name: string }[]} */\n  users = [];\n  @OnStart\n  async initialize() { await this._refresh(); }\n  /** @param {UsersChanged} changed */\n  @OnEvent\n  async usersChanged(changed) { await this.#refreshWhenSaved(changed); }\n  async _refresh() { this.users = (await this.usersClient.list()) ?? []; }\n  /** @param {UsersChanged} changed */\n  async #refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }\n}"
+              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserListService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {{ name: string }[]} */\n  users = [];\n  @OnStart\n  async initialize() { await this._refresh(); }\n  /** @param {UsersChanged} changed */\n  @OnEvent\n  async usersChanged(changed) { await this.#refreshWhenSaved(changed); }\n  async _refresh() { this.users = /** @type {{ name: string }[]} */ (await this.usersClient.list()); }\n  /** @param {UsersChanged} changed */\n  async #refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }\n}"
             },
             {
               "name": "client/clients/UsersClient.ts",
@@ -4800,7 +4800,7 @@
             },
             {
               "name": "client/services/UserListService.ts",
-              "code": "import type { UsersChanged } from '/models/UsersChanged.ts';\n\n@Service\nexport default class UserListService {\n  @Needs\n  readonly usersClient!: UsersClient;\n  users: BehaviorJsonValue = [];\n  @OnStart\n  async initialize() { await this.refresh(); }\n  @OnEvent\n  async usersChanged(changed: UsersChanged) { await this.refreshWhenSaved(changed); }\n  private async refresh() { this.users = (await this.usersClient.list()) ?? []; }\n  private async refreshWhenSaved(changed: UsersChanged) { if (changed.saved) await this.refresh(); }\n}"
+              "code": "import type { UsersChanged } from '/models/UsersChanged.ts';\n\n@Service\nexport default class UserListService {\n  @Needs\n  readonly usersClient!: UsersClient;\n  users: BehaviorJsonValue = [];\n  @OnStart\n  async initialize() { await this.refresh(); }\n  @OnEvent\n  async usersChanged(changed: UsersChanged) { await this.refreshWhenSaved(changed); }\n  private async refresh() { this.users = await this.usersClient.list() as BehaviorJsonValue; }\n  private async refreshWhenSaved(changed: UsersChanged) { if (changed.saved) await this.refresh(); }\n}"
             },
             {
               "name": "client/models/UsersChanged.ts",
@@ -7463,7 +7463,7 @@
             },
             {
               "name": "client/services/SettingsService.js",
-              "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  title = 'Catalog';\n  pageSize = 20;\n  @OnStart\n  async initialize() {\n    const application = (await this.applicationClient.load()) ?? {};\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const values = Behaviors.values(PublicValues, application);\n    this.title = String(values.title);\n    this.pageSize = Number(catalog.pageSize);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: ['public'],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n  }\n}\n"
+              "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  title = 'Catalog';\n  pageSize = 20;\n  @OnStart\n  async initialize() {\n    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const values = Behaviors.values(PublicValues, application);\n    this.title = String(values.title);\n    this.pageSize = Number(catalog.pageSize);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: ['public'],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n  }\n}\n"
             },
             {
               "name": "client/clients/ApplicationClient.ts",
@@ -7475,7 +7475,7 @@
             },
             {
               "name": "client/services/SettingsService.ts",
-              "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  title = 'Catalog';\n  pageSize = 20;\n  @OnStart\n  async initialize() {\n    const application = (await this.applicationClient.load()) ?? {};\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const values = Behaviors.values(PublicValues, application);\n    this.title = String(values.title);\n    this.pageSize = Number(catalog.pageSize);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: ['public'],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n  }\n}\n"
+              "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  title = 'Catalog';\n  pageSize = 20;\n  @OnStart\n  async initialize() {\n    const application = await this.applicationClient.load() as BehaviorJsonObject;\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const values = Behaviors.values(PublicValues, application);\n    this.title = String(values.title);\n    this.pageSize = Number(catalog.pageSize);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: ['public'],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n  }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.swift",

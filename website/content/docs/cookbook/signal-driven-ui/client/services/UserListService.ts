@@ -9,6 +9,6 @@ export default class UserListService {
   async initialize() { await this.refresh(); }
   @OnEvent
   async usersChanged(changed: UsersChanged) { await this.refreshWhenSaved(changed); }
-  private async refresh() { this.users = (await this.usersClient.list()) ?? []; }
+  private async refresh() { this.users = await this.usersClient.list() as BehaviorJsonValue; }
   private async refreshWhenSaved(changed: UsersChanged) { if (changed.saved) await this.refresh(); }
 }
