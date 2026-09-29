@@ -1,12 +1,14 @@
-use super::client_declaration::ClientDeclaration;
 use super::context_members::ContextMembers;
+use super::contract_declaration::ContractDeclaration;
 use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
+use super::contract_role::ContractRole;
+use crate::annotation_rules::Messages;
 use crate::behavior::HttpClientSource;
 use std::ops::Range;
 use std::path::Path;
 
-pub(crate) struct ConcreteClient<'a> {
+pub(crate) struct ConcreteContract<'a> {
     form: ContractForm,
     source: &'a str,
     code: String,
@@ -15,7 +17,7 @@ pub(crate) struct ConcreteClient<'a> {
 
 type SourceEdit = (Range<usize>, String);
 
-impl<'a> ConcreteClient<'a> {
+impl<'a> ConcreteContract<'a> {
     const TAC: &'static str = "tac";
     const GO: &'static str = "go";
     const RUST: &'static str = "rs";
@@ -27,7 +29,6 @@ impl<'a> ConcreteClient<'a> {
     const LEADING_MODIFIERS: [&'static str; 4] = ["public", "abstract", "virtual", "async"];
     const TASKS: [&'static str; 2] = ["Task", "System.Threading.Tasks.Task"];
     const FUTURE: &'static str = "Future";
-    const GO_RECEIVER: &'static str = "client";
     const GO_FIELDS: [&'static str; 2] = ["struct{}", "struct {\n\tbehaviors *BehaviorContext\n}"];
     const RUST_FIELDS: [&'static str; 2] = [";", " { behaviors: BehaviorContext }"];
     const TRAIT: &'static str = "trait";
@@ -53,7 +54,7 @@ impl<'a> ConcreteClient<'a> {
         let extension = path.extension().and_then(|value| value.to_str())?;
         let form = ContractForm::of(extension)?;
         let tac = environment == Self::TAC;
-        ClientDeclaration::is_mentioned(source)
+        ContractRole::is_mentioned(source)
             .then(|| Self::new(form, source, tac))?
             .lowered()
     }
@@ -69,20 +70,29 @@ impl<'a> ConcreteClient<'a> {
     }
 
     fn lowered(&self) -> Option<String> {
-        let browser = [self.tac, Self::BROWSER.contains(&self.form.language)] == [true, true];
-        let edits = (!browser).then(|| self.contract_edits())?;
+        let edits = self.contract_edits();
         (!edits.is_empty()).then(|| Self::apply(self.source, edits))
     }
 
     fn contract_edits(&self) -> Vec<SourceEdit> {
-        ClientDeclaration::find(self.form, self.source, &self.code)
+        ContractDeclaration::find(self.form, self.source, &self.code)
             .iter()
-            .filter(|declaration| {
-                self.form
-                    .declares_contract(&self.code[declaration.header.clone()])
-            })
+            .filter(|declaration| self.is_lowered(declaration))
             .flat_map(|declaration| self.declaration_edits(declaration))
             .collect()
+    }
+
+    fn is_lowered(&self, declaration: &ContractDeclaration) -> bool {
+        let contract = self
+            .form
+            .declares_contract(&self.code[declaration.header.clone()]);
+        let class_form = declaration.keeps_class_form(self.form, &self.code);
+        let managed = [self.in_browser(), declaration.role.managed_in_browser] == [true, true];
+        [contract, class_form, managed] == [true, false, false]
+    }
+
+    fn in_browser(&self) -> bool {
+        [self.tac, Self::BROWSER.contains(&self.form.language)] == [true, true]
     }
 
     fn apply(source: &str, mut edits: Vec<SourceEdit>) -> String {
@@ -94,7 +104,13 @@ impl<'a> ConcreteClient<'a> {
         output
     }
 
-    fn declaration_edits(&self, declaration: &ClientDeclaration) -> Vec<SourceEdit> {
+    fn declaration_edits(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
+        let mut edits = self.shape_edits(declaration);
+        edits.extend(self.provider_edit(declaration));
+        edits
+    }
+
+    fn shape_edits(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
         if self.form.language == Self::GO {
             self.go_edits(declaration)
         } else {
@@ -102,9 +118,18 @@ impl<'a> ConcreteClient<'a> {
         }
     }
 
-    fn braced_edits(&self, declaration: &ClientDeclaration) -> Vec<SourceEdit> {
+    fn provider_edit(&self, declaration: &ContractDeclaration) -> Option<SourceEdit> {
+        let at = self.code[..declaration.marker_at]
+            .rfind('\n')
+            .map_or(0, |line| line + 1);
+        let marker = Messages::spelled(self.form.language, declaration.role.marker);
+        let wanted = [declaration.role.names_entity, self.tac] == [true, false];
+        wanted.then(|| (at..at, format!("{marker}\n")))
+    }
+
+    fn braced_edits(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
         let members = declaration.members(self.form, &self.code);
-        let needs_context = members.iter().any(ContractMember::sends_request);
+        let needs_context = declaration.role.needs_context(&members);
         let mut edits: Vec<SourceEdit> = self
             .header(declaration, needs_context)
             .into_iter()
@@ -126,7 +151,7 @@ impl<'a> ConcreteClient<'a> {
 
     fn context_edits(
         &self,
-        declaration: &ClientDeclaration,
+        declaration: &ContractDeclaration,
         members: &[ContractMember],
         needs_context: bool,
     ) -> Vec<SourceEdit> {
@@ -137,7 +162,8 @@ impl<'a> ConcreteClient<'a> {
             language: self.form.language,
             tac: self.tac,
             needs_context,
-            client: &declaration.name,
+            owner: &declaration.name,
+            receiver: declaration.role.noun,
             setup: &setup,
             partition: &declaration.adapter(),
             indent: &indent,
@@ -167,7 +193,7 @@ impl<'a> ConcreteClient<'a> {
         prefix[..width].to_owned()
     }
 
-    fn header(&self, declaration: &ClientDeclaration, needs_context: bool) -> Option<String> {
+    fn header(&self, declaration: &ContractDeclaration, needs_context: bool) -> Option<String> {
         let text = &self.source[declaration.header.clone()];
         match self.form.language {
             Self::PYTHON => Some(Self::without_protocol(text)),
@@ -241,9 +267,9 @@ impl<'a> ConcreteClient<'a> {
         words.join(" ")
     }
 
-    fn go_edits(&self, declaration: &ClientDeclaration) -> Vec<SourceEdit> {
+    fn go_edits(&self, declaration: &ContractDeclaration) -> Vec<SourceEdit> {
         let members = declaration.members(self.form, &self.code);
-        let needs_context = members.iter().any(ContractMember::sends_request);
+        let needs_context = declaration.role.needs_context(&members);
         let end = (declaration.close + 1).min(self.source.len());
         let text = self.go_type(declaration, &members, needs_context);
         vec![(declaration.header.start..end, text)]
@@ -251,7 +277,7 @@ impl<'a> ConcreteClient<'a> {
 
     fn go_type(
         &self,
-        declaration: &ClientDeclaration,
+        declaration: &ContractDeclaration,
         members: &[ContractMember],
         needs_context: bool,
     ) -> String {
@@ -260,20 +286,20 @@ impl<'a> ConcreteClient<'a> {
         let methods: String = members
             .iter()
             .filter(|member| member.method)
-            .map(|member| self.go_method(name, member))
+            .map(|member| self.go_method(declaration, member))
             .collect();
         let context = self.go_context(declaration, needs_context);
         format!("type {name} {fields}\n{methods}{context}")
     }
 
-    fn go_method(&self, name: &str, member: &ContractMember) -> String {
+    fn go_method(&self, declaration: &ContractDeclaration, member: &ContractMember) -> String {
         let markers = member.first_marker.map_or_else(String::new, |first| {
             Self::marker_lines(&self.source[first..member.start])
         });
         let signature = self.source[member.start..member.end].trim();
         format!(
-            "\n{markers}func ({} *{name}) {signature} {{\n}}\n",
-            Self::GO_RECEIVER
+            "\n{markers}func ({} *{}) {signature} {{\n}}\n",
+            declaration.role.noun, declaration.name
         )
     }
 
@@ -285,13 +311,14 @@ impl<'a> ConcreteClient<'a> {
             .collect()
     }
 
-    fn go_context(&self, declaration: &ClientDeclaration, needs_context: bool) -> String {
+    fn go_context(&self, declaration: &ContractDeclaration, needs_context: bool) -> String {
         let setup = declaration.setup();
         let context = ContextMembers {
             language: self.form.language,
             tac: self.tac,
             needs_context,
-            client: &declaration.name,
+            owner: &declaration.name,
+            receiver: declaration.role.noun,
             setup: &setup,
             partition: &declaration.adapter(),
             indent: "",

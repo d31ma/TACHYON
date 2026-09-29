@@ -250,7 +250,7 @@ declare global {
 
   type BehaviorConstructionFields<Value> = Partial<{
     [Key in keyof Value as Value[Key] extends (...arguments_: never[]) => unknown ? never : Key]: Value[Key]
-  }>;
+  }> & { behaviors?: BehaviorContext };
 
   interface BehaviorFactory {
     create(configuration: BehaviorConfigurationSource, options: BehaviorCreateOptions): Promise<BehaviorContext>;

@@ -1,4 +1,5 @@
 use super::contract_form::ContractForm;
+use super::contract_role::ContractRole;
 use crate::behavior::HttpClientSource;
 
 pub(crate) struct MarkerLine {
@@ -9,7 +10,6 @@ pub(crate) struct MarkerLine {
 }
 
 impl MarkerLine {
-    const CLIENT: &'static str = "httpclient";
     const NAME_PUNCTUATION: [u8; 2] = *b"_:";
 
     pub(crate) fn read(form: ContractForm, source: &str, code: &str) -> Vec<Self> {
@@ -26,8 +26,8 @@ impl MarkerLine {
             .collect()
     }
 
-    pub(crate) fn is_client(&self) -> bool {
-        HttpClientSource::normalized(&self.name) == Self::CLIENT
+    pub(crate) fn role(&self) -> Option<ContractRole> {
+        ContractRole::of_marker(&HttpClientSource::normalized(&self.name))
     }
 
     fn depth_after(form: ContractForm, line: &str, depth: usize) -> usize {

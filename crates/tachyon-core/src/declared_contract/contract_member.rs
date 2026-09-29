@@ -22,16 +22,6 @@ impl ContractMember {
         "streamrequest",
         "socketrequest",
     ];
-    const CALLS: [&'static str; 8] = [
-        "getrequest",
-        "postrequest",
-        "putrequest",
-        "patchrequest",
-        "deleterequest",
-        "streamrequest",
-        "socketrequest",
-        "gateway",
-    ];
     const CONSTRUCTORS: [&'static str; 4] =
         ["constructor", "__construct", "initialize", "__init__"];
     const EMPTY_BODIES: [&'static str; 3] = ["", "...", "pass"];
@@ -42,8 +32,8 @@ impl ContractMember {
         Self::marked_with(&self.markers, &Self::REQUESTS)
     }
 
-    pub(crate) fn is_declared_call(&self) -> bool {
-        Self::marked_with(&self.markers, &Self::CALLS)
+    pub(crate) fn is_marked_with(&self, names: &[&str]) -> bool {
+        Self::marked_with(&self.markers, names)
     }
 
     pub(crate) fn has_code(&self, code: &str) -> bool {

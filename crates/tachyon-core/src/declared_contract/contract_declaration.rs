@@ -1,5 +1,6 @@
 use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
+use super::contract_role::ContractRole;
 use super::indented_members::IndentedMembers;
 use super::marker_line::MarkerLine;
 use super::member_scanner::MemberScanner;
@@ -8,8 +9,10 @@ use serde_json::Value;
 use std::ops::Range;
 
 #[derive(Clone, Debug)]
-pub(crate) struct ClientDeclaration {
+pub(crate) struct ContractDeclaration {
+    pub(crate) role: ContractRole,
     pub(crate) name: String,
+    pub(crate) names_entity: bool,
     pub(crate) marker_at: usize,
     pub(crate) options: Value,
     pub(crate) other_role: Option<String>,
@@ -22,34 +25,16 @@ type Parts = (Range<usize>, Range<usize>, usize);
 type MemberReader = fn(ContractForm, &str, Range<usize>) -> Vec<ContractMember>;
 type BlockReader = fn(&str, usize, usize) -> Parts;
 
-impl ClientDeclaration {
-    const CLIENT: &'static str = "httpclient";
-    const CLIENT_SUFFIX: &'static str = "Client";
+impl ContractDeclaration {
     const SETUP_SUFFIX: &'static str = "Setup";
+    const GO_COMMENT: &'static str = "//";
+    const NAME_PUNCTUATION: [char; 2] = ['_', ':'];
     const RUBY: &'static str = "rb";
-    const ROLES: [&'static str; 11] = [
-        "service",
-        "store",
-        "helper",
-        "converter",
-        "setup",
-        "entity",
-        "controller",
-        "requestroute",
-        "socketroute",
-        "identityprovider",
-        "errorhandler",
-    ];
-
-    pub(crate) fn is_mentioned(source: &str) -> bool {
-        let folded = source.to_ascii_lowercase().replace('_', "");
-        [source.contains("HTTPClient"), folded.contains(Self::CLIENT)].contains(&true)
-    }
 
     pub(crate) fn find(form: ContractForm, source: &str, code: &str) -> Vec<Self> {
         let lines = MarkerLine::read(form, source, code);
         (0..lines.len())
-            .filter(|index| lines[*index].is_client())
+            .filter(|index| lines[*index].role().is_some())
             .filter_map(|index| Self::read(form, code, &lines, index))
             .collect()
     }
@@ -76,10 +61,39 @@ impl ClientDeclaration {
             .map_or_else(|| HttpClientSource::adapter_name(&self.name), str::to_owned)
     }
 
+    pub(crate) fn keeps_class_form(&self, form: ContractForm, code: &str) -> bool {
+        let names: Vec<String> = code
+            .lines()
+            .filter_map(|line| Self::marker_name(form, line))
+            .collect();
+        self.role.keeps_class_form(&names)
+    }
+
+    fn marker_name(form: ContractForm, line: &str) -> Option<String> {
+        let text = line
+            .trim()
+            .trim_start_matches(Self::GO_COMMENT)
+            .trim_start();
+        let rest = text.strip_prefix(form.marker_prefix())?;
+        let name: String = rest
+            .chars()
+            .take_while(|character| Self::is_name_character(*character))
+            .collect();
+        Some(HttpClientSource::normalized(&name))
+    }
+
+    fn is_name_character(character: char) -> bool {
+        [
+            character.is_ascii_alphanumeric(),
+            Self::NAME_PUNCTUATION.contains(&character),
+        ]
+        .contains(&true)
+    }
+
     pub(crate) fn setup(&self) -> String {
         let stem = self
             .name
-            .strip_suffix(Self::CLIENT_SUFFIX)
+            .strip_suffix(self.role.suffix)
             .unwrap_or(&self.name);
         self.option("setup")
             .map_or_else(|| format!("{stem}{}", Self::SETUP_SUFFIX), str::to_owned)
@@ -98,6 +112,7 @@ impl ClientDeclaration {
     }
 
     fn read(form: ContractForm, code: &str, lines: &[MarkerLine], index: usize) -> Option<Self> {
+        let role = lines[index].role()?;
         let first = Self::first_of_block(code, lines, index);
         let last = Self::last_of_block(code, lines, index);
         let declaration = Self::next_code_line(code, lines[last].end)?;
@@ -114,12 +129,14 @@ impl ClientDeclaration {
         let other_role = lines[first..=last]
             .iter()
             .map(|marker| HttpClientSource::normalized(&marker.name))
-            .find(|marker| Self::ROLES.contains(&marker.as_str()));
+            .find(|marker| role.is_other_role(marker));
         let blocks: [BlockReader; 2] = [Self::braced_block, Self::indented_block];
         let (header, body, close) =
             blocks[usize::from(form.is_indented())](code, declaration, line_end);
         Some(Self {
+            role,
             name,
+            names_entity: !lines[index].arguments.is_empty(),
             marker_at: lines[index].start,
             options: Self::options(&lines[index].arguments),
             other_role,
@@ -130,10 +147,9 @@ impl ClientDeclaration {
     }
 
     fn options(arguments: &str) -> Value {
-        let text = arguments.trim();
-        Some(text)
-            .filter(|text| text.starts_with('{'))
-            .and_then(|text| serde_json::from_str(text).ok())
+        arguments
+            .find('{')
+            .and_then(|open| serde_json::from_str(arguments[open..].trim()).ok())
             .unwrap_or(Value::Null)
     }
 

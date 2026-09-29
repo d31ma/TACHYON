@@ -41,8 +41,9 @@ pub(super) fn repository(input: &Input<'_>, marker: &Marker) -> Result<Value, Fa
     let mut object = super::object(
         input,
         &options_marker,
-        &["fields", "defaultSize", "maxSize"],
+        &["fields", "defaultSize", "maxSize", "setup"],
     )?;
+    object.remove("setup");
     object.insert("entity".to_owned(), Value::String(entity.to_owned()));
     repository_object(input, marker, object)
 }
@@ -223,7 +224,7 @@ fn too_many_sort_fields(input: &Input<'_>, at: usize) -> Failure {
     )
 }
 
-pub(super) fn derives_name(name: &str) -> bool {
+pub(crate) fn derives_name(name: &str) -> bool {
     derived_prefix(name).is_some()
 }
 

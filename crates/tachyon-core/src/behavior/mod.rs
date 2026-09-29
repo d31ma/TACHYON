@@ -36,6 +36,7 @@ mod queries;
 mod query_frontend;
 mod renamed;
 pub(crate) use http_client::HttpClientSource;
+pub(crate) use queries::derives_name as is_derived_query;
 pub(crate) use renamed::{RenamedAnnotation, RoutingRename};
 mod resilience;
 mod call_style;

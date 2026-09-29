@@ -164,7 +164,7 @@ fn read_modules(
         }
         register_names(path, &text, &mut names)?;
         validate_imports(path, &text, extension)?;
-        let text = crate::http_contract::HttpContract::concrete(path, &text, environment).unwrap_or(text);
+        let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment).unwrap_or(text);
         let text = crate::method_coverage::CallHooks::for_entry(entry, path, text)?;
         modules.push(Module {
             path: path.clone(),

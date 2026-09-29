@@ -1,4 +1,4 @@
-use super::HttpContract;
+use super::DeclaredContract;
 use std::path::Path;
 
 struct Samples;
@@ -256,7 +256,7 @@ impl Samples {
 
     fn refusal(extension: &str, source: &str) -> String {
         let path = Self::path(extension);
-        let failure = HttpContract::check(Path::new(&path), source)
+        let failure = DeclaredContract::check(Path::new(&path), source)
             .expect_err(&format!("{extension} must be refused: {source}"));
         let text = failure.to_string();
         assert!(text.contains("TY1308"), "{extension}: {text}");
@@ -269,7 +269,7 @@ impl Samples {
             .find(|(language, _)| *language == extension)
             .map(|(_, source)| *source)
             .expect("sample");
-        HttpContract::concrete(Path::new(&Self::path(extension)), source, realm)
+        DeclaredContract::concrete(Path::new(&Self::path(extension)), source, realm)
             .unwrap_or_else(|| panic!("{extension} was not lowered"))
     }
 }
@@ -278,7 +278,7 @@ impl Samples {
 fn every_language_accepts_its_contract_form() {
     for (extension, source) in Samples::CONTRACTS {
         let path = Samples::path(extension);
-        let checked = HttpContract::check(Path::new(&path), source);
+        let checked = DeclaredContract::check(Path::new(&path), source);
         assert!(checked.is_ok(), "{extension}: {checked:?}");
     }
 }
@@ -324,7 +324,7 @@ fn a_client_with_another_role_is_refused() {
 }
 
 #[test]
-fn every_contract_lowers_into_its_concrete_client() {
+fn every_contract_lowers_into_its_concrete_contract() {
     for (extension, parts) in Samples::LOWERED {
         let lowered = Samples::concrete(extension, "yon");
         for part in parts {
@@ -379,7 +379,7 @@ fn tac_clients_create_their_context_when_they_are_built() {
 fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
     let gateway = "#[HTTPClient]\ntrait ReportClient {\n    #[Gateway({\"command\":[\"python3\"]})]\n    fn ping(&self) -> BehaviorResult<BehaviorValue>;\n}\n";
     let lowered =
-        HttpContract::concrete(Path::new("server/clients/ReportClient.rs"), gateway, "yon")
+        DeclaredContract::concrete(Path::new("server/clients/ReportClient.rs"), gateway, "yon")
             .expect("lowered");
     assert!(
         lowered.contains("struct ReportClient;\nimpl ReportClient {"),
@@ -388,7 +388,7 @@ fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
     assert!(lowered.contains("fn new() -> Self { Self }"), "{lowered}");
     let named = "@HTTPClient({\"adapter\":\"api\",\"setup\":\"RuntimeAdaptersSetup\"})\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    Object all();\n}\n";
     let lowered =
-        HttpContract::concrete(Path::new("server/clients/CatalogClient.java"), named, "yon")
+        DeclaredContract::concrete(Path::new("server/clients/CatalogClient.java"), named, "yon")
             .expect("lowered");
     assert!(
         lowered
@@ -401,7 +401,7 @@ fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
 fn tac_browser_clients_stay_as_written() {
     let source = Samples::CONTRACTS[10].1;
     assert!(
-        HttpContract::concrete(Path::new("client/clients/CatalogClient.js"), source, "tac")
+        DeclaredContract::concrete(Path::new("client/clients/CatalogClient.js"), source, "tac")
             .is_none()
     );
 }
@@ -458,7 +458,7 @@ impl Migrations {
 
     fn rewritten(extension: &str, source: &str) -> String {
         let path = format!("server/clients/CatalogClient.{extension}");
-        let mut edits = HttpContract::rewrite(Path::new(&path), source)
+        let mut edits = DeclaredContract::rewrite(Path::new(&path), source)
             .unwrap_or_else(|problem| panic!("{extension}: {problem}"));
         assert!(!edits.is_empty(), "{extension} was not rewritten");
         edits.sort_by_key(|(range, _)| std::cmp::Reverse(range.start));
@@ -475,7 +475,7 @@ fn the_fix_turns_every_class_client_into_a_contract_that_passes_the_check() {
     for (extension, source) in Migrations::CLASS_CLIENTS {
         let rewritten = Migrations::rewritten(extension, source);
         let path = format!("server/clients/CatalogClient.{extension}");
-        let checked = HttpContract::check(Path::new(&path), &rewritten);
+        let checked = DeclaredContract::check(Path::new(&path), &rewritten);
         assert!(checked.is_ok(), "{extension}: {checked:?}\n{rewritten}");
         assert!(
             !rewritten.contains("Behaviors.create"),
@@ -491,9 +491,12 @@ fn the_fix_turns_every_class_client_into_a_contract_that_passes_the_check() {
 #[test]
 fn the_fix_leaves_a_client_with_logic_to_the_author() {
     let source = "@HTTPClient\nclass BillingClient {\n  int surcharge() { return 2; }\n}\n";
-    let problem = HttpContract::rewrite(Path::new("server/clients/BillingClient.java"), source)
+    let problem = DeclaredContract::rewrite(Path::new("server/clients/BillingClient.java"), source)
         .expect_err("logic stays manual");
-    assert!(problem.contains("move it into a service"), "{problem}");
+    assert!(
+        problem.contains("Move the logic into a service"),
+        "{problem}"
+    );
 }
 
 struct FsharpSamples;
@@ -506,7 +509,7 @@ impl FsharpSamples {
 }
 
 #[test]
-fn an_fsharp_client_is_an_interface_and_a_class_client_is_refused() {
+fn an_fsharp_contract_is_an_interface_and_a_class_client_is_refused() {
     let path = Path::new(FsharpSamples::PATH);
     let accepted = crate::annotation_layout::validate(path, FsharpSamples::CONTRACT);
     assert!(accepted.is_ok(), "{accepted:?}");
@@ -518,7 +521,7 @@ fn an_fsharp_client_is_an_interface_and_a_class_client_is_refused() {
 
 #[test]
 fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
-    let lowered = HttpContract::concrete(
+    let lowered = DeclaredContract::concrete(
         Path::new(FsharpSamples::PATH),
         FsharpSamples::CONTRACT,
         "yon",
@@ -528,7 +531,7 @@ fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
         lowered.contains("type CatalogClient() =\n    member val behaviors : BehaviorContext = Behaviors.create(typeof<CatalogSetup>, \"api\", new BehaviorSignal())\n\n    [<GetRequest"),
         "{lowered}"
     );
-    let gateway = HttpContract::concrete(
+    let gateway = DeclaredContract::concrete(
         Path::new("server/clients/ReportClient.fs"),
         FsharpSamples::GATEWAY,
         "yon",
@@ -539,7 +542,7 @@ fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
         "{gateway}"
     );
     assert!(!gateway.contains("behaviors"), "{gateway}");
-    let class_form = HttpContract::concrete(
+    let class_form = DeclaredContract::concrete(
         Path::new(FsharpSamples::PATH),
         FsharpSamples::CLASS_FORM,
         "yon",
@@ -551,10 +554,10 @@ fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
 fn an_object_type_in_a_typescript_signature_is_not_a_body() {
     let path = Path::new("client/clients/CatalogClient.ts");
     let typed = "@HTTPClient\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<{ items: string[] } | void> {}\n}\n";
-    let checked = HttpContract::check(path, typed);
+    let checked = DeclaredContract::check(path, typed);
     assert!(checked.is_ok(), "{checked:?}");
     let written = "@HTTPClient\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<{ items: string[] } | void> { return { items: [] }; }\n}\n";
-    let refused = HttpContract::check(path, written)
+    let refused = DeclaredContract::check(path, written)
         .expect_err("a body after an object type is refused")
         .to_string();
     assert!(

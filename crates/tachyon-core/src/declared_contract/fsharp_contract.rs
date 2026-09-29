@@ -1,53 +1,57 @@
 use super::contract_member::ContractMember;
+use super::contract_role::ContractRole;
 use super::fsharp_declaration::FsharpDeclaration;
 use crate::behavior::HttpClientSource;
 use std::path::Path;
 
-pub(crate) struct FsharpClient<'a> {
+pub(crate) struct FsharpContract<'a> {
     lines: Vec<&'a str>,
     code: Vec<String>,
+    tac: bool,
 }
 
-impl<'a> FsharpClient<'a> {
+impl<'a> FsharpContract<'a> {
     const EXTENSION: &'static str = "fs";
     const ATTRIBUTE_OPEN: &'static str = "[<";
     const ATTRIBUTE_CLOSE: &'static str = ">]";
-    const CLIENT: &'static str = "httpclient";
+    const TAC: &'static str = "tac";
     const TYPE_WORD: &'static str = "type ";
     const CONSTRUCTOR: &'static str = "()";
     const DEFAULT_INDENT: &'static str = "    ";
     const NAME_JOINER: char = '_';
     const CONTEXT: &'static str = "member val behaviors : BehaviorContext = Behaviors.create(typeof<{setup}>, \"{partition}\", new BehaviorSignal())";
 
-    pub(crate) fn lower(path: &Path, source: &'a str) -> Option<String> {
+    pub(crate) fn lower(path: &Path, source: &'a str, environment: &str) -> Option<String> {
         let fsharp = path.extension().and_then(|value| value.to_str()) == Some(Self::EXTENSION);
         fsharp.then_some(())?;
-        let client = Self::new(source);
-        let declarations = client.declarations();
-        (!declarations.is_empty()).then(|| client.lowered(&declarations))
+        let contract = Self::new(source, environment == Self::TAC);
+        let declarations = contract.declarations();
+        (!declarations.is_empty()).then(|| contract.lowered(&declarations))
     }
 
-    fn new(source: &'a str) -> Self {
+    fn new(source: &'a str, tac: bool) -> Self {
         let mask = crate::lexical::code_mask(Self::EXTENSION, source);
         let masked = HttpClientSource::masked(source, &mask.code);
         Self {
             lines: source.split_inclusive('\n').collect(),
             code: masked.split_inclusive('\n').map(str::to_owned).collect(),
+            tac,
         }
     }
 
     fn declarations(&self) -> Vec<FsharpDeclaration> {
         (0..self.code.len())
-            .filter(|index| self.is_client_marker(*index))
-            .filter_map(|index| self.declaration(index))
+            .filter_map(|index| self.marked_role(index).map(|role| (index, role)))
+            .filter_map(|(index, role)| self.declaration(index, role))
             .collect()
     }
 
-    fn is_client_marker(&self, index: usize) -> bool {
+    fn marked_role(&self, index: usize) -> Option<ContractRole> {
         let line = &self.code[index];
-        let top = line.starts_with(Self::ATTRIBUTE_OPEN);
-        let names = Self::attribute_names(line);
-        [top, names.iter().any(|name| name == Self::CLIENT)] == [true, true]
+        line.starts_with(Self::ATTRIBUTE_OPEN).then_some(())?;
+        Self::attribute_names(line)
+            .iter()
+            .find_map(|name| ContractRole::of_marker(name))
     }
 
     fn attribute_names(line: &str) -> Vec<String> {
@@ -62,13 +66,15 @@ impl<'a> FsharpClient<'a> {
             .collect()
     }
 
-    fn declaration(&self, marker: usize) -> Option<FsharpDeclaration> {
+    fn declaration(&self, marker: usize, role: ContractRole) -> Option<FsharpDeclaration> {
         let header = (marker + 1..self.code.len()).find(|index| self.is_code(*index))?;
         let name = Self::class_less_name(self.code[header].trim_end())?;
         let body = (header + 1..self.code.len())
             .take_while(|index| self.is_inside(*index))
             .collect();
         Some(FsharpDeclaration {
+            role,
+            marker,
             header,
             name,
             options: FsharpDeclaration::options_of(self.lines[marker]),
@@ -115,13 +121,29 @@ impl<'a> FsharpClient<'a> {
     }
 
     fn lowered_line(&self, declarations: &[FsharpDeclaration], index: usize, line: &str) -> String {
-        declarations
+        let provider = declarations
+            .iter()
+            .find(|declaration| declaration.marker == index)
+            .map_or_else(String::new, |declaration| self.provider_line(declaration));
+        let text = declarations
             .iter()
             .find(|declaration| declaration.header == index)
             .map_or_else(
                 || line.to_owned(),
                 |declaration| self.concrete_header(declaration, line),
-            )
+            );
+        format!("{provider}{text}")
+    }
+
+    fn provider_line(&self, declaration: &FsharpDeclaration) -> String {
+        let wanted = [declaration.role.names_entity, self.tac] == [true, false];
+        let marker = format!(
+            "{}{}{}\n",
+            Self::ATTRIBUTE_OPEN,
+            declaration.role.marker,
+            Self::ATTRIBUTE_CLOSE
+        );
+        if wanted { marker } else { String::new() }
     }
 
     fn concrete_header(&self, declaration: &FsharpDeclaration, line: &str) -> String {
@@ -132,11 +154,12 @@ impl<'a> FsharpClient<'a> {
     }
 
     fn context_line(&self, declaration: &FsharpDeclaration) -> String {
-        let sends = declaration
+        let members: Vec<ContractMember> = declaration
             .body
             .iter()
-            .any(|index| Self::sends_request(&self.code[*index]));
-        if !sends {
+            .map(|index| Self::member_of(&self.code[*index]))
+            .collect();
+        if !declaration.role.needs_context(&members) {
             return String::new();
         }
         let text = Self::CONTEXT
@@ -145,14 +168,15 @@ impl<'a> FsharpClient<'a> {
         format!("{}{text}\n\n", self.indent(declaration))
     }
 
-    fn sends_request(line: &str) -> bool {
+    fn member_of(line: &str) -> ContractMember {
         let trimmed = line.trim_start();
-        let marker = trimmed.starts_with(Self::ATTRIBUTE_OPEN);
-        let member = ContractMember {
+        if !trimmed.starts_with(Self::ATTRIBUTE_OPEN) {
+            return ContractMember::default();
+        }
+        ContractMember {
             markers: Self::attribute_names(trimmed),
             ..ContractMember::default()
-        };
-        [marker, member.sends_request()] == [true, true]
+        }
     }
 
     fn indent(&self, declaration: &FsharpDeclaration) -> String {

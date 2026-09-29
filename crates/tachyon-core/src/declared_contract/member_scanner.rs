@@ -1,4 +1,4 @@
-use super::client_declaration::ClientDeclaration;
+use super::contract_declaration::ContractDeclaration;
 use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
 use crate::behavior::HttpClientSource;
@@ -223,7 +223,7 @@ impl<'a> MemberScanner<'a> {
 
     fn block(&mut self, member: &mut ContractMember) -> bool {
         member.end = self.signature_end(member.start);
-        let close = ClientDeclaration::matching_brace(self.code, self.at).unwrap_or(self.end);
+        let close = ContractDeclaration::matching_brace(self.code, self.at).unwrap_or(self.end);
         member.body = Some(self.at + 1..close.min(self.end));
         self.at = close + 1;
         true

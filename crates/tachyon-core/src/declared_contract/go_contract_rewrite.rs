@@ -1,4 +1,4 @@
-use super::client_declaration::ClientDeclaration;
+use super::contract_declaration::ContractDeclaration;
 use super::contract_rewrite::{ContractRewrite, SourceEdit};
 use super::go_method::GoMethod;
 
@@ -9,12 +9,13 @@ pub(crate) struct GoContractRewrite<'r, 'a> {
 
 impl<'r, 'a> GoContractRewrite<'r, 'a> {
     const MARKER: &'static str = "// @";
+    const MASKED_MARKER: &'static str = "@";
     const START_MARKER: &'static str = "// @OnStart";
     const METHOD: &'static str = "func (";
 
     pub(crate) fn edits(
         rewrite: &'r ContractRewrite<'a>,
-        declaration: &ClientDeclaration,
+        declaration: &ContractDeclaration,
     ) -> Result<Vec<SourceEdit>, String> {
         let lines = rewrite
             .code
@@ -29,14 +30,14 @@ impl<'r, 'a> GoContractRewrite<'r, 'a> {
         go.contract_edits(declaration)
     }
 
-    fn contract_edits(&self, declaration: &ClientDeclaration) -> Result<Vec<SourceEdit>, String> {
+    fn contract_edits(&self, declaration: &ContractDeclaration) -> Result<Vec<SourceEdit>, String> {
         let name = &declaration.name;
         self.refuse_fields(declaration)?;
         let methods = self.methods(name);
         let signatures: Vec<String> = methods
             .iter()
             .filter(|method| !method.starts_context)
-            .map(|method| method.declaration(name))
+            .map(|method| method.declaration(declaration))
             .collect::<Result<_, _>>()?;
         let mut edits: Vec<SourceEdit> = methods
             .iter()
@@ -54,18 +55,20 @@ impl<'r, 'a> GoContractRewrite<'r, 'a> {
         [
             line.is_empty(),
             line.starts_with(ContractRewrite::CONTEXT_FIELD),
-        ] == [false, false]
+            line.starts_with(Self::MARKER),
+            line.starts_with(Self::MASKED_MARKER),
+        ] == [false, false, false, false]
     }
 
-    fn refuse_fields(&self, declaration: &ClientDeclaration) -> Result<(), String> {
+    fn refuse_fields(&self, declaration: &ContractDeclaration) -> Result<(), String> {
         let fields = self.rewrite.code[declaration.body.clone()]
             .lines()
             .map(str::trim)
             .any(Self::is_field);
         (!fields).then_some(()).ok_or_else(|| {
             format!(
-                "{} holds fields. An HTTPClient has no implementation: move them into a service, then run the fix again.",
-                declaration.name
+                "{} holds fields. {} Then run the fix again.",
+                declaration.name, declaration.role.no_implementation
             )
         })
     }
@@ -128,7 +131,7 @@ impl<'r, 'a> GoContractRewrite<'r, 'a> {
         let (start, _) = self.lines[index];
         let receiver_close = start + code[start..].find(')')?;
         let open = self.body_open(receiver_close + 1)?;
-        let close = ClientDeclaration::matching_brace(code, open)?;
+        let close = ContractDeclaration::matching_brace(code, open)?;
         let marker_lines = self.markers(index);
         let markers: Vec<String> = marker_lines
             .iter()

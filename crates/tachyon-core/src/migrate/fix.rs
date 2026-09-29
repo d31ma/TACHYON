@@ -555,14 +555,14 @@ impl MigrationFixPlan {
         edits: &mut Vec<TextEdit>,
         notes: &mut Vec<String>,
     ) {
-        let planned = match crate::http_contract::HttpContract::rewrite(Path::new(relative), source)
+        let planned = match crate::declared_contract::DeclaredContract::rewrite(Path::new(relative), source)
         {
             Ok(planned) => planned,
             Err(problem) => {
                 self.manual_steps.push(ManualStep::new(
                     relative,
                     problem,
-                    String::from("Declare the HTTPClient as a contract without bodies (TY1308), then run 'ty migrate fix --write' again."),
+                    String::from("Declare the HTTPClient or Store as a contract without bodies (TY1308), then run 'ty migrate fix --write' again."),
                 ));
                 return;
             }
@@ -581,7 +581,7 @@ impl MigrationFixPlan {
         }
         edits.extend(contract);
         notes.push(String::from(
-            "Declared the HTTPClient as a contract without an implementation: Tachyon generates each request (TY1308).",
+            "Declared the HTTPClient or Store as a contract without an implementation: Tachyon generates each request and query (TY1308). Inject a Store with Needs instead of building it.",
         ));
     }
 

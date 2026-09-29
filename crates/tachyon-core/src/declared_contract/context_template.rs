@@ -9,7 +9,7 @@ impl ContextTemplate {
     const JAVA_FIELD: &'static str = "Behaviors.Context behaviors;";
     const JAVA_START: &'static str = "@OnStart\nvoid startContext() {\n    behaviors = Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal()));\n}";
     const KOTLIN_FIELD: &'static str = "lateinit var behaviors: Behaviors.Context";
-    const TEMPLATES: [Self; 16] = [
+    const TEMPLATES: [Self; 18] = [
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new("groovy", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new(
@@ -62,6 +62,8 @@ impl ContextTemplate {
             "",
             "behaviors;\n\n@OnStart\nasync startContext() {\n    this.behaviors = await Behaviors.create({setup}, { partition: '{partition}', signal: AbortSignal.timeout(10000) });\n}",
         ),
+        Self::new("js-tac", "", "@Needs\nbehaviors;"),
+        Self::new("ts-tac", "", "@Needs\nbehaviors!: BehaviorContext;"),
         Self::new(
             "ts",
             "",
@@ -83,12 +85,12 @@ impl ContextTemplate {
         Self::new(
             "go-yon",
             "",
-            "// @OnStart\nfunc (client *{client}) StartContext() error {\n\tcontext, err := BehaviorsCreate[{setup}](NewBehaviorOptions(\"{partition}\", NewBehaviorSignal()))\n\tclient.behaviors = context\n\treturn err\n}",
+            "// @OnStart\nfunc ({receiver} *{owner}) StartContext() error {\n\tcontext, err := BehaviorsCreate[{setup}](NewBehaviorOptions(\"{partition}\", NewBehaviorSignal()))\n\t{receiver}.behaviors = context\n\treturn err\n}",
         ),
         Self::new(
             "go-tac",
             "",
-            "func New{client}() (*{client}, error) {\n\tcontext, err := BehaviorsCreate[{setup}](NewBehaviorOptions(\"{partition}\", NewBehaviorSignal()))\n\treturn &{client}{behaviors: context}, err\n}",
+            "func New{owner}() (*{owner}, error) {\n\tcontext, err := BehaviorsCreate[{setup}](NewBehaviorOptions(\"{partition}\", NewBehaviorSignal()))\n\treturn &{owner}{behaviors: context}, err\n}",
         ),
     ];
     const EMPTY: Self = Self::new("", "", "");

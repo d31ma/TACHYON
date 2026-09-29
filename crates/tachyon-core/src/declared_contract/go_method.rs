@@ -1,3 +1,4 @@
+use super::contract_declaration::ContractDeclaration;
 use std::ops::Range;
 
 pub(crate) struct GoMethod {
@@ -9,11 +10,12 @@ pub(crate) struct GoMethod {
 }
 
 impl GoMethod {
-    pub(crate) fn declaration(&self, client: &str) -> Result<String, String> {
+    pub(crate) fn declaration(&self, owner: &ContractDeclaration) -> Result<String, String> {
         let name = self.signature.split('(').next().unwrap_or("");
         (!self.has_body).then(|| self.lines()).ok_or_else(|| {
             format!(
-                "{client}.{name} has a body. An HTTPClient has no implementation: move it into a service, then run the fix again."
+                "{}.{name} has a body. {} Then run the fix again.",
+                owner.name, owner.role.no_implementation
             )
         })
     }

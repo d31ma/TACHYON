@@ -4,7 +4,8 @@ pub(crate) struct ContextMembers<'a> {
     pub(crate) language: &'a str,
     pub(crate) tac: bool,
     pub(crate) needs_context: bool,
-    pub(crate) client: &'a str,
+    pub(crate) owner: &'a str,
+    pub(crate) receiver: &'a str,
     pub(crate) setup: &'a str,
     pub(crate) partition: &'a str,
     pub(crate) indent: &'a str,
@@ -42,7 +43,8 @@ impl ContextMembers<'_> {
         template
             .replace("{setup}", self.setup)
             .replace("{partition}", self.partition)
-            .replace("{client}", self.client)
+            .replace("{owner}", self.owner)
+            .replace("{receiver}", self.receiver)
     }
 
     fn indented(&self, text: &str) -> String {

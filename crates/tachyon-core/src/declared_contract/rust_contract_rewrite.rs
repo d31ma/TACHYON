@@ -1,4 +1,4 @@
-use super::client_declaration::ClientDeclaration;
+use super::contract_declaration::ContractDeclaration;
 use super::contract_rewrite::{ContractRewrite, SourceEdit};
 use std::ops::Range;
 
@@ -8,17 +8,18 @@ impl RustContractRewrite {
     const IMPL: &'static str = "impl";
     const FOR: &'static str = "for";
     const STRUCT: &'static str = "struct";
+    const ATTRIBUTE: &'static str = "#[";
     const TERMINATORS: [&'static str; 2] = [";", ""];
 
     pub(crate) fn edits(
         rewrite: &ContractRewrite<'_>,
-        declaration: &ClientDeclaration,
+        declaration: &ContractDeclaration,
     ) -> Result<Vec<SourceEdit>, String> {
         let name = &declaration.name;
         let (impl_header, impl_body) = Self::impl_block(&rewrite.code, name).ok_or_else(|| {
             format!("{name} has no `impl {name}` block. Write it as a trait by hand.")
         })?;
-        Self::refuse_state(&rewrite.code[declaration.body.clone()], name)?;
+        Self::refuse_state(&rewrite.code[declaration.body.clone()], declaration)?;
         let prefix = rewrite.source[declaration.header.clone()]
             .split(Self::STRUCT)
             .next()
@@ -30,14 +31,14 @@ impl RustContractRewrite {
             ),
             (impl_header, format!("{prefix}trait {name} ")),
         ];
-        let body = ClientDeclaration {
+        let body = ContractDeclaration {
             body: impl_body,
             ..declaration.clone()
         };
         let members: Vec<SourceEdit> = body
             .members(rewrite.form, &rewrite.code)
             .iter()
-            .map(|member| rewrite.member_edit(name, member))
+            .map(|member| rewrite.member_edit(declaration, member))
             .map(|edit| edit.map(|(range, text)| (range, Self::terminated(&text))))
             .collect::<Result<_, _>>()?;
         edits.extend(members);
@@ -48,7 +49,7 @@ impl RustContractRewrite {
         format!("{text}{}", Self::TERMINATORS[usize::from(text.is_empty())])
     }
 
-    fn struct_end(rewrite: &ContractRewrite<'_>, declaration: &ClientDeclaration) -> usize {
+    fn struct_end(rewrite: &ContractRewrite<'_>, declaration: &ContractDeclaration) -> usize {
         let after_close = (declaration.close + 1).min(rewrite.source.len());
         let after_line = rewrite.code[after_close..]
             .find('\n')
@@ -58,17 +59,27 @@ impl RustContractRewrite {
     }
 
     fn is_state_field(field: &str) -> bool {
+        let named = Self::without_attributes(field);
         [
-            field.is_empty(),
-            field.starts_with(ContractRewrite::CONTEXT_FIELD),
+            named.is_empty(),
+            named.starts_with(ContractRewrite::CONTEXT_FIELD),
         ] == [false, false]
     }
 
-    fn refuse_state(fields: &str, name: &str) -> Result<(), String> {
+    fn without_attributes(field: &str) -> &str {
+        field
+            .lines()
+            .map(str::trim)
+            .find(|line| !line.starts_with(Self::ATTRIBUTE))
+            .unwrap_or("")
+    }
+
+    fn refuse_state(fields: &str, declaration: &ContractDeclaration) -> Result<(), String> {
         let state = fields.split(',').map(str::trim).any(Self::is_state_field);
         (!state).then_some(()).ok_or_else(|| {
             format!(
-                "{name} holds fields. An HTTPClient has no implementation: move them into a service, then run the fix again."
+                "{} holds fields. {} Then run the fix again.",
+                declaration.name, declaration.role.no_implementation
             )
         })
     }
@@ -95,7 +106,7 @@ impl RustContractRewrite {
             })
             .find(|(_, line)| Self::is_own_impl(line, name))?;
         let open = start + line.find('{')?;
-        let close = ClientDeclaration::matching_brace(code, open)?;
+        let close = ContractDeclaration::matching_brace(code, open)?;
         Some((start..open, open + 1..close))
     }
 }

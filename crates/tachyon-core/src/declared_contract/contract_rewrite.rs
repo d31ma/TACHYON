@@ -1,6 +1,7 @@
-use super::client_declaration::ClientDeclaration;
+use super::contract_declaration::ContractDeclaration;
 use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
+use super::contract_role::ContractRole;
 use super::go_contract_rewrite::GoContractRewrite;
 use super::rust_contract_rewrite::RustContractRewrite;
 use crate::behavior::HttpClientSource;
@@ -42,7 +43,7 @@ impl<'a> ContractRewrite<'a> {
             .unwrap_or("");
         ContractForm::of(extension)
             .filter(|form| form.has_contract())
-            .filter(|_| ClientDeclaration::is_mentioned(source))
+            .filter(|_| ContractRole::is_mentioned(source))
             .map_or(Ok(Vec::new()), |form| Self::new(form, source).all_edits())
     }
 
@@ -57,30 +58,46 @@ impl<'a> ContractRewrite<'a> {
 
     fn all_edits(&self) -> Result<Vec<SourceEdit>, String> {
         let nested: Vec<Vec<SourceEdit>> =
-            ClientDeclaration::find(self.form, self.source, &self.code)
+            ContractDeclaration::find(self.form, self.source, &self.code)
                 .iter()
-                .filter(|declaration| {
-                    !self
-                        .form
-                        .declares_contract(&self.code[declaration.header.clone()])
-                })
+                .filter(|declaration| self.is_class_form(declaration))
                 .map(|declaration| {
-                    Self::role_check(declaration).and_then(|()| self.declaration(declaration))
+                    Self::role_check(declaration)
+                        .and_then(|()| Self::entity_check(declaration))
+                        .and_then(|()| self.declaration(declaration))
                 })
                 .collect::<Result<_, _>>()?;
         Ok(nested.into_iter().flatten().collect())
     }
 
-    fn role_check(declaration: &ClientDeclaration) -> Result<(), String> {
-        declaration.other_role.as_ref().map_or(Ok(()), |role| {
+    fn is_class_form(&self, declaration: &ContractDeclaration) -> bool {
+        let contract = self
+            .form
+            .declares_contract(&self.code[declaration.header.clone()]);
+        let kept = declaration.keeps_class_form(self.form, &self.code);
+        [contract, kept] == [false, false]
+    }
+
+    fn role_check(declaration: &ContractDeclaration) -> Result<(), String> {
+        declaration.other_role.as_ref().map_or(Ok(()), |other| {
             Err(format!(
-                "{} is an HTTPClient and a {role}. Move the {role} code into its own class, then run the fix again.",
-                declaration.name
+                "{} is a {} and a {other}. Move the {other} code into its own class, then run the fix again.",
+                declaration.name, declaration.role.marker
             ))
         })
     }
 
-    fn declaration(&self, declaration: &ClientDeclaration) -> Result<Vec<SourceEdit>, String> {
+    fn entity_check(declaration: &ContractDeclaration) -> Result<(), String> {
+        let missing = [declaration.role.names_entity, declaration.names_entity] == [true, false];
+        (!missing).then_some(()).ok_or_else(|| {
+            format!(
+                "{} is a Store that names no Entity. A Store names the Entity it keeps: move its code into a service, then run the fix again.",
+                declaration.name
+            )
+        })
+    }
+
+    fn declaration(&self, declaration: &ContractDeclaration) -> Result<Vec<SourceEdit>, String> {
         match self.form.language {
             Self::RUST => RustContractRewrite::edits(self, declaration),
             Self::GO => GoContractRewrite::edits(self, declaration),
@@ -88,19 +105,19 @@ impl<'a> ContractRewrite<'a> {
         }
     }
 
-    fn braced(&self, declaration: &ClientDeclaration) -> Result<Vec<SourceEdit>, String> {
+    fn braced(&self, declaration: &ContractDeclaration) -> Result<Vec<SourceEdit>, String> {
         let mut edits = vec![(declaration.header.clone(), self.header(declaration))];
         let members: Vec<SourceEdit> = declaration
             .members(self.form, &self.code)
             .iter()
-            .map(|member| self.member_edit(&declaration.name, member))
+            .map(|member| self.member_edit(declaration, member))
             .collect::<Result<_, _>>()?;
         edits.extend(members);
         edits.extend(self.protocol_import());
         Ok(edits)
     }
 
-    fn header(&self, declaration: &ClientDeclaration) -> String {
+    fn header(&self, declaration: &ContractDeclaration) -> String {
         let text = &self.source[declaration.header.clone()];
         if self.form.language == Self::PYTHON {
             Self::python_header(text)
@@ -165,11 +182,11 @@ impl<'a> ContractRewrite<'a> {
         [context_field, starts, constructor].contains(&true)
     }
 
-    fn keeps_logic(&self, member: &ContractMember) -> bool {
+    fn keeps_logic(&self, role: ContractRole, member: &ContractMember) -> bool {
         [
             !member.method,
             member.has_code(&self.code),
-            !member.is_declared_call(),
+            !role.is_call(member, &self.code),
         ]
         .contains(&true)
     }
@@ -192,21 +209,27 @@ impl<'a> ContractRewrite<'a> {
 
     pub(crate) fn member_edit(
         &self,
-        client: &str,
+        declaration: &ContractDeclaration,
         member: &ContractMember,
     ) -> Result<SourceEdit, String> {
         self.is_context_scaffolding(member)
             .then(|| self.removal(member))
-            .map_or_else(|| self.signature_edit(client, member), Ok)
+            .map_or_else(|| self.signature_edit(declaration, member), Ok)
     }
 
-    fn signature_edit(&self, client: &str, member: &ContractMember) -> Result<SourceEdit, String> {
-        (!self.keeps_logic(member))
+    fn signature_edit(
+        &self,
+        declaration: &ContractDeclaration,
+        member: &ContractMember,
+    ) -> Result<SourceEdit, String> {
+        (!self.keeps_logic(declaration.role, member))
             .then(|| self.bodiless(member))
             .ok_or_else(|| {
                 format!(
-                    "{client}.{} holds code or state. An HTTPClient has no implementation: move it into a service, then run the fix again.",
-                    member.name(&self.code)
+                    "{}.{} holds code or state. {} Then run the fix again.",
+                    declaration.name,
+                    member.name(&self.code),
+                    declaration.role.no_implementation
                 )
             })
     }
