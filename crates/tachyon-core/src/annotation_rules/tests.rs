@@ -264,6 +264,19 @@ impl Sample {
                 "{class}\nclass SampleService\n  def load(\n{}    value\n  )\n    value\n  end\nend\n",
                 lines("    ")
             ),
+            ("lua", Target::Type) => format!("{all}\nSampleService = {{}}\n"),
+            ("lua", Target::Field) => format!(
+                "{class}\nSampleService = {{\n{}  value = nil,\n}}\n",
+                lines("  ")
+            ),
+            ("lua", Target::Method) => format!(
+                "{class}\nSampleService = {{}}\n\n{}function SampleService:load(value)\n  return value\nend\n",
+                lines("")
+            ),
+            ("lua", Target::Parameter) => format!(
+                "{class}\nSampleService = {{}}\n\nfunction SampleService:load(\n{}  value\n)\n  return value\nend\n",
+                lines("  ")
+            ),
             _ => panic!(
                 "add sample classes for the language '{language}' to annotation_rules/tests.rs"
             ),

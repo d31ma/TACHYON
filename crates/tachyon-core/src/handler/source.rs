@@ -3969,7 +3969,7 @@ final class Handler {
     fn yon_runs_only_its_framework_owned_languages() {
         let root = tempfile::tempdir().unwrap_or_else(|_| unreachable!());
         for (name, body) in [
-            ("server/workers/handler.lua", &b"#!/usr/bin/env lua\n"[..]),
+            ("server/workers/handler.nim", &b"echo \"hello\"\n"[..]),
             (
                 "server/workers/handler.zig",
                 &b"const std = @import(\"std\");\n"[..],

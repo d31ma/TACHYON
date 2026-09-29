@@ -9,6 +9,13 @@ impl LuaStyle {
     const CODE: u16 = 1357;
     const HELP: &'static str = "A Lua class file holds one global class table, `Name = {}`, with `-- @Role` comment markers and LuaCATS types above it, and its methods as `function Name:method(...)` (ADR 0085).";
 
+    pub(crate) fn check_rules(path: &Path, source: &str) -> Result<(), Failure> {
+        if LuaView::of(path, source).is_none() {
+            return Ok(());
+        }
+        crate::annotation_rules::AnnotationRules::check(path, source)
+    }
+
     pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
         let Some(view) = LuaView::of(path, source) else {
             return Ok(());

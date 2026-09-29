@@ -967,6 +967,18 @@ impl AnnotationRules {
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
+        if let Some(view) = crate::lua_source::LuaView::of(path, source) {
+            return Self::check_as(view.path(), view.text(), crate::lua_source::LuaSource::EXTENSION)
+                .map_err(|failure| view.failure(&failure));
+        }
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        Self::check_as(path, source, extension)
+    }
+
+    fn check_as(path: &Path, source: &str, spelling: &str) -> Result<(), Failure> {
         let extension = path
             .extension()
             .and_then(|value| value.to_str())
@@ -974,7 +986,7 @@ impl AnnotationRules {
         if !Self::LANGUAGES.contains(&extension) {
             return Ok(());
         }
-        let found = scan::Scan::run(extension, source);
+        let found = scan::Scan::run_as(extension, spelling, source);
         let realm = Realm::of(path);
         let problem = found
             .problem(realm)

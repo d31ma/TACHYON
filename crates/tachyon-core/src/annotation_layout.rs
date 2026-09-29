@@ -95,6 +95,7 @@ pub(crate) fn brace_depth_after(text: &str, mut depth: usize) -> usize {
 pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
     crate::fsharp_source::FsharpStyle::check(path, source)?;
     crate::lua_source::LuaStyle::validate(path, source)?;
+    crate::lua_source::LuaStyle::check_rules(path, source)?;
     LuaView::either(path, source, validate_source)
 }
 

@@ -24,6 +24,7 @@ struct Written {
 
 pub(super) struct Scan {
     language: String,
+    spelling: String,
     code: String,
     found: Vec<Found>,
 }
@@ -100,8 +101,13 @@ impl Scan {
     ];
 
     pub(super) fn run(extension: &str, source: &str) -> Self {
+        Self::run_as(extension, extension, source)
+    }
+
+    pub(super) fn run_as(extension: &str, spelling: &str, source: &str) -> Self {
         let mut scan = Self {
             language: extension.to_owned(),
+            spelling: spelling.to_owned(),
             code: String::new(),
             found: Vec::new(),
         };
@@ -587,7 +593,7 @@ impl Scan {
         class_names: &[&str],
     ) -> Option<String> {
         let rule = found.rule;
-        let language = self.language.as_str();
+        let language = self.spelling.as_str();
         if rule.is_retired() {
             return Some(Messages::retired(rule, language));
         }
