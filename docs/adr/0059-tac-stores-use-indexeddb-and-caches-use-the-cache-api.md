@@ -120,8 +120,9 @@ table, the TypeScript hover text and the other Tac languages did not know it.
 
 - A Tac application can cache and store browser data with annotations alone.
 - The Store and Cache built-ins exist in the JavaScript runtime and, through
-  the storage host, in Go, Rust, C# and Kotlin WebAssembly services (Kotlin
-  since ADR 0078) and in Dart and Ruby services. Native companions (Swift,
+  the storage host, in Go, Rust, C#, Kotlin and Swift WebAssembly services
+  (Kotlin since ADR 0078, Swift since ADR 0082) and in Dart and Ruby
+  services. Native companions (Swift,
   Android Kotlin, native Rust and C#) still
   configure their own adapters: they answer the page asynchronously from
   another process, so the synchronous page host does not reach them. The

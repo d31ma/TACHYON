@@ -567,6 +567,23 @@ machine contracts have their own, independent major versions.
   Kotlin, C#, PHP, Go, Rust, Swift and Dart where the rewrite behaves the
   same. `tac.simplify.suggest` and `simplify.suggest` hide them per realm.
   Docs: Going further > Simpler forms.
+- Swift web services exchange models and events with the page and use the
+  built-in cache and Store (ADR 0082 amendment). A model in `client/models`
+  may be a field, an argument, a result or an event: it crosses through
+  `Codable` with Tachyon's own encoder and decoder, so the program still
+  needs no Foundation. Events go through the page's event bus like Kotlin's
+  and Rust's, so a Swift listener hears every service and component on the
+  page, and a listener of a `@Topic` model reads the topic stream (Rust and
+  Kotlin web services get topic streams the same way). `@Cached`,
+  `@ClearCache`, `@UpdateCache`, `@AllOrNothing` and a Store with the
+  `indexeddb` adapter use the page's storage host when the Setup names no
+  adapter; the build no longer refuses them for Swift on the web. An `async`
+  Swift method runs to the end inside the call, so the page calls it like
+  any method. The Swift behavior runtime keeps time as 64-bit milliseconds
+  (`Int` is 32 bits in WebAssembly), and a wrong argument now says "A
+  service argument or field value has the wrong type." A small Swift program
+  grows by about 80 KB with Brotli (about 1.0 MB in all); the cache and Store
+  add about 30 KB more.
 - Swift Tac services run on the web as WebAssembly (the Swift SDK for
   WebAssembly, ADR 0082). A service with a `.swift` file and no browser
   sibling now reaches every target: macOS and iOS still link it, and the web,

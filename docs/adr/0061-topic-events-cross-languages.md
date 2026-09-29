@@ -70,7 +70,9 @@ it ignores its own copy.
 - All eleven Yon languages send and receive Topic events.
 - A page's `@OnEvent` listener for a `@Topic` model opens the topic stream
   through the page event bus: replay from the last position, and the same
-  reconnect delays as `@StreamRequest`. No `@HTTPClient` is needed.
+  reconnect delays as `@StreamRequest`. No `@HTTPClient` is needed. Since
+  ADR 0082, the same holds for a listener of a WebAssembly service that
+  lists its listeners to the page (Swift, Kotlin and Rust).
 
 ## Consequences
 
