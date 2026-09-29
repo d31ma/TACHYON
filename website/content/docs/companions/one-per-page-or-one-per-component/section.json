@@ -1,5 +1,30 @@
 {
   "heading": "One per page, or one per component",
   "body": "By default, a service is a page singleton: the page has one instance of it. Tachyon creates it when the first view that names it renders. Tachyon initialises it once, and every component that names it shares it. Tachyon disposes of it (cleans it up) when the user leaves the page. A service built from its component's properties is different. It has one instance for each component instance. Tachyon constructs it with those properties and disposes of it with the component. You write no constructor for it. A bare @NeedsAll (with no arguments) takes every uninitialised field, like Lombok's does. The properties with the same names fill those fields. This works the same in JavaScript, TypeScript, Dart, Rust, C# and Go. In Rust, C# and Go, it takes every field that a property names. No Lifetime is needed, because a page singleton is constructed with no properties at all (ADR 0039; an ADR is an architecture decision record). Use Lifetime({\"value\":\"prototype\"}) for a service that keeps state for each component but takes no properties. A view reads those fields directly, not through a method that returns them. Tachyon injects collaborators (other services that this service uses). It does not pass them as constructor arguments. In the view, properties from a parent and loop bindings have no service name in front of them. A service field can be declared, left undefined and named after another service. That field receives that singleton, in the same way a Yon service receives its collaborators.",
-  "code": { "file": "example.js" }
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/shared/data/snippet.json",
+      "code": {
+        "file": "client/shared/data/snippet.json"
+      }
+    },
+    {
+      "name": "client/components/snippet/list/tac.html",
+      "code": {
+        "file": "client/components/snippet/list/tac.html"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.js",
+      "code": {
+        "file": "client/services/SnippetService.js"
+      }
+    }
+  ]
 }
