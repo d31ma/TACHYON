@@ -187,15 +187,67 @@ function swiftWebAvailable() {
 }
 
 function writeSwiftFixture(project) {
+  write(project, 'client/setups/SwiftNotesSetup.swift', `@Setup
+final class SwiftNotesSetup {
+    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {
+        BehaviorAdapters()
+    }
+}
+`);
+  write(project, 'client/entities/SwiftNoteEntity.swift', `@Entity({"adapter":"indexeddb"})
+@Table("swiftNotes")
+final class SwiftNoteEntity {
+    @Id
+    var id: String = ""
+    var text: String = ""
+}
+`);
   write(project, 'client/components/storage/swift/tac.html', '<button id="swift-bump" on:click="swiftCounter.increment()">+</button>\n<p id="swift-count">{swiftCounter.count}</p>\n');
   write(project, 'client/services/SwiftCounterService.swift', `@Service
+@CacheSettings({"name":"swiftnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 final class SwiftCounterService {
     @LocalState
     var count: Int = 0
+    private var behaviors: BehaviorContext!
+    private var reads: Int = 0
+
+    @OnStart
+    func open() {
+        behaviors = try? Behaviors.create(SwiftNotesSetup.self, partition: "swift-notes", signal: BehaviorSignal())
+    }
 
     func increment() -> Int {
         count += 1
         return count
+    }
+
+    @Cached
+    func find(_ key: BehaviorJSON) async throws -> BehaviorJSON {
+        reads += 1
+        return .object(["key": key, "reads": .number(Double(reads))])
+    }
+
+    @ClearCache({"method":"find"})
+    func forget(_ key: BehaviorJSON) async throws -> BehaviorJSON {
+        key
+    }
+
+    func save(_ id: String, _ text: String) async throws -> BehaviorJSON {
+        try await notes().save(.object(["id": .string(id), "text": .string(text)]))
+    }
+
+    @AllOrNothing({"adapter":"indexeddb"})
+    func saveThenRefuse(_ id: String) async throws -> BehaviorJSON {
+        _ = try await save(id, "draft")
+        throw BehaviorError("the note was refused")
+    }
+
+    func list() async throws -> BehaviorJSON {
+        try await notes().find()
+    }
+
+    private func notes() throws -> BehaviorRepository {
+        try behaviors.repository(SwiftNoteEntity.self)
     }
 }
 `);
@@ -751,6 +803,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').list())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'the Ruby Store row survives a reload and the refused AllOrNothing saved nothing');
   if (StorageGate.withCSharp) await checkCSharpStorage(page, evaluate);
   if (StorageGate.withKotlin) await checkKotlinStorage(page, evaluate);
+  if (StorageGate.withSwift) await checkSwiftStorage(page, evaluate);
   await context.close();
 }
 
@@ -800,6 +853,19 @@ async function checkKotlinStorage(page, evaluate) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Kotlin cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').list())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'the Kotlin Store row survives a reload and the refused AllOrNothing saved nothing');
+}
+
+async function checkSwiftStorage(page, evaluate) {
+  expect(JSON.stringify(await evaluate(() => [__root('swiftCounter').find('a'), __root('swiftCounter').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Swift WebAssembly service reads its Cached value synchronously from memory');
+  await evaluate(() => __root('swiftCounter').forget('a'));
+  expect(JSON.stringify(await evaluate(() => __root('swiftCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the Swift service read again');
+  await evaluate(() => __root('swiftCounter').save('s1', 'kept'));
+  const refused = await evaluate(() => { try { __root('swiftCounter').saveThenRefuse('s2'); return ''; } catch (error) { return error.message; } });
+  expect(refused.includes('the note was refused'), true, 'a refused Swift AllOrNothing call reports its error');
+  await evaluate(StorageGate.settleCaches);
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(JSON.stringify(await evaluate(() => __root('swiftCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Swift cache entry survives a reload through the Cache API');
+  expect(JSON.stringify(await evaluate(() => __root('swiftCounter').list())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'the Swift Store row survives a reload and the refused AllOrNothing saved nothing');
 }
 
 async function checkInjectedClients(page) {
@@ -1012,7 +1078,7 @@ async function main() {
     console.log('skipping the C# storage check: the .NET wasm-tools workload is not installed');
   }
   if (!StorageGate.withKotlin) console.log('skipping the Kotlin storage check: kotlinc-js or TAC_KOTLIN_WASM_STDLIB is missing');
-  if (!StorageGate.withSwift) console.log('skipping the Swift stored-field check: TAC_SWIFT_WASM_SDK is not set');
+  if (!StorageGate.withSwift) console.log('skipping the Swift storage check: TAC_SWIFT_WASM_SDK is not set');
   let project;
   let server;
   let browser;

@@ -113,8 +113,8 @@ impl SwiftFixtures {
              @Cached\n    func find(_ key: BehaviorJSON) async throws -> BehaviorJSON {\n        reads += 1\n        return .object([\"key\": key, \"reads\": .number(Double(reads))])\n    }\n\n    \
              @ClearCache({\"method\":\"find\"})\n    func forget(_ key: BehaviorJSON) async throws -> BehaviorJSON {\n        key\n    }\n\n    \
              func save(_ id: String, _ text: String) async throws -> BehaviorJSON {\n        try await notes().save(.object([\"id\": .string(id), \"text\": .string(text)]))\n    }\n\n    \
-             @AllOrNothing({\"adapter\":\"indexeddb\"})\n    func saveThenRefuse(_ id: BehaviorJSON) async throws -> BehaviorJSON {\n        \
-             _ = try await notes().save(.object([\"id\": id, \"text\": .string(\"draft\")]))\n        throw BehaviorError(\"the note was refused\")\n    }\n\n    \
+             @AllOrNothing({\"adapter\":\"indexeddb\"})\n    func saveThenRefuse(_ id: String) async throws -> BehaviorJSON {\n        \
+             _ = try await save(id, \"draft\")\n        throw BehaviorError(\"the note was refused\")\n    }\n\n    \
              func list() async throws -> BehaviorJSON {\n        try await notes().find()\n    }\n\n    \
              private func notes() throws -> BehaviorRepository {\n        try behaviors.repository(NoteEntity.self)\n    }\n}\n",
         ),
