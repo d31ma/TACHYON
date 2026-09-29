@@ -5,6 +5,6 @@ class GreetingControllerTest
 
   def test_get_greeting_uses_the_fake
     self.greeting_service = Struct.new(:message).new("Hi")
-    raise "expected Hi" unless construct(GreetingController).get_greeting["message"] == "Hi"
+    Assert.equals("Hi", construct(GreetingController).get_greeting["message"])
   end
 end

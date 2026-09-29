@@ -3,6 +3,6 @@ class DartGreetingServiceTest {
   Future<void> testGreetChangesTheMessage() async {
     final greeting = DartGreetingService();
     greeting.greet();
-    if (greeting.message != 'Dart says hello again.') throw StateError('message is ${greeting.message}');
+    Assert.equals('Dart says hello again.', greeting.message);
   }
 }

@@ -2,6 +2,6 @@
 #[Test(PhpGreetingTestSetup::class, {"partition":"tests"})]
 class PhpGreetingControllerTest {
     public function testGetGreetingSaysHello(): void {
-        if ((new PhpGreetingController())->getGreeting() !== 'Hello from PHP') throw new Exception('expected a greeting');
+        Assert::equals('Hello from PHP', (new PhpGreetingController())->getGreeting());
     }
 }

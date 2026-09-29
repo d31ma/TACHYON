@@ -3,6 +3,6 @@ class RubyGreetingServiceTest
   def test_greet_changes_the_message
     greeting = RubyGreetingService.new
     greeting.greet
-    raise "message is #{greeting.message}" unless greeting.message == "Ruby says hello again."
+    Assert.equals("Ruby says hello again.", greeting.message)
   end
 end

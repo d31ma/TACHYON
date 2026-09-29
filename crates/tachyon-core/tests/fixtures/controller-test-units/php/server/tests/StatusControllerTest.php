@@ -2,6 +2,6 @@
 #[Test(StatusTestSetup::class, {"partition":"tests"})]
 class StatusControllerTest {
     public function testGetStatusSaysOk(): void {
-        if ((new StatusController())->getStatus() !== 'ok') throw new Exception('expected ok');
+        Assert::equals('ok', (new StatusController())->getStatus());
     }
 }

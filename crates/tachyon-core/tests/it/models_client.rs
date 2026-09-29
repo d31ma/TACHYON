@@ -33,7 +33,7 @@ impl TestUnit {
         program: "dart",
         configuration: "@Setup()\nclass CatalogSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n",
         model: "class Guide {\n  final String title;\n  final int pages;\n\n  const Guide(this.title, this.pages);\n}\n",
-        source: "import 'models/Guide.dart';\n\n@Test(CatalogSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  Future<void> testUsesAModel() async {\n    const guide = Guide('Guide', 3);\n    if (guide.pages != 3 || guide.title != 'Guide') throw StateError('wrong guide');\n  }\n}\n",
+        source: "import 'models/Guide.dart';\n\n@Test(CatalogSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  Future<void> testUsesAModel() async {\n    const guide = Guide('Guide', 3);\n    Assert.equals(3, guide.pages);\n    Assert.equals('Guide', guide.title);\n  }\n}\n",
     };
 
     const KOTLIN: Self = Self {
@@ -49,7 +49,7 @@ impl TestUnit {
         program: "swiftc",
         configuration: "@Setup()\nfinal class CatalogSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        var adapters = BehaviorAdapters()\n        adapters.authorize = { _, _ in true }\n        return adapters\n    }\n}\n",
         model: "import Foundation\n\nstruct Guide: Codable, Equatable {\n    let title: String\n    var pages: Int = 0\n}\n",
-        source: "@Test(CatalogSetup, {\"partition\":\"tests\"})\nfinal class CatalogServiceTest {\n    func testUsesAModel() async throws {\n        let guide = Guide(title: \"Guide\", pages: 3)\n        if guide.pages != 3 || guide.title != \"Guide\" { throw BehaviorError(\"WRONG_GUIDE\") }\n    }\n}\n",
+        source: "@Test(CatalogSetup, {\"partition\":\"tests\"})\nfinal class CatalogServiceTest {\n    func testUsesAModel() async throws {\n        let guide = Guide(title: \"Guide\", pages: 3)\n        try Assert.equals(Guide(title: \"Guide\", pages: 3), guide)\n    }\n}\n",
     };
 }
 

@@ -161,7 +161,7 @@ async fn a_php_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.php",
-        "<?php\n#[Test(CatalogTestSetup::class, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest {\n    public function testOpensAContext(): void {\n        if ($this->behaviors === null) throw new Exception('no context');\n    }\n    public function testReportsAFailure(): void {\n        throw new Exception('this case is meant to fail');\n    }\n}\n",
+        "<?php\n#[Test(CatalogTestSetup::class, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest {\n    public function testOpensAContext(): void {\n        Assert::isTrue($this->behaviors !== null, 'the case has a context');\n    }\n    public function testReportsAFailure(): void {\n        Assert::isTrue(false, 'this case is meant to fail');\n    }\n}\n",
     );
 
     let source = HandlerSource::discover(root.path(), "server/tests/CatalogServiceTest.php")
@@ -253,7 +253,7 @@ async fn every_compiled_language_runs_its_test_unit() {
             "dart",
             "dart",
             "@TestSetup\nclass CatalogTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n",
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  Future<void> testOpensAContext() async {\n    if (behaviors == null) throw StateError('no context');\n  }\n  Future<void> testReportsAFailure() async {\n    throw StateError('this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  Future<void> testOpensAContext() async {\n    Assert.isTrue(behaviors != null, 'the case has a context');\n  }\n  Future<void> testReportsAFailure() async {\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
         ),
         (
             "rs",
@@ -265,7 +265,7 @@ async fn every_compiled_language_runs_its_test_unit() {
             "go",
             "go",
             "// @TestSetup\ntype CatalogTestSetup struct{}\n\nfunc (CatalogTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n",
-            "// @Test(CatalogTestSetup, {\"partition\":\"tests\"})\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CatalogServiceTest) TestOpensAContext() error {\n\tif test.behaviors == nil {\n\t\treturn &BehaviorError{Code: \"adapter\", Message: \"no context\"}\n\t}\n\treturn nil\n}\n\nfunc (test *CatalogServiceTest) TestReportsAFailure() error {\n\treturn &BehaviorError{Code: \"adapter\", Message: \"this case is meant to fail\"}\n}\n",
+            "// @Test(CatalogTestSetup, {\"partition\":\"tests\"})\ntype CatalogServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CatalogServiceTest) TestOpensAContext() {\n\tAssert.IsTrue(test.behaviors != nil, \"the case has a context\")\n}\n\nfunc (test *CatalogServiceTest) TestReportsAFailure() {\n\tAssert.IsTrue(false, \"this case is meant to fail\")\n}\n",
         ),
     ] {
         if !tool_available(probe) {
@@ -362,14 +362,14 @@ async fn a_tac_test_unit_runs_in_its_own_realm() {
             Some(
                 "import 'models/CatalogDoubled.dart';\n@Service()\nclass CatalogService {\n  @Needs()\n  final ApplicationEventPublisher applicationEventPublisher;\n  String title = 'Catalog';\n\n  int double(int value) {\n    applicationEventPublisher.publishEvent(CatalogDoubled(value));\n    return value * 2;\n  }\n}\n",
             ),
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  Future<void> testUsesAService() async {\n    final publisher = ApplicationEventPublisher();\n    if (CatalogService(publisher).double(4) != 8) throw StateError('expected 8');\n    if (publisher.published.length != 1) throw StateError('expected one publication');\n  }\n  Future<void> testHasAContext() async {\n    if (behaviors == null) throw StateError('no context');\n  }\n  Future<void> testReportsAFailure() async {\n    throw StateError('this case is meant to fail');\n  }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\nclass CatalogServiceTest {\n  Future<void> testUsesAService() async {\n    final publisher = ApplicationEventPublisher();\n    Assert.equals(8, CatalogService(publisher).double(4));\n    Assert.equals(1, publisher.published.length, 'one publication');\n  }\n  Future<void> testHasAContext() async {\n    Assert.isTrue(behaviors != null, 'the case has a context');\n  }\n  Future<void> testReportsAFailure() async {\n    Assert.isTrue(false, 'this case is meant to fail');\n  }\n}\n",
         ),
         (
             "swift",
             "swiftc",
             "@TestSetup()\nfinal class CatalogTestSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        var adapters = BehaviorAdapters()\n        adapters.authorize = { _, _ in true }\n        return adapters\n    }\n}\n",
             None,
-            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nfinal class CatalogServiceTest {\n    func testHasAContext() async throws {\n        if behaviors == nil { throw BehaviorError(\"NO_CONTEXT\") }\n    }\n    func testReportsAFailure() async throws {\n        throw BehaviorError(\"MEANT_TO_FAIL\")\n    }\n}\n",
+            "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nfinal class CatalogServiceTest {\n    func testHasAContext() async throws {\n        try Assert.isTrue(behaviors != nil, \"the case has a context\")\n    }\n    func testReportsAFailure() async throws {\n        try Assert.isTrue(false, \"this case is meant to fail\")\n    }\n}\n",
         ),
     ] {
         assert_tac_unit(extension, probe, configuration, service, unit);
@@ -508,7 +508,7 @@ async fn a_dart_unit_reaches_the_services_its_service_injects() {
     write(
         root.path(),
         relative,
-        "@Test(ShopSetup, {\"partition\":\"tests\"})\nclass CheckoutServiceTest {\n  Future<void> testBuyAddsToTheBasket() async {\n    final checkout = CheckoutService()..basket = BasketService();\n    checkout.buy();\n    if (checkout.basket.count != 2) throw StateError('expected 2');\n  }\n\n  Future<void> testRestockCallsTheShop() async {\n    final checkout = CheckoutService()\n      ..shop = TacService({'stock': 1}, {'restock': (arguments) => 1 + (arguments.first as int)});\n    if (await checkout.restock() != 4) throw StateError('expected 4');\n  }\n}\n",
+        "@Test(ShopSetup, {\"partition\":\"tests\"})\nclass CheckoutServiceTest {\n  Future<void> testBuyAddsToTheBasket() async {\n    final checkout = CheckoutService()..basket = BasketService();\n    checkout.buy();\n    Assert.equals(2, checkout.basket.count);\n  }\n\n  Future<void> testRestockCallsTheShop() async {\n    final checkout = CheckoutService()\n      ..shop = TacService({'stock': 1}, {'restock': (arguments) => 1 + (arguments.first as int)});\n    Assert.equals(4, await checkout.restock());\n  }\n}\n",
     );
     let report = tachyon_core::client_tests::run(root.path(), std::path::Path::new(relative))
         .unwrap_or_else(|error| panic!("{error:?}"));
@@ -571,7 +571,7 @@ async fn a_ruby_test_unit_runs_its_cases_through_the_supervisor() {
     write(
         root.path(),
         "server/tests/CatalogServiceTest.rb",
-        "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest\n  #[Fake]\n  attr_accessor :catalog_counter_helper\n\n  def test_opens_a_context\n    raise \"no context\" if @behaviors.nil?\n    raise \"a fake starts empty\" unless catalog_counter_helper.nil?\n    self.catalog_counter_helper = Struct.new(:count).new(4)\n    raise \"wrong total\" unless construct(CatalogService).total == 8\n  end\n\n  def test_reports_a_failure\n    self.catalog_counter_helper = Struct.new(:count).new(1)\n    raise \"this case is meant to fail\"\n  end\nend\n",
+        "#[Test(CatalogTestSetup, {\"partition\":\"tests\"})]\n#[UseProfiles(\"test\")]\nclass CatalogServiceTest\n  #[Fake]\n  attr_accessor :catalog_counter_helper\n\n  def test_opens_a_context\n    Assert.is_true(!@behaviors.nil?, \"the case has a context\")\n    Assert.equals(nil, catalog_counter_helper, \"a fake starts empty\")\n    self.catalog_counter_helper = Struct.new(:count).new(4)\n    Assert.equals(8, construct(CatalogService).total, \"the total\")\n  end\n\n  def test_reports_a_failure\n    self.catalog_counter_helper = Struct.new(:count).new(1)\n    Assert.is_true(false, \"this case is meant to fail\")\n  end\nend\n",
     );
     let relative = "server/tests/CatalogServiceTest.rb";
     let source = HandlerSource::discover(root.path(), relative).expect("test unit discovery");

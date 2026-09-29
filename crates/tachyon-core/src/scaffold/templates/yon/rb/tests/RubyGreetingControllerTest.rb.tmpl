@@ -1,6 +1,6 @@
 #[Test(RubyGreetingTestSetup, {"partition":"tests"})]
 class RubyGreetingControllerTest
   def test_get_greeting_says_hello
-    raise "expected a greeting" unless construct(RubyGreetingController).get_greeting == "Hello from Ruby"
+    Assert.equals("Hello from Ruby", construct(RubyGreetingController).get_greeting)
   end
 end

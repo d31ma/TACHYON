@@ -1,6 +1,6 @@
 #[Test(GreetingTestSetup, {"partition":"tests"})]
 class StatusControllerTest
   def test_get_status_says_ok
-    raise "expected ok" unless construct(StatusController).get_status == "ok"
+    Assert.equals("ok", construct(StatusController).get_status)
   end
 end
