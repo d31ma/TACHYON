@@ -472,6 +472,23 @@ machine contracts have their own, independent major versions.
   `assert_ne!` count as assertions. It is off by default (`tests.check` /
   `tac.tests.check`) until every test unit is rewritten; `ty migrate check`
   lists the cases to change.
+- Release builds compile every WebAssembly service language with the
+  compiler and settings that make the smallest download, and `ty build`
+  prints one line per language that says which compiler it used and why
+  (ADR 0081, docs "WebAssembly compilers per language"). Rust uses
+  `opt-level=z`, LTO and one codegen unit, then Binaryen `wasm-opt -Oz`. Go
+  uses TinyGo (`-opt=z`) first and falls back to the standard Go compiler,
+  with a note, when TinyGo is missing or cannot compile the services;
+  `tac.go.compiler` (`"tinygo"` or `"go"`) in `client/manifest.json` forces
+  one. C# and F# use the trimmed .NET interpreter with Emscripten
+  `-Oz`; `tac.dotnet.aot: true` compiles them ahead of time instead. Dart
+  uses `dart compile wasm -O4`. Development builds keep the fast settings.
+  `ty doctor` lists TinyGo and `wasm-opt` as optional tools, and `ty init`
+  offers to install TinyGo 0.42.0 and Binaryen version_133.
+  For one small service the release download (Brotli) shrinks from 678.5 KiB
+  to 98.0 KiB in Go, 56.7 KiB to 48.6 KiB in Rust and 16.8 KiB to 16.5 KiB in
+  Dart; C# changes by under 1%.
+
 - Groovy is a Yon language (ADR 0072). Controllers, services and the other
   roles, models, error handlers, workers, `middleware.groovy` and test units
   are `.groovy` files with the Java annotations (`@Service`,

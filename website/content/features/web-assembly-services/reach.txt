@@ -1,5 +1,5 @@
 TallyService.rs  one small module, from rustc --target wasm32-unknown-unknown
-TallyService.go  one module with the Go runtime, about 2.7 MB, from GOOS=js GOARCH=wasm
+TallyService.go  one module, about 300 KB from TinyGo in a release build (2.7 MB from the standard Go compiler)
 TallyService.cs  the .NET browser runtime, about 3 MB, cached once
 TallyService.fs  the same .NET browser runtime, plus a small F# library
 TallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc

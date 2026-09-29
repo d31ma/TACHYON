@@ -45,6 +45,7 @@
     "types-in-every-language",
     "test-units",
     "build-and-deploy",
+    "webassembly-compilers",
     "request-ids",
     "cookbook",
     "annotations",
@@ -144,6 +145,7 @@
       "topics": [
         "test-units",
         "build-and-deploy",
+        "webassembly-compilers",
         "request-ids"
       ]
     },
@@ -311,6 +313,9 @@
     },
     "build-and-deploy": {
       "include": "build-and-deploy/topic.json"
+    },
+    "webassembly-compilers": {
+      "include": "webassembly-compilers/topic.json"
     },
     "request-ids": {
       "include": "request-ids/topic.json"

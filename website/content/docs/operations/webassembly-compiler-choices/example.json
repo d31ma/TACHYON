@@ -1,0 +1,6 @@
+{
+  "tac": {
+    "go": { "compiler": "tinygo" },
+    "dotnet": { "aot": true }
+  }
+}

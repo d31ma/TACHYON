@@ -28,7 +28,7 @@
     },
     {
       "name": "client/services/TallyService.dart",
-      "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC). It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.",
+      "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC), at -O4 in a release build. It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.",
       "code": {
         "file": "client/services/TallyService.dart"
       }
@@ -38,11 +38,11 @@
       "code": {
         "file": "client/services/TallyService.rs"
       },
-      "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts, where it can call platform APIs. For the web, iOS and Android, it compiles to WebAssembly."
+      "note": "rustc compiles the service and links it into the macOS, Windows and Linux desktop hosts, where it can call platform APIs. For the web, iOS and Android, it compiles to WebAssembly; a release build tunes rustc for size and runs Binaryen wasm-opt."
     },
     {
       "name": "client/services/TallyService.go",
-      "note": "Go compiles the service to WebAssembly. No native host links Go, so every target runs the module in its web view.",
+      "note": "Go compiles the service to WebAssembly: a release build uses TinyGo for a much smaller module, and the standard Go compiler when TinyGo is missing or cannot build it. No native host links Go, so every target runs the module in its web view.",
       "code": {
         "file": "client/services/TallyService.go"
       }
@@ -73,7 +73,7 @@
       "code": {
         "file": "client/services/TallyService.cs"
       },
-      "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the .NET browser runtime."
+      "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the trimmed .NET browser runtime (compiled ahead of time when tac.dotnet.aot is true)."
     },
     {
       "name": "client/services/TallyService.fs",

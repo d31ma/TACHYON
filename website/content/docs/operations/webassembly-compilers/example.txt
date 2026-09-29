@@ -1,0 +1,6 @@
+$ ty build
+Build took 41.2s: ...
+Rust: rustc tuned for size (opt-level z, LTO, one codegen unit), then Binaryen wasm-opt -Oz
+Go: TinyGo (the smallest download), then Binaryen wasm-opt
+C#: the trimmed .NET interpreter (IL trimming, invariant globalization, Emscripten -Oz) for the smallest download; set tac.dotnet.aot to true in client/manifest.json when a service does heavy computing
+Dart: dart compile wasm -O4, which runs Binaryen itself and drops runtime type checks for the smallest, fastest module; development builds keep -O2 with the checks
