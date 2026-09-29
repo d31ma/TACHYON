@@ -546,3 +546,19 @@ fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
     );
     assert!(class_form.is_none(), "{class_form:?}");
 }
+
+#[test]
+fn an_object_type_in_a_typescript_signature_is_not_a_body() {
+    let path = Path::new("client/clients/CatalogClient.ts");
+    let typed = "@HTTPClient\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<{ items: string[] } | void> {}\n}\n";
+    let checked = HttpContract::check(path, typed);
+    assert!(checked.is_ok(), "{checked:?}");
+    let written = "@HTTPClient\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<{ items: string[] } | void> { return { items: [] }; }\n}\n";
+    let refused = HttpContract::check(path, written)
+        .expect_err("a body after an object type is refused")
+        .to_string();
+    assert!(
+        refused.contains("CatalogClient.all has a body"),
+        "{refused}"
+    );
+}

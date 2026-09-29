@@ -26,6 +26,7 @@ impl<'a> MemberScanner<'a> {
     const CLOSERS: [u8; 3] = *b")]}";
     const NAME_PUNCTUATION: [u8; 2] = *b"_:";
     const COMPARISONS: [u8; 4] = *b"=!<>";
+    const TYPE_POSITIONS: [u8; 5] = *b"<:|&,";
     const BRACKET: char = '[';
     const ARROW: &'static str = "->";
     const KOTLIN: &'static str = "kt";
@@ -165,6 +166,7 @@ impl<'a> MemberScanner<'a> {
             b'(' | b'[' => Self::OPEN,
             b')' | b']' => Self::CLOSE,
             b'{' if top && member.expression => Self::SKIP,
+            b'{' if top && self.opens_type_literal() => Self::SKIP,
             b'{' if top => Self::BODY,
             b';' if top && member.expression => Self::EXPRESSION_END,
             b';' if top => Self::TERMINATOR,
@@ -252,6 +254,14 @@ impl<'a> MemberScanner<'a> {
 
     fn signature_end(&self, start: usize) -> usize {
         start + self.code[start..self.at].trim_end().len()
+    }
+
+    fn opens_type_literal(&self) -> bool {
+        let before = self.code[..self.at].trim_end();
+        before
+            .bytes()
+            .last()
+            .is_some_and(|byte| Self::TYPE_POSITIONS.contains(&byte))
     }
 
     fn is_assignment(&self) -> bool {
