@@ -78,7 +78,7 @@ export default class ${name} {
   result = 0;
   tag = '';
   visible = true;
-  #trace = [];
+  _trace = [];
   @OnStart()
   initialize() {
     this.#requireValidOwner();
@@ -99,7 +99,7 @@ export default class ${name} {
   receive(${counter.parameter}) { this.result = value.value; }
   reject() { throw new Error('private rejected publication'); }
   exercise() {
-    this.#trace = [];
+    this._trace = [];
     ${typed(extension, 'large', 'Order')} = { status: 'paid', total: 12 };
     ${typed(extension, 'small', 'Order')} = { status: 'paid', total: 3 };
     ${typed(extension, 'open', 'Order')} = { status: 'open', total: 50 };
@@ -112,21 +112,21 @@ export default class ${name} {
     this.applicationEventPublisher.publishEvent(broken);
     this.applicationEventPublisher.publishEvent(shipped);
     this.applicationEventPublisher.publishEvent(returned);
-    return this.#trace;
+    return this._trace;
   }
   ${moved.doc}@OnEvent
-  moved(${moved.parameter}) { this.#trace.push('moved:' + value.id); }
+  moved(${moved.parameter}) { this._trace.push('moved:' + value.id); }
   ${large.doc}@OnEvent({"condition":"value.status == 'paid' && value.total >= 10"})
   @Order(5)
-  large(${large.parameter})${large.returns} { this.#trace.push('large:' + value.total); return { total: value.total }; }
+  large(${large.parameter})${large.returns} { this._trace.push('large:' + value.total); return { total: value.total }; }
   ${any.doc}@OnEvent
   @Order(-1)
-  any(${any.parameter}) { this.#trace.push('any:' + value.total); }
+  any(${any.parameter}) { this._trace.push('any:' + value.total); }
   ${unpaid.doc}@OnEvent({"condition":"value.status != 'paid'"})
   @InBackground()
-  async unpaid(${unpaid.parameter})${unpaid.returns} { this.#trace.push('unpaid:' + value.total); return { total: -1 }; }
+  async unpaid(${unpaid.parameter})${unpaid.returns} { this._trace.push('unpaid:' + value.total); return { total: -1 }; }
   ${invoiced.doc}@OnEvent
-  invoiced(${invoiced.parameter}) { this.#trace.push('invoice:' + value.total); }
+  invoiced(${invoiced.parameter}) { this._trace.push('invoice:' + value.total); }
   @OnStop()
   destroy() { globalThis.pageDestroyed = this.lifecycle.aborted; }
 }`
