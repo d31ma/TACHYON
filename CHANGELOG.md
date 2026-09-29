@@ -1754,6 +1754,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Rust, Kotlin and Swift web services now accept a start-up request of up to
+  1 MiB, like Go, C# and Ruby, so a view can pass them a bigger data file.
+  A method call keeps the 64 KiB limit and its error names the method, for
+  example "The request to add is 70121 bytes. The limit is 65536 bytes." Before,
+  they refused every request over 64 KiB, and Swift answered only "Malformed
+  companion request." (ADR 0037).
 - A Tac service request that is too big now fails with an error that names
   the size and the limit, for example "Web service documentation: The request
   is 1072202 bytes. The limit is 1048576 bytes. Pass less data to the

@@ -70,6 +70,9 @@ page and import one method back.
   is 65536 bytes. Pass less data to the service." The page adds the service
   name in front. (Added 2026-09-28; before, C# answered only "Native
   companion operation failed.")
+- Rust, Kotlin and Swift services follow the same two limits: 1 MiB for
+  `init` and 64 KiB for every other request. (Added 2026-09-29; before, they
+  refused any request over 64 KiB, `init` included.)
 - The Linux host's CSP (Content Security Policy) allows `wasm-unsafe-eval`,
   because Linux links no C#.
 - `ty doctor` checks for the `wasm-tools` workload.
