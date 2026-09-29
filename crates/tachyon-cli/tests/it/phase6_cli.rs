@@ -235,11 +235,11 @@ fn write_project_before_the_breaking_changes(root: &Path) {
     );
     write(
         &root.join("client/services/CartService.js"),
-        "import { Service } from 'tachyon:behaviors'\n\n@Service\nexport default class CartService {\n  @Autowired\n  cartRepository\n\n  @PostConstruct\n  start() {\n    this.cartRepository.items.push(1)\n  }\n\n  total() {\n    return this.cartRepository.items.length\n  }\n}\n",
+        "import { Service } from 'tachyon:behaviors'\n\n@Service\nexport default class CartService {\n  @Autowired\n  cartComponent\n\n  @PostConstruct\n  start() {\n    this.cartComponent.items.push(1)\n  }\n\n  total() {\n    return this.cartComponent.items.length\n  }\n}\n",
     );
     write(
-        &root.join("client/repositories/CartRepository.js"),
-        "@Repository\nexport default class CartRepository {\n  items = []\n}\n",
+        &root.join("client/delegates/CartComponent.js"),
+        "@Component\nexport default class CartComponent {\n  items = []\n}\n",
     );
     write(
         &root.join("server/routes/yon.js"),
@@ -290,7 +290,7 @@ fn migrate_fix_writes_the_automatic_fixes_and_the_project_builds() {
     );
     assert!(
         stdout(&written).contains(
-            "moved    client/repositories/CartRepository.js -> client/stores/CartStore.js"
+            "moved    client/delegates/CartComponent.js -> client/helpers/CartHelper.js"
         ),
         "{}",
         stdout(&written)

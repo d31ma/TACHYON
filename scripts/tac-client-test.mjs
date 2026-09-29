@@ -53,8 +53,8 @@ export default class Products${extension.toUpperCase()}Service {
 function writeProviderFixtures(root) {
   write(root, 'client/helpers/CatalogPriceHelper.js', `@Helper()
 class CatalogPriceHelper {
-  prices = { 1: 5 };
-  price(id) { return this.prices[id] ?? 0; }
+  _prices = { 1: 5 };
+  price(id) { return this._prices[id] ?? 0; }
 }`)
   write(root, 'client/helpers/PricingHelper.js', `@Helper()
 @NeedsAll()
