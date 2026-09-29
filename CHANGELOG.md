@@ -1727,6 +1727,9 @@ machine contracts have their own, independent major versions.
   failed.". The docs pages now pass `guides.json`: the reading order, the
   groups and each guide's title and summary. A website test keeps every data
   file that a template names at 1 MiB or less.
+- The test rule (`TY1339`) now reads only test units. Before, it scanned
+  every JavaScript, TypeScript, Python and Rust file, and a large minified
+  library made `ty build` of the website take more than ten minutes.
 
 - A page with both Kotlin and Go WebAssembly services now starts. Go's
   `wasm_exec.js` puts a small `process` object on the page, and the Kotlin
