@@ -1,7 +1,9 @@
 @Entity({"adapter":"ledger"})
 @Table('entries')
-class EntryEntity {
+export default class EntryEntity {
   /** @type {number} */
   @Id
   id;
+  /** @type {string} */
+  status;
 }

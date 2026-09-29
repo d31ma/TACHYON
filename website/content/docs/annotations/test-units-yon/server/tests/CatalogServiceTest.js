@@ -1,6 +1,7 @@
 @Test(CatalogTestSetup, {"partition":"tests"})
 @UseProfiles("test")
 export default class CatalogServiceTest {
+  /** @type {CatalogCounterHelper} */
   @Fake
   catalogCounterHelper;
 

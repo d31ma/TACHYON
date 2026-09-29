@@ -1,4 +1,4 @@
 @Setup
-class OrdersSetup {
+export default class OrdersSetup {
   static configure() { return {}; }
 }

@@ -11,7 +11,16 @@ export default class ProductService {
     const page = products.bounded({ size: 5 });
     const rows = await products.excluding('retired', page);
     const activeCount = await products.countByStatus('active');
-    this.summary = `${rows.length} of ${activeCount} active`;
+    this.summary = this.#summaryOf(rows, activeCount);
     context.dispose();
+  }
+
+  /**
+   * @param {ProductEntity[] | void} rows
+   * @param {number | void} activeCount
+   * @returns {string}
+   */
+  #summaryOf(rows, activeCount) {
+    return `${rows ? rows.length : 0} of ${activeCount} active`;
   }
 }

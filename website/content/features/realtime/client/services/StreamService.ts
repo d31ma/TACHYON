@@ -1,4 +1,4 @@
-import type { Tick } from '/models/Tick';
+import type { Tick } from '/models/Tick.ts';
 
 @Service
 export default class StreamService {

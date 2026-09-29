@@ -2,7 +2,7 @@
 @Public
 class CatalogController {
   @Needs
-  catalogStore: CatalogStore;
+  catalogStore!: CatalogStore;
   @GetRoute
   getCatalog() { return this.catalogStore.find(); }
 }

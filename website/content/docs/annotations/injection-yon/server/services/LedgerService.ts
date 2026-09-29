@@ -1,6 +1,6 @@
 @Service
-class LedgerService {
+export default class LedgerService {
   @Needs
-  repository: LedgerStore;
+  repository!: LedgerStore;
   subtotal(): number { return this.repository.subtotal(); }
 }

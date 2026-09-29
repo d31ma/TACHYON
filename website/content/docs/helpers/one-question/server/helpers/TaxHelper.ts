@@ -1,7 +1,7 @@
 @Helper
-class TaxHelper {
+export default class TaxHelper {
   @Needs
-  store: TaxRateStore;
+  store!: TaxRateStore;
 
   addTax(subtotal: number): number {
     const tax = this.store.rate();

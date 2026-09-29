@@ -1,4 +1,4 @@
-import type { ChatMessage } from '/models/ChatMessage'
+import type { ChatMessage } from '/models/ChatMessage.ts'
 
 @SocketRoute('/chat')
 @Public

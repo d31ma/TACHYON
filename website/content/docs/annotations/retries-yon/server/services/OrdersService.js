@@ -1,5 +1,5 @@
 @Service
-class OrdersService {
+export default class OrdersService {
   /** @type {BehaviorContext} */
   behaviors;
   static _FIRST_WORKING_ATTEMPT = 3;

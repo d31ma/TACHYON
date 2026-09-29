@@ -1,4 +1,4 @@
 @TestSetup
-class PriceTestSetup {
+export default class PriceTestSetup {
   static configure() { return {}; }
 }

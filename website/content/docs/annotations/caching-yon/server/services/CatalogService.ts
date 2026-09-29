@@ -1,6 +1,6 @@
 @Service
 @CacheSettings({"name":"catalog","ttlMs":30000,"maxBytes":65536,"maxEntries":256})
-class CatalogService {
+export default class CatalogService {
   behaviors!: BehaviorContext;
   reads = 0;
 

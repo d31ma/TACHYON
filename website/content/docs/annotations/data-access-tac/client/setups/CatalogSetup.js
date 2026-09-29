@@ -1,7 +1,8 @@
 @Setup
-class CatalogSetup {
-  /** @returns {object} */
+export default class CatalogSetup {
+  /** @returns {BehaviorConfiguration} */
   static configure() {
+    /** @param {BehaviorEntityCommand} command */
     const fetchRows = async (command) => {
       const response = await fetch(`/api/${command.table}`, { headers: { accept: 'application/json' } });
       return response.json();

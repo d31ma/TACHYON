@@ -1,5 +1,5 @@
 @Service
-class CatalogService {
+export default class CatalogService {
   @Needs
   catalogCounterHelper!: CatalogCounterHelper;
 

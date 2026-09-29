@@ -1,7 +1,7 @@
 import type { Greeting } from '/models/Greeting.ts'
 
 @HTTPClient
-class GreetingClient {
+export default class GreetingClient {
   @GetRequest("/api/greeting")
-  async getGreeting(): Promise<Greeting> {}
+  async getGreeting(): Promise<Greeting | void> {}
 }

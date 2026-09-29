@@ -1,7 +1,7 @@
-import type { ProbeReady } from '/models/ProbeReady';
+import type { ProbeReady } from '/models/ProbeReady.ts';
 
 @Service
-class PublishService {
+export default class PublishService {
   @Needs
   applicationEventPublisher!: ApplicationEventPublisher;
 

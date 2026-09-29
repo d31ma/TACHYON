@@ -2,7 +2,7 @@
 @Settings({"prefix":"TAC_CATALOG_"})
 @WhenProfile('public')
 @WhenSetting({"name":"TAC_CATALOG_CACHE_ENABLED","havingValue":"true","matchIfMissing":false})
-class CatalogSetup {
+export default class CatalogSetup {
   @Min(1)
   @Max(100)
   pageSize: integer = 20;

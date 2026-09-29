@@ -1,6 +1,6 @@
 @Store
 @Lifetime('singleton')
-class LedgerStore {
+export default class LedgerStore {
   /** @returns {number} */
   subtotal() { return 40; }
   /** @returns {number} */

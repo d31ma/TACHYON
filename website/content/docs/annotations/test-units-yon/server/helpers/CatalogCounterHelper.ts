@@ -1,4 +1,4 @@
 @Helper
-class CatalogCounterHelper {
+export default class CatalogCounterHelper {
   count(): number { return 21; }
 }

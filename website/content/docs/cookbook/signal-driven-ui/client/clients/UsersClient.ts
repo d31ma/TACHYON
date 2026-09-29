@@ -1,7 +1,7 @@
 @HTTPClient({"adapter":"users"})
-class UsersClient {
+export default class UsersClient {
   @GetRequest("/users")
   async list(): Promise<BehaviorJsonValue> { return {}; }
   @PostRequest("/users")
-  async save(@RequestBody form: BehaviorJsonValue): Promise<BehaviorJsonValue> {}
+  async save(@RequestBody form: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}
 }

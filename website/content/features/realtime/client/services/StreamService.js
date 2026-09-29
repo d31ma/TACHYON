@@ -1,3 +1,4 @@
+/** @import { Tick } from '/models/Tick.ts' */
 @Service
 export default class StreamService {
   /** @type {TicksClient} */

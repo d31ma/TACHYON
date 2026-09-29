@@ -1,5 +1,5 @@
 @Helper
-class TaxHelper {
+export default class TaxHelper {
   /** @type {TaxRateStore} */
   @Needs
   taxRateStore;

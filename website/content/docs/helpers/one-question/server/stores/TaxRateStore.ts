@@ -1,4 +1,4 @@
 @Store
-class TaxRateStore {
+export default class TaxRateStore {
   rate(): number { return 2; }
 }

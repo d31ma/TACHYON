@@ -1,6 +1,6 @@
-import type { PlacedOrder } from '/models/PlacedOrder';
+import type { PlacedOrder } from '/models/PlacedOrder.ts';
 @Service
-class CheckoutService {
+export default class CheckoutService {
   @Needs
   applicationEventPublisher!: ApplicationEventPublisher;
 

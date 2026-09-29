@@ -1,5 +1,5 @@
 @Service
-class BillingService {
+export default class BillingService {
   /** @type {BillingStore} */
   @Needs
   billingStore;

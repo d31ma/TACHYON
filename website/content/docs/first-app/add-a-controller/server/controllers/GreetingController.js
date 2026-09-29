@@ -1,7 +1,7 @@
 /** @import { Greeting } from '/models/Greeting.ts' */
 @RequestRoute("/api/greeting")
 @Public
-class GreetingController {
+export default class GreetingController {
   /** @returns {Greeting} */
   @GetRoute
   getGreeting() {

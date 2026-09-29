@@ -1,5 +1,5 @@
 @Setup
-class CatalogSetup {
+export default class CatalogSetup {
   static configure() {
     const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];
     const findRows = (command: any) => {

@@ -1,5 +1,5 @@
 @Helper
-class CartHelper {
+export default class CartHelper {
   /** @type {CartStore} */
   @Needs
   cartStore;

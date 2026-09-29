@@ -1,3 +1,5 @@
+import type { Greeting } from '/models/Greeting.ts'
+
 @Service
 export default class CounterService {
   @Needs
@@ -11,6 +13,10 @@ export default class CounterService {
 
   async askServer(): Promise<void> {
     const greeting = await this.greetingClient.getGreeting()
-    this.message = greeting.message
+    this.message = this.messageOf(greeting)
+  }
+
+  private messageOf(greeting: Greeting | void): string {
+    return greeting ? greeting.message : ''
   }
 }

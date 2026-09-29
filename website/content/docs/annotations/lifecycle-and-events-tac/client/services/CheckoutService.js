@@ -1,3 +1,4 @@
+/** @import { PlacedOrder } from '/models/PlacedOrder.ts' */
 @Service
 export default class CheckoutService {
   /** @type {HTMLElement} */

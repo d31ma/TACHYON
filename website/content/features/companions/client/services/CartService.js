@@ -1,3 +1,4 @@
+/** @import { CartTotal } from '/models/CartTotal.ts' */
 @Service
 export default class CartService {
   /** @type {ApplicationEventPublisher} */

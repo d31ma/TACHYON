@@ -1,6 +1,7 @@
+/** @import { Product } from '/models/Product.ts' */
 @Service
 @Lifetime('transient')
-class ProductsService {
+export default class ProductsService {
   /** @returns {Product[]} */
   list() { return [this.find(1)]; }
   /**

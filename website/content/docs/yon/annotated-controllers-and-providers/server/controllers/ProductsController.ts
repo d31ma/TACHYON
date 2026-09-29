@@ -5,7 +5,7 @@ import type { Product } from '/models/Product.ts'
 class ProductsController {
   @Needs
   @Named("ProductsService")
-  catalog: ProductsService;
+  catalog!: ProductsService;
 
   @GetRoute
   getProducts(): Product[] { return this.catalog.list(); }

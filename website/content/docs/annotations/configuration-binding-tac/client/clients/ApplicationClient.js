@@ -1,6 +1,6 @@
 @HTTPClient({"adapter":"publicConfiguration"})
-class ApplicationClient {
-  /** @returns {Promise<object>} */
+export default class ApplicationClient {
+  /** @returns {Promise<BehaviorJsonObject>} */
   @GetRequest("/manifest.webmanifest")
   async load() { return {}; }
 }

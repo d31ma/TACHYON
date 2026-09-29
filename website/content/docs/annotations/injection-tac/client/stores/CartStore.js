@@ -1,5 +1,5 @@
 @Store
-class CartStore {
+export default class CartStore {
   /** @returns {number} */
   subtotal() { return 40; }
   /** @returns {number} */

@@ -1,5 +1,5 @@
 @Setup
-class OrdersSetup {
+export default class OrdersSetup {
   /** @returns {object} */
   static configure() { return {}; }
 }

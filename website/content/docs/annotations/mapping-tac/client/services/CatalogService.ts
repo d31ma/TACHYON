@@ -6,8 +6,12 @@ export default class CatalogService {
     const context = await Behaviors.create(CatalogSetup, options);
     const mapper = Behaviors.construct(ProductConverter, { behaviors: context });
     const product = { detail: { id: 7 }, name: 'Anvil', extra: 'dropped' };
-    const summary = await mapper.toSummary(product) as BehaviorJsonObject;
-    this.title = `${summary.kind} ${summary.productId}: ${summary.title}`;
+    const summary = await mapper.toSummary(product);
+    this.title = this.titleOf(summary);
     context.dispose();
+  }
+
+  private titleOf(summary: BehaviorJsonObject | void): string {
+    return summary ? `${summary.kind} ${summary.productId}: ${summary.title}` : '';
   }
 }

@@ -1,3 +1,3 @@
-export interface Greeting {
+export type Greeting = {
   message: string
 }

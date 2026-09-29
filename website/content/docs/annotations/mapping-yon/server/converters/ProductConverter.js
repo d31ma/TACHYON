@@ -1,9 +1,12 @@
 @Converter
-class ProductConverter {
+export default class ProductConverter {
   /** @type {BehaviorContext} */
   @Needs
   behaviors;
+  /**
+   * @param {BehaviorJsonObject} product
+   * @returns {Promise<BehaviorJsonObject | void>}
+   */
   @Convert({"fields":[{"source":"detail.id","target":"productId"},{"source":"name","target":"title"},{"source":"missing.deep","target":"absent"},{"target":"kind","constant":"product"}]})
-  /** @param {object} product */
   async toSummary(product) {}
 }

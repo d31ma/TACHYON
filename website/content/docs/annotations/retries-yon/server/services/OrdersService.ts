@@ -1,5 +1,5 @@
 @Service
-class OrdersService {
+export default class OrdersService {
   behaviors!: BehaviorContext;
   private static readonly FIRST_WORKING_ATTEMPT = 3;
   private attempts = 0;

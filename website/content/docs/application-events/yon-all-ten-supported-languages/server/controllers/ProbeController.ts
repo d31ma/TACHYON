@@ -4,9 +4,9 @@ import type { ProbeReady } from '/models/ProbeReady.ts'
 @Public
 class ProbeController {
   @Needs
-  probeService: ProbeService;
+  probeService!: ProbeService;
   @Needs
-  publishService: PublishService;
+  publishService!: PublishService;
   @GetRoute
   getProbe(): ProbeReady | null { return this.probeService.last; }
 }

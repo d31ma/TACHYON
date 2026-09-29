@@ -1,6 +1,6 @@
 @Helper
 @Lifetime('transient')
-class LedgerHelper {
+export default class LedgerHelper {
   /** @type {LedgerStore} */
   @Needs
   ledgerStore;

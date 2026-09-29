@@ -101,7 +101,7 @@
           },
           {
             "name": "server/services/OrderService.ts",
-            "code": "import type { Order } from '/models/Order';\n@Service\nexport class OrderService {\n  private repository = new OrderStore()\n\n  list(): Order[] {\n    return this.repository.all()\n  }\n}\n"
+            "code": "import type { Order } from '/models/Order.ts';\n@Service\nexport class OrderService {\n  private repository = new OrderStore()\n\n  list(): Order[] {\n    return this.repository.all()\n  }\n}\n"
           },
           {
             "name": "server/models/Order.ts",
@@ -109,7 +109,7 @@
           },
           {
             "name": "server/stores/OrderStore.ts",
-            "code": "import type { Order } from '/models/Order';\n@Store\nexport class OrderStore {\n  all(): Order[] {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
+            "code": "import type { Order } from '/models/Order.ts';\n@Store\nexport class OrderStore {\n  all(): Order[] {\n    return [{ sku: 'anvil', level: 4 }]\n  }\n}\n"
           },
           {
             "name": "server/controllers/OrdersController.ts",

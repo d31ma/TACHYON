@@ -1,5 +1,5 @@
 @Helper
-class BillingHelper {
+export default class BillingHelper {
   /** @type {BillingClient} */
   @Needs
   billingClient;

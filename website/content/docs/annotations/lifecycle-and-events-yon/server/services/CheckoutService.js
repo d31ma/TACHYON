@@ -1,5 +1,6 @@
+/** @import { PlacedOrder } from '/models/PlacedOrder.ts' */
 @Service
-class CheckoutService {
+export default class CheckoutService {
   /** @type {ApplicationEventPublisher} */
   @Needs
   applicationEventPublisher;

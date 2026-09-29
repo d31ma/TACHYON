@@ -1,7 +1,7 @@
-import type { PlacedOrder } from '/models/PlacedOrder';
-import type { SettledOrder } from '/models/SettledOrder';
+import type { PlacedOrder } from '/models/PlacedOrder.ts';
+import type { SettledOrder } from '/models/SettledOrder.ts';
 @Service
-class AuditService {
+export default class AuditService {
   log: string[] = [];
   settled = 0;
   audited = 0;

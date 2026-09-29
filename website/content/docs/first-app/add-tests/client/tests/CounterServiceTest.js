@@ -1,5 +1,6 @@
 @Test(HelloTestSetup, {"partition":"tests"})
 export default class CounterServiceTest {
+  /** @type {GreetingClient} */
   @Fake
   greetingClient;
 

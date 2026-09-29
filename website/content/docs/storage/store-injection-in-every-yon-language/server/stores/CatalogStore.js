@@ -1,5 +1,5 @@
 @Store
-class CatalogStore {
+export default class CatalogStore {
   /** @type {DataSource} */
   @Needs
   dataSource;

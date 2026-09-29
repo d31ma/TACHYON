@@ -1,5 +1,5 @@
 @HTTPClient({"adapter":"api"})
-class CatalogClient {
+export default class CatalogClient {
   @GetRequest("/api/products")
   async all(): Promise<BehaviorJsonValue> { return {} }
 }

@@ -1,21 +1,28 @@
 @Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})
-class ProductStore {
+export default class ProductStore {
   /** @type {BehaviorContext} */
   @Needs
   behaviors;
-  /** @param {number} status */
+  /**
+   * @param {string} status
+   * @returns {Promise<ProductEntity[] | void>}
+   */
   async findByStatus(status) {}
-  /** @param {number} status */
+  /**
+   * @param {string} status
+   * @returns {Promise<number | void>}
+   */
   async countByStatus(status) {}
   /**
-   * @param {number} status
+   * @param {string} status
    * @param {BehaviorPageInput} page
+   * @returns {Promise<ProductEntity[] | void>}
    */
   @Query({"operation":"find","where":[{"field":"status","operator":"ne","argument":0}],"orderBy":[{"field":"id","direction":"desc"}]})
   async excluding(status, @PageDefaults page) {}
   /**
-   * @param {BehaviorPage} request
-   * @returns {BehaviorPage}
+   * @param {BehaviorPageInput} request
+   * @returns {BehaviorPageInput}
    */
   bounded(@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]}) request) { return request; }
 }

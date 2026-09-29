@@ -1,5 +1,6 @@
 @HTTPClient({"cache":"cache-first"})
-class CatalogClient {
+export default class CatalogClient {
+  /** @returns {Promise<{ items: string[] } | void>} */
   @GetRequest("/api/products")
   async all() {}
 

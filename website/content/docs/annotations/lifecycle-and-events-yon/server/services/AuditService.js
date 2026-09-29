@@ -1,7 +1,7 @@
 /** @import { PlacedOrder } from '/models/PlacedOrder.ts' */
 /** @import { SettledOrder } from '/models/SettledOrder.ts' */
 @Service
-class AuditService {
+export default class AuditService {
   /** @type {string[]} */
   log = [];
   settled = 0;

@@ -1,8 +1,8 @@
 @HTTPClient({"adapter":"products"})
-class ProductsClient {
+export default class ProductsClient {
   /**
-   * @param {object} product
-   * @returns {Promise<{ body: object }>}
+   * @param {BehaviorJsonValue} product
+   * @returns {Promise<BehaviorJsonValue>}
    */
   @PostRequest("/api/products")
   async save(product) { return {body: product}; }

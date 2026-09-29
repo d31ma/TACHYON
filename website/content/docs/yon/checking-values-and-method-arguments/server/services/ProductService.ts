@@ -1,8 +1,8 @@
 import type { Product } from '/models/Product.ts';
 
 @Service
-class ProductService {
+export default class ProductService {
   accept(@Check input: ProductInput): Product {
-    return input;
+    return input as Product;
   }
 }

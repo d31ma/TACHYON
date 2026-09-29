@@ -1,6 +1,6 @@
 @Service
-class CatalogService {
+export default class CatalogService {
   @Needs
   readonly catalog!: CatalogClient;
-  async products(): Promise<BehaviorJsonValue> { return await this.catalog.all(1); }
+  async products(): Promise<BehaviorJsonValue | void> { return await this.catalog.all(1); }
 }

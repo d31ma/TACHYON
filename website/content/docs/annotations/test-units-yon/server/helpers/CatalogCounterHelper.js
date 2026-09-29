@@ -1,5 +1,5 @@
 @Helper
-class CatalogCounterHelper {
+export default class CatalogCounterHelper {
   /** @returns {number} */
   count() { return 21; }
 }

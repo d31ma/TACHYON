@@ -1,6 +1,6 @@
 /** @import { ProbeReady } from '/models/ProbeReady.ts' */
 @Service
-class ProbeService {
+export default class ProbeService {
   /** @type {ProbeReady | null} */
   last = null;
 

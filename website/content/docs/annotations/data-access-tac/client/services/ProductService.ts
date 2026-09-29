@@ -9,9 +9,13 @@ export default class ProductService {
     });
     const products = Behaviors.construct(ProductStore, { behaviors: context });
     const page = products.bounded({ size: 5 });
-    const rows = await products.excluding('retired', page) as unknown[];
+    const rows = await products.excluding('retired', page);
     const activeCount = await products.countByStatus('active');
-    this.summary = `${rows.length} of ${activeCount} active`;
+    this.summary = this.summaryOf(rows, activeCount);
     context.dispose();
+  }
+
+  private summaryOf(rows: ProductEntity[] | void, activeCount: number | void): string {
+    return `${rows ? rows.length : 0} of ${activeCount} active`;
   }
 }

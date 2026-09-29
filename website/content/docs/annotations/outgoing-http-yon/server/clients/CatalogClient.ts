@@ -1,12 +1,12 @@
 @HTTPClient
-class CatalogClient {
+export default class CatalogClient {
   behaviors!: BehaviorContext;
 
   @GetRequest("/products")
-  async all(@RequestParam("page") page: number): Promise<BehaviorJsonValue> {}
+  async all(@RequestParam("page") page: number): Promise<BehaviorJsonValue | void> {}
 
   @PostRequest("/products")
-  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue> {}
+  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}
 
   @GetRequest("/products")
   async first(): Promise<BehaviorJsonValue> { return { query: { page: 1 } }; }

@@ -1,8 +1,8 @@
 @Helper
 @Lifetime('transient')
-class LedgerHelper {
+export default class LedgerHelper {
   @Needs
-  repository: LedgerStore;
+  repository!: LedgerStore;
 
   settle(subtotal: number): number {
     const surcharge = this.repository.surcharge();

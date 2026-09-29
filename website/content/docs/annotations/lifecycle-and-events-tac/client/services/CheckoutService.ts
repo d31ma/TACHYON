@@ -1,4 +1,4 @@
-import type { PlacedOrder } from '/models/PlacedOrder';
+import type { PlacedOrder } from '/models/PlacedOrder.ts';
 
 @Service
 export default class CheckoutService {

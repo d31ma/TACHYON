@@ -5,11 +5,12 @@ export default class CatalogService {
   lifecycle;
   /** @type {BehaviorContext | null} */
   behaviors = null;
+  /** @type {number | undefined} */
   offset = 0;
 
   /**
-   * @param {BehaviorPage} input
-   * @returns {number}
+   * @param {BehaviorPageInput} input
+   * @returns {number | undefined}
    */
   page(@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]}) input) { return input.offset; }
 

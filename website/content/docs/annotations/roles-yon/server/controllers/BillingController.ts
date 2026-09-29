@@ -4,7 +4,7 @@ import type { Bill } from '/models/Bill.ts'
 @Public
 class BillingController {
   @Needs
-  service: BillingService;
+  service!: BillingService;
 
   @GetRoute
   getBilling(): Bill {

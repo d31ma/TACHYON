@@ -1,9 +1,9 @@
 @Service
-class BillingService {
+export default class BillingService {
   @Needs
-  repository: BillingStore;
+  repository!: BillingStore;
   @Needs
-  helper: BillingHelper;
+  helper!: BillingHelper;
 
   total(): number {
     const subtotal = this.repository.subtotal();

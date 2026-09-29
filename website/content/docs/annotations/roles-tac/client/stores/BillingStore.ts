@@ -1,4 +1,4 @@
 @Store
-class BillingStore {
+export default class BillingStore {
   subtotal(): number { return 40; }
 }

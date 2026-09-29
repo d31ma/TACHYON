@@ -246,7 +246,7 @@
           "files": [
             {
               "name": "server/controllers/GreetingController.js",
-              "code": "/** @import { Greeting } from '/models/Greeting.ts' */\n@RequestRoute(\"/api/greeting\")\n@Public\nclass GreetingController {\n  /** @returns {Greeting} */\n  @GetRoute\n  getGreeting() {\n    return { message: 'Hello from Yon' }\n  }\n}\n"
+              "code": "/** @import { Greeting } from '/models/Greeting.ts' */\n@RequestRoute(\"/api/greeting\")\n@Public\nexport default class GreetingController {\n  /** @returns {Greeting} */\n  @GetRoute\n  getGreeting() {\n    return { message: 'Hello from Yon' }\n  }\n}\n"
             },
             {
               "name": "server/models/Greeting.ts",
@@ -254,14 +254,14 @@
             },
             {
               "name": "server/controllers/GreetingController.ts",
-              "code": "import type { Greeting } from '/models/Greeting.ts'\n\n@RequestRoute(\"/api/greeting\")\n@Public\nclass GreetingController {\n  @GetRoute\n  getGreeting(): Greeting {\n    return { message: 'Hello from Yon' }\n  }\n}\n"
+              "code": "import type { Greeting } from '/models/Greeting.ts'\n\n@RequestRoute(\"/api/greeting\")\n@Public\nexport default class GreetingController {\n  @GetRoute\n  getGreeting(): Greeting {\n    return { message: 'Hello from Yon' }\n  }\n}\n"
             }
           ]
         },
         {
           "heading": "Step 4: Call the server from the page",
           "axis": "language",
-          "body": "A client class sends HTTP requests for the page. Put it in `client/clients`. `HTTPClient` marks the class. `GetRequest(\"/api/greeting\")` makes the method `getGreeting` send a GET request to the controller of step 3. Leave the method body empty: Tachyon writes it.\n\nIn the service, `Needs` asks Tachyon to put a `GreetingClient` into the field `greetingClient`. The method `askServer` waits for the answer and saves its message in the field `message`. In TypeScript, the page has its own copy of the model in `client/models/Greeting.ts`, because the browser cannot read files in `server/`. Change the component, the service and add the client. The page file stays the same as in step 2.\n\nResult: click Ask the server. The text Hello from Yon appears under the buttons. A path such as `/api/greeting` stays on the same origin, so no host needs to be listed. A request to another host needs that host in `tac.outgoing.hosts`.",
+          "body": "A client class sends HTTP requests for the page. Put it in `client/clients`. `HTTPClient` marks the class. `GetRequest(\"/api/greeting\")` makes the method `getGreeting` send a GET request to the controller of step 3. Leave the method body empty: Tachyon writes it. An empty body returns nothing to the type checker, so the method declares its answer as `Promise<Greeting | void>`. `export default` lets the type checker and the other classes find the client without an import.\n\nIn the service, `Needs` asks Tachyon to put a `GreetingClient` into the field `greetingClient`. The method `askServer` waits for the answer. The private method `messageOf` gives its message, or an empty text when there is no answer, and `askServer` saves it in the field `message`. A public method of a service holds no decision (TY1314), so the check sits in the private method. The page has its own copy of the model in `client/models/Greeting.ts`, because the browser cannot read files in `server/`. JavaScript reads its type with `/** @import { Greeting } from '/models/Greeting.ts' */`. Change the component, the service and add the client. The page file stays the same as in step 2.\n\nResult: click Ask the server. The text Hello from Yon appears under the buttons. A path such as `/api/greeting` stays on the same origin, so no host needs to be listed. A request to another host needs that host in `tac.outgoing.hosts`.",
           "files": [
             {
               "name": "client/pages/hello/tac.html",
@@ -273,23 +273,23 @@
             },
             {
               "name": "client/clients/GreetingClient.js",
-              "code": "@HTTPClient\nclass GreetingClient {\n  @GetRequest(\"/api/greeting\")\n  async getGreeting() {}\n}\n"
+              "code": "/** @import { Greeting } from '/models/Greeting.ts' */\n@HTTPClient\nexport default class GreetingClient {\n  /** @returns {Promise<Greeting | void>} */\n  @GetRequest(\"/api/greeting\")\n  async getGreeting() {}\n}\n"
             },
             {
               "name": "client/services/CounterService.js",
-              "code": "@Service\nexport default class CounterService {\n  /** @type {GreetingClient} */\n  @Needs\n  greetingClient;\n  count = 0\n  message = ''\n\n  increment() {\n    this.count += 1\n  }\n\n  async askServer() {\n    const greeting = await this.greetingClient.getGreeting()\n    this.message = greeting.message\n  }\n}\n"
+              "code": "/** @import { Greeting } from '/models/Greeting.ts' */\n@Service\nexport default class CounterService {\n  /** @type {GreetingClient} */\n  @Needs\n  greetingClient;\n  count = 0\n  message = ''\n\n  increment() {\n    this.count += 1\n  }\n\n  async askServer() {\n    const greeting = await this.greetingClient.getGreeting()\n    this.message = this.#messageOf(greeting)\n  }\n\n  /**\n   * @param {Greeting | void} greeting\n   * @returns {string}\n   */\n  #messageOf(greeting) {\n    return greeting ? greeting.message : ''\n  }\n}\n"
             },
             {
               "name": "client/models/Greeting.ts",
-              "code": "export interface Greeting {\n  message: string\n}\n"
+              "code": "export type Greeting = {\n  message: string\n}\n"
             },
             {
               "name": "client/clients/GreetingClient.ts",
-              "code": "import type { Greeting } from '/models/Greeting.ts'\n\n@HTTPClient\nclass GreetingClient {\n  @GetRequest(\"/api/greeting\")\n  async getGreeting(): Promise<Greeting> {}\n}\n"
+              "code": "import type { Greeting } from '/models/Greeting.ts'\n\n@HTTPClient\nexport default class GreetingClient {\n  @GetRequest(\"/api/greeting\")\n  async getGreeting(): Promise<Greeting | void> {}\n}\n"
             },
             {
               "name": "client/services/CounterService.ts",
-              "code": "@Service\nexport default class CounterService {\n  @Needs\n  readonly greetingClient!: GreetingClient;\n  count = 0\n  message = ''\n\n  increment(): void {\n    this.count += 1\n  }\n\n  async askServer(): Promise<void> {\n    const greeting = await this.greetingClient.getGreeting()\n    this.message = greeting.message\n  }\n}\n"
+              "code": "import type { Greeting } from '/models/Greeting.ts'\n\n@Service\nexport default class CounterService {\n  @Needs\n  readonly greetingClient!: GreetingClient;\n  count = 0\n  message = ''\n\n  increment(): void {\n    this.count += 1\n  }\n\n  async askServer(): Promise<void> {\n    const greeting = await this.greetingClient.getGreeting()\n    this.message = this.messageOf(greeting)\n  }\n\n  private messageOf(greeting: Greeting | void): string {\n    return greeting ? greeting.message : ''\n  }\n}\n"
             }
           ]
         },
@@ -304,7 +304,7 @@
             },
             {
               "name": "client/tests/CounterServiceTest.js",
-              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  @Fake\n  greetingClient;\n\n  async testIncrementAddsOne() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    counter.increment()\n    Assert.equals(1, counter.count)\n  }\n\n  async testAskServerSavesTheMessage() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    await counter.askServer()\n    Assert.equals('Hi', counter.message)\n  }\n}\n"
+              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  /** @type {GreetingClient} */\n  @Fake\n  greetingClient;\n\n  async testIncrementAddsOne() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    counter.increment()\n    Assert.equals(1, counter.count)\n  }\n\n  async testAskServerSavesTheMessage() {\n    this.greetingClient = { getGreeting: async () => ({ message: 'Hi' }) }\n    const counter = this.construct(CounterService)\n    await counter.askServer()\n    Assert.equals('Hi', counter.message)\n  }\n}\n"
             },
             {
               "name": "server/tests/GreetingTestSetup.js",
@@ -495,7 +495,7 @@
           "files": [
             {
               "name": "server/services/MoneyService.js",
-              "code": "@Service\nclass MoneyService {\n  /** @returns {number} */\n  amount() { return 42; }\n}\n"
+              "code": "@Service\nexport default class MoneyService {\n  /** @returns {number} */\n  amount() { return 42; }\n}\n"
             },
             {
               "name": "server/controllers/MoneyController.js",
@@ -503,7 +503,7 @@
             },
             {
               "name": "server/services/MoneyService.ts",
-              "code": "@Service\nclass MoneyService {\n  amount(): number { return 42; }\n}\n"
+              "code": "@Service\nexport default class MoneyService {\n  amount(): number { return 42; }\n}\n"
             },
             {
               "name": "server/models/Money.ts",
@@ -955,7 +955,7 @@
             },
             {
               "name": "client/services/OrdersService.ts",
-              "code": "import type { PlacedOrder } from '/models/PlacedOrder';\nimport type { SettledOrder } from '/models/SettledOrder';\n\n@Service\nexport default class OrdersService {\n  applicationEventPublisher!: ApplicationEventPublisher;\n  log: string[] = [];\n  settled = 0;\n  audited = 0;\n\n  place(_event: Event, total: string) {\n    const order: PlacedOrder = { status: 'paid', total: Number(total) };\n    this.applicationEventPublisher.publishEvent(order);\n  }\n\n  @OnEvent({\"id\":\"orders-log\"})\n  @Order(-10)\n  record(order: PlacedOrder): void { this.log = [...this.log, order.status]; }\n\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  settleLargeOrder(order: PlacedOrder): SettledOrder {\n    this.settled += 1;\n    return { total: order.total };\n  }\n\n  @OnEvent\n  @InBackground\n  async audit(settled: SettledOrder): Promise<void> { this.audited = settled.total; }\n}\n"
+              "code": "import type { PlacedOrder } from '/models/PlacedOrder.ts';\nimport type { SettledOrder } from '/models/SettledOrder.ts';\n\n@Service\nexport default class OrdersService {\n  applicationEventPublisher!: ApplicationEventPublisher;\n  log: string[] = [];\n  settled = 0;\n  audited = 0;\n\n  place(_event: Event, total: string) {\n    const order: PlacedOrder = { status: 'paid', total: Number(total) };\n    this.applicationEventPublisher.publishEvent(order);\n  }\n\n  @OnEvent({\"id\":\"orders-log\"})\n  @Order(-10)\n  record(order: PlacedOrder): void { this.log = [...this.log, order.status]; }\n\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  settleLargeOrder(order: PlacedOrder): SettledOrder {\n    this.settled += 1;\n    return { total: order.total };\n  }\n\n  @OnEvent\n  @InBackground\n  async audit(settled: SettledOrder): Promise<void> { this.audited = settled.total; }\n}\n"
             },
             {
               "name": "client/services/OrdersService.dart",
@@ -1049,27 +1049,27 @@
           "files": [
             {
               "name": "server/services/ProbeService.js",
-              "code": "/** @import { ProbeReady } from '/models/ProbeReady.ts' */\n@Service\nclass ProbeService {\n  /** @type {ProbeReady | null} */\n  last = null;\n\n  /** @param {ProbeReady} ready */\n  @OnEvent\n  observe(ready) { this.last = ready; }\n\n  @OnStop\n  destroy() { this.last = null; }\n}\n"
+              "code": "/** @import { ProbeReady } from '/models/ProbeReady.ts' */\n@Service\nexport default class ProbeService {\n  /** @type {ProbeReady | null} */\n  last = null;\n\n  /** @param {ProbeReady} ready */\n  @OnEvent\n  observe(ready) { this.last = ready; }\n\n  @OnStop\n  destroy() { this.last = null; }\n}\n"
             },
             {
               "name": "server/services/PublishService.js",
-              "code": "@Service\nclass PublishService {\n  /** @type {ApplicationEventPublisher} */\n  @Needs\n  applicationEventPublisher;\n\n  @OnStart\n  initialize() {\n    /** @type {ProbeReady} */\n    const ready = { value: 7 };\n    this.applicationEventPublisher.publishEvent(ready);\n  }\n}\n"
+              "code": "/** @import { ProbeReady } from '/models/ProbeReady.ts' */\n@Service\nexport default class PublishService {\n  /** @type {ApplicationEventPublisher} */\n  @Needs\n  applicationEventPublisher;\n\n  @OnStart\n  initialize() {\n    /** @type {ProbeReady} */\n    const ready = { value: 7 };\n    this.applicationEventPublisher.publishEvent(ready);\n  }\n}\n"
             },
             {
               "name": "server/controllers/ProbeController.js",
-              "code": "/** @import { ProbeReady } from '/models/ProbeReady.ts' */\n@RequestRoute(\"/probe\")\n@Public\nclass ProbeController {\n  /** @type {ProbeService} */\n  @Needs\n  probeService;\n  /** @type {PublishService} */\n  @Needs\n  publishService;\n  /** @returns {ProbeReady=} */\n  @GetRoute\n  getProbe() { return this.probeService.last; }\n}\n"
+              "code": "/** @import { ProbeReady } from '/models/ProbeReady.ts' */\n@RequestRoute(\"/probe\")\n@Public\nclass ProbeController {\n  /** @type {ProbeService} */\n  @Needs\n  probeService;\n  /** @type {PublishService} */\n  @Needs\n  publishService;\n  /** @returns {ProbeReady | null} */\n  @GetRoute\n  getProbe() { return this.probeService.last; }\n}\n"
             },
             {
               "name": "server/services/ProbeService.ts",
-              "code": "import type { ProbeReady } from '/models/ProbeReady';\n\n@Service\nclass ProbeService {\n  last: ProbeReady | null = null;\n\n  @OnEvent\n  observe(ready: ProbeReady) { this.last = ready; }\n\n  @OnStop\n  destroy() { this.last = null; }\n}\n"
+              "code": "import type { ProbeReady } from '/models/ProbeReady.ts';\n\n@Service\nexport default class ProbeService {\n  last: ProbeReady | null = null;\n\n  @OnEvent\n  observe(ready: ProbeReady) { this.last = ready; }\n\n  @OnStop\n  destroy() { this.last = null; }\n}\n"
             },
             {
               "name": "server/services/PublishService.ts",
-              "code": "import type { ProbeReady } from '/models/ProbeReady';\n\n@Service\nclass PublishService {\n  @Needs\n  applicationEventPublisher!: ApplicationEventPublisher;\n\n  @OnStart\n  initialize() {\n    const ready: ProbeReady = { value: 7 };\n    this.applicationEventPublisher.publishEvent(ready);\n  }\n}\n"
+              "code": "import type { ProbeReady } from '/models/ProbeReady.ts';\n\n@Service\nexport default class PublishService {\n  @Needs\n  applicationEventPublisher!: ApplicationEventPublisher;\n\n  @OnStart\n  initialize() {\n    const ready: ProbeReady = { value: 7 };\n    this.applicationEventPublisher.publishEvent(ready);\n  }\n}\n"
             },
             {
               "name": "server/controllers/ProbeController.ts",
-              "code": "import type { ProbeReady } from '/models/ProbeReady.ts'\n\n@RequestRoute(\"/probe\")\n@Public\nclass ProbeController {\n  @Needs\n  probeService: ProbeService;\n  @Needs\n  publishService: PublishService;\n  @GetRoute\n  getProbe(): ProbeReady | null { return this.probeService.last; }\n}\n"
+              "code": "import type { ProbeReady } from '/models/ProbeReady.ts'\n\n@RequestRoute(\"/probe\")\n@Public\nclass ProbeController {\n  @Needs\n  probeService!: ProbeService;\n  @Needs\n  publishService!: PublishService;\n  @GetRoute\n  getProbe(): ProbeReady | null { return this.probeService.last; }\n}\n"
             },
             {
               "name": "server/services/ProbeService.py",
@@ -1269,7 +1269,7 @@
           "files": [
             {
               "name": "server/services/ProductsService.js",
-              "code": "@Service\n@Lifetime('transient')\nclass ProductsService {\n  /** @returns {Product[]} */\n  list() { return [this.find(1)]; }\n  /**\n   * @param {number} id\n   * @returns {Product}\n   */\n  find(id) { return { id, name: 'Anvil' }; }\n}\n"
+              "code": "/** @import { Product } from '/models/Product.ts' */\n@Service\n@Lifetime('transient')\nexport default class ProductsService {\n  /** @returns {Product[]} */\n  list() { return [this.find(1)]; }\n  /**\n   * @param {number} id\n   * @returns {Product}\n   */\n  find(id) { return { id, name: 'Anvil' }; }\n}\n"
             },
             {
               "name": "server/controllers/ProductsController.js",
@@ -1281,11 +1281,11 @@
             },
             {
               "name": "server/services/ProductsService.ts",
-              "code": "import type { Product } from '/models/Product.ts'\n\n@Service\n@Lifetime('transient')\nclass ProductsService {\n  list(): Product[] { return [this.find(1)]; }\n  find(id: number): Product { return { id, name: 'Anvil' }; }\n}\n"
+              "code": "import type { Product } from '/models/Product.ts'\n\n@Service\n@Lifetime('transient')\nexport default class ProductsService {\n  list(): Product[] { return [this.find(1)]; }\n  find(id: number): Product { return { id, name: 'Anvil' }; }\n}\n"
             },
             {
               "name": "server/controllers/ProductsController.ts",
-              "code": "import type { Product } from '/models/Product.ts'\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @Needs\n  @Named(\"ProductsService\")\n  catalog: ProductsService;\n\n  @GetRoute\n  getProducts(): Product[] { return this.catalog.list(); }\n\n  @GetRoute(\"/{id}\")\n  getProduct(@FromPath id: number): Product { return this.catalog.find(id); }\n}\n"
+              "code": "import type { Product } from '/models/Product.ts'\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @Needs\n  @Named(\"ProductsService\")\n  catalog!: ProductsService;\n\n  @GetRoute\n  getProducts(): Product[] { return this.catalog.list(); }\n\n  @GetRoute(\"/{id}\")\n  getProduct(@FromPath id: number): Product { return this.catalog.find(id); }\n}\n"
             },
             {
               "name": "server/models/Product.py",
@@ -1472,11 +1472,11 @@
           "files": [
             {
               "name": "server/helpers/ProductInput.js",
-              "code": "@Checked\nclass ProductInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
+              "code": "@Checked\nexport default class ProductInput {\n  /** @type {string} */\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n\n  /** @type {number} */\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
             },
             {
               "name": "server/services/ProductService.js",
-              "code": "@Service\nclass ProductService {\n  /**\n   * @param {ProductInput} input\n   * @returns {ProductInput}\n   */\n  accept(@Check input) {\n    return input;\n  }\n}\n"
+              "code": "/** @import { Product } from '/models/Product.ts' */\n@Service\nexport default class ProductService {\n  /**\n   * @param {ProductInput} input\n   * @returns {Product}\n   */\n  accept(@Check input) {\n    return /** @type {Product} */ (input);\n  }\n}\n"
             },
             {
               "name": "server/controllers/ProductsController.js",
@@ -1484,11 +1484,11 @@
             },
             {
               "name": "server/helpers/ProductInput.ts",
-              "code": "@Checked\nclass ProductInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
+              "code": "@Checked\nexport default class ProductInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
             },
             {
               "name": "server/services/ProductService.ts",
-              "code": "import type { Product } from '/models/Product.ts';\n\n@Service\nclass ProductService {\n  accept(@Check input: ProductInput): Product {\n    return input;\n  }\n}\n"
+              "code": "import type { Product } from '/models/Product.ts';\n\n@Service\nexport default class ProductService {\n  accept(@Check input: ProductInput): Product {\n    return input as Product;\n  }\n}\n"
             },
             {
               "name": "server/models/Product.ts",
@@ -1660,7 +1660,7 @@
           "files": [
             {
               "name": "server/errors/OrderNotFound.js",
-              "code": "class OrderNotFound extends Error {}\n"
+              "code": "export default class OrderNotFound extends Error {}\n"
             },
             {
               "name": "server/controllers/OrdersErrorHandler.js",
@@ -1672,7 +1672,7 @@
             },
             {
               "name": "server/errors/OrderNotFound.ts",
-              "code": "class OrderNotFound extends Error {}\n"
+              "code": "export default class OrderNotFound extends Error {}\n"
             },
             {
               "name": "server/models/Problem.ts",
@@ -2134,11 +2134,11 @@
             },
             {
               "name": "server/setups/CatalogSetup.js",
-              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n  cacheEnabled = false;\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nexport default class CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n  cacheEnabled = false;\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/controllers/SettingsController.js",
-              "code": "/** @import { Settings } from '/models/Settings.ts' */\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  /** @returns {Promise<Settings>} */\n  @GetRoute\n  async getSettings() {\n    const application = JSON.parse(process.env.YON_APPLICATION_JSON);\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: [endpoint.profile],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n    return { profile: endpoint.profile, pageSize: catalog.pageSize };\n  }\n}\n"
+              "code": "/** @import { Settings } from '/models/Settings.ts' */\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  /** @returns {Promise<Settings>} */\n  @GetRoute\n  async getSettings() {\n    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: [String(endpoint.profile)],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n    return { profile: String(endpoint.profile), pageSize: Number(catalog.pageSize) };\n  }\n}\n"
             },
             {
               "name": "server/models/Settings.ts",
@@ -2146,7 +2146,7 @@
             },
             {
               "name": "server/setups/CatalogSetup.ts",
-              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n  cacheEnabled: boolean = false;\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nexport default class CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n  cacheEnabled: boolean = false;\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/controllers/SettingsController.ts",
@@ -2250,11 +2250,11 @@
             },
             {
               "name": "server/helpers/Endpoint.js",
-              "code": "class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile;\n}\n"
+              "code": "export default class Endpoint {\n  /** @type {string} */\n  @Setting(\"${yon.active.profile:development}\")\n  profile;\n}\n"
             },
             {
               "name": "server/helpers/Endpoint.ts",
-              "code": "class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile!: string;\n}\n"
+              "code": "export default class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile!: string;\n}\n"
             },
             {
               "name": "server/helpers/Endpoint.py",
@@ -2333,11 +2333,11 @@
             },
             {
               "name": "server/helpers/CatalogSettings.js",
-              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n}\n"
+              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nexport default class CatalogSettings {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n}\n"
             },
             {
               "name": "server/helpers/Endpoint.js",
-              "code": "class Endpoint {\n  @Setting(\"${yon.server.port}\")\n  port;\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  redis;\n}\n"
+              "code": "export default class Endpoint {\n  /** @type {number} */\n  @Setting(\"${yon.server.port}\")\n  port;\n  /** @type {string} */\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  redis;\n}\n"
             },
             {
               "name": "server/models/Configuration.ts",
@@ -2345,11 +2345,11 @@
             },
             {
               "name": "server/helpers/CatalogSettings.ts",
-              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n}\n"
+              "code": "@Settings({\"prefix\":\"YON_CATALOG_\"})\nexport default class CatalogSettings {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n}\n"
             },
             {
               "name": "server/helpers/Endpoint.ts",
-              "code": "class Endpoint {\n  @Setting(\"${yon.server.port}\")\n  port!: number;\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  redis!: string;\n}\n"
+              "code": "export default class Endpoint {\n  @Setting(\"${yon.server.port}\")\n  port!: number;\n  @Setting(\"${yon.redis.url:redis://127.0.0.1:6379}\")\n  redis!: string;\n}\n"
             },
             {
               "name": "server/models/Configuration.py",
@@ -2449,7 +2449,7 @@
             },
             {
               "name": "server/controllers/ConfigurationController.js",
-              "code": "/** @import { Configuration } from '/models/Configuration.ts' */\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n  /** @returns {Configuration} */\n  @GetRoute\n  getConfiguration() {\n    const application = JSON.parse(process.env.YON_APPLICATION_JSON);\n    const settings = Behaviors.properties(CatalogSettings, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    return { pageSize: settings.pageSize, port: endpoint.port };\n  }\n}\n"
+              "code": "/** @import { Configuration } from '/models/Configuration.ts' */\n@RequestRoute(\"/configuration\")\n@Public\nclass ConfigurationController {\n  /** @returns {Configuration} */\n  @GetRoute\n  getConfiguration() {\n    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));\n    const settings = Behaviors.properties(CatalogSettings, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    return { pageSize: Number(settings.pageSize), port: Number(endpoint.port) };\n  }\n}\n"
             },
             {
               "name": "server/controllers/ConfigurationController.ts",
@@ -2551,7 +2551,7 @@
             },
             {
               "name": "client/clients/ApplicationClient.js",
-              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nclass ApplicationClient {\n  /** @returns {Promise<object>} */\n  @GetRequest(\"/manifest.webmanifest\")\n  async load() { return {}; }\n}"
+              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  /** @returns {Promise<BehaviorJsonObject>} */\n  @GetRequest(\"/manifest.webmanifest\")\n  async load() { return {}; }\n}"
             },
             {
               "name": "client/services/SettingsService.js",
@@ -2559,7 +2559,7 @@
             },
             {
               "name": "client/clients/ApplicationClient.ts",
-              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nclass ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  async load(): Promise<BehaviorJsonValue> { return {}; }\n}"
+              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  async load(): Promise<BehaviorJsonObject> { return {}; }\n}"
             },
             {
               "name": "client/services/SettingsService.ts",
@@ -2567,11 +2567,11 @@
             },
             {
               "name": "client/helpers/PublicSettings.js",
-              "code": "class PublicSettings {\n  @Setting(\"${tac.api.url:/api}\")\n  api;\n}\n"
+              "code": "export default class PublicSettings {\n  /** @type {string} */\n  @Setting(\"${tac.api.url:/api}\")\n  api;\n}\n"
             },
             {
               "name": "client/helpers/PublicSettings.ts",
-              "code": "class PublicSettings {\n  @Setting(\"${tac.api.url:/api}\")\n  api!: string;\n}\n"
+              "code": "export default class PublicSettings {\n  @Setting(\"${tac.api.url:/api}\")\n  api!: string;\n}\n"
             }
           ]
         }
@@ -2600,7 +2600,7 @@
             },
             {
               "name": "client/clients/CatalogClient.js",
-              "code": "@HTTPClient({\"adapter\":\"api\"})\nclass CatalogClient {\n  /** @returns {Promise<unknown>} */\n  @GetRequest(\"/api/products\")\n  async all() { return {} }\n}"
+              "code": "@HTTPClient({\"adapter\":\"api\"})\nexport default class CatalogClient {\n  /** @returns {Promise<BehaviorJsonValue>} */\n  @GetRequest(\"/api/products\")\n  async all() { return {} }\n}"
             },
             {
               "name": "client/services/CatalogService.js",
@@ -2608,7 +2608,7 @@
             },
             {
               "name": "client/clients/CatalogClient.ts",
-              "code": "@HTTPClient({\"adapter\":\"api\"})\nclass CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<BehaviorJsonValue> { return {} }\n}"
+              "code": "@HTTPClient({\"adapter\":\"api\"})\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<BehaviorJsonValue> { return {} }\n}"
             },
             {
               "name": "client/services/CatalogService.ts",
@@ -2642,7 +2642,7 @@
             },
             {
               "name": "server/stores/CatalogStore.js",
-              "code": "@Store\nclass CatalogStore {\n  /** @type {DataSource} */\n  @Needs\n  dataSource;\n  /** @returns {Promise<object[]>} */\n  find() { return this.dataSource.query('SELECT 42 AS amount', []); }\n}"
+              "code": "@Store\nexport default class CatalogStore {\n  /** @type {DataSource} */\n  @Needs\n  dataSource;\n  /** @returns {Promise<object[]>} */\n  find() { return this.dataSource.query('SELECT 42 AS amount', []); }\n}"
             },
             {
               "name": "server/controllers/CatalogController.js",
@@ -2650,11 +2650,11 @@
             },
             {
               "name": "server/stores/CatalogStore.ts",
-              "code": "@Store\nclass CatalogStore {\n  @Needs\n  dataSource: DataSource;\n  find() { return this.dataSource.query('SELECT 42 AS amount', []); }\n}"
+              "code": "@Store\nexport default class CatalogStore {\n  @Needs\n  dataSource!: DataSource;\n  find() { return this.dataSource.query('SELECT 42 AS amount', []); }\n}"
             },
             {
               "name": "server/controllers/CatalogController.ts",
-              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  @Needs\n  catalogStore: CatalogStore;\n  @GetRoute\n  getCatalog() { return this.catalogStore.find(); }\n}"
+              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  @Needs\n  catalogStore!: CatalogStore;\n  @GetRoute\n  getCatalog() { return this.catalogStore.find(); }\n}"
             },
             {
               "name": "server/stores/CatalogStore.py",
@@ -2765,7 +2765,7 @@
           "files": [
             {
               "name": "server/services/TicketService.js",
-              "code": "@Service\nclass TicketService {\n  /** @returns {number[]} */\n  levels() { return [1, 2, 3]; }\n}\n"
+              "code": "@Service\nexport default class TicketService {\n  /** @returns {number[]} */\n  levels() { return [1, 2, 3]; }\n}\n"
             },
             {
               "name": "server/controllers/EventsController.js",
@@ -2777,7 +2777,7 @@
             },
             {
               "name": "server/services/TicketService.ts",
-              "code": "@Service\nclass TicketService {\n  levels(): number[] { return [1, 2, 3]; }\n}\n"
+              "code": "@Service\nexport default class TicketService {\n  levels(): number[] { return [1, 2, 3]; }\n}\n"
             },
             {
               "name": "server/controllers/EventsController.ts",
@@ -3241,15 +3241,15 @@
           "files": [
             {
               "name": "server/stores/LedgerStore.js",
-              "code": "@Store\n@Lifetime('singleton')\nclass LedgerStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n  /** @returns {number} */\n  surcharge() { return 2; }\n}\n"
+              "code": "@Store\n@Lifetime('singleton')\nexport default class LedgerStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n  /** @returns {number} */\n  surcharge() { return 2; }\n}\n"
             },
             {
               "name": "server/services/LedgerService.js",
-              "code": "@Service\nclass LedgerService {\n  /** @type {LedgerStore} */\n  @Needs\n  ledgerStore;\n  /** @returns {number} */\n  subtotal() { return this.ledgerStore.subtotal(); }\n}\n"
+              "code": "@Service\nexport default class LedgerService {\n  /** @type {LedgerStore} */\n  @Needs\n  ledgerStore;\n  /** @returns {number} */\n  subtotal() { return this.ledgerStore.subtotal(); }\n}\n"
             },
             {
               "name": "server/helpers/LedgerHelper.js",
-              "code": "@Helper\n@Lifetime('transient')\nclass LedgerHelper {\n  /** @type {LedgerStore} */\n  @Needs\n  ledgerStore;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) {\n    const surcharge = this.ledgerStore.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
+              "code": "@Helper\n@Lifetime('transient')\nexport default class LedgerHelper {\n  /** @type {LedgerStore} */\n  @Needs\n  ledgerStore;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) {\n    const surcharge = this.ledgerStore.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
             },
             {
               "name": "server/controllers/LedgerController.js",
@@ -3261,19 +3261,19 @@
             },
             {
               "name": "server/stores/LedgerStore.ts",
-              "code": "@Store\n@Lifetime('singleton')\nclass LedgerStore {\n  subtotal(): number { return 40; }\n  surcharge(): number { return 2; }\n}\n"
+              "code": "@Store\n@Lifetime('singleton')\nexport default class LedgerStore {\n  subtotal(): number { return 40; }\n  surcharge(): number { return 2; }\n}\n"
             },
             {
               "name": "server/services/LedgerService.ts",
-              "code": "@Service\nclass LedgerService {\n  @Needs\n  repository: LedgerStore;\n  subtotal(): number { return this.repository.subtotal(); }\n}\n"
+              "code": "@Service\nexport default class LedgerService {\n  @Needs\n  repository!: LedgerStore;\n  subtotal(): number { return this.repository.subtotal(); }\n}\n"
             },
             {
               "name": "server/helpers/LedgerHelper.ts",
-              "code": "@Helper\n@Lifetime('transient')\nclass LedgerHelper {\n  @Needs\n  repository: LedgerStore;\n\n  settle(subtotal: number): number {\n    const surcharge = this.repository.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
+              "code": "@Helper\n@Lifetime('transient')\nexport default class LedgerHelper {\n  @Needs\n  repository!: LedgerStore;\n\n  settle(subtotal: number): number {\n    const surcharge = this.repository.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
             },
             {
               "name": "server/controllers/LedgerController.ts",
-              "code": "import type { Ledger } from '/models/Ledger.ts'\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n  @Needs\n  @Named(\"LedgerService\")\n  service: LedgerService;\n  @Needs\n  @Named(\"LedgerHelper\")\n  settlement: LedgerHelper;\n\n  @GetRoute\n  getLedger(): Ledger {\n    const subtotal = this.service.subtotal();\n    const total = this.settlement.settle(subtotal);\n    return { total };\n  }\n}\n"
+              "code": "import type { Ledger } from '/models/Ledger.ts'\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n  @Needs\n  @Named(\"LedgerService\")\n  service!: LedgerService;\n  @Needs\n  @Named(\"LedgerHelper\")\n  settlement!: LedgerHelper;\n\n  @GetRoute\n  getLedger(): Ledger {\n    const subtotal = this.service.subtotal();\n    const total = this.settlement.settle(subtotal);\n    return { total };\n  }\n}\n"
             },
             {
               "name": "server/models/Ledger.py",
@@ -3512,11 +3512,11 @@
             },
             {
               "name": "client/stores/CartStore.js",
-              "code": "@Store\nclass CartStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n  /** @returns {number} */\n  surcharge() { return 2; }\n  /** @returns {number} */\n  count() { return 3; }\n}\n"
+              "code": "@Store\nexport default class CartStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n  /** @returns {number} */\n  surcharge() { return 2; }\n  /** @returns {number} */\n  count() { return 3; }\n}\n"
             },
             {
               "name": "client/helpers/CartHelper.js",
-              "code": "@Helper\nclass CartHelper {\n  /** @type {CartStore} */\n  @Needs\n  cartStore;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) {\n    const surcharge = this.cartStore.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
+              "code": "@Helper\nexport default class CartHelper {\n  /** @type {CartStore} */\n  @Needs\n  cartStore;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) {\n    const surcharge = this.cartStore.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
             },
             {
               "name": "client/services/CartService.js",
@@ -3528,11 +3528,11 @@
             },
             {
               "name": "client/stores/CartStore.ts",
-              "code": "@Store\nclass CartStore {\n  subtotal(): number { return 40; }\n  surcharge(): number { return 2; }\n  count(): number { return 3; }\n}\n"
+              "code": "@Store\nexport default class CartStore {\n  subtotal(): number { return 40; }\n  surcharge(): number { return 2; }\n  count(): number { return 3; }\n}\n"
             },
             {
               "name": "client/helpers/CartHelper.ts",
-              "code": "@Helper\nclass CartHelper {\n  @Needs\n  cartStore!: CartStore;\n\n  settle(subtotal: number): number {\n    const surcharge = this.cartStore.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
+              "code": "@Helper\nexport default class CartHelper {\n  @Needs\n  cartStore!: CartStore;\n\n  settle(subtotal: number): number {\n    const surcharge = this.cartStore.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
             },
             {
               "name": "client/services/CartService.ts",
@@ -3584,19 +3584,19 @@
         },
         {
           "heading": "Limited Store and Query",
-          "body": "Store names an Entity class from the same source, like Store(ProductEntity, {...}), and at most 64 allowed fields. It is shared behavior, not a dependency injection registration. Bare Store (Store with no arguments) keeps its Yon-only provider meaning. Query methods with an empty body compile to find, count or exists operations. They use either a structured Query or derived names: findByStatus, countByStatus, existsByStatus and the same names in snake_case. Derived predicates (conditions) support Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull, joined by And. The structured operators are eq/ne/lt/lte/gt/gte/in/isNull/isNotNull. Tachyon does not accept SQL text, expressions, OR, joins, nested paths or bulk changes. The entity adapter receives a query command with bound values (values sent apart from the query text). The adapter must have authorizeEntity(command, execution). That method must return true before execute runs. The limits are eight predicates, 100 In values, 64 KiB of bindings and 1 MiB of results. Find returns at most the requested page size, and the maximum is 100. The annotation sets the order. When two results have the same order, the ID decides. The caller's page.sort must be empty. Count returns a nonnegative safe integer. Exists returns a boolean. Query cannot combine with other method policies. The examples run queries through an explicit, authorized in-memory adapter. Every language declares the same store and controller route.",
+          "body": "Store names an Entity class from the same source, like Store(ProductEntity, {...}), and at most 64 allowed fields. It is shared behavior, not a dependency injection registration. Bare Store (Store with no arguments) keeps its Yon-only provider meaning. Query methods with an empty body compile to find, count or exists operations. In JavaScript and TypeScript they declare their answer with | void, such as Promise<ProductEntity[] | void>, because an empty body returns nothing to the type checker. They use either a structured Query or derived names: findByStatus, countByStatus, existsByStatus and the same names in snake_case. Derived predicates (conditions) support Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull, joined by And. The structured operators are eq/ne/lt/lte/gt/gte/in/isNull/isNotNull. Tachyon does not accept SQL text, expressions, OR, joins, nested paths or bulk changes. The entity adapter receives a query command with bound values (values sent apart from the query text). The adapter must have authorizeEntity(command, execution). That method must return true before execute runs. The limits are eight predicates, 100 In values, 64 KiB of bindings and 1 MiB of results. Find returns at most the requested page size, and the maximum is 100. The annotation sets the order. When two results have the same order, the ID decides. The caller's page.sort must be empty. Count returns a nonnegative safe integer. Exists returns a boolean. Query cannot combine with other method policies. The examples run queries through an explicit, authorized in-memory adapter. Every language declares the same store and controller route.",
           "files": [
             {
               "name": "server/entities/ProductEntity.js",
-              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nclass ProductEntity {\n  /** @type {number} */\n  @Id\n  id;\n}\n"
+              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nexport default class ProductEntity {\n  /** @type {number} */\n  @Id\n  id;\n  /** @type {string} */\n  status;\n}\n"
             },
             {
               "name": "server/stores/ProductStore.js",
-              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass ProductStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /** @param {string} status */\n  async findByStatus(status) {}\n  /** @param {string} status */\n  async countByStatus(status) {}\n  /**\n   * @param {string} status\n   * @param {BehaviorPageInput} page\n   */\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status, @PageDefaults page) {}\n  /**\n   * @param {BehaviorPage} request\n   * @returns {BehaviorPage}\n   */\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request) { return request; }\n}\n"
+              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class ProductStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {string} status\n   * @returns {Promise<ProductEntity[] | void>}\n   */\n  async findByStatus(status) {}\n  /**\n   * @param {string} status\n   * @returns {Promise<number | void>}\n   */\n  async countByStatus(status) {}\n  /**\n   * @param {string} status\n   * @param {BehaviorPageInput} page\n   * @returns {Promise<ProductEntity[] | void>}\n   */\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status, @PageDefaults page) {}\n  /**\n   * @param {BehaviorPageInput} request\n   * @returns {BehaviorPageInput}\n   */\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request) { return request; }\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /** @returns {object} */\n  static configure() {\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    const findRows = (command) => {\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page.size);\n    };\n    return {\n      authorizeEntity: (command) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /** @returns {BehaviorConfiguration} */\n  static configure() {\n    /** @type {BehaviorJsonObject[]} */\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    /** @param {BehaviorEntityCommand} command */\n    const findRows = (command) => {\n      if (command.operation !== 'query') return [];\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page?.size);\n    };\n    return {\n      authorizeEntity: (command) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
             },
             {
               "name": "server/controllers/ProductController.js",
@@ -3608,15 +3608,15 @@
             },
             {
               "name": "server/entities/ProductEntity.ts",
-              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nclass ProductEntity {\n  @Id\n  id: number;\n}\n"
+              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nexport default class ProductEntity {\n  @Id\n  id!: number;\n  status!: string;\n}\n"
             },
             {
               "name": "server/stores/ProductStore.ts",
-              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass ProductStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string): Promise<unknown> {}\n  async countByStatus(status: string): Promise<unknown> {}\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status: string, @PageDefaults page: unknown): Promise<unknown> {}\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request: unknown): unknown { return request; }\n}\n"
+              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class ProductStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string): Promise<ProductEntity[] | void> {}\n  async countByStatus(status: string): Promise<number | void> {}\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status: string, @PageDefaults page: BehaviorPageInput): Promise<ProductEntity[] | void> {}\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request: BehaviorPageInput): BehaviorPageInput { return request; }\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure() {\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    const findRows = (command: any) => {\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row: any) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page.size);\n    };\n    return {\n      authorizeEntity: (command: any) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure() {\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    const findRows = (command: any) => {\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row: any) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page.size);\n    };\n    return {\n      authorizeEntity: (command: any) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
             },
             {
               "name": "server/controllers/ProductController.ts",
@@ -3835,7 +3835,7 @@
         },
         {
           "heading": "Saved data, outgoing calls and types",
-          "body": "context.repository(EntityClass) offers find(page), save(value) and delete(id). They return limited JSON, not class instances filled with the data. Adapters own parameterized operations, authorization and tenancy (keeping the data of each tenant separate). Request methods return descriptors (objects that describe the request) that contain only query, headers and body. The adapter owns a trusted base origin. A literal path cannot select another authority (another host). Transport requests carry redirect: 'error', credentials: 'omit', a signal, a deadline and a 1 MiB response limit. The adapter must enforce that limit while it reads. There are no automatic retries, and no credentials are added without your code. TypeScript decorators cannot add constructor signatures. So declare fields and use Behaviors.construct(Type, { behaviors: context, ...fields }). The runtime checks that the fields are exactly the required set. Request methods should declare the return type Promise<BehaviorJsonValue>, because decorators cannot change the return types that TypeScript infers. A request method with an empty body, which Tachyon writes, declares Promise<Hello | void> instead, because an empty body returns nothing to TypeScript; check the value before you use it. Generated projects include tachyon-behaviors.d.ts, and ty writes .tachyon/types/client/composed.d.ts and .tachyon/types/server/composed.d.ts, so a test or role file uses a composed class such as a service without an import. Each @Test class also gets behaviors and construct(Type), the members that ty test adds. Each realm's jsconfig.json turns on experimentalDecorators for parameter annotations such as @FromBody and maps imports such as /models/Hello.ts, so tsc -p client/jsconfig.json checks the whole realm. See the repository's docs/BEHAVIOR_ANNOTATIONS.md for the full adapter contract."
+          "body": "context.repository(EntityClass) offers find(page), save(value) and delete(id). They return limited JSON, not class instances filled with the data. Adapters own parameterized operations, authorization and tenancy (keeping the data of each tenant separate). Request methods return descriptors (objects that describe the request) that contain only query, headers and body. The adapter owns a trusted base origin. A literal path cannot select another authority (another host). Transport requests carry redirect: 'error', credentials: 'omit', a signal, a deadline and a 1 MiB response limit. The adapter must enforce that limit while it reads. There are no automatic retries, and no credentials are added without your code. TypeScript decorators cannot add constructor signatures. So declare fields and use Behaviors.construct(Type, { behaviors: context, ...fields }). The runtime checks that the fields are exactly the required set. Request methods should declare the return type Promise<BehaviorJsonValue>, because decorators cannot change the return types that TypeScript infers. A method with an empty body, which Tachyon writes, declares Promise<Hello | void> instead, because an empty body returns nothing to TypeScript; check the value before you use it. This holds for request methods, Gateway methods, Store queries and Convert methods. An entity adapter's execute receives a BehaviorEntityCommand, or a BehaviorTransactionCommand (begin, commit or rollback) for an AllOrNothing method. Generated projects include tachyon-behaviors.d.ts, and ty writes .tachyon/types/client/composed.d.ts and .tachyon/types/server/composed.d.ts, so a test or role file uses a composed class such as a service without an import. A class is composed when its file exports it (export default class) from a role folder, server/errors or server/roles. tachyon-env.d.ts also declares process.env and relay for Yon, and tachyonWindow for native targets. Each @Test class also gets behaviors and construct(Type), the members that ty test adds. Each realm's jsconfig.json turns on experimentalDecorators for parameter annotations such as @FromBody and maps imports such as /models/Hello.ts, so tsc -p client/jsconfig.json checks the whole realm. See the repository's docs/BEHAVIOR_ANNOTATIONS.md for the full adapter contract."
         },
         {
           "heading": "Shared browser behavior annotations",
@@ -3855,11 +3855,11 @@
             },
             {
               "name": "client/setups/ApplicationSetup.js",
-              "code": "@Setup\nclass ApplicationSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class ApplicationSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/services/CatalogService.js",
-              "code": "@Service\nexport default class CatalogService {\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {BehaviorContext | null} */\n  behaviors = null;\n  offset = 0;\n\n  /**\n   * @param {BehaviorPage} input\n   * @returns {number}\n   */\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input) { return input.offset; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    });\n    this.offset = this.page({ page: 1 });\n  }\n}"
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {BehaviorContext | null} */\n  behaviors = null;\n  /** @type {number | undefined} */\n  offset = 0;\n\n  /**\n   * @param {BehaviorPageInput} input\n   * @returns {number | undefined}\n   */\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input) { return input.offset; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    });\n    this.offset = this.page({ page: 1 });\n  }\n}"
             }
           ]
         }
@@ -3889,11 +3889,11 @@
       "sections": [
         {
           "heading": "Calling a method in another language",
-          "body": "`@Gateway` declares a method that another language answers. Write it like a request method: a signature with an empty body, usually on an `HTTPClient`. The annotation names one of two targets.\n\n`{\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}` names a role file in another Yon language. `method` is optional. By default, it is the name of the annotated method. Tachyon builds a small unit in the language of the target. The unit puts together the role files of that language. It creates the class with its own dependencies. It calls only the methods that callers declared. The target runs like a route: it has the same environment and its own managed storage.\n\n`{\"command\":[\"python3\",\"server/helpers/forecast.py\"]}` names a program. The first entry is a program on the `PATH` of the server. Every entry that contains a slash is a file under `server/helpers/`. No shell runs, and the arguments of the call never go on the command line. The program reads `{\"method\": \"forecast\", \"arguments\": [3]}` on stdin (standard input) and writes only the JSON result on stdout (standard output). Exit status 0 means success. Any other status is a failure. The program gets only the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows) and the names you add to the allowlist. It never gets `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values.\n\nThe positional arguments of the method travel as JSON. The return value of the other side becomes the result of the method. Typed languages use their JSON value type: `Object` in Java, `Any?` in Kotlin, `BehaviorJsonValue` in TypeScript, `BehaviorValue` in Go. These are the limits: at most 32 arguments; 1 MiB of JSON each way, at most 32 levels deep and 10,000 values; 64 calls and 4 calls at the same time per request; and the time left in the request. Each call starts a new process, so a JVM or .NET target spends its start-up time again on every call.\n\nA failure reaches the caller as a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. The messages of the target and its stderr (error output) never reach the caller. The server logs only a `handler.gateway_failed` event with the code. Only one hop (one call from one language to another) is allowed. Tachyon refuses a target class that declares its own gateway.\n\nThe build checks every target. It fails with `TY1312` when the file is missing or outside `server/`. It also fails when the file is in the caller's own language. In that case, inject it instead. It also fails when it is not a Yon language. It fails when the target has no concrete instance method of that name. It also fails when the method takes a different number of arguments. It fails when the method uses a type that is not the JSON value type of the language. Tachyon selects Java, Groovy, Kotlin and C# overloads by argument count and JSON types, not by source order. Overloads are methods with the same name but different parameters. Ambiguous signatures also fail with `TY1312`. So do callers that ask for different argument counts for the same target method. Rust target methods use `&self`. Tachyon refuses a method that consumes `self` or borrows `&mut self`. A Go target method is exported. So Tachyon calls the method whose name starts with an upper-case letter (`summarize` calls `Summarize`). A misused annotation fails with `TY1308`. This happens in Tac, on an HTTP verb method, or together with another method annotation. `server/gateways/` is reserved for the generated units (`TY1310`). A missing program fails at start-up with `TY2112`, and Firecracker isolation refuses gateways (`TY2010`).\n\nEvery Yon language below calls a class in another language. The examples also show an explicit Python command target.",
+          "body": "`@Gateway` declares a method that another language answers. Write it like a request method: a signature with an empty body, usually on an `HTTPClient`. In JavaScript and TypeScript its answer is `Promise<BehaviorJsonValue | void>`. The annotation names one of two targets.\n\n`{\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}` names a role file in another Yon language. `method` is optional. By default, it is the name of the annotated method. Tachyon builds a small unit in the language of the target. The unit puts together the role files of that language. It creates the class with its own dependencies. It calls only the methods that callers declared. The target runs like a route: it has the same environment and its own managed storage.\n\n`{\"command\":[\"python3\",\"server/helpers/forecast.py\"]}` names a program. The first entry is a program on the `PATH` of the server. Every entry that contains a slash is a file under `server/helpers/`. No shell runs, and the arguments of the call never go on the command line. The program reads `{\"method\": \"forecast\", \"arguments\": [3]}` on stdin (standard input) and writes only the JSON result on stdout (standard output). Exit status 0 means success. Any other status is a failure. The program gets only the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows) and the names you add to the allowlist. It never gets `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values.\n\nThe positional arguments of the method travel as JSON. The return value of the other side becomes the result of the method. Typed languages use their JSON value type: `Object` in Java, `Any?` in Kotlin, `BehaviorJsonValue` in TypeScript, `BehaviorValue` in Go. These are the limits: at most 32 arguments; 1 MiB of JSON each way, at most 32 levels deep and 10,000 values; 64 calls and 4 calls at the same time per request; and the time left in the request. Each call starts a new process, so a JVM or .NET target spends its start-up time again on every call.\n\nA failure reaches the caller as a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. The messages of the target and its stderr (error output) never reach the caller. The server logs only a `handler.gateway_failed` event with the code. Only one hop (one call from one language to another) is allowed. Tachyon refuses a target class that declares its own gateway.\n\nThe build checks every target. It fails with `TY1312` when the file is missing or outside `server/`. It also fails when the file is in the caller's own language. In that case, inject it instead. It also fails when it is not a Yon language. It fails when the target has no concrete instance method of that name. It also fails when the method takes a different number of arguments. It fails when the method uses a type that is not the JSON value type of the language. Tachyon selects Java, Groovy, Kotlin and C# overloads by argument count and JSON types, not by source order. Overloads are methods with the same name but different parameters. Ambiguous signatures also fail with `TY1312`. So do callers that ask for different argument counts for the same target method. Rust target methods use `&self`. Tachyon refuses a method that consumes `self` or borrows `&mut self`. A Go target method is exported. So Tachyon calls the method whose name starts with an upper-case letter (`summarize` calls `Summarize`). A misused annotation fails with `TY1308`. This happens in Tac, on an HTTP verb method, or together with another method annotation. `server/gateways/` is reserved for the generated units (`TY1310`). A missing program fails at start-up with `TY2112`, and Firecracker isolation refuses gateways (`TY2010`).\n\nEvery Yon language below calls a class in another language. The examples also show an explicit Python command target.",
           "files": [
             {
               "name": "server/clients/ReportClient.js",
-              "code": "@HTTPClient\nclass ReportClient {\n  /** @param {string} period */\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  async summarize(period) {}\n\n  /** @param {number} months */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
+              "code": "@HTTPClient\nexport default class ReportClient {\n  /**\n   * @param {string} period\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  async summarize(period) {}\n\n  /**\n   * @param {number} months\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
             },
             {
               "name": "server/controllers/ReportController.js",
@@ -3909,7 +3909,7 @@
             },
             {
               "name": "server/clients/ReportClient.ts",
-              "code": "@HTTPClient\nclass ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.go\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n}\n"
+              "code": "@HTTPClient\nexport default class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.go\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
               "name": "server/controllers/ReportController.ts",
@@ -4172,15 +4172,15 @@
           "files": [
             {
               "name": "server/stores/TaxRateStore.js",
-              "code": "@Store\nclass TaxRateStore {\n  /** @returns {number} */\n  rate() { return 2; }\n}\n"
+              "code": "@Store\nexport default class TaxRateStore {\n  /** @returns {number} */\n  rate() { return 2; }\n}\n"
             },
             {
               "name": "server/helpers/TaxHelper.js",
-              "code": "@Helper\nclass TaxHelper {\n  /** @type {TaxRateStore} */\n  @Needs\n  taxRateStore;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  addTax(subtotal) {\n    const tax = this.taxRateStore.rate();\n    return subtotal + tax;\n  }\n}\n"
+              "code": "@Helper\nexport default class TaxHelper {\n  /** @type {TaxRateStore} */\n  @Needs\n  taxRateStore;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  addTax(subtotal) {\n    const tax = this.taxRateStore.rate();\n    return subtotal + tax;\n  }\n}\n"
             },
             {
               "name": "server/services/CheckoutService.js",
-              "code": "@Service\nclass CheckoutService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n\n  /** @returns {number} */\n  total() {\n    const subtotal = this.#subtotal();\n    return this.taxHelper.addTax(subtotal);\n  }\n\n  /** @returns {number} */\n  #subtotal() {\n    return 40;\n  }\n}\n"
+              "code": "@Service\nexport default class CheckoutService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n\n  /** @returns {number} */\n  total() {\n    const subtotal = this.#subtotal();\n    return this.taxHelper.addTax(subtotal);\n  }\n\n  /** @returns {number} */\n  #subtotal() {\n    return 40;\n  }\n}\n"
             },
             {
               "name": "server/controllers/CheckoutController.js",
@@ -4192,19 +4192,19 @@
             },
             {
               "name": "server/stores/TaxRateStore.ts",
-              "code": "@Store\nclass TaxRateStore {\n  rate(): number { return 2; }\n}\n"
+              "code": "@Store\nexport default class TaxRateStore {\n  rate(): number { return 2; }\n}\n"
             },
             {
               "name": "server/helpers/TaxHelper.ts",
-              "code": "@Helper\nclass TaxHelper {\n  @Needs\n  store: TaxRateStore;\n\n  addTax(subtotal: number): number {\n    const tax = this.store.rate();\n    return subtotal + tax;\n  }\n}\n"
+              "code": "@Helper\nexport default class TaxHelper {\n  @Needs\n  store!: TaxRateStore;\n\n  addTax(subtotal: number): number {\n    const tax = this.store.rate();\n    return subtotal + tax;\n  }\n}\n"
             },
             {
               "name": "server/services/CheckoutService.ts",
-              "code": "@Service\nclass CheckoutService {\n  @Needs\n  helper: TaxHelper;\n\n  total(): number {\n    const subtotal = this.subtotal();\n    return this.helper.addTax(subtotal);\n  }\n\n  private subtotal(): number {\n    return 40;\n  }\n}\n"
+              "code": "@Service\nexport default class CheckoutService {\n  @Needs\n  helper!: TaxHelper;\n\n  total(): number {\n    const subtotal = this.subtotal();\n    return this.helper.addTax(subtotal);\n  }\n\n  private subtotal(): number {\n    return 40;\n  }\n}\n"
             },
             {
               "name": "server/controllers/CheckoutController.ts",
-              "code": "import type { Receipt } from '/models/Receipt.ts'\n\n@RequestRoute(\"/checkout\")\n@Public\nclass CheckoutController {\n  @Needs\n  service: CheckoutService;\n\n  @GetRoute\n  getCheckout(): Receipt {\n    const total = this.service.total();\n    return { total };\n  }\n}\n"
+              "code": "import type { Receipt } from '/models/Receipt.ts'\n\n@RequestRoute(\"/checkout\")\n@Public\nclass CheckoutController {\n  @Needs\n  service!: CheckoutService;\n\n  @GetRoute\n  getCheckout(): Receipt {\n    const total = this.service.total();\n    return { total };\n  }\n}\n"
             },
             {
               "name": "server/models/Receipt.py",
@@ -4578,11 +4578,11 @@
             },
             {
               "name": "server/tests/PriceTestSetup.js",
-              "code": "@TestSetup\nclass PriceTestSetup {\n  static configure() { return {}; }\n}\n"
+              "code": "@TestSetup\nexport default class PriceTestSetup {\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/tests/PriceUtilsTest.js",
-              "code": "@Test(PriceTestSetup)\nexport default class PriceUtilsTest {\n  async testAddsTheTax() {\n    Assert.equals(1200, PriceUtils.withTax(1000))\n  }\n\n  @ValueSource([0, 5, 1000])\n  async testNeverLowersAPrice(cents) {\n    Assert.isTrue(PriceUtils.withTax(cents) >= cents, 'the tax never lowers a price')\n  }\n\n  async testRefusesANegativePrice() {\n    const error = Assert.throws(() => PriceUtils.withTax(-1))\n    Assert.equals('A price is never negative.', error.message)\n  }\n}\n"
+              "code": "@Test(PriceTestSetup)\nexport default class PriceUtilsTest {\n  async testAddsTheTax() {\n    Assert.equals(1200, PriceUtils.withTax(1000))\n  }\n\n  /** @param {number} cents */\n  @ValueSource([0, 5, 1000])\n  async testNeverLowersAPrice(cents) {\n    Assert.isTrue(PriceUtils.withTax(cents) >= cents, 'the tax never lowers a price')\n  }\n\n  async testRefusesANegativePrice() {\n    const error = /** @type {Error} */ (Assert.throws(() => PriceUtils.withTax(-1)))\n    Assert.equals('A price is never negative.', error.message)\n  }\n}\n"
             },
             {
               "name": "server/utils/PriceUtils.ts",
@@ -4590,7 +4590,7 @@
             },
             {
               "name": "server/tests/PriceTestSetup.ts",
-              "code": "@TestSetup\nclass PriceTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
+              "code": "@TestSetup\nexport default class PriceTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
             },
             {
               "name": "server/tests/PriceUtilsTest.ts",
@@ -4755,7 +4755,7 @@
             },
             {
               "name": "client/clients/UsersClient.js",
-              "code": "@HTTPClient({\"adapter\":\"users\"})\nclass UsersClient {\n  /** @returns {Promise<{ name: string }[]>} */\n  @GetRequest(\"/users\")\n  async list() { return {}; }\n  /** @param {{ name: string }} form */\n  @PostRequest(\"/users\")\n  async save(@RequestBody form) {}\n}"
+              "code": "@HTTPClient({\"adapter\":\"users\"})\nexport default class UsersClient {\n  /** @returns {Promise<{ name: string }[]>} */\n  @GetRequest(\"/users\")\n  async list() { return []; }\n  /** @param {{ name: string }} form */\n  @PostRequest(\"/users\")\n  async save(@RequestBody form) {}\n}"
             },
             {
               "name": "client/services/UserFormService.js",
@@ -4767,7 +4767,7 @@
             },
             {
               "name": "client/clients/UsersClient.ts",
-              "code": "@HTTPClient({\"adapter\":\"users\"})\nclass UsersClient {\n  @GetRequest(\"/users\")\n  async list(): Promise<BehaviorJsonValue> { return {}; }\n  @PostRequest(\"/users\")\n  async save(@RequestBody form: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n}"
+              "code": "@HTTPClient({\"adapter\":\"users\"})\nexport default class UsersClient {\n  @GetRequest(\"/users\")\n  async list(): Promise<BehaviorJsonValue> { return {}; }\n  @PostRequest(\"/users\")\n  async save(@RequestBody form: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}"
             },
             {
               "name": "client/services/UserFormService.ts",
@@ -4810,19 +4810,19 @@
           "files": [
             {
               "name": "server/clients/BillingClient.js",
-              "code": "@HTTPClient\nclass BillingClient {\n  /** @returns {number} */\n  surcharge() { return 2; }\n}\n"
+              "code": "@HTTPClient\nexport default class BillingClient {\n  /** @returns {number} */\n  surcharge() { return 2; }\n}\n"
             },
             {
               "name": "server/helpers/BillingHelper.js",
-              "code": "@Helper\nclass BillingHelper {\n  /** @type {BillingClient} */\n  @Needs\n  billingClient;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) {\n    const surcharge = this.billingClient.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
+              "code": "@Helper\nexport default class BillingHelper {\n  /** @type {BillingClient} */\n  @Needs\n  billingClient;\n\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) {\n    const surcharge = this.billingClient.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
             },
             {
               "name": "server/stores/BillingStore.js",
-              "code": "@Store\nclass BillingStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n}\n"
+              "code": "@Store\nexport default class BillingStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n}\n"
             },
             {
               "name": "server/services/BillingService.js",
-              "code": "@Service\nclass BillingService {\n  /** @type {BillingStore} */\n  @Needs\n  billingStore;\n  /** @type {BillingHelper} */\n  @Needs\n  billingHelper;\n\n  /** @returns {number} */\n  total() {\n    const subtotal = this.billingStore.subtotal();\n    return this.billingHelper.settle(subtotal);\n  }\n}\n"
+              "code": "@Service\nexport default class BillingService {\n  /** @type {BillingStore} */\n  @Needs\n  billingStore;\n  /** @type {BillingHelper} */\n  @Needs\n  billingHelper;\n\n  /** @returns {number} */\n  total() {\n    const subtotal = this.billingStore.subtotal();\n    return this.billingHelper.settle(subtotal);\n  }\n}\n"
             },
             {
               "name": "server/setups/BillingSetup.js",
@@ -4842,19 +4842,19 @@
             },
             {
               "name": "server/clients/BillingClient.ts",
-              "code": "@HTTPClient\nclass BillingClient {\n  surcharge(): number { return 2; }\n}\n"
+              "code": "@HTTPClient\nexport default class BillingClient {\n  surcharge(): number { return 2; }\n}\n"
             },
             {
               "name": "server/helpers/BillingHelper.ts",
-              "code": "@Helper\nclass BillingHelper {\n  @Needs\n  client: BillingClient;\n\n  settle(subtotal: number): number {\n    const surcharge = this.client.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
+              "code": "@Helper\nexport default class BillingHelper {\n  @Needs\n  client!: BillingClient;\n\n  settle(subtotal: number): number {\n    const surcharge = this.client.surcharge();\n    return subtotal + surcharge;\n  }\n}\n"
             },
             {
               "name": "server/stores/BillingStore.ts",
-              "code": "@Store\nclass BillingStore {\n  subtotal(): number { return 40; }\n}\n"
+              "code": "@Store\nexport default class BillingStore {\n  subtotal(): number { return 40; }\n}\n"
             },
             {
               "name": "server/services/BillingService.ts",
-              "code": "@Service\nclass BillingService {\n  @Needs\n  repository: BillingStore;\n  @Needs\n  helper: BillingHelper;\n\n  total(): number {\n    const subtotal = this.repository.subtotal();\n    return this.helper.settle(subtotal);\n  }\n}\n"
+              "code": "@Service\nexport default class BillingService {\n  @Needs\n  repository!: BillingStore;\n  @Needs\n  helper!: BillingHelper;\n\n  total(): number {\n    const subtotal = this.repository.subtotal();\n    return this.helper.settle(subtotal);\n  }\n}\n"
             },
             {
               "name": "server/setups/BillingSetup.ts",
@@ -4866,7 +4866,7 @@
             },
             {
               "name": "server/controllers/BillingController.ts",
-              "code": "import type { Bill } from '/models/Bill.ts'\n\n@RequestRoute(\"/billing\")\n@Public\nclass BillingController {\n  @Needs\n  service: BillingService;\n\n  @GetRoute\n  getBilling(): Bill {\n    const total = this.service.total();\n    return { total };\n  }\n}\n"
+              "code": "import type { Bill } from '/models/Bill.ts'\n\n@RequestRoute(\"/billing\")\n@Public\nclass BillingController {\n  @Needs\n  service!: BillingService;\n\n  @GetRoute\n  getBilling(): Bill {\n    const total = this.service.total();\n    return { total };\n  }\n}\n"
             },
             {
               "name": "server/models/Bill.py",
@@ -5197,11 +5197,11 @@
             },
             {
               "name": "client/stores/BillingStore.js",
-              "code": "@Store\nclass BillingStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n}\n"
+              "code": "@Store\nexport default class BillingStore {\n  /** @returns {number} */\n  subtotal() { return 40; }\n}\n"
             },
             {
               "name": "client/helpers/BillingHelper.js",
-              "code": "@Helper\nclass BillingHelper {\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) { return subtotal + 2; }\n}\n"
+              "code": "@Helper\nexport default class BillingHelper {\n  /**\n   * @param {number} subtotal\n   * @returns {number}\n   */\n  settle(subtotal) { return subtotal + 2; }\n}\n"
             },
             {
               "name": "client/setups/BillingSetup.js",
@@ -5217,11 +5217,11 @@
             },
             {
               "name": "client/stores/BillingStore.ts",
-              "code": "@Store\nclass BillingStore {\n  subtotal(): number { return 40; }\n}\n"
+              "code": "@Store\nexport default class BillingStore {\n  subtotal(): number { return 40; }\n}\n"
             },
             {
               "name": "client/helpers/BillingHelper.ts",
-              "code": "@Helper\nclass BillingHelper {\n  settle(subtotal: number): number { return subtotal + 2; }\n}\n"
+              "code": "@Helper\nexport default class BillingHelper {\n  settle(subtotal: number): number { return subtotal + 2; }\n}\n"
             },
             {
               "name": "client/setups/BillingSetup.ts",
@@ -5337,19 +5337,19 @@
           "heading": "Data access: Yon",
           "axis": "language",
           "summary": "Entity and Table name a table. Store names that Entity class and gives an explicit allowlist of fields and its page bounds. Method names derive the query, @Query states a query exactly, and @PageDefaults on a parameter limits a page request that the caller supplies.",
-          "body": "Choose one language for GET /products. Each implementation returns {\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}]}. An entity is a type that describes one kind of stored record. You must declare Entity and Table together, in server/entities. Entity takes only the adapter name; the one field marked @Id is the identifier. The Store that names an Entity lives in server/stores. Its first argument is the Entity class itself: ProductEntity.class in Java, ProductEntity::class in Kotlin and PHP, typeof(ProductEntity) in C#, and the bare name in the other languages. Its options are exactly fields, defaultSize and maxSize. The fields list must contain the field marked @Id. Both sizes are from 1 to 100, and defaultSize cannot be larger than maxSize.\n\nA method name can start with findBy/countBy/existsBy, or with the snake_case find_by_/count_by_/exists_by_. That method builds its query plan from that allowlist (the fields list). A query plan describes the query that the adapter runs. The operator suffixes (name endings) are Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull. And joins them. Equals is also the default when there is no suffix. @Query gives the plan directly instead. It accepts exactly operation, where and orderBy. operation is find, count or exists. A find reads its page request from the parameter marked @PageDefaults. count and exists take no page parameter and need orderBy set to []. The plan must use every declared parameter exactly once. Sometimes the orderBy of a find does not include the id field. Then the compiler adds the id field at the end. This keeps the order fixed when two records have equal values. You leave query bodies empty, because the compiler writes them. In Python the body is pass. A body that is not empty is an error. The compiler reports it and does not quietly drop it.\n\n@PageDefaults sits on the page parameter and accepts exactly defaultSize, maxSize and sort. It turns page, size, sort and offset into standard values before the call. @PageDefaults and the query methods both run through the owner's behavior context. The behavior context is the object that the owning class creates from a Setup. So the Store with an options object is not a Yon DI (dependency injection) provider. Instead, the route method creates a context from a @Setup. The route method is the controller method with a route annotation, such as GetRoute. Then it builds the store itself. A bare Store is still a provider. The adapter that Entity.adapter names is your application code. Every query must pass authorizeEntity. These annotations hold a query plan. They are not a database and not an authorization system.\n\nTwo language notes. C# route methods are synchronous, so the route method waits for the tasks that the behavior methods return. Synchronous means a call returns only when its work is done. Rust converts BehaviorError into YonResourceError so that the route method can use ?. Go does the same, and its route method returns (value, error). Raw SQL through a DataSource must pass its values as parameters; query text built from pieces stops the build with TY1325.",
+          "body": "Choose one language for GET /products. Each implementation returns {\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}]}. An entity is a type that describes one kind of stored record. You must declare Entity and Table together, in server/entities. Entity takes only the adapter name; the one field marked @Id is the identifier. The Store that names an Entity lives in server/stores. Its first argument is the Entity class itself: ProductEntity.class in Java, ProductEntity::class in Kotlin and PHP, typeof(ProductEntity) in C#, and the bare name in the other languages. Its options are exactly fields, defaultSize and maxSize. The fields list must contain the field marked @Id. Both sizes are from 1 to 100, and defaultSize cannot be larger than maxSize.\n\nA method name can start with findBy/countBy/existsBy, or with the snake_case find_by_/count_by_/exists_by_. That method builds its query plan from that allowlist (the fields list). A query plan describes the query that the adapter runs. The operator suffixes (name endings) are Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull. And joins them. Equals is also the default when there is no suffix. @Query gives the plan directly instead. It accepts exactly operation, where and orderBy. operation is find, count or exists. A find reads its page request from the parameter marked @PageDefaults. count and exists take no page parameter and need orderBy set to []. The plan must use every declared parameter exactly once. Sometimes the orderBy of a find does not include the id field. Then the compiler adds the id field at the end. This keeps the order fixed when two records have equal values. You leave query bodies empty, because the compiler writes them. In JavaScript and TypeScript the query declares its answer as Promise<ProductEntity[] | void> or Promise<number | void>, because an empty body returns nothing to the type checker. In Python the body is pass. A body that is not empty is an error. The compiler reports it and does not quietly drop it.\n\n@PageDefaults sits on the page parameter and accepts exactly defaultSize, maxSize and sort. It turns page, size, sort and offset into standard values before the call. @PageDefaults and the query methods both run through the owner's behavior context. The behavior context is the object that the owning class creates from a Setup. So the Store with an options object is not a Yon DI (dependency injection) provider. Instead, the route method creates a context from a @Setup. The route method is the controller method with a route annotation, such as GetRoute. Then it builds the store itself. A bare Store is still a provider. The adapter that Entity.adapter names is your application code. Every query must pass authorizeEntity. These annotations hold a query plan. They are not a database and not an authorization system.\n\nTwo language notes. C# route methods are synchronous, so the route method waits for the tasks that the behavior methods return. Synchronous means a call returns only when its work is done. Rust converts BehaviorError into YonResourceError so that the route method can use ?. Go does the same, and its route method returns (value, error). Raw SQL through a DataSource must pass its values as parameters; query text built from pieces stops the build with TY1325.",
           "files": [
             {
               "name": "server/entities/ProductEntity.js",
-              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nclass ProductEntity {\n  /** @type {number} */\n  @Id\n  id;\n}\n"
+              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nexport default class ProductEntity {\n  /** @type {number} */\n  @Id\n  id;\n  /** @type {string} */\n  status;\n}\n"
             },
             {
               "name": "server/stores/ProductStore.js",
-              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass ProductStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /** @param {string} status */\n  async findByStatus(status) {}\n  /** @param {string} status */\n  async countByStatus(status) {}\n  /**\n   * @param {string} status\n   * @param {BehaviorPageInput} page\n   */\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status, @PageDefaults page) {}\n  /**\n   * @param {BehaviorPage} request\n   * @returns {BehaviorPage}\n   */\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request) { return request; }\n}\n"
+              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class ProductStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {string} status\n   * @returns {Promise<ProductEntity[] | void>}\n   */\n  async findByStatus(status) {}\n  /**\n   * @param {string} status\n   * @returns {Promise<number | void>}\n   */\n  async countByStatus(status) {}\n  /**\n   * @param {string} status\n   * @param {BehaviorPageInput} page\n   * @returns {Promise<ProductEntity[] | void>}\n   */\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status, @PageDefaults page) {}\n  /**\n   * @param {BehaviorPageInput} request\n   * @returns {BehaviorPageInput}\n   */\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request) { return request; }\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /** @returns {object} */\n  static configure() {\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    const findRows = (command) => {\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page.size);\n    };\n    return {\n      authorizeEntity: (command) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /** @returns {BehaviorConfiguration} */\n  static configure() {\n    /** @type {BehaviorJsonObject[]} */\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    /** @param {BehaviorEntityCommand} command */\n    const findRows = (command) => {\n      if (command.operation !== 'query') return [];\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page?.size);\n    };\n    return {\n      authorizeEntity: (command) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
             },
             {
               "name": "server/controllers/ProductController.js",
@@ -5361,15 +5361,15 @@
             },
             {
               "name": "server/entities/ProductEntity.ts",
-              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nclass ProductEntity {\n  @Id\n  id: number;\n}\n"
+              "code": "@Entity({\"adapter\":\"catalog\"})\n@Table('products')\nexport default class ProductEntity {\n  @Id\n  id!: number;\n  status!: string;\n}\n"
             },
             {
               "name": "server/stores/ProductStore.ts",
-              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass ProductStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string): Promise<unknown> {}\n  async countByStatus(status: string): Promise<unknown> {}\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status: string, @PageDefaults page: unknown): Promise<unknown> {}\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request: unknown): unknown { return request; }\n}\n"
+              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class ProductStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string): Promise<ProductEntity[] | void> {}\n  async countByStatus(status: string): Promise<number | void> {}\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status: string, @PageDefaults page: BehaviorPageInput): Promise<ProductEntity[] | void> {}\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request: BehaviorPageInput): BehaviorPageInput { return request; }\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure() {\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    const findRows = (command: any) => {\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row: any) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page.size);\n    };\n    return {\n      authorizeEntity: (command: any) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure() {\n    const rows = [{ id: 1, status: 'active' }, { id: 2, status: 'retired' }];\n    const findRows = (command: any) => {\n      const query = command.query;\n      const condition = query.where[0];\n      const keepUnequalRows = condition.operator === 'ne';\n      const matchingRows = rows.filter((row: any) => {\n        const isEqual = row[condition.field] === condition.value;\n        if (keepUnequalRows) return !isEqual;\n        return isEqual;\n      });\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows.slice(0, query.page.size);\n    };\n    return {\n      authorizeEntity: (command: any) => command.entity === 'ProductEntity',\n      entities: { catalog: { execute: findRows } },\n    };\n  }\n}\n"
             },
             {
               "name": "server/controllers/ProductController.ts",
@@ -5593,35 +5593,35 @@
             },
             {
               "name": "client/services/ProductService.js",
-              "code": "@Service\nexport default class ProductService {\n  summary = 'Not loaded.';\n\n  async load() {\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: AbortSignal.timeout(5000),\n    });\n    const products = Behaviors.construct(ProductStore, { behaviors: context });\n    const page = products.bounded({ size: 5 });\n    const rows = await products.excluding('retired', page);\n    const activeCount = await products.countByStatus('active');\n    this.summary = `${rows.length} of ${activeCount} active`;\n    context.dispose();\n  }\n}\n"
+              "code": "@Service\nexport default class ProductService {\n  summary = 'Not loaded.';\n\n  async load() {\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: AbortSignal.timeout(5000),\n    });\n    const products = Behaviors.construct(ProductStore, { behaviors: context });\n    const page = products.bounded({ size: 5 });\n    const rows = await products.excluding('retired', page);\n    const activeCount = await products.countByStatus('active');\n    this.summary = this.#summaryOf(rows, activeCount);\n    context.dispose();\n  }\n\n  /**\n   * @param {ProductEntity[] | void} rows\n   * @param {number | void} activeCount\n   * @returns {string}\n   */\n  #summaryOf(rows, activeCount) {\n    return `${rows ? rows.length : 0} of ${activeCount} active`;\n  }\n}\n"
             },
             {
               "name": "client/entities/ProductEntity.js",
-              "code": "@Entity({\"adapter\":\"publicCatalog\"})\n@Table('products')\nclass ProductEntity {\n  /** @type {number} */\n  @Id\n  id;\n}\n"
+              "code": "@Entity({\"adapter\":\"publicCatalog\"})\n@Table('products')\nexport default class ProductEntity {\n  /** @type {number} */\n  @Id\n  id;\n  /** @type {string} */\n  status;\n}\n"
             },
             {
               "name": "client/stores/ProductStore.js",
-              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass ProductStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /** @param {number} status */\n  async findByStatus(status) {}\n  /** @param {number} status */\n  async countByStatus(status) {}\n  /**\n   * @param {number} status\n   * @param {BehaviorPageInput} page\n   */\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status, @PageDefaults page) {}\n  /**\n   * @param {BehaviorPage} request\n   * @returns {BehaviorPage}\n   */\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request) { return request; }\n}\n"
+              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class ProductStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {string} status\n   * @returns {Promise<ProductEntity[] | void>}\n   */\n  async findByStatus(status) {}\n  /**\n   * @param {string} status\n   * @returns {Promise<number | void>}\n   */\n  async countByStatus(status) {}\n  /**\n   * @param {string} status\n   * @param {BehaviorPageInput} page\n   * @returns {Promise<ProductEntity[] | void>}\n   */\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status, @PageDefaults page) {}\n  /**\n   * @param {BehaviorPageInput} request\n   * @returns {BehaviorPageInput}\n   */\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request) { return request; }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /** @returns {object} */\n  static configure() {\n    const fetchRows = async (command) => {\n      const response = await fetch(`/api/${command.table}`, { headers: { accept: 'application/json' } });\n      return response.json();\n    };\n    return {\n      authorizeEntity: (command) => command.entity === 'ProductEntity',\n      entities: { publicCatalog: { execute: fetchRows } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /** @returns {BehaviorConfiguration} */\n  static configure() {\n    /** @param {BehaviorEntityCommand} command */\n    const fetchRows = async (command) => {\n      const response = await fetch(`/api/${command.table}`, { headers: { accept: 'application/json' } });\n      return response.json();\n    };\n    return {\n      authorizeEntity: (command) => command.entity === 'ProductEntity',\n      entities: { publicCatalog: { execute: fetchRows } },\n    };\n  }\n}\n"
             },
             {
               "name": "client/services/ProductService.ts",
-              "code": "@Service\nexport default class ProductService {\n  summary: string = 'Not loaded.';\n\n  async load(): Promise<void> {\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: AbortSignal.timeout(5000),\n    });\n    const products = Behaviors.construct(ProductStore, { behaviors: context });\n    const page = products.bounded({ size: 5 });\n    const rows = await products.excluding('retired', page) as unknown[];\n    const activeCount = await products.countByStatus('active');\n    this.summary = `${rows.length} of ${activeCount} active`;\n    context.dispose();\n  }\n}\n"
+              "code": "@Service\nexport default class ProductService {\n  summary: string = 'Not loaded.';\n\n  async load(): Promise<void> {\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: AbortSignal.timeout(5000),\n    });\n    const products = Behaviors.construct(ProductStore, { behaviors: context });\n    const page = products.bounded({ size: 5 });\n    const rows = await products.excluding('retired', page);\n    const activeCount = await products.countByStatus('active');\n    this.summary = this.summaryOf(rows, activeCount);\n    context.dispose();\n  }\n\n  private summaryOf(rows: ProductEntity[] | void, activeCount: number | void): string {\n    return `${rows ? rows.length : 0} of ${activeCount} active`;\n  }\n}\n"
             },
             {
               "name": "client/entities/ProductEntity.ts",
-              "code": "@Entity({\"adapter\":\"publicCatalog\"})\n@Table('products')\nclass ProductEntity {\n  @Id\n  id: number;\n}\n"
+              "code": "@Entity({\"adapter\":\"publicCatalog\"})\n@Table('products')\nexport default class ProductEntity {\n  @Id\n  id!: number;\n  status!: string;\n}\n"
             },
             {
               "name": "client/stores/ProductStore.ts",
-              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass ProductStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string): Promise<unknown> {}\n  async countByStatus(status: string): Promise<unknown> {}\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status: string, @PageDefaults page: unknown): Promise<unknown> {}\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request: unknown): unknown { return request; }\n}\n"
+              "code": "@Store(ProductEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class ProductStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string): Promise<ProductEntity[] | void> {}\n  async countByStatus(status: string): Promise<number | void> {}\n  @Query({\"operation\":\"find\",\"where\":[{\"field\":\"status\",\"operator\":\"ne\",\"argument\":0}],\"orderBy\":[{\"field\":\"id\",\"direction\":\"desc\"}]})\n  async excluding(status: string, @PageDefaults page: BehaviorPageInput): Promise<ProductEntity[] | void> {}\n  bounded(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) request: BehaviorPageInput): BehaviorPageInput { return request; }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure() {\n    const fetchRows = async (command: any) => {\n      const response = await fetch(`/api/${command.table}`, { headers: { accept: 'application/json' } });\n      return response.json();\n    };\n    return {\n      authorizeEntity: (command: any) => command.entity === 'ProductEntity',\n      entities: { publicCatalog: { execute: fetchRows } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure() {\n    const fetchRows = async (command: any) => {\n      const response = await fetch(`/api/${command.table}`, { headers: { accept: 'application/json' } });\n      return response.json();\n    };\n    return {\n      authorizeEntity: (command: any) => command.entity === 'ProductEntity',\n      entities: { publicCatalog: { execute: fetchRows } },\n    };\n  }\n}\n"
             },
             {
               "name": "client/services/ProductService.swift",
@@ -5725,19 +5725,19 @@
           "heading": "Transactions: Yon",
           "axis": "language",
           "summary": "AllOrNothing runs one service method inside a transaction on the entity adapter it names. The adapter decides: it answers begin, commit and rollback. The managed Yon datasource already does this.",
-          "body": "A transaction is a group of changes that either all happen or all do not happen. AllOrNothing takes one key, adapter, which names an entry in configuration.entities. Before the method body runs, the runtime sends {\"operation\":\"transaction\",\"action\":\"begin\"}. The adapter answers with an identifier of limited size, and the runtime reads it. The runtime adds this identifier to every Store and Query command that the body sends. When the method returns, the runtime commits (it saves all the changes). When the method raises an error, the runtime rolls back (it undoes all the changes). The caller sees the original failure, never a rollback error. Rust and Go do not use this command shape. Their entity command is a typed struct, so they control transactions through a separate method. In Rust, it is a trait method, and its default implementation refuses. In Go, it is a Transaction method, and an adapter without that method also refuses. So an adapter without transactions tells you so. An AllOrNothing inside another one joins the open transaction. It does not start a nested one, because there are no savepoints. A savepoint is a point inside a transaction that you can roll back to. A Retry method opens a new transaction for each attempt. So a failed attempt is undone before the next one starts. The managed datasource (the database connection that Tachyon manages) sets limits on both sides. At most four transactions are open at once. Each one holds one connection. If the connection does nothing for ten seconds, the transaction is rolled back. So a controller that crashes during a transaction cannot keep a connection. SQL that you write still cannot contain BEGIN, COMMIT or ROLLBACK. The FYLO datasource has no transactions. It refuses to open one, and it does not pretend to.",
+          "body": "A transaction is a group of changes that either all happen or all do not happen. AllOrNothing takes one key, adapter, which names an entry in configuration.entities. Before the method body runs, the runtime sends {\"operation\":\"transaction\",\"action\":\"begin\"}. The adapter answers with an identifier of limited size, and the runtime reads it. The runtime adds this identifier to every Store and Query command that the body sends. In JavaScript and TypeScript, execute takes a BehaviorEntityCommand | BehaviorTransactionCommand: check operation first, because only Store and Query commands carry entity, table and query. When the method returns, the runtime commits (it saves all the changes). When the method raises an error, the runtime rolls back (it undoes all the changes). The caller sees the original failure, never a rollback error. Rust and Go do not use this command shape. Their entity command is a typed struct, so they control transactions through a separate method. In Rust, it is a trait method, and its default implementation refuses. In Go, it is a Transaction method, and an adapter without that method also refuses. So an adapter without transactions tells you so. An AllOrNothing inside another one joins the open transaction. It does not start a nested one, because there are no savepoints. A savepoint is a point inside a transaction that you can roll back to. A Retry method opens a new transaction for each attempt. So a failed attempt is undone before the next one starts. The managed datasource (the database connection that Tachyon manages) sets limits on both sides. At most four transactions are open at once. Each one holds one connection. If the connection does nothing for ten seconds, the transaction is rolled back. So a controller that crashes during a transaction cannot keep a connection. SQL that you write still cannot contain BEGIN, COMMIT or ROLLBACK. The FYLO datasource has no transactions. It refuses to open one, and it does not pretend to.",
           "files": [
             {
               "name": "server/entities/EntryEntity.js",
-              "code": "@Entity({\"adapter\":\"ledger\"})\n@Table('entries')\nclass EntryEntity {\n  /** @type {number} */\n  @Id\n  id;\n}\n"
+              "code": "@Entity({\"adapter\":\"ledger\"})\n@Table('entries')\nexport default class EntryEntity {\n  /** @type {number} */\n  @Id\n  id;\n  /** @type {string} */\n  status;\n}\n"
             },
             {
               "name": "server/stores/EntryStore.js",
-              "code": "@Store(EntryEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass EntryStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /** @param {string} status */\n  async findByStatus(status) {}\n  /** @param {string} status */\n  async countByStatus(status) {}\n\n  /**\n   * @param {string} status\n   * @returns {Promise<{ open: unknown, total: unknown }>}\n   */\n  @AllOrNothing({\"adapter\":\"ledger\"})\n  async settle(status) {\n    const open = await this.findByStatus(status);\n    const total = await this.countByStatus(status);\n    return { open, total };\n  }\n}\n"
+              "code": "@Store(EntryEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class EntryStore {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {string} status\n   * @returns {Promise<BehaviorJsonObject[] | void>}\n   */\n  async findByStatus(status) {}\n  /**\n   * @param {string} status\n   * @returns {Promise<number | void>}\n   */\n  async countByStatus(status) {}\n\n  /** @param {string} status */\n  @AllOrNothing({\"adapter\":\"ledger\"})\n  async settle(status) {\n    const open = (await this.findByStatus(status)) ?? [];\n    const total = (await this.countByStatus(status)) ?? 0;\n    return { open, total };\n  }\n}\n"
             },
             {
               "name": "server/setups/LedgerSetup.js",
-              "code": "@Setup\nclass LedgerSetup {\n  /** @type {string[]} */\n  static commands = [];\n\n  /** @returns {object} */\n  static configure() {\n    const rows = [{ id: 1, status: 'open' }, { id: 2, status: 'settled' }];\n    let sequence = 0;\n    const execute = (command) => {\n      if (command.operation === 'transaction') {\n        let entry = command.action;\n        if (command.transaction) entry = `${command.action}:${command.transaction}`;\n        LedgerSetup.commands.push(entry);\n        if (command.action !== 'begin') return { ok: true };\n        sequence += 1;\n        return { transaction: `t${sequence}` };\n      }\n      const query = command.query;\n      const transaction = command.transaction ?? 'none';\n      LedgerSetup.commands.push(`${query.kind}@${transaction}`);\n      const matchingRows = rows.filter((row) => row.status === query.where[0].value);\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows;\n    };\n    return {\n      authorizeEntity: () => true,\n      entities: { ledger: { execute } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class LedgerSetup {\n  /** @type {string[]} */\n  static commands = [];\n\n  /** @returns {BehaviorConfiguration} */\n  static configure() {\n    const rows = [{ id: 1, status: 'open' }, { id: 2, status: 'settled' }];\n    let sequence = 0;\n    /**\n     * @param {BehaviorEntityCommand | BehaviorTransactionCommand} command\n     * @returns {BehaviorJsonValue}\n     */\n    const execute = (command) => {\n      if (command.operation === 'transaction') {\n        if (command.action === 'begin') LedgerSetup.commands.push('begin');\n        else LedgerSetup.commands.push(`${command.action}:${command.transaction}`);\n        if (command.action !== 'begin') return { ok: true };\n        sequence += 1;\n        return { transaction: `t${sequence}` };\n      }\n      if (command.operation !== 'query') return [];\n      const query = command.query;\n      const transaction = command.transaction ?? 'none';\n      LedgerSetup.commands.push(`${query.kind}@${transaction}`);\n      const matchingRows = rows.filter((row) => row.status === query.where[0].value);\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows;\n    };\n    return {\n      authorizeEntity: () => true,\n      entities: { ledger: { execute } },\n    };\n  }\n}\n"
             },
             {
               "name": "server/controllers/LedgerController.js",
@@ -5749,15 +5749,15 @@
             },
             {
               "name": "server/entities/EntryEntity.ts",
-              "code": "@Entity({\"adapter\":\"ledger\"})\n@Table('entries')\nclass EntryEntity {\n  @Id\n  id!: number;\n}\n"
+              "code": "@Entity({\"adapter\":\"ledger\"})\n@Table('entries')\nexport default class EntryEntity {\n  @Id\n  id!: number;\n  status!: string;\n}\n"
             },
             {
               "name": "server/stores/EntryStore.ts",
-              "code": "@Store(EntryEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nclass EntryStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string) {}\n  async countByStatus(status: string) {}\n\n  @AllOrNothing({\"adapter\":\"ledger\"})\n  async settle(status: string) {\n    const open = await this.findByStatus(status);\n    const total = await this.countByStatus(status);\n    return { open, total };\n  }\n}\n"
+              "code": "@Store(EntryEntity, {\"fields\":[\"id\",\"status\"],\"defaultSize\":20,\"maxSize\":100})\nexport default class EntryStore {\n  @Needs\n  behaviors!: BehaviorContext;\n  async findByStatus(status: string): Promise<BehaviorJsonObject[] | void> {}\n  async countByStatus(status: string): Promise<number | void> {}\n\n  @AllOrNothing({\"adapter\":\"ledger\"})\n  async settle(status: string) {\n    const open = (await this.findByStatus(status)) ?? [];\n    const total = (await this.countByStatus(status)) ?? 0;\n    return { open, total };\n  }\n}\n"
             },
             {
               "name": "server/setups/LedgerSetup.ts",
-              "code": "@Setup\nclass LedgerSetup {\n  static commands: string[] = [];\n\n  static configure() {\n    const rows = [{ id: 1, status: 'open' }, { id: 2, status: 'settled' }];\n    let sequence = 0;\n    const execute = (command: Record<string, any>) => {\n      if (command.operation === 'transaction') {\n        let entry = command.action;\n        if (command.transaction) entry = `${command.action}:${command.transaction}`;\n        LedgerSetup.commands.push(entry);\n        if (command.action !== 'begin') return { ok: true };\n        sequence += 1;\n        return { transaction: `t${sequence}` };\n      }\n      const query = command.query;\n      const transaction = command.transaction ?? 'none';\n      LedgerSetup.commands.push(`${query.kind}@${transaction}`);\n      const matchingRows = rows.filter((row) => row.status === query.where[0].value);\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows;\n    };\n    return {\n      authorizeEntity: () => true,\n      entities: { ledger: { execute } },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class LedgerSetup {\n  static commands: string[] = [];\n\n  static configure(): BehaviorConfiguration {\n    const rows = [{ id: 1, status: 'open' }, { id: 2, status: 'settled' }];\n    let sequence = 0;\n    const execute = (command: BehaviorEntityCommand | BehaviorTransactionCommand): BehaviorJsonValue => {\n      if (command.operation === 'transaction') {\n        if (command.action === 'begin') LedgerSetup.commands.push('begin');\n        else LedgerSetup.commands.push(`${command.action}:${command.transaction}`);\n        if (command.action !== 'begin') return { ok: true };\n        sequence += 1;\n        return { transaction: `t${sequence}` };\n      }\n      if (command.operation !== 'query') return [];\n      const query = command.query;\n      const transaction = command.transaction ?? 'none';\n      LedgerSetup.commands.push(`${query.kind}@${transaction}`);\n      const matchingRows = rows.filter((row) => row.status === query.where[0].value);\n      if (query.kind === 'count') return matchingRows.length;\n      return matchingRows;\n    };\n    return {\n      authorizeEntity: () => true,\n      entities: { ledger: { execute } },\n    };\n  }\n}\n"
             },
             {
               "name": "server/controllers/LedgerController.ts",
@@ -5989,11 +5989,11 @@
           "files": [
             {
               "name": "server/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /** @returns {object} */\n  static configure() {\n    const entries = new Map();\n    return {\n      authorize: () => true,\n      caches: {\n        catalog: {\n          get: (key) => entries.get(key) ?? { hit: false },\n          set: (key, value, execution) => {\n            entries.set(key, { hit: true, value, expiresAt: execution.expiresAt });\n          },\n          delete: (key) => {\n            entries.delete(key);\n          },\n        },\n      },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /** @returns {BehaviorConfiguration} */\n  static configure() {\n    /** @type {Map<string, BehaviorCacheResult>} */\n    const entries = new Map();\n    return {\n      authorize: () => true,\n      caches: {\n        catalog: {\n          get: (/** @type {string} */ key) => entries.get(key) ?? { hit: false },\n          set: (/** @type {string} */ key, /** @type {BehaviorJsonValue} */ value, /** @type {BehaviorCacheWriteExecution} */ execution) => {\n            entries.set(key, { hit: true, value, expiresAt: execution.expiresAt });\n          },\n          delete: (/** @type {string} */ key) => {\n            entries.delete(key);\n          },\n        },\n      },\n    };\n  }\n}\n"
             },
             {
               "name": "server/services/CatalogService.js",
-              "code": "@Service\n@CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\nclass CatalogService {\n  /** @type {BehaviorContext} */\n  behaviors;\n  reads = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(CatalogSetup, { partition: 'public-catalog', signal });\n  }\n\n  /**\n   * @param {string} sku\n   * @returns {Promise<{ sku: string, reads: number }>}\n   */\n  @Cached\n  async find(sku) {\n    this.reads += 1;\n    return { sku, reads: this.reads };\n  }\n\n  /**\n   * @param {string} sku\n   * @param {number} reads\n   * @returns {Promise<{ sku: string, reads: number }>}\n   */\n  @UpdateCache({\"method\":\"find\"})\n  async write(sku, reads) { return { sku, reads }; }\n\n  /**\n   * @param {string} sku\n   * @returns {Promise<{ sku: string }>}\n   */\n  @ClearCache({\"method\":\"find\"})\n  async invalidate(sku) { return { sku }; }\n}\n"
+              "code": "@Service\n@CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\nexport default class CatalogService {\n  /** @type {BehaviorContext} */\n  behaviors;\n  reads = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(CatalogSetup, { partition: 'public-catalog', signal });\n  }\n\n  /**\n   * @param {string} sku\n   * @returns {Promise<{ sku: string, reads: number }>}\n   */\n  @Cached\n  async find(sku) {\n    this.reads += 1;\n    return { sku, reads: this.reads };\n  }\n\n  /**\n   * @param {string} sku\n   * @param {number} reads\n   * @returns {Promise<{ sku: string, reads: number }>}\n   */\n  @UpdateCache({\"method\":\"find\"})\n  async write(sku, reads) { return { sku, reads }; }\n\n  /**\n   * @param {string} sku\n   * @returns {Promise<{ sku: string }>}\n   */\n  @ClearCache({\"method\":\"find\"})\n  async invalidate(sku) { return { sku }; }\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.js",
@@ -6005,11 +6005,11 @@
             },
             {
               "name": "server/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure() {\n    const entries = new Map<string, unknown>();\n    return {\n      authorize: () => true,\n      caches: {\n        catalog: {\n          get: (key: string) => entries.get(key) ?? { hit: false },\n          set: (key: string, value: unknown, execution: { expiresAt: number }) => {\n            entries.set(key, { hit: true, value, expiresAt: execution.expiresAt });\n          },\n          delete: (key: string) => {\n            entries.delete(key);\n          },\n        },\n      },\n    };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure(): BehaviorConfiguration {\n    const entries = new Map<string, BehaviorCacheResult>();\n    return {\n      authorize: () => true,\n      caches: {\n        catalog: {\n          get: (key: string) => entries.get(key) ?? { hit: false },\n          set: (key: string, value: BehaviorJsonValue, execution: BehaviorCacheWriteExecution) => {\n            entries.set(key, { hit: true, value, expiresAt: execution.expiresAt });\n          },\n          delete: (key: string) => {\n            entries.delete(key);\n          },\n        },\n      },\n    };\n  }\n}\n"
             },
             {
               "name": "server/services/CatalogService.ts",
-              "code": "@Service\n@CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\nclass CatalogService {\n  behaviors!: BehaviorContext;\n  reads = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(CatalogSetup, { partition: 'public-catalog', signal });\n  }\n\n  @Cached\n  async find(sku: string) {\n    this.reads += 1;\n    return { sku, reads: this.reads };\n  }\n\n  @UpdateCache({\"method\":\"find\"})\n  async write(sku: string, reads: number) { return { sku, reads }; }\n\n  @ClearCache({\"method\":\"find\"})\n  async invalidate(sku: string) { return { sku }; }\n}\n"
+              "code": "@Service\n@CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\nexport default class CatalogService {\n  behaviors!: BehaviorContext;\n  reads = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(CatalogSetup, { partition: 'public-catalog', signal });\n  }\n\n  @Cached\n  async find(sku: string) {\n    this.reads += 1;\n    return { sku, reads: this.reads };\n  }\n\n  @UpdateCache({\"method\":\"find\"})\n  async write(sku: string, reads: number) { return { sku, reads }; }\n\n  @ClearCache({\"method\":\"find\"})\n  async invalidate(sku: string) { return { sku }; }\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.ts",
@@ -6233,7 +6233,7 @@
             },
             {
               "name": "client/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /** @returns {object} */\n  static configure() {\n    return {};\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /** @returns {object} */\n  static configure() {\n    return {};\n  }\n}\n"
             },
             {
               "name": "client/services/CatalogService.js",
@@ -6241,7 +6241,7 @@
             },
             {
               "name": "client/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure() {\n    return {};\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure() {\n    return {};\n  }\n}\n"
             },
             {
               "name": "client/services/CatalogService.ts",
@@ -6309,11 +6309,11 @@
           "files": [
             {
               "name": "server/setups/OrdersSetup.js",
-              "code": "@Setup\nclass OrdersSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class OrdersSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/services/OrdersService.js",
-              "code": "@Service\nclass OrdersService {\n  /** @type {BehaviorContext} */\n  behaviors;\n  static _FIRST_WORKING_ATTEMPT = 3;\n  _attempts = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(OrdersSetup, { partition: 'orders', signal });\n  }\n\n  /**\n   * @param {string} id\n   * @returns {Promise<{ id: string, attempts: number }>}\n   */\n  @Retry({\"maxRetries\":3,\"delayMs\":10,\"multiplier\":2,\"maxDelayMs\":200,\"jitterMs\":5})\n  async submit(id) {\n    this._attempts += 1;\n    this.#failFirstTwoAttempts();\n    return { id, attempts: this._attempts };\n  }\n\n  /**\n   * @param {string} id\n   * @returns {Promise<{ id: string, attempts: number }>}\n   */\n  @MaxAtOnce({\"limit\":2,\"policy\":\"block\"})\n  async report(id) { return { id, attempts: this._attempts }; }\n\n  #failFirstTwoAttempts() {\n    if (this._attempts < OrdersService._FIRST_WORKING_ATTEMPT) throw new Error('the payment gateway is unavailable');\n  }\n}\n"
+              "code": "@Service\nexport default class OrdersService {\n  /** @type {BehaviorContext} */\n  behaviors;\n  static _FIRST_WORKING_ATTEMPT = 3;\n  _attempts = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(OrdersSetup, { partition: 'orders', signal });\n  }\n\n  /**\n   * @param {string} id\n   * @returns {Promise<{ id: string, attempts: number }>}\n   */\n  @Retry({\"maxRetries\":3,\"delayMs\":10,\"multiplier\":2,\"maxDelayMs\":200,\"jitterMs\":5})\n  async submit(id) {\n    this._attempts += 1;\n    this.#failFirstTwoAttempts();\n    return { id, attempts: this._attempts };\n  }\n\n  /**\n   * @param {string} id\n   * @returns {Promise<{ id: string, attempts: number }>}\n   */\n  @MaxAtOnce({\"limit\":2,\"policy\":\"block\"})\n  async report(id) { return { id, attempts: this._attempts }; }\n\n  #failFirstTwoAttempts() {\n    if (this._attempts < OrdersService._FIRST_WORKING_ATTEMPT) throw new Error('the payment gateway is unavailable');\n  }\n}\n"
             },
             {
               "name": "server/controllers/OrdersController.js",
@@ -6325,11 +6325,11 @@
             },
             {
               "name": "server/setups/OrdersSetup.ts",
-              "code": "@Setup\nclass OrdersSetup {\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class OrdersSetup {\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/services/OrdersService.ts",
-              "code": "@Service\nclass OrdersService {\n  behaviors!: BehaviorContext;\n  private static readonly FIRST_WORKING_ATTEMPT = 3;\n  private attempts = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(OrdersSetup, { partition: 'orders', signal });\n  }\n\n  @Retry({\"maxRetries\":3,\"delayMs\":10,\"multiplier\":2,\"maxDelayMs\":200,\"jitterMs\":5})\n  async submit(id: string) {\n    this.attempts += 1;\n    this.failFirstTwoAttempts();\n    return { id, attempts: this.attempts };\n  }\n\n  @MaxAtOnce({\"limit\":2,\"policy\":\"block\"})\n  async report(id: string) { return { id, attempts: this.attempts }; }\n\n  private failFirstTwoAttempts() {\n    if (this.attempts < OrdersService.FIRST_WORKING_ATTEMPT) throw new Error('the payment gateway is unavailable');\n  }\n}\n"
+              "code": "@Service\nexport default class OrdersService {\n  behaviors!: BehaviorContext;\n  private static readonly FIRST_WORKING_ATTEMPT = 3;\n  private attempts = 0;\n\n  @OnStart\n  async open() {\n    const signal = new AbortController().signal;\n    this.behaviors = await Behaviors.create(OrdersSetup, { partition: 'orders', signal });\n  }\n\n  @Retry({\"maxRetries\":3,\"delayMs\":10,\"multiplier\":2,\"maxDelayMs\":200,\"jitterMs\":5})\n  async submit(id: string) {\n    this.attempts += 1;\n    this.failFirstTwoAttempts();\n    return { id, attempts: this.attempts };\n  }\n\n  @MaxAtOnce({\"limit\":2,\"policy\":\"block\"})\n  async report(id: string) { return { id, attempts: this.attempts }; }\n\n  private failFirstTwoAttempts() {\n    if (this.attempts < OrdersService.FIRST_WORKING_ATTEMPT) throw new Error('the payment gateway is unavailable');\n  }\n}\n"
             },
             {
               "name": "server/controllers/OrdersController.ts",
@@ -6513,7 +6513,7 @@
             },
             {
               "name": "client/setups/OrdersSetup.js",
-              "code": "@Setup\nclass OrdersSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class OrdersSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/services/OrdersService.js",
@@ -6521,7 +6521,7 @@
             },
             {
               "name": "client/setups/OrdersSetup.ts",
-              "code": "@Setup\nclass OrdersSetup {\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class OrdersSetup {\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/services/OrdersService.ts",
@@ -6584,15 +6584,15 @@
           "files": [
             {
               "name": "server/clients/CatalogClient.js",
-              "code": "@HTTPClient\nclass CatalogClient {\n  /** @type {BehaviorContext} */\n  behaviors;\n\n  /** @param {number} page */\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page) {}\n\n  /** @param {object} product */\n  @PostRequest(\"/products\")\n  async add(@RequestBody product) {}\n\n  /** @returns {Promise<{ query: { page: number } }>} */\n  @GetRequest(\"/products\")\n  async first() { return { query: { page: 1 } }; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(CatalogSetup, {\n      partition: 'catalog',\n      signal: AbortSignal.timeout(10000),\n    });\n  }\n}\n"
+              "code": "@HTTPClient\nexport default class CatalogClient {\n  /** @type {BehaviorContext} */\n  behaviors;\n\n  /** @param {number} page */\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page) {}\n\n  /** @param {object} product */\n  @PostRequest(\"/products\")\n  async add(@RequestBody product) {}\n\n  /** @returns {Promise<{ query: { page: number } }>} */\n  @GetRequest(\"/products\")\n  async first() { return { query: { page: 1 } }; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(CatalogSetup, {\n      partition: 'catalog',\n      signal: AbortSignal.timeout(10000),\n    });\n  }\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /**\n   * @param {object} execution\n   * @returns {object}\n   */\n  static configure(execution) {\n    return { http: { catalog: { exchange: async (request) => ({ items: ['anvil'] }) } } };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /**\n   * @param {BehaviorExecution} execution\n   * @returns {BehaviorConfiguration}\n   */\n  static configure(execution) {\n    return { http: { catalog: { exchange: async () => ({ items: ['anvil'] }) } } };\n  }\n}\n"
             },
             {
               "name": "server/services/CatalogService.js",
-              "code": "@Service\nclass CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  /** @returns {Promise<unknown>} */\n  async products() { return await this.catalogClient.all(1); }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  /** @returns {Promise<unknown>} */\n  async products() { return await this.catalogClient.all(1); }\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.js",
@@ -6600,15 +6600,15 @@
             },
             {
               "name": "server/clients/CatalogClient.ts",
-              "code": "@HTTPClient\nclass CatalogClient {\n  behaviors!: BehaviorContext;\n\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page: number): Promise<BehaviorJsonValue> {}\n\n  @PostRequest(\"/products\")\n  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n\n  @GetRequest(\"/products\")\n  async first(): Promise<BehaviorJsonValue> { return { query: { page: 1 } }; }\n\n  @OnStart\n  async initialize(): Promise<void> {\n    this.behaviors = await Behaviors.create(CatalogSetup, {\n      partition: 'catalog',\n      signal: AbortSignal.timeout(10000),\n    });\n  }\n}\n"
+              "code": "@HTTPClient\nexport default class CatalogClient {\n  behaviors!: BehaviorContext;\n\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page: number): Promise<BehaviorJsonValue | void> {}\n\n  @PostRequest(\"/products\")\n  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @GetRequest(\"/products\")\n  async first(): Promise<BehaviorJsonValue> { return { query: { page: 1 } }; }\n\n  @OnStart\n  async initialize(): Promise<void> {\n    this.behaviors = await Behaviors.create(CatalogSetup, {\n      partition: 'catalog',\n      signal: AbortSignal.timeout(10000),\n    });\n  }\n}\n"
             },
             {
               "name": "server/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure(execution: BehaviorExecution) {\n    return { http: { catalog: { exchange: async () => ({ items: ['anvil'] }) } } };\n  }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure(execution: BehaviorExecution) {\n    return { http: { catalog: { exchange: async () => ({ items: ['anvil'] }) } } };\n  }\n}\n"
             },
             {
               "name": "server/services/CatalogService.ts",
-              "code": "@Service\nclass CatalogService {\n  @Needs\n  readonly catalog!: CatalogClient;\n  async products(): Promise<BehaviorJsonValue> { return await this.catalog.all(1); }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  readonly catalog!: CatalogClient;\n  async products(): Promise<BehaviorJsonValue | void> { return await this.catalog.all(1); }\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.ts",
@@ -6796,19 +6796,19 @@
             },
             {
               "name": "client/clients/CatalogClient.js",
-              "code": "@HTTPClient({\"cache\":\"cache-first\"})\nclass CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all() {}\n\n  /** @param {object} product */\n  @PostRequest(\"/api/products\")\n  async add(@RequestBody product) {}\n}\n"
+              "code": "@HTTPClient({\"cache\":\"cache-first\"})\nexport default class CatalogClient {\n  /** @returns {Promise<{ items: string[] } | void>} */\n  @GetRequest(\"/api/products\")\n  async all() {}\n\n  /** @param {object} product */\n  @PostRequest(\"/api/products\")\n  async add(@RequestBody product) {}\n}\n"
             },
             {
               "name": "client/services/CatalogService.js",
-              "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  count = 0;\n\n  async load() {\n    const answer = await this.catalogClient.all();\n    this.count = this.#countItems(answer.items);\n  }\n\n  /**\n   * @param {unknown} items\n   * @returns {number}\n   */\n  #countItems(items) {\n    return Array.isArray(items) ? items.length : 0;\n  }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  count = 0;\n\n  async load() {\n    const answer = await this.catalogClient.all();\n    this.count = this.#countItems(answer);\n  }\n\n  /**\n   * @param {{ items: string[] } | void} answer\n   * @returns {number}\n   */\n  #countItems(answer) {\n    return answer ? answer.items.length : 0;\n  }\n}\n"
             },
             {
               "name": "client/clients/CatalogClient.ts",
-              "code": "@HTTPClient({\"cache\":\"cache-first\"})\nclass CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<BehaviorJsonValue> {}\n\n  @PostRequest(\"/api/products\")\n  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n}\n"
+              "code": "@HTTPClient({\"cache\":\"cache-first\"})\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<{ items: string[] } | void> {}\n\n  @PostRequest(\"/api/products\")\n  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
               "name": "client/services/CatalogService.ts",
-              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  readonly catalogClient!: CatalogClient;\n  count = 0;\n\n  async load(): Promise<void> {\n    const answer = await this.catalogClient.all();\n    this.count = this.countItems(answer);\n  }\n\n  private countItems(answer: unknown): number {\n    const items = (answer as { items: unknown }).items;\n    return Array.isArray(items) ? items.length : 0;\n  }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  readonly catalogClient!: CatalogClient;\n  count = 0;\n\n  async load(): Promise<void> {\n    const answer = await this.catalogClient.all();\n    this.count = this.countItems(answer);\n  }\n\n  private countItems(answer: { items: string[] } | void): number {\n    return answer ? answer.items.length : 0;\n  }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.swift",
@@ -6863,12 +6863,12 @@
         {
           "heading": "Gateways: Yon",
           "axis": "language",
-          "summary": "Gateway declares a method that another language answers. Declare it on an HTTPClient as a signature with an empty body. It names a class in another Yon language or a program under server/helpers.",
+          "summary": "Gateway declares a method that another language answers. Declare it on an HTTPClient as a signature with an empty body. In JavaScript and TypeScript its answer is Promise<BehaviorJsonValue | void>, because an empty body returns nothing to the type checker. It names a class in another Yon language or a program under server/helpers.",
           "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# uses `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. The C# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language.",
           "files": [
             {
               "name": "server/clients/ReportClient.js",
-              "code": "@HTTPClient\nclass ReportClient {\n  /** @param {string} period */\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  async summarize(period) {}\n\n  /** @param {number} months */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
+              "code": "@HTTPClient\nexport default class ReportClient {\n  /**\n   * @param {string} period\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  async summarize(period) {}\n\n  /**\n   * @param {number} months\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
             },
             {
               "name": "server/controllers/ReportController.js",
@@ -6884,7 +6884,7 @@
             },
             {
               "name": "server/clients/ReportClient.ts",
-              "code": "@HTTPClient\nclass ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.go\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n}\n"
+              "code": "@HTTPClient\nexport default class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.go\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
               "name": "server/controllers/ReportController.ts",
@@ -7039,11 +7039,11 @@
             },
             {
               "name": "server/setups/CatalogSetup.js",
-              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n  cacheEnabled = false;\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nexport default class CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n  cacheEnabled = false;\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/controllers/SettingsController.js",
-              "code": "/** @import { Settings } from '/models/Settings.ts' */\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  /** @returns {Promise<Settings>} */\n  @GetRoute\n  async getSettings() {\n    const application = JSON.parse(process.env.YON_APPLICATION_JSON);\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: [endpoint.profile],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n    return { profile: endpoint.profile, pageSize: catalog.pageSize };\n  }\n}\n"
+              "code": "/** @import { Settings } from '/models/Settings.ts' */\n@RequestRoute(\"/settings\")\n@Public\nclass SettingsController {\n  /** @returns {Promise<Settings>} */\n  @GetRoute\n  async getSettings() {\n    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const endpoint = Behaviors.values(Endpoint, application);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: [String(endpoint.profile)],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n    return { profile: String(endpoint.profile), pageSize: Number(catalog.pageSize) };\n  }\n}\n"
             },
             {
               "name": "server/models/Settings.ts",
@@ -7051,7 +7051,7 @@
             },
             {
               "name": "server/setups/CatalogSetup.ts",
-              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n  cacheEnabled: boolean = false;\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\n@Settings({\"prefix\":\"YON_CATALOG_\"})\n@WhenProfile('development')\n@WhenSetting({\"name\":\"YON_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nexport default class CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n  cacheEnabled: boolean = false;\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/controllers/SettingsController.ts",
@@ -7155,11 +7155,11 @@
             },
             {
               "name": "server/helpers/Endpoint.js",
-              "code": "class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile;\n}\n"
+              "code": "export default class Endpoint {\n  /** @type {string} */\n  @Setting(\"${yon.active.profile:development}\")\n  profile;\n}\n"
             },
             {
               "name": "server/helpers/Endpoint.ts",
-              "code": "class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile!: string;\n}\n"
+              "code": "export default class Endpoint {\n  @Setting(\"${yon.active.profile:development}\")\n  profile!: string;\n}\n"
             },
             {
               "name": "server/helpers/Endpoint.py",
@@ -7230,11 +7230,11 @@
             },
             {
               "name": "client/clients/ApplicationClient.js",
-              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nclass ApplicationClient {\n  /** @returns {Promise<object>} */\n  @GetRequest(\"/manifest.webmanifest\")\n  async load() { return {}; }\n}\n"
+              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  /** @returns {Promise<BehaviorJsonObject>} */\n  @GetRequest(\"/manifest.webmanifest\")\n  async load() { return {}; }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.js",
-              "code": "@Setup\n@Settings({\"prefix\":\"TAC_CATALOG_\"})\n@WhenProfile('public')\n@WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n  cacheEnabled = false;\n  title = 'Catalog';\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\n@Settings({\"prefix\":\"TAC_CATALOG_\"})\n@WhenProfile('public')\n@WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nexport default class CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize = 20;\n  cacheEnabled = false;\n  title = 'Catalog';\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/services/SettingsService.js",
@@ -7242,15 +7242,15 @@
             },
             {
               "name": "client/clients/ApplicationClient.ts",
-              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nclass ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  async load(): Promise<BehaviorJsonValue> { return {}; }\n}\n"
+              "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  async load(): Promise<BehaviorJsonObject> { return {}; }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.ts",
-              "code": "@Setup\n@Settings({\"prefix\":\"TAC_CATALOG_\"})\n@WhenProfile('public')\n@WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n  cacheEnabled: boolean = false;\n  title: string = 'Catalog';\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\n@Settings({\"prefix\":\"TAC_CATALOG_\"})\n@WhenProfile('public')\n@WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nexport default class CatalogSetup {\n  @Min(1)\n  @Max(100)\n  pageSize: integer = 20;\n  cacheEnabled: boolean = false;\n  title: string = 'Catalog';\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/services/SettingsService.ts",
-              "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  title = 'Catalog';\n  pageSize = 20;\n  @OnStart\n  async initialize() {\n    const application = await this.applicationClient.load() as BehaviorJsonObject;\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const values = Behaviors.values(PublicValues, application);\n    this.title = String(values.title);\n    this.pageSize = Number(catalog.pageSize);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: ['public'],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n  }\n}\n"
+              "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  title = 'Catalog';\n  pageSize = 20;\n  @OnStart\n  async initialize() {\n    const application = await this.applicationClient.load();\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const values = Behaviors.values(PublicValues, application);\n    this.title = String(values.title);\n    this.pageSize = Number(catalog.pageSize);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: ['public'],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n  }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.swift",
@@ -7286,11 +7286,11 @@
             },
             {
               "name": "client/helpers/PublicValues.js",
-              "code": "class PublicValues {\n  @Setting(\"${tac.catalog.title:Catalog}\")\n  title;\n}\n"
+              "code": "export default class PublicValues {\n  /** @type {string} */\n  @Setting(\"${tac.catalog.title:Catalog}\")\n  title;\n}\n"
             },
             {
               "name": "client/helpers/PublicValues.ts",
-              "code": "class PublicValues {\n  @Setting(\"${tac.catalog.title:Catalog}\")\n  title!: string;\n}\n"
+              "code": "export default class PublicValues {\n  @Setting(\"${tac.catalog.title:Catalog}\")\n  title!: string;\n}\n"
             },
             {
               "name": "client/helpers/PublicValues.swift",
@@ -7341,7 +7341,7 @@
           "files": [
             {
               "name": "server/services/OrderService.js",
-              "code": "@Service\nclass OrderService {\n  /**\n   * @param {OrderInput} order\n   * @returns {OrderInput}\n   */\n  accept(@Check order) {\n    return order;\n  }\n}\n"
+              "code": "@Service\nexport default class OrderService {\n  /**\n   * @param {OrderInput} order\n   * @returns {OrderInput}\n   */\n  accept(@Check order) {\n    return order;\n  }\n}\n"
             },
             {
               "name": "server/controllers/OrdersController.js",
@@ -7349,7 +7349,7 @@
             },
             {
               "name": "server/services/OrderService.ts",
-              "code": "@Service\nclass OrderService {\n  accept(@Check order: OrderInput): OrderInput {\n    return order;\n  }\n}\n"
+              "code": "@Service\nexport default class OrderService {\n  accept(@Check order: OrderInput): OrderInput {\n    return order;\n  }\n}\n"
             },
             {
               "name": "server/controllers/OrdersController.ts",
@@ -7421,11 +7421,11 @@
             },
             {
               "name": "server/helpers/OrderInput.js",
-              "code": "@Checked\nclass OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
+              "code": "@Checked\nexport default class OrderInput {\n  /** @type {string} */\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  /** @type {number} */\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
             },
             {
               "name": "server/helpers/OrderInput.ts",
-              "code": "@Checked\nclass OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
+              "code": "@Checked\nexport default class OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
             },
             {
               "name": "server/helpers/OrderInput.py",
@@ -7516,11 +7516,11 @@
             },
             {
               "name": "client/helpers/OrderInput.js",
-              "code": "@Checked\nclass OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
+              "code": "@Checked\nexport default class OrderInput {\n  /** @type {string} */\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  /** @type {number} */\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
             },
             {
               "name": "client/helpers/OrderInput.ts",
-              "code": "@Checked\nclass OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
+              "code": "@Checked\nexport default class OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
             },
             {
               "name": "client/helpers/OrderInput.swift",
@@ -7559,11 +7559,11 @@
           "files": [
             {
               "name": "server/services/CheckoutService.js",
-              "code": "@Service\nclass CheckoutService {\n  /** @type {ApplicationEventPublisher} */\n  @Needs\n  applicationEventPublisher;\n\n  @OnStart\n  start() {\n    /** @type {PlacedOrder} */\n    const order = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order);\n  }\n\n  @OnStop\n  stop() {}\n}\n"
+              "code": "/** @import { PlacedOrder } from '/models/PlacedOrder.ts' */\n@Service\nexport default class CheckoutService {\n  /** @type {ApplicationEventPublisher} */\n  @Needs\n  applicationEventPublisher;\n\n  @OnStart\n  start() {\n    /** @type {PlacedOrder} */\n    const order = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order);\n  }\n\n  @OnStop\n  stop() {}\n}\n"
             },
             {
               "name": "server/services/AuditService.js",
-              "code": "/** @import { PlacedOrder } from '/models/PlacedOrder.ts' */\n/** @import { SettledOrder } from '/models/SettledOrder.ts' */\n@Service\nclass AuditService {\n  /** @type {string[]} */\n  log = [];\n  settled = 0;\n  audited = 0;\n\n  /** @param {PlacedOrder} order */\n  @OnEvent({\"id\":\"audit-log\"})\n  @Order(-10)\n  record(order) { this.log = [...this.log, order.status]; }\n\n  /**\n   * @param {PlacedOrder} order\n   * @returns {SettledOrder}\n   */\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  @Order(10)\n  settle(order) { return { total: order.total }; }\n\n  /** @param {SettledOrder} settled */\n  @OnEvent\n  saveSettled(settled) { this.settled = settled.total; }\n\n  /** @param {SettledOrder} settled */\n  @OnEvent\n  @InBackground\n  async audit(settled) { this.audited = settled.total; }\n}\n"
+              "code": "/** @import { PlacedOrder } from '/models/PlacedOrder.ts' */\n/** @import { SettledOrder } from '/models/SettledOrder.ts' */\n@Service\nexport default class AuditService {\n  /** @type {string[]} */\n  log = [];\n  settled = 0;\n  audited = 0;\n\n  /** @param {PlacedOrder} order */\n  @OnEvent({\"id\":\"audit-log\"})\n  @Order(-10)\n  record(order) { this.log = [...this.log, order.status]; }\n\n  /**\n   * @param {PlacedOrder} order\n   * @returns {SettledOrder}\n   */\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  @Order(10)\n  settle(order) { return { total: order.total }; }\n\n  /** @param {SettledOrder} settled */\n  @OnEvent\n  saveSettled(settled) { this.settled = settled.total; }\n\n  /** @param {SettledOrder} settled */\n  @OnEvent\n  @InBackground\n  async audit(settled) { this.audited = settled.total; }\n}\n"
             },
             {
               "name": "server/controllers/LifecycleController.js",
@@ -7575,11 +7575,11 @@
             },
             {
               "name": "server/services/CheckoutService.ts",
-              "code": "import type { PlacedOrder } from '/models/PlacedOrder';\n@Service\nclass CheckoutService {\n  @Needs\n  applicationEventPublisher!: ApplicationEventPublisher;\n\n  @OnStart\n  start(): void {\n    const order: PlacedOrder = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order);\n  }\n\n  @OnStop\n  stop(): void {}\n}\n"
+              "code": "import type { PlacedOrder } from '/models/PlacedOrder.ts';\n@Service\nexport default class CheckoutService {\n  @Needs\n  applicationEventPublisher!: ApplicationEventPublisher;\n\n  @OnStart\n  start(): void {\n    const order: PlacedOrder = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order);\n  }\n\n  @OnStop\n  stop(): void {}\n}\n"
             },
             {
               "name": "server/services/AuditService.ts",
-              "code": "import type { PlacedOrder } from '/models/PlacedOrder';\nimport type { SettledOrder } from '/models/SettledOrder';\n@Service\nclass AuditService {\n  log: string[] = [];\n  settled = 0;\n  audited = 0;\n\n  @OnEvent({\"id\":\"audit-log\"})\n  @Order(-10)\n  record(order: PlacedOrder): void { this.log = [...this.log, order.status]; }\n\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  @Order(10)\n  settle(order: PlacedOrder): SettledOrder { return { total: order.total }; }\n\n  @OnEvent\n  saveSettled(settled: SettledOrder): void { this.settled = settled.total; }\n\n  @OnEvent\n  @InBackground\n  async audit(settled: SettledOrder): Promise<void> { this.audited = settled.total; }\n}\n"
+              "code": "import type { PlacedOrder } from '/models/PlacedOrder.ts';\nimport type { SettledOrder } from '/models/SettledOrder.ts';\n@Service\nexport default class AuditService {\n  log: string[] = [];\n  settled = 0;\n  audited = 0;\n\n  @OnEvent({\"id\":\"audit-log\"})\n  @Order(-10)\n  record(order: PlacedOrder): void { this.log = [...this.log, order.status]; }\n\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  @Order(10)\n  settle(order: PlacedOrder): SettledOrder { return { total: order.total }; }\n\n  @OnEvent\n  saveSettled(settled: SettledOrder): void { this.settled = settled.total; }\n\n  @OnEvent\n  @InBackground\n  async audit(settled: SettledOrder): Promise<void> { this.audited = settled.total; }\n}\n"
             },
             {
               "name": "server/controllers/LifecycleController.ts",
@@ -7850,7 +7850,7 @@
             },
             {
               "name": "client/services/CheckoutService.js",
-              "code": "@Service\nexport default class CheckoutService {\n  /** @type {HTMLElement} */\n  @Needs\n  view;\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  placed = 0;\n\n  @OnStart\n  start() {\n    this.view.dataset.ready = 'true';\n    this.place();\n  }\n\n  place() {\n    this.placed += 1;\n    /** @type {PlacedOrder} */\n    const order = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order, true);\n  }\n\n  @OnStop\n  stop() { this.placed = 0; }\n}\n"
+              "code": "/** @import { PlacedOrder } from '/models/PlacedOrder.ts' */\n@Service\nexport default class CheckoutService {\n  /** @type {HTMLElement} */\n  @Needs\n  view;\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  placed = 0;\n\n  @OnStart\n  start() {\n    this.view.dataset.ready = 'true';\n    this.place();\n  }\n\n  place() {\n    this.placed += 1;\n    /** @type {PlacedOrder} */\n    const order = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order, true);\n  }\n\n  @OnStop\n  stop() { this.placed = 0; }\n}\n"
             },
             {
               "name": "client/services/AuditService.js",
@@ -7858,11 +7858,11 @@
             },
             {
               "name": "client/services/CheckoutService.ts",
-              "code": "import type { PlacedOrder } from '/models/PlacedOrder';\n\n@Service\nexport default class CheckoutService {\n  @Needs\n  view!: HTMLElement;\n  @Needs\n  lifecycle!: AbortSignal;\n  applicationEventPublisher!: ApplicationEventPublisher;\n  placed = 0;\n\n  @OnStart\n  start(): void {\n    this.view.dataset.ready = 'true';\n    this.place();\n  }\n\n  place(): void {\n    this.placed += 1;\n    const order: PlacedOrder = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order, true);\n  }\n\n  @OnStop\n  stop(): void { this.placed = 0; }\n}\n"
+              "code": "import type { PlacedOrder } from '/models/PlacedOrder.ts';\n\n@Service\nexport default class CheckoutService {\n  @Needs\n  view!: HTMLElement;\n  @Needs\n  lifecycle!: AbortSignal;\n  applicationEventPublisher!: ApplicationEventPublisher;\n  placed = 0;\n\n  @OnStart\n  start(): void {\n    this.view.dataset.ready = 'true';\n    this.place();\n  }\n\n  place(): void {\n    this.placed += 1;\n    const order: PlacedOrder = { status: 'paid', total: 25 };\n    this.applicationEventPublisher.publishEvent(order, true);\n  }\n\n  @OnStop\n  stop(): void { this.placed = 0; }\n}\n"
             },
             {
               "name": "client/services/AuditService.ts",
-              "code": "import type { PlacedOrder } from '/models/PlacedOrder';\nimport type { SettledOrder } from '/models/SettledOrder';\n\n@Service\nexport default class AuditService {\n  private log: string[] = [];\n  settled = 0;\n  private audited = 0;\n\n  @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n  @Order(-10)\n  record(order: PlacedOrder): void { this.log = [...this.log, order.status]; }\n\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  @Order(10)\n  settle(order: PlacedOrder): SettledOrder { return { total: order.total }; }\n\n  @OnEvent\n  saveSettled(settled: SettledOrder): void { this.settled = settled.total; }\n\n  @OnEvent\n  @InBackground\n  async audit(settled: SettledOrder): Promise<void> { this.audited = settled.total; }\n}\n"
+              "code": "import type { PlacedOrder } from '/models/PlacedOrder.ts';\nimport type { SettledOrder } from '/models/SettledOrder.ts';\n\n@Service\nexport default class AuditService {\n  private log: string[] = [];\n  settled = 0;\n  private audited = 0;\n\n  @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n  @Order(-10)\n  record(order: PlacedOrder): void { this.log = [...this.log, order.status]; }\n\n  @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n  @Order(10)\n  settle(order: PlacedOrder): SettledOrder { return { total: order.total }; }\n\n  @OnEvent\n  saveSettled(settled: SettledOrder): void { this.settled = settled.total; }\n\n  @OnEvent\n  @InBackground\n  async audit(settled: SettledOrder): Promise<void> { this.audited = settled.total; }\n}\n"
             },
             {
               "name": "client/services/CheckoutService.swift",
@@ -7990,15 +7990,15 @@
           "heading": "Mapping: Yon",
           "axis": "language",
           "summary": "Converter and Convert do the work of Converter and Convert from MapStruct, the Java mapping library, with the same shape that Spring gives a repository. You declare only signatures, and the compiler writes their bodies from a literal field plan.",
-          "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. The compiler finds it and injects it like any other role. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nThe declaration has no body in every language that allows this. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go. It is a trait in Rust. It is an abstract class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript has no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. In every case, the compiler writes the constructor, the behavior context and the method. So the source declares nothing else.",
+          "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. The compiler finds it and injects it like any other role. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nThe declaration has no body in every language that allows this. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go. It is a trait in Rust. It is an abstract class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript has no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. JavaScript and TypeScript declare the answer as Promise<BehaviorJsonObject | void> for the same reason. In every case, the compiler writes the constructor, the behavior context and the method. So the source declares nothing else.",
           "files": [
             {
               "name": "server/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/converters/ProductConverter.js",
-              "code": "@Converter\nclass ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  /** @param {object} product */\n  async toSummary(product) {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {BehaviorJsonObject} product\n   * @returns {Promise<BehaviorJsonObject | void>}\n   */\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product) {}\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.js",
@@ -8010,11 +8010,11 @@
             },
             {
               "name": "server/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/converters/ProductConverter.ts",
-              "code": "@Converter\nclass ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: unknown): Promise<unknown> {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: BehaviorJsonObject): Promise<BehaviorJsonObject | void> {}\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.ts",
@@ -8182,27 +8182,27 @@
             },
             {
               "name": "client/setups/CatalogSetup.js",
-              "code": "@Setup\nclass CatalogSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.js",
-              "code": "@Converter\nclass ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  /** @param {object} product */\n  async toSummary(product) {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  /** @type {BehaviorContext} */\n  @Needs\n  behaviors;\n  /**\n   * @param {BehaviorJsonObject} product\n   * @returns {Promise<BehaviorJsonObject | void>}\n   */\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product) {}\n}\n"
             },
             {
               "name": "client/services/CatalogService.js",
-              "code": "@Service\nexport default class CatalogService {\n  title = 'Not mapped.';\n  async load() {\n    const options = { partition: 'public-catalog', signal: AbortSignal.timeout(5000) };\n    const context = await Behaviors.create(CatalogSetup, options);\n    const mapper = Behaviors.construct(ProductConverter, { behaviors: context });\n    const product = { detail: { id: 7 }, name: 'Anvil', extra: 'dropped' };\n    const summary = await mapper.toSummary(product);\n    this.title = `${summary.kind} ${summary.productId}: ${summary.title}`;\n    context.dispose();\n  }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  title = 'Not mapped.';\n  async load() {\n    const options = { partition: 'public-catalog', signal: AbortSignal.timeout(5000) };\n    const context = await Behaviors.create(CatalogSetup, options);\n    const mapper = Behaviors.construct(ProductConverter, { behaviors: context });\n    const product = { detail: { id: 7 }, name: 'Anvil', extra: 'dropped' };\n    const summary = await mapper.toSummary(product);\n    this.title = this.#titleOf(summary);\n    context.dispose();\n  }\n\n  /**\n   * @param {BehaviorJsonObject | void} summary\n   * @returns {string}\n   */\n  #titleOf(summary) {\n    return summary ? `${summary.kind} ${summary.productId}: ${summary.title}` : '';\n  }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.ts",
-              "code": "@Setup\nclass CatalogSetup {\n  static configure() { return {}; }\n}\n"
+              "code": "@Setup\nexport default class CatalogSetup {\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.ts",
-              "code": "@Converter\nclass ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: BehaviorJsonValue): Promise<BehaviorJsonValue> {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  @Needs\n  behaviors!: BehaviorContext;\n  @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async toSummary(product: BehaviorJsonObject): Promise<BehaviorJsonObject | void> {}\n}\n"
             },
             {
               "name": "client/services/CatalogService.ts",
-              "code": "@Service\nexport default class CatalogService {\n  title = 'Not mapped.';\n  async load() {\n    const options = { partition: 'public-catalog', signal: AbortSignal.timeout(5000) };\n    const context = await Behaviors.create(CatalogSetup, options);\n    const mapper = Behaviors.construct(ProductConverter, { behaviors: context });\n    const product = { detail: { id: 7 }, name: 'Anvil', extra: 'dropped' };\n    const summary = await mapper.toSummary(product) as BehaviorJsonObject;\n    this.title = `${summary.kind} ${summary.productId}: ${summary.title}`;\n    context.dispose();\n  }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  title = 'Not mapped.';\n  async load() {\n    const options = { partition: 'public-catalog', signal: AbortSignal.timeout(5000) };\n    const context = await Behaviors.create(CatalogSetup, options);\n    const mapper = Behaviors.construct(ProductConverter, { behaviors: context });\n    const product = { detail: { id: 7 }, name: 'Anvil', extra: 'dropped' };\n    const summary = await mapper.toSummary(product);\n    this.title = this.titleOf(summary);\n    context.dispose();\n  }\n\n  private titleOf(summary: BehaviorJsonObject | void): string {\n    return summary ? `${summary.kind} ${summary.productId}: ${summary.title}` : '';\n  }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.swift",
@@ -8346,11 +8346,11 @@
           "files": [
             {
               "name": "server/tests/CatalogTestSetup.js",
-              "code": "@TestSetup\nclass CatalogTestSetup {\n  static configure() { return {}; }\n}\n"
+              "code": "@TestSetup\nexport default class CatalogTestSetup {\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "server/helpers/CatalogCounterHelper.js",
-              "code": "@Helper\nclass CatalogCounterHelper {\n  /** @returns {number} */\n  count() { return 21; }\n}\n"
+              "code": "@Helper\nexport default class CatalogCounterHelper {\n  /** @returns {number} */\n  count() { return 21; }\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.js",
@@ -8358,19 +8358,19 @@
             },
             {
               "name": "server/services/CatalogService.js",
-              "code": "@Service\nclass CatalogService {\n  /** @type {CatalogCounterHelper} */\n  @Needs\n  catalogCounterHelper;\n\n  /** @returns {number} */\n  total() { return this.catalogCounterHelper.count() * 2; }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogCounterHelper} */\n  @Needs\n  catalogCounterHelper;\n\n  /** @returns {number} */\n  total() { return this.catalogCounterHelper.count() * 2; }\n}\n"
             },
             {
               "name": "server/tests/CatalogServiceTest.js",
-              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  @Fake\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testHasAContext() {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n}\n"
+              "code": "@Test(CatalogTestSetup, {\"partition\":\"tests\"})\n@UseProfiles(\"test\")\nexport default class CatalogServiceTest {\n  /** @type {CatalogCounterHelper} */\n  @Fake\n  catalogCounterHelper;\n\n  async testDoublesTheCount() {\n    this.catalogCounterHelper = { count: () => 4 };\n    const service = this.construct(CatalogService);\n    Assert.equals(8, service.total());\n  }\n\n  async testHasAContext() {\n    Assert.isTrue(Boolean(this.behaviors), 'the case has a context');\n  }\n}\n"
             },
             {
               "name": "server/tests/CatalogTestSetup.ts",
-              "code": "@TestSetup\nclass CatalogTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
+              "code": "@TestSetup\nexport default class CatalogTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
             },
             {
               "name": "server/helpers/CatalogCounterHelper.ts",
-              "code": "@Helper\nclass CatalogCounterHelper {\n  count(): number { return 21; }\n}\n"
+              "code": "@Helper\nexport default class CatalogCounterHelper {\n  count(): number { return 21; }\n}\n"
             },
             {
               "name": "server/models/CatalogTotal.ts",
@@ -8382,7 +8382,7 @@
             },
             {
               "name": "server/services/CatalogService.ts",
-              "code": "@Service\nclass CatalogService {\n  @Needs\n  catalogCounterHelper!: CatalogCounterHelper;\n\n  total(): number { return this.catalogCounterHelper.count() * 2; }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  catalogCounterHelper!: CatalogCounterHelper;\n\n  total(): number { return this.catalogCounterHelper.count() * 2; }\n}\n"
             },
             {
               "name": "server/tests/CatalogServiceTest.ts",
@@ -8494,7 +8494,7 @@
             },
             {
               "name": "client/tests/CatalogTestSetup.js",
-              "code": "@TestSetup\nclass CatalogTestSetup {\n  static configure() { return {}; }\n}\n"
+              "code": "@TestSetup\nexport default class CatalogTestSetup {\n  static configure() { return {}; }\n}\n"
             },
             {
               "name": "client/services/CatalogService.js",
@@ -8506,7 +8506,7 @@
             },
             {
               "name": "client/tests/CatalogTestSetup.ts",
-              "code": "@TestSetup\nclass CatalogTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
+              "code": "@TestSetup\nexport default class CatalogTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n"
             },
             {
               "name": "client/services/CatalogService.ts",

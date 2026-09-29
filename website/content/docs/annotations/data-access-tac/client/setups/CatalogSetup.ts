@@ -1,5 +1,5 @@
 @Setup
-class CatalogSetup {
+export default class CatalogSetup {
   static configure() {
     const fetchRows = async (command: any) => {
       const response = await fetch(`/api/${command.table}`, { headers: { accept: 'application/json' } });

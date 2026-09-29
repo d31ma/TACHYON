@@ -1,6 +1,7 @@
+/** @import { ChatMessage } from '/models/ChatMessage.ts' */
 @Service
 export default class ChatService {
-  /** @type {ChatClient} */
+  /** @type {ChatClient & { send: SocketSend<ChatMessage> }} */
   @Needs
   chatClient;
   /** @type {ChatMessage[]} */

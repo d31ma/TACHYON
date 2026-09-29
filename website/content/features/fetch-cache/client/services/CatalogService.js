@@ -11,7 +11,7 @@ export default class CatalogService {
   }
   /**
    * @param {Event} _event
-   * @param {object} product
+   * @param {BehaviorJsonValue} product
    */
   async save(_event, product) {
     await this.productsClient.save(product);

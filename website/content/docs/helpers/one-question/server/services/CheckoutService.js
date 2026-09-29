@@ -1,5 +1,5 @@
 @Service
-class CheckoutService {
+export default class CheckoutService {
   /** @type {TaxHelper} */
   @Needs
   taxHelper;

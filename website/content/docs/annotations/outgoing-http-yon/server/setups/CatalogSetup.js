@@ -1,10 +1,10 @@
 @Setup
-class CatalogSetup {
+export default class CatalogSetup {
   /**
-   * @param {object} execution
-   * @returns {object}
+   * @param {BehaviorExecution} execution
+   * @returns {BehaviorConfiguration}
    */
   static configure(execution) {
-    return { http: { catalog: { exchange: async (request) => ({ items: ['anvil'] }) } } };
+    return { http: { catalog: { exchange: async () => ({ items: ['anvil'] }) } } };
   }
 }

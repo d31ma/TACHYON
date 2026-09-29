@@ -1,7 +1,7 @@
-import type { ProbeReady } from '/models/ProbeReady';
+import type { ProbeReady } from '/models/ProbeReady.ts';
 
 @Service
-class ProbeService {
+export default class ProbeService {
   last: ProbeReady | null = null;
 
   @OnEvent

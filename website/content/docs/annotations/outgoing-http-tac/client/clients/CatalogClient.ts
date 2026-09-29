@@ -1,8 +1,8 @@
 @HTTPClient({"cache":"cache-first"})
-class CatalogClient {
+export default class CatalogClient {
   @GetRequest("/api/products")
-  async all(): Promise<BehaviorJsonValue> {}
+  async all(): Promise<{ items: string[] } | void> {}
 
   @PostRequest("/api/products")
-  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue> {}
+  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}
 }

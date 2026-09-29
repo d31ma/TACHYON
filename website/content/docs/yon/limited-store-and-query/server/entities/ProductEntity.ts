@@ -1,6 +1,7 @@
 @Entity({"adapter":"catalog"})
 @Table('products')
-class ProductEntity {
+export default class ProductEntity {
   @Id
-  id: number;
+  id!: number;
+  status!: string;
 }

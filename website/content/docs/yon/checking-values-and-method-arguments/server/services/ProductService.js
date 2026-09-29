@@ -1,10 +1,11 @@
+/** @import { Product } from '/models/Product.ts' */
 @Service
-class ProductService {
+export default class ProductService {
   /**
    * @param {ProductInput} input
-   * @returns {ProductInput}
+   * @returns {Product}
    */
   accept(@Check input) {
-    return input;
+    return /** @type {Product} */ (input);
   }
 }

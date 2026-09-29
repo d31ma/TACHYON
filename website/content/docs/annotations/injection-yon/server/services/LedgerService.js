@@ -1,5 +1,5 @@
 @Service
-class LedgerService {
+export default class LedgerService {
   /** @type {LedgerStore} */
   @Needs
   ledgerStore;

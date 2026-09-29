@@ -1,5 +1,5 @@
 @HTTPClient
-class BillingClient {
+export default class BillingClient {
   /** @returns {number} */
   surcharge() { return 2; }
 }

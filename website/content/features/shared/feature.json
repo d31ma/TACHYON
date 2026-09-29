@@ -17,6 +17,10 @@
       "code": { "file": "layout.txt" }
     },
     {
+      "name": "client/shared/data/docs.json",
+      "code": { "file": "client/shared/data/docs.json" }
+    },
+    {
       "name": "client/services/DocumentsService.js",
       "code": { "file": "client/services/DocumentsService.js" }
     }

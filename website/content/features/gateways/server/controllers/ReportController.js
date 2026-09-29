@@ -1,3 +1,4 @@
+/** @import { Report } from '/models/Report.js' */
 @RequestRoute("/report")
 @Public
 class ReportController {

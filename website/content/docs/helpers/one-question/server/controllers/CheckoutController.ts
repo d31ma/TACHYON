@@ -4,7 +4,7 @@ import type { Receipt } from '/models/Receipt.ts'
 @Public
 class CheckoutController {
   @Needs
-  service: CheckoutService;
+  service!: CheckoutService;
 
   @GetRoute
   getCheckout(): Receipt {

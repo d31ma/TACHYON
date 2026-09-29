@@ -1,5 +1,5 @@
 @Setup
-class CatalogSetup {
+export default class CatalogSetup {
   /** @returns {object} */
   static configure() { return {}; }
 }

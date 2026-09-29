@@ -1,5 +1,5 @@
 @Service
-class OrderService {
+export default class OrderService {
   /**
    * @param {OrderInput} order
    * @returns {OrderInput}

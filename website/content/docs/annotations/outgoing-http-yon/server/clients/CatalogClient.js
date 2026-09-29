@@ -1,5 +1,5 @@
 @HTTPClient
-class CatalogClient {
+export default class CatalogClient {
   /** @type {BehaviorContext} */
   behaviors;
 

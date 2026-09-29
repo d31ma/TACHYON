@@ -5,10 +5,10 @@ import type { Ledger } from '/models/Ledger.ts'
 class LedgerController {
   @Needs
   @Named("LedgerService")
-  service: LedgerService;
+  service!: LedgerService;
   @Needs
   @Named("LedgerHelper")
-  settlement: LedgerHelper;
+  settlement!: LedgerHelper;
 
   @GetRoute
   getLedger(): Ledger {

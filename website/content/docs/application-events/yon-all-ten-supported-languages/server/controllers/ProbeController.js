@@ -8,7 +8,7 @@ class ProbeController {
   /** @type {PublishService} */
   @Needs
   publishService;
-  /** @returns {ProbeReady=} */
+  /** @returns {ProbeReady | null} */
   @GetRoute
   getProbe() { return this.probeService.last; }
 }

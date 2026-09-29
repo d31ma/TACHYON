@@ -370,7 +370,7 @@
         },
         {
           "name": "client/services/CartService.js",
-          "code": "@Service\nexport default class CartService {\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  total = 0;\n  add() {\n    this.total += 1;\n    /** @type {CartTotal} */\n    const changed = { total: this.total };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n  @OnStart\n  initialize() { document.title = 'Cart'; }\n}"
+          "code": "/** @import { CartTotal } from '/models/CartTotal.ts' */\n@Service\nexport default class CartService {\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  total = 0;\n  add() {\n    this.total += 1;\n    /** @type {CartTotal} */\n    const changed = { total: this.total };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n  @OnStart\n  initialize() { document.title = 'Cart'; }\n}"
         },
         {
           "name": "client/services/CartService.ts",
@@ -410,11 +410,11 @@
         },
         {
           "name": "client/services/CatalogService.js",
-          "code": "@Service\nexport default class CatalogService {\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {BehaviorContext | null} */\n  behaviors = null;\n  offset = 0;\n\n  /**\n   * @param {BehaviorPage} input\n   * @returns {number}\n   */\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input) { return input.offset; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    });\n    this.offset = this.page({ page: 1 });\n  }\n}"
+          "code": "@Service\nexport default class CatalogService {\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {BehaviorContext | null} */\n  behaviors = null;\n  /** @type {number | undefined} */\n  offset = 0;\n\n  /**\n   * @param {BehaviorPageInput} input\n   * @returns {number | undefined}\n   */\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input) { return input.offset; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    });\n    this.offset = this.page({ page: 1 });\n  }\n}"
         },
         {
           "name": "client/setups/ApplicationSetup.js",
-          "code": "@Setup\nclass ApplicationSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+          "code": "@Setup\nexport default class ApplicationSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
         },
         {
           "name": "adapter ownership",
@@ -504,15 +504,15 @@
         },
         {
           "name": "client/clients/ProductsClient.js",
-          "code": "@HTTPClient({\"adapter\":\"products\"})\nclass ProductsClient {\n  /**\n   * @param {object} product\n   * @returns {Promise<{ body: object }>}\n   */\n  @PostRequest(\"/api/products\")\n  async save(product) { return {body: product}; }\n}"
+          "code": "@HTTPClient({\"adapter\":\"products\"})\nexport default class ProductsClient {\n  /**\n   * @param {BehaviorJsonValue} product\n   * @returns {Promise<BehaviorJsonValue>}\n   */\n  @PostRequest(\"/api/products\")\n  async save(product) { return {body: product}; }\n}"
         },
         {
           "name": "client/services/CatalogService.js",
-          "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductsClient} */\n  @Needs\n  productsClient;\n  /** @type {object[]} */\n  products = [];\n  async load() {\n    const response = await fetch('/api/products', { credentials: 'omit' });\n    this.products = await this.#productsFrom(response);\n  }\n  /**\n   * @param {Event} _event\n   * @param {object} product\n   */\n  async save(_event, product) {\n    await this.productsClient.save(product);\n  }\n  /**\n   * @param {Response} response\n   * @returns {Promise<object[]>}\n   */\n  #productsFrom(response) {\n    if (!response.ok) throw new Error('Products unavailable');\n    return response.json();\n  }\n}"
+          "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductsClient} */\n  @Needs\n  productsClient;\n  /** @type {object[]} */\n  products = [];\n  async load() {\n    const response = await fetch('/api/products', { credentials: 'omit' });\n    this.products = await this.#productsFrom(response);\n  }\n  /**\n   * @param {Event} _event\n   * @param {BehaviorJsonValue} product\n   */\n  async save(_event, product) {\n    await this.productsClient.save(product);\n  }\n  /**\n   * @param {Response} response\n   * @returns {Promise<object[]>}\n   */\n  #productsFrom(response) {\n    if (!response.ok) throw new Error('Products unavailable');\n    return response.json();\n  }\n}"
         },
         {
           "name": "client/clients/ProductsClient.ts",
-          "code": "@HTTPClient({\"adapter\":\"products\"})\nclass ProductsClient {\n  @PostRequest(\"/api/products\")\n  async save(product: BehaviorJsonValue): Promise<BehaviorJsonValue> { return {body: product}; }\n}"
+          "code": "@HTTPClient({\"adapter\":\"products\"})\nexport default class ProductsClient {\n  @PostRequest(\"/api/products\")\n  async save(product: BehaviorJsonValue): Promise<BehaviorJsonValue> { return {body: product}; }\n}"
         },
         {
           "name": "client/services/CatalogService.ts",
@@ -952,7 +952,7 @@
         },
         {
           "name": "server/clients/ReportClient.js",
-          "code": "@HTTPClient\nclass ReportClient {\n  /** @param {string} period */\n  @Gateway({\"class\":\"server/services/ReportService.java\"})\n  async summarize(period) {}\n\n  /** @param {number} months */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
+          "code": "@HTTPClient\nexport default class ReportClient {\n  /**\n   * @param {string} period\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"class\":\"server/services/ReportService.java\"})\n  async summarize(period) {}\n\n  /**\n   * @param {number} months\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
         },
         {
           "name": "server/models/Report.js",
@@ -960,7 +960,7 @@
         },
         {
           "name": "server/controllers/ReportController.js",
-          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /** @type {ReportClient} */\n  @Needs\n  reportClient;\n\n  /** @returns {Promise<Report>} */\n  @GetRoute\n  async getReport() {\n    const summary = await this.reportClient.summarize('2026-Q3')\n    const forecast = await this.reportClient.forecast(3)\n    return { summary, forecast }\n  }\n}\n"
+          "code": "/** @import { Report } from '/models/Report.js' */\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /** @type {ReportClient} */\n  @Needs\n  reportClient;\n\n  /** @returns {Promise<Report>} */\n  @GetRoute\n  async getReport() {\n    const summary = await this.reportClient.summarize('2026-Q3')\n    const forecast = await this.reportClient.forecast(3)\n    return { summary, forecast }\n  }\n}\n"
         },
         {
           "name": "server/models/Forecast.py",
@@ -1253,19 +1253,19 @@
         },
         {
           "name": "client/clients/TicksClient.js",
-          "code": "/** @import { Tick } from '/models/Tick.ts' */\n@HTTPClient('/ticks')\nclass TicksClient {\n  /** @param {Tick} tick */\n  @StreamRequest\n  streamTicks(tick) {}\n}\n"
+          "code": "/** @import { Tick } from '/models/Tick.ts' */\n@HTTPClient('/ticks')\nexport default class TicksClient {\n  /** @param {Tick} tick */\n  @StreamRequest\n  streamTicks(tick) {}\n}\n"
         },
         {
           "name": "client/clients/TicksClient.ts",
-          "code": "import type { Tick } from '/models/Tick';\n\n@HTTPClient('/ticks')\nclass TicksClient {\n  @StreamRequest\n  streamTicks(tick: Tick): void {}\n}\n"
+          "code": "import type { Tick } from '/models/Tick.ts';\n\n@HTTPClient('/ticks')\nexport default class TicksClient {\n  @StreamRequest\n  streamTicks(tick: Tick): void {}\n}\n"
         },
         {
           "name": "client/services/StreamService.js",
-          "code": "@Service\nexport default class StreamService {\n  /** @type {TicksClient} */\n  @Needs\n  ticksClient;\n  /** @type {Tick[]} */\n  ticks = []\n\n  /** @param {Tick} tick */\n  @OnEvent\n  addTick(tick) {\n    this.ticks = [...this.ticks.slice(-127), tick]\n  }\n}\n"
+          "code": "/** @import { Tick } from '/models/Tick.ts' */\n@Service\nexport default class StreamService {\n  /** @type {TicksClient} */\n  @Needs\n  ticksClient;\n  /** @type {Tick[]} */\n  ticks = []\n\n  /** @param {Tick} tick */\n  @OnEvent\n  addTick(tick) {\n    this.ticks = [...this.ticks.slice(-127), tick]\n  }\n}\n"
         },
         {
           "name": "client/services/StreamService.ts",
-          "code": "import type { Tick } from '/models/Tick';\n\n@Service\nexport default class StreamService {\n  @Needs\n  readonly ticksClient!: TicksClient;\n  ticks: Tick[] = []\n\n  @OnEvent\n  addTick(tick: Tick): void {\n    this.ticks = [...this.ticks.slice(-127), tick]\n  }\n}\n"
+          "code": "import type { Tick } from '/models/Tick.ts';\n\n@Service\nexport default class StreamService {\n  @Needs\n  readonly ticksClient!: TicksClient;\n  ticks: Tick[] = []\n\n  @OnEvent\n  addTick(tick: Tick): void {\n    this.ticks = [...this.ticks.slice(-127), tick]\n  }\n}\n"
         },
         {
           "name": "languages",
@@ -1305,7 +1305,7 @@
         },
         {
           "name": "server/controllers/ChatController.ts",
-          "code": "import type { ChatMessage } from '/models/ChatMessage'\n\n@SocketRoute('/chat')\n@Public\nclass ChatController {\n  @OnOpen\n  onOpen(session: SocketSession) {\n    return session.send({ text: 'Welcome to the room' })\n  }\n\n  @OnMessage\n  async onMessage(session: SocketSession, message: ChatMessage) {\n    await this.sendToEveryone(await session.openSessions(), message)\n  }\n\n  private async sendToEveryone(peers: SocketPeer[], message: ChatMessage) {\n    for (const peer of peers) await peer.send(message)\n  }\n}\n"
+          "code": "import type { ChatMessage } from '/models/ChatMessage.ts'\n\n@SocketRoute('/chat')\n@Public\nclass ChatController {\n  @OnOpen\n  onOpen(session: SocketSession) {\n    return session.send({ text: 'Welcome to the room' })\n  }\n\n  @OnMessage\n  async onMessage(session: SocketSession, message: ChatMessage) {\n    await this.sendToEveryone(await session.openSessions(), message)\n  }\n\n  private async sendToEveryone(peers: SocketPeer[], message: ChatMessage) {\n    for (const peer of peers) await peer.send(message)\n  }\n}\n"
         },
         {
           "name": "server/controllers/ChatController.py",
@@ -1393,19 +1393,19 @@
         },
         {
           "name": "client/clients/ChatClient.js",
-          "code": "/** @import { ChatMessage } from '/models/ChatMessage.ts' */\n@HTTPClient('/chat')\nclass ChatClient {\n  /** @param {ChatMessage} message */\n  @SocketRequest\n  receive(message) {}\n}\n"
+          "code": "/** @import { ChatMessage } from '/models/ChatMessage.ts' */\n@HTTPClient('/chat')\nexport default class ChatClient {\n  /** @param {ChatMessage} message */\n  @SocketRequest\n  receive(message) {}\n}\n"
         },
         {
           "name": "client/clients/ChatClient.ts",
-          "code": "import type { ChatMessage } from '/models/ChatMessage';\n\n@HTTPClient('/chat')\nclass ChatClient {\n  declare send: SocketSend<ChatMessage>\n\n  @SocketRequest\n  receive(message: ChatMessage): void {}\n}\n"
+          "code": "import type { ChatMessage } from '/models/ChatMessage.ts';\n\n@HTTPClient('/chat')\nexport default class ChatClient {\n  declare send: SocketSend<ChatMessage>\n\n  @SocketRequest\n  receive(message: ChatMessage): void {}\n}\n"
         },
         {
           "name": "client/services/ChatService.js",
-          "code": "@Service\nexport default class ChatService {\n  /** @type {ChatClient} */\n  @Needs\n  chatClient;\n  /** @type {ChatMessage[]} */\n  messages = []\n\n  /** @param {ChatMessage} message */\n  @OnEvent\n  addMessage(message) {\n    this.messages = [...this.messages.slice(-49), message]\n  }\n\n  /** @returns {Promise<void>} */\n  sayHello() {\n    return this.chatClient.send({ text: 'Hello from a tab' })\n  }\n}\n"
+          "code": "/** @import { ChatMessage } from '/models/ChatMessage.ts' */\n@Service\nexport default class ChatService {\n  /** @type {ChatClient & { send: SocketSend<ChatMessage> }} */\n  @Needs\n  chatClient;\n  /** @type {ChatMessage[]} */\n  messages = []\n\n  /** @param {ChatMessage} message */\n  @OnEvent\n  addMessage(message) {\n    this.messages = [...this.messages.slice(-49), message]\n  }\n\n  /** @returns {Promise<void>} */\n  sayHello() {\n    return this.chatClient.send({ text: 'Hello from a tab' })\n  }\n}\n"
         },
         {
           "name": "client/services/ChatService.ts",
-          "code": "import type { ChatMessage } from '/models/ChatMessage';\n\n@Service\nexport default class ChatService {\n  @Needs\n  readonly chatClient!: ChatClient;\n  messages: ChatMessage[] = []\n\n  @OnEvent\n  addMessage(message: ChatMessage): void {\n    this.messages = [...this.messages.slice(-49), message]\n  }\n\n  sayHello(): Promise<void> {\n    return this.chatClient.send({ text: 'Hello from a tab' })\n  }\n}\n"
+          "code": "import type { ChatMessage } from '/models/ChatMessage.ts';\n\n@Service\nexport default class ChatService {\n  @Needs\n  readonly chatClient!: ChatClient;\n  messages: ChatMessage[] = []\n\n  @OnEvent\n  addMessage(message: ChatMessage): void {\n    this.messages = [...this.messages.slice(-49), message]\n  }\n\n  sayHello(): Promise<void> {\n    return this.chatClient.send({ text: 'Hello from a tab' })\n  }\n}\n"
         },
         {
           "name": "client/models/ChatMessage.ts",
@@ -1425,7 +1425,7 @@
       "files": [
         {
           "name": "server/shared/orders.js",
-          "code": "export class OrderService {\n  static place(item) {\n    return { placed: item }\n  }\n}\n"
+          "code": "export class OrderService {\n  /**\n   * @param {string} item\n   * @returns {{ placed: string }}\n   */\n  static place(item) {\n    return { placed: item }\n  }\n}\n"
         },
         {
           "name": "server/shared/orders.ts",
@@ -1700,6 +1700,10 @@
         {
           "name": "layout",
           "code": "client/shared/assets/logo.svg    ->  /shared/assets/logo.svg\nclient/shared/data/docs.json    ->  /shared/data/docs.json\nclient/shared/styles/site.css   ->  /shared/styles/site.css"
+        },
+        {
+          "name": "client/shared/data/docs.json",
+          "code": "{\n  \"order\": [\"install\", \"first-app\", \"pages\"]\n}\n"
         },
         {
           "name": "client/services/DocumentsService.js",

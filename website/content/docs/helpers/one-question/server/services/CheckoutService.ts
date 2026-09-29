@@ -1,7 +1,7 @@
 @Service
-class CheckoutService {
+export default class CheckoutService {
   @Needs
-  helper: TaxHelper;
+  helper!: TaxHelper;
 
   total(): number {
     const subtotal = this.subtotal();
