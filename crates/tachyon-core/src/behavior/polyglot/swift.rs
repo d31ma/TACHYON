@@ -1,3 +1,4 @@
+use super::super::call_style::CallStyle;
 use super::super::mapper;
 use super::super::testing::{Unit, joined, polyglot_unit};
 use super::{Edit, Method, Module, Parameter, Type, block, concrete_edit, declared_fields, render};
@@ -358,7 +359,7 @@ fn quote(value: &str) -> String {
 }
 
 fn test_members(unit: &Unit) -> String {
-    let calls = super::super::ValueSource::swift_calls(&unit.cases, &unit.inputs);
+    let calls = super::super::ValueSource::calls(&unit.cases, &unit.inputs, &CallStyle::SWIFT);
     let names = joined(&calls, |(name, _)| format!("{}, ", quote(name)));
     let dispatch = joined(&calls, |(name, call)| {
         format!("case {}: try await {call}\n", quote(name))

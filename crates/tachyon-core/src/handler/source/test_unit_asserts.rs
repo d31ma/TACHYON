@@ -12,14 +12,18 @@ impl TestUnitAsserts {
     }
 
     pub(super) fn dart(compiler: &str, portable: &str) -> Option<String> {
-        if compiler != Self::DART_COMPILER {
-            return None;
-        }
-        Self::when_tested(portable, &[Self::DART_FLAG]).pop()
+        Self::when_tested(portable, Self::dart_flags(compiler)).pop()
     }
 
     pub(super) fn php(portable: &str) -> Vec<String> {
         Self::when_tested(portable, &Self::PHP_SETTING)
+    }
+
+    fn dart_flags(compiler: &str) -> &'static [&'static str] {
+        if compiler == Self::DART_COMPILER {
+            return &[Self::DART_FLAG];
+        }
+        &[]
     }
 
     fn when_tested(portable: &str, flags: &[&str]) -> Vec<String> {

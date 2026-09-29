@@ -1,3 +1,4 @@
+use super::super::call_style::CallStyle;
 use super::{Edit, Method, Module, Type, render};
 use crate::go_source::GoFile;
 use serde_json::Value;
@@ -860,17 +861,10 @@ fn silent_test_cases(
 fn test_members(unit: &super::super::testing::Unit, silent: &[String]) -> String {
     let receiver = GoNames::RECEIVER;
     let name = &unit.name;
-    let calls = super::super::ValueSource::go_calls(&unit.cases, &unit.inputs);
+    let calls = super::super::ValueSource::calls(&unit.cases, &unit.inputs, &CallStyle::JSON);
     let mut dispatch = String::new();
     for (case, call) in &calls {
-        let returns_nothing = silent
-            .iter()
-            .any(|method| call.starts_with(&format!("{method}(")));
-        let statement = if returns_nothing {
-            format!("{receiver}.{call}\n\t\treturn nil")
-        } else {
-            format!("return {receiver}.{call}")
-        };
+        let statement = case_statement(call, silent);
         let _ = write!(dispatch, "\n\tcase {}:\n\t\t{statement}", quoted(case));
     }
     let names: Vec<String> = calls.into_iter().map(|(case, _)| case).collect();
@@ -883,6 +877,17 @@ fn test_members(unit: &super::super::testing::Unit, silent: &[String]) -> String
         quoted_names(&names),
         quoted(name),
     )
+}
+
+fn case_statement(call: &str, silent: &[String]) -> String {
+    let receiver = GoNames::RECEIVER;
+    let returns_nothing = silent
+        .iter()
+        .any(|method| call.starts_with(&format!("{method}(")));
+    if returns_nothing {
+        return format!("{receiver}.{call}\n\t\treturn nil");
+    }
+    format!("return {receiver}.{call}")
 }
 
 fn profile_statements(unit: &super::super::testing::Unit) -> String {

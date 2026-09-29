@@ -93,26 +93,24 @@ impl TestLanguage {
         macro_asserts: &[],
         assert_help: "Check the result with `try Assert.equals(expected, actual)`, `try Assert.isTrue(condition)`, `try await Assert.throws { action }` or `precondition(condition)`.",
     };
-    const LANGUAGES: [(&'static str, Self); 13] = [
-        ("js", Self::JAVASCRIPT),
-        ("ts", Self::JAVASCRIPT),
-        ("py", Self::PYTHON),
-        ("rs", Self::RUST),
-        ("java", Self::JAVA),
-        ("groovy", Self::JAVA),
-        ("kt", Self::KOTLIN),
-        ("cs", Self::CSHARP),
-        ("go", Self::GO),
-        ("rb", Self::RUBY),
-        ("php", Self::PHP),
-        ("dart", Self::DART),
-        ("swift", Self::SWIFT),
+    const LANGUAGES: [(&'static [&'static str], Self); 11] = [
+        (&["js", "ts"], Self::JAVASCRIPT),
+        (&["py"], Self::PYTHON),
+        (&["rs"], Self::RUST),
+        (&["java", "groovy"], Self::JAVA),
+        (&["kt"], Self::KOTLIN),
+        (&["cs"], Self::CSHARP),
+        (&["go"], Self::GO),
+        (&["rb"], Self::RUBY),
+        (&["php"], Self::PHP),
+        (&["dart"], Self::DART),
+        (&["swift"], Self::SWIFT),
     ];
 
     pub(super) fn of(extension: &str) -> Option<Self> {
         Self::LANGUAGES
             .iter()
-            .find(|(name, _)| *name == extension)
+            .find(|(extensions, _)| extensions.contains(&extension))
             .map(|(_, language)| *language)
     }
 }

@@ -76,25 +76,7 @@ impl ValueSource {
         Self::calls(cases, inputs, &CallStyle::JSON)
     }
 
-    pub(super) fn go_calls(cases: &[String], inputs: &Map<String, Value>) -> Vec<(String, String)> {
-        Self::calls(cases, inputs, &CallStyle::JSON)
-    }
-
-    pub(super) fn dart_calls(
-        cases: &[String],
-        inputs: &Map<String, Value>,
-    ) -> Vec<(String, String)> {
-        Self::calls(cases, inputs, &CallStyle::DART)
-    }
-
-    pub(super) fn swift_calls(
-        cases: &[String],
-        inputs: &Map<String, Value>,
-    ) -> Vec<(String, String)> {
-        Self::calls(cases, inputs, &CallStyle::SWIFT)
-    }
-
-    fn calls(
+    pub(super) fn calls(
         cases: &[String],
         inputs: &Map<String, Value>,
         style: &CallStyle,
