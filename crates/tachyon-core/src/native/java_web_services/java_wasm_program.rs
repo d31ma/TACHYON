@@ -1,7 +1,8 @@
 use super::super::web_program_build::WebProgramBuild;
 use super::tea_vm_toolchain::TeaVmToolchain;
 use crate::Failure;
-use crate::wasm_optimizer::WasmOptimizer;
+use crate::wasm_release_note::WasmReleaseNote;
+use crate::wasm_release_step::WasmReleaseStep;
 use sha2::{Digest, Sha256};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -16,8 +17,10 @@ impl JavaWasmProgram {
     const BUILD: WebProgramBuild = WebProgramBuild {
         language: "Java",
         composed: "service files",
-        optimized_note: "Java: TeaVM WebAssembly release build — optimized by Binaryen",
-        unoptimized_note: "Java: shipped without Binaryen optimization; install Binaryen or run `ty doctor`",
+        note: WasmReleaseNote {
+            optimized: "Java: TeaVM WebAssembly release build — optimized by Binaryen",
+            unoptimized: "Java: shipped without Binaryen optimization; install Binaryen or run `ty doctor`",
+        },
     };
     const JAVA_COMPILER: &'static str = "javac";
     const JAVA_FLAGS: [&'static str; 5] = ["--release", "21", "-encoding", "UTF-8", "-nowarn"];
@@ -64,14 +67,14 @@ impl JavaWasmProgram {
                 Self::MISSING_JDK,
             )
             .await?;
-        let optimizer = WebProgramBuild::release_optimizer(profile).await;
-        let key = Self::cache_key(&version, &toolchain, optimizer.as_ref(), sources);
+        let release = WasmReleaseStep::prepare(profile).await;
+        let key = Self::cache_key(&version, &toolchain, release.identity().as_bytes(), sources);
         let cached = crate::cache::root().join(Self::FOLDERS[2]).join(key);
-        Self::cached_or_built((&toolchain, optimizer.as_ref()), sources, &cached).await
+        Self::cached_or_built((&toolchain, &release), sources, &cached).await
     }
 
-    pub(super) fn note(&self, profile: crate::BuildProfile) -> Option<&'static str> {
-        Self::BUILD.note(profile, self.made_smaller)
+    pub(super) fn note(&self, profile: crate::BuildProfile) -> Option<String> {
+        Self::BUILD.note.for_build(profile, self.made_smaller)
     }
 
     pub(super) fn published(self) -> Vec<(String, Vec<u8>)> {
@@ -82,19 +85,19 @@ impl JavaWasmProgram {
     }
 
     async fn cached_or_built(
-        build: (&TeaVmToolchain, Option<&WasmOptimizer>),
+        build: (&TeaVmToolchain, &WasmReleaseStep),
         sources: &[(PathBuf, String)],
         cached: &Path,
     ) -> Result<Self, Failure> {
-        let (_, optimizer) = build;
-        if let Ok(program) = Self::read(cached, optimizer.is_some()) {
+        let (_, release) = build;
+        if let Ok(program) = Self::read(cached, release.will_shrink()) {
             return Ok(program);
         }
         Self::built(build, sources, cached).await
     }
 
     async fn built(
-        (toolchain, optimizer): (&TeaVmToolchain, Option<&WasmOptimizer>),
+        (toolchain, release): (&TeaVmToolchain, &WasmReleaseStep),
         sources: &[(PathBuf, String)],
         cached: &Path,
     ) -> Result<Self, Failure> {
@@ -110,10 +113,10 @@ impl JavaWasmProgram {
             .run(&mut Self::runtime_extractor(folder, toolchain), folder)
             .await?;
         let output = Self::with_runtime(folder)?;
-        let made_smaller =
-            WebProgramBuild::optimize(optimizer, &output.join(Self::BINARY), &Self::RELEASE_FLAGS)
-                .await;
-        Self::keep(&output, cached, made_smaller == optimizer.is_some());
+        let made_smaller = release
+            .shrink(&output.join(Self::BINARY), &Self::RELEASE_FLAGS)
+            .await;
+        Self::keep(&output, cached, made_smaller == release.will_shrink());
         Self::read(&output, made_smaller).map_err(|error| Self::BUILD.failure(&error.to_string()))
     }
 
@@ -141,12 +144,11 @@ impl JavaWasmProgram {
     fn cache_key(
         version: &[u8],
         toolchain: &TeaVmToolchain,
-        optimizer: Option<&WasmOptimizer>,
+        release: &[u8],
         sources: &[(PathBuf, String)],
     ) -> String {
         let identity = toolchain.identity();
-        let optimizer = optimizer.map_or(&[][..], WasmOptimizer::identity);
-        let mut parts: Vec<&[u8]> = vec![version, &identity, optimizer];
+        let mut parts: Vec<&[u8]> = vec![version, &identity, release];
         parts.extend(sources.iter().flat_map(Self::source_parts));
         crate::compiler::hex_digest(Sha256::digest(parts.join(&Self::SEPARATOR)))
     }

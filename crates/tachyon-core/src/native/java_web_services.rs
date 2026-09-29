@@ -78,7 +78,7 @@ impl JavaWebServices {
             .collect();
         sources.extend(Self::prelude(&read));
         let program = JavaWasmProgram::compile(&sources, profile).await?;
-        let note = program.note(profile).map(String::from);
+        let note = program.note(profile);
         Ok((program.published(), note))
     }
 

@@ -46,6 +46,7 @@ impl WebLanguage {
             Self::Go => "go",
             Self::Kotlin => "kt",
             Self::Swift => "swift",
+            Self::Java => "java",
             Self::Ruby => "rb",
         }
     }
@@ -1023,10 +1024,19 @@ mod tests {
         let (development_notes, development) = rust_counter(crate::BuildProfile::Development).await;
         let (release_notes, release) = rust_counter(crate::BuildProfile::Release).await;
         assert!(development_notes.is_empty(), "{development_notes:?}");
-        assert!(release_notes[0].starts_with("Rust: rustc tuned for size"), "{release_notes:?}");
+        assert!(
+            release_notes[0].starts_with("Rust: rustc tuned for size"),
+            "{release_notes:?}"
+        );
         if crate::wasm_optimizer::WasmOptimizer::is_installed() {
-            assert!(release_notes[0].contains("wasm-opt -Oz"), "{release_notes:?}");
-            assert!(release < development, "release {release} >= development {development}");
+            assert!(
+                release_notes[0].contains("wasm-opt -Oz"),
+                "{release_notes:?}"
+            );
+            assert!(
+                release < development,
+                "release {release} >= development {development}"
+            );
         }
     }
 
@@ -1070,10 +1080,20 @@ mod tests {
         let (release_notes, release) =
             go_counter(release_root.path(), crate::BuildProfile::Release).await;
         assert!(development_notes.is_empty(), "{development_notes:?}");
-        assert!(release_notes[0].starts_with("Go: TinyGo"), "{release_notes:?}");
-        assert!(release * 3 < development, "release {release}, development {development}");
-        let glue = std::fs::read_to_string(release_root.path().join("go/wasm_exec.js")).expect("glue");
-        assert!(glue.contains("wasi_snapshot_preview1"), "the glue must be TinyGo's own");
+        assert!(
+            release_notes[0].starts_with("Go: TinyGo"),
+            "{release_notes:?}"
+        );
+        assert!(
+            release * 3 < development,
+            "release {release}, development {development}"
+        );
+        let glue =
+            std::fs::read_to_string(release_root.path().join("go/wasm_exec.js")).expect("glue");
+        assert!(
+            glue.contains("wasi_snapshot_preview1"),
+            "the glue must be TinyGo's own"
+        );
     }
 
     #[tokio::test]
@@ -1382,7 +1402,11 @@ mod tests {
             let explained = notes
                 .iter()
                 .any(|note| note.starts_with("C#: the trimmed .NET interpreter"));
-            assert_eq!(explained, profile == crate::BuildProfile::Release, "{notes:?}");
+            assert_eq!(
+                explained,
+                profile == crate::BuildProfile::Release,
+                "{notes:?}"
+            );
             let report = run_driver(root.path(), Fixtures::TALLY_DRIVER);
             assert_eq!(report["size"], 3, "{profile:?}");
             assert_eq!(report["other"], -1);
