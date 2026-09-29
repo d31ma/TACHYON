@@ -481,7 +481,7 @@ fn wrapper_body(
     }
     if is_generated_exchange(method) {
         return Ok(format!(
-            "\n{valid}self.behaviors.clone().invoke({policy}, vec![{arguments}], |_| Ok(BehaviorValue::Null))\n"
+            "\n{valid}self.behaviors.clone().invoke({policy}, vec![{arguments}], |_| Ok(BehaviorValue::object([] as [(&str, BehaviorValue); 0])))\n"
         ));
     }
     Ok(invoke_body(

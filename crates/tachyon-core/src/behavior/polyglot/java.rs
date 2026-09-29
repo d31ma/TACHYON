@@ -427,7 +427,7 @@ fn wrap(
     let mut prefix = valid_arguments(method, &mut arguments)?;
     pagination_prologue(method, &mut arguments, &mut prefix)?;
     let call = if declared {
-        String::from("null")
+        String::from("new java.util.LinkedHashMap<String, Object>()")
     } else {
         format!("{helper_name}({})", arguments.join(", "))
     };

@@ -467,7 +467,7 @@ fn wrapper(
     }
     if is_generated_exchange(method) {
         return Ok(format!(
-            "{valid} return {receiver}.behaviors.Invoke({policy}, {arguments}, func([]BehaviorValue) (BehaviorValue, error) {{ return nil, nil }}) "
+            "{valid} return {receiver}.behaviors.Invoke({policy}, {arguments}, func([]BehaviorValue) (BehaviorValue, error) {{ return map[string]any{{}}, nil }}) "
         ));
     }
     Ok(format!(

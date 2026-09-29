@@ -65,6 +65,10 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/js/server/clients/CatalogClient.js"),
         ),
         (
+            "server/setups/CatalogSetup.js",
+            include_str!("../../fixtures/behavior/authored/js/server/setups/CatalogSetup.js"),
+        ),
+        (
             "server/helpers/CatalogHelper.js",
             include_str!("../../fixtures/behavior/authored/js/server/helpers/CatalogHelper.js"),
         ),
@@ -103,6 +107,10 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.py",
             include_str!("../../fixtures/behavior/authored/py/server/clients/CatalogClient.py"),
+        ),
+        (
+            "server/setups/CatalogSetup.py",
+            include_str!("../../fixtures/behavior/authored/py/server/setups/CatalogSetup.py"),
         ),
         (
             "server/services/CatalogService.py",
@@ -165,6 +173,10 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.php",
             include_str!("../../fixtures/behavior/authored/php/server/clients/CatalogClient.php"),
+        ),
+        (
+            "server/setups/CatalogSetup.php",
+            include_str!("../../fixtures/behavior/authored/php/server/setups/CatalogSetup.php"),
         ),
         (
             "server/services/CatalogService.php",
@@ -253,6 +265,10 @@ impl AuthoredFixtures {
         (
             "server/clients/CatalogClient.rb",
             include_str!("../../fixtures/behavior/authored/rb/server/clients/CatalogClient.rb"),
+        ),
+        (
+            "server/setups/CatalogSetup.rb",
+            include_str!("../../fixtures/behavior/authored/rb/server/setups/CatalogSetup.rb"),
         ),
         (
             "server/services/CatalogService.rb",

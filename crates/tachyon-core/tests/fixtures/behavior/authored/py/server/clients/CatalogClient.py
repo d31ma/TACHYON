@@ -1,7 +1,7 @@
 from typing import Annotated, Protocol
 
 @cache_settings({"name":"catalog","ttlMs":30000,"maxBytes":65536,"maxEntries":256})
-@http_client({"adapter": "api", "setup": "AdaptersSetup"})
+@http_client({"adapter": "api"})
 class CatalogClient(Protocol):
     @cached
     @get_request("/products")

@@ -1,4 +1,4 @@
-@HTTPClient({"setup": "ApplicationAdaptersSetup"})
+@HTTPClient
 class CatalogClient {
   @GetRequest("/products")
   async remote() {}

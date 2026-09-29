@@ -445,7 +445,7 @@ fn wrap(
     let mut prefix = valid_arguments(method, &mut arguments)?;
     pagination_prologue(method, &mut arguments, &mut prefix)?;
     let call = if declared {
-        String::from("null")
+        String::from("mutableMapOf<String, Any?>()")
     } else {
         format!("{helper_name}({})", arguments.join(", "))
     };

@@ -1,6 +1,6 @@
 <?php
 #[CacheSettings({"name":"catalog","ttlMs":30000,"maxBytes":65536,"maxEntries":256})]
-#[HTTPClient({"adapter": "api", "setup": "AdaptersSetup"})]
+#[HTTPClient({"adapter": "api"})]
 interface CatalogClient {
     #[Cached]
     #[GetRequest("/products")]
