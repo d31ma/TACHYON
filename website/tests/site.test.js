@@ -264,7 +264,7 @@ describe('language coverage', () => {
     const manifest = JSON.parse(section.files.find(file => file.name === 'client/manifest.json').code)
     expect(manifest.tac.catalog).toEqual({ title: 'Catalog', page: { size: 20 }, cache: { enabled: true } })
     const configurations = section.files.filter(file => file.name.startsWith('client/setups/'))
-    expect(configurations.map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'go', 'js', 'kt', 'rs', 'swift', 'ts'])
+    expect(configurations.map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'js', 'kt', 'rs', 'swift', 'ts'])
     for (const file of configurations) {
       const policy = JSON.parse(file.code.match(/Settings\((\{[^\n]*\})\)/)[1])
       expect(policy.prefix).toBe('TAC_CATALOG_')
