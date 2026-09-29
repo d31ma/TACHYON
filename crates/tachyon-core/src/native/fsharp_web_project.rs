@@ -2,15 +2,44 @@ use super::fsharp_behaviors_project::FsharpBehaviorsProject;
 use crate::Failure;
 use crate::fsharp_source::FsharpSource;
 use crate::model_sources::ModelSources;
+use crate::route_types::{Model, ModelTable};
+use std::fmt::Write as _;
 use std::path::Path;
 
 pub(super) struct FsharpWebProject;
 
 impl FsharpWebProject {
     const FOLDER: &'static str = "FsharpServices";
+    const CONTEXT_CLASS: &'static str = "internal partial class TacModelContext :";
+    const SERIALIZABLE: &'static str = "[System.Text.Json.Serialization.JsonSerializable";
     const PROJECT_END: &'static str = "</Project>";
     const REFERENCE: &'static str = "  <ItemGroup><ProjectReference Include=\"FsharpServices/FsharpServices.fsproj\" /></ItemGroup>\n";
     const PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n    <OutputType>Library</OutputType>\n    <AssemblyName>FsharpServices</AssemblyName>\n    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>\n  </PropertyGroup>\n  <ItemGroup><Compile Include=\"Services.fs\" /></ItemGroup>\n</Project>\n";
+
+    pub(super) fn with_model_context(
+        csharp: &str,
+        snapshot_root: &Path,
+        fsharp: &str,
+    ) -> Result<String, Failure> {
+        if fsharp.is_empty() {
+            return Ok(csharp.to_owned());
+        }
+        let models = ModelSources::read(snapshot_root, "client", FsharpSource::EXTENSION)?;
+        let mut attributes = String::new();
+        for (_, source) in models.separate_files() {
+            Self::add_records(&mut attributes, &source);
+        }
+        let context = format!("{attributes}{}", Self::CONTEXT_CLASS);
+        Ok(csharp.replacen(Self::CONTEXT_CLASS, &context, 1))
+    }
+
+    fn add_records(attributes: &mut String, source: &str) {
+        for (name, model) in ModelTable::declared_models(FsharpSource::EXTENSION, source) {
+            if matches!(model, Model::Record(_)) {
+                let _ = writeln!(attributes, "{}(typeof(Models.{name}))]", Self::SERIALIZABLE);
+            }
+        }
+    }
 
     pub(super) fn referenced(project: &str, fsharp: &str) -> String {
         let reference = format!("{}{}", Self::REFERENCE, Self::PROJECT_END);
@@ -58,6 +87,32 @@ impl FsharpWebProject {
 #[cfg(test)]
 mod tests {
     use super::FsharpWebProject;
+
+    #[test]
+    fn fsharp_records_join_the_model_context_only_with_fsharp_services() {
+        let root = tempfile::tempdir().unwrap_or_else(|error| panic!("root: {error}"));
+        let models = root.path().join("client/models");
+        std::fs::create_dir_all(&models).unwrap_or_else(|error| panic!("models: {error}"));
+        std::fs::write(
+            models.join("SignalSent.fs"),
+            "type SignalSent = { Size: int }\n",
+        )
+        .unwrap_or_else(|error| panic!("model: {error}"));
+        let context = "[A]\ninternal partial class TacModelContext : Base {}\n";
+        let unchanged = FsharpWebProject::with_model_context(context, root.path(), "")
+            .unwrap_or_else(|error| panic!("context: {error}"));
+        assert_eq!(unchanged, context);
+        let joined = FsharpWebProject::with_model_context(
+            context,
+            root.path(),
+            "namespace TachyonService0\n",
+        )
+        .unwrap_or_else(|error| panic!("context: {error}"));
+        assert_eq!(
+            joined,
+            "[A]\n[System.Text.Json.Serialization.JsonSerializable(typeof(Models.SignalSent))]\ninternal partial class TacModelContext : Base {}\n"
+        );
+    }
 
     #[test]
     fn only_a_page_with_fsharp_services_references_the_fsharp_project() {

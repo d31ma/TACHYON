@@ -106,7 +106,10 @@ impl ModelTable {
     }
 
     pub(crate) fn read_realm(root: &Path, realm: &str, extension: &str) -> Result<Self, String> {
-        let files = model_files::ModelFolder::read_realm(root, realm, extension)?;
+        let mut files = Vec::new();
+        for language in crate::fsharp_source::FsharpSource::model_languages(extension) {
+            files.extend(model_files::ModelFolder::read_realm(root, realm, language)?);
+        }
         Ok(Self::from_files(&files))
     }
 

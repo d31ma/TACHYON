@@ -74,6 +74,11 @@ pub(super) fn source(
     result.push_str(&namespaces);
     result.push_str(&models);
     result.push_str(&dispatch(language, &services));
+    let result = super::fsharp_web_project::FsharpWebProject::with_model_context(
+        &result,
+        &selected[0].snapshot_root,
+        &fsharp,
+    )?;
     Ok(Some(crate::fsharp_source::FsharpSource::web_body(
         &result,
         &crate::fsharp_source::FsharpSource::with_runtime(&fsharp, &runtimes),

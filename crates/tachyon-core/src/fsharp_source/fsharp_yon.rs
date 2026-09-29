@@ -1,5 +1,6 @@
 use super::{
-    FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpTestUnit, FsharpView, LaterFeatures,
+    FsharpBehaviors, FsharpEvents, FsharpMarkers, FsharpSource, FsharpTestUnit, FsharpView,
+    LaterFeatures,
 };
 use crate::Failure;
 use crate::behavior::DetachedCsharp;
@@ -29,7 +30,7 @@ impl FsharpYon {
         models_root: Option<&Path>,
         view: &FsharpView,
     ) -> Result<Option<Lowered>, Failure> {
-        LaterFeatures::refuse(view, source, contents, "yon")?;
+        LaterFeatures::refuse(view, source, contents)?;
         let detached = crate::behavior::detached_csharp(view.path(), view.text(), "yon")
             .map_err(|failure| view.failure(&failure))?;
         let lowered = crate::yon::lower_with_routes(view.path(), view.text(), models_root)
@@ -53,11 +54,12 @@ impl FsharpYon {
             .map(|detached| Self::behaviors(view, source, &stripped, detached))
             .transpose()?;
         let (fsharp, setups, runtime) = behaviors.unwrap_or((stripped, "", ""));
-        let csharp = format!("{}{generated}\n{setups}", view.usings());
+        let events = FsharpEvents::detach(generated);
+        let csharp = format!("{}{}\n{setups}", view.usings(), events.glue);
         Ok(Lowered {
             source: FsharpSource::with_generated(
                 &fsharp,
-                &FsharpSource::with_runtime(&csharp, runtime),
+                &FsharpSource::with_runtime(&csharp, &events.joined_runtime(runtime)),
             ),
             routes: lowered.routes,
             topics: lowered.topics,

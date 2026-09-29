@@ -620,6 +620,9 @@ pub(crate) mod swift_tests;
 mod java_tests;
 
 #[cfg(test)]
+mod fsharp_tests;
+
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;

@@ -28,6 +28,7 @@ impl AttributeLine {
         "Measure",
         "Interface",
     ];
+    const PRIMARY_CONSTRUCTOR_MARKERS: [&'static str; 2] = ["[NeedsAll]", "[NeedsAll()]"];
 
     pub(crate) fn read(trimmed: &str) -> Vec<Self> {
         Self::groups(trimmed)
@@ -54,8 +55,14 @@ impl AttributeLine {
             .into_iter()
             .filter(|written| !written.is_empty())
             .map(Self::attribute)
-            .filter(|attribute| !Self::FSHARP_ONLY.contains(&attribute.name.as_str()))
+            .filter(Self::is_written)
             .collect()
+    }
+
+    fn is_written(attribute: &Self) -> bool {
+        let fsharp_only = Self::FSHARP_ONLY.contains(&attribute.name.as_str());
+        let constructor = Self::PRIMARY_CONSTRUCTOR_MARKERS.contains(&attribute.csharp.as_str());
+        !fsharp_only && !constructor
     }
 
     fn attribute(written: &str) -> Self {
@@ -116,5 +123,15 @@ mod tests {
     fn fsharp_only_attributes_are_left_out() {
         assert!(written("[<CLIMutable>]").is_empty());
         assert_eq!(AttributeLine::read("[<AbstractClass>]").len(), 0);
+    }
+
+    #[test]
+    fn needs_all_is_the_primary_constructor_and_a_field_list_stays_for_the_rules() {
+        assert_eq!(written("[<Service; NeedsAll>]"), vec!["[Service]"]);
+        assert!(written("[<NeedsAll()>]").is_empty());
+        assert_eq!(
+            written("[<NeedsAll(\"store\")>]"),
+            vec!["[NeedsAll(\"store\")]"]
+        );
     }
 }

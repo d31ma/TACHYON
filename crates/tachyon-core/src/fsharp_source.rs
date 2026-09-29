@@ -3,6 +3,7 @@ mod behavior_body;
 mod block_kind;
 mod fsharp_behaviors;
 mod fsharp_body;
+mod fsharp_events;
 mod fsharp_lexer;
 mod fsharp_markers;
 mod fsharp_parameters;
@@ -33,6 +34,7 @@ use behavior_body::BehaviorBody;
 use block_kind::BlockKind;
 pub(crate) use fsharp_behaviors::FsharpBehaviors;
 use fsharp_body::FsharpBody;
+use fsharp_events::FsharpEvents;
 pub(crate) use fsharp_lexer::FsharpLexer;
 pub(crate) use fsharp_markers::FsharpMarkers;
 use fsharp_parameters::FsharpParameters;
@@ -70,11 +72,19 @@ impl FsharpSource {
     const WEB_PART: &'static str = "\n//__TAC_FSHARP__\n";
     const RUNTIME_PART: &'static str = "\n//__FSHARP_BEHAVIOR_RUNTIME__\n";
     const MODELS_NAMESPACE: &'static str = "namespace rec Models\n";
+    const DOTNET_MODELS: [&'static str; 2] = ["cs", Self::EXTENSION];
 
     pub(crate) fn is_fsharp(source: &Path) -> bool {
         source
             .extension()
             .is_some_and(|extension| extension.eq_ignore_ascii_case(Self::EXTENSION))
+    }
+
+    pub(crate) fn model_languages(extension: &str) -> Vec<&str> {
+        if extension == Self::DOTNET_MODELS[0] {
+            return Self::DOTNET_MODELS.to_vec();
+        }
+        vec![extension]
     }
 
     pub(crate) fn syntax(extension: &str) -> &str {
@@ -89,7 +99,7 @@ impl FsharpSource {
         source: &Path,
         contents: &str,
     ) -> Result<(), crate::Failure> {
-        LaterFeatures::refuse(view, source, contents, "tac")
+        LaterFeatures::refuse(view, source, contents)
     }
 
     pub(crate) fn with_generated(fsharp: &str, csharp: &str) -> String {
@@ -106,7 +116,8 @@ impl FsharpSource {
     }
 
     pub(crate) fn web_namespace(namespace: &str, fsharp: &str) -> String {
-        let written = (!fsharp.is_empty()).then(|| format!("namespace rec {namespace}\n{fsharp}\n"));
+        let written =
+            (!fsharp.is_empty()).then(|| format!("namespace rec {namespace}\n{fsharp}\n"));
         written.unwrap_or_default()
     }
 
@@ -123,17 +134,21 @@ impl FsharpSource {
     }
 
     pub(crate) fn with_runtime(csharp: &str, runtime: &str) -> String {
-        let joined = (!runtime.is_empty()).then(|| format!("{csharp}{}{runtime}", Self::RUNTIME_PART));
+        let joined =
+            (!runtime.is_empty()).then(|| format!("{csharp}{}{runtime}", Self::RUNTIME_PART));
         joined.unwrap_or_else(|| csharp.to_owned())
     }
 
     pub(crate) fn runtime_namespace(namespace: &str, runtime: &str) -> String {
-        let written = (!runtime.is_empty()).then(|| format!("namespace {namespace} {{\n{runtime}\n}}\n"));
+        let written =
+            (!runtime.is_empty()).then(|| format!("namespace {namespace} {{\n{runtime}\n}}\n"));
         written.unwrap_or_default()
     }
 
     pub(crate) fn runtime_split(csharp: &str) -> (&str, &str) {
-        csharp.split_once(Self::RUNTIME_PART).unwrap_or((csharp, ""))
+        csharp
+            .split_once(Self::RUNTIME_PART)
+            .unwrap_or((csharp, ""))
     }
 
     pub(crate) fn split(program: &str) -> (&str, &str) {
@@ -157,6 +172,12 @@ mod tests {
             ("type A() = class end", "sealed class Handler {}")
         );
         assert_eq!(FsharpSource::split("type A() = class end").1, "");
+    }
+
+    #[test]
+    fn csharp_reads_the_fsharp_models_of_its_realm_too() {
+        assert_eq!(FsharpSource::model_languages("cs"), ["cs", "fs"]);
+        assert_eq!(FsharpSource::model_languages("kt"), ["kt"]);
     }
 
     #[test]

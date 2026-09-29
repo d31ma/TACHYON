@@ -9,6 +9,8 @@ pub(crate) struct FsharpShadow {
 }
 
 impl FsharpShadow {
+    const CONSTRUCTOR_NEEDS: &'static str = "[Needs(";
+
     pub(crate) fn of(source: &str) -> Self {
         let plain = FsharpLexer::without_comments(source);
         let code = FsharpLexer::code_mask(&plain).code;
@@ -26,6 +28,26 @@ impl FsharpShadow {
 
     pub(crate) fn text(&self) -> &str {
         &self.text
+    }
+
+    pub(crate) fn without_constructor_needs(self) -> Self {
+        let text = self
+            .text
+            .split_inclusive('\n')
+            .map(Self::blank_constructor_needs)
+            .collect();
+        Self { text, ..self }
+    }
+
+    fn blank_constructor_needs(line: &str) -> String {
+        let blank = line.starts_with(Self::CONSTRUCTOR_NEEDS);
+        let kept = line.trim_end_matches('\n');
+        let written = if blank {
+            " ".repeat(kept.len())
+        } else {
+            kept.to_owned()
+        };
+        format!("{written}{}", &line[kept.len()..])
     }
 
     pub(crate) fn source_line(&self, shadow_line: usize) -> Option<usize> {
@@ -95,6 +117,19 @@ mod tests {
                 "    public Order PostOrder([FromBody] Order order) {  order } }",
                 "",
             ]
+        );
+    }
+
+    #[test]
+    fn a_tac_view_has_no_constructor_needs_and_keeps_its_offsets() {
+        let shadow = FsharpShadow::of(CONTROLLER);
+        let length = shadow.text().len();
+        let tac = shadow.without_constructor_needs();
+        assert!(!tac.text().contains("[Needs"), "{}", tac.text());
+        assert_eq!(tac.text().len(), length);
+        assert!(
+            tac.text()
+                .contains("public OrdersController(OrderService orders) { }")
         );
     }
 

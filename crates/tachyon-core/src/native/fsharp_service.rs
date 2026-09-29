@@ -1,3 +1,4 @@
+use super::fsharp_service_events::FsharpServiceEvents;
 use super::registry::NativeCompanionInput;
 use crate::Failure;
 use crate::behavior::{DetachedCsharp, ServiceRoles};
@@ -33,30 +34,36 @@ impl FsharpService {
             Self::TAC,
         )?;
         let authored = assembled.as_deref().unwrap_or(authored);
-        let view = FsharpView::new(relative, authored);
+        let view = FsharpView::tac(relative, authored);
         FsharpSource::refuse_later_features(&view, relative, authored)?;
+        let events = FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class)?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let table = crate::companion::owner_table(
             CompanionLanguage::CSharp,
             view.text(),
             &shadow_path,
-            &[],
-            "",
+            &events.prepared.excluded,
+            &events.prepared.entries,
             false,
         )
         .map_err(|failure| view.failure(&failure))?;
+        let table = events.table(&table, &item.class);
         let detached = Self::detached(&view)?;
         let stripped = FsharpMarkers::strip(authored);
         let Some(detached) = detached else {
             let csharp = format!("{table}{}", Self::NO_REQUIRED);
-            return Ok(FsharpSource::web_body(&csharp, &stripped));
+            return Ok(FsharpSource::web_body(
+                &csharp,
+                &FsharpSource::with_runtime(&stripped, events.runtime()),
+            ));
         };
         let fsharp = FsharpBehaviors::program(&view, &stripped, &detached)
             .map_err(|message| Self::failure(relative, &message))?;
         let csharp = format!("{table}{}{}", Self::NO_REQUIRED, detached.setups);
+        let runtime = format!("{}{}", detached.runtime, events.runtime());
         Ok(FsharpSource::web_body(
             &csharp,
-            &FsharpSource::with_runtime(&fsharp, &detached.runtime),
+            &FsharpSource::with_runtime(&fsharp, &runtime),
         ))
     }
 

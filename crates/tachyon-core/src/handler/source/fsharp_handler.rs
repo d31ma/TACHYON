@@ -29,6 +29,9 @@ impl FsharpHandler {
     const PRELUDE_FOLDER: &'static str = "yon";
     const RUNTIME_FILE: &'static str = "behaviors.cs";
     const BUILD_PREFIX: &'static str = "tachyon-fsharp-build-";
+    const RESOURCE_TYPES: [&'static str; 2] =
+        ["sealed class DataSource", "sealed class RedisTemplate"];
+    const PUBLIC: &'static str = "public ";
 
     pub(super) fn compile(
         bytes: &[u8],
@@ -205,6 +208,8 @@ impl FsharpHandler {
         if line.contains(Self::ENTRY_PLACEHOLDER) {
             return;
         }
+        let shared = Self::RESOURCE_TYPES.contains(&line).then_some(Self::PUBLIC);
+        library.push_str(shared.unwrap_or_default());
         library.push_str(line);
         library.push('\n');
     }
@@ -271,6 +276,8 @@ mod tests {
         let library = FsharpHandler::prelude_library();
         assert!(!library.contains("__YON_HANDLER__"));
         assert!(library.contains("internal static async Task Run(Type entry)"));
+        assert!(library.contains("\npublic sealed class DataSource\n"));
+        assert!(library.contains("\npublic sealed class RedisTemplate\n"));
     }
 
     #[test]

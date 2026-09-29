@@ -1,7 +1,8 @@
 # ADR 0073: F# Is a Yon Language and a Tac Service Language
 
 - Status: Accepted
-- Date: 2026-09-28 (behavior annotations: 2026-09-29)
+- Date: 2026-09-28 (behavior annotations, events, lifecycle hooks and
+  `NeedsAll`: 2026-09-29)
 - Builds on: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   (the .NET browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
   (routes), [ADR 0062](0062-yon-uses-native-http-types.md) (native HTTP
@@ -34,7 +35,11 @@ C# work.
 - A type takes the roles it needs as the parameters of its primary
   constructor: `type OrderService(orderStore: OrderStore) =`. This is
   Spring's single-constructor injection, so F# needs no `Needs` attribute.
-  `NeedsAll` and field injection are not available in F#.
+  `[<NeedsAll>]` is allowed: in F# the primary constructor already is the
+  constructor of every required dependency, so the attribute states what the
+  constructor does and changes nothing. `NeedsAll` with a list of fields and
+  field injection with `Needs` are refused by name, because an F# field
+  always has a value.
 - Route parameters and return values use the written F# types. Members that
   Tachyon reads (routes, service members, test cases) write their types:
   `member this.GetOrder(id: int) : Order =`. `int`, `int64`, `float`,
@@ -121,15 +126,43 @@ HTTPClient with its request annotations, Gateway and Schedule.
   class the class keeps its own `behaviors` member. Tachyon replaces each
   abstract line with a concrete member on the same line.
 - The behavior context is a `behaviors` member of the class, usually
-  `member val behaviors : BehaviorContext = Behaviors.create(...)`, because
-  F# has no `OnStart` yet. Methods return `Task<BehaviorJSON>`; an F#
+  `member val behaviors : BehaviorContext = Behaviors.create(...)`, which
+  runs once for each new instance (an `OnStart` hook may open it instead).
+  Methods return `Task<BehaviorJSON>`; an F#
   lambda for `authorize` is written as `Func<_, _, _>(fun ...)`.
+
+### Events and lifecycle hooks (added 2026-09-29)
+
+F# classes hold `OnEvent` (with `Order`, `InBackground`, conditions, ids,
+replay and a returned model that is published again), `OnStart` and
+`OnStop`, with the Spring meaning of ADR 0031.
+
+- A class takes its `ApplicationEventPublisher` as a primary constructor
+  parameter, in both realms: `type CheckoutService(applicationEventPublisher:
+  ApplicationEventPublisher) =`. It publishes a model record with
+  `applicationEventPublisher.PublishEvent(order)`.
+- A listener takes one model record and returns `unit` or a model record.
+  Hooks and listeners are synchronous, as in C#, so `InBackground` is refused
+  in Yon and allowed in Tac, where it only delays delivery.
+- Yon: Tachyon runs the C# event lowering on the C# view of the F# file. The
+  generated event container stays in the C# program; the C# event runtime
+  moves into the C# library that the F# assembly references, so F# code and
+  the container share one publisher. The .NET realm reads the models of both
+  C# and F# files, so conditions and listener shapes check F# records.
+- Tac: the listener and hook entries go into the generated C# member table,
+  as for a C# service. The F# assembly gets its own small
+  `ApplicationEventPublisher` next to the behavior runtime; a module
+  initializer in the C# glue connects it to the page event bus. The C#
+  member table passes a new publisher to the F# constructor. A Tac F#
+  service takes no other constructor parameter. F# records join the .NET
+  JSON model context, so listeners read and publish them.
+- The Yon library makes `DataSource` and `RedisTemplate` public for F#, so
+  an F# store takes them as constructor parameters.
 
 ### Not yet available in F#
 
-Local and topic events, `OnStart`/`OnStop`, `NeedsAll` and field
-injection, sockets and streams, behavior context in test units
-(`TestSetup` stays `class end`), and the executed-coverage check of
+Sockets and streams, field injection with `Needs`, behavior context in test
+units (`TestSetup` stays `class end`), and the executed-coverage check of
 ADR 0070 are not available in F# yet. A file that uses one is refused
 with a message that names the missing feature, so F# never ignores an
 annotation.

@@ -30,6 +30,14 @@ impl FsharpView {
         }
     }
 
+    pub(crate) fn tac(path: &Path, source: &str) -> Self {
+        let view = Self::new(path, source);
+        Self {
+            shadow: view.shadow.without_constructor_needs(),
+            ..view
+        }
+    }
+
     pub(crate) fn either<T>(
         path: &Path,
         source: &str,
@@ -67,12 +75,16 @@ impl FsharpView {
         self.using_lines()
     }
 
-    fn using_lines(&self) -> String {
-        let mut usings = String::from(Self::USINGS);
+    pub(crate) fn authored_usings(&self) -> String {
+        let mut usings = String::new();
         for line in self.text().lines() {
             Self::add_using(&mut usings, line.trim());
         }
         usings
+    }
+
+    fn using_lines(&self) -> String {
+        format!("{}{}", Self::USINGS, self.authored_usings())
     }
 
     fn add_using(usings: &mut String, line: &str) {
