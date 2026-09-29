@@ -1,4 +1,4 @@
-use serde_json::{Number, Value};
+use serde_json::Value;
 
 pub(super) struct CallStyle {
     receiver: &'static str,
@@ -30,26 +30,19 @@ impl CallStyle {
     }
 
     fn jvm_literal(value: &Value) -> String {
-        match value {
-            Value::String(_) => Self::jvm_text(value),
-            Value::Number(number) => Self::jvm_number(number),
-            other => other.to_string(),
-        }
-    }
-
-    fn jvm_text(value: &Value) -> String {
-        value
+        let text = value
             .to_string()
-            .replace(Self::DOLLAR, Self::ESCAPED_DOLLAR)
+            .replace(Self::DOLLAR, Self::ESCAPED_DOLLAR);
+        format!("{text}{}", Self::long_mark(value))
     }
 
-    fn jvm_number(number: &Number) -> String {
-        let beyond_int = number
+    fn long_mark(value: &Value) -> &'static str {
+        let beyond_int = value
             .as_i64()
             .is_some_and(|whole| i32::try_from(whole).is_err());
         if beyond_int {
-            return format!("{number}{}", Self::LONG_MARK);
+            return Self::LONG_MARK;
         }
-        number.to_string()
+        ""
     }
 }
