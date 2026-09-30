@@ -273,10 +273,40 @@ public static class Behaviors {
         var execution = new BehaviorExecution(partition, signal, Now + timeoutMs); execution.Check();
         var selected = SnapshotProfiles(profiles); var values = SnapshotProperties(properties ?? new System.Collections.Generic.Dictionary<string, string>(), "configuration");
         ActiveConfiguration(TypePolicies(configuration), selected, values);
-        BehaviorAdapters adapters;
-        try { adapters = Configure(configuration, execution); } catch (BehaviorError) { throw; } catch { throw new BehaviorError("CONFIGURATION_FAILED"); }
-        execution.Check(); if (adapters == null) throw new BehaviorError("CONFIGURATION_INVALID");
-        return new BehaviorContext(adapters, partition, signal, timeoutMs);
+        string setupKey = SetupKey(configuration, selected, values);
+        return new BehaviorContext(AcquireSetup(setupKey, configuration, execution), partition, signal, timeoutMs, setupKey);
+    }
+    private sealed class SharedSetup {
+        public readonly BehaviorAdapters Adapters;
+        public int Users = 1;
+        public SharedSetup(BehaviorAdapters adapters) { Adapters = adapters; }
+    }
+    private static readonly System.Collections.Generic.Dictionary<string, SharedSetup> Setups = new System.Collections.Generic.Dictionary<string, SharedSetup>(System.StringComparer.Ordinal);
+    private static string SetupKey(System.Type configuration, string[] profiles, System.Collections.Generic.Dictionary<string, string> values) {
+        var sortedProfiles = (string[])profiles.Clone(); System.Array.Sort(sortedProfiles, System.StringComparer.Ordinal);
+        var names = new System.Collections.Generic.List<string>(values.Keys); names.Sort(System.StringComparer.Ordinal);
+        var key = new System.Text.StringBuilder(configuration.FullName);
+        foreach (var profile in sortedProfiles) key.Append('\0').Append(profile);
+        key.Append('\u0001');
+        foreach (var name in names) key.Append('\0').Append(name).Append('=').Append(values[name]);
+        return key.ToString();
+    }
+    private static BehaviorAdapters AcquireSetup(string setupKey, System.Type configuration, BehaviorExecution execution) {
+        lock (Setups) {
+            if (Setups.TryGetValue(setupKey, out var shared)) { shared.Users++; return shared.Adapters; }
+            BehaviorAdapters adapters;
+            try { adapters = Configure(configuration, execution); } catch (BehaviorError) { throw; } catch { throw new BehaviorError("CONFIGURATION_FAILED"); }
+            execution.Check(); if (adapters == null) throw new BehaviorError("CONFIGURATION_INVALID");
+            Setups[setupKey] = new SharedSetup(adapters);
+            return adapters;
+        }
+    }
+    internal static void ReleaseSetup(string setupKey) {
+        lock (Setups) {
+            if (!Setups.TryGetValue(setupKey, out var shared)) return;
+            shared.Users--;
+            if (shared.Users == 0) Setups.Remove(setupKey);
+        }
     }
     private static bool Matches(string text, string pattern) => text != null && System.Text.RegularExpressions.Regex.IsMatch(text, pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     private static string FrameworkPrefix => Environment == "tac" ? "TAC_" : "YON_";
@@ -425,17 +455,22 @@ public sealed class BehaviorContext : System.IDisposable {
     private readonly int timeoutMs;
     private readonly System.Threading.CancellationTokenRegistration cancellation;
     private int active;
-    internal BehaviorContext(BehaviorAdapters adapters, string partition, BehaviorSignal owner, int timeoutMs) {
+    private readonly string setupKey;
+    private int released;
+    internal BehaviorContext(BehaviorAdapters adapters, string partition, BehaviorSignal owner, int timeoutMs, string setupKey) {
         this.adapters = new BehaviorAdapters();
         foreach (var pair in adapters.caches) this.adapters.caches.Add(pair.Key, pair.Value);
         foreach (var pair in adapters.http) this.adapters.http.Add(pair.Key, pair.Value);
         foreach (var pair in adapters.entities) this.adapters.entities.Add(pair.Key, pair.Value);
         this.adapters.authorize = adapters.authorize;
         this.adapters.authorizeEntity = adapters.authorizeEntity;
-        this.partition = partition; this.owner = owner; this.timeoutMs = timeoutMs;
+        this.partition = partition; this.owner = owner; this.timeoutMs = timeoutMs; this.setupKey = setupKey;
         cancellation = owner.Token.Register(() => signal.Abort());
     }
-    public void dispose() { signal.Abort(); cancellation.Dispose(); }
+    public void dispose() {
+        signal.Abort(); cancellation.Dispose();
+        if (System.Threading.Interlocked.Exchange(ref released, 1) == 0) Behaviors.ReleaseSetup(setupKey);
+    }
     public void Dispose() => dispose();
     public T Paginate<T>(System.Func<T> body) {
         if (System.Threading.Interlocked.Increment(ref active) > 64) { System.Threading.Interlocked.Decrement(ref active); throw new BehaviorError("OPERATION_LIMIT"); }

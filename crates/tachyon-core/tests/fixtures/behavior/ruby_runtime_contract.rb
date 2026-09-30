@@ -12,6 +12,25 @@ class Ledger
   attr_accessor :behaviors
 end
 
+class NotesSetup
+  BODY = "body"
+
+  class << self
+    attr_accessor :configured
+  end
+
+  def self.configure(_execution)
+    self.configured += 1
+    notes = ["Ada"]
+    exchange = lambda do |request, _execution|
+      notes << request[BODY] if request.key?(BODY)
+      { "items" => notes.dup }
+    end
+    { "http" => { "notes" => { "exchange" => exchange } } }
+  end
+end
+NotesSetup.configured = 0
+
 class RuntimeContract
   def self.load_runtime
     unless defined?(BehaviorContext)
@@ -307,6 +326,28 @@ class RuntimeContract
     @failures << "adapter cancellation view does not observe owner abort" unless execution.signal.aborted?
   end
 
+  def create_shared(partition)
+    Behaviors.create(NotesSetup, partition: partition, signal: BehaviorSignal.new)
+  end
+
+  def check_shared_setup
+    Behaviors.register('{"NotesSetup":{"configuration":true,"methods":{}}}', "yon", "a" * 64)
+    writer = create_shared("writer")
+    reader = create_shared("reader")
+    @failures << "two contexts from one Setup configure it more than once" unless NotesSetup.configured == 1
+    writer.rest_client("notes").post("/notes").body("Grace").retrieve
+    answer = reader.rest_client("notes").get("/notes").retrieve
+    @failures << "two contexts from one Setup do not share its adapters" unless answer == { "items" => ["Ada", "Grace"] }
+    writer.dispose
+    writer.dispose
+    later = create_shared("later")
+    @failures << "a Setup is configured again while one of its contexts is open" unless NotesSetup.configured == 1
+    reader.dispose
+    later.dispose
+    create_shared("fresh").dispose
+    @failures << "a Setup is not configured again after its last context is disposed" unless NotesSetup.configured == 2
+  end
+
   def run
     entity = { "name" => "Product", "entity" => { "adapter" => "store", "id" => "id" }, "table" => "products", "methods" => {} }
     signal = BehaviorSignal.new
@@ -321,6 +362,7 @@ class RuntimeContract
     check_transactions
     check_joined_transactions
     check_rest_client
+    check_shared_setup
     check_cancellation(signal, context, service)
     raise @failures.join("\n") unless @failures.empty?
     puts "Ruby behavior boundary contracts passed"

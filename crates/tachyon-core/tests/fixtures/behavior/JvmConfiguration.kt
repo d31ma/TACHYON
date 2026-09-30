@@ -20,6 +20,7 @@ object ConfigurationChecks {
         checkInvalidSettings()
         checkInvalidOptions()
         checkProfileSelection()
+        checkSharedSetup()
         println("Kotlin configuration binding and selection checks passed")
     }
     private fun checkSettingsDefaults() {
@@ -88,5 +89,22 @@ object ConfigurationChecks {
         supplied["YON_ENABLED"] = "false"
         Behaviors.create("SelectedAdapters", options).close()
         check(RuntimeAdapters.configured == configuredBefore + 1)
+    }
+    private fun createShared(partition: String): Behaviors.Context =
+        Behaviors.create("SelectedAdapters", Behaviors.Options(partition, Behaviors.Signal(), profiles = listOf("development"), properties = mapOf("YON_ENABLED" to "true")))
+    private fun checkSharedSetup() {
+        val configuredBefore = RuntimeAdapters.configured
+        val writer = createShared("writer")
+        val reader = createShared("reader")
+        check(RuntimeAdapters.configured == configuredBefore + 1)
+        check(writer.configuration === reader.configuration)
+        writer.close()
+        writer.close()
+        val later = createShared("later")
+        check(RuntimeAdapters.configured == configuredBefore + 1)
+        reader.close()
+        later.close()
+        createShared("fresh").close()
+        check(RuntimeAdapters.configured == configuredBefore + 2)
     }
 }

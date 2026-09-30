@@ -51,8 +51,25 @@ public static class ConfigurationAnnotationTests {
         using var active = Behaviors.create(typeof(AnnotatedConditionalConfig), "tenant-one", signal, profiles: new[] { "test" }, properties: new System.Collections.Generic.Dictionary<string,string> { ["TAC_CACHE_ENABLED"] = "true" });
         if (AnnotatedConditionalConfig.calls != 1) throw new System.Exception("active factory not called");
     }
+    private static BehaviorContext CreateShared(string partition) =>
+        Behaviors.create(typeof(AnnotatedConditionalConfig), partition, new BehaviorSignal(), profiles: new[] { "test" }, properties: new System.Collections.Generic.Dictionary<string,string> { ["TAC_CACHE_ENABLED"] = "true" });
+    private static void CheckSharedSetup() {
+        int configuredBefore = AnnotatedConditionalConfig.calls;
+        var writer = CreateShared("writer");
+        var reader = CreateShared("reader");
+        if (AnnotatedConditionalConfig.calls != configuredBefore + 1) throw new System.Exception("two contexts from one Setup configured it twice");
+        writer.dispose();
+        writer.dispose();
+        var later = CreateShared("later");
+        if (AnnotatedConditionalConfig.calls != configuredBefore + 1) throw new System.Exception("a Setup was configured again while one of its contexts is open");
+        reader.dispose();
+        later.dispose();
+        CreateShared("fresh").dispose();
+        if (AnnotatedConditionalConfig.calls != configuredBefore + 2) throw new System.Exception("a Setup was not configured again after its last context was disposed");
+    }
     public static void Run() {
         CheckBinding();
         CheckConditionalConfiguration();
+        CheckSharedSetup();
     }
 }

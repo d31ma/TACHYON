@@ -551,15 +551,66 @@ impl Drop for BehaviorOpenTransactions {
 }
 struct BehaviorContextState {
     options: BehaviorOptions,
-    configuration: BehaviorConfiguration,
+    configuration: std::sync::Arc<BehaviorConfiguration>,
+    setup_key: String,
+    released: std::sync::atomic::AtomicBool,
     disposed: BehaviorSignal,
     active: std::sync::atomic::AtomicUsize,
     slots: std::sync::Mutex<std::collections::BTreeMap<(&'static str, &'static str), usize>>,
-    released: std::sync::Condvar,
+    idle: std::sync::Condvar,
+}
+impl BehaviorContextState {
+    fn dispose(&self) {
+        self.disposed.abort();
+        if !self.released.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            BehaviorSetups::release(&self.setup_key);
+        }
+    }
 }
 impl Drop for BehaviorContextState {
     fn drop(&mut self) {
-        self.disposed.abort();
+        self.dispose();
+    }
+}
+struct BehaviorSharedSetup {
+    configuration: std::sync::Arc<BehaviorConfiguration>,
+    users: usize,
+}
+struct BehaviorSetups;
+impl BehaviorSetups {
+    fn entries() -> std::sync::MutexGuard<'static, std::collections::BTreeMap<String, BehaviorSharedSetup>> {
+        static ENTRIES: std::sync::Mutex<std::collections::BTreeMap<String, BehaviorSharedSetup>> =
+            std::sync::Mutex::new(std::collections::BTreeMap::new());
+        ENTRIES.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+    fn key<C: BehaviorConfigurationSource>(options: &BehaviorOptions) -> String {
+        let mut profiles = options.profiles.clone();
+        profiles.sort();
+        format!("{}{profiles:?}{:?}", std::any::type_name::<C>(), options.properties)
+    }
+    fn acquire<C: BehaviorConfigurationSource>(
+        key: &str,
+        execution: &BehaviorExecution,
+    ) -> BehaviorResult<std::sync::Arc<BehaviorConfiguration>> {
+        let mut entries = Self::entries();
+        if let Some(shared) = entries.get_mut(key) {
+            shared.users += 1;
+            return Ok(shared.configuration.clone());
+        }
+        let configuration = std::sync::Arc::new(behavior_configuration::<C>(execution)?);
+        let shared = BehaviorSharedSetup { configuration: configuration.clone(), users: 1 };
+        entries.insert(key.to_owned(), shared);
+        Ok(configuration)
+    }
+    fn release(key: &str) {
+        let mut entries = Self::entries();
+        let Some(shared) = entries.get_mut(key) else {
+            return;
+        };
+        shared.users -= 1;
+        if shared.users == 0 {
+            entries.remove(key);
+        }
     }
 }
 #[derive(Clone)]
@@ -636,7 +687,8 @@ impl Behaviors {
         let execution = behavior_execution(&options, &disposed)?;
         execution.check()?;
         behavior_active_configuration::<C>(&options)?;
-        let configuration = match behavior_configuration::<C>(&execution) {
+        let setup_key = BehaviorSetups::key::<C>(&options);
+        let configuration = match BehaviorSetups::acquire::<C>(&setup_key, &execution) {
             Ok(configuration) => configuration,
             Err(error) => {
                 disposed.abort();
@@ -646,10 +698,12 @@ impl Behaviors {
         Ok(BehaviorContext(std::sync::Arc::new(BehaviorContextState {
             options,
             configuration,
+            setup_key,
+            released: std::sync::atomic::AtomicBool::new(false),
             disposed,
             active: std::sync::atomic::AtomicUsize::new(0),
             slots: std::sync::Mutex::new(std::collections::BTreeMap::new()),
-            released: std::sync::Condvar::new(),
+            idle: std::sync::Condvar::new(),
         })))
     }
     pub fn gateway_arguments(arguments: Vec<BehaviorValue>) -> BehaviorResult<String> {
@@ -1357,7 +1411,7 @@ impl BehaviorContext {
         }
     }
     pub fn dispose(&self) {
-        self.0.disposed.abort();
+        self.0.dispose();
     }
     fn operation(&self) -> BehaviorResult<BehaviorOperation<'_>> {
         let execution = behavior_execution(&self.0.options, &self.0.disposed)?;
@@ -1510,7 +1564,7 @@ impl BehaviorContext {
             operation.execution.check()?;
             let (guard, _) = self
                 .0
-                .released
+                .idle
                 .wait_timeout(slots, std::time::Duration::from_millis(50))
                 .map_err(|_| behavior_invalid())?;
             slots = guard;
@@ -1526,7 +1580,7 @@ impl BehaviorContext {
                 slots.remove(&key);
             }
         }
-        self.0.released.notify_one();
+        self.0.idle.notify_one();
     }
     fn transacted(
         &self,

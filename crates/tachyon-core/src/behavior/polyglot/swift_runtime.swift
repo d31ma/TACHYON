@@ -211,9 +211,30 @@ enum Behaviors {
         let execution = BehaviorExecution(environment: environment, partition: partition, signal: signal, owner: signal, deadline: now + Int64(timeoutMs)); try execution.check()
         let selected = try snapshotProfiles(profiles); let values = try snapshotProperties(properties, code: "configuration")
         try activeConfiguration(typePolicies(configuration), profiles: selected, values: values)
+        let setupKey = String(reflecting: configuration) + "\(selected.sorted())\(values.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" })"
+        let adapters = try acquireSetup(setupKey, configuration, execution: execution)
+        return BehaviorContext(adapters: adapters, partition: partition, owner: signal, timeoutMs: timeoutMs, setupKey: setupKey)
+    }
+    private final class SharedSetup {
+        let adapters: BehaviorAdapters; var users = 1
+        init(_ adapters: BehaviorAdapters) { self.adapters = adapters }
+    }
+    nonisolated(unsafe) private static var setups: [String: SharedSetup] = [:]
+    nonisolated(unsafe) private static let setupLock = BehaviorLock()
+    private static func acquireSetup(_ setupKey: String, _ configuration: Any.Type, execution: BehaviorExecution) throws -> BehaviorAdapters {
+        setupLock.lock(); defer { setupLock.unlock() }
+        if let shared = setups[setupKey] { shared.users += 1; return shared.adapters }
         let adapters: BehaviorAdapters
         do { adapters = try configure(configuration, execution: execution) } catch let error as BehaviorError { throw error } catch { throw BehaviorError("CONFIGURATION_FAILED") }
-        try execution.check(); return BehaviorContext(adapters: adapters, partition: partition, owner: signal, timeoutMs: timeoutMs)
+        try execution.check()
+        setups[setupKey] = SharedSetup(adapters)
+        return adapters
+    }
+    static func releaseSetup(_ setupKey: String) {
+        setupLock.lock(); defer { setupLock.unlock() }
+        guard let shared = setups[setupKey] else { return }
+        shared.users -= 1
+        if shared.users == 0 { setups[setupKey] = nil }
     }
     private static var frameworkPrefix: String { environment == "tac" ? "TAC_" : "YON_" }
     private static func matches(_ value: String, _ pattern: String) -> Bool { BehaviorPlatform.matches(value, pattern) }
@@ -352,8 +373,13 @@ enum BehaviorOpenTransactions {
 final class BehaviorContext {
     private let adapters: BehaviorAdapters; private let partition: String; private let owner: BehaviorSignal; private let signal: BehaviorSignal; private let timeoutMs: Int
     private let lock = BehaviorLock(); private var active = 0; private var slots: [String: Int] = [:]
-    init(adapters: BehaviorAdapters, partition: String, owner: BehaviorSignal, timeoutMs: Int) { self.adapters = adapters; self.partition = partition; self.owner = owner; self.signal = BehaviorSignal(parent: owner); self.timeoutMs = timeoutMs }
-    func dispose() { signal.abort() }
+    private let setupKey: String; private var released = false
+    init(adapters: BehaviorAdapters, partition: String, owner: BehaviorSignal, timeoutMs: Int, setupKey: String) { self.adapters = adapters; self.partition = partition; self.owner = owner; self.signal = BehaviorSignal(parent: owner); self.timeoutMs = timeoutMs; self.setupKey = setupKey }
+    func dispose() {
+        signal.abort()
+        lock.lock(); let first = !released; released = true; lock.unlock()
+        if first { Behaviors.releaseSetup(setupKey) }
+    }
     private func acquire() throws { lock.lock(); defer { lock.unlock() }; guard active < 64 else { throw BehaviorError("OPERATION_LIMIT") }; active += 1 }
     private func release() { lock.lock(); active -= 1; lock.unlock() }
     func paginate<T>(_ body: () throws -> T) throws -> T {

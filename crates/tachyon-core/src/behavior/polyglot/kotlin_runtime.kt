@@ -89,9 +89,30 @@ object Behaviors {
         val execution = Execution(options, null)
         execution.check()
         if (!configurationActive(name, options)) fail("inactive-configuration")
-        val configuration = try { configure(name, execution) } catch (error: Failure) { throw error } catch (_: RuntimeException) { fail("configuration") }
-        execution.check()
-        return Context(options, configuration)
+        val setupKey = name + options.profiles.sorted() + options.properties.toList().sortedBy { it.first }
+        return Context(options, acquireSetup(setupKey, name, execution), setupKey)
+    }
+    private class SharedSetup(val configuration: Configuration) { var users = 1 }
+    private val setups = HashMap<String, SharedSetup>()
+    private fun acquireSetup(setupKey: String, name: String, execution: Execution): Configuration {
+        synchronized(setups) {
+            val shared = setups[setupKey]
+            if (shared != null) {
+                shared.users++
+                return shared.configuration
+            }
+            val configuration = try { configure(name, execution) } catch (error: Failure) { throw error } catch (_: RuntimeException) { fail("configuration") }
+            execution.check()
+            setups[setupKey] = SharedSetup(configuration)
+            return configuration
+        }
+    }
+    internal fun releaseSetup(setupKey: String) {
+        synchronized(setups) {
+            val shared = setups[setupKey] ?: return
+            shared.users--
+            if (shared.users == 0) setups.remove(setupKey)
+        }
     }
     private fun configure(name: String, execution: Execution): Configuration = when (name) {
         __CONFIGURATIONS__
@@ -246,7 +267,7 @@ object Behaviors {
         }
     }
     private fun retryable(error: RuntimeException): Boolean = error !is Failure || error.code.endsWith("-adapter")
-    class Context internal constructor(private val options: Options, private val configuration: Configuration) : AutoCloseable {
+    class Context internal constructor(private val options: Options, internal val configuration: Configuration, private val setupKey: String) : AutoCloseable {
         @Volatile internal var closed = false
         private var active = 0
         private val slots = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.Semaphore>()
@@ -274,7 +295,10 @@ object Behaviors {
             return result
         }
         override fun close() { dispose() }
-        fun dispose() { closed = true }
+        fun dispose() {
+            synchronized(this) { if (closed) return; closed = true }
+            releaseSetup(setupKey)
+        }
         internal fun operation(call: (Execution) -> Any?): Any? {
             synchronized(this) { if (closed || active >= 64) fail("admission"); active++ }
             val execution = Execution(options, this)

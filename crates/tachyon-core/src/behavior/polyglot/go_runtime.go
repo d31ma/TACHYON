@@ -5,6 +5,7 @@ import (
 	"math"
 	"reflect"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -925,7 +926,10 @@ func BehaviorsCreate[C behaviorConfigurationSource](options *BehaviorOptions) (*
 	if err := behaviorActiveConfiguration(source.behaviorConditions(), options); err != nil {
 		return nil, err
 	}
-	configuration, err := behaviorLoadConfiguration(source, execution)
+	setupKey := behaviorSetupKey(source, options)
+	configuration, err := behaviorSetups.acquire(setupKey, func() (*BehaviorConfiguration, error) {
+		return behaviorLoadConfiguration(source, execution)
+	})
 	if err != nil {
 		disposed.Abort()
 		return nil, err
@@ -935,8 +939,69 @@ func BehaviorsCreate[C behaviorConfigurationSource](options *BehaviorOptions) (*
 		options:       &copied,
 		configuration: configuration,
 		disposed:      disposed,
+		setupKey:      setupKey,
 		slots:         map[string]int{},
 	}, nil
+}
+
+type behaviorSharedSetup struct {
+	configuration *BehaviorConfiguration
+	users         int
+}
+
+type behaviorSetupRegistry struct {
+	mutex   sync.Mutex
+	entries map[string]*behaviorSharedSetup
+}
+
+var behaviorSetups = behaviorSetupRegistry{entries: map[string]*behaviorSharedSetup{}}
+
+func (registry *behaviorSetupRegistry) acquire(key string, configure func() (*BehaviorConfiguration, error)) (*BehaviorConfiguration, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	if shared, present := registry.entries[key]; present {
+		shared.users++
+		return shared.configuration, nil
+	}
+	configuration, err := configure()
+	if err != nil {
+		return nil, err
+	}
+	registry.entries[key] = &behaviorSharedSetup{configuration: configuration, users: 1}
+	return configuration, nil
+}
+
+func (registry *behaviorSetupRegistry) release(key string) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	shared, present := registry.entries[key]
+	if !present {
+		return
+	}
+	shared.users--
+	if shared.users == 0 {
+		delete(registry.entries, key)
+	}
+}
+
+func behaviorSetupKey(setup any, options *BehaviorOptions) string {
+	profiles := append([]string{}, options.Profiles...)
+	sort.Strings(profiles)
+	names := make([]string, 0, len(options.Properties))
+	for name := range options.Properties {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var key strings.Builder
+	key.WriteString(reflect.TypeOf(setup).String())
+	for _, profile := range profiles {
+		key.WriteString("\x00" + profile)
+	}
+	key.WriteString("\x01")
+	for _, name := range names {
+		key.WriteString("\x00" + name + "=" + options.Properties[name])
+	}
+	return key.String()
 }
 
 func BehaviorsRepository[E behaviorEntitySource](context *BehaviorContext) (*BehaviorRepository, error) {
@@ -1628,6 +1693,8 @@ type BehaviorContext struct {
 	options       *BehaviorOptions
 	configuration *BehaviorConfiguration
 	disposed      *BehaviorSignal
+	setupKey      string
+	released      sync.Once
 	active        atomic.Int64
 	lock          sync.Mutex
 	slots         map[string]int
@@ -1709,6 +1776,9 @@ func (operation *behaviorOperation) finish() {
 
 func (context *BehaviorContext) Dispose() {
 	context.disposed.Abort()
+	context.released.Do(func() {
+		behaviorSetups.release(context.setupKey)
+	})
 }
 
 func (context *BehaviorContext) RestClient(name string) (*BehaviorRestClient, error) {

@@ -964,4 +964,36 @@ await test('an invalid mapping plan is refused at registration', async () => {
   }
 })
 
+for (const environment of ['tac', 'yon']) {
+  await test(`${environment}: every context from one Setup shares its adapters until the last context is disposed`, async () => {
+    let configured = 0
+    class NotesSetup {
+      static configure() {
+        configured++
+        const notes = ['Ada']
+        const exchange = async (request) => {
+          if (request.body !== undefined) notes.push(request.body)
+          return { items: [...notes] }
+        }
+        return { http: { notes: { exchange } } }
+      }
+    }
+    const Behaviors = BehaviorRuntimeTest.createBehaviors([{ type: NotesSetup, name: 'NotesSetup', configuration: true, methods: [] }], environment, BehaviorRuntimeTest.moduleId)
+    const create = (partition) => Behaviors.create(NotesSetup, { partition, signal: new AbortController().signal })
+    const [writer, reader] = await Promise.all([create('writer'), create('reader')])
+    assert.equal(configured, 1)
+    await writer.restClient('notes').post('/notes').body('Grace').retrieve()
+    assert.deepEqual(await reader.restClient('notes').get('/notes').retrieve(), { items: ['Ada', 'Grace'] })
+    writer.dispose()
+    writer.dispose()
+    const later = await create('later')
+    assert.equal(configured, 1)
+    reader.dispose()
+    later.dispose()
+    const fresh = await create('fresh')
+    fresh.dispose()
+    assert.equal(configured, 2)
+  })
+}
+
 process.stdout.write(`Behavior runtime: ${BehaviorRuntimeTest.passed} checks passed.\n`)

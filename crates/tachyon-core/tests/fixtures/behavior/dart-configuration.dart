@@ -171,6 +171,24 @@ void checkConditionalConfiguration() {
   check(AnnotatedConditionalConfig.calls == 1, 'ACTIVE_NOT_CALLED');
 }
 
+BehaviorContext createShared(String partition) => Behaviors.create(AnnotatedConditionalConfig,
+    partition: partition, signal: BehaviorSignal(), profiles: ['test'], properties: {'YON_CACHE_ENABLED': 'true'});
+
+void checkSharedSetup() {
+  final configuredBefore = AnnotatedConditionalConfig.calls;
+  final writer = createShared('writer');
+  final reader = createShared('reader');
+  check(AnnotatedConditionalConfig.calls == configuredBefore + 1, 'SETUP_CONFIGURED_TWICE');
+  writer.dispose();
+  writer.dispose();
+  final later = createShared('later');
+  check(AnnotatedConditionalConfig.calls == configuredBefore + 1, 'SETUP_CONFIGURED_WHILE_OPEN');
+  reader.dispose();
+  later.dispose();
+  createShared('fresh').dispose();
+  check(AnnotatedConditionalConfig.calls == configuredBefore + 2, 'SETUP_NOT_CONFIGURED_AGAIN');
+}
+
 Future<void> checkServiceValidation(Map<String, Object?> valid) async {
   final service = AnnotatedValidationService();
   check(same(Behaviors.validate(AnnotatedInput, valid), valid) && same(service.accept(valid), valid), 'VALIDATION_MUTATED');
@@ -227,6 +245,7 @@ Future<void> checkCachedValidation() async {
 Future<void> main() async {
   checkBinding();
   checkConditionalConfiguration();
+  checkSharedSetup();
   final valid = <String, Object?>{'name': 'é', 'amount': 1, 'extra': true};
   await checkServiceValidation(valid);
   await checkDirectValidation(valid);

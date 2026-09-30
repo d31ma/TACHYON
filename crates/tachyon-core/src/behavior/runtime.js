@@ -351,6 +351,29 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     }
   }
 
+  class SharedSetups {
+    static #key = Symbol.for('tachyon.behavior.setups')
+    static acquire(Configuration, options, configure) {
+      globalThis[SharedSetups.#key] ??= new WeakMap()
+      const setups = globalThis[SharedSetups.#key]
+      if (!setups.has(Configuration)) setups.set(Configuration, new Map())
+      const selections = setups.get(Configuration)
+      const selection = JSON.stringify([[...options.profiles].sort(), Object.keys(options.properties).sort().map((name) => [name, options.properties[name]])])
+      if (!selections.has(selection)) {
+        const shared = { configuration: configure(), users: 0 }
+        shared.configuration.catch(() => { if (selections.get(selection) === shared) selections.delete(selection) })
+        selections.set(selection, shared)
+      }
+      const shared = selections.get(selection)
+      shared.users += 1
+      const release = () => {
+        shared.users -= 1
+        if (shared.users === 0 && selections.get(selection) === shared) selections.delete(selection)
+      }
+      return { configuration: shared.configuration, release }
+    }
+  }
+
   class OpenTransactions {
     static #key = Symbol.for('tachyon.behavior.transactions')
     static #shared = OpenTransactions.#scope()
@@ -381,6 +404,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     #slots = new Map()
     #transactions = new OpenTransactions()
     #disposed = false
+    #setup = null
     #onAbort
     constructor(options) {
       this.#partition = options.partition
@@ -390,8 +414,10 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       this.#signal.addEventListener('abort', this.#onAbort, { once: true })
       contexts.add(this)
     }
-    async initialize(Configuration) {
-      const configuration = await this.#perform((operation) => operation.call(() => Configuration.configure(operation.execution), true))
+    async initialize(Configuration, options) {
+      this.#setup = SharedSetups.acquire(Configuration, options,
+        () => this.#perform((operation) => operation.call(() => Configuration.configure(operation.execution), true)))
+      const configuration = await this.#setup.configuration
       exactKeys(configuration, ['caches', 'http', 'entities', 'authorize', 'authorizeEntity'], 'configuration adapter object')
       if (configuration.authorize !== undefined && typeof configuration.authorize !== 'function') invalid('Behavior configuration authorization must be a function.')
       if (configuration.authorizeEntity !== undefined && typeof configuration.authorizeEntity !== 'function') invalid('Entity authorization must be a function.')
@@ -687,6 +713,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     dispose() {
       if (this.#disposed) return
       this.#disposed = true
+      this.#setup?.release()
       this.#signal.removeEventListener('abort', this.#onAbort)
       for (const operation of this.#active) operation.cancel('disposed', 'Behavior context is disposed.')
     }
@@ -950,7 +977,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       const selected = createOptions(options)
       selectedConfiguration(records.get(Configuration), selected)
       const context = new BehaviorContext(selected)
-      try { return await context.initialize(Configuration) }
+      try { return await context.initialize(Configuration, selected) }
       catch (error) { context.dispose(); throw error }
     },
     properties: (Type, values) => bindProperties(Type, values),

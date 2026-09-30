@@ -601,6 +601,42 @@ func configurationContracts() {
 	checkPropertySizeLimits()
 	checkInvalidPropertyPolicies()
 	checkConditionalConfiguration()
+	checkSharedSetup()
+}
+
+type SharedSetup struct{}
+
+var sharedConfigureCalls atomic.Int64
+
+func (SharedSetup) behaviorConditions() BehaviorConfigurationConditions {
+	return BehaviorConfigurationConditions{}
+}
+
+func (SharedSetup) behaviorConfigure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {
+	sharedConfigureCalls.Add(1)
+	config := NewBehaviorConfiguration()
+	config.Http["notes"] = &Memory{entries: map[string]BehaviorCacheEntry{}}
+	return config, nil
+}
+
+func createShared(partition string) *BehaviorContext {
+	return must(BehaviorsCreate[SharedSetup](NewBehaviorOptions(partition, NewBehaviorSignal())))
+}
+
+func checkSharedSetup() {
+	writer := createShared("writer")
+	reader := createShared("reader")
+	expect(sharedConfigureCalls.Load() == 1, "two contexts from one Setup configure it once")
+	expect(writer.configuration.Http["notes"] == reader.configuration.Http["notes"], "two contexts share the Setup's adapters")
+	writer.Dispose()
+	writer.Dispose()
+	later := createShared("later")
+	expect(sharedConfigureCalls.Load() == 1, "a Setup stays configured while one of its contexts is open")
+	reader.Dispose()
+	later.Dispose()
+	fresh := createShared("fresh")
+	expect(sharedConfigureCalls.Load() == 2, "a Setup is configured again after its last context is disposed")
+	fresh.Dispose()
 }
 
 type ValidatedInput struct{}

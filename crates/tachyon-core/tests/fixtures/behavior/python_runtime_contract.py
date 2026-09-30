@@ -414,6 +414,37 @@ async def rest_client():
     await reject('RestClient transport header', lambda: client.get('/products').header('Host', 'attacker.example').retrieve())
 
 
+async def shared_setup():
+    calls = []
+    class NotesSetup:
+        @staticmethod
+        def configure(execution):
+            calls.append(execution)
+            notes = ['Ada']
+            async def exchange(request, execution):
+                if 'body' in request:
+                    notes.append(request['body'])
+                return {'items': list(notes)}
+            return {'http': {'notes': {'exchange': exchange}}}
+    records = {NotesSetup: {'name': 'NotesSetup', 'configuration': True, 'methods': {}}}
+    factory = Contract.runtime._BehaviorFactory(records, 'yon', 'b' * 64)
+    def create(partition):
+        return factory.create(NotesSetup, {'partition': partition, 'signal': Contract.runtime.BehaviorSignal()})
+    writer, reader = await asyncio.gather(create('writer'), create('reader'))
+    assert len(calls) == 1, 'two contexts from one Setup configure it once'
+    await writer.rest_client('notes').post('/notes').body('Grace').retrieve()
+    answer = await reader.rest_client('notes').get('/notes').retrieve()
+    assert answer == {'items': ['Ada', 'Grace']}, answer
+    writer.dispose()
+    writer.dispose()
+    later = await create('later')
+    assert len(calls) == 1, 'a Setup stays configured while one of its contexts is open'
+    reader.dispose()
+    later.dispose()
+    (await create('fresh')).dispose()
+    assert len(calls) == 2, 'a Setup is configured again after its last context is disposed'
+
+
 async def main():
     runtime = Contract.runtime
     await reject('huge integer', lambda: runtime._behavior_copy(10 ** 1000))
@@ -426,6 +457,7 @@ async def main():
     await transactions()
     await joined_transactions()
     await rest_client()
+    await shared_setup()
     assert not Contract.failures, '\n'.join(Contract.failures)
     print('Python behavior boundary contracts passed')
 

@@ -15,6 +15,20 @@ final class RestHolder {
     public static array $seen = [];
 }
 
+final class NotesSetup {
+    public static int $configured = 0;
+
+    public static function configure(BehaviorExecution $execution): array {
+        self::$configured++;
+        $notes = new ArrayObject(['Ada']);
+        $exchange = function(array $request) use ($notes): array {
+            if (array_key_exists('body', $request)) $notes->append($request['body']);
+            return ['items' => $notes->getArrayCopy()];
+        };
+        return ['http' => ['notes' => ['exchange' => $exchange]]];
+    }
+}
+
 final class RuntimeContract {
     public static array $failures = [];
     public static array $state = ['hit' => ['hit' => false], 'authorization' => 0, 'calls' => 0, 'saved' => 0];
@@ -25,7 +39,7 @@ final class RuntimeContract {
     public static function loadRuntime(): void {
         $source = file_get_contents(dirname(__DIR__, 3).'/src/behavior/polyglot/php_runtime.php');
         $placeholders = ['__BEHAVIOR_CONFIGURATIONS__', '__BEHAVIOR_CONSTRUCTORS__', '__BEHAVIOR_RECORDS__', '__BEHAVIOR_ENVIRONMENT__', '__BEHAVIOR_MODULE_ID__'];
-        $values = ['', '', '{}', 'yon', str_repeat('a', 64)];
+        $values = ["case 'NotesSetup': return NotesSetup::configure(\$execution);", '', '{"NotesSetup":{"configuration":true,"methods":{}}}', 'yon', str_repeat('a', 64)];
         eval(str_replace($placeholders, $values, $source));
     }
 
@@ -305,6 +319,27 @@ final class RuntimeContract {
         if (!$execution->signal->aborted()) self::$failures[] = 'adapter cancellation view does not observe owner abort';
     }
 
+    private static function createShared(string $partition): BehaviorContext {
+        return Behaviors::create('NotesSetup', ['partition' => $partition, 'signal' => new BehaviorSignal()]);
+    }
+
+    public static function checkSharedSetup(): void {
+        $writer = self::createShared('writer');
+        $reader = self::createShared('reader');
+        if (NotesSetup::$configured !== 1) self::$failures[] = 'two contexts from one Setup configure it more than once';
+        $writer->restClient('notes')->post('/notes')->body('Grace')->retrieve();
+        $answer = $reader->restClient('notes')->get('/notes')->retrieve();
+        if ($answer !== ['items' => ['Ada', 'Grace']]) self::$failures[] = 'two contexts from one Setup do not share its adapters';
+        $writer->dispose();
+        $writer->dispose();
+        $later = self::createShared('later');
+        if (NotesSetup::$configured !== 1) self::$failures[] = 'a Setup is configured again while one of its contexts is open';
+        $reader->dispose();
+        $later->dispose();
+        self::createShared('fresh')->dispose();
+        if (NotesSetup::$configured !== 2) self::$failures[] = 'a Setup is not configured again after its last context is disposed';
+    }
+
     public static function run(): void {
         self::loadRuntime();
         $entity = ['name' => 'Product', 'entity' => ['adapter' => 'store', 'id' => 'id'], 'table' => 'products', 'methods' => []];
@@ -320,6 +355,7 @@ final class RuntimeContract {
         self::checkTransactions();
         self::checkJoinedTransactions();
         self::checkRestClient();
+        self::checkSharedSetup();
         self::checkCancellation($signal, $context, $service);
         if (self::$failures) throw new Exception(implode("\n", self::$failures));
         echo "PHP behavior boundary contracts passed\n";

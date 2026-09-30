@@ -164,10 +164,32 @@ final class Behaviors {
     static Context create(String name, Options options) {
         Execution execution = new Execution(options, null); execution.check();
         if (!configurationActive(name, options)) throw fail("inactive-configuration");
+        String setupKey = setupKey(name, options);
+        return new Context(options, acquireSetup(setupKey, name, execution), setupKey);
+    }
+    static final class SharedSetup {
+        final Configuration configuration;
+        int users = 1;
+        SharedSetup(Configuration configuration) { this.configuration = configuration; }
+    }
+    private static final java.util.Map<String, SharedSetup> SETUPS = new java.util.HashMap<>();
+    static String setupKey(String name, Options options) {
+        return name + new java.util.TreeSet<>(options.profiles) + new java.util.TreeMap<>(options.properties);
+    }
+    static synchronized Configuration acquireSetup(String setupKey, String name, Execution execution) {
+        SharedSetup shared = SETUPS.get(setupKey);
+        if (shared != null) { shared.users++; return shared.configuration; }
         Configuration configuration;
         try { configuration = configure(name, execution); } catch (Failure error) { throw error; } catch (RuntimeException error) { throw fail("configuration"); }
         execution.check(); if (configuration == null) throw fail("configuration");
-        return new Context(options, configuration);
+        SETUPS.put(setupKey, new SharedSetup(configuration));
+        return configuration;
+    }
+    static synchronized void releaseSetup(String setupKey) {
+        SharedSetup shared = SETUPS.get(setupKey);
+        if (shared == null) return;
+        shared.users--;
+        if (shared.users == 0) SETUPS.remove(setupKey);
     }
     static Configuration configure(String name, Execution execution) {
         switch (name) { __CONFIGURATIONS__ default: throw fail("configuration"); }
@@ -340,9 +362,13 @@ final class Behaviors {
         final Configuration configuration;
         private volatile boolean closed;
         private int active;
-        Context(Options options, Configuration configuration) { this.options = options; this.configuration = configuration; }
+        private final String setupKey;
+        Context(Options options, Configuration configuration, String setupKey) { this.options = options; this.configuration = configuration; this.setupKey = setupKey; }
         public void close() { dispose(); }
-        void dispose() { closed = true; }
+        void dispose() {
+            synchronized (this) { if (closed) return; closed = true; }
+            releaseSetup(setupKey);
+        }
         Object operation(Operation operation) {
             synchronized (this) { if (closed || active >= 64) throw fail("admission"); active++; }
             Execution execution = new Execution(options, this);

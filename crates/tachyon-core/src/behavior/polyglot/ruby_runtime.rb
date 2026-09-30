@@ -302,7 +302,7 @@ class BehaviorContext
   RESERVED_NAMES = ["__proto__", "prototype", "constructor", "behaviors", "tac"].freeze
   QUERY_RESULTS = { "find" => "array", "findOne" => "array", "count" => "count", "exists" => "boolean", "delete" => "count" }.freeze
 
-  attr_reader :partition
+  attr_reader :partition, :adapters
 
   def initialize(records, options)
     options = BehaviorBoundary.keys(options, ["partition", "signal", "timeoutMs", "profiles", "properties"])
@@ -344,8 +344,17 @@ class BehaviorContext
     end
   end
 
+  def share(setup_key, adapters)
+    @setup_key = setup_key
+    @adapters = adapters
+  end
+
   def dispose
     @signal.abort
+    return unless @setup_key
+    setup_key = @setup_key
+    @setup_key = nil
+    Behaviors.release_setup(setup_key)
   end
 
   def invoke(instance, type, method, arguments, original)
@@ -984,6 +993,7 @@ end
 
 class Behaviors
   @records = {}
+  @setups = {}
   @environment = "yon"
 
   def self.environment
@@ -1009,12 +1019,27 @@ class Behaviors
     options = BehaviorProperties.select(record, BehaviorBoundary.named(options).merge(BehaviorBoundary.named(named_options)))
     context = BehaviorContext.new(@records, options)
     begin
-      context.configure(lambda { |execution| setup.configure(execution) })
+      setup_key = [name, options["profiles"].sort, options["properties"].sort].inspect
+      shared = @setups[setup_key] ||= { "adapters" => configured_adapters(context, setup), "users" => 0 }
+      shared["users"] += 1
+      context.share(setup_key, shared["adapters"])
       context
     rescue StandardError
       context.dispose
       raise
     end
+  end
+
+  def self.configured_adapters(context, setup)
+    context.configure(lambda { |execution| setup.configure(execution) })
+    context.adapters
+  end
+
+  def self.release_setup(setup_key)
+    shared = @setups[setup_key]
+    return unless shared
+    shared["users"] -= 1
+    @setups.delete(setup_key) if shared["users"].zero?
   end
 
   def self.construct(type, values = {}, **named_values)

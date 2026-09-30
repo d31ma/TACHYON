@@ -184,7 +184,15 @@ final class BehaviorContext {
             $this->adapters=$adapters;
         } finally {$this->active--;}
     }
-    public function dispose(): void {$this->signal->abort();}
+    private ?string $setupKey=null;
+    public function adapters(): array {return $this->adapters;}
+    public function share(string $setupKey,array $adapters): void {$this->setupKey=$setupKey;$this->adapters=$adapters;}
+    public function dispose(): void {
+        $this->signal->abort();
+        if($this->setupKey===null)return;
+        $setupKey=$this->setupKey;$this->setupKey=null;
+        Behaviors::releaseSetup($setupKey);
+    }
     private function begin(): BehaviorExecution {
         $execution=new BehaviorExecution($this->partition,'__BEHAVIOR_ENVIRONMENT__',$this->signal,$this->owner,$this->timeoutMs);
         $execution->check();if($this->active>=64)BehaviorBoundary::invalid('Behavior concurrency exceeds bounds.');$this->active++;return $execution;
@@ -580,8 +588,28 @@ final class Behaviors {
         $records=self::records();if(!($records[$configuration]['configuration']??false))BehaviorBoundary::invalid('Setup must be source-local.');
         $options=BehaviorProperties::select($records[$configuration],$options);
         $context=new BehaviorContext($records,$options);
-        try {$context->configure(function($execution)use($configuration){switch($configuration){__BEHAVIOR_CONFIGURATIONS__}BehaviorBoundary::invalid('Unknown configuration.');});return $context;}
+        try {
+            $setupKey=self::setupKey($configuration,$options);
+            if(!isset(self::$setups[$setupKey]))self::$setups[$setupKey]=['adapters'=>self::configuredAdapters($context,$configuration),'users'=>0];
+            self::$setups[$setupKey]['users']++;
+            $context->share($setupKey,self::$setups[$setupKey]['adapters']);
+            return $context;
+        }
         catch(\Throwable $error){$context->dispose();throw $error;}
+    }
+    private static array $setups=[];
+    private static function setupKey(string $configuration,array $options): string {
+        $profiles=$options['profiles']??[];sort($profiles);$properties=$options['properties']??[];ksort($properties);
+        return json_encode([$configuration,$profiles,$properties],JSON_THROW_ON_ERROR);
+    }
+    private static function configuredAdapters(BehaviorContext $context,string $configuration): array {
+        $context->configure(function($execution)use($configuration){switch($configuration){__BEHAVIOR_CONFIGURATIONS__}BehaviorBoundary::invalid('Unknown configuration.');});
+        return $context->adapters();
+    }
+    public static function releaseSetup(string $setupKey): void {
+        if(!isset(self::$setups[$setupKey]))return;
+        self::$setups[$setupKey]['users']--;
+        if(self::$setups[$setupKey]['users']===0)unset(self::$setups[$setupKey]);
     }
     public static function construct(string $type,array $values): object {
         $fields=self::records()[$type]['constructor']??null;

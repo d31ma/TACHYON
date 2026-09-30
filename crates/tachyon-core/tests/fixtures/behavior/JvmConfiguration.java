@@ -25,6 +25,7 @@ class ConfigurationChecks {
         checkInvalidSettings();
         checkInvalidOptions();
         checkProfileSelection();
+        checkSharedSetup();
         System.out.println("Java configuration binding and selection checks passed");
     }
     static void checkSettingsDefaults() {
@@ -93,5 +94,23 @@ class ConfigurationChecks {
         supplied.put("YON_ENABLED", "false");
         Behaviors.create("SelectedAdapters", options).close();
         check(RuntimeAdapters.configured == configuredBefore + 1);
+    }
+    static Behaviors.Context createShared(String partition) {
+        return Behaviors.create("SelectedAdapters", new Behaviors.Options(partition, new Behaviors.Signal(), 10000, java.util.List.of("development"), java.util.Map.of("YON_ENABLED", "true")));
+    }
+    static void checkSharedSetup() {
+        int configuredBefore = RuntimeAdapters.configured;
+        Behaviors.Context writer = createShared("writer");
+        Behaviors.Context reader = createShared("reader");
+        check(RuntimeAdapters.configured == configuredBefore + 1);
+        check(writer.configuration == reader.configuration);
+        writer.close();
+        writer.close();
+        Behaviors.Context later = createShared("later");
+        check(RuntimeAdapters.configured == configuredBefore + 1);
+        reader.close();
+        later.close();
+        createShared("fresh").close();
+        check(RuntimeAdapters.configured == configuredBefore + 2);
     }
 }

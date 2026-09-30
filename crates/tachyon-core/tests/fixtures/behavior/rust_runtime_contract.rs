@@ -673,6 +673,27 @@ fn check_conditional_configuration() -> BehaviorResult<()> {
         assert_eq!(error.code, "configuration");
     }
     assert_eq!(ConditionalConfig::configure_call_count(), 2);
+    check_shared_setup()
+}
+
+fn create_shared() -> BehaviorResult<BehaviorContext> {
+    create_conditional(vec![String::from("development")], Some("true"))
+}
+
+fn check_shared_setup() -> BehaviorResult<()> {
+    let configured_before = ConditionalConfig::configure_call_count();
+    let writer = create_shared()?;
+    let reader = create_shared()?;
+    assert_eq!(ConditionalConfig::configure_call_count(), configured_before + 1);
+    assert!(std::sync::Arc::ptr_eq(&writer.0.configuration, &reader.0.configuration));
+    writer.dispose();
+    writer.dispose();
+    let later = create_shared()?;
+    assert_eq!(ConditionalConfig::configure_call_count(), configured_before + 1);
+    reader.dispose();
+    drop(later);
+    create_shared()?.dispose();
+    assert_eq!(ConditionalConfig::configure_call_count(), configured_before + 2);
     Ok(())
 }
 

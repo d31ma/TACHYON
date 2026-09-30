@@ -658,10 +658,15 @@ class _BehaviorContext:
         self.adapters = {}
         self.active = 0
         self._slots = {}
+        self.setup_key = None
     def dispose(self):
         self.signal.abort()
         if hasattr(self, '_remove'):
             self._remove()
+        setup_key = getattr(self, 'setup_key', None)
+        if setup_key is not None:
+            self.setup_key = None
+            _BehaviorFactory.release_setup(setup_key)
     def _begin(self):
         execution = _BehaviorExecution(self)
         execution.check()
@@ -1163,23 +1168,41 @@ class _BehaviorFactory:
         if _behavior_inspect.iscoroutinefunction(original):
             return self._invoking_wrapper(name, original)
         return self._checking_wrapper(metadata, original)
+    setups = {}
     async def create(self, configuration, options):
         if not self.records.get(configuration, {}).get('configuration'):
             _behavior_invalid('Setup must be declared in this source.')
         options = _behavior_config_options(options, self.environment, self.records[configuration])
         context = _BehaviorContext(self, options)
         try:
-            execution = _BehaviorExecution(context)
-            adapters = await _behavior_adapter(configuration.configure, (execution,), execution)
-            _behavior_keys(adapters, _BehaviorText.ADAPTER_OPTIONS)
-            _behavior_check_adapter_collections(adapters)
-            if 'authorize' in adapters and not callable(adapters['authorize']):
-                _behavior_invalid('Behavior authorize must be callable.')
-            context.adapters = _behavior_context_adapters(adapters)
+            setup_key = (configuration, tuple(sorted(options['profiles'])), tuple(sorted(options['properties'].items())))
+            shared = _BehaviorFactory.setups.get(setup_key)
+            if shared is None:
+                shared = {'adapters': _behavior_asyncio.ensure_future(self._configured_adapters(configuration, context)), 'users': 0}
+                _BehaviorFactory.setups[setup_key] = shared
+            shared['users'] += 1
+            context.setup_key = setup_key
+            context.adapters = await shared['adapters']
             return context
         except BaseException:
             context.dispose()
             raise
+    async def _configured_adapters(self, configuration, context):
+        execution = _BehaviorExecution(context)
+        adapters = await _behavior_adapter(configuration.configure, (execution,), execution)
+        _behavior_keys(adapters, _BehaviorText.ADAPTER_OPTIONS)
+        _behavior_check_adapter_collections(adapters)
+        if 'authorize' in adapters and not callable(adapters['authorize']):
+            _behavior_invalid('Behavior authorize must be callable.')
+        return _behavior_context_adapters(adapters)
+    @staticmethod
+    def release_setup(setup_key):
+        shared = _BehaviorFactory.setups.get(setup_key)
+        if shared is None:
+            return
+        shared['users'] -= 1
+        if shared['users'] == 0:
+            del _BehaviorFactory.setups[setup_key]
     def construct(self, cls, values):
         record = self.records.get(cls, {})
         fields = record.get('constructor')

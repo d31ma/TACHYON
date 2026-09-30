@@ -369,6 +369,23 @@ __TAC_BEHAVIOR_CONFIGURATIONS__
     final selected = _snapshotProfiles(profiles);
     final values = _propertySource(properties, 'configuration');
     _activeConfiguration(_typePolicies(configuration), selected, values);
+    final setupKey = _setupKey(configuration, selected, values);
+    return BehaviorContext._(_acquireSetup(setupKey, configuration, execution), partition, signal, timeoutMs, setupKey);
+  }
+
+  static final Map<String, _SharedSetup> _setups = {};
+
+  static String _setupKey(Type configuration, List<String> profiles, Map<String, String> values) {
+    final names = values.keys.toList()..sort();
+    return '$configuration${[...profiles]..sort()}${[for (final name in names) '$name=${values[name]}']}';
+  }
+
+  static BehaviorAdapters _acquireSetup(String setupKey, Type configuration, BehaviorExecution execution) {
+    final shared = _setups[setupKey];
+    if (shared != null) {
+      shared.users++;
+      return shared.adapters;
+    }
     final BehaviorAdapters adapters;
     try {
       adapters = _configure(configuration, execution);
@@ -378,7 +395,15 @@ __TAC_BEHAVIOR_CONFIGURATIONS__
       throw BehaviorError('CONFIGURATION_FAILED');
     }
     execution.check();
-    return BehaviorContext._(adapters, partition, signal, timeoutMs);
+    _setups[setupKey] = _SharedSetup(adapters);
+    return adapters;
+  }
+
+  static void _releaseSetup(String setupKey) {
+    final shared = _setups[setupKey];
+    if (shared == null) return;
+    shared.users--;
+    if (shared.users == 0) _setups.remove(setupKey);
   }
 
   static Map<String, String> _propertySource(Map<String, Object?> input, String code) {
@@ -651,9 +676,17 @@ final class BehaviorOpenTransactions {
       behavior_async.runZoned(body, zoneValues: {_key: <String, String>{..._open, adapter: identifier}});
 }
 
+class _SharedSetup {
+  _SharedSetup(this.adapters);
+  final BehaviorAdapters adapters;
+  int users = 1;
+}
+
 class BehaviorContext {
-  BehaviorContext._(this._adapters, this._partition, this._owner, this._timeoutMs) : _signal = BehaviorSignal._child(_owner);
+  BehaviorContext._(this._adapters, this._partition, this._owner, this._timeoutMs, this._setupKey) : _signal = BehaviorSignal._child(_owner);
   final BehaviorAdapters _adapters;
+  final String _setupKey;
+  bool _released = false;
   final String _partition;
   final BehaviorSignal _owner;
   final BehaviorSignal _signal;
@@ -661,7 +694,12 @@ class BehaviorContext {
   int _active = 0;
   final Map<String, int> _slots = {};
 
-  void dispose() => _signal.abort();
+  void dispose() {
+    _signal.abort();
+    if (_released) return;
+    _released = true;
+    Behaviors._releaseSetup(_setupKey);
+  }
 
   BehaviorExecution _execution() =>
       BehaviorExecution(Behaviors.environment, _partition, _signal, _owner, Behaviors.now + _timeoutMs);

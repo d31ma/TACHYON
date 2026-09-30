@@ -52,8 +52,26 @@ enum ConfigurationAnnotationTests {
         defer { active.dispose() }
         guard AnnotatedConditionalConfig.calls == 1 else { throw BehaviorError("ACTIVE_NOT_CALLED") }
     }
+    static func createShared(_ partition: String) throws -> BehaviorContext {
+        try Behaviors.create(AnnotatedConditionalConfig.self, partition: partition, signal: BehaviorSignal(), profiles: ["test"], properties: ["TAC_CACHE_ENABLED": "true"])
+    }
+    static func checkSharedSetup() throws {
+        let configuredBefore = AnnotatedConditionalConfig.calls
+        let writer = try createShared("writer")
+        let reader = try createShared("reader")
+        guard AnnotatedConditionalConfig.calls == configuredBefore + 1 else { throw BehaviorError("SETUP_CONFIGURED_TWICE") }
+        writer.dispose()
+        writer.dispose()
+        let later = try createShared("later")
+        guard AnnotatedConditionalConfig.calls == configuredBefore + 1 else { throw BehaviorError("SETUP_CONFIGURED_WHILE_OPEN") }
+        reader.dispose()
+        later.dispose()
+        try createShared("fresh").dispose()
+        guard AnnotatedConditionalConfig.calls == configuredBefore + 2 else { throw BehaviorError("SETUP_NOT_CONFIGURED_AGAIN") }
+    }
     static func run() throws {
         try checkBinding()
         try checkConditionalConfiguration()
+        try checkSharedSetup()
     }
 }
