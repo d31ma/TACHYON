@@ -20,6 +20,7 @@ mod ios;
 mod java_web_services;
 mod kotlin_web_services;
 mod linux;
+mod linux_window_controls;
 mod macos;
 mod manifest_setting;
 #[cfg(test)]

@@ -152,6 +152,10 @@ fn stage_icon(
 fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
     LinuxHostGenerator::C_HOST
         .replace(
+            "__NATIVE_WINDOW_CONTROLS__",
+            &super::linux_window_controls::LinuxWindowControls::source(&application.window),
+        )
+        .replace(
             "__LOCAL_BUNDLE_HELPERS__",
             &super::routes::c_local_bundle(index, &[], "tachyon://app"),
         )
@@ -209,6 +213,8 @@ static WebKitWebView *g_view = NULL;
 static int g_bundle_fd = -1;
 static gint g_pending_publishes = 0;
 static void tachyon_record(const gchar *event);
+
+__NATIVE_WINDOW_CONTROLS__
 
 static gboolean tachyon_trusted_view(WebKitWebView *view) {
   char path[TACHYON_PATH_LIMIT];
@@ -352,6 +358,9 @@ static void tachyon_companion_load(void) {
   if (module != NULL) {
     g_module_symbol(module, "tac_native_invoke", (gpointer *)&g_companion_invoke);
     g_module_symbol(module, "tac_native_free", (gpointer *)&g_companion_free);
+    TachyonCapabilitySetAdapter set_adapter = NULL;
+    g_module_symbol(module, "tac_native_set_capability_adapter", (gpointer *)&set_adapter);
+    if (set_adapter != NULL) set_adapter(tachyon_capability_call, tachyon_capability_free);
     TachyonCompanionSetEmit set_emit = NULL;
     g_module_symbol(module, "tac_native_set_emit", (gpointer *)&set_emit);
     if (set_emit != NULL) {
@@ -477,9 +486,12 @@ static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer
 
 static void tachyon_activate(GtkApplication *app, gpointer data) {
   (void)data;
+  if (g_native_window != NULL) { gtk_window_present(g_native_window); return; }
   tachyon_record("controller.created");
   tachyon_companion_load();
   GtkWidget *window = gtk_application_window_new(app);
+  g_native_window = GTK_WINDOW(window);
+  g_object_add_weak_pointer(G_OBJECT(window), (gpointer *)&g_native_window);
   gtk_window_set_title(GTK_WINDOW(window), TACHYON_APP_NAME);
   gtk_window_set_default_size(GTK_WINDOW(window), 1024, 768);
 
@@ -605,6 +617,15 @@ mod tests {
         assert!(source.contains("answer = operation && route != NULL"));
         assert!(!source.contains("file://%s"));
         assert!(!source.contains("set_allow_universal_access_from_file_urls(settings, TRUE)"));
+    }
+
+    #[test]
+    fn the_linux_host_registers_the_paired_native_capability_adapter() {
+        let source = c_source(&application(), &index());
+        assert!(source.contains("tac_native_set_capability_adapter"));
+        assert!(source.contains("set_adapter(tachyon_capability_call, tachyon_capability_free)"));
+        assert!(source.contains("g_object_add_weak_pointer(G_OBJECT(window)"));
+        assert!(!source.contains("__NATIVE_WINDOW_CONTROLS__"));
     }
 
     #[test]
