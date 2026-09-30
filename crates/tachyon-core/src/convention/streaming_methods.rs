@@ -21,8 +21,9 @@ impl StreamingMethods {
     const BODY_STARTS: [&str; 4] = ["{", "=>", "->", "where"];
 
     pub(crate) fn find(source: &Path, contents: &str) -> BTreeSet<String> {
-        Self::lowered_source(source, contents)
-            .map(|lowered| Self::from_lowered(source, &lowered))
+        let (source, contents) = crate::lua_source::LuaView::analysis(source, contents);
+        Self::lowered_source(&source, &contents)
+            .map(|lowered| Self::from_lowered(&source, &lowered))
             .unwrap_or_default()
     }
 

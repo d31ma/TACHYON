@@ -18,6 +18,7 @@ impl<'p> LuaLowering<'p> {
     const INDENTS: [&'static str; 2] = ["  ", "    "];
     const REQUEST: &'static str = "YonRequest.of(request)";
     const MEMBERS: [&'static str; 2] = ["{ __index = {} }", "YonEvents.members({})"];
+    const STREAMED: [&'static str; 2] = ["{}", "YonStream.of(function() return {} end)"];
 
     pub(super) fn new(plan: &'p Plan) -> Self {
         Self {
@@ -187,14 +188,15 @@ impl<'p> LuaLowering<'p> {
     }
 
     fn call(route: &Route) -> String {
-        Self::read(
+        let call = Self::read(
             &route.returns,
             &format!(
                 "controller:{}({})",
                 route.method,
                 Self::arguments(&route.parameters)
             ),
-        )
+        );
+        Self::STREAMED[usize::from(route.streaming)].replace("{}", &call)
     }
 
     fn arguments(parameters: &[RouteParameter]) -> String {

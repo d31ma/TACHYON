@@ -226,7 +226,11 @@ function YonInvocation.answer(handler, request)
   if not rawget(handler, "YON_FRAMES") then
     argument = YonRequest.of(request)
   end
-  return YonAnswers.for_result(method(argument))
+  local result = method(argument)
+  if getmetatable(result) == YonStream then
+    return result
+  end
+  return YonAnswers.for_result(result)
 end
 
 function YonInvocation.middleware(handler, request, phase)
@@ -244,6 +248,68 @@ function YonInvocation.middleware(handler, request, phase)
   return YonAnswers.for_result(result)
 end
 
+YonStream = {
+  MAX_FRAME_BYTES = 16 * 1024 * 1024,
+  FAILED = "The handler stream failed.",
+  TOO_LARGE = "Streamed event exceeds the protocol frame limit.",
+}
+YonStream.__index = YonStream
+
+function YonStream.of(body)
+  return setmetatable({ body = body }, YonStream)
+end
+
+function YonStream:send(output, request_id)
+  local routine = coroutine.create(self.body)
+  while true do
+    local ok, event = coroutine.resume(routine)
+    if not ok then
+      io.stderr:write(YonFailures.message(event), "\n")
+      YonStream.failure(output, request_id, "TY2204", YonStream.FAILED)
+    end
+    if coroutine.status(routine) == "dead" then
+      output:flush()
+      os.exit(0)
+    end
+    YonStream.event(output, request_id, event)
+  end
+end
+
+function YonStream.event(output, request_id, event)
+  local encoded, data = pcall(YonJson.encode, event)
+  if not encoded then
+    YonStream.failure(output, request_id, "TY2203", YonJson.NOT_SERIALIZABLE)
+  end
+  local payload = YonJson.encode({
+    protocol_version = 1,
+    kind = "event",
+    request_id = request_id,
+    body = { encoding = "utf8", data = data },
+  })
+  if #payload > YonStream.MAX_FRAME_BYTES then
+    YonStream.failure(output, request_id, "TY2203", YonStream.TOO_LARGE)
+  end
+  YonStream.frame(output, payload)
+end
+
+function YonStream.failure(output, request_id, code, message)
+  YonStream.frame(output, YonJson.encode({
+    protocol_version = 1,
+    kind = "response",
+    request_id = request_id,
+    status = 500,
+    headers = setmetatable({}, YonJson.OBJECT),
+    error = { code = code, message = message, retryable = false },
+  }))
+  output:flush()
+  os.exit(0)
+end
+
+function YonStream.frame(output, payload)
+  output:write(string.pack(">I4", #payload), payload)
+  output:flush()
+end
+
 YonRunner = {}
 
 function YonRunner.main(program)
@@ -252,6 +318,9 @@ function YonRunner.main(program)
   print = YonRunner.print
   local request = YonInput.read()
   local answer = YonRunner.run(program, request)
+  if getmetatable(answer) == YonStream then
+    answer:send(standard_output, request.request_id)
+  end
   local ok, text = pcall(YonJson.encode, answer)
   if not ok then
     YonFailures.stop(YonJson.NOT_SERIALIZABLE)

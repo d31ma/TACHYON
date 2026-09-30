@@ -121,3 +121,54 @@ async fn a_lua_test_unit_gets_a_behavior_context_for_each_case() {
         assert_eq!(case["passed"], true, "{report}");
     }
 }
+
+#[tokio::test]
+async fn a_lua_stream_route_yields_each_value_from_a_coroutine() {
+    if !lua_available() {
+        eprintln!("skipping: lua is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, text) in [
+        (
+            "server/models/Ticket.lua",
+            "---@class Ticket\n---@field sku string\n---@field level integer\nTicket = {}\n",
+        ),
+        (
+            "server/services/TicketService.lua",
+            "-- @Service\n---@class TicketService\nTicketService = {}\n\n---@return integer[]\nfunction TicketService:levels()\n  return { 1, 2, 3 }\nend\n",
+        ),
+        (
+            "server/controllers/EventsController.lua",
+            "-- @RequestRoute(\"/events\")\n-- @Public\n---@class EventsController\nEventsController = {\n  -- @Needs\n  ---@type TicketService\n  ticket_service = nil,\n}\n\n---@return nil\n-- @StreamRoute\nfunction EventsController:stream_events()\n  self:_tickets_for(self.ticket_service:levels())\nend\n\n---@param levels integer[]\n---@return nil\nfunction EventsController:_tickets_for(levels)\n  for _, level in ipairs(levels) do\n    coroutine.yield(setmetatable({ sku = \"anvil\", level = level }, Ticket))\n  end\nend\n",
+        ),
+    ] {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, text).expect("source");
+    }
+    let source = HandlerSource::discover(root.path(), "server/controllers/EventsController.lua")
+        .unwrap_or_else(|failure| panic!("{failure}"));
+    assert!(source.streams_method(HttpMethod::Get));
+    let mut request = HandlerRequest::route("events", "/events", HttpMethod::Get);
+    request.arguments = Some(Vec::new());
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let (sender, mut receiver) = tokio::sync::mpsc::channel(8);
+    supervisor
+        .invoke_streaming(&source, &request, sender)
+        .await
+        .expect("stream");
+    let mut events = Vec::new();
+    while let Some(event) = receiver.recv().await {
+        events.push(event.data);
+    }
+    assert_eq!(
+        events,
+        [
+            "{\"sku\":\"anvil\",\"level\":1}",
+            "{\"sku\":\"anvil\",\"level\":2}",
+            "{\"sku\":\"anvil\",\"level\":3}"
+        ]
+    );
+}

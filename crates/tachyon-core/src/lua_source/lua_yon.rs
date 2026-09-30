@@ -14,7 +14,7 @@ pub(crate) struct LuaYon;
 
 impl LuaYon {
     const LATER: &'static str = "Lua classes do not support {} yet (ADR 0085). Write this class in another Yon language, or leave the annotation out.";
-    const STREAMS: &'static str = "streams and sockets (StreamRoute, SocketRoute)";
+    const STREAMS: &'static str = "sockets (SocketRoute)";
     const REALM: &'static str = "yon";
     const MODELS: &'static str = "server";
     const LOWERINGS: [Lowering; 2] = [Self::roles, Self::test_unit];
@@ -163,11 +163,7 @@ impl LuaYon {
     }
 
     fn streams(plan: &Plan) -> bool {
-        plan.routes.iter().any(Self::is_stream)
-    }
-
-    fn is_stream(route: &Route) -> bool {
-        [route.streaming, route.socket.is_some()].contains(&true)
+        plan.routes.iter().any(|route| route.socket.is_some())
     }
 
     fn patterned(plan: &Plan) -> Vec<Route> {
