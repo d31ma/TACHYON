@@ -21,7 +21,7 @@ class SettingsService
       profiles: ["public"], properties: published)
     context.dispose
     @title = values["title"]
-    @page_size = catalog["pageSize"]
+    @page_size = catalog["page_size"]
   end
 
   private

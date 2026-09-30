@@ -10,6 +10,6 @@ class SettingsController
     context = Behaviors.create(CatalogSetup, partition: "public-catalog", signal: BehaviorSignal.new,
       profiles: [profile], properties: application)
     context.dispose
-    Settings.new(profile: profile, pageSize: catalog["pageSize"])
+    Settings.new(profile: profile, pageSize: catalog["page_size"])
   end
 end

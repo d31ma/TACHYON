@@ -7,14 +7,14 @@ export default class CatalogService {
 
   async load() {
     const answer = await this.catalogClient.all();
-    this.count = this.#countItems(answer);
+    this.count = this._countItems(answer);
   }
 
   /**
    * @param {{ items: string[] } | void} answer
    * @returns {number}
    */
-  #countItems(answer) {
+  _countItems(answer) {
     return answer ? answer.items.length : 0;
   }
 }

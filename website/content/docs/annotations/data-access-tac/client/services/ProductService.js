@@ -8,7 +8,7 @@ export default class ProductService {
   async load() {
     const rows = await this.productStore.excluding('retired', { size: 5 });
     const activeCount = await this.productStore.countByStatus('active');
-    this.summary = this.#summaryOf(rows, activeCount);
+    this.summary = this._summaryOf(rows, activeCount);
   }
 
   /**
@@ -16,7 +16,7 @@ export default class ProductService {
    * @param {number | void} activeCount
    * @returns {string}
    */
-  #summaryOf(rows, activeCount) {
+  _summaryOf(rows, activeCount) {
     return `${rows ? rows.length : 0} of ${activeCount} active`;
   }
 }

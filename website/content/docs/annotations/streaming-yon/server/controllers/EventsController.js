@@ -8,14 +8,14 @@ class EventsController {
   /** @returns {Generator<Ticket>} */
   @StreamRoute
   *streamEvents() {
-    yield* this.#ticketsFor(this.ticketService.levels());
+    yield* this._ticketsFor(this.ticketService.levels());
   }
 
   /**
    * @param {number[]} levels
    * @returns {Generator<Ticket>}
    */
-  *#ticketsFor(levels) {
+  *_ticketsFor(levels) {
     for (const level of levels) {
       yield { sku: 'anvil', level };
     }
