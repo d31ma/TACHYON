@@ -579,7 +579,8 @@ machine contracts have their own, independent major versions.
   answer it by the manifest's `tac.cache` rules; other reads stay `no-store`.
   New browser gates `scripts/cached-client-browser-test.mjs` and
   `scripts/window-controls-browser-test.mjs` run in Chromium, Firefox and
-  WebKit.
+  WebKit, and `scripts/window-grant-macos-test.mjs` checks that a granted
+  resize reaches a real macOS window and an ungranted one does not.
 
 - F# takes a role through a Needs property as well as through its primary
   constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
