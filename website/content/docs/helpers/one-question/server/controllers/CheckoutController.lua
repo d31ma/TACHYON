@@ -4,12 +4,12 @@
 CheckoutController = {
   -- @Needs
   ---@type CheckoutService
-  checkout_service = nil,
+  service = nil,
 }
 
 ---@return Receipt
 -- @GetRoute
 function CheckoutController:get_checkout()
-  local total = self.checkout_service:total()
+  local total = self.service:total()
   return { total = total }
 end

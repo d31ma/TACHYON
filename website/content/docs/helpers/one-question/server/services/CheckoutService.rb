@@ -2,11 +2,11 @@
 class CheckoutService
   #[Needs]
   # @return [TaxHelper]
-  attr_reader :tax_helper
+  attr_reader :helper
 
   # @return [Integer]
   def total
-    tax_helper.add_tax(subtotal)
+    helper.add_tax(subtotal)
   end
 
   private

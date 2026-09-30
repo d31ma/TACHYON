@@ -323,7 +323,7 @@ async fn ruby_providers_receive_needs_fields_and_named_providers() {
     );
     project.write(
         "server/services/LedgerService.rb",
-        "#[Service]\nclass LedgerService\n  #[Needs]\n  attr_reader :ledger_amounts_helper\n\n  def subtotal\n    ledger_amounts_helper.subtotal\n  end\nend\n",
+        "#[Service]\nclass LedgerService\n  #[Needs]\n  # @return [LedgerAmountsHelper]\n  attr_reader :amounts\n\n  def subtotal\n    amounts.subtotal\n  end\nend\n",
     );
     project.write(
         "server/helpers/LedgerHelper.rb",
@@ -360,7 +360,7 @@ async fn a_ruby_needs_all_class_receives_every_attr_field() {
     );
     project.write(
         "server/services/LedgerService.rb",
-        "#[Service]\n#[NeedsAll]\nclass LedgerService\n  attr_reader :ledger_amounts_helper\n\n  def subtotal\n    ledger_amounts_helper.subtotal + 2\n  end\nend\n",
+        "#[Service]\n#[NeedsAll]\nclass LedgerService\n  # @return [LedgerAmountsHelper]\n  attr_reader :amounts\n\n  def subtotal\n    amounts.subtotal + 2\n  end\nend\n",
     );
     project.write(
         "server/controllers/LedgerController.rb",

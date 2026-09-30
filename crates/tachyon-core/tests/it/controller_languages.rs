@@ -54,7 +54,11 @@ impl OrderProject {
             ),
             (
                 "server/controllers/OrdersController.lua",
-                "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {}\n\n---@param id integer\n---@param note string\n---@param order Order\n---@return Order\n-- @PostRoute(\"/{id}\")\nfunction OrdersController:post_order(\n  -- @FromPath\n  id,\n  -- @FromQuery(\"note\")\n  note,\n  -- @FromBody\n  order\n)\n  return { name = order.name .. \":\" .. note, count = order.count + id }\nend\n\n---@return Order[]\n-- @GetRoute\nfunction OrdersController:get_orders()\n  return { { name = \"a\", count = 1 } }\nend\n",
+                "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {\n  -- @Needs\n  ---@type OrderService\n  orders = nil,\n}\n\n---@param id integer\n---@param note string\n---@param order Order\n---@return Order\n-- @PostRoute(\"/{id}\")\nfunction OrdersController:post_order(\n  -- @FromPath\n  id,\n  -- @FromQuery(\"note\")\n  note,\n  -- @FromBody\n  order\n)\n  return { name = order.name .. \":\" .. note, count = order.count + id }\nend\n\n---@return Order[]\n-- @GetRoute\nfunction OrdersController:get_orders()\n  return self.orders:list()\nend\n",
+            ),
+            (
+                "server/services/OrderService.lua",
+                "-- @Service\n---@class OrderService\nOrderService = {}\n\n---@return Order[]\nfunction OrderService:list()\n  return { { name = \"a\", count = 1 } }\nend\n",
             ),
         ],
     };

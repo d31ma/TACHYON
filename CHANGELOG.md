@@ -2195,6 +2195,13 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Ruby or Lua Needs field takes its provider from its type comment, like
+  every typed language: `# @return [CheckoutService]` above
+  `attr_reader :service`, or `---@type CheckoutService` above `service = nil`.
+  The field name chose the provider even with a type comment, so `service`
+  asked for a `Service` class and failed with TY2015. The field name still
+  chooses the provider when there is no type comment.
+
 - A Python route method can declare the `(HTTPStatus, headers, body)` answer
   it returns, such as `-> tuple[HTTPStatus, dict[str, str], str]`. The route
   type reader read every `tuple[...]` as a list and refused the three types

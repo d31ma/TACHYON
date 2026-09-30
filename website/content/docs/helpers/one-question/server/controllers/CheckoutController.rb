@@ -3,11 +3,11 @@
 class CheckoutController
   #[Needs]
   # @return [CheckoutService]
-  attr_reader :checkout_service
+  attr_reader :service
 
   # @return [Receipt]
   #[GetRoute]
   def get_checkout
-    Receipt.new(total: checkout_service.total)
+    Receipt.new(total: service.total)
   end
 end

@@ -2,12 +2,12 @@
 class TaxHelper
   #[Needs]
   # @return [TaxRateHelper]
-  attr_reader :tax_rate_helper
+  attr_reader :rates
 
   # @param subtotal [Integer]
   # @return [Integer]
   def add_tax(subtotal)
-    tax = tax_rate_helper.rate
+    tax = rates.rate
     subtotal + tax
   end
 end

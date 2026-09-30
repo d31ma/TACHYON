@@ -180,7 +180,9 @@ impl RubyMethod {
             }
             let Some(marked) = needs.take() else {
                 if needs_all && let Some(declared) = Self::declared_fields(text) {
-                    let provider = named.take();
+                    let provider = named.take().or_else(|| {
+                        Self::documented_provider(input, at).filter(|_| declared.len() == 1)
+                    });
                     if provider.is_some() && declared.len() != 1 {
                         return Err(input.failure(at, Self::FIELD_NEEDS));
                     }
@@ -197,7 +199,10 @@ impl RubyMethod {
             let Some(field) = Self::reader_field(text) else {
                 return Err(input.failure(marked, Self::FIELD_NEEDS));
             };
-            let provider = named.take().unwrap_or_else(|| Self::provider_name(&field));
+            let provider = named
+                .take()
+                .or_else(|| Self::documented_provider(input, at))
+                .unwrap_or_else(|| Self::provider_name(&field));
             fields.push((field, provider));
         }
         if let Some(marked) = needs {
@@ -206,7 +211,12 @@ impl RubyMethod {
         Ok(fields)
     }
 
-    const FIELD_NEEDS: &'static str = "In a Ruby class, #[Needs] stands alone above one `attr_reader :field` line; the field name names the provider, for example `attr_reader :order_store` for OrderStore";
+    const FIELD_NEEDS: &'static str = "In a Ruby class, #[Needs] stands alone above one `attr_reader :field` line; its `# @return [OrderStore]` type comment names the provider, or without one the field name does, for example `attr_reader :order_store` for OrderStore";
+
+    fn documented_provider(input: &Input<'_>, at: usize) -> Option<String> {
+        let written = Yard::return_type(&Yard::comments_before(input.source, at));
+        identifier(&written).then_some(written)
+    }
 
     fn reader_field(text: &str) -> Option<String> {
         let name = text.strip_prefix("attr_reader :")?;
