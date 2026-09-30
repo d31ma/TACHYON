@@ -646,6 +646,10 @@ machine contracts have their own, independent major versions.
   commands, or a section whose heading names other languages). `--json` prints
   a report for tools, and `--strict` fails on a gap with no example and no
   stated reason; the website test keeps that gate off until the examples exist.
+- The website features "Values in text", "Dynamic attributes", "Conditionals",
+  "Loops", "Matching a value" and "Handling events" show their service (and
+  its model) in every Tac language: TypeScript, Dart, Rust, Go, Ruby, Swift,
+  Kotlin, Java, C# and F# next to JavaScript.
 
 - Java web services now use Tachyon's browser APIs (`Clock`, `SecureRandom`,
   `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
