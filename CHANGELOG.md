@@ -2166,6 +2166,11 @@ machine contracts have their own, independent major versions.
   The check reads F# through its C# view, and the help used the view's
   language; it now uses the language of the file you wrote.
 
+- `verify-snippets --feature=<id>` now runs only the features suite, and
+  `--section="<heading>"` only the guides suite. Before, `--feature` alone also
+  built every docs section (about 15 minutes). `--suite=` still chooses the
+  suite when you write it.
+
 - Java web services now start under Tachyon's content security policy
   (`script-src 'self' 'wasm-unsafe-eval'`), which `ty start`, `ty preview`
   and the native hosts send. TeaVM's `runtime.js` made functions from text

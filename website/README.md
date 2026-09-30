@@ -48,6 +48,8 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `ty test .` | Runs the services' test units. |
 | `bun run verify:snippets` | Builds and runs every code example on the site. |
 | `bun run verify:snippets --suite=tsc` | Type-checks every JavaScript and TypeScript example project with `tsc`, the way a `ty init` project checks itself. |
+| `bun run verify:snippets --feature=<id>` | Checks one feature, such as `--feature=iteration`. It runs only the features suite. |
+| `bun run verify:snippets --section="<heading>"` | Checks one docs section, such as `--section="Security"`. It runs only the guides suite. Add `--suite=` to choose another suite, for example `--suite=tsc`. |
 | `bun run coverage:languages` | Lists, for each docs section and feature, which Tac and Yon languages have a tab and why each other language has none: a missing example, a build error that refuses it (with its `TY` code), or not applicable. Add `--json` for a report that tools read, or `--strict` to fail on a gap that has no example and no stated reason. |
 | `bun run styles` | Creates `tailwind.css` again. Run it after you change a template. |
 | `bun run styles:check` | Fails when the committed `tailwind.css` is out of date. |

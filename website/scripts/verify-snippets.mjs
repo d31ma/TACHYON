@@ -12,6 +12,7 @@ import { withServer } from '../../scripts/release/server-probe.mjs'
 import { checkConfigurationBrowser, configurationTestFiles } from './verify-configuration-binding.mjs'
 import { SiteContent } from './site-content.mjs'
 import { SnippetRequest } from './snippet-request.mjs'
+import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
 import { TypeCheckProjects } from './type-check-projects.mjs'
 
@@ -170,10 +171,7 @@ function readOption(prefix) {
 }
 
 function readCheckedScope() {
-  const scope = readOption('--suite=') ?? 'all'
-  const scopes = ['all', 'features', 'languages', 'guides', 'configuration', 'layout', 'annotations', 'gofmt', 'ruby', 'python', 'tsc']
-  assert.ok(scopes.includes(scope), 'Use --suite=all|features|languages|guides|configuration|layout|annotations|gofmt|ruby|python|tsc')
-  return scope
+  return SnippetScope.choose({ suite: readOption('--suite='), feature: readOption('--feature='), section: readOption('--section=') })
 }
 
 /** @param {string} name */
