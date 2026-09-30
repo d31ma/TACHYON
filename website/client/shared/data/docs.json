@@ -4368,7 +4368,7 @@
         },
         {
           "heading": "What each service language can use in the browser",
-          "body": "A service in Rust, Go, C#, F#, Kotlin, Java, Dart, Ruby or Swift runs in the page, but it does not call the browser itself. It reaches the browser only through Tachyon: the view reads its fields and calls its methods, events carry values in and out, and the storage annotations keep its data. Tachyon also gives every language a small set of browser APIs: `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls` (see the next sections and the feature \"What a page may do to its window\"). Other browser work, such as a request to the server, lives in a JavaScript or TypeScript service. That service publishes a typed event, and the service in the other language receives it with `OnEvent`.\n\nThe table shows what each language can use in the page. Tachyon's tests check every row.\n\n| What | Rust | Go | C# | F# | Kotlin | Dart | Ruby | Swift | Java |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| Fields and methods for the view | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `publishEvent` and `OnEvent` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Store` and caches | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `LocalState` and `SessionState` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `HTTPClient` sent by the browser | No | No | No | No | No | No | No | No | No |\n| `HTTPClient` sent by the Setup's HTTP adapter, with `Cached`, `ClearCache` and `UpdateCache` | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |\n| `StreamRequest` and `SocketRequest` | No | No | No | No | No | No | No | No | No |\n| `Clock` and `SecureRandom` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Connectivity`, `PageVisibility`, `Preferences` and their change events | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Clipboard`, `Share`, `Notifications` and `Geolocation`, after a grant | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `WindowControls`, after a grant in `tac.application.window.controls` (a native window only; not in a service that the native app links in) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| The current time from the language itself | No, use `Clock` | Yes | Yes | Yes, `System.DateTime.UtcNow` | Yes, `System.currentTimeMillis()` | Yes | Yes | No `Date` (no Foundation), use `Clock` | Yes, `System.currentTimeMillis()` |\n| Random numbers from the language itself | No, use `SecureRandom` | Yes | Yes | Yes, `System.Random` | Yes | Yes | Yes | Yes, `Int.random(in:)` | Yes, `java.util.Random` |\n| Wait (sleep) | No | Yes, the page waits | Yes, the page waits | Yes, `Thread.Sleep` makes the page wait | Yes, `Thread.sleep` makes the page wait | Yes, in an `async` method | No | Yes, `Task.sleep` in an `async` method makes the page wait | No; only the wait of a `Retry` or a blocking `MaxAtOnce`, which makes the page wait |\n| Console output | No | Yes | Yes | Yes, `printfn` | Yes | Yes | Yes | Yes, `print` | Yes, `System.out` |\n\nSend requests from a JavaScript or TypeScript client. Its answers, and the messages of a stream or a socket, reach the other languages as typed events. In Rust, `std::time::SystemTime::now()` and `std::thread::sleep` stop the service with an error, and `println!` prints nothing. Use Tachyon's `Clock` and `SecureRandom` instead (see \"Clock and secure random numbers\"). Ruby refuses `sleep`, because a Ruby call must return before the page goes on.\n\nTachyon refuses code that calls the browser directly, and the build stops with `TY1317`: Go `syscall/js`; Dart `dart:js_interop`, `dart:js`, `dart:js_util`, `dart:html`, `package:web` and `package:js`; C# `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` and `JSHost`; Rust `wasm_bindgen`, `web_sys`, `js_sys` and `wasm_import_module`; Kotlin `external`, `@JsFun`, `@JsExport`, `@JsModule`, `@JsName`, `js(\u2026)`, `kotlinx.browser`, `org.w3c` and `kotlin.js`; Java `org.teavm`, `native` methods and TeaVM's `JS\u2026` annotations such as `JSBody`, `JSObject` and `JSExport`; Ruby `TachyonWeb` and `JS`; and Swift `JavaScriptKit`, `JavaScriptEventLoop`, `JSObject`, `JSValue`, `JSClosure`, `JSPromise`, `@_extern` and `@_expose`. Such code breaks the test units of the language, and a native target has no browser. Tachyon's own code on the page is not checked.\n\nIn the example, `PlaceService` in JavaScript reads the browser and publishes a `PlaceFound` event. `MapService` in Rust or Go receives the event with `OnEvent`. The same pattern works for any browser API outside Tachyon's set.",
+          "body": "A service in Rust, Go, C#, F#, Kotlin, Java, Dart, Ruby or Swift runs in the page, but it does not call the browser itself. It reaches the browser only through Tachyon: the view reads its fields and calls its methods, events carry values in and out, and the storage annotations keep its data. Tachyon also gives every language a small set of browser APIs: `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls` (see the next sections and the feature \"What a page may do to its window\"). Other browser work, such as a request to the server, lives in a JavaScript or TypeScript service. That service publishes a typed event, and the service in the other language receives it with `OnEvent`.\n\nThe table shows what each language can use in the page. Tachyon's tests check every row.\n\n| What | Rust | Go | C# | F# | Kotlin | Dart | Ruby | Swift | Java |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| Fields and methods for the view | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `publishEvent` and `OnEvent` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Store` and caches | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `LocalState` and `SessionState` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `HTTPClient` sent by the browser | No | No | No | No | No | No | No | No | No |\n| `HTTPClient` sent by the Setup's HTTP adapter, with `Cached`, `ClearCache` and `UpdateCache` | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |\n| `StreamRequest` and `SocketRequest` | No | No | No | No | No | No | No | No | No |\n| `Clock` and `SecureRandom` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Connectivity`, `PageVisibility`, `Preferences` and their change events | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Clipboard`, `Share`, `Notifications` and `Geolocation`, after a grant | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `WindowControls`, after a grant in `tac.application.window.controls` (a native window only; not in a service that the native app links in) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| The current time from the language itself | No, use `Clock` | Yes | Yes | Yes, `System.DateTime.UtcNow` | Yes, `System.currentTimeMillis()` | Yes | Yes | No `Date` (no Foundation), use `Clock` | Yes, `System.currentTimeMillis()` |\n| Random numbers from the language itself | No, use `SecureRandom` | Yes | Yes | Yes, `System.Random` | Yes | Yes | Yes | Yes, `Int.random(in:)` | Yes, `java.util.Random` |\n| Wait (sleep) | No | Yes, the page waits | Yes, the page waits | Yes, `Thread.Sleep` makes the page wait | Yes, `Thread.sleep` makes the page wait | Yes, in an `async` method | No | Yes, `Task.sleep` in an `async` method makes the page wait | No; only the wait of a `Retry` or a blocking `MaxAtOnce`, which makes the page wait |\n| Console output | No | Yes | Yes | Yes, `printfn` | Yes | Yes | Yes | Yes, `print` | Yes, `System.out` |\n\nSend requests from a JavaScript or TypeScript client. Its answers, and the messages of a stream or a socket, reach the other languages as typed events. In Rust, `std::time::SystemTime::now()` and `std::thread::sleep` stop the service with an error, and `println!` prints nothing. Use Tachyon's `Clock` and `SecureRandom` instead (see \"Clock and secure random numbers\"). Ruby refuses `sleep`, because a Ruby call must return before the page goes on.\n\nTachyon refuses code that calls the browser directly, and the build stops with `TY1317`: Go `syscall/js`; Dart `dart:js_interop`, `dart:js`, `dart:js_util`, `dart:html`, `package:web` and `package:js`; C# `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` and `JSHost`; Rust `wasm_bindgen`, `web_sys`, `js_sys` and `wasm_import_module`; Kotlin `external`, `@JsFun`, `@JsExport`, `@JsModule`, `@JsName`, `js(\u2026)`, `kotlinx.browser`, `org.w3c` and `kotlin.js`; Java `org.teavm`, `native` methods and TeaVM's `JS\u2026` annotations such as `JSBody`, `JSObject` and `JSExport`; Ruby `TachyonWeb` and `JS`; and Swift `JavaScriptKit`, `JavaScriptEventLoop`, `JSObject`, `JSValue`, `JSClosure`, `JSPromise`, `@_extern` and `@_expose`. Such code breaks the test units of the language, and a native target has no browser. Tachyon's own code on the page is not checked.\n\nIn the example, `PlaceService` in JavaScript or TypeScript reads the browser and publishes a `PlaceFound` event. `MapService` receives the event with `OnEvent`, and the view shows its fields. Write `MapService` in any service language: the tabs show each one. The same pattern works for any browser API outside Tachyon's set.",
           "files": [
             {
               "name": "client/services/PlaceService.js",
@@ -4393,6 +4393,86 @@
             {
               "name": "client/models/PlaceFound.go",
               "code": "type PlaceFound struct {\n\tLatitude  float64 `json:\"latitude\"`\n\tLongitude float64 `json:\"longitude\"`\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<map-panel hydrate=\"load\" />\n"
+            },
+            {
+              "name": "client/components/map/panel/tac.html",
+              "code": "<p>{map.latitude}, {map.longitude}</p>\n"
+            },
+            {
+              "name": "client/services/MapService.js",
+              "code": "/** @import { PlaceFound } from '/models/PlaceFound.js' */\n@Service\nexport default class MapService {\n  latitude = 0;\n  longitude = 0;\n\n  /** @param {PlaceFound} value */\n  @OnEvent\n  show(value) {\n    this.latitude = value.latitude;\n    this.longitude = value.longitude;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/PlaceService.ts",
+              "code": "import type { PlaceFound } from '/models/PlaceFound.ts';\n\n@Service\nexport default class PlaceService {\n  applicationEventPublisher!: ApplicationEventPublisher;\n\n  @OnStart\n  locate(): void {\n    navigator.geolocation.getCurrentPosition((position) => this.found(position));\n  }\n\n  private found(position: GeolocationPosition): void {\n    const place: PlaceFound = { latitude: position.coords.latitude, longitude: position.coords.longitude };\n    this.applicationEventPublisher.publishEvent(place, false);\n  }\n}\n"
+            },
+            {
+              "name": "client/models/PlaceFound.ts",
+              "code": "export type PlaceFound = { latitude: number; longitude: number };\n"
+            },
+            {
+              "name": "client/services/MapService.ts",
+              "code": "import type { PlaceFound } from '/models/PlaceFound.ts';\n\n@Service\nexport default class MapService {\n  latitude: number = 0;\n  longitude: number = 0;\n\n  @OnEvent\n  show(value: PlaceFound): void {\n    this.latitude = value.latitude;\n    this.longitude = value.longitude;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/MapService.dart",
+              "code": "import 'models/PlaceFound.dart';\n\n@Service\nclass MapService {\n  double latitude = 0;\n  double longitude = 0;\n\n  @OnEvent\n  void show(PlaceFound value) {\n    latitude = value.latitude;\n    longitude = value.longitude;\n  }\n}\n"
+            },
+            {
+              "name": "client/models/PlaceFound.dart",
+              "code": "class PlaceFound {\n  final double latitude;\n  final double longitude;\n\n  const PlaceFound(this.latitude, this.longitude);\n}\n"
+            },
+            {
+              "name": "client/services/MapService.rb",
+              "code": "#[Service]\nclass MapService\n  # @return [Float]\n  attr_reader :latitude\n  # @return [Float]\n  attr_reader :longitude\n\n  def initialize\n    @latitude = 0.0\n    @longitude = 0.0\n  end\n\n  # @param value [PlaceFound]\n  # @return [void]\n  #[OnEvent]\n  def show(value)\n    @latitude = value.latitude\n    @longitude = value.longitude\n  end\nend\n"
+            },
+            {
+              "name": "client/models/PlaceFound.rb",
+              "code": "# @!attribute [r] latitude\n#   @return [Float]\n# @!attribute [r] longitude\n#   @return [Float]\nPlaceFound = Data.define(:latitude, :longitude)\n"
+            },
+            {
+              "name": "client/services/MapService.swift",
+              "code": "@Service\nfinal class MapService {\n    var latitude: Double = 0\n    var longitude: Double = 0\n\n    @OnEvent\n    func show(_ value: PlaceFound) {\n        latitude = value.latitude\n        longitude = value.longitude\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PlaceFound.swift",
+              "code": "struct PlaceFound {\n    let latitude: Double\n    let longitude: Double\n}\n"
+            },
+            {
+              "name": "client/services/MapService.kt",
+              "code": "import models.PlaceFound\n\n@Service\nclass MapService {\n    var latitude: Double = 0.0\n    var longitude: Double = 0.0\n\n    @OnEvent\n    fun show(value: PlaceFound) {\n        latitude = value.latitude\n        longitude = value.longitude\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PlaceFound.kt",
+              "code": "data class PlaceFound(val latitude: Double, val longitude: Double)\n"
+            },
+            {
+              "name": "client/services/MapService.java",
+              "code": "import models.PlaceFound;\n\n@Service\nclass MapService {\n    double latitude = 0;\n    double longitude = 0;\n\n    @OnEvent\n    void show(PlaceFound value) {\n        latitude = value.latitude();\n        longitude = value.longitude();\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PlaceFound.java",
+              "code": "record PlaceFound(double latitude, double longitude) {}\n"
+            },
+            {
+              "name": "client/services/MapService.cs",
+              "code": "using Models;\n\n[Service]\npublic class MapService\n{\n    public double Latitude = 0;\n    public double Longitude = 0;\n\n    [OnEvent]\n    public void Show(PlaceFound value)\n    {\n        Latitude = value.Latitude;\n        Longitude = value.Longitude;\n    }\n}\n"
+            },
+            {
+              "name": "client/models/PlaceFound.cs",
+              "code": "public record PlaceFound(double Latitude, double Longitude);\n"
+            },
+            {
+              "name": "client/services/MapService.fs",
+              "code": "open Models\n\n[<Service>]\ntype MapService() =\n    member val Latitude = 0.0 with get, set\n\n    member val Longitude = 0.0 with get, set\n\n    [<OnEvent>]\n    member this.Show(value: PlaceFound) : unit =\n        this.Latitude <- value.Latitude\n        this.Longitude <- value.Longitude\n"
+            },
+            {
+              "name": "client/models/PlaceFound.fs",
+              "code": "type PlaceFound = { Latitude: float; Longitude: float }\n"
             }
           ]
         },
@@ -4428,6 +4508,30 @@
             {
               "name": "client/services/TicketService.fs",
               "code": "[<Service>]\ntype TicketService() =\n    let clock = Clock()\n    let secureRandom = SecureRandom()\n    member val Ticket : string = \"\" with get, set\n    member val IssuedAt : float = 0.0 with get, set\n\n    member this.Issue() : unit =\n        this.Ticket <- secureRandom.Uuid()\n        this.IssuedAt <- clock.NowMs()\n"
+            },
+            {
+              "name": "client/services/TicketService.ts",
+              "code": "@Service\nexport default class TicketService {\n  @Needs\n  clock!: Clock;\n  @Needs\n  secureRandom!: SecureRandom;\n  ticket: string = '';\n  issuedAt: number = 0;\n\n  issue(): void {\n    this.ticket = this.secureRandom.uuid();\n    this.issuedAt = this.clock.now();\n  }\n}\n"
+            },
+            {
+              "name": "client/services/TicketService.dart",
+              "code": "@Service\nclass TicketService {\n  @Needs()\n  final Clock clock;\n  @Needs()\n  final SecureRandom secureRandom;\n  String ticket = '';\n  double issuedAt = 0;\n\n  void issue() {\n    ticket = secureRandom.uuid();\n    issuedAt = clock.nowMs();\n  }\n}\n"
+            },
+            {
+              "name": "client/services/TicketService.go",
+              "code": "// @Service\ntype TicketService struct {\n\tTicket   string\n\tIssuedAt float64\n\t// @Needs\n\tclock Clock\n\t// @Needs\n\tsecureRandom SecureRandom\n}\n\nfunc (service *TicketService) Issue() {\n\tservice.Ticket, _ = service.secureRandom.UUID()\n\tservice.IssuedAt, _ = service.clock.NowMs()\n}\n"
+            },
+            {
+              "name": "client/services/TicketService.rb",
+              "code": "#[Service]\nclass TicketService\n  # @return [String]\n  attr_reader :ticket\n  # @return [Float]\n  attr_reader :issued_at\n\n  def initialize\n    @clock = Clock.new\n    @secure_random = SecureRandom.new\n    @ticket = \"\"\n    @issued_at = 0.0\n  end\n\n  # @return [void]\n  def issue\n    @ticket = @secure_random.uuid\n    @issued_at = @clock.now_ms\n  end\nend\n"
+            },
+            {
+              "name": "client/services/TicketService.kt",
+              "code": "@Service\nclass TicketService {\n    private val clock = Clock()\n    private val secureRandom = SecureRandom()\n    var ticket: String = \"\"\n    var issuedAt: Double = 0.0\n\n    fun issue() {\n        ticket = secureRandom.uuid()\n        issuedAt = clock.nowMs()\n    }\n}\n"
+            },
+            {
+              "name": "client/services/TicketService.cs",
+              "code": "[Service]\npublic class TicketService\n{\n    private readonly Clock clock = new();\n    private readonly SecureRandom secureRandom = new();\n    public string Ticket = \"\";\n    public double IssuedAt = 0;\n\n    public void Issue()\n    {\n        Ticket = secureRandom.Uuid();\n        IssuedAt = clock.NowMs();\n    }\n}\n"
             }
           ]
         },
@@ -4463,6 +4567,30 @@
             {
               "name": "client/services/StatusService.fs",
               "code": "[<Service>]\ntype StatusService() =\n    member val Online : bool = false with get, set\n    member val Scheme : string = \"\" with get, set\n\n    [<OnEvent({\"replay\":true})>]\n    member this.HearConnectivity(changed: ConnectivityChanged) : unit =\n        this.Online <- changed.Online\n\n    [<OnEvent({\"replay\":true})>]\n    member this.HearPreferences(changed: PreferencesChanged) : unit =\n        this.Scheme <- changed.Scheme\n"
+            },
+            {
+              "name": "client/services/StatusService.ts",
+              "code": "@Service\nexport default class StatusService {\n  online: boolean = true;\n  scheme: string = 'light';\n\n  @OnEvent({\"replay\":true})\n  connectivityChanged(changed: ConnectivityChanged): void {\n    this.online = changed.online;\n  }\n\n  @OnEvent({\"replay\":true})\n  preferencesChanged(changed: PreferencesChanged): void {\n    this.scheme = changed.scheme;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/StatusService.dart",
+              "code": "@Service\nclass StatusService {\n  bool online = true;\n  String scheme = 'light';\n\n  @OnEvent({\"replay\":true})\n  void connectivityChanged(ConnectivityChanged changed) {\n    online = changed.online;\n  }\n\n  @OnEvent({\"replay\":true})\n  void preferencesChanged(PreferencesChanged changed) {\n    scheme = changed.scheme;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/StatusService.go",
+              "code": "// @Service\ntype StatusService struct {\n\tOnline bool\n\tScheme string\n}\n\n// @OnEvent({\"replay\":true})\nfunc (status *StatusService) ConnectivityChanged(changed ConnectivityChanged) {\n\tstatus.Online = changed.Online\n}\n\n// @OnEvent({\"replay\":true})\nfunc (status *StatusService) PreferencesChanged(changed PreferencesChanged) {\n\tstatus.Scheme = changed.Scheme\n}\n"
+            },
+            {
+              "name": "client/services/StatusService.rb",
+              "code": "#[Service]\nclass StatusService\n  # @return [Boolean]\n  attr_reader :online\n  # @return [String]\n  attr_reader :scheme\n\n  def initialize\n    @online = true\n    @scheme = \"light\"\n  end\n\n  # @param changed [ConnectivityChanged]\n  # @return [void]\n  #[OnEvent({\"replay\":true})]\n  def connectivity_changed(changed)\n    @online = changed.online\n  end\n\n  # @param changed [PreferencesChanged]\n  # @return [void]\n  #[OnEvent({\"replay\":true})]\n  def preferences_changed(changed)\n    @scheme = changed.scheme\n  end\nend\n"
+            },
+            {
+              "name": "client/services/StatusService.kt",
+              "code": "@Service\nclass StatusService {\n    var online: Boolean = true\n    var scheme: String = \"light\"\n\n    @OnEvent({\"replay\":true})\n    fun connectivityChanged(changed: ConnectivityChanged) {\n        online = changed.online\n    }\n\n    @OnEvent({\"replay\":true})\n    fun preferencesChanged(changed: PreferencesChanged) {\n        scheme = changed.scheme\n    }\n}\n"
+            },
+            {
+              "name": "client/services/StatusService.cs",
+              "code": "[Service]\npublic class StatusService\n{\n    public bool Online = true;\n    public string Scheme = \"light\";\n\n    [OnEvent({\"replay\":true})]\n    public void ConnectivityChanged(ConnectivityChanged changed)\n    {\n        Online = changed.Online;\n    }\n\n    [OnEvent({\"replay\":true})]\n    public void PreferencesChanged(PreferencesChanged changed)\n    {\n        Scheme = changed.Scheme;\n    }\n}\n"
             }
           ]
         },
@@ -4502,6 +4630,30 @@
             {
               "name": "client/services/PlaceService.fs",
               "code": "[<Service>]\ntype PlaceService() =\n    let geolocation = Geolocation()\n    let clipboard = Clipboard()\n    member val Place : string = \"\" with get, set\n    member val Problem : string = \"\" with get, set\n\n    member this.Locate() : unit = this.KeepProblem(fun () -> geolocation.CurrentPosition())\n\n    member this.Copy() : unit = this.KeepProblem(fun () -> clipboard.WriteText(this.Place))\n\n    [<OnEvent>]\n    member this.Found(found: PositionFound) : unit =\n        this.Place <- string found.Latitude + \", \" + string found.Longitude\n\n    [<OnEvent>]\n    member this.Failed(failed: BrowserCallFailed) : unit =\n        this.Problem <- failed.Message\n\n    member private this.KeepProblem(call: unit -> unit) : unit =\n        try\n            call ()\n        with :? System.InvalidOperationException as refusal ->\n            this.Problem <- refusal.Message\n"
+            },
+            {
+              "name": "client/services/PlaceService.ts",
+              "code": "@Service\nexport default class PlaceService {\n  @Needs\n  geolocation!: TacGeolocation;\n  @Needs\n  clipboard!: TacClipboard;\n  place: string = '';\n  problem: string = '';\n\n  locate(): void {\n    this.geolocation.currentPosition();\n  }\n\n  copy(): void {\n    this.clipboard.writeText(this.place);\n  }\n\n  @OnEvent\n  found(found: PositionFound): void {\n    this.place = `${found.latitude}, ${found.longitude}`;\n  }\n\n  @OnEvent\n  failed(failed: BrowserCallFailed): void {\n    this.problem = failed.message;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/PlaceService.dart",
+              "code": "@Service\nclass PlaceService {\n  @Needs()\n  final Geolocation geolocation;\n  @Needs()\n  final Clipboard clipboard;\n  String place = '';\n  String problem = '';\n\n  void locate() => _keepProblem(() => geolocation.currentPosition());\n\n  void copy() => _keepProblem(() => clipboard.writeText(place));\n\n  @OnEvent\n  void found(PositionFound found) {\n    place = '${found.latitude}, ${found.longitude}';\n  }\n\n  @OnEvent\n  void failed(BrowserCallFailed failed) {\n    problem = failed.message;\n  }\n\n  void _keepProblem(void Function() call) {\n    try {\n      call();\n    } on StateError catch (refusal) {\n      problem = refusal.message;\n    }\n  }\n}\n"
+            },
+            {
+              "name": "client/services/PlaceService.go",
+              "code": "import \"fmt\"\n\n// @Service\ntype PlaceService struct {\n\tPlace   string\n\tProblem string\n\t// @Needs\n\tgeolocation Geolocation\n\t// @Needs\n\tclipboard Clipboard\n}\n\nfunc (service *PlaceService) Locate() {\n\tservice.keepProblem(service.geolocation.CurrentPosition())\n}\n\nfunc (service *PlaceService) Copy() {\n\tservice.keepProblem(service.clipboard.WriteText(service.Place))\n}\n\n// @OnEvent\nfunc (service *PlaceService) Found(found PositionFound) {\n\tservice.Place = fmt.Sprintf(\"%v, %v\", found.Latitude, found.Longitude)\n}\n\n// @OnEvent\nfunc (service *PlaceService) Failed(failed BrowserCallFailed) {\n\tservice.Problem = failed.Message\n}\n\nfunc (service *PlaceService) keepProblem(problem error) {\n\tif problem != nil {\n\t\tservice.Problem = problem.Error()\n\t}\n}\n"
+            },
+            {
+              "name": "client/services/PlaceService.rb",
+              "code": "#[Service]\nclass PlaceService\n  # @return [String]\n  attr_reader :place\n  # @return [String]\n  attr_reader :problem\n\n  def initialize\n    @geolocation = Geolocation.new\n    @clipboard = Clipboard.new\n    @place = \"\"\n    @problem = \"\"\n  end\n\n  # @return [void]\n  def locate\n    keep_problem { @geolocation.current_position }\n  end\n\n  # @return [void]\n  def copy\n    keep_problem { @clipboard.write_text(@place) }\n  end\n\n  # @param found [PositionFound]\n  # @return [void]\n  #[OnEvent]\n  def found(found)\n    @place = \"#{found.latitude}, #{found.longitude}\"\n  end\n\n  # @param failed [BrowserCallFailed]\n  # @return [void]\n  #[OnEvent]\n  def failed(failed)\n    @problem = failed.message\n  end\n\n  private\n\n  # @return [void]\n  def keep_problem\n    yield\n  rescue RuntimeError => refusal\n    @problem = refusal.message\n  end\nend\n"
+            },
+            {
+              "name": "client/services/PlaceService.kt",
+              "code": "@Service\nclass PlaceService {\n    private val geolocation = Geolocation()\n    private val clipboard = Clipboard()\n    var place: String = \"\"\n    var problem: String = \"\"\n\n    fun locate() {\n        keepProblem { geolocation.currentPosition() }\n    }\n\n    fun copy() {\n        keepProblem { clipboard.writeText(place) }\n    }\n\n    @OnEvent\n    fun found(found: PositionFound) {\n        place = \"${found.latitude}, ${found.longitude}\"\n    }\n\n    @OnEvent\n    fun failed(failed: BrowserCallFailed) {\n        problem = failed.message\n    }\n\n    private fun keepProblem(call: () -> Unit) {\n        try {\n            call()\n        } catch (refusal: IllegalStateException) {\n            problem = refusal.message.orEmpty()\n        }\n    }\n}\n"
+            },
+            {
+              "name": "client/services/PlaceService.cs",
+              "code": "[Service]\npublic class PlaceService\n{\n    private readonly Geolocation geolocation = new();\n    private readonly Clipboard clipboard = new();\n    public string Place = \"\";\n    public string Problem = \"\";\n\n    public void Locate() => KeepProblem(geolocation.CurrentPosition);\n\n    public void Copy() => KeepProblem(() => clipboard.WriteText(Place));\n\n    [OnEvent]\n    public void Found(PositionFound found)\n    {\n        Place = $\"{found.Latitude}, {found.Longitude}\";\n    }\n\n    [OnEvent]\n    public void Failed(BrowserCallFailed failed)\n    {\n        Problem = failed.Message;\n    }\n\n    private void KeepProblem(Action call)\n    {\n        try\n        {\n            call();\n        }\n        catch (InvalidOperationException refusal)\n        {\n            Problem = refusal.Message;\n        }\n    }\n}\n"
             }
           ]
         },
@@ -4511,7 +4663,16 @@
         },
         {
           "heading": "What a native service reaches",
-          "body": "Native services use their platform SDK (software development kit). They inject an ApplicationEventPublisher for local events that they own. They use OnEvent, and OnStart and OnStop for the lifecycle. Each example initializes the service and publishes a CatalogCount model. A listener updates the count, and cleanup resets it. Old callbacks from an earlier activation cannot change the owners that replaced it. A native service has no page, so it cannot use Tachyon's browser APIs (such as `Clock`, `Clipboard` or `Geolocation`) or listen for their built-in event models (such as `ConnectivityChanged`). The build refuses them in a service that is linked into the app (`TY1317`). Use them in a JavaScript, TypeScript or WebAssembly service, and send the result to the native service with an event.",
+          "notApplicable": [
+            "js",
+            "ts",
+            "dart",
+            "go",
+            "rb",
+            "java",
+            "fs"
+          ],
+          "body": "Native services use their platform SDK (software development kit). They inject an ApplicationEventPublisher for local events that they own. They use OnEvent, and OnStart and OnStop for the lifecycle. Each example initializes the service and publishes a CatalogCount model. A listener updates the count, and cleanup resets it. Old callbacks from an earlier activation cannot change the owners that replaced it. A native service has no page, so it cannot use Tachyon's browser APIs (such as `Clock`, `Clipboard` or `Geolocation`) or listen for their built-in event models (such as `ConnectivityChanged`). The build refuses them in a service that is linked into the app (`TY1317`). Use them in a JavaScript, TypeScript or WebAssembly service, and send the result to the native service with an event. Only Swift, Kotlin, C# and Rust services are linked into a native app. JavaScript, TypeScript, Dart, Go, Ruby, Java and F# services always run in the page, also inside a native app, so this section has no tab for them.",
           "axis": "language",
           "files": [
             {
@@ -10553,7 +10714,7 @@
           "heading": "Mapping: Tac",
           "axis": "language",
           "summary": "The same Converter and the same plan in the browser and on native targets. A view addresses a service, the service asks for the converter with Needs, and the converter carries the field plan.",
-          "body": "Select a language tab and copy the page, the component view and the two role files. JavaScript, TypeScript and Dart bundle for the web. Go and F# bundle for the web as WebAssembly. Swift, Kotlin, C# and Rust stage their native hosts. The view reads {catalog.title} from the service. A view can read only from a service (ADR 0030). The browser services ask for the converter with Needs: a Needs field, or a constructor parameter in F#. A converter needs no behavior context and no Setup, so Tachyon builds it and the service only maps. The native services stay plain types, as they do elsewhere in Tac. The compiler finds the annotated converter file and adds it to the same compile unit.\n\nThe annotation and its options are the same as in Yon. The converter is the same contract too, with a protocol in Swift, and a method body fails the build with TY1308. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.",
+          "body": "Select a language tab and copy the page, the component view and the two role files. JavaScript, TypeScript and Dart bundle for the web. Go, F#, Java and Ruby bundle for the web as WebAssembly. Swift, Kotlin, C# and Rust stage their native hosts. The view reads {catalog.title} from the service. A view can read only from a service (ADR 0030). The browser services ask for the converter with Needs: a Needs field, a `#[Needs]` `attr_reader` in Ruby, or a constructor parameter in F#. A converter needs no behavior context and no Setup, so Tachyon builds it and the service only maps. The native services stay plain types, as they do elsewhere in Tac. The compiler finds the annotated converter file and adds it to the same compile unit.\n\nThe annotation and its options are the same as in Yon. The converter is the same contract too, with a protocol in Swift, and a method body fails the build with TY1308. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -10634,6 +10795,22 @@
             {
               "name": "client/services/CatalogService.dart",
               "code": "@Service\nclass CatalogService {\n  @Needs\n  final ProductConverter converter;\n  String title = 'Not mapped.';\n\n  void load() {\n    final product = {\n      'detail': {'id': 7},\n      'name': 'Anvil',\n      'extra': 'dropped',\n    };\n    final summary = converter.toSummary(product) as Map;\n    title = '${summary['kind']} ${summary['productId']}: ${summary['title']}';\n  }\n}\n"
+            },
+            {
+              "name": "client/converters/ProductConverter.rb",
+              "code": "#[Converter]\nclass ProductConverter\n  # @param product [Hash]\n  # @return [Hash]\n  #[Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})]\n  def to_summary(product)\n  end\nend\n"
+            },
+            {
+              "name": "client/services/CatalogService.rb",
+              "code": "#[Service]\nclass CatalogService\n  #[Needs]\n  # @return [ProductConverter]\n  attr_reader :product_converter\n  # @return [String]\n  attr_reader :title\n\n  def initialize\n    @title = \"Not mapped.\"\n  end\n\n  # @return [void]\n  def load\n    product = { \"detail\" => { \"id\" => 7 }, \"name\" => \"Anvil\", \"extra\" => \"dropped\" }\n    @title = title_of(product_converter.to_summary(product))\n  end\n\n  private\n\n  # @param summary [Hash]\n  # @return [String]\n  def title_of(summary)\n    \"#{summary[\"kind\"]} #{summary[\"productId\"]}: #{summary[\"title\"]}\"\n  end\nend\n"
+            },
+            {
+              "name": "client/converters/ProductConverter.java",
+              "code": "@Converter\ninterface ProductConverter {\n    @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n    Object toSummary(Object product);\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.java",
+              "code": "@Service\nclass CatalogService {\n    @Needs\n    ProductConverter productConverter;\n    String title = \"Not mapped.\";\n\n    void load() {\n        Object summary = productConverter.toSummary(java.util.Map.of(\n            \"detail\", java.util.Map.of(\"id\", 7), \"name\", \"Anvil\", \"extra\", \"dropped\"));\n        title = titleOf((java.util.Map<?, ?>) summary);\n    }\n\n    private String titleOf(java.util.Map<?, ?> summary) {\n        return summary.get(\"kind\") + \" \" + summary.get(\"productId\") + \": \" + summary.get(\"title\");\n    }\n}\n"
             }
           ]
         },
