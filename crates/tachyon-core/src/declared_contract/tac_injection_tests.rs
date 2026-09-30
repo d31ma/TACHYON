@@ -44,7 +44,7 @@ impl TacInjection {
         (
             "go",
             "// @Service\ntype ProductService struct {\n\t// @Needs\n\tproducts *ProductStore\n\tSummary string\n}\n",
-            "\tproducts *ProductStore\n\tSummary string\n}\n\nfunc (service *ProductService) tachyonStores() error {\n\tproducts, err := NewProductStore()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.products = products\n\treturn nil\n}\n",
+            "\tproducts *ProductStore\n\tSummary string\n}\n\nfunc (service *ProductService) tachyonNeeds() error {\n\tproducts, err := NewProductStore()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.products = products\n\treturn nil\n}\n",
         ),
         (
             "rb",

@@ -119,9 +119,9 @@ pub(crate) fn owner_table(table: &GoTable<'_>) -> Result<String, Failure> {
     if entries.is_empty() && table.extra.trim().is_empty() {
         return Err(super::exposes_nothing(table.source_path, table.class));
     }
-    let start = crate::declared_contract::DeclaredContract::GO_STORE_START;
-    let starts_stores = code.contains(&format!("func (service *{}) {start}() error", table.class));
-    let injection = if starts_stores {
+    let start = crate::declared_contract::DeclaredContract::GO_NEEDS_START;
+    let starts_needs = code.contains(&format!("func (service *{}) {start}() error", table.class));
+    let injection = if starts_needs {
         format!("\tif err := instance.{start}(); err != nil {{\n\t\tpanic(err)\n\t}}\n")
     } else {
         String::new()

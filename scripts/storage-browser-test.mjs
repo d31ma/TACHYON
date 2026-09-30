@@ -23,6 +23,7 @@ class StorageGate {
   static withSwift = swiftWebAvailable();
   static withJava = javaWebAvailable();
   static scriptBudgetKilobytes = 320;
+  static mappedNote = JSON.stringify({ kind: 'note', title: 'mapped' });
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' };
 
   static open(name, project) {
@@ -49,6 +50,10 @@ class StorageGate {
 class ApiRequests {
   static counter = 0;
   static rangeRequests = 0;
+}
+
+function summaryText(summary) {
+  return JSON.stringify(typeof summary === 'string' ? JSON.parse(summary) : summary);
 }
 
 function write(project, relative, contents) {
@@ -93,11 +98,19 @@ type GoNoteStore interface {
 \tFindByText(text BehaviorValue) (BehaviorValue, error)
 }
 `);
+  write(project, 'client/converters/GoNoteConverter.go', `// @Converter
+type GoNoteConverter interface {
+\t// @Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})
+\tToSummary(note BehaviorValue) (BehaviorValue, error)
+}
+`);
   write(project, 'client/services/GoNotesService.go', `// @CacheSettings({"name":"gonotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 type GoNotesService struct {
 \tbehaviors *BehaviorContext
 \t// @Needs
 \tnoteStore *GoNoteStore
+\t// @Needs
+\tnoteConverter *GoNoteConverter
 \tReads     int
 \t// @LocalState
 \tCount int
@@ -105,6 +118,10 @@ type GoNotesService struct {
 
 func (notes *GoNotesService) Kept() (BehaviorValue, error) {
 \treturn notes.noteStore.FindByText("kept")
+}
+
+func (notes *GoNotesService) Titled() (BehaviorValue, error) {
+\treturn notes.noteConverter.ToSummary(map[string]any{"body": "mapped", "extra": 1})
 }
 
 func (notes *GoNotesService) Increment() int {
@@ -157,6 +174,13 @@ class RubyNoteStore
   end
 end
 `);
+  write(project, 'client/converters/RubyNoteConverter.rb', `#[Converter]
+class RubyNoteConverter
+  #[Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})]
+  def to_summary(note)
+  end
+end
+`);
   write(project, 'client/services/RubyNotesService.rb', `#[Service]
 #[CacheSettings({"name":"rubynotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
 class RubyNotesService
@@ -167,6 +191,13 @@ class RubyNotesService
 
   def kept
     ruby_note_store.find_by_text("kept")
+  end
+  #[Needs]
+  # @return [RubyNoteConverter]
+  attr_reader :ruby_note_converter
+
+  def titled
+    ruby_note_converter.to_summary({ "body" => "mapped", "extra" => 1 })
   end
   #[LocalState]
   attr_accessor :count
@@ -233,6 +264,12 @@ trait RsNoteStore {
     fn count_by_text(&self, text: BehaviorValue) -> BehaviorResult<BehaviorValue>;
 }
 `);
+  write(project, 'client/converters/RsNoteConverter.rs', `#[Converter]
+trait RsNoteConverter {
+    #[Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})]
+    fn to_summary(&self, note: BehaviorValue) -> BehaviorResult<BehaviorValue>;
+}
+`);
   write(project, 'client/services/RsCounterService.rs', `#[Service]
 #[derive(Default)]
 struct RsCounterService {
@@ -240,6 +277,8 @@ struct RsCounterService {
     count: i64,
     #[Needs]
     note_store: std::sync::Arc<RsNoteStore>,
+    #[Needs]
+    note_converter: std::sync::Arc<RsNoteConverter>,
 }
 
 impl RsCounterService {
@@ -248,6 +287,11 @@ impl RsCounterService {
             Ok(BehaviorValue::Number(count)) => count,
             _ => -1.0,
         }
+    }
+
+    fn titled(&self) -> String {
+        let note = BehaviorValue::object([("body", BehaviorValue::String(String::from("mapped"))), ("extra", BehaviorValue::Number(1.0))]);
+        self.note_converter.to_summary(note).ok().and_then(|summary| summary.to_json(1024).ok()).unwrap_or_default()
     }
 
     fn increment(&mut self) -> i64 {
@@ -285,6 +329,12 @@ protocol SwiftNoteStore {
     func findByText(_ text: BehaviorJSON) async throws -> BehaviorJSON
 }
 `);
+  write(project, 'client/converters/SwiftNoteConverter.swift', `@Converter
+protocol SwiftNoteConverter {
+    @Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})
+    func toSummary(_ note: BehaviorJSON) throws -> BehaviorJSON
+}
+`);
   write(project, 'client/services/SwiftCounterService.swift', `@Service
 @CacheSettings({"name":"swiftnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 final class SwiftCounterService {
@@ -294,9 +344,15 @@ final class SwiftCounterService {
     private var reads: Int = 0
     @Needs
     let noteStore: SwiftNoteStore
+    @Needs
+    let noteConverter: SwiftNoteConverter
 
     func kept() async throws -> BehaviorJSON {
         try await noteStore.findByText(.string("kept"))
+    }
+
+    func titled() throws -> BehaviorJSON {
+        try noteConverter.toSummary(.object(["body": .string("mapped"), "extra": .number(1)]))
     }
 
     @OnStart
@@ -368,6 +424,12 @@ interface JavaNoteStore {
     Object findByText(String text);
 }
 `);
+  write(project, 'client/converters/JavaNoteConverter.java', `@Converter
+interface JavaNoteConverter {
+    @Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})
+    Object toSummary(Object note);
+}
+`);
   write(project, 'client/services/JavaCounterService.java', `import java.util.Map;
 
 @Service
@@ -379,9 +441,15 @@ class JavaCounterService {
     private long reads = 0;
     @Needs
     JavaNoteStore noteStore;
+    @Needs
+    JavaNoteConverter noteConverter;
 
     Object kept() {
         return noteStore.findByText("kept");
+    }
+
+    Object titled() {
+        return noteConverter.toSummary(Map.of("body", "mapped", "extra", 1));
     }
 
     @OnStart
@@ -460,6 +528,12 @@ interface KtNoteStore {
     fun findByText(text: String): Any?
 }
 `);
+  write(project, 'client/converters/KtNoteConverter.kt', `@Converter
+interface KtNoteConverter {
+    @Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})
+    fun toSummary(note: Any?): Any?
+}
+`);
   write(project, 'client/services/KtNotesService.kt', `@Service
 @CacheSettings({"name":"ktnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 class KtNotesService {
@@ -467,8 +541,12 @@ class KtNotesService {
     var reads: Long = 0
     @Needs
     val noteStore: KtNoteStore
+    @Needs
+    val noteConverter: KtNoteConverter
 
     fun kept(): Any? = noteStore.findByText("kept")
+
+    fun titled(): Any? = noteConverter.toSummary(mapOf("body" to "mapped", "extra" to 1))
     @LocalState
     var count: Long = 0
 
@@ -534,6 +612,12 @@ public interface CsNoteStore {
     System.Threading.Tasks.Task<BehaviorJSON> findByText(BehaviorJSON text);
 }
 `);
+  write(project, 'client/converters/CsNoteConverter.cs', `[Converter]
+public interface CsNoteConverter {
+    [Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})]
+    BehaviorJSON toSummary(BehaviorJSON note);
+}
+`);
   write(project, 'client/services/CsNotesService.cs', `[Service]
 [CacheSettings({"name":"csnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})]
 public sealed class CsNotesService {
@@ -541,9 +625,16 @@ public sealed class CsNotesService {
     public int reads = 0;
     [Needs]
     CsNoteStore _noteStore;
+    [Needs]
+    CsNoteConverter _noteConverter;
 
     public System.Threading.Tasks.Task<BehaviorJSON> kept() {
         return _noteStore.findByText(BehaviorJSON.From("kept"));
+    }
+
+    public System.Threading.Tasks.Task<BehaviorJSON> titled() {
+        var note = BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["body"] = BehaviorJSON.From("mapped"), ["extra"] = BehaviorJSON.From(1) });
+        return System.Threading.Tasks.Task.FromResult(_noteConverter.toSummary(note));
     }
     [LocalState]
     public int count = 0;
@@ -608,10 +699,15 @@ type JournalStore =
 
     abstract findByText: text: BehaviorJSON -> Task<BehaviorJSON>
 `);
+  write(project, 'client/converters/JournalConverter.fs', `[<Converter>]
+type JournalConverter =
+    [<Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})>]
+    abstract toSummary: note: BehaviorJSON -> BehaviorJSON
+`);
   write(project, 'client/services/JournalService.fs', `open System.Threading.Tasks
 
 [<Service>]
-type JournalService(entries: JournalStore) =
+type JournalService(entries: JournalStore, converter: JournalConverter) =
     member val label : string = "F# journal" with get, set
 
     [<LocalState>]
@@ -625,6 +721,9 @@ type JournalService(entries: JournalStore) =
         entries.save(BehaviorJSON.Object(dict [ "id", id; "text", text ]))
 
     member this.kept() : Task<BehaviorJSON> = entries.findByText(BehaviorJSON.From("kept"))
+
+    member this.titled() : Task<BehaviorJSON> =
+        Task.FromResult(converter.toSummary(BehaviorJSON.Object(dict [ "body", BehaviorJSON.From("mapped"); "extra", BehaviorJSON.From(1) ])))
 `);
   write(project, 'client/components/storage/journal/tac.html', '<p id="journal">{journal.label}</p>\n<button id="journal-bump" on:click="journal.increment()">+</button>\n<p id="journal-count">{journal.count}</p>\n');
 }
@@ -788,6 +887,12 @@ class NoteStore extends Repository {
   if (StorageGate.withJava) writeJavaFixture(project);
   write(project, 'client/components/storage/notes/tac.html', '<p id="notes">{storageNotes.label}</p>\n');
   write(project, 'client/components/storage/store/tac.html', '<p id="store-notes">{storeNotes.label}</p>\n');
+  write(project, 'client/converters/NoteConverter.js', `@Converter
+export default class NoteConverter {
+  @Convert({"fields":[{"target":"kind","constant":"note"},{"source":"body","target":"title"}]})
+  async toSummary(note) {}
+}
+`);
   write(project, 'client/services/StoreNotesService.js', `@Service
 export default class StoreNotesService {
   static OPEN = 'open';
@@ -798,7 +903,14 @@ export default class StoreNotesService {
   /** @type {NoteStore} */
   @Needs
   noteStore;
+  /** @type {NoteConverter} */
+  @Needs
+  noteConverter;
   label = 'store';
+
+  async titled() {
+    return this.noteConverter.toSummary({ body: 'mapped', extra: 1 });
+  }
 
   async report() {
     return {
@@ -1047,6 +1159,7 @@ async function checkIndexedStore(browser, origin) {
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await notes(reports)), JSON.stringify({ open: ['a', 'd', 'y', 'z'], count: 4, ranked: ['y', 'a'], page: ['d', 'y'] }), 'rows survive a reload; a failed AllOrNothing wrote nothing and a finished one wrote everything');
   expect(JSON.stringify(await notes(() => __root('storeNotes').repository())), JSON.stringify({ saved: 'r', found: 'r', firstPage: 1, removed: 1, missing: null }), 'a NoteStore that extends Repository saves, finds by id, pages and deletes by a derived query in IndexedDB');
+  expect(summaryText(await notes(() => __root('storeNotes').titled())), StorageGate.mappedNote, 'a JavaScript service that needs NoteConverter maps through the converter, which needs no context');
   await context.close();
 
   const changed = await browser.newContext();
@@ -1078,6 +1191,9 @@ async function checkWebAssemblyStorage(browser, origin) {
   expect(JSON.stringify(await evaluate(() => __root('goNotes').find('b'))), JSON.stringify({ key: 'b', reads: 2 }), 'the Go cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').list())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'the Go Store row survives a reload through the IndexedDB copy');
   expect(JSON.stringify(await evaluate(() => __root('goNotes').kept())), JSON.stringify([{ id: 'g1', text: 'kept' }]), 'a Go service that needs GoNoteStore reads through the store, which opens the context of its Setup');
+  expect(summaryText(await evaluate(() => __root('goNotes').titled())), StorageGate.mappedNote, 'a Go service that needs GoNoteConverter maps through the converter, which needs no context');
+  expect(summaryText(await evaluate(() => __root('rsCounter').titled())), StorageGate.mappedNote, 'a Rust service that needs RsNoteConverter maps through the converter, which needs no context');
+  expect(summaryText(await evaluate(() => __root('rubyNotes').titled())), StorageGate.mappedNote, 'a Ruby service that needs RubyNoteConverter maps through the converter, which needs no context');
   expect(await evaluate(() => __root('rsCounter').keptCount()), 0, 'a Rust service that needs RsNoteStore counts through the store, which opens the context of its Setup');
   expect(JSON.stringify(await evaluate(() => [__root('rubyNotes').find('a'), __root('rubyNotes').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Ruby WebAssembly service reads its Cached value synchronously from memory');
   await evaluate(() => __root('rubyNotes').forget('a'));
@@ -1133,11 +1249,13 @@ async function checkCSharpStorage(page, evaluate) {
   expect(JSON.stringify(await evaluate(() => __root('csNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the C# cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').list())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'the C# Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').kept())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'a C# service that needs CsNoteStore reads through the store, which opens the context of its Setup');
+  expect(summaryText(await evaluate(() => __root('csNotes').titled())), StorageGate.mappedNote, 'a C# service that needs CsNoteConverter maps through the converter, which needs no context');
 }
 
 async function checkFsharpStorage(evaluate) {
   await evaluate(() => __root('journal').keep('f1', 'kept'));
   expect(JSON.stringify(await evaluate(() => __root('journal').kept())), JSON.stringify([{ id: 'f1', text: 'kept' }]), 'an F# service whose constructor takes JournalStore saves and reads through the store, which extends Repository and opens the context of its Setup');
+  expect(summaryText(await evaluate(() => __root('journal').titled())), StorageGate.mappedNote, 'an F# service whose constructor takes JournalConverter maps through the converter, which needs no context');
 }
 
 async function checkKotlinStorage(page, evaluate) {
@@ -1152,6 +1270,7 @@ async function checkKotlinStorage(page, evaluate) {
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Kotlin cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').list())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'the Kotlin Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('ktNotes').kept())), JSON.stringify([{ id: 'k1', text: 'kept' }]), 'a Kotlin service that needs KtNoteStore reads through the store, which opens the context of its Setup');
+  expect(summaryText(await evaluate(() => __root('ktNotes').titled())), StorageGate.mappedNote, 'a Kotlin service that needs KtNoteConverter maps through the converter, which needs no context');
 }
 
 async function checkSwiftStorage(page, evaluate) {
@@ -1166,6 +1285,7 @@ async function checkSwiftStorage(page, evaluate) {
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Swift cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').list())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'the Swift Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').kept())), JSON.stringify([{ id: 's1', text: 'kept' }]), 'a Swift service that needs SwiftNoteStore reads through the store, which opens the context of its Setup');
+  expect(summaryText(await evaluate(() => __root('swiftCounter').titled())), StorageGate.mappedNote, 'a Swift service that needs SwiftNoteConverter maps through the converter, which needs no context');
 }
 
 async function checkJavaStorage(page, evaluate) {
@@ -1180,6 +1300,7 @@ async function checkJavaStorage(page, evaluate) {
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the Java cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').list())), JSON.stringify([{ id: 'j1', text: 'kept' }]), 'the Java Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('javaCounter').kept())), JSON.stringify([{ id: 'j1', text: 'kept' }]), 'a Java service that needs JavaNoteStore reads through the store, which opens the context of its Setup');
+  expect(summaryText(await evaluate(() => __root('javaCounter').titled())), StorageGate.mappedNote, 'a Java service that needs JavaNoteConverter maps through the converter, which needs no context');
 }
 
 async function checkInjectedClients(page) {

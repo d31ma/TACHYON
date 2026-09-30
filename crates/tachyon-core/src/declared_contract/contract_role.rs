@@ -31,7 +31,8 @@ impl ContractRole {
     const STORE_CALLS: [&'static str; 1] = ["query"];
     const CONVERTER_CALLS: [&'static str; 1] = ["convert"];
     const EVERY_LANGUAGE: [&'static str; 0] = [];
-    const INJECTED_CLASS_LANGUAGES: [&'static str; 7] = ["java", "groovy", "kt", "cs", "php", "dart", "rs"];
+    const INJECTED_CLASS_LANGUAGES: [&'static str; 8] =
+        ["java", "groovy", "kt", "cs", "php", "dart", "rs", "go"];
     const CLIENT: Self = Self {
         marker: "HTTPClient",
         titled: "An HTTPClient",

@@ -1,11 +1,11 @@
 use super::constructor_parameter::ConstructorParameter;
 use std::path::Path;
 
-pub(crate) struct FsharpInjectedStore<'a> {
-    stores: &'a [String],
+pub(crate) struct FsharpInjectedContract<'a> {
+    contracts: &'a [String],
 }
 
-impl<'a> FsharpInjectedStore<'a> {
+impl<'a> FsharpInjectedContract<'a> {
     const EXTENSION: &'static str = "fs";
     const TYPE_WORD: &'static str = "type ";
     const OPEN: char = '(';
@@ -17,10 +17,10 @@ impl<'a> FsharpInjectedStore<'a> {
     const OPENERS: [char; 3] = ['(', '<', '['];
     const CLOSERS: [char; 3] = [')', '>', ']'];
 
-    pub(crate) fn filled(path: &Path, source: &str, stores: &'a [String]) -> Option<String> {
+    pub(crate) fn filled(path: &Path, source: &str, contracts: &'a [String]) -> Option<String> {
         let fsharp = path.extension().and_then(|value| value.to_str()) == Some(Self::EXTENSION);
         fsharp.then_some(())?;
-        let injected = Self { stores };
+        let injected = Self { contracts };
         let lines: Vec<&str> = source.split_inclusive('\n').collect();
         let written: Vec<Option<String>> = (0..lines.len())
             .map(|at| injected.header(&lines, at))
@@ -42,13 +42,17 @@ impl<'a> FsharpInjectedStore<'a> {
         (open < equals).then_some(())?;
         let close = Self::group_end(line, open)?;
         let parameters = Self::parameters(&line[open + 1..close]);
-        let (stores, kept): (Vec<_>, Vec<_>) = parameters
+        let (injected, kept): (Vec<_>, Vec<_>) = parameters
             .iter()
-            .partition(|parameter| self.stores.iter().any(|store| store == parameter.type_name));
-        (!stores.is_empty()).then_some(())?;
+            .partition(|parameter| {
+                self.contracts
+                    .iter()
+                    .any(|contract| contract == parameter.type_name)
+            });
+        (!injected.is_empty()).then_some(())?;
         let kept: Vec<&str> = kept.iter().map(|parameter| parameter.text).collect();
         let indent = Self::body_indent(&lines[at + 1..]);
-        let bindings: String = stores
+        let bindings: String = injected
             .iter()
             .map(|parameter| {
                 Self::BINDING

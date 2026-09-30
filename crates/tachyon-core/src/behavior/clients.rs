@@ -20,7 +20,7 @@ pub(super) fn plan(
             providers.insert(item.name.clone());
         }
     }
-    providers.extend(needed_stores(input, registrations, environment, resources)?);
+    providers.extend(needed_contracts(input, registrations, environment, resources)?);
     if providers.is_empty() {
         return Ok(None);
     }
@@ -61,19 +61,19 @@ fn is_provider(item: &Registration, environment: &str) -> bool {
     item.markers.contains("Helper")
 }
 
-fn needed_stores(
+fn needed_contracts(
     input: &Input<'_>,
     registrations: &[Registration],
     environment: &str,
     resources: &BTreeMap<String, BTreeSet<String>>,
 ) -> Result<BTreeSet<String>, Failure> {
-    let stores: BTreeSet<String> = registrations
+    let contracts: BTreeSet<String> = registrations
         .iter()
-        .filter(|item| item.data.contains_key("repositoryRole"))
+        .filter(|item| is_injected_contract(item))
         .map(|item| item.name.clone())
         .collect();
     let mut needed = BTreeSet::new();
-    if environment != "tac" || stores.is_empty() {
+    if environment != "tac" || contracts.is_empty() {
         return Ok(needed);
     }
     for item in registrations
@@ -85,11 +85,17 @@ fn needed_stores(
             let qualifier = qualifiers
                 .and_then(|qualifiers| qualifiers.get(&field))
                 .and_then(serde_json::Value::as_str);
-            let matched = matching_providers(&stores, qualifier, &field_type, &field);
+            let matched = matching_providers(&contracts, qualifier, &field_type, &field);
             needed.extend(matched.into_iter().cloned());
         }
     }
     Ok(needed)
+}
+
+fn is_injected_contract(item: &Registration) -> bool {
+    ["repositoryRole", "mapper"]
+        .iter()
+        .any(|key| item.data.contains_key(*key))
 }
 
 fn default_class_name(

@@ -101,7 +101,7 @@ impl ContextTemplate {
         ),
         Self::new("rs-bare", "", "fn new() -> Self { Self }"),
     ];
-    const GO_TEMPLATES: [Self; 2] = [
+    const GO_TEMPLATES: [Self; 3] = [
         Self::new(
             "go-yon",
             "",
@@ -111,6 +111,11 @@ impl ContextTemplate {
             "go-tac",
             "",
             "func New{owner}() (*{owner}, error) {\n\tcontext, err := BehaviorsCreate[{setup}](NewBehaviorOptions(\"{partition}\", NewBehaviorSignal()))\n\treturn &{owner}{behaviors: context}, err\n}",
+        ),
+        Self::new(
+            "go-bare",
+            "",
+            "func New{owner}() (*{owner}, error) {\n\treturn &{owner}{}, nil\n}",
         ),
     ];
     const EMPTY: Self = Self::new("", "", "");

@@ -1,12 +1,12 @@
-use super::injected_store::InjectedStore;
+use super::injected_contract::InjectedContract;
 
-pub(super) struct StoreField {
+pub(super) struct InjectedField {
     indent: String,
     name: String,
     pub(super) type_name: String,
 }
 
-impl StoreField {
+impl InjectedField {
     const TYPED_PUNCTUATION: [char; 4] = ['!', '?', ';', ','];
     const POINTER: char = '*';
     const SHARED: [&'static str; 2] = ["std::sync::Arc<", "Arc<"];
@@ -19,8 +19,8 @@ impl StoreField {
         let indent = &line[..line.len() - line.trim_start().len()];
         let words: Vec<&str> = line
             .split_whitespace()
-            .skip_while(|word| InjectedStore::MODIFIERS.contains(word))
-            .skip_while(|word| InjectedStore::KEYWORDS.contains(word))
+            .skip_while(|word| InjectedContract::MODIFIERS.contains(word))
+            .skip_while(|word| InjectedContract::KEYWORDS.contains(word))
             .collect();
         let declaration = words.join(" ");
         let (name, type_name) = declaration

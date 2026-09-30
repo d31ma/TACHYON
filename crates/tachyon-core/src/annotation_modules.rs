@@ -56,7 +56,7 @@ pub(crate) fn assemble(
         return Ok(None);
     }
     refuse_tac_helpers(&modules, extension, environment)?;
-    let injected = injected_stores(entry, source, &modules, environment);
+    let injected = injected_contracts(entry, source, &modules, environment);
     let source = injected.as_deref().unwrap_or(source);
     let output = if extension == "go" {
         compose_go(entry, source, &modules)?
@@ -71,17 +71,17 @@ pub(crate) fn assemble(
     Ok(Some(output))
 }
 
-fn injected_stores(
+fn injected_contracts(
     entry: &Path,
     source: &str,
     modules: &[Module],
     environment: &str,
 ) -> Option<String> {
     let paths = modules.iter().map(|module| module.path.as_path());
-    let stores = crate::declared_contract::DeclaredContract::store_names(paths);
-    let wanted = [environment == "tac", !stores.is_empty()] == [true, true];
+    let contracts = crate::declared_contract::DeclaredContract::injected_names(paths);
+    let wanted = [environment == "tac", !contracts.is_empty()] == [true, true];
     wanted
-        .then(|| crate::declared_contract::DeclaredContract::injected(entry, source, &stores))
+        .then(|| crate::declared_contract::DeclaredContract::injected(entry, source, &contracts))
         .flatten()
 }
 

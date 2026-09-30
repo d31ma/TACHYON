@@ -14,18 +14,18 @@ mod fsharp_class_type;
 mod fsharp_contract;
 mod fsharp_contract_rewrite;
 mod fsharp_declaration;
-mod fsharp_injected_store;
+mod fsharp_injected_contract;
 mod go_contract_rewrite;
 mod go_method;
 mod indented_members;
 mod indented_syntax;
-mod injected_store;
+mod injected_contract;
 mod marker_line;
 mod member_indent;
 mod member_scanner;
 mod repository_base;
 mod rust_contract_rewrite;
-mod store_field;
+mod injected_field;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -50,15 +50,15 @@ use contract_rewrite::ContractRewrite;
 pub(crate) use contract_rewrite::SourceEdit;
 use fsharp_contract::FsharpContract;
 use fsharp_contract_rewrite::FsharpContractRewrite;
-use fsharp_injected_store::FsharpInjectedStore;
-use injected_store::InjectedStore;
+use fsharp_injected_contract::FsharpInjectedContract;
+use injected_contract::InjectedContract;
 use std::path::Path;
 
 pub(crate) struct DeclaredContract;
 
 impl DeclaredContract {
     pub(crate) const STORE_CONTEXT: &'static str = "tachyonContext";
-    pub(crate) const GO_STORE_START: &'static str = InjectedStore::GO_START;
+    pub(crate) const GO_NEEDS_START: &'static str = InjectedContract::GO_START;
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
         ContractCheck::check(path, source)
@@ -69,13 +69,13 @@ impl DeclaredContract {
             .unwrap_or_else(|| ContractRewrite::edits(path, source))
     }
 
-    pub(crate) fn store_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
-        InjectedStore::store_names(paths)
+    pub(crate) fn injected_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
+        InjectedContract::injected_names(paths)
     }
 
-    pub(crate) fn injected(path: &Path, source: &str, stores: &[String]) -> Option<String> {
-        FsharpInjectedStore::filled(path, source, stores)
-            .or_else(|| InjectedStore::filled(path, source, stores))
+    pub(crate) fn injected(path: &Path, source: &str, contracts: &[String]) -> Option<String> {
+        FsharpInjectedContract::filled(path, source, contracts)
+            .or_else(|| InjectedContract::filled(path, source, contracts))
     }
 
     pub(crate) fn concrete(path: &Path, source: &str, environment: &str) -> Option<String> {

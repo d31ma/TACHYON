@@ -1,15 +1,15 @@
-use super::store_field::StoreField;
+use super::injected_field::InjectedField;
 use std::path::Path;
 
-pub(crate) struct InjectedStore<'a> {
+pub(crate) struct InjectedContract<'a> {
     language: &'static str,
     marker: &'static str,
     filled: &'static str,
-    stores: &'a [String],
+    contracts: &'a [String],
 }
 
-impl<'a> InjectedStore<'a> {
-    pub(crate) const GO_START: &'static str = "tachyonStores";
+impl<'a> InjectedContract<'a> {
+    pub(crate) const GO_START: &'static str = "tachyonNeeds";
     const FORMS: [(&'static str, &'static str, &'static str); 7] = [
         (
             "kt",
@@ -52,7 +52,7 @@ impl<'a> InjectedStore<'a> {
     ];
     pub(super) const KEYWORDS: [&'static str; 3] = ["val", "var", "let"];
     const EMPTY_ARGUMENTS: &'static str = "()";
-    const STORE_FOLDER: &'static str = "client/stores";
+    const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const GO: &'static str = "go";
     const RUBY: &'static str = "rb";
     const RUBY_COMMENT: &'static str = "# ";
@@ -60,14 +60,18 @@ impl<'a> InjectedStore<'a> {
         "\nfunc (service *{owner}) {start}() error {\n{assignments}\treturn nil\n}\n";
     const GO_ASSIGNMENT: &'static str = "\t{name}, err := New{type}()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.{name} = {name}\n";
 
-    pub(crate) fn store_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
+    pub(crate) fn injected_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
         paths
-            .filter(|path| path.parent() == Some(Path::new(Self::STORE_FOLDER)))
+            .filter(|path| {
+                Self::INJECTED_FOLDERS
+                    .iter()
+                    .any(|folder| path.parent() == Some(Path::new(folder)))
+            })
             .filter_map(|path| path.file_stem()?.to_str().map(str::to_owned))
             .collect()
     }
 
-    pub(crate) fn filled(path: &Path, source: &str, stores: &'a [String]) -> Option<String> {
+    pub(crate) fn filled(path: &Path, source: &str, contracts: &'a [String]) -> Option<String> {
         let language = path.extension()?.to_str()?;
         let owner = path.file_stem()?.to_str()?;
         let (form, marker, filled) = Self::FORMS.iter().find(|(form, _, _)| *form == language)?;
@@ -75,14 +79,14 @@ impl<'a> InjectedStore<'a> {
             language: form,
             marker,
             filled,
-            stores,
+            contracts,
         };
         injected.rewritten(source, owner)
     }
 
     fn rewritten(&self, source: &str, owner: &str) -> Option<String> {
         let lines: Vec<&str> = source.split('\n').collect();
-        let edits: Vec<(usize, usize, StoreField)> = (0..lines.len())
+        let edits: Vec<(usize, usize, InjectedField)> = (0..lines.len())
             .filter(|at| self.is_marker(lines[*at]))
             .filter_map(|at| self.edit(&lines, at))
             .collect();
@@ -91,12 +95,12 @@ impl<'a> InjectedStore<'a> {
             .enumerate()
             .map(|(at, line)| self.written_line(at, line, &edits))
             .collect();
-        let fields: Vec<&StoreField> = edits.iter().map(|(_, _, field)| field).collect();
+        let fields: Vec<&InjectedField> = edits.iter().map(|(_, _, field)| field).collect();
         let start = self.go_start(owner, &fields);
         (!edits.is_empty()).then(|| format!("{}{start}", written.join("\n")))
     }
 
-    fn written_line(&self, at: usize, line: &str, edits: &[(usize, usize, StoreField)]) -> String {
+    fn written_line(&self, at: usize, line: &str, edits: &[(usize, usize, InjectedField)]) -> String {
         let marker = edits
             .iter()
             .any(|(marker_at, _, _)| *marker_at == at)
@@ -114,14 +118,14 @@ impl<'a> InjectedStore<'a> {
         [Some(""), Some(Self::EMPTY_ARGUMENTS)].contains(&arguments)
     }
 
-    fn edit(&self, lines: &[&str], marker_at: usize) -> Option<(usize, usize, StoreField)> {
+    fn edit(&self, lines: &[&str], marker_at: usize) -> Option<(usize, usize, InjectedField)> {
         let field_at = (marker_at + 1..lines.len()).find(|at| self.is_field(lines[*at]))?;
         let field = if self.language == Self::RUBY {
-            StoreField::read_ruby(&lines[marker_at + 1..field_at], lines[field_at])?
+            InjectedField::read_ruby(&lines[marker_at + 1..field_at], lines[field_at])?
         } else {
-            StoreField::read(lines[field_at], self.language == Self::GO)?
+            InjectedField::read(lines[field_at], self.language == Self::GO)?
         };
-        self.stores
+        self.contracts
             .contains(&field.type_name)
             .then_some((marker_at, field_at, field))
     }
@@ -135,7 +139,7 @@ impl<'a> InjectedStore<'a> {
         [trimmed.is_empty(), documentation] == [false, false]
     }
 
-    fn go_start(&self, owner: &str, fields: &[&StoreField]) -> String {
+    fn go_start(&self, owner: &str, fields: &[&InjectedField]) -> String {
         let assignments: String = fields
             .iter()
             .map(|field| field.filled(Self::GO_ASSIGNMENT))
