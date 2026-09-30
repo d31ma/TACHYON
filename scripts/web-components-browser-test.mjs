@@ -16,7 +16,11 @@ class WebComponentsGate {
   static browsers = [chromium, firefox, webkit]
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static counter = 'shop-counter'
-  static tally = 'shop-tally'
+  static compiledServices = [
+    { language: 'Rust', tag: 'shop-tally', count: '#tally', add: '#tally-add', event: 'heardTally', runtime: 'tachyon-rust.js' },
+    { language: 'Go', tag: 'shop-steps', count: '#steps', add: '#steps-add', event: 'heardSteps', runtime: 'tachyon-go.js' },
+    { language: 'Ruby', tag: 'shop-bell', count: '#rings', add: '#bell-ring', event: null, runtime: 'tachyon-ruby-services.js' },
+  ]
   static typescript = createRequire(import.meta.url).resolve('typescript/bin/tsc')
   static typedConsumer = `import type { ShopCounterElement } from './dist/.tachyon/elements/shop-counter.js'
 const counter: ShopCounterElement | null = document.querySelector('shop-counter')
@@ -40,10 +44,15 @@ export {}
   <title>Plain host page</title>
   <script type="module" src="/.tachyon/elements/shop-counter.js"></script>
   <script type="module" src="/.tachyon/elements/shop-tally.js"></script>
+  <script type="module" src="/.tachyon/elements/shop-steps.js"></script>
+  <script type="module" src="/.tachyon/elements/shop-bell.js"></script>
 </head>
 <body>
   <shop-counter label="Apples" start="5"><span id="slotted">Fresh today</span><em id="named" slot="title">Apple of the day</em></shop-counter>
   <shop-tally></shop-tally>
+  <shop-tally id="second-tally"></shop-tally>
+  <shop-steps></shop-steps>
+  <shop-bell></shop-bell>
   <p id="heard">-</p>
   <script>
     document.addEventListener('count-changed', (event) => {
@@ -52,6 +61,9 @@ export {}
     })
     document.addEventListener('tally-changed', (event) => {
       window.heardTally = { count: event.detail.count, target: event.target.localName }
+    })
+    document.addEventListener('steps-changed', (event) => {
+      window.heardSteps = { count: event.detail.count, target: event.target.localName }
     })
   </script>
 </body>
@@ -70,7 +82,7 @@ export {}
 
   static writeFixture() {
     rmSync(WebComponentsGate.project, { recursive: true, force: true })
-    WebComponentsGate.write('client/manifest.json', `{ "name": "Shop", "tac": { "elements": ["${WebComponentsGate.counter}", "${WebComponentsGate.tally}"] } }\n`)
+    WebComponentsGate.write('client/manifest.json', `{ "name": "Shop", "tac": { "elements": ${JSON.stringify([WebComponentsGate.counter, ...WebComponentsGate.compiledServices.map((service) => service.tag)])} } }\n`)
     WebComponentsGate.write('client/components/shop/tally/tac.html', `<section aria-label="Tally">
   <p id="tally">{tally.count}</p>
   <button id="tally-add" type="button" on:click="tally.add()">Add</button>
@@ -90,6 +102,42 @@ impl TallyService {
         self.application_event_publisher.publish_event(TallyChanged { count: self.count }, false);
     }
 }
+`)
+    WebComponentsGate.write('client/components/shop/steps/tac.html', `<section aria-label="Steps">
+  <p id="steps">{steps.count}</p>
+  <button id="steps-add" type="button" on:click="steps.add()">Add</button>
+</section>
+`)
+    WebComponentsGate.write('client/models/StepsChanged.go', 'type StepsChanged struct {\n\tCount int `json:"count"`\n}\n')
+    WebComponentsGate.write('client/services/StepsService.go', `// @Service()
+type StepsService struct {
+\tCount     int
+\tpublisher ApplicationEventPublisher
+}
+
+func (steps *StepsService) Add() int {
+\tsteps.Count++
+\tsteps.publisher.PublishEvent(StepsChanged{Count: steps.Count}, false)
+\treturn steps.Count
+}
+`)
+    WebComponentsGate.write('client/components/shop/bell/tac.html', `<section aria-label="Bell">
+  <p id="rings">{bell.count}</p>
+  <button id="bell-ring" type="button" on:click="bell.ring()">Ring</button>
+</section>
+`)
+    WebComponentsGate.write('client/services/BellService.rb', `#[Service]
+class BellService
+  attr_reader :count
+
+  def initialize
+    @count = 0
+  end
+
+  def ring
+    @count += 1
+  end
+end
 `)
     WebComponentsGate.write('client/components/shop/counter/tac.html', `<section aria-label="Counter">
   <h2 id="label">{label}</h2>
@@ -194,17 +242,40 @@ export default class CounterService {
     WebComponentsGate.expect(await page.evaluate(read, [WebComponentsGate.counter, selector]), wanted, label)
   }
 
+  /**
+   * @param {import('playwright').Page} page
+   * @param {string} tag
+   * @param {string} selector
+   * @param {string} wanted
+   * @param {number} timeout
+   */
+  static async shadowTextOf(page, tag, selector, wanted, timeout) {
+    const read = ([host, inner]) => document.querySelector(host)?.shadowRoot?.querySelector(inner)?.textContent ?? null
+    await page.waitForFunction(([host, inner, text]) => document.querySelector(host)?.shadowRoot?.querySelector(inner)?.textContent === text,
+      [tag, selector, wanted], { timeout }).catch(() => {})
+    return page.evaluate(read, [tag, selector])
+  }
+
+  /**
+   * @param {import('playwright').Page} page
+   * @param {{ language: string, tag: string, count: string, add: string, event: string | null, runtime: string }} service
+   */
+  static async checkCompiledService(page, service) {
+    WebComponentsGate.expect(await WebComponentsGate.shadowTextOf(page, service.tag, service.count, '0', 30000), '0', `${service.language} service at start`)
+    await page.evaluate(([tag, button]) => document.querySelector(tag).shadowRoot.querySelector(button).click(), [service.tag, service.add])
+    WebComponentsGate.expect(await WebComponentsGate.shadowTextOf(page, service.tag, service.count, '1', 5000), '1', `${service.language} service method from a shadow root button`)
+    const loads = await page.evaluate((file) => performance.getEntriesByType('resource').filter((entry) => entry.name.endsWith(`/${file}`)).length, service.runtime)
+    WebComponentsGate.expect(loads, 1, `${service.language} runtime loads once`)
+    if (!service.event) return
+    const heard = await page.evaluate((name) => window[name] ?? null, service.event)
+    WebComponentsGate.expect(heard?.count, 1, `${service.language} service event detail`)
+    WebComponentsGate.expect(heard?.target, service.tag, `${service.language} service event target`)
+  }
+
   /** @param {import('playwright').Page} page */
-  static async checkWebAssemblyService(page) {
-    const read = (tag) => document.querySelector(tag)?.shadowRoot?.querySelector('#tally')?.textContent ?? null
-    await page.waitForFunction((tag) => document.querySelector(tag)?.shadowRoot?.querySelector('#tally')?.textContent === '0', WebComponentsGate.tally, { timeout: 30000 }).catch(() => {})
-    WebComponentsGate.expect(await page.evaluate(read, WebComponentsGate.tally), '0', 'Rust service at start')
-    await page.evaluate((tag) => document.querySelector(tag).shadowRoot.querySelector('#tally-add').click(), WebComponentsGate.tally)
-    await page.waitForFunction((tag) => document.querySelector(tag)?.shadowRoot?.querySelector('#tally')?.textContent === '1', WebComponentsGate.tally, { timeout: 5000 }).catch(() => {})
-    WebComponentsGate.expect(await page.evaluate(read, WebComponentsGate.tally), '1', 'Rust service method from a shadow root button')
-    const heard = await page.evaluate(() => window.heardTally ?? null)
-    WebComponentsGate.expect(heard?.count, 1, 'Rust service event detail')
-    WebComponentsGate.expect(heard?.target, WebComponentsGate.tally, 'Rust service event target')
+  static async checkCompiledServices(page) {
+    for (const service of WebComponentsGate.compiledServices) await WebComponentsGate.checkCompiledService(page, service)
+    WebComponentsGate.expect(await WebComponentsGate.shadowTextOf(page, '#second-tally', '#tally', '1', 5000), '1', 'a second element shares the Rust singleton')
   }
 
   /**
@@ -235,7 +306,7 @@ export default class CounterService {
     WebComponentsGate.expect(await page.isVisible('#slotted'), true, 'slot content is visible')
     const color = await page.evaluate((tag) => getComputedStyle(document.querySelector(tag).shadowRoot.querySelector('#count')).color, WebComponentsGate.counter)
     WebComponentsGate.expect(color, 'rgb(1, 2, 3)', 'component style inside the shadow root')
-    await WebComponentsGate.checkWebAssemblyService(page)
+    await WebComponentsGate.checkCompiledServices(page)
   }
 
   /**
