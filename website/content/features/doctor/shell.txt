@@ -6,6 +6,8 @@ ready     C# services on the web                   dotnet workload wasm-tools   
 ready     Java services on the web                 javac                  javac 21.0.12
 ready     Java services on the web                 teavm                  TeaVM 0.15.0 in ~/Library/Caches/Tachyon/teavm-0.15.0
 ready     Ruby services on the web                 tachyon-ruby.wasm      built in ~/Library/Caches/Tachyon/ruby-web/60610a41…/tachyon-ruby.wasm
+ready     Lua services on the web                  tachyon-lua.wasm       built in ~/Library/Caches/Tachyon/lua-web/aaeadbda…/tachyon-lua.wasm
+ready     Lua services on the web                  lua                    Lua 5.4.9  Copyright (C) 1994-2026 Lua.org, PUC-Rio
 missing   Yon JavaScript runtime 'node'            node                   not on PATH
         Install Node.js or correct YON_JAVASCRIPT_RUNTIME.
 

@@ -11,8 +11,8 @@ pub(crate) struct RequiredFields;
 
 impl RequiredFields {
     const PUBLISHER: &'static str = "ApplicationEventPublisher";
-    const LANGUAGES: [&'static str; 11] = [
-        "js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb", "java", "fs",
+    const LANGUAGES: [&'static str; 12] = [
+        "js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb", "lua", "java", "fs",
     ];
     const NOT_FIELD_WORDS: [&'static str; 19] = [
         "static",
@@ -79,6 +79,7 @@ impl RequiredFields {
             .collect::<BTreeSet<_>>();
         let fields = match extension {
             "rb" => Self::ruby_fields(&code),
+            "lua" => Self::lua_fields(source, class),
             "go" => Self::go_fields(source, class),
             "rs" => Self::rust_fields(&code, class),
             "fs" => Self::fsharp_fields(path, source, class),
@@ -160,6 +161,17 @@ impl RequiredFields {
                 name: prop.name,
                 type_name: prop.type_name,
                 marked: false,
+            })
+            .collect()
+    }
+
+    fn lua_fields(source: &str, class: &str) -> Vec<DeclaredField> {
+        crate::lua_source::LuaFields::without_values(source, class)
+            .into_iter()
+            .map(|(name, type_name, marked)| DeclaredField {
+                name: crate::companion::camel_case(&name),
+                type_name,
+                marked,
             })
             .collect()
     }

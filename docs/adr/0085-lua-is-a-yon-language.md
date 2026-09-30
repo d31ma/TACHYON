@@ -153,7 +153,9 @@ the build with `TY2015`, and the message names the resource and this ADR.
   members, NeedsAll, Lifetime, OnStart, OnStop, OnEvent and Order from the
   same Ruby shadow that it uses for Yon.
 - Each object starts with its own copy of the table's fields, so a list in
-  one object never leaks into another. The page reads and changes every
+  one object never leaks into another. With `-- @NeedsAll`, a field written
+  `name = nil` is a property that the page passes, and a field with a
+  starting value keeps it. The page reads and changes every
   public field and calls every public method. A name that starts with `_` is
   private.
 - An event is a model table: `setmetatable({ total = 25 }, PlacedOrder)`.

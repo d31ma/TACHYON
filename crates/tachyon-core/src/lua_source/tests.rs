@@ -191,3 +191,22 @@ fn a_lua_class_that_needs_a_resource_names_it_and_adr_0085() {
         );
     }
 }
+
+#[test]
+fn a_lua_needs_all_prop_is_a_field_without_a_starting_value() {
+    let fields = super::LuaFields::without_values(
+        "-- @Service\n-- @NeedsAll\nDrawerService = {\n  ---@type boolean\n  open = nil,\n  ---@type integer\n  count = 0,\n  -- @Needs\n  ---@type CatalogService\n  catalog_service = nil,\n}\n",
+        "DrawerService",
+    );
+    assert_eq!(
+        fields,
+        [
+            (String::from("open"), String::from("boolean"), false),
+            (
+                String::from("catalog_service"),
+                String::from("CatalogService"),
+                true
+            ),
+        ]
+    );
+}

@@ -431,7 +431,7 @@ function writeLuaFixtures(project) {
 ---@class LuaDrawerService
 LuaDrawerService = {
   ---@type boolean
-  open = false,
+  open = nil,
 }
 
 ---@return boolean

@@ -1,6 +1,7 @@
 mod lua_behavior_edits;
 mod lua_body;
 mod lua_events;
+mod lua_fields;
 mod lua_input;
 mod lua_lexer;
 mod lua_line;
@@ -24,6 +25,7 @@ mod tests;
 use lua_behavior_edits::LuaBehaviorEdits;
 use lua_body::LuaBody;
 use lua_events::LuaEvents;
+pub(crate) use lua_fields::LuaFields;
 use lua_input::LuaInput;
 pub(crate) use lua_lexer::LuaLexer;
 use lua_line::LuaLine;

@@ -16,7 +16,8 @@ impl Sources {
     const GO_SERVICE: &str = "package main\n\nimport \"strconv\"\n\n// @Service()\ntype GuideService struct {\n\tPages int\n}\n\nfunc (service *GuideService) Read() string {\n\tguide := Guide{Title: \"Guide\", Pages: 3}\n\tservice.Pages = guide.Pages\n\treturn guide.Title + \" \" + strconv.Itoa(guide.Pages)\n}\n";
     const RUBY_MODEL: &str = "# @!attribute [r] title\n#   @return [String]\n# @!attribute [r] pages\n#   @return [Integer]\nGuide = Data.define(:title, :pages)\n";
     const RUBY_SERVICE: &str = "#[Service]\nclass GuideService\n  attr_reader :pages\n\n  def read\n    guide = Guide.new(title: \"Guide\", pages: 3)\n    @pages = guide.pages\n    \"#{guide.title} #{guide.pages}\"\n  end\nend\n";
-    const LUA_MODEL: &str = "---@class Guide\n---@field title string\n---@field pages integer\nGuide = {}\n";
+    const LUA_MODEL: &str =
+        "---@class Guide\n---@field title string\n---@field pages integer\nGuide = {}\n";
     const LUA_SERVICE: &str = "-- @Service\n---@class GuideService\nGuideService = {\n  ---@type integer\n  pages = 0,\n}\n\n---@return string\nfunction GuideService:read()\n  local guide = setmetatable({ title = \"Guide\", pages = 3 }, Guide)\n  self.pages = guide.pages\n  return guide.title .. \" \" .. guide.pages\nend\n";
     const KOTLIN_MODEL: &str = "data class Guide(val title: String, val pages: Int)\n";
     const KOTLIN_SERVICE: &str = "import models.Guide\n\n@Service\nclass GuideService {\n    var pages: Int = 0\n\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + guide.pages\n    }\n}\n";

@@ -411,9 +411,8 @@ fn set_required_fields(
             || FsharpConstructorProps::takes_props(path, &source);
         if needs_all {
             let class = &definition.class;
-            let (path, source) = crate::lua_source::LuaView::analysis(path, &source);
-            let props = RequiredFields::props(&path, &source, class, &injectable);
-            let injected = RequiredFields::injected_fields(&path, &source, class, &injectable);
+            let props = RequiredFields::props(path, &source, class, &injectable);
+            let injected = RequiredFields::injected_fields(path, &source, class, &injectable);
             definition.required = props;
             definition.injected = injected;
         }
