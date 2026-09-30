@@ -1,12 +1,15 @@
 use super::constructor_parameter::ConstructorParameter;
+use std::path::Path;
 
-pub(super) struct FsharpInjectedStore<'a> {
+pub(crate) struct FsharpInjectedStore<'a> {
     stores: &'a [String],
 }
 
 impl<'a> FsharpInjectedStore<'a> {
+    const EXTENSION: &'static str = "fs";
     const TYPE_WORD: &'static str = "type ";
     const OPEN: char = '(';
+    const COMMA: char = ',';
     const EQUALS: char = '=';
     const SEPARATOR: &'static str = ", ";
     const DEFAULT_INDENT: &'static str = "    ";
@@ -14,7 +17,9 @@ impl<'a> FsharpInjectedStore<'a> {
     const OPENERS: [char; 3] = ['(', '<', '['];
     const CLOSERS: [char; 3] = [')', '>', ']'];
 
-    pub(super) fn filled(source: &str, stores: &'a [String]) -> Option<String> {
+    pub(crate) fn filled(path: &Path, source: &str, stores: &'a [String]) -> Option<String> {
+        let fsharp = path.extension().and_then(|value| value.to_str()) == Some(Self::EXTENSION);
+        fsharp.then_some(())?;
         let injected = Self { stores };
         let lines: Vec<&str> = source.split_inclusive('\n').collect();
         let written: Vec<Option<String>> = (0..lines.len())
@@ -71,19 +76,27 @@ impl<'a> FsharpInjectedStore<'a> {
     }
 
     fn top_level_parts(text: &str) -> Vec<&str> {
-        let mut parts = Vec::new();
-        let mut depth = 0_i32;
-        let mut start = 0;
-        for (at, character) in text.char_indices() {
-            depth += i32::from(Self::OPENERS.contains(&character))
-                - i32::from(Self::CLOSERS.contains(&character));
-            if [depth == 0, character == ','] == [true, true] {
-                parts.push(&text[start..at]);
-                start = at + 1;
-            }
-        }
-        parts.push(&text[start..]);
-        parts
+        let commas = Self::top_level_commas(text);
+        let starts = std::iter::once(0).chain(commas.iter().map(|at| at + 1));
+        let ends = commas.iter().copied().chain(std::iter::once(text.len()));
+        starts
+            .zip(ends)
+            .map(|(start, end)| &text[start..end])
+            .collect()
+    }
+
+    fn top_level_commas(text: &str) -> Vec<usize> {
+        text.char_indices()
+            .scan(0_i32, |depth, (at, character)| {
+                *depth += i32::from(Self::OPENERS.contains(&character))
+                    - i32::from(Self::CLOSERS.contains(&character));
+                Some((*depth, at, character))
+            })
+            .filter(|(depth, _, character)| {
+                [*depth == 0, *character == Self::COMMA] == [true, true]
+            })
+            .map(|(_, at, _)| at)
+            .collect()
     }
 
     fn group_end(line: &str, open: usize) -> Option<usize> {

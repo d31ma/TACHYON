@@ -3,6 +3,9 @@ use crate::Failure;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
+mod crud_queries;
+use crud_queries::CrudQueries;
+
 struct QueryLimits;
 
 impl QueryLimits {
@@ -12,35 +15,6 @@ impl QueryLimits {
     const MAX_ARGUMENTS: usize = 32;
     const MAX_NAME: usize = 256;
     const MAX_PARSE_STEPS: usize = 4096;
-}
-
-struct CrudQueries;
-
-impl CrudQueries {
-    const FIND_ALL: [&'static str; 2] = ["findAll", "find_all"];
-    const FIND_BY_ID: [&'static str; 2] = ["findById", "find_by_id"];
-    const ID_TAILS: [&'static str; 2] = ["Id", "id"];
-    const FIND_ONE: &'static str = "findOne";
-    const OPERATIONS: [&'static str; 5] = ["find", "findOne", "count", "exists", "delete"];
-
-    fn find_all(name: &str, arity: usize) -> Option<Value> {
-        let page = (arity == 1).then_some(0);
-        Self::FIND_ALL
-            .contains(&name)
-            .then(|| json!({"operation":"find","where":[],"pageArgument":page,"orderBy":[]}))
-    }
-
-    fn operation(name: &str, operation: &'static str) -> &'static str {
-        [operation, Self::FIND_ONE][usize::from(Self::FIND_BY_ID.contains(&name))]
-    }
-
-    fn id_terms(tail: &str, id: &Value) -> Option<Vec<Term>> {
-        let field = id.as_str().filter(|_| Self::ID_TAILS.contains(&tail))?;
-        Some(vec![Term {
-            field: field.to_owned(),
-            operator: "eq",
-        }])
-    }
 }
 
 pub(super) fn repository(input: &Input<'_>, marker: &Marker) -> Result<Value, Failure> {

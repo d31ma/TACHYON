@@ -32,19 +32,27 @@ impl RepositoryBase {
         let at = Self::word_at(code, area.clone())?;
         let end = Self::generic_end(code, at + Self::NAME.len());
         let (entity, id) = Self::arguments(&code[at + Self::NAME.len()..end]);
-        let clause = if embedded {
-            Self::line_of(code, at)
-        } else if form.language == Self::PYTHON {
-            Self::listed(code, at, end)
-        } else {
-            Self::keyword_start(code, area.start, at)..end
-        };
+        let clause = Self::clause(form.language, code, at, end, area.start);
         Some(Self {
             name_at: at,
             clause,
             entity,
             id,
         })
+    }
+
+    fn clause(
+        language: &str,
+        code: &str,
+        at: usize,
+        end: usize,
+        header_start: usize,
+    ) -> Range<usize> {
+        match language {
+            Self::GO => Self::line_of(code, at),
+            Self::PYTHON => Self::listed(code, at, end),
+            _ => Self::keyword_start(code, header_start, at)..end,
+        }
     }
 
     pub(crate) fn is_embedded(form: ContractForm, code: &str, member: &ContractMember) -> bool {

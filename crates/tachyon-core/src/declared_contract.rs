@@ -1,11 +1,11 @@
 mod concrete_contract;
+mod constructor_parameter;
 mod context_members;
 mod context_template;
 mod contract_check;
 mod contract_declaration;
 mod contract_form;
 mod contract_member;
-mod constructor_parameter;
 mod contract_rewrite;
 mod contract_role;
 mod crud_members;
@@ -50,6 +50,7 @@ use contract_rewrite::ContractRewrite;
 pub(crate) use contract_rewrite::SourceEdit;
 use fsharp_contract::FsharpContract;
 use fsharp_contract_rewrite::FsharpContractRewrite;
+use fsharp_injected_store::FsharpInjectedStore;
 use injected_store::InjectedStore;
 use std::path::Path;
 
@@ -73,7 +74,8 @@ impl DeclaredContract {
     }
 
     pub(crate) fn injected(path: &Path, source: &str, stores: &[String]) -> Option<String> {
-        InjectedStore::filled(path, source, stores)
+        FsharpInjectedStore::filled(path, source, stores)
+            .or_else(|| InjectedStore::filled(path, source, stores))
     }
 
     pub(crate) fn concrete(path: &Path, source: &str, environment: &str) -> Option<String> {

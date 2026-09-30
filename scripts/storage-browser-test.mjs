@@ -589,37 +589,37 @@ public sealed class CsNotesService {
 }
 
 function writeFsharpFixture(project) {
-  write(project, 'client/setups/FsNotesSetup.fs', `[<Setup>]
-type FsNotesSetup() =
+  write(project, 'client/setups/JournalSetup.fs', `[<Setup>]
+type JournalSetup() =
     static member configure(execution: BehaviorExecution) : BehaviorAdapters = BehaviorAdapters()
 `);
-  write(project, 'client/entities/FsNoteEntity.fs', `[<Entity({"adapter":"indexeddb"})>]
-[<Table("fsNotes")>]
-type FsNoteEntity() =
+  write(project, 'client/entities/JournalEntity.fs', `[<Entity({"adapter":"indexeddb"})>]
+[<Table("journal")>]
+type JournalEntity() =
     [<Id>]
     member val id : string = "" with get, set
     member val text : string = "" with get, set
 `);
-  write(project, 'client/stores/FsNoteStore.fs', `open System.Threading.Tasks
+  write(project, 'client/stores/JournalStore.fs', `open System.Threading.Tasks
 
-[<Store(typeof<FsNoteEntity>, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"FsNotesSetup"})>]
-type FsNoteStore =
-    inherit Repository<FsNoteEntity, string>
+[<Store(typeof<JournalEntity>, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"JournalSetup"})>]
+type JournalStore =
+    inherit Repository<JournalEntity, string>
 
     abstract findByText: text: BehaviorJSON -> Task<BehaviorJSON>
 `);
-  write(project, 'client/services/FsNotesService.fs', `open System.Threading.Tasks
+  write(project, 'client/services/JournalService.fs', `open System.Threading.Tasks
 
 [<Service>]
-type FsNotesService(noteStore: FsNoteStore) =
-    member val label : string = "F# notes" with get, set
+type JournalService(entries: JournalStore) =
+    member val label : string = "F# journal" with get, set
 
-    member this.keep(id: BehaviorJSON) : Task<BehaviorJSON> =
-        noteStore.save(BehaviorJSON.Object(dict [ "id", id; "text", BehaviorJSON.From("kept") ]))
+    member this.keep(id: BehaviorJSON, text: BehaviorJSON) : Task<BehaviorJSON> =
+        entries.save(BehaviorJSON.Object(dict [ "id", id; "text", text ]))
 
-    member this.kept() : Task<BehaviorJSON> = noteStore.findByText(BehaviorJSON.From("kept"))
+    member this.kept() : Task<BehaviorJSON> = entries.findByText(BehaviorJSON.From("kept"))
 `);
-  write(project, 'client/components/storage/fs/tac.html', '<p id="fs">{fsNotes.label}</p>\n');
+  write(project, 'client/components/storage/journal/tac.html', '<p id="journal">{journal.label}</p>\n');
 }
 
 function writeFixture(project) {
@@ -638,7 +638,7 @@ function writeFixture(project) {
   <storage-go />
   <storage-ruby />
   <storage-rs />
-${StorageGate.withCSharp ? '  <storage-cs />\n  <storage-fs />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}</main>
+${StorageGate.withCSharp ? '  <storage-cs />\n  <storage-journal />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}</main>
 `);
   for (const [name, policy] of [['CacheFirstClient','cache-first'],['NetworkFirstClient','network-first'],['FreshClient','no-store'],['ReloadClient','reload']]) {
     write(project, 'client/clients/' + name + '.js', `@HTTPClient({"cache":"${policy}","adapter":"${name}"})
@@ -784,6 +784,8 @@ class NoteStore extends Repository {
   write(project, 'client/services/StoreNotesService.js', `@Service
 export default class StoreNotesService {
   static OPEN = 'open';
+  static SAVED_ID = 'r';
+  static GONE = 'gone';
   static LOW_RANK = 2;
   static PAGE_SIZE = 2;
   /** @type {NoteStore} */
@@ -800,11 +802,11 @@ export default class StoreNotesService {
   }
 
   async repository() {
-    const saved = await this.noteStore.save({ id: 'r', status: 'gone', rank: 0 });
-    const found = await this.noteStore.findById('r');
+    const saved = await this.noteStore.save({ id: StoreNotesService.SAVED_ID, status: StoreNotesService.GONE, rank: 0 });
+    const found = await this.noteStore.findById(StoreNotesService.SAVED_ID);
     const firstPage = await this.noteStore.findAll({ size: 1 });
-    const removed = await this.noteStore.deleteByStatus('gone');
-    const missing = await this.noteStore.findById('r');
+    const removed = await this.noteStore.deleteByStatus(StoreNotesService.GONE);
+    const missing = await this.noteStore.findById(StoreNotesService.SAVED_ID);
     return { saved: saved.id, found: found.id, firstPage: firstPage.length, removed, missing };
   }
 
@@ -1127,8 +1129,8 @@ async function checkCSharpStorage(page, evaluate) {
 }
 
 async function checkFsharpStorage(evaluate) {
-  await evaluate(() => __root('fsNotes').keep('f1'));
-  expect(JSON.stringify(await evaluate(() => __root('fsNotes').kept())), JSON.stringify([{ id: 'f1', text: 'kept' }]), 'an F# service whose constructor takes FsNoteStore saves and reads through the store, which extends Repository and opens the context of its Setup');
+  await evaluate(() => __root('journal').keep('f1', 'kept'));
+  expect(JSON.stringify(await evaluate(() => __root('journal').kept())), JSON.stringify([{ id: 'f1', text: 'kept' }]), 'an F# service whose constructor takes JournalStore saves and reads through the store, which extends Repository and opens the context of its Setup');
 }
 
 async function checkKotlinStorage(page, evaluate) {
