@@ -1,0 +1,1 @@
+type CatalogCount = { Count: int }
