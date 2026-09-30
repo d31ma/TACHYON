@@ -21,7 +21,7 @@ class WebComponentsGate {
     { language: 'Go', tag: 'shop-steps', count: '#steps', add: '#steps-add', event: 'heardSteps', runtime: 'tachyon-go.js' },
     { language: 'Ruby', tag: 'shop-bell', count: '#rings', add: '#bell-ring', event: null, runtime: 'tachyon-ruby-services.js' },
   ]
-  static typescript = createRequire(import.meta.url).resolve('typescript/bin/tsc')
+  static typescript = path.join(path.dirname(createRequire(import.meta.url).resolve('typescript/package.json')), 'bin', 'tsc')
   static typedConsumer = `import type { ShopCounterElement } from './dist/.tachyon/elements/shop-counter.js'
 const counter: ShopCounterElement | null = document.querySelector('shop-counter')
 counter?.addEventListener('count-changed', (event) => {
