@@ -103,7 +103,7 @@ public static class EmittedBehaviorTests {
         if ((await queries.countByName(BehaviorJSON.From("tools"))).Integer != 1 || !(await queries.existsByName(BehaviorJSON.From("tools"))).Boolean) throw new System.Exception("generated derived queries failed");
     }
     private static void CheckSummaries(BehaviorContext context) {
-        var summaries = new AnnotatedSummaries(context);
+        var summaries = new AnnotatedSummaries();
         var summary = summaries.toSummary(BehaviorJSON.Parse("{\"detail\":{\"id\":7},\"name\":\"Anvil\",\"extra\":\"dropped\"}"));
         bool mapped = summary.Get("productId").Integer == 7 && summary.Get("title").Text == "Anvil" && summary.Get("absent").IsNull && summary.Get("kind").Text == "product";
         if (!mapped) throw new System.Exception("generated Mapping failed");

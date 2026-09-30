@@ -104,7 +104,7 @@ class HandlerChecks {
     }
 
     public static function checkMapping($context): void {
-        $summaries = Behaviors::construct(ProductSummaries::class, ['behaviors' => $context]);
+        $summaries = new ProductSummaries();
         $summary = $summaries->toSummary(['detail' => ['id' => 7], 'name' => 'Anvil', 'extra' => 'dropped']);
         $expectedInKeyOrder = ['productId' => 7, 'title' => 'Anvil', 'absent' => null, 'kind' => 'product'];
         ksort($expectedInKeyOrder);

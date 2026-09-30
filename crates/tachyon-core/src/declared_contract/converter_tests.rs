@@ -100,29 +100,55 @@ fn a_contract_converter_passes_the_check() {
 }
 
 #[test]
-fn a_script_converter_gets_the_context_field_its_caller_fills() {
+fn a_script_converter_gets_no_context_field() {
     let javascript = "@Converter\nexport default class ProductConverter {\n  @Convert(PLAN)\n  async toSummary(product) {}\n}\n";
     let typescript = "@Converter\nexport default class ProductConverter {\n  @Convert(PLAN)\n  async toSummary(product: BehaviorJsonValue): Promise<BehaviorJsonObject | void> {}\n}\n";
     for realm in ["yon", "tac"] {
-        let lowered = ConverterSamples::lowered("js", javascript, realm).expect("lowered");
-        assert!(
-            lowered.contains("@Needs\n  behaviors;"),
-            "{realm}:\n{lowered}"
-        );
-        let lowered = ConverterSamples::lowered("ts", typescript, realm).expect("lowered");
-        assert!(
-            lowered.contains("@Needs\n  behaviors!: BehaviorContext;"),
-            "{realm}:\n{lowered}"
-        );
+        assert!(ConverterSamples::lowered("js", javascript, realm).is_none());
+        assert!(ConverterSamples::lowered("ts", typescript, realm).is_none());
     }
 }
 
 #[test]
-fn a_converter_contract_elsewhere_is_left_for_the_mapping_lowering() {
-    let java = "@Converter\ninterface ProductConverter {\n    @Convert(PLAN)\n    Object toSummary(Object product);\n}\n";
+fn a_converter_contract_becomes_a_class_the_container_builds_without_a_context() {
+    let contracts = [
+        (
+            "java",
+            "@Converter\ninterface ProductConverter {\n    @Convert(PLAN)\n    Object toSummary(Object product);\n}\n",
+            "class ProductConverter {",
+        ),
+        (
+            "rs",
+            "#[Converter]\ntrait ProductConverter {\n    #[Convert(PLAN)]\n    fn to_summary(&self, product: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n}\n",
+            "struct ProductConverter;",
+        ),
+        (
+            "go",
+            "// @Converter\ntype ProductConverter interface {\n\t// @Convert(PLAN)\n\tToSummary(product BehaviorValue) (BehaviorValue, error)\n}\n",
+            "func NewProductConverter() (*ProductConverter, error) {\n\treturn &ProductConverter{}, nil\n}",
+        ),
+    ];
+    for realm in ["yon", "tac"] {
+        for (extension, source, concrete) in contracts {
+            let lowered = ConverterSamples::lowered(extension, source, realm).expect("lowered");
+            assert!(
+                lowered.contains(concrete),
+                "{extension} {realm}:\n{lowered}"
+            );
+            assert!(
+                !lowered.contains("behaviors"),
+                "{extension} {realm}:\n{lowered}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_converter_contract_in_fsharp_swift_or_python_is_left_for_the_mapping_lowering() {
     let fsharp = "[<Converter>]\ntype ProductConverter =\n    [<Convert(PLAN)>]\n    abstract toSummary: product: BehaviorJSON -> BehaviorJSON\n";
-    assert!(ConverterSamples::lowered("java", java, "yon").is_none());
+    let swift = "@Converter\nprotocol ProductConverter {\n    @Convert(PLAN)\n    func toSummary(_ product: BehaviorJSON) throws -> BehaviorJSON\n}\n";
     assert!(ConverterSamples::lowered("fs", fsharp, "yon").is_none());
+    assert!(ConverterSamples::lowered("swift", swift, "tac").is_none());
 }
 
 #[test]

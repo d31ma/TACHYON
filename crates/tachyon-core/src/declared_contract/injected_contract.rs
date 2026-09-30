@@ -9,7 +9,7 @@ pub(crate) struct InjectedContract<'a> {
 }
 
 impl<'a> InjectedContract<'a> {
-    pub(crate) const GO_START: &'static str = "tachyonNeeds";
+    pub(crate) const GO_START: &'static str = "tachyonInject";
     const FORMS: [(&'static str, &'static str, &'static str); 7] = [
         (
             "kt",
@@ -100,7 +100,12 @@ impl<'a> InjectedContract<'a> {
         (!edits.is_empty()).then(|| format!("{}{start}", written.join("\n")))
     }
 
-    fn written_line(&self, at: usize, line: &str, edits: &[(usize, usize, InjectedField)]) -> String {
+    fn written_line(
+        &self,
+        at: usize,
+        line: &str,
+        edits: &[(usize, usize, InjectedField)],
+    ) -> String {
         let marker = edits
             .iter()
             .any(|(marker_at, _, _)| *marker_at == at)

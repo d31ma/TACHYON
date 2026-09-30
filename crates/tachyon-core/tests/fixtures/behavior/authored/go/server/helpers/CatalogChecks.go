@@ -300,8 +300,8 @@ func (checks CatalogChecks) checkCrudBase(products *ProductQueriesStore) error {
 	return nil
 }
 
-func (checks CatalogChecks) checkMapper(context *BehaviorContext) error {
-	summaries := &ProductSummaryMapper{behaviors: context}
+func (checks CatalogChecks) checkMapper() error {
+	summaries := &ProductSummaryMapper{}
 	product := map[string]any{"detail": map[string]any{"id": 7}, "name": "Anvil", "extra": "dropped"}
 	summary, err := summaries.ToSummary(product)
 	if err != nil {
@@ -357,7 +357,7 @@ func (checks CatalogChecks) Exercise() (BehaviorValue, error) {
 	if err := checks.checkQueries(context); err != nil {
 		return nil, err
 	}
-	if err := checks.checkMapper(context); err != nil {
+	if err := checks.checkMapper(); err != nil {
 		return nil, err
 	}
 	signal.Abort()

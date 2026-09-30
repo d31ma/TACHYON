@@ -143,7 +143,7 @@ class ProductChecksHelper {
         expect(Behaviors.map(explicitQuery.get(PAGE)).get(OFFSET).equals(10L), "explicit query pagination");
     }
     private static void checkMapping(Behaviors.Context context) {
-        ProductSummaries summaries = new ProductSummaries(context);
+        ProductSummaries summaries = new ProductSummaries();
         java.util.Map<String, Object> product = java.util.Map.of("detail", java.util.Map.of(ID, PRODUCT_ID), NAME, ANVIL, "extra", "dropped");
         java.util.Map<String, Object> summary = Behaviors.map(summaries.toSummary(product));
         boolean fieldsMatch = summary.get("productId").equals(PRODUCT_ID) && summary.get(TITLE).equals(ANVIL)

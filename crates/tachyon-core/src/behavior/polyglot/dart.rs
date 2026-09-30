@@ -512,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn an_abstract_interface_class_converter_becomes_a_class_with_its_context() {
+    fn an_abstract_interface_class_converter_becomes_a_class_without_a_context() {
         let lowered = super::super::lower(
             std::path::Path::new("server/converters/ProductConverter.dart"),
             "@Converter\nabstract interface class ProductConverter {\n  @Convert({\"fields\":[{\"source\":\"name\",\"target\":\"title\"}]})\n  Object? toSummary(Object? product);\n}\n",
@@ -522,8 +522,9 @@ mod tests {
         .expect("lowered source");
         assert!(lowered.contains("class ProductConverter {"), "{lowered}");
         assert!(!lowered.contains("interface class"), "{lowered}");
+        assert!(!lowered.contains("behaviors"), "{lowered}");
         assert!(
-            lowered.contains("ProductConverter(this.behaviors);"),
+            lowered.contains("BehaviorContext.mapValue(BehaviorJson.parse("),
             "{lowered}"
         );
     }

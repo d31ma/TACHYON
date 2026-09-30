@@ -5,6 +5,7 @@ struct TacInjection;
 
 impl TacInjection {
     const STORES: [&'static str; 1] = ["ProductStore"];
+    const CONVERTERS: [&'static str; 1] = ["ProductConverter"];
     const BROWSER_STORES: [(&'static str, &'static str); 2] = [
         (
             "js",
@@ -44,7 +45,7 @@ impl TacInjection {
         (
             "go",
             "// @Service\ntype ProductService struct {\n\t// @Needs\n\tproducts *ProductStore\n\tSummary string\n}\n",
-            "\tproducts *ProductStore\n\tSummary string\n}\n\nfunc (service *ProductService) tachyonNeeds() error {\n\tproducts, err := NewProductStore()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.products = products\n\treturn nil\n}\n",
+            "\tproducts *ProductStore\n\tSummary string\n}\n\nfunc (service *ProductService) tachyonInject() error {\n\tproducts, err := NewProductStore()\n\tif err != nil {\n\t\treturn err\n\t}\n\tservice.products = products\n\treturn nil\n}\n",
         ),
         (
             "rb",
@@ -54,10 +55,19 @@ impl TacInjection {
     ];
 
     fn stores() -> Vec<String> {
-        Self::STORES
-            .iter()
-            .map(|store| (*store).to_owned())
-            .collect()
+        Self::names(&Self::STORES)
+    }
+
+    fn converters() -> Vec<String> {
+        Self::names(&Self::CONVERTERS)
+    }
+
+    fn names(names: &[&str]) -> Vec<String> {
+        names.iter().map(|name| (*name).to_owned()).collect()
+    }
+
+    fn as_converter(text: &str) -> String {
+        text.replace("ProductStore", "ProductConverter")
     }
 
     fn field_line(source: &str) -> Option<usize> {
@@ -109,6 +119,38 @@ fn a_native_service_field_that_needs_a_store_builds_the_store() {
 }
 
 #[test]
+fn a_native_service_field_that_needs_a_converter_builds_the_converter() {
+    for (extension, source, filled) in TacInjection::NATIVE_SERVICES {
+        let path = TacInjection::service_path(extension);
+        let source = TacInjection::as_converter(source);
+        let filled = TacInjection::as_converter(filled);
+        let injected =
+            DeclaredContract::injected(Path::new(&path), &source, &TacInjection::converters())
+                .unwrap_or_else(|| panic!("{extension} was not injected"));
+        assert!(
+            injected.contains(&filled),
+            "{extension} lacks {filled:?}:\n{injected}"
+        );
+        assert!(!injected.contains("Needs"), "{extension}:\n{injected}");
+    }
+}
+
+#[test]
+fn an_fsharp_constructor_parameter_typed_with_a_converter_becomes_a_converter_binding() {
+    let source = "[<Service>]\ntype CatalogService(converter: ProductConverter) =\n    member val title : string = \"\" with get, set\n";
+    let path = TacInjection::service_path("fs");
+    let injected =
+        DeclaredContract::injected(Path::new(&path), source, &TacInjection::converters())
+            .expect("the F# service was not injected");
+    assert!(
+        injected.contains(
+            "type CatalogService() =\n    let converter = ProductConverter()\n    member val title"
+        ),
+        "{injected}"
+    );
+}
+
+#[test]
 fn an_fsharp_constructor_parameter_typed_with_a_store_becomes_a_store_binding() {
     let source = "[<Service>]\ntype ProductService(prices: PriceClient, products: ProductStore) =\n    member val summary : string = \"\" with get, set\n";
     let path = TacInjection::service_path("fs");
@@ -134,12 +176,16 @@ fn a_needs_field_of_another_type_is_left_alone() {
 }
 
 #[test]
-fn only_files_in_the_stores_folder_name_stores() {
+fn only_stores_and_converters_are_injected_contracts() {
     let paths = [
         Path::new("client/stores/ProductStore.kt"),
         Path::new("client/entities/ProductEntity.kt"),
         Path::new("client/setups/CatalogSetup.kt"),
+        Path::new("client/converters/ProductConverter.kt"),
     ];
-    let stores = DeclaredContract::store_names(paths.into_iter());
-    assert_eq!(stores, TacInjection::stores());
+    let names = DeclaredContract::injected_names(paths.into_iter());
+    assert_eq!(
+        names,
+        [TacInjection::stores(), TacInjection::converters()].concat()
+    );
 }

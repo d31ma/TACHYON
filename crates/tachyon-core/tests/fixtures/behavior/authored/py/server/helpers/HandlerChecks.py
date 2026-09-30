@@ -101,7 +101,7 @@ class HandlerChecks:
 
     @staticmethod
     async def check_mapping(context):
-        summaries = Behaviors.construct(ProductSummaries, {'behaviors': context})
+        summaries = ProductSummaries()
         product = {'detail': {'id': 7}, 'name': 'Anvil', 'extra': 'dropped'}
         assert await summaries.to_summary(product) == {
             'productId': 7, 'title': 'Anvil', 'absent': None, 'kind': 'product',

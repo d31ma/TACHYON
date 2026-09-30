@@ -2188,6 +2188,15 @@ mod tests {
     }
 
     #[test]
+    fn a_converter_is_a_provider_that_a_controller_needs() {
+        let source = "@Converter\nclass ProductConverter {}\n@RequestRoute(\"/catalog\")\n@Needs(ProductConverter)\nexport class CatalogController {\n constructor(private converter: ProductConverter) {}\n @GetRoute\n async getCatalog() { return {}; }\n}\n";
+        let result = parsed("ts", source);
+        let converter = &result.plan.providers[0];
+        assert_eq!(converter.name, "ProductConverter");
+        assert_eq!(result.plan.providers[1].dependencies, ["ProductConverter"]);
+    }
+
+    #[test]
     fn a_test_unit_module_drops_the_route_parameter_markers_of_its_controllers() {
         let source = "@Service\nclass NewsCaller {\n call() { return 1; }\n}\n@RequestRoute(\"/news\")\nclass NewsController {\n @PostRoute\n postNews(@FromBody item, @FromHeader('x-id') id) { return item; }\n}\n";
         let result = parse_test(Path::new("server/tests/NewsCaller.js"), source)

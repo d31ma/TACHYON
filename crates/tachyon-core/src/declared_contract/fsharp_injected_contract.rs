@@ -42,13 +42,11 @@ impl<'a> FsharpInjectedContract<'a> {
         (open < equals).then_some(())?;
         let close = Self::group_end(line, open)?;
         let parameters = Self::parameters(&line[open + 1..close]);
-        let (injected, kept): (Vec<_>, Vec<_>) = parameters
-            .iter()
-            .partition(|parameter| {
-                self.contracts
-                    .iter()
-                    .any(|contract| contract == parameter.type_name)
-            });
+        let (injected, kept): (Vec<_>, Vec<_>) = parameters.iter().partition(|parameter| {
+            self.contracts
+                .iter()
+                .any(|contract| contract == parameter.type_name)
+        });
         (!injected.is_empty()).then_some(())?;
         let kept: Vec<&str> = kept.iter().map(|parameter| parameter.text).collect();
         let indent = Self::body_indent(&lines[at + 1..]);

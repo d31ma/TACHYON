@@ -845,6 +845,27 @@ mod tests {
     }
 
     #[test]
+    fn a_needs_field_finds_a_converter() {
+        for (extension, field) in [
+            ("java", "ProductConverter converter;"),
+            ("kt", "val converter: ProductConverter"),
+            ("php", "private ProductConverter $converter;"),
+        ] {
+            let source = format!(
+                "{}\nclass ProductConverter {{}}\n{}\n{}\nclass CatalogController {{\n{field}\n}}",
+                annotation(extension, "Converter", ""),
+                annotation(extension, "RequestRoute", "\"/catalog\""),
+                annotation(extension, "NeedsAll", "")
+            );
+            let output = prepared(extension, &source);
+            assert!(
+                output.contains("Needs(ProductConverter)"),
+                "{extension}: {output}"
+            );
+        }
+    }
+
+    #[test]
     fn explicit_field_order_controls_dependency_order() {
         let source = "@Service()\nclass LeftService {}\n@Service()\nclass RightService {}\n@RequestRoute(\"/money\")\n@NeedsAll('right','left')\nclass MoneyController {\nleft: LeftService;\nright: RightService;\n}";
         assert!(prepared("ts", source).contains("@Needs(RightService, LeftService)"));

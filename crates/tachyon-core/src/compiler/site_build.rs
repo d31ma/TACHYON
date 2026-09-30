@@ -627,7 +627,9 @@ impl<'a> SiteBuild<'a> {
         Ok(BuiltServices {
             files,
             timings,
-            notes: crate::tac_dart::compiler_note(self.profile).into_iter().collect(),
+            notes: crate::tac_dart::compiler_note(self.profile)
+                .into_iter()
+                .collect(),
         })
     }
 

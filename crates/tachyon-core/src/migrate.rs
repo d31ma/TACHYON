@@ -9,6 +9,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod built_converter;
 mod fix;
 pub use fix::{MigrationFix, MigrationFixPlan};
 
@@ -466,6 +467,9 @@ fn classify_file(
     if let Some(retired) = retired_publisher_finding(root, relative, name) {
         findings.push(retired);
     }
+    if let Some(built) = built_converter_finding(root, relative) {
+        findings.push(built);
+    }
     configuration_findings(root, relative, name, findings);
     let Some(mut finding) = classify_name(relative, name) else {
         return Ok(());
@@ -632,6 +636,15 @@ fn retired_publisher_finding(root: &Path, relative: &str, name: &str) -> Option<
             "Declare an uninitialised applicationEventPublisher field and call publishEvent(event, value) where the method used to return (ADR 0031).",
         ),
     ))
+}
+
+fn built_converter_finding(root: &Path, relative: &str) -> Option<MigrationFinding> {
+    built_converter::BuiltConverter::scans(relative).then_some(())?;
+    let bytes = fs::read(root.join(relative)).ok()?;
+    if bytes.len() > MigrationAnalysis::MAX_PUBLISHER_SCAN_BYTES {
+        return None;
+    }
+    built_converter::BuiltConverter::finding(relative, std::str::from_utf8(&bytes).ok()?)
 }
 
 fn uses_event_publisher_annotation(relative: &str, source: &str) -> bool {

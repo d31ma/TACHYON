@@ -880,11 +880,9 @@ await test('a declared WebCall is a signature whose request comes from its argum
   } finally { context.dispose() }
 })
 
-await test('a Mapping is the whole method: a field plan over one JSON argument', async () => {
+await test('a Mapping is the whole method: a field plan over one JSON argument, with no behavior context', async () => {
   let bodies = 0
-  class Config { static configure() { return {} } }
   class ProductConverter {
-    constructor(behaviors) { this.behaviors = behaviors }
     async toSummary(product) { bodies += 1 }
   }
   const plan = { argument: 0, fields: [
@@ -893,19 +891,15 @@ await test('a Mapping is the whole method: a field plan over one JSON argument',
     { source: 'missing.deep', target: 'absent' },
     { target: 'kind', constant: 'product' },
   ] }
-  const Behaviors = BehaviorRuntimeTest.createBehaviors([
-    { type: Config, name: 'Config', configuration: true, methods: [] },
+  BehaviorRuntimeTest.createBehaviors([
     { type: ProductConverter, name: 'ProductConverter', methods: [{ name: 'toSummary', mapping: plan }] },
   ], 'tac', BehaviorRuntimeTest.moduleId)
-  const context = await Behaviors.create(Config, { partition: 'catalog', signal: new AbortController().signal })
-  try {
-    const mapper = new ProductConverter(context)
-    assert.deepEqual(await mapper.toSummary({ detail: { id: 7 }, name: 'Anvil', extra: 'dropped' }), {
-      productId: 7, title: 'Anvil', absent: null, kind: 'product',
-    })
-    assert.equal(bodies, 0, 'a declared mapping never calls its empty body')
-    await assert.rejects(mapper.toSummary(['not an object']), /one JSON object argument/i)
-  } finally { context.dispose() }
+  const mapper = new ProductConverter()
+  assert.deepEqual(await mapper.toSummary({ detail: { id: 7 }, name: 'Anvil', extra: 'dropped' }), {
+    productId: 7, title: 'Anvil', absent: null, kind: 'product',
+  })
+  assert.equal(bodies, 0, 'a declared mapping never calls its empty body')
+  await assert.rejects(mapper.toSummary(['not an object']), /one JSON object argument/i)
 })
 
 await test('an invalid mapping plan is refused at registration', async () => {

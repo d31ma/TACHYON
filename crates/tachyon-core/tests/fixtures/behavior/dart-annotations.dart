@@ -230,7 +230,7 @@ Future<void> checkQueries(BehaviorContext context, Map<String, Object?> input) a
 }
 
 void checkSummaries(BehaviorContext context) {
-  final summaries = AnnotatedSummaries(context);
+  final summaries = AnnotatedSummaries();
   final summary = summaries.toSummary(<String, Object?>{
     'detail': {'id': 7},
     'name': 'Anvil',

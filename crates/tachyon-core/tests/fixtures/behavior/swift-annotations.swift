@@ -96,7 +96,7 @@ enum EmittedBehaviorTests {
         guard try await queries.deleteById(.number(1)) == .number(1), try await queries.deleteByName(.string("tools")) == .number(1) else { throw BehaviorError("REPOSITORY_DELETE") }
     }
     static func checkSummaries(_ context: BehaviorContext) throws {
-        let summaries = AnnotatedSummaries(behaviors: context)
+        let summaries = AnnotatedSummaries()
         let summary = try summaries.toSummary(try BehaviorJSON.parse("{\"detail\":{\"id\":7},\"name\":\"Anvil\",\"extra\":\"dropped\"}"))
         guard summary == .object(["productId": .number(7), "title": .string("Anvil"), "absent": .null, "kind": .string("product")]) else { throw BehaviorError("GENERATED_MAPPING") }
         do {

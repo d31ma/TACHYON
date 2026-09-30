@@ -403,7 +403,7 @@ fn check_queries(context: &BehaviorContext) -> BehaviorResult<()> {
 }
 
 fn check_mapper(context: &BehaviorContext) -> BehaviorResult<()> {
-    let summaries = ProductSummaryMapper::new(context.clone());
+    let summaries = ProductSummaryMapper::new();
     let product = BehaviorValue::object([
         ("detail", BehaviorValue::object([("id", 7.into())])),
         ("name", "Anvil".into()),

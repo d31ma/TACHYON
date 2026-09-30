@@ -861,6 +861,30 @@ export default class Products {
     }
 
     #[test]
+    fn a_service_that_needs_a_converter_gets_the_converter_without_a_context() {
+        let root = tempfile::tempdir().expect("project");
+        write_file(
+            root.path(),
+            "client/converters/ProductConverter.js",
+            "@Converter\nexport default class ProductConverter {\n  @Convert({\"fields\":[{\"source\":\"name\",\"target\":\"title\"}]})\n  async toSummary(product) {}\n}\n",
+        );
+        let source = "@Service\nexport default class ProductService {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n  title = '';\n\n  async load() {\n    const summary = await this.productConverter.toSummary({ name: 'Anvil' });\n    this.title = summary.title;\n  }\n}\n";
+        let path = "client/services/ProductService.js";
+        write_file(root.path(), path, source);
+        let output =
+            ComponentScript::prepare_captured(root.path(), source.as_bytes().to_vec(), path)
+                .expect("the converter is injected");
+        let output = String::from_utf8(output).expect("utf8");
+        for part in [
+            "case 'ProductConverter': instance = new ProductConverter();",
+            "resolve('ProductConverter')",
+            "for (const [name, store] of []) stores.set(",
+        ] {
+            assert!(output.contains(part), "missing {part:?}:\n{output}");
+        }
+    }
+
+    #[test]
     fn a_topic_listener_opens_the_topic_stream_without_a_client() {
         let root = tempfile::tempdir().expect("project");
         let source = r"

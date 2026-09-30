@@ -158,8 +158,8 @@ fn check_queries(context: &BehaviorContext) -> BehaviorResult<()> {
     Ok(())
 }
 
-fn check_mapper(context: &BehaviorContext) -> BehaviorResult<()> {
-    let summaries = ProductSummaryMapper::new(context.clone());
+fn check_mapper() -> BehaviorResult<()> {
+    let summaries = ProductSummaryMapper::new();
     let product = BehaviorValue::object([
         ("detail", BehaviorValue::object([("id", 7.into())])),
         ("name", "Anvil".into()),
@@ -192,7 +192,7 @@ fn exercise() -> BehaviorResult<BehaviorValue> {
     CatalogChecks::check_resilience(&context)?;
     CatalogChecks::check_transactions(&context)?;
     CatalogChecks::check_queries(&context)?;
-    CatalogChecks::check_mapper(&context)?;
+    CatalogChecks::check_mapper()?;
     signal.abort();
     assert_eq!(client.remote().expect_err("cancelled").code, "aborted");
     context.dispose();

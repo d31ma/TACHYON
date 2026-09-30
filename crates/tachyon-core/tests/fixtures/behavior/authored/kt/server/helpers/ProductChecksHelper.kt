@@ -118,7 +118,7 @@ class ProductChecksHelper {
         check((explicitQuery[PAGE] as Map<*, *>)[OFFSET] == EXPLICIT_OFFSET)
     }
     private fun checkMapping(context: Behaviors.Context) {
-        val summaries = ProductSummaries(context)
+        val summaries = ProductSummaries()
         val product = mapOf("detail" to mapOf(ID to PRODUCT_ID), NAME to ANVIL, "extra" to "dropped")
         val summary = summaries.toSummary(product) as Map<*, *>
         check(summary.size == SUMMARY_FIELDS && summary["productId"] == PRODUCT_ID && summary[TITLE] == ANVIL
