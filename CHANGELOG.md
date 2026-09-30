@@ -694,6 +694,11 @@ machine contracts have their own, independent major versions.
   language, and the path variable controller has a Lua tab. Development mode
   and path variables pass `page.development` and `page.path` to a service
   method, so no service needs the DOM.
+- The guide "Events between services" shows its signals and listener options
+  in every Tac service language, its compiled-services section also in Ruby
+  and F#, and its Yon section also in F# and Ruby. verify-snippets checks that
+  every Yon language answers with the ProbeReady it heard. The signal-driven
+  UI recipe saves with a button, so no service needs the submit event.
 
 - Java web services now use Tachyon's browser APIs (`Clock`, `SecureRandom`,
   `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
