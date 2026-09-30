@@ -28,6 +28,7 @@ export class CoverageAudit {
   static annotationMarker = /(?:@|#\[|\[<|^\s*\[)\s*([A-Za-z_]\w*)/gm
   static noExample = 'no example yet; the rule table accepts the annotations the other tabs use'
   static unknownToRuleTable = 'no example yet; the rule table does not check this language, so no refusal is known'
+  static javascriptLanguages = ['js', 'ts']
 
   /** @type {Record<Realm, string[]>} */
   realmLanguages
@@ -208,11 +209,30 @@ export class CoverageAudit {
    * @returns {Gap}
    */
   gap(question) {
+    if (CoverageAudit.isStatedJavascriptOnly(question)) return CoverageAudit.javascriptOnly(question)
     const sibling = this.siblingShowing(question)
     if (sibling) return CoverageAudit.shownElsewhere(question.language, sibling)
     const refusal = this.reach.refusal(question.realm, question.language, question.annotations, question.present)
     if (refusal) return CoverageAudit.refused(question, refusal)
     return this.missing(question)
+  }
+
+  /**
+   * @param {GapQuestion} question
+   * @returns {boolean}
+   */
+  static isStatedJavascriptOnly(question) {
+    const { unit, language } = question
+    if (!unit.javascriptOnly || CoverageAudit.javascriptLanguages.includes(language)) return false
+    return CoverageAudit.namesLanguage(unit.text, language)
+  }
+
+  /**
+   * @param {GapQuestion} question
+   * @returns {Gap}
+   */
+  static javascriptOnly(question) {
+    return { language: question.language, kind: CoverageAudit.kinds.notApplicable, reason: question.unit.javascriptOnly ?? '', stated: true }
   }
 
   /**

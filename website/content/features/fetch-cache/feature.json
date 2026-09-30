@@ -1,7 +1,7 @@
 {
   "id": "fetch-cache",
   "title": "Caching public reads",
-  "summary": "The manifest's `tac.cache` declares service-worker policies for public reads, grouped by path. A service worker is a browser script that can answer requests from a cache. API caching requires `credentials: 'omit'`, no `Authorization` header, and a cacheable response. Responses with `private`, `no-store` or `Vary` are not cached. This worker cache is separate from the optional, limited IndexedDB JSON cache of `HTTPClient`. A successful write invalidates (marks as out of date) the worker reads that it affects. This example uses low-level fetch on purpose for its cacheable read. Managed `HTTPClient` reads are network-only (`no-store`) by default. Their optional IndexedDB policies still skip the worker. Writes use the injected declarative `HTTPClient`.",
+  "summary": "The manifest's `tac.cache` declares service-worker policies for public reads, grouped by path. A service worker is a browser script that can answer requests from a cache. API caching requires `credentials: 'omit'`, no `Authorization` header, and a cacheable response. Responses with `private`, `no-store` or `Vary` are not cached. This worker cache is separate from the optional, limited IndexedDB JSON cache of `HTTPClient`. A successful write invalidates (marks as out of date) the worker reads that it affects. This example uses low-level fetch on purpose for its cacheable read. Managed `HTTPClient` reads are network-only (`no-store`) by default. Their optional IndexedDB policies still skip the worker. Writes use the injected declarative `HTTPClient`. Only JavaScript and TypeScript services can make that raw `fetch` call. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby cannot read through the worker cache: it publishes an event, and a JavaScript or TypeScript service that listens with `OnEvent` makes the read (see Events between services in the docs).",
   "group": "Browser storage",
   "files": [
     {
@@ -32,5 +32,6 @@
       "name": "client/services/CatalogService.ts",
       "code": { "file": "client/services/CatalogService.ts" }
     }
-  ]
+  ],
+  "javascriptOnly": "the worker cache answers only a raw fetch, which only JavaScript and TypeScript services can make"
 }

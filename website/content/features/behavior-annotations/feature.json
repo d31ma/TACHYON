@@ -23,9 +23,129 @@
       }
     },
     {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
+    },
+    {
       "name": "client/setups/ApplicationSetup.js",
       "code": {
         "file": "client/setups/ApplicationSetup.js"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.ts",
+      "code": {
+        "file": "client/setups/ApplicationSetup.ts"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.dart",
+      "code": {
+        "file": "client/setups/ApplicationSetup.dart"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.rs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.rs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.go",
+      "code": {
+        "file": "client/setups/ApplicationSetup.go"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.rb",
+      "code": {
+        "file": "client/setups/ApplicationSetup.rb"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.swift",
+      "code": {
+        "file": "client/setups/ApplicationSetup.swift"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.kt",
+      "code": {
+        "file": "client/setups/ApplicationSetup.kt"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.java",
+      "code": {
+        "file": "client/setups/ApplicationSetup.java"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.cs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.cs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.fs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.fs"
       }
     },
     {

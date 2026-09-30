@@ -7,7 +7,7 @@ export default class CatalogService {
   products = [];
   async load() {
     const response = await fetch('/api/products', { credentials: 'omit' });
-    this.products = await this.#productsFrom(response);
+    this.products = await this._productsFrom(response);
   }
   /**
    * @param {Event} _event
@@ -20,7 +20,7 @@ export default class CatalogService {
    * @param {Response} response
    * @returns {Promise<object[]>}
    */
-  #productsFrom(response) {
+  _productsFrom(response) {
     if (!response.ok) throw new Error('Products unavailable');
     return response.json();
   }

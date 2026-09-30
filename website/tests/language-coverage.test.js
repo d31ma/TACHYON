@@ -142,6 +142,14 @@ describe('the language coverage audit', () => {
     expect(Samples.kinds(generalCoverage, 'tac')).toEqual({ js: CoverageAudit.kinds.missing, fs: CoverageAudit.kinds.missing })
   })
 
+  test('a JavaScript-only page leaves out only the languages its text names', () => {
+    const window = { name: 'client/services/Report.js', code: '@Service\nexport default class Report {}\n' }
+    const page = { ...Samples.unit('Window', [window], 'A Rust service cannot call it.'), javascriptOnly: 'only JavaScript calls the window' }
+    const coverage = Samples.audit().audit([page])[0]
+    expect(Samples.kinds(coverage, 'tac')).toEqual({ rs: CoverageAudit.kinds.notApplicable, fs: CoverageAudit.kinds.missing })
+    expect(coverage.realms[0].gaps[0]).toMatchObject({ reason: 'only JavaScript calls the window', stated: true })
+  })
+
   test('model files count only when the realm shows no role file', () => {
     const files = [{ name: 'server/controllers/GuideController.py' }, { name: 'server/models/Guide.java' }]
     const coverage = Samples.audit().audit([Samples.unit('Models', files)])[0]

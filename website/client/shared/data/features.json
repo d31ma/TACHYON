@@ -1069,8 +1069,88 @@
           "code": "@Service\nexport default class CatalogService {\n  /** @type {AbortSignal} */\n  @Needs\n  lifecycle;\n  /** @type {BehaviorContext | null} */\n  behaviors = null;\n  /** @type {number | undefined} */\n  offset = 0;\n\n  /**\n   * @param {BehaviorPageInput} input\n   * @returns {number | undefined}\n   */\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input) { return input.offset; }\n\n  @OnStart\n  async initialize() {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    });\n    this.offset = this.page({ page: 1 });\n  }\n}"
         },
         {
+          "name": "client/services/CatalogService.ts",
+          "code": "@Service\nexport default class CatalogService {\n  @Needs\n  lifecycle!: AbortSignal\n  behaviors: BehaviorContext | null = null\n  offset: number | undefined = 0\n\n  page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: BehaviorPageInput): number | undefined { return input.offset }\n\n  @OnStart\n  async initialize(): Promise<void> {\n    this.behaviors = await Behaviors.create(ApplicationSetup, {\n      partition: 'public-catalog',\n      signal: this.lifecycle,\n    })\n    this.offset = this.page({ page: 1 })\n  }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.dart",
+          "code": "@Service\nclass CatalogService {\n  late BehaviorContext behaviors;\n  int offset = 0;\n\n  Future<Object?> page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) Map<String, Object?> input) async {\n    return input['offset'];\n  }\n\n  @OnStart\n  Future<void> initialize() async {\n    behaviors = Behaviors.create(ApplicationSetup, partition: 'public-catalog', signal: BehaviorSignal());\n    offset = (await page({'page': 1}) as num).toInt();\n  }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rs",
+          "code": "#[Service]\nstruct CatalogService {\n    behaviors: BehaviorContext,\n    offset: f64,\n}\n\nimpl CatalogService {\n    fn new() -> Self {\n        let options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        Self { behaviors: Behaviors::create::<ApplicationSetup>(options).expect(\"behavior context\"), offset: 0.0 }\n    }\n\n    fn page(&self, #[PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] input: BehaviorValue) -> BehaviorResult<BehaviorValue> {\n        Ok(input.get(\"offset\").cloned().unwrap_or(BehaviorValue::Null))\n    }\n\n    #[OnStart]\n    fn initialize(&mut self) {\n        let first = BehaviorValue::object([(\"page\", BehaviorValue::Number(1.0))]);\n        if let Ok(BehaviorValue::Number(offset)) = self.page(first) {\n            self.offset = offset;\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.go",
+          "code": "// @Service\ntype CatalogService struct {\n\tbehaviors *BehaviorContext\n\tOffset    int64\n}\n\nfunc (catalog *CatalogService) Page(\n\t// @PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})\n\tinput BehaviorValue,\n) (BehaviorValue, error) {\n\treturn input.(map[string]any)[\"offset\"], nil\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() error {\n\tcontext, err := BehaviorsCreate[ApplicationSetup](NewBehaviorOptions(\"public-catalog\", NewBehaviorSignal()))\n\tif err != nil {\n\t\treturn err\n\t}\n\tcatalog.behaviors = context\n\toffset, err := catalog.Page(map[string]any{\"page\": 1})\n\tif number, ok := offset.(float64); ok {\n\t\tcatalog.Offset = int64(number)\n\t}\n\treturn err\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rb",
+          "code": "#[Service]\nclass CatalogService\n  # @return [Integer]\n  attr_reader :offset\n\n  def initialize\n    @offset = 0\n  end\n\n  # @param input [Hash]\n  # @return [Integer]\n  def page(\n    #[PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})]\n    input\n  )\n    input[\"offset\"]\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    @behaviors = Behaviors.create(ApplicationSetup, partition: \"public-catalog\", signal: BehaviorSignal.new)\n    @offset = page({ \"page\" => 1 })\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CatalogService.swift",
+          "code": "@Service\nfinal class CatalogService {\n    var behaviors: BehaviorContext!\n    var offset: Int = 0\n\n    func page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) _ input: BehaviorJSON) async throws -> BehaviorJSON {\n        input.get(\"offset\")\n    }\n\n    @OnStart\n    func initialize() async throws {\n        behaviors = try Behaviors.create(ApplicationSetup.self, partition: \"public-catalog\", signal: BehaviorSignal())\n        if case .number(let first) = try await page(.object([\"page\": .number(1)])) {\n            offset = Int(first)\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.kt",
+          "code": "@Service\nclass CatalogService {\n    lateinit var behaviors: Behaviors.Context\n    var offset: Long = 0\n\n    fun page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: Map<String, Any?>): Any? = input[\"offset\"]\n\n    @OnStart\n    fun initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", Behaviors.Options(\"public-catalog\", Behaviors.Signal()))\n        offset = (page(mapOf(\"page\" to 1)) as Number).toLong()\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.java",
+          "code": "import java.util.Map;\n\n@Service\nclass CatalogService {\n    Behaviors.Context behaviors;\n    long offset = 0;\n\n    Object page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) Map<String, Object> input) {\n        return input.get(\"offset\");\n    }\n\n    @OnStart\n    void initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", new Behaviors.Options(\"public-catalog\", new Behaviors.Signal()));\n        offset = ((Number) page(Map.of(\"page\", 1))).longValue();\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.cs",
+          "code": "[Service]\npublic sealed class CatalogService {\n    public BehaviorContext behaviors;\n    public long Offset = 0;\n\n    public System.Threading.Tasks.Task<BehaviorJSON> Page([PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] BehaviorJSON input) {\n        return System.Threading.Tasks.Task.FromResult(input.Get(\"offset\"));\n    }\n\n    [OnStart]\n    public async System.Threading.Tasks.Task Initialize() {\n        behaviors = Behaviors.create(typeof(ApplicationSetup), \"public-catalog\", new BehaviorSignal());\n        BehaviorJSON first = await Page(BehaviorJSON.Parse(\"{\\\"page\\\":1}\"));\n        Offset = first.Integer;\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.fs",
+          "code": "open System.Threading.Tasks\n\n[<Service>]\ntype CatalogService() =\n    member val behaviors : BehaviorContext = Behaviors.create(typeof<ApplicationSetup>, \"public-catalog\", new BehaviorSignal())\n    member val Offset : int64 = 0L with get, set\n\n    member this.Page([<PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})>] input: BehaviorJSON) : Task<BehaviorJSON> =\n        Task.FromResult(input.Get(\"offset\"))\n\n    [<OnStart>]\n    member this.Initialize() : unit =\n        this.Offset <- this.Page(BehaviorJSON.Parse(\"{\\\"page\\\":1}\")).Result.Integer\n"
+        },
+        {
           "name": "client/setups/ApplicationSetup.js",
           "code": "@Setup\nexport default class ApplicationSetup {\n  /** @returns {object} */\n  static configure() { return {}; }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.ts",
+          "code": "@Setup\nexport default class ApplicationSetup {\n  static configure(): object { return {} }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.dart",
+          "code": "@Setup\nclass ApplicationSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.rs",
+          "code": "#[Setup]\nstruct ApplicationSetup {}\n\nimpl ApplicationSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.go",
+          "code": "// @Setup\ntype ApplicationSetup struct{}\n\nfunc (ApplicationSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.rb",
+          "code": "#[Setup]\nclass ApplicationSetup\n  # @param _execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(_execution)\n    {}\n  end\nend\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.swift",
+          "code": "@Setup\nfinal class ApplicationSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        BehaviorAdapters()\n    }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.kt",
+          "code": "@Setup\nclass ApplicationSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.java",
+          "code": "@Setup\nclass ApplicationSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration();\n    }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.cs",
+          "code": "[Setup]\npublic sealed class ApplicationSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n"
+        },
+        {
+          "name": "client/setups/ApplicationSetup.fs",
+          "code": "[<Setup>]\ntype ApplicationSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n"
         },
         {
           "name": "adapter ownership",
@@ -1223,7 +1303,7 @@
     {
       "id": "fetch-cache",
       "title": "Caching public reads",
-      "summary": "The manifest's `tac.cache` declares service-worker policies for public reads, grouped by path. A service worker is a browser script that can answer requests from a cache. API caching requires `credentials: 'omit'`, no `Authorization` header, and a cacheable response. Responses with `private`, `no-store` or `Vary` are not cached. This worker cache is separate from the optional, limited IndexedDB JSON cache of `HTTPClient`. A successful write invalidates (marks as out of date) the worker reads that it affects. This example uses low-level fetch on purpose for its cacheable read. Managed `HTTPClient` reads are network-only (`no-store`) by default. Their optional IndexedDB policies still skip the worker. Writes use the injected declarative `HTTPClient`.",
+      "summary": "The manifest's `tac.cache` declares service-worker policies for public reads, grouped by path. A service worker is a browser script that can answer requests from a cache. API caching requires `credentials: 'omit'`, no `Authorization` header, and a cacheable response. Responses with `private`, `no-store` or `Vary` are not cached. This worker cache is separate from the optional, limited IndexedDB JSON cache of `HTTPClient`. A successful write invalidates (marks as out of date) the worker reads that it affects. This example uses low-level fetch on purpose for its cacheable read. Managed `HTTPClient` reads are network-only (`no-store`) by default. Their optional IndexedDB policies still skip the worker. Writes use the injected declarative `HTTPClient`. Only JavaScript and TypeScript services can make that raw `fetch` call. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby cannot read through the worker cache: it publishes an event, and a JavaScript or TypeScript service that listens with `OnEvent` makes the read (see Events between services in the docs).",
       "group": "Browser storage",
       "files": [
         {
@@ -1244,7 +1324,7 @@
         },
         {
           "name": "client/services/CatalogService.js",
-          "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductsClient} */\n  @Needs\n  productsClient;\n  /** @type {object[]} */\n  products = [];\n  async load() {\n    const response = await fetch('/api/products', { credentials: 'omit' });\n    this.products = await this.#productsFrom(response);\n  }\n  /**\n   * @param {Event} _event\n   * @param {BehaviorJsonValue} product\n   */\n  async save(_event, product) {\n    await this.productsClient.save(product);\n  }\n  /**\n   * @param {Response} response\n   * @returns {Promise<object[]>}\n   */\n  #productsFrom(response) {\n    if (!response.ok) throw new Error('Products unavailable');\n    return response.json();\n  }\n}"
+          "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductsClient} */\n  @Needs\n  productsClient;\n  /** @type {object[]} */\n  products = [];\n  async load() {\n    const response = await fetch('/api/products', { credentials: 'omit' });\n    this.products = await this._productsFrom(response);\n  }\n  /**\n   * @param {Event} _event\n   * @param {BehaviorJsonValue} product\n   */\n  async save(_event, product) {\n    await this.productsClient.save(product);\n  }\n  /**\n   * @param {Response} response\n   * @returns {Promise<object[]>}\n   */\n  _productsFrom(response) {\n    if (!response.ok) throw new Error('Products unavailable');\n    return response.json();\n  }\n}"
         },
         {
           "name": "client/clients/ProductsClient.ts",
@@ -2732,7 +2812,7 @@
     {
       "id": "window-controls",
       "title": "What a page may do to its window",
-      "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service can use. By default, no controls are granted. The host (the native app that shows the page) makes only the granted controls available. It checks each grant before it runs a request. Native service code belongs to the application. It runs as normal operating-system code. This window-control policy does not sandbox it (limit what it can do).",
+      "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service can use. By default, no controls are granted. The host (the native app that shows the page) makes only the granted controls available. It checks each grant before it runs a request. Native service code belongs to the application. It runs as normal operating-system code. This window-control policy does not sandbox it (limit what it can do). Only JavaScript and TypeScript services can call `tachyonWindow`. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby cannot call the window controls: it publishes an event, and a JavaScript or TypeScript service that listens with `OnEvent` calls the control (see Events between services in the docs).",
       "group": "Native",
       "files": [
         {
@@ -2742,6 +2822,10 @@
         {
           "name": "client/services/ReportService.js",
           "code": "@Service\nexport default class ReportService {\n  /** @type {boolean} */\n  canMinimize = typeof globalThis.tachyonWindow?.minimize === 'function'\n\n  minimize() {\n    globalThis.tachyonWindow?.minimize()\n  }\n\n  resize() {\n    globalThis.tachyonWindow?.resize({ width: 1280, height: 800 })\n  }\n}\n"
+        },
+        {
+          "name": "client/services/ReportService.ts",
+          "code": "@Service\nexport default class ReportService {\n  canMinimize: boolean = typeof globalThis.tachyonWindow?.minimize === 'function'\n\n  minimize(): void {\n    globalThis.tachyonWindow?.minimize()\n  }\n\n  resize(): void {\n    globalThis.tachyonWindow?.resize({ width: 1280, height: 800 })\n  }\n}\n"
         },
         {
           "name": "client/pages/tac.html",
