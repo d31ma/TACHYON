@@ -414,10 +414,12 @@ reported it as an invalid source and refused the block on every page;
 Firefox ignored it. The warning was right, so the policy now names the
 SHA-256 hash of the block's text (`SpeculationRules::script_source`), which
 every engine reads. Chromium still runs the rules; WebKit and Firefox no
-longer log anything. The Linux and Windows hosts send their own policy,
-which names neither the keyword nor the hash, so their web views still
-refuse the block (WebKitGTK logs it); a page in a native host has no use for
-prefetching, and those policies are left for a later change.
+longer log anything. The Linux and Windows hosts sent their own policy,
+which named neither the keyword nor the hash, so their web views refused
+the block (WebKitGTK logged it). A follow-up on the same day builds both
+policies in one type, `ContentSecurityPolicy` in the compiler, so the hosts
+now name the same `script-src`, hash included; the host policy still allows
+images, fonts and connections over `https:`.
 
 ### Checks
 

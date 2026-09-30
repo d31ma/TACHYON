@@ -160,6 +160,10 @@ fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String
             "__NATIVE_SHIM__",
             &c_string_escape(&super::host::native_shim(&application.window)),
         )
+        .replace(
+            "__CONTENT_SECURITY_POLICY__",
+            &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
+        )
         .replace("__APP_NAME__", &c_string_escape(&application.name))
         .replace(
             "__BUNDLE_ID__",
@@ -264,7 +268,7 @@ static void tachyon_scheme_request(WebKitURISchemeRequest *request, gpointer dat
   webkit_uri_scheme_response_set_content_type(response, tachyon_content_type(relative));
   SoupMessageHeaders *headers = soup_message_headers_new(SOUP_MESSAGE_HEADERS_RESPONSE);
   soup_message_headers_append(headers, "Content-Type", tachyon_content_type(relative));
-  soup_message_headers_append(headers, "Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'none'; object-src 'none'; base-uri 'self'");
+  soup_message_headers_append(headers, "Content-Security-Policy", "__CONTENT_SECURITY_POLICY__");
   soup_message_headers_append(headers, "X-Content-Type-Options", "nosniff");
   webkit_uri_scheme_response_set_http_headers(response, headers);
   webkit_uri_scheme_request_finish_with_response(request, response);
@@ -600,6 +604,16 @@ mod tests {
         assert!(source.contains("answer = operation && route != NULL"));
         assert!(!source.contains("file://%s"));
         assert!(!source.contains("set_allow_universal_access_from_file_urls(settings, TRUE)"));
+    }
+
+    #[test]
+    fn the_host_policy_allows_the_speculation_rules_by_their_hash() {
+        let source = c_source(&application(), &index());
+        let hash = crate::compiler::SpeculationRules::script_source();
+        assert!(
+            source.contains(&format!("script-src 'self' 'wasm-unsafe-eval' {hash};")),
+            "{source}"
+        );
     }
 
     #[test]

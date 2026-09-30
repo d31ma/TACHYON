@@ -575,6 +575,10 @@ fn c_source(
             "__NATIVE_SHIM__",
             &c_string_escape(&super::host::native_shim(&application.window)),
         )
+        .replace(
+            "__CONTENT_SECURITY_POLICY__",
+            &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
+        )
 }
 
 #[cfg(test)]
@@ -984,7 +988,7 @@ static HRESULT STDMETHODCALLTYPE resource_invoke(ICoreWebView2WebResourceRequest
   }
   wchar_t headers[1024];
   _snwprintf_s(headers, 1024, _TRUNCATE,
-    L"Content-Type: %s\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'none'; object-src 'none'; base-uri 'self'\r\n",
+    L"Content-Type: %s\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: __CONTENT_SECURITY_POLICY__\r\n",
     stream == NULL ? L"text/plain" : tachyon_content_type(relative));
   ICoreWebView2WebResourceResponse *response = NULL;
   if (SUCCEEDED(ICoreWebView2Environment_CreateWebResourceResponse(g_environment, stream, stream == NULL ? 404 : 200, stream == NULL ? L"Not Found" : L"OK", headers, &response)) && response != NULL) {
@@ -1355,6 +1359,16 @@ mod tests {
         assert!(source.contains("tachyon_bundle_path(path, relative, sizeof(relative))"));
         assert!(source.contains("ICoreWebView2WebResourceRequestedEventArgs_put_Response"));
         assert!(source.contains("Content-Security-Policy: default-src 'self'"));
+    }
+
+    #[test]
+    fn the_host_policy_allows_the_speculation_rules_by_their_hash() {
+        let source = catalog_host_source();
+        let hash = crate::compiler::SpeculationRules::script_source();
+        assert!(
+            source.contains(&format!("script-src 'self' 'wasm-unsafe-eval' {hash};")),
+            "{source}"
+        );
     }
 
     #[test]

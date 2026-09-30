@@ -43,10 +43,12 @@ users the same two properties.
 A browser that does not support these features ignores them. Navigation then
 works in the normal way.
 
-The development server adds `'inline-speculation-rules'` to its policy. This
-is the CSP (content security policy) keyword defined for exactly this case.
-The rules payload is JSON, not executable script. The policy therefore gains
-no general permission for inline scripts.
+The development server and the native hosts allow the rules block by the
+SHA-256 hash of its text in their policy (CSP, content security policy).
+Chromium's `'inline-speculation-rules'` keyword was used first, but WebKit
+does not know it (ADR 0083 amendment). The rules payload is JSON, not
+executable script. The policy therefore gains no general permission for
+inline scripts.
 
 ## Consequences
 

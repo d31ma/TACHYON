@@ -2155,6 +2155,13 @@ machine contracts have their own, independent major versions.
   block by the SHA-256 hash of its text, which Chromium, Firefox and WebKit
   all understand.
 
+- The Linux and Windows desktop hosts now allow the speculation rules block
+  by its SHA-256 hash, as the server does. They sent their own content
+  security policy without the hash, so WebKitGTK logged the block and
+  refused it. The server policy and the host policy now come from one type,
+  `ContentSecurityPolicy`, so they always allow the same scripts; the host
+  policy still allows images, fonts and connections over `https:`.
+
 - An F# `member val` whose value continues on the lines below it, with
   `with get, set` on the last line, now builds. The build read the accessor
   words as part of the value, so the generated C# member table failed with
