@@ -295,3 +295,50 @@ fn add_extends_an_existing_app() {
         assert!(tested.status.success(), "{}", text(&tested));
     }
 }
+
+#[test]
+fn a_java_page_service_passes_its_tests_with_coverage_and_builds_with_teavm() {
+    let workspace = tempfile::tempdir().expect("workspace");
+    let case = WizardCase {
+        name: "client-java",
+        flags: &["--realm", "client", "--tac", "java"],
+        programs: &["javac"],
+        typescript_client: false,
+    };
+    let project = initialized(workspace.path(), &case);
+    assert!(
+        project
+            .join("client/services/JavaGreetingService.java")
+            .is_file()
+    );
+    assert!(
+        project
+            .join("client/tests/JavaGreetingServiceTest.java")
+            .is_file()
+    );
+    assert!(
+        project
+            .join("client/components/greeting/java/tac.html")
+            .is_file()
+    );
+    if let Some(program) = case.missing_program() {
+        eprintln!("skipping the Java checks: {program} is unavailable");
+        return;
+    }
+    let tested = run(ty().args(["test", "--coverage"]).arg(&project));
+    let report = text(&tested);
+    assert!(tested.status.success(), "{report}");
+    assert!(report.contains(" 0 failed."), "{report}");
+    assert!(report.contains("called   greet"), "{report}");
+    if !run(ty().arg("doctor").arg(&project)).status.success() {
+        eprintln!("skipping the Java build: TeaVM is not installed");
+        return;
+    }
+    let built = run(ty().arg("build").arg(&project));
+    assert!(built.status.success(), "{}", text(&built));
+    assert!(
+        project
+            .join("dist/.tachyon/services/java/services.wasm")
+            .is_file()
+    );
+}
