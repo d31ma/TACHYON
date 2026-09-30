@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { CargoArtifacts } from './cargo-artifacts.mjs'
-import { chromium } from 'playwright'
+import { chromium, firefox, webkit } from 'playwright'
 import { createServer } from 'node:http'
 import { spawnSync } from 'node:child_process'
 import { createReadStream, existsSync, mkdtempSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -14,7 +14,10 @@ class WebApiGate {
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
   static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
-  static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : [])]
+  static withFsharp = spawnSync('dotnet', ['--version'], { encoding: 'utf8' }).status === 0
+  static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : []), ...(WebApiGate.withFsharp ? ['fs'] : [])]
+  static everyEngineLanguages = WebApiGate.withFsharp ? ['fs'] : []
+  static otherEngines = [firefox, webkit]
   static permissions = ['clipboard-read', 'clipboard-write', 'geolocation', 'notifications']
   static position = { latitude: 48.85, longitude: 2.35 }
   static settleTimeout = 5_000
@@ -22,7 +25,7 @@ class WebApiGate {
   static activationLifespan = 6_000
 
   static files = {
-    'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js"]},"visibility":{"check":false}}}\n',
+    'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js","fs"]},"visibility":{"check":false}}}\n',
     'client/pages/tac.html': '<stamp-page />\n',
     'client/components/stamp/page/tac.html': `<main>${WebApiGate.languages.map((language) => `<p id="${language}">{${language}Stamp.label}</p>
 <button id="${language}-copy" on:click="${language}Stamp.copy('from ${language}')">Copy</button>
@@ -492,6 +495,85 @@ final class SwiftStampService {
     }
 }
 `,
+    ...(WebApiGate.withFsharp ? { 'client/services/FsStampService.fs': `[<Service>]
+type FsStampService() =
+    let clock = Clock()
+    let secureRandom = SecureRandom()
+    let preferences = Preferences()
+    let clipboard = Clipboard()
+    let share = Share()
+    let notifications = Notifications()
+    let geolocation = Geolocation()
+    member val Label : string = "fs" with get, set
+    member val Online : bool = false with get, set
+    member val Scheme : string = "" with get, set
+    member val Pasted : string = "" with get, set
+    member val Permission : string = "" with get, set
+    member val Latitude : float = 0.0 with get, set
+    member val Failure : string = "" with get, set
+    member val Shared : bool = false with get, set
+
+    member this.Now() : float = clock.NowMs()
+
+    member this.Zone() : string = clock.TimeZone()
+
+    member this.Token() : string = secureRandom.Uuid()
+
+    member this.Count() : int = secureRandom.Bytes(16).Length
+
+    member this.Motion() : string = preferences.Motion()
+
+    member this.Locale() : string = preferences.Language()
+
+    member this.Copy(text: string) : unit = clipboard.WriteText(text)
+
+    member this.Attempt() : string = this.Refusal()
+
+    member this.Paste() : unit = clipboard.ReadText()
+
+    member this.Ask() : unit = notifications.RequestPermission()
+
+    member this.Tell() : unit = share.Open("Tachyon", "Shared from a test", "https://example.com/")
+
+    member this.Locate() : unit = geolocation.CurrentPosition()
+
+    member this.Forget() =
+        this.Pasted <- ""
+
+    [<OnEvent({"replay":true})>]
+    member this.HearConnectivity(changed: ConnectivityChanged) : unit =
+        this.Online <- changed.Online
+
+    [<OnEvent({"replay":true})>]
+    member this.HearPreferences(changed: PreferencesChanged) : unit =
+        this.Scheme <- changed.Scheme
+
+    [<OnEvent>]
+    member this.HearClipboard(read: ClipboardTextRead) : unit =
+        this.Pasted <- read.Text
+
+    [<OnEvent>]
+    member this.HearPermission(changed: NotificationPermissionChanged) : unit =
+        this.Permission <- changed.Permission
+
+    [<OnEvent>]
+    member this.HearPosition(found: PositionFound) : unit =
+        this.Latitude <- found.Latitude
+
+    [<OnEvent>]
+    member this.HearShare(finished: ShareFinished) : unit =
+        this.Shared <- not (isNull (box finished))
+
+    [<OnEvent>]
+    member this.HearFailure(failed: BrowserCallFailed) : unit =
+        this.Failure <- failed.Message
+
+    member private this.Refusal() : string =
+        try
+            clipboard.WriteText("without a click")
+            ""
+        with :? System.InvalidOperationException as refused -> refused.Message
+` } : {}),
     ...(WebApiGate.withJava ? { 'client/services/JavaStampService.java': `@Service
 class JavaStampService {
     private final Clock clock = new Clock();
@@ -640,17 +722,17 @@ class JavaStampService {
     console.log(`ok - ${label}`)
   }
 
-  static async check(page, language) {
+  static async check(page, language, label = language) {
     const report = await page.evaluate((name) => {
       const service = __tachyonTac.service(`${name}Stamp`)
       const before = Date.now()
       const values = { now: service.now(), zone: service.zone(), token: service.token(), count: service.count() }
       return { ...values, before, after: Date.now(), browserZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
     }, language)
-    WebApiGate.expect(report.now >= report.before && report.now <= report.after, true, `${language}: Clock gives the time of the browser`)
-    WebApiGate.expect(report.zone, report.browserZone, `${language}: Clock gives the time zone of the browser`)
-    WebApiGate.expect(WebApiGate.uuidPattern.test(report.token), true, `${language}: SecureRandom gives a version 4 UUID`)
-    WebApiGate.expect(report.count, 16, `${language}: SecureRandom gives the bytes it was asked for`)
+    WebApiGate.expect(report.now >= report.before && report.now <= report.after, true, `${label}: Clock gives the time of the browser`)
+    WebApiGate.expect(report.zone, report.browserZone, `${label}: Clock gives the time zone of the browser`)
+    WebApiGate.expect(WebApiGate.uuidPattern.test(report.token), true, `${label}: SecureRandom gives a version 4 UUID`)
+    WebApiGate.expect(report.count, 16, `${label}: SecureRandom gives the bytes it was asked for`)
   }
 
   static refusals(page) {
@@ -713,6 +795,36 @@ class JavaStampService {
     WebApiGate.expect(answered, true, `${language}: Share answers the calling service with ShareFinished or BrowserCallFailed`)
   }
 
+  static async checkUnitMethod(page, language, label = language) {
+    const answer = await page.evaluate((name) => __tachyonTac.service(`${name}Stamp`).forget() ?? null, language)
+    WebApiGate.expect(answer, null, `${label}: a method that returns nothing answers nothing`)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'pasted', ''), '', `${label}: a method that returns nothing still runs`)
+  }
+
+  static async checkEngine(browserType, origin) {
+    const browser = await browserType.launch({ timeout: 30_000 })
+    try {
+      const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      for (const language of WebApiGate.everyEngineLanguages) {
+        const label = `${browserType.name()} ${language}`
+        await WebApiGate.check(page, language, label)
+        WebApiGate.expect(await WebApiGate.read(page, language, 'motion'), 'reduce', `${label}: Preferences gives the motion setting`)
+        WebApiGate.expect(await WebApiGate.settled(page, language, 'scheme', 'dark'), 'dark', `${label}: a replay listener hears the current color scheme`)
+        await page.emulateMedia({ colorScheme: 'light' })
+        WebApiGate.expect(await WebApiGate.settled(page, language, 'scheme', 'light'), 'light', `${label}: PreferencesChanged reaches the listener`)
+        await page.emulateMedia({ colorScheme: 'dark' })
+        await context.setOffline(true)
+        WebApiGate.expect(await WebApiGate.settled(page, language, 'online', false), false, `${label}: ConnectivityChanged reaches the listener`)
+        await context.setOffline(false)
+        await WebApiGate.checkUnitMethod(page, language, label)
+      }
+    } finally {
+      await browser.close()
+    }
+  }
+
   static async main() {
     const project = mkdtempSync(path.join(tmpdir(), 'tachyon-web-apis-'))
     const server = createServer(WebApiGate.handler(project))
@@ -736,6 +848,10 @@ class JavaStampService {
         await WebApiGate.check(page, language)
         await WebApiGate.checkPreferences(page, context, language)
         await WebApiGate.checkPrompts(page, language)
+      }
+      for (const language of WebApiGate.everyEngineLanguages) await WebApiGate.checkUnitMethod(page, language)
+      for (const browserType of WebApiGate.otherEngines) {
+        if (WebApiGate.everyEngineLanguages.length > 0) await WebApiGate.checkEngine(browserType, origin)
       }
     } finally {
       await browser?.close()

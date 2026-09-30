@@ -20,6 +20,12 @@ impl WebEventSources {
         number: "double",
         flag: "bool",
     };
+    const FSHARP: LanguageKinds = LanguageKinds {
+        text: "string",
+        number: "float",
+        flag: "bool",
+    };
+    const FSHARP_NAMESPACE: &'static str = "namespace global\n";
     const DART: LanguageKinds = LanguageKinds {
         text: "String",
         number: "double",
@@ -52,6 +58,14 @@ impl WebEventSources {
 
     pub(crate) fn csharp() -> String {
         Self::each(Self::csharp_model)
+    }
+
+    pub(crate) fn fsharp() -> String {
+        format!(
+            "{}{}",
+            Self::FSHARP_NAMESPACE,
+            Self::each(Self::fsharp_model)
+        )
     }
 
     pub(crate) fn dart() -> String {
@@ -152,6 +166,20 @@ impl WebEventSources {
             parameters.push(format!("{kind} {}", Self::capitalized(&field.name)));
         }
         format!("public sealed record {name}({});\n", parameters.join(", "))
+    }
+
+    fn fsharp_model(name: &str, fields: &[ModelField]) -> String {
+        if fields.is_empty() {
+            return format!("\ntype {name}() = class end\n");
+        }
+        let declared: Vec<String> = fields
+            .iter()
+            .map(|field| {
+                let kind = Self::kind(&Self::FSHARP, &field.shape);
+                format!("{}: {kind}", Self::capitalized(&field.name))
+            })
+            .collect();
+        format!("\ntype {name} = {{ {} }}\n", declared.join("; "))
     }
 
     fn dart_model(name: &str, fields: &[ModelField]) -> String {

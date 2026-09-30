@@ -92,22 +92,38 @@ mod tests {
 
     const SERVICE: &str = "[<Service>]\ntype SignalService() =\n    [<Needs>]\n    member val Publisher : ApplicationEventPublisher = Unchecked.defaultof<ApplicationEventPublisher> with get, set\n\n    member this.Send(size: int) : unit =\n        this.Publisher.PublishEvent(size)\n";
 
-    #[test]
-    fn a_needs_publisher_property_is_set_after_the_constructor() {
+    const UNTYPED: &str = "[<Service>]\ntype ResetService() =\n    member val Seen : int = 0 with get, set\n\n    member this.Reset() =\n        this.Seen <- 0\n";
+
+    fn body_of(class: &str, authored: &str) -> String {
         let root = tempfile::tempdir().expect("project");
-        let source = root.path().join("client/services/SignalService.fs");
+        let source = root.path().join(format!("client/services/{class}.fs"));
         std::fs::create_dir_all(source.parent().expect("parent")).expect("folders");
-        std::fs::write(&source, SERVICE).expect("source");
+        std::fs::write(&source, authored).expect("source");
         let item = NativeCompanionInput {
             snapshot_root: root.path().to_path_buf(),
             language: NativeCompanion::CSharp,
             source,
             service: String::from("signal"),
-            class: String::from("SignalService"),
+            class: String::from(class),
             web_assembly: true,
         };
-        let body =
-            FsharpService::body(&item, SERVICE).unwrap_or_else(|failure| panic!("{failure}"));
+        FsharpService::body(&item, authored).unwrap_or_else(|failure| panic!("{failure}"))
+    }
+
+    #[test]
+    fn a_method_without_a_written_type_may_return_nothing() {
+        let body = body_of("ResetService", UNTYPED);
+        assert!(
+            body.contains(
+                "TacMember.Method(arguments => TacMember.Result(() => Instance.Reset()))"
+            ),
+            "{body}"
+        );
+    }
+
+    #[test]
+    fn a_needs_publisher_property_is_set_after_the_constructor() {
+        let body = body_of("SignalService", SERVICE);
         assert!(
             body.contains("new SignalService() { Publisher = new ApplicationEventPublisher() }"),
             "{body}"

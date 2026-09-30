@@ -62,6 +62,14 @@ public sealed class TacMember
 
     public static TacMember Method(Func<object[], object> invoke) =>
         new TacMember { Invoke = invoke };
+
+    public static object Result(Func<object> call) => call();
+
+    public static object Result(Action call)
+    {
+        call();
+        return null;
+    }
     public static TacMember Listener(string[] events, bool replay, int order, string condition, string models, string returns, bool asynchronous, Func<object, object> invoke) =>
         new() { Events = events, Replay = replay, Order = order, Condition = Parse(condition), Models = Parse(models), Returns = returns, Asynchronous = asynchronous, Listen = invoke };
 

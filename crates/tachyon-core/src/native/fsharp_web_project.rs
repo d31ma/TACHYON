@@ -2,7 +2,7 @@ use super::fsharp_behaviors_project::FsharpBehaviorsProject;
 use crate::Failure;
 use crate::fsharp_source::FsharpSource;
 use crate::model_sources::ModelSources;
-use crate::route_types::ModelTable;
+use crate::route_types::{ModelTable, WebEventSources};
 use std::path::Path;
 
 pub(super) struct FsharpWebProject;
@@ -13,7 +13,7 @@ impl FsharpWebProject {
     const SERIALIZABLE: &'static str = "[System.Text.Json.Serialization.JsonSerializable";
     const PROJECT_END: &'static str = "</Project>";
     const REFERENCE: &'static str = "  <ItemGroup><ProjectReference Include=\"FsharpServices/FsharpServices.fsproj\" /></ItemGroup>\n";
-    const PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n    <OutputType>Library</OutputType>\n    <AssemblyName>FsharpServices</AssemblyName>\n    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>\n  </PropertyGroup>\n  <ItemGroup><Compile Include=\"Services.fs\" /></ItemGroup>\n</Project>\n";
+    const PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n    <OutputType>Library</OutputType>\n    <AssemblyName>FsharpServices</AssemblyName>\n    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>\n  </PropertyGroup>\n  <ItemGroup><Compile Include=\"WebEvents.fs\" /><Compile Include=\"Services.fs\" /></ItemGroup>\n</Project>\n";
 
     pub(super) fn with_model_context(
         csharp: &str,
@@ -63,18 +63,19 @@ impl FsharpWebProject {
         let mut files = vec![
             (
                 format!("{}/FsharpServices.fsproj", Self::FOLDER),
-                Self::services_project(runtime),
+                Self::services_project(),
             ),
             (format!("{}/Services.fs", Self::FOLDER), services),
+            (
+                format!("{}/WebEvents.fs", Self::FOLDER),
+                WebEventSources::fsharp(),
+            ),
         ];
         files.extend(FsharpBehaviorsProject::files(runtime));
         Ok(Self::wanted(files, fsharp))
     }
 
-    fn services_project(runtime: &str) -> String {
-        if runtime.is_empty() {
-            return String::from(Self::PROJECT);
-        }
+    fn services_project() -> String {
         let reference = format!("{}{}", FsharpBehaviorsProject::REFERENCE, Self::PROJECT_END);
         Self::PROJECT.replace(Self::PROJECT_END, &reference)
     }
@@ -140,11 +141,37 @@ mod tests {
                 .1
                 .contains("../FsharpBehaviors/FsharpBehaviors.csproj")
         );
-        assert_eq!(files[2].0, "FsharpBehaviors/FsharpBehaviors.csproj");
+        assert_eq!(files[3].0, "FsharpBehaviors/FsharpBehaviors.csproj");
         assert!(
-            files[3]
+            files[4]
                 .1
                 .contains("InternalsVisibleTo(\"FsharpServices\")")
         );
+    }
+
+    #[test]
+    fn fsharp_services_see_the_browser_apis_and_their_events() {
+        let root = tempfile::tempdir().unwrap_or_else(|error| panic!("root: {error}"));
+        let files = FsharpWebProject::files(root.path(), "namespace TachyonService0\n", "")
+            .unwrap_or_else(|error| panic!("files: {error}"));
+        let named = |wanted: &str| {
+            files
+                .iter()
+                .find(|(name, _)| name == wanted)
+                .map(|(_, contents)| contents.clone())
+                .unwrap_or_else(|| panic!("no {wanted} in {files:?}"))
+        };
+        let project = named("FsharpServices/FsharpServices.fsproj");
+        assert!(
+            project.contains(
+                "<Compile Include=\"WebEvents.fs\" /><Compile Include=\"Services.fs\" />"
+            )
+        );
+        assert!(project.contains("../FsharpBehaviors/FsharpBehaviors.csproj"));
+        assert!(
+            named("FsharpServices/WebEvents.fs")
+                .contains("type ConnectivityChanged = { Online: bool }")
+        );
+        assert!(named("FsharpBehaviors/WebApis.cs").contains("public sealed class Clock"));
     }
 }

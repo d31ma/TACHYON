@@ -1,4 +1,5 @@
 use super::config::NativeApplication;
+use super::csharp_web_apis::CsharpWebApis;
 use super::dotnet_web_release::DotnetWebRelease;
 use super::host::{
     GeneratedHost, c_string_escape, first_line, native_tool_failure, run_tool, stage_application,
@@ -71,20 +72,7 @@ impl WindowsHostGenerator {
         "/SUBSYSTEM:WINDOWS",
         "/ENTRY:wWinMainCRTStartup",
     ];
-    const CSHARP_COMPANION_PRELUDE: &str = concat!(
-        include_str!("web_apis/TacWebHost.cs"),
-        include_str!("web_apis/Clock.cs"),
-        include_str!("web_apis/SecureRandom.cs"),
-        include_str!("web_apis/Connectivity.cs"),
-        include_str!("web_apis/PageVisibility.cs"),
-        include_str!("web_apis/Preferences.cs"),
-        include_str!("web_apis/Clipboard.cs"),
-        include_str!("web_apis/Share.cs"),
-        include_str!("web_apis/Notifications.cs"),
-        include_str!("web_apis/Geolocation.cs"),
-        include_str!("web_apis/WindowControls.cs"),
-        include_str!("prelude.cs")
-    );
+    const CSHARP_COMPANION_PRELUDE: &str = include_str!("prelude.cs");
     const CSHARP_COMPANION_USING: &str = "using System;\nusing System.Collections;\n\
                                       using System.Collections.Generic;\n\
                                       using System.Globalization;\nusing System.Linq;\n\
@@ -200,10 +188,10 @@ fn stage_companion(
     );
     let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
     let prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
-    let events = crate::route_types::WebEventSources::csharp();
+    let web_apis = CsharpWebApis::with_events();
     write(
         &project.join("TachyonCompanion.cs"),
-        format!("{using}\n{application}\n{authored}\n{prelude}{events}").as_bytes(),
+        format!("{using}\n{application}\n{authored}\n{prelude}{web_apis}").as_bytes(),
     )?;
     write(
         &project.join("TachyonCompanion.csproj"),
@@ -227,7 +215,7 @@ pub(crate) async fn web_dotnet(
     let (fsharp, runtime) = crate::fsharp_source::FsharpSource::runtime_split(fsharp);
     let fsharp_files =
         super::fsharp_web_project::FsharpWebProject::files(snapshot_root, fsharp, runtime)?;
-    let source = web_source(authored);
+    let source = web_source(authored, fsharp);
     let version = run_tool("dotnet", &["--version"]).await.map_err(|_| {
         native_tool_failure(
             1605,
@@ -271,7 +259,7 @@ fn web_companion_inputs(
     companions
 }
 
-fn web_source(authored: &str) -> String {
+fn web_source(authored: &str, fsharp: &str) -> String {
     use std::fmt::Write as _;
     let full_prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
     let prelude = full_prelude
@@ -300,7 +288,7 @@ fn web_source(authored: &str) -> String {
         "{using}using System.Runtime.InteropServices.JavaScript;\n\n\
          internal static class TacApplication {{ internal const string Id = \"web\"; }}\n\n\
          {authored}\n{prelude}\n{}{entry}",
-        crate::route_types::WebEventSources::csharp()
+        CsharpWebApis::in_web_services(fsharp)
     )
 }
 
@@ -1237,11 +1225,23 @@ mod tests {
         let authored = "namespace TachyonService0 {\npublic static class BehaviorStorage { }\n}\n\
              namespace TachyonService1 {\npublic class Plain { }\n}\n\
              namespace TachyonService2 {\npublic static class BehaviorStorage { }\n}\n";
-        let source = super::web_source(authored);
+        let source = super::web_source(authored, "");
         assert!(source.contains("TachyonService0.BehaviorStorage.Host ??= Storage;"));
         assert!(!source.contains("TachyonService1.BehaviorStorage"));
         assert!(source.contains("TachyonService2.BehaviorStorage.Host ??= Storage;"));
         assert!(!source.contains("        BehaviorStorage.Host"));
+    }
+
+    #[test]
+    fn a_page_with_fsharp_services_takes_the_browser_apis_from_the_library_below_them() {
+        let authored = "namespace TachyonService0 {\npublic class Plain { }\n}\n";
+        let alone = super::web_source(authored, "");
+        assert!(alone.contains("public static class TacWebHost"));
+        assert!(alone.contains("public sealed record ShareFinished();"));
+        let with_fsharp = super::web_source(authored, "namespace rec TachyonService1\n");
+        assert!(!with_fsharp.contains("public static class TacWebHost"));
+        assert!(!with_fsharp.contains("public sealed record ShareFinished();"));
+        assert!(with_fsharp.contains("TacWebHost.Ask ??= Web;"));
     }
 
     #[test]

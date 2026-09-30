@@ -1236,6 +1236,9 @@ fn csharp_entry(member: &Member) -> String {
         (true, Some(kind), _) if kind == "BehaviorJSON" => format!(
             "        [\"{key}\"] = TacMember.Method(arguments => Tac.PlainJson(Instance.{name}({passed}))),\n"
         ),
+        (true, Some(kind), _) if kind == "object" => format!(
+            "        [\"{key}\"] = TacMember.Method(arguments => TacMember.Result(() => Instance.{name}({passed}))),\n"
+        ),
         (true, _, _) => format!(
             "        [\"{key}\"] = TacMember.Method(arguments => Instance.{name}({passed})),\n"
         ),

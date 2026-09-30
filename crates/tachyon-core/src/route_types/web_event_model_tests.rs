@@ -102,6 +102,20 @@ fn every_language_declares_the_web_event_models_with_their_fields() {
 }
 
 #[test]
+fn fsharp_declares_the_web_event_models_as_records_everyone_on_the_page_can_name() {
+    let source = WebEventSources::fsharp();
+    assert!(source.starts_with("namespace global\n"), "{source}");
+    assert!(source.contains("\ntype ConnectivityChanged = { Online: bool }\n"));
+    assert!(source.contains(
+        "\ntype PositionFound = { Latitude: float; Longitude: float; Accuracy: float; Timestamp: float }\n"
+    ));
+    assert!(source.contains("\ntype ShareFinished() = class end\n"));
+    for name in WebEventModels::names() {
+        assert!(source.contains(&format!("\ntype {name}")), "{name}");
+    }
+}
+
+#[test]
 fn listeners_in_every_client_language_accept_the_web_event_models() {
     for (extension, source) in Preludes::LISTENERS {
         let models = Preludes::listener_models(extension, source, "client")

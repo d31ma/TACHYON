@@ -2,6 +2,7 @@ mod android;
 mod browser_api_grants;
 mod compiler;
 mod config;
+mod csharp_web_apis;
 mod dotnet_web_release;
 mod events;
 mod fsharp_behaviors_project;
