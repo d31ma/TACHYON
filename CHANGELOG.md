@@ -555,6 +555,17 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- F# takes a role through a Needs property as well as through its primary
+  constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
+  a settable `member val OrderStore : OrderStore =
+  Unchecked.defaultof<OrderStore> with get, set`. Tachyon sets the property
+  right after the constructor, in Yon controllers and services and in Tac F#
+  services (for the `ApplicationEventPublisher`), and an F# test unit fakes it
+  with a `[<Fake>]` property and `StockService(Names = this.Names)`. A type
+  that takes one role twice, or `[<Needs>]` on anything but a settable typed
+  property, stops the build with `TY2015`; only `NeedsAll` with a list of
+  fields is still refused in F#.
+
 - F# controllers hold `SocketRoute` (with `OnOpen`, `OnMessage`, `OnClose`
   and `OnError`) and `StreamRoute` (ADR 0073). Tachyon runs the C# socket and
   stream lowering on the C# view of the F# file; a socket member takes the

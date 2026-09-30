@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-28 (behavior annotations, events, lifecycle hooks,
   `NeedsAll`, sockets, streams, executed coverage and the test context:
-  2026-09-29)
+  2026-09-29; Needs properties: 2026-09-29)
 - Builds on: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   (the .NET browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
   (routes), [ADR 0062](0062-yon-uses-native-http-types.md) (native HTTP
@@ -38,9 +38,8 @@ C# work.
   Spring's single-constructor injection, so F# needs no `Needs` attribute.
   `[<NeedsAll>]` is allowed: in F# the primary constructor already is the
   constructor of every required dependency, so the attribute states what the
-  constructor does and changes nothing. `NeedsAll` with a list of fields and
-  field injection with `Needs` are refused by name, because an F# field
-  always has a value.
+  constructor does and changes nothing. `NeedsAll` with a list of fields is
+  refused by name. Field injection uses a Needs property (see below).
 - Route parameters and return values use the written F# types. Members that
   Tachyon reads (routes, service members, test cases) write their types:
   `member this.GetOrder(id: int) : Order =`. `int`, `int64`, `float`,
@@ -214,12 +213,34 @@ An F# test unit has a behavior context in each case, as a C# unit has.
 - Role files composed into the unit keep their behavior annotations: Tachyon
   lowers them as it does for a route.
 
+### Needs properties (added 2026-09-29)
+
+A settable property with a written type receives a role like a Spring field:
+`[<Needs>] member val OrderStore : OrderStore =
+Unchecked.defaultof<OrderStore> with get, set`, with an optional
+`[<Named("FastStore")>]` that chooses another provider. Constructor
+parameters stay the recommended form.
+
+- The C# view reads each Needs property as one more primary constructor
+  parameter (its type, or the Named provider), so the provider graph, the
+  scope checks and the Tac publisher check see it as they see a constructor
+  parameter. The view drops the Needs and Named lines.
+- The F# code keeps the author's constructor. The generated C# container (in
+  Yon) and member table (in Tac) create the type with its constructor
+  parameters and then set each property: `new StockService() { Names =
+  resolve_1() }`. So a test sets it the same way: `StockService(Names =
+  this.Names)`, where the test unit declares `[<Fake>] member val Names :
+  NameService = ... with get, set`.
+- A Tac F# service still takes only its `ApplicationEventPublisher`, as a
+  constructor parameter or as a Needs property.
+- `TY2015` refuses `[<Needs>]` on anything but a settable `member val` with a
+  written type, and a type that takes the same role twice: as a constructor
+  parameter and as a Needs property, or as two Needs properties.
+
 ### Not yet available in F#
 
-Field injection with `Needs` is not available in F# yet: a type takes its
-dependencies as primary constructor parameters. A file that uses a `Needs`
-field is refused with a message that names the missing feature, so F# never
-ignores an annotation.
+`NeedsAll` with a list of fields is refused with a message that names it, so
+F# never ignores an annotation.
 
 ## Consequences
 

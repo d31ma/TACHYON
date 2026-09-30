@@ -1,4 +1,7 @@
 [<Service>]
-type LedgerService(ledgerAmountsHelper: LedgerAmountsHelper) =
+type LedgerService() =
+    [<Needs>]
+    member val Amounts : LedgerAmountsHelper = Unchecked.defaultof<LedgerAmountsHelper> with get, set
+
     member this.Subtotal() : int =
-        ledgerAmountsHelper.Subtotal()
+        this.Amounts.Subtotal()
