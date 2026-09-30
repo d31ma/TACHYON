@@ -15,9 +15,10 @@ than once, and native generator syntax produces it.
 Each language adapter or protocol prelude keeps that generator open
 and emits one bounded frame per value.
 
-Java, Rust and Go are deliberately single-response because none of
-them has a native generator. Tachyon refuses StreamRoute on them. A
-streaming route can use any generator-capable Yon language.
+Java, Groovy, Rust and Go are deliberately single-response because
+none of them has a native generator. Tachyon refuses StreamRoute on
+them (TY2015). A streaming route can use any generator-capable Yon
+language.
 
 In one controller, either every GET route is a StreamRoute or none is.
 

@@ -1,7 +1,33 @@
 {
   "heading": "Topics",
-  "body": "A topic is a model marked Topic. Write @Topic above the model in a models folder: `@topic` in Python, `#[Topic]` in Rust, PHP and Ruby, `[Topic]` in C#, `[<Topic>]` in F#, `// @Topic` in Go and `/** @Topic */` in TypeScript. JavaScript writes ` * @Topic` inside the model's @typedef block. The topic name comes from the model's type name only: InventoryRecord becomes the topic inventory-record.\n\nWhen a Yon class calls publishEvent(model) with a Topic model, its own listeners hear the event first, as with any event. Then Tachyon adds the value as one line to the topic log, an append-only file (new lines are only added at the end) at `data/topics/inventory-record.jsonl`. The server then calls every OnEvent listener of that model in the other Yon files and languages once. The listeners that already ran in the publishing request are not called again. This works like Spring Cloud Bus: delivery is at most once, the server keeps no position for a Yon listener, and a listener that fails is not called again. An event that a listener publishes again travels at most 8 times. Each language declares its own model and marks it Topic; a listener hears other processes only when its own model is a Topic. A Yon listener runs when its class is part of a controller (through a Needs field), like every Yon provider.\n\nIn a page, an OnEvent listener for a Topic model opens the stream `/.tachyon/topics/inventory-record` by itself. This address is a server route, not a folder: the server reads the log from the topic log folder. No HTTPClient or StreamRequest is needed. The same is true for an OnEvent listener in a Swift service that runs as WebAssembly in the page. All listeners of one topic share one stream. The stream replays the kept records, and after a lost connection it resumes after the last record it received. It reconnects after 1, 2, 4, 8 and 16 seconds, like StreamRequest. A page's publishEvent stays in the page: to send a value to the server, call a Yon route that publishes it, as InventoryController does here.\n\nTachyon refuses Topic outside a models folder and Topic that is not written above a model. The server accepts a publication only for a Topic model of the publishing file's language, only a model value, and at most 64 KiB; a log holds at most 16 MiB. Every Yon language sends and receives Topic events.\n\nThe topic logs are saved data, so they live outside the generated `.tachyon` folder, which you can delete at any time. The folder is `data/topics` in the project unless `topics.directory` in `server/application.json` names another one: a plain path inside the project, such as `storage/events`, or an absolute path with no symbolic link in it. Tachyon refuses a path with `..`, a path inside `.tachyon`, and a folder that a symbolic link leads out of the project (`TY1303`). Back up this folder like a database. Commit it only when the events are sample data for everyone; `ty init` does not ignore it in `.gitignore`. An app that saved topic logs in `.tachyon/topics` before keeps them: when the server starts and the topic log folder has no logs yet, it moves the old logs there once and prints a notice. `ty migrate check` lists old logs that are still in `.tachyon/topics`.\n\nA route that streams its own values is a different feature. That is a StreamRoute method in Yon (a method that gives its values one at a time).",
+  "target": "web",
+  "axis": "language",
+  "body": "A topic is a model marked Topic. Write @Topic above the model in a models folder: `@topic` in Python, `@Topic` in Java, Groovy, Kotlin, Dart and Swift, `#[Topic]` in Rust, PHP and Ruby, `[Topic]` in C#, `[<Topic>]` in F#, `// @Topic` in Go and `/** @Topic */` in TypeScript. JavaScript writes ` * @Topic` inside the model's @typedef block. The topic name comes from the model's type name only: InventoryRecord becomes the topic inventory-record.\n\nWhen a Yon class calls publishEvent(model) with a Topic model, its own listeners hear the event first, as with any event. Then Tachyon adds the value as one line to the topic log, an append-only file (new lines are only added at the end) at `data/topics/inventory-record.jsonl`. The server then calls every OnEvent listener of that model in the other Yon files and languages once. The listeners that already ran in the publishing request are not called again. This works like Spring Cloud Bus: delivery is at most once, the server keeps no position for a Yon listener, and a listener that fails is not called again. An event that a listener publishes again travels at most 8 times. Each language declares its own model and marks it Topic; a listener hears other processes only when its own model is a Topic. A Yon listener runs when its class is part of a controller (through a Needs field), like every Yon provider.\n\nIn a page, an OnEvent listener for a Topic model opens the stream `/.tachyon/topics/inventory-record` by itself. This address is a server route, not a folder: the server reads the log from the topic log folder. No HTTPClient or StreamRequest is needed. The same is true for an OnEvent listener in a Dart service and in a service that runs as WebAssembly in the page. All listeners of one topic share one stream. The stream replays the kept records, and after a lost connection it resumes after the last record it received. It reconnects after 1, 2, 4, 8 and 16 seconds, like StreamRequest. A page's publishEvent stays in the page: to send a value to the server, call a Yon route that publishes it, as InventoryController does here.\n\nTachyon refuses Topic outside a models folder and Topic that is not written above a model. The server accepts a publication only for a Topic model of the publishing file's language, only a model value, and at most 64 KiB; a log holds at most 16 MiB. Every Yon language sends and receives Topic events.\n\nThe topic logs are saved data, so they live outside the generated `.tachyon` folder, which you can delete at any time. The folder is `data/topics` in the project unless `topics.directory` in `server/application.json` names another one: a plain path inside the project, such as `storage/events`, or an absolute path with no symbolic link in it. Tachyon refuses a path with `..`, a path inside `.tachyon`, and a folder that a symbolic link leads out of the project (`TY1303`). Back up this folder like a database. Commit it only when the events are sample data for everyone; `ty init` does not ignore it in `.gitignore`. An app that saved topic logs in `.tachyon/topics` before keeps them: when the server starts and the topic log folder has no logs yet, it moves the old logs there once and prints a notice. `ty migrate check` lists old logs that are still in `.tachyon/topics`.\n\nA route that streams its own values is a different feature. That is a StreamRoute method in Yon (a method that gives its values one at a time).",
   "files": [
+    {
+      "name": "server/models/InventoryRecord.js",
+      "code": {
+        "file": "server/models/InventoryRecord.js"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.js",
+      "code": {
+        "file": "server/controllers/InventoryController.js"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.ts",
+      "code": {
+        "file": "server/models/InventoryRecord.ts"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.ts",
+      "code": {
+        "file": "server/controllers/InventoryController.ts"
+      }
+    },
     {
       "name": "server/models/InventoryRecord.py",
       "code": {
@@ -12,6 +38,102 @@
       "name": "server/controllers/InventoryController.py",
       "code": {
         "file": "server/controllers/InventoryController.py"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.php",
+      "code": {
+        "file": "server/models/InventoryRecord.php"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.php",
+      "code": {
+        "file": "server/controllers/InventoryController.php"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.java",
+      "code": {
+        "file": "server/models/InventoryRecord.java"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.java",
+      "code": {
+        "file": "server/controllers/InventoryController.java"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.groovy",
+      "code": {
+        "file": "server/models/InventoryRecord.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.groovy",
+      "code": {
+        "file": "server/controllers/InventoryController.groovy"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.kt",
+      "code": {
+        "file": "server/models/InventoryRecord.kt"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.kt",
+      "code": {
+        "file": "server/controllers/InventoryController.kt"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.cs",
+      "code": {
+        "file": "server/models/InventoryRecord.cs"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.cs",
+      "code": {
+        "file": "server/controllers/InventoryController.cs"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.rs",
+      "code": {
+        "file": "server/models/InventoryRecord.rs"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.rs",
+      "code": {
+        "file": "server/controllers/InventoryController.rs"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.go",
+      "code": {
+        "file": "server/models/InventoryRecord.go"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.go",
+      "code": {
+        "file": "server/controllers/InventoryController.go"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.dart",
+      "code": {
+        "file": "server/models/InventoryRecord.dart"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.dart",
+      "code": {
+        "file": "server/controllers/InventoryController.dart"
       }
     },
     {
@@ -39,6 +161,18 @@
       }
     },
     {
+      "name": "client/pages/inventory/tac.html",
+      "code": {
+        "file": "client/pages/inventory/tac.html"
+      }
+    },
+    {
+      "name": "client/components/inventory/feed/tac.html",
+      "code": {
+        "file": "client/components/inventory/feed/tac.html"
+      }
+    },
+    {
       "name": "client/models/InventoryRecord.js",
       "code": {
         "file": "client/models/InventoryRecord.js"
@@ -51,6 +185,114 @@
       }
     },
     {
+      "name": "client/models/InventoryRecord.ts",
+      "code": {
+        "file": "client/models/InventoryRecord.ts"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.ts",
+      "code": {
+        "file": "client/services/InventoryService.ts"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.dart",
+      "code": {
+        "file": "client/models/InventoryRecord.dart"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.dart",
+      "code": {
+        "file": "client/services/InventoryService.dart"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.rs",
+      "code": {
+        "file": "client/models/InventoryRecord.rs"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.rs",
+      "code": {
+        "file": "client/services/InventoryService.rs"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.go",
+      "code": {
+        "file": "client/models/InventoryRecord.go"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.go",
+      "code": {
+        "file": "client/services/InventoryService.go"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.rb",
+      "code": {
+        "file": "client/models/InventoryRecord.rb"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.rb",
+      "code": {
+        "file": "client/services/InventoryService.rb"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.swift",
+      "code": {
+        "file": "client/models/InventoryRecord.swift"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.swift",
+      "code": {
+        "file": "client/services/InventoryService.swift"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.kt",
+      "code": {
+        "file": "client/models/InventoryRecord.kt"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.kt",
+      "code": {
+        "file": "client/services/InventoryService.kt"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.java",
+      "code": {
+        "file": "client/models/InventoryRecord.java"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.java",
+      "code": {
+        "file": "client/services/InventoryService.java"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.cs",
+      "code": {
+        "file": "client/models/InventoryRecord.cs"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.cs",
+      "code": {
+        "file": "client/services/InventoryService.cs"
+      }
+    },
+    {
       "name": "client/models/InventoryRecord.fs",
       "code": {
         "file": "client/models/InventoryRecord.fs"
@@ -60,18 +302,6 @@
       "name": "client/services/InventoryService.fs",
       "code": {
         "file": "client/services/InventoryService.fs"
-      }
-    },
-    {
-      "name": "client/pages/inventory/tac.html",
-      "code": {
-        "file": "client/pages/inventory/tac.html"
-      }
-    },
-    {
-      "name": "client/components/inventory/feed/tac.html",
-      "code": {
-        "file": "client/components/inventory/feed/tac.html"
       }
     }
   ]

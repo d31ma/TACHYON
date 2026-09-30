@@ -9,6 +9,7 @@ import { RuleTableParser } from './rule-table-parser.mjs'
 export class AnnotationReach {
   static ruleTable = fileURLToPath(new URL('../../crates/tachyon-core/src/annotation_rules.rs', import.meta.url))
   static codePrefix = 'TY'
+  static browserJavascript = ['js', 'ts']
 
   /** @type {Record<Realm, string[]>} */
   realmLanguages
@@ -62,10 +63,29 @@ export class AnnotationReach {
    * @returns {Refusal | undefined}
    */
   refusal(realm, language, annotations, shownLanguages) {
-    if (!this.realmLanguages[realm].includes(language)) return undefined
     const needed = this.knownRules(annotations).filter(rule => this.acceptsEvery(rule, realm, shownLanguages))
-    const refused = needed.find(rule => !rule[realm].includes(language))
+    const refused = needed.find(rule => this.refuses(rule, realm, language))
     return refused && { annotation: refused.name, code: `${AnnotationReach.codePrefix}${refused.code}` }
+  }
+
+  /**
+   * @param {AnnotationRule} rule
+   * @param {Realm} realm
+   * @param {string} language
+   * @returns {boolean}
+   */
+  refuses(rule, realm, language) {
+    if (rule[realm].includes(language)) return false
+    if (this.realmLanguages[realm].includes(language)) return true
+    return AnnotationReach.isBrowserJavascriptOnly(rule[realm])
+  }
+
+  /**
+   * @param {string[]} languages
+   * @returns {boolean}
+   */
+  static isBrowserJavascriptOnly(languages) {
+    return languages.length > 0 && languages.every(language => AnnotationReach.browserJavascript.includes(language))
   }
 
   /**

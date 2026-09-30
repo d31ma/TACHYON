@@ -17,6 +17,7 @@ class Samples {
     const YON_BEHAVIOR: &'static [&'static str] = &["js", "py", "java"];
     const YON_STREAM: &'static [&'static str] = &["js", "py"];
     const TAC_HELPER: &'static [&'static str] = &["js"];
+    const TAC_STREAM: &'static [&'static str] = &["js", "ts"];
     const NOWHERE: &'static [&'static str] = &[];
     pub(crate) const ALL: &'static [Rule] = &[
         Rule::new(
@@ -30,6 +31,8 @@ class Samples {
         Rule::new("StreamRoute", Self::METHOD, "streams")
         .route()
         .reach(Self::NOWHERE, Self::YON_STREAM),
+        Rule::new("StreamRequest", Self::METHOD, "receives a stream")
+        .reach(Self::TAC_STREAM, Self::NOWHERE),
         Rule::retired("Component", "Helper", "write @Helper"),
     ];
 
@@ -99,6 +102,7 @@ describe('the annotation rule table parser', () => {
       { name: 'Service', tac: ['js', 'rs'], yon: ['js', 'py', 'java'], code: 1308 },
       { name: 'Helper', tac: ['js'], yon: ['js', 'py', 'java'], code: 1308 },
       { name: 'StreamRoute', tac: [], yon: ['js', 'py'], code: 2015 },
+      { name: 'StreamRequest', tac: ['js', 'ts'], yon: [], code: 1308 },
       { name: 'Component', tac: [], yon: [], code: 1308 },
       { name: 'Public', tac: [], yon: ['js', 'py', 'java'], code: 2015 },
     ])
@@ -110,6 +114,7 @@ describe('the annotation rule table parser', () => {
     expect(reach.rule('Public')?.tac).toEqual([])
     expect(reach.rule('stream_route')?.yon).not.toContain('java')
     expect(reach.refusal('yon', 'java', ['StreamRoute'], ['js'])).toEqual({ annotation: 'StreamRoute', code: 'TY2015' })
+    expect(reach.refusal('tac', 'java', ['StreamRequest'], ['js', 'ts'])).toEqual({ annotation: 'StreamRequest', code: 'TY1308' })
   })
 })
 
@@ -129,6 +134,13 @@ describe('the language coverage audit', () => {
     expect(Samples.kinds(quiet, 'yon')).toEqual({ py: CoverageAudit.kinds.missing, java: CoverageAudit.kinds.unsupported })
     expect(quiet.realms[0].gaps[1]).toMatchObject({ code: 'TY2015', stated: false })
     expect(stated.realms[0].gaps[1]).toMatchObject({ code: 'TY2015', stated: true })
+  })
+
+  test('an annotation that only the browser JavaScript holds refuses the languages the rule table does not check', () => {
+    const client = { name: 'client/clients/TicksClient.js', code: '@HTTPClient("/ticks")\nexport default class TicksClient {\n  @StreamRequest\n  streamTicks(tick) {}\n}\n' }
+    const coverage = Samples.audit().audit([Samples.unit('Streams', [client], 'Rust and F# refuse StreamRequest.')])[0]
+    expect(Samples.kinds(coverage, 'tac')).toEqual({ rs: CoverageAudit.kinds.unsupported, fs: CoverageAudit.kinds.unsupported })
+    expect(coverage.realms[0].gaps[1]).toMatchObject({ code: 'TY1308', stated: true })
   })
 
   test('an annotation that a shown language cannot use explains no gap', () => {
