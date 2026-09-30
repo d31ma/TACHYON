@@ -245,5 +245,6 @@
       }
     }
   ],
-  "verify": "yon"
+  "verify": "yon",
+  "target": "web"
 }
