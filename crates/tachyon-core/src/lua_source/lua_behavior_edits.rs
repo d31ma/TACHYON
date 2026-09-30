@@ -3,7 +3,7 @@ use crate::behavior::{LuaBehaviorMethod, LuaBehaviorPlan};
 use std::fmt::Write as _;
 use std::path::Path;
 
-pub(super) struct LuaBehaviorEdits<'p> {
+pub(crate) struct LuaBehaviorEdits<'p> {
     plan: &'p LuaBehaviorPlan,
 }
 
@@ -13,11 +13,11 @@ impl<'p> LuaBehaviorEdits<'p> {
     const METHOD_END: &'static str = "\nend";
     const INNER_ENDS: [&'static str; 2] = ["end) ", "end "];
 
-    pub(super) fn new(plan: &'p LuaBehaviorPlan) -> Self {
+    pub(crate) fn new(plan: &'p LuaBehaviorPlan) -> Self {
         Self { plan }
     }
 
-    pub(super) fn program(&self, path: &Path, authored: &str) -> Result<String, String> {
+    pub(crate) fn program(&self, path: &Path, authored: &str) -> Result<String, String> {
         self.refuse_resources()?;
         let masked = crate::annotation_layout::masked_source(path, authored)
             .map_err(|failure| failure.to_string())?;
@@ -67,7 +67,10 @@ impl<'p> LuaBehaviorEdits<'p> {
             (close + 1, Self::opening(method)),
             (
                 end,
-                String::from(Self::INNER_ENDS[usize::from(method.validated.is_some())]),
+                String::from(
+                    Self::INNER_ENDS
+                        [usize::from(method.validated.is_some() || method.mapping.is_some())],
+                ),
             ),
         ])
     }
@@ -100,6 +103,9 @@ impl<'p> LuaBehaviorEdits<'p> {
 
     fn opening(method: &LuaBehaviorMethod) -> String {
         let arguments = method.parameters.join(", ");
+        if let Some(policy) = &method.mapping {
+            return Self::mapping(policy, &arguments);
+        }
         method.validated.as_ref().map_or_else(
             || {
                 format!(
@@ -109,6 +115,17 @@ impl<'p> LuaBehaviorEdits<'p> {
             },
             |(index, schema)| Self::validation(method, *index, schema),
         )
+    }
+
+    fn mapping(policy: &serde_json::Value, arguments: &str) -> String {
+        let plan = LuaSource::long_string(&policy.to_string());
+        let mapped =
+            format!("BehaviorBoundary.map_value(YonJson.decode({plan}), {{ {arguments} }})");
+        let result = policy.get("result").and_then(serde_json::Value::as_str);
+        let read = result.map_or(mapped.clone(), |name| {
+            format!("YonModels.read({{ model = {name} }}, {mapped})")
+        });
+        format!(" do return {read}")
     }
 
     fn validation(method: &LuaBehaviorMethod, index: usize, schema: &str) -> String {

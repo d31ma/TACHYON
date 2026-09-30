@@ -144,7 +144,7 @@ impl LuaView {
         u64::try_from(self.source_offset(offset)).unwrap_or(u64::MAX)
     }
 
-    fn source_offset(&self, shadow_offset: usize) -> usize {
+    pub(crate) fn source_offset(&self, shadow_offset: usize) -> usize {
         let shadow_offset = shadow_offset.min(self.text().len());
         let shadow_line = self.text()[..shadow_offset].matches('\n').count();
         let source_line = self.shadow.source_line(shadow_line).unwrap_or_default();

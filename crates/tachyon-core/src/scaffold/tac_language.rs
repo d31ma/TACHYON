@@ -20,7 +20,7 @@ pub enum TacLanguage {
 
 impl TacLanguage {
     const OUTPUT: &'static str = "client/";
-    const ROWS: [LanguageRow; 11] = [
+    const ROWS: [LanguageRow; 12] = [
         ("js,javascript", "JavaScript", "shell", ""),
         ("ts,typescript", "TypeScript", "typeScriptGreeting", ""),
         ("dart", "Dart", "dartGreeting", ""),

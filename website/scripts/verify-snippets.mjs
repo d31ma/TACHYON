@@ -80,7 +80,7 @@ class Patterns {
   static pathVariable = /\{[a-z0-9_]+\}/g
   static pagePath = /^client\/pages\/.*tac\.html$/
   static componentViewPath = /^client\/components\/.*\/tac\.html$/
-  static servicePath = /^client\/services\/[A-Z]\w*Service\.(js|ts|dart|swift|kt|java|cs|fs|rs|go|rb)$/
+  static servicePath = /^client\/services\/[A-Z]\w*Service\.(js|ts|dart|swift|kt|java|cs|fs|rs|go|rb|lua)$/
   static testUnitPath = /^(server|client)\/tests\/[A-Z]\w*Test\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
   static lastSourceExtension = /\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\b(?!.*\.(?:js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\b)/
   static languageTag = /\[(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\]/

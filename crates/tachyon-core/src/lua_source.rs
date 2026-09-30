@@ -22,7 +22,7 @@ mod writer_mode;
 #[cfg(test)]
 mod tests;
 
-use lua_behavior_edits::LuaBehaviorEdits;
+pub(crate) use lua_behavior_edits::LuaBehaviorEdits;
 use lua_body::LuaBody;
 use lua_events::LuaEvents;
 pub(crate) use lua_fields::LuaFields;

@@ -750,15 +750,17 @@ the compiler infers the rest. JSON-value methods still require a complete
 explicit plan. Model and JSON-value signatures cannot be mixed.
 
 Server runtime tests cover JavaScript, TypeScript, Python, Ruby, PHP, Dart, Go,
-Java, Groovy, Kotlin, C#, F# and Rust, including nested different models and
+Java, Groovy, Kotlin, C#, F#, Rust and Lua, including nested different models and
 lists. Tac runtime tests cover JavaScript and TypeScript in Chromium, Firefox
 and WebKit, plus actual WebAssembly compilation and execution for Dart, Go,
-Java, Kotlin, C#, F#, Rust, Ruby and Swift. Ruby reconstructs typed results
+Java, Kotlin, C#, F#, Rust, Ruby, Swift and Lua. Ruby reconstructs typed results
 through TacValues model metadata; F# uses generated record codecs. These
 checks qualify converter execution in web builds, not native host deployment.
-Lua behavior annotations remain refused under
-[ADR 0085](adr/0085-lua-is-a-yon-language.md). Lua converter support is deferred
-to [a separate prerequisite](queue/NEXT/LUA-CONVERTER-PREREQUISITE.md).
+Lua uses LuaCATS model signatures and empty methods in a `-- @Converter`
+class table. A service or controller injects it through a typed `-- @Needs`
+field. Pure mappings execute in Yon and the Tac Lua WebAssembly runtime;
+other Tac behavior annotations and Lua resources remain unavailable under
+[ADR 0085](adr/0085-lua-is-a-yon-language.md).
 Swift is a Tac language and has no Yon server probe.
 
 ## Adapter Contracts

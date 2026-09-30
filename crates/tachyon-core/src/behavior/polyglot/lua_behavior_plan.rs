@@ -59,6 +59,11 @@ impl LuaBehaviorPlan {
                 .iter()
                 .map(|parameter| parameter.name.clone())
                 .collect(),
+            mapping: method
+                .metadata
+                .get("mapping")
+                .filter(|_| method.metadata.len() == 1)
+                .cloned(),
             validated: Self::validated(method),
             resource: Self::resource(method),
         }

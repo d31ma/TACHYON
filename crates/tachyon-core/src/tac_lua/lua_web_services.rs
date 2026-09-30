@@ -1,8 +1,8 @@
-use super::{LuaRuntimeBuild, LuaRuntimeSources};
+use super::{LuaConverterProviders, LuaRuntimeBuild, LuaRuntimeSources};
 use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::{diagnostic, source_span};
-use crate::lua_source::{LuaSource, LuaView};
+use crate::lua_source::{LuaBehaviorEdits, LuaSource, LuaView};
 use crate::model_sources::ModelSources;
 use crate::ruby_source::RubyMembers;
 use crate::tac_ruby::RubyWebServices;
@@ -104,12 +104,48 @@ const transport = (text) => lua.invoke(text)
         let identity = PathBuf::from(format!("client/services/{class}.lua"));
         let relative = source.strip_prefix(snapshot_root).unwrap_or(&identity);
         let view = LuaView::joined(relative, text);
-        let metadata = Self::metadata(snapshot_root, relative, &view)?;
+        let mut metadata = Self::metadata(snapshot_root, relative, &view)?;
+        let assembled =
+            crate::annotation_modules::assemble(snapshot_root, relative, text, Self::REALM)?
+                .unwrap_or_else(|| text.to_owned());
+        let joined = LuaView::joined(relative, &assembled);
+        let roles = crate::behavior::ServiceRoles::read(joined.path(), joined.text())
+            .map_err(|failure| joined.failure(&failure))?;
+        let plan =
+            crate::behavior::LuaBehaviorPlan::read(joined.path(), &roles.source, Self::REALM)
+                .map_err(|failure| joined.failure(&failure))?;
+        if let Some(plan) = &plan {
+            LuaConverterProviders::hide_fields(&mut metadata, class, text, plan)
+                .map_err(|message| Self::failure(relative, text, &message))?;
+        }
+        let lowered = Self::with_converters(relative, &assembled, plan.as_ref())?;
+        let providers = plan
+            .as_ref()
+            .map(|plan| LuaConverterProviders::written(class, text, plan))
+            .transpose()
+            .map_err(|message| Self::failure(relative, text, &message))?
+            .unwrap_or_default();
         Ok(format!(
-            "\n{text}\nTacServices.register({}, {class}, {})\n",
+            "\n{lowered}\n{providers}TacServices.register({}, {class}, {})\n",
             LuaSource::long_string(instance),
             LuaSource::long_string(&metadata.to_string())
         ))
+    }
+
+    fn with_converters(
+        relative: &Path,
+        assembled: &str,
+        plan: Option<&crate::behavior::LuaBehaviorPlan>,
+    ) -> Result<String, Failure> {
+        let Some(plan) = plan else {
+            return Ok(assembled.to_owned());
+        };
+        if plan.methods.iter().any(|method| method.mapping.is_none()) {
+            return Err(Self::failure(relative, assembled, Self::BEHAVIORS));
+        }
+        LuaBehaviorEdits::new(plan)
+            .program(relative, assembled)
+            .map_err(|message| Self::failure(relative, assembled, &message))
     }
 
     fn metadata(

@@ -276,7 +276,7 @@ impl AnnotationRules {
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_HELPER: &'static [&'static str] = &["js", "ts", "dart"];
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua",
     ];
     const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py"];
     const YON_STREAM: &'static [&'static str] =
@@ -437,12 +437,14 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class whose methods copy one model into another",
         )
-        .bare(),
+        .bare()
+        .reach(Self::TAC, Self::YON_BEHAVIOR),
         Rule::new(
             "Convert",
             Self::METHOD,
             "copies the fields of one model into a new model",
-        ),
+        )
+        .reach(Self::TAC, Self::YON_BEHAVIOR),
         Rule::new(
             "Needs",
             Self::FIELD_OR_TYPE,

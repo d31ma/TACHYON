@@ -154,6 +154,23 @@ function RuntimeContract:resilient_context()
   return context
 end
 
+function RuntimeContract:check_mapping()
+  local fields = {
+    { target = "enabled", source = "enabled" },
+    { target = "items", source = "items", fields = { { target = "name", source = "name" } } },
+  }
+  local value = BehaviorBoundary.map_value({ argument = 0, fields = fields }, {
+    { enabled = false, items = {}, secret = "private" },
+  })
+  self:expect(value.enabled == false, "mapping loses false")
+  self:expect(YonJson.encode(value.items) == "[]", "mapping loses an empty list")
+  self:expect(value.secret == nil, "mapping leaks a secret")
+  local object = BehaviorBoundary.map_value({ argument = 0, fields = {
+    { target = "detail", source = "detail", fields = {} },
+  } }, { { detail = setmetatable({}, YonJson.OBJECT) } })
+  self:expect(YonJson.encode(object.detail) == "{}", "mapping loses an empty object")
+end
+
 function RuntimeContract:check_retries(context, orders)
   self.attempts = 0
   local flaky = context:invoke(orders, "Orders", "flaky", table.pack(), function()
@@ -272,6 +289,7 @@ function RuntimeContract:run()
   self:check_cache(context, service)
   self:check_repository(context, entity)
   self:check_boundaries()
+  self:check_mapping()
   self:check_resilience()
   self:check_transactions()
   self:check_cancellation(signal, context, service)

@@ -235,3 +235,26 @@ the build with `TY2015`, and the message names the resource and this ADR.
   socket stays open.
 - A socket class holds no events or lifecycle hooks, as in the other
   languages.
+
+## Amendment 2026-09-30: pure converters in both realms
+
+- A Lua converter is a `-- @Converter` class table in `converters/`. Its
+  methods have empty bodies. LuaCATS `---@param product Product` and
+  `---@return Summary` select models in the same realm's `models/` folder.
+- No `-- @Convert` marker is needed when the target fields can be inferred.
+  An explicit `-- @Convert({"fields":[...]})` supplies named overrides. The
+  compiler owns the model table and realm; application configuration cannot
+  replace them.
+- Mapping copies same-named fields, widens integers to numbers, projects
+  nested models and model lists, drops source-only fields, and diagnoses
+  missing, incompatible or optional-to-required target fields. Recursive
+  projection plans retain the shared depth limit of eight.
+- Yon controllers and Tac service classes request the provider with a typed
+  `-- @Needs` field. Yon uses its existing provider graph. Tac composes the
+  converter and registers its provider on the service class; each service
+  activation constructs its own injected converter. Mappings read only their
+  argument and need no behavior context or external adapter.
+- Tac Lua accepts these pure mappings on its existing Lua 5.4 WebAssembly
+  runtime. Other Tac behavior annotations remain unavailable. Resources,
+  HTTPClient, Gateway, topics and unrelated adapters gain no additional
+  support from this converter slice.

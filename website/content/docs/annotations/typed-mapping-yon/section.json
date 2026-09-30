@@ -2,7 +2,7 @@
   "heading": "Typed model mapping: Yon",
   "axis": "language",
   "summary": "Model types supply same-named fields. Convert overrides only the targets it names.",
-  "body": "GET /catalog returns {\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}. The controller asks for ProductConverter with Needs. The source Product holds secret fields; the target Summary and ShortDetail do not, so those fields are dropped even inside the list. The explicit kind constant overrides that target. Every other target comes from the model signatures.\n\nWhen source and target fields already match, omit Convert entirely. Missing or incompatible target fields fail the build and name the field that needs an explicit entry. One method maps one model; model-valued fields and lists are projected recursively. A JSON-value signature still needs its literal field plan.\n\nThese examples execute in the thirteen supported Yon converter languages. Lua Converter/Convert support remains unavailable under ADR 0085 and is queued separately.",
+  "body": "GET /catalog returns {\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}. The controller asks for ProductConverter with Needs. The source Product holds secret fields; the target Summary and ShortDetail do not, so those fields are dropped even inside the list. The explicit kind constant overrides that target. Every other target comes from the model signatures.\n\nWhen source and target fields already match, omit Convert entirely. Missing or incompatible target fields fail the build and name the field that needs an explicit entry. One method maps one model; model-valued fields and lists are projected recursively. A JSON-value signature still needs its literal field plan.\n\nLua declares its signatures with LuaCATS comments and asks for its provider with -- @Needs. Converter methods have empty bodies; the compiler generates each projection.",
   "files": [
     {
       "name": "server/models/Product.ts",
@@ -470,6 +470,42 @@
       "name": "server/controllers/CatalogController.fs",
       "code": {
         "file": "server/controllers/CatalogController.fs"
+      }
+    },
+    {
+      "name": "server/models/Product.lua",
+      "code": {
+        "file": "server/models/Product.lua"
+      }
+    },
+    {
+      "name": "server/models/Detail.lua",
+      "code": {
+        "file": "server/models/Detail.lua"
+      }
+    },
+    {
+      "name": "server/models/Summary.lua",
+      "code": {
+        "file": "server/models/Summary.lua"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.lua",
+      "code": {
+        "file": "server/models/ShortDetail.lua"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.lua",
+      "code": {
+        "file": "server/converters/ProductConverter.lua"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.lua",
+      "code": {
+        "file": "server/controllers/CatalogController.lua"
       }
     }
   ]

@@ -34,7 +34,35 @@ impl<'a> ConverterModels<'a> {
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
+        if extension == "lua" {
+            return super::lua_converter_models::LuaConverterModels::written(
+                path, source, models, realm,
+            );
+        }
         Self::for_extension(extension, source, models, realm)
+    }
+
+    pub(super) fn edits_in(
+        path: &Path,
+        source: &'a str,
+        models: &'a Map<String, Value>,
+        realm: &'a str,
+    ) -> Result<Vec<SourceEdit>, String> {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        let form = ContractForm::of(extension)
+            .ok_or_else(|| "Unsupported converter contract".to_owned())?;
+        let mask = crate::lexical::code_mask(form.language, source);
+        let rewrite = Self {
+            form,
+            source,
+            code: HttpClientSource::masked(source, &mask.code),
+            models,
+            realm,
+        };
+        rewrite.edits()
     }
 
     fn for_extension(
@@ -357,6 +385,27 @@ mod tests {
     use std::path::Path;
 
     #[test]
+    fn lua_marker_rewrite_keeps_brackets_inside_constants() {
+        let models = json!({"Product":{"name":"!string"},"Summary":{"name":"!string"}});
+        let source = "-- @Converter\nProductConverter = {}\n---@param product Product\n---@return Summary\n-- @Convert({\"fields\":[{\"target\":\"name\",\"constant\":\")]\"}]})\nfunction ProductConverter:map(product)\nend\n";
+        let rewritten = ConverterModels::written(
+            Path::new("server/converters/ProductConverter.lua"),
+            source,
+            models.as_object().expect("models"),
+            "yon",
+        )
+        .expect("rewrite")
+        .expect("metadata");
+        assert!(rewritten.contains("\"constant\":\")]\""), "{rewritten}");
+        assert!(
+            rewritten
+                .lines()
+                .any(|line| line.starts_with("-- @Convert(")),
+            "{rewritten}"
+        );
+    }
+
+    #[test]
     fn model_metadata_is_inserted_in_each_supported_contract_spelling() {
         let models = json!({"Product":{"name":"!string"},"Summary":{"name":"!string"}});
         let samples = [
@@ -403,6 +452,10 @@ mod tests {
             (
                 "py",
                 "@Converter\nclass ProductConverter(Protocol):\n    def map(self, product: Product) -> Summary: ...\n",
+            ),
+            (
+                "lua",
+                "-- @Converter\nProductConverter = {}\n---@param product Product\n---@return Summary\nfunction ProductConverter:map(product)\nend\n",
             ),
             (
                 "rb",

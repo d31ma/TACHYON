@@ -56,6 +56,14 @@ fn mapping_sources(language: &str) -> MappingSources {
             "// @Converter\ntype ProductConverter interface {\n// @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nMap(product Product) (Summary, error)\n}\n",
             "// @RequestRoute(\"/catalog\")\n// @Public\ntype CatalogController struct {\n// @Needs\nconverter *ProductConverter\n}\n// @GetRoute\nfunc (controller *CatalogController) GetCatalog() (Summary, error) {\ndetail := Detail{Name: \"detail\", Secret: \"hidden\"}\nvalue, failure := controller.converter.Map(Product{ID: 7, Name: \"Anvil\", Detail: detail, Items: []Detail{detail}, Secret: \"hidden\"})\nif failure != nil { return Summary{}, YonResourceError{} }\nreturn value, nil\n}\n",
         ),
+        "lua" => (
+            "---@class Product\n---@field id integer\n---@field name string\n---@field detail Detail\n---@field items Detail[]\n---@field secret string\nProduct = {}\n",
+            "---@class Detail\n---@field name string\n---@field secret string\nDetail = {}\n",
+            "---@class Summary\n---@field id number\n---@field name string\n---@field detail ShortDetail\n---@field items ShortDetail[]\n---@field kind string\nSummary = {}\n",
+            "---@class ShortDetail\n---@field name string\nShortDetail = {}\n",
+            "-- @Converter\nProductConverter = {}\n---@param product Product\n---@return Summary\n-- @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nfunction ProductConverter:map(product)\nend\n",
+            "-- @RequestRoute(\"/catalog\")\n-- @Public\nCatalogController = {\n-- @Needs\n---@type ProductConverter\nconverter = nil,\n}\n---@return Summary\n-- @GetRoute\nfunction CatalogController:get_catalog()\n  local detail = setmetatable({name = \"detail\", secret = \"detail-private\"}, Detail)\n  return self.converter:map(setmetatable({id = 7, name = \"Anvil\", detail = detail, items = {detail}, secret = \"product-private\"}, Product))\nend\n",
+        ),
         "rb" => (
             "# @!attribute [r] id\n#   @return [Integer]\n# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] detail\n#   @return [Detail]\n# @!attribute [r] items\n#   @return [Array<Detail>]\n# @!attribute [r] secret\n#   @return [String]\nProduct = Data.define(:id, :name, :detail, :items, :secret)\n",
             "# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] secret\n#   @return [String]\nDetail = Data.define(:name, :secret)\n",
@@ -242,5 +250,70 @@ async fn implicit_mapping_js_models_execute_with_overrides_and_nested_lists() {
     assert_mapping("js").await;
 }
 
+#[tokio::test]
+async fn implicit_mapping_lua_models_execute_with_overrides_and_nested_lists() {
+    assert_mapping("lua").await;
+}
+
 #[cfg(test)]
 mod tac_mapping;
+
+struct LuaMappingDiagnostics;
+
+impl LuaMappingDiagnostics {
+    fn refuses_converter(source: &str, expected: &str) {
+        let root = tempfile::tempdir().expect("project");
+        let relative = project(root.path(), "lua");
+        write(
+            root.path(),
+            "server/converters/ProductConverter.lua",
+            source,
+        );
+        let failure = HandlerSource::discover(root.path(), &relative)
+            .expect_err("invalid converter implementation");
+        let message = failure.to_string();
+        assert!(message.contains(expected), "{message}");
+    }
+
+    fn refuses(summary: &str, expected: &str) {
+        let root = tempfile::tempdir().expect("project");
+        let relative = project(root.path(), "lua");
+        write(root.path(), "server/models/Summary.lua", summary);
+        let failure =
+            HandlerSource::discover(root.path(), &relative).expect_err("invalid converter model");
+        let message = failure.to_string();
+        assert!(message.contains(expected), "{message}");
+    }
+}
+
+#[test]
+fn lua_mapping_names_missing_target_fields() {
+    LuaMappingDiagnostics::refuses(
+        "---@class Summary\n---@field absent string\n---@field kind string\nSummary = {}\n",
+        "Summary has fields that Product does not have: 'absent'",
+    );
+}
+
+#[test]
+fn lua_mapping_refuses_incompatible_target_fields() {
+    LuaMappingDiagnostics::refuses(
+        "---@class Summary\n---@field id boolean\n---@field kind string\nSummary = {}\n",
+        "Summary.id is true or false, but Product.id is a whole number",
+    );
+}
+
+#[test]
+fn lua_mapping_refuses_authored_converter_bodies() {
+    LuaMappingDiagnostics::refuses_converter(
+        "-- @Converter\nProductConverter = {}\n---@param product Product\n---@return Summary\nfunction ProductConverter:map(product)\n  return product\nend\n",
+        "A Converter has no implementation",
+    );
+}
+
+#[test]
+fn lua_mapping_refuses_authored_converter_fields() {
+    LuaMappingDiagnostics::refuses_converter(
+        "-- @Converter\nProductConverter = {\n---@type string\nstate = \"hidden\",\n}\n---@param product Product\n---@return Summary\nfunction ProductConverter:map(product)\nend\n",
+        "A Converter has no implementation",
+    );
+}

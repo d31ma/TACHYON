@@ -10,6 +10,7 @@ mod contract_rewrite;
 mod contract_role;
 mod converter_model_table;
 mod converter_models;
+mod lua_converter_models;
 mod crud_members;
 mod crud_template;
 mod fsharp_class_type;

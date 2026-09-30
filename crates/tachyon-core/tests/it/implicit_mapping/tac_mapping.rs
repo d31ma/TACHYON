@@ -33,6 +33,9 @@ impl TacMapping {
             "rs" => {
                 "use crate::models::{Product, Detail, Summary};\n#[Service]\n#[derive(Default)]\nstruct CatalogService {\n#[Needs]\nconverter: std::sync::Arc<ProductConverter>,\n}\nimpl CatalogService {\npub fn read(&self) -> Summary { self.read_mapped().expect(\"mapping\") }\nfn read_mapped(&self) -> BehaviorResult<Summary> {\nlet detail = Detail{name: \"detail\".into(), secret: \"hidden\".into()};\nlet source = self.converter.copy(Product{id:7, name:\"Anvil\".into(), detail:detail.clone(), items:vec![detail], secret:\"hidden\".into()})?;\nself.converter.map(source)\n}\n}\n"
             }
+            "lua" => {
+                "-- @Service\nCatalogService = {\n-- @Needs\n---@type ProductConverter\nconverter = nil,\n}\n---@return Summary\nfunction CatalogService:read()\n  local detail = setmetatable({name = \"detail\", secret = \"detail-private\"}, Detail)\n  local product = setmetatable({id = 7, name = \"Anvil\", detail = detail, items = {detail}, secret = \"product-private\"}, Product)\n  return self.converter:map(self.converter:copy(product))\nend\n"
+            }
             "dart" => {
                 "import \"models/Product.dart\";\nimport \"models/Detail.dart\";\nimport \"models/Summary.dart\";\n@Service\nclass CatalogService {\n@Needs\nfinal ProductConverter converter;\nSummary read() {\nconst detail = Detail(\"detail\", \"inner\");\nreturn converter.map(converter.copy(Product(7, \"Anvil\", detail, [detail], \"hidden\")));\n}\n}\n"
             }
@@ -57,6 +60,10 @@ impl TacMapping {
             "rs" => (
                 "fn map(&self, product: Product) -> BehaviorResult<Summary>;",
                 "fn map(&self, product: Product) -> BehaviorResult<Summary>;\nfn copy(&self, product: Product) -> BehaviorResult<Product>;",
+            ),
+            "lua" => (
+                "function ProductConverter:map(product)\nend",
+                "function ProductConverter:map(product)\nend\n---@param product Product\n---@return Product\nfunction ProductConverter:copy(product)\nend",
             ),
             "fs" => (
                 "abstract map: product: Product -> Summary",
@@ -100,7 +107,7 @@ impl TacMapping {
         root.join("dist/.tachyon/services")
     }
 
-    fn execute(root: &Path) -> serde_json::Value {
+    fn execute(root: &Path, language: &str) -> serde_json::Value {
         let output = Self::output(root);
         let driver = r"import { readFile } from 'node:fs/promises'
 globalThis.fetch = async (url) => new Response(await readFile(url))
@@ -110,6 +117,11 @@ const result = await service.read()
 console.log(JSON.stringify(result))
 process.exit(0)
 ";
+        let driver = if language == "lua" {
+            driver.replace("const result = await service.read()", "if (Object.keys(service).some(key => ['converter', 'productConverter'].includes(key))) throw new Error('Converter provider exposed as a page field')\nconst result = await service.read()")
+        } else {
+            driver.to_owned()
+        };
         std::fs::write(output.join("package.json"), "{\"type\":\"module\"}").expect("package");
         std::fs::write(output.join("drive.mjs"), driver).expect("driver");
         let result = Command::new("node")
@@ -162,7 +174,7 @@ process.exit(0)
         WebCompiler::build_async(root.path(), &options)
             .await
             .unwrap_or_else(|failure| panic!("{language}: {failure}"));
-        let actual = Self::execute(root.path());
+        let actual = Self::execute(root.path(), language);
         assert_eq!(
             actual,
             serde_json::json!({"id":7,"name":"Anvil","kind":"product","detail":{"name":"detail"},"items":[{"name":"detail"}]}),
@@ -204,4 +216,9 @@ async fn tac_implicit_mapping_rs_compiles_and_executes() {
 #[tokio::test]
 async fn tac_implicit_mapping_dart_compiles_and_executes() {
     TacMapping::assert("dart").await;
+}
+
+#[tokio::test]
+async fn tac_implicit_mapping_lua_compiles_and_executes() {
+    TacMapping::assert("lua").await;
 }

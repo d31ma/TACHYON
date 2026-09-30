@@ -3,7 +3,7 @@
   "axis": "language",
   "target": "web",
   "summary": "A service injects the converter and uses typed models for both implicit copying and public projection.",
-  "body": "Click Map to see the same Summary as in the Yon example. The injected ProductConverter first copies Product without a Convert marker, then projects Summary using its signatures and the explicit kind override. The target models omit secret fields in nested objects and lists.\n\nModels belong to client/models and the converter to client/converters. A mapping needs no Setup or external adapter: it reads only its argument. The JavaScript signatures use JSDoc types and the TypeScript signatures use model interfaces.",
+  "body": "Click Map to see the same Summary as in the Yon example. The injected ProductConverter first copies Product without a Convert marker, then projects Summary using its signatures and the explicit kind override. The target models omit secret fields in nested objects and lists.\n\nModels belong to client/models and the converter to client/converters. A mapping needs no Setup or external adapter: it reads only its argument. The JavaScript signatures use JSDoc types and the TypeScript signatures use model interfaces. Lua uses LuaCATS signatures, a -- @Converter table with empty methods and a -- @Needs field. The compiler supplies its provider and restores typed nested models after projection.",
   "files": [
     {
       "name": "client/components/catalog/panel/tac.html",
@@ -93,6 +93,42 @@
       "name": "client/services/CatalogService.ts",
       "code": {
         "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/models/Product.lua",
+      "code": {
+        "file": "client/models/Product.lua"
+      }
+    },
+    {
+      "name": "client/models/Detail.lua",
+      "code": {
+        "file": "client/models/Detail.lua"
+      }
+    },
+    {
+      "name": "client/models/Summary.lua",
+      "code": {
+        "file": "client/models/Summary.lua"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.lua",
+      "code": {
+        "file": "client/models/ShortDetail.lua"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.lua",
+      "code": {
+        "file": "client/converters/ProductConverter.lua"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": {
+        "file": "client/services/CatalogService.lua"
       }
     }
   ]

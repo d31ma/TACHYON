@@ -151,6 +151,13 @@ function TacServices.construct(class)
       instance[key] = TacValues.copy(value)
     end
   end
+  for field, name in pairs(class.__tachyonContracts or {}) do
+    local provider = rawget(_G, name)
+    if type(provider) ~= "table" then
+      error("Missing converter provider " .. name, 0)
+    end
+    instance[field] = TacServices.construct(provider)
+  end
   return setmetatable(instance, {
     __index = function(_, key)
       local value = class[key]

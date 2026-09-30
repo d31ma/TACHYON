@@ -180,7 +180,7 @@ end
 
 function BehaviorBoundary.walk_table(value, depth, counter, limit)
   local fields = YonModels.fields_of(value)
-  if fields == nil and YonJson.is_list(value) and next(value) ~= nil then
+  if fields == nil and getmetatable(value) ~= YonJson.OBJECT and YonJson.is_list(value) then
     return BehaviorBoundary.walk_list(value, depth, counter, limit)
   end
   return BehaviorBoundary.walk_map(value, depth, counter, limit)
@@ -299,9 +299,29 @@ function BehaviorBoundary.mapped_field(field, value)
   end
   local current = value
   for name in field.source:gmatch("[^.]+") do
-    current = type(current) == "table" and current[name] or nil
+    if type(current) ~= "table" then
+      return nil
+    end
+    current = current[name]
+  end
+  if field.fields ~= nil then
+    return BehaviorBoundary.map_shape(current, field.fields)
   end
   return current
+end
+
+function BehaviorBoundary.map_shape(value, fields)
+  if type(value) ~= "table" then
+    return value
+  end
+  if getmetatable(value) ~= YonJson.OBJECT and YonJson.is_list(value) then
+    local output = {}
+    for index, item in ipairs(value) do
+      output[index] = BehaviorBoundary.map_shape(item, fields)
+    end
+    return output
+  end
+  return BehaviorBoundary.map_value({ argument = 0, fields = fields }, { value })
 end
 
 function BehaviorBoundary.retryable(failure)
