@@ -8,14 +8,14 @@ export default class CatalogService {
   async load() {
     const product = { detail: { id: 7 }, name: 'Anvil', extra: 'dropped' };
     const summary = await this.productConverter.toSummary(product);
-    this.title = this.#titleOf(summary);
+    this.title = this._titleOf(summary);
   }
 
   /**
    * @param {BehaviorJsonObject | void} summary
    * @returns {string}
    */
-  #titleOf(summary) {
+  _titleOf(summary) {
     return summary ? `${summary.kind} ${summary.productId}: ${summary.title}` : '';
   }
 }
