@@ -167,28 +167,28 @@ async fn interpreted_handlers_execute_owned_dependencies_after_the_project_root_
     let mut cases = vec![
         (
             "js",
-            "import { origin } from '../shared/origin.js'\nexport class Handler {\n  static GET() { return { origin } }\n}\n",
-            "export const origin = 'owned-js'\n",
-            "import { origin } from '../shared/origin.js'\nexport class Handler {\n  static GET() { return { origin } }\n}\n",
-            "export const origin = 'planted-js'\n",
+            "import { Origin } from '../shared/origin.js'\nexport class Handler {\n  static GET() { return { origin: Origin.value() } }\n}\n",
+            "export class Origin { static value() { return 'owned-js' } }\n",
+            "import { Origin } from '../shared/origin.js'\nexport class Handler {\n  static GET() { return { origin: Origin.value() } }\n}\n",
+            "export class Origin { static value() { return 'planted-js' } }\n",
             "owned-js",
         ),
         (
             "py",
-            "from server.shared.origin import value\nclass Handler:\n    @staticmethod\n    def GET(request):\n        return {'origin': value}\n",
-            "value = 'owned-py'\n",
-            "from server.shared.origin import value\nclass Handler:\n    @staticmethod\n    def GET(request):\n        return {'origin': value}\n",
-            "value = 'planted-py'\n",
+            "from server.shared.origin import Origin\nclass Handler:\n    @staticmethod\n    def GET(request):\n        return {'origin': Origin.value()}\n",
+            "class Origin:\n    @staticmethod\n    def value():\n        return 'owned-py'\n",
+            "from server.shared.origin import Origin\nclass Handler:\n    @staticmethod\n    def GET(request):\n        return {'origin': Origin.value()}\n",
+            "class Origin:\n    @staticmethod\n    def value():\n        return 'planted-py'\n",
             "owned-py",
         ),
     ];
     if available("bun") {
         cases.push((
             "ts",
-            "import { origin } from '../shared/origin.ts'\nexport class Handler {\n  static GET() { return { origin } }\n}\n",
-            "export const origin: string = 'owned-ts'\n",
-            "import { origin } from '../shared/origin.ts'\nexport class Handler {\n  static GET() { return { origin } }\n}\n",
-            "export const origin: string = 'planted-ts'\n",
+            "import { Origin } from '../shared/origin.ts'\nexport class Handler {\n  static GET() { return { origin: Origin.value() } }\n}\n",
+            "export class Origin { static value(): string { return 'owned-ts' } }\n",
+            "import { Origin } from '../shared/origin.ts'\nexport class Handler {\n  static GET() { return { origin: Origin.value() } }\n}\n",
+            "export class Origin { static value(): string { return 'planted-ts' } }\n",
             "owned-ts",
         ));
     }
