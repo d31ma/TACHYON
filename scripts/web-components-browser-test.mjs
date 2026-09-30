@@ -30,11 +30,11 @@ counter?.addEventListener('count-changed', (event) => {
 })
 if (counter) counter.label = 'Pears'
 `
-  static wronglyTypedConsumer = `document.querySelector('shop-counter')?.addEventListener('count-changed', (event) => {
+  static wronglyTypedConsumer = `import type {} from './dist/.tachyon/elements/shop-counter.js'
+document.querySelector('shop-counter')?.addEventListener('count-changed', (event) => {
   const count: string = event.detail.count
   console.log(count)
 })
-export {}
 `
   static tacPage = '<shop-counter label="Page" start="1" hydrate="load"><shop-badge slot="title" /></shop-counter>\n'
   static hostPage = `<!doctype html>
