@@ -6,12 +6,12 @@ export default class CheckoutService {
 
   /** @returns {number} */
   total() {
-    const subtotal = this.#subtotal();
+    const subtotal = this._subtotal();
     return this.taxHelper.addTax(subtotal);
   }
 
   /** @returns {number} */
-  #subtotal() {
+  _subtotal() {
     return 40;
   }
 }

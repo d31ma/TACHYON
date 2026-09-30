@@ -1,7 +1,175 @@
 {
   "heading": "Routes and paths",
-  "body": "A controller is a class in `server/controllers/<Name>Controller.<ext>`. `RequestRoute(\"/items\")` on the class gives the base path of its routes. `Public`, `SignedIn` or `Allow(Role)` on the class or on a method says who may call a route, and a route without one stops the build with `TY1322` (see Who may call a route). `GetRoute`, `PostRoute`, `PutRoute`, `PatchRoute` and `DeleteRoute` on a method make it answer that HTTP verb. They can add to the path, such as `GetRoute(\"/{id}\")`. A part in braces is a path variable (a part of the path that can change). The method name must start with its verb, such as `getItems` or `postItem`. Argument annotations say where each value comes from: `FromPath`, `FromQuery`, `FromBody`, `FromHeader` or `FromCookie`. One argument without an annotation gets the request in the language's own type: Fetch `Request` in JavaScript and TypeScript, `urllib.request.Request` in Python, a `Net::HTTP` request in Ruby, `HttpExchange` in Java and Kotlin, `HttpRequestMessage` in C#, `http::Request` in Rust, a shelf `Request` in Dart and `*http.Request` in Go. PHP has no request object: it reads `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE` and `php://input`. You can write a controller in any Yon language. You need no runtime annotation package. The glossary explains each annotation name in plain words. See the [routing annotation glossary](/docs/routing-annotations) for each name.",
-  "code": {
-    "file": "example.js"
-  }
+  "body": "A controller is a class in `server/controllers/<Name>Controller.<ext>`. `RequestRoute(\"/items\")` on the class gives the base path of its routes. `Public`, `SignedIn` or `Allow(Role)` on the class or on a method says who may call a route, and a route without one stops the build with `TY1322` (see Who may call a route). `GetRoute`, `PostRoute`, `PutRoute`, `PatchRoute` and `DeleteRoute` on a method make it answer that HTTP verb. They can add to the path, such as `GetRoute(\"/{id}\")`. A part in braces is a path variable (a part of the path that can change). The method name must start with its verb, such as `getItem` or `postItem`. Argument annotations say where each value comes from: `FromPath`, `FromQuery`, `FromBody`, `FromHeader` or `FromCookie`. One argument without an annotation gets the request in the language's own type: Fetch `Request` in JavaScript and TypeScript, `urllib.request.Request` in Python, a `Net::HTTP` request in Ruby, `HttpExchange` in Java and Kotlin, `HttpRequestMessage` in C#, `http::Request` in Rust, a shelf `Request` in Dart and `*http.Request` in Go. PHP has no request object: it reads `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE` and `php://input`. You can write a controller in any Yon language. You need no runtime annotation package. The glossary explains each annotation name in plain words. See the [routing annotation glossary](/docs/routing-annotations) for each name.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/controllers/ItemsController.js",
+      "code": {
+        "file": "server/controllers/ItemsController.js"
+      }
+    },
+    {
+      "name": "server/models/Item.js",
+      "code": {
+        "file": "server/models/Item.js"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.ts",
+      "code": {
+        "file": "server/controllers/ItemsController.ts"
+      }
+    },
+    {
+      "name": "server/models/Item.ts",
+      "code": {
+        "file": "server/models/Item.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.py",
+      "code": {
+        "file": "server/controllers/ItemsController.py"
+      }
+    },
+    {
+      "name": "server/models/Item.py",
+      "code": {
+        "file": "server/models/Item.py"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.php",
+      "code": {
+        "file": "server/controllers/ItemsController.php"
+      }
+    },
+    {
+      "name": "server/models/Item.php",
+      "code": {
+        "file": "server/models/Item.php"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.java",
+      "code": {
+        "file": "server/controllers/ItemsController.java"
+      }
+    },
+    {
+      "name": "server/models/Item.java",
+      "code": {
+        "file": "server/models/Item.java"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.groovy",
+      "code": {
+        "file": "server/controllers/ItemsController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Item.groovy",
+      "code": {
+        "file": "server/models/Item.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.kt",
+      "code": {
+        "file": "server/controllers/ItemsController.kt"
+      }
+    },
+    {
+      "name": "server/models/Item.kt",
+      "code": {
+        "file": "server/models/Item.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.cs",
+      "code": {
+        "file": "server/controllers/ItemsController.cs"
+      }
+    },
+    {
+      "name": "server/models/Item.cs",
+      "code": {
+        "file": "server/models/Item.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.fs",
+      "code": {
+        "file": "server/controllers/ItemsController.fs"
+      }
+    },
+    {
+      "name": "server/models/Item.fs",
+      "code": {
+        "file": "server/models/Item.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.rs",
+      "code": {
+        "file": "server/controllers/ItemsController.rs"
+      }
+    },
+    {
+      "name": "server/models/Item.rs",
+      "code": {
+        "file": "server/models/Item.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.go",
+      "code": {
+        "file": "server/controllers/ItemsController.go"
+      }
+    },
+    {
+      "name": "server/models/Item.go",
+      "code": {
+        "file": "server/models/Item.go"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.dart",
+      "code": {
+        "file": "server/controllers/ItemsController.dart"
+      }
+    },
+    {
+      "name": "server/models/Item.dart",
+      "code": {
+        "file": "server/models/Item.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.rb",
+      "code": {
+        "file": "server/controllers/ItemsController.rb"
+      }
+    },
+    {
+      "name": "server/models/Item.rb",
+      "code": {
+        "file": "server/models/Item.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.lua",
+      "code": {
+        "file": "server/controllers/ItemsController.lua"
+      }
+    },
+    {
+      "name": "server/models/Item.lua",
+      "code": {
+        "file": "server/models/Item.lua"
+      }
+    }
+  ]
 }

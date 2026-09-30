@@ -1,5 +1,91 @@
 {
   "heading": "How return values become responses",
-  "body": "An ordinary return value becomes JSON. A response in the language's own type controls status, headers and body, such as a Fetch `Response` in JavaScript, `http::Response` in Rust or `HttpResponseMessage` in C#. Yon sends HTML only when the controller method itself selects `Content-Type: text/html`. Yon passes those bytes through unchanged. It does no interpolation (filling values into text), no component expansion, no control-tag evaluation and no server-side rendering. Tachyon rejects a `yon.html` file with TY1008.",
-  "code": { "file": "example.js" }
+  "body": "An ordinary return value becomes JSON. A response in the language's own type controls status, headers and body, such as a Fetch `Response` in JavaScript, `http::Response` in Rust or `HttpResponseMessage` in C#. Java, Groovy and Kotlin write the answer on the `HttpExchange` argument, PHP uses `http_response_code()`, `header()` and `echo`, and Ruby and Lua return a `[status, headers, body]` list. Yon sends HTML only when the controller method itself selects `Content-Type: text/html`. Yon passes those bytes through unchanged. It does no interpolation (filling values into text), no component expansion, no control-tag evaluation and no server-side rendering. Tachyon rejects a `yon.html` file with TY1008.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/controllers/ProductsController.js",
+      "code": {
+        "file": "server/controllers/ProductsController.js"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.ts",
+      "code": {
+        "file": "server/controllers/ProductsController.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.py",
+      "code": {
+        "file": "server/controllers/ProductsController.py"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.php",
+      "code": {
+        "file": "server/controllers/ProductsController.php"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.java",
+      "code": {
+        "file": "server/controllers/ProductsController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.groovy",
+      "code": {
+        "file": "server/controllers/ProductsController.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.kt",
+      "code": {
+        "file": "server/controllers/ProductsController.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.cs",
+      "code": {
+        "file": "server/controllers/ProductsController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.fs",
+      "code": {
+        "file": "server/controllers/ProductsController.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rs",
+      "code": {
+        "file": "server/controllers/ProductsController.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.go",
+      "code": {
+        "file": "server/controllers/ProductsController.go"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.dart",
+      "code": {
+        "file": "server/controllers/ProductsController.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rb",
+      "code": {
+        "file": "server/controllers/ProductsController.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.lua",
+      "code": {
+        "file": "server/controllers/ProductsController.lua"
+      }
+    }
+  ]
 }

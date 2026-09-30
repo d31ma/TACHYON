@@ -124,21 +124,9 @@
       }
     },
     {
-      "name": "server/models/Receipt.groovy",
-      "code": {
-        "file": "server/models/Receipt.groovy"
-      }
-    },
-    {
       "name": "server/helpers/TaxRateHelper.java",
       "code": {
         "file": "server/helpers/TaxRateHelper.java"
-      }
-    },
-    {
-      "name": "server/helpers/TaxRateHelper.groovy",
-      "code": {
-        "file": "server/helpers/TaxRateHelper.groovy"
       }
     },
     {
@@ -148,27 +136,39 @@
       }
     },
     {
-      "name": "server/helpers/TaxHelper.groovy",
-      "code": {
-        "file": "server/helpers/TaxHelper.groovy"
-      }
-    },
-    {
       "name": "server/services/CheckoutService.java",
       "code": {
         "file": "server/services/CheckoutService.java"
       }
     },
     {
-      "name": "server/services/CheckoutService.groovy",
-      "code": {
-        "file": "server/services/CheckoutService.groovy"
-      }
-    },
-    {
       "name": "server/controllers/CheckoutController.java",
       "code": {
         "file": "server/controllers/CheckoutController.java"
+      }
+    },
+    {
+      "name": "server/models/Receipt.groovy",
+      "code": {
+        "file": "server/models/Receipt.groovy"
+      }
+    },
+    {
+      "name": "server/helpers/TaxRateHelper.groovy",
+      "code": {
+        "file": "server/helpers/TaxRateHelper.groovy"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.groovy",
+      "code": {
+        "file": "server/helpers/TaxHelper.groovy"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.groovy",
+      "code": {
+        "file": "server/services/CheckoutService.groovy"
       }
     },
     {
@@ -235,6 +235,36 @@
       "name": "server/controllers/CheckoutController.cs",
       "code": {
         "file": "server/controllers/CheckoutController.cs"
+      }
+    },
+    {
+      "name": "server/models/Receipt.fs",
+      "code": {
+        "file": "server/models/Receipt.fs"
+      }
+    },
+    {
+      "name": "server/helpers/TaxRateHelper.fs",
+      "code": {
+        "file": "server/helpers/TaxRateHelper.fs"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.fs",
+      "code": {
+        "file": "server/helpers/TaxHelper.fs"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.fs",
+      "code": {
+        "file": "server/services/CheckoutService.fs"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.fs",
+      "code": {
+        "file": "server/controllers/CheckoutController.fs"
       }
     },
     {
@@ -325,6 +355,66 @@
       "name": "server/controllers/CheckoutController.dart",
       "code": {
         "file": "server/controllers/CheckoutController.dart"
+      }
+    },
+    {
+      "name": "server/models/Receipt.rb",
+      "code": {
+        "file": "server/models/Receipt.rb"
+      }
+    },
+    {
+      "name": "server/helpers/TaxRateHelper.rb",
+      "code": {
+        "file": "server/helpers/TaxRateHelper.rb"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.rb",
+      "code": {
+        "file": "server/helpers/TaxHelper.rb"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.rb",
+      "code": {
+        "file": "server/services/CheckoutService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.rb",
+      "code": {
+        "file": "server/controllers/CheckoutController.rb"
+      }
+    },
+    {
+      "name": "server/models/Receipt.lua",
+      "code": {
+        "file": "server/models/Receipt.lua"
+      }
+    },
+    {
+      "name": "server/helpers/TaxRateHelper.lua",
+      "code": {
+        "file": "server/helpers/TaxRateHelper.lua"
+      }
+    },
+    {
+      "name": "server/helpers/TaxHelper.lua",
+      "code": {
+        "file": "server/helpers/TaxHelper.lua"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.lua",
+      "code": {
+        "file": "server/services/CheckoutService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/CheckoutController.lua",
+      "code": {
+        "file": "server/controllers/CheckoutController.lua"
       }
     }
   ]

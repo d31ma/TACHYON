@@ -1551,13 +1551,284 @@
             {
               "name": "server/models/ItemList.js",
               "code": "/**\n * @typedef {Object} ItemList\n * @property {Item[]} items\n */\nexport {}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.ts",
+              "code": "import type { Item } from '/models/Item.ts'\nimport type { ItemList } from '/models/ItemList.ts'\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute\n  getItems(): ItemList {\n    return { items: [] }\n  }\n\n  @PostRoute\n  @ResponseStatus(201)\n  postItem(@FromBody item: Item): Item {\n    return item\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Item.ts",
+              "code": "export interface Item {\n  name: string\n}\n"
+            },
+            {
+              "name": "server/models/ItemList.ts",
+              "code": "import type { Item } from './Item.ts'\n\nexport interface ItemList {\n  items: Item[]\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.py",
+              "code": "from typing import Annotated\nfrom models import Item, ItemList\n\n\n@request_route(\"/items\")\n@public\nclass ItemsController:\n    @get_route\n    def get_items(self) -> ItemList:\n        return ItemList([])\n\n    @post_route\n    @response_status(201)\n    def post_item(self, item: Annotated[Item, from_body]) -> Item:\n        return item\n"
+            },
+            {
+              "name": "server/models/Item.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Item:\n    name: str\n"
+            },
+            {
+              "name": "server/models/ItemList.py",
+              "code": "from dataclasses import dataclass\n\nfrom models import Item\n\n\n@dataclass\nclass ItemList:\n    items: list[Item]\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.php",
+              "code": "<?php\nuse Models\\Item;\nuse Models\\ItemList;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController {\n    #[GetRoute]\n    public function getItems(): ItemList {\n        return new ItemList([]);\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    public function postItem(#[FromBody] Item $item): Item {\n        return $item;\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.php",
+              "code": "<?php\nclass Item {\n    public function __construct(public string $name) {}\n}\n"
+            },
+            {
+              "name": "server/models/ItemList.php",
+              "code": "<?php\nclass ItemList {\n    public function __construct(\n        /** @var list<Item> */\n        public array $items,\n    ) {}\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.java",
+              "code": "import java.util.List;\nimport models.Item;\nimport models.ItemList;\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute\n    ItemList getItems() {\n        return new ItemList(List.of());\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Item postItem(@FromBody Item item) {\n        return item;\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.java",
+              "code": "record Item(String name) {}\n"
+            },
+            {
+              "name": "server/models/ItemList.java",
+              "code": "import java.util.List;\n\nrecord ItemList(List<Item> items) {}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.groovy",
+              "code": "import java.util.List\nimport models.Item\nimport models.ItemList\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute\n    ItemList getItems() {\n        return new ItemList(List.of())\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Item postItem(@FromBody Item item) {\n        return item\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.groovy",
+              "code": "record Item(String name) {}\n"
+            },
+            {
+              "name": "server/models/ItemList.groovy",
+              "code": "import java.util.List\n\nrecord ItemList(List<Item> items) {}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.kt",
+              "code": "import models.Item\nimport models.ItemList\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute\n    fun getItems(): ItemList = ItemList(listOf())\n\n    @PostRoute\n    @ResponseStatus(201)\n    fun postItem(@FromBody item: Item): Item = item\n}\n"
+            },
+            {
+              "name": "server/models/Item.kt",
+              "code": "data class Item(val name: String)\n"
+            },
+            {
+              "name": "server/models/ItemList.kt",
+              "code": "data class ItemList(val items: List<Item>)\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.cs",
+              "code": "using System.Collections.Generic;\nusing Models;\n\n[RequestRoute(\"/items\")]\n[Public]\nclass ItemsController {\n    [GetRoute]\n    public ItemList GetItems() {\n        return new ItemList(new List<Item>());\n    }\n\n    [PostRoute]\n    [ResponseStatus(201)]\n    public Item PostItem([FromBody] Item item) {\n        return item;\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.cs",
+              "code": "public record Item(string Name);\n"
+            },
+            {
+              "name": "server/models/ItemList.cs",
+              "code": "using System.Collections.Generic;\n\npublic record ItemList(List<Item> Items);\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/items\")>]\n[<Public>]\ntype ItemsController() =\n    [<GetRoute>]\n    member this.GetItems() : ItemList =\n        { Items = [] }\n\n    [<PostRoute>]\n    [<ResponseStatus(201)>]\n    member this.PostItem([<FromBody>] item: Item) : Item =\n        item\n"
+            },
+            {
+              "name": "server/models/Item.fs",
+              "code": "type Item = { Name: string }\n"
+            },
+            {
+              "name": "server/models/ItemList.fs",
+              "code": "type ItemList = { Items: Item list }\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.rs",
+              "code": "use crate::models::{Item, ItemList};\n\n#[RequestRoute(\"/items\")]\n#[Public]\nstruct ItemsController {}\nimpl ItemsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_items(&self) -> ItemList {\n        ItemList { items: Vec::new() }\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    fn post_item(&self, #[FromBody] item: Item) -> Item {\n        item\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.rs",
+              "code": "pub struct Item {\n    pub name: String,\n}\n"
+            },
+            {
+              "name": "server/models/ItemList.rs",
+              "code": "use crate::models::Item;\n\npub struct ItemList {\n    pub items: Vec<Item>,\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.go",
+              "code": "// @RequestRoute(\"/items\")\n// @Public\ntype ItemsController struct {\n}\n\n// @GetRoute\nfunc (controller *ItemsController) GetItems() ItemList {\n\treturn ItemList{Items: []Item{}}\n}\n\n// @PostRoute\n// @ResponseStatus(201)\nfunc (controller *ItemsController) PostItem(\n\t// @FromBody\n\titem Item,\n) Item {\n\treturn item\n}\n"
+            },
+            {
+              "name": "server/models/Item.go",
+              "code": "type Item struct {\n\tName string `json:\"name\"`\n}\n"
+            },
+            {
+              "name": "server/models/ItemList.go",
+              "code": "type ItemList struct {\n\tItems []Item `json:\"items\"`\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.dart",
+              "code": "import 'models/Item.dart';\nimport 'models/ItemList.dart';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute\n  ItemList getItems() => const ItemList([]);\n\n  @PostRoute\n  @ResponseStatus(201)\n  Item postItem(@FromBody Item item) => item;\n}\n"
+            },
+            {
+              "name": "server/models/Item.dart",
+              "code": "class Item {\n  final String name;\n\n  const Item(this.name);\n}\n"
+            },
+            {
+              "name": "server/models/ItemList.dart",
+              "code": "import 'Item.dart';\n\nclass ItemList {\n  final List<Item> items;\n\n  const ItemList(this.items);\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.rb",
+              "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @return [ItemList]\n  #[GetRoute]\n  def get_items\n    ItemList.new(items: [])\n  end\n\n  # @param item [Item]\n  # @return [Item]\n  #[PostRoute]\n  #[ResponseStatus(201)]\n  def post_item(\n    #[FromBody]\n    item\n  )\n    item\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Item.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\nItem = Data.define(:name)\n"
+            },
+            {
+              "name": "server/models/ItemList.rb",
+              "code": "# @!attribute [r] items\n#   @return [Array<Item>]\nItemList = Data.define(:items)\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.lua",
+              "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@return ItemList\n-- @GetRoute\nfunction ItemsController:get_items()\n  return { items = {} }\nend\n\n---@param item Item\n---@return Item\n-- @PostRoute\n-- @ResponseStatus(201)\nfunction ItemsController:post_item(\n  -- @FromBody\n  item\n)\n  return item\nend\n"
+            },
+            {
+              "name": "server/models/Item.lua",
+              "code": "---@class Item\n---@field name string\nItem = {}\n"
+            },
+            {
+              "name": "server/models/ItemList.lua",
+              "code": "---@class ItemList\n---@field items Item[]\nItemList = {}\n"
             }
-          ]
+          ],
+          "axis": "language"
         },
         {
           "heading": "Routes and paths",
-          "body": "A controller is a class in `server/controllers/<Name>Controller.<ext>`. `RequestRoute(\"/items\")` on the class gives the base path of its routes. `Public`, `SignedIn` or `Allow(Role)` on the class or on a method says who may call a route, and a route without one stops the build with `TY1322` (see Who may call a route). `GetRoute`, `PostRoute`, `PutRoute`, `PatchRoute` and `DeleteRoute` on a method make it answer that HTTP verb. They can add to the path, such as `GetRoute(\"/{id}\")`. A part in braces is a path variable (a part of the path that can change). The method name must start with its verb, such as `getItems` or `postItem`. Argument annotations say where each value comes from: `FromPath`, `FromQuery`, `FromBody`, `FromHeader` or `FromCookie`. One argument without an annotation gets the request in the language's own type: Fetch `Request` in JavaScript and TypeScript, `urllib.request.Request` in Python, a `Net::HTTP` request in Ruby, `HttpExchange` in Java and Kotlin, `HttpRequestMessage` in C#, `http::Request` in Rust, a shelf `Request` in Dart and `*http.Request` in Go. PHP has no request object: it reads `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE` and `php://input`. You can write a controller in any Yon language. You need no runtime annotation package. The glossary explains each annotation name in plain words. See the [routing annotation glossary](/docs/routing-annotations) for each name.",
-          "code": "@RequestRoute(\"/items\")\nclass ItemsController {\n  @GetRoute\n  getItems() {\n    return { items: [] }\n  }\n\n  @PostRoute\n  @ResponseStatus(201)\n  postItem(@FromBody item) {\n    return { created: item }\n  }\n}"
+          "body": "A controller is a class in `server/controllers/<Name>Controller.<ext>`. `RequestRoute(\"/items\")` on the class gives the base path of its routes. `Public`, `SignedIn` or `Allow(Role)` on the class or on a method says who may call a route, and a route without one stops the build with `TY1322` (see Who may call a route). `GetRoute`, `PostRoute`, `PutRoute`, `PatchRoute` and `DeleteRoute` on a method make it answer that HTTP verb. They can add to the path, such as `GetRoute(\"/{id}\")`. A part in braces is a path variable (a part of the path that can change). The method name must start with its verb, such as `getItem` or `postItem`. Argument annotations say where each value comes from: `FromPath`, `FromQuery`, `FromBody`, `FromHeader` or `FromCookie`. One argument without an annotation gets the request in the language's own type: Fetch `Request` in JavaScript and TypeScript, `urllib.request.Request` in Python, a `Net::HTTP` request in Ruby, `HttpExchange` in Java and Kotlin, `HttpRequestMessage` in C#, `http::Request` in Rust, a shelf `Request` in Dart and `*http.Request` in Go. PHP has no request object: it reads `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE` and `php://input`. You can write a controller in any Yon language. You need no runtime annotation package. The glossary explains each annotation name in plain words. See the [routing annotation glossary](/docs/routing-annotations) for each name.",
+          "axis": "language",
+          "files": [
+            {
+              "name": "server/controllers/ItemsController.js",
+              "code": "@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  /**\n   * @param {string} id\n   * @returns {Item}\n   */\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id) {\n    return { name: id }\n  }\n\n  /**\n   * @param {Item} item\n   * @returns {Item}\n   */\n  @PostRoute\n  @ResponseStatus(201)\n  postItem(@FromBody item) {\n    return item\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Item.js",
+              "code": "/**\n * @typedef {Object} Item\n * @property {string} name\n */\nexport {}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.ts",
+              "code": "import type { Item } from '/models/Item.ts'\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id: string): Item {\n    return { name: id }\n  }\n\n  @PostRoute\n  @ResponseStatus(201)\n  postItem(@FromBody item: Item): Item {\n    return item\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Item.ts",
+              "code": "export interface Item {\n  name: string\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.py",
+              "code": "from typing import Annotated\nfrom models import Item\n\n\n@request_route(\"/items\")\n@public\nclass ItemsController:\n    @get_route(\"/{id}\")\n    def get_item(self, id: Annotated[str, from_path]) -> Item:\n        return Item(id)\n\n    @post_route\n    @response_status(201)\n    def post_item(self, item: Annotated[Item, from_body]) -> Item:\n        return item\n"
+            },
+            {
+              "name": "server/models/Item.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Item:\n    name: str\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.php",
+              "code": "<?php\nuse Models\\Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController {\n    #[GetRoute(\"/{id}\")]\n    public function getItem(#[FromPath] string $id): Item {\n        return new Item($id);\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    public function postItem(#[FromBody] Item $item): Item {\n        return $item;\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.php",
+              "code": "<?php\nclass Item {\n    public function __construct(public string $name) {}\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.java",
+              "code": "import models.Item;\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath String id) {\n        return new Item(id);\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Item postItem(@FromBody Item item) {\n        return item;\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.java",
+              "code": "record Item(String name) {}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.groovy",
+              "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath String id) {\n        return new Item(id)\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Item postItem(@FromBody Item item) {\n        return item\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.groovy",
+              "code": "record Item(String name) {}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.kt",
+              "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    fun getItem(@FromPath id: String): Item = Item(id)\n\n    @PostRoute\n    @ResponseStatus(201)\n    fun postItem(@FromBody item: Item): Item = item\n}\n"
+            },
+            {
+              "name": "server/models/Item.kt",
+              "code": "data class Item(val name: String)\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.cs",
+              "code": "using Models;\n\n[RequestRoute(\"/items\")]\n[Public]\nclass ItemsController {\n    [GetRoute(\"/{id}\")]\n    public Item GetItem([FromPath] string id) {\n        return new Item(id);\n    }\n\n    [PostRoute]\n    [ResponseStatus(201)]\n    public Item PostItem([FromBody] Item item) {\n        return item;\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.cs",
+              "code": "public record Item(string Name);\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/items\")>]\n[<Public>]\ntype ItemsController() =\n    [<GetRoute(\"/{id}\")>]\n    member this.GetItem([<FromPath>] id: string) : Item =\n        { Name = id }\n\n    [<PostRoute>]\n    [<ResponseStatus(201)>]\n    member this.PostItem([<FromBody>] item: Item) : Item =\n        item\n"
+            },
+            {
+              "name": "server/models/Item.fs",
+              "code": "type Item = { Name: string }\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.rs",
+              "code": "use crate::models::Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nstruct ItemsController {}\nimpl ItemsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute(\"/{id}\")]\n    fn get_item(&self, #[FromPath] id: String) -> Item {\n        Item { name: id }\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    fn post_item(&self, #[FromBody] item: Item) -> Item {\n        item\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Item.rs",
+              "code": "pub struct Item {\n    pub name: String,\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.go",
+              "code": "// @RequestRoute(\"/items\")\n// @Public\ntype ItemsController struct {\n}\n\n// @GetRoute(\"/{id}\")\nfunc (controller *ItemsController) GetItem(\n\t// @FromPath\n\tid string,\n) Item {\n\treturn Item{Name: id}\n}\n\n// @PostRoute\n// @ResponseStatus(201)\nfunc (controller *ItemsController) PostItem(\n\t// @FromBody\n\titem Item,\n) Item {\n\treturn item\n}\n"
+            },
+            {
+              "name": "server/models/Item.go",
+              "code": "type Item struct {\n\tName string `json:\"name\"`\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.dart",
+              "code": "import 'models/Item.dart';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  Item getItem(@FromPath String id) => Item(id);\n\n  @PostRoute\n  @ResponseStatus(201)\n  Item postItem(@FromBody Item item) => item;\n}\n"
+            },
+            {
+              "name": "server/models/Item.dart",
+              "code": "class Item {\n  final String name;\n\n  const Item(this.name);\n}\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.rb",
+              "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @param id [String]\n  # @return [Item]\n  #[GetRoute(\"/{id}\")]\n  def get_item(\n    #[FromPath]\n    id\n  )\n    Item.new(name: id)\n  end\n\n  # @param item [Item]\n  # @return [Item]\n  #[PostRoute]\n  #[ResponseStatus(201)]\n  def post_item(\n    #[FromBody]\n    item\n  )\n    item\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Item.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\nItem = Data.define(:name)\n"
+            },
+            {
+              "name": "server/controllers/ItemsController.lua",
+              "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id string\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { name = id }\nend\n\n---@param item Item\n---@return Item\n-- @PostRoute\n-- @ResponseStatus(201)\nfunction ItemsController:post_item(\n  -- @FromBody\n  item\n)\n  return item\nend\n"
+            },
+            {
+              "name": "server/models/Item.lua",
+              "code": "---@class Item\n---@field name string\nItem = {}\n"
+            }
+          ]
         },
         {
           "heading": "Route rules",
@@ -1751,8 +2022,66 @@
       "sections": [
         {
           "heading": "How return values become responses",
-          "body": "An ordinary return value becomes JSON. A response in the language's own type controls status, headers and body, such as a Fetch `Response` in JavaScript, `http::Response` in Rust or `HttpResponseMessage` in C#. Yon sends HTML only when the controller method itself selects `Content-Type: text/html`. Yon passes those bytes through unchanged. It does no interpolation (filling values into text), no component expansion, no control-tag evaluation and no server-side rendering. Tachyon rejects a `yon.html` file with TY1008.",
-          "code": "@RequestRoute(\"/products\")\nclass ProductsController {\n  @GetRoute\n  getProducts() {\n    return new Response('<main><h1>Products</h1><p>{ordinary text}</p></main>', {\n      status: 200,\n      headers: { 'content-type': 'text/html; charset=utf-8' },\n    })\n  }\n}"
+          "body": "An ordinary return value becomes JSON. A response in the language's own type controls status, headers and body, such as a Fetch `Response` in JavaScript, `http::Response` in Rust or `HttpResponseMessage` in C#. Java, Groovy and Kotlin write the answer on the `HttpExchange` argument, PHP uses `http_response_code()`, `header()` and `echo`, and Ruby and Lua return a `[status, headers, body]` list. Yon sends HTML only when the controller method itself selects `Content-Type: text/html`. Yon passes those bytes through unchanged. It does no interpolation (filling values into text), no component expansion, no control-tag evaluation and no server-side rendering. Tachyon rejects a `yon.html` file with TY1008.",
+          "axis": "language",
+          "files": [
+            {
+              "name": "server/controllers/ProductsController.js",
+              "code": "@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  /** @returns {Response} */\n  @GetRoute\n  getProducts() {\n    return new Response('<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>', {\n      status: 200,\n      headers: { 'content-type': 'text/html; charset=utf-8' },\n    })\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.ts",
+              "code": "@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @GetRoute\n  getProducts(): Response {\n    return new Response('<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>', {\n      status: 200,\n      headers: { 'content-type': 'text/html; charset=utf-8' },\n    })\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.py",
+              "code": "from http import HTTPStatus\n\n\n@request_route(\"/products\")\n@public\nclass ProductsController:\n    @get_route\n    def get_products(self) -> object:\n        body = \"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\"\n        return (HTTPStatus.OK, {\"content-type\": \"text/html; charset=utf-8\"}, body)\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.php",
+              "code": "<?php\n#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductsController {\n    #[GetRoute]\n    public function getProducts(): void {\n        http_response_code(200);\n        header('Content-Type: text/html; charset=utf-8');\n        echo '<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>';\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.java",
+              "code": "import com.sun.net.httpserver.HttpExchange;\nimport java.nio.charset.StandardCharsets;\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    void getProducts(HttpExchange exchange) throws java.io.IOException {\n        byte[] body = \"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\".getBytes(StandardCharsets.UTF_8);\n        exchange.getResponseHeaders().add(\"content-type\", \"text/html; charset=utf-8\");\n        exchange.sendResponseHeaders(200, body.length);\n        exchange.getResponseBody().write(body);\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.groovy",
+              "code": "import com.sun.net.httpserver.HttpExchange\nimport java.nio.charset.StandardCharsets\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    void getProducts(HttpExchange exchange) throws java.io.IOException {\n        byte[] body = \"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\".getBytes(StandardCharsets.UTF_8)\n        exchange.getResponseHeaders().add(\"content-type\", \"text/html; charset=utf-8\")\n        exchange.sendResponseHeaders(200, body.length)\n        exchange.getResponseBody().write(body)\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.kt",
+              "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    fun getProducts(exchange: HttpExchange) {\n        val body = \"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\".toByteArray()\n        exchange.responseHeaders.add(\"content-type\", \"text/html; charset=utf-8\")\n        exchange.sendResponseHeaders(200, body.size.toLong())\n        exchange.responseBody.write(body)\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.cs",
+              "code": "using System.Net;\nusing System.Net.Http;\nusing System.Text;\n\n[RequestRoute(\"/products\")]\n[Public]\nclass ProductsController {\n    [GetRoute]\n    public HttpResponseMessage GetProducts() {\n        var body = new StringContent(\"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\", Encoding.UTF8, \"text/html\");\n        return new HttpResponseMessage(HttpStatusCode.OK) { Content = body };\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.fs",
+              "code": "open System.Net\nopen System.Net.Http\nopen System.Text\n\n[<RequestRoute(\"/products\")>]\n[<Public>]\ntype ProductsController() =\n    [<GetRoute>]\n    member this.GetProducts() : HttpResponseMessage =\n        let body = new StringContent(\"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\", Encoding.UTF8, \"text/html\")\n        new HttpResponseMessage(HttpStatusCode.OK, Content = body)\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.rs",
+              "code": "#[RequestRoute(\"/products\")]\n#[Public]\nstruct ProductsController {}\nimpl ProductsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_products(&self) -> http::Response<Vec<u8>> {\n        http::Response::builder()\n            .status(200)\n            .header(\"content-type\", \"text/html; charset=utf-8\")\n            .body(b\"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\".to_vec())\n            .unwrap_or_default()\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.go",
+              "code": "import (\n\t\"io\"\n\t\"net/http\"\n\t\"strings\"\n)\n\n// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n}\n\n// @GetRoute\nfunc (controller *ProductsController) GetProducts() *http.Response {\n\theader := http.Header{\"Content-Type\": {\"text/html; charset=utf-8\"}}\n\tbody := io.NopCloser(strings.NewReader(`<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>`))\n\treturn &http.Response{StatusCode: http.StatusOK, Header: header, Body: body}\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.dart",
+              "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @GetRoute\n  Response getProducts() => Response(\n        200,\n        body: '<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>',\n        headers: {'content-type': 'text/html; charset=utf-8'},\n      );\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.rb",
+              "code": "#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductsController\n  # @return [Array]\n  #[GetRoute]\n  def get_products\n    [200, { \"content-type\" => \"text/html; charset=utf-8\" }, [\"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\"]]\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.lua",
+              "code": "-- @RequestRoute(\"/products\")\n-- @Public\n---@class ProductsController\nProductsController = {}\n\n---@return table\n-- @GetRoute\nfunction ProductsController:get_products()\n  return { 200, { [\"content-type\"] = \"text/html; charset=utf-8\" }, \"<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>\" }\nend\n"
+            }
+          ]
         },
         {
           "heading": "JSON in every language",
@@ -1782,7 +2111,7 @@
         {
           "heading": "Checking values and method arguments",
           "axis": "language",
-          "body": "Checked defines JSON rules for direct fields. Required rejects a missing or null value. NotEmpty requires a string that is not empty. The string must contain at least one Unicode scalar (one Unicode character) that is not whitespace. Its whitespace set is U+0009 to 000D, 0020, 0085, 00A0, 1680, 2000 to 200A, 2028, 2029, 202F, 205F and 3000. Length counts UTF-8 bytes for strings, elements for arrays and keys for objects. Length, Min and Max ignore a missing or null value unless a separate rule requires it. Min and Max require finite numbers, never numeric strings. Behaviors.validate(Type, value) needs no context. It checks a plain value, so the caller does not build a DTO first. Check validates its parameter before pagination, cache authorization, cache reads, HTTP or application code. Errors use validation plus a limited field.rule path, and they do not repeat the input. Unknown fields are still allowed. Tachyon does not support nested validation or validation groups. Tac form validation improves the user experience (UX), but it is not the final check. Validate again in Yon. Also check authorization there, and check which fields a caller may assign.",
+          "body": "Checked defines JSON rules for direct fields. Required rejects a missing or null value. NotEmpty requires a string that is not empty. The string must contain at least one Unicode scalar (one Unicode character) that is not whitespace. Its whitespace set is U+0009 to 000D, 0020, 0085, 00A0, 1680, 2000 to 200A, 2028, 2029, 202F, 205F and 3000. Length counts UTF-8 bytes for strings, elements for arrays and keys for objects. Length, Min and Max ignore a missing or null value unless a separate rule requires it. Min and Max require finite numbers, never numeric strings. Behaviors.validate(Type, value) needs no context. It checks a plain value, so the caller does not build a DTO first. Check validates its parameter before pagination, cache authorization, cache reads, HTTP or application code. Errors use validation plus a limited field.rule path, and they do not repeat the input. Unknown fields are still allowed. Tachyon does not support nested validation or validation groups. Lua has no `Checked` or `Check` yet: the build refuses them in a Lua file with `TY1308`. Tac form validation improves the user experience (UX), but it is not the final check. Validate again in Yon. Also check authorization there, and check which fields a caller may assign.",
           "files": [
             {
               "name": "server/helpers/ProductInput.js",
@@ -1849,28 +2178,28 @@
               "code": "@Checked\nclass ProductInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name;\n\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level;\n}\n"
             },
             {
-              "name": "server/helpers/ProductInput.groovy",
-              "code": "@Checked\nclass ProductInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name\n\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level\n}\n"
-            },
-            {
               "name": "server/services/ProductService.java",
               "code": "@Service\nclass ProductService {\n    Object accept(@Check(ProductInput.class) Object input) {\n        return input;\n    }\n}\n"
-            },
-            {
-              "name": "server/services/ProductService.groovy",
-              "code": "@Service\nclass ProductService {\n    Object accept(@Check(ProductInput.class) Object input) {\n        return input\n    }\n}\n"
             },
             {
               "name": "server/models/Product.java",
               "code": "record Product(String name, String sku, long level) {}\n"
             },
             {
-              "name": "server/models/Product.groovy",
-              "code": "record Product(String name, String sku, long level) {}\n"
-            },
-            {
               "name": "server/controllers/ProductsController.java",
               "code": "import models.Product;\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @Needs\n    final ProductService productService;\n\n    @PostRoute\n    Product postProduct(@FromBody Product product) {\n        productService.accept(java.util.Map.of(\"name\", product.name(), \"level\", product.level()));\n        return product;\n    }\n}\n"
+            },
+            {
+              "name": "server/helpers/ProductInput.groovy",
+              "code": "@Checked\nclass ProductInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name\n\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level\n}\n"
+            },
+            {
+              "name": "server/services/ProductService.groovy",
+              "code": "@Service\nclass ProductService {\n    Object accept(@Check(ProductInput.class) Object input) {\n        return input\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Product.groovy",
+              "code": "record Product(String name, String sku, long level) {}\n"
             },
             {
               "name": "server/controllers/ProductsController.groovy",
@@ -1909,6 +2238,22 @@
               "code": "using System.Collections.Generic;\nusing Models;\n\n[RequestRoute(\"/products\")]\n[Public]\nclass ProductsController {\n    [Needs]\n    readonly ProductService _productService;\n\n    [PostRoute]\n    public Product PostProduct([FromBody] Product product) {\n        _productService.accept(BehaviorJSON.Object(new Dictionary<string, BehaviorJSON> {\n            [\"name\"] = BehaviorJSON.From(product.Name),\n            [\"level\"] = BehaviorJSON.From(product.Level),\n        }));\n        return product;\n    }\n}\n"
             },
             {
+              "name": "server/helpers/ProductInput.fs",
+              "code": "[<Checked>]\ntype ProductInput() =\n    [<NotEmpty>]\n    [<Length({\"min\":1,\"max\":80})>]\n    member val name : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n\n    [<Required>]\n    [<Min(1)>]\n    [<Max(9)>]\n    member val level : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n"
+            },
+            {
+              "name": "server/services/ProductService.fs",
+              "code": "[<Service>]\ntype ProductService() =\n    member this.accept([<Check(typeof<ProductInput>)>] input: BehaviorJSON) : BehaviorJSON =\n        input\n"
+            },
+            {
+              "name": "server/models/Product.fs",
+              "code": "type Product = { Name: string; Sku: string; Level: int64 }\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/products\")>]\n[<Public>]\ntype ProductsController(productService: ProductService) =\n    [<PostRoute>]\n    member this.PostProduct([<FromBody>] product: Product) : Product =\n        let input = dict [ \"name\", BehaviorJSON.From(product.Name); \"level\", BehaviorJSON.From(product.Level) ]\n        productService.accept(BehaviorJSON.Object(input)) |> ignore\n        product\n"
+            },
+            {
               "name": "server/helpers/ProductInput.rs",
               "code": "#[Checked]\nstruct ProductInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    name: String,\n\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    level: f64,\n}\n"
             },
@@ -1923,6 +2268,22 @@
             {
               "name": "server/controllers/ProductsController.rs",
               "code": "use crate::models::Product;\nuse std::sync::Arc;\n\n#[RequestRoute(\"/products\")]\n#[Public]\nstruct ProductsController {\n    #[Needs]\n    product_service: Arc<ProductService>,\n}\nimpl ProductsController {\n    #[PostRoute]\n    fn post_product(&self, #[FromBody] product: Product) -> http::Response<Vec<u8>> {\n        let input = BehaviorValue::object([\n            (\"name\", BehaviorValue::from(product.name)),\n            (\"sku\", BehaviorValue::from(product.sku)),\n            (\"level\", BehaviorValue::Number(product.level as f64)),\n        ]);\n        Self::answer(Self::checked_text(&self.product_service, input))\n    }\n\n    fn checked_text(products: &ProductService, input: BehaviorValue) -> Option<String> {\n        let checked = products.accept(input).ok()?;\n        checked.to_json(65_536).ok()\n    }\n\n    fn answer(text: Option<String>) -> http::Response<Vec<u8>> {\n        match text {\n            Some(text) => Self::response(200, text),\n            None => Self::response(400, String::from(\"{\\\"error\\\":\\\"validation\\\"}\")),\n        }\n    }\n\n    fn response(status: u16, body: String) -> http::Response<Vec<u8>> {\n        http::Response::builder()\n            .status(status)\n            .header(\"content-type\", \"application/json\")\n            .body(body.into_bytes())\n            .unwrap_or_default()\n    }\n}\n"
+            },
+            {
+              "name": "server/helpers/ProductInput.go",
+              "code": "// @Checked\ntype ProductInput struct {\n\t// @NotEmpty\n\t// @Length({\"min\":1,\"max\":80})\n\tname string\n\n\t// @Required\n\t// @Min(1)\n\t// @Max(9)\n\tlevel float64\n}\n"
+            },
+            {
+              "name": "server/services/ProductService.go",
+              "code": "// @Service\ntype ProductService struct{}\n\nfunc (service *ProductService) Accept(\n\t// @Check(ProductInput)\n\tinput BehaviorValue,\n) (BehaviorValue, error) {\n\treturn input, nil\n}\n"
+            },
+            {
+              "name": "server/models/Product.go",
+              "code": "type Product struct {\n\tName  string `json:\"name\"`\n\tSku   string `json:\"sku\"`\n\tLevel int64  `json:\"level\"`\n}\n"
+            },
+            {
+              "name": "server/controllers/ProductsController.go",
+              "code": "import (\n\t\"io\"\n\t\"net/http\"\n\t\"strings\"\n)\n\n// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n\t// @Needs\n\tproductService *ProductService\n}\n\n// @PostRoute\nfunc (controller *ProductsController) PostProduct(\n\t// @FromBody\n\tproduct Product,\n) any {\n\tinput := map[string]any{\"name\": product.Name, \"level\": product.Level}\n\t_, err := controller.productService.Accept(input)\n\treturn controller.answer(product, err)\n}\n\nfunc (controller *ProductsController) answer(product Product, failure error) any {\n\tif failure != nil {\n\t\theader := http.Header{\"Content-Type\": {\"application/json\"}}\n\t\tbody := io.NopCloser(strings.NewReader(`{\"error\":\"validation\"}`))\n\t\treturn &http.Response{StatusCode: http.StatusBadRequest, Header: header, Body: body}\n\t}\n\treturn product\n}\n"
             },
             {
               "name": "server/helpers/ProductInput.dart",
@@ -1941,20 +2302,20 @@
               "code": "import 'models/Product.dart';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @Needs\n  final ProductService productService;\n\n  @PostRoute\n  Product postProduct(@FromBody Product product) {\n    productService.accept({'name': product.name, 'level': product.level});\n    return product;\n  }\n}\n"
             },
             {
-              "name": "server/helpers/ProductInput.go",
-              "code": "// @Checked\ntype ProductInput struct {\n\t// @NotEmpty\n\t// @Length({\"min\":1,\"max\":80})\n\tname string\n\n\t// @Required\n\t// @Min(1)\n\t// @Max(9)\n\tlevel float64\n}\n"
+              "name": "server/helpers/ProductInput.rb",
+              "code": "#[Checked]\nclass ProductInput\n  # @return [String]\n  #[NotEmpty]\n  #[Length({\"min\":1,\"max\":80})]\n  attr_reader :name\n\n  # @return [Integer]\n  #[Required]\n  #[Min(1)]\n  #[Max(9)]\n  attr_reader :level\nend\n"
             },
             {
-              "name": "server/services/ProductService.go",
-              "code": "// @Service\ntype ProductService struct{}\n\nfunc (service *ProductService) Accept(\n\t// @Check(ProductInput)\n\tinput BehaviorValue,\n) (BehaviorValue, error) {\n\treturn input, nil\n}\n"
+              "name": "server/services/ProductService.rb",
+              "code": "#[Service]\nclass ProductService\n  # @param input [Hash]\n  # @return [Hash]\n  def accept(\n    #[Check(ProductInput)]\n    input\n  )\n    input\n  end\nend\n"
             },
             {
-              "name": "server/models/Product.go",
-              "code": "type Product struct {\n\tName  string `json:\"name\"`\n\tSku   string `json:\"sku\"`\n\tLevel int64  `json:\"level\"`\n}\n"
+              "name": "server/models/Product.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] sku\n#   @return [String]\n# @!attribute [r] level\n#   @return [Integer]\nProduct = Data.define(:name, :sku, :level)\n"
             },
             {
-              "name": "server/controllers/ProductsController.go",
-              "code": "import (\n\t\"io\"\n\t\"net/http\"\n\t\"strings\"\n)\n\n// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n\t// @Needs\n\tproductService *ProductService\n}\n\n// @PostRoute\nfunc (controller *ProductsController) PostProduct(\n\t// @FromBody\n\tproduct Product,\n) any {\n\tinput := map[string]any{\"name\": product.Name, \"level\": product.Level}\n\t_, err := controller.productService.Accept(input)\n\treturn controller.answer(product, err)\n}\n\nfunc (controller *ProductsController) answer(product Product, failure error) any {\n\tif failure != nil {\n\t\theader := http.Header{\"Content-Type\": {\"application/json\"}}\n\t\tbody := io.NopCloser(strings.NewReader(`{\"error\":\"validation\"}`))\n\t\treturn &http.Response{StatusCode: http.StatusBadRequest, Header: header, Body: body}\n\t}\n\treturn product\n}\n"
+              "name": "server/controllers/ProductsController.rb",
+              "code": "#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductsController\n  #[Needs]\n  # @return [ProductService]\n  attr_reader :product_service\n\n  # @param product [Product]\n  # @return [Product]\n  #[PostRoute]\n  def post_product(\n    #[FromBody]\n    product\n  )\n    product_service.accept({ \"name\" => product.name, \"level\" => product.level })\n    product\n  end\nend\n"
             }
           ]
         }
@@ -4573,7 +4934,7 @@
             },
             {
               "name": "server/services/CheckoutService.js",
-              "code": "@Service\nexport default class CheckoutService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n\n  /** @returns {number} */\n  total() {\n    const subtotal = this.#subtotal();\n    return this.taxHelper.addTax(subtotal);\n  }\n\n  /** @returns {number} */\n  #subtotal() {\n    return 40;\n  }\n}\n"
+              "code": "@Service\nexport default class CheckoutService {\n  /** @type {TaxHelper} */\n  @Needs\n  taxHelper;\n\n  /** @returns {number} */\n  total() {\n    const subtotal = this._subtotal();\n    return this.taxHelper.addTax(subtotal);\n  }\n\n  /** @returns {number} */\n  _subtotal() {\n    return 40;\n  }\n}\n"
             },
             {
               "name": "server/controllers/CheckoutController.js",
@@ -4644,36 +5005,36 @@
               "code": "record Receipt(int total) {}\n"
             },
             {
-              "name": "server/models/Receipt.groovy",
-              "code": "record Receipt(int total) {}\n"
-            },
-            {
               "name": "server/helpers/TaxRateHelper.java",
               "code": "@Helper\nclass TaxRateHelper {\n  int rate() { return 2; }\n}\n"
-            },
-            {
-              "name": "server/helpers/TaxRateHelper.groovy",
-              "code": "@Helper\nclass TaxRateHelper {\n  int rate() { return 2 }\n}\n"
             },
             {
               "name": "server/helpers/TaxHelper.java",
               "code": "@Helper\nclass TaxHelper {\n  @Needs\n  TaxRateHelper rates;\n\n  int addTax(int subtotal) {\n    int tax = rates.rate();\n    return subtotal + tax;\n  }\n}\n"
             },
             {
-              "name": "server/helpers/TaxHelper.groovy",
-              "code": "@Helper\nclass TaxHelper {\n  @Needs\n  TaxRateHelper rates\n\n  int addTax(int subtotal) {\n    int tax = rates.rate()\n    return subtotal + tax\n  }\n}\n"
-            },
-            {
               "name": "server/services/CheckoutService.java",
               "code": "@Service\nclass CheckoutService {\n  @Needs\n  TaxHelper helper;\n\n  int total() {\n    int subtotal = subtotal();\n    return helper.addTax(subtotal);\n  }\n\n  private int subtotal() {\n    return 40;\n  }\n}\n"
             },
             {
-              "name": "server/services/CheckoutService.groovy",
-              "code": "@Service\nclass CheckoutService {\n  @Needs\n  TaxHelper helper\n\n  int total() {\n    int subtotal = subtotal()\n    return helper.addTax(subtotal)\n  }\n\n  private int subtotal() {\n    return 40\n  }\n}\n"
-            },
-            {
               "name": "server/controllers/CheckoutController.java",
               "code": "import models.Receipt;\n\n@RequestRoute(\"/checkout\")\n@Public\nclass CheckoutController {\n  @Needs\n  CheckoutService service;\n\n  @GetRoute\n  Receipt getCheckout() {\n    int total = service.total();\n    return new Receipt(total);\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Receipt.groovy",
+              "code": "record Receipt(int total) {}\n"
+            },
+            {
+              "name": "server/helpers/TaxRateHelper.groovy",
+              "code": "@Helper\nclass TaxRateHelper {\n  int rate() { return 2 }\n}\n"
+            },
+            {
+              "name": "server/helpers/TaxHelper.groovy",
+              "code": "@Helper\nclass TaxHelper {\n  @Needs\n  TaxRateHelper rates\n\n  int addTax(int subtotal) {\n    int tax = rates.rate()\n    return subtotal + tax\n  }\n}\n"
+            },
+            {
+              "name": "server/services/CheckoutService.groovy",
+              "code": "@Service\nclass CheckoutService {\n  @Needs\n  TaxHelper helper\n\n  int total() {\n    int subtotal = subtotal()\n    return helper.addTax(subtotal)\n  }\n\n  private int subtotal() {\n    return 40\n  }\n}\n"
             },
             {
               "name": "server/controllers/CheckoutController.groovy",
@@ -4718,6 +5079,26 @@
             {
               "name": "server/controllers/CheckoutController.cs",
               "code": "using Models;\n\n[RequestRoute(\"/checkout\")]\n[Public]\nclass CheckoutController {\n  [Needs]\n  CheckoutService _service;\n\n  [GetRoute]\n  public Receipt GetCheckout() {\n    int total = _service.total();\n    return new Receipt(total);\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Receipt.fs",
+              "code": "type Receipt = { Total: int }\n"
+            },
+            {
+              "name": "server/helpers/TaxRateHelper.fs",
+              "code": "[<Helper>]\ntype TaxRateHelper() =\n    member this.Rate() : int =\n        2\n"
+            },
+            {
+              "name": "server/helpers/TaxHelper.fs",
+              "code": "[<Helper>]\ntype TaxHelper(rates: TaxRateHelper) =\n    member this.AddTax(subtotal: int) : int =\n        let tax = rates.Rate()\n        subtotal + tax\n"
+            },
+            {
+              "name": "server/services/CheckoutService.fs",
+              "code": "[<Service>]\ntype CheckoutService(helper: TaxHelper) =\n    member this.Total() : int =\n        let subtotal = this.Subtotal()\n        helper.AddTax(subtotal)\n\n    member private this.Subtotal() : int =\n        40\n"
+            },
+            {
+              "name": "server/controllers/CheckoutController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/checkout\")>]\n[<Public>]\ntype CheckoutController(service: CheckoutService) =\n    [<GetRoute>]\n    member this.GetCheckout() : Receipt =\n        let total = service.Total()\n        { Total = total }\n"
             },
             {
               "name": "server/models/Receipt.rs",
@@ -4778,6 +5159,46 @@
             {
               "name": "server/controllers/CheckoutController.dart",
               "code": "import 'models/Receipt.dart';\n\n@RequestRoute(\"/checkout\")\n@Public\nclass CheckoutController {\n  @Needs\n  final CheckoutService service;\n\n  @GetRoute\n  Receipt getCheckout() {\n    final total = service.total();\n    return Receipt(total);\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Receipt.rb",
+              "code": "# @!attribute [r] total\n#   @return [Integer]\nReceipt = Data.define(:total)\n"
+            },
+            {
+              "name": "server/helpers/TaxRateHelper.rb",
+              "code": "#[Helper]\nclass TaxRateHelper\n  # @return [Integer]\n  def rate\n    2\n  end\nend\n"
+            },
+            {
+              "name": "server/helpers/TaxHelper.rb",
+              "code": "#[Helper]\nclass TaxHelper\n  #[Needs]\n  # @return [TaxRateHelper]\n  attr_reader :tax_rate_helper\n\n  # @param subtotal [Integer]\n  # @return [Integer]\n  def add_tax(subtotal)\n    tax = tax_rate_helper.rate\n    subtotal + tax\n  end\nend\n"
+            },
+            {
+              "name": "server/services/CheckoutService.rb",
+              "code": "#[Service]\nclass CheckoutService\n  #[Needs]\n  # @return [TaxHelper]\n  attr_reader :tax_helper\n\n  # @return [Integer]\n  def total\n    tax_helper.add_tax(subtotal)\n  end\n\n  private\n\n  # @return [Integer]\n  def subtotal\n    40\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/CheckoutController.rb",
+              "code": "#[RequestRoute(\"/checkout\")]\n#[Public]\nclass CheckoutController\n  #[Needs]\n  # @return [CheckoutService]\n  attr_reader :checkout_service\n\n  # @return [Receipt]\n  #[GetRoute]\n  def get_checkout\n    Receipt.new(total: checkout_service.total)\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Receipt.lua",
+              "code": "---@class Receipt\n---@field total integer\nReceipt = {}\n"
+            },
+            {
+              "name": "server/helpers/TaxRateHelper.lua",
+              "code": "-- @Helper\n---@class TaxRateHelper\nTaxRateHelper = {}\n\n---@return integer\nfunction TaxRateHelper:rate()\n  return 2\nend\n"
+            },
+            {
+              "name": "server/helpers/TaxHelper.lua",
+              "code": "-- @Helper\n---@class TaxHelper\nTaxHelper = {\n  -- @Needs\n  ---@type TaxRateHelper\n  tax_rate_helper = nil,\n}\n\n---@param subtotal integer\n---@return integer\nfunction TaxHelper:add_tax(subtotal)\n  local tax = self.tax_rate_helper:rate()\n  return subtotal + tax\nend\n"
+            },
+            {
+              "name": "server/services/CheckoutService.lua",
+              "code": "-- @Service\n---@class CheckoutService\nCheckoutService = {\n  -- @Needs\n  ---@type TaxHelper\n  tax_helper = nil,\n}\n\n---@return integer\nfunction CheckoutService:total()\n  local subtotal = self:subtotal()\n  return self.tax_helper:add_tax(subtotal)\nend\n\n---@private\n---@return integer\nfunction CheckoutService:subtotal()\n  return 40\nend\n"
+            },
+            {
+              "name": "server/controllers/CheckoutController.lua",
+              "code": "-- @RequestRoute(\"/checkout\")\n-- @Public\n---@class CheckoutController\nCheckoutController = {\n  -- @Needs\n  ---@type CheckoutService\n  checkout_service = nil,\n}\n\n---@return Receipt\n-- @GetRoute\nfunction CheckoutController:get_checkout()\n  local total = self.checkout_service:total()\n  return { total = total }\nend\n"
             }
           ]
         }
@@ -4858,7 +5279,7 @@
       "sections": [
         {
           "heading": "Every member states its type",
-          "body": "Tachyon reads types to check routes, models, events and injection, and each language's checker reads them to find a mistake before a request does. A member without a type is invisible to both. So every field, method parameter and return value of a class states its type, in public and private members alike. Local variables do not need one.\n\nWhere the language's syntax has no types, a **type comment** carries the type. It is the one kind of comment that Tachyon keeps, because a tool reads it: it holds a type, never an explanation. Where the language has optional types, write the native types.\n\n| Language | Parameter | Return value | Field |\n| --- | --- | --- | --- |\n| JavaScript | `@param {number} amount` | `@returns {Price}` | `/** @type {PriceService} */` |\n| Ruby | `# @param amount [Integer]` | `# @return [Price]` | `# @return [PriceService]` above `attr_reader` |\n| Lua | `---@param amount integer` | `---@return Price` | `---@type PriceService` above the field in the class table |\n| Python | `amount: int` | `-> Price` | `price_service: PriceService` |\n| PHP | `int $amount` | `): Price` | `private PriceService $priceService` |\n| TypeScript | `amount: number` | inferred | `priceService!: PriceService` |\n\nJavaScript, Ruby and Lua type comments stand in the comment block right above the member; an annotation line such as `@Needs`, `#[Needs]` or `-- @Needs` may stand between them. Lua writes LuaCATS comments, which the Lua language server reads too, and a model lists its fields as `---@field amount integer` under `---@class Price`. A JavaScript method that gives back nothing needs no `@returns`; Python and PHP still write `-> None` and `: void`. A JavaScript or Python field whose starting value is one number, text or boolean, such as `static _CURRENCY = 'EUR'`, already shows its type. Groovy members need a declared type instead of `def` (`TY1334`), and the typed languages need nothing more.\n\nThe build refuses, with `TY1356`, a member of a class in a role folder that has no type. The message names the member, and the help shows the exact comment or annotation to add. The types must also be right: `tsc` checks JavaScript types (with `checkJs` and `strict`, as in the `jsconfig.json` of `ty init`), Python and PHP check their own, and for Ruby and Lua the build checks that every name in a YARD or LuaCATS type is a Ruby class or a LuaCATS built-in type (`string`, `integer`, `number`, `boolean`, `table`), a class or model of your project, a Tachyon class, or `Boolean`, `nil` or `void`.\n\nOne `tsc` check is off for JavaScript: `strictPropertyInitialization`. TypeScript writes `priceService!: PriceService` to say that Tachyon fills the field after it makes the object. JavaScript has no `!`, so with this check `tsc` would refuse every `@Needs` field. The `jsconfig.json` that `ty init` writes for JavaScript code therefore sets `strictPropertyInitialization` to `false`, and the build checks the fields instead: in a JavaScript class, every field has a starting value, such as `labels = []`, the constructor or an `@OnStart` method sets it, or Tachyon fills it. Tachyon fills a field marked `@Needs` or `@Setting`, every field of a class marked `@NeedsAll`, the fields of an `@Entity`, and `applicationEventPublisher`. Any other field stops the build with `TY1356`, and the help shows the fixes. A side of the app that uses only TypeScript keeps the full `strict` check.\n\nA class file may not switch the type checker off. `// @ts-nocheck`, `// @ts-ignore` and `// @ts-expect-error` in JavaScript and TypeScript, and `# type: ignore`, `# mypy: ignore-errors` and `# pyright: ignore` in Python, stop the build with `TY1356` too: remove them and fix the type errors they hid. A test file may still use `@ts-expect-error` to show that a wrong call does not compile.\n\n`ty migrate fix --write` adds the types it can know: the type of an injected field, such as `/** @type {PriceService} */` or `# @return [PriceService]`, and `-> None` or `: void` for a method that gives back nothing. It lists every other member with the comment to add.\n\nThis check is new. It is off by default until the last examples and test projects of Tachyon pass it. Turn it on for one side of the app: for Yon code, set `types.check` to `true` in `server/application.json`, as the example below does; for Tac code, set `tac.types.check` to `true` in `client/manifest.json`. `ty migrate check` lists every place to change, even when the setting is off.",
+          "body": "Tachyon reads types to check routes, models, events and injection, and each language's checker reads them to find a mistake before a request does. A member without a type is invisible to both. So every field, method parameter and return value of a class states its type, in public and private members alike. Local variables do not need one.\n\nWhere the language's syntax has no types, a **type comment** carries the type. It is the one kind of comment that Tachyon keeps, because a tool reads it: it holds a type, never an explanation. Where the language has optional types, write the native types.\n\n| Language | Parameter | Return value | Field |\n| --- | --- | --- | --- |\n| JavaScript | `@param {number} amount` | `@returns {Price}` | `/** @type {PriceService} */` |\n| Ruby | `# @param amount [Integer]` | `# @return [Price]` | `# @return [PriceService]` above `attr_reader` |\n| Lua | `---@param amount integer` | `---@return Price` | `---@type PriceService` above the field in the class table |\n| Python | `amount: int` | `-> Price` | `price_service: PriceService` |\n| PHP | `int $amount` | `): Price` | `private PriceService $priceService` |\n| TypeScript | `amount: number` | inferred | `priceService!: PriceService` |\n\nJavaScript, Ruby and Lua type comments stand in the comment block right above the member; an annotation line such as `@Needs`, `#[Needs]` or `-- @Needs` may stand between them. Lua writes LuaCATS comments, which the Lua language server reads too, and a model lists its fields as `---@field amount integer` under `---@class Price`. A JavaScript method that gives back nothing needs no `@returns`; Python and PHP still write `-> None` and `: void`. A JavaScript or Python field whose starting value is one number, text or boolean, such as `static _CURRENCY = 'EUR'`, already shows its type. Groovy members need a declared type instead of `def` (`TY1334`), and the typed languages need nothing more: their tabs below use the native types.\n\nThe build refuses, with `TY1356`, a member of a class in a role folder that has no type. The message names the member, and the help shows the exact comment or annotation to add. The types must also be right: `tsc` checks JavaScript types (with `checkJs` and `strict`, as in the `jsconfig.json` of `ty init`), Python and PHP check their own, and for Ruby and Lua the build checks that every name in a YARD or LuaCATS type is a Ruby class or a LuaCATS built-in type (`string`, `integer`, `number`, `boolean`, `table`), a class or model of your project, a Tachyon class, or `Boolean`, `nil` or `void`.\n\nOne `tsc` check is off for JavaScript: `strictPropertyInitialization`. TypeScript writes `priceService!: PriceService` to say that Tachyon fills the field after it makes the object. JavaScript has no `!`, so with this check `tsc` would refuse every `@Needs` field. The `jsconfig.json` that `ty init` writes for JavaScript code therefore sets `strictPropertyInitialization` to `false`, and the build checks the fields instead: in a JavaScript class, every field has a starting value, such as `labels = []`, the constructor or an `@OnStart` method sets it, or Tachyon fills it. Tachyon fills a field marked `@Needs` or `@Setting`, every field of a class marked `@NeedsAll`, the fields of an `@Entity`, and `applicationEventPublisher`. Any other field stops the build with `TY1356`, and the help shows the fixes. A side of the app that uses only TypeScript keeps the full `strict` check.\n\nA class file may not switch the type checker off. `// @ts-nocheck`, `// @ts-ignore` and `// @ts-expect-error` in JavaScript and TypeScript, and `# type: ignore`, `# mypy: ignore-errors` and `# pyright: ignore` in Python, stop the build with `TY1356` too: remove them and fix the type errors they hid. A test file may still use `@ts-expect-error` to show that a wrong call does not compile.\n\n`ty migrate fix --write` adds the types it can know: the type of an injected field, such as `/** @type {PriceService} */` or `# @return [PriceService]`, and `-> None` or `: void` for a method that gives back nothing. It lists every other member with the comment to add.\n\nThis check is new. It is off by default until the last examples and test projects of Tachyon pass it. Turn it on for one side of the app: for Yon code, set `types.check` to `true` in `server/application.json`, as the example below does; for Tac code, set `tac.types.check` to `true` in `client/manifest.json`. `ty migrate check` lists every place to change, even when the setting is off.",
           "axis": "language",
           "files": [
             {
@@ -4912,6 +5333,102 @@
             {
               "name": "server/models/Price.php",
               "code": "<?php\nclass Price\n{\n    public function __construct(public int $amount, public string $currency) {}\n}\n"
+            },
+            {
+              "name": "server/controllers/PriceController.java",
+              "code": "import models.Price;\n\n@RequestRoute(\"/price\")\n@Public\nclass PriceController {\n    @Needs\n    PriceService priceService;\n\n    @GetRoute\n    Price getPrice() {\n        return priceService.priceFor(20, 3);\n    }\n}\n"
+            },
+            {
+              "name": "server/services/PriceService.java",
+              "code": "import models.Price;\n\n@Service\nclass PriceService {\n    private static final String CURRENCY = \"EUR\";\n\n    Price priceFor(int amount, int count) {\n        return new Price(amount * count, CURRENCY);\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Price.java",
+              "code": "record Price(int amount, String currency) {}\n"
+            },
+            {
+              "name": "server/controllers/PriceController.groovy",
+              "code": "import models.Price\n\n@RequestRoute(\"/price\")\n@Public\nclass PriceController {\n    @Needs\n    PriceService priceService\n\n    @GetRoute\n    Price getPrice() {\n        return priceService.priceFor(20, 3)\n    }\n}\n"
+            },
+            {
+              "name": "server/services/PriceService.groovy",
+              "code": "import models.Price\n\n@Service\nclass PriceService {\n    private static final String CURRENCY = \"EUR\"\n\n    Price priceFor(int amount, int count) {\n        return new Price(amount * count, CURRENCY)\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Price.groovy",
+              "code": "record Price(int amount, String currency) {}\n"
+            },
+            {
+              "name": "server/controllers/PriceController.kt",
+              "code": "import models.Price\n\n@RequestRoute(\"/price\")\n@Public\nclass PriceController {\n    @Needs\n    val priceService: PriceService\n\n    @GetRoute\n    fun getPrice(): Price = priceService.priceFor(20, 3)\n}\n"
+            },
+            {
+              "name": "server/services/PriceService.kt",
+              "code": "import models.Price\n\n@Service\nclass PriceService {\n    private val currency: String = \"EUR\"\n\n    fun priceFor(amount: Int, count: Int): Price = Price(amount * count, currency)\n}\n"
+            },
+            {
+              "name": "server/models/Price.kt",
+              "code": "data class Price(val amount: Int, val currency: String)\n"
+            },
+            {
+              "name": "server/controllers/PriceController.cs",
+              "code": "using Models;\n\n[RequestRoute(\"/price\")]\n[Public]\nclass PriceController {\n    [Needs]\n    readonly PriceService _priceService;\n\n    [GetRoute]\n    public Price GetPrice() {\n        return _priceService.PriceFor(20, 3);\n    }\n}\n"
+            },
+            {
+              "name": "server/services/PriceService.cs",
+              "code": "using Models;\n\n[Service]\nclass PriceService {\n    private const string Currency = \"EUR\";\n\n    public Price PriceFor(int amount, int count) {\n        return new Price(amount * count, Currency);\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Price.cs",
+              "code": "public record Price(int Amount, string Currency);\n"
+            },
+            {
+              "name": "server/controllers/PriceController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/price\")>]\n[<Public>]\ntype PriceController(priceService: PriceService) =\n    [<GetRoute>]\n    member this.GetPrice() : Price =\n        priceService.PriceFor(20, 3)\n"
+            },
+            {
+              "name": "server/services/PriceService.fs",
+              "code": "open Models\n\n[<Service>]\ntype PriceService() =\n    static member private Currency : string = \"EUR\"\n\n    member this.PriceFor(amount: int, count: int) : Price =\n        { Amount = amount * count; Currency = PriceService.Currency }\n"
+            },
+            {
+              "name": "server/models/Price.fs",
+              "code": "type Price = { Amount: int; Currency: string }\n"
+            },
+            {
+              "name": "server/controllers/PriceController.rs",
+              "code": "use crate::models::Price;\n\n#[RequestRoute(\"/price\")]\n#[Public]\nstruct PriceController {\n    #[Needs]\n    price_service: std::sync::Arc<PriceService>,\n}\nimpl PriceController {\n    #[GetRoute]\n    fn get_price(&self) -> Price {\n        self.price_service.price_for(20, 3)\n    }\n}\n"
+            },
+            {
+              "name": "server/services/PriceService.rs",
+              "code": "use crate::models::Price;\n\n#[Service]\nstruct PriceService {}\nimpl PriceService {\n    const CURRENCY: &'static str = \"EUR\";\n\n    fn new() -> Self { Self {} }\n\n    fn price_for(&self, amount: i64, count: i64) -> Price {\n        Price { amount: amount * count, currency: String::from(Self::CURRENCY) }\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Price.rs",
+              "code": "pub struct Price {\n    pub amount: i64,\n    pub currency: String,\n}\n"
+            },
+            {
+              "name": "server/controllers/PriceController.go",
+              "code": "// @RequestRoute(\"/price\")\n// @Public\ntype PriceController struct {\n\t// @Needs\n\tpriceService *PriceService\n}\n\n// @GetRoute\nfunc (controller *PriceController) GetPrice() Price {\n\treturn controller.priceService.PriceFor(20, 3)\n}\n"
+            },
+            {
+              "name": "server/services/PriceService.go",
+              "code": "// @Service\ntype PriceService struct{}\n\nfunc (service *PriceService) PriceFor(amount int, count int) Price {\n\tconst currency = \"EUR\"\n\treturn Price{Amount: amount * count, Currency: currency}\n}\n"
+            },
+            {
+              "name": "server/models/Price.go",
+              "code": "type Price struct {\n\tAmount   int    `json:\"amount\"`\n\tCurrency string `json:\"currency\"`\n}\n"
+            },
+            {
+              "name": "server/controllers/PriceController.dart",
+              "code": "import 'models/Price.dart';\n\n@RequestRoute(\"/price\")\n@Public\nclass PriceController {\n  @Needs\n  final PriceService priceService;\n\n  @GetRoute\n  Price getPrice() => priceService.priceFor(20, 3);\n}\n"
+            },
+            {
+              "name": "server/services/PriceService.dart",
+              "code": "import 'models/Price.dart';\n\n@Service\nclass PriceService {\n  static const String _currency = 'EUR';\n\n  Price priceFor(int amount, int count) => Price(amount * count, _currency);\n}\n"
+            },
+            {
+              "name": "server/models/Price.dart",
+              "code": "class Price {\n  final int amount;\n  final String currency;\n\n  const Price(this.amount, this.currency);\n}\n"
             },
             {
               "name": "server/controllers/PriceController.rb",

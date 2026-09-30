@@ -9,7 +9,11 @@ import { readFile } from 'node:fs/promises'
 class PublishedData {
   static languages = ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts']
   static withRuby = ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts']
-  static rubySections = ['Annotated controllers and providers']
+  /** @type {Record<string, string[]>} */
+  static sectionLanguages = {
+    'Annotated controllers and providers': PublishedData.withRuby,
+    'Checking values and method arguments': PublishedData.withRuby.filter(language => language !== 'lua'),
+  }
 
   /** @param {string} name @returns {Promise<Documentation>} */
   static async load(name) {
@@ -83,7 +87,7 @@ describe('annotation routes and clients in published examples', () => {
       const section = Object.values(docs.topics).flatMap(topic => topic.sections).find(section => section.heading === heading)
       assert.ok(section)
       const controllers = section.files.filter(file => file.name.startsWith('server/controllers/'))
-      const languages = PublishedData.rubySections.includes(heading) ? PublishedData.withRuby : PublishedData.languages
+      const languages = PublishedData.sectionLanguages[heading] ?? PublishedData.languages
       expect(controllers.map(file => file.name.split('.').pop()).sort()).toEqual(languages)
       expect(section.axis).toBe('language')
     }
