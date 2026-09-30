@@ -51,7 +51,13 @@ impl BuiltConverter {
             .rfind(|character: char| !Self::is_name_character(character))
             .map_or(0, |found| found + 1);
         let after = &source[at + Self::SUFFIX.len()..];
-        let named = [name_start < at, !after.starts_with(Self::is_name_character)] == [true, true];
+        let type_name =
+            source[name_start..].starts_with(|character: char| character.is_ascii_uppercase());
+        let named = [
+            name_start < at,
+            type_name,
+            !after.starts_with(Self::is_name_character),
+        ] == [true, true, true];
         let before_name = before[..name_start].trim_end();
         let constructed = before_name.ends_with(Self::CONSTRUCT_CALL);
         let declared = before_name.ends_with(Self::DECLARATION_WORD);
@@ -125,6 +131,7 @@ mod tests {
             ),
             ("A.java", "// new ProductConverter(context)"),
             ("A.java", "@Converter\ninterface ProductConverter {}"),
+            ("A.kt", "val converter = makeConverter(settings)"),
         ];
         for (path, source) in kept {
             assert!(
