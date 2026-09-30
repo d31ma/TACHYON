@@ -593,7 +593,9 @@ machine contracts have their own, independent major versions.
   `self:construct(Role)`. `ty init --yon lua` writes a Lua controller and its
   test unit; `ty doctor` and the readiness check ask for `lua` 5.4 or newer.
   Behavior annotations, events and lifecycle hooks, streams, sockets and Tac
-  Lua services are refused by name for now (`TY2015`).
+  Lua services are refused for now: the rule table says that the annotation
+  is not available in Lua (`TY1308`), and the lowering names ADR 0085
+  (`TY2015`).
 
 - Java web services now exchange models and events with the page and use the
   built-in browser storage (ADR 0083 amendment). `client/models` may hold Java
