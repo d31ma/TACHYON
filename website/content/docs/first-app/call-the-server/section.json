@@ -16,9 +16,9 @@
       }
     },
     {
-      "name": "client/clients/GreetingClient.js",
+      "name": "client/integrations/GreetingClient.js",
       "code": {
-        "file": "client/clients/GreetingClient.js"
+        "file": "client/integrations/GreetingClient.js"
       }
     },
     {
@@ -34,9 +34,9 @@
       }
     },
     {
-      "name": "client/clients/GreetingClient.ts",
+      "name": "client/integrations/GreetingClient.ts",
       "code": {
-        "file": "client/clients/GreetingClient.ts"
+        "file": "client/integrations/GreetingClient.ts"
       }
     },
     {

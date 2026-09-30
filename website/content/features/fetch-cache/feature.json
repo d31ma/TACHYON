@@ -11,9 +11,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.js",
+      "name": "client/integrations/ProductsClient.js",
       "code": {
-        "file": "client/clients/ProductsClient.js"
+        "file": "client/integrations/ProductsClient.js"
       }
     },
     {
@@ -23,9 +23,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.ts",
+      "name": "client/integrations/ProductsClient.ts",
       "code": {
-        "file": "client/clients/ProductsClient.ts"
+        "file": "client/integrations/ProductsClient.ts"
       }
     },
     {
@@ -35,9 +35,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.rs",
+      "name": "client/integrations/ProductsClient.rs",
       "code": {
-        "file": "client/clients/ProductsClient.rs"
+        "file": "client/integrations/ProductsClient.rs"
       }
     },
     {
@@ -53,9 +53,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.go",
+      "name": "client/integrations/ProductsClient.go",
       "code": {
-        "file": "client/clients/ProductsClient.go"
+        "file": "client/integrations/ProductsClient.go"
       }
     },
     {
@@ -71,9 +71,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.cs",
+      "name": "client/integrations/ProductsClient.cs",
       "code": {
-        "file": "client/clients/ProductsClient.cs"
+        "file": "client/integrations/ProductsClient.cs"
       }
     },
     {
@@ -89,9 +89,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.fs",
+      "name": "client/integrations/ProductsClient.fs",
       "code": {
-        "file": "client/clients/ProductsClient.fs"
+        "file": "client/integrations/ProductsClient.fs"
       }
     },
     {
@@ -107,9 +107,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.kt",
+      "name": "client/integrations/ProductsClient.kt",
       "code": {
-        "file": "client/clients/ProductsClient.kt"
+        "file": "client/integrations/ProductsClient.kt"
       }
     },
     {
@@ -125,9 +125,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.java",
+      "name": "client/integrations/ProductsClient.java",
       "code": {
-        "file": "client/clients/ProductsClient.java"
+        "file": "client/integrations/ProductsClient.java"
       }
     },
     {
@@ -143,9 +143,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.dart",
+      "name": "client/integrations/ProductsClient.dart",
       "code": {
-        "file": "client/clients/ProductsClient.dart"
+        "file": "client/integrations/ProductsClient.dart"
       }
     },
     {
@@ -161,9 +161,9 @@
       }
     },
     {
-      "name": "client/clients/ProductsClient.swift",
+      "name": "client/integrations/ProductsClient.swift",
       "code": {
-        "file": "client/clients/ProductsClient.swift"
+        "file": "client/integrations/ProductsClient.swift"
       }
     },
     {

@@ -22,9 +22,9 @@
       }
     },
     {
-      "name": "client/clients/UsersClient.js",
+      "name": "client/integrations/UsersClient.js",
       "code": {
-        "file": "client/clients/UsersClient.js"
+        "file": "client/integrations/UsersClient.js"
       }
     },
     {
@@ -40,9 +40,9 @@
       }
     },
     {
-      "name": "client/clients/UsersClient.ts",
+      "name": "client/integrations/UsersClient.ts",
       "code": {
-        "file": "client/clients/UsersClient.ts"
+        "file": "client/integrations/UsersClient.ts"
       }
     },
     {
@@ -64,9 +64,9 @@
       }
     },
     {
-      "name": "client/clients/UsersClient.rb",
+      "name": "client/integrations/UsersClient.rb",
       "code": {
-        "file": "client/clients/UsersClient.rb"
+        "file": "client/integrations/UsersClient.rb"
       }
     },
     {

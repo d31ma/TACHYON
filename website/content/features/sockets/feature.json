@@ -179,15 +179,15 @@
       }
     },
     {
-      "name": "client/clients/ChatClient.js",
+      "name": "client/integrations/ChatClient.js",
       "code": {
-        "file": "client/clients/ChatClient.js"
+        "file": "client/integrations/ChatClient.js"
       }
     },
     {
-      "name": "client/clients/ChatClient.ts",
+      "name": "client/integrations/ChatClient.ts",
       "code": {
-        "file": "client/clients/ChatClient.ts"
+        "file": "client/integrations/ChatClient.ts"
       }
     },
     {

@@ -151,8 +151,9 @@ impl ServiceRegistry {
     const UTILITY_ROOT: &'static str = "client/utils";
     const MAX_SERVICES: usize = 256;
     const MAX_SERVICE_BYTES: u64 = 1_048_576;
-    const PROVIDER_FOLDERS: [&'static str; 7] = [
+    const PROVIDER_FOLDERS: [&'static str; 8] = [
         "client/stores",
+        "client/integrations",
         "client/clients",
         "client/repositories",
         "client/configurations",
@@ -284,7 +285,7 @@ fn add_service_file(
         diagnostics.push(service_diagnostic(
             relative,
             "Services are files directly below client/services.",
-            "Move collaborators to client/clients, client/stores, client/setups, \
+            "Move collaborators to client/integrations, client/stores, client/setups, \
              client/entities or client/helpers; a symlink is never a service.",
         ));
         return false;

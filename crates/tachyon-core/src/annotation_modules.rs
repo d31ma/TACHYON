@@ -19,7 +19,7 @@ mod error_tests;
 #[cfg(test)]
 mod test_configuration_tests;
 
-pub(crate) fn role_folders() -> [&'static str; 8] {
+pub(crate) fn role_folders() -> [&'static str; 9] {
     Module::ROLE_FOLDERS
 }
 
@@ -254,7 +254,8 @@ struct Module {
 }
 
 impl Module {
-    const ROLE_FOLDERS: [&str; 8] = [
+    const ROLE_FOLDERS: [&str; 9] = [
+        "integrations",
         "clients",
         "setups",
         "controllers",

@@ -20,12 +20,13 @@ pub(super) struct CapturedSources {
 }
 
 impl CapturedSources {
-    const CLIENT_ROLE_ROOTS: [&str; 16] = [
+    const CLIENT_ROLE_ROOTS: [&str; 17] = [
         "client/features",
         "client/services",
         "client/controllers",
         "client/stores",
         "client/repositories",
+        "client/integrations",
         "client/clients",
         "client/helpers",
         "client/converters",

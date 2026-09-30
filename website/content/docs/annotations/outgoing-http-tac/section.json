@@ -16,9 +16,9 @@
       }
     },
     {
-      "name": "client/clients/CatalogClient.js",
+      "name": "client/integrations/CatalogClient.js",
       "code": {
-        "file": "client/clients/CatalogClient.js"
+        "file": "client/integrations/CatalogClient.js"
       }
     },
     {
@@ -28,9 +28,9 @@
       }
     },
     {
-      "name": "client/clients/CatalogClient.ts",
+      "name": "client/integrations/CatalogClient.ts",
       "code": {
-        "file": "client/clients/CatalogClient.ts"
+        "file": "client/integrations/CatalogClient.ts"
       }
     },
     {
@@ -124,45 +124,45 @@
       }
     },
     {
-      "name": "client/clients/CatalogClient.swift",
+      "name": "client/integrations/CatalogClient.swift",
       "code": {
-        "file": "client/clients/CatalogClient.swift"
+        "file": "client/integrations/CatalogClient.swift"
       }
     },
     {
-      "name": "client/clients/CatalogClient.kt",
+      "name": "client/integrations/CatalogClient.kt",
       "code": {
-        "file": "client/clients/CatalogClient.kt"
+        "file": "client/integrations/CatalogClient.kt"
       }
     },
     {
-      "name": "client/clients/CatalogClient.cs",
+      "name": "client/integrations/CatalogClient.cs",
       "code": {
-        "file": "client/clients/CatalogClient.cs"
+        "file": "client/integrations/CatalogClient.cs"
       }
     },
     {
-      "name": "client/clients/CatalogClient.fs",
+      "name": "client/integrations/CatalogClient.fs",
       "code": {
-        "file": "client/clients/CatalogClient.fs"
+        "file": "client/integrations/CatalogClient.fs"
       }
     },
     {
-      "name": "client/clients/CatalogClient.rs",
+      "name": "client/integrations/CatalogClient.rs",
       "code": {
-        "file": "client/clients/CatalogClient.rs"
+        "file": "client/integrations/CatalogClient.rs"
       }
     },
     {
-      "name": "client/clients/CatalogClient.go",
+      "name": "client/integrations/CatalogClient.go",
       "code": {
-        "file": "client/clients/CatalogClient.go"
+        "file": "client/integrations/CatalogClient.go"
       }
     },
     {
-      "name": "client/clients/CatalogClient.dart",
+      "name": "client/integrations/CatalogClient.dart",
       "code": {
-        "file": "client/clients/CatalogClient.dart"
+        "file": "client/integrations/CatalogClient.dart"
       }
     },
     {
@@ -178,9 +178,9 @@
       }
     },
     {
-      "name": "client/clients/CatalogClient.rb",
+      "name": "client/integrations/CatalogClient.rb",
       "code": {
-        "file": "client/clients/CatalogClient.rb"
+        "file": "client/integrations/CatalogClient.rb"
       }
     },
     {
@@ -196,9 +196,9 @@
       }
     },
     {
-      "name": "client/clients/CatalogClient.java",
+      "name": "client/integrations/CatalogClient.java",
       "code": {
-        "file": "client/clients/CatalogClient.java"
+        "file": "client/integrations/CatalogClient.java"
       }
     }
   ]

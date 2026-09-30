@@ -11,12 +11,13 @@ pub(super) struct PathParts<'a> {
 
 impl<'a> PathParts<'a> {
     const REALMS: [&'static str; 2] = ["client", "server"];
-    const ROLE_FOLDERS: [&'static str; 17] = [
+    const ROLE_FOLDERS: [&'static str; 18] = [
         "services",
         "helpers",
         "controllers",
         "stores",
         "repositories",
+        "integrations",
         "clients",
         "converters",
         "mappers",

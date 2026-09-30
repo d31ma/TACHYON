@@ -5,9 +5,9 @@
   "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# and F# use `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. The C#, F# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language. Lua has no tab here, because the build refuses Gateway in Lua Yon code with TY1308.",
   "files": [
     {
-      "name": "server/clients/ReportClient.js",
+      "name": "server/integrations/ReportClient.js",
       "code": {
-        "file": "server/clients/ReportClient.js"
+        "file": "server/integrations/ReportClient.js"
       }
     },
     {
@@ -29,9 +29,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.ts",
+      "name": "server/integrations/ReportClient.ts",
       "code": {
-        "file": "server/clients/ReportClient.ts"
+        "file": "server/integrations/ReportClient.ts"
       }
     },
     {
@@ -47,9 +47,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.py",
+      "name": "server/integrations/ReportClient.py",
       "code": {
-        "file": "server/clients/ReportClient.py"
+        "file": "server/integrations/ReportClient.py"
       }
     },
     {
@@ -77,9 +77,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.php",
+      "name": "server/integrations/ReportClient.php",
       "code": {
-        "file": "server/clients/ReportClient.php"
+        "file": "server/integrations/ReportClient.php"
       }
     },
     {
@@ -101,15 +101,15 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.java",
+      "name": "server/integrations/ReportClient.java",
       "code": {
-        "file": "server/clients/ReportClient.java"
+        "file": "server/integrations/ReportClient.java"
       }
     },
     {
-      "name": "server/clients/ReportClient.groovy",
+      "name": "server/integrations/ReportClient.groovy",
       "code": {
-        "file": "server/clients/ReportClient.groovy"
+        "file": "server/integrations/ReportClient.groovy"
       }
     },
     {
@@ -131,9 +131,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.kt",
+      "name": "server/integrations/ReportClient.kt",
       "code": {
-        "file": "server/clients/ReportClient.kt"
+        "file": "server/integrations/ReportClient.kt"
       }
     },
     {
@@ -149,9 +149,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.cs",
+      "name": "server/integrations/ReportClient.cs",
       "code": {
-        "file": "server/clients/ReportClient.cs"
+        "file": "server/integrations/ReportClient.cs"
       }
     },
     {
@@ -167,9 +167,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.rs",
+      "name": "server/integrations/ReportClient.rs",
       "code": {
-        "file": "server/clients/ReportClient.rs"
+        "file": "server/integrations/ReportClient.rs"
       }
     },
     {
@@ -185,9 +185,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.go",
+      "name": "server/integrations/ReportClient.go",
       "code": {
-        "file": "server/clients/ReportClient.go"
+        "file": "server/integrations/ReportClient.go"
       }
     },
     {
@@ -209,9 +209,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.dart",
+      "name": "server/integrations/ReportClient.dart",
       "code": {
-        "file": "server/clients/ReportClient.dart"
+        "file": "server/integrations/ReportClient.dart"
       }
     },
     {
@@ -227,9 +227,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.rb",
+      "name": "server/integrations/ReportClient.rb",
       "code": {
-        "file": "server/clients/ReportClient.rb"
+        "file": "server/integrations/ReportClient.rb"
       }
     },
     {
@@ -245,9 +245,9 @@
       }
     },
     {
-      "name": "server/clients/ReportClient.fs",
+      "name": "server/integrations/ReportClient.fs",
       "code": {
-        "file": "server/clients/ReportClient.fs"
+        "file": "server/integrations/ReportClient.fs"
       }
     },
     {

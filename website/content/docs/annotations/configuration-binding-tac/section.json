@@ -16,8 +16,8 @@
       "code": { "file": "client/manifest.json" }
     },
     {
-      "name": "client/clients/ApplicationClient.js",
-      "code": { "file": "client/clients/ApplicationClient.js" }
+      "name": "client/integrations/ApplicationClient.js",
+      "code": { "file": "client/integrations/ApplicationClient.js" }
     },
     {
       "name": "client/setups/CatalogSetup.js",
@@ -28,8 +28,8 @@
       "code": { "file": "client/services/SettingsService.js" }
     },
     {
-      "name": "client/clients/ApplicationClient.ts",
-      "code": { "file": "client/clients/ApplicationClient.ts" }
+      "name": "client/integrations/ApplicationClient.ts",
+      "code": { "file": "client/integrations/ApplicationClient.ts" }
     },
     {
       "name": "client/setups/CatalogSetup.ts",

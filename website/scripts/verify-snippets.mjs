@@ -71,7 +71,7 @@ class Progress {
 class Patterns {
   static tutorials = new Set(['first-app'])
   static excerptManifest = JSON.stringify({ tac: { visibility: { check: false } } })
-  static roleFile = /\/(controllers|services|stores|clients|helpers|setups|converters|entities)\/[^/]+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
+  static roleFile = /\/(controllers|services|stores|integrations|clients|helpers|setups|converters|entities)\/[^/]+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
   static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
   static identityProviderPath = /^server\/controllers\/[A-Z]\w*IdentityProvider\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
   static classRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[<|\[)(?:RequestRoute|request_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m

@@ -107,15 +107,15 @@
       }
     },
     {
-      "name": "client/clients/TicksClient.js",
+      "name": "client/integrations/TicksClient.js",
       "code": {
-        "file": "client/clients/TicksClient.js"
+        "file": "client/integrations/TicksClient.js"
       }
     },
     {
-      "name": "client/clients/TicksClient.ts",
+      "name": "client/integrations/TicksClient.ts",
       "code": {
-        "file": "client/clients/TicksClient.ts"
+        "file": "client/integrations/TicksClient.ts"
       }
     },
     {

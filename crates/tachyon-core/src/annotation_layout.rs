@@ -390,8 +390,8 @@ impl Role {
             "identityprovider" => ("IdentityProvider", "IdentityProvider", "controllers"),
             "service" => ("Service", "Service", "services"),
             "store" => ("Store", "Store", "stores"),
-            "client" => ("Client", "Client", "clients"),
-            "httpclient" => ("HTTPClient", "Client", "clients"),
+            "client" => ("Client", "Client", "integrations"),
+            "httpclient" => ("HTTPClient", "Client", "integrations"),
             "helper" => ("Helper", "Helper", "helpers"),
             "converter" => ("Converter", "Converter", "converters"),
             "setup" => ("Setup", "Setup", "setups"),
@@ -430,6 +430,9 @@ impl Role {
     fn is_placed_in(self, parent: &str) -> bool {
         if self.is_controller() {
             return parent == "server/controllers";
+        }
+        if self.folder == "integrations" && matches!(parent, "client/clients" | "server/clients") {
+            return true;
         }
         parent == format!("client/{}", self.folder) || parent == format!("server/{}", self.folder)
     }

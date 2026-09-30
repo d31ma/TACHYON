@@ -473,6 +473,15 @@ fn classify_file(
         findings.push(built);
     }
     configuration_findings(root, relative, name, findings);
+    if relative.starts_with("client/clients/") || relative.starts_with("server/clients/") {
+        findings.push(MigrationFinding::new(
+            relative,
+            "role.integrations",
+            MigrationStatus::Supported,
+            "clients remains a compatibility alias; integrations is the canonical outbound role folder.",
+            Some("Optionally run ty migrate --fix to move files and recognized paths; review the plan first."),
+        ));
+    }
     let Some(mut finding) = classify_name(relative, name) else {
         return Ok(());
     };
@@ -711,6 +720,7 @@ fn route_role_finding(relative: &str, name: &str) -> Option<MigrationFinding> {
             | "repositories"
             | "stores"
             | "clients"
+            | "integrations"
             | "configurations"
             | "setups"
             | "entities"
