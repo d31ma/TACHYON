@@ -1199,6 +1199,9 @@ function expectedGuideValue(slug, section) {
       if (!storeLogged) assert.equal(value.settled.open[0].transaction, 't1', 'The injected store must query inside the service transaction')
     }
   }
+  if (slug === 'application-events' && section.heading.startsWith('Yon')) {
+    return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, { value: 7 }, 'The listener must keep the published ProbeReady')
+  }
   if (slug === 'project-folders' && section.heading.startsWith('Models')) {
     return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, { title: 'Models hold types', pages: 3 })
   }
