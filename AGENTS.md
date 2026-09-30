@@ -7,6 +7,10 @@ packaging, performance, security, and documentation concerns.
 
 ## Start Here
 
+Read the shared coding instructions at
+`/Volumes/ANNEX/Users/iyor/Library/CloudStorage/Google Drive/INSTRUCTIONS.md`.
+Repository-local guidance takes precedence where it overrides those general rules.
+
 Read `CONTEXT.md`, `docs/PROJECT_PLAN.md`,
 `docs/architecture/OVERVIEW.md`, the relevant ADRs, and
 `docs/ENGINEERING_STANDARDS.md` before changing the Rust rewrite.
