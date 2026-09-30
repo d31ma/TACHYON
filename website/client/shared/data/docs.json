@@ -829,21 +829,65 @@
       "sections": [
         {
           "heading": "Fields that update the page",
-          "body": "Fields and methods belong to the service instance. A view reads them by the instance name: {counter.count}, on:click=\"counter.increment()\". Template handlers and OnEvent methods refresh the view when they finish. Background work injects taskScheduler (Tachyon gives it to a field) and calls its render(). Fields marked @SessionState are saved to sessionStorage. Fields marked @LocalState are saved to localStorage. To save a change inside an array or object, assign a new value to the field.",
-          "code": "@Service\nexport default class CounterService {\n  count = 0\n  @SessionState\n  visits = 0\n  @LocalState\n  theme = 'light'\n\n  increment() { this.count += 1 }\n}"
+          "target": "web",
+          "body": "Fields and methods belong to the service instance. A view reads them by the instance name: {counter.count}, on:click=\"counter.increment()\". Template handlers and OnEvent methods refresh the view when they finish. Background work injects taskScheduler (Tachyon gives it to a field) and calls its render(). Fields marked @SessionState are saved to sessionStorage. Fields marked @LocalState are saved to localStorage. F# services cannot save fields yet. To save a change inside an array or object, assign a new value to the field.",
+          "axis": "language",
+          "files": [
+            {
+              "name": "client/pages/tac.html",
+              "code": "<counter-panel hydrate=\"load\" />\n"
+            },
+            {
+              "name": "client/components/counter/panel/tac.html",
+              "code": "<main>\n  <p>{counter.count} clicks in the {counter.theme} theme</p>\n  <button on:click=\"counter.increment()\">Add one</button>\n</main>\n"
+            },
+            {
+              "name": "client/services/CounterService.js",
+              "code": "@Service\nexport default class CounterService {\n  count = 0\n  @SessionState\n  visits = 0\n  @LocalState\n  theme = 'light'\n\n  increment() { this.count += 1 }\n}"
+            },
+            {
+              "name": "client/services/CounterService.ts",
+              "code": "@Service\nexport default class CounterService {\n  count: number = 0\n  @SessionState\n  visits: number = 0\n  @LocalState\n  theme: string = 'light'\n\n  increment(): void { this.count += 1 }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.dart",
+              "code": "@Service\nclass CounterService {\n  int count = 0;\n  @SessionState\n  int visits = 0;\n  @LocalState\n  String theme = 'light';\n\n  void increment() {\n    count += 1;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.rs",
+              "code": "#[Service]\nstruct CounterService {\n    count: i64,\n    #[SessionState]\n    visits: i64,\n    #[LocalState]\n    theme: String,\n}\n\nimpl CounterService {\n    fn new() -> Self {\n        Self { count: 0, visits: 0, theme: String::from(\"light\") }\n    }\n\n    fn increment(&mut self) {\n        self.count += 1;\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.go",
+              "code": "// @Service\ntype CounterService struct {\n\tCount int64\n\t// @SessionState\n\tVisits int64\n\t// @LocalState\n\tTheme string\n}\n\n// @OnStart\nfunc (counter *CounterService) Start() {\n\tcounter.Theme = counter.startingTheme()\n}\n\nfunc (counter *CounterService) Increment() {\n\tcounter.Count++\n}\n\nfunc (counter *CounterService) startingTheme() string {\n\tif counter.Theme == \"\" {\n\t\treturn \"light\"\n\t}\n\treturn counter.Theme\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.rb",
+              "code": "#[Service]\nclass CounterService\n  # @return [Integer]\n  attr_reader :count\n  # @return [Integer]\n  #[SessionState]\n  attr_accessor :visits\n  # @return [String]\n  #[LocalState]\n  attr_accessor :theme\n\n  def initialize\n    @count = 0\n    @visits = 0\n    @theme = \"light\"\n  end\n\n  # @return [void]\n  def increment\n    @count += 1\n  end\nend\n"
+            },
+            {
+              "name": "client/services/CounterService.swift",
+              "code": "@Service\nfinal class CounterService {\n  var count: Int = 0\n  @SessionState\n  var visits: Int = 0\n  @LocalState\n  var theme: String = \"light\"\n\n  func increment() { count += 1 }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.kt",
+              "code": "@Service\nclass CounterService {\n  var count: Int = 0\n  @SessionState\n  var visits: Int = 0\n  @LocalState\n  var theme: String = \"light\"\n\n  fun increment() { count += 1 }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.java",
+              "code": "@Service\nclass CounterService {\n    int count = 0;\n    @SessionState\n    int visits = 0;\n    @LocalState\n    String theme = \"light\";\n\n    void increment() { count += 1; }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.cs",
+              "code": "[Service]\npublic class CounterService\n{\n    public int Count = 0;\n    [SessionState]\n    public int Visits = 0;\n    [LocalState]\n    public string Theme = \"light\";\n\n    public void Increment() => Count += 1;\n}\n"
+            }
+          ]
         },
         {
           "heading": "Start, stop and events",
+          "target": "web",
           "body": "OnStart marks a method with no arguments that initializes the service. It runs after Tachyon injects resources and attaches the DOM. OnStop stops and cleans up the work that the service owns. To publish, a class declares an applicationEventPublisher field with no value. Then it calls publishEvent(model[, retain]) with a value of a model type. OnEvent registers a local listener that belongs to its owner, and the model type of its one parameter is the event it hears. Order sets the order of listeners. InBackground detaches a listener (it runs in the background). Retention and replay are off unless you turn them on. When a service is removed or hot-replaced (replaced with new code while the page runs), Tachyon unregisters its listeners automatically.",
           "files": [
-            {
-              "name": "client/services/ReleaseService.js",
-              "code": "@Service\nexport default class ReleaseService {\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  release = '';\n  announce() {\n    /** @type {ReleaseChanged} */\n    const changed = { release: 'TACHYON' };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n  /** @param {ReleaseChanged} changed */\n  @OnEvent({\"replay\":true})\n  receive(changed) { this.release = changed.release; }\n}\n"
-            },
-            {
-              "name": "client/models/ReleaseChanged.js",
-              "code": "/**\n * @typedef {Object} ReleaseChanged\n * @property {string} release\n */\nexport {}\n"
-            },
             {
               "name": "client/pages/tac.html",
               "code": "<release-panel hydrate=\"load\" />\n"
@@ -851,12 +895,102 @@
             {
               "name": "client/components/release/panel/tac.html",
               "code": "<main>\n  <p>{release.release}</p>\n  <button on:click=\"release.announce()\">Announce</button>\n</main>\n"
+            },
+            {
+              "name": "client/services/ReleaseService.js",
+              "code": "@Service\nexport default class ReleaseService {\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  release = '';\n  announce() {\n    /** @type {ReleaseChanged} */\n    const changed = { release: 'TACHYON' };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n  /** @param {ReleaseChanged} changed */\n  @OnEvent({\"replay\":true})\n  receive(changed) { this.release = changed.release; }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.ts",
+              "code": "import type { ReleaseChanged } from '/models/ReleaseChanged.ts';\n\n@Service\nexport default class ReleaseService {\n  applicationEventPublisher!: ApplicationEventPublisher;\n  release: string = '';\n  announce(): void {\n    const changed: ReleaseChanged = { release: 'TACHYON' };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n  @OnEvent({\"replay\":true})\n  receive(changed: ReleaseChanged): void { this.release = changed.release; }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.dart",
+              "code": "import 'models/ReleaseChanged.dart';\n\n@Service\nclass ReleaseService {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n  String release = '';\n\n  void announce() {\n    applicationEventPublisher.publishEvent(const ReleaseChanged('TACHYON'), true);\n  }\n\n  @OnEvent({\"replay\":true})\n  void receive(ReleaseChanged changed) {\n    release = changed.release;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.rs",
+              "code": "use crate::models::ReleaseChanged;\n\n#[Service]\n#[derive(Default)]\nstruct ReleaseService {\n    release: String,\n    application_event_publisher: ApplicationEventPublisher,\n}\n\nimpl ReleaseService {\n    fn announce(&mut self) {\n        let changed = ReleaseChanged { release: String::from(\"TACHYON\") };\n        self.application_event_publisher.publish_event(changed, true);\n    }\n\n    #[OnEvent({\"replay\":true})]\n    fn receive(&mut self, changed: ReleaseChanged) { self.release = changed.release; }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.go",
+              "code": "// @Service\ntype ReleaseService struct {\n\tRelease                   string\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\nfunc (release *ReleaseService) Announce() {\n\tchanged := ReleaseChanged{Release: \"TACHYON\"}\n\trelease.applicationEventPublisher.PublishEvent(changed, true)\n}\n\n// @OnEvent({\"replay\":true})\nfunc (release *ReleaseService) Receive(changed ReleaseChanged) {\n\trelease.Release = changed.Release\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.rb",
+              "code": "#[Service]\nclass ReleaseService\n  # @return [String]\n  attr_reader :release\n\n  def initialize\n    @release = \"\"\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  def announce\n    @events.publish_event(ReleaseChanged.new(release: \"TACHYON\"), true)\n  end\n\n  # @param changed [ReleaseChanged]\n  # @return [void]\n  #[OnEvent({\"replay\":true})]\n  def receive(changed)\n    @release = changed.release\n  end\nend\n"
+            },
+            {
+              "name": "client/services/ReleaseService.swift",
+              "code": "@Service\nfinal class ReleaseService {\n    var release: String = \"\"\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    func announce() {\n        applicationEventPublisher.publishEvent(ReleaseChanged(release: \"TACHYON\"), true)\n    }\n\n    @OnEvent({\"replay\":true})\n    func receive(_ changed: ReleaseChanged) { release = changed.release }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.kt",
+              "code": "import models.ReleaseChanged\n\n@Service\nclass ReleaseService {\n    var release: String = \"\"\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    fun announce() {\n        applicationEventPublisher.publishEvent(ReleaseChanged(\"TACHYON\"), true)\n    }\n\n    @OnEvent({\"replay\":true})\n    fun receive(changed: ReleaseChanged) { release = changed.release }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.java",
+              "code": "import models.ReleaseChanged;\n\n@Service\nclass ReleaseService {\n    String release = \"\";\n    ApplicationEventPublisher applicationEventPublisher;\n\n    void announce() {\n        applicationEventPublisher.publishEvent(new ReleaseChanged(\"TACHYON\"), true);\n    }\n\n    @OnEvent({\"replay\":true})\n    void receive(ReleaseChanged changed) { release = changed.release(); }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.cs",
+              "code": "using Models;\n\n[Service]\npublic class ReleaseService {\n    public string Release = \"\";\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    public void Announce() {\n        applicationEventPublisher.PublishEvent(new ReleaseChanged(\"TACHYON\"), true);\n    }\n\n    [OnEvent({\"replay\":true})]\n    public void Receive(ReleaseChanged changed) { Release = changed.Release; }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.fs",
+              "code": "open Models\n\n[<Service>]\ntype ReleaseService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Release = \"\" with get, set\n\n    member this.Announce() : unit =\n        applicationEventPublisher.PublishEvent({ Release = \"TACHYON\" }, true)\n\n    [<OnEvent({\"replay\":true})>]\n    member this.Receive(changed: ReleaseChanged) : unit =\n        this.Release <- changed.Release\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.js",
+              "code": "/**\n * @typedef {Object} ReleaseChanged\n * @property {string} release\n */\nexport {}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.ts",
+              "code": "export type ReleaseChanged = { release: string };\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.dart",
+              "code": "class ReleaseChanged {\n  final String release;\n\n  const ReleaseChanged(this.release);\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.rs",
+              "code": "pub struct ReleaseChanged {\n    pub release: String,\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.go",
+              "code": "type ReleaseChanged struct {\n\tRelease string `json:\"release\"`\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.rb",
+              "code": "# @!attribute [r] release\n#   @return [String]\nReleaseChanged = Data.define(:release)\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.swift",
+              "code": "struct ReleaseChanged {\n    let release: String\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.kt",
+              "code": "data class ReleaseChanged(val release: String)\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.java",
+              "code": "record ReleaseChanged(String release) {}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.cs",
+              "code": "public record ReleaseChanged(string Release);\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.fs",
+              "code": "type ReleaseChanged = { Release: string }\n"
             }
-          ]
+          ],
+          "axis": "language"
         },
         {
           "heading": "One per page, or one per component",
-          "body": "By default, a service is a page singleton: the page has one instance of it. Tachyon creates it when the first view that names it renders. Tachyon initialises it once, and every component that names it shares it. Tachyon disposes of it (cleans it up) when the user leaves the page. A service built from its component's properties is different. It has one instance for each component instance. Tachyon constructs it with those properties and disposes of it with the component. You write no constructor for it. A bare @NeedsAll (with no arguments) takes every uninitialised field, like Lombok's does. The properties with the same names fill those fields. This works the same in JavaScript, TypeScript, Dart, Rust, C# and Go. In Rust, C# and Go, it takes every field that a property names. No Lifetime is needed, because a page singleton is constructed with no properties at all (ADR 0039; an ADR is an architecture decision record). Use Lifetime({\"value\":\"prototype\"}) for a service that keeps state for each component but takes no properties. A view reads those fields directly, not through a method that returns them. Tachyon injects collaborators (other services that this service uses). It does not pass them as constructor arguments. In the view, properties from a parent and loop bindings have no service name in front of them. A service field can be declared, left undefined and named after another service. That field receives that singleton, in the same way a Yon service receives its collaborators.",
+          "target": "web",
+          "body": "By default, a service is a page singleton: the page has one instance of it. Tachyon creates it when the first view that names it renders. Tachyon initialises it once, and every component that names it shares it. Tachyon disposes of it (cleans it up) when the user leaves the page. A service built from its component's properties is different. It has one instance for each component instance. Tachyon constructs it with those properties and disposes of it with the component. You write no constructor for it. A bare @NeedsAll (with no arguments) takes every uninitialised field, like Lombok's does. The properties with the same names fill those fields. This works the same in JavaScript, TypeScript, Dart, Rust, Go, Ruby, Swift, Kotlin and C#. A Go field that a property fills is marked // @Required. A list property arrives in a Rust TacValue field or a C# object field; both hold any JSON value. A Java service does not receive properties yet. F# refuses a service that takes properties with TY1405, because an F# Tac service takes no primary constructor parameter except its ApplicationEventPublisher. No Lifetime is needed, because a page singleton is constructed with no properties at all (ADR 0039; an ADR is an architecture decision record). Use Lifetime({\"value\":\"prototype\"}) for a service that keeps state for each component but takes no properties. A view reads those fields directly, not through a method that returns them. Tachyon injects collaborators (other services that this service uses). It does not pass them as constructor arguments. In the view, properties from a parent and loop bindings have no service name in front of them. A service field can be declared, left undefined and named after another service. That field receives that singleton, in the same way a Yon service receives its collaborators.",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -873,8 +1007,41 @@
             {
               "name": "client/services/SnippetService.js",
               "code": "@Service\n@NeedsAll\nexport default class SnippetService {\n  /** @type {string[]} */\n  files\n}\n"
+            },
+            {
+              "name": "client/services/SnippetService.ts",
+              "code": "@Service\n@NeedsAll\nexport default class SnippetService {\n  files!: string[]\n}\n"
+            },
+            {
+              "name": "client/services/SnippetService.dart",
+              "code": "@Service\n@NeedsAll\nclass SnippetService {\n  late final List<String> files;\n}\n"
+            },
+            {
+              "name": "client/services/SnippetService.rs",
+              "code": "#[Service]\n#[NeedsAll]\nstruct SnippetService {\n    files: TacValue,\n}\n"
+            },
+            {
+              "name": "client/services/SnippetService.go",
+              "code": "// @Service\n// @NeedsAll\ntype SnippetService struct {\n\t// @Required\n\tFiles []string\n}\n"
+            },
+            {
+              "name": "client/services/SnippetService.rb",
+              "code": "#[Service]\n#[NeedsAll]\nclass SnippetService\n  # @return [Array<String>]\n  attr_reader :files\nend\n"
+            },
+            {
+              "name": "client/services/SnippetService.swift",
+              "code": "@Service\n@NeedsAll\nfinal class SnippetService {\n    let files: [String]\n}\n"
+            },
+            {
+              "name": "client/services/SnippetService.kt",
+              "code": "@Service\n@NeedsAll\nclass SnippetService {\n    val files: List<String>\n}\n"
+            },
+            {
+              "name": "client/services/SnippetService.cs",
+              "code": "[Service]\n[NeedsAll]\npublic class SnippetService\n{\n    public required object Files;\n}\n"
             }
-          ]
+          ],
+          "axis": "language"
         }
       ]
     },
@@ -887,8 +1054,51 @@
       "sections": [
         {
           "heading": "Saved service fields",
-          "body": "A service field marked @SessionState is saved in sessionStorage for the life of the tab. A field marked @LocalState is saved in localStorage, so it comes back in later visits on this device. Both markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, Java, C#, Rust, Go and Ruby services. Tachyon no longer reads the old `$` and `$$` prefixes; `ty migrate fix --write` changes them to the markers. Tachyon restores saved values before OnStart runs. Each assignment stores JSON of up to 64 KiB. When a service method changes its own saved field, the new value is saved as the method returns; this is also true for a Rust, Go, C#, Swift, Kotlin, Java or Ruby service that runs as WebAssembly. To save a change inside the value, assign the field again. Template handlers and OnEvent methods render the view again automatically. Background work uses an injected taskScheduler. If the browser denies storage or its quota (storage limit) is full, the UI still works. Never save secrets.",
-          "code": "@Service\nexport default class EditorService {\n  @SessionState\n  draft = ''\n  @LocalState\n  theme = 'calm'\n}"
+          "target": "web",
+          "body": "A service field marked @SessionState is saved in sessionStorage for the life of the tab. A field marked @LocalState is saved in localStorage, so it comes back in later visits on this device. Both markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, Java, C#, Rust, Go and Ruby services. F# services cannot save fields yet. Tachyon no longer reads the old `$` and `$$` prefixes; `ty migrate fix --write` changes them to the markers. Tachyon restores saved values before OnStart runs. Each assignment stores JSON of up to 64 KiB. When a service method changes its own saved field, the new value is saved as the method returns; this is also true for a Rust, Go, C#, Swift, Kotlin, Java or Ruby service that runs as WebAssembly. To save a change inside the value, assign the field again. Template handlers and OnEvent methods render the view again automatically. Background work uses an injected taskScheduler. If the browser denies storage or its quota (storage limit) is full, the UI still works. Never save secrets.",
+          "axis": "language",
+          "files": [
+            {
+              "name": "client/services/EditorService.js",
+              "code": "@Service\nexport default class EditorService {\n  @SessionState\n  draft = ''\n  @LocalState\n  theme = 'calm'\n}"
+            },
+            {
+              "name": "client/services/EditorService.ts",
+              "code": "@Service\nexport default class EditorService {\n  @SessionState\n  draft: string = ''\n  @LocalState\n  theme: string = 'calm'\n}\n"
+            },
+            {
+              "name": "client/services/EditorService.dart",
+              "code": "@Service\nclass EditorService {\n  @SessionState\n  String draft = '';\n  @LocalState\n  String theme = 'calm';\n}\n"
+            },
+            {
+              "name": "client/services/EditorService.rs",
+              "code": "#[Service]\nstruct EditorService {\n    #[SessionState]\n    draft: String,\n    #[LocalState]\n    theme: String,\n}\n\nimpl EditorService {\n    fn new() -> Self {\n        Self { draft: String::new(), theme: String::from(\"calm\") }\n    }\n}\n"
+            },
+            {
+              "name": "client/services/EditorService.go",
+              "code": "// @Service\ntype EditorService struct {\n\t// @SessionState\n\tDraft string\n\t// @LocalState\n\tTheme string\n}\n\n// @OnStart\nfunc (editor *EditorService) Start() {\n\teditor.Theme = editor.startingTheme()\n}\n\nfunc (editor *EditorService) startingTheme() string {\n\tif editor.Theme == \"\" {\n\t\treturn \"calm\"\n\t}\n\treturn editor.Theme\n}\n"
+            },
+            {
+              "name": "client/services/EditorService.rb",
+              "code": "#[Service]\nclass EditorService\n  # @return [String]\n  #[SessionState]\n  attr_accessor :draft\n  # @return [String]\n  #[LocalState]\n  attr_accessor :theme\n\n  def initialize\n    @draft = \"\"\n    @theme = \"calm\"\n  end\nend\n"
+            },
+            {
+              "name": "client/services/EditorService.swift",
+              "code": "@Service\nfinal class EditorService {\n  @SessionState\n  var draft: String = \"\"\n  @LocalState\n  var theme: String = \"calm\"\n}\n"
+            },
+            {
+              "name": "client/services/EditorService.kt",
+              "code": "@Service\nclass EditorService {\n  @SessionState\n  var draft: String = \"\"\n  @LocalState\n  var theme: String = \"calm\"\n}\n"
+            },
+            {
+              "name": "client/services/EditorService.java",
+              "code": "@Service\nclass EditorService {\n    @SessionState\n    String draft = \"\";\n    @LocalState\n    String theme = \"calm\";\n}\n"
+            },
+            {
+              "name": "client/services/EditorService.cs",
+              "code": "[Service]\npublic class EditorService\n{\n    [SessionState]\n    public string Draft = \"\";\n    [LocalState]\n    public string Theme = \"calm\";\n}\n"
+            }
+          ]
         },
         {
           "heading": "Records and caches in the browser",
@@ -3297,8 +3507,26 @@
         },
         {
           "heading": "What the page knows about its host",
-          "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a service injects view. This works only in the browser. The application itself is responsible for native capabilities.",
-          "code": "@Service\nexport default class PlatformService {\n  @Needs\n  view;\n  nativeHost = false;\n  @OnStart\n  initialize() { this.nativeHost = this.view.ownerDocument.body.dataset.platform === 'native'; }\n}"
+          "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a JavaScript or TypeScript service injects view. This works only in the browser. A service in another language has no DOM (the tree of page elements), so it cannot read this mark. The application itself is responsible for native capabilities.",
+          "axis": "language",
+          "files": [
+            {
+              "name": "client/pages/tac.html",
+              "code": "<platform-badge hydrate=\"load\" />\n"
+            },
+            {
+              "name": "client/components/platform/badge/tac.html",
+              "code": "<p>Native host: {platform.nativeHost}</p>\n"
+            },
+            {
+              "name": "client/services/PlatformService.js",
+              "code": "@Service\nexport default class PlatformService {\n  @Needs\n  view;\n  nativeHost = false;\n  @OnStart\n  initialize() { this.nativeHost = this.view.ownerDocument.body.dataset.platform === 'native'; }\n}"
+            },
+            {
+              "name": "client/services/PlatformService.ts",
+              "code": "@Service\nexport default class PlatformService {\n  @Needs\n  view!: HTMLElement;\n  nativeHost: boolean = false;\n  @OnStart\n  initialize(): void { this.nativeHost = this.view.ownerDocument.body.dataset.platform === 'native'; }\n}\n"
+            }
+          ]
         }
       ]
     },
@@ -9424,7 +9652,7 @@
         },
         {
           "heading": "Codes in the guides",
-          "body": "Codes that start with `TY1` come from the compiler, before your app runs. Codes that start with `TY2` come from the server or from the runtime of a language.\n\n| Code | What it means | Read more |\n| --- | --- | --- |\n| `TY1008` | The project has a `yon.html` file. Yon answers with data, and it never renders HTML. | Models and JSON answers |\n| `TY1010` | A native app has more than 128 native services. | Choosing a service language |\n| `TY1303` | The server cannot start. One cause is the topic log folder: `topics.directory` has `..`, is inside `.tachyon`, passes through a symbolic link, or cannot be opened or created. | Topics |\n| `TY1307` | A view contains a doctype, `<html>`, `<head>` or `<body>`. Tachyon writes these parts itself. | Templates |\n| `TY1308` | A realm or a language does not accept this annotation, or the annotation has a new name, such as `@Component`, which is now `@Helper`. It also stops an `HTTPClient` that is not a contract: a class where the language has an interface, trait, protocol or `Protocol` form, a method body, a field, a constructor, a method without a request annotation, or a client that is also a service. It stops a `Store` the same way, and also a Store without an Entity or a method that is not a query: a Store is a contract, so an `AllOrNothing` method on a Store is refused too. The transaction goes on the service method that calls the store, and the store's queries join it. A Store may extend `Repository<Entity, Id>`; the code also stops that base on a type that is not a Store, or a Repository that names another Entity than its Store. It stops a `Converter` the same way: a method body, a field, a constructor or a method without `Convert` (\"A Converter has no implementation: Tachyon generates each mapping.\"). `ty migrate fix --write` rewrites a class client, store or converter. | Annotations A\u2013Z |\n| `TY1310` | A role file breaks the folder or file-name rules, or sits in a folder with a new name, such as `delegates`, which is now `helpers`. | Project folders and roles |\n| `TY1311` | A view reads a file in `client/shared/data` that does not exist. | Templates |\n| `TY1312` | The class that a gateway calls is missing, is outside `server/`, or is in the language of the caller. | Relays and gateways |\n| `TY1313` | A plain attribute has a value in braces, such as `title=\"{name}\"`. Braces work only in text. Write `:title=\"name\"` instead. | Templates |\n| `TY1314` | A public method of a service or a controller holds a decision, a loop or `try`, or a private method holds more than one decision or loop. Move the code into private methods. | Cohesive services |\n| `TY1315` | A block of code repeats: at least 100 tokens over 10 lines, even with other names or values. Move it into a static method of a utility class. | Utilities |\n| `TY1316` | A utility class holds a field, a stored value or a method that is not static. | Utilities |\n| `TY1317` | Tac code in Rust, Go, C#, Swift, Kotlin, Java, Dart or Ruby calls the browser directly, for example with Go's `syscall/js`, Swift's `JavaScriptKit` or TeaVM's `@JSBody` in Java, or a service that is linked into a native app uses one of Tachyon's browser APIs or built-in event models, such as `Clipboard` or `ConnectivityChanged`. Put the browser work in a JavaScript, TypeScript or WebAssembly service and send the result with an event. | Rust, Go and C# in the browser |\n| `TY1318` | A class file does not have the name of its class, for example `Order.ts` that declares `Invoice`, or a models file holds more than one model. Rename the file or the class so that both have the same spelling, and put each model in its own file. | Project folders and roles |\n| `TY1320` | `ty` changed on disk. The preview restarts with the new `ty`, or keeps the old server when the new `ty` refuses the project, and says why. | Preview and build |\n| `TY1322` | A route does not say who may call it, or `@Allow` names a role that has no type in `server/roles/`. Write `@Public`, `@SignedIn` or `@Allow(Role)`. | Who may call a route |\n| `TY1323` | A `@SignedIn` or `@Allow` route has no `@IdentityProvider` class to say who is signed in, or the project has two of them. | Who may call a route |\n| `TY1324` | The code, a template or public settings hold what looks like a password, a token or a key. Put it in `.env` with a `YON_` name. | Isolation and security |\n| `TY1325` | Code runs a text as code (`eval` and similar calls), or joins values into query text instead of passing them as parameters. | Isolation and security |\n| `TY1326` | Code sends a request to a host that `tac.outgoing.hosts` or `outgoing.hosts` does not list. | Isolation and security |\n| `TY1327` | Classes need each other in a loop, a class needs a class of a higher layer, or a class needs a controller. The message names the whole loop. | Dependencies point down |\n| `TY1328` | A class, method, field or parameter name has a word that is not English, such as `usr` or `cfg`. The help gives the whole word. | Plain-English names |\n| `TY1329` | A method takes more than 4 parameters, or a class needs more than 5 other classes. | Small signatures |\n| `TY1330` | A text or number is written twice or more in a class, or a number is in a condition, without a name. Give it a class constant. | Named values |\n| `TY1333` | A public method or field of a service, helper, controller or utility is used by nothing outside its class: no view, no other class and no annotation. Make it private in the form of your language. | Public only when used |\n| `TY1334` | A Groovy field or method is declared with `def`. Tachyon reads member types to check routes, models and injection. Write the type, such as `String name` or `List<Order> findOrders()`. A local variable inside a method may still use `def`. | Project folders and roles |\n| `TY1335` | An F# file has a `module` or `namespace` line, a file-level `let` or `do`, or an attribute on the same line as the type or member it marks. Tachyon places every F# file in one namespace, and each attribute goes on its own line. | Project folders and roles |\n| `TY1336` | A view is hard to use with a screen reader or a keyboard: a picture without `alt`, a button, link or field without a name or label, a skipped heading level, a `tabindex` above 0, a wrong `aria-*` attribute, or an `<iframe>` without a title. | Templates |\n| `TY1337` | A route loads more script or WebAssembly than `tac.budgets.script` or `tac.budgets.webassembly` allows. The message names the biggest files. | Build and deploy |\n| `TY1338` | The API breaks `server/api-baseline.json`: a route, method, model or field is gone, a type is narrower, a value became required, or the status changed, and the major version did not go up. | Build and deploy |\n| `TY1339` | A test case (a `test` method of a `Test` class) has no assertion, or it holds a branch or a loop: `if`, `else`, a loop, `switch`, `match`, `when` or `? :`. Check the result with `Assert.equals`, `Assert.isTrue`, `Assert.throws` (`Assert.throwsError` in Java and Groovy, `Assert.Equals` in Go) or the assert of your language, and list inputs in `ValueSource` instead of a loop. Turn it off with `tests.check: false` / `tac.tests.check: false`. | Test units |\n| `TY1356` | A field, parameter or return value of a class has no type, a JavaScript field has no starting value and Tachyon does not fill it, a Ruby type comment names no known class, or a class file switches the type checker off (`@ts-nocheck`, `@ts-ignore`, `@ts-expect-error`, `# type: ignore`). Write the type comment or native type that the help shows. The check is off until you set `types.check` or `tac.types.check` to `true`. | Types in every language |\n| `TY1340`\u2013`TY1355` | A suggestion, not an error: the code has a simpler form that reads more plainly, such as `return a > b;` instead of an `if` that returns `true` or `false`. The build goes on. `ty migrate fix --write` applies the simpler form. | Simpler forms |\n| `TY1357` | A Lua class file holds something Tachyon cannot read: `local Name = {}`, `return Name`, `require`, a second class table, a method of another table, a method on one line, or code outside a method. Tachyon joins the Lua class files of one realm, so each file holds one global table, its constants and its `function Name:method(...)` methods. | Project folders and roles |\n| `TY1405` | A component has a `hydrate` value, but its view names no service. Remove `hydrate`, or use a service. The same code stops the build when a member of a compiled service cannot reach the page, for example a Java web service field of type `char`, a Java listener that does not take one model, or an annotation that Java web services do not support yet; the message names what works. | Your first app |\n| `TY1331` | A field that Tachyon fills, a `Needs` field or a `NeedsAll` field without a starting value, is declared nullable, for example `label?: string` or `final String? path;`. Tachyon never leaves it null. Write the non-null form, such as `label!: string` or `late final String path;`, or give a field that may stay empty a starting value. `ty migrate fix --write` rewrites the simple cases. | Dependency injection |\n| `TY1332` | A field that holds an injected class, a `Needs` field or a Yon `NeedsAll` field, does not use the language's variable case, for example `LedgerStore LedgerStore;` in Java or `ledgerStore: LedgerStore` in Python. Write lowerCamel case (`ledgerStore`) in JavaScript, TypeScript, Java, Groovy, Kotlin, Swift, Dart, Go and PHP (`$ledgerStore`), snake_case (`ledger_store`) in Python, Ruby and Rust, and an underscore with lowerCamel case (`_ledgerStore`) for a private or internal C# field (`LedgerStore` for a C# property or a public field). Only the case is checked, not the words. `ty migrate fix --write` renames the field and its uses in the class. | Dependency injection |\n| `TY1407` | A page does not pass a property that a `NeedsAll` service needs, or it passes a property to a field that the service gets injected instead, such as `documentation` next to `DocumentationService`. Rename the field, or stop passing the property. | Dependency injection |\n| `TY1408` | An answer to `ty init` or `ty add` is not in the list, or two answers do not fit together, for example a sockets example in an app without a server. | Install |\n| `TY1409` | A tool install did not finish, or a download does not match the SHA-256 that its vendor publishes. Tachyon deletes such a download. | Install |\n| `TY1502` | A worker says how often it runs in two places. Use only one. | Annotations A\u2013Z |\n| `TY2010` | The firecracker isolation mode does not allow gateways. | Isolation and security |\n| `TY2015` | `StreamRoute` is used in a language that cannot stream, an F# `[<Needs>]` is not on a settable `member val` with a written type, an F# type takes the same role twice (as a primary constructor parameter and as a Needs property, or as two Needs properties), an F# type lists fields in NeedsAll, which F# does not support yet, or a Lua class uses what Lua does not support yet: behavior annotations, events and lifecycle hooks, `StreamRoute` or `SocketRoute`. | Streams |\n| `TY2020` | A test case failed. `ty preview` still starts and shows the failure in its error box, even if every public method was called. | Test units |\n| `TY2022` | `ty test --coverage` found a public method of an annotated class that no test case called. | Test units |\n| `TY2023` | No test case called a public method of an annotated class, for example `no test case called GreetingService.message`. `ty preview` starts and lists the methods in its error box. | Test units |\n| `TY2024` | `ty test` or the automatic tests before `ty preview` cannot write or invalidate the record of called methods in `.tachyon/coverage`. | Test units |\n| `TY2112` | A program that a gateway needs is missing when the server starts. | Relays and gateways |\n| `TY1358` | `tac.elements` in `client/manifest.json` names something that cannot be a custom element: a name without a hyphen, or a name that is not a component. | Components in other apps |\n| `TY1002` | The build found no page, no controller and no component in `tac.elements`. Add a `client/pages/tac.html` view, a controller in `server/controllers/`, or an exported element. | Components in other apps |\n| `TY1404` | A component received children that it cannot show: children without a `slot` attribute when it has no `<slot>`, or a child for a named slot that it does not declare, such as `slot=\"footer\"` without `<slot name=\"footer\">`. | Templates |"
+          "body": "Codes that start with `TY1` come from the compiler, before your app runs. Codes that start with `TY2` come from the server or from the runtime of a language.\n\n| Code | What it means | Read more |\n| --- | --- | --- |\n| `TY1008` | The project has a `yon.html` file. Yon answers with data, and it never renders HTML. | Models and JSON answers |\n| `TY1010` | A native app has more than 128 native services. | Choosing a service language |\n| `TY1303` | The server cannot start. One cause is the topic log folder: `topics.directory` has `..`, is inside `.tachyon`, passes through a symbolic link, or cannot be opened or created. | Topics |\n| `TY1307` | A view contains a doctype, `<html>`, `<head>` or `<body>`. Tachyon writes these parts itself. | Templates |\n| `TY1308` | A realm or a language does not accept this annotation, or the annotation has a new name, such as `@Component`, which is now `@Helper`. It also stops an `HTTPClient` that is not a contract: a class where the language has an interface, trait, protocol or `Protocol` form, a method body, a field, a constructor, a method without a request annotation, or a client that is also a service. It stops a `Store` the same way, and also a Store without an Entity or a method that is not a query: a Store is a contract, so an `AllOrNothing` method on a Store is refused too. The transaction goes on the service method that calls the store, and the store's queries join it. A Store may extend `Repository<Entity, Id>`; the code also stops that base on a type that is not a Store, or a Repository that names another Entity than its Store. It stops a `Converter` the same way: a method body, a field, a constructor or a method without `Convert` (\"A Converter has no implementation: Tachyon generates each mapping.\"). `ty migrate fix --write` rewrites a class client, store or converter. | Annotations A\u2013Z |\n| `TY1310` | A role file breaks the folder or file-name rules, or sits in a folder with a new name, such as `delegates`, which is now `helpers`. | Project folders and roles |\n| `TY1311` | A view reads a file in `client/shared/data` that does not exist. | Templates |\n| `TY1312` | The class that a gateway calls is missing, is outside `server/`, or is in the language of the caller. | Relays and gateways |\n| `TY1313` | A plain attribute has a value in braces, such as `title=\"{name}\"`. Braces work only in text. Write `:title=\"name\"` instead. | Templates |\n| `TY1314` | A public method of a service or a controller holds a decision, a loop or `try`, or a private method holds more than one decision or loop. Move the code into private methods. | Cohesive services |\n| `TY1315` | A block of code repeats: at least 100 tokens over 10 lines, even with other names or values. Move it into a static method of a utility class. | Utilities |\n| `TY1316` | A utility class holds a field, a stored value or a method that is not static. | Utilities |\n| `TY1317` | Tac code in Rust, Go, C#, Swift, Kotlin, Java, Dart or Ruby calls the browser directly, for example with Go's `syscall/js`, Swift's `JavaScriptKit` or TeaVM's `@JSBody` in Java, or a service that is linked into a native app uses one of Tachyon's browser APIs or built-in event models, such as `Clipboard` or `ConnectivityChanged`. Put the browser work in a JavaScript, TypeScript or WebAssembly service and send the result with an event. | Rust, Go and C# in the browser |\n| `TY1318` | A class file does not have the name of its class, for example `Order.ts` that declares `Invoice`, or a models file holds more than one model. Rename the file or the class so that both have the same spelling, and put each model in its own file. | Project folders and roles |\n| `TY1320` | `ty` changed on disk. The preview restarts with the new `ty`, or keeps the old server when the new `ty` refuses the project, and says why. | Preview and build |\n| `TY1322` | A route does not say who may call it, or `@Allow` names a role that has no type in `server/roles/`. Write `@Public`, `@SignedIn` or `@Allow(Role)`. | Who may call a route |\n| `TY1323` | A `@SignedIn` or `@Allow` route has no `@IdentityProvider` class to say who is signed in, or the project has two of them. | Who may call a route |\n| `TY1324` | The code, a template or public settings hold what looks like a password, a token or a key. Put it in `.env` with a `YON_` name. | Isolation and security |\n| `TY1325` | Code runs a text as code (`eval` and similar calls), or joins values into query text instead of passing them as parameters. | Isolation and security |\n| `TY1326` | Code sends a request to a host that `tac.outgoing.hosts` or `outgoing.hosts` does not list. | Isolation and security |\n| `TY1327` | Classes need each other in a loop, a class needs a class of a higher layer, or a class needs a controller. The message names the whole loop. | Dependencies point down |\n| `TY1328` | A class, method, field or parameter name has a word that is not English, such as `usr` or `cfg`. The help gives the whole word. | Plain-English names |\n| `TY1329` | A method takes more than 4 parameters, or a class needs more than 5 other classes. | Small signatures |\n| `TY1330` | A text or number is written twice or more in a class, or a number is in a condition, without a name. Give it a class constant. | Named values |\n| `TY1333` | A public method or field of a service, helper, controller or utility is used by nothing outside its class: no view, no other class and no annotation. Make it private in the form of your language. | Public only when used |\n| `TY1334` | A Groovy field or method is declared with `def`. Tachyon reads member types to check routes, models and injection. Write the type, such as `String name` or `List<Order> findOrders()`. A local variable inside a method may still use `def`. | Project folders and roles |\n| `TY1335` | An F# file has a `module` or `namespace` line, a file-level `let` or `do`, or an attribute on the same line as the type or member it marks. Tachyon places every F# file in one namespace, and each attribute goes on its own line. | Project folders and roles |\n| `TY1336` | A view is hard to use with a screen reader or a keyboard: a picture without `alt`, a button, link or field without a name or label, a skipped heading level, a `tabindex` above 0, a wrong `aria-*` attribute, or an `<iframe>` without a title. | Templates |\n| `TY1337` | A route loads more script or WebAssembly than `tac.budgets.script` or `tac.budgets.webassembly` allows. The message names the biggest files. | Build and deploy |\n| `TY1338` | The API breaks `server/api-baseline.json`: a route, method, model or field is gone, a type is narrower, a value became required, or the status changed, and the major version did not go up. | Build and deploy |\n| `TY1339` | A test case (a `test` method of a `Test` class) has no assertion, or it holds a branch or a loop: `if`, `else`, a loop, `switch`, `match`, `when` or `? :`. Check the result with `Assert.equals`, `Assert.isTrue`, `Assert.throws` (`Assert.throwsError` in Java and Groovy, `Assert.Equals` in Go) or the assert of your language, and list inputs in `ValueSource` instead of a loop. Turn it off with `tests.check: false` / `tac.tests.check: false`. | Test units |\n| `TY1356` | A field, parameter or return value of a class has no type, a JavaScript field has no starting value and Tachyon does not fill it, a Ruby type comment names no known class, or a class file switches the type checker off (`@ts-nocheck`, `@ts-ignore`, `@ts-expect-error`, `# type: ignore`). Write the type comment or native type that the help shows. The check is off until you set `types.check` or `tac.types.check` to `true`. | Types in every language |\n| `TY1340`\u2013`TY1355` | A suggestion, not an error: the code has a simpler form that reads more plainly, such as `return a > b;` instead of an `if` that returns `true` or `false`. The build goes on. `ty migrate fix --write` applies the simpler form. | Simpler forms |\n| `TY1357` | A Lua class file holds something Tachyon cannot read: `local Name = {}`, `return Name`, `require`, a second class table, a method of another table, a method on one line, or code outside a method. Tachyon joins the Lua class files of one realm, so each file holds one global table, its constants and its `function Name:method(...)` methods. | Project folders and roles |\n| `TY1405` | A component has a `hydrate` value, but its view names no service. Remove `hydrate`, or use a service. The same code stops the build when a member of a compiled service cannot reach the page, for example a Java web service field of type `char`, a Java listener that does not take one model, an annotation that Java web services do not support yet, or an F# Tac service whose primary constructor takes more than its ApplicationEventPublisher; the message names what works. | Your first app |\n| `TY1331` | A field that Tachyon fills, a `Needs` field or a `NeedsAll` field without a starting value, is declared nullable, for example `label?: string` or `final String? path;`. Tachyon never leaves it null. Write the non-null form, such as `label!: string` or `late final String path;`, or give a field that may stay empty a starting value. `ty migrate fix --write` rewrites the simple cases. | Dependency injection |\n| `TY1332` | A field that holds an injected class, a `Needs` field or a Yon `NeedsAll` field, does not use the language's variable case, for example `LedgerStore LedgerStore;` in Java or `ledgerStore: LedgerStore` in Python. Write lowerCamel case (`ledgerStore`) in JavaScript, TypeScript, Java, Groovy, Kotlin, Swift, Dart, Go and PHP (`$ledgerStore`), snake_case (`ledger_store`) in Python, Ruby and Rust, and an underscore with lowerCamel case (`_ledgerStore`) for a private or internal C# field (`LedgerStore` for a C# property or a public field). Only the case is checked, not the words. `ty migrate fix --write` renames the field and its uses in the class. | Dependency injection |\n| `TY1407` | A page does not pass a property that a `NeedsAll` service needs, or it passes a property to a field that the service gets injected instead, such as `documentation` next to `DocumentationService`. Rename the field, or stop passing the property. | Dependency injection |\n| `TY1408` | An answer to `ty init` or `ty add` is not in the list, or two answers do not fit together, for example a sockets example in an app without a server. | Install |\n| `TY1409` | A tool install did not finish, or a download does not match the SHA-256 that its vendor publishes. Tachyon deletes such a download. | Install |\n| `TY1502` | A worker says how often it runs in two places. Use only one. | Annotations A\u2013Z |\n| `TY2010` | The firecracker isolation mode does not allow gateways. | Isolation and security |\n| `TY2015` | `StreamRoute` is used in a language that cannot stream, an F# `[<Needs>]` is not on a settable `member val` with a written type, an F# type takes the same role twice (as a primary constructor parameter and as a Needs property, or as two Needs properties), an F# type lists fields in NeedsAll, which F# does not support yet, or a Lua class uses what Lua does not support yet: behavior annotations, events and lifecycle hooks, `StreamRoute` or `SocketRoute`. | Streams |\n| `TY2020` | A test case failed. `ty preview` still starts and shows the failure in its error box, even if every public method was called. | Test units |\n| `TY2022` | `ty test --coverage` found a public method of an annotated class that no test case called. | Test units |\n| `TY2023` | No test case called a public method of an annotated class, for example `no test case called GreetingService.message`. `ty preview` starts and lists the methods in its error box. | Test units |\n| `TY2024` | `ty test` or the automatic tests before `ty preview` cannot write or invalidate the record of called methods in `.tachyon/coverage`. | Test units |\n| `TY2112` | A program that a gateway needs is missing when the server starts. | Relays and gateways |\n| `TY1358` | `tac.elements` in `client/manifest.json` names something that cannot be a custom element: a name without a hyphen, or a name that is not a component. | Components in other apps |\n| `TY1002` | The build found no page, no controller and no component in `tac.elements`. Add a `client/pages/tac.html` view, a controller in `server/controllers/`, or an exported element. | Components in other apps |\n| `TY1404` | A component received children that it cannot show: children without a `slot` attribute when it has no `<slot>`, or a child for a named slot that it does not declare, such as `slot=\"footer\"` without `<slot name=\"footer\">`. | Templates |"
         }
       ]
     },
