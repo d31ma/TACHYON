@@ -56,6 +56,150 @@
       "code": {
         "file": "client/models/SettledOrder.dart"
       }
+    },
+    {
+      "name": "client/services/OrdersService.java",
+      "code": {
+        "file": "client/services/OrdersService.java"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.rs",
+      "code": {
+        "file": "client/services/OrdersService.rs"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.go",
+      "code": {
+        "file": "client/services/OrdersService.go"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.rb",
+      "code": {
+        "file": "client/services/OrdersService.rb"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.swift",
+      "code": {
+        "file": "client/services/OrdersService.swift"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.kt",
+      "code": {
+        "file": "client/services/OrdersService.kt"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.cs",
+      "code": {
+        "file": "client/services/OrdersService.cs"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.fs",
+      "code": {
+        "file": "client/services/OrdersService.fs"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.java",
+      "code": {
+        "file": "client/models/PlacedOrder.java"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.java",
+      "code": {
+        "file": "client/models/SettledOrder.java"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.rs",
+      "code": {
+        "file": "client/models/PlacedOrder.rs"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.rs",
+      "code": {
+        "file": "client/models/SettledOrder.rs"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.go",
+      "code": {
+        "file": "client/models/PlacedOrder.go"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.go",
+      "code": {
+        "file": "client/models/SettledOrder.go"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.rb",
+      "code": {
+        "file": "client/models/PlacedOrder.rb"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.rb",
+      "code": {
+        "file": "client/models/SettledOrder.rb"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.swift",
+      "code": {
+        "file": "client/models/PlacedOrder.swift"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.swift",
+      "code": {
+        "file": "client/models/SettledOrder.swift"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.kt",
+      "code": {
+        "file": "client/models/PlacedOrder.kt"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.kt",
+      "code": {
+        "file": "client/models/SettledOrder.kt"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.cs",
+      "code": {
+        "file": "client/models/PlacedOrder.cs"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.cs",
+      "code": {
+        "file": "client/models/SettledOrder.cs"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.fs",
+      "code": {
+        "file": "client/models/PlacedOrder.fs"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.fs",
+      "code": {
+        "file": "client/models/SettledOrder.fs"
+      }
     }
   ]
 }

@@ -8,20 +8,20 @@ export default class CatalogService {
   error = ''
 
   async load() {
-    await this.catalogClient.all().then((products) => this.#show(products), () => this.#showFailure())
+    await this.catalogClient.all().then((products) => this._show(products), () => this._showFailure())
   }
 
   /**
    * @param {unknown} products
    * @returns {void}
    */
-  #show(products) {
-    if (!Array.isArray(products)) return this.#showFailure()
+  _show(products) {
+    if (!Array.isArray(products)) return this._showFailure()
     this.products = products
     this.error = ''
   }
 
-  #showFailure() {
+  _showFailure() {
     this.error = 'Products could not be loaded. Please retry.'
   }
 }

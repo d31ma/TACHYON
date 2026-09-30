@@ -1,5 +1,6 @@
 {
   "heading": "Signals between components",
+  "target": "web",
   "body": "An injected applicationEventPublisher and OnEvent connect services that have no shared parent. To publish, call publishEvent(model) or publishEvent(model, retain) with a value of a model type. The name of the model type is the event name. Retain and replay are false by default. Payloads (the data an event carries) are finite JSON of up to 64 KiB. Each listener receives its own copy. A listener whose return type is a model publishes the value it returns as that model. Disposal (cleanup of a service) unregisters its listeners. A page's events stay in the page: Tachyon does not send them to the server. A listener for a Topic model also receives the server's events of that model (see Topics).",
   "files": [
     {
@@ -24,6 +25,126 @@
       "name": "client/components/release/panel/tac.html",
       "code": {
         "file": "client/components/release/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.ts",
+      "code": {
+        "file": "client/services/ReleaseService.ts"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.java",
+      "code": {
+        "file": "client/services/ReleaseService.java"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.dart",
+      "code": {
+        "file": "client/services/ReleaseService.dart"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.rs",
+      "code": {
+        "file": "client/services/ReleaseService.rs"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.go",
+      "code": {
+        "file": "client/services/ReleaseService.go"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.rb",
+      "code": {
+        "file": "client/services/ReleaseService.rb"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.swift",
+      "code": {
+        "file": "client/services/ReleaseService.swift"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.kt",
+      "code": {
+        "file": "client/services/ReleaseService.kt"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.cs",
+      "code": {
+        "file": "client/services/ReleaseService.cs"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.fs",
+      "code": {
+        "file": "client/services/ReleaseService.fs"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.ts",
+      "code": {
+        "file": "client/models/ReleaseChanged.ts"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.java",
+      "code": {
+        "file": "client/models/ReleaseChanged.java"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.dart",
+      "code": {
+        "file": "client/models/ReleaseChanged.dart"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.rs",
+      "code": {
+        "file": "client/models/ReleaseChanged.rs"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.go",
+      "code": {
+        "file": "client/models/ReleaseChanged.go"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.rb",
+      "code": {
+        "file": "client/models/ReleaseChanged.rb"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.swift",
+      "code": {
+        "file": "client/models/ReleaseChanged.swift"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.kt",
+      "code": {
+        "file": "client/models/ReleaseChanged.kt"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.cs",
+      "code": {
+        "file": "client/models/ReleaseChanged.cs"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.fs",
+      "code": {
+        "file": "client/models/ReleaseChanged.fs"
       }
     }
   ]

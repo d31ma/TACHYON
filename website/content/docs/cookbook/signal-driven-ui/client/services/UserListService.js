@@ -10,8 +10,8 @@ export default class UserListService {
   async initialize() { await this._refresh(); }
   /** @param {UsersChanged} changed */
   @OnEvent
-  async usersChanged(changed) { await this.#refreshWhenSaved(changed); }
+  async usersChanged(changed) { await this._refreshWhenSaved(changed); }
   async _refresh() { this.users = /** @type {{ name: string }[]} */ (await this.usersClient.list()); }
   /** @param {UsersChanged} changed */
-  async #refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }
+  async _refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }
 }
