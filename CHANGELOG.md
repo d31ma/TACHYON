@@ -997,6 +997,13 @@ machine contracts have their own, independent major versions.
   and F#, and its Yon section also in F# and Ruby. verify-snippets checks that
   every Yon language answers with the ProbeReady it heard. The signal-driven
   UI recipe saves with a button, so no service needs the submit event.
+- The docs sections "Streaming" and "Topics" show every language that runs
+  them: the stream controller in each streaming Yon language, the Topic
+  publisher in the Yon languages and the Topic listener in the Tac languages.
+  The streaming and socket pages name the languages that refuse `StreamRoute`
+  (`TY2015`) and the browser's `StreamRequest` and `SocketRequest` (`TY1308`).
+  The coverage audit counts an annotation that only browser JavaScript holds
+  as refused in Java and F# too.
 
 - Java web services now use Tachyon's browser APIs (`Clock`, `SecureRandom`,
   `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
