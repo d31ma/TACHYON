@@ -19,6 +19,82 @@
     {
       "name": "client/services/CatalogService.js",
       "code": { "file": "client/services/CatalogService.js" }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": { "file": "client/services/CatalogService.ts" }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": { "file": "client/services/CatalogService.dart" }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": { "file": "client/services/CatalogService.rs" }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": { "file": "client/services/CatalogService.go" }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": { "file": "client/services/CatalogService.rb" }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": { "file": "client/services/CatalogService.swift" }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": { "file": "client/services/CatalogService.kt" }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": { "file": "client/services/CatalogService.java" }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": { "file": "client/services/CatalogService.cs" }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": { "file": "client/services/CatalogService.fs" }
+    },
+    {
+      "name": "client/models/Product.ts",
+      "code": { "file": "client/models/Product.ts" }
+    },
+    {
+      "name": "client/models/Product.rs",
+      "code": { "file": "client/models/Product.rs" }
+    },
+    {
+      "name": "client/models/Product.go",
+      "code": { "file": "client/models/Product.go" }
+    },
+    {
+      "name": "client/models/Product.rb",
+      "code": { "file": "client/models/Product.rb" }
+    },
+    {
+      "name": "client/models/Product.swift",
+      "code": { "file": "client/models/Product.swift" }
+    },
+    {
+      "name": "client/models/Product.kt",
+      "code": { "file": "client/models/Product.kt" }
+    },
+    {
+      "name": "client/models/Product.java",
+      "code": { "file": "client/models/Product.java" }
+    },
+    {
+      "name": "client/models/Product.cs",
+      "code": { "file": "client/models/Product.cs" }
+    },
+    {
+      "name": "client/models/Product.fs",
+      "code": { "file": "client/models/Product.fs" }
     }
   ],
   "verify": "tac-component"

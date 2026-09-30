@@ -17,6 +17,46 @@
       "code": { "file": "client/services/CatalogService.js" }
     },
     {
+      "name": "client/services/CatalogService.ts",
+      "code": { "file": "client/services/CatalogService.ts" }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": { "file": "client/services/CatalogService.dart" }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": { "file": "client/services/CatalogService.rs" }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": { "file": "client/services/CatalogService.go" }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": { "file": "client/services/CatalogService.rb" }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": { "file": "client/services/CatalogService.swift" }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": { "file": "client/services/CatalogService.kt" }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": { "file": "client/services/CatalogService.java" }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": { "file": "client/services/CatalogService.cs" }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": { "file": "client/services/CatalogService.fs" }
+    },
+    {
       "name": "emitted",
       "code": { "file": "emitted.html" }
     }

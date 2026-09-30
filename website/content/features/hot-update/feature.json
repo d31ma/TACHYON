@@ -1,7 +1,7 @@
 {
   "id": "hot-update",
   "title": "Hot updates while you edit",
-  "summary": "A hot update changes the open page while you edit. A stylesheet update keeps the page state. A supported service update stops the service and starts it again. The service gets back the state that it chooses to keep. Other changes can need a full page reload. A failed build keeps the last good page and shows a diagnostic overlay (error messages on top of the page) with the file, the line and help. The preview never stops because of a problem in your files: a project that is broken at start gets an error page until a save fixes it.",
+  "summary": "A hot update changes the open page while you edit. A stylesheet update keeps the page state. A supported service update stops the service and starts it again. The service gets back the state that it chooses to keep. Only JavaScript and TypeScript services get hot updates. A change to a service in another language reloads the page, and the service starts again with its first values. Other changes can need a full page reload. A failed build keeps the last good page and shows a diagnostic overlay (error messages on top of the page) with the file, the line and help. The preview never stops because of a problem in your files: a project that is broken at start gets an error page until a save fixes it.",
   "group": "Tooling",
   "files": [
     {
@@ -14,6 +14,66 @@
       "name": "client/services/CounterService.js",
       "code": {
         "file": "client/services/CounterService.js"
+      }
+    },
+    {
+      "name": "client/services/CounterService.ts",
+      "code": {
+        "file": "client/services/CounterService.ts"
+      }
+    },
+    {
+      "name": "client/services/CounterService.dart",
+      "code": {
+        "file": "client/services/CounterService.dart"
+      }
+    },
+    {
+      "name": "client/services/CounterService.rs",
+      "code": {
+        "file": "client/services/CounterService.rs"
+      }
+    },
+    {
+      "name": "client/services/CounterService.go",
+      "code": {
+        "file": "client/services/CounterService.go"
+      }
+    },
+    {
+      "name": "client/services/CounterService.rb",
+      "code": {
+        "file": "client/services/CounterService.rb"
+      }
+    },
+    {
+      "name": "client/services/CounterService.swift",
+      "code": {
+        "file": "client/services/CounterService.swift"
+      }
+    },
+    {
+      "name": "client/services/CounterService.kt",
+      "code": {
+        "file": "client/services/CounterService.kt"
+      }
+    },
+    {
+      "name": "client/services/CounterService.java",
+      "code": {
+        "file": "client/services/CounterService.java"
+      }
+    },
+    {
+      "name": "client/services/CounterService.cs",
+      "code": {
+        "file": "client/services/CounterService.cs"
+      }
+    },
+    {
+      "name": "client/services/CounterService.fs",
+      "code": {
+        "file": "client/services/CounterService.fs"
       }
     }
   ]

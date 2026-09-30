@@ -1,7 +1,7 @@
 {
   "id": "shared",
   "title": "Shared assets",
-  "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file.",
+  "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file. A view reads `client/shared/data/docs.json` as `data.docs`, and the page passes its `order` list to the service of the component.",
   "group": "Tooling",
   "files": [
     {
@@ -23,6 +23,46 @@
     {
       "name": "client/services/DocumentsService.js",
       "code": { "file": "client/services/DocumentsService.js" }
+    },
+    {
+      "name": "client/services/DocumentsService.ts",
+      "code": { "file": "client/services/DocumentsService.ts" }
+    },
+    {
+      "name": "client/services/DocumentsService.dart",
+      "code": { "file": "client/services/DocumentsService.dart" }
+    },
+    {
+      "name": "client/services/DocumentsService.rs",
+      "code": { "file": "client/services/DocumentsService.rs" }
+    },
+    {
+      "name": "client/services/DocumentsService.go",
+      "code": { "file": "client/services/DocumentsService.go" }
+    },
+    {
+      "name": "client/services/DocumentsService.rb",
+      "code": { "file": "client/services/DocumentsService.rb" }
+    },
+    {
+      "name": "client/services/DocumentsService.swift",
+      "code": { "file": "client/services/DocumentsService.swift" }
+    },
+    {
+      "name": "client/services/DocumentsService.kt",
+      "code": { "file": "client/services/DocumentsService.kt" }
+    },
+    {
+      "name": "client/services/DocumentsService.java",
+      "code": { "file": "client/services/DocumentsService.java" }
+    },
+    {
+      "name": "client/services/DocumentsService.cs",
+      "code": { "file": "client/services/DocumentsService.cs" }
+    },
+    {
+      "name": "client/services/DocumentsService.fs",
+      "code": { "file": "client/services/DocumentsService.fs" }
     }
   ]
 }

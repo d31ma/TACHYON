@@ -1,7 +1,11 @@
-import documents from '/shared/data/docs.json' with { type: 'json' }
-
 @Service
+@NeedsAll
 export default class DocumentsService {
-  /** @type {number} */
-  guides = documents.order.length
+  /** @type {string[]} */
+  order
+
+  /** @returns {number} */
+  guides() {
+    return this.order.length
+  }
 }

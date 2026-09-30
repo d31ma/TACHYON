@@ -21,6 +21,46 @@
       "code": { "file": "client/services/CardService.js" }
     },
     {
+      "name": "client/services/CardService.ts",
+      "code": { "file": "client/services/CardService.ts" }
+    },
+    {
+      "name": "client/services/CardService.dart",
+      "code": { "file": "client/services/CardService.dart" }
+    },
+    {
+      "name": "client/services/CardService.rs",
+      "code": { "file": "client/services/CardService.rs" }
+    },
+    {
+      "name": "client/services/CardService.go",
+      "code": { "file": "client/services/CardService.go" }
+    },
+    {
+      "name": "client/services/CardService.rb",
+      "code": { "file": "client/services/CardService.rb" }
+    },
+    {
+      "name": "client/services/CardService.swift",
+      "code": { "file": "client/services/CardService.swift" }
+    },
+    {
+      "name": "client/services/CardService.kt",
+      "code": { "file": "client/services/CardService.kt" }
+    },
+    {
+      "name": "client/services/CardService.java",
+      "code": { "file": "client/services/CardService.java" }
+    },
+    {
+      "name": "client/services/CardService.cs",
+      "code": { "file": "client/services/CardService.cs" }
+    },
+    {
+      "name": "client/services/CardService.fs",
+      "code": { "file": "client/services/CardService.fs" }
+    },
+    {
       "name": "emitted",
       "code": { "file": "emitted.txt" }
     }

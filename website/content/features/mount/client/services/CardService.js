@@ -1,7 +1,8 @@
 @Service
 export default class CardService {
   name = 'Anvil'
+  status = 'waiting'
 
   @OnStart
-  initialize() { document.title = this.name }
+  activate() { this.status = 'active' }
 }

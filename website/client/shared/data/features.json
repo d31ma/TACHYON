@@ -588,6 +588,82 @@
         {
           "name": "client/services/CatalogService.js",
           "code": "@Service\nexport default class CatalogService {\n  /** @type {{ id: string, name: string, price: string }[]} */\n  products = [\n    { id: 'anvil', name: 'Anvil', price: '£42.00' },\n    { id: 'rope', name: 'Rope', price: '£8.00' },\n  ]\n}"
+        },
+        {
+          "name": "client/services/CatalogService.ts",
+          "code": "import type { Product } from '/models/Product.ts'\n\n@Service\nexport default class CatalogService {\n  products: Product[] = [\n    { id: 'anvil', name: 'Anvil', price: '£42.00' },\n    { id: 'rope', name: 'Rope', price: '£8.00' },\n  ]\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.dart",
+          "code": "@Service\nclass CatalogService {\n  final List<Map<String, String>> products = const [\n    {'id': 'anvil', 'name': 'Anvil', 'price': '£42.00'},\n    {'id': 'rope', 'name': 'Rope', 'price': '£8.00'},\n  ];\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rs",
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub products: Vec<Product>,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![\n                Product { id: String::from(\"anvil\"), name: String::from(\"Anvil\"), price: String::from(\"£42.00\") },\n                Product { id: String::from(\"rope\"), name: String::from(\"Rope\"), price: String::from(\"£8.00\") },\n            ],\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.go",
+          "code": "// @Service\ntype CatalogService struct {\n\tProducts []Product\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Start() {\n\tcatalog.Products = []Product{\n\t\t{ID: \"anvil\", Name: \"Anvil\", Price: \"£42.00\"},\n\t\t{ID: \"rope\", Name: \"Rope\", Price: \"£8.00\"},\n\t}\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rb",
+          "code": "#[Service]\nclass CatalogService\n  # @return [Array<Product>]\n  attr_reader :products\n\n  def initialize\n    @products = [\n      Product.new(id: \"anvil\", name: \"Anvil\", price: \"£42.00\"),\n      Product.new(id: \"rope\", name: \"Rope\", price: \"£8.00\"),\n    ]\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CatalogService.swift",
+          "code": "@Service\nfinal class CatalogService {\n  let products: [Product] = [\n    Product(id: \"anvil\", name: \"Anvil\", price: \"£42.00\"),\n    Product(id: \"rope\", name: \"Rope\", price: \"£8.00\"),\n  ]\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.kt",
+          "code": "import models.Product\n\n@Service\nclass CatalogService {\n  val products: List<Product> = listOf(\n    Product(\"anvil\", \"Anvil\", \"£42.00\"),\n    Product(\"rope\", \"Rope\", \"£8.00\"),\n  )\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.java",
+          "code": "import java.util.List;\nimport models.Product;\n\n@Service\nclass CatalogService {\n    final List<Product> products = List.of(\n        new Product(\"anvil\", \"Anvil\", \"£42.00\"),\n        new Product(\"rope\", \"Rope\", \"£8.00\"));\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.cs",
+          "code": "using System.Collections.Generic;\nusing Models;\n\n[Service]\npublic class CatalogService\n{\n    public List<Product> Products = new()\n    {\n        new Product(\"anvil\", \"Anvil\", \"£42.00\"),\n        new Product(\"rope\", \"Rope\", \"£8.00\"),\n    };\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.fs",
+          "code": "open Models\n\n[<Service>]\ntype CatalogService() =\n    member this.Products : Product list =\n        [ { Id = \"anvil\"; Name = \"Anvil\"; Price = \"£42.00\" }\n          { Id = \"rope\"; Name = \"Rope\"; Price = \"£8.00\" } ]\n"
+        },
+        {
+          "name": "client/models/Product.ts",
+          "code": "export interface Product {\n  id: string\n  name: string\n  price: string\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "pub struct Product {\n    pub id: String,\n    pub name: String,\n    pub price: String,\n}\n"
+        },
+        {
+          "name": "client/models/Product.go",
+          "code": "type Product struct {\n\tID    string `json:\"id\"`\n\tName  string `json:\"name\"`\n\tPrice string `json:\"price\"`\n}\n"
+        },
+        {
+          "name": "client/models/Product.rb",
+          "code": "# @!attribute [r] id\n#   @return [String]\n# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] price\n#   @return [String]\nProduct = Data.define(:id, :name, :price)\n"
+        },
+        {
+          "name": "client/models/Product.swift",
+          "code": "struct Product {\n  let id: String\n  let name: String\n  let price: String\n}\n"
+        },
+        {
+          "name": "client/models/Product.kt",
+          "code": "data class Product(val id: String, val name: String, val price: String)\n"
+        },
+        {
+          "name": "client/models/Product.java",
+          "code": "record Product(String id, String name, String price) {}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Id, string Name, string Price);\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Id: string; Name: string; Price: string }\n"
         }
       ],
       "verify": "tac-component"
@@ -604,11 +680,51 @@
         },
         {
           "name": "client/components/product/card/tac.html",
-          "code": "<article class=\"card\">\n  <h3>{card.name}</h3>\n</article>"
+          "code": "<article class=\"card\">\n  <h3>{card.name}</h3>\n  <p>{card.status}</p>\n</article>"
         },
         {
           "name": "client/services/CardService.js",
-          "code": "@Service\nexport default class CardService {\n  name = 'Anvil'\n\n  @OnStart\n  initialize() { document.title = this.name }\n}\n"
+          "code": "@Service\nexport default class CardService {\n  name = 'Anvil'\n  status = 'waiting'\n\n  @OnStart\n  activate() { this.status = 'active' }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.ts",
+          "code": "@Service\nexport default class CardService {\n  name: string = 'Anvil'\n  status: string = 'waiting'\n\n  @OnStart\n  activate(): void { this.status = 'active' }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.dart",
+          "code": "@Service\nclass CardService {\n  final String name = 'Anvil';\n  String status = 'waiting';\n\n  @OnStart\n  void activate() { status = 'active'; }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.rs",
+          "code": "#[Service]\npub struct CardService {\n    pub name: &'static str,\n    pub status: &'static str,\n}\n\nimpl CardService {\n    pub fn new() -> Self {\n        Self { name: \"Anvil\", status: \"waiting\" }\n    }\n\n    #[OnStart]\n    pub fn activate(&mut self) {\n        self.status = \"active\";\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.go",
+          "code": "// @Service\ntype CardService struct {\n\tName   string\n\tStatus string\n}\n\n// @OnStart\nfunc (card *CardService) Activate() {\n\tcard.Name = \"Anvil\"\n\tcard.Status = \"active\"\n}\n"
+        },
+        {
+          "name": "client/services/CardService.rb",
+          "code": "#[Service]\nclass CardService\n  # @return [String]\n  attr_reader :name\n  # @return [String]\n  attr_reader :status\n\n  def initialize\n    @name = \"Anvil\"\n    @status = \"waiting\"\n  end\n\n  # @return [void]\n  #[OnStart]\n  def activate\n    @status = \"active\"\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CardService.swift",
+          "code": "@Service\nfinal class CardService {\n  let name: String = \"Anvil\"\n  var status: String = \"waiting\"\n\n  @OnStart\n  func activate() { status = \"active\" }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.kt",
+          "code": "@Service\nclass CardService {\n  val name: String = \"Anvil\"\n  var status: String = \"waiting\"\n\n  @OnStart\n  fun activate() { status = \"active\" }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.java",
+          "code": "@Service\nclass CardService {\n    final String name = \"Anvil\";\n    String status = \"waiting\";\n\n    @OnStart\n    void activate() { status = \"active\"; }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.cs",
+          "code": "[Service]\npublic class CardService\n{\n    public string Name = \"Anvil\";\n    public string Status = \"waiting\";\n\n    [OnStart]\n    public void Activate() { Status = \"active\"; }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.fs",
+          "code": "[<Service>]\ntype CardService() =\n    member this.Name : string = \"Anvil\"\n    member val Status : string = \"waiting\" with get, set\n\n    [<OnStart>]\n    member this.Activate() : unit =\n        this.Status <- \"active\"\n"
         }
       ],
       "verify": "tac-component"
@@ -816,6 +932,46 @@
         {
           "name": "client/services/CardService.js",
           "code": "@Service\nexport default class CardService {\n  name = 'Anvil'\n}"
+        },
+        {
+          "name": "client/services/CardService.ts",
+          "code": "@Service\nexport default class CardService {\n  name: string = 'Anvil'\n}\n"
+        },
+        {
+          "name": "client/services/CardService.dart",
+          "code": "@Service\nclass CardService {\n  final String name = 'Anvil';\n}\n"
+        },
+        {
+          "name": "client/services/CardService.rs",
+          "code": "#[Service]\npub struct CardService {\n    pub name: &'static str,\n}\n\nimpl CardService {\n    pub fn new() -> Self {\n        Self { name: \"Anvil\" }\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CardService.go",
+          "code": "// @Service\ntype CardService struct {\n\tName string\n}\n\n// @OnStart\nfunc (card *CardService) Start() {\n\tcard.Name = \"Anvil\"\n}\n"
+        },
+        {
+          "name": "client/services/CardService.rb",
+          "code": "#[Service]\nclass CardService\n  # @return [String]\n  attr_reader :name\n\n  def initialize\n    @name = \"Anvil\"\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CardService.swift",
+          "code": "@Service\nfinal class CardService {\n  let name: String = \"Anvil\"\n}\n"
+        },
+        {
+          "name": "client/services/CardService.kt",
+          "code": "@Service\nclass CardService {\n  val name: String = \"Anvil\"\n}\n"
+        },
+        {
+          "name": "client/services/CardService.java",
+          "code": "@Service\nclass CardService {\n    final String name = \"Anvil\";\n}\n"
+        },
+        {
+          "name": "client/services/CardService.cs",
+          "code": "[Service]\npublic class CardService\n{\n    public string Name = \"Anvil\";\n}\n"
+        },
+        {
+          "name": "client/services/CardService.fs",
+          "code": "[<Service>]\ntype CardService() =\n    member this.Name : string = \"Anvil\"\n"
         },
         {
           "name": "emitted",
@@ -2054,32 +2210,72 @@
     {
       "id": "hot-update",
       "title": "Hot updates while you edit",
-      "summary": "A hot update changes the open page while you edit. A stylesheet update keeps the page state. A supported service update stops the service and starts it again. The service gets back the state that it chooses to keep. Other changes can need a full page reload. A failed build keeps the last good page and shows a diagnostic overlay (error messages on top of the page) with the file, the line and help. The preview never stops because of a problem in your files: a project that is broken at start gets an error page until a save fixes it.",
+      "summary": "A hot update changes the open page while you edit. A stylesheet update keeps the page state. A supported service update stops the service and starts it again. The service gets back the state that it chooses to keep. Only JavaScript and TypeScript services get hot updates. A change to a service in another language reloads the page, and the service starts again with its first values. Other changes can need a full page reload. A failed build keeps the last good page and shows a diagnostic overlay (error messages on top of the page) with the file, the line and help. The preview never stops because of a problem in your files: a project that is broken at start gets an error page until a save fixes it.",
       "group": "Tooling",
       "files": [
         {
           "name": "client/components/counter/tac.html",
-          "code": "<button on:click=\"counter.count += 1\">Counted {counter.count} times</button>"
+          "code": "<button on:click=\"counter.increment()\">Counted {counter.count} times</button>"
         },
         {
           "name": "client/services/CounterService.js",
-          "code": "@Service\nexport default class CounterService {\n  count = 0\n\n  /** @returns {{ count: number }} */\n  hotState() { return { count: this.count } }\n  /** @param {{ count: number }} state */\n  restoreHotState(state) { this.count = state.count }\n  hotDispose() {}\n}"
+          "code": "@Service\nexport default class CounterService {\n  count = 0\n\n  increment() { this.count += 1 }\n\n  /** @returns {{ count: number }} */\n  hotState() { return { count: this.count } }\n  /** @param {{ count: number }} state */\n  restoreHotState(state) { this.count = state.count }\n  hotDispose() {}\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.ts",
+          "code": "@Service\nexport default class CounterService {\n  count: number = 0\n\n  increment(): void { this.count += 1 }\n\n  hotState(): { count: number } { return { count: this.count } }\n  restoreHotState(state: { count: number }): void { this.count = state.count }\n  hotDispose(): void {}\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.dart",
+          "code": "@Service\nclass CounterService {\n  int count = 0;\n\n  void increment() { count += 1; }\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.rs",
+          "code": "#[Service]\n#[derive(Default)]\nstruct CounterService {\n    count: i64,\n}\n\nimpl CounterService {\n    fn increment(&mut self) {\n        self.count += 1;\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.go",
+          "code": "// @Service\ntype CounterService struct {\n\tCount int64\n}\n\nfunc (counter *CounterService) Increment() {\n\tcounter.Count += 1\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.rb",
+          "code": "#[Service]\nclass CounterService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n  end\n\n  # @return [void]\n  def increment\n    @count += 1\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CounterService.swift",
+          "code": "@Service\nfinal class CounterService {\n  var count: Int = 0\n\n  func increment() { count += 1 }\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.kt",
+          "code": "@Service\nclass CounterService {\n  var count: Int = 0\n\n  fun increment() { count += 1 }\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.java",
+          "code": "@Service\nclass CounterService {\n    int count = 0;\n\n    void increment() { count += 1; }\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.cs",
+          "code": "[Service]\npublic class CounterService\n{\n    public int Count = 0;\n\n    public void Increment() { Count += 1; }\n}\n"
+        },
+        {
+          "name": "client/services/CounterService.fs",
+          "code": "[<Service>]\ntype CounterService() =\n    member val Count : int = 0 with get, set\n\n    member this.Increment() : unit =\n        this.Count <- this.Count + 1\n"
         }
       ]
     },
     {
       "id": "shared",
       "title": "Shared assets",
-      "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file.",
+      "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file. A view reads `client/shared/data/docs.json` as `data.docs`, and the page passes its `order` list to the service of the component.",
       "group": "Tooling",
       "files": [
         {
           "name": "client/pages/tac.html",
-          "code": "<docs-summary hydrate=\"load\" />\n"
+          "code": "<docs-summary hydrate=\"load\" :order=\"data.docs.order\" />\n"
         },
         {
           "name": "client/components/docs/summary/tac.html",
-          "code": "<img src=\"/shared/assets/logo.svg\" alt=\"Tachyon logo\" width=\"26\" height=\"26\">\n<p>{documents.guides} guides, read from the shared data file.</p>\n"
+          "code": "<img src=\"/shared/assets/logo.svg\" alt=\"Tachyon logo\" width=\"26\" height=\"26\">\n<p>{documents.guides()} guides, read from the shared data file.</p>\n"
         },
         {
           "name": "layout",
@@ -2091,7 +2287,47 @@
         },
         {
           "name": "client/services/DocumentsService.js",
-          "code": "import documents from '/shared/data/docs.json' with { type: 'json' }\n\n@Service\nexport default class DocumentsService {\n  /** @type {number} */\n  guides = documents.order.length\n}\n"
+          "code": "@Service\n@NeedsAll\nexport default class DocumentsService {\n  /** @type {string[]} */\n  order\n\n  /** @returns {number} */\n  guides() {\n    return this.order.length\n  }\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.ts",
+          "code": "@Service\n@NeedsAll\nexport default class DocumentsService {\n  order!: string[]\n\n  guides(): number {\n    return this.order.length\n  }\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.dart",
+          "code": "@Service\n@NeedsAll\nclass DocumentsService {\n  late final List<String> order;\n\n  int guides() => order.length;\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.rs",
+          "code": "#[Service]\n#[NeedsAll]\nstruct DocumentsService {\n    order: Vec<String>,\n}\n\nimpl DocumentsService {\n    fn guides(&self) -> usize {\n        self.order.len()\n    }\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.go",
+          "code": "// @Service\n// @NeedsAll\ntype DocumentsService struct {\n\t// @Required\n\tOrder []string\n}\n\nfunc (documents *DocumentsService) Guides() int {\n\treturn len(documents.Order)\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.rb",
+          "code": "#[Service]\n#[NeedsAll]\nclass DocumentsService\n  # @return [Array<String>]\n  attr_reader :order\n\n  # @return [Integer]\n  def guides\n    @order.length\n  end\nend\n"
+        },
+        {
+          "name": "client/services/DocumentsService.swift",
+          "code": "@Service\n@NeedsAll\nfinal class DocumentsService {\n  let order: [String]\n\n  func guides() -> Int { order.count }\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.kt",
+          "code": "@Service\n@NeedsAll\nclass DocumentsService {\n  val order: List<String>\n\n  fun guides(): Int = order.size\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.java",
+          "code": "import java.util.List;\n\n@Service\n@NeedsAll\nclass DocumentsService {\n    List<String> order;\n\n    int guides() {\n        return order.size();\n    }\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.cs",
+          "code": "using System.Collections.Generic;\n\n[Service]\n[NeedsAll]\npublic class DocumentsService\n{\n    public required List<string> Order;\n\n    public int Guides() => Order.Count;\n}\n"
+        },
+        {
+          "name": "client/services/DocumentsService.fs",
+          "code": "[<Service>]\n[<NeedsAll>]\ntype DocumentsService(order: string list) =\n    member this.Guides() : int =\n        List.length order\n"
         }
       ]
     },
@@ -2112,6 +2348,46 @@
         {
           "name": "client/services/CatalogService.js",
           "code": "@Service\nexport default class CatalogService {\n  title = 'Catalog'\n}"
+        },
+        {
+          "name": "client/services/CatalogService.ts",
+          "code": "@Service\nexport default class CatalogService {\n  title: string = 'Catalog'\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.dart",
+          "code": "@Service\nclass CatalogService {\n  final String title = 'Catalog';\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rs",
+          "code": "#[Service]\npub struct CatalogService {\n    pub title: &'static str,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self { title: \"Catalog\" }\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.go",
+          "code": "// @Service\ntype CatalogService struct {\n\tTitle string\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Start() {\n\tcatalog.Title = \"Catalog\"\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rb",
+          "code": "#[Service]\nclass CatalogService\n  # @return [String]\n  attr_reader :title\n\n  def initialize\n    @title = \"Catalog\"\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CatalogService.swift",
+          "code": "@Service\nfinal class CatalogService {\n  let title: String = \"Catalog\"\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.kt",
+          "code": "@Service\nclass CatalogService {\n  val title: String = \"Catalog\"\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.java",
+          "code": "@Service\nclass CatalogService {\n    final String title = \"Catalog\";\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.cs",
+          "code": "[Service]\npublic class CatalogService\n{\n    public string Title = \"Catalog\";\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.fs",
+          "code": "[<Service>]\ntype CatalogService() =\n    member this.Title : string = \"Catalog\"\n"
         },
         {
           "name": "emitted",
