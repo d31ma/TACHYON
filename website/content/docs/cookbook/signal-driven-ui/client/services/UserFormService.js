@@ -13,9 +13,7 @@ export default class UserFormService {
    * @param {string} name
    */
   typed(_event, name) { this.form = { ...this.form, name }; }
-  /** @param {Event} event */
-  async save(event) {
-    event.preventDefault();
+  async save() {
     await this.usersClient.save(this.form);
     /** @type {UsersChanged} */
     const changed = { saved: true };

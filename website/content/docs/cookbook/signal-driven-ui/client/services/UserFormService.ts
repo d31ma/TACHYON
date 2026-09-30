@@ -7,8 +7,7 @@ export default class UserFormService {
   applicationEventPublisher!: ApplicationEventPublisher;
   form = { name: '' };
   typed(_event: Event, name: string) { this.form = { ...this.form, name }; }
-  async save(event: Event) {
-    event.preventDefault();
+  async save() {
     await this.usersClient.save(this.form);
     const changed: UsersChanged = { saved: true };
     this.applicationEventPublisher.publishEvent(changed);
