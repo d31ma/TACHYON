@@ -159,6 +159,86 @@
         {
           "name": "client/services/CatalogService.js",
           "code": "@Service\nexport default class CatalogService {\n  title = 'Catalog'\n  count = 6\n  /** @type {{ name: string, price: string }} */\n  product = { name: 'Anvil', price: '£42.00' }\n}"
+        },
+        {
+          "name": "client/services/CatalogService.ts",
+          "code": "import type { Product } from '/models/Product.ts'\n\n@Service\nexport default class CatalogService {\n  title: string = 'Catalog'\n  count: number = 6\n  product: Product = { name: 'Anvil', price: '£42.00' }\n}\n"
+        },
+        {
+          "name": "client/models/Product.ts",
+          "code": "export interface Product {\n  name: string\n  price: string\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.dart",
+          "code": "import 'models/Product.dart';\n\n@Service\nclass CatalogService {\n  String title = 'Catalog';\n  int count = 6;\n  Product product = const Product('Anvil', '£42.00');\n}\n"
+        },
+        {
+          "name": "client/models/Product.dart",
+          "code": "class Product {\n  final String name;\n  final String price;\n\n  const Product(this.name, this.price);\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rs",
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub title: String,\n    pub count: i32,\n    pub product: Product,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            title: String::from(\"Catalog\"),\n            count: 6,\n            product: Product { name: String::from(\"Anvil\"), price: String::from(\"£42.00\") },\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Product {\n    pub name: String,\n    pub price: String,\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.go",
+          "code": "// @Service\ntype CatalogService struct {\n\tTitle   string\n\tCount   int\n\tProduct Product\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Start() {\n\tcatalog.Title = \"Catalog\"\n\tcatalog.Count = 6\n\tcatalog.Product = Product{Name: \"Anvil\", Price: \"£42.00\"}\n}\n"
+        },
+        {
+          "name": "client/models/Product.go",
+          "code": "type Product struct {\n\tName  string\n\tPrice string\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.rb",
+          "code": "#[Service]\nclass CatalogService\n  # @return [String]\n  attr_reader :title\n  # @return [Integer]\n  attr_reader :count\n  # @return [Product]\n  attr_reader :product\n\n  def initialize\n    @title = \"Catalog\"\n    @count = 6\n    @product = Product.new(name: \"Anvil\", price: \"£42.00\")\n  end\nend\n"
+        },
+        {
+          "name": "client/models/Product.rb",
+          "code": "# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] price\n#   @return [String]\nProduct = Data.define(:name, :price)\n"
+        },
+        {
+          "name": "client/services/CatalogService.swift",
+          "code": "@Service\nfinal class CatalogService {\n  var title: String = \"Catalog\"\n  var count: Int = 6\n  var product: Product = Product(name: \"Anvil\", price: \"£42.00\")\n}\n"
+        },
+        {
+          "name": "client/models/Product.swift",
+          "code": "struct Product: Codable, Equatable {\n  let name: String\n  let price: String\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.kt",
+          "code": "import models.Product\n\n@Service\nclass CatalogService {\n  var title: String = \"Catalog\"\n  var count: Int = 6\n  var product: Product = Product(\"Anvil\", \"£42.00\")\n}\n"
+        },
+        {
+          "name": "client/models/Product.kt",
+          "code": "data class Product(val name: String, val price: String)\n"
+        },
+        {
+          "name": "client/services/CatalogService.java",
+          "code": "import models.Product;\n\n@Service\nclass CatalogService {\n    String title = \"Catalog\";\n    int count = 6;\n    Product product = new Product(\"Anvil\", \"£42.00\");\n}\n"
+        },
+        {
+          "name": "client/models/Product.java",
+          "code": "record Product(String name, String price) {}\n"
+        },
+        {
+          "name": "client/services/CatalogService.cs",
+          "code": "using Models;\n\n[Service]\npublic class CatalogService\n{\n    public string Title = \"Catalog\";\n    public int Count = 6;\n    public Product Product = new Product(\"Anvil\", \"£42.00\");\n}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Name, string Price);\n"
+        },
+        {
+          "name": "client/services/CatalogService.fs",
+          "code": "open Models\n\n[<Service>]\ntype CatalogService() =\n    member val Title : string = \"Catalog\" with get, set\n\n    member val Count : int = 6 with get, set\n\n    member val Product : Product = { Name = \"Anvil\"; Price = \"£42.00\" } with get, set\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Name: string; Price: string }\n"
         }
       ],
       "verify": "tac"
@@ -204,6 +284,86 @@
         {
           "name": "client/services/LinkService.js",
           "code": "@Service\nexport default class LinkService {\n  /** @type {{ slug: string, title: string }} */\n  topic = { slug: 'routing', title: 'Routing' }\n  state = 'ready'\n  message = 'Everything is up to date.'\n}"
+        },
+        {
+          "name": "client/services/LinkService.ts",
+          "code": "import type { Topic } from '/models/Topic.ts'\n\n@Service\nexport default class LinkService {\n  topic: Topic = { slug: 'routing', title: 'Routing' }\n  state: string = 'ready'\n  message: string = 'Everything is up to date.'\n}\n"
+        },
+        {
+          "name": "client/models/Topic.ts",
+          "code": "export interface Topic {\n  slug: string\n  title: string\n}\n"
+        },
+        {
+          "name": "client/services/LinkService.dart",
+          "code": "import 'models/Topic.dart';\n\n@Service\nclass LinkService {\n  Topic topic = const Topic('routing', 'Routing');\n  String state = 'ready';\n  String message = 'Everything is up to date.';\n}\n"
+        },
+        {
+          "name": "client/models/Topic.dart",
+          "code": "class Topic {\n  final String slug;\n  final String title;\n\n  const Topic(this.slug, this.title);\n}\n"
+        },
+        {
+          "name": "client/services/LinkService.rs",
+          "code": "use crate::models::Topic;\n\n#[Service]\npub struct LinkService {\n    pub topic: Topic,\n    pub state: String,\n    pub message: String,\n}\n\nimpl LinkService {\n    pub fn new() -> Self {\n        Self {\n            topic: Topic { slug: String::from(\"routing\"), title: String::from(\"Routing\") },\n            state: String::from(\"ready\"),\n            message: String::from(\"Everything is up to date.\"),\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Topic.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Topic {\n    pub slug: String,\n    pub title: String,\n}\n"
+        },
+        {
+          "name": "client/services/LinkService.go",
+          "code": "// @Service\ntype LinkService struct {\n\tTopic   Topic\n\tState   string\n\tMessage string\n}\n\n// @OnStart\nfunc (link *LinkService) Start() {\n\tlink.Topic = Topic{Slug: \"routing\", Title: \"Routing\"}\n\tlink.State = \"ready\"\n\tlink.Message = \"Everything is up to date.\"\n}\n"
+        },
+        {
+          "name": "client/models/Topic.go",
+          "code": "type Topic struct {\n\tSlug  string\n\tTitle string\n}\n"
+        },
+        {
+          "name": "client/services/LinkService.rb",
+          "code": "#[Service]\nclass LinkService\n  # @return [Topic]\n  attr_reader :topic\n  # @return [String]\n  attr_reader :state\n  # @return [String]\n  attr_reader :message\n\n  def initialize\n    @topic = Topic.new(slug: \"routing\", title: \"Routing\")\n    @state = \"ready\"\n    @message = \"Everything is up to date.\"\n  end\nend\n"
+        },
+        {
+          "name": "client/models/Topic.rb",
+          "code": "# @!attribute [r] slug\n#   @return [String]\n# @!attribute [r] title\n#   @return [String]\nTopic = Data.define(:slug, :title)\n"
+        },
+        {
+          "name": "client/services/LinkService.swift",
+          "code": "@Service\nfinal class LinkService {\n  var topic: Topic = Topic(slug: \"routing\", title: \"Routing\")\n  var state: String = \"ready\"\n  var message: String = \"Everything is up to date.\"\n}\n"
+        },
+        {
+          "name": "client/models/Topic.swift",
+          "code": "struct Topic: Codable, Equatable {\n  let slug: String\n  let title: String\n}\n"
+        },
+        {
+          "name": "client/services/LinkService.kt",
+          "code": "import models.Topic\n\n@Service\nclass LinkService {\n  var topic: Topic = Topic(\"routing\", \"Routing\")\n  var state: String = \"ready\"\n  var message: String = \"Everything is up to date.\"\n}\n"
+        },
+        {
+          "name": "client/models/Topic.kt",
+          "code": "data class Topic(val slug: String, val title: String)\n"
+        },
+        {
+          "name": "client/services/LinkService.java",
+          "code": "import models.Topic;\n\n@Service\nclass LinkService {\n    Topic topic = new Topic(\"routing\", \"Routing\");\n    String state = \"ready\";\n    String message = \"Everything is up to date.\";\n}\n"
+        },
+        {
+          "name": "client/models/Topic.java",
+          "code": "record Topic(String slug, String title) {}\n"
+        },
+        {
+          "name": "client/services/LinkService.cs",
+          "code": "using Models;\n\n[Service]\npublic class LinkService\n{\n    public Topic Topic = new Topic(\"routing\", \"Routing\");\n    public string State = \"ready\";\n    public string Message = \"Everything is up to date.\";\n}\n"
+        },
+        {
+          "name": "client/models/Topic.cs",
+          "code": "public record Topic(string Slug, string Title);\n"
+        },
+        {
+          "name": "client/services/LinkService.fs",
+          "code": "open Models\n\n[<Service>]\ntype LinkService() =\n    member val Topic : Topic = { Slug = \"routing\"; Title = \"Routing\" } with get, set\n\n    member val State : string = \"ready\" with get, set\n\n    member val Message : string = \"Everything is up to date.\" with get, set\n"
+        },
+        {
+          "name": "client/models/Topic.fs",
+          "code": "type Topic = { Slug: string; Title: string }\n"
         }
       ],
       "verify": "tac"
@@ -225,6 +385,86 @@
         {
           "name": "client/services/StockService.js",
           "code": "@Service\nexport default class StockService {\n  /** @type {{ name: string }[]} */\n  products = []\n  restocking = true\n}"
+        },
+        {
+          "name": "client/services/StockService.ts",
+          "code": "import type { Product } from '/models/Product.ts'\n\n@Service\nexport default class StockService {\n  products: Product[] = []\n  restocking: boolean = true\n}\n"
+        },
+        {
+          "name": "client/models/Product.ts",
+          "code": "export interface Product {\n  name: string\n}\n"
+        },
+        {
+          "name": "client/services/StockService.dart",
+          "code": "import 'models/Product.dart';\n\n@Service\nclass StockService {\n  List<Product> products = [];\n  bool restocking = true;\n}\n"
+        },
+        {
+          "name": "client/models/Product.dart",
+          "code": "class Product {\n  final String name;\n\n  const Product(this.name);\n}\n"
+        },
+        {
+          "name": "client/services/StockService.rs",
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct StockService {\n    pub products: Vec<Product>,\n    pub restocking: bool,\n}\n\nimpl StockService {\n    pub fn new() -> Self {\n        Self { products: Vec::new(), restocking: true }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Product {\n    pub name: String,\n}\n"
+        },
+        {
+          "name": "client/services/StockService.go",
+          "code": "// @Service\ntype StockService struct {\n\tProducts   []Product\n\tRestocking bool\n}\n\n// @OnStart\nfunc (stock *StockService) Start() {\n\tstock.Products = []Product{}\n\tstock.Restocking = true\n}\n"
+        },
+        {
+          "name": "client/models/Product.go",
+          "code": "type Product struct {\n\tName string\n}\n"
+        },
+        {
+          "name": "client/services/StockService.rb",
+          "code": "#[Service]\nclass StockService\n  # @return [Array<Product>]\n  attr_reader :products\n  # @return [Boolean]\n  attr_reader :restocking\n\n  def initialize\n    @products = []\n    @restocking = true\n  end\nend\n"
+        },
+        {
+          "name": "client/models/Product.rb",
+          "code": "# @!attribute [r] name\n#   @return [String]\nProduct = Data.define(:name)\n"
+        },
+        {
+          "name": "client/services/StockService.swift",
+          "code": "@Service\nfinal class StockService {\n  var products: [Product] = []\n  var restocking: Bool = true\n}\n"
+        },
+        {
+          "name": "client/models/Product.swift",
+          "code": "struct Product: Codable, Equatable {\n  let name: String\n}\n"
+        },
+        {
+          "name": "client/services/StockService.kt",
+          "code": "import models.Product\n\n@Service\nclass StockService {\n  var products: List<Product> = listOf()\n  var restocking: Boolean = true\n}\n"
+        },
+        {
+          "name": "client/models/Product.kt",
+          "code": "data class Product(val name: String)\n"
+        },
+        {
+          "name": "client/services/StockService.java",
+          "code": "import java.util.List;\nimport models.Product;\n\n@Service\nclass StockService {\n    List<Product> products = List.of();\n    boolean restocking = true;\n}\n"
+        },
+        {
+          "name": "client/models/Product.java",
+          "code": "record Product(String name) {}\n"
+        },
+        {
+          "name": "client/services/StockService.cs",
+          "code": "using Models;\n\n[Service]\npublic class StockService\n{\n    public List<Product> Products = new List<Product>();\n    public bool Restocking = true;\n}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Name);\n"
+        },
+        {
+          "name": "client/services/StockService.fs",
+          "code": "open Models\n\n[<Service>]\ntype StockService() =\n    member val Products : Product list = [] with get, set\n\n    member val Restocking : bool = true with get, set\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Name: string }\n"
         }
       ],
       "verify": "tac"
@@ -246,6 +486,86 @@
         {
           "name": "client/services/InventoryService.js",
           "code": "@Service\nexport default class InventoryService {\n  /** @type {{ name: string }[]} */\n  products = [{ name: 'Anvil' }, { name: 'Rope' }]\n}"
+        },
+        {
+          "name": "client/services/InventoryService.ts",
+          "code": "import type { Product } from '/models/Product.ts'\n\n@Service\nexport default class InventoryService {\n  products: Product[] = [{ name: 'Anvil' }, { name: 'Rope' }]\n}\n"
+        },
+        {
+          "name": "client/models/Product.ts",
+          "code": "export interface Product {\n  name: string\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.dart",
+          "code": "import 'models/Product.dart';\n\n@Service\nclass InventoryService {\n  List<Product> products = [const Product('Anvil'), const Product('Rope')];\n}\n"
+        },
+        {
+          "name": "client/models/Product.dart",
+          "code": "class Product {\n  final String name;\n\n  const Product(this.name);\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.rs",
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct InventoryService {\n    pub products: Vec<Product>,\n}\n\nimpl InventoryService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![Product { name: String::from(\"Anvil\") }, Product { name: String::from(\"Rope\") }],\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Product {\n    pub name: String,\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.go",
+          "code": "// @Service\ntype InventoryService struct {\n\tProducts []Product\n}\n\n// @OnStart\nfunc (inventory *InventoryService) Start() {\n\tinventory.Products = []Product{{Name: \"Anvil\"}, {Name: \"Rope\"}}\n}\n"
+        },
+        {
+          "name": "client/models/Product.go",
+          "code": "type Product struct {\n\tName string\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.rb",
+          "code": "#[Service]\nclass InventoryService\n  # @return [Array<Product>]\n  attr_reader :products\n\n  def initialize\n    @products = [Product.new(name: \"Anvil\"), Product.new(name: \"Rope\")]\n  end\nend\n"
+        },
+        {
+          "name": "client/models/Product.rb",
+          "code": "# @!attribute [r] name\n#   @return [String]\nProduct = Data.define(:name)\n"
+        },
+        {
+          "name": "client/services/InventoryService.swift",
+          "code": "@Service\nfinal class InventoryService {\n  var products: [Product] = [Product(name: \"Anvil\"), Product(name: \"Rope\")]\n}\n"
+        },
+        {
+          "name": "client/models/Product.swift",
+          "code": "struct Product: Codable, Equatable {\n  let name: String\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.kt",
+          "code": "import models.Product\n\n@Service\nclass InventoryService {\n  var products: List<Product> = listOf(Product(\"Anvil\"), Product(\"Rope\"))\n}\n"
+        },
+        {
+          "name": "client/models/Product.kt",
+          "code": "data class Product(val name: String)\n"
+        },
+        {
+          "name": "client/services/InventoryService.java",
+          "code": "import java.util.List;\nimport models.Product;\n\n@Service\nclass InventoryService {\n    List<Product> products = List.of(new Product(\"Anvil\"), new Product(\"Rope\"));\n}\n"
+        },
+        {
+          "name": "client/models/Product.java",
+          "code": "record Product(String name) {}\n"
+        },
+        {
+          "name": "client/services/InventoryService.cs",
+          "code": "using Models;\n\n[Service]\npublic class InventoryService\n{\n    public List<Product> Products = new List<Product> { new Product(\"Anvil\"), new Product(\"Rope\") };\n}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Name);\n"
+        },
+        {
+          "name": "client/services/InventoryService.fs",
+          "code": "open Models\n\n[<Service>]\ntype InventoryService() =\n    member val Products : Product list = [ { Name = \"Anvil\" }; { Name = \"Rope\" } ] with get, set\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Name: string }\n"
         }
       ],
       "verify": "tac"
@@ -267,6 +587,46 @@
         {
           "name": "client/services/BadgeService.js",
           "code": "@Service\nexport default class BadgeService {\n  status = 'ready'\n}"
+        },
+        {
+          "name": "client/services/BadgeService.ts",
+          "code": "@Service\nexport default class BadgeService {\n  status: string = 'ready'\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.dart",
+          "code": "@Service\nclass BadgeService {\n  String status = 'ready';\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.rs",
+          "code": "#[Service]\npub struct BadgeService {\n    pub status: String,\n}\n\nimpl BadgeService {\n    pub fn new() -> Self {\n        Self { status: String::from(\"ready\") }\n    }\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.go",
+          "code": "// @Service\ntype BadgeService struct {\n\tStatus string\n}\n\n// @OnStart\nfunc (badge *BadgeService) Start() {\n\tbadge.Status = \"ready\"\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.rb",
+          "code": "#[Service]\nclass BadgeService\n  # @return [String]\n  attr_reader :status\n\n  def initialize\n    @status = \"ready\"\n  end\nend\n"
+        },
+        {
+          "name": "client/services/BadgeService.swift",
+          "code": "@Service\nfinal class BadgeService {\n  var status: String = \"ready\"\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.kt",
+          "code": "@Service\nclass BadgeService {\n  var status: String = \"ready\"\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.java",
+          "code": "@Service\nclass BadgeService {\n    String status = \"ready\";\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.cs",
+          "code": "[Service]\npublic class BadgeService\n{\n    public string Status = \"ready\";\n}\n"
+        },
+        {
+          "name": "client/services/BadgeService.fs",
+          "code": "[<Service>]\ntype BadgeService() =\n    member val Status : string = \"ready\" with get, set\n"
         }
       ],
       "verify": "tac"
@@ -334,6 +694,86 @@
         {
           "name": "client/services/BasketService.js",
           "code": "@Service\nexport default class BasketService {\n  count = 0\n  label = ''\n  _selected = ''\n  /** @type {{ id: string, name: string }[]} */\n  tabs = [{ id: 'a', name: 'A' }]\n\n  increment() { this.count += 1 }\n\n  /**\n   * @param {Event} _event\n   * @param {string} id\n   */\n  select(_event, id) { this._selected = id }\n}"
+        },
+        {
+          "name": "client/services/BasketService.ts",
+          "code": "import type { Tab } from '/models/Tab.ts'\n\n@Service\nexport default class BasketService {\n  count: number = 0\n  label: string = ''\n  private selected: string = ''\n  tabs: Tab[] = [{ id: 'a', name: 'A' }]\n\n  increment(): void {\n    this.count += 1\n  }\n\n  select(_event: Event, id: string): void {\n    this.selected = id\n  }\n}\n"
+        },
+        {
+          "name": "client/models/Tab.ts",
+          "code": "export interface Tab {\n  id: string\n  name: string\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.dart",
+          "code": "import 'models/Tab.dart';\n\n@Service\nclass BasketService {\n  int count = 0;\n  String label = '';\n  String _selected = '';\n  List<Tab> tabs = [const Tab('a', 'A')];\n\n  void increment() => count += 1;\n\n  void select(String id) => _selected = id;\n}\n"
+        },
+        {
+          "name": "client/models/Tab.dart",
+          "code": "class Tab {\n  final String id;\n  final String name;\n\n  const Tab(this.id, this.name);\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.rs",
+          "code": "use crate::models::Tab;\n\n#[Service]\npub struct BasketService {\n    pub count: i32,\n    pub label: String,\n    selected: String,\n    pub tabs: Vec<Tab>,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self {\n            count: 0,\n            label: String::new(),\n            selected: String::new(),\n            tabs: vec![Tab { id: String::from(\"a\"), name: String::from(\"A\") }],\n        }\n    }\n\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n\n    pub fn select(&mut self, id: String) {\n        self.selected = id;\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Tab.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Tab {\n    pub id: String,\n    pub name: String,\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.go",
+          "code": "// @Service\ntype BasketService struct {\n\tCount    int\n\tLabel    string\n\tselected string\n\tTabs     []Tab\n}\n\n// @OnStart\nfunc (basket *BasketService) Start() {\n\tbasket.Tabs = []Tab{{ID: \"a\", Name: \"A\"}}\n}\n\nfunc (basket *BasketService) Increment() {\n\tbasket.Count += 1\n}\n\nfunc (basket *BasketService) Select(id string) {\n\tbasket.selected = id\n}\n"
+        },
+        {
+          "name": "client/models/Tab.go",
+          "code": "type Tab struct {\n\tID   string `json:\"id\"`\n\tName string\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.rb",
+          "code": "#[Service]\nclass BasketService\n  # @return [Integer]\n  attr_accessor :count\n  # @return [String]\n  attr_accessor :label\n  # @return [Array<Tab>]\n  attr_reader :tabs\n\n  def initialize\n    @count = 0\n    @label = \"\"\n    @selected = \"\"\n    @tabs = [Tab.new(id: \"a\", name: \"A\")]\n  end\n\n  # @return [void]\n  def increment\n    @count += 1\n  end\n\n  # @param id [String]\n  # @return [void]\n  def select(id)\n    @selected = id\n  end\nend\n"
+        },
+        {
+          "name": "client/models/Tab.rb",
+          "code": "# @!attribute [r] id\n#   @return [String]\n# @!attribute [r] name\n#   @return [String]\nTab = Data.define(:id, :name)\n"
+        },
+        {
+          "name": "client/services/BasketService.swift",
+          "code": "@Service\nfinal class BasketService {\n  var count: Int = 0\n  var label: String = \"\"\n  private var selected: String = \"\"\n  var tabs: [Tab] = [Tab(id: \"a\", name: \"A\")]\n\n  func increment() {\n    count += 1\n  }\n\n  func select(_ id: String) {\n    selected = id\n  }\n}\n"
+        },
+        {
+          "name": "client/models/Tab.swift",
+          "code": "struct Tab: Codable, Equatable {\n  let id: String\n  let name: String\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.kt",
+          "code": "import models.Tab\n\n@Service\nclass BasketService {\n  var count: Int = 0\n  var label: String = \"\"\n  private var selected: String = \"\"\n  var tabs: List<Tab> = listOf(Tab(\"a\", \"A\"))\n\n  fun increment() {\n    count += 1\n  }\n\n  fun select(id: String) {\n    selected = id\n  }\n}\n"
+        },
+        {
+          "name": "client/models/Tab.kt",
+          "code": "data class Tab(val id: String, val name: String)\n"
+        },
+        {
+          "name": "client/services/BasketService.java",
+          "code": "import java.util.List;\nimport models.Tab;\n\n@Service\nclass BasketService {\n    int count = 0;\n    String label = \"\";\n    private String selected = \"\";\n    List<Tab> tabs = List.of(new Tab(\"a\", \"A\"));\n\n    void increment() {\n        count += 1;\n    }\n\n    void select(String id) {\n        selected = id;\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Tab.java",
+          "code": "record Tab(String id, String name) {}\n"
+        },
+        {
+          "name": "client/services/BasketService.cs",
+          "code": "using Models;\n\n[Service]\npublic class BasketService\n{\n    public int Count = 0;\n    public string Label = \"\";\n    private string selected = \"\";\n    public List<Tab> Tabs = new List<Tab> { new Tab(\"a\", \"A\") };\n\n    public void Increment() => Count += 1;\n\n    public void Select(string id) => selected = id;\n}\n"
+        },
+        {
+          "name": "client/models/Tab.cs",
+          "code": "public record Tab(string Id, string Name);\n"
+        },
+        {
+          "name": "client/services/BasketService.fs",
+          "code": "open Models\n\n[<Service>]\ntype BasketService() =\n    let mutable selected : string = \"\"\n\n    member val Count : int = 0 with get, set\n\n    member val Label : string = \"\" with get, set\n\n    member val Tabs : Tab list = [ { Id = \"a\"; Name = \"A\" } ] with get, set\n\n    member this.Increment() : unit =\n        this.Count <- this.Count + 1\n\n    member this.Select(id: string) : unit =\n        selected <- id\n"
+        },
+        {
+          "name": "client/models/Tab.fs",
+          "code": "type Tab = { Id: string; Name: string }\n"
         }
       ],
       "verify": "tac"
