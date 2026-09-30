@@ -112,7 +112,7 @@ describe('annotation routes and clients in published examples', () => {
     const docs = await PublishedData.load('docs')
     const section = docs.topics.annotations.sections.find(section => section.heading === 'Outgoing HTTP: Tac')
     assert.ok(section)
-    for (const extension of ['cs', 'dart', 'go', 'kt', 'rs', 'swift']) {
+    for (const extension of ['cs', 'dart', 'go', 'java', 'kt', 'rs', 'swift']) {
       const service = section.files.find(file => file.name === `client/services/CatalogService.${extension}`)
       const client = section.files.find(file => file.name === `client/clients/CatalogClient.${extension}`)
       assert.ok(service)

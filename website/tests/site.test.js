@@ -273,12 +273,13 @@ describe('language coverage', () => {
     const manifest = JSON.parse(section.files.find(file => file.name === 'client/manifest.json').code)
     expect(manifest.tac.catalog).toEqual({ title: 'Catalog', page: { size: 20 }, cache: { enabled: true } })
     const configurations = section.files.filter(file => file.name.startsWith('client/setups/'))
-    expect(configurations.map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'rs', 'swift', 'ts'])
+    expect(configurations.map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'rb', 'rs', 'swift', 'ts'])
     for (const file of configurations) {
       const policy = JSON.parse(file.code.match(/Settings\((\{[^\n]*\})\)/)[1])
       expect(policy.prefix).toBe('TAC_CATALOG_')
       expect(policy.fields).toBeUndefined()
-      for (const field of ['pageSize', 'cacheEnabled', 'title', 'Min(1)', 'Max(100)']) expect(file.code).toContain(field)
+      const fields = file.name.endsWith('.rb') ? ['page_size', 'cache_enabled'] : ['pageSize', 'cacheEnabled']
+      for (const field of [...fields, 'title', 'Min(1)', 'Max(100)']) expect(file.code).toContain(field)
     }
     const go = section.files.find(file => file.name === 'client/services/SettingsService.go').code
     expect(go).toContain('BehaviorsProperties[CatalogSetup](published)')
@@ -448,7 +449,7 @@ describe('language coverage', () => {
 
   test('published test units select separate test-only configuration files in every language', async () => {
     const docs = await readJson('client/shared/data/docs.json')
-    for (const [realm, count] of [['Yon', 14], ['Tac', 10]]) {
+    for (const [realm, count] of [['Yon', 14], ['Tac', 11]]) {
       const section = docs.topics.annotations.sections.find((entry) => entry.heading === `Test units: ${realm}`)
       const configurations = section.files.filter((file) => /\/tests\/CatalogTestSetup\./.test(file.name))
       expect(configurations).toHaveLength(count)
