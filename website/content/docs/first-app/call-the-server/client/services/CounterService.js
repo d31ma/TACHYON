@@ -13,14 +13,14 @@ export default class CounterService {
 
   async askServer() {
     const greeting = await this.greetingClient.getGreeting()
-    this.message = this.#messageOf(greeting)
+    this.message = this._messageOf(greeting)
   }
 
   /**
    * @param {Greeting | void} greeting
    * @returns {string}
    */
-  #messageOf(greeting) {
+  _messageOf(greeting) {
     return greeting ? greeting.message : ''
   }
 }

@@ -1,7 +1,7 @@
 {
   "heading": "Step 3: Add a controller that returns a model",
   "axis": "language",
-  "body": "Yon is the server part of Tachyon. A controller is a class in `server/controllers` that answers HTTP requests. `RequestRoute(\"/api/greeting\")` gives its path. `Public` says that anyone may call it: every route must say who may call it, or the build stops (see Who may call a route). `GetRoute` makes the method `getGreeting` answer GET requests on that path.\n\nA model is a data type that describes the shape of a value. Here the model `Greeting` has one text field, `message`. In JavaScript, a JSDoc `@typedef` comment describes the model. In TypeScript, the model is an interface in `server/models/Greeting.ts`. The method returns a Greeting, and Yon turns it into JSON. The same `ty preview` serves the pages and the controller on one port.\n\nResult: open /api/greeting. It shows {\"message\":\"Hello from Yon\"}.",
+  "body": "Yon is the server part of Tachyon. A controller is a class in `server/controllers` that answers HTTP requests. `RequestRoute(\"/api/greeting\")` gives its path. `Public` says that anyone may call it: every route must say who may call it, or the build stops (see Who may call a route). `GetRoute` makes the method `getGreeting` answer GET requests on that path. Each language writes the name in its own style, such as `get_greeting` in Python or `GetGreeting` in C#. A Rust controller also has `fn new()`, because Tachyon makes the controller with it.\n\nA model is a data type that describes the shape of a value. Here the model `Greeting` has one text field, `message`. The model lives in `server/models`, in a file named after it, such as `Greeting.ts` or `Greeting.py`. JavaScript reads the TypeScript model with `/** @import { Greeting } from '/models/Greeting.ts' */`. The method returns a Greeting, and Yon turns it into JSON. The same `ty preview` serves the pages and the controller on one port.\n\nResult: open /api/greeting. It shows {\"message\":\"Hello from Yon\"}.",
   "files": [
     {
       "name": "server/controllers/GreetingController.js",
@@ -19,6 +19,150 @@
       "name": "server/controllers/GreetingController.ts",
       "code": {
         "file": "server/controllers/GreetingController.ts"
+      }
+    },
+    {
+      "name": "server/models/Greeting.py",
+      "code": {
+        "file": "server/models/Greeting.py"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.py",
+      "code": {
+        "file": "server/controllers/GreetingController.py"
+      }
+    },
+    {
+      "name": "server/models/Greeting.php",
+      "code": {
+        "file": "server/models/Greeting.php"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.php",
+      "code": {
+        "file": "server/controllers/GreetingController.php"
+      }
+    },
+    {
+      "name": "server/models/Greeting.java",
+      "code": {
+        "file": "server/models/Greeting.java"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.java",
+      "code": {
+        "file": "server/controllers/GreetingController.java"
+      }
+    },
+    {
+      "name": "server/models/Greeting.groovy",
+      "code": {
+        "file": "server/models/Greeting.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.groovy",
+      "code": {
+        "file": "server/controllers/GreetingController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Greeting.kt",
+      "code": {
+        "file": "server/models/Greeting.kt"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.kt",
+      "code": {
+        "file": "server/controllers/GreetingController.kt"
+      }
+    },
+    {
+      "name": "server/models/Greeting.cs",
+      "code": {
+        "file": "server/models/Greeting.cs"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.cs",
+      "code": {
+        "file": "server/controllers/GreetingController.cs"
+      }
+    },
+    {
+      "name": "server/models/Greeting.fs",
+      "code": {
+        "file": "server/models/Greeting.fs"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.fs",
+      "code": {
+        "file": "server/controllers/GreetingController.fs"
+      }
+    },
+    {
+      "name": "server/models/Greeting.rs",
+      "code": {
+        "file": "server/models/Greeting.rs"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.rs",
+      "code": {
+        "file": "server/controllers/GreetingController.rs"
+      }
+    },
+    {
+      "name": "server/models/Greeting.go",
+      "code": {
+        "file": "server/models/Greeting.go"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.go",
+      "code": {
+        "file": "server/controllers/GreetingController.go"
+      }
+    },
+    {
+      "name": "server/models/Greeting.dart",
+      "code": {
+        "file": "server/models/Greeting.dart"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.dart",
+      "code": {
+        "file": "server/controllers/GreetingController.dart"
+      }
+    },
+    {
+      "name": "server/models/Greeting.rb",
+      "code": {
+        "file": "server/models/Greeting.rb"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.rb",
+      "code": {
+        "file": "server/controllers/GreetingController.rb"
+      }
+    },
+    {
+      "name": "server/models/Greeting.lua",
+      "code": {
+        "file": "server/models/Greeting.lua"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.lua",
+      "code": {
+        "file": "server/controllers/GreetingController.lua"
       }
     }
   ]

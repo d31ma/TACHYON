@@ -1,6 +1,6 @@
 {
   "heading": "Yon: every language implementation",
-  "body": "Choose one language below for GET /money. Each implementation returns {\"amount\":42}. Copy the controller from server/controllers and the shared server/services role file. The compiler finds only role files in the same language as the controller. It orders them by their definition dependencies, and this order is always the same. Needs infers the controller's dependency from the field it marks, so you do not write a constructor. JavaScript names the field moneyService to match the exact lowerCamel name of MoneyService, and Ruby names its attr_reader money_service, the snake_case name. The other languages use its concrete type, which is Arc<MoneyService> in Rust and *MoneyService in Go. Types in the discovered role files are available by name in the assembled unit. So do not import these role files into each other. You do not need a runtime annotation package or an HTTP method decorator. RequestRoute on the class and GetRoute on the method declare GET /money. The controller role, the route and error handler markers, StreamRoute, Gateway and Schedule exist only in Yon. Tac mirrors Service, Lifetime, Store in its bare and entity-bound forms, HTTPClient, Helper, Needs, Named, OnStart, OnStop, OnEvent, Order and InBackground. In Tac, a service is what a view addresses. For browser JS/TS, HTTPClient also supports transport that Tachyon manages automatically. Native clients keep HTTP adapters that you configure yourself. Swift is not a Yon endpoint language. Needs selects each field it marks that is not static and has no initial value, in declaration order. Fields with a default value and static fields are not injected. Named names the provider when the field does not. Missing or ambiguous providers fail closed: Tachyon rejects them and does not guess. Unsupported optional, generic, interface or function field types also fail closed. Discovery covers only the realm's shared role folders. Other controllers are not part of the program. Each invocation still owns its instance graph (the objects it creates), and Tachyon adds no global container.",
+  "body": "Choose one language below for GET /money. Each implementation returns {\"amount\":42}. Copy the controller from server/controllers and the shared server/services role file. The compiler finds only role files in the same language as the controller. It orders them by their definition dependencies, and this order is always the same. Needs infers the controller's dependency from the field it marks, so you do not write a constructor. JavaScript names the field moneyService to match the exact lowerCamel name of MoneyService, Ruby names its attr_reader money_service, the snake_case name, and Lua names its table field money_service in the same way. The other languages use its concrete type, which is Arc<MoneyService> in Rust and *MoneyService in Go. Types in the discovered role files are available by name in the assembled unit. So do not import these role files into each other. You do not need a runtime annotation package or an HTTP method decorator. RequestRoute on the class and GetRoute on the method declare GET /money. The controller role, the route and error handler markers, StreamRoute, Gateway and Schedule exist only in Yon. Tac mirrors Service, Lifetime, Store in its bare and entity-bound forms, HTTPClient, Helper, Needs, Named, OnStart, OnStop, OnEvent, Order and InBackground. In Tac, a service is what a view addresses. For browser JS/TS, HTTPClient also supports transport that Tachyon manages automatically. Native clients keep HTTP adapters that you configure yourself. Swift is not a Yon endpoint language. Needs selects each field it marks that is not static and has no initial value, in declaration order. Fields with a default value and static fields are not injected. Named names the provider when the field does not. Missing or ambiguous providers fail closed: Tachyon rejects them and does not guess. Unsupported optional, generic, interface or function field types also fail closed. Discovery covers only the realm's shared role folders. Other controllers are not part of the program. Each invocation still owns its instance graph (the objects it creates), and Tachyon adds no global container.",
   "axis": "language",
   "files": [
     {
@@ -23,7 +23,9 @@
     },
     {
       "name": "server/models/Money.ts",
-      "code": { "file": "server/models/Money.ts" }
+      "code": {
+        "file": "server/models/Money.ts"
+      }
     },
     {
       "name": "server/controllers/MoneyController.ts",
@@ -39,7 +41,9 @@
     },
     {
       "name": "server/models/Money.py",
-      "code": { "file": "server/models/Money.py" }
+      "code": {
+        "file": "server/models/Money.py"
+      }
     },
     {
       "name": "server/controllers/MoneyController.py",
@@ -55,7 +59,9 @@
     },
     {
       "name": "server/models/Money.php",
-      "code": { "file": "server/models/Money.php" }
+      "code": {
+        "file": "server/models/Money.php"
+      }
     },
     {
       "name": "server/controllers/MoneyController.php",
@@ -77,11 +83,15 @@
     },
     {
       "name": "server/models/Money.java",
-      "code": { "file": "server/models/Money.java" }
+      "code": {
+        "file": "server/models/Money.java"
+      }
     },
     {
       "name": "server/models/Money.groovy",
-      "code": { "file": "server/models/Money.groovy" }
+      "code": {
+        "file": "server/models/Money.groovy"
+      }
     },
     {
       "name": "server/controllers/MoneyController.java",
@@ -103,7 +113,9 @@
     },
     {
       "name": "server/models/Money.kt",
-      "code": { "file": "server/models/Money.kt" }
+      "code": {
+        "file": "server/models/Money.kt"
+      }
     },
     {
       "name": "server/controllers/MoneyController.kt",
@@ -119,7 +131,9 @@
     },
     {
       "name": "server/models/Money.cs",
-      "code": { "file": "server/models/Money.cs" }
+      "code": {
+        "file": "server/models/Money.cs"
+      }
     },
     {
       "name": "server/controllers/MoneyController.cs",
@@ -135,7 +149,9 @@
     },
     {
       "name": "server/models/Money.rs",
-      "code": { "file": "server/models/Money.rs" }
+      "code": {
+        "file": "server/models/Money.rs"
+      }
     },
     {
       "name": "server/controllers/MoneyController.rs",
@@ -151,7 +167,9 @@
     },
     {
       "name": "server/models/Money.go",
-      "code": { "file": "server/models/Money.go" }
+      "code": {
+        "file": "server/models/Money.go"
+      }
     },
     {
       "name": "server/controllers/MoneyController.go",
@@ -167,7 +185,9 @@
     },
     {
       "name": "server/models/Money.dart",
-      "code": { "file": "server/models/Money.dart" }
+      "code": {
+        "file": "server/models/Money.dart"
+      }
     },
     {
       "name": "server/controllers/MoneyController.dart",
@@ -183,12 +203,50 @@
     },
     {
       "name": "server/models/Money.rb",
-      "code": { "file": "server/models/Money.rb" }
+      "code": {
+        "file": "server/models/Money.rb"
+      }
     },
     {
       "name": "server/controllers/MoneyController.rb",
       "code": {
         "file": "server/controllers/MoneyController.rb"
+      }
+    },
+    {
+      "name": "server/models/Money.fs",
+      "code": {
+        "file": "server/models/Money.fs"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.fs",
+      "code": {
+        "file": "server/services/MoneyService.fs"
+      }
+    },
+    {
+      "name": "server/controllers/MoneyController.fs",
+      "code": {
+        "file": "server/controllers/MoneyController.fs"
+      }
+    },
+    {
+      "name": "server/models/Money.lua",
+      "code": {
+        "file": "server/models/Money.lua"
+      }
+    },
+    {
+      "name": "server/services/MoneyService.lua",
+      "code": {
+        "file": "server/services/MoneyService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/MoneyController.lua",
+      "code": {
+        "file": "server/controllers/MoneyController.lua"
       }
     }
   ]

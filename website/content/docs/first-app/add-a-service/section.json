@@ -1,7 +1,8 @@
 {
   "heading": "Step 2: Add a service",
   "axis": "language",
-  "body": "A service is a class in `client/services` that holds the data and the actions of a view. The view calls `CounterService` by the name `counter`: Tachyon removes `Service` from the class name and starts the rest with a small letter. A field is a value that belongs to the service, such as `count`. `{counter.count}` shows the field in the page. `on:click=\"counter.increment()\"` calls the method when you click the button. When the method changes the field, the page updates.\n\nChange the component and add the service. In the page, add `hydrate=\"load\"`: it starts the component and its service as soon as the page opens. A component without a service must not have `hydrate`, so step 1 did not use it. Save the files, and `ty preview` builds the app again. Choose JavaScript or TypeScript above the code.\n\nResult: each click on Click me adds one to the number on the page.",
+  "target": "web",
+  "body": "A service is a class in `client/services` that holds the data and the actions of a view. The view calls `CounterService` by the name `counter`: Tachyon removes `Service` from the class name and starts the rest with a small letter. A field is a value that belongs to the service, such as `count`. `{counter.count}` shows the field in the page. `on:click=\"counter.increment()\"` calls the method when you click the button. When the method changes the field, the page updates.\n\nChange the component and add the service. In the page, add `hydrate=\"load\"`: it starts the component and its service as soon as the page opens. A component without a service must not have `hydrate`, so step 1 did not use it. Save the files, and `ty preview` builds the app again. Choose your language above the code. Go, C# and F# start public names with a capital letter, such as `Count` and `Increment`, but the view still writes `counter.count` and `counter.increment()`.\n\nResult: each click on Click me adds one to the number on the page.",
   "files": [
     {
       "name": "client/pages/hello/tac.html",
@@ -25,6 +26,60 @@
       "name": "client/services/CounterService.ts",
       "code": {
         "file": "client/services/CounterService.ts"
+      }
+    },
+    {
+      "name": "client/services/CounterService.java",
+      "code": {
+        "file": "client/services/CounterService.java"
+      }
+    },
+    {
+      "name": "client/services/CounterService.kt",
+      "code": {
+        "file": "client/services/CounterService.kt"
+      }
+    },
+    {
+      "name": "client/services/CounterService.cs",
+      "code": {
+        "file": "client/services/CounterService.cs"
+      }
+    },
+    {
+      "name": "client/services/CounterService.fs",
+      "code": {
+        "file": "client/services/CounterService.fs"
+      }
+    },
+    {
+      "name": "client/services/CounterService.rs",
+      "code": {
+        "file": "client/services/CounterService.rs"
+      }
+    },
+    {
+      "name": "client/services/CounterService.go",
+      "code": {
+        "file": "client/services/CounterService.go"
+      }
+    },
+    {
+      "name": "client/services/CounterService.dart",
+      "code": {
+        "file": "client/services/CounterService.dart"
+      }
+    },
+    {
+      "name": "client/services/CounterService.rb",
+      "code": {
+        "file": "client/services/CounterService.rb"
+      }
+    },
+    {
+      "name": "client/services/CounterService.swift",
+      "code": {
+        "file": "client/services/CounterService.swift"
       }
     }
   ]

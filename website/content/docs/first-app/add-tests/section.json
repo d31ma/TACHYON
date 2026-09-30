@@ -1,7 +1,7 @@
 {
   "heading": "Step 5: Test the service and the controller",
   "axis": "language",
-  "body": "A test unit is a class in `client/tests` or `server/tests` whose name ends with `Test`. Each method whose name starts with `test` is one test case. `Test(HelloTestSetup)` names the Setup that the test uses. The Setup file must be in the same folder as the test.\n\n`this.construct(CounterService)` makes the service in the same way that Tachyon makes it for the page. `Fake` marks the field `greetingClient`, and `construct` gives the fake to the service in place of the real `GreetingClient`. So the test does not call the server. A controller is made in the same way: `this.construct(GreetingController)` makes the controller, and the test calls `getGreeting` directly, without HTTP. `GreetingClient` needs no test, because Tachyon writes its method.\n\nRun `ty test` in the project folder. Then stop `ty preview` (press Ctrl+C) and run `ty preview` again. It starts, because a test case now calls every public method. A test must really call a method: a call on the fake `greetingClient` does not count for `GreetingClient`, and writing only the name of a method does not count at all. `ty test --coverage` shows which case first called each method.\n\nResult: `ty test` prints one ok line for each test case and ends with 0 failed.",
+  "body": "A test unit is a class in `client/tests` or `server/tests` whose name ends with `Test`. Each method whose name starts with `test` is one test case. `Test(HelloTestSetup)` names the Setup that the test uses. The Setup file must be in the same folder as the test.\n\n`this.construct(CounterService)` makes the service in the same way that Tachyon makes it for the page. `Fake` marks the field `greetingClient`, and `construct` gives the fake to the service in place of the real `GreetingClient`. So the test does not call the server. A controller is made in the same way: `this.construct(GreetingController)` makes the controller, and the test calls `getGreeting` directly, without HTTP. `GreetingClient` needs no test, because Tachyon writes its method. The Ruby controller test also uses `construct`. In the other languages, the test makes the class itself, such as `new CounterService()` in Java or `GreetingController()` in Python, because the class needs nothing from Tachyon. The Tac languages that skipped step 4 have no `greetingClient` yet, so their test checks only `increment`.\n\nRun `ty test` in the project folder. Then stop `ty preview` (press Ctrl+C) and run `ty preview` again. It starts, because a test case now calls every public method. A test must really call a method: a call on the fake `greetingClient` does not count for `GreetingClient`, and writing only the name of a method does not count at all. `ty test --coverage` shows which case first called each method.\n\nResult: `ty test` prints one ok line for each test case and ends with 0 failed.",
   "files": [
     {
       "name": "client/tests/HelloTestSetup.js",
@@ -49,6 +49,258 @@
       "name": "server/tests/GreetingControllerTest.ts",
       "code": {
         "file": "server/tests/GreetingControllerTest.ts"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.py",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.py"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.py",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.py"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.php",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.php"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.php",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.php"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.java",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.java"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.java",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.java"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.groovy",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.groovy"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.groovy",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.groovy"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.kt",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.kt"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.kt",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.kt"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.cs",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.cs"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.cs",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.cs"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.fs",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.fs"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.fs",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.fs"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.rs",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.rs"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.rs",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.rs"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.go",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.go"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.go",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.go"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.dart",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.dart"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.dart",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.dart"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.rb",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.rb"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.rb",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.rb"
+      }
+    },
+    {
+      "name": "server/tests/GreetingTestSetup.lua",
+      "code": {
+        "file": "server/tests/GreetingTestSetup.lua"
+      }
+    },
+    {
+      "name": "server/tests/GreetingControllerTest.lua",
+      "code": {
+        "file": "server/tests/GreetingControllerTest.lua"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.java",
+      "code": {
+        "file": "client/tests/HelloTestSetup.java"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.java",
+      "code": {
+        "file": "client/tests/CounterServiceTest.java"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.kt",
+      "code": {
+        "file": "client/tests/HelloTestSetup.kt"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.kt",
+      "code": {
+        "file": "client/tests/CounterServiceTest.kt"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.cs",
+      "code": {
+        "file": "client/tests/HelloTestSetup.cs"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.cs",
+      "code": {
+        "file": "client/tests/CounterServiceTest.cs"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.fs",
+      "code": {
+        "file": "client/tests/HelloTestSetup.fs"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.fs",
+      "code": {
+        "file": "client/tests/CounterServiceTest.fs"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.rs",
+      "code": {
+        "file": "client/tests/HelloTestSetup.rs"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.rs",
+      "code": {
+        "file": "client/tests/CounterServiceTest.rs"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.go",
+      "code": {
+        "file": "client/tests/HelloTestSetup.go"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.go",
+      "code": {
+        "file": "client/tests/CounterServiceTest.go"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.dart",
+      "code": {
+        "file": "client/tests/HelloTestSetup.dart"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.dart",
+      "code": {
+        "file": "client/tests/CounterServiceTest.dart"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.rb",
+      "code": {
+        "file": "client/tests/HelloTestSetup.rb"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.rb",
+      "code": {
+        "file": "client/tests/CounterServiceTest.rb"
+      }
+    },
+    {
+      "name": "client/tests/HelloTestSetup.swift",
+      "code": {
+        "file": "client/tests/HelloTestSetup.swift"
+      }
+    },
+    {
+      "name": "client/tests/CounterServiceTest.swift",
+      "code": {
+        "file": "client/tests/CounterServiceTest.swift"
       }
     }
   ]

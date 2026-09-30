@@ -722,6 +722,13 @@ machine contracts have their own, independent major versions.
   language, and the path variable controller has a Lua tab. Development mode
   and path variables pass `page.development` and `page.path` to a service
   method, so no service needs the DOM.
+- The first-app tutorial shows every step in every language: the counter
+  service in every Tac language, the greeting controller, its model and its
+  test in every Yon language, and a Tac test of the counter in every Tac
+  language. Calling the server from the page stays in JavaScript and
+  TypeScript until compiled Tac clients get a browser transport. Project
+  folders and roles shows its models, Yon and Tac examples in every language
+  (models in F#, Java and Lua, Yon in F# and Lua, Tac in Java, F# and Ruby).
 - The guide "Events between services" shows its signals and listener options
   in every Tac service language, its compiled-services section also in Ruby
   and F#, and its Yon section also in F# and Ruby. verify-snippets checks that
