@@ -2217,6 +2217,25 @@ machine contracts have their own, independent major versions.
   type reader read every `tuple[...]` as a list and refused the three types
   with TY2015. A tuple with fixed members is now a native answer, and
   `tuple[Item, ...]` is a list of `Item`.
+- A Ruby Yon controller that publishes an event no listener takes answers
+  again. With no `OnEvent` listener in the module, the Ruby event container
+  wrote a lifecycle `case` with no `when`, a Ruby syntax error, so every route
+  answered 500 with an empty body.
+
+- A Ruby, Python or JavaScript parameter named `record` or `object` is no
+  longer read as a type declaration. A Ruby parameter named `record` followed by
+  `ApplicationEventPublisher.new` failed with `TY2015` ("cannot shadow
+  framework-owned ... ApplicationEventPublisher"). `record` is now a type
+  keyword only in Java, C# and Groovy, and `object` only in Kotlin.
+
+- An F# model takes `[<Topic>]` in Yon and Tac. The attribute stayed in the
+  compiled model and failed with FS0039 ("The type 'Topic' is not defined").
+
+- `@StreamRequest` and `@SocketRequest` refusals (`TY1308`) name the right
+  language and file. A Java Tac client was refused as "belongs on a method" at
+  the service file that used it; it is now refused at the client file with
+  "not available in Java Tac code". F# refusals said "C# Tac code" and `[Name]`;
+  they now say F# and `[<Name>]`.
 
 - WebKit no longer warns on every Tachyon page about the content security
   policy. The policy allowed the inline speculation rules with Chrome's
