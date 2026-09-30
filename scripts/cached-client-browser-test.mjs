@@ -26,7 +26,7 @@ class CachedClientGate {
     'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs","rs","cs","rb"]},"visibility":{"check":false},"budgets":{"check":false}}}\n',
     'client/pages/tac.html': '<stamp-page />\n',
     'client/components/stamp/page/tac.html': `<main>${CachedClientGate.languages.map((language) => `<p id="${language}">{${language}Stamp.stamp}</p>`).join('\n')}</main>\n`,
-    'client/clients/JsStampClient.js': `@HTTPClient
+    'client/remotes/JsStampClient.js': `@HTTPClient
 @CacheSettings(${CachedClientGate.settings})
 export default class JsStampClient {
   /** @returns {Promise<BehaviorJsonValue>} */
@@ -35,7 +35,7 @@ export default class JsStampClient {
   async read() {}
 }
 `,
-    'client/clients/JsPublicStampClient.js': `@HTTPClient
+    'client/remotes/JsPublicStampClient.js': `@HTTPClient
 @CacheSettings(${CachedClientGate.settings})
 export default class JsPublicStampClient {
   /** @returns {Promise<BehaviorJsonValue>} */
@@ -74,7 +74,7 @@ export default class JsStampService {
   }
 }
 `,
-    'client/clients/TsStampClient.ts': `@HTTPClient
+    'client/remotes/TsStampClient.ts': `@HTTPClient
 @CacheSettings(${CachedClientGate.settings})
 export default class TsStampClient {
   @Cached
@@ -95,7 +95,7 @@ export default class TsStampService {
   }
 }
 `,
-    'client/clients/GoStampClient.go': `// @CacheSettings(${CachedClientGate.settings})
+    'client/remotes/GoStampClient.go': `// @CacheSettings(${CachedClientGate.settings})
 // @HTTPClient
 type GoStampClient interface {
 	// @Cached
@@ -141,7 +141,7 @@ func (service *GoStampService) Load() error {
 	return err
 }
 `,
-    'client/clients/KtStampClient.kt': `@CacheSettings(${CachedClientGate.settings})
+    'client/remotes/KtStampClient.kt': `@CacheSettings(${CachedClientGate.settings})
 @HTTPClient
 interface KtStampClient {
     @Cached
@@ -169,7 +169,7 @@ class KtStampService {
     }
 }
 `,
-    'client/clients/DartStampClient.dart': `@CacheSettings(${CachedClientGate.settings})
+    'client/remotes/DartStampClient.dart': `@CacheSettings(${CachedClientGate.settings})
 @HTTPClient
 abstract interface class DartStampClient {
   @Cached
@@ -204,7 +204,7 @@ class DartStampService {
   }
 }
 `,
-    'client/clients/SwiftStampClient.swift': `@CacheSettings(${CachedClientGate.settings})
+    'client/remotes/SwiftStampClient.swift': `@CacheSettings(${CachedClientGate.settings})
 @HTTPClient
 protocol SwiftStampClient {
     @Cached
@@ -235,7 +235,7 @@ final class SwiftStampService {
     }
 }
 `,
-    'client/clients/FsStampClient.fs': `open System.Threading.Tasks
+    'client/remotes/FsStampClient.fs': `open System.Threading.Tasks
 
 [<CacheSettings(${CachedClientGate.settings})>]
 [<HTTPClient>]
@@ -271,7 +271,7 @@ type FsStampService() =
             this.loads <- this.loads + 1
         }
 `,
-    'client/clients/RsStampClient.rs': `#[CacheSettings(${CachedClientGate.settings})]
+    'client/remotes/RsStampClient.rs': `#[CacheSettings(${CachedClientGate.settings})]
 #[HTTPClient]
 trait RsStampClient {
     #[Cached]
@@ -314,7 +314,7 @@ impl RsStampService {
     }
 }
 `,
-    'client/clients/CsStampClient.cs': `[CacheSettings(${CachedClientGate.settings})]
+    'client/remotes/CsStampClient.cs': `[CacheSettings(${CachedClientGate.settings})]
 [HTTPClient]
 interface CsStampClient {
     [Cached]
@@ -350,7 +350,7 @@ public class CsStampService {
     }
 }
 `,
-    'client/clients/RbStampClient.rb': `#[CacheSettings(${CachedClientGate.settings})]
+    'client/remotes/RbStampClient.rb': `#[CacheSettings(${CachedClientGate.settings})]
 #[HTTPClient]
 class RbStampClient
   # @return [Hash]
@@ -390,7 +390,7 @@ class RbStampService
   end
 end
 `,
-    ...(CachedClientGate.withJava ? { 'client/clients/JavaStampClient.java': `@CacheSettings(${CachedClientGate.settings})
+    ...(CachedClientGate.withJava ? { 'client/remotes/JavaStampClient.java': `@CacheSettings(${CachedClientGate.settings})
 @HTTPClient
 interface JavaStampClient {
     @Cached
@@ -425,7 +425,7 @@ class JavaStampService {
   static write(project) {
     for (const [relative, contents] of Object.entries(CachedClientGate.files)) {
       const language = path.extname(relative).slice(1)
-      if (['clients', 'services', 'setups'].includes(relative.split('/')[1]) && !CachedClientGate.languages.includes(language)) continue
+      if (['clients', 'remotes', 'services', 'setups'].includes(relative.split('/')[1]) && !CachedClientGate.languages.includes(language)) continue
       const file = path.join(project, relative)
       mkdirSync(path.dirname(file), { recursive: true })
       writeFileSync(file, contents)

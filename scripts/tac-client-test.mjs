@@ -29,7 +29,7 @@ function write(root, name, contents) {
 
 function writeProductFixtures(root) {
   for (const extension of ['js', 'ts']) {
-    write(root, `client/clients/Products${extension.toUpperCase()}Client.${extension}`, ClientTest.clientSource.replace('ProductsClient', `Products${extension.toUpperCase()}Client`))
+    write(root, `client/remotes/Products${extension.toUpperCase()}Client.${extension}`, ClientTest.clientSource.replace('ProductsClient', `Products${extension.toUpperCase()}Client`))
     write(root, `client/pages/${extension}/tac.html`, `<products-${extension} />`)
     write(root, `client/components/products/${extension}/tac.html`, `<main><p id="result">{products${extension.toUpperCase()}.result}</p></main>`)
     write(root, `client/services/Products${extension.toUpperCase()}Service.${extension}`, `
@@ -96,7 +96,7 @@ function writePendingFixtures(root) {
   write(root, 'client/components/gate/page/tac.html', '<main><button id="hide" on:click="gatePage.show = false">Hide</button><logic :if="gatePage.show"><pending-request /></logic></main>')
   write(root, 'client/services/GatePageService.js', "@Service()\nexport default class GatePageService { show = true; }")
   write(root, 'client/components/pending/request/tac.html', '<p id="pending">{pendingRequest.state}</p>')
-  write(root, 'client/clients/PendingClient.js', ClientTest.clientSource.replace('ProductsClient', 'PendingClient'))
+  write(root, 'client/remotes/PendingClient.js', ClientTest.clientSource.replace('ProductsClient', 'PendingClient'))
   write(root, 'client/services/PendingRequestService.js', `
 @Service()
 @Lifetime({"value":"prototype"})
