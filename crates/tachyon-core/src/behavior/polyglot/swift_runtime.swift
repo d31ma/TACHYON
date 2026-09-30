@@ -391,23 +391,26 @@ final class BehaviorContext {
     }
     func invoke(_ type: String, _ method: String, arguments: [BehaviorJSON], body: () async throws -> BehaviorJSON) async throws -> BehaviorJSON {
         try await operation { execution in
-            let metadata = try self.method(type, method)
-            if metadata.get("httpExchange").has("generated") {
-                let declared = try Self.exchangeRequest(metadata.get("httpExchange"), arguments)
-                return try await self.body(try Self.withFilledPath(metadata, arguments), body: { declared }, execution: execution)
-            }
-            if metadata.has("cacheEvict") || metadata.has("cachePut") { return try await self.mutation(type, metadata: metadata, arguments: arguments, body: body, execution: execution) }
-            guard metadata.has("cacheable") else { return try await self.resilient(type, method, metadata, body: body, execution: execution) }
-            let policy = try Behaviors.registration(type).get("cache"); let key = try await self.authorize("cache:read", type, method, policy: policy, metadata: metadata, arguments: arguments, execution: execution)
-            let cache = try self.cache(policy.get("name").text)
-            let entry = try await self.adapter(execution, { try await cache.get(key, execution) }); _ = try entry.encoded(); try entry.keys(["hit", "value", "expiresAt"])
-            if try entry.get("hit").boolean {
-                let expiry = try entry.get("expiresAt").milliseconds; guard expiry <= Behaviors.now + (try policy.get("ttlMs").milliseconds) else { throw BehaviorError("CACHE_EXPIRY") }
-                if expiry > Behaviors.now { guard entry.has("value") else { throw BehaviorError("CACHE_VALUE") }; let value = entry.get("value"); _ = try value.encoded(maximum: policy.get("maxBytes").integer); return value }
-            }
-            let result = try await self.resilient(type, method, metadata, body: body, execution: execution); try execution.check(); _ = try result.encoded(maximum: policy.get("maxBytes").integer)
-            try await self.adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").milliseconds, execution) }); return result
+            let written = try self.method(type, method)
+            guard written.get("httpExchange").has("generated") else { return try await self.planned(type, method, written, arguments: arguments, body: body, execution: execution) }
+            let declared = try Self.exchangeRequest(written.get("httpExchange"), arguments)
+            let metadata = try Self.withFilledPath(written, arguments)
+            guard ["cacheable", "cacheEvict", "cachePut"].contains(where: { metadata.has($0) }) else { return try await self.body(metadata, body: { declared }, execution: execution) }
+            return try await self.planned(type, method, metadata, arguments: arguments, body: { declared }, execution: execution)
         }
+    }
+    private func planned(_ type: String, _ method: String, _ metadata: BehaviorJSON, arguments: [BehaviorJSON], body: () async throws -> BehaviorJSON, execution: BehaviorExecution) async throws -> BehaviorJSON {
+        if metadata.has("cacheEvict") || metadata.has("cachePut") { return try await self.mutation(type, metadata: metadata, arguments: arguments, body: body, execution: execution) }
+        guard metadata.has("cacheable") else { return try await self.resilient(type, method, metadata, body: body, execution: execution) }
+        let policy = try Behaviors.registration(type).get("cache"); let key = try await self.authorize("cache:read", type, method, policy: policy, metadata: metadata, arguments: arguments, execution: execution)
+        let cache = try self.cache(policy.get("name").text)
+        let entry = try await self.adapter(execution, { try await cache.get(key, execution) }); _ = try entry.encoded(); try entry.keys(["hit", "value", "expiresAt"])
+        if try entry.get("hit").boolean {
+            let expiry = try entry.get("expiresAt").milliseconds; guard expiry <= Behaviors.now + (try policy.get("ttlMs").milliseconds) else { throw BehaviorError("CACHE_EXPIRY") }
+            if expiry > Behaviors.now { guard entry.has("value") else { throw BehaviorError("CACHE_VALUE") }; let value = entry.get("value"); _ = try value.encoded(maximum: policy.get("maxBytes").integer); return value }
+        }
+        let result = try await self.resilient(type, method, metadata, body: body, execution: execution); try execution.check(); _ = try result.encoded(maximum: policy.get("maxBytes").integer)
+        try await self.adapter(execution, { try await cache.set(key, result, policy, Behaviors.now + policy.get("ttlMs").milliseconds, execution) }); return result
     }
     private static func withFilledPath(_ metadata: BehaviorJSON, _ arguments: [BehaviorJSON]) throws -> BehaviorJSON {
         let policy = metadata.get("httpExchange")

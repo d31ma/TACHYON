@@ -484,7 +484,7 @@ const clientRequest = async (input, init = {}, options = {}) => {
     if (cached) return cached
   }
   try {
-    const response = await fetch(new Request(request, { cache: 'no-store' }))
+    const response = await fetch(new Request(request, { cache: options.publicRead === true ? 'default' : 'no-store' }))
     if (key && responseCanPersist(response)) await writeCachedResponse(key, response.clone())
     else if (key) await deleteCachedResponse(key)
     if (!key && response.ok) await invalidateCache(options.invalidateKeys, options.invalidatePrefixes)

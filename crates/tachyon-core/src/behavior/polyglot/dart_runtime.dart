@@ -751,15 +751,16 @@ class BehaviorContext {
 
   Future<Object?> invoke(String type, String method, List<Object?> arguments, Future<Object?> Function() body) =>
       _operation((execution) async {
-        final metadata = _method(type, method);
-        if (BehaviorJson.has(BehaviorJson.get(metadata, 'httpExchange'), 'generated')) {
-          final declared = _exchangeRequest(BehaviorJson.get(metadata, 'httpExchange'), arguments);
-          return _body(_withFilledPath(metadata, arguments), () async => declared, execution);
-        }
+        final written = _method(type, method);
+        final generated = BehaviorJson.has(BehaviorJson.get(written, 'httpExchange'), 'generated');
+        final metadata = generated ? _withFilledPath(written, arguments) : written;
+        final work = generated ? _declaredBody(written, arguments) : body;
+        final cached = ['cacheable', 'cacheEvict', 'cachePut'].any((key) => BehaviorJson.has(metadata, key));
+        if (generated && !cached) return _body(metadata, work, execution);
         if (BehaviorJson.has(metadata, 'cacheEvict') || BehaviorJson.has(metadata, 'cachePut')) {
-          return _mutation(type, metadata, arguments, body, execution);
+          return _mutation(type, metadata, arguments, work, execution);
         }
-        if (!BehaviorJson.has(metadata, 'cacheable')) return _resilient(type, method, metadata, body, execution);
+        if (!BehaviorJson.has(metadata, 'cacheable')) return _resilient(type, method, metadata, work, execution);
         final policy = BehaviorJson.get(Behaviors.registration(type), 'cache');
         final key = await _authorize('cache:read', type, method, policy, metadata, arguments, execution);
         final cache = _cache(policy);
@@ -778,7 +779,7 @@ class BehaviorContext {
             return value;
           }
         }
-        final result = await _resilient(type, method, metadata, body, execution);
+        final result = await _resilient(type, method, metadata, work, execution);
         execution.check();
         BehaviorJson.encode(result, BehaviorJson.integer(BehaviorJson.get(policy, 'maxBytes')));
         await _adapter(
@@ -787,6 +788,11 @@ class BehaviorContext {
                 execution));
         return result;
       });
+
+  Future<Object?> Function() _declaredBody(Object? metadata, List<Object?> arguments) {
+    final declared = _exchangeRequest(BehaviorJson.get(metadata, 'httpExchange'), arguments);
+    return () async => declared;
+  }
 
   static Object? _withFilledPath(Object? metadata, List<Object?> arguments) {
     final policy = BehaviorJson.get(metadata, 'httpExchange');

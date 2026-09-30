@@ -880,6 +880,52 @@ await test('a declared WebCall is a signature whose request comes from its argum
   } finally { context.dispose() }
 })
 
+await test('a Cached HTTPClient read keeps its answer, is a public read, and ClearCache on a write removes it', async () => {
+  const entries = new Map()
+  const commands = []
+  class Config {
+    static configure() {
+      return {
+        authorize: () => true,
+        caches: { products: {
+          get: (key) => entries.get(key) ?? { hit: false },
+          set: (key, value, execution) => { entries.set(key, { hit: true, value, expiresAt: execution.expiresAt }) },
+          delete: (key) => { entries.delete(key) },
+        } },
+        http: { catalog: { exchange: (command) => { commands.push(command); return { calls: commands.length } } } },
+      }
+    }
+  }
+  class Catalog {
+    constructor(behaviors) { this.behaviors = behaviors }
+    async find(id) {}
+    async fresh(id) {}
+    async save(id, product) {}
+  }
+  const read = { client: 'catalog', method: 'GET', path: '/products/{id}', pathVariables: { id: 0 }, generated: true }
+  const Behaviors = BehaviorRuntimeTest.createBehaviors([
+    { type: Config, name: 'Config', configuration: true, methods: [] },
+    { type: Catalog, name: 'Catalog', cache: { name: 'products', ttlMs: 30000, maxBytes: 4096, maxEntries: 8 }, methods: [
+      { name: 'find', cacheable: { keyArgs: [0] }, httpExchange: read },
+      { name: 'fresh', httpExchange: read },
+      { name: 'save', cacheEvict: { method: 'find', arguments: [0], target: { method: 'find', cacheable: { keyArgs: [0] } } },
+        httpExchange: { client: 'catalog', method: 'POST', path: '/products/{id}', pathVariables: { id: 0 }, body: 1, generated: true } },
+    ] },
+  ], 'tac', BehaviorRuntimeTest.moduleId)
+  const context = await Behaviors.create(Config, { partition: 'public', signal: new AbortController().signal })
+  try {
+    const catalog = new Catalog(context)
+    assert.deepEqual(await catalog.find(7), { calls: 1 })
+    assert.deepEqual(await catalog.find(7), { calls: 1 }, 'the second read answers from the cache')
+    assert.equal(commands[0].publicRead, true, 'a Cached read may be answered by the service worker')
+    await catalog.fresh(7)
+    assert.equal(Object.hasOwn(commands[1], 'publicRead'), false, 'a read that is not Cached stays private')
+    await catalog.save(7, { name: 'anvil' })
+    assert.equal(Object.hasOwn(commands[2], 'publicRead'), false, 'a write is never a public read')
+    assert.deepEqual(await catalog.find(7), { calls: 4 }, 'ClearCache makes the next read ask again')
+  } finally { context.dispose() }
+})
+
 await test('a Mapping is the whole method: a field plan over one JSON argument, with no behavior context', async () => {
   let bodies = 0
   class ProductConverter {

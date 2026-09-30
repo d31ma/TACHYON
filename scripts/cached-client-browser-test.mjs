@@ -1,0 +1,335 @@
+#!/usr/bin/env node
+
+import { CargoArtifacts } from './cargo-artifacts.mjs'
+import { chromium, firefox, webkit } from 'playwright'
+import { createServer } from 'node:http'
+import { spawnSync } from 'node:child_process'
+import { createReadStream, existsSync, mkdtempSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import process from 'node:process'
+
+class CachedClientGate {
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
+  static browsers = (process.env.TAC_CACHED_CLIENT_BROWSERS ?? 'chromium,firefox,webkit').split(',')
+  static launchers = { chromium, firefox, webkit }
+  static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
+  static languages = (process.env.TAC_CACHED_CLIENT_LANGUAGES ?? 'js,ts,go,kt,dart,swift,fs').split(',')
+  static settleTimeout = 10_000
+  static settleStep = 50
+  static settings = '{"name":"stamps","ttlMs":60000,"maxBytes":4096,"maxEntries":8}'
+
+  static files = {
+    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs"]},"visibility":{"check":false}}}\n',
+    'client/pages/tac.html': '<stamp-page />\n',
+    'client/components/stamp/page/tac.html': `<main>${CachedClientGate.languages.map((language) => `<p id="${language}">{${language}Stamp.stamp}</p>`).join('\n')}</main>\n`,
+    'client/clients/JsStampClient.js': `@HTTPClient
+@CacheSettings(${CachedClientGate.settings})
+export default class JsStampClient {
+  /** @returns {Promise<BehaviorJsonValue>} */
+  @Cached
+  @GetRequest("/api/stamp")
+  async read() {}
+}
+`,
+    'client/services/JsStampService.js': `@Service
+export default class JsStampService {
+  /** @type {JsStampClient} */
+  @Needs
+  jsStampClient;
+  stamp = '';
+  loads = 0;
+
+  async load() {
+    this.stamp = JSON.stringify(await this.jsStampClient.read());
+    this.loads += 1;
+  }
+}
+`,
+    'client/clients/TsStampClient.ts': `@HTTPClient
+@CacheSettings(${CachedClientGate.settings})
+export default class TsStampClient {
+  @Cached
+  @GetRequest("/api/stamp")
+  async read(): Promise<BehaviorJsonValue> {}
+}
+`,
+    'client/services/TsStampService.ts': `@Service
+export default class TsStampService {
+  @Needs
+  readonly tsStampClient!: TsStampClient;
+  stamp = '';
+  loads = 0;
+
+  async load(): Promise<void> {
+    this.stamp = JSON.stringify(await this.tsStampClient.read());
+    this.loads += 1;
+  }
+}
+`,
+    'client/clients/GoStampClient.go': `// @CacheSettings(${CachedClientGate.settings})
+// @HTTPClient
+type GoStampClient interface {
+	// @Cached
+	// @GetRequest("/api/stamp")
+	Read() (BehaviorValue, error)
+}
+`,
+    'client/setups/GoStampSetup.go': `import "math/rand"
+
+// @Setup
+type GoStampSetup struct{}
+
+func (GoStampSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {
+	config := NewBehaviorConfiguration()
+	config.Http["goStamp"] = GoStampSetup{}
+	return config, nil
+}
+
+func (GoStampSetup) Exchange(request *BehaviorHttpRequest, execution *BehaviorExecution) (BehaviorValue, error) {
+	return map[string]any{"stamp": rand.Intn(1_000_000_000) + 1}, nil
+}
+`,
+    'client/services/GoStampService.go': `import "fmt"
+
+// @Service
+type GoStampService struct {
+	stamps *GoStampClient
+	Stamp  string
+	Loads  int
+}
+
+// @OnStart
+func (service *GoStampService) Start() error {
+	client, err := NewGoStampClient()
+	service.stamps = client
+	return err
+}
+
+func (service *GoStampService) Load() error {
+	answer, err := service.stamps.Read()
+	service.Stamp = fmt.Sprint(answer)
+	service.Loads += 1
+	return err
+}
+`,
+    'client/clients/KtStampClient.kt': `@CacheSettings(${CachedClientGate.settings})
+@HTTPClient
+interface KtStampClient {
+    @Cached
+    @GetRequest("/api/stamp")
+    fun read(): Any?
+}
+`,
+    'client/setups/KtStampSetup.kt': `@Setup
+class KtStampSetup {
+    companion object {
+        fun configure(execution: Behaviors.Execution): Behaviors.Configuration =
+            Behaviors.Configuration(http = mapOf("ktStamp" to Behaviors.HttpAdapter { _, _ -> mapOf("stamp" to kotlin.random.Random.nextInt(1, 1_000_000_000)) }))
+    }
+}
+`,
+    'client/services/KtStampService.kt': `@Service
+class KtStampService {
+    private val stamps: KtStampClient = KtStampClient()
+    var stamp: String = ""
+    var loads: Int = 0
+
+    fun load() {
+        stamp = stamps.read().toString()
+        loads += 1
+    }
+}
+`,
+    'client/clients/DartStampClient.dart': `@CacheSettings(${CachedClientGate.settings})
+@HTTPClient
+abstract interface class DartStampClient {
+  @Cached
+  @GetRequest("/api/stamp")
+  Future<Object?> read();
+}
+`,
+    'client/setups/DartStampSetup.dart': `import 'dart:math';
+
+@Setup
+class DartStampSetup {
+  static BehaviorAdapters configure(BehaviorExecution execution) {
+    return BehaviorAdapters(
+      http: {
+        'dartStamp': BehaviorHttpAdapter(exchange: (request, execution) async => {
+              'stamp': Random().nextInt(1000000000) + 1,
+            }),
+      },
+    );
+  }
+}
+`,
+    'client/services/DartStampService.dart': `@Service
+class DartStampService {
+  final DartStampClient stamps = DartStampClient();
+  String stamp = '';
+  int loads = 0;
+
+  Future<void> load() async {
+    stamp = (await stamps.read()).toString();
+    loads += 1;
+  }
+}
+`,
+    'client/clients/SwiftStampClient.swift': `@CacheSettings(${CachedClientGate.settings})
+@HTTPClient
+protocol SwiftStampClient {
+    @Cached
+    @GetRequest("/api/stamp")
+    func read() async throws -> BehaviorJSON
+}
+`,
+    'client/setups/SwiftStampSetup.swift': `@Setup
+final class SwiftStampSetup {
+    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {
+        var adapters = BehaviorAdapters()
+        adapters.http["swiftStamp"] = BehaviorHTTPAdapter { request, execution in
+            return try BehaviorJSON.parse("{\\"stamp\\":\\(Int.random(in: 1...1_000_000_000))}")
+        }
+        return adapters
+    }
+}
+`,
+    'client/services/SwiftStampService.swift': `@Service
+final class SwiftStampService {
+    let stamps: SwiftStampClient = SwiftStampClient()
+    var stamp: String = ""
+    var loads: Int = 0
+
+    func load() async throws {
+        stamp = String(describing: try await stamps.read())
+        loads += 1
+    }
+}
+`,
+    'client/clients/FsStampClient.fs': `open System.Threading.Tasks
+
+[<CacheSettings(${CachedClientGate.settings})>]
+[<HTTPClient>]
+type FsStampClient =
+    [<Cached>]
+    [<GetRequest("/api/stamp")>]
+    abstract Read: unit -> Task<BehaviorJSON>
+`,
+    'client/setups/FsStampSetup.fs': `open System.Threading.Tasks
+
+[<Setup>]
+type FsStampSetup() =
+    static member configure(execution: BehaviorExecution) : BehaviorAdapters =
+        let adapters = BehaviorAdapters()
+        adapters.http["fsStamp"] <-
+            { new BehaviorHTTPAdapter with
+                member this.exchange(request: BehaviorJSON, execution: BehaviorExecution) : Task<BehaviorJSON> =
+                    Task.FromResult(BehaviorJSON.Parse(sprintf "{\\"stamp\\":%d}" (System.Random.Shared.Next(1, 1000000000)))) }
+        adapters
+`,
+    'client/services/FsStampService.fs': `open System.Threading.Tasks
+
+[<Service>]
+type FsStampService() =
+    let stamps = FsStampClient()
+    member val stamp : string = "" with get, set
+    member val loads : int = 0 with get, set
+
+    member this.Load() : Task =
+        task {
+            let! answer = stamps.Read()
+            this.stamp <- answer.ToString()
+            this.loads <- this.loads + 1
+        }
+`,
+  }
+
+  static write(project) {
+    for (const [relative, contents] of Object.entries(CachedClientGate.files)) {
+      const file = path.join(project, relative)
+      mkdirSync(path.dirname(file), { recursive: true })
+      writeFileSync(file, contents)
+    }
+  }
+
+  static build(project) {
+    const built = spawnSync(CachedClientGate.binary, ['build', project], {
+      encoding: 'utf8', timeout: 600_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
+    })
+    if (built.status !== 0) throw new Error(`cached client fixture build failed: ${built.error?.message || built.stderr || built.stdout}`)
+  }
+
+  static handler(project) {
+    const root = path.join(project, 'dist')
+    return (request, response) => {
+      const url = new URL(request.url, 'http://localhost')
+      if (url.pathname === '/api/stamp') {
+        response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+        response.end(JSON.stringify({ stamp: Math.floor(Math.random() * 1_000_000_000) + 1 }))
+        return
+      }
+      let file = path.join(root, decodeURIComponent(url.pathname))
+      if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html')
+      if (!existsSync(file)) {
+        response.writeHead(404).end()
+        return
+      }
+      response.writeHead(200, { 'content-type': CachedClientGate.mimeTypes[path.extname(file)] ?? 'application/octet-stream' })
+      createReadStream(file).pipe(response)
+    }
+  }
+
+  static expect(actual, wanted, label) {
+    if (actual !== wanted) throw new Error(`${label}: expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`)
+    console.log(`ok - ${label}`)
+  }
+
+  static read(page, language, member) {
+    return page.evaluate(([name, key]) => __tachyonTac.service(`${name}Stamp`)[key], [language, member])
+  }
+
+  static async loaded(page, language, count) {
+    await page.evaluate((name) => { void __tachyonTac.service(`${name}Stamp`).load() }, language)
+    const deadline = Date.now() + CachedClientGate.settleTimeout
+    while (await CachedClientGate.read(page, language, 'loads') !== count && Date.now() < deadline) {
+      await page.waitForTimeout(CachedClientGate.settleStep)
+    }
+    return CachedClientGate.read(page, language, 'stamp')
+  }
+
+  static async check(page, browser, language) {
+    const first = await CachedClientGate.loaded(page, language, 1)
+    CachedClientGate.expect(first.includes('stamp'), true, `${browser} ${language}: an HTTPClient read answers`)
+    const second = await CachedClientGate.loaded(page, language, 2)
+    CachedClientGate.expect(second, first, `${browser} ${language}: a Cached HTTPClient read answers from its cache`)
+  }
+
+  static async run(project, origin, name) {
+    const browser = await CachedClientGate.launchers[name].launch({ timeout: 30_000 })
+    try {
+      const page = await browser.newPage()
+      await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      for (const language of CachedClientGate.languages) await CachedClientGate.check(page, name, language)
+    } finally {
+      await browser.close()
+    }
+  }
+
+  static async main() {
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-cached-client-'))
+    const server = createServer(CachedClientGate.handler(project))
+    try {
+      CachedClientGate.write(project)
+      CachedClientGate.build(project)
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const origin = `http://127.0.0.1:${server.address().port}`
+      for (const name of CachedClientGate.browsers) await CachedClientGate.run(project, origin, name)
+    } finally {
+      server.close()
+      rmSync(project, { recursive: true, force: true })
+    }
+  }
+}
+
+await CachedClientGate.main()

@@ -580,3 +580,50 @@ fn the_fix_turns_an_fsharp_class_client_into_a_contract() {
     let checked = crate::annotation_layout::validate(path, &rewritten);
     assert!(checked.is_ok(), "{checked:?}\n{rewritten}");
 }
+
+struct CachedSamples;
+
+impl CachedSamples {
+    const TAC_LANGUAGES: [&'static str; 10] =
+        ["java", "kt", "cs", "go", "dart", "rs", "swift", "js", "ts", "rb"];
+    const SETTINGS: &'static str =
+        "CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":4096,\"maxEntries\":8})";
+
+    fn cached(source: &str) -> String {
+        let mut written = String::new();
+        for line in source.split_inclusive('\n') {
+            if Self::is_marker(line, "HTTPClient") {
+                written.push_str(&line.replacen("HTTPClient", Self::SETTINGS, 1));
+            }
+            if Self::is_marker(line, "GetRequest(\"/products\")") {
+                written.push_str(&line.replacen("GetRequest(\"/products\")", "Cached", 1));
+            }
+            written.push_str(line);
+        }
+        written
+    }
+
+    fn is_marker(line: &str, marker: &str) -> bool {
+        let trimmed = line.trim();
+        let written = trimmed.trim_start_matches("// ");
+        let opened = ["@", "[", "#["].iter().any(|open| written.starts_with(open));
+        [opened, written.contains(marker)] == [true, true]
+    }
+}
+
+#[test]
+fn a_tac_client_accepts_cache_settings_and_cached_reads_in_every_language() {
+    for (extension, source) in Samples::CONTRACTS {
+        if !CachedSamples::TAC_LANGUAGES.contains(&extension) {
+            continue;
+        }
+        let cached = CachedSamples::cached(source);
+        assert!(cached.contains("Cached"), "{extension}:\n{cached}");
+        let path = Samples::path(extension).replace("server/", "client/");
+        let checked = DeclaredContract::check(Path::new(&path), &cached);
+        assert!(checked.is_ok(), "{extension}: {checked:?}\n{cached}");
+        let lowered = DeclaredContract::concrete(Path::new(&path), &cached, "tac");
+        let keeps = lowered.as_deref().is_none_or(|text| text.contains("Cached"));
+        assert!(keeps, "{extension} dropped Cached:\n{lowered:?}");
+    }
+}

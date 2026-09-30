@@ -537,9 +537,10 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       const descriptor = requestDescriptor(result)
       if (['GET', 'HEAD'].includes(metadata.method) && own(descriptor, 'body')) invalid('Behavior HTTP reads cannot contain a request body.')
       const adapter = this.#adapter('http', metadata.client, 'exchange')
+      const shared = method.cacheable && metadata.method === 'GET' ? { publicRead: true } : {}
       const command = Object.freeze({ ...descriptor, method: metadata.method, path: exchangePath(metadata, args),
         redirect: 'error', credentials: 'omit', signal: operation.execution.signal,
-        deadline: operation.execution.deadline, maxResponseBytes: MAX_BYTES })
+        deadline: operation.execution.deadline, maxResponseBytes: MAX_BYTES, ...shared })
       return json(await operation.call(() => adapter.exchange(command, operation.execution), true))
     }
     restClient(name) {

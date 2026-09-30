@@ -14,6 +14,7 @@ class __tachyon_ClientConfiguration {
 }
 async function __tachyon_client_exchange__(request, policy, transport) {
   const url = new URL(request.path, location.href)
+  const publicRead = request.publicRead === true && request.method === 'GET'
   if (!['http:', 'https:'].includes(url.protocol) || url.origin !== location.origin || url.username || url.password) {
     throw new TypeError('Tac Client requires a same-origin HTTP endpoint.')
   }
@@ -24,9 +25,9 @@ async function __tachyon_client_exchange__(request, policy, transport) {
   if (body !== undefined) headers.set('content-type', 'application/json')
   const init = {
     method: request.method, headers, body, signal: request.signal,
-    redirect: 'error', credentials: 'omit', cache: policy === 'no-store' ? 'no-store' : 'default',
+    redirect: 'error', credentials: 'omit', cache: policy === 'no-store' && !publicRead ? 'no-store' : 'default',
   }
-  const response = transport ? await transport(url, init, {cache:policy}) : await fetch(url, {...init, cache:'no-store'})
+  const response = transport ? await transport(url, init, {cache:policy, publicRead}) : await fetch(url, {...init, cache: publicRead ? 'default' : 'no-store'})
   if (!response.ok) { await response.body?.cancel(); throw new Error('Tac Client HTTP request failed.') }
   if (request.method === 'HEAD' || response.status === 204) { await response.body?.cancel(); return null }
   const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()

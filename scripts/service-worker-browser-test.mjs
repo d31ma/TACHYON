@@ -41,10 +41,23 @@ class RuntimeClient {
   @GetRequest("/api/runtime")
   async read() {}
 }`);
+  write('client/clients/ListedClient.js', `@HTTPClient
+@CacheSettings({"name":"listed","ttlMs":60000,"maxBytes":65536,"maxEntries":64})
+class ListedClient {
+  @Cached
+  @GetRequest("/api/listed")
+  async list() {}
+
+  @ClearCache({"method":"list"})
+  @PostRequest("/api/listed")
+  async save(@RequestBody product) {}
+}`);
   write('client/services/WorkerPageService.js', `@Service
 export default class WorkerPageService {
   @Needs
   runtimeClient;
+  @Needs
+  listedClient;
   title = 'Cached page';
 }`);
   write('client/manifest.json', JSON.stringify({ tac: { cache: [{ path: '/api/cache-first', policy: 'cache-first' }, { path: '/api/never', policy: 'no-store' }, { path: '/api/*', policy: 'network-first' }] } }));
@@ -86,7 +99,8 @@ function createWorkerServer(key, certificate) {
     }
     if (request.url.startsWith('/api/') || request.url.startsWith('/account.html')) {
       ServerState.apiRequests += 1;
-      response.setHeader('content-type', request.url === '/api/runtime' ? 'application/json' : 'text/plain');
+      const json = request.url === '/api/runtime' || request.url === '/api/listed';
+      response.setHeader('content-type', json ? 'application/json' : 'text/plain');
       response.setHeader('cache-control', ServerState.apiPolicy);
       if (ServerState.apiVary) response.setHeader('vary', ServerState.apiVary);
       response.end(request.url.startsWith('/api/oversize') ? 'x'.repeat(300000) : String(ServerState.apiRequests));
@@ -220,11 +234,25 @@ async function checkApiCaching(page, context, origin) {
   expect(await isCached('/.tachyon/components.css'), true, 'valid stylesheet recached');
   await page.evaluate(() => __root('workerPage').runtimeClient.read());
   expect(await isCached('/api/runtime'), false, 'worker cannot override the default Client no-store policy');
+  await checkCachedClient(page, isCached);
   await read('/api/cache-first', publicRead);
   await context.setOffline(true);
   expect(await read('/api/cache-first', publicRead) !== 'network-failed', true, 'anonymous cached API works offline');
   expect(await read('/api/cache-first', { credentials: 'omit', headers: { authorization: 'Bearer test-only' } }), 'network-failed', 'authorized read cannot fall back to shared response');
   await context.setOffline(false);
+}
+
+async function checkCachedClient(page, isCached) {
+  const listed = () => page.evaluate(() => __root('workerPage').listedClient.list());
+  const before = ServerState.apiRequests;
+  await listed();
+  expect(await isCached('/api/listed'), true, 'worker keeps a Cached HTTPClient read');
+  await listed();
+  expect(ServerState.apiRequests, before + 1, 'Cached HTTPClient read answers from its cache');
+  await page.evaluate(() => __root('workerPage').listedClient.save({ name: 'anvil' }));
+  expect(await isCached('/api/listed'), false, 'a successful write evicts the worker entry');
+  await listed();
+  expect(ServerState.apiRequests, before + 3, 'ClearCache makes the next Cached read ask again');
 }
 
 async function checkOfflineDocument(page, context) {
