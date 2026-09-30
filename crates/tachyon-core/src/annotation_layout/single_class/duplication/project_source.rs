@@ -4,6 +4,7 @@ use std::path::Path;
 pub(in super::super) struct ProjectSource {
     pub(in super::super) path: String,
     pub(in super::super) text: String,
+    pub(in super::super) authored_extension: String,
 }
 
 impl ProjectSource {
@@ -11,11 +12,13 @@ impl ProjectSource {
     const SERVER: &'static str = "server";
 
     pub(in super::super) fn new(path: &Path, text: String) -> Self {
+        let authored_extension = Self::extension_of(path).to_owned();
         let view = crate::fsharp_source::FsharpView::of(path, &text);
         let path = view.as_ref().map_or(path, |view| view.path());
         Self {
             path: path.to_string_lossy().replace('\\', "/"),
             text: view.map_or(text, |view| view.text().to_owned()),
+            authored_extension,
         }
     }
 
@@ -35,8 +38,11 @@ impl ProjectSource {
     }
 
     pub(in super::super) fn extension(&self) -> &str {
-        Path::new(&self.path)
-            .extension()
+        Self::extension_of(Path::new(&self.path))
+    }
+
+    fn extension_of(path: &Path) -> &str {
+        path.extension()
             .and_then(|value| value.to_str())
             .unwrap_or("")
     }

@@ -124,8 +124,12 @@ impl ConstantRule {
     }
 
     fn help(class: &ClassFile, at: usize, number: bool) -> String {
-        let example =
-            ConstantSpelling::example(class.extension, class.name, &Self::shown(class, at), number);
+        let example = ConstantSpelling::example(
+            class.authored_extension,
+            class.name,
+            &Self::shown(class, at),
+            number,
+        );
         format!(
             "Give the value a name that says what it means: declare a class constant, such as `{example}`, and use the name in each place."
         )

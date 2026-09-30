@@ -434,6 +434,22 @@ fn repeated_values_and_numbers_in_conditions_need_a_name_in_every_language_famil
 }
 
 #[test]
+fn fsharp_help_shows_an_fsharp_constant_that_the_check_accepts() {
+    let path = "client/services/CartService.fs";
+    let repeated = "[<Service>]\ntype CartService() =\n    member this.Add(bus: Bus) : unit = bus.Publish(\"cart:changed\")\n    member this.Remove(bus: Bus) : unit = bus.Publish(\"cart:changed\")\n";
+    let problems = found(1330, &[(path, repeated)]);
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    let help = problems[0].help.as_deref().unwrap_or("");
+    assert!(
+        help.contains("`static let cartChanged = \"cart:changed\"`"),
+        "{help}"
+    );
+    let named = "[<Service>]\ntype CartService() =\n    static let cartChanged = \"cart:changed\"\n\n    member this.Add(bus: Bus) : unit = bus.Publish(cartChanged)\n    member this.Remove(bus: Bus) : unit = bus.Publish(cartChanged)\n";
+    let problems = found(1330, &[(path, named)]);
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
 fn named_values_plain_numbers_annotations_and_models_are_not_magic() {
     let named = "@Service\nexport default class CartService {\n  static CHANGED = 'cart:changed';\n  static LIMITS = [20, 40];\n  @OnEvent('cart:changed')\n  add(bus, items) { bus.publish(CartService.CHANGED); return items.length > 0 ? items[1] : -1; }\n  remove(bus, items) { bus.publish(CartService.CHANGED); return items.length - 1; }\n}\n";
     let problems = found(1330, &[("client/services/CartService.js", named)]);

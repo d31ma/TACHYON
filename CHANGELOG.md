@@ -2161,6 +2161,11 @@ machine contracts have their own, independent major versions.
   `CS1061` ("no definition for 'get'"); it now leaves them out, as it already
   did for a `member val` on one line (ADR 0073).
 
+- The `TY1330` help for an F# file now shows an F# constant,
+  `static let cartChanged = "cart:changed"`, instead of a C# `private const`.
+  The check reads F# through its C# view, and the help used the view's
+  language; it now uses the language of the file you wrote.
+
 - Java web services now start under Tachyon's content security policy
   (`script-src 'self' 'wasm-unsafe-eval'`), which `ty start`, `ty preview`
   and the native hosts send. TeaVM's `runtime.js` made functions from text

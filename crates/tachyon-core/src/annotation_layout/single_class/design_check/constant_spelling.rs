@@ -8,11 +8,12 @@ impl ConstantSpelling {
     const LONGEST_NAME: usize = 4;
     const NUMBER_NAME: &'static str = "limit";
     const TEXT_NAME: &'static str = "value";
-    const TEMPLATES: [(&'static str, &'static str); 12] = [
+    const TEMPLATES: [(&'static str, &'static str); 13] = [
         ("js", "static {UPPER} = {literal};"),
         ("ts", "static readonly {UPPER} = {literal};"),
         ("java", "private static final {type} {UPPER} = {literal};"),
         ("cs", "private const {type} {Pascal} = {literal};"),
+        ("fs", "static let {camel} = {literal}"),
         ("kt", "companion object { const val {UPPER} = {literal} }"),
         ("swift", "static let {camel} = {literal}"),
         ("dart", "static const {camel} = {literal};"),
