@@ -18,20 +18,20 @@ impl ServiceReachCheck {
     pub(crate) fn diagnostics<'a>(
         files: impl Iterator<Item = (&'a Path, &'a [u8])>,
     ) -> Vec<Diagnostic> {
-        SafetyUtils::each_file(files, Self::file_diagnostics)
+        files
+            .filter(|(path, _)| Self::is_script_service(path))
+            .flat_map(|(path, bytes)| Self::service_diagnostics(path, bytes))
+            .collect()
     }
 
-    fn file_diagnostics(path: &Path, bytes: &[u8]) -> Vec<Diagnostic> {
+    fn is_script_service(path: &Path) -> bool {
+        let in_services = SafetyUtils::portable(path).starts_with(Self::SERVICES);
+        [in_services, Self::SCRIPTS.contains(&Self::extension(path))] == [true, true]
+    }
+
+    fn service_diagnostics(path: &Path, bytes: &[u8]) -> Vec<Diagnostic> {
         let portable = SafetyUtils::portable(path);
-        let extension = Self::extension(path);
-        let service = [
-            portable.starts_with(Self::SERVICES),
-            Self::SCRIPTS.contains(&extension),
-        ] == [true, true];
-        if !service {
-            return Vec::new();
-        }
-        let code = CodeText::of(extension, CodeText::source(path, bytes));
+        let code = CodeText::of(Self::extension(path), CodeText::source(path, bytes));
         let global = Self::global_use(&code).map(|at| Self::global_refusal(&portable, &code, at));
         let fetch = Self::fetch_call(&code).map(|at| Self::fetch_refusal(&portable, &code, at));
         global.into_iter().chain(fetch).collect()
@@ -56,14 +56,23 @@ impl ServiceReachCheck {
     }
 
     fn is_fetch_call(code: &str, at: usize) -> bool {
-        let before = &code[..at];
-        let owned = Self::FETCH_OWNERS.iter().any(|owner| {
-            before.ends_with(owner) && Self::starts_word(before, before.len() - owner.len())
-        });
         let bare = Self::is_word(code, at, Self::FETCH);
-        let opens = code[at + Self::FETCH.len()..].trim_start().starts_with('(');
-        let ends = Self::ends_word(&code[at + Self::FETCH.len()..]);
-        [[bare, owned].contains(&true), opens, ends] == [true, true, true]
+        let owned = Self::is_owned(&code[..at]);
+        let rest = &code[at + Self::FETCH.len()..];
+        let opens = rest.trim_start().starts_with('(');
+        [[bare, owned].contains(&true), opens, Self::ends_word(rest)] == [true, true, true]
+    }
+
+    fn is_owned(before: &str) -> bool {
+        Self::FETCH_OWNERS
+            .iter()
+            .any(|owner| Self::owns(before, owner))
+    }
+
+    fn owns(before: &str, owner: &str) -> bool {
+        before
+            .strip_suffix(owner)
+            .is_some_and(|start| Self::starts_word(start, start.len()))
     }
 
     fn is_word(code: &str, at: usize, word: &str) -> bool {

@@ -348,7 +348,7 @@ describe('language coverage', () => {
     expect(JSON.stringify(docs)).not.toMatch(/\.modules?\.json/)
   })
 
-  test('application HTTP recipes prefer Client while worker-cache reads stay explicitly low level', async () => {
+  test('application HTTP recipes use an HTTPClient, and cached reads use Cached on the client', async () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     for (const section of [docs.topics.cookbook.sections[1], docs.topics['application-configuration'].sections.find(section => section.heading.startsWith('Public Tac output'))]) {
       expect(section.axis).toBe('language')
@@ -359,16 +359,18 @@ describe('language coverage', () => {
     const features = JSON.parse(await read('client/shared/data/features.json')).features
     for (const feature of features) {
       const code = (feature.files || []).map(file => file.code).join('\n')
-      if (feature.id !== 'fetch-cache') expect(code).not.toMatch(/\bfetch\s*\(/)
+      expect(code).not.toMatch(/\bfetch\s*\(/)
     }
     const worker = features.find(feature => feature.id === 'fetch-cache')
-    expect(worker.summary).toContain('low-level fetch')
-    expect(worker.summary).toContain('network-only')
-    expect(worker.files.some(file => file.name.endsWith('/clients/ProductsClient.js'))).toBe(true)
+    expect(worker.summary).toContain('TY1361')
+    expect(worker.summary).toContain('public read')
     for (const extension of ['js', 'ts']) {
+      const client = worker.files.find(file => file.name === `client/clients/ProductsClient.${extension}`)
+      expect(client.code).toContain('@Cached')
+      expect(client.code).toContain('@ClearCache({"method":"list"})')
       const service = worker.files.find(file => file.name === `client/services/CatalogService.${extension}`)
-      expect(service.code).toContain("credentials: 'omit'")
-      expect(service.code).toContain('this.productsClient.save(product)')
+      expect(service.code).toContain('this.productsClient.list()')
+      expect(service.code).toContain('this.productsClient.save(')
     }
   })
 

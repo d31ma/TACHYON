@@ -9,8 +9,10 @@ pub(crate) struct RustCompanion;
 
 impl RustCompanion {
     const PRELUDE: &str = concat!(
-        include_str!("prelude.rs"),
-        include_str!("web_apis/tac_web_host.rs"),
+        concat!(
+            include_str!("prelude.rs"),
+            include_str!("web_apis/tac_web_host.rs")
+        ),
         include_str!("web_apis/clock.rs"),
         include_str!("web_apis/secure_random.rs"),
         include_str!("web_apis/connectivity.rs"),
