@@ -1,7 +1,11 @@
-using Models;
+using System.Collections.Generic;
 
 [Service]
 public class InventoryService
 {
-    public List<Product> Products = new List<Product> { new Product("Anvil"), new Product("Rope") };
+    public object Products = new List<Dictionary<string, string>>
+    {
+        new Dictionary<string, string> { ["name"] = "Anvil" },
+        new Dictionary<string, string> { ["name"] = "Rope" },
+    };
 }

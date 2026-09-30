@@ -1,8 +1,8 @@
-using Models;
+using System.Collections.Generic;
 
 [Service]
 public class StockService
 {
-    public List<Product> Products = new List<Product>();
+    public object Products = new List<Dictionary<string, string>>();
     public bool Restocking = true;
 }

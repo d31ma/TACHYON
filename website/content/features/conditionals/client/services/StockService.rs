@@ -1,13 +1,11 @@
-use crate::models::Product;
-
 #[Service]
 pub struct StockService {
-    pub products: Vec<Product>,
+    pub products: TacValue,
     pub restocking: bool,
 }
 
 impl StockService {
     pub fn new() -> Self {
-        Self { products: Vec::new(), restocking: true }
+        Self { products: TacValue::List(Vec::new()), restocking: true }
     }
 }

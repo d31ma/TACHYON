@@ -1,9 +1,9 @@
-using Models;
+using System.Collections.Generic;
 
 [Service]
 public class LinkService
 {
-    public Topic Topic = new Topic("routing", "Routing");
+    public object Topic = new Dictionary<string, string> { ["slug"] = "routing", ["title"] = "Routing" };
     public string State = "ready";
     public string Message = "Everything is up to date.";
 }

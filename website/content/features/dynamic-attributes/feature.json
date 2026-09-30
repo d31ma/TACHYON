@@ -29,16 +29,8 @@
       "code": { "file": "client/services/LinkService.dart" }
     },
     {
-      "name": "client/models/Topic.dart",
-      "code": { "file": "client/models/Topic.dart" }
-    },
-    {
       "name": "client/services/LinkService.rs",
       "code": { "file": "client/services/LinkService.rs" }
-    },
-    {
-      "name": "client/models/Topic.rs",
-      "code": { "file": "client/models/Topic.rs" }
     },
     {
       "name": "client/services/LinkService.go",
@@ -85,16 +77,8 @@
       "code": { "file": "client/services/LinkService.cs" }
     },
     {
-      "name": "client/models/Topic.cs",
-      "code": { "file": "client/models/Topic.cs" }
-    },
-    {
       "name": "client/services/LinkService.fs",
       "code": { "file": "client/services/LinkService.fs" }
-    },
-    {
-      "name": "client/models/Topic.fs",
-      "code": { "file": "client/models/Topic.fs" }
     }
   ],
   "verify": "tac"

@@ -1,4 +1,4 @@
-open Models
+open System.Collections.Generic
 
 [<Service>]
 type CatalogService() =
@@ -6,4 +6,4 @@ type CatalogService() =
 
     member val Count : int = 6 with get, set
 
-    member val Product : Product = { Name = "Anvil"; Price = "£42.00" } with get, set
+    member val Product : obj = Dictionary<string, string>(dict [ "name", "Anvil"; "price", "£42.00" ]) with get, set

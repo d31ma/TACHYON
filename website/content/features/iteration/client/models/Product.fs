@@ -1,1 +1,0 @@
-type Product = { Name: string }

@@ -1,7 +1,5 @@
-import 'models/Product.dart';
-
 @Service
 class StockService {
-  List<Product> products = [];
+  List<Map<String, String>> products = [];
   bool restocking = true;
 }

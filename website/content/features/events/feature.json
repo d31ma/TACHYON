@@ -29,16 +29,8 @@
       "code": { "file": "client/services/BasketService.dart" }
     },
     {
-      "name": "client/models/Tab.dart",
-      "code": { "file": "client/models/Tab.dart" }
-    },
-    {
       "name": "client/services/BasketService.rs",
       "code": { "file": "client/services/BasketService.rs" }
-    },
-    {
-      "name": "client/models/Tab.rs",
-      "code": { "file": "client/models/Tab.rs" }
     },
     {
       "name": "client/services/BasketService.go",
@@ -85,16 +77,8 @@
       "code": { "file": "client/services/BasketService.cs" }
     },
     {
-      "name": "client/models/Tab.cs",
-      "code": { "file": "client/models/Tab.cs" }
-    },
-    {
       "name": "client/services/BasketService.fs",
       "code": { "file": "client/services/BasketService.fs" }
-    },
-    {
-      "name": "client/models/Tab.fs",
-      "code": { "file": "client/models/Tab.fs" }
     }
   ],
   "verify": "tac"

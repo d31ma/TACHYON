@@ -1,5 +1,7 @@
-open Models
+open System.Collections.Generic
 
 [<Service>]
 type InventoryService() =
-    member val Products : Product list = [ { Name = "Anvil" }; { Name = "Rope" } ] with get, set
+    let product (name: string) : Dictionary<string, string> = Dictionary<string, string>(dict [ "name", name ])
+
+    member val Products : obj = [ product "Anvil"; product "Rope" ] with get, set

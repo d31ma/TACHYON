@@ -1,6 +1,7 @@
-import 'models/Product.dart';
-
 @Service
 class InventoryService {
-  List<Product> products = [const Product('Anvil'), const Product('Rope')];
+  List<Map<String, String>> products = [
+    {'name': 'Anvil'},
+    {'name': 'Rope'},
+  ];
 }
