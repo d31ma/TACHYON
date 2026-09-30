@@ -220,7 +220,7 @@
       {
         "id": "fsharp",
         "name": "F#",
-        "note": "F# keeps the OrdersController and OrderService in separate files, one type in each file. The attributes are F# attributes: RequestRoute on the controller type and GetRoute on its member declare GET /orders, and Public says that anyone may call its routes. A type takes the roles it needs as the parameters of its primary constructor, as Spring does with one constructor. F# runs on .NET: Tachyon compiles your F# code and adds the same protocol runtime that C# uses.",
+        "note": "F# keeps the OrdersController and OrderService in separate files, one type in each file. The attributes are F# attributes: RequestRoute on the controller type and GetRoute on its member declare GET /orders, and Public says that anyone may call its routes. A type takes the roles it needs as the parameters of its primary constructor, as Spring does with one constructor. A settable property marked Needs, `[<Needs>] member val OrderService : OrderService = Unchecked.defaultof<OrderService> with get, set`, receives a role too, like a Spring field. F# runs on .NET: Tachyon compiles your F# code and adds the same protocol runtime that C# uses.",
         "files": [
           {
             "name": "server/models/OrderList.fs",
