@@ -61,6 +61,38 @@ async fn controller_preserves_snapshot_imports_and_annotation_routing() {
     assert_snapshot_response(&project).await;
 }
 
+#[tokio::test]
+async fn service_shared_imports_use_the_captured_source_snapshot() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "server/shared/catalog.js",
+        "export class Catalog { static label = 'captured'; }",
+    );
+    write(
+        root.path(),
+        "server/services/CatalogService.js",
+        "import { Catalog } from '../shared/catalog.js';\n@Service\nclass CatalogService { label() { return Catalog.label; } }\n",
+    );
+    write(
+        root.path(),
+        "server/controllers/ItemsController.js",
+        "@RequestRoute(\"/items/{id}\")\n@Public\n@Needs(CatalogService)\nclass ItemsController {\n constructor(catalog) { this.catalog = catalog; }\n @GetRoute\n get(@FromPath id) { return {id, label: this.catalog.label()}; }\n}\n",
+    );
+    let project = ProjectDiscovery::discover(root.path()).expect("shared service discovery");
+    write(
+        root.path(),
+        "server/shared/catalog.js",
+        "throw new Error('reopened shared helper');",
+    );
+    write(
+        root.path(),
+        "server/services/CatalogService.js",
+        "throw new Error('reopened service');",
+    );
+    assert_snapshot_response(&project).await;
+}
+
 async fn assert_snapshot_response(project: &Project) {
     let server = DevServer::bind_project(
         project,
@@ -208,18 +240,18 @@ fn write_snapshot_import_project(root: &Path) {
     write(
         root,
         "server/shared/catalog.js",
-        "export const label = 'captured';",
+        "export class Catalog { static label = 'captured'; }",
     );
     write(
         root,
         "server/controllers/ItemsController.js",
         r#"
-import { label } from '../shared/catalog.js';
+import { Catalog } from '../shared/catalog.js';
 @RequestRoute("/items/{id}")
 @Public
 export class ItemsController {
   @GetRoute()
-  get(@FromPath id) { return {id, label}; }
+  get(@FromPath id) { return {id, label: Catalog.label}; }
   _helper() { throw new Error('helper is not a route'); }
 }
 "#,

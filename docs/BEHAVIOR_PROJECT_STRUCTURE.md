@@ -180,6 +180,16 @@ Every Yon entry composes the shared roles of its language and its own
 controllers. A shared service is one class. Each invocation still owns its
 graph of instances.
 
+Plain helper classes live in `server/shared/`, without annotations, required
+role suffixes or file-level variables. JavaScript and TypeScript import them
+normally from controllers or providers; provider imports are rebased into the
+captured controller scope. Go compiles them as files of package main. Every
+other Yon language composes same-language shared classes before providers and
+the controller. F# declarations follow their type dependencies, including
+references inside methods. Shared discovery uses the same bounded traversal,
+file-size limit, duplicate-type check and refusal of symlinks as role discovery.
+Shared classes never become injectable providers or register routes.
+
 A role file beside a route fails with TY1310, "@Service type 'X' sits outside
 its realm's shared role folder". The message names its shared destination.
 `ty migrate` reports it as `role.route` Changed, with the same destination.

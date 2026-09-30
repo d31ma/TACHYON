@@ -67,6 +67,23 @@ pub(super) fn validate_error_source(path: &Path, source: &str) -> Result<(), Fai
     Ok(())
 }
 
+pub(super) fn validate_shared_source(path: &Path, source: &str) -> Result<(), Failure> {
+    let input = Input::new(path, source);
+    let tokens = Tokens::read(&input)?;
+    tokens.check_complete(&input)?;
+    if tokens.has_framework_marker() {
+        return Err(input.failure(
+            0,
+            "Shared code cannot carry a Tachyon annotation",
+            "Put an annotated class in its server role folder. Keep one plain class and its imports in server/shared/.",
+        ));
+    }
+    let mut parser = Parser::new(&input, &tokens);
+    parser.read()?;
+    parser.finish(None)?;
+    Ok(())
+}
+
 pub(super) fn has_test_annotation(path: &Path, source: &str) -> Result<bool, Failure> {
     let input = Input::new(path, source);
     Ok(Tokens::read(&input)?.has_test_marker())

@@ -5813,7 +5813,7 @@
         {
           "heading": "Application modules",
           "body": "Helpers without annotations stay ordinary code. Types with role annotations follow strict rules instead: plural role folders, and file names that match the type. Tachyon finds them automatically in the shared role folders of the realm. Every Yon language supports annotation modules in the same language, and Tachyon finds them automatically. Tachyon adds no folder scan at run time, no dependency injection across languages and no automatic package resolution. Automatic package resolution means finding packages for you. Tachyon rejects relative imports inside included modules (it fails closed: when it is not sure, it refuses). Annotations and framework types need no import. Supported non-relative imports of native or standard-library modules are also still allowed.",
-          "code": "server/controllers/MoneyController.ts       HTTP entry\nserver/services/MoneyService.ts\nserver/models/Money.ts"
+          "code": "server/controllers/MoneyController.ts       HTTP entry\nserver/services/MoneyService.ts             managed service\nserver/shared/MoneyFormat.ts                ordinary imported helper class\nserver/models/Money.ts                      data type\n\nJavaScript and TypeScript import helpers normally, including from a service. Go shared files join package main. All other Yon languages compose server/shared/ classes before the managed roles and controller; F# helpers are declared before code that calls them. Shared files hold one class and its imports, no annotations or file-level variables.\n"
         },
         {
           "heading": "Process lifecycle",

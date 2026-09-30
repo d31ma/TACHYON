@@ -102,6 +102,9 @@ pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
 fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
     reject_renamed_annotations(path, source)?;
     UtilityLayout::check(path, source)?;
+    if path.starts_with("server/shared") {
+        single_class::validate_shared_source(path, source)?;
+    }
     typed_members::TypedMembers::check(path, source)?;
     check_topics(path, source)?;
     let source = &crate::topics::Topics::blanked(source);

@@ -1,10 +1,3 @@
-Yon validates only its public boundary:
+Plain server/shared/ code holds one class and its imports, without a Tachyon annotation or file-level variables. A role belongs in its server role folder. A shared class may have any name.
 
-  server/routes/products/yon.* must define Handler
-  Handler HTTP methods use GET, POST, PUT, PATCH, DELETE, HEAD, or OPTIONS
-  a generator method streams; an ordinary method returns once
-  HTML is passed through only with an explicit text/html content type
-
-Everything behind Handler uses the language itself. Choose functions,
-classes, modules, repositories, ports, or another pattern when the
-application benefits from it; Yon neither requires nor interprets them.
+JavaScript and TypeScript import shared classes with relative paths. Other Yon languages compose same-language shared classes into the controller program; Go files use package main.

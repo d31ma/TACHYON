@@ -609,10 +609,9 @@ fn write_project_file(root: &tempfile::TempDir, relative: &str, contents: &str) 
 struct GoSharedCode;
 
 impl GoSharedCode {
-    const ORDERS: &str = "type OrderService struct{}\n\nvar prefix = \"placed \"\n\nfunc (OrderService) Place(item string) string {\n\treturn prefix + item\n}\n";
-    const TAX: &str =
-        "package main\n\nfunc WithTax(price int) int {\n\treturn price + price/10\n}\n";
-    const ROUTE: &str = "type Handler struct{}\n\nfunc (Handler) GET() any {\n\treturn map[string]any{\"order\": OrderService{}.Place(\"anvil\"), \"price\": WithTax(100)}\n}\n";
+    const ORDERS: &str = "type OrderService struct{}\n\nfunc (OrderService) Place(item string) string {\n\treturn \"placed \" + item\n}\n";
+    const TAX: &str = "package main\ntype Tax struct{}\nfunc (Tax) WithTax(price int) int {\n\treturn price + price/10\n}\n";
+    const ROUTE: &str = "type Handler struct{}\n\nfunc (Handler) GET() any {\n\treturn map[string]any{\"order\": OrderService{}.Place(\"anvil\"), \"price\": Tax{}.WithTax(100)}\n}\n";
 }
 
 #[tokio::test]
@@ -659,7 +658,7 @@ fn a_go_shared_file_error_names_the_shared_file() {
     write_project_file(
         &root,
         "server/shared/pricing/tax.go",
-        "package main\n\nfunc WithTax(price int) int {\n\treturn missing(price)\n}\n",
+        "package main\ntype Tax struct{}\nfunc (Tax) WithTax(price int) int {\n\treturn missing(price)\n}\n",
     );
     write_project_file(&root, "server/shared/orders.go", GoSharedCode::ORDERS);
     let failure = HandlerSource::discover(root.path(), relative).expect_err("compile error");
@@ -672,7 +671,7 @@ fn a_go_shared_file_error_names_the_shared_file() {
     write_project_file(
         &root,
         "server/shared/pricing/tax.go",
-        "package pricing\n\nfunc WithTax(price int) int {\n\treturn price\n}\n",
+        "package pricing\ntype Tax struct{}\nfunc (Tax) WithTax(price int) int {\n\treturn price\n}\n",
     );
     let failure = HandlerSource::discover(root.path(), relative).expect_err("other package");
     let rendered = failure.to_string();

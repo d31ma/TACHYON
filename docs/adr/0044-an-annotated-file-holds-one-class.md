@@ -144,8 +144,9 @@ annotation.
   attribute. In Python, `@` starts a decorator only at the start of a line,
   so the matrix operator in `a @ b` is not one. In Kotlin, `this@Label`,
   `super@Label`, `return@label`, `break@label` and `continue@label` are
-  labels. So a plain helper that only indexes arrays or multiplies matrices
-  is not an annotated file, and discovery does not compose it.
+  labels. A plain helper that only indexes arrays or multiplies matrices
+  is not an annotated provider. In `server/shared/`, it follows the plain
+  shared-class composition rules below.
 - A behavior-only class carries behavior annotations but no role annotation,
   for example a `@Validated` input, `@ConfigurationProperties` settings, a
   class with `@Value` fields, or a `@CacheConfig` class. It follows the
@@ -196,3 +197,15 @@ annotation.
   answered a CORS preflight or a form post with 405.
 - Programs that Yon runs through `relay()` or a command gateway are not
   Tachyon source files, so the rule does not apply to them.
+
+### Plain shared classes (added 2026-09-30)
+
+`server/shared/` files also hold one plain class and its imports, without
+Tachyon annotations or file-level variables. The class and file need no role
+suffix or matching name. JavaScript and TypeScript use ordinary imports;
+provider imports into this folder are rebased to the captured entry. Go files
+share package main. Other Yon languages compose same-language shared classes
+before providers and the controller, with F# declarations ordered by their
+type references. Discovery is bounded and refuses symlinks, duplicate class
+names and definition-time dependency cycles. Shared classes register no
+providers or routes.

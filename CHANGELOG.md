@@ -10,12 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Yon controllers and services can call plain classes in `server/shared/` in
+  every Yon language. Shared source uses the captured project snapshot, and
+  the application-modules verifier builds and calls each language example.
+
 - After a Cached HTTPClient read is cleared or updated, its next uncached
   JavaScript or TypeScript GET revalidates the browser HTTP cache. A public
   response with a long `max-age` no longer hides a successful ClearCache.
   Cache-first service-worker rules also revalidate that read (ADR 0087).
 
 ### Breaking
+
+- Plain `server/shared/` files hold one class and its imports. Move file-level
+  variables into class members and helper functions into methods; Tachyon
+  refuses annotations and extra declarations in shared files.
 
 - A JavaScript or TypeScript Tac service that reads `globalThis` fails with
   `TY1360`, and one that calls `fetch` itself fails with `TY1361` (ADR 0087).

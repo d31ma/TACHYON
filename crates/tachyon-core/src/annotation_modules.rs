@@ -171,16 +171,18 @@ fn read_modules(
     for path in paths {
         let text = read_module_text(root, path, Module::MAX_SOURCE.saturating_sub(total))?;
         total += text.len();
+        let shared_source = path.starts_with("server/shared");
         let error_source = crate::annotation_layout::is_error_source(path);
         let in_controllers = path.parent() == Some(Path::new("server/controllers"));
         if in_controllers && !wanted_controller_file(entry, path, &text)? {
             continue;
         }
-        if error_source {
+        if error_source || shared_source {
             crate::annotation_layout::validate(path, &text)?;
         }
         test_configuration::reject_role_file(path, &text)?;
-        if !error_source
+        if !shared_source
+            && !error_source
             && !crate::annotation_layout::UtilityLayout::is_utility(path)
             && !crate::annotation_layout::has_primary_role(path, &text)?
             && !crate::annotation_layout::has_framework_annotation(path, &text)?
@@ -198,6 +200,7 @@ fn read_modules(
         if environment == "tac" {
             crate::events::BrowserStreams::refuse_outside_script(path, &text)?;
         }
+        let text = rebase_shared_imports(entry, path, &text, extension)?;
         let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment)
             .unwrap_or(text);
         let text = crate::method_coverage::CallHooks::for_entry(entry, path, text)?;
@@ -267,7 +270,7 @@ fn declaration_order(
     modules: Vec<Module>,
     extension: &str,
 ) -> Result<Vec<String>, Failure> {
-    if !matches!(extension, "js" | "ts" | "py" | "rb") {
+    if !matches!(extension, "js" | "ts" | "py" | "rb" | "fs") {
         return Ok(modules.into_iter().map(|module| module.source).collect());
     }
     let owners = owner_by_name(&modules)?;
@@ -305,7 +308,11 @@ fn module_dependencies(
     for (index, module) in modules.iter().enumerate() {
         let code = masked_source(&module.path, &module.source)?;
         validate_static_templates(&module.path, &module.source, &code, extension)?;
-        let definitions = definition_lines(&code, extension);
+        let definitions = if extension == "fs" {
+            code.clone()
+        } else {
+            definition_lines(&code, extension)
+        };
         let mut needed = BTreeSet::new();
         for word in definitions.split(|value: char| !value.is_ascii_alphanumeric() && value != '_')
         {
@@ -553,6 +560,9 @@ fn discover_paths(
         .map_or(Path::new(""), |part| Path::new(part.as_os_str()));
     let realm_directory = open_parent(root, &realm.join("entry"))?;
     discovery.search_role_folder(&realm_directory, &realm.join("utils"), "utils")?;
+    if realm == Path::new("server") && !matches!(extension, "js" | "ts" | "go") {
+        discovery.search_role_folder(&realm_directory, &realm.join("shared"), "shared")?;
+    }
     let mut paths = discovery.paths;
     paths.retain(|path| {
         path != entry
@@ -563,7 +573,7 @@ fn discover_paths(
                     .and_then(|name| name.to_str())
                     .is_some_and(|name| name.ends_with("ErrorHandler")))
     });
-    paths.sort();
+    paths.sort_by_key(|path| (!path.starts_with("server/shared"), path.clone()));
     Ok(paths)
 }
 
@@ -820,7 +830,7 @@ fn read_file(root: &Dir, path: &Path, limit: usize) -> Result<Vec<u8>, Failure> 
 fn validate_imports(path: &Path, source: &str, extension: &str) -> Result<(), Failure> {
     crate::behavior::BehaviorsImport::refuse(path, source)?;
     let masked = masked_source(path, source)?;
-    if relocates_imports(source, &masked, extension) {
+    if relocates_imports(path, source, &masked, extension) {
         return Err(invalid(
             path,
             "Included annotation files cannot relocate imports, package declarations, or relative file references; keep ordinary dependency imports in the entry point.",
@@ -829,10 +839,10 @@ fn validate_imports(path: &Path, source: &str, extension: &str) -> Result<(), Fa
     Ok(())
 }
 
-fn relocates_imports(source: &str, masked: &str, extension: &str) -> bool {
+fn relocates_imports(path: &Path, source: &str, masked: &str, extension: &str) -> bool {
     let words = code_words(masked);
     match extension {
-        "js" | "ts" => javascript_relocates_imports(source, masked, &words),
+        "js" | "ts" => javascript_relocates_imports(path, source, masked, &words),
         "php" => has_any_word(
             &words,
             &[
@@ -865,11 +875,16 @@ fn has_any_word(words: &BTreeSet<&str>, wanted: &[&str]) -> bool {
     wanted.iter().any(|word| words.contains(word))
 }
 
-fn javascript_relocates_imports(source: &str, masked: &str, words: &BTreeSet<&str>) -> bool {
+fn javascript_relocates_imports(
+    path: &Path,
+    source: &str,
+    masked: &str,
+    words: &BTreeSet<&str>,
+) -> bool {
     if has_any_word(words, &["require"]) {
         return true;
     }
-    if relocatable_import(source, masked) {
+    if relocatable_import(path, source, masked) {
         return true;
     }
     for tail in masked.split("export").skip(1) {
@@ -1081,7 +1096,7 @@ impl ImportMerge {
 }
 
 fn is_hoisted_import(statement: &str) -> bool {
-    import_specifier(statement).is_some_and(|specifier| specifier.starts_with('/'))
+    import_specifier(statement).is_some()
 }
 
 fn import_clause(statement: &str, type_only: bool) -> Option<&str> {
@@ -1150,13 +1165,17 @@ fn bindings(clause: &str) -> Vec<String> {
     found
 }
 
-fn relocatable_import(source: &str, masked: &str) -> bool {
+fn relocatable_import(path: &Path, source: &str, masked: &str) -> bool {
     let statements = import_statements(source, masked);
     if has_import_outside_statements(masked, &statements) {
         return true;
     }
     for range in statements {
-        if !is_safe_import_statement(&source[range]) {
+        let statement = &source[range];
+        let shared = import_specifier(&folded(statement))
+            .and_then(|specifier| shared_import_path(path, specifier))
+            .is_some();
+        if !is_safe_import_statement(statement) && !shared {
             return true;
         }
     }
@@ -1193,6 +1212,71 @@ fn is_safe_import_statement(text: &str) -> bool {
     }
     import_specifier(statement)
         .is_some_and(|specifier| specifier.starts_with('/') && !specifier.starts_with("//"))
+}
+
+fn shared_import_path(path: &Path, specifier: &str) -> Option<PathBuf> {
+    if !path.starts_with("server") || !specifier.starts_with('.') || specifier.contains('\\') {
+        return None;
+    }
+    let parent = path.parent()?;
+    let mut resolved = parent.to_path_buf();
+    for part in Path::new(specifier).components() {
+        match part {
+            std::path::Component::Normal(name) => resolved.push(name),
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if !resolved.pop() {
+                    return None;
+                }
+            }
+            _ => return None,
+        }
+    }
+    resolved.starts_with("server/shared").then_some(resolved)
+}
+
+fn rebase_shared_imports(
+    entry: &Path,
+    path: &Path,
+    source: &str,
+    extension: &str,
+) -> Result<String, Failure> {
+    if !matches!(extension, "js" | "ts") {
+        return Ok(source.to_owned());
+    }
+    let masked = masked_source(path, source)?;
+    let mut output = source.to_owned();
+    for range in import_statements(source, &masked).into_iter().rev() {
+        let statement = &source[range.clone()];
+        let folded = folded(statement);
+        let Some(specifier) = import_specifier(&folded) else {
+            continue;
+        };
+        let Some(target) = shared_import_path(path, specifier) else {
+            continue;
+        };
+        let parent: Vec<_> = entry
+            .parent()
+            .unwrap_or(Path::new(""))
+            .components()
+            .collect();
+        let target: Vec<_> = target.components().collect();
+        let shared = parent
+            .iter()
+            .zip(&target)
+            .take_while(|(left, right)| left == right)
+            .count();
+        let mut relative = PathBuf::new();
+        for _ in shared..parent.len() {
+            relative.push("..");
+        }
+        for part in &target[shared..] {
+            relative.push(part.as_os_str());
+        }
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        output.replace_range(range, &statement.replace(specifier, &relative));
+    }
+    Ok(output)
 }
 
 fn import_specifier(line: &str) -> Option<&str> {
@@ -1450,6 +1534,139 @@ mod tests {
 
     fn assert_contains(text: &str, expected: &str) {
         assert!(text.contains(expected), "{expected}: {text}");
+    }
+
+    #[test]
+    fn plain_shared_classes_are_composed_before_fsharp_services() {
+        let root = tempfile::tempdir().expect("project");
+        let entry = "server/controllers/OrdersController.fs";
+        let source = "[<RequestRoute(\"/orders\")>]\n[<Public>]\ntype OrdersController() =\n    [<GetRoute>]\n    member this.GetOrders() : string = OrderService.Place(\"book\")\n";
+        write(root.path(), entry, source);
+        write(
+            root.path(),
+            "server/shared/orders.fs",
+            "type OrderCode() =\n    static member Place(item: string) : string = item\n",
+        );
+        write(
+            root.path(),
+            "server/services/OrderService.fs",
+            "[<Service>]\ntype OrderService() =\n    static member Place(item: string) : string = OrderCode.Place(item)\n",
+        );
+        let output = composed_entry(root.path(), entry, source, "yon");
+        assert_contains(&output, "type OrderCode()");
+        assert!(output.find("type OrderCode()") < output.find("type OrderService()"));
+    }
+
+    #[test]
+    fn javascript_services_import_shared_classes() {
+        let root = project();
+        write(
+            root.path(),
+            "server/services/OrderService.js",
+            "import { OrderCode } from '../shared/orders.js';\n@Service\nclass OrderService {}\n",
+        );
+        let output = run(root.path()).expect("shared import").expect("service");
+        assert_contains(
+            &output,
+            "import { OrderCode } from \"../shared/orders.js\";",
+        );
+        let rebased = rebase_shared_imports(
+            Path::new(Sample::ENTRY),
+            Path::new("server/services/nested/OrderService.js"),
+            "import { OrderCode } from '../../shared/orders.js';",
+            "js",
+        )
+        .expect("rebased import");
+        assert_contains(&rebased, "'../shared/orders.js'");
+        assert!(
+            validate_imports(
+                Path::new("server/services/OrderService.js"),
+                "import { Secret } from '../../client/shared/secret.js';",
+                "js"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn shared_classes_reject_annotations_extra_classes_and_file_variables() {
+        let root = tempfile::tempdir().expect("project");
+        let entry = "server/controllers/OrdersController.cs";
+        let source = "[RequestRoute(\"/orders\")]\n[Public]\nclass OrdersController {}\n";
+        write(root.path(), entry, source);
+        for shared in [
+            "[Service]\nclass OrderService {}",
+            "class OrderCode {}\nclass Other {}",
+            "var counter = 0;\nclass OrderCode {}",
+        ] {
+            write(root.path(), "server/shared/orders.cs", shared);
+            assert!(
+                assemble(root.path(), Path::new(entry), source, "yon").is_err(),
+                "{shared}"
+            );
+        }
+    }
+
+    #[test]
+    fn fsharp_shared_dependencies_are_declared_before_their_callers() {
+        let root = tempfile::tempdir().expect("project");
+        let entry = "server/controllers/OrdersController.fs";
+        let source = "[<RequestRoute(\"/orders\")>]\n[<Public>]\ntype OrdersController() =\n    [<GetRoute>]\n    member this.GetOrders() : string = ACode.Text()\n";
+        write(root.path(), entry, source);
+        write(
+            root.path(),
+            "server/shared/A.fs",
+            "type ACode() =\n    static member Text() : string = ZCode.Text()\n",
+        );
+        write(
+            root.path(),
+            "server/shared/Z.fs",
+            "type ZCode() =\n    static member Text() : string = \"book\"\n",
+        );
+        let output = composed_entry(root.path(), entry, source, "yon");
+        assert!(output.find("type ZCode()") < output.find("type ACode()"));
+        write(
+            root.path(),
+            "server/shared/Z.fs",
+            "type ZCode() =\n    static member Text() : string = ACode.Text()\n",
+        );
+        assert!(
+            assemble(root.path(), Path::new(entry), source, "yon")
+                .expect_err("cycle")
+                .to_string()
+                .contains("dependency cycle")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn plain_shared_discovery_refuses_file_and_directory_symlinks() {
+        let outside = tempfile::tempdir().expect("outside");
+        write(outside.path(), "OrderCode.cs", "class OrderCode {}\n");
+        for directory_link in [false, true] {
+            let root = tempfile::tempdir().expect("project");
+            let entry = "server/controllers/OrdersController.cs";
+            let source = "[RequestRoute(\"/orders\")]\n[Public]\nclass OrdersController {}\n";
+            write(root.path(), entry, source);
+            if directory_link {
+                std::os::unix::fs::symlink(outside.path(), root.path().join("server/shared"))
+                    .expect("directory link");
+            } else {
+                std::fs::create_dir_all(root.path().join("server/shared"))
+                    .expect("shared directory");
+                std::os::unix::fs::symlink(
+                    outside.path().join("OrderCode.cs"),
+                    root.path().join("server/shared/OrderCode.cs"),
+                )
+                .expect("file link");
+            }
+            assert!(
+                assemble(root.path(), Path::new(entry), source, "yon")
+                    .expect_err("shared link")
+                    .to_string()
+                    .contains("symlink")
+            );
+        }
     }
 
     #[test]

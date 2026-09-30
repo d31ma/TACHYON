@@ -1,64 +1,104 @@
 {
   "id": "application-modules",
   "title": "Ordinary application modules",
-  "summary": "Controllers use ordinary application helpers. The helpers need no registration and no required role names. Annotated controllers and providers must follow strict rules: role suffixes (fixed name endings), exact file names and plural folders. Tachyon finds them in the shared role folders of the realm (Tac or Yon). It combines the files in the same language into one checked annotation unit. Discovery does not scan at run time. It does not create global dependency injection (one shared system that gives every class the objects it needs). The helpers shown here have no annotations. They follow the usual composition rules of their language. Plain helpers belong in server/shared/. Tachyon does not treat them as framework roles. When you need automatic composition, use the normal imports of the language or the managed role examples. A Go file in server/shared/ is another file of the package main of the controller. So Go code calls it without an import. A controller file contains only its controller class and its imports.",
+  "summary": "Controllers and services call plain helper classes in server/shared/. The helpers need no annotation, registration or required role name. JavaScript and TypeScript use ordinary imports. Go shares package main with the controller. Tachyon composes same-language shared classes before the managed roles and controller in the other Yon languages. Shared files contain one class and its imports, with no file-level variables. Annotated controllers and providers follow their role suffixes, exact file names and plural folders. Discovery uses a captured, bounded source snapshot and never scans at run time. Each invocation keeps its own provider scope.",
   "group": "Yon server",
   "files": [
     {
       "name": "server/shared/orders.js",
-      "code": { "file": "server/shared/orders.js" }
+      "code": {
+        "file": "server/shared/orders.js"
+      }
     },
     {
       "name": "server/shared/orders.ts",
-      "code": { "file": "server/shared/orders.ts" }
+      "code": {
+        "file": "server/shared/orders.ts"
+      }
     },
     {
       "name": "server/shared/orders.py",
-      "code": { "file": "server/shared/orders.py" }
+      "code": {
+        "file": "server/shared/orders.py"
+      }
     },
     {
       "name": "server/shared/orders.php",
-      "code": { "file": "server/shared/orders.php" }
+      "code": {
+        "file": "server/shared/orders.php"
+      }
     },
     {
       "name": "server/shared/orders.java",
-      "code": { "file": "server/shared/orders.java" }
+      "code": {
+        "file": "server/shared/orders.java"
+      }
     },
     {
       "name": "server/shared/orders.groovy",
-      "code": { "file": "server/shared/orders.groovy" }
+      "code": {
+        "file": "server/shared/orders.groovy"
+      }
     },
     {
       "name": "server/shared/orders.kt",
-      "code": { "file": "server/shared/orders.kt" }
+      "code": {
+        "file": "server/shared/orders.kt"
+      }
     },
     {
       "name": "server/shared/orders.cs",
-      "code": { "file": "server/shared/orders.cs" }
+      "code": {
+        "file": "server/shared/orders.cs"
+      }
     },
     {
       "name": "server/shared/orders.rs",
-      "code": { "file": "server/shared/orders.rs" }
+      "code": {
+        "file": "server/shared/orders.rs"
+      }
     },
     {
       "name": "server/shared/orders.go",
-      "code": { "file": "server/shared/orders.go" }
+      "code": {
+        "file": "server/shared/orders.go"
+      }
     },
     {
       "name": "server/shared/orders.dart",
-      "code": { "file": "server/shared/orders.dart" }
+      "code": {
+        "file": "server/shared/orders.dart"
+      }
     },
     {
       "name": "refused",
-      "code": { "file": "refused.txt" }
+      "code": {
+        "file": "refused.txt"
+      }
     },
     {
       "name": "languages",
-      "code": { "file": "languages.txt" }
+      "code": {
+        "file": "languages.txt"
+      }
     },
     {
       "name": "server/shared/orders.rb",
-      "code": { "file": "server/shared/orders.rb" }
+      "code": {
+        "file": "server/shared/orders.rb"
+      }
+    },
+    {
+      "name": "server/shared/orders.fs",
+      "code": {
+        "file": "server/shared/orders.fs"
+      }
+    },
+    {
+      "name": "server/shared/orders.lua",
+      "code": {
+        "file": "server/shared/orders.lua"
+      }
     }
   ]
 }

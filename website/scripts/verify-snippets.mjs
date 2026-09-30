@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { withServer } from '../../scripts/release/server-probe.mjs'
 import { checkConfigurationBrowser, configurationTestFiles } from './verify-configuration-binding.mjs'
 import { SiteContent } from './site-content.mjs'
+import { SharedModuleProbe } from './shared-module-probe.mjs'
 import { SnippetRequest } from './snippet-request.mjs'
 import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
@@ -83,8 +84,7 @@ class Patterns {
   static handlerService = /\son:[\w-]+="\s*([A-Za-z_$][\w$]*)\.[A-Za-z_$]/g
   static serviceExcerpt = /^@Service(?:\(\))?\s*\n/
   static loadFailure = /Server readiness timed out|exceeded \d+ms|deadline|aborted due to timeout/
-  static goSharedFile = /^server\/shared\/.+\.go$/
-  static goSharedProbe = '// @RequestRoute("/probe")\n// @Public\ntype ProbeController struct{}\n\n// @GetRoute\nfunc (controller *ProbeController) GetProbe() any {\n\treturn map[string]any{"shared": true}\n}\n'
+  static sharedFile = /^server\/shared\/.+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
   static middlewareFile = /^middleware\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua)$/
   static typeScaffoldFiles = ['package.json', 'tachyon-env.d.ts', 'tachyon-behaviors.d.ts', 'client/jsconfig.json', 'server/jsconfig.json']
   static middlewareController = '@RequestRoute("/private")\n@Public\nclass PrivateController {\n  @GetRoute\n  getPrivate() {\n    return { secret: 42 }\n  }\n}\n'
@@ -1139,9 +1139,9 @@ async function verifyFeatureFile(feature, file, hasPage) {
     skip(label, 'staged and run with the controller in its language')
     return
   }
-  if (Patterns.goSharedFile.test(file.name)) {
-    const probe = { name: 'server/controllers/ProbeController.go', code: Patterns.goSharedProbe }
-    await executeHandler(label, [probe, file], probe)
+  if (Patterns.sharedFile.test(file.name)) {
+    const probe = SharedModuleProbe.controller(file)
+    await executeHandler(label, [probe, file], probe, value => assert.deepEqual(value, SharedModuleProbe.expected(file)))
     return
   }
   if (/\.(js|ts|py|php|rb)$/.test(file.name) || file.name.startsWith('server/')) {
@@ -1156,7 +1156,7 @@ async function verifyFeatureFile(feature, file, hasPage) {
  * @param {Snippet} file
  */
 function isRunWithItsController(feature, file) {
-  if (!file.name.startsWith('server/') || Patterns.goSharedFile.test(file.name)) return false
+  if (!file.name.startsWith('server/') || Patterns.sharedFile.test(file.name)) return false
   const extension = path.extname(file.name)
   return feature.files.some(other => Patterns.controllerPath.test(other.name) && path.extname(other.name) === extension)
 }

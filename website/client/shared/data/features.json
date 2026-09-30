@@ -2590,7 +2590,7 @@
     {
       "id": "application-modules",
       "title": "Ordinary application modules",
-      "summary": "Controllers use ordinary application helpers. The helpers need no registration and no required role names. Annotated controllers and providers must follow strict rules: role suffixes (fixed name endings), exact file names and plural folders. Tachyon finds them in the shared role folders of the realm (Tac or Yon). It combines the files in the same language into one checked annotation unit. Discovery does not scan at run time. It does not create global dependency injection (one shared system that gives every class the objects it needs). The helpers shown here have no annotations. They follow the usual composition rules of their language. Plain helpers belong in server/shared/. Tachyon does not treat them as framework roles. When you need automatic composition, use the normal imports of the language or the managed role examples. A Go file in server/shared/ is another file of the package main of the controller. So Go code calls it without an import. A controller file contains only its controller class and its imports.",
+      "summary": "Controllers and services call plain helper classes in server/shared/. The helpers need no annotation, registration or required role name. JavaScript and TypeScript use ordinary imports. Go shares package main with the controller. Tachyon composes same-language shared classes before the managed roles and controller in the other Yon languages. Shared files contain one class and its imports, with no file-level variables. Annotated controllers and providers follow their role suffixes, exact file names and plural folders. Discovery uses a captured, bounded source snapshot and never scans at run time. Each invocation keeps its own provider scope.",
       "group": "Yon server",
       "files": [
         {
@@ -2639,15 +2639,23 @@
         },
         {
           "name": "refused",
-          "code": "Yon validates only its public boundary:\n\n  server/routes/products/yon.* must define Handler\n  Handler HTTP methods use GET, POST, PUT, PATCH, DELETE, HEAD, or OPTIONS\n  a generator method streams; an ordinary method returns once\n  HTML is passed through only with an explicit text/html content type\n\nEverything behind Handler uses the language itself. Choose functions,\nclasses, modules, repositories, ports, or another pattern when the\napplication benefits from it; Yon neither requires nor interprets them.\n"
+          "code": "Plain server/shared/ code holds one class and its imports, without a Tachyon annotation or file-level variables. A role belongs in its server role folder. A shared class may have any name.\n\nJavaScript and TypeScript import shared classes with relative paths. Other Yon languages compose same-language shared classes into the controller program; Go files use package main.\n"
         },
         {
           "name": "languages",
-          "code": "One boundary name in every owned language:\n\n  JavaScript, TypeScript   export class Handler\n  Python                   class Handler\n  Java                     class Handler\n  Kotlin                   object Handler\n  C#                       class Handler\n  PHP                      class Handler\n  Rust                     struct Handler + impl Handler\n  Dart                     class Handler\n  Go                       type Handler struct{} + its methods\n  Ruby                     class Handler\n\nThe fixed name is convention over configuration. It requires no import,\nannotation, base class, registration call, reflection package, or generated\napplication code. Tachyon supplies only its protocol types and helpers.\n"
+          "code": "Yon shared modules: JavaScript, TypeScript, Python, PHP, Java, Groovy, Kotlin, C#, F#, Rust, Go, Dart, Ruby and Lua.\n\nA plain class in server/shared/ is reachable from controllers and services in its language. Shared classes register no routes and are not injectable framework providers.\n"
         },
         {
           "name": "server/shared/orders.rb",
           "code": "class OrderService\n  def self.place(item)\n    { \"placed\" => item }\n  end\nend\n"
+        },
+        {
+          "name": "server/shared/orders.fs",
+          "code": "type OrderService() =\n    static member Place(item: string) : string = item\n"
+        },
+        {
+          "name": "server/shared/orders.lua",
+          "code": "---@class OrderService\nOrderService = {}\n\n---@param item string\n---@return string\nfunction OrderService.place(item)\n  return item\nend\n"
         }
       ]
     },
