@@ -10,6 +10,18 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- A Store can extend `Repository<Entity, Id>`, like Spring Data's
+  `CrudRepository` (ADR 0022 amendment), and then gets `findById`,
+  `findAll(page)`, `save` and `deleteById` without declaring them, in every
+  Store language; TypeScript and JavaScript type-check them against the
+  `Repository` class in `types/tachyon-behaviors.d.ts`. Derived `deleteBy…`
+  methods remove every matching record and answer the count, through a new
+  `delete` query kind that entity adapters must answer with a number; the
+  managed SQL datasource, FYLO and IndexedDB answer it. The derived name
+  `findById` is now a `findOne` query: it answers one record or null instead
+  of a list. `TY1308` refuses a Repository base on a type that is not a Store
+  and a Repository that names another Entity.
+
 - A Tac service asks for an entity store with `@Needs`, like a Yon service
   (ADR 0022 amendment), in JavaScript, TypeScript, Dart, Kotlin, Swift, Java,
   C#, Rust, Go and Ruby; the store still opens the behavior context of its Setup.

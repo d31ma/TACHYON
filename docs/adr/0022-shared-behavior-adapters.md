@@ -242,3 +242,35 @@ no implementation, and Tachyon generates each query.
   `initialize`.
 - F# Tac services cannot ask for a store yet (F# refuses field `Needs`, and
   its constructor parameters are component props); that is planned.
+
+## Amendment (2026-09-29): the Repository base and derived deletes
+
+- A Store may extend `Repository<Entity, Id>`, like Spring Data's
+  `CrudRepository`, in the contract form of its language (an `extends`,
+  `implements` or `:` base, a Go embedded interface, a Rust supertrait, an F#
+  `inherit` line, a Python base before `Protocol`, a Ruby superclass). It then
+  gets `findById`, `findAll(page)`, `save` and `deleteById` without declaring
+  them. `ContractCheck` refuses the base on a type that is not a Store and a
+  Repository that names another Entity than its Store (`TY1308`).
+- The compiler removes the base and appends the four methods from one
+  template row per language. `findById`, `findAll` and `deleteById` are
+  bodiless derived queries, so the normal query lowering writes them; `save`
+  calls `behaviors.repository(Entity).save(entity)`. No runtime type named
+  `Repository` exists: only `types/tachyon-behaviors.d.ts` declares the class,
+  so TypeScript and JavaScript type-check `findById(id: Id): Promise<Entity |
+  null>` and the other results.
+- Query plans gain two operations. `findOne` sends the adapter a `find` with a
+  page of one and answers the first row or null; the exact derived name
+  `findById` (`find_by_id`) is a `findOne`, and the tail `Id` of `findById`,
+  `existsById` and `deleteById` binds the Entity's Id field whatever its name.
+  `delete` sends the adapter `{"kind":"delete"}` and answers the number of
+  removed rows; `deleteBy…` (`delete_by_…`) derives it. Both take no page and
+  no ordering. `findAll` (`find_all`) is a `find` with no predicate whose one
+  parameter is the page. Every runtime (JavaScript, Python, Ruby, PHP, Java,
+  Groovy, Kotlin, C#, F#, Dart, Swift, Rust, Go) and the built-in adapters
+  (managed SQL `DELETE … WHERE`, FYLO, IndexedDB and its in-memory mirror)
+  implement them. A user-written `findById` that expected a list now gets one
+  record or null.
+- Typed entity results in the compiled languages (reading a JSON row into the
+  Entity class) are not part of this amendment; results stay the runtime's
+  JSON values, as for every other query.

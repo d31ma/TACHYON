@@ -446,7 +446,7 @@ fn check_invalid_query_calls(context: &BehaviorContext) {
     invalid.predicates[0].field = "unknown";
     assert!(context.query(invalid, active()).is_err());
     let mut invalid = query_policy();
-    invalid.operation = "delete";
+    invalid.operation = "update";
     assert!(context.query(invalid, active()).is_err());
 }
 

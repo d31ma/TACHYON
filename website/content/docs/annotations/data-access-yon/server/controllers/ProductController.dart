@@ -12,6 +12,7 @@ class ProductController {
     final active = await products.findByStatus(activeStatus);
     final activeCount = await products.countByStatus(activeStatus);
     final others = await products.excluding(activeStatus, {'size': 5});
-    return ProductReport(active, activeCount, others);
+    final first = await products.findById(1);
+    return ProductReport(active, activeCount, others, first);
   }
 }

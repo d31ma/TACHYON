@@ -1,4 +1,5 @@
 use super::context_template::ContextTemplate;
+use super::member_indent::MemberIndent;
 
 pub(crate) struct ContextMembers<'a> {
     pub(crate) language: &'a str,
@@ -27,7 +28,12 @@ impl ContextMembers<'_> {
             .unwrap_or_default();
         let members = Some(members)
             .filter(|members| !members.is_empty())
-            .map(|members| self.indented(&members))
+            .map(|members| {
+                MemberIndent {
+                    indent: self.indent,
+                }
+                .block(&members)
+            })
             .unwrap_or_default();
         (field, members)
     }
@@ -48,15 +54,5 @@ impl ContextMembers<'_> {
             .replace("{partition}", self.partition)
             .replace("{owner}", self.owner)
             .replace("{receiver}", self.receiver)
-    }
-
-    fn indented(&self, text: &str) -> String {
-        let lines: Vec<String> = text.lines().map(|line| self.indent_line(line)).collect();
-        format!("\n{}\n", lines.join("\n"))
-    }
-
-    fn indent_line(&self, line: &str) -> String {
-        let indent = &self.indent[..self.indent.len() * usize::from(!line.is_empty())];
-        format!("{indent}{line}")
     }
 }

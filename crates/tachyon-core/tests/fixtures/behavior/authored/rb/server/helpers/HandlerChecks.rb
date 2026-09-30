@@ -89,6 +89,11 @@ class HandlerChecks
     raise "query results" unless products.find_by_status("active") == [{ "id" => "one", "status" => "active" }]
     raise "query results" unless products.count_by_status("active") == 1
     raise "query results" unless products.available("active") == true
+    raise "repository find_by_id" unless products.find_by_id("one") == { "id" => "one", "status" => "active" }
+    raise "repository find_all" unless products.find_all({}) == [{ "id" => "one", "status" => "active" }]
+    raise "repository save" unless products.save({ "id" => "one" })["operation"] == "save"
+    raise "repository delete_by_id" unless products.delete_by_id("one") == 1
+    raise "derived delete" unless products.delete_by_status("gone") == 1
   end
 
   def self.check_mapping(context)

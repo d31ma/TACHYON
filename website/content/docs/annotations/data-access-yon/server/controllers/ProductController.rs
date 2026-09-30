@@ -14,7 +14,8 @@ impl ProductController {
         let active = self.products.find_by_status(active_status.into()).map_err(|_| YonResourceError)?;
         let active_count = self.products.count_by_status(active_status.into()).map_err(|_| YonResourceError)?;
         let others = self.products.excluding(active_status.into(), page).map_err(|_| YonResourceError)?;
-        Ok(ProductReport { active: Self::json(active), count: Self::json(active_count), others: Self::json(others) })
+        let first = self.products.find_by_id(BehaviorValue::Number(1.0)).map_err(|_| YonResourceError)?;
+        Ok(ProductReport { active: Self::json(active), count: Self::json(active_count), others: Self::json(others), first: Self::json(first) })
     }
 
     fn json(value: BehaviorValue) -> Json {

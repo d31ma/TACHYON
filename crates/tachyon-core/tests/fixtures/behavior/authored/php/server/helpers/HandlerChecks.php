@@ -96,6 +96,11 @@ class HandlerChecks {
         if ($products->find_by_status('active') !== [['id' => 'one', 'status' => 'active']]) throw new Exception('query results');
         if ($products->countByStatus('active') !== 1) throw new Exception('query results');
         if ($products->available('active') !== true) throw new Exception('query results');
+        if ($products->findById('one') !== ['id' => 'one', 'status' => 'active']) throw new Exception('repository findById');
+        if ($products->findAll([]) !== [['id' => 'one', 'status' => 'active']]) throw new Exception('repository findAll');
+        if ($products->save(['id' => 'one'])['operation'] !== 'save') throw new Exception('repository save');
+        if ($products->deleteById('one') !== 1) throw new Exception('repository deleteById');
+        if ($products->deleteByStatus('gone') !== 1) throw new Exception('derived delete');
     }
 
     public static function checkMapping($context): void {

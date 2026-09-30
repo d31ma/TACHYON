@@ -21,6 +21,7 @@ class ProductChecksHelper {
             val queries = ProductQueriesStore()
             queries.behaviors = context
             checkDerivedQueries(queries)
+            checkRepository(queries)
             checkExplicitQuery(queries, page)
             checkMapping(context)
             checkEntityAuthorization(queries)
@@ -104,6 +105,12 @@ class ProductChecksHelper {
         val firstPage = (query[PAGE] as Map<*, *>)[OFFSET] == 0L
         check(firstPage && ((query["where"] as List<*>)[0] as Map<*, *>)["value"] == ACTIVE)
         check(queries.countByStatus(ACTIVE) == 1L && queries.existsById(ONE) == true)
+    }
+    private fun checkRepository(queries: ProductQueriesStore) {
+        check((queries.findById(ONE) as Map<*, *>)[ID] == ONE)
+        check((queries.findAll(mapOf()) as List<*>).size == 1)
+        check((queries.save(mapOf(ID to ONE)) as Map<*, *>)["operation"] == "save")
+        check(queries.deleteById(ONE) == 1L && queries.deleteByStatus(ACTIVE) == 1L)
     }
     private fun checkExplicitQuery(queries: ProductQueriesStore, page: Map<String, Any?>) {
         val explicit = queries.available(listOf(ACTIVE), page) as List<*>

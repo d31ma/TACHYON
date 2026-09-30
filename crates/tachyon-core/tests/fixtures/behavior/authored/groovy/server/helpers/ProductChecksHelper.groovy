@@ -44,6 +44,7 @@ class ProductChecksHelper {
             ProductQueriesStore queries = new ProductQueriesStore()
             queries.behaviors = context
             checkDerivedQueries(queries)
+            checkRepository(queries)
             checkExplicitQuery(queries, page)
             checkMapping(context)
             checkEntityAuthorization(queries)
@@ -129,6 +130,12 @@ class ProductChecksHelper {
         boolean firstPage = Behaviors.map(query.get(PAGE)).get(OFFSET).equals(0L)
         expect(firstPage && Behaviors.map(((java.util.List<?>)query.get("where")).get(0)).get("value").equals(ACTIVE), "derived query bindings")
         expect(queries.countByStatus(ACTIVE).equals(1L) && queries.existsById(ONE).equals(true), "derived result shape")
+    }
+    static void checkRepository(ProductQueriesStore queries) {
+        expect(Behaviors.map(queries.findById(ONE)).get(ID).equals(ONE), "repository findById")
+        expect(((java.util.List<?>)queries.findAll(java.util.Map.of())).size() == 1, "repository findAll")
+        expect(Behaviors.map(queries.save(java.util.Map.of(ID, ONE))).get("operation").equals("save"), "repository save")
+        expect(queries.deleteById(ONE).equals(1L) && queries.deleteByStatus(ACTIVE).equals(1L), "repository delete")
     }
     static void checkExplicitQuery(ProductQueriesStore queries, java.util.Map<String, Object> page) {
         Object explicit = queries.available(java.util.List.of(ACTIVE), page)

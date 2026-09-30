@@ -7,3 +7,4 @@ class ProductReport:
     active: Any
     count: Any
     others: Any
+    first: Any

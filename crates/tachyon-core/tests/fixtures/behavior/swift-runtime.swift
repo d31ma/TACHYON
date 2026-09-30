@@ -89,7 +89,7 @@ final class Config {
             switch command.get("query").get("kind") {
             case .string("find"):
                 return .array([.object(["id": .number(1)])])
-            case .string("count"):
+            case .string("count"), .string("delete"):
                 return .number(1)
             default:
                 return .bool(true)

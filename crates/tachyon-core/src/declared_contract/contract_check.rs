@@ -2,6 +2,7 @@ use super::contract_declaration::ContractDeclaration;
 use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
 use super::contract_role::ContractRole;
+use super::repository_base::RepositoryBase;
 use crate::Failure;
 use crate::annotation_rules::Messages;
 use crate::behavior::HttpClientSource;
@@ -71,6 +72,7 @@ impl<'a> ContractCheck<'a> {
     fn problem(&self, declaration: &ContractDeclaration) -> Option<Problem> {
         self.role_problem(declaration)
             .or_else(|| self.entity_problem(declaration))
+            .or_else(|| self.base_problem(declaration))
             .or_else(|| self.contract_problem(declaration))
             .map(|(at, message)| (at, message, declaration.role))
     }
@@ -102,6 +104,28 @@ impl<'a> ContractCheck<'a> {
         );
         let missing = [role.names_entity, declaration.names_entity] == [true, false];
         missing.then_some((declaration.marker_at, message))
+    }
+
+    fn base_problem(&self, declaration: &ContractDeclaration) -> Option<Located> {
+        let base = declaration.repository_base(self.form, &self.code)?;
+        let name = &declaration.name;
+        let role = declaration.role;
+        let not_store = format!(
+            "{name} extends {}, but only a Store gets the Repository methods. {}",
+            RepositoryBase::NAME,
+            role.no_implementation
+        );
+        let other_entity = format!(
+            "{name} keeps {} in its Store marker but names {} in {}. Name the same Entity in both.",
+            declaration.entity,
+            base.entity,
+            RepositoryBase::NAME
+        );
+        let named = [base.entity.is_empty(), declaration.entity.is_empty()] == [false, false];
+        let differs = [named, base.entity != declaration.entity] == [true, true];
+        (!role.names_entity)
+            .then_some((base.name_at, not_store))
+            .or_else(|| differs.then_some((base.name_at, other_entity)))
     }
 
     fn form_problem(&self, declaration: &ContractDeclaration) -> Option<Located> {

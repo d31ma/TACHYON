@@ -9,6 +9,7 @@ pub(crate) struct FsharpDeclaration {
     pub(crate) name: String,
     pub(crate) options: Value,
     pub(crate) body: Vec<usize>,
+    pub(crate) repository: Option<(usize, String)>,
 }
 
 impl FsharpDeclaration {

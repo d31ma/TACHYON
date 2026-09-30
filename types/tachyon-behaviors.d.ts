@@ -606,6 +606,17 @@ declare global {
   function Convert(options: BehaviorMappingOptions): BehaviorPromiseMethodAnnotation;
   /** Store: a contract with no implementation, like a Spring Data repository interface. It names the Entity class it keeps, like `@Store(Product, { fields: ["id"], defaultSize: 20, maxSize: 100 })`, and Tachyon writes each query. `setup` names the Setup that builds its behavior context. */
   function Store<Entity extends BehaviorConstructor>(entity: Entity, options: BehaviorRepositoryOptions<InstanceType<Entity>>): BehaviorClassAnnotation;
+  /** Repository: the base of a Store, like Spring Data's CrudRepository. A Store that extends `Repository<Entity, Id>` gets findById, findAll, save and deleteById without declaring them, and Tachyon writes each one. */
+  abstract class Repository<Entity extends object, Id extends string | number> {
+    /** findById: the entity with this id, or null. */
+    findById(id: Id): Promise<Entity | null>;
+    /** findAll: one page of entities, ordered by id. Pass `{}` for the first page of the default size. */
+    findAll(page: BehaviorPageInput): Promise<Entity[]>;
+    /** save: insert or replace the entity, and answer the saved entity. */
+    save(entity: Entity): Promise<Entity>;
+    /** deleteById: delete the entity with this id, and answer how many entities were deleted. */
+    deleteById(id: Id): Promise<number>;
+  }
   /** Query: the compiler writes this Store method from the query plan. Mark its page parameter with @PageDefaults. */
   function Query(options: BehaviorQueryOptions): BehaviorPromiseMethodAnnotation;
   /** Settings: fill this class's fields from environment variables that start with `prefix`. Field types and defaults come from the field declarations; put @Min and @Max on number fields. */

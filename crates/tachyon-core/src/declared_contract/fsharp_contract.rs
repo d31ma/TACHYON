@@ -20,6 +20,13 @@ impl<'a> FsharpContract<'a> {
     const DEFAULT_INDENT: &'static str = "    ";
     const NAME_JOINER: char = '_';
     const CONTEXT: &'static str = "member val behaviors : BehaviorContext = Behaviors.create(typeof<{setup}>, \"{partition}\", new BehaviorSignal())";
+    const REPOSITORY_BASE: &'static str = "inherit Repository<";
+    const CRUD_MEMBERS: [&'static str; 4] = [
+        "abstract findById: id: BehaviorJSON -> System.Threading.Tasks.Task<BehaviorJSON>",
+        "abstract findAll: page: BehaviorJSON -> System.Threading.Tasks.Task<BehaviorJSON>",
+        "abstract deleteById: id: BehaviorJSON -> System.Threading.Tasks.Task<BehaviorJSON>",
+        "member this.save(entity: BehaviorJSON) : System.Threading.Tasks.Task<BehaviorJSON> = this.behaviors.repository(typeof<{entity}>).save(entity)",
+    ];
 
     pub(crate) fn lower(path: &Path, source: &'a str, environment: &str) -> Option<String> {
         let fsharp = path.extension().and_then(|value| value.to_str()) == Some(Self::EXTENSION);
@@ -70,9 +77,10 @@ impl<'a> FsharpContract<'a> {
     fn declaration(&self, marker: usize, role: ContractRole) -> Option<FsharpDeclaration> {
         let header = (marker + 1..self.code.len()).find(|index| self.is_code(*index))?;
         let name = Self::class_less_name(self.code[header].trim_end())?;
-        let body = (header + 1..self.code.len())
+        let body: Vec<usize> = (header + 1..self.code.len())
             .take_while(|index| self.is_inside(*index))
             .collect();
+        let repository = self.repository_base(&body);
         Some(FsharpDeclaration {
             role,
             marker,
@@ -80,6 +88,17 @@ impl<'a> FsharpContract<'a> {
             name,
             options: FsharpDeclaration::options_of(self.lines[marker]),
             body,
+            repository,
+        })
+    }
+
+    fn repository_base(&self, body: &[usize]) -> Option<(usize, String)> {
+        body.iter().find_map(|index| {
+            let rest = self.code[*index]
+                .trim_start()
+                .strip_prefix(Self::REPOSITORY_BASE)?;
+            let entity = rest.split([',', '>']).next().unwrap_or("").trim();
+            Some((*index, entity.to_owned()))
         })
     }
 
@@ -133,7 +152,14 @@ impl<'a> FsharpContract<'a> {
                 || line.to_owned(),
                 |declaration| self.concrete_header(declaration, line),
             );
-        format!("{provider}{text}")
+        let removed = declarations.iter().any(|declaration| {
+            declaration
+                .repository
+                .as_ref()
+                .is_some_and(|(at, _)| *at == index)
+        });
+        let kept = [text.as_str(), "\n"][usize::from(removed)];
+        format!("{provider}{kept}")
     }
 
     fn provider_line(&self, declaration: &FsharpDeclaration) -> String {
@@ -151,7 +177,22 @@ impl<'a> FsharpContract<'a> {
         let at = line.find(&declaration.name).unwrap_or(0) + declaration.name.len();
         let header = format!("{}{}{}", &line[..at], Self::CONSTRUCTOR, &line[at..]);
         let context = self.context_line(declaration);
-        format!("{header}{context}")
+        let crud = self.crud_lines(declaration);
+        format!("{header}{context}{crud}")
+    }
+
+    fn crud_lines(&self, declaration: &FsharpDeclaration) -> String {
+        let indent = self.indent(declaration);
+        declaration
+            .repository
+            .as_ref()
+            .map_or_else(String::new, |(_, entity)| {
+                let lines: String = Self::CRUD_MEMBERS
+                    .iter()
+                    .map(|member| format!("{indent}{}\n", member.replace("{entity}", entity)))
+                    .collect();
+                format!("{lines}\n")
+            })
     }
 
     fn needs_context(&self, declaration: &FsharpDeclaration) -> bool {

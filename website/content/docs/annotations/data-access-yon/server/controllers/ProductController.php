@@ -13,6 +13,7 @@ class ProductController {
         $active = $this->products->findByStatus($activeStatus);
         $activeCount = $this->products->countByStatus($activeStatus);
         $others = $this->products->excluding($activeStatus, ['size' => 5]);
-        return new ProductReport($active, $activeCount, $others);
+        $first = $this->products->findById(1);
+        return new ProductReport($active, $activeCount, $others, $first);
     }
 }

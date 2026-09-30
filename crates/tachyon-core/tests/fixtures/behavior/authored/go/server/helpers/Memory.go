@@ -96,7 +96,7 @@ func (memory *Memory) answerQuery(query BehaviorValue) (BehaviorValue, error) {
 	switch kind {
 	case "find":
 		return []any{map[string]any{"id": "one", "status": "active"}}, nil
-	case "count":
+	case "count", "delete":
 		return 1, nil
 	case "exists":
 		return true, nil

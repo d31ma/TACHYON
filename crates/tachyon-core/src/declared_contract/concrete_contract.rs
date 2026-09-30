@@ -3,6 +3,7 @@ use super::contract_declaration::ContractDeclaration;
 use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
 use super::contract_role::ContractRole;
+use super::crud_members::CrudMembers;
 use crate::annotation_rules::Messages;
 use crate::behavior::HttpClientSource;
 use std::ops::Range;
@@ -178,14 +179,33 @@ impl<'a> ConcreteContract<'a> {
             indent: &indent,
         };
         let (field, text) = context.parts();
+        let crud = self.crud_members(declaration, &indent);
         let open = declaration.header.end + 1;
         let field_edit = (!field.is_empty()).then_some((open..open, field));
-        let member_edit = Some((declaration.close..declaration.close, text));
+        let member_edit = Some((declaration.close..declaration.close, text + &crud));
         [field_edit, member_edit]
             .into_iter()
             .flatten()
             .filter(|_| wanted)
             .collect()
+    }
+
+    fn crud_members(&self, declaration: &ContractDeclaration, indent: &str) -> String {
+        declaration
+            .repository_base(self.form, &self.code)
+            .map_or_else(String::new, |base| {
+                let entity = [declaration.entity.as_str(), base.entity.as_str()]
+                    [usize::from(declaration.entity.is_empty())];
+                CrudMembers {
+                    language: self.form.language,
+                    base: &base,
+                    entity,
+                    owner: &declaration.name,
+                    receiver: declaration.role.noun,
+                    indent,
+                }
+                .text()
+            })
     }
 
     fn indent(&self, members: &[ContractMember]) -> String {
@@ -203,12 +223,18 @@ impl<'a> ConcreteContract<'a> {
     }
 
     fn header(&self, declaration: &ContractDeclaration, needs_context: bool) -> Option<String> {
-        let text = &self.source[declaration.header.clone()];
-        match self.form.language {
-            Self::PYTHON => Some(Self::without_protocol(text)),
-            Self::RUST => Some(self.rust_header(text, &declaration.name, needs_context)),
-            _ => self.replaced_header(text),
-        }
+        let base = declaration.repository_base(self.form, &self.code);
+        let written = &self.source[declaration.header.clone()];
+        let text = base.as_ref().map_or_else(
+            || written.to_owned(),
+            |base| base.without_clause(written, declaration.header.start),
+        );
+        let replaced = match self.form.language {
+            Self::PYTHON => Some(Self::without_protocol(&text)),
+            Self::RUST => Some(self.rust_header(&text, &declaration.name, needs_context)),
+            _ => self.replaced_header(&text),
+        };
+        replaced.or_else(|| base.map(|_| text))
     }
 
     fn replaced_header(&self, text: &str) -> Option<String> {
@@ -299,7 +325,8 @@ impl<'a> ConcreteContract<'a> {
             .map(|member| self.go_method(declaration, member))
             .collect();
         let context = self.go_context(declaration, needs_context);
-        format!("type {name} {fields}\n{methods}{context}")
+        let crud = self.crud_members(declaration, "");
+        format!("type {name} {fields}\n{methods}{context}{crud}")
     }
 
     fn go_method(&self, declaration: &ContractDeclaration, member: &ContractMember) -> String {

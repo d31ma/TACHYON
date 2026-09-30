@@ -1,6 +1,7 @@
 #[Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"ConfigSetup"})]
-trait ProductQueriesStore {
+trait ProductQueriesStore: Repository<ProductEntity, String> {
     fn find_by_status(&self, status: BehaviorValue) -> BehaviorResult<BehaviorValue>;
+    fn delete_by_status(&self, status: BehaviorValue) -> BehaviorResult<BehaviorValue>;
     fn count_by_status(&self, status: BehaviorValue) -> BehaviorResult<BehaviorValue>;
     fn exists_by_id(&self, id: BehaviorValue) -> BehaviorResult<BehaviorValue>;
 

@@ -36,6 +36,13 @@ final class AnnotatedQueries {
     func findNamed(_ name: BehaviorJSON, @PageDefaults _ page: BehaviorJSON) async throws -> BehaviorJSON { }
     func countByName(_ name: BehaviorJSON) async throws -> BehaviorJSON { }
     func existsByName(_ name: BehaviorJSON) async throws -> BehaviorJSON { }
+    func findById(_ id: BehaviorJSON) async throws -> BehaviorJSON { }
+    func findAll(_ page: BehaviorJSON) async throws -> BehaviorJSON { }
+    func deleteById(_ id: BehaviorJSON) async throws -> BehaviorJSON { }
+    func deleteByName(_ name: BehaviorJSON) async throws -> BehaviorJSON { }
+    func save(_ entity: BehaviorJSON) async throws -> BehaviorJSON {
+        try await behaviors.repository(AnnotatedProduct.self).save(entity)
+    }
 }
 protocol AnnotatedSummaries {
     @Convert({"fields":[{"source":"detail.id","target":"productId"},{"source":"name","target":"title"},{"source":"missing.deep","target":"absent"},{"target":"kind","constant":"product"}]})
@@ -83,6 +90,10 @@ enum EmittedBehaviorTests {
         let queries = AnnotatedQueries(behaviors: context)
         guard try await queries.findNamed(.string("tools"), input).items.count == 1 else { throw BehaviorError("GENERATED_QUERY") }
         guard try await queries.countByName(.string("tools")) == .number(1), try await queries.existsByName(.string("tools")) == .bool(true) else { throw BehaviorError("GENERATED_DERIVED_QUERY") }
+        guard try await queries.findById(.number(1)).get("id") == .number(1) else { throw BehaviorError("REPOSITORY_FIND_BY_ID") }
+        guard try await queries.findAll(input).items.count == 1 else { throw BehaviorError("REPOSITORY_FIND_ALL") }
+        guard try await queries.save(.object(["id": .number(1)])).get("operation") == .string("save") else { throw BehaviorError("REPOSITORY_SAVE") }
+        guard try await queries.deleteById(.number(1)) == .number(1), try await queries.deleteByName(.string("tools")) == .number(1) else { throw BehaviorError("REPOSITORY_DELETE") }
     }
     static func checkSummaries(_ context: BehaviorContext) throws {
         let summaries = AnnotatedSummaries(behaviors: context)

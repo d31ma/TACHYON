@@ -273,6 +273,30 @@ func (checks CatalogChecks) checkQueries(context *BehaviorContext) error {
 	if !checks.same(selected, rows) {
 		return checks.fail("Selected did not return the same rows")
 	}
+	return checks.checkRepository(products)
+}
+
+func (checks CatalogChecks) checkRepository(products *ProductQueriesStore) error {
+	found, err := products.FindById("one")
+	if row, isRow := found.(map[string]any); err != nil || !isRow || row["id"] != "one" {
+		return checks.fail("FindById did not return the row")
+	}
+	all, err := products.FindAll(map[string]any{})
+	if rows, isList := all.([]any); err != nil || !isList || len(rows) != 1 {
+		return checks.fail("FindAll did not return one row")
+	}
+	saved, err := products.Save(map[string]any{"id": "one"})
+	if row, isRow := saved.(map[string]any); err != nil || !isRow || row["operation"] != "save" {
+		return checks.fail("Save did not save the row")
+	}
+	deleted, err := products.DeleteById("one")
+	if err != nil || deleted != 1.0 {
+		return checks.fail("DeleteById did not delete one row")
+	}
+	removed, err := products.DeleteByStatus("gone")
+	if err != nil || removed != 1.0 {
+		return checks.fail("DeleteByStatus did not delete one row")
+	}
 	return nil
 }
 

@@ -62,6 +62,7 @@ class RuntimeAdaptersSetup {
             return when (query["kind"]) {
                 "count" -> 1
                 "exists" -> true
+                "delete" -> 1
                 else -> listOf(mapOf("id" to "one", QUERY to command[QUERY]))
             }
         }

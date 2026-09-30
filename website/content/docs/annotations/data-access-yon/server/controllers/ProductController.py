@@ -13,4 +13,5 @@ class ProductController:
         active = await self.products.find_by_status(active_status)
         active_count = await self.products.count_by_status(active_status)
         others = await self.products.excluding(active_status, {'size': 5})
-        return ProductReport(active, active_count, others)
+        first = await self.products.find_by_id(1)
+        return ProductReport(active, active_count, others, first)

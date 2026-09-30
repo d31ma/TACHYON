@@ -1,7 +1,7 @@
 from typing import Annotated, Protocol
 
 @store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"CatalogSetup"})
-class ProductStore(Protocol):
+class ProductStore(Repository[ProductEntity, int], Protocol):
     async def find_by_status(self, status: str) -> None: ...
     async def count_by_status(self, status: str) -> None: ...
     @query({"operation":"find","where":[{"field":"status","operator":"ne","argument":0}],"orderBy":[{"field":"id","direction":"desc"}]})

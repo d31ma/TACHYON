@@ -93,6 +93,11 @@ class HandlerChecks:
         assert await products.find_by_status('active') == [{'id': 'one', 'status': 'active'}]
         assert await products.countByStatus('active') == 1
         assert await products.available('active') is True
+        assert await products.find_by_id('one') == {'id': 'one', 'status': 'active'}
+        assert await products.find_all({}) == [{'id': 'one', 'status': 'active'}]
+        assert (await products.save({'id': 'one'}))['operation'] == 'save'
+        assert await products.delete_by_id('one') == 1
+        assert await products.delete_by_status('gone') == 1
 
     @staticmethod
     async def check_mapping(context):

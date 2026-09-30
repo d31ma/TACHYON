@@ -31,7 +31,8 @@ class ApplicationAdaptersSetup {
     }
     if (operation.query.kind === 'count') return 1;
     if (operation.query.kind === 'exists') return true;
-    return [{ id: operation.query.where[0].value }];
+    if (operation.query.kind === 'delete') return 1;
+    return [{ id: operation.query.where[0]?.value ?? 1 }];
   }
 }
 

@@ -14,8 +14,10 @@ type ProductController(products: ProductStore) =
             let! active = products.findByStatus(activeStatus)
             let! activeCount = products.countByStatus(activeStatus)
             let! others = products.excluding(activeStatus, BehaviorJSON.Parse("{\"size\":5}"))
+            let! first = products.findById(BehaviorJSON.From(1))
             return
                 { Active = JsonNode.Parse(active.ToString())
                   Count = JsonNode.Parse(activeCount.ToString())
-                  Others = JsonNode.Parse(others.ToString()) }
+                  Others = JsonNode.Parse(others.ToString())
+                  First = JsonNode.Parse(first.ToString()) }
         }

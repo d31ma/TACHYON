@@ -1,5 +1,5 @@
 @Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"CatalogSetup"})
-abstract interface class ProductStore {
+abstract interface class ProductStore implements Repository<ProductEntity, int> {
   Future<Object?> findByStatus(String status);
 
   Future<Object?> countByStatus(String status);

@@ -4,5 +4,6 @@ class ProductReport {
         public mixed $active,
         public mixed $count,
         public mixed $others,
+        public mixed $first,
     ) {}
 }

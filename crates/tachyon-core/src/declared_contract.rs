@@ -7,6 +7,8 @@ mod contract_form;
 mod contract_member;
 mod contract_rewrite;
 mod contract_role;
+mod crud_members;
+mod crud_template;
 mod fsharp_class_type;
 mod fsharp_contract;
 mod fsharp_contract_rewrite;
@@ -17,13 +19,18 @@ mod indented_members;
 mod indented_syntax;
 mod injected_store;
 mod marker_line;
+mod member_indent;
 mod member_scanner;
+mod repository_base;
 mod rust_contract_rewrite;
 mod store_field;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod converter_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod crud_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod store_tests;

@@ -12,6 +12,7 @@ class ProductController {
         val active = products.findByStatus(activeStatus)
         val activeCount = products.countByStatus(activeStatus)
         val others = products.excluding(activeStatus, mapOf("size" to 5))
-        return ProductReport(active, activeCount, others)
+        val first = products.findById(1)
+        return ProductReport(active, activeCount, others, first)
     }
 }

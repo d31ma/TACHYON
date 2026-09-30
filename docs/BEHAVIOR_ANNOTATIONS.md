@@ -251,7 +251,7 @@ These restrictions fail before any adapter runs.
 | `@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id","name"]})` (on a parameter) | Before the method runs and before cache lookup, turns that parameter into `{page,size,offset,sort}`. It never fetches a collection and cuts it into pages. On a Store query, `@PageDefaults` without sizes marks the page parameter; the Store gives the sizes. |
 | `@Entity({"adapter":"data"})` with `@Id` on one field | Declares the model identity that `context.repository(Model)` uses through `configuration.entities.data`. The field marked `@Id` is the identifier; an Entity without exactly one `@Id` field fails the build. |
 | `@Table('products')` | Gives the required table mapping for an entity. The mapping cannot change. Tachyon runs no DDL, creates no schema and runs no migration. |
-| `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares a Store: a contract with no implementation, like a Spring Data repository interface, in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, `typeof<ProductEntity>` in F#, the bare name elsewhere. Each method is a derived query or a `@Query`, and Tachyon writes it. `{"setup":"CatalogSetup"}` in the options names the Setup that builds its behavior context; the default is the store name with `Setup` instead of `Store`. `@Needs` injects the store in Yon and in Tac. A Store without an Entity, a class form where the language has a contract form, a method body, a field, a constructor or a method that is not a query fails with `TY1308`, and so does an `@AllOrNothing` method on a Store: the transaction belongs to the service that calls the store. |
+| `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares a Store: a contract with no implementation, like a Spring Data repository interface, in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, `typeof<ProductEntity>` in F#, the bare name elsewhere. Each method is a derived query (`findBy`, `countBy`, `existsBy`, `deleteBy`) or a `@Query`, and Tachyon writes it. A Store that extends `Repository<ProductEntity, Id>` also gets `findById`, `findAll`, `save` and `deleteById` (see [The Repository base](#the-repository-base)). `{"setup":"CatalogSetup"}` in the options names the Setup that builds its behavior context; the default is the store name with `Setup` instead of `Store`. `@Needs` injects the store in Yon and in Tac. A Store without an Entity, a class form where the language has a contract form, a method body, a field, a constructor or a method that is not a query fails with `TY1308`, and so does an `@AllOrNothing` method on a Store: the transaction belongs to the service that calls the store. |
 | `@Query({"operation":"find","where":[{"field":"status","operator":"eq","argument":0}],"orderBy":[]})` | Turns an empty method into an authorized, structured query to the entity adapter. Never SQL text. A `find` reads its page request from the parameter marked `@PageDefaults`. |
 | `@HTTPClient({"adapter":"catalog","path":"/products"})` with `@GetRequest` | Declares an outgoing call through the selected HTTP adapter. It does not register a Yon route. `GetRequest`, `PostRequest`, `PutRequest`, `PatchRequest` and `DeleteRequest` select the verb and optional method path. `PathVariable`, `RequestParam`, `RequestHeader` and `RequestBody` select argument values. An `HTTPClient` is a contract with no implementation, like a Spring `@HttpExchange` interface: declare it in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). A class form where the language has a contract form, a method body, a field, a constructor, a method without a request annotation, or another role on the same class fails with `TY1308`. `ty migrate fix --write` rewrites a class client. `{"setup":"CatalogSetup"}` names the Setup whose adapters send the requests; the default is the client name with `Setup` instead of `Client`. GET requests cannot have a body. See ADR 0048. |
 | `@StreamRequest("/ticks")` on an `@HTTPClient` method in JavaScript or TypeScript | Tac keeps a stream of server-sent events open at the path: it opens it when a component or service first uses the client, reconnects with a growing wait (1, 2, 4, 8 and 16 seconds, then it stops), reconnects after 60 seconds without a message, and closes it with its owner or when the server sends `end`. The method takes one parameter whose model type describes each message. A message that does not fit the model is dropped. Tac passes each message to the method and then publishes it as that model's event, so an `@OnEvent` listener in any Tac language receives it. It pairs with `@StreamRoute` on the server. See ADR 0058. |
@@ -869,6 +869,44 @@ instead of `Store`. The partition is the store name in lowerCamel case without
 - A Store without an Entity fails with `TY1308`. Code that only runs SQL
   belongs in a service that asks for a `DataSource`.
 - Do not put the Service role and the Store role on one type.
+
+#### The Repository base
+
+Like Spring Data's `CrudRepository`, a Store can extend
+`Repository<Entity, Id>` and then gets four methods without declaring them:
+
+- `findById(id)`: the record with that id, or null (a `findOne` query on the
+  Id field, whatever its name);
+- `findAll(page)`: one page of records ordered by id; pass `{}` for the first
+  page of the default size;
+- `save(entity)`: inserts or replaces the record through the entity adapter
+  and answers the saved record;
+- `deleteById(id)`: deletes the record and answers how many records it deleted.
+
+Each language names the base in its own contract form: `extends
+Repository<ProductEntity, Integer>` (Java, Groovy), `: Repository<ProductEntity,
+Int>` (Kotlin), `: Repository<ProductEntity, int>` (C#), `extends Repository`
+(PHP), an embedded `Repository[ProductEntity, int64]` line (Go), `implements
+Repository<ProductEntity, int>` (Dart), the supertrait
+`Repository<ProductEntity, i64>` (Rust), `protocol ProductStore: Repository`
+(Swift), `class ProductStore(Repository[ProductEntity, int], Protocol)`
+(Python), `inherit Repository<ProductEntity, int>` (F#), `extends
+Repository<ProductEntity, number>` (TypeScript), `extends Repository` with
+`/** @extends {Repository<ProductEntity, number>} */` (JavaScript) and
+`class ProductStore < Repository` (Ruby). The compiler removes the base and
+writes the four methods next to the other queries; TypeScript and JavaScript
+type-check against the `Repository` class in `types/tachyon-behaviors.d.ts`.
+The Repository must name the Entity of its Store, and only a Store can extend
+it; both fail with `TY1308`. In the compiled languages the results are the
+runtime's JSON values (`Object`, `Any?`, `BehaviorJSON`, `BehaviorValue`), like
+every other query result.
+
+A derived `deleteBy` method (`delete_by_` in snake_case) is a `delete` query:
+it removes every record that its predicates match and answers how many it
+removed. The entity adapter receives `{"operation":"query","query":{"kind":"delete",…}}`;
+the managed SQL datasource runs one `DELETE … WHERE`, FYLO and IndexedDB delete
+each matching row, and inside `@AllOrNothing` the delete joins the open
+transaction.
 
 A transaction belongs to a service, like Spring's `@Transactional`: put
 `@AllOrNothing` on the service method that calls the store. A store call inside

@@ -66,7 +66,7 @@ impl Memory {
             let row = BehaviorValue::object([("id", "one".into()), ("status", "active".into())]);
             return Ok(BehaviorValue::Array(vec![row]));
         }
-        if kind == "count" {
+        if kind == "count" || kind == "delete" {
             return Ok(1.into());
         }
         if kind == "exists" {

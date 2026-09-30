@@ -48,3 +48,24 @@ async function explicitOwnership() {
   }
 }
 void explicitOwnership;
+
+@Entity({"adapter":"data"})
+@Table("orders")
+class Order {
+  @Id
+  id = 0;
+}
+
+/** @extends {Repository<Order, number>} */
+@Store(Order, {"fields":["id"],"defaultSize":20,"maxSize":100})
+class OrderStore extends Repository {}
+
+/** @param {OrderStore} orders */
+async function useOrderStore(orders) {
+  /** @type {Order | null} */
+  const found = await orders.findById(1);
+  /** @type {number} */
+  const deleted = await orders.deleteById(1);
+  return [found, deleted];
+}
+void useOrderStore;

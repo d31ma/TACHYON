@@ -134,8 +134,14 @@ static async _exerciseCache(catalog, context) {
 static async _checkQueries(context) {
   const queries = new ProductQueriesStore();
   queries.behaviors = context;
-  const rows = await queries.findById(BehaviorChecksHelper._PRODUCT_ID);
-  if (rows[0].id !== BehaviorChecksHelper._PRODUCT_ID) throw new Error(BehaviorChecksHelper._QUERY_FAILED);
+  const found = await queries.findById(BehaviorChecksHelper._PRODUCT_ID);
+  if (found.id !== BehaviorChecksHelper._PRODUCT_ID) throw new Error(BehaviorChecksHelper._QUERY_FAILED);
+  const all = await queries.findAll({});
+  if (all.length !== 1) throw new Error(BehaviorChecksHelper._QUERY_FAILED);
+  const saved = await queries.save({ id: BehaviorChecksHelper._PRODUCT_ID });
+  if (saved.operation !== 'save') throw new Error(BehaviorChecksHelper._QUERY_FAILED);
+  const deleted = await queries.deleteById(BehaviorChecksHelper._PRODUCT_ID);
+  if (deleted !== 1) throw new Error(BehaviorChecksHelper._QUERY_FAILED);
   const count = await queries.count_by_id(BehaviorChecksHelper._PRODUCT_ID);
   if (count !== 1) throw new Error(BehaviorChecksHelper._QUERY_FAILED);
   const available = await queries.available(BehaviorChecksHelper._PRODUCT_ID);

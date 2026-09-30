@@ -58,6 +58,16 @@ class AnnotatedQueries {
   Future<Object?> countByName(Object? name) async {}
 
   Future<Object?> existsByName(Object? name) async {}
+
+  Future<Object?> findById(Object? id) async {}
+
+  Future<Object?> findAll(Object? page) async {}
+
+  Future<Object?> deleteById(Object? id) async {}
+
+  Future<Object?> deleteByName(Object? name) async {}
+
+  Future<Object?> save(Object? entity) => behaviors.repository(AnnotatedProduct).save(entity);
 }
 
 abstract class AnnotatedSummaries {
@@ -150,7 +160,7 @@ final class MemoryAdapters {
     switch (kind) {
       case 'find':
         return [<String, Object?>{'id': 1, 'name': 'tools'}];
-      case 'count':
+      case 'count' || 'delete':
         return 1;
       default:
         return true;
@@ -213,6 +223,10 @@ Future<void> checkQueries(BehaviorContext context, Map<String, Object?> input) a
   final queries = AnnotatedQueries(context);
   check((await queries.findNamed('tools', input) as List).length == 1, 'GENERATED_QUERY');
   check(await queries.countByName('tools') == 1 && await queries.existsByName('tools') == true, 'GENERATED_DERIVED_QUERY');
+  check((await queries.findById(1) as Map)['name'] == 'tools', 'REPOSITORY_FIND_BY_ID');
+  check((await queries.findAll(input) as List).length == 1, 'REPOSITORY_FIND_ALL');
+  check((await queries.save(<String, Object?>{'id': 1}) as Map)['operation'] == 'save', 'REPOSITORY_SAVE');
+  check(await queries.deleteById(1) == 1 && await queries.deleteByName('tools') == 1, 'REPOSITORY_DELETE');
 }
 
 void checkSummaries(BehaviorContext context) {

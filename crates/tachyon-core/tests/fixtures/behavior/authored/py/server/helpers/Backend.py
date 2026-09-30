@@ -32,6 +32,12 @@ class Backend:
         if command['operation'] != 'query':
             return command
         query = command['query']
+        if query['kind'] == 'delete':
+            return len(query['where'])
+        if not query['where']:
+            return [{'id': 'one', 'status': 'active'}]
+        if query['where'][0]['field'] == 'id':
+            return [{'id': query['where'][0]['value'], 'status': 'active'}]
         assert query['where'][0]['value'] == 'active'
         if query['kind'] == 'count':
             return 1

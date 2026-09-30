@@ -147,7 +147,14 @@ fn check_queries(context: &BehaviorContext) -> BehaviorResult<()> {
     assert_eq!(products.count_by_status("active".into())?, 1.into());
     assert_eq!(products.exists_by_id("one".into())?, true.into());
     let first_page = BehaviorValue::object([("size", 1.into())]);
-    assert_eq!(products.selected("active".into(), first_page)?, query_rows);
+    assert_eq!(products.selected("active".into(), first_page.clone())?, query_rows);
+    let found = products.find_by_id("one".into())?;
+    assert_eq!(found.get("id"), Some(&BehaviorValue::from("one")));
+    assert_eq!(products.find_all(first_page)?, query_rows);
+    let saved = products.save(BehaviorValue::object([("id", "one".into())]))?;
+    assert_eq!(saved.get("operation"), Some(&BehaviorValue::from("save")));
+    assert_eq!(products.delete_by_id("one".into())?, 1.into());
+    assert_eq!(products.delete_by_status("gone".into())?, 1.into());
     Ok(())
 }
 

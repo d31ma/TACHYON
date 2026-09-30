@@ -1,5 +1,6 @@
+/** @extends {Repository<ProductEntity, number>} */
 @Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"CatalogSetup"})
-export default class ProductStore {
+export default class ProductStore extends Repository {
   /**
    * @param {string} status
    * @returns {Promise<ProductEntity[] | void>}

@@ -36,6 +36,9 @@ class Backend {
     public static function execute($command, $execution) {
         if ($command['operation'] !== 'query') return $command;
         $query = $command['query'];
+        if ($query['kind'] === 'delete') return count($query['where']);
+        if ($query['where'] === []) return [['id' => 'one', 'status' => 'active']];
+        if ($query['where'][0]['field'] === 'id') return [['id' => $query['where'][0]['value'], 'status' => 'active']];
         if ($query['where'][0]['value'] !== 'active') throw new Exception('query binding');
         if ($query['kind'] === 'count') return 1;
         if ($query['kind'] === 'exists') return true;

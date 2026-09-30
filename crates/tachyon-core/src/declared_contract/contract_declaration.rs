@@ -4,6 +4,7 @@ use super::contract_role::ContractRole;
 use super::indented_members::IndentedMembers;
 use super::marker_line::MarkerLine;
 use super::member_scanner::MemberScanner;
+use super::repository_base::RepositoryBase;
 use crate::behavior::HttpClientSource;
 use serde_json::Value;
 use std::ops::Range;
@@ -12,6 +13,7 @@ use std::ops::Range;
 pub(crate) struct ContractDeclaration {
     pub(crate) role: ContractRole,
     pub(crate) name: String,
+    pub(crate) entity: String,
     pub(crate) names_entity: bool,
     pub(crate) marker_at: usize,
     pub(crate) options: Value,
@@ -40,6 +42,13 @@ impl ContractDeclaration {
     pub(crate) fn members(&self, form: ContractForm, code: &str) -> Vec<ContractMember> {
         let readers: [MemberReader; 2] = [Self::scanned_members, Self::indented_members];
         readers[usize::from(form.is_indented())](form, code, self.body.clone())
+            .into_iter()
+            .filter(|member| !RepositoryBase::is_embedded(form, code, member))
+            .collect()
+    }
+
+    pub(crate) fn repository_base(&self, form: ContractForm, code: &str) -> Option<RepositoryBase> {
+        RepositoryBase::find(form, code, self)
     }
 
     fn scanned_members(form: ContractForm, code: &str, body: Range<usize>) -> Vec<ContractMember> {
@@ -105,6 +114,7 @@ impl ContractDeclaration {
         Some(Self {
             role,
             name,
+            entity: Self::entity(form, &lines[index].arguments),
             names_entity: !lines[index].arguments.is_empty(),
             marker_at: lines[index].start,
             options: Self::options(&lines[index].arguments),
@@ -113,6 +123,13 @@ impl ContractDeclaration {
             body,
             close,
         })
+    }
+
+    fn entity(form: ContractForm, arguments: &str) -> String {
+        let (reference, _) = crate::behavior::literal::reference_and_options(arguments);
+        crate::behavior::literal::class_reference(form.language, reference)
+            .unwrap_or_default()
+            .to_owned()
     }
 
     fn options(arguments: &str) -> Value {

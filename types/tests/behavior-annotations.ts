@@ -152,6 +152,21 @@ class ProductQueries {
 }
 void ProductQueries;
 
+@Store(Product, {"fields":["id"],"defaultSize":20,"maxSize":100})
+class ProductRepository extends Repository<Product, number> {
+  async deleteByLabel(_label: string): Promise<number | void> {}
+}
+async function useProductRepository(products: ProductRepository): Promise<void> {
+  const found: Product | null = await products.findById(7);
+  const page: Product[] = await products.findAll({ size: 10 });
+  const saved: Product = await products.save(new Product());
+  const deleted: number = await products.deleteById(7);
+  // @ts-expect-error A Repository id has the Id type of the Store.
+  await products.findById('seven');
+  void [found, page, saved, deleted];
+}
+void useProductRepository;
+
 class GeneratedArguments {
   @Needs()
   @Named("CatalogSettings")

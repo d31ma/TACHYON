@@ -729,9 +729,10 @@ class NoteEntity {
 }
 `);
   write(project, 'client/stores/NoteStore.js', `@Store(NoteEntity, {"fields":["id","status","rank"],"defaultSize":20,"maxSize":100,"setup":"StorageSetup"})
-class NoteStore {
+class NoteStore extends Repository {
   async findByStatus(status) {}
   async countByStatus(status) {}
+  async deleteByStatus(status) {}
   @Query({"operation":"find","where":[{"field":"rank","operator":"gte","argument":0}],"orderBy":[{"field":"rank","direction":"desc"}]})
   async ranked(rank, @PageDefaults page) {}
 }
@@ -761,6 +762,15 @@ export default class StoreNotesService {
       count: await this.noteStore.countByStatus(StoreNotesService.OPEN),
       ranked: this._ids(await this.noteStore.ranked(StoreNotesService.LOW_RANK, { size: StoreNotesService.PAGE_SIZE })),
     };
+  }
+
+  async repository() {
+    const saved = await this.noteStore.save({ id: 'r', status: 'gone', rank: 0 });
+    const found = await this.noteStore.findById('r');
+    const firstPage = await this.noteStore.findAll({ size: 1 });
+    const removed = await this.noteStore.deleteByStatus('gone');
+    const missing = await this.noteStore.findById('r');
+    return { saved: saved.id, found: found.id, firstPage: firstPage.length, removed, missing };
   }
 
   _ids(rows) {
@@ -992,6 +1002,7 @@ async function checkIndexedStore(browser, origin) {
   await notes(() => __root('storageNotes').batch());
   await page.reload({ waitUntil: 'networkidle' });
   expect(JSON.stringify(await notes(reports)), JSON.stringify({ open: ['a', 'd', 'y', 'z'], count: 4, ranked: ['y', 'a'], page: ['d', 'y'] }), 'rows survive a reload; a failed AllOrNothing wrote nothing and a finished one wrote everything');
+  expect(JSON.stringify(await notes(() => __root('storeNotes').repository())), JSON.stringify({ saved: 'r', found: 'r', firstPage: 1, removed: 1, missing: null }), 'a NoteStore that extends Repository saves, finds by id, pages and deletes by a derived query in IndexedDB');
   await context.close();
 
   const changed = await browser.newContext();

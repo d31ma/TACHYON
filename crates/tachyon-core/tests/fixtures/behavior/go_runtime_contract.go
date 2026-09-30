@@ -418,7 +418,7 @@ func checkInvalidQueryCalls(context *BehaviorContext) {
 	_, err = context.Query(invalid, active())
 	expect(err != nil, "an unknown field fails")
 	invalid = queryPolicy()
-	invalid.Operation = "delete"
+	invalid.Operation = "update"
 	_, err = context.Query(invalid, active())
 	expect(err != nil, "an unknown operation fails")
 }

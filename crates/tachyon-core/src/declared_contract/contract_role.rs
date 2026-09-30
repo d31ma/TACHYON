@@ -57,12 +57,12 @@ impl ContractRole {
         noun: "store",
         works: "queries",
         no_implementation: "A Store has no implementation: Tachyon generates each query. Move the logic into a service.",
-        help: "A Store is a contract, like a Spring Data repository interface: it names its Entity, each method is a derived query (findBy, countBy or existsBy) or a Query, and Tachyon writes the body, the constructor and the behavior context from the Setup. A service or controller injects it with Needs. AllOrNothing goes on the service method: a store call inside it joins the open transaction, like Spring's @Transactional. `ty migrate fix --write` rewrites a class store. See docs/BEHAVIOR_ANNOTATIONS.md.",
+        help: "A Store is a contract, like a Spring Data repository interface: it names its Entity, each method is a derived query (findBy, countBy, existsBy or deleteBy) or a Query, it may extend Repository<Entity, Id> to get findById, findAll, save and deleteById without declaring them, and Tachyon writes the body, the constructor and the behavior context from the Setup. A service or controller injects it with Needs. AllOrNothing goes on the service method: a store call inside it joins the open transaction, like Spring's @Transactional. `ty migrate fix --write` rewrites a class store. See docs/BEHAVIOR_ANNOTATIONS.md.",
         names_entity: true,
         managed_in_browser: false,
         context_from_caller: false,
         member_markers: &Self::STORE_CALLS,
-        member_rule: "{owner}.{method} is not a query. Each method of a Store runs a query: start its name with findBy, countBy or existsBy (find_by_, count_by_ or exists_by_ in snake_case), or mark it with {markers}",
+        member_rule: "{owner}.{method} is not a query. Each method of a Store runs a query: start its name with findBy, countBy, existsBy or deleteBy (find_by_, count_by_, exists_by_ or delete_by_ in snake_case), or mark it with {markers}",
         lowered_in: &Self::EVERY_LANGUAGE,
     };
     const CONVERTER: Self = Self {

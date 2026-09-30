@@ -13,6 +13,7 @@ class ProductController {
     const active = await this.productStore.findByStatus(activeStatus);
     const activeCount = await this.productStore.countByStatus(activeStatus);
     const others = await this.productStore.excluding(activeStatus, { size: 5 });
-    return { active, count: activeCount, others };
+    const first = await this.productStore.findById(1);
+    return { active, count: activeCount, others, first };
   }
 }

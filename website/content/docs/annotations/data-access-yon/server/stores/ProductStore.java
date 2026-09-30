@@ -1,5 +1,5 @@
 @Store(ProductEntity.class, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"CatalogSetup"})
-interface ProductStore {
+interface ProductStore extends Repository<ProductEntity, Integer> {
     Object findByStatus(String status);
     Object countByStatus(String status);
     @Query({"operation":"find","where":[{"field":"status","operator":"ne","argument":0}],"orderBy":[{"field":"id","direction":"desc"}]})

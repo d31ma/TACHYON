@@ -39,6 +39,9 @@ class Backend
   def self.execute(command, execution)
     return command unless command["operation"] == "query"
     query = command["query"]
+    return query["where"].size if query["kind"] == "delete"
+    return [{ "id" => "one", "status" => "active" }] if query["where"].empty?
+    return [{ "id" => query["where"][0]["value"], "status" => "active" }] if query["where"][0]["field"] == "id"
     raise "query binding" unless query["where"][0]["value"] == "active"
     return 1 if query["kind"] == "count"
     return true if query["kind"] == "exists"

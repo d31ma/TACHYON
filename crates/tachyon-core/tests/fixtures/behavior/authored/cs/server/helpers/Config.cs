@@ -78,7 +78,7 @@ public sealed class Config {
             if (Config.QueryResult != null) return System.Threading.Tasks.Task.FromResult(Config.QueryResult);
             string kind = command.Get("query").Get("kind").Text;
             if (kind == "find") return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Parse("[{\"id\":1}]"));
-            if (kind == "count") return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(1));
+            if (kind == "count" || kind == "delete") return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(1));
             return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(true));
         }
     }

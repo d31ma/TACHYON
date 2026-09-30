@@ -69,6 +69,9 @@ class RuntimeAdaptersSetup {
         if (kind.equals("exists")) {
             return true;
         }
+        if (kind.equals("delete")) {
+            return 1;
+        }
         return java.util.List.of(java.util.Map.of("id", "one", QUERY, command.get(QUERY)));
     }
     static boolean authorizeCache(java.util.Map<String, Object> call, Behaviors.Execution current) {
