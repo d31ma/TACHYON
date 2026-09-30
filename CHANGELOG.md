@@ -17,6 +17,22 @@ machine contracts have their own, independent major versions.
   host no longer defines `globalThis.tachyonWindow`, and `tachyon-env.d.ts` no
   longer declares it. Setups and shared scripts may still call `fetch`.
 
+- A Setup is a singleton, like a Spring `@Configuration` (ADR 0022
+  amendment): every behavior runtime (JavaScript, TypeScript, Go, Java,
+  Groovy, Kotlin, Swift, C#, F#, Dart, Ruby, Rust, PHP and Python) runs
+  `configure` once for each Setup, profile set and property set, and every
+  context built from it shares the same adapters until the last of those
+  contexts is disposed. Tac configures a Setup once per page and Yon once per
+  server process; each case of a test unit still starts with a fresh Setup.
+  Before, every client, store or service context ran `configure` again, so
+  two services that used the same client got separate adapters (the list in
+  the signal-driven UI cookbook never saw the form's save). JavaScript and
+  TypeScript services share a Setup that the compiler inlines into each
+  service module, and Ruby browser services share it too. Browser services
+  in Swift, Kotlin, Java, C#, F#, Rust, Go and Dart still get a separate
+  copy of a Setup for each service until the page is lowered as one program
+  (planned); the clients inside one such service already share it.
+
 - A Store can extend `Repository<Entity, Id>`, like Spring Data's
   `CrudRepository` (ADR 0022 amendment), and then gets `findById`,
   `findAll(page)`, `save` and `deleteById` without declaring them, in every

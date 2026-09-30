@@ -8,6 +8,7 @@
 - Amended by: [ADR 0046](0046-tachyon-annotations-are-global.md): the annotations and types are global in every language, and JS/TS refuses an import from `tachyon:behaviors`
 - Amended by: [ADR 0047](0047-annotation-names-are-plain-english.md): annotations and role folders have plain English names (for example `Needs`, `NeedsAll`, `Store`, `OnStart`, `stores/`); the old names are refused and `ty migrate fix --write` renames them
 - Amended on 2026-09-29 (see the end): a `Store` is a contract with no implementation, like a Spring Data repository interface; a bare Store is refused
+- Amended on 2026-09-30 (see the end): a Setup is configured once and every context from it shares its adapters, like a Spring `@Configuration`
 
 ## Decision
 
@@ -307,3 +308,39 @@ no implementation, and Tachyon generates each query.
   call in Go, a private reader in Ruby, a `let` binding for an F#
   constructor parameter). A JavaScript or TypeScript owner resolves a needed
   converter as a provider; Dart builds it with the service.
+
+## Amendment (2026-09-30): a Setup is configured once
+
+- A Setup is a singleton, like a Spring `@Configuration`. Every runtime
+  keeps one configuration for each Setup and selection (the sorted profiles
+  and the sorted properties of the context options). `Behaviors.create`
+  runs `configure` only when no open context holds that configuration yet;
+  otherwise the new context uses the same adapters. Each context counts as
+  one user, and `dispose` (once, also when the Rust context is dropped)
+  releases it. The last release forgets the configuration, so the next
+  context runs `configure` again.
+- Lifetime: Tac configures a Setup once per page, because a page's clients,
+  stores and services keep their contexts open until the owner is disposed.
+  Yon configures it once per server process. A test unit disposes its
+  context after each case, so every case still starts with a fresh Setup,
+  as if each test had Spring's `@DirtiesContext`.
+- This replaces "No global mutable container exists" above for Setups only:
+  each runtime holds one registry of open Setup configurations (a static in
+  its `Behaviors` type, a package variable in Go, a function-local static in
+  Rust, a `globalThis` map in JavaScript). It holds only what open contexts
+  already use, and the registry is still not a general bean container.
+  Contexts, partitions and signals stay separate for each context.
+- JavaScript keys a Setup by realm and name, because the compiler inlines
+  the Setup class into each service module. The generated
+  `TacClientConfiguration` of a managed-client owner is `moduleOwned`, so it
+  stays one for each module: each owner module has its own adapter policies.
+- Current limit: in Swift, Kotlin, Java, C#, F#, Rust, Go and Dart browser
+  services, each service is lowered on its own, with its own copy of the
+  runtime and of each Setup and client type (a Go package, a namespace or a
+  Java holder for each service). Two such services therefore still get
+  separate adapters; the clients inside one service share them. Lowering a
+  page's services as one program will remove this limit.
+- Every runtime's contract test opens two contexts from one Setup, checks
+  that `configure` ran once and that both contexts see the same adapter
+  state, disposes one context twice, and checks that `configure` runs again
+  only after the last context is disposed.
