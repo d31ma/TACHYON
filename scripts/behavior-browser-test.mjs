@@ -26,6 +26,13 @@ class BehaviorGate {
     'entities/ProductEntity.js',
     'stores/ProductQueriesStore.js',
   ];
+  static clientPrefix = 'client/';
+  static otherServiceLanguages = new Set(['ts', 'dart', 'rs', 'go', 'rb', 'swift', 'kt', 'java', 'cs', 'fs', 'lua', 'py', 'php', 'groovy']);
+
+  static isJavaScriptProjectFile(name) {
+    const extension = path.extname(name).slice(1);
+    return name.startsWith(BehaviorGate.clientPrefix) && !BehaviorGate.otherServiceLanguages.has(extension);
+  }
 }
 
 function write(project, name, contents) {
@@ -51,7 +58,7 @@ function withPrivateMembers(source, extension) {
 function writePublishedExample(project, features) {
   const published = features.features.find((feature) => feature.id === 'behavior-annotations');
   assert.ok(published, 'published behavior example exists');
-  for (const file of published.files.filter((file) => file.name.startsWith('client/'))) {
+  for (const file of published.files.filter((file) => BehaviorGate.isJavaScriptProjectFile(file.name))) {
     write(project, file.name.startsWith('client/pages/') ? file.name.replace('client/pages/', 'client/pages/published/') : file.name, file.code);
   }
 }
