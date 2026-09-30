@@ -9,6 +9,4 @@ export default class CartService {
     const changed: CartTotal = { total: this.total }
     this.applicationEventPublisher.publishEvent(changed, true)
   }
-  @OnStart
-  initialize(): void { document.title = 'Cart' }
 }

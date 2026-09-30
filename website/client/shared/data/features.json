@@ -24,7 +24,7 @@
     {
       "id": "dynamic-segments",
       "title": "Path variables",
-      "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value.",
+      "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value. The view passes `page.path` to a service method, which reads the last segment. So every service language can use the value: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view.",
       "group": "Routing",
       "files": [
         {
@@ -33,11 +33,51 @@
         },
         {
           "name": "client/components/item/page/tac.html",
-          "code": "<article>\n  <h1>Item {item.id}</h1>\n</article>"
+          "code": "<article>\n  <h1>Item {item.idFrom(page.path)}</h1>\n</article>\n"
         },
         {
           "name": "client/services/ItemService.js",
-          "code": "@Service\nexport default class ItemService {\n  /** @type {string | undefined} */\n  id = location.pathname.split('/').pop()\n}"
+          "code": "@Service\nexport default class ItemService {\n  /**\n   * @param {string} path\n   * @returns {string}\n   */\n  idFrom(path) { return path.split('/').pop() ?? '' }\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.ts",
+          "code": "@Service\nexport default class ItemService {\n  idFrom(path: string): string { return path.split('/').pop() ?? '' }\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.dart",
+          "code": "@Service\nclass ItemService {\n  String idFrom(String path) { return path.split('/').last; }\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.rs",
+          "code": "#[Service]\n#[derive(Default)]\nstruct ItemService {}\n\nimpl ItemService {\n    fn id_from(&self, path: &str) -> String {\n        path.rsplit('/').next().unwrap_or_default().to_string()\n    }\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.go",
+          "code": "import \"strings\"\n\n// @Service\ntype ItemService struct{}\n\nfunc (item *ItemService) IdFrom(path string) string {\n\treturn path[strings.LastIndex(path, \"/\")+1:]\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.rb",
+          "code": "#[Service]\nclass ItemService\n  # @param path [String]\n  # @return [String]\n  def id_from(path)\n    path.split(\"/\").last.to_s\n  end\nend\n"
+        },
+        {
+          "name": "client/services/ItemService.swift",
+          "code": "@Service\nfinal class ItemService {\n    func idFrom(_ path: String) -> String {\n        String(path.split(separator: \"/\").last ?? \"\")\n    }\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.kt",
+          "code": "@Service\nclass ItemService {\n    fun idFrom(path: String): String = path.substringAfterLast('/')\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.java",
+          "code": "@Service\nclass ItemService {\n    String idFrom(String path) {\n        return path.substring(path.lastIndexOf('/') + 1);\n    }\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.cs",
+          "code": "[Service]\npublic sealed class ItemService {\n    public string IdFrom(string path) => path.Substring(path.LastIndexOf('/') + 1);\n}\n"
+        },
+        {
+          "name": "client/services/ItemService.fs",
+          "code": "[<Service>]\ntype ItemService() =\n    member this.IdFrom(path: string) : string =\n        path.Substring(path.LastIndexOf('/') + 1)\n"
         },
         {
           "name": "server/controllers/ItemsController.js",
@@ -138,6 +178,14 @@
         {
           "name": "server/controllers/ItemsController.rb",
           "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @param id [Integer]\n  # @return [Item]\n  #[GetRoute(\"/{id}\")]\n  def get_item(\n    #[FromPath]\n    id\n  )\n    Item.new(id: id)\n  end\nend\n"
+        },
+        {
+          "name": "server/models/Item.lua",
+          "code": "---@class Item\n---@field id integer\nItem = {}\n"
+        },
+        {
+          "name": "server/controllers/ItemsController.lua",
+          "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { id = id }\nend\n"
         }
       ],
       "verify": "yon"
@@ -818,11 +866,47 @@
         },
         {
           "name": "client/services/BasketService.js",
-          "code": "@Service\nexport default class BasketService {\n  count = 6;\n  /** @returns {number} */\n  doubled() { return this.count * 2; }\n  @OnStart\n  initialize() { document.title = 'Basket'; }\n}"
+          "code": "@Service\nexport default class BasketService {\n  count = 0;\n  /** @returns {number} */\n  doubled() { return this.count * 2; }\n  @OnStart\n  initialize() { this.count = 6; }\n}\n"
         },
         {
           "name": "client/services/BasketService.ts",
-          "code": "@Service\nexport default class BasketService {\n  count: number = 6\n\n  doubled(): number {\n    return this.count * 2\n  }\n\n  @OnStart\n  initialize(): void { document.title = 'Basket' }\n}"
+          "code": "@Service\nexport default class BasketService {\n  count: number = 0\n\n  doubled(): number {\n    return this.count * 2\n  }\n\n  @OnStart\n  initialize(): void { this.count = 6 }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.dart",
+          "code": "@Service\nclass BasketService {\n  int count = 0;\n\n  int doubled() { return count * 2; }\n\n  @OnStart\n  void initialize() { count = 6; }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.rs",
+          "code": "#[Service]\n#[derive(Default)]\nstruct BasketService {\n    count: i64,\n}\n\nimpl BasketService {\n    fn doubled(&self) -> i64 {\n        self.count * 2\n    }\n\n    #[OnStart]\n    fn initialize(&mut self) { self.count = 6; }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.go",
+          "code": "// @Service\ntype BasketService struct {\n\tCount int64\n}\n\nfunc (basket *BasketService) Doubled() int64 {\n\treturn basket.Count * 2\n}\n\n// @OnStart\nfunc (basket *BasketService) Initialize() {\n\tbasket.Count = 6\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.rb",
+          "code": "#[Service]\nclass BasketService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n  end\n\n  # @return [Integer]\n  def doubled\n    @count * 2\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    @count = 6\n  end\nend\n"
+        },
+        {
+          "name": "client/services/BasketService.swift",
+          "code": "@Service\nfinal class BasketService {\n    var count: Int = 0\n\n    func doubled() -> Int { count * 2 }\n\n    @OnStart\n    func initialize() { count = 6 }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.kt",
+          "code": "@Service\nclass BasketService {\n    var count: Int = 0\n\n    fun doubled(): Int = count * 2\n\n    @OnStart\n    fun initialize() { count = 6 }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.java",
+          "code": "@Service\nclass BasketService {\n    int count = 0;\n\n    int doubled() { return count * 2; }\n\n    @OnStart\n    void initialize() { count = 6; }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.cs",
+          "code": "[Service]\npublic sealed class BasketService {\n    public int Count = 0;\n\n    public int Doubled() => Count * 2;\n\n    [OnStart]\n    public void Initialize() { Count = 6; }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.fs",
+          "code": "[<Service>]\ntype BasketService() =\n    member val Count : int = 0 with get, set\n\n    member this.Doubled() : int =\n        this.Count * 2\n\n    [<OnStart>]\n    member this.Initialize() : unit =\n        this.Count <- 6\n"
         },
         {
           "name": "conventions",
@@ -834,11 +918,47 @@
         },
         {
           "name": "client/services/CartService.js",
-          "code": "/** @import { CartTotal } from '/models/CartTotal.ts' */\n@Service\nexport default class CartService {\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  total = 0;\n  add() {\n    this.total += 1;\n    /** @type {CartTotal} */\n    const changed = { total: this.total };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n  @OnStart\n  initialize() { document.title = 'Cart'; }\n}"
+          "code": "/** @import { CartTotal } from '/models/CartTotal.ts' */\n@Service\nexport default class CartService {\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  total = 0;\n  add() {\n    this.total += 1;\n    /** @type {CartTotal} */\n    const changed = { total: this.total };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n}\n"
         },
         {
           "name": "client/services/CartService.ts",
-          "code": "import type { CartTotal } from '/models/CartTotal.ts'\n\n@Service\nexport default class CartService {\n  applicationEventPublisher!: ApplicationEventPublisher\n  total: number = 0\n  add(): void {\n    this.total += 1\n    const changed: CartTotal = { total: this.total }\n    this.applicationEventPublisher.publishEvent(changed, true)\n  }\n  @OnStart\n  initialize(): void { document.title = 'Cart' }\n}"
+          "code": "import type { CartTotal } from '/models/CartTotal.ts'\n\n@Service\nexport default class CartService {\n  applicationEventPublisher!: ApplicationEventPublisher\n  total: number = 0\n  add(): void {\n    this.total += 1\n    const changed: CartTotal = { total: this.total }\n    this.applicationEventPublisher.publishEvent(changed, true)\n  }\n}\n"
+        },
+        {
+          "name": "client/services/CartService.dart",
+          "code": "import 'models/CartTotal.dart';\n\n@Service\nclass CartService {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n  int total = 0;\n\n  void add() {\n    total += 1;\n    applicationEventPublisher.publishEvent(CartTotal(total), true);\n  }\n}\n"
+        },
+        {
+          "name": "client/services/CartService.rs",
+          "code": "use crate::models::CartTotal;\n\n#[Service]\n#[derive(Default)]\nstruct CartService {\n    total: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\n\nimpl CartService {\n    fn add(&mut self) {\n        self.total += 1;\n        self.application_event_publisher.publish_event(CartTotal { total: self.total }, true);\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CartService.go",
+          "code": "// @Service\ntype CartService struct {\n\tTotal                     int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\nfunc (cart *CartService) Add() {\n\tcart.Total++\n\tcart.applicationEventPublisher.PublishEvent(CartTotal{Total: cart.Total}, true)\n}\n"
+        },
+        {
+          "name": "client/services/CartService.rb",
+          "code": "#[Service]\nclass CartService\n  # @return [Integer]\n  attr_reader :total\n\n  def initialize\n    @total = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  def add\n    @total += 1\n    @events.publish_event(CartTotal.new(total: @total), true)\n  end\nend\n"
+        },
+        {
+          "name": "client/services/CartService.swift",
+          "code": "@Service\nfinal class CartService {\n    var total: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    func add() {\n        total += 1\n        applicationEventPublisher.publishEvent(CartTotal(total: total), true)\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CartService.kt",
+          "code": "import models.CartTotal\n\n@Service\nclass CartService {\n    var total: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    fun add() {\n        total += 1\n        applicationEventPublisher.publishEvent(CartTotal(total), true)\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CartService.java",
+          "code": "import models.CartTotal;\n\n@Service\nclass CartService {\n    int total = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    void add() {\n        total += 1;\n        applicationEventPublisher.publishEvent(new CartTotal(total), true);\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CartService.cs",
+          "code": "using Models;\n\n[Service]\npublic sealed class CartService {\n    public int Total = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    public void Add() {\n        Total += 1;\n        applicationEventPublisher.PublishEvent(new CartTotal(Total), true);\n    }\n}\n"
+        },
+        {
+          "name": "client/services/CartService.fs",
+          "code": "open Models\n\n[<Service>]\ntype CartService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Total : int64 = 0L with get, set\n\n    member this.Add() : unit =\n        this.Total <- this.Total + 1L\n        applicationEventPublisher.PublishEvent({ Total = this.Total }, true)\n"
         },
         {
           "name": "client/components/live-total/tac.html",
@@ -853,8 +973,80 @@
           "code": "import type { CartTotal } from '/models/CartTotal.ts'\n\n@Service\nexport default class LiveTotalService {\n  seen: number = 0\n  @OnEvent({\"replay\":true})\n  changed(changed: CartTotal): void { this.seen = changed.total }\n}"
         },
         {
+          "name": "client/services/LiveTotalService.dart",
+          "code": "import 'models/CartTotal.dart';\n\n@Service\nclass LiveTotalService {\n  int seen = 0;\n\n  @OnEvent({\"replay\":true})\n  void changed(CartTotal changed) { seen = changed.total; }\n}\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.rs",
+          "code": "use crate::models::CartTotal;\n\n#[Service]\n#[derive(Default)]\nstruct LiveTotalService {\n    seen: i64,\n}\n\nimpl LiveTotalService {\n    #[OnEvent({\"replay\":true})]\n    fn changed(&mut self, changed: CartTotal) { self.seen = changed.total; }\n}\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.go",
+          "code": "// @Service\ntype LiveTotalService struct {\n\tSeen int64\n}\n\n// @OnEvent({\"replay\":true})\nfunc (live *LiveTotalService) Changed(changed CartTotal) {\n\tlive.Seen = changed.Total\n}\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.rb",
+          "code": "#[Service]\nclass LiveTotalService\n  # @return [Integer]\n  attr_reader :seen\n\n  def initialize\n    @seen = 0\n  end\n\n  # @param changed [CartTotal]\n  # @return [void]\n  #[OnEvent({\"replay\":true})]\n  def changed(changed)\n    @seen = changed.total\n  end\nend\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.swift",
+          "code": "@Service\nfinal class LiveTotalService {\n    var seen: Int = 0\n\n    @OnEvent({\"replay\":true})\n    func changed(_ changed: CartTotal) { seen = changed.total }\n}\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.kt",
+          "code": "import models.CartTotal\n\n@Service\nclass LiveTotalService {\n    var seen: Int = 0\n\n    @OnEvent({\"replay\":true})\n    fun changed(changed: CartTotal) { seen = changed.total }\n}\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.java",
+          "code": "import models.CartTotal;\n\n@Service\nclass LiveTotalService {\n    int seen = 0;\n\n    @OnEvent({\"replay\":true})\n    void changed(CartTotal changed) { seen = changed.total(); }\n}\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.cs",
+          "code": "using Models;\n\n[Service]\npublic sealed class LiveTotalService {\n    public int Seen = 0;\n\n    [OnEvent({\"replay\":true})]\n    public void Changed(CartTotal changed) { Seen = changed.Total; }\n}\n"
+        },
+        {
+          "name": "client/services/LiveTotalService.fs",
+          "code": "open Models\n\n[<Service>]\ntype LiveTotalService() =\n    member val Seen : int64 = 0L with get, set\n\n    [<OnEvent({\"replay\":true})>]\n    member this.Changed(changed: CartTotal) : unit =\n        this.Seen <- changed.Total\n"
+        },
+        {
           "name": "client/models/CartTotal.ts",
           "code": "export interface CartTotal {\n  total: integer\n}\n"
+        },
+        {
+          "name": "client/models/CartTotal.dart",
+          "code": "class CartTotal {\n  final int total;\n\n  const CartTotal(this.total);\n}\n"
+        },
+        {
+          "name": "client/models/CartTotal.rs",
+          "code": "pub struct CartTotal {\n    pub total: i64,\n}\n"
+        },
+        {
+          "name": "client/models/CartTotal.go",
+          "code": "type CartTotal struct {\n\tTotal int64 `json:\"total\"`\n}\n"
+        },
+        {
+          "name": "client/models/CartTotal.rb",
+          "code": "# @!attribute [r] total\n#   @return [Integer]\nCartTotal = Data.define(:total)\n"
+        },
+        {
+          "name": "client/models/CartTotal.swift",
+          "code": "struct CartTotal {\n    let total: Int\n}\n"
+        },
+        {
+          "name": "client/models/CartTotal.kt",
+          "code": "data class CartTotal(val total: Int)\n"
+        },
+        {
+          "name": "client/models/CartTotal.java",
+          "code": "record CartTotal(int total) {}\n"
+        },
+        {
+          "name": "client/models/CartTotal.cs",
+          "code": "public record CartTotal(int Total);\n"
+        },
+        {
+          "name": "client/models/CartTotal.fs",
+          "code": "type CartTotal = { Total: int64 }\n"
         }
       ]
     },
@@ -976,6 +1168,46 @@
         {
           "name": "client/services/EditorService.js",
           "code": "@Service\nexport default class EditorService {\n  @SessionState\n  draft = ''\n  @LocalState\n  theme = 'light'\n}"
+        },
+        {
+          "name": "client/services/EditorService.ts",
+          "code": "@Service\nexport default class EditorService {\n  @SessionState\n  draft: string = ''\n  @LocalState\n  theme: string = 'light'\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.dart",
+          "code": "@Service\nclass EditorService {\n  @SessionState\n  String draft = '';\n  @LocalState\n  String theme = 'light';\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.rs",
+          "code": "#[Service]\nstruct EditorService {\n    #[SessionState]\n    draft: String,\n    #[LocalState]\n    theme: String,\n}\n\nimpl EditorService {\n    fn new() -> Self {\n        Self { draft: String::new(), theme: String::from(\"light\") }\n    }\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.go",
+          "code": "// @Service\ntype EditorService struct {\n\t// @SessionState\n\tDraft string\n\t// @LocalState\n\tTheme string\n}\n\n// @OnStart\nfunc (editor *EditorService) Start() {\n\teditor.Theme = \"light\"\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.rb",
+          "code": "#[Service]\nclass EditorService\n  # @return [String]\n  #[SessionState]\n  attr_accessor :draft\n  # @return [String]\n  #[LocalState]\n  attr_accessor :theme\n\n  def initialize\n    @draft = \"\"\n    @theme = \"light\"\n  end\nend\n"
+        },
+        {
+          "name": "client/services/EditorService.swift",
+          "code": "@Service\nfinal class EditorService {\n    @SessionState\n    var draft: String = \"\"\n    @LocalState\n    var theme: String = \"light\"\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.kt",
+          "code": "@Service\nclass EditorService {\n    @SessionState\n    var draft: String = \"\"\n    @LocalState\n    var theme: String = \"light\"\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.java",
+          "code": "@Service\nclass EditorService {\n    @SessionState\n    String draft = \"\";\n    @LocalState\n    String theme = \"light\";\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.cs",
+          "code": "[Service]\npublic sealed class EditorService {\n    [SessionState]\n    public string Draft = \"\";\n    [LocalState]\n    public string Theme = \"light\";\n}\n"
+        },
+        {
+          "name": "client/services/EditorService.fs",
+          "code": "[<Service>]\ntype EditorService() =\n    [<SessionState>]\n    member val Draft : string = \"\" with get, set\n\n    [<LocalState>]\n    member val Theme : string = \"light\" with get, set\n"
         },
         {
           "name": "client/pages/tac.html",
@@ -2416,11 +2648,51 @@
       "id": "environment",
       "title": "Marking development mode",
       "group": "Tooling",
-      "summary": "The development server marks every document that it serves as development. A service can hide content that a published bundle should not include. A published bundle can never say that it is in development, wherever it is hosted.",
+      "summary": "The development server marks every document that it serves as development. A view reads that mark as `page.development`. Here the view passes it to a service method, so the service decides which content a published bundle should not show. This works in every service language: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A JavaScript or TypeScript service can also read the mark itself from `document.body.dataset.tachyonEnvironment`. A published bundle can never say that it is in development, wherever it is hosted.",
       "files": [
         {
           "name": "client/services/RuntimeNoteService.js",
-          "code": "@Service\nexport default class RuntimeNoteService {\n  /** @type {boolean} */\n  development = document.body.dataset.tachyonEnvironment === 'development'\n  runtime = 'JavaScript, in the browser'\n}"
+          "code": "@Service\nexport default class RuntimeNoteService {\n  runtime = 'JavaScript, in the browser'\n\n  /**\n   * @param {boolean} development\n   * @returns {boolean}\n   */\n  showsNotes(development) { return development }\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.ts",
+          "code": "@Service\nexport default class RuntimeNoteService {\n  runtime: string = 'TypeScript, in the browser'\n\n  showsNotes(development: boolean): boolean { return development }\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.dart",
+          "code": "@Service\nclass RuntimeNoteService {\n  final String runtime = 'Dart, compiled to WebAssembly';\n\n  bool showsNotes(bool development) { return development; }\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.rs",
+          "code": "#[Service]\nstruct RuntimeNoteService {\n    runtime: String,\n}\n\nimpl RuntimeNoteService {\n    fn new() -> Self {\n        Self { runtime: String::from(\"Rust, compiled by rustc\") }\n    }\n\n    fn shows_notes(&self, development: bool) -> bool {\n        development\n    }\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.go",
+          "code": "// @Service\ntype RuntimeNoteService struct {\n\tRuntime string\n}\n\n// @OnStart\nfunc (note *RuntimeNoteService) Start() {\n\tnote.Runtime = \"Go, compiled to WebAssembly\"\n}\n\nfunc (note *RuntimeNoteService) ShowsNotes(development bool) bool {\n\treturn development\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.rb",
+          "code": "#[Service]\nclass RuntimeNoteService\n  # @return [String]\n  attr_reader :runtime\n\n  def initialize\n    @runtime = \"Ruby, on the mruby web runtime\"\n  end\n\n  # @param development [Boolean]\n  # @return [Boolean]\n  def shows_notes(development)\n    development\n  end\nend\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.swift",
+          "code": "@Service\nfinal class RuntimeNoteService {\n    let runtime: String = \"Swift, in the app or as WebAssembly\"\n\n    func showsNotes(_ development: Bool) -> Bool {\n        development\n    }\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.kt",
+          "code": "@Service\nclass RuntimeNoteService {\n    val runtime: String = \"Kotlin, compiled to WebAssembly or into the APK\"\n\n    fun showsNotes(development: Boolean): Boolean = development\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.java",
+          "code": "@Service\nclass RuntimeNoteService {\n    final String runtime = \"Java, compiled to WebAssembly by TeaVM\";\n\n    boolean showsNotes(boolean development) {\n        return development;\n    }\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.cs",
+          "code": "[Service]\npublic sealed class RuntimeNoteService {\n    public string Runtime = \"C#, compiled by .NET\";\n\n    public bool ShowsNotes(bool development) => development;\n}\n"
+        },
+        {
+          "name": "client/services/RuntimeNoteService.fs",
+          "code": "[<Service>]\ntype RuntimeNoteService() =\n    member val Runtime : string = \"F#, compiled by .NET\" with get\n\n    member this.ShowsNotes(development: bool) : bool =\n        development\n"
         },
         {
           "name": "client/pages/tac.html",
@@ -2428,7 +2700,7 @@
         },
         {
           "name": "client/components/site/runtime-note/tac.html",
-          "code": "<logic :if=\"runtimeNote.development\">\n  <p class=\"debug\">Rendered by: {runtimeNote.runtime}</p>\n</logic>"
+          "code": "<logic :if=\"runtimeNote.showsNotes(page.development)\">\n  <p class=\"debug\">Rendered by: {runtimeNote.runtime}</p>\n</logic>\n"
         }
       ],
       "verify": "tac"

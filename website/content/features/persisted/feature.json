@@ -9,6 +9,46 @@
       "code": { "file": "client/services/EditorService.js" }
     },
     {
+      "name": "client/services/EditorService.ts",
+      "code": { "file": "client/services/EditorService.ts" }
+    },
+    {
+      "name": "client/services/EditorService.dart",
+      "code": { "file": "client/services/EditorService.dart" }
+    },
+    {
+      "name": "client/services/EditorService.rs",
+      "code": { "file": "client/services/EditorService.rs" }
+    },
+    {
+      "name": "client/services/EditorService.go",
+      "code": { "file": "client/services/EditorService.go" }
+    },
+    {
+      "name": "client/services/EditorService.rb",
+      "code": { "file": "client/services/EditorService.rb" }
+    },
+    {
+      "name": "client/services/EditorService.swift",
+      "code": { "file": "client/services/EditorService.swift" }
+    },
+    {
+      "name": "client/services/EditorService.kt",
+      "code": { "file": "client/services/EditorService.kt" }
+    },
+    {
+      "name": "client/services/EditorService.java",
+      "code": { "file": "client/services/EditorService.java" }
+    },
+    {
+      "name": "client/services/EditorService.cs",
+      "code": { "file": "client/services/EditorService.cs" }
+    },
+    {
+      "name": "client/services/EditorService.fs",
+      "code": { "file": "client/services/EditorService.fs" }
+    },
+    {
       "name": "client/pages/tac.html",
       "code": { "file": "client/pages/tac.html" }
     },

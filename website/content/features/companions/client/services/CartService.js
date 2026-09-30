@@ -10,6 +10,4 @@ export default class CartService {
     const changed = { total: this.total };
     this.applicationEventPublisher.publishEvent(changed, true);
   }
-  @OnStart
-  initialize() { document.title = 'Cart'; }
 }

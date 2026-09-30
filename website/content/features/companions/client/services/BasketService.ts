@@ -1,11 +1,11 @@
 @Service
 export default class BasketService {
-  count: number = 6
+  count: number = 0
 
   doubled(): number {
     return this.count * 2
   }
 
   @OnStart
-  initialize(): void { document.title = 'Basket' }
+  initialize(): void { this.count = 6 }
 }

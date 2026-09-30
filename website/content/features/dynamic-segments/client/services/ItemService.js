@@ -1,5 +1,8 @@
 @Service
 export default class ItemService {
-  /** @type {string | undefined} */
-  id = location.pathname.split('/').pop()
+  /**
+   * @param {string} path
+   * @returns {string}
+   */
+  idFrom(path) { return path.split('/').pop() ?? '' }
 }

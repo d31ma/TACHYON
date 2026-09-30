@@ -1,7 +1,7 @@
 {
   "id": "dynamic-segments",
   "title": "Path variables",
-  "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value.",
+  "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value. The view passes `page.path` to a service method, which reads the last segment. So every service language can use the value: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view.",
   "group": "Routing",
   "files": [
     {
@@ -20,6 +20,66 @@
       "name": "client/services/ItemService.js",
       "code": {
         "file": "client/services/ItemService.js"
+      }
+    },
+    {
+      "name": "client/services/ItemService.ts",
+      "code": {
+        "file": "client/services/ItemService.ts"
+      }
+    },
+    {
+      "name": "client/services/ItemService.dart",
+      "code": {
+        "file": "client/services/ItemService.dart"
+      }
+    },
+    {
+      "name": "client/services/ItemService.rs",
+      "code": {
+        "file": "client/services/ItemService.rs"
+      }
+    },
+    {
+      "name": "client/services/ItemService.go",
+      "code": {
+        "file": "client/services/ItemService.go"
+      }
+    },
+    {
+      "name": "client/services/ItemService.rb",
+      "code": {
+        "file": "client/services/ItemService.rb"
+      }
+    },
+    {
+      "name": "client/services/ItemService.swift",
+      "code": {
+        "file": "client/services/ItemService.swift"
+      }
+    },
+    {
+      "name": "client/services/ItemService.kt",
+      "code": {
+        "file": "client/services/ItemService.kt"
+      }
+    },
+    {
+      "name": "client/services/ItemService.java",
+      "code": {
+        "file": "client/services/ItemService.java"
+      }
+    },
+    {
+      "name": "client/services/ItemService.cs",
+      "code": {
+        "file": "client/services/ItemService.cs"
+      }
+    },
+    {
+      "name": "client/services/ItemService.fs",
+      "code": {
+        "file": "client/services/ItemService.fs"
       }
     },
     {
@@ -170,6 +230,18 @@
       "name": "server/controllers/ItemsController.rb",
       "code": {
         "file": "server/controllers/ItemsController.rb"
+      }
+    },
+    {
+      "name": "server/models/Item.lua",
+      "code": {
+        "file": "server/models/Item.lua"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.lua",
+      "code": {
+        "file": "server/controllers/ItemsController.lua"
       }
     }
   ],

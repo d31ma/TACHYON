@@ -21,6 +21,42 @@
       "code": { "file": "client/services/BasketService.ts" }
     },
     {
+      "name": "client/services/BasketService.dart",
+      "code": { "file": "client/services/BasketService.dart" }
+    },
+    {
+      "name": "client/services/BasketService.rs",
+      "code": { "file": "client/services/BasketService.rs" }
+    },
+    {
+      "name": "client/services/BasketService.go",
+      "code": { "file": "client/services/BasketService.go" }
+    },
+    {
+      "name": "client/services/BasketService.rb",
+      "code": { "file": "client/services/BasketService.rb" }
+    },
+    {
+      "name": "client/services/BasketService.swift",
+      "code": { "file": "client/services/BasketService.swift" }
+    },
+    {
+      "name": "client/services/BasketService.kt",
+      "code": { "file": "client/services/BasketService.kt" }
+    },
+    {
+      "name": "client/services/BasketService.java",
+      "code": { "file": "client/services/BasketService.java" }
+    },
+    {
+      "name": "client/services/BasketService.cs",
+      "code": { "file": "client/services/BasketService.cs" }
+    },
+    {
+      "name": "client/services/BasketService.fs",
+      "code": { "file": "client/services/BasketService.fs" }
+    },
+    {
       "name": "conventions",
       "code": { "file": "conventions.txt" }
     },
@@ -37,6 +73,42 @@
       "code": { "file": "client/services/CartService.ts" }
     },
     {
+      "name": "client/services/CartService.dart",
+      "code": { "file": "client/services/CartService.dart" }
+    },
+    {
+      "name": "client/services/CartService.rs",
+      "code": { "file": "client/services/CartService.rs" }
+    },
+    {
+      "name": "client/services/CartService.go",
+      "code": { "file": "client/services/CartService.go" }
+    },
+    {
+      "name": "client/services/CartService.rb",
+      "code": { "file": "client/services/CartService.rb" }
+    },
+    {
+      "name": "client/services/CartService.swift",
+      "code": { "file": "client/services/CartService.swift" }
+    },
+    {
+      "name": "client/services/CartService.kt",
+      "code": { "file": "client/services/CartService.kt" }
+    },
+    {
+      "name": "client/services/CartService.java",
+      "code": { "file": "client/services/CartService.java" }
+    },
+    {
+      "name": "client/services/CartService.cs",
+      "code": { "file": "client/services/CartService.cs" }
+    },
+    {
+      "name": "client/services/CartService.fs",
+      "code": { "file": "client/services/CartService.fs" }
+    },
+    {
       "name": "client/components/live-total/tac.html",
       "code": { "file": "client/components/live-total/tac.html" }
     },
@@ -49,8 +121,80 @@
       "code": { "file": "client/services/LiveTotalService.ts" }
     },
     {
+      "name": "client/services/LiveTotalService.dart",
+      "code": { "file": "client/services/LiveTotalService.dart" }
+    },
+    {
+      "name": "client/services/LiveTotalService.rs",
+      "code": { "file": "client/services/LiveTotalService.rs" }
+    },
+    {
+      "name": "client/services/LiveTotalService.go",
+      "code": { "file": "client/services/LiveTotalService.go" }
+    },
+    {
+      "name": "client/services/LiveTotalService.rb",
+      "code": { "file": "client/services/LiveTotalService.rb" }
+    },
+    {
+      "name": "client/services/LiveTotalService.swift",
+      "code": { "file": "client/services/LiveTotalService.swift" }
+    },
+    {
+      "name": "client/services/LiveTotalService.kt",
+      "code": { "file": "client/services/LiveTotalService.kt" }
+    },
+    {
+      "name": "client/services/LiveTotalService.java",
+      "code": { "file": "client/services/LiveTotalService.java" }
+    },
+    {
+      "name": "client/services/LiveTotalService.cs",
+      "code": { "file": "client/services/LiveTotalService.cs" }
+    },
+    {
+      "name": "client/services/LiveTotalService.fs",
+      "code": { "file": "client/services/LiveTotalService.fs" }
+    },
+    {
       "name": "client/models/CartTotal.ts",
       "code": { "file": "client/models/CartTotal.ts" }
+    },
+    {
+      "name": "client/models/CartTotal.dart",
+      "code": { "file": "client/models/CartTotal.dart" }
+    },
+    {
+      "name": "client/models/CartTotal.rs",
+      "code": { "file": "client/models/CartTotal.rs" }
+    },
+    {
+      "name": "client/models/CartTotal.go",
+      "code": { "file": "client/models/CartTotal.go" }
+    },
+    {
+      "name": "client/models/CartTotal.rb",
+      "code": { "file": "client/models/CartTotal.rb" }
+    },
+    {
+      "name": "client/models/CartTotal.swift",
+      "code": { "file": "client/models/CartTotal.swift" }
+    },
+    {
+      "name": "client/models/CartTotal.kt",
+      "code": { "file": "client/models/CartTotal.kt" }
+    },
+    {
+      "name": "client/models/CartTotal.java",
+      "code": { "file": "client/models/CartTotal.java" }
+    },
+    {
+      "name": "client/models/CartTotal.cs",
+      "code": { "file": "client/models/CartTotal.cs" }
+    },
+    {
+      "name": "client/models/CartTotal.fs",
+      "code": { "file": "client/models/CartTotal.fs" }
     }
   ]
 }

@@ -1,6 +1,10 @@
 @Service
 export default class RuntimeNoteService {
-  /** @type {boolean} */
-  development = document.body.dataset.tachyonEnvironment === 'development'
   runtime = 'JavaScript, in the browser'
+
+  /**
+   * @param {boolean} development
+   * @returns {boolean}
+   */
+  showsNotes(development) { return development }
 }

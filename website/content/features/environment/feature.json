@@ -2,11 +2,51 @@
   "id": "environment",
   "title": "Marking development mode",
   "group": "Tooling",
-  "summary": "The development server marks every document that it serves as development. A service can hide content that a published bundle should not include. A published bundle can never say that it is in development, wherever it is hosted.",
+  "summary": "The development server marks every document that it serves as development. A view reads that mark as `page.development`. Here the view passes it to a service method, so the service decides which content a published bundle should not show. This works in every service language: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A JavaScript or TypeScript service can also read the mark itself from `document.body.dataset.tachyonEnvironment`. A published bundle can never say that it is in development, wherever it is hosted.",
   "files": [
     {
       "name": "client/services/RuntimeNoteService.js",
       "code": { "file": "client/services/RuntimeNoteService.js" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.ts",
+      "code": { "file": "client/services/RuntimeNoteService.ts" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.dart",
+      "code": { "file": "client/services/RuntimeNoteService.dart" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.rs",
+      "code": { "file": "client/services/RuntimeNoteService.rs" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.go",
+      "code": { "file": "client/services/RuntimeNoteService.go" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.rb",
+      "code": { "file": "client/services/RuntimeNoteService.rb" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.swift",
+      "code": { "file": "client/services/RuntimeNoteService.swift" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.kt",
+      "code": { "file": "client/services/RuntimeNoteService.kt" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.java",
+      "code": { "file": "client/services/RuntimeNoteService.java" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.cs",
+      "code": { "file": "client/services/RuntimeNoteService.cs" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.fs",
+      "code": { "file": "client/services/RuntimeNoteService.fs" }
     },
     {
       "name": "client/pages/tac.html",

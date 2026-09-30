@@ -1,8 +1,8 @@
 @Service
 export default class BasketService {
-  count = 6;
+  count = 0;
   /** @returns {number} */
   doubled() { return this.count * 2; }
   @OnStart
-  initialize() { document.title = 'Basket'; }
+  initialize() { this.count = 6; }
 }
