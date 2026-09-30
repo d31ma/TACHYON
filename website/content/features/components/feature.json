@@ -65,10 +65,6 @@
       "code": { "file": "client/models/Product.ts" }
     },
     {
-      "name": "client/models/Product.rs",
-      "code": { "file": "client/models/Product.rs" }
-    },
-    {
       "name": "client/models/Product.go",
       "code": { "file": "client/models/Product.go" }
     },
@@ -87,14 +83,6 @@
     {
       "name": "client/models/Product.java",
       "code": { "file": "client/models/Product.java" }
-    },
-    {
-      "name": "client/models/Product.cs",
-      "code": { "file": "client/models/Product.cs" }
-    },
-    {
-      "name": "client/models/Product.fs",
-      "code": { "file": "client/models/Product.fs" }
     }
   ],
   "verify": "tac-component"

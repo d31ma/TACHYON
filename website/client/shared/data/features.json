@@ -599,7 +599,7 @@
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub products: Vec<Product>,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![\n                Product { id: String::from(\"anvil\"), name: String::from(\"Anvil\"), price: String::from(\"£42.00\") },\n                Product { id: String::from(\"rope\"), name: String::from(\"Rope\"), price: String::from(\"£8.00\") },\n            ],\n        }\n    }\n}\n"
+          "code": "#[Service]\npub struct CatalogService {\n    pub products: TacValue,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            products: TacValue::List(vec![\n                Self::product(\"anvil\", \"Anvil\", \"£42.00\"),\n                Self::product(\"rope\", \"Rope\", \"£8.00\"),\n            ]),\n        }\n    }\n\n    fn product(id: &str, name: &str, price: &str) -> TacValue {\n        TacValue::Object(vec![\n            (String::from(\"id\"), TacValue::Text(String::from(id))),\n            (String::from(\"name\"), TacValue::Text(String::from(name))),\n            (String::from(\"price\"), TacValue::Text(String::from(price))),\n        ])\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.go",
@@ -623,19 +623,15 @@
         },
         {
           "name": "client/services/CatalogService.cs",
-          "code": "using System.Collections.Generic;\nusing Models;\n\n[Service]\npublic class CatalogService\n{\n    public List<Product> Products = new()\n    {\n        new Product(\"anvil\", \"Anvil\", \"£42.00\"),\n        new Product(\"rope\", \"Rope\", \"£8.00\"),\n    };\n}\n"
+          "code": "using System.Collections.Generic;\n\n[Service]\npublic class CatalogService\n{\n    public object Products = new object[]\n    {\n        Product(\"anvil\", \"Anvil\", \"£42.00\"),\n        Product(\"rope\", \"Rope\", \"£8.00\"),\n    };\n\n    private static Dictionary<string, object> Product(string id, string name, string price) =>\n        new() { [\"id\"] = id, [\"name\"] = name, [\"price\"] = price };\n}\n"
         },
         {
           "name": "client/services/CatalogService.fs",
-          "code": "open Models\n\n[<Service>]\ntype CatalogService() =\n    member this.Products : Product list =\n        [ { Id = \"anvil\"; Name = \"Anvil\"; Price = \"£42.00\" }\n          { Id = \"rope\"; Name = \"Rope\"; Price = \"£8.00\" } ]\n"
+          "code": "open System.Collections.Generic\n\n[<Service>]\ntype CatalogService() =\n    static member private Product(id: string, name: string, price: string) : obj =\n        let product = Dictionary<string, obj>()\n        product[\"id\"] <- id\n        product[\"name\"] <- name\n        product[\"price\"] <- price\n        box product\n\n    member this.Products : obj =\n        box [| CatalogService.Product(\"anvil\", \"Anvil\", \"£42.00\"); CatalogService.Product(\"rope\", \"Rope\", \"£8.00\") |]\n"
         },
         {
           "name": "client/models/Product.ts",
           "code": "export interface Product {\n  id: string\n  name: string\n  price: string\n}\n"
-        },
-        {
-          "name": "client/models/Product.rs",
-          "code": "pub struct Product {\n    pub id: String,\n    pub name: String,\n    pub price: String,\n}\n"
         },
         {
           "name": "client/models/Product.go",
@@ -656,14 +652,6 @@
         {
           "name": "client/models/Product.java",
           "code": "record Product(String id, String name, String price) {}\n"
-        },
-        {
-          "name": "client/models/Product.cs",
-          "code": "public record Product(string Id, string Name, string Price);\n"
-        },
-        {
-          "name": "client/models/Product.fs",
-          "code": "type Product = { Id: string; Name: string; Price: string }\n"
         }
       ],
       "verify": "tac-component"
@@ -2266,16 +2254,16 @@
     {
       "id": "shared",
       "title": "Shared assets",
-      "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file. A view reads `client/shared/data/docs.json` as `data.docs`, and the page passes its `order` list to the service of the component.",
+      "summary": "Tachyon publishes the files in `client/shared` at stable `/shared/...` URLs (URLs that do not change). There are limits on the number of files and on their size in bytes. Tachyon rejects symlinks (links to other files) and anything that is not a regular file. A view reads `client/shared/data/docs.json` as `data.docs`: the page passes the number of guides to the component, and the service keeps the stable URL of the logo.",
       "group": "Tooling",
       "files": [
         {
           "name": "client/pages/tac.html",
-          "code": "<docs-summary hydrate=\"load\" :order=\"data.docs.order\" />\n"
+          "code": "<docs-summary hydrate=\"load\" :guides=\"data.docs.order.length\" />\n"
         },
         {
           "name": "client/components/docs/summary/tac.html",
-          "code": "<img src=\"/shared/assets/logo.svg\" alt=\"Tachyon logo\" width=\"26\" height=\"26\">\n<p>{documents.guides()} guides, read from the shared data file.</p>\n"
+          "code": "<img :src=\"brand.logo\" alt=\"Tachyon logo\" width=\"26\" height=\"26\">\n<p>{guides} guides, read from the shared data file.</p>\n"
         },
         {
           "name": "layout",
@@ -2286,48 +2274,48 @@
           "code": "{\n  \"order\": [\"install\", \"first-app\", \"pages\"]\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.js",
-          "code": "@Service\n@NeedsAll\nexport default class DocumentsService {\n  /** @type {string[]} */\n  order\n\n  /** @returns {number} */\n  guides() {\n    return this.order.length\n  }\n}\n"
+          "name": "client/services/BrandService.js",
+          "code": "@Service\nexport default class BrandService {\n  logo = '/shared/assets/logo.svg'\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.ts",
-          "code": "@Service\n@NeedsAll\nexport default class DocumentsService {\n  order!: string[]\n\n  guides(): number {\n    return this.order.length\n  }\n}\n"
+          "name": "client/services/BrandService.ts",
+          "code": "@Service\nexport default class BrandService {\n  logo: string = '/shared/assets/logo.svg'\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.dart",
-          "code": "@Service\n@NeedsAll\nclass DocumentsService {\n  late final List<String> order;\n\n  int guides() => order.length;\n}\n"
+          "name": "client/services/BrandService.dart",
+          "code": "@Service\nclass BrandService {\n  final String logo = '/shared/assets/logo.svg';\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.rs",
-          "code": "#[Service]\n#[NeedsAll]\nstruct DocumentsService {\n    order: Vec<String>,\n}\n\nimpl DocumentsService {\n    fn guides(&self) -> usize {\n        self.order.len()\n    }\n}\n"
+          "name": "client/services/BrandService.rs",
+          "code": "#[Service]\npub struct BrandService {\n    pub logo: &'static str,\n}\n\nimpl BrandService {\n    pub fn new() -> Self {\n        Self { logo: \"/shared/assets/logo.svg\" }\n    }\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.go",
-          "code": "// @Service\n// @NeedsAll\ntype DocumentsService struct {\n\t// @Required\n\tOrder []string\n}\n\nfunc (documents *DocumentsService) Guides() int {\n\treturn len(documents.Order)\n}\n"
+          "name": "client/services/BrandService.go",
+          "code": "// @Service\ntype BrandService struct {\n\tLogo string\n}\n\n// @OnStart\nfunc (brand *BrandService) Start() {\n\tbrand.Logo = \"/shared/assets/logo.svg\"\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.rb",
-          "code": "#[Service]\n#[NeedsAll]\nclass DocumentsService\n  # @return [Array<String>]\n  attr_reader :order\n\n  # @return [Integer]\n  def guides\n    @order.length\n  end\nend\n"
+          "name": "client/services/BrandService.rb",
+          "code": "#[Service]\nclass BrandService\n  # @return [String]\n  attr_reader :logo\n\n  def initialize\n    @logo = \"/shared/assets/logo.svg\"\n  end\nend\n"
         },
         {
-          "name": "client/services/DocumentsService.swift",
-          "code": "@Service\n@NeedsAll\nfinal class DocumentsService {\n  let order: [String]\n\n  func guides() -> Int { order.count }\n}\n"
+          "name": "client/services/BrandService.swift",
+          "code": "@Service\nfinal class BrandService {\n  let logo: String = \"/shared/assets/logo.svg\"\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.kt",
-          "code": "@Service\n@NeedsAll\nclass DocumentsService {\n  val order: List<String>\n\n  fun guides(): Int = order.size\n}\n"
+          "name": "client/services/BrandService.kt",
+          "code": "@Service\nclass BrandService {\n  val logo: String = \"/shared/assets/logo.svg\"\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.java",
-          "code": "import java.util.List;\n\n@Service\n@NeedsAll\nclass DocumentsService {\n    List<String> order;\n\n    int guides() {\n        return order.size();\n    }\n}\n"
+          "name": "client/services/BrandService.java",
+          "code": "@Service\nclass BrandService {\n    final String logo = \"/shared/assets/logo.svg\";\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.cs",
-          "code": "using System.Collections.Generic;\n\n[Service]\n[NeedsAll]\npublic class DocumentsService\n{\n    public required List<string> Order;\n\n    public int Guides() => Order.Count;\n}\n"
+          "name": "client/services/BrandService.cs",
+          "code": "[Service]\npublic class BrandService\n{\n    public string Logo = \"/shared/assets/logo.svg\";\n}\n"
         },
         {
-          "name": "client/services/DocumentsService.fs",
-          "code": "[<Service>]\n[<NeedsAll>]\ntype DocumentsService(order: string list) =\n    member this.Guides() : int =\n        List.length order\n"
+          "name": "client/services/BrandService.fs",
+          "code": "[<Service>]\ntype BrandService() =\n    member this.Logo : string = \"/shared/assets/logo.svg\"\n"
         }
       ]
     },
