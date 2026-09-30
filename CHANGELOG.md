@@ -753,7 +753,7 @@ machine contracts have their own, independent major versions.
   `Assert.is_true`, `Assert.throws`, `-- @ValueSource`, `-- @Fake` and
   `self:construct(Role)`. `ty init --yon lua` writes a Lua controller and its
   test unit; `ty doctor` and the readiness check ask for `lua` 5.4 or newer.
-  Behavior annotations, streams and sockets are refused in Yon Lua for now:
+  Streams and sockets are refused in Yon Lua for now:
   the rule table says that the annotation is not available in Lua
   (`TY1308`, ending "Lua gets it in a later step (ADR 0085)"), and the
   lowering names ADR 0085 (`TY2015`). Resources
@@ -786,6 +786,14 @@ machine contracts have their own, independent major versions.
   `ApplicationEventPublisher:publish_event(value)` or the
   `application_event_publisher` field. `@InBackground` and topics stay
   refused in Lua.
+- Behavior annotations work in Yon Lua (ADR 0085 amendment): caching,
+  UpdateCache and ClearCache, Retry, MaxAtOnce (reject), AllOrNothing,
+  Setup and settings, validation, converters, and stores and queries over
+  entity adapters, on a Lua port of the behavior runtime. A class opens its
+  context with `Behaviors.create(Setup, { partition = ..., signal =
+  BehaviorSignal.new() })`; a Lua test unit opens one for each case.
+  DataSource, RedisTemplate, `relay`, `@HTTPClient` and `@Gateway` stay
+  refused in Lua and name ADR 0085.
 - `ty test` records the Lua methods that each case called, in both realms,
   so `ty test --coverage` checks Lua classes like the others.
 - `bun run coverage:languages` in `website/` audits the code tabs of every docs

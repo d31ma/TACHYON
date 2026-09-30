@@ -1,4 +1,4 @@
-use super::{LuaBehaviorEdits, LuaInput, LuaLowering, LuaTestUnit, LuaView};
+use super::{LuaBehaviorEdits, LuaInput, LuaLowering, LuaResources, LuaTestUnit, LuaView};
 use crate::Failure;
 use crate::behavior::LuaBehaviorPlan;
 use crate::events::EventModule;
@@ -45,8 +45,7 @@ impl LuaYon {
         let text = events
             .as_ref()
             .map_or(view.text(), |module| module.source.as_str());
-        let behaviors =
-            crate::behavior::lua_plan(view.path(), text, Self::REALM).map_err(mapped)?;
+        let behaviors = LuaBehaviorPlan::read(view.path(), text, Self::REALM).map_err(mapped)?;
         let erased = behaviors.as_ref().map_or(text, |plan| plan.erased.as_str());
         let parsed = crate::yon::parser::parse(view.path(), erased).map_err(mapped)?;
         let authored = Self::with_behaviors(input, behaviors.as_ref())?;
@@ -83,7 +82,7 @@ impl LuaYon {
         let view = input.view;
         let mapped = |failure: Failure| view.failure(&failure);
         let behaviors =
-            crate::behavior::lua_plan(view.path(), view.text(), Self::REALM).map_err(mapped)?;
+            LuaBehaviorPlan::read(view.path(), view.text(), Self::REALM).map_err(mapped)?;
         let text = behaviors
             .as_ref()
             .map_or(view.text(), |plan| plan.erased.as_str());
@@ -115,6 +114,8 @@ impl LuaYon {
         plan: &Plan,
         unit: &LuaTestUnit<'_>,
     ) -> Result<Lowered, Failure> {
+        LuaResources::refuse(plan, input.source, input.contents)
+            .map_err(|message| Self::failure(input.source, input.contents, &message))?;
         let lowering = LuaLowering::new(plan);
         let program = unit
             .program(authored, &lowering)
@@ -139,6 +140,8 @@ impl LuaYon {
     ) -> Result<Lowered, Failure> {
         let (source, contents) = (input.source, input.contents);
         Self::refused(Self::streams(&parsed.plan), source, contents, Self::STREAMS)?;
+        LuaResources::refuse(&parsed.plan, source, contents)
+            .map_err(|message| Self::failure(source, contents, &message))?;
         let program = Self::program(&parsed.plan, authored, events)
             .map_err(|message| Self::failure(source, contents, &message))?;
         Ok(Lowered {

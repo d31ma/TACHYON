@@ -161,3 +161,33 @@ fn the_lua_behavior_runtime_passes_its_boundary_contract() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn a_lua_class_that_needs_a_resource_names_it_and_adr_0085() {
+    for (service, name) in [
+        (
+            "-- @Service\nStockService = {\n  -- @Needs\n  ---@type DataSource\n  data_source = nil,\n}\n\n---@return integer\nfunction StockService:count()\n  return 1\nend\n",
+            "DataSource",
+        ),
+        (
+            "-- @Service\nStockService = {}\n\n---@return integer\nfunction StockService:count()\n  return relay(\"stock\", {})\nend\n",
+            "relay",
+        ),
+    ] {
+        let program = format!(
+            "-- @RequestRoute(\"/stock\")\n-- @Public\nStockController = {{\n  -- @Needs\n  ---@type StockService\n  stock_service = nil,\n}}\n\n---@return integer\n-- @GetRoute\nfunction StockController:get_stock()\n  return self.stock_service:count()\nend\n\n\n{service}"
+        );
+        let failure = super::LuaYon::lower(
+            Path::new("server/controllers/StockController.lua"),
+            &program,
+            None,
+        )
+        .err()
+        .unwrap_or_else(|| panic!("{name} must be refused"));
+        let text = failure.to_string();
+        assert!(
+            text.contains(&format!("Lua classes do not support {name} yet (ADR 0085)")),
+            "{text}"
+        );
+    }
+}

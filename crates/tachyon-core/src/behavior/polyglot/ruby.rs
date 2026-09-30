@@ -7,13 +7,16 @@ pub(super) struct RubyLowering;
 
 impl RubyLowering {
     pub(super) fn records(module: &Module) -> Result<String, String> {
-        let mut records = Map::new();
-        for type_declaration in &module.types {
-            records.insert(
-                type_declaration.name.clone(),
-                Self::with_methods(type_declaration),
-            );
-        }
+        let records: Map<String, Value> = module
+            .types
+            .iter()
+            .map(|type_declaration| {
+                (
+                    type_declaration.name.clone(),
+                    Self::with_methods(type_declaration),
+                )
+            })
+            .collect();
         serde_json::to_string(&records).map_err(|error| error.to_string())
     }
 

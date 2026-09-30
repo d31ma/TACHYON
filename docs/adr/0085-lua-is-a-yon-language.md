@@ -106,12 +106,13 @@ table, and its methods are functions stored in the table.
 These stop the build until a later step adds them: the rule table says that
 the annotation is not available in Lua (`TY1308`), or the lowering names this
 ADR (`TY2015`):
-behavior annotations (for example Cached, Retry, Transactional),
 StreamRoute and SocketRoute in Yon, topics, and behavior annotations in Tac. Resources are not available in Lua: DataSource,
-RedisTemplate, gateway clients (`@HTTPClient`), Tac stores (`@Store`) and
-`relay`. The rule table refuses `@HTTPClient` and `@Store` in Lua, and every
-Lua refusal of the rule table ends with "Lua gets it in a later step
-(ADR 0085)".
+RedisTemplate, gateway clients (`@HTTPClient`, `@Gateway`), Tac stores
+(`@Store`) and `relay`. The rule table refuses `@HTTPClient`, its request
+markers, `@Gateway` and Tac `@Store` in Lua, and every Lua refusal of the
+rule table ends with "Lua gets it in a later step (ADR 0085)". A Yon Lua
+class that needs DataSource or RedisTemplate, or calls `relay(...)`, stops
+the build with `TY2015`, and the message names the resource and this ADR.
 
 ## Consequences
 
@@ -185,3 +186,26 @@ Lua refusal of the rule table ends with "Lua gets it in a later step
 - Lua has no asynchronous methods, so `@InBackground` stays refused
   (`TY1308`). A Lua class does not publish or listen to topics yet, because
   topics travel on the resource channel, which Lua does not have (`TY2015`).
+
+## Amendment 2026-09-30: Yon Lua behavior annotations
+
+- The behavior annotations work in Yon Lua: CacheSettings, Cached, CacheKey,
+  UpdateCache, ClearCache, Retry, MaxAtOnce (policy reject, because one Lua
+  process serves one call), AllOrNothing, Setup, Settings and the other
+  configuration markers, the validation markers, Converter and Convert, and
+  Entity, Table, Store and Query over the entity adapters of a Setup.
+- Tachyon reads the markers from the Ruby shadow with the same polyglot
+  reader as every language and gives Lua a plan: the records of each type
+  and the methods to wrap. It wraps each behavior method on its own lines,
+  `function T:m(a) return self.behaviors:invoke(self, "T", "m", table.pack(a),
+  function(a)` ... `end) end`, so line numbers stay, and appends the Lua
+  behavior runtime and `Behaviors.register(records, "yon", module)`.
+- The Lua behavior runtime is a port of the Ruby one without the HTTP
+  exchange, the RestClient and gateways. A class opens its context with
+  `self.behaviors = Behaviors.create(Setup, { partition = "orders", signal =
+  BehaviorSignal.new() })`. An adapter is a table whose methods the runtime
+  calls with `:`, such as `cache:get(key, execution)`, and
+  `Behaviors.construct(Type, values)` makes one. It passes a Lua copy of the
+  behavior boundary contract.
+- A Lua test unit opens a behavior context from its Setup for each case, and
+  `self:construct(Role)` gives it to the role.

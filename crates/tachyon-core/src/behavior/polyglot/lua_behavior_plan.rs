@@ -1,13 +1,7 @@
 use super::ruby::RubyLowering;
-use super::{Method, Module, render};
-
-pub(crate) struct LuaBehaviorMethod {
-    pub(crate) owner: String,
-    pub(crate) name: String,
-    pub(crate) parameters: Vec<String>,
-    pub(crate) validated: Option<(usize, String)>,
-    pub(crate) resource: Option<&'static str>,
-}
+use super::{LuaBehaviorMethod, Method, Module, Prepared, render};
+use crate::Failure;
+use std::path::Path;
 
 pub(crate) struct LuaBehaviorPlan {
     pub(crate) records: String,
@@ -21,7 +15,24 @@ impl LuaBehaviorPlan {
     const RESOURCES: [(&'static str, &'static str); 2] =
         [("gateway", "Gateway"), ("httpExchange", "HTTPClient")];
 
-    pub(super) fn of(module: &Module) -> Result<Self, String> {
+    pub(crate) fn read(
+        path: &Path,
+        source: &str,
+        environment: &str,
+    ) -> Result<Option<Self>, Failure> {
+        let prepared = super::prepare(path, source, environment)?;
+        Self::of_prepared(prepared.as_ref())
+            .map_err(|message| super::module_failure(path, source, message))
+    }
+
+    fn of_prepared(prepared: Option<&Prepared>) -> Result<Option<Self>, String> {
+        match prepared {
+            Some(Prepared::Annotated(module)) => Self::of(module).map(Some),
+            _ => Ok(None),
+        }
+    }
+
+    fn of(module: &Module) -> Result<Self, String> {
         Ok(Self {
             records: RubyLowering::records(module)?,
             module_id: module.module_id.clone(),

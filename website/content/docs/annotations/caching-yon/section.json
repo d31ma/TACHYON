@@ -2,7 +2,7 @@
   "heading": "Caching: Yon",
   "axis": "language",
   "summary": "CacheSettings declares the policy on the type. Cached, UpdateCache and ClearCache then do three different jobs with the same key. Cached is rejected on a controller route method, so the policy goes on a service that the controller calls.",
-  "body": "A cache keeps a copy of a result, so the next read does not need to run the method again. CacheSettings takes exactly name, ttlMs, maxBytes and maxEntries. Its name selects configuration.caches.catalog. ttlMs is how long an entry lives, in milliseconds. Cached runs a read method in these steps. It checks authorization. It builds a key of limited size from the parameters marked @CacheKey, or from every parameter when none is marked. It looks up the key. On a miss (the key is not in the cache), it runs the method. Then it stores the JSON result if the method succeeded. UpdateCache goes on a method that changes data. It always runs that method, and then it writes the result under the target's key. ClearCache also goes on a method that changes data. It deletes that key, but only after the method succeeds. UpdateCache and ClearCache both name a Cached method in the same class. Their parameters are matched by name to the key parameters of that method, so a parameter named sku fills the sku key. A missing name fails the build. So reading, updating and removing an entry all use one key. Cached is not allowed on a Yon route method, and this is on purpose. Check who the user is and check the request in the controller. Then call a service that can be cached. That is why CacheSettings is on the shared server/services/CatalogService, and the controller only calls it. A Cached route method fails the build. The service reaches its adapter through a behavior context that it owns. Yon builds a new set of instances for each call, so the context that OnStart opens is request-scoped. Cached, UpdateCache and ClearCache methods are asynchronous in JavaScript, TypeScript, Python, C#, F# and Dart. They are synchronous in Java, Groovy, Kotlin, PHP, Rust, Go and Ruby. Rust cannot assign a BehaviorContext through &self, so its managed provider opens the context in new(). Go has no constructor, so its provider opens the context in an OnStart method. C# calls a route method synchronously, so its controller waits for the pipeline once. The F# service opens the context in a `member val behaviors` initializer, which runs once for each new instance (an OnStart member works too), and its F# controller also waits once. GET /catalog returns first and repeat with the same read count, because the cache answered the second call. written holds the value that UpdateCache stored, without a call to find. refreshed holds a higher count, because ClearCache removed the entry. The in-memory adapter here lives only as long as its owner. An application that needs to reuse cached values across requests must choose a shared external cache. Lua has no tab here, because the build refuses Setup in Lua Yon code with TY1308.",
+  "body": "A cache keeps a copy of a result, so the next read does not need to run the method again. CacheSettings takes exactly name, ttlMs, maxBytes and maxEntries. Its name selects configuration.caches.catalog. ttlMs is how long an entry lives, in milliseconds. Cached runs a read method in these steps. It checks authorization. It builds a key of limited size from the parameters marked @CacheKey, or from every parameter when none is marked. It looks up the key. On a miss (the key is not in the cache), it runs the method. Then it stores the JSON result if the method succeeded. UpdateCache goes on a method that changes data. It always runs that method, and then it writes the result under the target's key. ClearCache also goes on a method that changes data. It deletes that key, but only after the method succeeds. UpdateCache and ClearCache both name a Cached method in the same class. Their parameters are matched by name to the key parameters of that method, so a parameter named sku fills the sku key. A missing name fails the build. So reading, updating and removing an entry all use one key. Cached is not allowed on a Yon route method, and this is on purpose. Check who the user is and check the request in the controller. Then call a service that can be cached. That is why CacheSettings is on the shared server/services/CatalogService, and the controller only calls it. A Cached route method fails the build. The service reaches its adapter through a behavior context that it owns. Yon builds a new set of instances for each call, so the context that OnStart opens is request-scoped. Cached, UpdateCache and ClearCache methods are asynchronous in JavaScript, TypeScript, Python, C#, F# and Dart. They are synchronous in Java, Groovy, Kotlin, PHP, Rust, Go, Ruby and Lua. A Lua service writes each annotation as a comment marker, such as `-- @Cached`, and keeps its context in `self.behaviors`, which `Behaviors.create(CatalogSetup, { partition = \"public-catalog\", signal = BehaviorSignal.new() })` opens in OnStart. Its Setup makes the adapter object with `Behaviors.construct(MemoryCacheHelper, { entries = {} })`; an adapter is a table whose methods Tachyon calls with `:`, such as `cache:get(key, execution)` (ADR 0085). Rust cannot assign a BehaviorContext through &self, so its managed provider opens the context in new(). Go has no constructor, so its provider opens the context in an OnStart method. C# calls a route method synchronously, so its controller waits for the pipeline once. The F# service opens the context in a `member val behaviors` initializer, which runs once for each new instance (an OnStart member works too), and its F# controller also waits once. GET /catalog returns first and repeat with the same read count, because the cache answered the second call. written holds the value that UpdateCache stored, without a call to find. refreshed holds a higher count, because ClearCache removed the entry. The in-memory adapter here lives only as long as its owner. An application that needs to reuse cached values across requests must choose a shared external cache. Lua has no tab here, because the build refuses Setup in Lua Yon code with TY1308.",
   "files": [
     {
       "name": "server/setups/CatalogSetup.js",
@@ -24,7 +24,9 @@
     },
     {
       "name": "server/models/CacheReport.ts",
-      "code": { "file": "server/models/CacheReport.ts" }
+      "code": {
+        "file": "server/models/CacheReport.ts"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.ts",
@@ -46,7 +48,9 @@
     },
     {
       "name": "server/models/CacheReport.py",
-      "code": { "file": "server/models/CacheReport.py" }
+      "code": {
+        "file": "server/models/CacheReport.py"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.py",
@@ -68,7 +72,9 @@
     },
     {
       "name": "server/models/CacheReport.php",
-      "code": { "file": "server/models/CacheReport.php" }
+      "code": {
+        "file": "server/models/CacheReport.php"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.php",
@@ -90,7 +96,9 @@
     },
     {
       "name": "server/models/CacheReport.rb",
-      "code": { "file": "server/models/CacheReport.rb" }
+      "code": {
+        "file": "server/models/CacheReport.rb"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.rb",
@@ -111,12 +119,40 @@
       }
     },
     {
+      "name": "server/models/CacheReport.lua",
+      "code": {
+        "file": "server/models/CacheReport.lua"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.lua",
+      "code": {
+        "file": "server/setups/CatalogSetup.lua"
+      }
+    },
+    {
+      "name": "server/services/CatalogService.lua",
+      "code": {
+        "file": "server/services/CatalogService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.lua",
+      "code": {
+        "file": "server/controllers/CatalogController.lua"
+      }
+    },
+    {
       "name": "server/models/CacheReport.java",
-      "code": { "file": "server/models/CacheReport.java" }
+      "code": {
+        "file": "server/models/CacheReport.java"
+      }
     },
     {
       "name": "server/models/CacheReport.groovy",
-      "code": { "file": "server/models/CacheReport.groovy" }
+      "code": {
+        "file": "server/models/CacheReport.groovy"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.java",
@@ -156,7 +192,9 @@
     },
     {
       "name": "server/models/CacheReport.kt",
-      "code": { "file": "server/models/CacheReport.kt" }
+      "code": {
+        "file": "server/models/CacheReport.kt"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.kt",
@@ -178,11 +216,15 @@
     },
     {
       "name": "server/models/CacheReport.cs",
-      "code": { "file": "server/models/CacheReport.cs" }
+      "code": {
+        "file": "server/models/CacheReport.cs"
+      }
     },
     {
       "name": "server/models/CacheReport.fs",
-      "code": { "file": "server/models/CacheReport.fs" }
+      "code": {
+        "file": "server/models/CacheReport.fs"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.cs",
@@ -222,7 +264,9 @@
     },
     {
       "name": "server/models/CacheReport.rs",
-      "code": { "file": "server/models/CacheReport.rs" }
+      "code": {
+        "file": "server/models/CacheReport.rs"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.rs",
@@ -244,7 +288,9 @@
     },
     {
       "name": "server/models/CacheReport.dart",
-      "code": { "file": "server/models/CacheReport.dart" }
+      "code": {
+        "file": "server/models/CacheReport.dart"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.dart",
@@ -314,7 +360,9 @@
     },
     {
       "name": "server/models/CacheReport.go",
-      "code": { "file": "server/models/CacheReport.go" }
+      "code": {
+        "file": "server/models/CacheReport.go"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.go",
@@ -350,6 +398,12 @@
       "name": "server/helpers/MemoryCacheHelper.rb",
       "code": {
         "file": "server/helpers/MemoryCacheHelper.rb"
+      }
+    },
+    {
+      "name": "server/helpers/MemoryCacheHelper.lua",
+      "code": {
+        "file": "server/helpers/MemoryCacheHelper.lua"
       }
     }
   ]

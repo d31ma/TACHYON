@@ -2,7 +2,7 @@
   "heading": "Retries: Yon",
   "axis": "language",
   "summary": "Retry runs one method again after a bounded delay, which can grow exponentially. MaxAtOnce limits how many calls to the method run at the same time. Both are method annotations on a service, never on an HTTP verb endpoint.",
-  "body": "Retry takes maxRetries (from 1 to 8) and the optional delayMs, multiplier, maxDelayMs and jitterMs. jitterMs adds a small random delay. Every value is a literal in milliseconds, so you do not need a TimeUnit. Tachyon never retries a framework refusal, because a refusal is a decision, not a fault. These refusals are an invalid policy, a denied authorization, a disposed (closed) context and an expired deadline. Tachyon does retry an adapter fault or an error that the method itself raised. MaxAtOnce limits how many calls run at the same time. It takes limit (from 1 to 64) and policy. With block, a call waits for a free slot until the operation deadline. With reject, the call is refused at once. A call that retries keeps its slot for every attempt. So retries cannot add more load than the limit allows. PHP and Ruby serve one call at a time and cannot pause a call, so they accept only reject. Lua has no tab here, because the build refuses Setup in Lua Yon code with TY1308.",
+  "body": "Retry takes maxRetries (from 1 to 8) and the optional delayMs, multiplier, maxDelayMs and jitterMs. jitterMs adds a small random delay. Every value is a literal in milliseconds, so you do not need a TimeUnit. Tachyon never retries a framework refusal, because a refusal is a decision, not a fault. These refusals are an invalid policy, a denied authorization, a disposed (closed) context and an expired deadline. Tachyon does retry an adapter fault or an error that the method itself raised. MaxAtOnce limits how many calls run at the same time. It takes limit (from 1 to 64) and policy. With block, a call waits for a free slot until the operation deadline. With reject, the call is refused at once. A call that retries keeps its slot for every attempt. So retries cannot add more load than the limit allows. PHP, Ruby and Lua serve one call at a time and cannot pause a call, so they accept only reject. A Lua service writes `-- @Retry({...})` and `-- @MaxAtOnce({...})` above its methods and opens its context in OnStart with `Behaviors.create(OrdersSetup, { partition = \"orders\", signal = BehaviorSignal.new() })` (ADR 0085). Lua has no tab here, because the build refuses Setup in Lua Yon code with TY1308.",
   "files": [
     {
       "name": "server/setups/OrdersSetup.js",
@@ -24,7 +24,9 @@
     },
     {
       "name": "server/models/OrderReport.ts",
-      "code": { "file": "server/models/OrderReport.ts" }
+      "code": {
+        "file": "server/models/OrderReport.ts"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.ts",
@@ -46,7 +48,9 @@
     },
     {
       "name": "server/models/OrderReport.py",
-      "code": { "file": "server/models/OrderReport.py" }
+      "code": {
+        "file": "server/models/OrderReport.py"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.py",
@@ -68,7 +72,9 @@
     },
     {
       "name": "server/models/OrderReport.php",
-      "code": { "file": "server/models/OrderReport.php" }
+      "code": {
+        "file": "server/models/OrderReport.php"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.php",
@@ -90,11 +96,15 @@
     },
     {
       "name": "server/models/OrderReport.java",
-      "code": { "file": "server/models/OrderReport.java" }
+      "code": {
+        "file": "server/models/OrderReport.java"
+      }
     },
     {
       "name": "server/models/OrderReport.groovy",
-      "code": { "file": "server/models/OrderReport.groovy" }
+      "code": {
+        "file": "server/models/OrderReport.groovy"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.java",
@@ -134,7 +144,9 @@
     },
     {
       "name": "server/models/OrderReport.kt",
-      "code": { "file": "server/models/OrderReport.kt" }
+      "code": {
+        "file": "server/models/OrderReport.kt"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.kt",
@@ -156,11 +168,15 @@
     },
     {
       "name": "server/models/OrderReport.cs",
-      "code": { "file": "server/models/OrderReport.cs" }
+      "code": {
+        "file": "server/models/OrderReport.cs"
+      }
     },
     {
       "name": "server/models/OrderReport.fs",
-      "code": { "file": "server/models/OrderReport.fs" }
+      "code": {
+        "file": "server/models/OrderReport.fs"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.cs",
@@ -200,7 +216,9 @@
     },
     {
       "name": "server/models/OrderReport.rs",
-      "code": { "file": "server/models/OrderReport.rs" }
+      "code": {
+        "file": "server/models/OrderReport.rs"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.rs",
@@ -222,7 +240,9 @@
     },
     {
       "name": "server/models/OrderReport.go",
-      "code": { "file": "server/models/OrderReport.go" }
+      "code": {
+        "file": "server/models/OrderReport.go"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.go",
@@ -244,7 +264,9 @@
     },
     {
       "name": "server/models/OrderReport.dart",
-      "code": { "file": "server/models/OrderReport.dart" }
+      "code": {
+        "file": "server/models/OrderReport.dart"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.dart",
@@ -266,7 +288,9 @@
     },
     {
       "name": "server/models/OrderReport.rb",
-      "code": { "file": "server/models/OrderReport.rb" }
+      "code": {
+        "file": "server/models/OrderReport.rb"
+      }
     },
     {
       "name": "server/setups/OrdersSetup.rb",
@@ -284,6 +308,30 @@
       "name": "server/controllers/OrdersController.rb",
       "code": {
         "file": "server/controllers/OrdersController.rb"
+      }
+    },
+    {
+      "name": "server/models/OrderReport.lua",
+      "code": {
+        "file": "server/models/OrderReport.lua"
+      }
+    },
+    {
+      "name": "server/setups/OrdersSetup.lua",
+      "code": {
+        "file": "server/setups/OrdersSetup.lua"
+      }
+    },
+    {
+      "name": "server/services/OrdersService.lua",
+      "code": {
+        "file": "server/services/OrdersService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.lua",
+      "code": {
+        "file": "server/controllers/OrdersController.lua"
       }
     }
   ]

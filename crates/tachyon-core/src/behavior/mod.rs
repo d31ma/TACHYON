@@ -230,14 +230,6 @@ fn own_markers(input: &Input<'_>, environment: &str) -> Result<Vec<Marker>, Fail
         .collect())
 }
 
-pub(crate) fn lua_plan(
-    path: &Path,
-    source: &str,
-    environment: &str,
-) -> Result<Option<LuaBehaviorPlan>, Failure> {
-    polyglot::lua_plan(path, source, environment)
-}
-
 pub(crate) fn unit_tables(
     path: &Path,
     source: &str,

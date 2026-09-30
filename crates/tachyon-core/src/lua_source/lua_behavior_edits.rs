@@ -21,16 +21,20 @@ impl<'p> LuaBehaviorEdits<'p> {
         self.refuse_resources()?;
         let masked = crate::annotation_layout::masked_source(path, authored)
             .map_err(|failure| failure.to_string())?;
-        let mut edits = Vec::new();
-        for method in &self.plan.methods {
-            edits.extend(Self::method_edits(&masked, method)?);
-        }
         Ok(format!(
             "{}\n{}\n{}",
-            Self::applied(authored, edits),
+            Self::applied(authored, self.edits(&masked)?),
             Self::RUNTIME,
             self.registration()
         ))
+    }
+
+    fn edits(&self, masked: &str) -> Result<Vec<(usize, String)>, String> {
+        let mut edits = Vec::new();
+        for method in &self.plan.methods {
+            edits.extend(Self::method_edits(masked, method)?);
+        }
+        Ok(edits)
     }
 
     fn refuse_resources(&self) -> Result<(), String> {
