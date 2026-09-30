@@ -12,9 +12,11 @@ import { withServer } from '../../scripts/release/server-probe.mjs'
 import { checkConfigurationBrowser, configurationTestFiles } from './verify-configuration-binding.mjs'
 import { SiteContent } from './site-content.mjs'
 import { SharedModuleProbe } from './shared-module-probe.mjs'
+import { SnippetCache } from './snippet-cache.mjs'
 import { SnippetRequest } from './snippet-request.mjs'
 import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
+import { ToolchainFingerprint } from './toolchain-fingerprint.mjs'
 import { TypeCheckProjects } from './type-check-projects.mjs'
 
 /** @typedef {{name:string,code:string}} Snippet */
@@ -40,6 +42,7 @@ class Settings {
   static onlySection = readOption('--section=')
   static onlyFeature = readOption('--feature=')
   static scratchRoot = prepareScratchRoot()
+  static cache = new SnippetCache(path.join(Settings.scratchRoot, SnippetCache.folderName), !process.argv.includes('--no-cache'), '')
   static concurrency = chooseConcurrency()
   static requireToolchains = process.env.TAC_SNIPPETS_REQUIRE_TOOLCHAINS === '1'
   static identityToken = 'ada-token'
@@ -413,6 +416,7 @@ async function runInParallel(steps) {
   const workerCount = Math.min(Settings.concurrency, steps.length)
   for (let count = 0; count < workerCount; count += 1) workers.push(worker())
   await Promise.all(workers)
+  Progress.previousStepEnd = Date.now()
 }
 
 /**
@@ -602,6 +606,21 @@ async function inStagingDirectory(label, operation) {
   }
 }
 
+/**
+ * @param {string} label
+ * @param {string} root
+ * @param {string[]} work
+ * @param {() => Promise<unknown>} operation
+ * @returns {Promise<string>}
+ */
+async function unlessPassedBefore(label, root, work, operation) {
+  const key = Settings.cache.key(root, work)
+  if (Settings.cache.hasPassed(key)) return ' (cached)'
+  await operation()
+  Settings.cache.rememberPass(key, label)
+  return ''
+}
+
 /** @param {string} instance */
 function serviceClassName(instance) {
   return `${instance[0].toUpperCase()}${instance.slice(1)}Service`
@@ -694,9 +713,9 @@ async function bundleProject(label, files, withPlaceholders = false, webOnly = f
       if (withPlaceholders) addPlaceholderComponents(root, selectedFiles)
       const bundleArguments = ['bundle', root]
       if (nativeTarget) bundleArguments.push('--target', nativeTarget, '--native')
-      await runCommand(Settings.binary, bundleArguments)
+      const cached = await unlessPassedBefore(label, root, bundleArguments, () => runCommand(Settings.binary, bundleArguments))
       const note = nativeTarget ? ' (native source staging only)' : ''
-      pass(`${label}${languageTag}${note}`, 'bundle')
+      pass(`${label}${languageTag}${note}${cached}`, 'bundle')
     })
   }
 }
@@ -767,10 +786,13 @@ async function runTestUnits(label, files, earlierSteps) {
       for (const file of [...earlierSteps, ...files]) {
         if (path.extname(file.name) === extension) writeSnippetFile(root, file.name, file.code)
       }
-      const output = await runCommand(Settings.binary, ['test', root, ...coverage], { timeout: 300_000 })
-      assert.match(output, /^\d+ passed, 0 failed\.$/m, output)
-      assert.doesNotMatch(output, /^No test units found/m, output)
-      pass(stepLabel, 'unit')
+      const testArguments = ['test', root, ...coverage]
+      const cached = await unlessPassedBefore(stepLabel, root, testArguments, async () => {
+        const output = await runCommand(Settings.binary, testArguments, { timeout: 300_000 })
+        assert.match(output, /^\d+ passed, 0 failed\.$/m, output)
+        assert.doesNotMatch(output, /^No test units found/m, output)
+      })
+      pass(`${stepLabel}${cached}`, 'unit')
     })
   }
 }
@@ -1360,12 +1382,15 @@ async function hasConfigurationWebTarget(extension) {
 async function verifyNativeConfiguration(label, root, files, extension) {
   const service = files.find(file => file.name === `client/services/SettingsService${extension}`)
   assert.ok(service, 'The native configuration example must publish its SettingsService')
-  await runCommand(Settings.binary, ['bundle', root, '--target', Languages.nativeTargets[extension], '--native'])
-  pass(`${label} (native source staging)`, 'bundle')
+  const bundleArguments = ['bundle', root, '--target', Languages.nativeTargets[extension], '--native']
+  const bundled = await unlessPassedBefore(label, root, bundleArguments, () => runCommand(Settings.binary, bundleArguments))
+  pass(`${label} (native source staging)${bundled}`, 'bundle')
   for (const file of configurationTestFiles(extension, service.code)) writeSnippetFile(root, file.name, file.code)
-  const output = await runCommand(Settings.binary, ['test', root], { timeout: 300_000 })
-  assert.match(output, /^1 passed, 0 failed\.$/m, output)
-  pass(`${label} (native runtime)`, 'unit')
+  const tested = await unlessPassedBefore(label, root, ['test', root], async () => {
+    const output = await runCommand(Settings.binary, ['test', root], { timeout: 300_000 })
+    assert.match(output, /^1 passed, 0 failed\.$/m, output)
+  })
+  pass(`${label} (native runtime)${tested}`, 'unit')
 }
 
 /**
@@ -1460,6 +1485,14 @@ function printTimingSummary() {
   const kindTotals = [...totalByKind.entries()].sort((left, right) => right[1] - left[1])
   const kindText = kindTotals.map(([kind, milliseconds]) => `${kind} ${seconds(milliseconds)}`).join(', ')
   console.log(`\ntime: ${seconds(Date.now() - Progress.started)} total across ${timings.length} steps — ${kindText}`)
+  /** @type {Map<string, number>} */
+  const totalByLanguage = new Map()
+  for (const entry of timings) {
+    const language = labelExtension(entry.label).slice(1) || 'other'
+    totalByLanguage.set(language, (totalByLanguage.get(language) ?? 0) + entry.ms)
+  }
+  const languageTotals = [...totalByLanguage.entries()].sort((left, right) => right[1] - left[1])
+  console.log(`by language: ${languageTotals.map(([language, milliseconds]) => `${language} ${seconds(milliseconds)}`).join(', ')}`)
   const slowest = timings.sort((left, right) => right.ms - left.ms).slice(0, 12)
   const slowestLines = slowest.map(entry => `  ${seconds(entry.ms).padStart(7)}  ${entry.kind.padEnd(7)} ${entry.label}`)
   console.log(`slowest:\n${slowestLines.join('\n')}`)
@@ -1468,7 +1501,7 @@ function printTimingSummary() {
 function printResult() {
   const counts = Progress.counts
   const status = counts.failed ? 'FAIL' : 'PASS'
-  console.log(`\n${status}: ${counts.bundle} bundles, ${counts.browser} browser probes, ${counts.http} HTTP method probes, ${counts.unit} test units, ${counts.syntax} syntax checks, ${counts.types} tsc projects, ${counts.data} JSON checks; ${counts.skipped} explicitly unexecuted examples; ${counts.failed} failures.`)
+  console.log(`\n${status}: ${counts.bundle} bundles, ${counts.browser} browser probes, ${counts.http} HTTP method probes, ${counts.unit} test units, ${counts.syntax} syntax checks, ${counts.types} tsc projects, ${counts.data} JSON checks; ${counts.skipped} explicitly unexecuted examples; ${counts.failed} failures; ${Settings.cache.hits} steps passed before with the same inputs.`)
   process.exitCode = counts.failed ? 1 : 0
 }
 
@@ -1573,11 +1606,14 @@ async function scaffoldTypeFiles(extension) {
 async function typeCheckProject(project, scaffoldFiles) {
   await inStagingDirectory(`${project.label} [tsc]`, async root => {
     for (const file of [...scaffoldFiles, ...project.files]) writeSnippetFile(root, file.name, file.code)
-    await runCommand(Settings.binary, ['types', root], { timeout: 60_000 })
-    for (const realm of project.realms) {
-      await runCommand('tsc', ['-p', path.join(root, realm, 'jsconfig.json')], { cwd: root, timeout: 60_000 })
-    }
-    pass(`${project.label} [tsc]`, 'types')
+    const work = ['types', root, 'tsc', ...project.realms]
+    const cached = await unlessPassedBefore(project.label, root, work, async () => {
+      await runCommand(Settings.binary, ['types', root], { timeout: 60_000 })
+      for (const realm of project.realms) {
+        await runCommand('tsc', ['-p', path.join(root, realm, 'jsconfig.json')], { cwd: root, timeout: 60_000 })
+      }
+    })
+    pass(`${project.label} [tsc]${cached}`, 'types')
   })
 }
 
@@ -1613,6 +1649,9 @@ async function main() {
   console.log(`Staging: ${Settings.scratchRoot} (compiled handlers are cached here between runs)`)
   console.log(`Concurrency: ${Settings.concurrency} of ${cpus().length} cores, load ${loadavg()[0].toFixed(1)}`)
   console.log((await runCommand(Settings.binary, ['--version'], { timeout: 10_000 })).trim())
+  Settings.cache.fingerprint = await ToolchainFingerprint.read(Settings.repo, Settings.binary)
+  Settings.cache.removeOldEntries()
+  console.log(`Cache: ${Settings.cache.reads ? Settings.cache.folder : 'off (--no-cache); passes are still written'}`)
   if (scope === 'all' || scope === 'gofmt') await verifyGoFormatting()
   if (scope === 'all' || scope === 'ruby') await verifyRubySyntax()
   if (scope === 'all' || scope === 'python') await verifyPythonSyntax()

@@ -50,6 +50,7 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `bun run verify:snippets --suite=tsc` | Type-checks every JavaScript and TypeScript example project with `tsc`, the way a `ty init` project checks itself. |
 | `bun run verify:snippets --feature=<id>` | Checks one feature, such as `--feature=iteration`. It runs only the features suite. |
 | `bun run verify:snippets --section="<heading>"` | Checks one docs section, such as `--section="Security"`. It runs only the guides suite. Add `--suite=` to choose another suite, for example `--suite=tsc`. |
+| `bun run verify:snippets --no-cache` | Builds every example again, even one that passed before with the same inputs. Use it for a scheduled full run. |
 | `bun run coverage:languages` | Lists, for each docs section and feature, which Tac and Yon languages have a tab and why each other language has none: a missing example, a build error that refuses it (with its `TY` code), or not applicable. A section or feature marks a language as not applicable with `"notApplicable": ["js", "ts"]`, and it counts only when its text names the language and says why. Add `--json` for a report that tools read, or `--strict` to fail on a gap that has no example and no stated reason. |
 | `bun run styles` | Creates `tailwind.css` again. Run it after you change a template. |
 | `bun run styles:check` | Fails when the committed `tailwind.css` is out of date. |
@@ -57,6 +58,16 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 
 `verify:snippets` runs before the site is published. An example that does not
 build is worse than no example.
+
+`verify:snippets` remembers each build, test-unit and `tsc` step that passed.
+The next run skips a step when all of its inputs are the same: the example's
+files, the `ty` binary, the lock files, the verifier scripts, the `TAC_*`
+settings and the version of every toolchain (`rustc`, `dotnet`, `swiftc`,
+`go`, `tinygo`, `emcc`, `dart`, `kotlinc`, TeaVM and the others). A skipped
+step shows `(cached)`. HTTP and browser checks always run. A step that failed
+is never remembered. The cache lives in `.step-cache` inside the staging
+folder (`TAC_SNIPPETS_SCRATCH`, or `tachyon-snippets` in the system temporary
+folder), never in the repository.
 
 ## Code examples
 
