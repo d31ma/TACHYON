@@ -1,7 +1,7 @@
-use super::TypeScriptFieldType;
+use super::TypescriptFieldType;
 
 fn typed(text: &str) -> (bool, String) {
-    let field = TypeScriptFieldType::new(text);
+    let field = TypescriptFieldType::new(text);
     (field.is_required(), field.type_text())
 }
 

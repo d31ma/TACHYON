@@ -28,25 +28,43 @@ impl ComponentSlots {
         component: &str,
         children: &SlottedChildren,
     ) -> Result<(), Failure> {
-        if children.has_unnamed() && !self.unnamed {
-            return Err(Self::failure(
+        self.check_unnamed(node, component, children)?;
+        self.check_named(node, component, children)
+    }
+
+    fn check_unnamed(
+        &self,
+        node: &TemplateNode,
+        component: &str,
+        children: &SlottedChildren,
+    ) -> Result<(), Failure> {
+        let refused = [children.has_unnamed(), self.unnamed] == [true, false];
+        (!refused).then_some(()).ok_or_else(|| {
+            Self::failure(
                 node,
                 format!("Component '<{component}>' received children but declares no <slot>."),
-            ));
-        }
+            )
+        })
+    }
+
+    fn check_named(
+        &self,
+        node: &TemplateNode,
+        component: &str,
+        children: &SlottedChildren,
+    ) -> Result<(), Failure> {
         let missing = children
             .named
             .keys()
             .find(|name| !self.named.contains(*name));
-        match missing {
-            Some(name) => Err(Self::failure(
+        missing.map_or(Ok(()), |name| {
+            Err(Self::failure(
                 node,
                 format!(
                     "Component '<{component}>' received children for slot '{name}' but declares no <slot name=\"{name}\">."
                 ),
-            )),
-            None => Ok(()),
-        }
+            ))
+        })
     }
 
     pub(super) fn native_unnamed(&self) -> Vec<Value> {
@@ -72,14 +90,16 @@ impl ComponentSlots {
     }
 
     fn collect(&mut self, nodes: &[TemplateNode]) {
-        for node in nodes {
-            match &node.kind {
-                TemplateNodeKind::Slot(Some(name)) => {
-                    self.named.insert(name.clone());
-                }
-                TemplateNodeKind::Slot(None) => self.unnamed = true,
-                kind => self.collect(kind.children().unwrap_or_default()),
+        nodes.iter().for_each(|node| self.add(&node.kind));
+    }
+
+    fn add(&mut self, kind: &TemplateNodeKind) {
+        match kind {
+            TemplateNodeKind::Slot(Some(name)) => {
+                self.named.insert(name.clone());
             }
+            TemplateNodeKind::Slot(None) => self.unnamed = true,
+            kind => self.collect(kind.children().unwrap_or_default()),
         }
     }
 

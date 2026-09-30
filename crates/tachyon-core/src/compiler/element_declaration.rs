@@ -1,7 +1,6 @@
 use super::element_events::ElementEvents;
-use super::typescript_field_type::TypeScriptFieldType;
+use super::typescript_field_type::TypescriptFieldType;
 use serde_json::{Map, Value};
-use std::fmt::Write as _;
 
 pub(super) struct ElementDeclaration<'a> {
     name: &'a str,
@@ -13,6 +12,12 @@ impl<'a> ElementDeclaration<'a> {
     const PROP_TYPE: &'static str = "unknown";
     const ADD_OPTIONS: &'static str = "boolean | AddEventListenerOptions";
     const REMOVE_OPTIONS: &'static str = "boolean | EventListenerOptions";
+    const LISTENER_METHODS: [(&'static str, &'static str); 2] = [
+        ("addEventListener", Self::ADD_OPTIONS),
+        ("removeEventListener", Self::REMOVE_OPTIONS),
+    ];
+    const NO_CHARACTER: char = ' ';
+    const IDENTIFIER_SYMBOLS: [char; 2] = ['_', '$'];
 
     pub(super) const fn new(name: &'a str, props: &'a [String], events: &'a ElementEvents) -> Self {
         Self {
@@ -23,27 +28,36 @@ impl<'a> ElementDeclaration<'a> {
     }
 
     pub(super) fn text(&self) -> String {
-        let mut text = String::new();
-        for (model, described) in &self.events.models {
-            text.push_str(&Self::model_interface(model, described));
-        }
-        text.push_str(&self.event_map());
-        text.push_str(&self.element_class());
-        text.push_str(&self.tag_map());
-        text
+        let models: String = self
+            .events
+            .models
+            .iter()
+            .map(|(model, described)| Self::model_interface(model, described))
+            .collect();
+        [
+            models,
+            self.event_map(),
+            self.element_class(),
+            self.tag_map(),
+        ]
+        .concat()
     }
 
     pub(super) fn event_name(model: &str) -> String {
-        let mut name = String::with_capacity(model.len() + 4);
-        let mut previous_joins = false;
-        for character in model.chars() {
-            if previous_joins && character.is_ascii_uppercase() {
-                name.push('-');
-            }
-            previous_joins = character.is_ascii_lowercase() || character.is_ascii_digit();
-            name.push(character.to_ascii_lowercase());
+        let before = std::iter::once(Self::NO_CHARACTER).chain(model.chars());
+        before
+            .zip(model.chars())
+            .map(|(previous, current)| Self::event_name_piece(previous, current))
+            .collect()
+    }
+
+    fn event_name_piece(previous: char, current: char) -> String {
+        let lower = current.to_ascii_lowercase();
+        let joins = [previous.is_ascii_lowercase(), previous.is_ascii_digit()].contains(&true);
+        if [joins, current.is_ascii_uppercase()] == [true, true] {
+            return format!("-{lower}");
         }
-        name
+        lower.to_string()
     }
 
     fn model_interface(model: &str, described: &Value) -> String {
@@ -52,66 +66,67 @@ impl<'a> ElementDeclaration<'a> {
             .get("fields")
             .and_then(Value::as_object)
             .unwrap_or(&empty);
-        let mut text = format!("export interface {model} {{\n");
-        for (field, written) in fields {
-            let field_type = TypeScriptFieldType::new(written.as_str().unwrap_or_default());
-            let optional = if field_type.is_required() { "" } else { "?" };
-            let _ = writeln!(
-                text,
-                "  {}{optional}: {}",
-                Self::member_name(field),
-                field_type.type_text()
-            );
-        }
-        text.push_str("}\n\n");
-        text
+        let members: String = fields
+            .iter()
+            .map(|(field, written)| Self::field_line(field, written))
+            .collect();
+        format!("export interface {model} {{\n{members}}}\n\n")
+    }
+
+    fn field_line(field: &str, written: &Value) -> String {
+        let field_type = TypescriptFieldType::new(written.as_str().unwrap_or_default());
+        let optional = if field_type.is_required() { "" } else { "?" };
+        format!(
+            "  {}{optional}: {}\n",
+            Self::member_name(field),
+            field_type.type_text()
+        )
     }
 
     fn event_map(&self) -> String {
-        let mut text = format!(
-            "export interface {} extends HTMLElementEventMap {{\n",
+        let lines: String = self
+            .events
+            .names
+            .iter()
+            .map(|model| self.event_line(model))
+            .collect();
+        format!(
+            "export interface {} extends HTMLElementEventMap {{\n{lines}}}\n\n",
             self.event_map_name()
-        );
-        for model in &self.events.names {
-            let detail = if self.events.models.contains_key(model) {
-                model.as_str()
-            } else {
-                Self::PROP_TYPE
-            };
-            let _ = writeln!(
-                text,
-                "  {}: CustomEvent<{detail}>",
-                Self::quoted(&Self::event_name(model))
-            );
-        }
-        text.push_str("}\n\n");
-        text
+        )
+    }
+
+    fn event_line(&self, model: &str) -> String {
+        let detail = if self.events.models.contains_key(model) {
+            model
+        } else {
+            Self::PROP_TYPE
+        };
+        format!(
+            "  {}: CustomEvent<{detail}>\n",
+            Self::quoted(&Self::event_name(model))
+        )
     }
 
     fn element_class(&self) -> String {
         let class = self.class_name();
+        let props: String = self
+            .props
+            .iter()
+            .map(|prop| format!("  {}: {}\n", Self::member_name(prop), Self::PROP_TYPE))
+            .collect();
+        let listeners: String = Self::LISTENER_METHODS
+            .iter()
+            .map(|(method, options)| self.listener_lines(&class, method, options))
+            .collect();
+        format!("export declare class {class} extends HTMLElement {{\n{props}{listeners}}}\n\n")
+    }
+
+    fn listener_lines(&self, class: &str, method: &str, options: &str) -> String {
         let map = self.event_map_name();
-        let mut text = format!("export declare class {class} extends HTMLElement {{\n");
-        for prop in self.props {
-            let _ = writeln!(text, "  {}: {}", Self::member_name(prop), Self::PROP_TYPE);
-        }
-        let typed_listener = format!("listener: (this: {class}, event: {map}[K]) => unknown");
-        let plain_listener = "listener: EventListenerOrEventListenerObject";
-        for (method, options) in [
-            ("addEventListener", Self::ADD_OPTIONS),
-            ("removeEventListener", Self::REMOVE_OPTIONS),
-        ] {
-            let _ = writeln!(
-                text,
-                "  {method}<K extends keyof {map}>(type: K, {typed_listener}, options?: {options}): void"
-            );
-            let _ = writeln!(
-                text,
-                "  {method}(type: string, {plain_listener}, options?: {options}): void"
-            );
-        }
-        text.push_str("}\n\n");
-        text
+        format!(
+            "  {method}<K extends keyof {map}>(type: K, listener: (this: {class}, event: {map}[K]) => unknown, options?: {options}): void\n  {method}(type: string, listener: EventListenerOrEventListenerObject, options?: {options}): void\n"
+        )
     }
 
     fn tag_map(&self) -> String {
@@ -145,14 +160,26 @@ impl<'a> ElementDeclaration<'a> {
     }
 
     fn member_name(name: &str) -> String {
-        let plain = name.chars().all(|character| {
-            character.is_ascii_alphanumeric() || character == '_' || character == '$'
-        });
-        let starts_well = !name.starts_with(|first: char| first.is_ascii_digit());
-        if plain && starts_well && !name.is_empty() {
-            return String::from(name);
-        }
-        Self::quoted(name)
+        Some(name)
+            .filter(|name| Self::is_identifier(name))
+            .map_or_else(|| Self::quoted(name), String::from)
+    }
+
+    fn is_identifier(name: &str) -> bool {
+        let plain = name.chars().all(Self::is_identifier_character);
+        let starts_well = name
+            .chars()
+            .next()
+            .is_some_and(|first| !first.is_ascii_digit());
+        [plain, starts_well] == [true, true]
+    }
+
+    fn is_identifier_character(character: char) -> bool {
+        [
+            character.is_ascii_alphanumeric(),
+            Self::IDENTIFIER_SYMBOLS.contains(&character),
+        ]
+        .contains(&true)
     }
 
     fn quoted(text: &str) -> String {

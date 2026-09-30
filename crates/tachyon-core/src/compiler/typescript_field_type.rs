@@ -1,8 +1,8 @@
-pub(super) struct TypeScriptFieldType<'a> {
+pub(super) struct TypescriptFieldType<'a> {
     text: &'a str,
 }
 
-impl<'a> TypeScriptFieldType<'a> {
+impl<'a> TypescriptFieldType<'a> {
     const REQUIRED: char = '!';
     const OPTIONAL: char = '?';
     const LIST: &'static str = "[]";
@@ -28,12 +28,18 @@ impl<'a> TypeScriptFieldType<'a> {
     }
 
     fn shape_text(shape: &str) -> String {
-        if let Some(inner) = shape.strip_prefix(Self::OPTIONAL) {
-            return format!("{} | null", Self::shape_text(inner));
-        }
-        if let Some(item) = shape.strip_prefix(Self::LIST) {
-            return Self::list_text(item);
-        }
+        shape
+            .strip_prefix(Self::OPTIONAL)
+            .map(Self::optional_text)
+            .or_else(|| shape.strip_prefix(Self::LIST).map(Self::list_text))
+            .unwrap_or_else(|| Self::plain_text(shape))
+    }
+
+    fn optional_text(inner: &str) -> String {
+        format!("{} | null", Self::shape_text(inner))
+    }
+
+    fn plain_text(shape: &str) -> String {
         Self::PLAIN_TYPES
             .iter()
             .find(|(written, _)| *written == shape)

@@ -27,23 +27,29 @@ impl ElementEvents {
         let scripts = service_names
             .iter()
             .filter_map(|name| services.get(name)?.script_path());
-        for script in scripts {
-            events.add_script(project_root, script);
-        }
+        scripts.for_each(|script| events.add_script(project_root, script));
         events
     }
 
     fn add_script(&mut self, project_root: &Path, script: &Path) {
-        let language = script.extension().and_then(|extension| extension.to_str());
-        let Some(language) = language.filter(|found| Self::MODEL_LANGUAGES.contains(found)) else {
-            return;
-        };
+        let language = script
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .filter(|found| Self::MODEL_LANGUAGES.contains(found));
+        if let Some(language) = language {
+            self.add_source(project_root, script, language);
+        }
+    }
+
+    fn add_source(&mut self, project_root: &Path, script: &Path, language: &str) {
         let source = std::fs::read_to_string(script).unwrap_or_default();
         let tables = Self::model_tables(project_root, language, &source);
-        for name in Publications::event_names(language, &source) {
-            self.add_models(&tables, &name);
-            self.names.insert(name);
-        }
+        Publications::event_names(language, &source)
+            .into_iter()
+            .for_each(|name| {
+                self.add_models(&tables, &name);
+                self.names.insert(name);
+            });
     }
 
     fn add_models(&mut self, tables: &[ModelTable], name: &str) {
