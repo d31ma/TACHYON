@@ -11,12 +11,19 @@ pub(crate) enum TypeForm {
 impl TypeForm {
     const DATA_CASE: &'static str = " of ";
     const ATTRIBUTE: &'static str = "[<";
+    const INHERIT: &'static str = "inherit ";
+    const CONSTRUCTOR_CALL: char = '(';
 
     pub(crate) fn of(after_equals: &str, body: &[&str]) -> Self {
         let first = body
             .iter()
             .copied()
-            .find(|line| !line.starts_with(Self::ATTRIBUTE))
+            .find(|line| {
+                [
+                    line.starts_with(Self::ATTRIBUTE),
+                    Self::inherits_interface(line),
+                ] == [false, false]
+            })
             .unwrap_or("");
         let written = after_equals.trim();
         let shown = Some(written)
@@ -37,6 +44,11 @@ impl TypeForm {
         } else {
             Self::Alias
         }
+    }
+
+    fn inherits_interface(line: &str) -> bool {
+        line.strip_prefix(Self::INHERIT)
+            .is_some_and(|base| !base.contains(Self::CONSTRUCTOR_CALL))
     }
 
     fn cases(shown: &str, body: &[&str]) -> Self {
@@ -86,6 +98,20 @@ mod tests {
         );
         assert_eq!(
             TypeForm::of("", &["member this.Count = 1"]),
+            TypeForm::Class
+        );
+        assert_eq!(
+            TypeForm::of(
+                "",
+                &[
+                    "inherit Repository<Product, int>",
+                    "abstract findByName: BehaviorJSON -> Task<BehaviorJSON>"
+                ]
+            ),
+            TypeForm::Interface
+        );
+        assert_eq!(
+            TypeForm::of("", &["inherit Exception(message)", "member this.Code = 1"]),
             TypeForm::Class
         );
         assert_eq!(TypeForm::of("class end", &[]), TypeForm::Class);
