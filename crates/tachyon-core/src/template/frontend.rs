@@ -1696,7 +1696,8 @@ mod tests {
             "<loop for=\"item of values\">x</loop>",
             "<loop :for=\"1item of values\">x</loop>",
             "<loop :for=\"item values\">x</loop>",
-            "<slot name=\"named\"></slot>",
+            "<slot id=\"named\"></slot>",
+            "<slot name=\"\"></slot>",
             "<p>{missing</p>",
             "<p>{!raw}</p>",
         ] {

@@ -115,6 +115,11 @@ fn publishing_project() -> tempfile::TempDir {
     let root = counter_project(r#"["shop-counter"]"#);
     write(
         root.path(),
+        "client/components/shop/counter/tac.html",
+        r#"<section aria-label="Counter"><h2>{label}</h2><button type="button" on:click="counter.add()">{counter.count}</button></section>"#,
+    );
+    write(
+        root.path(),
         "client/models/CountChanged.js",
         "/**\n * @typedef {Object} CountChanged\n * @property {number} count\n * @property {string} [note]\n * @property {string[]} tags\n */\nexport {}\n",
     );
