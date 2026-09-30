@@ -210,16 +210,16 @@ describe('language coverage', () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     const topic = docs.topics['application-events']
     const browser = topic.sections.find(section => section.heading.startsWith('Browser services'))
-    const compiled = topic.sections.find(section => section.heading.startsWith('Compiled services'))
+    const compiled = topic.sections.find(section => section.files?.some(file => file.name === 'client/services/CatalogService.swift'))
     const views = /^client\/(models|pages|components)\//
     const services = (section) => section.files.filter(file => !views.test(file.name))
     for (const file of [...services(browser), ...services(compiled)]) expect(file.name).toMatch(/^client\/services\/CatalogService\.[a-z]+$/)
     const yon = topic.sections.find(section => section.heading.startsWith('Yon:'))
     expect(services(browser).map(file => file.name.split('.').pop()).sort()).toEqual(['js', 'ts'])
-    expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'go', 'java', 'kt', 'rs', 'swift'])
+    expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'java', 'kt', 'rb', 'rs', 'swift'])
     for (const file of compiled.files.filter(file => file.name.startsWith('client/models/'))) expect(file.name).toMatch(/^client\/models\/CatalogCount\.[a-z]+$/)
     expect(yon.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort())
-      .toEqual(['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts'])
+      .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts'])
     for (const section of topic.sections) for (const file of section.files ?? []) {
       expect(file.code).not.toContain('this.tac')
       expect(file.code).not.toMatch(/tac_publish|tacPublish|Tac\.Publish|\bmount\(/)
