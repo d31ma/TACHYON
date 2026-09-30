@@ -273,10 +273,10 @@ func (checks CatalogChecks) checkQueries(context *BehaviorContext) error {
 	if !checks.same(selected, rows) {
 		return checks.fail("Selected did not return the same rows")
 	}
-	return checks.checkRepository(products)
+	return checks.checkCrudBase(products)
 }
 
-func (checks CatalogChecks) checkRepository(products *ProductQueriesStore) error {
+func (checks CatalogChecks) checkCrudBase(products *ProductQueriesStore) error {
 	found, err := products.FindById("one")
 	if row, isRow := found.(map[string]any); err != nil || !isRow || row["id"] != "one" {
 		return checks.fail("FindById did not return the row")
