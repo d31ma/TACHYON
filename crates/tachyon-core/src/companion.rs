@@ -3,7 +3,14 @@ use crate::failure::{diagnostic, source_span};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
+mod csharp_model_type;
 pub(crate) mod go;
+mod rust_collaborators;
+mod rust_model_type;
+
+pub(crate) use csharp_model_type::CsharpModelType;
+use rust_collaborators::RustCollaborators;
+use rust_model_type::RustModelType;
 
 pub(crate) fn owner_name(
     language: CompanionLanguage,
@@ -274,6 +281,8 @@ fn rust_owner_table(
         .iter()
         .map(|member| member.name.clone())
         .collect::<Vec<_>>();
+    let collaborators = RustCollaborators::declared_beside(&name, source);
+    members.retain(|member| !collaborators.holds(member.declared_type.as_deref()));
     let mut constructs = false;
     let mut parameters = HashMap::new();
     for (header, impl_body) in blocks(source, "impl") {
@@ -483,6 +492,8 @@ impl Modifiers {
         "data",
     ];
 
+    const CSHARP_READABLE: [&str; 2] = ["public ", "internal "];
+
     const TYPE_FIRST: [(&str, bool); 8] = [
         ("public ", false),
         ("async ", false),
@@ -665,8 +676,9 @@ fn rust_field(line: &str) -> Option<Member> {
     let declared = if matches!(declared, "&'static str" | "&str") {
         "&str"
     } else if declared.is_empty()
-        || declared.contains(['&', '<', '\''])
-        || declared == "BehaviorContext"
+        || declared.contains(['&', '\''])
+        || (declared.contains('<') && !RustModelType::is_model(declared))
+        || RustModelType::is_runtime(declared)
         || crate::web_api_clients::WebApiClients::is_client_type(declared)
     {
         return None;
@@ -703,6 +715,10 @@ fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
         return None;
     }
     let returns = rust_return_type(arguments);
+    let crosses = |kind: &str| kind == "()" || RustModelType::crosses(kind);
+    if !returns.as_deref().is_none_or(crosses) {
+        return None;
+    }
     let parameters = rust_parameters(arguments)?;
     let member = Member {
         name,
@@ -717,7 +733,7 @@ fn rust_method(line: &str) -> Option<(Member, Vec<String>)> {
 
 fn rust_return_type(arguments: &str) -> Option<String> {
     let returned = arguments.split("->").nth(1)?;
-    let returned = returned.trim().trim_end_matches('{').trim();
+    let returned = returned.split('{').next().unwrap_or_default().trim();
     if returned.is_empty() {
         return None;
     }
@@ -734,7 +750,7 @@ fn rust_parameters(arguments: &str) -> Option<Vec<String>> {
             continue;
         }
         let kind = parameter.split_once(':')?.1.trim();
-        if !is_supported_rust_type(kind) {
+        if !RustModelType::crosses(kind) {
             return None;
         }
         kinds.push(kind.to_owned());
@@ -757,28 +773,6 @@ fn closing_parenthesis(arguments: &str) -> Option<usize> {
         }
     }
     None
-}
-
-fn is_supported_rust_type(kind: &str) -> bool {
-    matches!(
-        kind,
-        "TacValue"
-            | "String"
-            | "&str"
-            | "bool"
-            | "f32"
-            | "f64"
-            | "i8"
-            | "i16"
-            | "i32"
-            | "i64"
-            | "isize"
-            | "u8"
-            | "u16"
-            | "u32"
-            | "u64"
-            | "usize"
-    )
 }
 
 fn rust_arguments(parameters: &[String]) -> (String, String) {
@@ -849,6 +843,7 @@ pub(crate) fn rust_read(kind: &str, expression: &str) -> String {
         "bool" => format!("TacValue::Flag({expression})"),
         "String" | "&str" => format!("TacValue::Text(({expression}).to_string())"),
         "()" => format!("{{ {expression}; TacValue::Null }}"),
+        _ if RustModelType::is_model(kind) => RustModelType::read(expression),
         _ => format!("TacValue::Int(({expression}) as i64)"),
     }
 }
@@ -861,6 +856,7 @@ pub(crate) fn rust_write(kind: &str) -> Option<String> {
         "bool" => String::from("value.as_flag()"),
         "String" => String::from("value.as_text()"),
         "&str" => return None,
+        _ if RustModelType::is_model(kind) => RustModelType::write(kind),
         _ => format!("value.as_int() as {kind}"),
     };
     Some(conversion)
@@ -995,7 +991,10 @@ fn annotated_type(annotation: &str) -> Option<String> {
 
 fn type_first(line: &str) -> Option<Member> {
     let line = line.trim();
-    if line.starts_with("private ") || line.starts_with("protected ") {
+    if !Modifiers::CSHARP_READABLE
+        .iter()
+        .any(|access| line.starts_with(access))
+    {
         return None;
     }
     let (line, fixed) = without_type_first_modifiers(line);
@@ -1009,7 +1008,7 @@ fn type_first(line: &str) -> Option<Member> {
     }
     let after = rest[name.len()..].trim_start();
     let method = after.starts_with('(');
-    let hidden_type = declared_type == "BehaviorContext"
+    let hidden_type = CsharpModelType::is_runtime(&declared_type)
         || crate::web_api_clients::WebApiClients::is_client_type(&declared_type);
     if !method && hidden_type {
         return None;
@@ -1036,12 +1035,12 @@ fn csharp_declared_type(line: &str) -> Option<(String, &str)> {
             return Some((String::from(declared), rest));
         }
     }
-    let declared_type = identifier(line);
-    if declared_type.is_empty() {
+    let name = identifier(line);
+    if name.is_empty() {
         return None;
     }
-    let rest = line[declared_type.len()..].trim_start();
-    if rest.starts_with('<') || rest.starts_with('?') {
+    let (declared_type, rest) = CsharpModelType::declared(line, name.len())?;
+    if rest.starts_with('<') || rest.starts_with('?') || CsharpModelType::is_task(&declared_type) {
         return None;
     }
     Some((declared_type, rest))
@@ -1239,18 +1238,20 @@ fn csharp_entry(member: &Member) -> String {
         (true, Some(kind), _) if kind == "object" => format!(
             "        [\"{key}\"] = TacMember.Method(arguments => TacMember.Result(() => Instance.{name}({passed}))),\n"
         ),
-        (true, _, _) => format!(
-            "        [\"{key}\"] = TacMember.Method(arguments => Instance.{name}({passed})),\n"
-        ),
-        (false, Some(kind), true) => {
-            let converter = csharp_converter(kind);
-            format!(
-                "        [\"{key}\"] = TacMember.Field(() => Instance.{name}, \
-                 value => Instance.{name} = {converter}),\n"
-            )
+        (true, kind, _) => {
+            let call =
+                CsharpModelType::value(kind.as_deref(), &format!("Instance.{name}({passed})"));
+            format!("        [\"{key}\"] = TacMember.Method(arguments => {call}),\n")
         }
-        (false, _, _) => {
-            format!("        [\"{key}\"] = TacMember.Field(() => Instance.{name}),\n")
+        (false, kind, mutable) => {
+            let read = CsharpModelType::value(kind.as_deref(), &format!("Instance.{name}"));
+            let write = kind
+                .as_deref()
+                .filter(|_| mutable)
+                .and_then(|kind| CsharpModelType::reading(kind, "value"))
+                .map(|converter| format!(", value => Instance.{name} = {converter}"))
+                .unwrap_or_default();
+            format!("        [\"{key}\"] = TacMember.Field(() => {read}{write}),\n")
         }
     }
 }
@@ -1311,10 +1312,13 @@ fn csharp_parameters(after_name: &str) -> Option<Vec<String>> {
             continue;
         }
         let kind = parameter.split_whitespace().next()?;
-        let supported = matches!(
-            kind,
-            "string" | "int" | "long" | "double" | "float" | "bool" | "object" | "BehaviorJSON"
-        );
+        let readable_model =
+            CsharpModelType::is_model(kind) && CsharpModelType::read(kind, kind).is_some();
+        let supported = readable_model
+            || matches!(
+                kind,
+                "string" | "int" | "long" | "double" | "float" | "bool" | "object" | "BehaviorJSON"
+            );
         if !supported {
             return None;
         }
@@ -1331,7 +1335,7 @@ fn csharp_arguments(parameters: &[String]) -> String {
             "object" => value,
             "float" => format!("Convert.ToSingle({value})"),
             "BehaviorJSON" => format!("BehaviorJSON.Parse(Tac.EncodeValue({value}))"),
-            other => csharp_converter(other).replace("value", &value),
+            other => CsharpModelType::reading(other, &value).unwrap_or(value),
         };
         arguments.push(argument);
     }
@@ -1405,6 +1409,19 @@ mod tests {
              public Task forget(BehaviorJSON key) { return Task.CompletedTask; }\n    \
              public BehaviorJSON label() { return null; }\n}\n";
 
+        const RUST_BEHAVIOR_AND_MODEL_SERVICE: &str = "struct NotesService {\n    behaviors: BehaviorContext,\n    \
+             last: BehaviorValue,\n    product: Product,\n}\n\n\
+             impl NotesService {\n    fn new() -> Self { todo!() }\n\n    \
+             #[Cached]\n    fn find(&self, key: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(key) }\n\n    \
+             fn look(&self, key: String) -> String { key }\n\n    \
+             fn choose(&mut self, product: Product) {}\n}\n";
+
+        const CSHARP_BEHAVIOR_AND_MODEL_SERVICE: &str = "public sealed class NotesService {\n    \
+             public BehaviorSignal signal = new BehaviorSignal();\n    \
+             public Product Product = new Product(\"Anvil\");\n    \
+             public BehaviorJSON Keep(BehaviorSignal given) { return null; }\n    \
+             public void Choose(Product product) { }\n}\n";
+
         const CSHARP_DISMISS_CALL: &str = "Instance.Dismiss(Convert.ToString((arguments.Length > 0 ? arguments[0] : null)), Convert.ToInt32((arguments.Length > 1 ? arguments[1] : null)))";
 
         const RUST_STRUCT_WITH_DEFAULT: &str = "pub struct CompanionService {\n    count: i32,\n    label: String,\n}\n\n\
@@ -1422,6 +1439,17 @@ mod tests {
 
         const KOTLIN_METHOD_BODY: &str = "class CompanionService {\n    var count: Int = 1\n    \
              fun doubled(): Int {\n        val scratch = count\n        return scratch * 2\n    }\n}\n";
+
+        const RUST_HTTP_CLIENT_SERVICE: &str = "struct CatalogService { catalog: CatalogClient, count: i64 }\n\
+             impl CatalogService {\n    fn new() -> Self {\n        \
+             Self { catalog: CatalogClient::new(), count: 0 }\n    }\n\n    \
+             fn all(&self) -> BehaviorResult<BehaviorValue> {\n        self.catalog.all()\n    }\n\n    \
+             fn load(&mut self) {\n        self.count = 1;\n    }\n}\n\
+             struct CatalogClient { behaviors: BehaviorContext }\n";
+
+        const CSHARP_HTTP_CLIENT_SERVICE: &str = "public class CatalogService {\n    \
+             readonly CatalogClient _catalog = new CatalogClient();\n    public int count = 0;\n\n    \
+             public async Task Load() { count = 1; }\n    int Helper() => 1;\n}\n";
 
         const CSHARP_READ_ONLY_FIELDS: &str = "public class Companion\n{\n    public int Count { get; set; } = 6;\n    \
              public string Label => \"Native\";\n    public readonly int Fixed = 1;\n    \
@@ -1655,6 +1683,53 @@ mod tests {
     }
 
     #[test]
+    fn rust_behavior_values_stay_inside_while_models_still_bind() {
+        let generated = rust_member_table(
+            Sources::RUST_BEHAVIOR_AND_MODEL_SERVICE,
+            "client/services/NotesService.rs",
+        )
+        .expect("a table");
+        for hidden in [
+            "\"find\"",
+            "\"last\"",
+            "\"behaviors\"",
+            "BehaviorValue as TacModel",
+        ] {
+            assert!(!generated.contains(hidden), "{hidden}: {generated}");
+        }
+        for expected in [
+            "\"look\"",
+            "TacModel::write(it.borrow().product.clone())",
+            "<Product as TacModel>::read(&value)",
+        ] {
+            assert!(generated.contains(expected), "{expected}: {generated}");
+        }
+    }
+
+    #[test]
+    fn csharp_behavior_runtime_types_stay_inside_while_models_still_bind() {
+        let generated = member_table(
+            CompanionLanguage::CSharp,
+            Sources::CSHARP_BEHAVIOR_AND_MODEL_SERVICE,
+            "client/services/NotesService.cs",
+        )
+        .expect("a table");
+        for hidden in [
+            "Instance.signal",
+            "Instance.Keep(",
+            "TacModels.Read<BehaviorSignal>",
+        ] {
+            assert!(!generated.contains(hidden), "{hidden}: {generated}");
+        }
+        for expected in [
+            "TacModels.Plain(Instance.Product)",
+            "Instance.Choose(TacModels.Read<Product>(",
+        ] {
+            assert!(generated.contains(expected), "{expected}: {generated}");
+        }
+    }
+
+    #[test]
     fn csharp_methods_take_json_arguments_and_object_fields_pass_through() {
         let generated = member_table(
             CompanionLanguage::CSharp,
@@ -1700,6 +1775,39 @@ mod tests {
         assert!(table.contains("TacValue::Text"), "{table}");
         assert!(table.contains("write: None"), "{table}");
         assert!(!table.contains("runtime.clone()"), "{table}");
+    }
+
+    #[test]
+    fn a_rust_service_hides_the_http_client_it_holds() {
+        let table = rust_member_table(
+            Sources::RUST_HTTP_CLIENT_SERVICE,
+            "client/services/CatalogService.rs",
+        )
+        .expect("table");
+        assert!(table.contains("\"count\""), "{table}");
+        assert!(table.contains("\"load\""), "{table}");
+        for hidden in [
+            "\"catalog\"",
+            "\"all\"",
+            "as CatalogClient",
+            "catalog.clone()",
+        ] {
+            assert!(!table.contains(hidden), "{hidden}:\n{table}");
+        }
+    }
+
+    #[test]
+    fn a_csharp_member_without_an_access_modifier_is_private() {
+        let table = member_table(
+            CompanionLanguage::CSharp,
+            Sources::CSHARP_HTTP_CLIENT_SERVICE,
+            "client/services/CatalogService.cs",
+        )
+        .expect("table");
+        assert!(table.contains("[\"count\"]"), "{table}");
+        assert!(table.contains("[\"load\"]"), "{table}");
+        assert!(!table.contains("_catalog"), "{table}");
+        assert!(!table.contains("Helper"), "{table}");
     }
 
     #[test]

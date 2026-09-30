@@ -1,20 +1,19 @@
 class __tachyon_ClientConfiguration {
   static bindTransport(transport) {
-    if (transport === undefined) {
-      if (Object.values(this.adapters).some(policy => policy !== 'no-store')) throw new TypeError('Cached Client requires its mounted Tac owner.')
-      return
-    }
+    if (transport === undefined) return
     if (typeof transport !== 'function' || (this.transport && this.transport !== transport)) throw new TypeError('Invalid Tac Client transport owner.')
     Object.defineProperty(this, 'transport', {value:transport})
   }
   static configure() {
-    return { http: Object.fromEntries(Object.entries(this.adapters).map(([name, policy]) =>
-      [name, {exchange: request => __tachyon_client_exchange__(request, policy, this.transport)}])) }
+    return { http: Object.fromEntries(this.adapters.map(name =>
+      [name, {exchange: request => __tachyon_client_exchange__(request, this.transport)}])) }
   }
 }
-async function __tachyon_client_exchange__(request, policy, transport) {
+async function __tachyon_client_exchange__(request, transport) {
   const url = new URL(request.path, location.href)
   const publicRead = request.publicRead === true && request.method === 'GET'
+  const revalidate = publicRead && request.revalidate === true
+  const publicCache = revalidate ? 'no-cache' : 'default'
   if (!['http:', 'https:'].includes(url.protocol) || url.origin !== location.origin || url.username || url.password) {
     throw new TypeError('Tac Client requires a same-origin HTTP endpoint.')
   }
@@ -25,9 +24,9 @@ async function __tachyon_client_exchange__(request, policy, transport) {
   if (body !== undefined) headers.set('content-type', 'application/json')
   const init = {
     method: request.method, headers, body, signal: request.signal,
-    redirect: 'error', credentials: 'omit', cache: policy === 'no-store' && !publicRead ? 'no-store' : 'default',
+    redirect: 'error', credentials: 'omit', cache: publicRead ? publicCache : 'no-store',
   }
-  const response = transport ? await transport(url, init, {cache:policy, publicRead}) : await fetch(url, {...init, cache: publicRead ? 'default' : 'no-store'})
+  const response = transport ? await transport(url, init, {publicRead, revalidate}) : await fetch(url, init)
   if (!response.ok) { await response.body?.cancel(); throw new Error('Tac Client HTTP request failed.') }
   if (request.method === 'HEAD' || response.status === 204) { await response.body?.cancel(); return null }
   const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()

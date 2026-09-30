@@ -1,12 +1,12 @@
 {
   "heading": "Client classes that call the server",
   "axis": "language",
-  "body": "Use HTTPClient on a client class whose methods have empty bodies: a client is a contract with no implementation, and Tachyon writes each request. Use GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest on its methods. Needs injects the client into a service without a constructor. Browser JavaScript and TypeScript clients send bounded JSON to the same origin. They reject redirects, send no credentials and cancel when their owner is disposed. Other languages declare the client as a contract (an interface, trait, protocol or abstract interface class), and its Setup holds the explicitly configured HTTP adapter. Like a Spring @Configuration, a Setup is configured once per page: every client, store and service context built from it shares the same adapters until the last of them is disposed. In Yon it is configured once per server process. For now, the browser services in Swift, Kotlin, Java, C#, F#, Rust, Go and Dart each still get their own copy of a Setup, so two of these services that use the same client do not share its adapters yet. The clients inside one service already share them. A Service cannot also be an HTTPClient (TY1308). A Tac service never calls fetch itself (TY1361). A read is sent no-store by default, so it is always fresh. To keep a read, use the cache annotations on the client: CacheSettings on the class, Cached on the read, and ClearCache or UpdateCache on the write that changes it. In JavaScript and TypeScript a Cached GET is also a public read, so the service worker may answer it by the manifest's tac.cache rules. The cache option of HTTPClient is replaced by Cached (ADR 0087). See the [routing annotation glossary](/docs/routing-annotations). Another host needs its name in `tac.outgoing.hosts` or `outgoing.hosts`; Tachyon refuses every other host when it builds and when it runs (`TY1326`).",
+  "body": "Use HTTPClient on a client class whose methods have empty bodies: a client is a contract with no implementation, and Tachyon writes each request. Use GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest on its methods. Needs injects the client into a service without a constructor. Browser JavaScript and TypeScript clients send bounded JSON to the same origin. They reject redirects, send no credentials and cancel when their owner is disposed. Other languages declare the client as a contract (an interface, trait, protocol or abstract interface class), and its Setup holds the explicitly configured HTTP adapter. A service in one of these languages builds the client itself, and in this example CatalogSetup's adapter answers with two product names. Like a Spring @Configuration, a Setup is configured once per page: every client, store and service context built from it shares the same adapters until the last of them is disposed. In Yon it is configured once per server process. For now, the browser services in Swift, Kotlin, Java, C#, F#, Rust, Go and Dart each still get their own copy of a Setup, so two of these services that use the same client do not share its adapters yet. The clients inside one service already share them. A Service cannot also be an HTTPClient (TY1308). A Tac service never calls fetch itself (TY1361). A read is sent no-store by default, so it is always fresh. To keep a read, use the cache annotations on the client: CacheSettings on the class, Cached on the read, and ClearCache or UpdateCache on the write that changes it. In JavaScript and TypeScript a Cached GET is also a public read, so the service worker may answer it by the manifest's tac.cache rules. The cache option of HTTPClient is replaced by Cached (ADR 0087). See the [routing annotation glossary](/docs/routing-annotations). Another host needs its name in `tac.outgoing.hosts` or `outgoing.hosts`; Tachyon refuses every other host when it builds and when it runs (`TY1326`).",
   "files": [
     {
-      "name": "client/pages/catalog/tac.html",
+      "name": "client/pages/tac.html",
       "code": {
-        "file": "client/pages/catalog/tac.html"
+        "file": "client/pages/tac.html"
       }
     },
     {
@@ -37,6 +37,168 @@
       "name": "client/services/CatalogService.ts",
       "code": {
         "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.java",
+      "code": {
+        "file": "client/clients/CatalogClient.java"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.dart",
+      "code": {
+        "file": "client/clients/CatalogClient.dart"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.rs",
+      "code": {
+        "file": "client/clients/CatalogClient.rs"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.go",
+      "code": {
+        "file": "client/clients/CatalogClient.go"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.rb",
+      "code": {
+        "file": "client/clients/CatalogClient.rb"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.swift",
+      "code": {
+        "file": "client/clients/CatalogClient.swift"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.kt",
+      "code": {
+        "file": "client/clients/CatalogClient.kt"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.cs",
+      "code": {
+        "file": "client/clients/CatalogClient.cs"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.fs",
+      "code": {
+        "file": "client/clients/CatalogClient.fs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.java",
+      "code": {
+        "file": "client/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.dart",
+      "code": {
+        "file": "client/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rs",
+      "code": {
+        "file": "client/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.go",
+      "code": {
+        "file": "client/setups/CatalogSetup.go"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rb",
+      "code": {
+        "file": "client/setups/CatalogSetup.rb"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.swift",
+      "code": {
+        "file": "client/setups/CatalogSetup.swift"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.kt",
+      "code": {
+        "file": "client/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.cs",
+      "code": {
+        "file": "client/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.fs",
+      "code": {
+        "file": "client/setups/CatalogSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
       }
     }
   ]

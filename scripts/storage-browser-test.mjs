@@ -49,7 +49,6 @@ class StorageGate {
 
 class ApiRequests {
   static counter = 0;
-  static rangeRequests = 0;
 }
 
 function summaryText(summary) {
@@ -746,31 +745,22 @@ function writeFixture(project) {
   <storage-rs />
 ${StorageGate.withCSharp ? '  <storage-cs />\n  <storage-journal />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}</main>
 `);
-  for (const [name, policy] of [['CacheFirstClient','cache-first'],['NetworkFirstClient','network-first'],['FreshClient','no-store'],['ReloadClient','reload']]) {
-    write(project, 'client/clients/' + name + '.js', `@HTTPClient({"cache":"${policy}","adapter":"${name}"})
-class ${name} {
+  write(project, 'client/clients/FreshClient.js', `@HTTPClient
+class FreshClient {
   @GetRequest("/api/counter")
   async counter() {}
-  @GetRequest("/api/counter")
-  async counterAsking(@RequestParam("ambient") ambient) {}
-  @GetRequest("/api/counter")
-  async counterSigned(@RequestParam("auth") auth, @RequestHeader("authorization") authorization) {}
-  @GetRequest("/api/counter")
-  async counterWithPolicy(@RequestParam("policy") policy) {}
-  @GetRequest("/api/range")
-  async range(@RequestParam("sample") sample) {}
-  @GetRequest("/api/range")
-  async rangePart(@RequestParam("sample") sample, @RequestHeader("Range") range) {}
-  @GetRequest("/api/range")
-  async rangeIf(@RequestParam("sample") sample, @RequestHeader("If-Range") ifRange) {}
-  @GetRequest("/api/range")
-  async rangeUnasked(@RequestParam("partial") partial) {}
-  @GetRequest("/api/range")
-  async rangeLegacy(@RequestParam("legacy") legacy) {}
-  @GetRequest("/api/range")
-  async rangeMislabelled(@RequestParam("partial") partial, @RequestParam("mislabelled") mislabelled) {}
 }`);
-  }
+  write(project, 'client/clients/CachedClient.js', `@HTTPClient
+@CacheSettings({"name":"counters","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
+class CachedClient {
+  /** @returns {Promise<BehaviorJsonValue>} */
+  @Cached
+  @GetRequest("/api/counter")
+  async counter() {}
+  @ClearCache({"method":"counter"})
+  @PostRequest("/api/counter")
+  async reset() {}
+}`);
   write(project, 'client/services/StoragePageService.js', `@Service()
 export default class StoragePageService {
   @SessionState
@@ -786,17 +776,11 @@ export default class StoragePageService {
   write(project, 'client/services/StorageClientsService.js', `@Service
 export default class StorageClientsService {
   @Needs
-  cacheManager;
-  @Needs
   applicationEventPublisher;
-  @Needs
-  cacheFirstClient;
-  @Needs
-  networkFirstClient;
   @Needs
   freshClient;
   @Needs
-  reloadClient;
+  cachedClient;
   label = 'clients';
   announce(size) {
     this.label = 'clients';
@@ -1002,17 +986,6 @@ function createHandler(project) {
   const root = path.join(project, 'dist');
   return (request, response) => {
     const url = new URL(request.url, 'http://localhost');
-    if (url.pathname === '/api/range') {
-      ApiRequests.rangeRequests += 1;
-      const partial = Boolean(request.headers.range) || url.searchParams.has('partial');
-      response.writeHead(partial && !url.searchParams.has('mislabelled') ? 206 : 200, {
-        'content-type': 'application/json', 'cache-control': 'public, max-age=60',
-        'x-request-number': String(ApiRequests.rangeRequests),
-        ...(partial ? { 'content-range': 'bytes 0-2/6' } : {}),
-      });
-      response.end(JSON.stringify({status:partial && !url.searchParams.has('mislabelled') ? 206 : 200, body:partial ? 'abc' : 'abcdef', number:ApiRequests.rangeRequests}));
-      return;
-    }
     if (url.pathname === '/api/counter') {
       ApiRequests.counter += 1;
       const cacheControl = url.searchParams.get('policy') || 'public, max-age=60';
@@ -1305,9 +1278,9 @@ async function checkJavaStorage(page, evaluate) {
 
 async function checkInjectedClients(page) {
   const binding = await page.evaluate(() => ({
-    client: typeof __root('storageClients').cacheFirstClient?.counter === 'function',
+    client: typeof __root('storageClients').cachedClient?.counter === 'function',
     fetchRemoved: !('tac' in __root('storageClients')),
-    hidden: !Object.keys(__root('storageClients')).includes('tac') && !Object.keys(__root('storageClients')).includes('cacheFirstClient'),
+    hidden: !Object.keys(__root('storageClients')).includes('tac') && !Object.keys(__root('storageClients')).includes('cachedClient'),
     clonable: (() => { try { structuredClone({...__root('storageClients')}); return true; } catch { return false; } })(),
   }));
   expect(binding.client, true, 'service receives an injected Client');
@@ -1324,122 +1297,41 @@ async function checkInjectedClients(page) {
   expect(await announce(1), 'clients|first:1|async:1', 'condition skips only the listener it guards');
 }
 
-async function checkCachePolicies(page, origin, context) {
-  const api = `${origin}/api/counter`;
-  await page.evaluate((url) => new Promise((resolve, reject) => {
-    const opened = indexedDB.open('tachyon-fetch-cache', 1);
-    opened.onupgradeneeded = () => opened.result.createObjectStore('responses', {keyPath:'key'});
-    opened.onerror = () => reject(opened.error);
-    opened.onsuccess = () => {
-      const transaction = opened.result.transaction('responses','readwrite');
-      transaction.objectStore('responses').put({key:`fetch:GET:${url}`, status:200,
-        headers:[['content-type','application/json']], updatedAt:Date.now(),
-        body:new TextEncoder().encode(JSON.stringify({value:-999})).buffer});
-      transaction.oncomplete = () => { opened.result.close(); resolve(); };
-      transaction.onerror = () => { opened.result.close(); reject(transaction.error); };
-    };
-  }), api);
-  const first = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
-  const repeat = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
-  expect(first.value !== -999, true, 'legacy credentialed cache discarded on privacy migration');
-  expect(repeat.value, first.value, 'cache-first returns stored JSON');
-  const fresh = await page.evaluate(() => __root('storageClients').networkFirstClient.counter());
-  expect(fresh.value > first.value, true, 'network-first requests current JSON');
-  const reloaded = await page.evaluate(() => __root('storageClients').reloadClient.counter());
-  expect(reloaded.value > fresh.value, true, 'reload requires network and refreshes persistence');
-  const unstored = await page.evaluate(() => __root('storageClients').freshClient.counter());
-  const stillStored = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
-  expect(unstored.value > reloaded.value, true, 'no-store requests network');
-  expect(stillStored.value, reloaded.value, 'no-store leaves the stored response unchanged');
-
-  await page.evaluate((url) => __root('storageClients').cacheManager.invalidate([`fetch:GET:${url}`]), api);
-  const afterInvalidate = await page.evaluate(() => __root('storageClients').cacheFirstClient.counter());
-  expect(afterInvalidate.value > unstored.value, true, 'explicit invalidation forces a new read');
+async function checkClientReads(page, context, origin) {
   await context.addCookies([{name:'private-session',value:'test-only',url:origin}]);
-  const privacy = await page.evaluate(async () => {
-    const client = __root('storageClients').cacheFirstClient;
-    const bypassed = async (read) => {
-      const first = await read();
-      const second = await read();
-      return second.value > first.value;
-    };
-    return {
-      cookiesOmitted: !(await client.counterAsking('yes')).cookie,
-      authorization: await bypassed(() => client.counterSigned('yes', 'test-fixture')),
-      noStore: await bypassed(() => client.counterWithPolicy('no-store')),
-      private: await bypassed(() => client.counterWithPolicy('private')),
-    };
+  const reads = await page.evaluate(async () => {
+    const { freshClient, cachedClient } = __root('storageClients');
+    const fresh = await freshClient.counter();
+    const freshAgain = await freshClient.counter();
+    const cached = await cachedClient.counter();
+    const cachedAgain = await cachedClient.counter();
+    await cachedClient.reset();
+    const afterReset = await cachedClient.counter();
+    const databases = await indexedDB.databases?.() ?? [];
+    return { fresh, freshAgain, cached, cachedAgain, afterReset, fetchCache: databases.some((database) => database.name === 'tachyon-fetch-cache') };
   });
-  for (const [name, allowed] of Object.entries(privacy)) expect(allowed, true, `${name} preserves cache privacy`);
-  return afterInvalidate;
+  expect(reads.freshAgain.value > reads.fresh.value, true, 'an HTTPClient read without Cached always asks the network');
+  expect(reads.fresh.cookie, false, 'an HTTPClient read omits cookies');
+  expect(reads.cachedAgain.value, reads.cached.value, 'a Cached read answers from the behavior cache');
+  expect(reads.afterReset.value > reads.cachedAgain.value, true, 'ClearCache makes the next Cached read ask the network');
+  expect(reads.fetchCache, false, 'no HTTPClient read opens the removed IndexedDB fetch cache');
+  return reads.afterReset;
 }
 
-async function checkRangeRequests(page) {
-  const range = await page.evaluate(async () => {
-    const client = __root('storageClients').cacheFirstClient;
-    const partial = await client.rangePart('partial-first', 'bytes=0-2');
-    const full = await client.range('partial-first');
-    const warmed = await client.range('full-first');
-    const rangedAfterFull = await client.rangePart('full-first', 'bytes=0-2');
-    const stillFull = await client.range('full-first');
-    const ifRange = await client.rangeIf('full-first', '"fixture-etag"');
-    const unsolicited = await client.rangeUnasked('yes');
-    const repeatedPartial = await client.rangeUnasked('yes');
-    const mislabelled = await client.rangeMislabelled('yes', 'yes');
-    const repeatedMislabelled = await client.rangeMislabelled('yes', 'yes');
-    return {partial,full,warmed,rangedAfterFull,stillFull,ifRange,unsolicited,repeatedPartial,mislabelled,repeatedMislabelled};
-  });
-  expect(range.partial.status, 206, 'Range receives a partial network response');
-  expect(range.full.status, 200, 'partial JSON cannot poison a full read');
-  expect(range.full.body, 'abcdef', 'full read receives complete JSON');
-  expect(range.rangedAfterFull.status, 206, 'Range bypasses existing full cache');
-  expect(range.stillFull.number, range.warmed.number, 'Range preserves full cached representation');
-  expect(range.ifRange.number !== range.warmed.number, true, 'If-Range bypasses cached full response');
-  expect(range.repeatedPartial.number !== range.unsolicited.number, true, 'unsolicited 206 responses are not cached');
-  expect(range.repeatedMislabelled.number !== range.mislabelled.number, true, 'Content-Range responses are not cached');
-}
-
-async function checkLegacyPartialResponses(page, origin) {
-  for (const status of [200,206]) {
-    const restored = await page.evaluate(async ({origin,status}) => {
-      const url = `${origin}/api/range?legacy=${status}`;
-      await new Promise((resolve,reject) => {
-        const opened = indexedDB.open('tachyon-fetch-cache');
-        opened.onerror = () => reject(opened.error);
-        opened.onsuccess = () => {
-          const transaction = opened.result.transaction('responses','readwrite');
-          transaction.objectStore('responses').put({key:`fetch:GET:${url}`,status,
-            headers:status===200?{'content-range':'bytes 0-2/6'}:{},
-            updatedAt:Date.now(),body:new TextEncoder().encode('abc').buffer});
-          transaction.oncomplete = () => { opened.result.close(); resolve(); };
-          transaction.onerror = () => { opened.result.close(); reject(transaction.error); };
-        };
-      });
-      return __root('storageClients').cacheFirstClient.rangeLegacy(String(status));
-    },{origin,status});
-    expect(restored.body,'abcdef',`legacy partial response (${status}) rejected`);
-  }
-}
-
-async function checkOfflineBehavior(page, context, afterInvalidate) {
+async function checkOfflineReads(page, context, kept) {
   await context.setOffline(true);
-  const offline = await page.evaluate(() => __root('storageClients').networkFirstClient.counter());
-  expect(offline.value, afterInvalidate.value, 'network-first falls back to IndexedDB offline');
+  const offline = await page.evaluate(() => __root('storageClients').cachedClient.counter());
+  expect(offline.value, kept.value, 'a Cached read answers offline from the behavior cache');
   const refused = await page.evaluate(async () => {
     try { await __root('storageClients').freshClient.counter(); return false; } catch { return true; }
   });
-  expect(refused,true,'no-store never answers from persistence');
-  const offlineRange = await page.evaluate(async () => {
-    try { await __root('storageClients').cacheFirstClient.rangePart('full-first', 'bytes=0-2'); return false; }
-    catch { return true; }
-  });
-  expect(offlineRange,true,'offline Range never falls back to complete cached JSON');
+  expect(refused, true, 'a read without Cached fails offline');
   await context.setOffline(false);
   const aborted = await page.evaluate(async () => {
     dispatchEvent(new PageTransitionEvent('pagehide',{persisted:false}));
-    try { await __root('storageClients').cacheFirstClient.counter(); return false; } catch { return true; }
+    try { await __root('storageClients').freshClient.counter(); return false; } catch { return true; }
   });
-  expect(aborted,true,'disposed services reject instead of reading cached JSON');
+  expect(aborted,true,'disposed services reject their reads');
 }
 
 async function checkDeniedStorage(browser, origin) {
@@ -1454,8 +1346,8 @@ async function checkDeniedStorage(browser, origin) {
   await deniedPage.goto(origin, { waitUntil: 'networkidle' });
   await deniedPage.click('#bump');
   expect(await deniedPage.textContent('#clicks'), '1', 'denied Web Storage does not break rendering');
-  const deniedClient = await deniedPage.evaluate(() => __root('storageClients').cacheFirstClient.counter());
-  expect(deniedClient.value > 0, true, 'denied IndexedDB degrades to successful Client network response');
+  const deniedClient = await deniedPage.evaluate(() => __root('storageClients').freshClient.counter());
+  expect(deniedClient.value > 0, true, 'denied storage leaves HTTPClient reads working');
   await blocked.close();
 }
 
@@ -1519,10 +1411,8 @@ async function checkBrowser(browser, name, origin, port) {
   await checkWebAssemblyStorage(browser, origin);
   await checkWebAssemblyStoredFields(browser, origin);
   await checkInjectedClients(page);
-  const afterInvalidate = await checkCachePolicies(page, origin, context);
-  await checkRangeRequests(page);
-  await checkLegacyPartialResponses(page, origin);
-  await checkOfflineBehavior(page, context, afterInvalidate);
+  const kept = await checkClientReads(page, context, origin);
+  await checkOfflineReads(page, context, kept);
   await checkDeniedStorage(browser, origin);
 }
 

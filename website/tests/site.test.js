@@ -345,7 +345,7 @@ describe('language coverage', () => {
       expect(service.code).not.toMatch(/\bconstructor\s*\(|@Needs\(|\bfetch\s*\(/)
     }
     expect(clients.files.find(file => file.name === 'client/components/catalog/page/tac.html').code).toContain('catalog.load()')
-    expect(clients.files.find(file => file.name === 'client/pages/catalog/tac.html').code).toContain('<catalog-page')
+    expect(clients.files.find(file => file.name === 'client/pages/tac.html').code).toContain('<catalog-page')
     expect(JSON.stringify(docs)).not.toMatch(/\.modules?\.json/)
   })
 

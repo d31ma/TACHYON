@@ -53,12 +53,16 @@ class TacValues
     value.class.name.to_s.split("::").last
   end
 
-  def self.model(name, value)
-    return value unless value.is_a?(Hash) && name.is_a?(String) && Object.const_defined?(name)
-    type = Object.const_get(name)
+  def self.read(shape, value, models)
+    return value if value.nil? || !shape.is_a?(String) || !models.is_a?(Hash)
+    return read(shape[1, shape.length], value, models) if shape.start_with?("?") || shape.start_with?("!")
+    return value.map { |item| read(shape[2, shape.length], item, models) } if shape.start_with?("[]") && value.is_a?(Array)
+    model = models[shape]
+    return value unless model.is_a?(Hash) && value.is_a?(Hash) && Object.const_defined?(shape)
+    type = Object.const_get(shape)
     return value unless type.is_a?(Class) && type.respond_to?(:members)
     fields = {}
-    type.members.each { |member| fields[member] = value[member.to_s] }
+    type.members.each { |member| fields[member] = read(model["fields"][member.to_s], value[member.to_s], models) }
     type.new(**fields)
   rescue StandardError
     value
@@ -267,7 +271,7 @@ class TacServices
     listener = names(owner.metadata, "listeners").find { |candidate| candidate["method"] == name }
     return TacAnswer.failure("Unknown companion listener: #{name}") unless listener
     method = owner.instance.method(name)
-    payload = TacValues.model(listener["events"].first, value)
+    payload = TacValues.read(listener["events"].first, value, listener["models"])
     result = method.arity == 0 ? owner.instance.public_send(name) : owner.instance.public_send(name, payload)
     republish(result, listener["returns"]) if result && !listener["asynchronous"]
     TacAnswer.value(nil)
@@ -286,13 +290,19 @@ class TacServices
 
   def self.write(owner, name, value)
     return TacAnswer.failure("Companion field is read-only: #{name}") unless names(owner.metadata, "writable").include?(name)
-    owner.instance.public_send("#{ruby_name(owner.metadata, name)}=", value)
+    readers = owner.metadata["readers"] || {}
+    field = TacValues.read((readers["fields"] || {})[name], value, readers["models"])
+    owner.instance.public_send("#{ruby_name(owner.metadata, name)}=", field)
     TacAnswer.value(nil)
   end
 
   def self.call(owner, name, arguments)
     arguments = [] unless arguments.is_a?(Array)
-    TacAnswer.value(owner.instance.public_send(ruby_name(owner.metadata, name), *arguments))
+    readers = owner.metadata["readers"] || {}
+    shapes = (readers["parameters"] || {})[name] || []
+    given = []
+    arguments.each_with_index { |argument, index| given << TacValues.read(shapes[index], argument, readers["models"]) }
+    TacAnswer.value(owner.instance.public_send(ruby_name(owner.metadata, name), *given))
   end
 
   def self.publish(name, value, retain)

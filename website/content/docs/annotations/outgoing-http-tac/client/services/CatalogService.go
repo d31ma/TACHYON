@@ -11,6 +11,10 @@ func (service *CatalogService) Start() error {
 	return err
 }
 
-func (service *CatalogService) All() (BehaviorValue, error) {
-	return service.catalog.All()
+func (service *CatalogService) Load() error {
+	answer, err := service.catalog.All()
+	catalog, _ := answer.(map[string]any)
+	items, _ := catalog["items"].([]any)
+	service.Count = len(items)
+	return err
 }

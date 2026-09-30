@@ -30,13 +30,13 @@ pub(super) fn plan(
     let root = default_class_name(input, registrations)?;
     let mut graph = BTreeMap::new();
     let mut arguments = BTreeMap::new();
-    let mut adapters = BTreeMap::new();
+    let mut adapters = BTreeSet::new();
     for item in registrations.iter_mut() {
         if !providers.contains(&item.name) && item.name != root {
             continue;
         }
         if item.markers.contains("Client") {
-            record_adapters(input, item, &mut adapters)?;
+            adapters.extend(client_adapters(input, item)?);
         }
         let is_root = item.name == root;
         let (dependencies, call) =
@@ -111,27 +111,6 @@ fn default_class_name(
 fn is_default_export(input: &Input<'_>, item: &Registration) -> bool {
     let last_two_words = input.code[..item.start].split_whitespace().rev().take(2);
     last_two_words.eq(["default", "export"])
-}
-
-fn record_adapters(
-    input: &Input<'_>,
-    item: &Registration,
-    adapters: &mut BTreeMap<String, String>,
-) -> Result<(), Failure> {
-    for name in client_adapters(input, item)? {
-        let policy = item.data["clientPolicy"]
-            .as_str()
-            .unwrap_or("no-store")
-            .to_owned();
-        let previous = adapters.insert(name, policy.clone());
-        if previous.is_some_and(|previous| previous != policy) {
-            return Err(input.failure(
-                item.start,
-                "Clients that share one HTTP adapter must use the same cache policy",
-            ));
-        }
-    }
-    Ok(())
 }
 
 fn client_adapters(input: &Input<'_>, item: &Registration) -> Result<BTreeSet<String>, Failure> {
@@ -302,7 +281,7 @@ fn factory(
     root: &str,
     graph: &BTreeMap<String, Vec<String>>,
     calls: &BTreeMap<String, String>,
-    adapters: &BTreeMap<String, String>,
+    adapters: &BTreeSet<String>,
 ) -> Result<String, Failure> {
     let mut cases = String::new();
     let mut stores = Vec::new();
@@ -509,13 +488,13 @@ mod tests {
 
     #[test]
     fn an_http_client_lowers_like_a_client_with_request_methods() {
-        let source = "@HTTPClient({\"path\":\"/api/products\",\"adapter\":\"api\",\"cache\":\"network-first\"})\nclass ProductsClient {\n@GetRequest(\"/{id}\")\nasync find(@PathVariable id) {}\n}\n@NeedsAll()\nexport default class Products {\nproductsClient;\n}";
+        let source = "@HTTPClient({\"path\":\"/api/products\",\"adapter\":\"api\"})\nclass ProductsClient {\n@GetRequest(\"/{id}\")\nasync find(@PathVariable id) {}\n}\n@NeedsAll()\nexport default class Products {\nproductsClient;\n}";
         let lowered = lowered_tac_js(source);
         assert!(
             lowered.contains("new Products(resolve('ProductsClient'))"),
             "{lowered}"
         );
-        assert!(lowered.contains("\"api\":\"network-first\""), "{lowered}");
+        assert!(lowered.contains("adapters = [\"api\"]"), "{lowered}");
         assert!(
             lowered.contains("\"pathVariables\":{\"id\":0}"),
             "{lowered}"
@@ -534,23 +513,11 @@ mod tests {
     }
 
     #[test]
-    fn client_cache_policies_reach_the_adapters() {
-        let source = products_source();
-        for policy in ["cache-first", "network-first", "reload", "no-store"] {
-            let cached =
-                source.replace("@Client()", &format!("@Client({{\"cache\":\"{policy}\"}})"));
-            let output = lowered_tac_js(&cached);
-            assert!(output.contains(&format!("\"api\":\"{policy}\"")));
-        }
-    }
-
-    #[test]
     fn rejects_invalid_client_options_and_cycles_and_reads_other_fields_from_props() {
         let source = products_source();
         for options in [
-            "{\"cache\":null}",
-            "{\"cache\":true}",
-            "{\"cache\":\"unknown\"}",
+            "{\"cache\":\"no-store\"}",
+            "{\"streams\":true,\"cache\":\"cache-first\"}",
             "{\"key\":\"alias\"}",
         ] {
             assert!(

@@ -1,17 +1,14 @@
+use crate::models::Product;
+
 #[Service]
 pub struct InventoryService {
-    pub products: TacValue,
+    pub products: Vec<Product>,
 }
 
 impl InventoryService {
-    const NAME: &'static str = "name";
-
     pub fn new() -> Self {
         Self {
-            products: TacValue::List(vec![
-                TacValue::Object(vec![(String::from(Self::NAME), TacValue::Text(String::from("Anvil")))]),
-                TacValue::Object(vec![(String::from(Self::NAME), TacValue::Text(String::from("Rope")))]),
-            ]),
+            products: vec![Product { name: String::from("Anvil") }, Product { name: String::from("Rope") }],
         }
     }
 }

@@ -1,3 +1,4 @@
+mod ruby_model_readers;
 mod runtime_build;
 mod runtime_sources;
 mod runtime_step;
@@ -10,6 +11,7 @@ use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::diagnostic;
 use crate::ruby_source::RubyMembers;
+use ruby_model_readers::RubyModelReaders;
 use runtime_sources::RubyRuntimeSources;
 use std::path::{Path, PathBuf};
 
@@ -125,7 +127,12 @@ impl RubyWebServices {
         let lowered = crate::behavior::lower(&identity, evented, "tac")?
             .unwrap_or_else(|| evented.to_owned());
         let code = crate::annotation_layout::masked_source(&identity, &roles.source)?;
-        let metadata = Self::metadata(&RubyMembers::read(&code), events.as_ref(), &roles.required);
+        let members = RubyMembers::read(&code);
+        let mut metadata = Self::metadata(&members, events.as_ref(), &roles.required);
+        let models = crate::route_types::ModelTable::read_realm(snapshot_root, "client", "rb")
+            .map_err(|message| Self::failure(&message))?;
+        metadata["readers"] =
+            RubyModelReaders::new(models, &roles.source, &code).describe(&members);
         let instance = serde_json::to_string(instance).unwrap_or_default();
         Ok(format!(
             "\n{lowered}\nTacServices.register({instance}, {class}, {})\n",

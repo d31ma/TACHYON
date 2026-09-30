@@ -629,6 +629,9 @@ mod java_tests;
 mod fsharp_tests;
 
 #[cfg(test)]
+mod model_binding_tests;
+
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;

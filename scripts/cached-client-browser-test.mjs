@@ -15,13 +15,15 @@ class CachedClientGate {
   static launchers = { chromium, firefox, webkit }
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
-  static languages = process.env.TAC_CACHED_CLIENT_LANGUAGES?.split(',') ?? ['js', 'ts', 'go', 'kt', 'dart', 'swift', 'fs', ...(CachedClientGate.withJava ? ['java'] : [])]
+  static languages = process.env.TAC_CACHED_CLIENT_LANGUAGES?.split(',') ?? ['js', 'ts', 'go', 'kt', 'dart', 'swift', 'fs', 'rs', 'cs', 'rb', ...(CachedClientGate.withJava ? ['java'] : [])]
   static settleTimeout = 10_000
   static settleStep = 50
+  static publicAnswer = 'public, max-age=600'
+  static publicStamp = 0
   static settings = '{"name":"stamps","ttlMs":60000,"maxBytes":4096,"maxEntries":8}'
 
   static files = {
-    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs"]},"visibility":{"check":false},"budgets":{"check":false}}}\n',
+    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs","rs","cs","rb"]},"visibility":{"check":false},"budgets":{"check":false}}}\n',
     'client/pages/tac.html': '<stamp-page />\n',
     'client/components/stamp/page/tac.html': `<main>${CachedClientGate.languages.map((language) => `<p id="${language}">{${language}Stamp.stamp}</p>`).join('\n')}</main>\n`,
     'client/clients/JsStampClient.js': `@HTTPClient
@@ -33,17 +35,42 @@ export default class JsStampClient {
   async read() {}
 }
 `,
+    'client/clients/JsPublicStampClient.js': `@HTTPClient
+@CacheSettings(${CachedClientGate.settings})
+export default class JsPublicStampClient {
+  /** @returns {Promise<BehaviorJsonValue>} */
+  @Cached
+  @GetRequest("/api/public-stamp")
+  async read() {}
+
+  /** @returns {Promise<BehaviorJsonValue>} */
+  @ClearCache({"method":"read"})
+  @PostRequest("/api/public-stamp/clear")
+  async clear() {}
+}
+`,
     'client/services/JsStampService.js': `@Service
 export default class JsStampService {
   /** @type {JsStampClient} */
   @Needs
   jsStampClient;
+  /** @type {JsPublicStampClient} */
+  @Needs
+  jsPublicStampClient;
   stamp = '';
   loads = 0;
 
   async load() {
     this.stamp = JSON.stringify(await this.jsStampClient.read());
     this.loads += 1;
+  }
+
+  async readPublic() {
+    return JSON.stringify(await this.jsPublicStampClient.read());
+  }
+
+  async clearPublic() {
+    await this.jsPublicStampClient.clear();
   }
 }
 `,
@@ -244,6 +271,125 @@ type FsStampService() =
             this.loads <- this.loads + 1
         }
 `,
+    'client/clients/RsStampClient.rs': `#[CacheSettings(${CachedClientGate.settings})]
+#[HTTPClient]
+trait RsStampClient {
+    #[Cached]
+    #[GetRequest("/api/stamp")]
+    fn read(&self) -> BehaviorResult<BehaviorValue>;
+}
+`,
+    'client/setups/RsStampSetup.rs': `#[tac::setup]
+struct RsStampSetup {}
+impl RsStampSetup {
+    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {
+        struct StampTransport {
+            calls: std::sync::atomic::AtomicU32,
+        }
+        impl BehaviorHttpAdapter for StampTransport {
+            fn exchange(&self, _request: &BehaviorHttpRequest, _execution: &BehaviorExecution) -> BehaviorResult<BehaviorValue> {
+                let stamp = self.calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                Ok(BehaviorValue::object([("stamp", BehaviorValue::Number(f64::from(stamp)))]))
+            }
+        }
+
+        let mut configuration = BehaviorConfiguration::default();
+        let transport = StampTransport { calls: std::sync::atomic::AtomicU32::new(0) };
+        configuration.http.insert("rsStamp".into(), std::sync::Arc::new(transport));
+        Ok(configuration)
+    }
+}
+`,
+    'client/services/RsStampService.rs': `#[Service]
+struct RsStampService { stamps: RsStampClient, stamp: String, loads: i64 }
+impl RsStampService {
+    fn new() -> Self {
+        Self { stamps: RsStampClient::new(), stamp: String::new(), loads: 0 }
+    }
+
+    fn load(&mut self) {
+        let answer = self.stamps.read().unwrap_or(BehaviorValue::Null);
+        self.stamp = format!("{answer:?}");
+        self.loads += 1;
+    }
+}
+`,
+    'client/clients/CsStampClient.cs': `[CacheSettings(${CachedClientGate.settings})]
+[HTTPClient]
+interface CsStampClient {
+    [Cached]
+    [GetRequest("/api/stamp")]
+    System.Threading.Tasks.Task<BehaviorJSON> Read();
+}
+`,
+    'client/setups/CsStampSetup.cs': `[Setup]
+public class CsStampSetup {
+    sealed class StampTransport : BehaviorHTTPAdapter {
+        public System.Threading.Tasks.Task<BehaviorJSON> exchange(BehaviorJSON request, BehaviorExecution execution) {
+            var stamp = System.Random.Shared.Next(1, 1000000000);
+            return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Parse("{\\"stamp\\":" + stamp + "}"));
+        }
+    }
+
+    public static BehaviorAdapters configure(BehaviorExecution execution) {
+        var adapters = new BehaviorAdapters();
+        adapters.http["csStamp"] = new StampTransport();
+        return adapters;
+    }
+}
+`,
+    'client/services/CsStampService.cs': `[Service]
+public class CsStampService {
+    readonly CsStampClient _stamps = new CsStampClient();
+    public string stamp = "";
+    public int loads = 0;
+
+    public async System.Threading.Tasks.Task Load() {
+        stamp = (await _stamps.Read()).ToString();
+        loads += 1;
+    }
+}
+`,
+    'client/clients/RbStampClient.rb': `#[CacheSettings(${CachedClientGate.settings})]
+#[HTTPClient]
+class RbStampClient
+  # @return [Hash]
+  #[Cached]
+  #[GetRequest("/api/stamp")]
+  def read
+  end
+end
+`,
+    'client/setups/RbStampSetup.rb': `#[Setup]
+class RbStampSetup
+  # @param _execution [BehaviorExecution]
+  # @return [Hash]
+  def self.configure(_execution)
+    stamps = { "exchange" => ->(_request, _running) { { "stamp" => rand(1..1_000_000_000) } } }
+    { "http" => { "rbStamp" => stamps } }
+  end
+end
+`,
+    'client/services/RbStampService.rb': `#[Service]
+class RbStampService
+  # @return [String]
+  attr_reader :stamp
+  # @return [Integer]
+  attr_reader :loads
+
+  def initialize
+    @stamps = RbStampClient.new
+    @stamp = ""
+    @loads = 0
+  end
+
+  # @return [void]
+  def load
+    @stamp = @stamps.read.to_s
+    @loads += 1
+  end
+end
+`,
     ...(CachedClientGate.withJava ? { 'client/clients/JavaStampClient.java': `@CacheSettings(${CachedClientGate.settings})
 @HTTPClient
 interface JavaStampClient {
@@ -278,6 +424,8 @@ class JavaStampService {
 
   static write(project) {
     for (const [relative, contents] of Object.entries(CachedClientGate.files)) {
+      const language = path.extname(relative).slice(1)
+      if (['clients', 'services', 'setups'].includes(relative.split('/')[1]) && !CachedClientGate.languages.includes(language)) continue
       const file = path.join(project, relative)
       mkdirSync(path.dirname(file), { recursive: true })
       writeFileSync(file, contents)
@@ -298,6 +446,17 @@ class JavaStampService {
       if (url.pathname === '/api/stamp') {
         response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
         response.end(JSON.stringify({ stamp: Math.floor(Math.random() * 1_000_000_000) + 1 }))
+        return
+      }
+      if (url.pathname === '/api/public-stamp') {
+        CachedClientGate.publicStamp += 1
+        response.writeHead(200, { 'content-type': 'application/json', 'cache-control': CachedClientGate.publicAnswer })
+        response.end(JSON.stringify({ stamp: CachedClientGate.publicStamp }))
+        return
+      }
+      if (url.pathname === '/api/public-stamp/clear') {
+        response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+        response.end('{"cleared":true}')
         return
       }
       let file = path.join(root, decodeURIComponent(url.pathname))
@@ -336,12 +495,22 @@ class JavaStampService {
     CachedClientGate.expect(second, first, `${browser} ${language}: a Cached HTTPClient read answers from its cache`)
   }
 
+  static async checkClearCache(page, browser) {
+    const read = () => page.evaluate(() => __tachyonTac.service('jsStamp').readPublic())
+    const first = await read()
+    CachedClientGate.expect(await read(), first, `${browser} js: a Cached read of a public answer answers from its cache`)
+    await page.evaluate(() => __tachyonTac.service('jsStamp').clearPublic())
+    const after = await read()
+    CachedClientGate.expect(after !== first, true, `${browser} js: after ClearCache the next read skips the browser HTTP cache (${first} then ${after})`)
+  }
+
   static async run(project, origin, name) {
     const browser = await CachedClientGate.launchers[name].launch({ timeout: 30_000 })
     try {
       const page = await browser.newPage()
       await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
       for (const language of CachedClientGate.languages) await CachedClientGate.check(page, name, language)
+      if (CachedClientGate.languages.includes('js')) await CachedClientGate.checkClearCache(page, name)
     } finally {
       await browser.close()
     }

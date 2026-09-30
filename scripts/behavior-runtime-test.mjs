@@ -883,6 +883,7 @@ await test('a declared WebCall is a signature whose request comes from its argum
 await test('a Cached HTTPClient read keeps its answer, is a public read, and ClearCache on a write removes it', async () => {
   const entries = new Map()
   const commands = []
+  let rejectNext = false
   class Config {
     static configure() {
       return {
@@ -892,7 +893,11 @@ await test('a Cached HTTPClient read keeps its answer, is a public read, and Cle
           set: (key, value, execution) => { entries.set(key, { hit: true, value, expiresAt: execution.expiresAt }) },
           delete: (key) => { entries.delete(key) },
         } },
-        http: { catalog: { exchange: (command) => { commands.push(command); return { calls: commands.length } } } },
+        http: { catalog: { exchange: (command) => {
+          commands.push(command)
+          if (rejectNext) { rejectNext = false; throw new Error('network unavailable') }
+          return { calls: commands.length }
+        } } },
       }
     }
   }
@@ -901,6 +906,7 @@ await test('a Cached HTTPClient read keeps its answer, is a public read, and Cle
     async find(id) {}
     async fresh(id) {}
     async save(id, product) {}
+    async put(id, product) {}
   }
   const read = { client: 'catalog', method: 'GET', path: '/products/{id}', pathVariables: { id: 0 }, generated: true }
   const Behaviors = BehaviorRuntimeTest.createBehaviors([
@@ -910,6 +916,8 @@ await test('a Cached HTTPClient read keeps its answer, is a public read, and Cle
       { name: 'fresh', httpExchange: read },
       { name: 'save', cacheEvict: { method: 'find', arguments: [0], target: { method: 'find', cacheable: { keyArgs: [0] } } },
         httpExchange: { client: 'catalog', method: 'POST', path: '/products/{id}', pathVariables: { id: 0 }, body: 1, generated: true } },
+      { name: 'put', cachePut: { method: 'find', arguments: [0], target: { method: 'find', cacheable: { keyArgs: [0] } } },
+        httpExchange: { client: 'catalog', method: 'PUT', path: '/products/{id}', pathVariables: { id: 0 }, body: 1, generated: true } },
     ] },
   ], 'tac', BehaviorRuntimeTest.moduleId)
   const context = await Behaviors.create(Config, { partition: 'public', signal: new AbortController().signal })
@@ -923,6 +931,26 @@ await test('a Cached HTTPClient read keeps its answer, is a public read, and Cle
     await catalog.save(7, { name: 'anvil' })
     assert.equal(Object.hasOwn(commands[2], 'publicRead'), false, 'a write is never a public read')
     assert.deepEqual(await catalog.find(7), { calls: 4 }, 'ClearCache makes the next read ask again')
+    assert.equal(Object.hasOwn(commands[0], 'revalidate'), false, 'a first Cached read may use the browser HTTP cache')
+    assert.equal(commands[3].revalidate, true, 'the first read after ClearCache asks the browser to revalidate')
+    await context.evict(catalog, 'find', [7])
+    await catalog.find(8)
+    assert.equal(Object.hasOwn(commands[4], 'revalidate'), false, 'an eviction marks only its own key')
+    await catalog.find(7)
+    assert.equal(commands[5].revalidate, true, 'the first read after evict asks the browser to revalidate')
+    await context.evict(catalog, 'find', [7])
+    rejectNext = true
+    await assert.rejects(catalog.find(7), { code: 'adapter' })
+    await catalog.find(7)
+    assert.equal(commands[7].revalidate, true, 'a failed read keeps the next attempt fresh')
+    for (const entry of entries.values()) entry.expiresAt = 0
+    await catalog.find(7)
+    assert.equal(Object.hasOwn(commands[8], 'revalidate'), false, 'a successful read consumes the eviction marker')
+    await catalog.put(7, { name: 'updated' })
+    assert.deepEqual(await catalog.find(7), { calls: 10 }, 'UpdateCache keeps its replacement until it expires')
+    for (const entry of entries.values()) entry.expiresAt = 0
+    await catalog.find(7)
+    assert.equal(commands[10].revalidate, true, 'after UpdateCache expires its next read revalidates')
   } finally { context.dispose() }
 })
 

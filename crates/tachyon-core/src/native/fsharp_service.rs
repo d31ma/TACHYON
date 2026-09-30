@@ -36,7 +36,8 @@ impl FsharpService {
         let authored = assembled.as_deref().unwrap_or(authored);
         let view = FsharpView::tac(relative, authored);
         FsharpSource::refuse_unsupported(&view, relative, authored)?;
-        let events = FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class)?;
+        let needs_all = crate::fsharp_source::FsharpConstructorProps::needs_all(authored);
+        let events = FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class, needs_all)?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let table = crate::companion::owner_table(
             CompanionLanguage::CSharp,

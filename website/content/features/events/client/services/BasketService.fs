@@ -1,4 +1,4 @@
-open System.Collections.Generic
+open Models
 
 [<Service>]
 type BasketService() =
@@ -8,7 +8,7 @@ type BasketService() =
 
     member val Label : string = "" with get, set
 
-    member val Tabs : obj = [ Dictionary<string, string>(dict [ "id", "a"; "name", "A" ]) ] with get, set
+    member val Tabs : Tab list = [ { Id = "a"; Name = "A" } ] with get, set
 
     member this.Increment() : unit =
         this.Count <- this.Count + 1

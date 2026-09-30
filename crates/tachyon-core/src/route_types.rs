@@ -248,6 +248,31 @@ impl ModelTable {
         Ok(Value::Object(described))
     }
 
+    pub(crate) fn shape_description(
+        &self,
+        shape: &Shape,
+        described: &mut Map<String, Value>,
+    ) -> String {
+        let mut waiting = Vec::new();
+        let text = self.shape_text(shape, &mut waiting, 0);
+        described.extend(self.models_of(&waiting));
+        text
+    }
+
+    fn models_of(&self, names: &[String]) -> Map<String, Value> {
+        names
+            .iter()
+            .flat_map(|name| self.model_entries(name))
+            .collect()
+    }
+
+    fn model_entries(&self, name: &str) -> Map<String, Value> {
+        self.event_models(name)
+            .ok()
+            .and_then(|described| described.as_object().cloned())
+            .unwrap_or_default()
+    }
+
     fn shape_text(&self, shape: &Shape, waiting: &mut Vec<String>, depth: usize) -> String {
         if depth > Self::MAX_DEPTH {
             return String::from("any");

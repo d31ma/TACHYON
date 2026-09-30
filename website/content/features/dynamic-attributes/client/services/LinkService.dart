@@ -1,6 +1,8 @@
+import 'models/Topic.dart';
+
 @Service
 class LinkService {
-  Map<String, String> topic = {'slug': 'routing', 'title': 'Routing'};
+  Topic topic = const Topic('routing', 'Routing');
   String state = 'ready';
   String message = 'Everything is up to date.';
 }

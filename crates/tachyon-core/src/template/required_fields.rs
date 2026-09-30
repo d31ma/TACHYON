@@ -11,8 +11,9 @@ pub(crate) struct RequiredFields;
 
 impl RequiredFields {
     const PUBLISHER: &'static str = "ApplicationEventPublisher";
-    const LANGUAGES: [&'static str; 9] =
-        ["js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb"];
+    const LANGUAGES: [&'static str; 11] = [
+        "js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb", "java", "fs",
+    ];
     const NOT_FIELD_WORDS: [&'static str; 19] = [
         "static",
         "const",
@@ -80,6 +81,7 @@ impl RequiredFields {
             "rb" => Self::ruby_fields(&code),
             "go" => Self::go_fields(source, class),
             "rs" => Self::rust_fields(&code, class),
+            "fs" => Self::fsharp_fields(path, source, class),
             _ => Self::declared_fields(extension, &code, class),
         };
         let (injected, props): (Vec<_>, Vec<_>) = fields
@@ -146,6 +148,17 @@ impl RequiredFields {
             .map(|name| DeclaredField {
                 name: crate::companion::camel_case(name),
                 type_name: String::new(),
+                marked: false,
+            })
+            .collect()
+    }
+
+    fn fsharp_fields(path: &Path, source: &str, class: &str) -> Vec<DeclaredField> {
+        crate::fsharp_source::FsharpConstructorProps::read(path, source, class)
+            .into_iter()
+            .map(|prop| DeclaredField {
+                name: prop.name,
+                type_name: prop.type_name,
                 marked: false,
             })
             .collect()
@@ -282,7 +295,7 @@ impl RequiredFields {
                     type_name.trim().to_owned(),
                 )
             }
-            "dart" | "cs" => {
+            "dart" | "cs" | "java" => {
                 let (name, before) = words.split_last()?;
                 ((*name).to_owned(), before.join(" "))
             }
@@ -293,6 +306,7 @@ impl RequiredFields {
             "dart" => !initialized && (has("final") || has("late")),
             "cs" => has("required") || (!initialized && has("readonly")),
             "kt" => !initialized && (has("val") || has("lateinit")),
+            "java" => !initialized && !has("private") && words.len() > 1,
             "swift" => {
                 !initialized
                     && !has("lazy")
@@ -520,6 +534,11 @@ mod tests {
             props("TallyViewService.kt", kotlin, "TallyViewService"),
             ["path", "label"]
         );
+        let java = "@Service\n@NeedsAll\nclass ShelfService {\n    List<String> files;\n    String owner;\n    int count = 0;\n    private String hidden;\n    static String shared;\n    TallyService tally;\n    int doubled() {\n        return count * 2;\n    }\n}\n";
+        assert_eq!(
+            props("ShelfService.java", java, "ShelfService"),
+            ["files", "owner"]
+        );
         let swift = "@Service\n@NeedsAll\nclass BadgeService {\n    let path: String\n    var label: String\n    var note: String?\n    var count: Int = 0\n    var doubled: Int { count * 2 }\n    func reset() {}\n}\n";
         assert_eq!(
             props("BadgeService.swift", swift, "BadgeService"),
@@ -562,6 +581,11 @@ mod tests {
         assert_eq!(
             props("CatalogService.go", marked, "CatalogService"),
             ["features"]
+        );
+        let fsharp = "[<Service>]\n[<NeedsAll>]\ntype ShelfService(files: string list, owner: string, tally: TallyService) =\n    member this.Owner : string = owner\n";
+        assert_eq!(
+            props("ShelfService.fs", fsharp, "ShelfService"),
+            ["files", "owner"]
         );
         let ruby = "#[Service]\n#[NeedsAll]\nclass CounterService\n  attr_reader :start_count, :label\n\n  def increment\n    @start_count += 1\n  end\nend\n";
         assert_eq!(

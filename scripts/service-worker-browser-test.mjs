@@ -186,8 +186,11 @@ async function checkApiCaching(page, context, origin) {
   const beforeHit = ServerState.apiRequests;
   await read('/api/cache-first', publicRead);
   expect(ServerState.apiRequests, beforeHit, 'declared cache-first answers without network');
+  await read('/api/cache-first', { ...publicRead, cache: 'no-cache' });
+  expect(ServerState.apiRequests, beforeHit + 1, 'a no-cache read asks the network on a cache-first path');
+  expect(await isCached('/api/cache-first'), true, 'a no-cache read keeps the fresh public answer');
   await read('/api/cache-first');
-  expect(ServerState.apiRequests, beforeHit + 1, 'credentialed cache-first read must use network');
+  expect(ServerState.apiRequests, beforeHit + 2, 'credentialed cache-first read must use network');
   expect(await isCached('/api/cache-first'), false, 'credentialed read evicts matching shared cache');
   for (const options of [
     { credentials: 'include' },

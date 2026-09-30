@@ -1,9 +1,11 @@
+use crate::models::Tab;
+
 #[Service]
 pub struct BasketService {
     pub count: i32,
     pub label: String,
     selected: String,
-    pub tabs: TacValue,
+    pub tabs: Vec<Tab>,
 }
 
 impl BasketService {
@@ -12,10 +14,7 @@ impl BasketService {
             count: 0,
             label: String::new(),
             selected: String::new(),
-            tabs: TacValue::List(vec![TacValue::Object(vec![
-                (String::from("id"), TacValue::Text(String::from("a"))),
-                (String::from("name"), TacValue::Text(String::from("A"))),
-            ])]),
+            tabs: vec![Tab { id: String::from("a"), name: String::from("A") }],
         }
     }
 

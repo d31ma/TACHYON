@@ -3,6 +3,7 @@ use super::required_fields::RequiredFields;
 use crate::Failure;
 use crate::compiler::hex_digest;
 use crate::failure::{diagnostic, source_span};
+use crate::fsharp_source::FsharpConstructorProps;
 use crate::project::NativeCompanion;
 use crate::tac_web::WebLanguage;
 use sha2::{Digest, Sha256};
@@ -373,7 +374,8 @@ fn set_native_service_scopes(services: &mut BTreeMap<String, ServiceDefinition>)
         };
         if let Ok(source) = fs::read_to_string(path) {
             let roles = crate::behavior::ServiceRoles::read(path, &source);
-            definition.prototype = roles.is_ok_and(|roles| roles.prototype);
+            definition.prototype = roles.is_ok_and(|roles| roles.prototype)
+                || FsharpConstructorProps::takes_props(path, &source);
         }
     }
 }
@@ -398,7 +400,8 @@ fn set_required_fields(
             continue;
         };
         let needs_all = crate::behavior::ServiceRoles::read(path, &source)
-            .is_ok_and(|roles| !roles.required.is_empty());
+            .is_ok_and(|roles| !roles.required.is_empty())
+            || FsharpConstructorProps::takes_props(path, &source);
         if needs_all {
             let class = &definition.class;
             let props = RequiredFields::props(path, &source, class, &injectable);
@@ -879,6 +882,26 @@ mod tests {
             basket.module_url().as_deref(),
             Some("/.tachyon/services/BasketService.js")
         );
+    }
+
+    #[test]
+    fn java_and_fsharp_needs_all_services_take_their_component_props() {
+        let root = project(&[
+            (
+                "client/services/ShelfService.java",
+                "import java.util.List;\n\n@Service\n@NeedsAll\nclass ShelfService {\n    List<String> files;\n    String owner;\n    int count = 0;\n}\n",
+            ),
+            (
+                "client/services/SnippetService.fs",
+                "[<Service>]\n[<NeedsAll>]\ntype SnippetService(files: string list, owner: string) =\n    member this.Owner : string = owner\n",
+            ),
+        ]);
+        let registry = ServiceRegistry::discover(root.path()).expect("Java and F# services");
+        for instance in ["shelf", "snippet"] {
+            let service = registry.get(instance).expect(instance);
+            assert_eq!(service.required(), ["files", "owner"], "{instance}");
+            assert!(service.is_prototype(), "{instance}");
+        }
     }
 
     #[test]

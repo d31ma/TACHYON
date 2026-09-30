@@ -2,5 +2,5 @@
 [NeedsAll]
 public class SnippetService
 {
-    public required object Files;
+    public required List<string> Files;
 }

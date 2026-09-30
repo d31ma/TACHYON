@@ -280,3 +280,13 @@ F# never ignores an annotation.
   a pipeline with `|>`) is still compiled exactly.
 - Tachyon's error messages sometimes use a C# word for an F# construct; the
   view renames `switch` to `match` and `foreach` to `for` in the messages.
+
+## Amendment (2026-09-30): a Tac service takes its properties
+
+- A Tac F# service with `[<NeedsAll>]` takes its component's properties as
+  primary constructor parameters, as in
+  `type SnippetService(files: string list) =`. The member table builds the
+  type with the properties of the start-up request, so the service exists
+  once per component. Without `[<NeedsAll>]`, and for a parameter typed as
+  another service, the constructor still takes only its
+  `ApplicationEventPublisher` (TY1405).

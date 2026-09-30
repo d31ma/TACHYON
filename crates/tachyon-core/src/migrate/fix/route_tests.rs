@@ -312,7 +312,7 @@ impl OldClient {
         Self {
             relative: "client/clients/CatalogClient.js",
             source: "@Client({\"cache\":\"no-store\"})\nclass CatalogClient {\n  @WebCall({\"client\":\"catalog\",\"method\":\"GET\",\"path\":\"/products\",\"query\":{\"page\":0},\"headers\":{\"X-Tenant\":1}})\n  async list(page, tenant) {}\n\n  @WebCall({\"client\":\"catalog\",\"method\":\"POST\",\"path\":\"/products\",\"body\":0})\n  async add(product) {}\n}\n",
-            expected: "@HTTPClient({\"cache\":\"no-store\"})\nclass CatalogClient {\n  @GetRequest(\"/products\")\n  async list(@RequestParam(\"page\") page, @RequestHeader(\"X-Tenant\") tenant) {}\n\n  @PostRequest(\"/products\")\n  async add(@RequestBody product) {}\n}\n",
+            expected: "@HTTPClient\nclass CatalogClient {\n  @GetRequest(\"/products\")\n  async list(@RequestParam(\"page\") page, @RequestHeader(\"X-Tenant\") tenant) {}\n\n  @PostRequest(\"/products\")\n  async add(@RequestBody product) {}\n}\n",
         },
         Self {
             relative: "server/clients/ProductsClient.py",

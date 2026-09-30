@@ -115,8 +115,14 @@ impl<'a> ClientConversion<'a> {
         {
             options.insert(String::from("adapter"), Value::String(adapter.clone()));
         }
-        if let Some(cache) = &owner.cache {
-            options.insert(String::from("cache"), cache.clone());
+        if let Some(cache) = owner
+            .cache
+            .as_ref()
+            .filter(|cache| cache.as_str() != Some("no-store"))
+        {
+            notes.push(format!(
+                "Dropped the {cache} cache option of @Client on {name}: mark the class @CacheSettings and each read method @Cached instead (ADR 0087)."
+            ));
         }
         let arguments = if options.is_empty() {
             String::new()

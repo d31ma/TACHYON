@@ -140,6 +140,14 @@ header, or is not a success. A successful write already removes the worker's
 entries under its path. A read that is not `Cached` is still sent
 `no-store`, so it is always fresh.
 
+After `ClearCache`, `UpdateCache` or an explicit behavior-cache eviction, the
+next uncached GET revalidates the browser HTTP cache with `cache: 'no-cache'`.
+The service worker treats that request as network-first even when its path
+uses cache-first. Other keys keep their normal cache policy. A failed read
+keeps the revalidation requirement for the next attempt. This applies to the
+JavaScript and TypeScript browser transport; custom Setup HTTP adapters
+receive the `revalidate` command flag and own their transport behavior.
+
 **Where cache-first and network-first live: in the manifest.**
 `tac.cache` keeps the policy of each path (`cache-first`, `network-first`,
 `no-store`). A path without a rule is not kept by the worker. `Cached` takes

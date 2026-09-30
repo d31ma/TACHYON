@@ -1,12 +1,14 @@
 use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::diagnostic;
+use dart_model_shape::DartModelShape;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::ops::Range;
 use std::path::Path;
 use wasm_program::WasmProgram;
 
+mod dart_model_shape;
 mod wasm_program;
 
 struct DartCompiler;
@@ -308,7 +310,7 @@ fn parameter(entry: &str, group: ParameterGroup, models: &[String]) -> Option<Pa
     };
     if type_name
         .as_deref()
-        .is_some_and(|type_name| !json_type(type_name) && !is_model(type_name, models))
+        .is_some_and(|type_name| !json_type(type_name) && !is_model_result(type_name, models))
         || name.starts_with("this.")
     {
         return None;
@@ -356,10 +358,8 @@ impl Method {
     ) -> String {
         let type_name = parameter.type_name.as_deref();
         let value = format!("values[{index}]");
-        if let Some(model) =
-            type_name.filter(|name| models.iter().any(|model| model == name.trim()))
-        {
-            return format!("__yon_read_{}({value})", model.trim());
+        if let Some(shape) = DartModelShape::of(type_name, models) {
+            return crate::route_types::DartValues::read(&shape, &value);
         }
         match &parameter.kind {
             ParameterKind::Required => convert(type_name, &value),
@@ -600,7 +600,7 @@ final class TacService {\n\
         let mut constructors = String::new();
         let mut visiting = Vec::new();
         construct(&self.classes, class, &mut visiting, &mut constructors)?;
-        let (get, set) = self.field_cases();
+        let (get, set) = self.field_cases(&models.names);
         let call = self.call_cases(&models.names);
         let mut cases = switch_section("get", &get);
         cases.push_str(&switch_section("set", &set));
@@ -610,13 +610,13 @@ final class TacService {\n\
         Ok(program)
     }
 
-    fn field_cases(&self) -> (String, String) {
+    fn field_cases(&self, models: &[String]) -> (String, String) {
         let mut get = String::new();
         let mut set = String::new();
         for field in &self.service.fields {
             let _ = writeln!(
                 get,
-                "          case r'{0}': return service.{0}.jsify();",
+                "          case r'{0}': return __yon_json(service.{0}).jsify();",
                 field.name
             );
             if field.writable {
@@ -624,7 +624,7 @@ final class TacService {\n\
                     set,
                     "          case r'{0}': service.{0} = {1}; return null;",
                     field.name,
-                    convert(field.type_name.as_deref(), "values.first")
+                    DartModelShape::field_value(field.type_name.as_deref(), models)
                 );
             }
         }
@@ -1347,13 +1347,13 @@ fn add_member(class: &mut Class, header: &str, models: &[String]) {
     if let Some(open) = function {
         member_function(class, header, open, models);
     } else if words.len() >= 2 && words[words.len() - 2] == "get" {
-        member_getter(class, &words);
+        member_getter(class, &words, models);
     } else {
-        member_fields(class, header);
+        member_fields(class, header, models);
     }
 }
 
-fn member_getter(class: &mut Class, words: &[&str]) {
+fn member_getter(class: &mut Class, words: &[&str], models: &[String]) {
     let name = words[words.len() - 1];
     let type_words = &words[..words.len() - 2];
     let type_name = if type_words.is_empty() {
@@ -1361,7 +1361,7 @@ fn member_getter(class: &mut Class, words: &[&str]) {
     } else {
         Some(type_words.join(" "))
     };
-    if name.starts_with('_') || !type_name.as_deref().is_none_or(json_type) {
+    if name.starts_with('_') || !DartModelShape::bindable(type_name.as_deref(), models) {
         return;
     }
     class.fields.push(Field {
@@ -1420,7 +1420,7 @@ fn constructor_parameters(parameters: &str) -> Vec<String> {
     result
 }
 
-fn member_fields(class: &mut Class, header: &str) {
+fn member_fields(class: &mut Class, header: &str, models: &[String]) {
     let mut type_name = None;
     let mut writable = true;
     for (index, declarator) in split_top(header, ',').into_iter().enumerate() {
@@ -1437,7 +1437,7 @@ fn member_fields(class: &mut Class, header: &str) {
             continue;
         }
         class.declared.push((name.to_owned(), type_name.clone()));
-        if !name.starts_with('_') && type_name.as_deref().is_none_or(json_type) {
+        if !name.starts_with('_') && DartModelShape::bindable(type_name.as_deref(), models) {
             class.fields.push(Field {
                 name: name.to_owned(),
                 type_name: type_name.clone(),

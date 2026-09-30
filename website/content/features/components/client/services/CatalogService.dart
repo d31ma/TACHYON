@@ -1,7 +1,9 @@
+import 'models/Product.dart';
+
 @Service
 class CatalogService {
-  final List<Map<String, String>> products = const [
-    {'id': 'anvil', 'name': 'Anvil', 'price': '£42.00'},
-    {'id': 'rope', 'name': 'Rope', 'price': '£8.00'},
+  final List<Product> products = const [
+    Product('anvil', 'Anvil', '£42.00'),
+    Product('rope', 'Rope', '£8.00'),
   ];
 }

@@ -217,10 +217,9 @@ impl EventListener {
 }
 
 impl EventResource {
-    const TAC_NAMES: [&str; 16] = [
+    const TAC_NAMES: [&str; 15] = [
         "view",
         "lifecycle",
-        "cacheManager",
         "resourceLoader",
         "taskScheduler",
         "applicationEventPublisher",
@@ -250,6 +249,8 @@ impl EventResource {
         "override ",
     ];
     const PUBLISHER: &str = "applicationEventPublisher";
+    const REMOVED_CACHE_MANAGER: &str = "cacheManager";
+    const CACHE_MANAGER_REFUSAL: &str = "The cacheManager resource was removed with the IndexedDB fetch cache (ADR 0087). Mark the HTTPClient method that changes the data @ClearCache or @UpdateCache, like Spring's @CacheEvict and @CachePut";
 
     fn new_name(old_name: &str) -> Option<&'static str> {
         for (old, new) in Self::RENAMED_NAMES {
@@ -355,6 +356,13 @@ fn autowired_resources(path: &Path, source: &str, code: &[u8]) -> Result<Vec<Mar
             continue;
         };
         let field = field_name(declaration);
+        if field == EventResource::REMOVED_CACHE_MANAGER {
+            return Err(failure(
+                path,
+                span.start,
+                EventResource::CACHE_MANAGER_REFUSAL,
+            ));
+        }
         if let Some(new_name) = EventResource::new_name(field) {
             return Err(failure(
                 path,
@@ -1733,7 +1741,7 @@ mod tests {
         for (extension, field) in [
             ("js", "lifecycle;"),
             ("js", "taskScheduler;"),
-            ("ts", "cacheManager?: TacCacheManager"),
+            ("ts", "windowControls?: TacWindowControls"),
             ("ts", "resourceLoader!: TacResourceLoader"),
         ] {
             let name = field
@@ -1752,6 +1760,14 @@ mod tests {
     }
 
     #[test]
+    fn the_removed_cache_manager_points_at_clear_cache() {
+        let error = tac("class Orders {\n@Needs\ncacheManager;\n}")
+            .expect_err("removed resource")
+            .to_string();
+        assert!(error.contains("@ClearCache"), "{error}");
+    }
+
+    #[test]
     fn resource_is_retired_and_old_names_point_at_spring_ones() {
         for (source, expected) in [
             (
@@ -1759,8 +1775,8 @@ mod tests {
                 "write @Needs on a field named view",
             ),
             (
-                "class Page {\n@Resource({\"name\":\"cacheManager\"})\ncacheManager;\n}",
-                "field named cacheManager",
+                "class Page {\n@Resource({\"name\":\"resourceLoader\"})\nresourceLoader;\n}",
+                "field named resourceLoader",
             ),
         ] {
             let error = tac(source).expect_err(source).to_string();

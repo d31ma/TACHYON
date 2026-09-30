@@ -395,7 +395,6 @@ declare global {
     <Owner, Payload extends object, Result extends ApplicationEventReturn | Promise<ApplicationEventReturn>>(value: (this: Owner, payload: Payload) => Result, context: ClassMethodDecoratorContext<Owner, (this: Owner, payload: Payload) => Result>): void;
     <Owner, Payload extends object, Result extends ApplicationEventReturn | Promise<ApplicationEventReturn>>(target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(this: Owner, payload: Payload) => Result>): void;
   }
-  interface TacCacheManager { invalidate(keys?: string[], prefixes?: string[]): Promise<void>; }
   interface TacResourceLoader { precache(urls: string[]): Promise<void>; clearAssetCache(): Promise<void>; }
   interface TacTaskScheduler { render(): Promise<void>; }
   /** Clock: the time of the browser, written once in the page (ADR 0065). */
@@ -437,7 +436,6 @@ declare global {
   interface TacResourceMap {
     view: HTMLElement;
     lifecycle: AbortSignal;
-    cacheManager: TacCacheManager;
     resourceLoader: TacResourceLoader;
     taskScheduler: TacTaskScheduler;
     applicationEventPublisher: ApplicationEventPublisher;
@@ -497,7 +495,7 @@ declare global {
   interface BehaviorHttpClientOptions {
     path?: string;
     adapter?: string;
-    cache?: 'cache-first' | 'network-first' | 'reload' | 'no-store';
+    setup?: string;
   }
   /** RequestRoute: this class is a controller, and all its routes start with this path, like "/orders". */
   const RequestRoute: BehaviorPathAnnotation<BehaviorClassAnnotation>;

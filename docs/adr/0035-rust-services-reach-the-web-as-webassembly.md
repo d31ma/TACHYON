@@ -93,3 +93,13 @@ not about the language:
   JavaScript service instead.
 - A Rust edit reloads the page. It does not hot-update one service the way a
   Dart edit does.
+
+## Amendment (2026-09-30): models reach the view
+
+- A field, a method argument or a method result may be a model from
+  `client/models`, a `Vec` or `Option` of models, or a model that holds
+  other models. It crosses through the `TacModel` trait that the build
+  generates for each model, so a model derives `Clone`: the page reads a
+  copy of the field. `TacValue` stays for values with no model.
+- Other generic fields, such as `HashMap`, and path types still stay
+  inside Rust.

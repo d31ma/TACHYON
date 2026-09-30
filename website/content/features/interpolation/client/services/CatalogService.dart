@@ -1,6 +1,8 @@
+import 'models/Product.dart';
+
 @Service
 class CatalogService {
   String title = 'Catalog';
   int count = 6;
-  Map<String, String> product = {'name': 'Anvil', 'price': '£42.00'};
+  Product product = const Product('Anvil', '£42.00');
 }

@@ -282,92 +282,7 @@ const planAssets = (nodes, found = []) => {
   return found
 }
 
-class FetchCache {
-  static databaseName = 'tachyon-fetch-cache'
-  static databaseVersion = 2
-  static storeName = 'responses'
-  static policies = new Set(['cache-first', 'network-first', 'reload', 'no-store'])
-  static maxResponseBytes = 262144
-  static maxEntries = 128
-  static maxAge = 86400000
-  static database
-}
-
-const openFetchDatabase = () => {
-  if (FetchCache.database !== undefined) return FetchCache.database
-  FetchCache.database = new Promise((resolve) => {
-    let settled = false
-    const finish = (value) => {
-      if (settled) { value?.close(); return }
-      settled = true
-      clearTimeout(timer)
-      resolve(value)
-    }
-    const timer = setTimeout(() => finish(null), 2000)
-    let request
-    try {
-      if (typeof indexedDB === 'undefined') { finish(null); return }
-      request = indexedDB.open(FetchCache.databaseName, FetchCache.databaseVersion)
-    }
-    catch { finish(null); return }
-    request.onupgradeneeded = () => {
-      if (request.result.objectStoreNames.contains(FetchCache.storeName)) request.result.deleteObjectStore(FetchCache.storeName)
-      request.result.createObjectStore(FetchCache.storeName, { keyPath: 'key' })
-    }
-    request.onsuccess = () => {
-      request.result.onversionchange = () => request.result.close()
-      finish(request.result)
-    }
-    request.onerror = () => finish(null)
-    request.onblocked = () => finish(null)
-  })
-  return FetchCache.database
-}
-
-const fetchStore = async (mode) => {
-  const database = await openFetchDatabase()
-  if (!database) return null
-  try { return database.transaction(FetchCache.storeName, mode).objectStore(FetchCache.storeName) }
-  catch { return null }
-}
-
-const cacheHeadersAllowed = (headers) => !headers.has('vary') && !headers.has('content-range')
-  && !/(?:^|,)\s*(?:private|no-store)\b/i.test(headers.get('cache-control') || '')
-const clientJsonResponse = headers => /^application\/(?:json|[a-z0-9!#$&^_.+-]+\+json)(?:\s*;|$)/i.test(headers.get('content-type') || '')
-
-const parseJsonBody = (body) => JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body))
-
-const readCachedResponse = async (key) => {
-  const store = await fetchStore('readonly')
-  if (!store) return null
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), 2000)
-    const finish = (value) => { clearTimeout(timer); resolve(value) }
-    let request
-    try { request = store.get(key) } catch { finish(null); return }
-    request.onsuccess = () => {
-      const entry = request.result
-      if (!entry || entry.status === 206 || !Number.isFinite(entry.updatedAt) || Date.now() - entry.updatedAt > FetchCache.maxAge
-        || entry.body?.byteLength > FetchCache.maxResponseBytes) { finish(null); return }
-      try {
-        const headers = new Headers(entry.headers)
-        if (!cacheHeadersAllowed(headers) || !clientJsonResponse(headers)) { finish(null); return }
-        if (entry.body?.byteLength) parseJsonBody(entry.body)
-      } catch { finish(null); return }
-      const body = entry.body?.byteLength ? new Uint8Array(entry.body) : null
-      try {
-        finish(new Response(body, {
-          status: entry.status,
-          statusText: entry.statusText,
-          headers: entry.headers,
-        }))
-      } catch { finish(null) }
-    }
-    request.onerror = () => finish(null)
-  })
-}
-
-const responseBody = async (response, limit = FetchCache.maxResponseBytes) => {
+const responseBody = async (response, limit) => {
   if (!response.body) return new ArrayBuffer(0)
   const reader = response.body.getReader()
   const chunks = []
@@ -390,108 +305,9 @@ const responseBody = async (response, limit = FetchCache.maxResponseBytes) => {
   } finally { clearTimeout(timer) }
 }
 
-const mutateCache = async (change) => {
-  const store = await fetchStore('readwrite')
-  if (!store) return
-  await new Promise((resolve) => {
-    const timer = setTimeout(() => { try { store.transaction.abort() } catch {} resolve() }, 2000)
-    const finish = () => { clearTimeout(timer); resolve() }
-    store.transaction.oncomplete = finish
-    store.transaction.onabort = finish
-    store.transaction.onerror = finish
-    try { change(store) } catch { finish() }
-  })
-}
-
-const writeCachedResponse = async (key, response) => {
-  let body
-  try { body = await responseBody(response) } catch { return }
-  if (body === null) return
-  try { if (body.byteLength) parseJsonBody(body) }
-  catch { await deleteCachedResponse(key); return }
-  await mutateCache((store) => {
-    const count = store.count()
-    count.onsuccess = () => {
-      if (count.result >= FetchCache.maxEntries) store.clear()
-      store.put({
-        key,
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body,
-        updatedAt: Date.now(),
-      })
-    }
-  })
-}
-
-const deleteCachedResponse = async (key) => {
-  await mutateCache((store) => store.delete(key))
-}
-
-const deleteCachedPrefix = async (prefix) => {
-  if (typeof IDBKeyRange === 'undefined') return
-  await mutateCache((store) => store.delete(IDBKeyRange.bound(prefix, `${prefix}\uffff`)))
-}
-
-const invalidateCache = async (keys = [], prefixes = []) => {
-  if (!Array.isArray(keys) || !Array.isArray(prefixes)
-    || [...keys, ...prefixes].some((key) => typeof key !== 'string' || key.length > 4096)) {
-    throw new TypeError('Tac invalidation keys must be bounded strings.')
-  }
-  if (keys.length + prefixes.length > 128) throw new RangeError('Tac invalidation exceeds 128 keys.')
-  await Promise.all([
-    ...[...keys].map(deleteCachedResponse),
-    ...[...prefixes].map(deleteCachedPrefix),
-  ])
-}
-
-const fetchRequestCanPersist = (request, policy) => {
-  const method = request.method.toUpperCase()
-  return (method === 'GET' || method === 'HEAD') && policy !== 'no-store'
-    && request.credentials === 'omit' && !request.headers.has('authorization')
-    && !request.headers.has('range') && !request.headers.has('if-range')
-    && new URL(request.url).origin === location.origin && request.cache !== 'no-store'
-}
-
-const fetchCacheKey = (request, policy, configuredKey) => {
-  const key = fetchRequestCanPersist(request, policy) ? configuredKey ?? `fetch:${request.method.toUpperCase()}:${request.url}` : null
-  if (key !== null && (typeof key !== 'string' || key.length > 4096)) throw new TypeError('Invalid Tac cache key.')
-  return key
-}
-
-const responseCanPersist = (response) => response.ok && response.status !== 206
-  && !response.redirected && response.type !== 'opaque' && cacheHeadersAllowed(response.headers) && clientJsonResponse(response.headers)
-
-const fetchCacheFallback = async (key, request, policy, error) => {
-  if (key && policy !== 'reload' && !request.signal.aborted) {
-    const cached = await readCachedResponse(key)
-    if (cached) return cached
-  }
-  throw error
-}
-
-const clientRequest = async (input, init = {}, options = {}) => {
-  const policy = options.cache ?? 'network-first'
-  if (!FetchCache.policies.has(policy)) throw new TypeError(`Unknown Tac cache policy '${policy}'.`)
+const clientRequest = (input, init = {}, options = {}) => {
   const request = new Request(typeof input === 'string' ? new URL(input, location.href) : input, init)
-  request.signal.throwIfAborted()
-  const key = fetchCacheKey(request, policy, options.key)
-
-  if (key && policy === 'cache-first') {
-    const cached = await readCachedResponse(key)
-    request.signal.throwIfAborted()
-    if (cached) return cached
-  }
-  try {
-    const response = await fetch(new Request(request, { cache: options.publicRead === true ? 'default' : 'no-store' }))
-    if (key && responseCanPersist(response)) await writeCachedResponse(key, response.clone())
-    else if (key) await deleteCachedResponse(key)
-    if (!key && response.ok) await invalidateCache(options.invalidateKeys, options.invalidatePrefixes)
-    return response
-  } catch (error) {
-    return fetchCacheFallback(key, request, policy, error)
-  }
+  return fetch(new Request(request, { cache: options.publicRead !== true ? 'no-store' : options.revalidate === true ? 'no-cache' : 'default' }))
 }
 
 const webStorage = (persistent) => {
@@ -1463,7 +1279,6 @@ class Runtime {
 }
 const ownerResources = (element) => ({
   view: element, lifecycle: null, applicationEventPublisher: null,
-  cacheManager: Object.freeze({ invalidate: invalidateCache }),
   resourceLoader: Object.freeze({ precache: precacheAssets, clearAssetCache: clearStaticCache }),
   taskScheduler: Object.freeze({ render }),
   clock: TacWebApis.clock,

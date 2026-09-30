@@ -1,5 +1,5 @@
 #[Service]
 #[NeedsAll]
 struct SnippetService {
-    files: TacValue,
+    files: Vec<String>,
 }

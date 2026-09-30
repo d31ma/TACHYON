@@ -41,3 +41,9 @@ singleton is constructed without any properties.
 - A Tac service that used `@RequiredArgsConstructor` to inject clients now
   exists once per component, and it no longer shares the page's clients. It
   autowires them instead, as the migration guide shows.
+
+## Amendment (2026-09-30): Java and F#
+
+- A Java Tac service with `@NeedsAll` takes every non-private field without
+  an initial value from the properties with the same names.
+- An F# Tac service takes them as primary constructor parameters (ADR 0073).

@@ -1586,10 +1586,6 @@ fn apply_class_setting(
 ) -> Result<bool, Failure> {
     match marker.name.as_str() {
         "Client" => {
-            let policy = client_cache_policy(input, marker)?;
-            registration
-                .data
-                .insert("clientPolicy".into(), Value::String(policy));
             if client_streams(input, marker)? {
                 registration
                     .data
@@ -1666,35 +1662,9 @@ fn class_value(
     })
 }
 
-fn client_cache_policy(input: &Input<'_>, marker: &Marker) -> Result<String, Failure> {
-    let policy = if marker.arguments.trim().is_empty() {
-        String::from("no-store")
-    } else {
-        client_cache_option(input, marker)?
-    };
-    if !["cache-first", "network-first", "reload", "no-store"].contains(&policy.as_str()) {
-        return Err(input.failure(
-            marker.span.start,
-            "Client.cache must be cache-first, network-first, reload or no-store",
-        ));
-    }
-    Ok(policy)
-}
-
 fn client_streams(input: &Input<'_>, marker: &Marker) -> Result<bool, Failure> {
     let options = client_options(input, marker)?;
     Ok(options.get("streams") == Some(&Value::Bool(true)))
-}
-
-fn client_cache_option(input: &Input<'_>, marker: &Marker) -> Result<String, Failure> {
-    let options = client_options(input, marker)?;
-    let Some(value) = options.get("cache") else {
-        return Ok(String::from("no-store"));
-    };
-    let Some(policy) = value.as_str() else {
-        return Err(input.failure(marker.span.start, "Client.cache requires a literal string"));
-    };
-    Ok(policy.to_owned())
 }
 
 fn client_options(input: &Input<'_>, marker: &Marker) -> Result<Map<String, Value>, Failure> {
@@ -1707,16 +1677,13 @@ fn client_options(input: &Input<'_>, marker: &Marker) -> Result<Map<String, Valu
             "Behavior configuration must be a strict JSON object, never an executable expression",
         )
     })?;
-    let known = value.as_object().filter(|options| {
-        !options.is_empty()
-            && options
-                .keys()
-                .all(|key| matches!(key.as_str(), "cache" | "streams"))
-    });
+    let known = value
+        .as_object()
+        .filter(|options| !options.is_empty() && options.keys().all(|key| key == "streams"));
     known.cloned().ok_or_else(|| {
         input.failure(
             marker.span.start,
-            "Client takes a JSON object with the keys cache and streams",
+            "Client takes a JSON object with the key streams",
         )
     })
 }

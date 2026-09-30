@@ -8,6 +8,13 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- After a Cached HTTPClient read is cleared or updated, its next uncached
+  JavaScript or TypeScript GET revalidates the browser HTTP cache. A public
+  response with a long `max-age` no longer hides a successful ClearCache.
+  Cache-first service-worker rules also revalidate that read (ADR 0087).
+
 ### Breaking
 
 - A JavaScript or TypeScript Tac service that reads `globalThis` fails with
@@ -609,6 +616,11 @@ machine contracts have their own, independent major versions.
   both languages share one page bridge. The web API browser test has an F#
   row, and it checks F# in Firefox and WebKit as well as Chromium; the window
   controls browser test has an F# row too.
+- A component's properties fill `@NeedsAll` fields in Java Tac services, and
+  an F# Tac service with `[<NeedsAll>]` takes them as primary constructor
+  parameters (ADR 0039 and 0073 amendments); TY1405 now refuses only a
+  collaborator parameter, or a parameter without `[<NeedsAll>]`. The
+  "One per page, or one per component" guide shows Java and F#.
 
 - F# takes a role through a Needs property as well as through its primary
   constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
@@ -2291,6 +2303,28 @@ machine contracts have their own, independent major versions.
 - An F# Tac method without a written return type (`member this.Forget() =`)
   that returns `unit` now builds for the web; the generated C# member table
   called it as if it returned a value (`CS0029`).
+- Typed models bind to views in every Tac language (ADR 0033, 0035, 0037,
+  0054 amendments). A Dart, Rust, C# or F# service field may hold a model
+  from `client/models`, a list of models or a model that holds other models;
+  the view reads it, a handler can assign one back, and a method can take
+  one as an argument. Before, Dart showed empty fields, Rust stopped with a
+  cast error or dropped a `Vec<Model>` (TY1406), and C# and F# stopped with
+  CS0029 or dropped a `List<Model>`. A Ruby method whose YARD `@param` names
+  a model now receives the model, with the models inside it, instead of a
+  Hash; a Ruby listener reads nested models the same way. A Rust model
+  derives `Clone`. The website's view feature tabs use typed models again.
+  Behavior runtime types (`BehaviorValue`, `BehaviorContext`,
+  `BehaviorSignal` and the rest) are never models: a Rust or C# method that
+  takes one stays inside the service, as before, and an F# `[<NeedsAll>]`
+  primary constructor parameter of such a type stops the build with TY1405.
+
+- Rust and C# Tac services that hold an HTTPClient build for the web. The
+  Rust page glue no longer reads a field whose type is a struct declared
+  beside the service (such as the client) or a method whose return type does
+  not cross to the page, and the C# glue reads only public and internal
+  members, as C# makes every other member private. The Outgoing HTTP: Tac
+  example now has Java and Ruby tabs, and its Rust and C# services load the
+  catalog through the client.
 
 - WebKit no longer warns on every Tachyon page about the content security
   policy. The policy allowed the inline speculation rules with Chrome's

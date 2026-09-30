@@ -55,8 +55,12 @@ class OrdersClient {
   async deleteOrder(@PathVariable id: string): Promise<BehaviorJsonValue | void> {}
 }
 
-@HTTPClient({ path: '/api', adapter: 'catalog', cache: 'no-store' })
+@HTTPClient({ path: '/api', adapter: 'catalog' })
 class CatalogClient {}
+
+// @ts-expect-error The cache option of HTTPClient was removed: use CacheSettings and Cached (ADR 0087).
+@HTTPClient({ path: '/api', cache: 'no-store' })
+class OldCachedClient {}
 
 interface OrderTick { id: string; level: number }
 

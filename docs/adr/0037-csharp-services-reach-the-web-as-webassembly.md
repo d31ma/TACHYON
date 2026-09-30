@@ -96,3 +96,13 @@ page and import one method back.
   another service. Otherwise every field of a native or WebAssembly service
   would cost a round trip each time a service was created. This includes a
   field that holds a data file.
+
+## Amendment (2026-09-30): models reach the view
+
+- A field, a property, a method argument or a method result may be a model
+  from `client/models`, a list of models (`List<T>`, `IList<T>`, `T[]` and
+  the other list interfaces, and an F# `list`), or a model that holds other
+  models. The member table writes it through the JSON model context
+  (`TacModels.Plain`) and reads it back with `TacModels.Read` and
+  `TacModels.ReadList`, so an `object` field is no longer needed to pass a
+  list or an object. A `Task<T>` member still stays inside C#.

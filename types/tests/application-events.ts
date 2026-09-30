@@ -13,8 +13,6 @@ class ApplicationEvents {
   view!: HTMLElement;
   @Needs
   lifecycle!: AbortSignal;
-  @Needs()
-  cacheManager!: TacCacheManager;
   @Needs
   resourceLoader!: TacResourceLoader;
   @Needs

@@ -152,7 +152,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => { await evict(request); return fetch(request) })())
     return
   }
-  const cacheFirst = rule ? rule.policy === 'cache-first' : request.mode !== 'navigate'
+  const revalidate = !asset && request.cache === 'no-cache'
+  const cacheFirst = !revalidate && (rule ? rule.policy === 'cache-first' : request.mode !== 'navigate')
   event.respondWith(cacheFirst ? fromCache(request, asset) : fromNetwork(request, asset))
 })
 

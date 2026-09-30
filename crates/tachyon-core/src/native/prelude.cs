@@ -92,16 +92,24 @@ public static class TacModels
 {
     public static T Read<T>(object value)
     {
+        if (typeof(T) == typeof(string) || typeof(T).IsPrimitive) return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
         var json = Tac.EncodeValue(value);
         return (T)System.Text.Json.JsonSerializer.Deserialize(json, typeof(T), TacModelContext.Default);
     }
+
+    public static object Prop(string name) => Tac.CreatingProp(name);
+
+    public static List<T> ReadList<T>(object value) =>
+        value is IEnumerable items && value is not string ? items.Cast<object>().Select(Read<T>).ToList() : new List<T>();
 
     public static object Plain(object value)
     {
         if (value == null || value is string || value is bool || value.GetType().IsPrimitive || value is decimal) return value;
         if (value is IDictionary || value is object[]) return value;
-        var json = System.Text.Json.JsonSerializer.Serialize(value, value.GetType(), TacModelContext.Default);
-        return Tac.ParseValue(json);
+        if (value is IEnumerable items) return items.Cast<object>().Select(Plain).ToArray();
+        var model = TacModelContext.Default.GetTypeInfo(value.GetType());
+        if (model == null) return value;
+        return Tac.ParseValue(System.Text.Json.JsonSerializer.Serialize(value, model));
     }
 
     public static bool Fits(JsonNode models, string shape, object value)
@@ -381,6 +389,9 @@ public partial class Tac
 
     internal static string EncodeValue(object value) => Encode(value);
 
+    private static JsonObject CreatingProps;
+    internal static object CreatingProp(string name) => CreatingProps?[name] is JsonNode given ? Value(given) : null;
+
     internal static void PublishModel(object value, bool retain)
     {
         bool plainValue = value == null || value is string || value is IEnumerable || value.GetType().IsPrimitive;
@@ -506,7 +517,9 @@ public partial class Tac
             Activations.TryGetValue(owner, out var existing);
             if (operation == "init" && (existing == null || existing.Route != route || existing.Service != service)) {
                 if (existing != null) DisposeOwner(owner);
+                CreatingProps = parsed["props"] as JsonObject;
                 var table = TacServices.Members(service);
+                CreatingProps = null;
                 if (table == null) return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}";
                 if (Activations.Count >= 256) throw new ArgumentException("Too many native activations.");
                 var activation = new Activation(route, service, owner, table);

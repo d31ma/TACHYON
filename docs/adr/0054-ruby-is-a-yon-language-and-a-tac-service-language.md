@@ -142,3 +142,11 @@ checked by the shared rule table (ADR 0056); Ruby has no checks of its own.
   context. Ruby can set fields from outside the class, so it gets the
   construction that JavaScript has.
 - `ty migrate fix --write` reads Ruby files for the event conversion only.
+
+## Amendment (2026-09-30): model arguments from the view
+
+- A method argument or an `attr_accessor` field that YARD types as a model
+  (`# @param product [Product]`, `# @return [Array<Product>]`) receives the
+  model, with the models inside it, instead of a Hash. The service metadata
+  carries those shapes and the models they use; listeners read their event
+  the same way.

@@ -23,6 +23,7 @@ impl HttpClientSource {
         ("requestbody", "body", "RequestBody"),
         ("requestheader", "headers", "RequestHeader"),
     ];
+    const CACHE_OPTION_REFUSAL: &'static str = "@HTTPClient no longer takes \"cache\": its IndexedDB fetch cache was removed (ADR 0087). Mark the class @CacheSettings and each read method @Cached, like Spring's @Cacheable. For reads that work offline, add a rule for the path to tac.cache in client/manifest.json";
     const OTHER_ROLES: [&'static str; 9] = [
         "service",
         "store",
@@ -210,7 +211,6 @@ struct ClientClass {
     body: Range<usize>,
     path: String,
     adapter: String,
-    cache: Option<String>,
     has_other_role: bool,
 }
 
@@ -220,9 +220,6 @@ impl ClientClass {
             return String::new();
         }
         let mut options = Map::new();
-        if let Some(cache) = &self.cache {
-            options.insert(String::from("cache"), json!(cache));
-        }
         if streams {
             options.insert(String::from("streams"), json!(true));
         }
@@ -343,7 +340,7 @@ impl SourceText<'_> {
                 "@HTTPClient marks a class: it says where the class's requests go. Put it directly above a class",
             ));
         };
-        let (path, adapter, cache) = self.class_arguments(line, &name)?;
+        let (path, adapter) = self.class_arguments(line, &name)?;
         let has_other_role = self.block_roles(line, lines, start);
         Ok(ClientClass {
             name,
@@ -351,7 +348,6 @@ impl SourceText<'_> {
             body: self.class_body(start),
             path,
             adapter,
-            cache,
             has_other_role,
         })
     }
@@ -380,32 +376,27 @@ impl SourceText<'_> {
         false
     }
 
-    fn class_arguments(
-        &self,
-        line: &MarkerLine,
-        class: &str,
-    ) -> Result<(String, String, Option<String>), Failure> {
+    fn class_arguments(&self, line: &MarkerLine, class: &str) -> Result<(String, String), Failure> {
         let text = line.arguments.trim();
         let default_adapter = HttpClientSource::adapter_name(class);
         if text.is_empty() {
-            return Ok((String::new(), default_adapter, None));
+            return Ok((String::new(), default_adapter));
         }
         if let Some(path) = Self::quoted(text) {
-            return Ok((path.to_owned(), default_adapter, None));
+            return Ok((path.to_owned(), default_adapter));
         }
         let Ok(Value::Object(object)) = serde_json::from_str::<Value>(text) else {
             return Err(self.failure(
                 line.span.start,
-                "@HTTPClient takes a path in quotes, like @HTTPClient(\"/api/orders\"), or an object such as {\"path\": \"/api/orders\", \"adapter\": \"orders\", \"cache\": \"no-store\"}",
+                "@HTTPClient takes a path in quotes, like @HTTPClient(\"/api/orders\"), or an object such as {\"path\": \"/api/orders\", \"adapter\": \"orders\"}",
             ));
         };
+        if object.contains_key("cache") {
+            return Err(self.failure(line.span.start, HttpClientSource::CACHE_OPTION_REFUSAL));
+        }
         let unknown = object
             .keys()
-            .any(|key| !matches!(key.as_str(), "path" | "adapter" | "cache" | "setup"));
-        let cache = object
-            .get("cache")
-            .and_then(Value::as_str)
-            .map(str::to_owned);
+            .any(|key| !matches!(key.as_str(), "path" | "adapter" | "setup"));
         let path = object.get("path").and_then(Value::as_str).unwrap_or("");
         let adapter = object
             .get("adapter")
@@ -414,10 +405,10 @@ impl SourceText<'_> {
         if unknown {
             return Err(self.failure(
                 line.span.start,
-                "@HTTPClient accepts only \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them), \"cache\" (the browser cache policy) and \"setup\" (the Setup whose adapters send them)",
+                "@HTTPClient accepts only \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them) and \"setup\" (the Setup whose adapters send them)",
             ));
         }
-        Ok((path.to_owned(), adapter, cache))
+        Ok((path.to_owned(), adapter))
     }
 
     fn quoted(text: &str) -> Option<&str> {
@@ -945,5 +936,17 @@ mod tests {
             failure.contains("@GetRequest means calling this method sends a GET request, so its class needs @HTTPClient"),
             "{failure}"
         );
+    }
+
+    #[test]
+    fn the_cache_option_is_refused_with_cached_as_its_replacement() {
+        let source = "@HTTPClient({\"path\": \"/api\", \"cache\": \"cache-first\"})\nexport default class OrdersClient {\n  @GetRequest(\"/orders\")\n  async getOrders() {}\n}\n";
+        let failure =
+            HttpClientSource::rewrite(Path::new("client/clients/OrdersClient.js"), source)
+                .expect_err("cache option")
+                .to_string();
+        for named in ["\"cache\"", "@CacheSettings", "@Cached", "tac.cache"] {
+            assert!(failure.contains(named), "{failure}");
+        }
     }
 }

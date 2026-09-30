@@ -219,11 +219,19 @@
         },
         {
           "name": "client/services/CatalogService.dart",
-          "code": "@Service\nclass CatalogService {\n  String title = 'Catalog';\n  int count = 6;\n  Map<String, String> product = {'name': 'Anvil', 'price': '£42.00'};\n}\n"
+          "code": "import 'models/Product.dart';\n\n@Service\nclass CatalogService {\n  String title = 'Catalog';\n  int count = 6;\n  Product product = const Product('Anvil', '£42.00');\n}\n"
+        },
+        {
+          "name": "client/models/Product.dart",
+          "code": "class Product {\n  final String name;\n  final String price;\n\n  const Product(this.name, this.price);\n}\n"
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "#[Service]\npub struct CatalogService {\n    pub title: String,\n    pub count: i32,\n    pub product: TacValue,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            title: String::from(\"Catalog\"),\n            count: 6,\n            product: TacValue::Object(vec![\n                (String::from(\"name\"), TacValue::Text(String::from(\"Anvil\"))),\n                (String::from(\"price\"), TacValue::Text(String::from(\"£42.00\"))),\n            ]),\n        }\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub title: String,\n    pub count: i32,\n    pub product: Product,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            title: String::from(\"Catalog\"),\n            count: 6,\n            product: Product { name: String::from(\"Anvil\"), price: String::from(\"£42.00\") },\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Product {\n    pub name: String,\n    pub price: String,\n}\n"
         },
         {
           "name": "client/services/CatalogService.go",
@@ -267,11 +275,19 @@
         },
         {
           "name": "client/services/CatalogService.cs",
-          "code": "using System.Collections.Generic;\n\n[Service]\npublic class CatalogService\n{\n    public string Title = \"Catalog\";\n    public int Count = 6;\n    public object Product = new Dictionary<string, string> { [\"name\"] = \"Anvil\", [\"price\"] = \"£42.00\" };\n}\n"
+          "code": "using Models;\n\n[Service]\npublic class CatalogService\n{\n    public string Title = \"Catalog\";\n    public int Count = 6;\n    public Product Product = new Product(\"Anvil\", \"£42.00\");\n}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Name, string Price);\n"
         },
         {
           "name": "client/services/CatalogService.fs",
-          "code": "open System.Collections.Generic\n\n[<Service>]\ntype CatalogService() =\n    member val Title : string = \"Catalog\" with get, set\n\n    member val Count : int = 6 with get, set\n\n    member val Product : obj = Dictionary<string, string>(dict [ \"name\", \"Anvil\"; \"price\", \"£42.00\" ]) with get, set\n"
+          "code": "open Models\n\n[<Service>]\ntype CatalogService() =\n    member val Title : string = \"Catalog\" with get, set\n\n    member val Count : int = 6 with get, set\n\n    member val Product : Product = { Name = \"Anvil\"; Price = \"£42.00\" } with get, set\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Name: string; Price: string }\n"
         }
       ],
       "verify": "tac"
@@ -328,11 +344,19 @@
         },
         {
           "name": "client/services/LinkService.dart",
-          "code": "@Service\nclass LinkService {\n  Map<String, String> topic = {'slug': 'routing', 'title': 'Routing'};\n  String state = 'ready';\n  String message = 'Everything is up to date.';\n}\n"
+          "code": "import 'models/Topic.dart';\n\n@Service\nclass LinkService {\n  Topic topic = const Topic('routing', 'Routing');\n  String state = 'ready';\n  String message = 'Everything is up to date.';\n}\n"
+        },
+        {
+          "name": "client/models/Topic.dart",
+          "code": "class Topic {\n  final String slug;\n  final String title;\n\n  const Topic(this.slug, this.title);\n}\n"
         },
         {
           "name": "client/services/LinkService.rs",
-          "code": "#[Service]\npub struct LinkService {\n    pub topic: TacValue,\n    pub state: String,\n    pub message: String,\n}\n\nimpl LinkService {\n    pub fn new() -> Self {\n        Self {\n            topic: TacValue::Object(vec![\n                (String::from(\"slug\"), TacValue::Text(String::from(\"routing\"))),\n                (String::from(\"title\"), TacValue::Text(String::from(\"Routing\"))),\n            ]),\n            state: String::from(\"ready\"),\n            message: String::from(\"Everything is up to date.\"),\n        }\n    }\n}\n"
+          "code": "use crate::models::Topic;\n\n#[Service]\npub struct LinkService {\n    pub topic: Topic,\n    pub state: String,\n    pub message: String,\n}\n\nimpl LinkService {\n    pub fn new() -> Self {\n        Self {\n            topic: Topic { slug: String::from(\"routing\"), title: String::from(\"Routing\") },\n            state: String::from(\"ready\"),\n            message: String::from(\"Everything is up to date.\"),\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Topic.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Topic {\n    pub slug: String,\n    pub title: String,\n}\n"
         },
         {
           "name": "client/services/LinkService.go",
@@ -376,11 +400,19 @@
         },
         {
           "name": "client/services/LinkService.cs",
-          "code": "using System.Collections.Generic;\n\n[Service]\npublic class LinkService\n{\n    public object Topic = new Dictionary<string, string> { [\"slug\"] = \"routing\", [\"title\"] = \"Routing\" };\n    public string State = \"ready\";\n    public string Message = \"Everything is up to date.\";\n}\n"
+          "code": "using Models;\n\n[Service]\npublic class LinkService\n{\n    public Topic Topic = new Topic(\"routing\", \"Routing\");\n    public string State = \"ready\";\n    public string Message = \"Everything is up to date.\";\n}\n"
+        },
+        {
+          "name": "client/models/Topic.cs",
+          "code": "public record Topic(string Slug, string Title);\n"
         },
         {
           "name": "client/services/LinkService.fs",
-          "code": "open System.Collections.Generic\n\n[<Service>]\ntype LinkService() =\n    member val Topic : obj = Dictionary<string, string>(dict [ \"slug\", \"routing\"; \"title\", \"Routing\" ]) with get, set\n\n    member val State : string = \"ready\" with get, set\n\n    member val Message : string = \"Everything is up to date.\" with get, set\n"
+          "code": "open Models\n\n[<Service>]\ntype LinkService() =\n    member val Topic : Topic = { Slug = \"routing\"; Title = \"Routing\" } with get, set\n\n    member val State : string = \"ready\" with get, set\n\n    member val Message : string = \"Everything is up to date.\" with get, set\n"
+        },
+        {
+          "name": "client/models/Topic.fs",
+          "code": "type Topic = { Slug: string; Title: string }\n"
         }
       ],
       "verify": "tac"
@@ -413,11 +445,19 @@
         },
         {
           "name": "client/services/StockService.dart",
-          "code": "@Service\nclass StockService {\n  List<Map<String, String>> products = [];\n  bool restocking = true;\n}\n"
+          "code": "import 'models/Product.dart';\n\n@Service\nclass StockService {\n  List<Product> products = [];\n  bool restocking = true;\n}\n"
+        },
+        {
+          "name": "client/models/Product.dart",
+          "code": "class Product {\n  final String name;\n\n  const Product(this.name);\n}\n"
         },
         {
           "name": "client/services/StockService.rs",
-          "code": "#[Service]\npub struct StockService {\n    pub products: TacValue,\n    pub restocking: bool,\n}\n\nimpl StockService {\n    pub fn new() -> Self {\n        Self { products: TacValue::List(Vec::new()), restocking: true }\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct StockService {\n    pub products: Vec<Product>,\n    pub restocking: bool,\n}\n\nimpl StockService {\n    pub fn new() -> Self {\n        Self { products: Vec::new(), restocking: true }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Product {\n    pub name: String,\n}\n"
         },
         {
           "name": "client/services/StockService.go",
@@ -461,11 +501,19 @@
         },
         {
           "name": "client/services/StockService.cs",
-          "code": "using System.Collections.Generic;\n\n[Service]\npublic class StockService\n{\n    public object Products = new List<Dictionary<string, string>>();\n    public bool Restocking = true;\n}\n"
+          "code": "using Models;\n\n[Service]\npublic class StockService\n{\n    public List<Product> Products = new List<Product>();\n    public bool Restocking = true;\n}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Name);\n"
         },
         {
           "name": "client/services/StockService.fs",
-          "code": "open System.Collections.Generic\n\n[<Service>]\ntype StockService() =\n    member val Products : obj = List<Dictionary<string, string>>() with get, set\n\n    member val Restocking : bool = true with get, set\n"
+          "code": "open Models\n\n[<Service>]\ntype StockService() =\n    member val Products : Product list = [] with get, set\n\n    member val Restocking : bool = true with get, set\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Name: string }\n"
         }
       ],
       "verify": "tac"
@@ -498,11 +546,19 @@
         },
         {
           "name": "client/services/InventoryService.dart",
-          "code": "@Service\nclass InventoryService {\n  List<Map<String, String>> products = [\n    {'name': 'Anvil'},\n    {'name': 'Rope'},\n  ];\n}\n"
+          "code": "import 'models/Product.dart';\n\n@Service\nclass InventoryService {\n  List<Product> products = [const Product('Anvil'), const Product('Rope')];\n}\n"
+        },
+        {
+          "name": "client/models/Product.dart",
+          "code": "class Product {\n  final String name;\n\n  const Product(this.name);\n}\n"
         },
         {
           "name": "client/services/InventoryService.rs",
-          "code": "#[Service]\npub struct InventoryService {\n    pub products: TacValue,\n}\n\nimpl InventoryService {\n    const NAME: &'static str = \"name\";\n\n    pub fn new() -> Self {\n        Self {\n            products: TacValue::List(vec![\n                TacValue::Object(vec![(String::from(Self::NAME), TacValue::Text(String::from(\"Anvil\")))]),\n                TacValue::Object(vec![(String::from(Self::NAME), TacValue::Text(String::from(\"Rope\")))]),\n            ]),\n        }\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct InventoryService {\n    pub products: Vec<Product>,\n}\n\nimpl InventoryService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![Product { name: String::from(\"Anvil\") }, Product { name: String::from(\"Rope\") }],\n        }\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Product {\n    pub name: String,\n}\n"
         },
         {
           "name": "client/services/InventoryService.go",
@@ -546,11 +602,19 @@
         },
         {
           "name": "client/services/InventoryService.cs",
-          "code": "using System.Collections.Generic;\n\n[Service]\npublic class InventoryService\n{\n    public object Products = new List<Dictionary<string, string>>\n    {\n        new Dictionary<string, string> { [\"name\"] = \"Anvil\" },\n        new Dictionary<string, string> { [\"name\"] = \"Rope\" },\n    };\n}\n"
+          "code": "using Models;\n\n[Service]\npublic class InventoryService\n{\n    public List<Product> Products = new List<Product> { new Product(\"Anvil\"), new Product(\"Rope\") };\n}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Name);\n"
         },
         {
           "name": "client/services/InventoryService.fs",
-          "code": "open System.Collections.Generic\n\n[<Service>]\ntype InventoryService() =\n    let product (name: string) : Dictionary<string, string> = Dictionary<string, string>(dict [ \"name\", name ])\n\n    member val Products : obj = [ product \"Anvil\"; product \"Rope\" ] with get, set\n"
+          "code": "open Models\n\n[<Service>]\ntype InventoryService() =\n    member val Products : Product list = [ { Name = \"Anvil\" }; { Name = \"Rope\" } ] with get, set\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Name: string }\n"
         }
       ],
       "verify": "tac"
@@ -644,11 +708,11 @@
         },
         {
           "name": "client/services/CatalogService.dart",
-          "code": "@Service\nclass CatalogService {\n  final List<Map<String, String>> products = const [\n    {'id': 'anvil', 'name': 'Anvil', 'price': '£42.00'},\n    {'id': 'rope', 'name': 'Rope', 'price': '£8.00'},\n  ];\n}\n"
+          "code": "import 'models/Product.dart';\n\n@Service\nclass CatalogService {\n  final List<Product> products = const [\n    Product('anvil', 'Anvil', '£42.00'),\n    Product('rope', 'Rope', '£8.00'),\n  ];\n}\n"
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "#[Service]\npub struct CatalogService {\n    pub products: TacValue,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            products: TacValue::List(vec![\n                Self::product(\"anvil\", \"Anvil\", \"£42.00\"),\n                Self::product(\"rope\", \"Rope\", \"£8.00\"),\n            ]),\n        }\n    }\n\n    fn product(id: &str, name: &str, price: &str) -> TacValue {\n        TacValue::Object(vec![\n            (String::from(\"id\"), TacValue::Text(String::from(id))),\n            (String::from(\"name\"), TacValue::Text(String::from(name))),\n            (String::from(\"price\"), TacValue::Text(String::from(price))),\n        ])\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub products: Vec<Product>,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![\n                Product { id: String::from(\"anvil\"), name: String::from(\"Anvil\"), price: String::from(\"£42.00\") },\n                Product { id: String::from(\"rope\"), name: String::from(\"Rope\"), price: String::from(\"£8.00\") },\n            ],\n        }\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.go",
@@ -672,15 +736,23 @@
         },
         {
           "name": "client/services/CatalogService.cs",
-          "code": "using System.Collections.Generic;\n\n[Service]\npublic class CatalogService\n{\n    public object Products = new object[]\n    {\n        Product(\"anvil\", \"Anvil\", \"£42.00\"),\n        Product(\"rope\", \"Rope\", \"£8.00\"),\n    };\n\n    private static Dictionary<string, object> Product(string id, string name, string price) =>\n        new() { [\"id\"] = id, [\"name\"] = name, [\"price\"] = price };\n}\n"
+          "code": "using System.Collections.Generic;\nusing Models;\n\n[Service]\npublic class CatalogService\n{\n    public List<Product> Products = new()\n    {\n        new Product(\"anvil\", \"Anvil\", \"£42.00\"),\n        new Product(\"rope\", \"Rope\", \"£8.00\"),\n    };\n}\n"
         },
         {
           "name": "client/services/CatalogService.fs",
-          "code": "open System.Collections.Generic\n\n[<Service>]\ntype CatalogService() =\n    static member private Product(id: string, name: string, price: string) : obj =\n        let product = Dictionary<string, obj>()\n        product[\"id\"] <- id\n        product[\"name\"] <- name\n        product[\"price\"] <- price\n        box product\n\n    member this.Products : obj =\n        box [| CatalogService.Product(\"anvil\", \"Anvil\", \"£42.00\"); CatalogService.Product(\"rope\", \"Rope\", \"£8.00\") |]\n"
+          "code": "open Models\n\n[<Service>]\ntype CatalogService() =\n    member this.Products : Product list =\n        [ { Id = \"anvil\"; Name = \"Anvil\"; Price = \"£42.00\" }\n          { Id = \"rope\"; Name = \"Rope\"; Price = \"£8.00\" } ]\n"
         },
         {
           "name": "client/models/Product.ts",
           "code": "export interface Product {\n  id: string\n  name: string\n  price: string\n}\n"
+        },
+        {
+          "name": "client/models/Product.dart",
+          "code": "class Product {\n  final String id;\n  final String name;\n  final String price;\n\n  const Product(this.id, this.name, this.price);\n}\n"
+        },
+        {
+          "name": "client/models/Product.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Product {\n    pub id: String,\n    pub name: String,\n    pub price: String,\n}\n"
         },
         {
           "name": "client/models/Product.go",
@@ -701,6 +773,14 @@
         {
           "name": "client/models/Product.java",
           "code": "record Product(String id, String name, String price) {}\n"
+        },
+        {
+          "name": "client/models/Product.cs",
+          "code": "public record Product(string Id, string Name, string Price);\n"
+        },
+        {
+          "name": "client/models/Product.fs",
+          "code": "type Product = { Id: string; Name: string; Price: string }\n"
         }
       ],
       "verify": "tac-component"
@@ -794,11 +874,19 @@
         },
         {
           "name": "client/services/BasketService.dart",
-          "code": "@Service\nclass BasketService {\n  int count = 0;\n  String label = '';\n  String _selected = '';\n  List<Map<String, String>> tabs = [\n    {'id': 'a', 'name': 'A'},\n  ];\n\n  void increment() => count += 1;\n\n  void select(String id) => _selected = id;\n}\n"
+          "code": "import 'models/Tab.dart';\n\n@Service\nclass BasketService {\n  int count = 0;\n  String label = '';\n  String _selected = '';\n  List<Tab> tabs = [const Tab('a', 'A')];\n\n  void increment() => count += 1;\n\n  void select(String id) => _selected = id;\n}\n"
+        },
+        {
+          "name": "client/models/Tab.dart",
+          "code": "class Tab {\n  final String id;\n  final String name;\n\n  const Tab(this.id, this.name);\n}\n"
         },
         {
           "name": "client/services/BasketService.rs",
-          "code": "#[Service]\npub struct BasketService {\n    pub count: i32,\n    pub label: String,\n    selected: String,\n    pub tabs: TacValue,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self {\n            count: 0,\n            label: String::new(),\n            selected: String::new(),\n            tabs: TacValue::List(vec![TacValue::Object(vec![\n                (String::from(\"id\"), TacValue::Text(String::from(\"a\"))),\n                (String::from(\"name\"), TacValue::Text(String::from(\"A\"))),\n            ])]),\n        }\n    }\n\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n\n    pub fn select(&mut self, id: String) {\n        self.selected = id;\n    }\n}\n"
+          "code": "use crate::models::Tab;\n\n#[Service]\npub struct BasketService {\n    pub count: i32,\n    pub label: String,\n    selected: String,\n    pub tabs: Vec<Tab>,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self {\n            count: 0,\n            label: String::new(),\n            selected: String::new(),\n            tabs: vec![Tab { id: String::from(\"a\"), name: String::from(\"A\") }],\n        }\n    }\n\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n\n    pub fn select(&mut self, id: String) {\n        self.selected = id;\n    }\n}\n"
+        },
+        {
+          "name": "client/models/Tab.rs",
+          "code": "#[derive(Clone, Debug)]\npub struct Tab {\n    pub id: String,\n    pub name: String,\n}\n"
         },
         {
           "name": "client/services/BasketService.go",
@@ -842,11 +930,19 @@
         },
         {
           "name": "client/services/BasketService.cs",
-          "code": "using System.Collections.Generic;\n\n[Service]\npublic class BasketService\n{\n    public int Count = 0;\n    public string Label = \"\";\n    private string selected = \"\";\n    public object Tabs = new List<Dictionary<string, string>>\n    {\n        new Dictionary<string, string> { [\"id\"] = \"a\", [\"name\"] = \"A\" },\n    };\n\n    public void Increment() => Count += 1;\n\n    public void Select(string id) => selected = id;\n}\n"
+          "code": "using Models;\n\n[Service]\npublic class BasketService\n{\n    public int Count = 0;\n    public string Label = \"\";\n    private string selected = \"\";\n    public List<Tab> Tabs = new List<Tab> { new Tab(\"a\", \"A\") };\n\n    public void Increment() => Count += 1;\n\n    public void Select(string id) => selected = id;\n}\n"
+        },
+        {
+          "name": "client/models/Tab.cs",
+          "code": "public record Tab(string Id, string Name);\n"
         },
         {
           "name": "client/services/BasketService.fs",
-          "code": "open System.Collections.Generic\n\n[<Service>]\ntype BasketService() =\n    let mutable selected : string = \"\"\n\n    member val Count : int = 0 with get, set\n\n    member val Label : string = \"\" with get, set\n\n    member val Tabs : obj = [ Dictionary<string, string>(dict [ \"id\", \"a\"; \"name\", \"A\" ]) ] with get, set\n\n    member this.Increment() : unit =\n        this.Count <- this.Count + 1\n\n    member this.Select(id: string) : unit =\n        selected <- id\n"
+          "code": "open Models\n\n[<Service>]\ntype BasketService() =\n    let mutable selected : string = \"\"\n\n    member val Count : int = 0 with get, set\n\n    member val Label : string = \"\" with get, set\n\n    member val Tabs : Tab list = [ { Id = \"a\"; Name = \"A\" } ] with get, set\n\n    member this.Increment() : unit =\n        this.Count <- this.Count + 1\n\n    member this.Select(id: string) : unit =\n        selected <- id\n"
+        },
+        {
+          "name": "client/models/Tab.fs",
+          "code": "type Tab = { Id: string; Name: string }\n"
         }
       ],
       "verify": "tac"
@@ -1304,7 +1400,7 @@
     {
       "id": "fetch-cache",
       "title": "Caching public reads",
-      "summary": "A service reads the network only through an `HTTPClient`; a JavaScript or TypeScript service that calls `fetch` itself fails to build with `TY1361`. To keep a read, put the cache annotations that services use on the client, as Spring's `@Cacheable` works on any bean: `CacheSettings` on the client class names the cache and its limits, `Cached` on a read keeps its answer (with `CacheKey` on the arguments that pick the answer), and `ClearCache` or `UpdateCache` on a write removes or replaces that answer after the write succeeds. This works the same in every language that has an `HTTPClient`. In JavaScript and TypeScript, Tachyon's browser transport also sends a `Cached` GET as a public read, so the service worker may answer it. A service worker is a browser script that can answer requests from a cache. The manifest's `tac.cache` sets the worker's policy for each path: `cache-first`, `network-first` or `no-store`. A path without a rule is not kept by the worker. The worker keeps a read only when it has no `Authorization` header and the response is cacheable; a response with `private`, `no-store` or `Vary` is not kept, and a successful write removes the entries under its path. A read that is not `Cached` is sent `no-store`, so it is always fresh. In the other languages the Setup's HTTP adapter sends the request, so the worker never sees it, and `Cached` keeps the answer in the page. The old `cache` option of `@HTTPClient` is replaced by `Cached` (ADR 0087).",
+      "summary": "A service reads the network only through an `HTTPClient`; a JavaScript or TypeScript service that calls `fetch` itself fails to build with `TY1361`. To keep a read, put the cache annotations that services use on the client, as Spring's `@Cacheable` works on any bean: `CacheSettings` on the client class names the cache and its limits, `Cached` on a read keeps its answer (with `CacheKey` on the arguments that pick the answer), and `ClearCache` or `UpdateCache` on a write removes or replaces that answer after the write succeeds. This works the same in every language that has an `HTTPClient`. In JavaScript and TypeScript, Tachyon's browser transport also sends a `Cached` GET as a public read, so the service worker may answer it. A service worker is a browser script that can answer requests from a cache. The manifest's `tac.cache` sets the worker's policy for each path: `cache-first`, `network-first` or `no-store`. A path without a rule is not kept by the worker. The worker keeps a read only when it has no `Authorization` header and the response is cacheable; a response with `private`, `no-store` or `Vary` is not kept, and a successful write removes the entries under its path. After `ClearCache` or `UpdateCache`, the next uncached JavaScript or TypeScript GET revalidates the browser HTTP cache, even when the server sent a long public `max-age`; a cache-first worker rule also asks the network for that read. A read that is not `Cached` is sent `no-store`, so it is always fresh. In the other languages the Setup's HTTP adapter sends the request, so the worker never sees it, and `Cached` keeps the answer in the page. The old `cache` option of `@HTTPClient` is replaced by `Cached` (ADR 0087).",
       "group": "Browser storage",
       "files": [
         {

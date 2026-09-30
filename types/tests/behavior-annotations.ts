@@ -32,7 +32,7 @@ class CatalogSettings {
   title!: string;
 }
 
-@HTTPClient({"cache":"network-first","adapter":"api"})
+@HTTPClient({"adapter":"api"})
 class ProductsClient {
   @GetRequest("/products")
   async list(): Promise<BehaviorJsonValue | void> {}

@@ -269,6 +269,9 @@ impl AnnotationRules {
     const TAC_BEHAVIOR: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_HELPER: &'static [&'static str] = &["js", "ts", "dart"];
+    const TAC_NEEDS_ALL: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java",
+    ];
     const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py"];
     const YON_STREAM: &'static [&'static str] =
         &["js", "ts", "py", "php", "kt", "cs", "dart", "rb"];
@@ -474,7 +477,7 @@ impl AnnotationRules {
             "requires every field that has no initial value: collaborators are injected and the other fields come from the component's props",
         )
         .bare()
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC_NEEDS_ALL, Self::YON)
         .advice(Self::RUBY_NEEDS_ADVICE)
         .refuses_constructor()
         .refuses_nullable()

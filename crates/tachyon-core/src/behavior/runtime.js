@@ -2,6 +2,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
   'use strict'
   const MAX_BYTES = 1048576
   const MAX_ACTIVE = 64
+  const MAX_EVICTED = 1024
   const encoder = new TextEncoder()
   const records = new WeakMap()
   const contexts = new WeakSet()
@@ -402,6 +403,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     #timeoutMs
     #active = new Set()
     #slots = new Map()
+    #evicted = new Set()
     #transactions = new OpenTransactions()
     #disposed = false
     #setup = null
@@ -478,7 +480,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       return this.#perform(async (operation) => {
         const args = methodArguments(input, method)
         if (method.query) return this.#query(operation, method.query, args)
-        const call = () => this.#resilient(operation, record, method, () => this.#result(operation, owner, method, original, args))
+        const call = (revalidate = false) => this.#resilient(operation, record, method, () => this.#result(operation, owner, method, original, args, revalidate))
         if (method.cachePut || method.cacheEvict) return this.#mutate(operation, record, method, args, call)
         if (!method.cacheable) return call()
         await this.#authorize(operation, record, method, args, 'cache:read')
@@ -555,7 +557,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       slot.active -= 1
       if (slot.active === 0) this.#slots.delete(key)
     }
-    async #result(operation, owner, method, original, args) {
+    async #result(operation, owner, method, original, args, revalidate) {
       if (method.mapping) return mapValue(method.mapping, args)
       const metadata = method.httpExchange
       const result = metadata?.generated
@@ -565,7 +567,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       const descriptor = requestDescriptor(result)
       if (['GET', 'HEAD'].includes(metadata.method) && own(descriptor, 'body')) invalid('Behavior HTTP reads cannot contain a request body.')
       const adapter = this.#adapter('http', metadata.client, 'exchange')
-      const shared = method.cacheable && metadata.method === 'GET' ? { publicRead: true } : {}
+      const shared = method.cacheable && metadata.method === 'GET' ? { publicRead: true, ...(revalidate ? { revalidate: true } : {}) } : {}
       const command = Object.freeze({ ...descriptor, method: metadata.method, path: exchangePath(metadata, args),
         redirect: 'error', credentials: 'omit', signal: operation.execution.signal,
         deadline: operation.execution.deadline, maxResponseBytes: MAX_BYTES, ...shared })
@@ -644,7 +646,8 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       exactKeys(hit, ['hit', 'value', 'expiresAt'], 'cache response')
       if (typeof hit.hit !== 'boolean') invalid('Invalid behavior cache response.')
       if (hit.hit && this.#liveEntry(hit, policy)) return json(hit.value, policy.maxBytes)
-      const value = json(await call(), policy.maxBytes)
+      const value = json(await call(this.#evicted.has(key)), policy.maxBytes)
+      this.#evicted.delete(key)
       const writer = this.#adapter('caches', policy.name, 'set')
       const execution = Object.freeze({ ...operation.execution, ...policy, expiresAt: Date.now() + policy.ttlMs })
       await operation.call(() => writer.set(key, json(value, policy.maxBytes), execution), true)
@@ -669,7 +672,13 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       } else {
         await operation.call(() => adapter.delete(key, operation.execution), true)
       }
+      this.#rememberEviction(key)
       return value
+    }
+    #rememberEviction(key) {
+      this.#evicted.delete(key)
+      this.#evicted.add(key)
+      if (this.#evicted.size > MAX_EVICTED) this.#evicted.delete(this.#evicted.values().next().value)
     }
     #joined(adapter) {
       const open = this.#transactions.current()
@@ -692,6 +701,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
         const key = cacheKey(this.#partition, record, method, args)
         const adapter = this.#adapter('caches', record.cache.name, 'delete')
         await operation.call(() => adapter.delete(key, operation.execution), true)
+        this.#rememberEviction(key)
       })
     }
     repository(Type) {

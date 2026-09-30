@@ -181,3 +181,12 @@ program is smaller on the wire and starts a few milliseconds later.
 - Native hosts already serve `.wasm` and allow `'wasm-unsafe-eval'`. The
   shared module reads the program with `fetch`, so it does not depend on the
   `application/wasm` type.
+
+## Amendment (2026-09-30): models reach the view
+
+- A field, a getter, a method argument or a method result may be a model
+  from `client/models`, a `List` of models, or a model that holds other
+  models. The bridge sends a field through the same `__yon_json` converter
+  as a method result, so the view reads plain objects and lists, never an
+  opaque Dart object. A model value from the view is read back with the
+  model's reader (`__yon_read_<Model>`).

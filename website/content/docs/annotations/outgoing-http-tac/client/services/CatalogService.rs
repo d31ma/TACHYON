@@ -5,7 +5,15 @@ impl CatalogService {
         Self { catalog: CatalogClient::new(), count: 0 }
     }
 
-    fn all(&self) -> BehaviorResult<BehaviorValue> {
-        self.catalog.all()
+    fn load(&mut self) {
+        let answer = self.catalog.all().unwrap_or(BehaviorValue::Null);
+        self.count = Self::count_items(&answer);
+    }
+
+    fn count_items(answer: &BehaviorValue) -> i64 {
+        match answer.get("items") {
+            Some(BehaviorValue::Array(items)) => items.len() as i64,
+            _ => 0,
+        }
     }
 }
