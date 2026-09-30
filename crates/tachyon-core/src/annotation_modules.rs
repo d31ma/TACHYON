@@ -85,7 +85,6 @@ fn injected_stores(
         .flatten()
 }
 
-
 fn located_modules(modules: Vec<Module>, extension: &str) -> Vec<Module> {
     modules
         .into_iter()
