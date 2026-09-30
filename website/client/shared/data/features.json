@@ -37,11 +37,11 @@
         },
         {
           "name": "client/services/ItemService.js",
-          "code": "@Service\nexport default class ItemService {\n  /**\n   * @param {string} path\n   * @returns {string}\n   */\n  idFrom(path) { return path.split('/').pop() ?? '' }\n}\n"
+          "code": "@Service\nexport default class ItemService {\n  /**\n   * @param {string} path\n   * @returns {string}\n   */\n  idFrom(path) { return path.slice(path.lastIndexOf('/') + 1) }\n}\n"
         },
         {
           "name": "client/services/ItemService.ts",
-          "code": "@Service\nexport default class ItemService {\n  idFrom(path: string): string { return path.split('/').pop() ?? '' }\n}\n"
+          "code": "@Service\nexport default class ItemService {\n  idFrom(path: string): string { return path.slice(path.lastIndexOf('/') + 1) }\n}\n"
         },
         {
           "name": "client/services/ItemService.dart",
@@ -61,7 +61,7 @@
         },
         {
           "name": "client/services/ItemService.swift",
-          "code": "@Service\nfinal class ItemService {\n    func idFrom(_ path: String) -> String {\n        String(path.split(separator: \"/\").last ?? \"\")\n    }\n}\n"
+          "code": "@Service\nfinal class ItemService {\n    func idFrom(_ path: String) -> String {\n        path.split(separator: \"/\").suffix(1).joined()\n    }\n}\n"
         },
         {
           "name": "client/services/ItemService.kt",
@@ -188,7 +188,8 @@
           "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { id = id }\nend\n"
         }
       ],
-      "verify": "yon"
+      "verify": "yon",
+      "target": "web"
     },
     {
       "id": "interpolation",
@@ -1090,7 +1091,7 @@
         },
         {
           "name": "client/services/CatalogService.swift",
-          "code": "@Service\nfinal class CatalogService {\n    var behaviors: BehaviorContext!\n    var offset: Int = 0\n\n    func page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) _ input: BehaviorJSON) async throws -> BehaviorJSON {\n        input.get(\"offset\")\n    }\n\n    @OnStart\n    func initialize() async throws {\n        behaviors = try Behaviors.create(ApplicationSetup.self, partition: \"public-catalog\", signal: BehaviorSignal())\n        offset = offsetOf(try await page(.object([\"page\": .number(1)])))\n    }\n\n    private func offsetOf(_ value: BehaviorJSON) -> Int {\n        guard case .number(let number) = value else { return 0 }\n        return Int(number)\n    }\n}\n"
+          "code": "@Service\nfinal class CatalogService {\n    var behaviors: BehaviorContext!\n    var offset: Int = 0\n\n    func page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) _ input: BehaviorJSON) throws -> BehaviorJSON {\n        input.get(\"offset\")\n    }\n\n    @OnStart\n    func initialize() {\n        behaviors = try? Behaviors.create(ApplicationSetup.self, partition: \"public-catalog\", signal: BehaviorSignal())\n        offset = offsetOf(try? page(.object([\"page\": .number(1)])))\n    }\n\n    private func offsetOf(_ value: BehaviorJSON?) -> Int {\n        guard case .number(let number)? = value else { return 0 }\n        return Int(number)\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.kt",
