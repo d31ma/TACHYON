@@ -753,10 +753,31 @@ machine contracts have their own, independent major versions.
   `Assert.is_true`, `Assert.throws`, `-- @ValueSource`, `-- @Fake` and
   `self:construct(Role)`. `ty init --yon lua` writes a Lua controller and its
   test unit; `ty doctor` and the readiness check ask for `lua` 5.4 or newer.
-  Behavior annotations, events and lifecycle hooks, streams, sockets and Tac
-  Lua services are refused for now: the rule table says that the annotation
-  is not available in Lua (`TY1308`), and the lowering names ADR 0085
-  (`TY2015`).
+  Behavior annotations, events and lifecycle hooks, streams and sockets are
+  refused in Yon Lua for now: the rule table says that the annotation is not
+  available in Lua (`TY1308`, ending "Lua gets it in a later step
+  (ADR 0085)"), and the lowering names ADR 0085 (`TY2015`). Resources
+  (`DataSource`, `RedisTemplate`, gateway clients, Tac stores and `relay`)
+  are not available in Lua.
+- Lua is a Tac language (ADR 0085 amendment). A service
+  `client/services/<Name>Service.lua` is a Lua class table with `-- @Service`
+  and runs on Tachyon's own Lua 5.4 WebAssembly runtime. `runtimes/lua-web`
+  pins the lua.org 5.4.9 source by SHA-256; the first build of a project with
+  a Tac Lua service builds the runtime (about 170 KB) once with the
+  developer's `emcc` into `lua-web/<source hash>/` in the Tachyon cache, and
+  nothing is committed or written into the project. The page reads and
+  changes the public fields and calls the public methods; each object starts
+  with its own copy of the fields. `-- @OnStart`, `-- @OnStop`,
+  `-- @OnEvent`, `-- @Order`, `-- @InBackground`, `-- @NeedsAll` and
+  `-- @Lifetime` work, events are model tables from `client/models/*.lua`
+  published with the autowired `application_event_publisher` field, and a
+  listener that returns a model publishes it again. Tac test units in Lua run
+  with the `lua` program. `ty init --tac lua` and `ty add language client lua`
+  write a Lua greeting service and its test unit, and `ty doctor` lists `emcc`
+  (or the cached runtime) and `lua` for "Lua services on the web". Behavior
+  annotations in a Tac Lua service stop the build (`TY2015`, ADR 0085). The
+  runtime-build steps (pinned download, SHA-256 check, cache) are shared with
+  the Ruby runtime.
 - `bun run coverage:languages` in `website/` audits the code tabs of every docs
   section and feature. For each realm it lists the languages with a tab and
   sorts every missing language into a missing example, a language the build

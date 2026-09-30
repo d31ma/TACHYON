@@ -1,6 +1,6 @@
 # ADR 0085: Lua Is a Yon Language
 
-- Status: Accepted
+- Status: Accepted; amended 2026-09-29 (Tac Lua services)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -9,7 +9,7 @@
   table), [ADR 0079](0079-every-member-states-its-type.md) (type comments)
   and [ADR 0080](0080-a-test-case-asserts-and-holds-no-logic.md) (test units)
 - Amends: [ADR 0031](0031-realms-mirror-each-other.md) (the Yon languages)
-- Plans: a Tac Lua service through a Lua WebAssembly interpreter, like the
+- Adds: Tac Lua services on a Lua WebAssembly runtime, built like the
   pinned mruby runtime of [ADR 0049](0049-tac-ruby-uses-a-pinned-mruby-runtime.md)
 
 ## Context
@@ -26,9 +26,8 @@ table, and its methods are functions stored in the table.
 - Lua (`.lua`) is a Yon language: controllers, services and the other roles,
   error handlers, error types in `server/errors/`, root middleware
   (`middleware.lua`), models in `server/models/` and test units.
-- Tac Lua services are a later step. They will run in a Lua interpreter that
-  is compiled to WebAssembly on the developer's machine and is not committed,
-  like the mruby runtime for Ruby.
+- Lua (`.lua`) is also a Tac language for services, client models and test
+  units (see the amendment below).
 
 ### A class is one global table in its own file
 
@@ -108,8 +107,12 @@ These stop the build until a later step adds them: the rule table says that
 the annotation is not available in Lua (`TY1308`), or the lowering names this
 ADR (`TY2015`):
 behavior annotations (for example Cached, Retry, Transactional), local
-events and lifecycle hooks, StreamRoute and SocketRoute, and Tac Lua
-services.
+events and lifecycle hooks, StreamRoute and SocketRoute in Yon, and behavior
+annotations in Tac. Resources are not available in Lua: DataSource,
+RedisTemplate, gateway clients (`@HTTPClient`), Tac stores (`@Store`) and
+`relay`. The rule table refuses `@HTTPClient` and `@Store` in Lua, and every
+Lua refusal of the rule table ends with "Lua gets it in a later step
+(ADR 0085)".
 
 ## Consequences
 
@@ -120,3 +123,49 @@ services.
   wording.
 - Lua needs no build step and no cache: a request starts `lua` with the
   protocol runtime and the joined program.
+
+## Amendment 2026-09-29: Tac Lua services
+
+- A Tac service can be `client/services/<Name>Service.lua`, written like a
+  Yon Lua class: one global table with `-- @Service`, fields in the table and
+  methods `function Name:method()`. Lua comes last in the web language order,
+  after Ruby.
+- It runs on Tachyon's own Lua WebAssembly runtime. `runtimes/lua-web` holds
+  its source: `sources.txt` pins the Lua 5.4.9 archive from lua.org by
+  SHA-256 (`2335b6c5…fb8e6`, the sum lua.org lists), `tachyon_lua.c` is the
+  small C boundary and `tachyon-lua.js` is the loader. The first build of a
+  project with a Tac Lua service downloads and checks the archive, then links
+  the Lua core, the base, coroutine, table, string, math and utf8 libraries
+  and the boundary with the developer's `emcc` (Emscripten 6.0.10 or newer)
+  into `lua-web/<SHA-256 of the runtime source>/tachyon-lua.wasm` in the
+  Tachyon cache. Nothing is committed or written into the project. The build
+  shares its download, checksum and cache steps with the Ruby runtime. The
+  runtime is about 170 KB.
+- The runtime has no `io`, `os`, `package`, `debug`, `dofile` or
+  `loadfile`. It loads only Lua text, never bytecode. The boundary is the
+  same synchronous `tac_boot`, `tac_invoke`, `tac_alloc` and `tac_free` as
+  the Ruby runtime. `tachyon.tac_host_emit` delivers events, and
+  `tachyon.tac_host_ask` answers storage and browser-API requests with a
+  string that the runtime frees.
+- The page's program is the shared JSON code of the Yon runtime, a Lua
+  prelude (`TacServices`), the client models, and each service file as
+  written, followed by one `TacServices.register` line. Tachyon reads the
+  members, NeedsAll, Lifetime, OnStart, OnStop, OnEvent and Order from the
+  same Ruby shadow that it uses for Yon.
+- Each object starts with its own copy of the table's fields, so a list in
+  one object never leaks into another. The page reads and changes every
+  public field and calls every public method. A name that starts with `_` is
+  private.
+- An event is a model table: `setmetatable({ total = 25 }, PlacedOrder)`.
+  `self.application_event_publisher:publish_event(order)` publishes it; the
+  field `application_event_publisher = nil` is autowired by its name, as in
+  Spring, and the global `ApplicationEventPublisher` works too. A listener
+  whose `---@return` is a model publishes its answer again.
+- A Tac test unit in Lua is `client/tests/<Name>Test.lua`. It runs with the
+  `lua` program, with the same prelude and the same `Assert` and
+  `-- @ValueSource` as a Yon Lua unit. `self:construct(Service)` builds a
+  service with its own fields, and a `-- @Fake` field of the unit replaces
+  the field with the same name.
+- `ty init --tac lua` scaffolds a Lua greeting service and its test unit.
+  `ty doctor` lists `emcc` for "Lua services on the web", or the cached
+  runtime once it is built.

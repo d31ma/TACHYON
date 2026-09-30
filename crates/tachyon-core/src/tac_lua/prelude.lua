@@ -10,6 +10,12 @@ TacLimits = {
 
 warn("@on")
 
+load = (function(original)
+  return function(chunk, name, _, environment)
+    return original(chunk, name, "t", environment)
+  end
+end)(load)
+
 TacAnswer = {}
 
 function TacAnswer.value(value)

@@ -18,6 +18,19 @@ impl LuaWebServices {
     pub(crate) const RUNTIME_PATH: &'static str = "lua/tachyon-lua.wasm";
     pub(crate) const GLUE_PATH: &'static str = "lua/tachyon-lua.js";
     pub(crate) const NOTICES_PATH: &'static str = "lua/THIRD_PARTY_NOTICES.txt";
+    const ENGINE: &'static str = r"const { TachyonLua } = await import('./lua/tachyon-lua.js')
+const luaResponse = await fetch(new URL('./lua/tachyon-lua.wasm', import.meta.url))
+const luaModule = await WebAssembly.compile(await luaResponse.arrayBuffer())
+const writeLine = (line, descriptor) => { if (descriptor === 2) console.error(line); else console.log(line) }
+const luaHost = (text) => {
+  if (JSON.parse(text).api) return webHost(text)
+  return storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' })
+}
+const lua = await TachyonLua.start(luaModule, writeLine, (payload) => { published.push(payload) }, luaHost)
+const bootFailure = lua.boot(__LUA_PROGRAM__)
+if (bootFailure) throw new Error(`Lua services did not start: ${JSON.parse(bootFailure).error}`)
+const transport = (text) => lua.invoke(text)
+";
     const REALM: &'static str = "tac";
     const CLIENT: &'static str = "client";
     const PRIVATE: char = '_';
@@ -26,17 +39,24 @@ impl LuaWebServices {
 
     pub(crate) async fn runtime_files() -> Result<Vec<(String, Vec<u8>)>, Failure> {
         let runtime = LuaRuntimeBuild::runtime().await?;
-        Ok(vec![
-            (String::from(Self::RUNTIME_PATH), runtime),
-            (
-                String::from(Self::GLUE_PATH),
-                LuaRuntimeSources::GLUE.as_bytes().to_vec(),
-            ),
-            (
-                String::from(Self::NOTICES_PATH),
-                LuaRuntimeSources::NOTICES.as_bytes().to_vec(),
-            ),
-        ])
+        let glue = LuaRuntimeSources::GLUE.as_bytes().to_vec();
+        let notices = LuaRuntimeSources::NOTICES.as_bytes().to_vec();
+        Ok([
+            (Self::RUNTIME_PATH, runtime),
+            (Self::GLUE_PATH, glue),
+            (Self::NOTICES_PATH, notices),
+        ]
+        .map(|(path, bytes)| (String::from(path), bytes))
+        .into())
+    }
+
+    pub(crate) fn engine(
+        snapshot_root: &Path,
+        chosen: &[(String, String, PathBuf)],
+    ) -> Result<String, Failure> {
+        let program = Self::program(snapshot_root, chosen)?;
+        let literal = serde_json::to_string(&program).unwrap_or_default();
+        Ok(Self::ENGINE.replace("__LUA_PROGRAM__", &literal))
     }
 
     pub(crate) fn program(
@@ -135,13 +155,17 @@ impl LuaWebServices {
     }
 
     fn public_members(mut members: RubyMembers) -> RubyMembers {
+        members.methods.retain(|name| Self::is_public(name));
+        members.fields.retain(|name| Self::is_page_field(name));
         members
-            .methods
-            .retain(|name| !name.starts_with(Self::PRIVATE));
-        members
-            .fields
-            .retain(|name| !name.starts_with(Self::PRIVATE) && name != Self::PUBLISHER);
-        members
+    }
+
+    fn is_public(name: &str) -> bool {
+        !name.starts_with(Self::PRIVATE)
+    }
+
+    fn is_page_field(name: &str) -> bool {
+        [Self::is_public(name), name != Self::PUBLISHER] == [true, true]
     }
 
     fn failure(path: &Path, text: &str, message: &str) -> Failure {

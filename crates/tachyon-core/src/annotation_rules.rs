@@ -266,7 +266,7 @@ impl AnnotationRules {
     ];
     const TAC: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua"];
-    const TAC_RESOURCE: &'static [&'static str] =
+    pub(crate) const TAC_RESOURCE: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_BEHAVIOR: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
@@ -1142,7 +1142,7 @@ impl Rule {
 
     const fn request(self) -> Self {
         Self {
-            tac: AnnotationRules::TAC,
+            tac: AnnotationRules::TAC_RESOURCE,
             yon: AnnotationRules::YON,
             clashes: AnnotationRules::HTTP_METHODS,
             class_needs: &["HTTPClient"],
@@ -1163,7 +1163,7 @@ impl Rule {
 
     const fn request_part(self) -> Self {
         Self {
-            tac: AnnotationRules::TAC,
+            tac: AnnotationRules::TAC_RESOURCE,
             yon: AnnotationRules::YON,
             clashes: AnnotationRules::REQUEST_PARTS,
             class_needs: &["HTTPClient"],

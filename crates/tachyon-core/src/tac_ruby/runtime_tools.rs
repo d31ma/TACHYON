@@ -56,7 +56,7 @@ impl RubyRuntimeTools {
     }
 
     fn emscripten() -> EmscriptenTool {
-        EmscriptenTool::new(RubyRuntimeSources::minimum_emscripten())
+        EmscriptenTool::new(RubyRuntimeSources::SOURCES.minimum_emscripten())
     }
 
     fn host_compiler() -> String {
@@ -78,7 +78,9 @@ impl RubyRuntimeTools {
         if missing.is_empty() {
             return Ok(());
         }
-        Err(RubyRuntimeSources::STEP.failure(&Self::missing_message(missing)))
+        Err(RubyRuntimeSources::SOURCES
+            .step
+            .failure(&Self::missing_message(missing)))
     }
 
     fn missing_message(missing: &[Toolchain]) -> String {

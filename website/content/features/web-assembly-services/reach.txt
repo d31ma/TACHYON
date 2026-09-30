@@ -7,6 +7,7 @@ TallyService.kt  one WasmGC module from kotlinc, which uses the browser's garbag
 TallyService.java  one WasmGC module from TeaVM
 TallyService.dart  one WasmGC module from dart compile wasm
 TallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc
+TallyService.lua  the Lua runtime, about 170 KB, built once with emcc
 
 A service with several is Rust on the web, then Go, then C#, then F#: Rust's
 module is a small file, Go's carries the Go runtime, and C#'s is a
@@ -18,6 +19,7 @@ A bigger request fails with an error that names the size and the limit:
   The limit is 1048576 bytes. Pass less data to the service.
 ty doctor checks for the
 wasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,
-and, for Ruby, Emscripten 6.0.10 or newer and a C compiler.
+and, for Ruby, Emscripten 6.0.10 or newer and a C compiler; for Lua,
+Emscripten 6.0.10 or newer and the lua program for test units.
 A release build also writes Brotli copies, so a browser downloads about
 a quarter to a third of these sizes (ty start sends them).

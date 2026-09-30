@@ -10,7 +10,7 @@ pub enum AddWhat {
         #[arg(help = "client (Tac) or server (Yon)")]
         realm: String,
         #[arg(
-            help = "Language: js, ts, dart, rs, cs, fs, go, rb, swift, kt, java for client; js, ts, py, go, java, kt, cs, php, rb, rs, dart for server"
+            help = "Language: js, ts, dart, rs, cs, fs, go, rb, lua, swift, kt, java for client; js, ts, py, go, java, kt, cs, php, rb, lua, rs, dart for server"
         )]
         language: String,
         #[command(flatten)]

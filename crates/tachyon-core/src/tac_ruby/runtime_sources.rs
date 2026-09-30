@@ -1,6 +1,4 @@
-use crate::Failure;
-use crate::web_runtime::{SourceArchive, WebRuntimeStep};
-use std::path::Path;
+use crate::web_runtime::{RuntimeSources, WebRuntimeStep};
 
 pub(crate) struct RubyRuntimeSources;
 
@@ -10,7 +8,11 @@ impl RubyRuntimeSources {
     pub(crate) const NOTICES: &'static str =
         include_str!("../../../../runtimes/ruby-web/THIRD_PARTY_NOTICES.txt");
     pub(crate) const BUILD_CONFIG: &'static str = "build-config.rb";
-    pub(crate) const STEP: WebRuntimeStep = WebRuntimeStep::new("Ruby");
+    pub(crate) const SOURCES: RuntimeSources = RuntimeSources::new(
+        WebRuntimeStep::new("Ruby"),
+        Self::PINNED_SOURCES,
+        &Self::FILES,
+    );
     const PINNED_SOURCES: &'static str = include_str!("../../../../runtimes/ruby-web/sources.txt");
     const FILES: [(&'static str, &'static str); 9] = [
         ("sources.txt", Self::PINNED_SOURCES),
@@ -41,22 +43,4 @@ impl RubyRuntimeSources {
             include_str!("../../../../runtimes/ruby-web/tachyon-web/src/tachyon_web.c"),
         ),
     ];
-
-    pub(crate) fn fingerprint() -> String {
-        WebRuntimeStep::fingerprint(&Self::FILES)
-    }
-
-    pub(crate) fn write_into(folder: &Path) -> Result<(), Failure> {
-        Self::STEP.write_files(folder, &Self::FILES)
-    }
-
-    pub(crate) fn archive(name: &str) -> Result<SourceArchive, Failure> {
-        SourceArchive::pinned(Self::STEP, Self::PINNED_SOURCES, name)
-    }
-
-    pub(crate) fn minimum_emscripten() -> String {
-        SourceArchive::pinned(Self::STEP, Self::PINNED_SOURCES, "emscripten")
-            .map(|archive| archive.version)
-            .unwrap_or_default()
-    }
 }

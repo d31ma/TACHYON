@@ -10,6 +10,18 @@ impl EmscriptenTool {
     #[cfg(not(windows))]
     pub(crate) const EMCC: &'static str = "emcc";
 
+    pub(crate) const LINK_ARGUMENTS: [&'static str; 9] = [
+        "-Oz",
+        "-fwasm-exceptions",
+        "-sSUPPORT_LONGJMP=wasm",
+        "-sSTANDALONE_WASM",
+        "--no-entry",
+        "-sALLOW_MEMORY_GROWTH=1",
+        "-sINITIAL_MEMORY=4MB",
+        "-sSTACK_SIZE=1MB",
+        "-sEXPORTED_FUNCTIONS=_tac_boot,_tac_invoke,_tac_alloc,_tac_free",
+    ];
+
     pub(crate) fn new(minimum: String) -> Self {
         Self { minimum }
     }
@@ -27,11 +39,15 @@ impl EmscriptenTool {
     }
 
     pub(crate) fn version_state(&self, line: String) -> ToolchainState {
-        let minimum = &self.minimum;
-        if Self::numbers(&line) >= Self::parts(minimum) {
+        let recent = Self::numbers(&line) >= Self::parts(&self.minimum);
+        self.state_of(line, recent)
+    }
+
+    fn state_of(&self, line: String, recent: bool) -> ToolchainState {
+        if recent {
             return ToolchainState::Ready(line);
         }
-        ToolchainState::Incomplete(format!("{line}, but {minimum} or newer is required"))
+        ToolchainState::Incomplete(format!("{line}, but {} or newer is required", self.minimum))
     }
 
     fn numbers(text: &str) -> Vec<u32> {

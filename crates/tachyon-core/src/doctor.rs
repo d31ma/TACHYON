@@ -376,6 +376,24 @@ mod tests {
     }
 
     #[test]
+    fn a_lua_web_service_reports_the_tools_that_build_and_test_it() {
+        let root = project_with(&[(
+            "client/services/BasketService.lua",
+            "-- @Service\n---@class BasketService\nBasketService = {\n  ---@type integer\n  count = 0,\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        let built = crate::tac_lua::LuaRuntimeBuild::cached_path().is_file();
+        let first = ["emcc", "tachyon-lua.wasm"][usize::from(built)];
+        assert!(commands[0].starts_with(first), "{commands:?}");
+        assert!(commands.contains(&"lua"), "{commands:?}");
+        for entry in &report.toolchains {
+            assert_eq!(entry.requirement, "Lua services on the web");
+            assert!(entry.required, "{entry:?}");
+        }
+    }
+
+    #[test]
     fn a_ruby_web_service_reports_the_tools_that_build_its_runtime() {
         let root = project_with(&[(
             "client/services/BasketService.rb",

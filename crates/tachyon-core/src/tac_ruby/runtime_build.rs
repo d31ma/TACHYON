@@ -19,22 +19,11 @@ impl RubyRuntimeBuild {
     const MAXIMUM_JOBS: usize = 4;
     const COMPILE_LIMIT: Duration = Duration::from_mins(40);
     const LINK_LIMIT: Duration = Duration::from_mins(10);
-    const LINK_ARGUMENTS: [&'static str; 9] = [
-        "-Oz",
-        "-fwasm-exceptions",
-        "-sSUPPORT_LONGJMP=wasm",
-        "-sSTANDALONE_WASM",
-        "--no-entry",
-        "-sALLOW_MEMORY_GROWTH=1",
-        "-sINITIAL_MEMORY=4MB",
-        "-sSTACK_SIZE=1MB",
-        "-sEXPORTED_FUNCTIONS=_tac_boot,_tac_invoke,_tac_alloc,_tac_free",
-    ];
 
     pub(crate) fn cached_path() -> PathBuf {
         crate::cache::root()
             .join(Self::CACHE_FOLDER)
-            .join(RubyRuntimeSources::fingerprint())
+            .join(RubyRuntimeSources::SOURCES.fingerprint())
             .join(Self::FILE_NAME)
     }
 
@@ -74,24 +63,29 @@ impl RubyRuntimeBuild {
             return Ok(bytes);
         }
         Self::build(cached).await?;
-        RubyRuntimeSources::STEP.read_file(cached)
+        RubyRuntimeSources::SOURCES.step.read_file(cached)
     }
 
     async fn build(cached: &Path) -> Result<(), Failure> {
         RubyRuntimeTools::readiness()?;
-        let folder =
-            RubyRuntimeSources::STEP.work_folder(&crate::cache::root().join(Self::CACHE_FOLDER))?;
+        let folder = RubyRuntimeSources::SOURCES
+            .step
+            .work_folder(&crate::cache::root().join(Self::CACHE_FOLDER))?;
         let work = folder.path();
-        RubyRuntimeSources::write_into(&work.join("runtime"))?;
-        RubyRuntimeSources::archive("mruby")?
+        RubyRuntimeSources::SOURCES.write_into(&work.join("runtime"))?;
+        RubyRuntimeSources::SOURCES
+            .archive("mruby")?
             .unpack_into(work, "mruby")
             .await?;
-        RubyRuntimeSources::archive("prism")?
+        RubyRuntimeSources::SOURCES
+            .archive("prism")?
             .unpack_into(work, Self::PRISM_FOLDER)
             .await?;
         Self::compile_library(work).await?;
         Self::link(work).await?;
-        RubyRuntimeSources::STEP.publish(&work.join(Self::FILE_NAME), cached)
+        RubyRuntimeSources::SOURCES
+            .step
+            .publish(&work.join(Self::FILE_NAME), cached)
     }
 
     async fn compile_library(work: &Path) -> Result<(), Failure> {
@@ -104,7 +98,8 @@ impl RubyRuntimeBuild {
             .current_dir(work.join("mruby"))
             .env("MRUBY_CONFIG", configuration)
             .env("TAC_RUBY_BUILD_DIR", work.join("build"));
-        RubyRuntimeSources::STEP
+        RubyRuntimeSources::SOURCES
+            .step
             .run(&mut command, "the mruby build", Self::COMPILE_LIMIT)
             .await
     }
@@ -112,11 +107,12 @@ impl RubyRuntimeBuild {
     async fn link(work: &Path) -> Result<(), Failure> {
         let mut command = Command::new(crate::web_runtime::EmscriptenTool::EMCC);
         command
-            .args(Self::LINK_ARGUMENTS)
+            .args(crate::web_runtime::EmscriptenTool::LINK_ARGUMENTS)
             .arg(Self::LIBRARY)
             .args(["-o", Self::FILE_NAME])
             .current_dir(work);
-        RubyRuntimeSources::STEP
+        RubyRuntimeSources::SOURCES
+            .step
             .run(
                 &mut command,
                 "emcc to link the Ruby runtime",

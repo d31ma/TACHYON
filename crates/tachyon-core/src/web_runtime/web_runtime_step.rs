@@ -1,7 +1,6 @@
 use crate::Failure;
 use crate::external_command::ToolOutput;
 use crate::failure::diagnostic;
-use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
@@ -38,23 +37,6 @@ impl WebRuntimeStep {
         self.create_parent(path)?;
         std::fs::write(path, bytes)
             .map_err(|error| self.failure(&format!("Cannot write {}: {error}", path.display())))
-    }
-
-    pub(crate) fn fingerprint(files: &[(&str, &str)]) -> String {
-        let mut hasher = Sha256::new();
-        for (name, text) in files {
-            hasher.update(name.as_bytes());
-            hasher.update(text.len().to_le_bytes());
-            hasher.update(text.as_bytes());
-        }
-        crate::compiler::hex_digest(hasher.finalize())
-    }
-
-    pub(crate) fn write_files(&self, folder: &Path, files: &[(&str, &str)]) -> Result<(), Failure> {
-        for (name, text) in files {
-            self.write_file(&folder.join(name), text.as_bytes())?;
-        }
-        Ok(())
     }
 
     pub(crate) fn read_file(&self, path: &Path) -> Result<Vec<u8>, Failure> {
