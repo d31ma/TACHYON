@@ -69,6 +69,13 @@ is never remembered. The cache lives in `.step-cache` inside the staging
 folder (`TAC_SNIPPETS_SCRATCH`, or `tachyon-snippets` in the system temporary
 folder), never in the repository.
 
+Tac Rust, Swift, Kotlin and C# examples are compiled for the web, the way the
+site ships them. When a language's web toolchain is missing, the verifier
+stages native source instead and says so; with
+`TAC_SNIPPETS_REQUIRE_TOOLCHAINS=1` the missing toolchain is a failure. Each
+example keeps its `dist` folder between runs, so `ty bundle` reuses the
+compressed files of a runtime that did not change.
+
 ## Code examples
 
 Every example on the site is a real file under `content/`. Each page, topic,

@@ -637,6 +637,30 @@ machine contracts have their own, independent major versions.
   parameters (ADR 0039 and 0073 amendments); TY1405 now refuses only a
   collaborator parameter, or a parameter without `[<NeedsAll>]`. The
   "One per page, or one per component" guide shows Java and F#.
+- `verify:snippets` remembers each build, test-unit and `tsc` step that
+  passed and skips it the next time all of its inputs are the same: the
+  example's files, the `ty` binary, the lock files, the verifier scripts, the
+  `TAC_*` settings and the version of every toolchain. HTTP and browser checks
+  always run, and a failed step is never remembered. `--no-cache` runs every
+  step. The cache lives in `.step-cache` in the staging folder, never in the
+  repository. A full run on the Mac went from 698 s to 209 s with the same
+  result.
+
+- `verify:snippets` compiles Tac Rust, Swift, Kotlin and C# examples for the
+  web when the web toolchain is installed (and always with
+  `TAC_SNIPPETS_REQUIRE_TOOLCHAINS=1`), instead of only staging native source.
+  It keeps each example's `dist` folder between runs, so ty reuses the Brotli
+  and gzip files of an unchanged runtime (a Swift web bundle: 41 s to 0.3 s).
+  CI's macOS job installs the checksum-pinned Kotlin/Wasm standard library.
+
+- `scripts/browser-gate.mjs` runs the browser test scripts up to four at a
+  time while enough memory is free, with one log per script (on WSL: 456 s in
+  sequence, 155 s three at a time).
+
+- `.config/nextest.toml`: no retries except for the load-sensitive runtime
+  tests, which run one at a time in a `serial` group; the slowest toolchain
+  tests run in a `heavy` group with a 15 minute limit; every other test stops
+  after 5 minutes.
 
 - F# takes a role through a Needs property as well as through its primary
   constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
