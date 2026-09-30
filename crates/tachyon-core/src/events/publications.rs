@@ -25,6 +25,19 @@ impl Publications<'_> {
         publications.rewrite()
     }
 
+    pub(crate) fn event_names(language: &str, source: &str) -> Vec<String> {
+        let publications = Publications {
+            language,
+            source,
+            code: crate::lexical::code_mask(language, source).code,
+        };
+        let calls = publications.calls();
+        calls
+            .iter()
+            .filter_map(|call| publications.model_of(call).ok())
+            .collect()
+    }
+
     pub(crate) fn refuse_names(language: &str, source: &str) -> Result<(), (usize, String)> {
         let publications = Publications {
             language,

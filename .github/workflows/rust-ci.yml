@@ -305,6 +305,11 @@ jobs:
           bun run test:storage-browser
           bun run test:runtime-browser
 
+      - name: Run the real-browser web components contract
+        run: bun run test:web-components-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
       - name: Verify shared Tac and Yon behavior adapters
         run: |
           bun run test:behavior-runtime

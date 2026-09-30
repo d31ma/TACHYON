@@ -143,7 +143,13 @@ impl<'a> SiteBuild<'a> {
     pub(super) fn add_element_files(&mut self, names: &[String]) -> Result<(), Failure> {
         let renderer = ClientViewRenderer::new(&self.components, &self.services, &self.shared_data);
         let has_styles = !self.component_styles.is_empty();
-        let elements = ExportedElements::new(renderer, &self.components, has_styles);
+        let elements = ExportedElements::new(
+            renderer,
+            &self.components,
+            &self.services,
+            self.snapshot_root,
+            has_styles,
+        );
         self.files.extend(elements.files(names)?);
         Ok(())
     }

@@ -586,6 +586,17 @@ machine contracts have their own, independent major versions.
   styles. `TY1358` stops a name without a hyphen or a name that is not a
   component. The runtime now also starts on a page without a Tac view.
   Slice 1 covers JavaScript and TypeScript services.
+- Exported elements, slice 2 (ADR 0086). A project that only lists
+  components in `tac.elements` builds without a page or a controller;
+  `TY1002` asks for a page only when there is also no exported element.
+  `ty build` writes `.tachyon/elements/<tag>.d.ts` beside each element: the
+  tag in `HTMLElementTagNameMap`, a property per prop, and a typed
+  `addEventListener` whose `event.detail` has the event model's type.
+  Tac templates have named slots: `<slot name="title">` takes the children
+  with `slot="title"`, on a Tac page and as a native named slot in an
+  exported element. A child for a slot that the component does not declare
+  stops the build with `TY1404`. CI runs the web components browser test in
+  Chromium, Firefox and WebKit.
 - Lua is a Yon language (ADR 0085). Controllers, services and the other
   roles, error handlers and error types, root middleware (`middleware.lua`),
   models and test units run on Lua 5.4 or newer. Lua has no annotation

@@ -1,12 +1,18 @@
+use super::element_declaration::ElementDeclaration;
+use super::element_events::ElementEvents;
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
-use crate::template::{ClientViewRenderer, ComponentDefinition, ComponentRegistry};
+use crate::template::{
+    ClientViewRenderer, ComponentDefinition, ComponentRegistry, ServiceRegistry,
+};
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(super) struct ExportedElements<'a> {
     renderer: ClientViewRenderer<'a>,
     components: &'a ComponentRegistry,
+    services: &'a ServiceRegistry,
+    project_root: &'a Path,
     has_styles: bool,
 }
 
@@ -15,28 +21,80 @@ impl<'a> ExportedElements<'a> {
     const MANIFEST: &'static str = "client/manifest.json";
     const CODE: u16 = 1358;
     const RUNTIME_IMPORT: &'static str = "import { TacElements } from '../tac-client.js'\n";
+    const MODULE_EXTENSION: &'static str = "js";
+    const DECLARATION_EXTENSION: &'static str = "d.ts";
 
     pub(super) const fn new(
         renderer: ClientViewRenderer<'a>,
         components: &'a ComponentRegistry,
+        services: &'a ServiceRegistry,
+        project_root: &'a Path,
         has_styles: bool,
     ) -> Self {
         Self {
             renderer,
             components,
+            services,
+            project_root,
             has_styles,
         }
     }
 
     pub(super) fn files(&self, names: &[String]) -> Result<Vec<(PathBuf, Vec<u8>)>, Failure> {
-        names.iter().map(|name| self.file(name)).collect()
+        let pairs = names
+            .iter()
+            .map(|name| self.element_files(name))
+            .collect::<Result<Vec<_>, Failure>>()?;
+        Ok(pairs.into_iter().flatten().collect())
     }
 
-    fn file(&self, name: &str) -> Result<(PathBuf, Vec<u8>), Failure> {
+    fn element_files(&self, name: &str) -> Result<[(PathBuf, Vec<u8>); 2], Failure> {
         let component = self.component(name)?;
         Self::check_hyphen(name)?;
-        let path = PathBuf::from(format!("{}/{name}.js", Self::FOLDER));
-        Ok((path, self.module(name, component)?))
+        let definition = self.definition(name, component)?;
+        let declaration = self.declaration(name, &definition);
+        let module = format!("{}TacElements.define({definition})\n", Self::RUNTIME_IMPORT);
+        Ok([
+            (
+                Self::path(name, Self::MODULE_EXTENSION),
+                module.into_bytes(),
+            ),
+            (
+                Self::path(name, Self::DECLARATION_EXTENSION),
+                declaration.into_bytes(),
+            ),
+        ])
+    }
+
+    fn path(name: &str, extension: &str) -> PathBuf {
+        PathBuf::from(format!("{}/{name}.{extension}", Self::FOLDER))
+    }
+
+    fn declaration(&self, name: &str, definition: &Value) -> String {
+        let props = Self::props(definition);
+        let service_names = Self::service_names(definition);
+        let events = ElementEvents::collect(self.project_root, self.services, &service_names);
+        ElementDeclaration::new(name, &props, &events).text()
+    }
+
+    fn props(definition: &Value) -> Vec<String> {
+        Self::items(&definition["props"])
+            .iter()
+            .filter_map(Value::as_str)
+            .map(String::from)
+            .collect()
+    }
+
+    fn service_names(definition: &Value) -> Vec<String> {
+        Self::items(&definition["node"]["services"])
+            .iter()
+            .filter_map(|service| service["name"].as_str())
+            .map(String::from)
+            .collect()
+    }
+
+    fn items(list: &Value) -> &[Value] {
+        list.as_array().map_or(&[], Vec::as_slice)
     }
 
     fn component(&self, name: &str) -> Result<&'a ComponentDefinition, Failure> {
@@ -63,11 +121,10 @@ impl<'a> ExportedElements<'a> {
         })
     }
 
-    fn module(&self, name: &str, component: &ComponentDefinition) -> Result<Vec<u8>, Failure> {
+    fn definition(&self, name: &str, component: &ComponentDefinition) -> Result<Value, Failure> {
         let mut definition = self.renderer.element(name, component)?;
         definition["styles"] = Value::Bool(self.has_styles);
-        let module = format!("{}TacElements.define({definition})\n", Self::RUNTIME_IMPORT);
-        Ok(module.into_bytes())
+        Ok(definition)
     }
 
     fn failure(message: String, help: String) -> Failure {

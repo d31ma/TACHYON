@@ -33,8 +33,8 @@ impl Discovered {
         access.finish(&mut self.diagnostics)
     }
 
-    pub(super) fn into_route_graph(self) -> Result<RouteGraph, Failure> {
-        let checked = self.checked()?;
+    pub(super) fn into_route_graph(self, exports_elements: bool) -> Result<RouteGraph, Failure> {
+        let checked = self.checked(exports_elements)?;
         RouteGraph::build(checked.views, checked.handlers)
     }
 
@@ -162,10 +162,10 @@ impl Discovered {
         Some(())
     }
 
-    fn checked(self) -> Result<Self, Failure> {
+    fn checked(self, exports_elements: bool) -> Result<Self, Failure> {
         if !self.diagnostics.is_empty() {
             Err(Failure::new(self.diagnostics))
-        } else if self.views.is_empty() && self.handlers.is_empty() {
+        } else if self.views.is_empty() && self.handlers.is_empty() && !exports_elements {
             Err(Self::nothing_found())
         } else {
             Ok(self)
@@ -216,7 +216,7 @@ impl Discovered {
             1002,
             "No Tachyon view or handler source was found.",
             Some(String::from(
-                "Add a client/pages/tac.html view or a controller in server/controllers/.",
+                "Add a client/pages/tac.html view, a controller in server/controllers/, or a component to tac.elements in client/manifest.json.",
             )),
             None,
         ))

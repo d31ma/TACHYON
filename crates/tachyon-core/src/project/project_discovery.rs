@@ -55,7 +55,8 @@ impl ProjectDiscovery {
         let identity = found.identity_provider();
         let middleware = context.middleware(captured.middleware.take(), &mut found.diagnostics);
         let workers = WorkerSchedules::discover(&context, &captured, &mut found.diagnostics);
-        let route_graph = found.into_route_graph()?;
+        let exports_elements = crate::native::SiteSettings::exports_elements(&canonical_root);
+        let route_graph = found.into_route_graph(exports_elements)?;
         let capability = Self::retain_capability(project)?;
         Ok(Project {
             root: canonical_root,

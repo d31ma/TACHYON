@@ -40,7 +40,7 @@ impl AccessibleName {
             TemplateNodeKind::Element { .. } => {
                 ViewElement::of(node).is_some_and(|element| Self::element_gives_name(&element))
             }
-            TemplateNodeKind::Component { .. } | TemplateNodeKind::Slot => true,
+            TemplateNodeKind::Component { .. } | TemplateNodeKind::Slot(_) => true,
             _ => Self::has_content(node.kind.children().unwrap_or_default()),
         }
     }

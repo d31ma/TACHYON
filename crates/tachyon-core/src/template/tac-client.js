@@ -275,6 +275,7 @@ const planAssets = (nodes, found = []) => {
       for (const service of node.services || []) if (service.module) found.push(service.module)
       planAssets(node.template, found)
       planAssets(node.slot, found)
+      for (const nodes of Object.values(node.slots || {})) planAssets(nodes, found)
     }
     planAssets(node.children, found)
   }
@@ -1190,6 +1191,7 @@ const renderComponent = async (node, environment, path) => {
   if (node.scope) host.setAttribute('data-tac-scope', node.name)
   host.append(await renderNodes(node.template || [], ownedEnvironment(owner), `${path}.template`, {
     nodes: node.slot || [],
+    named: node.slots || {},
     environment,
   }))
   host.tachyonComponent = { instance: owner, refresh: render }
@@ -1261,7 +1263,8 @@ const renderNode = async (node, environment, path, slot) => {
   if (node.k === 'text') return renderText(node.parts, environment)
   if (node.k === 'comment') return document.createComment(node.value || '')
   if (node.k === 'slot') {
-    return slot ? renderNodes(slot.nodes, slot.environment, `${path}.slot`, null) : document.createDocumentFragment()
+    const nodes = node.name ? slot?.named[node.name] : slot?.nodes
+    return nodes ? renderNodes(nodes, slot.environment, `${path}.slot`, null) : document.createDocumentFragment()
   }
   if (node.k === 'iteration') return renderIteration(node, environment, path, slot)
   if (node.k === 'counted') return renderCounted(node, environment, path, slot)

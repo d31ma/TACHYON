@@ -1,7 +1,8 @@
 # ADR 0086: A Component Can Be Exported as a Custom Element
 
 - Status: Accepted (slice 1: components whose services are JavaScript or
-  TypeScript; the items under "Later" are open)
+  TypeScript; slice 2: a project without pages, TypeScript declarations and
+  named slots; the items under "Later" are open)
 - Date: 2026-09-29
 - Relates to: [ADR 0029](0029-pages-compose-components.md) (a component is
   the unit of view, behaviour and style),
@@ -100,6 +101,8 @@ The element renders the component into an open shadow root.
   host page puts inside the element stay in the host page's DOM. The browser
   shows them in the slot. So React or Vue keep full control of those
   children.
+- A named slot, `<slot name="note">`, becomes a native named slot. A host
+  child with `slot="note"` shows there (slice 2).
 - The component styles (`.tachyon/components.css`) load once into one
   shared stylesheet. Every element adopts that stylesheet into its shadow
   root.
@@ -137,12 +140,40 @@ dist/.tachyon/services/...
 dist/.tachyon/components.css
 ```
 
+Beside each module, the build writes a TypeScript declaration file,
+`dist/.tachyon/elements/shop-counter.d.ts` (slice 2). It adds the tag to
+`HTMLElementTagNameMap`, declares a class `ShopCounterElement` with one
+property per prop, and types `addEventListener` with an event map:
+`count-changed` gives `CustomEvent<CountChanged>`. A prop has the type
+`unknown`, because a template does not declare types. The event models
+are the models that the component's JavaScript or TypeScript services pass
+to `publishEvent`; the file copies each one as an interface, so it needs no
+other file.
+
 A host page loads the element with one script tag and uses the tag:
 
 ```html
 <script type="module" src="/.tachyon/elements/shop-counter.js"></script>
 <shop-counter start="5"><span>Apples</span></shop-counter>
 ```
+
+### A project without pages
+
+A project may only export elements. When `tac.elements` lists at least one
+component, discovery accepts a project with no page and no controller, and
+the build writes the element modules, the runtime and the services without
+an `index.html` (slice 2). `TY1002` still stops a project that has no page,
+no controller and no exported element.
+
+### Named slots in Tac templates
+
+Named slots are a Tac template feature, not only an export feature, so a
+component behaves the same on a Tac page and in another app. `<slot
+name="title">` takes a fixed, non-empty name (`TY1302` otherwise). On a Tac
+page, a child element or component with a fixed `slot="title"` attribute
+goes into that slot, and the other children go into `<slot>`. A child for a
+slot that the component does not declare stops the build with `TY1404`, as
+children without any `<slot>` already did. No new code is needed.
 
 ## Consequences
 
@@ -164,20 +195,30 @@ A host page loads the element with one script tag and uses the tag:
   prop in, receives an event out, and shows slot content.
 - A docs page and an example, checked by `verify-snippets`.
 
+## Acceptance (slice 2)
+
+- A project with `tac.elements` and no page or controller builds, and
+  writes no `index.html`.
+- `ty build` writes `.tachyon/elements/<name>.d.ts`; a TypeScript consumer
+  that reads `event.detail` with the right type compiles, and one with the
+  wrong type fails with `TS2322`.
+- A named slot works in a plain HTML host page and on a Tac page, in
+  Chromium, Firefox and WebKit.
+- CI runs `scripts/web-components-browser-test.mjs`.
+
 ## Later
 
 - Services in compiled languages (WebAssembly) inside exported elements,
   once each loader is tested there.
 - Serving an export from another origin (CORS headers, and resolving service
   URLs against the runtime's own URL).
-- Named slots (Tac has one default slot today).
-- A project that only exports elements and has no page (today the build
-  still asks for one page or controller with `TY1002`).
+- Typed props in the declarations (from the types of the fields that a
+  service needs) and event types for services in other languages.
 - A `hydrate` attribute on the element (`idle`, `visible`, `interaction`).
 - Fields that a service needs follow prop changes after the service starts.
 - One stylesheet per element, with only the components it uses.
-- TypeScript declarations for exported elements (`HTMLElementTagNameMap`,
-  event types) and helpers for React and Vue types.
+- Helpers for React and Vue types (JSX `IntrinsicElements`, Vue
+  `GlobalComponents`).
 - Form-associated elements (`ElementInternals`).
 - Step 2 of micro-frontends: mount separately built Tac apps under route
   prefixes.

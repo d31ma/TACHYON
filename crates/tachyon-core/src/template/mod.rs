@@ -2,12 +2,14 @@ mod accessibility;
 mod braced_attribute;
 mod client;
 mod component;
+mod component_slots;
 mod context;
 mod expression;
 mod frontend;
 mod model;
 pub(crate) mod required_fields;
 mod service;
+mod slotted_children;
 
 pub(crate) use accessibility::AccessibilityCheck;
 pub(crate) use braced_attribute::BracedAttribute;

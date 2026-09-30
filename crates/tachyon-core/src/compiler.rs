@@ -7,6 +7,8 @@ mod build_state;
 mod component_script;
 mod component_styles;
 mod content_digest;
+mod element_declaration;
+mod element_events;
 mod exported_elements;
 mod output_path;
 mod page_composition;
@@ -24,6 +26,7 @@ mod site_build;
 mod tool_build;
 mod typescript_cache;
 mod typescript_compiler;
+mod typescript_field_type;
 
 pub use build_options::BuildOptions;
 pub use build_profile::BuildProfile;

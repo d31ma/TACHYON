@@ -49,6 +49,13 @@ impl SiteSettings {
         })
     }
 
+    pub(crate) fn exports_elements(project_root: &Path) -> bool {
+        read_manifest(project_root)
+            .ok()
+            .flatten()
+            .is_some_and(|manifest| !manifest.into_tac().elements.is_empty())
+    }
+
     fn validate_origin(origin: Option<&str>) -> Result<(), Failure> {
         let Some(origin) = origin else {
             return Ok(());

@@ -1,8 +1,10 @@
+use super::component_slots::ComponentSlots;
 use super::model::{ConditionalBranch, EventArgument, EventBinding};
+use super::slotted_children::SlottedChildren;
 use super::{
     AttributeValue, ComponentDefinition, ComponentRegistry, Expression, HydrationPolicy, Scope,
     ServiceDefinition, ServiceRegistry, TemplateAttribute, TemplateNode, TemplateNodeKind,
-    TemplateProgram, TextPart, is_trivia,
+    TemplateProgram, TextPart,
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
@@ -212,7 +214,7 @@ impl<'a> Encoder<'a> {
                 hydrate,
                 children,
             } => self.component(node, name, properties, *hydrate, children),
-            TemplateNodeKind::Slot => Ok(json!({ "k": "slot" })),
+            TemplateNodeKind::Slot(name) => Ok(slot_value(name.as_deref())),
         }
     }
 
@@ -340,14 +342,8 @@ impl<'a> Encoder<'a> {
             client_failure(node, 1402, &format!("Unknown Tac component '<{name}>'."))
         })?;
         let template_nodes = &component.program().nodes;
-        let has_children = children.iter().any(|child| !is_trivia(child));
-        if has_children && !contains_slot(template_nodes) {
-            return Err(client_failure(
-                node,
-                1404,
-                &format!("Component '<{name}>' received children but declares no <slot>."),
-            ));
-        }
+        let slotted = SlottedChildren::split(children);
+        ComponentSlots::of(template_nodes).check(node, name, &slotted)?;
         let service_names = self.named_services(template_nodes);
         let has_services = !service_names.is_empty();
         let policy = mount_policy(node, name, declared_policy, has_services)?;
@@ -369,7 +365,8 @@ impl<'a> Encoder<'a> {
         let template = self.component_template(template_nodes, active);
         self.enclosing.pop();
         let template = template?;
-        let slot = self.nodes(children)?;
+        let slot = self.nodes(&slotted.unnamed)?;
+        let slots = self.named_slot_nodes(&slotted)?;
         Ok(json!({
             "k": "component",
             "name": name,
@@ -379,7 +376,19 @@ impl<'a> Encoder<'a> {
             "scope": component.style_path().is_some(),
             "template": template,
             "slot": slot,
+            "slots": slots,
         }))
+    }
+
+    fn named_slot_nodes(
+        &mut self,
+        slotted: &SlottedChildren,
+    ) -> Result<serde_json::Map<String, Value>, Failure> {
+        let mut named = serde_json::Map::new();
+        for (name, children) in &slotted.named {
+            named.insert(name.clone(), Value::Array(self.nodes(children)?));
+        }
+        Ok(named)
     }
 
     fn exported_component(
@@ -399,8 +408,7 @@ impl<'a> Encoder<'a> {
         });
         let template = self.component_template(template_nodes, active);
         self.enclosing.pop();
-        let slot = contains_slot(template_nodes)
-            .then(|| json!({ "k": "element", "tag": "slot", "attributes": [], "children": [], "void": false }));
+        let slots = ComponentSlots::of(template_nodes);
         Ok(json!({
             "props": props,
             "node": {
@@ -412,7 +420,8 @@ impl<'a> Encoder<'a> {
                 "services": services,
                 "scope": component.style_path().is_some(),
                 "template": template?,
-                "slot": slot.into_iter().collect::<Vec<_>>(),
+                "slot": slots.native_unnamed(),
+                "slots": slots.native_named(),
             },
         }))
     }
@@ -819,7 +828,7 @@ fn collect_node_names(
             collect_loop_body_names(binding, children, loop_bindings, names);
             return;
         }
-        TemplateNodeKind::Comment(_) | TemplateNodeKind::Slot => {}
+        TemplateNodeKind::Comment(_) | TemplateNodeKind::Slot(_) => {}
     }
     if let Some(children) = node.kind.children() {
         collect_names_in_scope(children, loop_bindings, names);
@@ -965,16 +974,11 @@ fn is_shared_data_root(value: &Value) -> bool {
     is_identifier && name == Some(ClientViewRenderer::SHARED_DATA_ROOT)
 }
 
-fn contains_slot(nodes: &[TemplateNode]) -> bool {
-    for node in nodes {
-        if matches!(node.kind, TemplateNodeKind::Slot) {
-            return true;
-        }
-        if node.kind.children().is_some_and(contains_slot) {
-            return true;
-        }
+fn slot_value(name: Option<&str>) -> Value {
+    match name {
+        Some(name) => json!({ "k": "slot", "name": name }),
+        None => json!({ "k": "slot" }),
     }
-    false
 }
 
 fn client_failure(node: &TemplateNode, code: u16, message: &str) -> Failure {

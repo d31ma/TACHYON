@@ -1,4 +1,30 @@
 {
   "heading": "Components",
-  "body": "Each component folder under client/components becomes a tag with hyphens: components/panel/users becomes panel-users. You pass props (the values a component receives) as attributes. The lazy attribute waits to load the component until it scrolls into view. To use a component outside your Tac app, list it in `tac.elements` (see Components in other apps)."
+  "body": "Each component folder under client/components becomes a tag with hyphens: components/panel/users becomes panel-users. You pass props (the values a component receives) as attributes. The lazy attribute waits to load the component until it scrolls into view. To use a component outside your Tac app, list it in `tac.elements` (see Components in other apps).\n\nA component shows the children that it receives in a slot. `<slot>` holds every child without a `slot` attribute. A named slot, such as `<slot name=\"title\">`, holds the children whose `slot` attribute has that name, such as `<page-title slot=\"title\" />`. A slot name is fixed text that is not empty (`TY1302`). A child for a slot that the component does not declare stops the build with `TY1404`, and so do children without a `slot` attribute when the component has no `<slot>`.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/site/shell/tac.html",
+      "code": {
+        "file": "client/components/site/shell/tac.html"
+      }
+    },
+    {
+      "name": "client/components/page/title/tac.html",
+      "code": {
+        "file": "client/components/page/title/tac.html"
+      }
+    },
+    {
+      "name": "client/components/product/card/tac.html",
+      "code": {
+        "file": "client/components/product/card/tac.html"
+      }
+    }
+  ]
 }

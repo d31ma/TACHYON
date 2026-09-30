@@ -83,7 +83,7 @@ pub(crate) enum TemplateNodeKind {
         hydrate: Option<HydrationPolicy>,
         children: Vec<TemplateNode>,
     },
-    Slot,
+    Slot(Option<String>),
 }
 
 impl TemplateNodeKind {
@@ -96,7 +96,7 @@ impl TemplateNodeKind {
             | Self::Switch { children, .. }
             | Self::Case { children, .. }
             | Self::Component { children, .. } => Some(children),
-            Self::Text(_) | Self::Comment(_) | Self::Slot => None,
+            Self::Text(_) | Self::Comment(_) | Self::Slot(_) => None,
         }
     }
 
@@ -109,7 +109,7 @@ impl TemplateNodeKind {
             | Self::Switch { children, .. }
             | Self::Case { children, .. }
             | Self::Component { children, .. } => Some(children),
-            Self::Text(_) | Self::Comment(_) | Self::Slot => None,
+            Self::Text(_) | Self::Comment(_) | Self::Slot(_) => None,
         }
     }
 }
@@ -307,9 +307,12 @@ fn lower_node(node: &TemplateNode) -> Option<ViewNode> {
             children,
         } => Some(lower_component(name, properties, *hydrate, children)),
         TemplateNodeKind::CountedIteration { .. } => Some(lower_counted_iteration(&node.kind)),
-        TemplateNodeKind::Slot => Some(ViewNode::Element {
+        TemplateNodeKind::Slot(name) => Some(ViewNode::Element {
             tag: String::from("slot"),
-            attributes: BTreeMap::new(),
+            attributes: name
+                .iter()
+                .map(|name| (String::from("name"), name.clone()))
+                .collect(),
             children: Vec::new(),
         }),
     }

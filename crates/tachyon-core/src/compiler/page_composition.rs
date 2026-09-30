@@ -64,7 +64,7 @@ impl PageComposition {
             TemplateNodeKind::Text(parts) if Self::is_blank_text(parts) => None,
             TemplateNodeKind::Text(_) => Some("text or an expression"),
             TemplateNodeKind::Element { .. } => Some("a plain element"),
-            TemplateNodeKind::Slot => Some("a slot"),
+            TemplateNodeKind::Slot(_) => Some("a slot"),
             _ => Some("control flow"),
         }
     }
