@@ -106,7 +106,7 @@ table, and its methods are functions stored in the table.
 These stop the build until a later step adds them: the rule table says that
 the annotation is not available in Lua (`TY1308`), or the lowering names this
 ADR (`TY2015`):
-StreamRoute and SocketRoute in Yon, topics, and behavior annotations in Tac. Resources are not available in Lua: DataSource,
+topics, and behavior annotations in Tac. Resources are not available in Lua: DataSource,
 RedisTemplate, gateway clients (`@HTTPClient`, `@Gateway`), Tac stores
 (`@Store`) and `relay`. The rule table refuses `@HTTPClient`, its request
 markers, `@Gateway` and Tac `@Store` in Lua, and every Lua refusal of the
@@ -166,6 +166,14 @@ the build with `TY2015`, and the message names the resource and this ADR.
   `-- @ValueSource` as a Yon Lua unit. `self:construct(Service)` builds a
   service with its own fields, and a `-- @Fake` field of the unit replaces
   the field with the same name.
+- Tachyon's browser APIs are global tables that a Lua service calls with
+  `:`: `Clock:now_ms()`, `SecureRandom:uuid()`, `Connectivity:online()`,
+  `PageVisibility:visible()`, `Preferences:scheme()`,
+  `Clipboard:write_text(text)`, `Share:open(title, text, url)`,
+  `Notifications:show(title, body)` and `Geolocation:current_position()`.
+  A refusal of the page is a Lua error. Their built-in events reach
+  `-- @OnEvent` listeners like any model. In a test unit,
+  `BrowserFakes.answer(api, call, value)` answers a call.
 - `ty init --tac lua` scaffolds a Lua greeting service and its test unit.
   `ty doctor` lists `emcc` for "Lua services on the web", or the cached
   runtime once it is built.
@@ -209,3 +217,19 @@ the build with `TY2015`, and the message names the resource and this ADR.
   behavior boundary contract.
 - A Lua test unit opens a behavior context from its Setup for each case, and
   `self:construct(Role)` gives it to the role.
+
+## Amendment 2026-09-30: Yon Lua streams and sockets
+
+- A Lua `-- @StreamRoute` method runs in a coroutine and sends each value with
+  `coroutine.yield(value)`; a private helper that it calls may yield too. The
+  Lua runner writes each value as a length-prefixed event frame and ends the
+  process when the method returns, like the PHP runner.
+- A Lua `-- @SocketRoute` class keeps one object for each connection. With
+  `YON_SOCKET_FRAMES`, the Lua runner reads the request and the messages as
+  frames and calls the `-- @OnOpen`, `-- @OnMessage` (the message is read into
+  the model of its parameter), `-- @OnClose` and `-- @OnError` methods. The
+  session has `send(message)`, `close()` and `open_sessions()`, and each peer
+  has `send(message)`. When OnOpen or OnMessage fails, OnError runs and the
+  socket stays open.
+- A socket class holds no events or lifecycle hooks, as in the other
+  languages.

@@ -8,7 +8,7 @@ pub(crate) struct LuaClientUnit;
 
 impl LuaClientUnit {
     const REALM: &'static str = "tac";
-    const HOST: &'static str = "TachyonHost = TachyonHost or {\n  emit = function() end,\n  ask = function() return '{\"error\":\"This browser API needs the page, and a test unit has no page.\"}' end,\n}\n";
+    const HOST: &'static str = "TachyonHost = TachyonHost or {\n  emit = function() end,\n  ask = function(text) return YonJson.encode(BrowserFakes.reply(YonJson.decode(text))) end,\n}\n";
     const NO_UNIT: &'static str =
         "A test unit declares Test on one class; this source declares none.";
 

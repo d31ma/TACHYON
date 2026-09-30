@@ -13,7 +13,8 @@ pub(crate) struct LuaWebServices;
 impl LuaWebServices {
     pub(crate) const PRELUDE: &'static str = concat!(
         include_str!("../lua_source/lua_json.lua"),
-        include_str!("prelude.lua")
+        include_str!("prelude.lua"),
+        include_str!("web_apis.lua")
     );
     pub(crate) const RUNTIME_PATH: &'static str = "lua/tachyon-lua.wasm";
     pub(crate) const GLUE_PATH: &'static str = "lua/tachyon-lua.js";

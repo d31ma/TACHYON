@@ -365,6 +365,12 @@ class StampService
 end
 "#;
 
+    const LUA_SERVICE: &str = "-- @Service\n---@class StampService\nStampService = {}\n\n---@return number\nfunction StampService:now()\n  return Clock:now_ms()\nend\n\n---@return string\nfunction StampService:zone()\n  return Clock:time_zone()\nend\n\n---@return string\nfunction StampService:token()\n  return SecureRandom:uuid()\nend\n\n---@return integer\nfunction StampService:count()\n  return #SecureRandom:bytes(16)\nend\n\n---@return string\nfunction StampService:refused()\n  local ok, failure = pcall(SecureRandom.bytes, SecureRandom, 65537)\n  return ok and \"\" or failure\nend\n";
+
+    const LUA_LISTENER: &str = "-- @Service\n---@class StampService\nStampService = {\n  ---@type boolean\n  online = false,\n  ---@type boolean\n  visible = false,\n  ---@type string\n  scheme = \"\",\n  ---@type string\n  language = \"\",\n}\n\n---@return boolean\nfunction StampService:reachable()\n  return Connectivity:online()\nend\n\n---@return boolean\nfunction StampService:shown()\n  return PageVisibility:visible()\nend\n\n---@return string\nfunction StampService:theme()\n  return Preferences:scheme()\nend\n\n---@return string\nfunction StampService:motion()\n  return Preferences:motion()\nend\n\n---@return string\nfunction StampService:locale()\n  return Preferences:language()\nend\n\n---@param changed ConnectivityChanged\n---@return nil\n-- @OnEvent\nfunction StampService:connectivity_changed(changed)\n  self.online = changed.online\nend\n\n---@param changed VisibilityChanged\n---@return nil\n-- @OnEvent\nfunction StampService:visibility_changed(changed)\n  self.visible = changed.visible\nend\n\n---@param changed PreferencesChanged\n---@return nil\n-- @OnEvent\nfunction StampService:preferences_changed(changed)\n  self.scheme = changed.scheme\n  self.language = changed.language\nend\n";
+
+    const LUA_PROMPTS: &str = "-- @Service\n---@class StampService\nStampService = {\n  ---@type string\n  pasted = \"\",\n  ---@type boolean\n  shared = false,\n  ---@type string\n  permission = \"\",\n  ---@type number\n  latitude = 0.0,\n  ---@type string\n  failure = \"\",\n}\n\n---@param text string\n---@return nil\nfunction StampService:copy(text)\n  Clipboard:write_text(text)\nend\n\n---@return nil\nfunction StampService:paste()\n  Clipboard:read_text()\nend\n\n---@return nil\nfunction StampService:tell()\n  Share:open(\"Title\", \"Text\", \"https://example.com/\")\nend\n\n---@return nil\nfunction StampService:ask()\n  Notifications:request_permission()\nend\n\n---@return nil\nfunction StampService:notify()\n  Notifications:show(\"Hello\", \"Body\")\nend\n\n---@return nil\nfunction StampService:locate()\n  Geolocation:current_position()\nend\n\n---@return string\nfunction StampService:denied()\n  local ok, failure = pcall(Notifications.show, Notifications, \"Hello\", \"Body\")\n  return ok and \"\" or failure\nend\n\n---@param read ClipboardTextRead\n---@return nil\n-- @OnEvent\nfunction StampService:hear_clipboard(read)\n  self.pasted = read.text\nend\n\n---@param finished ShareFinished\n---@return nil\n-- @OnEvent\nfunction StampService:hear_share(finished)\n  self.shared = finished ~= nil\nend\n\n---@param changed NotificationPermissionChanged\n---@return nil\n-- @OnEvent\nfunction StampService:hear_permission(changed)\n  self.permission = changed.permission\nend\n\n---@param found PositionFound\n---@return nil\n-- @OnEvent\nfunction StampService:hear_position(found)\n  self.latitude = found.latitude\nend\n\n---@param failed BrowserCallFailed\n---@return nil\n-- @OnEvent\nfunction StampService:hear_failure(failed)\n  self.failure = failed.api .. \".\" .. failed.call .. \": \" .. failed.message\nend\n";
+
     const BROWSER_STUBS: &str = "Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false, language: 'fr' } })
 globalThis.document = { visibilityState: 'hidden', addEventListener: (type, listener) => { watched[`document:${type}`] = listener } }
 globalThis.addEventListener = (type, listener) => { watched[`window:${type}`] = listener }
@@ -1654,6 +1660,47 @@ async fn a_ruby_web_service_hears_the_answers_to_its_own_browser_calls() {
     }
     let root = tempfile::tempdir().expect("project");
     WebApis::publish(root.path(), WebLanguage::Ruby, "rb", WebApis::RUBY_PROMPTS).await;
+    WebApis::assert_answered(root.path(), true);
+}
+
+fn lua_unavailable() -> bool {
+    let unavailable = crate::tac_lua::LuaRuntimeBuild::unavailable_reason();
+    let missing = [!WebApis::node_available(), unavailable.is_some()].contains(&true);
+    if missing {
+        eprintln!("skipping: node or the Lua runtime is unavailable: {unavailable:?}");
+    }
+    missing
+}
+
+#[tokio::test]
+async fn a_lua_web_service_reads_the_clock_and_secure_random_from_the_page() {
+    if lua_unavailable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Lua, "lua", WebApis::LUA_SERVICE).await;
+    let driver = format!("{}{}", WebApis::FILE_FETCH, WebApis::SERVICE_DRIVER);
+    let report = WebApis::run(root.path(), &driver);
+    WebApis::assert_stamp(&report);
+}
+
+#[tokio::test]
+async fn a_lua_web_service_reads_and_hears_connectivity_visibility_and_preferences() {
+    if lua_unavailable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Lua, "lua", WebApis::LUA_LISTENER).await;
+    WebApis::assert_heard(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_lua_web_service_hears_the_answers_to_its_own_browser_calls() {
+    if lua_unavailable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Lua, "lua", WebApis::LUA_PROMPTS).await;
     WebApis::assert_answered(root.path(), true);
 }
 

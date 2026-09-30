@@ -753,10 +753,10 @@ machine contracts have their own, independent major versions.
   `Assert.is_true`, `Assert.throws`, `-- @ValueSource`, `-- @Fake` and
   `self:construct(Role)`. `ty init --yon lua` writes a Lua controller and its
   test unit; `ty doctor` and the readiness check ask for `lua` 5.4 or newer.
-  Streams and sockets are refused in Yon Lua for now:
-  the rule table says that the annotation is not available in Lua
-  (`TY1308`, ending "Lua gets it in a later step (ADR 0085)"), and the
-  lowering names ADR 0085 (`TY2015`). Resources
+  Annotations that Lua does not have yet are refused: the rule table says
+  that the annotation is not available in Lua (`TY1308`, ending "Lua gets
+  it in a later step (ADR 0085)"), and the lowering names ADR 0085
+  (`TY2015`). Resources
   (`DataSource`, `RedisTemplate`, gateway clients, Tac stores and `relay`)
   are not available in Lua.
 - Lua is a Tac language (ADR 0085 amendment). A service
@@ -771,8 +771,11 @@ machine contracts have their own, independent major versions.
   `-- @OnEvent`, `-- @Order`, `-- @InBackground`, `-- @NeedsAll` and
   `-- @Lifetime` work, events are model tables from `client/models/*.lua`
   published with the autowired `application_event_publisher` field, and a
-  listener that returns a model publishes it again. Tac test units in Lua run
-  with the `lua` program. `ty init --tac lua` and `ty add language client lua`
+  listener that returns a model publishes it again. The browser APIs are
+  global tables called with `:` (`Clock:now_ms()`, `SecureRandom:uuid()`,
+  `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
+  `Notifications`, `Geolocation`), and `BrowserFakes.answer` answers them in
+  a test unit. Tac test units in Lua run with the `lua` program. `ty init --tac lua` and `ty add language client lua`
   write a Lua greeting service and its test unit, and `ty doctor` lists `emcc`
   (or the cached runtime) and `lua` for "Lua services on the web". Behavior
   annotations in a Tac Lua service stop the build (`TY2015`, ADR 0085). The
@@ -794,6 +797,11 @@ machine contracts have their own, independent major versions.
   BehaviorSignal.new() })`; a Lua test unit opens one for each case.
   DataSource, RedisTemplate, `relay`, `@HTTPClient` and `@Gateway` stay
   refused in Lua and name ADR 0085.
+- Yon Lua streams and sockets (ADR 0085 amendment): a `-- @StreamRoute`
+  method sends each value with `coroutine.yield(value)`, and a
+  `-- @SocketRoute` class keeps one object for each connection with
+  OnOpen, OnMessage, OnClose and OnError, `session:send`, `close` and
+  `open_sessions`.
 - `ty test` records the Lua methods that each case called, in both realms,
   so `ty test --coverage` checks Lua classes like the others.
 - `bun run coverage:languages` in `website/` audits the code tabs of every docs
