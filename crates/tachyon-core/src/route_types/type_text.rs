@@ -20,6 +20,9 @@ impl TypeText {
         if let Some(shape) = Self::optional(extension, text, depth)? {
             return Ok(shape);
         }
+        if let Some(shape) = Self::python_tuple(extension, text, depth)? {
+            return Ok(shape);
+        }
         if let Some(shape) = Self::list(extension, text, depth)? {
             return Ok(shape);
         }
@@ -100,6 +103,20 @@ impl TypeText {
         Ok(shape)
     }
 
+    fn python_tuple(extension: &str, text: &str, depth: usize) -> Result<Option<Shape>, String> {
+        let Some(inner) = Self::generic(text, &["tuple", "Tuple"]).filter(|_| extension == "py")
+        else {
+            return Ok(None);
+        };
+        let item = match Self::split_top_level(inner, ',').as_slice() {
+            [item] => item.clone(),
+            [item, rest] if rest == "..." => item.clone(),
+            _ => return Ok(Some(Shape::Any)),
+        };
+        let item = Self::read(extension, &item, depth + 1)?;
+        Ok(Some(Shape::List(Box::new(item))))
+    }
+
     fn list(extension: &str, text: &str, depth: usize) -> Result<Option<Shape>, String> {
         let inner = match extension {
             "go" => text.strip_prefix("[]"),
@@ -112,7 +129,7 @@ impl TypeText {
         let names: &[&str] = match extension {
             "ts" => &["Array", "ReadonlyArray"],
             "js" => &["Array", "Array."],
-            "py" => &["list", "List", "Sequence", "tuple"],
+            "py" => &["list", "List", "Sequence"],
             "java" => &[
                 "List",
                 "java.util.List",

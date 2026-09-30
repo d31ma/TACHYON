@@ -5,6 +5,6 @@ from http import HTTPStatus
 @public
 class ProductsController:
     @get_route
-    def get_products(self) -> object:
+    def get_products(self) -> tuple[HTTPStatus, dict[str, str], str]:
         body = "<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>"
         return (HTTPStatus.OK, {"content-type": "text/html; charset=utf-8"}, body)

@@ -158,7 +158,7 @@ class JsonController:
     @delete_route
     def delete_json(self): return None
     @patch_route
-    def patch_json(self): return (HTTPStatus.CREATED, {"content-type":"application/json","x-mode":"explicit"}, '{"explicit":true}')
+    def patch_json(self) -> tuple[HTTPStatus, dict[str, str], str]: return (HTTPStatus.CREATED, {"content-type":"application/json","x-mode":"explicit"}, '{"explicit":true}')
     @get_route("/parsing")
     def get_parsing(self):
         import json

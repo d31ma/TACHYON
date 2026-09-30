@@ -29,6 +29,8 @@ fn every_language_names_its_plain_types() {
         ("js", "Array.<Order>", list(model("Order"))),
         ("py", "int", Shape::Integer),
         ("py", "list[Order]", list(model("Order"))),
+        ("py", "tuple[Order, ...]", list(model("Order"))),
+        ("py", "tuple[str]", list(Shape::Text)),
         ("py", "Optional[str]", optional(Shape::Text)),
         ("py", "str | None", optional(Shape::Text)),
         ("php", "?int", optional(Shape::Integer)),
@@ -73,6 +75,8 @@ fn every_language_accepts_its_native_response_as_a_return_type() {
         ("cs", "Task<System.Net.Http.HttpResponseMessage>"),
         ("rs", "http::Response<Vec<u8>>"),
         ("dart", "Future<Response>"),
+        ("py", "tuple[HTTPStatus, dict[str, str], str]"),
+        ("py", "Tuple[int, dict[str, str], bytes]"),
     ];
     for (extension, text) in cases {
         assert_eq!(shape(extension, text), Shape::Any, "{extension} {text}");

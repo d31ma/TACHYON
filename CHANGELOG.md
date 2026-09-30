@@ -2195,6 +2195,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Python route method can declare the `(HTTPStatus, headers, body)` answer
+  it returns, such as `-> tuple[HTTPStatus, dict[str, str], str]`. The route
+  type reader read every `tuple[...]` as a list and refused the three types
+  with TY2015. A tuple with fixed members is now a native answer, and
+  `tuple[Item, ...]` is a list of `Item`.
+
 - WebKit no longer warns on every Tachyon page about the content security
   policy. The policy allowed the inline speculation rules with Chrome's
   `'inline-speculation-rules'` keyword, which WebKit does not know, so WebKit
