@@ -7,9 +7,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::Path;
 
+mod browser_streams;
 pub(crate) mod condition;
 pub(crate) mod publications;
 pub(crate) mod yon;
+pub(crate) use browser_streams::BrowserStreams;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub(crate) struct EventType {
@@ -1037,12 +1039,9 @@ fn stream_request(
     } else {
         ("a stream of server-sent events", "streamTicks(tick: Tick)")
     };
-    if !matches!(context.language, "js" | "ts") || context.environment != "tac" {
-        return Err(failure(
-            path,
-            at,
-            crate::annotation_rules::AnnotationRules::belongs(written),
-        ));
+    if !BrowserStreams::held_by(context.language, context.environment) {
+        let refusal = BrowserStreams::refusal(written, context.language, context.environment);
+        return Err(failure(path, at, refusal));
     }
     if method.parameters.len() != 1 {
         return Err(failure(
@@ -1634,6 +1633,34 @@ mod tests {
             let source = format!("class Page {{\n{member}\n}}");
             let error = tac(&source).expect_err(member).to_string();
             assert!(error.contains(message), "{member}: {error}");
+        }
+    }
+
+    #[test]
+    fn a_stream_client_outside_browser_script_names_its_language() {
+        let cases = [
+            (
+                "client/services/TicksService.java",
+                "tac",
+                "@HTTPClient(\"/ticks\")\ninterface TicksClient {\n    @StreamRequest\n    void receive(Tick tick);\n}\n",
+                "@StreamRequest is not available in Java Tac code; it works in JavaScript, TypeScript",
+            ),
+            (
+                "client/services/ChatService.kt",
+                "tac",
+                "@HTTPClient(\"/chat\")\ninterface ChatClient {\n    @SocketRequest\n    fun receive(message: ChatMessage)\n}\n",
+                "@SocketRequest is not available in Kotlin Tac code",
+            ),
+            (
+                "server/controllers/TicksController.js",
+                "yon",
+                "class TicksClient {\n  @StreamRequest\n  receive(tick) {}\n}\n",
+                "@StreamRequest is not used in Yon code",
+            ),
+        ];
+        for (path, environment, source, expected) in cases {
+            let refused = extract(Path::new(path), source, environment).expect_err("refused");
+            assert!(refused.to_string().contains(expected), "{refused}");
         }
     }
 

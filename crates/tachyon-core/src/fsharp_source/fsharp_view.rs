@@ -12,8 +12,12 @@ pub(crate) struct FsharpView {
 
 impl FsharpView {
     const ANALYSIS_EXTENSION: &'static str = "cs";
-    const WORDS: [(&'static str, &'static str); 2] =
-        [("`switch`", "`match`"), ("`foreach`", "`for`")];
+    const WORDS: [(&'static str, &'static str); 4] = [
+        ("`switch`", "`match`"),
+        ("`foreach`", "`for`"),
+        ("in C# Tac code", "in F# Tac code"),
+        ("in C# Yon code", "in F# Yon code"),
+    ];
     const USINGS: &'static str = "using System;\nusing System.Collections.Generic;\nusing System.Net.Http;\nusing Microsoft.FSharp.Core;\nusing Microsoft.FSharp.Collections;\n";
 
     pub(crate) fn of(path: &Path, source: &str) -> Option<Self> {
@@ -125,7 +129,15 @@ impl FsharpView {
         for (csharp, fsharp) in Self::WORDS {
             renamed = renamed.replace(csharp, fsharp);
         }
-        renamed
+        Self::with_fsharp_attributes(renamed)
+    }
+
+    fn with_fsharp_attributes(mut text: String) -> String {
+        for rule in crate::annotation_rules::AnnotationRules::rules() {
+            let csharp = format!("[{}]", rule.name);
+            text = text.replace(&csharp, &format!("[<{}>]", rule.name));
+        }
+        text
     }
 
     fn span(&self, span: &SourceSpan) -> SourceSpan {
@@ -186,6 +198,25 @@ mod tests {
             usize::try_from(mapped.spans[0].start).unwrap_or_else(|error| panic!("start: {error}"));
         let line_start = source[..start].rfind('\n').map_or(0, |at| at + 1);
         assert!(source[line_start..].starts_with("    member this.Count"));
+    }
+
+    #[test]
+    fn a_refusal_on_the_shadow_speaks_fsharp() {
+        let path = Path::new("client/clients/ChatClient.fs");
+        let source = "[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: Tick -> unit\n";
+        let view = FsharpView::of(path, source).unwrap_or_else(|| panic!("fsharp"));
+        let failure = crate::annotation_rules::AnnotationRules::check(view.path(), view.text())
+            .err()
+            .unwrap_or_else(|| panic!("the browser script holds sockets"));
+        let message = view.failure(&failure).to_string();
+        assert!(
+            message.contains("[<SocketRequest>] is not available in F# Tac code"),
+            "{message}"
+        );
+        assert!(
+            message.contains("client/clients/ChatClient.fs"),
+            "{message}"
+        );
     }
 
     #[test]

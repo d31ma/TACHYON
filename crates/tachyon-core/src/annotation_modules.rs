@@ -195,6 +195,9 @@ fn read_modules(
         }
         register_names(path, &text, &mut names)?;
         validate_imports(path, &text, extension)?;
+        if environment == "tac" {
+            crate::events::BrowserStreams::refuse_outside_script(path, &text)?;
+        }
         let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment)
             .unwrap_or(text);
         let text = crate::method_coverage::CallHooks::for_entry(entry, path, text)?;
@@ -1789,6 +1792,38 @@ mod tests {
             let diagnostic = &failure.diagnostics()[0];
             assert_eq!(diagnostic.code.to_string(), "TY1308", "{failure}");
             assert_eq!(diagnostic.spans[0].file, helper, "{failure}");
+        }
+    }
+
+    #[test]
+    fn a_stream_client_beside_a_java_tac_service_fails_at_its_own_file() {
+        for (marker, message) in [
+            (
+                "@StreamRequest",
+                "@StreamRequest is not available in Java Tac code",
+            ),
+            (
+                "@SocketRequest",
+                "@SocketRequest is not available in Java Tac code",
+            ),
+        ] {
+            let root = tempfile::tempdir().expect("project");
+            let entry = "client/services/TicksService.java";
+            write(root.path(), entry, "@Service\nclass TicksService {\n}\n");
+            let client = "client/clients/TicksClient.java";
+            let source = format!(
+                "import models.Tick;\n\n@HTTPClient(\"/ticks\")\ninterface TicksClient {{\n    {marker}\n    void receive(Tick tick);\n}}\n"
+            );
+            write(root.path(), client, &source);
+            let failure = assemble(root.path(), Path::new(entry), "", "tac")
+                .expect_err("the browser script holds streams");
+            let diagnostic = &failure.diagnostics()[0];
+            assert_eq!(diagnostic.code.to_string(), "TY1308", "{failure}");
+            assert_eq!(diagnostic.spans[0].file, client, "{failure}");
+            let marker_at = source.find(marker).expect("marker");
+            let marker_at = u64::try_from(marker_at).expect("offset");
+            assert_eq!(diagnostic.spans[0].start, marker_at, "{failure}");
+            assert!(diagnostic.message.contains(message), "{failure}");
         }
     }
 
