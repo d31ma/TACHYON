@@ -1,4 +1,6 @@
 mod lua_body;
+mod lua_events;
+mod lua_input;
 mod lua_lexer;
 mod lua_line;
 mod lua_lowering;
@@ -17,6 +19,8 @@ mod writer_mode;
 mod tests;
 
 use lua_body::LuaBody;
+use lua_events::LuaEvents;
+use lua_input::LuaInput;
 pub(crate) use lua_lexer::LuaLexer;
 use lua_line::LuaLine;
 use lua_lowering::LuaLowering;

@@ -753,10 +753,10 @@ machine contracts have their own, independent major versions.
   `Assert.is_true`, `Assert.throws`, `-- @ValueSource`, `-- @Fake` and
   `self:construct(Role)`. `ty init --yon lua` writes a Lua controller and its
   test unit; `ty doctor` and the readiness check ask for `lua` 5.4 or newer.
-  Behavior annotations, events and lifecycle hooks, streams and sockets are
-  refused in Yon Lua for now: the rule table says that the annotation is not
-  available in Lua (`TY1308`, ending "Lua gets it in a later step
-  (ADR 0085)"), and the lowering names ADR 0085 (`TY2015`). Resources
+  Behavior annotations, streams and sockets are refused in Yon Lua for now:
+  the rule table says that the annotation is not available in Lua
+  (`TY1308`, ending "Lua gets it in a later step (ADR 0085)"), and the
+  lowering names ADR 0085 (`TY2015`). Resources
   (`DataSource`, `RedisTemplate`, gateway clients, Tac stores and `relay`)
   are not available in Lua.
 - Lua is a Tac language (ADR 0085 amendment). A service
@@ -778,6 +778,16 @@ machine contracts have their own, independent major versions.
   annotations in a Tac Lua service stop the build (`TY2015`, ADR 0085). The
   runtime-build steps (pinned download, SHA-256 check, cache) are shared with
   the Ruby runtime.
+- Yon Lua roles hold local events and lifecycle hooks (ADR 0085 amendment):
+  `-- @OnStart`, `-- @OnStop`, `-- @OnEvent` (events, condition, id, replay)
+  and `-- @Order`. Each route runs in a Lua event container that registers
+  the listeners, runs OnStart in creation order, drains the events around the
+  route and runs OnStop at the end. Events are model tables published with
+  `ApplicationEventPublisher:publish_event(value)` or the
+  `application_event_publisher` field. `@InBackground` and topics stay
+  refused in Lua.
+- `ty test` records the Lua methods that each case called, in both realms,
+  so `ty test --coverage` checks Lua classes like the others.
 - `bun run coverage:languages` in `website/` audits the code tabs of every docs
   section and feature. For each realm it lists the languages with a tab and
   sorts every missing language into a missing example, a language the build

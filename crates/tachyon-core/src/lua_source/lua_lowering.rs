@@ -1,4 +1,5 @@
-use super::LuaModels;
+use super::{LuaEvents, LuaModels};
+use crate::events::EventModule;
 use crate::route_types::TypeText;
 use crate::yon::plan::{
     ErrorMethod, ParameterSource, Plan, Provider, Route, RouteParameter, Scope,
@@ -8,6 +9,7 @@ use std::fmt::Write as _;
 
 pub(super) struct LuaLowering<'p> {
     plan: &'p Plan,
+    tracked: bool,
 }
 
 impl<'p> LuaLowering<'p> {
@@ -15,9 +17,13 @@ impl<'p> LuaLowering<'p> {
     const NO_ROUTE: &'static str = "error(setmetatable({ message = \"No controller method answers this route.\" }, YonNoRoute), 0)";
     const INDENTS: [&'static str; 2] = ["  ", "    "];
     const REQUEST: &'static str = "YonRequest.of(request)";
+    const MEMBERS: [&'static str; 2] = ["{ __index = {} }", "YonEvents.members({})"];
 
     pub(super) fn new(plan: &'p Plan) -> Self {
-        Self { plan }
+        Self {
+            plan,
+            tracked: false,
+        }
     }
 
     pub(super) fn program(&self, authored: &str) -> Result<String, String> {
@@ -28,6 +34,27 @@ impl<'p> LuaLowering<'p> {
             self.route_functions(),
             self.error_function(),
             self.handler_functions(controller)
+        ))
+    }
+
+    pub(super) fn evented_program(
+        plan: &'p Plan,
+        authored: &str,
+        events: &EventModule,
+    ) -> Result<String, String> {
+        let lowering = Self {
+            plan,
+            tracked: true,
+        };
+        let controller = lowering.provider_index(&plan.controller)?;
+        let owners = lowering.owner_list(", YonGenerated.resolve_", "(cache)");
+        Ok(format!(
+            "{authored}\n{}\n{}{}{}Handler = {{ YON_FRAMES = true }}\n\n{}",
+            LuaEvents::RUNTIME,
+            lowering.providers()?,
+            lowering.route_functions(),
+            lowering.error_function(),
+            LuaEvents::new(plan, events).functions(&owners, controller)?
         ))
     }
 
@@ -63,13 +90,18 @@ impl<'p> LuaLowering<'p> {
         let cached = provider.scope != Scope::Transient;
         let name = &provider.name;
         Ok(format!(
-            "function YonGenerated.resolve_{index}(cache)\n{}  local value = setmetatable({{}}, {{ __index = {name} }})\n{}{}  return value\nend\nYonGenerated.providers[{name}] = YonGenerated.resolve_{index}\n\n",
+            "function YonGenerated.resolve_{index}(cache)\n{}  local value = setmetatable({{}}, {})\n{}{}{}  return value\nend\nYonGenerated.providers[{name}] = YonGenerated.resolve_{index}\n\n",
             Self::when(
                 cached,
                 &format!("  if cache[{index}] ~= nil then\n    return cache[{index}]\n  end\n")
             ),
+            Self::MEMBERS[usize::from(self.tracked)].replace("{}", name),
             self.injections(provider)?,
             Self::when(cached, &format!("  cache[{index}] = value\n")),
+            Self::when(
+                self.tracked,
+                &format!("  YonEvents.track(cache, {index})\n")
+            ),
         ))
     }
 

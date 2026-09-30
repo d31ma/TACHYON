@@ -5,11 +5,52 @@ use std::path::Path;
 
 mod containers;
 
-struct EventLowering;
+pub(crate) struct EventLowering;
 
 impl EventLowering {
     const ASYNC_RETURN_TOKENS: [&str; 5] =
         ["Task", "Future", "CompletionStage", "Sequence", "Iterator"];
+    const SYNCHRONOUS_ONLY: &str =
+        "This Yon language supports synchronous local event and lifecycle completion only";
+    const BACKGROUND_NEEDS_ASYNC: &str =
+        "InBackground listeners require a Yon language with asynchronous methods (js, ts, py)";
+    const NO_STREAMS: &str = "Local event containers do not support streaming endpoints; use a separate non-streaming event controller";
+
+    pub(crate) fn check(
+        plan: &Plan,
+        events: &EventModule,
+        asynchronous: bool,
+    ) -> Result<(), String> {
+        Self::synchronous(events, asynchronous)?;
+        validate_providers(plan, events)?;
+        Self::without_streams(plan)
+    }
+
+    pub(crate) fn listener_options(listener: &crate::events::EventListener) -> String {
+        containers::listener_options(listener)
+    }
+
+    fn synchronous(events: &EventModule, asynchronous: bool) -> Result<(), String> {
+        let problems = [
+            (
+                events.methods.iter().any(is_asynchronous_method),
+                Self::SYNCHRONOUS_ONLY,
+            ),
+            (has_async_listener(events), Self::BACKGROUND_NEEDS_ASYNC),
+        ];
+        problems
+            .into_iter()
+            .find(|(present, _)| [*present, asynchronous] == [true, false])
+            .map_or(Ok(()), |(_, message)| Err(String::from(message)))
+    }
+
+    fn without_streams(plan: &Plan) -> Result<(), String> {
+        let streams = plan.routes.iter().any(|route| route.streaming);
+        [Ok(()), Err(String::from(Self::NO_STREAMS))]
+            .into_iter()
+            .nth(usize::from(streams))
+            .unwrap_or(Ok(()))
+    }
 }
 
 pub(crate) fn lower(
@@ -23,23 +64,7 @@ pub(crate) fn lower(
             .and_then(|value| value.to_str())
             .unwrap_or(""),
     );
-    let has_async_methods = is_async_language(extension);
-    if !has_async_methods && events.methods.iter().any(is_asynchronous_method) {
-        return Err(
-            "This Yon language supports synchronous local event and lifecycle completion only"
-                .into(),
-        );
-    }
-    if !has_async_methods && has_async_listener(events) {
-        return Err(
-            "InBackground listeners require a Yon language with asynchronous methods (js, ts, py)"
-                .into(),
-        );
-    }
-    validate_providers(plan, events)?;
-    if plan.routes.iter().any(|route| route.streaming) {
-        return Err("Local event containers do not support streaming endpoints; use a separate non-streaming event controller".into());
-    }
+    EventLowering::check(plan, events, is_async_language(extension))?;
     let relocated = super::relocate(path, source, events)
         .map_err(|error| format!("Cannot locate event methods: {error:?}"))?;
     let source = relocated.source.clone();

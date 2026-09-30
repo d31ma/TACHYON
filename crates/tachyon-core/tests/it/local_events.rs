@@ -21,6 +21,7 @@ fn runtime(extension: &str) -> &'static str {
         "php" => "php-cgi",
         "py" => "python3",
         "rb" => "ruby",
+        "lua" => "lua",
         "rs" => "rustc",
         "dart" => "dart",
         "go" => "go",
@@ -714,6 +715,59 @@ end
 "#,
     )
     .await;
+}
+
+struct LuaProbe;
+
+impl LuaProbe {
+    const FILES: [(&str, &str); 7] = [
+        (
+            "server/models/ProbeReady.lua",
+            "---@class ProbeReady\n---@field status string\n---@field total integer\nProbeReady = {}\n",
+        ),
+        (
+            "server/models/ProbeDerived.lua",
+            "---@class ProbeDerived\n---@field tag string\nProbeDerived = {}\n",
+        ),
+        (
+            "server/models/ProbeTagged.lua",
+            "---@class ProbeTagged\n---@field tag string\nProbeTagged = {}\n",
+        ),
+        (
+            "server/services/ProbeService.lua",
+            "-- @Service\n---@class ProbeService\nProbeService = {\n  ---@type string[]\n  log = {},\n  ---@type string?\n  tag = nil,\n}\n\n---@param value ProbeReady\n---@return nil\n-- @OnEvent\n-- @Order(2)\nfunction ProbeService:wide(value)\n  self.log[#self.log + 1] = \"wide:\" .. value.status\nend\n\n---@param value ProbeReady\n---@return ProbeDerived\n-- @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n-- @Order(1)\nfunction ProbeService:paid(value)\n  self.log[#self.log + 1] = \"paid\"\n  return setmetatable({ tag = \"one\" }, ProbeDerived)\nend\n\n---@param value ProbeReady\n---@return nil\n-- @OnEvent({\"condition\":\"value.total > 100\"})\n-- @Order(0)\nfunction ProbeService:skipped(value)\n  self.log[#self.log + 1] = \"skipped\"\nend\n\n---@param value ProbeDerived\n---@return nil\n-- @OnEvent\nfunction ProbeService:derived(value)\n  self.log[#self.log + 1] = \"derived:\" .. value.tag\nend\n\n---@param value ProbeTagged\n---@return nil\n-- @OnEvent({\"replay\":true})\nfunction ProbeService:tagged(value)\n  self.tag = value.tag\nend\n",
+        ),
+        (
+            "server/services/PublishService.lua",
+            "-- @Service\n---@class PublishService\nPublishService = {\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction PublishService:announce()\n  self.application_event_publisher:publish_event(setmetatable({ status = \"paid\", total = 10 }, ProbeReady), true)\n  self.application_event_publisher:publish_event(setmetatable({ status = \"free\", total = 0 }, ProbeReady))\nend\n",
+        ),
+        (
+            "server/services/ResourceService.lua",
+            "-- @Service\n---@class ResourceService\nResourceService = {}\n\n---@return nil\n-- @OnStart\nfunction ResourceService:announce()\n  ApplicationEventPublisher:publish_event(setmetatable({ tag = \"resource\" }, ProbeTagged))\nend\n\n---@return nil\n-- @OnStop\nfunction ResourceService:close()\n  io.stderr:write(\"closed\\n\")\nend\n",
+        ),
+        (
+            "server/controllers/ProbeController.lua",
+            "-- @RequestRoute(\"/probe\")\n-- @Public\n---@class ProbeController\nProbeController = {\n  -- @Needs\n  ---@type ProbeService\n  probe_service = nil,\n  -- @Needs\n  ---@type PublishService\n  publish_service = nil,\n  -- @Needs\n  ---@type ResourceService\n  resource_service = nil,\n}\n\n---@return table\n-- @GetRoute\nfunction ProbeController:get_probe()\n  return { log = self.probe_service.log, tag = self.probe_service.tag }\nend\n",
+        ),
+    ];
+}
+
+#[tokio::test]
+async fn lua_events_and_lifecycle() {
+    if !runtime_available("lua") {
+        return;
+    }
+    let root = tempfile::tempdir().expect("fixture");
+    for (relative, text) in LuaProbe::FILES {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, text).expect("source");
+    }
+    let source = HandlerSource::discover(root.path(), "server/controllers/ProbeController.lua")
+        .unwrap_or_else(|failure| panic!("{failure}"));
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    assert_event_results("lua", &source, &supervisor, &expected()).await;
 }
 
 #[tokio::test]

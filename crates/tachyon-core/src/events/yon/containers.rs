@@ -1277,7 +1277,7 @@ fn php_literal(json: &str) -> String {
     format!("'{escaped}'")
 }
 
-fn listener_options(listener: &EventListener) -> String {
+pub(super) fn listener_options(listener: &EventListener) -> String {
     let options = serde_json::json!({
         "events": listener.events,
         "order": listener.order,

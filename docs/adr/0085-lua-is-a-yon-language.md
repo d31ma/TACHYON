@@ -106,9 +106,8 @@ table, and its methods are functions stored in the table.
 These stop the build until a later step adds them: the rule table says that
 the annotation is not available in Lua (`TY1308`), or the lowering names this
 ADR (`TY2015`):
-behavior annotations (for example Cached, Retry, Transactional), local
-events and lifecycle hooks, StreamRoute and SocketRoute in Yon, and behavior
-annotations in Tac. Resources are not available in Lua: DataSource,
+behavior annotations (for example Cached, Retry, Transactional),
+StreamRoute and SocketRoute in Yon, topics, and behavior annotations in Tac. Resources are not available in Lua: DataSource,
 RedisTemplate, gateway clients (`@HTTPClient`), Tac stores (`@Store`) and
 `relay`. The rule table refuses `@HTTPClient` and `@Store` in Lua, and every
 Lua refusal of the rule table ends with "Lua gets it in a later step
@@ -169,3 +168,20 @@ Lua refusal of the rule table ends with "Lua gets it in a later step
 - `ty init --tac lua` scaffolds a Lua greeting service and its test unit.
   `ty doctor` lists `emcc` for "Lua services on the web", or the cached
   runtime once it is built.
+
+## Amendment 2026-09-30: Yon Lua events and lifecycle hooks
+
+- A Yon Lua role may hold `-- @OnStart`, `-- @OnStop`, `-- @OnEvent` and
+  `-- @Order`, with the same events list, condition, id and replay as the
+  other Yon languages. Tachyon reads them from the Ruby shadow and writes a
+  Lua event container around each route: it resolves the controller, the
+  error handlers and the event owners, registers the listeners, runs OnStart
+  in the order the objects were made, drains the events before and after
+  the route, and runs OnStop in reverse order when the request ends.
+- An event is a model table: `setmetatable({ total = 25 }, PlacedOrder)`.
+  `ApplicationEventPublisher:publish_event(order)` publishes it, and a field
+  `application_event_publisher = nil` is that publisher, bound by its name.
+  Lua models carry their name (`PlacedOrder.__name`) for this.
+- Lua has no asynchronous methods, so `@InBackground` stays refused
+  (`TY1308`). A Lua class does not publish or listen to topics yet, because
+  topics travel on the resource channel, which Lua does not have (`TY2015`).

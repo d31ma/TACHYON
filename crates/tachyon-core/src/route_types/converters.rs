@@ -56,7 +56,7 @@ impl Converters {
             "cs" => Ok(TacCSharpContext::text(&files)),
             "swift" => Ok(SwiftCodable::text(&files)),
             "dart" => Ok(DartConverters::tac_text(files)),
-            "lua" => Ok(crate::lua_source::LuaModels::named_converters(
+            "lua" => Ok(crate::lua_source::LuaModels::converters(
                 &Self::records(&files, extension),
             )),
             _ => Ok(String::new()),

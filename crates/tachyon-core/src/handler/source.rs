@@ -848,7 +848,7 @@ fn lower_annotated_source(
     let lowered = if crate::fsharp_source::FsharpSource::is_fsharp(relative_source) {
         crate::fsharp_source::FsharpYon::lower(relative_source, contents, Some(models_root))?
     } else if crate::lua_source::LuaSource::is_lua(relative_source) {
-        crate::lua_source::LuaYon::lower(relative_source, contents)?
+        crate::lua_source::LuaYon::lower(relative_source, contents, Some(models_root))?
     } else {
         crate::yon::lower_with_routes(relative_source, contents, Some(models_root))?
     };

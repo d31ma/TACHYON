@@ -1,7 +1,7 @@
 {
   "heading": "Lifecycle and events: Yon",
   "axis": "language",
-  "summary": "One route, two shared services and a controller. CheckoutService publishes through the injected applicationEventPublisher during OnStart and releases in OnStop. AuditService holds the listeners. EventPublisher is removed (ADR 0031), and any use of it fails the build. So publishing is always a call on that field. Needs binds a Yon resource by the field's own name, which is the name Spring uses: dataSource, redisTemplate and applicationEventPublisher in every Yon language. Python and Rust write the field name in snake_case, so they bind the publisher by type. F# takes the publisher as a primary constructor parameter, so it binds it by type too. A listener takes exactly one payload parameter. In Java, Groovy, Kotlin, C#, F#, Rust, Dart and Go, its type must be the JSON value type of that language. Order runs the listeners of one event from the lowest value first. condition skips delivery without an error. A returned {event, value} is published again. InBackground appears only in JavaScript, TypeScript and Python. PHP, Java, Groovy, Kotlin, C#, F#, Rust, Dart and Go have no asynchronous method here, and they reject it at compile time. GET /lifecycle answers with the recorded log and the final total. Ruby creates its publisher with ApplicationEventPublisher.new and names each listener's model in a YARD tag, # @param order [PlacedOrder].",
+  "summary": "One route, two shared services and a controller. CheckoutService publishes through the injected applicationEventPublisher during OnStart and releases in OnStop. AuditService holds the listeners. EventPublisher is removed (ADR 0031), and any use of it fails the build. So publishing is always a call on that field. Needs binds a Yon resource by the field's own name, which is the name Spring uses: dataSource, redisTemplate and applicationEventPublisher in every Yon language. Python and Rust write the field name in snake_case, so they bind the publisher by type. F# takes the publisher as a primary constructor parameter, so it binds it by type too. A listener takes exactly one payload parameter. In Java, Groovy, Kotlin, C#, F#, Rust, Dart and Go, its type must be the JSON value type of that language. Order runs the listeners of one event from the lowest value first. condition skips delivery without an error. A returned {event, value} is published again. InBackground appears only in JavaScript, TypeScript and Python. PHP, Java, Groovy, Kotlin, C#, F#, Rust, Dart, Go and Lua have no asynchronous method here, and they reject it at compile time. GET /lifecycle answers with the recorded log and the final total. Ruby creates its publisher with ApplicationEventPublisher.new and names each listener's model in a YARD tag, # @param order [PlacedOrder]. Lua writes each hook as a comment marker above its method, such as `-- @OnStart` or `-- @OnEvent({\"id\":\"audit-log\"})`, names the listener's model in a LuaCATS tag, `---@param order PlacedOrder`, and publishes a model table, `setmetatable({ status = \"paid\", total = 25 }, PlacedOrder)`, through its `application_event_publisher = nil` field, which Tachyon binds by that name (ADR 0085). Lua has no asynchronous methods, so InBackground stops the build there too, and a Lua class does not publish or listen to topics yet.",
   "body": "Lua has no tab here, because Lua classes cannot use OnEvent, OnStart or OnStop yet: the build refuses them with TY2015.",
   "files": [
     {
@@ -24,7 +24,9 @@
     },
     {
       "name": "server/models/Lifecycle.ts",
-      "code": { "file": "server/models/Lifecycle.ts" }
+      "code": {
+        "file": "server/models/Lifecycle.ts"
+      }
     },
     {
       "name": "server/services/CheckoutService.ts",
@@ -46,7 +48,9 @@
     },
     {
       "name": "server/models/Lifecycle.py",
-      "code": { "file": "server/models/Lifecycle.py" }
+      "code": {
+        "file": "server/models/Lifecycle.py"
+      }
     },
     {
       "name": "server/services/CheckoutService.py",
@@ -68,7 +72,9 @@
     },
     {
       "name": "server/models/Lifecycle.php",
-      "code": { "file": "server/models/Lifecycle.php" }
+      "code": {
+        "file": "server/models/Lifecycle.php"
+      }
     },
     {
       "name": "server/services/CheckoutService.php",
@@ -90,11 +96,15 @@
     },
     {
       "name": "server/models/Lifecycle.java",
-      "code": { "file": "server/models/Lifecycle.java" }
+      "code": {
+        "file": "server/models/Lifecycle.java"
+      }
     },
     {
       "name": "server/models/Lifecycle.groovy",
-      "code": { "file": "server/models/Lifecycle.groovy" }
+      "code": {
+        "file": "server/models/Lifecycle.groovy"
+      }
     },
     {
       "name": "server/services/CheckoutService.java",
@@ -134,7 +144,9 @@
     },
     {
       "name": "server/models/Lifecycle.kt",
-      "code": { "file": "server/models/Lifecycle.kt" }
+      "code": {
+        "file": "server/models/Lifecycle.kt"
+      }
     },
     {
       "name": "server/services/CheckoutService.kt",
@@ -156,11 +168,15 @@
     },
     {
       "name": "server/models/Lifecycle.cs",
-      "code": { "file": "server/models/Lifecycle.cs" }
+      "code": {
+        "file": "server/models/Lifecycle.cs"
+      }
     },
     {
       "name": "server/models/Lifecycle.fs",
-      "code": { "file": "server/models/Lifecycle.fs" }
+      "code": {
+        "file": "server/models/Lifecycle.fs"
+      }
     },
     {
       "name": "server/services/CheckoutService.cs",
@@ -200,7 +216,9 @@
     },
     {
       "name": "server/models/Lifecycle.rs",
-      "code": { "file": "server/models/Lifecycle.rs" }
+      "code": {
+        "file": "server/models/Lifecycle.rs"
+      }
     },
     {
       "name": "server/services/CheckoutService.rs",
@@ -222,7 +240,9 @@
     },
     {
       "name": "server/models/Lifecycle.go",
-      "code": { "file": "server/models/Lifecycle.go" }
+      "code": {
+        "file": "server/models/Lifecycle.go"
+      }
     },
     {
       "name": "server/services/CheckoutService.go",
@@ -244,7 +264,9 @@
     },
     {
       "name": "server/models/Lifecycle.dart",
-      "code": { "file": "server/models/Lifecycle.dart" }
+      "code": {
+        "file": "server/models/Lifecycle.dart"
+      }
     },
     {
       "name": "server/services/CheckoutService.dart",
@@ -266,7 +288,9 @@
     },
     {
       "name": "server/models/Lifecycle.rb",
-      "code": { "file": "server/models/Lifecycle.rb" }
+      "code": {
+        "file": "server/models/Lifecycle.rb"
+      }
     },
     {
       "name": "server/services/CheckoutService.rb",
@@ -284,6 +308,30 @@
       "name": "server/controllers/LifecycleController.rb",
       "code": {
         "file": "server/controllers/LifecycleController.rb"
+      }
+    },
+    {
+      "name": "server/models/Lifecycle.lua",
+      "code": {
+        "file": "server/models/Lifecycle.lua"
+      }
+    },
+    {
+      "name": "server/services/CheckoutService.lua",
+      "code": {
+        "file": "server/services/CheckoutService.lua"
+      }
+    },
+    {
+      "name": "server/services/AuditService.lua",
+      "code": {
+        "file": "server/services/AuditService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/LifecycleController.lua",
+      "code": {
+        "file": "server/controllers/LifecycleController.lua"
       }
     },
     {
@@ -428,6 +476,18 @@
       "name": "server/models/SettledOrder.rb",
       "code": {
         "file": "server/models/SettledOrder.rb"
+      }
+    },
+    {
+      "name": "server/models/PlacedOrder.lua",
+      "code": {
+        "file": "server/models/PlacedOrder.lua"
+      }
+    },
+    {
+      "name": "server/models/SettledOrder.lua",
+      "code": {
+        "file": "server/models/SettledOrder.lua"
       }
     }
   ]

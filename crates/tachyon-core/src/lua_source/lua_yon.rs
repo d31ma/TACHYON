@@ -1,48 +1,78 @@
-use super::{LuaLowering, LuaTestUnit, LuaView};
+use super::{LuaInput, LuaLowering, LuaTestUnit, LuaView};
 use crate::Failure;
 use crate::behavior::UnitTable;
+use crate::events::EventModule;
 use crate::failure::{diagnostic, source_span};
 use crate::yon::Lowered;
 use crate::yon::parser::Parsed;
 use crate::yon::plan::{Plan, Route};
 use std::path::Path;
 
-type Lowering = fn(&Path, &str, &LuaView) -> Result<Option<Lowered>, Failure>;
+type Lowering = fn(&LuaInput<'_>) -> Result<Option<Lowered>, Failure>;
 
 pub(crate) struct LuaYon;
 
 impl LuaYon {
     const LATER: &'static str = "Lua classes do not support {} yet (ADR 0085). Write this class in another Yon language, or leave the annotation out.";
     const STREAMS: &'static str = "streams and sockets (StreamRoute, SocketRoute)";
-    const EVENTS: &'static str = "local events and lifecycle hooks (OnEvent, OnStart, OnStop)";
     const BEHAVIORS: &'static str =
         "behavior annotations (for example Cached, Retry or Transactional)";
     const REALM: &'static str = "yon";
+    const MODELS: &'static str = "server";
     const LOWERINGS: [Lowering; 2] = [Self::roles, Self::test_unit];
 
-    pub(crate) fn lower(source: &Path, contents: &str) -> Result<Option<Lowered>, Failure> {
+    pub(crate) fn lower(
+        source: &Path,
+        contents: &str,
+        models_root: Option<&Path>,
+    ) -> Result<Option<Lowered>, Failure> {
         let view = LuaView::joined(source, contents);
         let is_test =
             crate::behavior::test_configuration_name(view.path(), view.text(), Self::REALM)
                 .map_err(|failure| view.failure(&failure))?
                 .is_some();
-        Self::LOWERINGS[usize::from(is_test)](source, contents, &view)
+        let input = LuaInput {
+            source,
+            contents,
+            view: &view,
+            models_root,
+        };
+        Self::LOWERINGS[usize::from(is_test)](&input)
     }
 
-    fn roles(source: &Path, contents: &str, view: &LuaView) -> Result<Option<Lowered>, Failure> {
-        Self::refuse_later(source, contents, view)?;
-        let parsed = crate::yon::parser::parse(view.path(), view.text())
-            .map_err(|failure| view.failure(&failure))?;
+    fn roles(input: &LuaInput<'_>) -> Result<Option<Lowered>, Failure> {
+        let view = input.view;
+        let mapped = |failure: Failure| view.failure(&failure);
+        let behaviors =
+            crate::behavior::lower(view.path(), view.text(), Self::REALM).map_err(mapped)?;
+        Self::refused(
+            behaviors.is_some(),
+            input.source,
+            input.contents,
+            Self::BEHAVIORS,
+        )?;
+        let events = Self::events(input)?;
+        let text = events
+            .as_ref()
+            .map_or(view.text(), |module| module.source.as_str());
+        let parsed = crate::yon::parser::parse(view.path(), text).map_err(mapped)?;
         parsed
-            .map(|parsed| Self::routes(source, contents, &parsed))
+            .map(|parsed| Self::routes(input, &parsed, events.as_ref()))
             .transpose()
     }
 
-    fn test_unit(
-        source: &Path,
-        contents: &str,
-        view: &LuaView,
-    ) -> Result<Option<Lowered>, Failure> {
+    fn events(input: &LuaInput<'_>) -> Result<Option<EventModule>, Failure> {
+        let view = input.view;
+        let mut events = crate::events::extract(view.path(), view.text(), Self::REALM)
+            .map_err(|failure| view.failure(&failure))?;
+        if let Some((module, root)) = events.as_mut().zip(input.models_root) {
+            crate::events::describe(module, input.source, root, Self::MODELS)?;
+        }
+        Ok(events)
+    }
+
+    fn test_unit(input: &LuaInput<'_>) -> Result<Option<Lowered>, Failure> {
+        let (source, contents, view) = (input.source, input.contents, input.view);
         let mapped = |failure: Failure| view.failure(&failure);
         let behaviors =
             crate::behavior::lower(view.path(), view.text(), Self::REALM).map_err(mapped)?;
@@ -73,31 +103,36 @@ impl LuaYon {
         })
     }
 
-    fn refuse_later(source: &Path, contents: &str, view: &LuaView) -> Result<(), Failure> {
-        let mapped = |failure: Failure| view.failure(&failure);
-        let events =
-            crate::events::extract(view.path(), view.text(), Self::REALM).map_err(mapped)?;
-        Self::refused(events.is_some(), source, contents, Self::EVENTS)?;
-        let behaviors =
-            crate::behavior::lower(view.path(), view.text(), Self::REALM).map_err(mapped)?;
-        Self::refused(behaviors.is_some(), source, contents, Self::BEHAVIORS)
-    }
-
     fn refused(used: bool, source: &Path, contents: &str, feature: &str) -> Result<(), Failure> {
         used.then(|| Self::failure(source, contents, &Self::LATER.replace("{}", feature)))
             .map_or(Ok(()), Err)
     }
 
-    fn routes(source: &Path, contents: &str, parsed: &Parsed) -> Result<Lowered, Failure> {
+    fn routes(
+        input: &LuaInput<'_>,
+        parsed: &Parsed,
+        events: Option<&EventModule>,
+    ) -> Result<Lowered, Failure> {
+        let (source, contents) = (input.source, input.contents);
         Self::refused(Self::streams(&parsed.plan), source, contents, Self::STREAMS)?;
-        let program = LuaLowering::new(&parsed.plan)
-            .program(contents)
+        let program = Self::program(&parsed.plan, contents, events)
             .map_err(|message| Self::failure(source, contents, &message))?;
         Ok(Lowered {
             source: program,
             routes: Self::patterned(&parsed.plan),
             topics: crate::events::TopicUse::default(),
         })
+    }
+
+    fn program(
+        plan: &Plan,
+        contents: &str,
+        events: Option<&EventModule>,
+    ) -> Result<String, String> {
+        events.map_or_else(
+            || LuaLowering::new(plan).program(contents),
+            |events| LuaLowering::evented_program(plan, contents, events),
+        )
     }
 
     fn streams(plan: &Plan) -> bool {
