@@ -267,7 +267,7 @@ object Behaviors {
         }
     }
     private fun retryable(error: RuntimeException): Boolean = error !is Failure || error.code.endsWith("-adapter")
-    class Context internal constructor(private val options: Options, internal val configuration: Configuration, private val setupKey: String) : AutoCloseable {
+    class Context internal constructor(private val options: Options, internal val configuration: Configuration, private val setupKey: String? = null) : AutoCloseable {
         @Volatile internal var closed = false
         private var active = 0
         private val slots = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.Semaphore>()
@@ -297,7 +297,7 @@ object Behaviors {
         override fun close() { dispose() }
         fun dispose() {
             synchronized(this) { if (closed) return; closed = true }
-            releaseSetup(setupKey)
+            setupKey?.let { releaseSetup(it) }
         }
         internal fun operation(call: (Execution) -> Any?): Any? {
             synchronized(this) { if (closed || active >= 64) fail("admission"); active++ }

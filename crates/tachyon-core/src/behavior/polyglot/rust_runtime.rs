@@ -563,7 +563,7 @@ impl BehaviorContextState {
     fn dispose(&self) {
         self.disposed.abort();
         if !self.released.swap(true, std::sync::atomic::Ordering::SeqCst) {
-            BehaviorSetups::release(&self.setup_key);
+            Behaviors::release_setup(&self.setup_key);
         }
     }
 }
@@ -575,43 +575,6 @@ impl Drop for BehaviorContextState {
 struct BehaviorSharedSetup {
     configuration: std::sync::Arc<BehaviorConfiguration>,
     users: usize,
-}
-struct BehaviorSetups;
-impl BehaviorSetups {
-    fn entries() -> std::sync::MutexGuard<'static, std::collections::BTreeMap<String, BehaviorSharedSetup>> {
-        static ENTRIES: std::sync::Mutex<std::collections::BTreeMap<String, BehaviorSharedSetup>> =
-            std::sync::Mutex::new(std::collections::BTreeMap::new());
-        ENTRIES.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-    fn key<C: BehaviorConfigurationSource>(options: &BehaviorOptions) -> String {
-        let mut profiles = options.profiles.clone();
-        profiles.sort();
-        format!("{}{profiles:?}{:?}", std::any::type_name::<C>(), options.properties)
-    }
-    fn acquire<C: BehaviorConfigurationSource>(
-        key: &str,
-        execution: &BehaviorExecution,
-    ) -> BehaviorResult<std::sync::Arc<BehaviorConfiguration>> {
-        let mut entries = Self::entries();
-        if let Some(shared) = entries.get_mut(key) {
-            shared.users += 1;
-            return Ok(shared.configuration.clone());
-        }
-        let configuration = std::sync::Arc::new(behavior_configuration::<C>(execution)?);
-        let shared = BehaviorSharedSetup { configuration: configuration.clone(), users: 1 };
-        entries.insert(key.to_owned(), shared);
-        Ok(configuration)
-    }
-    fn release(key: &str) {
-        let mut entries = Self::entries();
-        let Some(shared) = entries.get_mut(key) else {
-            return;
-        };
-        shared.users -= 1;
-        if shared.users == 0 {
-            entries.remove(key);
-        }
-    }
 }
 #[derive(Clone)]
 pub struct BehaviorContext(std::sync::Arc<BehaviorContextState>);
@@ -643,6 +606,40 @@ impl BehaviorOperation<'_> {
 }
 pub struct Behaviors;
 impl Behaviors {
+    fn setups() -> std::sync::MutexGuard<'static, std::collections::BTreeMap<String, BehaviorSharedSetup>> {
+        static ENTRIES: std::sync::Mutex<std::collections::BTreeMap<String, BehaviorSharedSetup>> =
+            std::sync::Mutex::new(std::collections::BTreeMap::new());
+        ENTRIES.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+    fn setup_key<C: BehaviorConfigurationSource>(options: &BehaviorOptions) -> String {
+        let mut profiles = options.profiles.clone();
+        profiles.sort();
+        format!("{}{profiles:?}{:?}", std::any::type_name::<C>(), options.properties)
+    }
+    fn acquire_setup<C: BehaviorConfigurationSource>(
+        key: &str,
+        execution: &BehaviorExecution,
+    ) -> BehaviorResult<std::sync::Arc<BehaviorConfiguration>> {
+        let mut entries = Self::setups();
+        if let Some(shared) = entries.get_mut(key) {
+            shared.users += 1;
+            return Ok(shared.configuration.clone());
+        }
+        let configuration = std::sync::Arc::new(behavior_configuration::<C>(execution)?);
+        let shared = BehaviorSharedSetup { configuration: configuration.clone(), users: 1 };
+        entries.insert(key.to_owned(), shared);
+        Ok(configuration)
+    }
+    fn release_setup(key: &str) {
+        let mut entries = Self::setups();
+        let Some(shared) = entries.get_mut(key) else {
+            return;
+        };
+        shared.users -= 1;
+        if shared.users == 0 {
+            entries.remove(key);
+        }
+    }
     pub fn validate<V: BehaviorValidated>(value: BehaviorValue) -> BehaviorResult<BehaviorValue> {
         behavior_validate_value(V::behavior_validation(), value)
     }
@@ -687,8 +684,8 @@ impl Behaviors {
         let execution = behavior_execution(&options, &disposed)?;
         execution.check()?;
         behavior_active_configuration::<C>(&options)?;
-        let setup_key = BehaviorSetups::key::<C>(&options);
-        let configuration = match BehaviorSetups::acquire::<C>(&setup_key, &execution) {
+        let setup_key = Self::setup_key::<C>(&options);
+        let configuration = match Self::acquire_setup::<C>(&setup_key, &execution) {
             Ok(configuration) => configuration,
             Err(error) => {
                 disposed.abort();

@@ -363,11 +363,12 @@ final class Behaviors {
         private volatile boolean closed;
         private int active;
         private final String setupKey;
+        Context(Options options, Configuration configuration) { this(options, configuration, null); }
         Context(Options options, Configuration configuration, String setupKey) { this.options = options; this.configuration = configuration; this.setupKey = setupKey; }
         public void close() { dispose(); }
         void dispose() {
             synchronized (this) { if (closed) return; closed = true; }
-            releaseSetup(setupKey);
+            if (setupKey != null) releaseSetup(setupKey);
         }
         Object operation(Operation operation) {
             synchronized (this) { if (closed || active >= 64) throw fail("admission"); active++; }
