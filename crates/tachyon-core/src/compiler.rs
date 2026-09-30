@@ -44,9 +44,9 @@ pub(crate) use content_digest::ContentDigest;
 pub(crate) use output_path::OutputPath;
 pub(crate) use page_head::PageHead;
 pub(crate) use portable_path::PortablePath;
-pub(crate) use speculation_rules::SpeculationRules;
 use service_worker::ServiceWorker;
 use site_build::SiteBuild;
+pub(crate) use speculation_rules::SpeculationRules;
 use std::io;
 use std::path::{Path, PathBuf};
 
