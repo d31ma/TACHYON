@@ -1,5 +1,7 @@
-@HTTPClient({"cache":"cache-first"})
+@HTTPClient
+@CacheSettings({"name":"catalog","ttlMs":60000,"maxBytes":65536,"maxEntries":16})
 export default class CatalogClient {
+  @Cached
   @GetRequest("/api/products")
   async all(): Promise<{ items: string[] } | void> {}
 

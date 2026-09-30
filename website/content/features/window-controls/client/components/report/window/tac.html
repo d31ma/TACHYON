@@ -1,9 +1,7 @@
 <main>
   <h1>Report</h1>
-
-  <logic :if="report.canMinimize">
-    <button on:click="report.minimize()">Minimise</button>
-  </logic>
-
-  <button on:click="report.resize()">Resize</button>
+  <button type="button" on:click="report.minimize()">Minimise</button>
+  <button type="button" on:click="report.resize()">Resize</button>
+  <button type="button" on:click="report.rename()">Rename</button>
+  <p>{report.problem}</p>
 </main>

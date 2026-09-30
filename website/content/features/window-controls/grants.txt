@@ -1,17 +1,19 @@
 Window controls a desktop page may be granted
 
-  close        dismiss the window
-  fullscreen   toggle full screen
-  maximize     zoom to fill the display
-  minimize     send to the dock or taskbar
-  resize       set width and height
-  title        set the window title
+  close        dismiss the window                 close()
+  fullscreen   toggle full screen                 fullscreen()
+  maximize     zoom to fill the display           maximize()
+  minimize     send to the dock or taskbar        minimize()
+  resize       set width and height (64-16384)    resize(width, height)
+  title        set the window title               setTitle(text)
 
-Empty by default. Ungranted controls are not exposed to the page,
-and the host checks the declared grants before executing a request.
-Test for a tachyonWindow function before calling it; platform support
-may differ. This policy does not sandbox the application's native
-services, which run with the host's OS privileges.
+Empty by default. A service injects WindowControls and asks
+granted("minimize") before it offers a control. A call to a control
+that is not granted fails at once and names the grant to add. In a
+browser tab nothing is granted, because there is no native window.
+The host checks the declared grants again before it acts. This
+policy does not sandbox the application's native services, which
+run with the host's OS privileges.
 
 The grant list lives in manifest.json beside the application's name,
 icons and entry route. Unknown control names fail at build time.

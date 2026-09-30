@@ -83,7 +83,7 @@ export default class ${name} {
   initialize() {
     this.#requireValidOwner();
     this.tag = this.view.tagName;
-    globalThis.initializations = this.#countAfter(globalThis.initializations);
+    document.initializations = this.#countAfter(document.initializations);
     this.publish();
   }
   #requireValidOwner() {
@@ -128,7 +128,7 @@ export default class ${name} {
   ${invoiced.doc}@OnEvent
   invoiced(${invoiced.parameter}) { this._trace.push('invoice:' + value.total); }
   @OnStop()
-  destroy() { globalThis.pageDestroyed = this.lifecycle.aborted; }
+  destroy() { document.pageDestroyed = this.lifecycle.aborted; }
 }`
 }
 
@@ -158,18 +158,18 @@ export default class EventPanelService {
   value = 0;
   /** @param {Counter} value */
   @OnEvent({"replay":true})
-  receive(value) { this.value = value.value; globalThis.panelDeliveries = this.#countAfter(globalThis.panelDeliveries); }
+  receive(value) { this.value = value.value; document.panelDeliveries = this.#countAfter(document.panelDeliveries); }
   @OnStart()
   initialize() {
-    globalThis.panelInitializations = this.#countAfter(globalThis.panelInitializations);
-    globalThis.panelElement = this.view;
+    document.panelInitializations = this.#countAfter(document.panelInitializations);
+    document.panelElement = this.view;
     this.view.dataset.initialized = 'preserved';
     this.view.classList.add('application-owned');
     this.view.addEventListener('click', () => this.#countDelegated(), {signal: this.lifecycle});
   }
   @OnStop()
-  destroy() { globalThis.panelDestroyed = this.lifecycle.aborted; }
-  #countDelegated() { globalThis.delegatedDeliveries = this.#countAfter(globalThis.delegatedDeliveries); }
+  destroy() { document.panelDestroyed = this.lifecycle.aborted; }
+  #countDelegated() { document.delegatedDeliveries = this.#countAfter(document.delegatedDeliveries); }
   #countAfter(count) { return (count || 0) + 1; }
 }`)
   write(root, 'client/components/event/failure/tac.html', '<p id="failure">{eventFailure.label}</p>')
@@ -180,11 +180,11 @@ export default class EventFailureService {
   label = 'Preserved failure content';
   @OnStart()
   initialize() {
-    globalThis.failureInitializations = this.#countAfter(globalThis.failureInitializations);
+    document.failureInitializations = this.#countAfter(document.failureInitializations);
     throw new Error('private initialization failure');
   }
   @OnStop()
-  destroy() { globalThis.failureCleanups = this.#countAfter(globalThis.failureCleanups); }
+  destroy() { document.failureCleanups = this.#countAfter(document.failureCleanups); }
   #countAfter(count) { return (count || 0) + 1; }
 }`)
 }
@@ -210,18 +210,18 @@ async function checkPage(browser, port, extension) {
   await page.waitForFunction(() => document.querySelector('#result')?.textContent === '1' && document.querySelector('#panel')?.textContent === '1')
   await page.waitForFunction(() => document.querySelector('#failure')?.parentElement.dataset.tachyonMountError === 'activation_failed')
   assert.equal(await page.locator('#element').textContent(), 'TACHYON-COMPONENT', 'a service element resource is the host of the first component naming it')
-  assert.deepEqual(await page.evaluate((service) => [globalThis.initializations, globalThis.panelInitializations, 'tac' in __tachyonTac.service(service), 'tac' in __tachyonTac], service), [1, 1, false, false])
+  assert.deepEqual(await page.evaluate((service) => [document.initializations, document.panelInitializations, 'tac' in __tachyonTac.service(service), 'tac' in __tachyonTac], service), [1, 1, false, false])
   await page.locator('#publish').click()
   await page.waitForFunction(() => document.querySelector('#panel')?.textContent === '2')
-  assert.deepEqual(await page.evaluate(() => [globalThis.initializations, globalThis.panelInitializations]), [1, 1], 'rerender does not rerun OnStart')
+  assert.deepEqual(await page.evaluate(() => [document.initializations, document.panelInitializations]), [1, 1], 'rerender does not rerun OnStart')
   assert.deepEqual(await page.evaluate(() => {
     const panel = document.querySelector('#panel').parentElement;
     const failure = document.querySelector('#failure').parentElement;
     return [panel.dataset.initialized, panel.classList.contains('application-owned'), panel.dataset.tachyonActive,
-      failure.dataset.tachyonActive, failure.dataset.tachyonMountError, globalThis.failureInitializations, globalThis.failureCleanups];
+      failure.dataset.tachyonActive, failure.dataset.tachyonMountError, document.failureInitializations, document.failureCleanups];
   }), ['preserved', true, 'true', 'false', 'activation_failed', 1, 1], 'rerender preserves owner attributes and terminal initialization failure')
   await page.locator('#delegated').click()
-  assert.deepEqual(await page.evaluate(() => [globalThis.delegatedDeliveries, globalThis.panelElement === document.querySelector('#panel').parentElement]), [1, true], 'resource element identity and delegated listeners survive rerender')
+  assert.deepEqual(await page.evaluate(() => [document.delegatedDeliveries, document.panelElement === document.querySelector('#panel').parentElement]), [1, true], 'resource element identity and delegated listeners survive rerender')
   await page.evaluate((service) => { try { __tachyonTac.service(service).reject() } catch {} }, service)
   assert.equal(await page.locator('#result').textContent(), '2')
   assert.equal(await page.evaluate(() => document.documentElement.dataset.tachyonSignalError), undefined)
@@ -234,14 +234,14 @@ async function checkPage(browser, port, extension) {
   assert.equal(await page.evaluate(() => document.querySelector('[data-tachyon-signal-error]')?.dataset.tachyonSignalError), 'listener_failed',
     'a payload that does not fit the listener model marks a listener failure')
   await page.locator('#hide').click()
-  await page.waitForFunction(() => globalThis.panelDestroyed === true)
-  const deliveries = await page.evaluate(() => globalThis.panelDeliveries)
+  await page.waitForFunction(() => document.panelDestroyed === true)
+  const deliveries = await page.evaluate(() => document.panelDeliveries)
   await page.evaluate((service) => __tachyonTac.service(service).publish(), service)
-  assert.equal(await page.evaluate(() => globalThis.panelDeliveries), deliveries)
+  assert.equal(await page.evaluate(() => document.panelDeliveries), deliveries)
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })))
-  assert.equal(await page.evaluate(() => globalThis.pageDestroyed), undefined, 'bfcache suspension is not disposal')
+  assert.equal(await page.evaluate(() => document.pageDestroyed), undefined, 'bfcache suspension is not disposal')
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })))
-  assert.equal(await page.evaluate(() => globalThis.pageDestroyed), true)
+  assert.equal(await page.evaluate(() => document.pageDestroyed), true)
   assert.deepEqual(errors, [])
   await page.close()
 }

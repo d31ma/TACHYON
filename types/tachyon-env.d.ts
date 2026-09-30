@@ -28,8 +28,6 @@ declare global {
       env: ProcessEnv;
     }
   }
-  /** Native targets only: the window controls that `client/manifest.json` grants, such as `tachyonWindow?.minimize()`. A control that is not granted is missing, so check that its function exists first. */
-  var tachyonWindow: Readonly<Record<string, (payload?: BehaviorJsonObject) => unknown>> | undefined;
   /** Yon only: the handler process. A handler reads its private `YON_APPLICATION_JSON` snapshot from `process.env`. */
   var process: NodeJS.Process;
   /** Yon only: send the request to another program, like `relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)`, and answer with its response. */
@@ -159,7 +157,7 @@ declare global {
     clickThrough?: boolean;
     captureProtection?: boolean;
   }
-  /** @deprecated Historical declaration only; the current runtime does not install this global. Use `tachyonWindow` for the window controls the application declares, or a target-native companion of a service for anything else (ADR 0030). */
+  /** @deprecated Historical declaration only; the current runtime does not install this global. Use the injected `WindowControls` browser API (`@Needs windowControls`) for the window controls the application declares, or a target-native companion of a service for anything else (ADR 0030). */
   const appWindow: {
     state(): Promise<TachyonAppWindowState>;
     setAlwaysOnTop(enabled: boolean): Promise<TachyonAppWindowState | { updated: true }>;

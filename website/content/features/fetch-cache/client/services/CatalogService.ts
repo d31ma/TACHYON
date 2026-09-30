@@ -1,17 +1,18 @@
 @Service
 export default class CatalogService {
   @Needs
-  readonly productsClient!: ProductsClient;
-  products: BehaviorJsonValue = [];
-  async load() {
-    const response = await fetch('/api/products', { credentials: 'omit' });
-    this.products = await this.productsFrom(response);
+  productsClient!: ProductsClient;
+  count = 0;
+
+  async load(): Promise<void> {
+    this.count = this.countItems(await this.productsClient.list());
   }
-  async save(_event: unknown, product: BehaviorJsonValue) {
-    await this.productsClient.save(product);
+
+  async add(): Promise<void> {
+    await this.productsClient.save({ name: 'anvil' });
   }
-  private productsFrom(response: Response): Promise<BehaviorJsonValue> {
-    if (!response.ok) throw new Error('Products unavailable');
-    return response.json();
+
+  private countItems(answer: { items: string[] } | void): number {
+    return answer ? answer.items.length : 0;
   }
 }

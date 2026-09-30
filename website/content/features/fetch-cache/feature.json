@@ -1,36 +1,195 @@
 {
   "id": "fetch-cache",
   "title": "Caching public reads",
-  "summary": "The manifest's `tac.cache` declares service-worker policies for public reads, grouped by path. A service worker is a browser script that can answer requests from a cache. API caching requires `credentials: 'omit'`, no `Authorization` header, and a cacheable response. Responses with `private`, `no-store` or `Vary` are not cached. This worker cache is separate from the optional, limited IndexedDB JSON cache of `HTTPClient`. A successful write invalidates (marks as out of date) the worker reads that it affects. This example uses low-level fetch on purpose for its cacheable read. Managed `HTTPClient` reads are network-only (`no-store`) by default. Their optional IndexedDB policies still skip the worker. Writes use the injected declarative `HTTPClient`.",
+  "summary": "A service reads the network only through an `HTTPClient`; a JavaScript or TypeScript service that calls `fetch` itself fails to build with `TY1361`. To keep a read, put the cache annotations that services use on the client, as Spring's `@Cacheable` works on any bean: `CacheSettings` on the client class names the cache and its limits, `Cached` on a read keeps its answer (with `CacheKey` on the arguments that pick the answer), and `ClearCache` or `UpdateCache` on a write removes or replaces that answer after the write succeeds. This works the same in every language that has an `HTTPClient`. In JavaScript and TypeScript, Tachyon's browser transport also sends a `Cached` GET as a public read, so the service worker may answer it. A service worker is a browser script that can answer requests from a cache. The manifest's `tac.cache` sets the worker's policy for each path: `cache-first`, `network-first` or `no-store`. A path without a rule is not kept by the worker. The worker keeps a read only when it has no `Authorization` header and the response is cacheable; a response with `private`, `no-store` or `Vary` is not kept, and a successful write removes the entries under its path. A read that is not `Cached` is sent `no-store`, so it is always fresh. In the other languages the Setup's HTTP adapter sends the request, so the worker never sees it, and `Cached` keeps the answer in the page. The old `cache` option of `@HTTPClient` is replaced by `Cached` (ADR 0087).",
   "group": "Browser storage",
   "files": [
     {
-      "name": "client/pages/tac.html",
-      "code": { "file": "client/pages/tac.html" }
-    },
-    {
-      "name": "client/components/products/page/tac.html",
-      "code": { "file": "client/components/products/page/tac.html" }
-    },
-    {
       "name": "client/manifest.json",
-      "code": { "file": "client/manifest.json" }
+      "code": {
+        "file": "client/manifest.json"
+      }
     },
     {
       "name": "client/clients/ProductsClient.js",
-      "code": { "file": "client/clients/ProductsClient.js" }
+      "code": {
+        "file": "client/clients/ProductsClient.js"
+      }
     },
     {
       "name": "client/services/CatalogService.js",
-      "code": { "file": "client/services/CatalogService.js" }
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
     },
     {
       "name": "client/clients/ProductsClient.ts",
-      "code": { "file": "client/clients/ProductsClient.ts" }
+      "code": {
+        "file": "client/clients/ProductsClient.ts"
+      }
     },
     {
       "name": "client/services/CatalogService.ts",
-      "code": { "file": "client/services/CatalogService.ts" }
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.rs",
+      "code": {
+        "file": "client/clients/ProductsClient.rs"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.rs",
+      "code": {
+        "file": "client/setups/ProductsSetup.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.go",
+      "code": {
+        "file": "client/clients/ProductsClient.go"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.go",
+      "code": {
+        "file": "client/setups/ProductsSetup.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.cs",
+      "code": {
+        "file": "client/clients/ProductsClient.cs"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.cs",
+      "code": {
+        "file": "client/setups/ProductsSetup.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.fs",
+      "code": {
+        "file": "client/clients/ProductsClient.fs"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.fs",
+      "code": {
+        "file": "client/setups/ProductsSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.kt",
+      "code": {
+        "file": "client/clients/ProductsClient.kt"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.kt",
+      "code": {
+        "file": "client/setups/ProductsSetup.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.java",
+      "code": {
+        "file": "client/clients/ProductsClient.java"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.java",
+      "code": {
+        "file": "client/setups/ProductsSetup.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.dart",
+      "code": {
+        "file": "client/clients/ProductsClient.dart"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.dart",
+      "code": {
+        "file": "client/setups/ProductsSetup.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/clients/ProductsClient.swift",
+      "code": {
+        "file": "client/clients/ProductsClient.swift"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.swift",
+      "code": {
+        "file": "client/setups/ProductsSetup.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/products/page/tac.html",
+      "code": {
+        "file": "client/components/products/page/tac.html"
+      }
     }
-  ]
+  ],
+  "verify": "tac"
 }

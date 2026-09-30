@@ -27,12 +27,6 @@ globalThis.__tachyonNativeHostCall = (capability, payload) =>
     ? globalThis.webkit.messageHandlers.tachyon.postMessage({ capability, payload })
     : globalThis.__tachyonHostPost?.(capability, payload)
 globalThis.__tachyonWindowControls = Object.freeze(__WINDOW_CONTROLS__)
-globalThis.tachyonWindow = Object.fromEntries(
-  __WINDOW_CONTROLS__.map((name) => [
-    name,
-    (payload = {}) => globalThis.__tachyonNativeHostCall('window.' + name, JSON.stringify(payload)),
-  ]),
-)
 addEventListener('DOMContentLoaded', () => {
   if (document.body) document.body.dataset.platform = 'native'
 })
@@ -330,6 +324,7 @@ mod tests {
         assert!(NativeHost::SHIM.contains("messageHandlers.tachyon"));
         assert!(NativeHost::SHIM.contains("__tachyonHostPost"));
         assert!(NativeHost::SHIM.contains("dataset.platform = 'native'"));
+        assert!(!NativeHost::SHIM.contains("tachyonWindow ="));
     }
 
     #[test]

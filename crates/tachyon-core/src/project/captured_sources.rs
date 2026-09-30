@@ -162,6 +162,7 @@ impl CapturedSources {
         };
         diagnostics.extend(crate::safety::EvalCheck::diagnostics(code()));
         diagnostics.extend(crate::safety::QueryCheck::diagnostics(code()));
+        diagnostics.extend(crate::safety::ServiceReachCheck::diagnostics(code()));
         let tac = crate::safety::DeclaredHosts::tac(project);
         let yon = crate::safety::DeclaredHosts::yon(project);
         diagnostics.extend(crate::safety::HostCheck::new(&tac, &yon).diagnostics(code()));

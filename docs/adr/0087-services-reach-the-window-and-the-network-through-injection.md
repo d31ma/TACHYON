@@ -1,7 +1,8 @@
 # ADR 0087: Services Reach the Window and the Network Through Injection
 
-- Status: Accepted (slice 1: this decision; the slices are listed under
-  "Plan")
+- Status: Accepted (slices 1 to 5 are done; slice 6, the removal of the
+  `HTTPClient` cache option, and the native window controls of companions
+  are open)
 - Date: 2026-09-30
 - Relates to: [ADR 0022](0022-shared-behavior-adapters.md) (behavior
   annotations), [ADR 0052](0052-the-manifest-is-the-tac-configuration.md)
@@ -79,6 +80,13 @@ field and Tachyon fills it:
 | Swift | `private let windowControls = WindowControls()` |
 
 Each field is written like the language's existing `Clipboard` field.
+
+`WindowControls` goes through the page, like `Clipboard`. A service that a
+native app links in instead of running it in the page (a companion: Rust and
+C# on the desktop, Swift on Apple, Kotlin on Android) has no page, so the
+build refuses `WindowControls` there with `TY1317`, as ADR 0065 decided for
+every browser API. A native `WindowControls` in the companion preludes, which
+asks the host directly with the same grants, is planned as a later slice.
 
 The calls have the names of the controls. Each language writes them in its
 own case (`set_title` in Rust and Ruby, `SetTitle` in Go and C#):
@@ -165,11 +173,13 @@ an HTTP cache.
   message points to an `HTTPClient` method, with `Cached` for a public read.
 
 A Setup is not a service: its HTTP adapter is where a custom transport lives,
-so a Setup may call `fetch`. The WebAssembly languages already cannot reach
-either global (`TY1317`). Both rules stay off until the website, the
-fixtures, the corpus and the `ty init` templates pass them. The same slice
-refuses the `cache` option of `@HTTPClient`, with a message that names
-`CacheSettings` and `Cached`.
+so a Setup may call `fetch`. A shared script (`tac.scripts`) is not a service
+either. The WebAssembly languages already cannot reach either global
+(`TY1317`). Both rules are build errors, like the safety rules of ADR 0068,
+and were switched on only after the website, the fixtures, the corpus and the
+`ty init` templates passed them. A later slice refuses the `cache` option of
+`@HTTPClient`, with a message that names `CacheSettings` and `Cached`, and
+removes its IndexedDB store.
 
 ## Plan
 
@@ -183,9 +193,12 @@ refuses the `cache` option of `@HTTPClient`, with a message that names
 4. The website: both feature pages with a tab for every Tac language, and
    the caching, `HTTPClient`, browser API, annotation, glossary and error
    code pages.
-5. `TY1360`, `TY1361` and the `cache` option refusal, switched on after the
-   website passes them. The shim drops `globalThis.tachyonWindow` in the same
-   slice.
+5. `TY1360` and `TY1361`, switched on after the website passes them. The
+   shim drops `globalThis.tachyonWindow` in the same slice.
+6. The `cache` option of `@HTTPClient` is refused, and its IndexedDB store
+   (`FetchCache` in `tac-client.js`) and its storage-gate rows are removed.
+7. A native `WindowControls` in the companion preludes (Rust, C#, Swift,
+   Kotlin) that asks the host directly with the same grants.
 
 ## Consequences
 

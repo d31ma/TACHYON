@@ -188,7 +188,7 @@ export default class RuntimeBoundariesService {
   export default class ${service}Service {
     label = '${name}';
     @OnStart()
-    initialize() { globalThis.delayedActivations.push('${name}'); }
+    initialize() { document.delayedActivations.push('${name}'); }
   }`);
   }
 }
@@ -477,23 +477,23 @@ export default class SignalService {
     this.applicationEventPublisher.publishEvent(placed);
   }
   sendNative(_event, language) {
-    const audit = globalThis.__tachyonTac.service(language + SignalService._AUDIT);
+    const audit = __tachyonTac.service(language + SignalService._AUDIT);
     audit.emitOrdered();
     this.nativeAsyncDuring = audit.ownAsync;
   }
   /** @param {NativeOrdered} ordered */
   @OnEvent
   @Order(0)
-  nativeFirst(ordered) { this.nativeBefore = globalThis.__tachyonTac.service(ordered.language + SignalService._AUDIT).ownOrdered; }
+  nativeFirst(ordered) { this.nativeBefore = __tachyonTac.service(ordered.language + SignalService._AUDIT).ownOrdered; }
   /** @param {NativeOrdered} ordered */
   @OnEvent
   @Order(200)
-  nativeLast(ordered) { this.nativeAfter = globalThis.__tachyonTac.service(ordered.language + SignalService._AUDIT).ownOrdered; }
+  nativeLast(ordered) { this.nativeAfter = __tachyonTac.service(ordered.language + SignalService._AUDIT).ownOrdered; }
   _records() {
     return this.#recordsOf(['rustAudit', 'goAudit'${withCSharp ? ", 'csAudit'" : ''}]);
   }
   #recordsOf(services) {
-    return services.map((name) => globalThis.__tachyonTac.service(name).records).join(SignalService._SEPARATOR);
+    return services.map((name) => __tachyonTac.service(name).records).join(SignalService._SEPARATOR);
   }
   /** @param {OrderPlaced} _placed */
   @OnEvent
@@ -1005,7 +1005,7 @@ async function checkMountCancellation(browser, origin) {
   const mounts = await browser.newPage();
   await mounts.addInitScript(rootHelper);
   await mounts.addInitScript(() => {
-    globalThis.delayedActivations = [];
+    document.delayedActivations = [];
     globalThis.cancelledIdle = [];
     globalThis.queuedIdle = new Map();
     globalThis.idleSequence = 0;
@@ -1027,7 +1027,7 @@ async function checkMountCancellation(browser, origin) {
     for (const callback of before) await callback({ didTimeout: false, timeRemaining: () => 50 });
     interaction.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
     await Promise.resolve();
-    return { activated: delayedActivations, idleCancelled: cancelledIdle.length > 0,
+    return { activated: document.delayedActivations, idleCancelled: cancelledIdle.length > 0,
       visibleDisconnected: disconnectedObservers > 0, hosts: document.querySelectorAll('tachyon-component[data-tachyon-component^="delayed-"]').length };
   });
   assert.deepEqual(removedMounts, { activated: [], idleCancelled: true, visibleDisconnected: true, hosts: 0 },

@@ -1,13 +1,28 @@
 @Service
 export default class ReportService {
-  /** @type {boolean} */
-  canMinimize = typeof globalThis.tachyonWindow?.minimize === 'function'
+  /** @type {TacWindowControls} */
+  @Needs
+  windowControls;
+  problem = '';
 
   minimize() {
-    globalThis.tachyonWindow?.minimize()
+    this.#keepProblem(() => this.windowControls.minimize());
   }
 
   resize() {
-    globalThis.tachyonWindow?.resize({ width: 1280, height: 800 })
+    this.#keepProblem(() => this.windowControls.resize(1280, 800));
+  }
+
+  rename() {
+    this.#keepProblem(() => this.windowControls.setTitle('Quarterly report'));
+  }
+
+  /** @param {() => void} call */
+  #keepProblem(call) {
+    try {
+      call();
+    } catch (refusal) {
+      this.problem = refusal.message;
+    }
   }
 }

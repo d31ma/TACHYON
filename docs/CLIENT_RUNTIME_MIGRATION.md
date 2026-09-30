@@ -413,9 +413,10 @@ architecture. These verbs are `host.on`, `shortcuts.register`, and
 that uses the platform SDK. Deliver local native events with an injected
 ApplicationEventPublisher and an OnEvent listener.
 
-The separate `tachyonWindow` API covers only the window controls that the
-application declares. It does not replace a registry for arbitrary device
-capabilities.
+The injected `WindowControls` browser API (ADR 0087) covers only the window
+controls that the application declares. It replaces the former
+`globalThis.tachyonWindow` global, and it does not replace a registry for
+arbitrary device capabilities.
 
 ### Native calls from the browser
 

@@ -1,6 +1,5 @@
-<button on:click="catalog.load()">Refresh</button>
-<ul>
-  <loop :for="product of catalog.products">
-    <li>{product.name} <button on:click="catalog.save(product)">Save</button></li>
-  </loop>
-</ul>
+<main>
+  <button type="button" on:click="catalog.load()">Refresh</button>
+  <button type="button" on:click="catalog.add()">Add an anvil</button>
+  <p>{catalog.count} products</p>
+</main>

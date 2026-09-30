@@ -1,4 +1,10 @@
-if (document.body.dataset.platform === 'native') {
-}
+@Service
+export default class ReportService {
+  /** @type {TacWindowControls} */
+  @Needs
+  windowControls;
 
-globalThis.tachyonWindow?.minimize()
+  minimize() {
+    this.windowControls.minimize();
+  }
+}

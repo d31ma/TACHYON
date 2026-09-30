@@ -1,28 +1,81 @@
 {
   "id": "window-controls",
   "title": "What a page may do to its window",
-  "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service can use. By default, no controls are granted. The host (the native app that shows the page) makes only the granted controls available. It checks each grant before it runs a request. Native service code belongs to the application. It runs as normal operating-system code. This window-control policy does not sandbox it (limit what it can do).",
+  "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service may use, under `tac.application.window.controls`. By default, no control is granted. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in every language that runs in the page. The calls are `granted(control)`, `minimize()`, `maximize()`, `fullscreen()`, `close()`, `resize(width, height)` and `setTitle(text)`, written in each language's case (`set_title` in Ruby, `SetTitle` in Go). A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab, `granted` answers `false` and every call fails, because the page has no native window. The host (the native app that shows the page) checks each grant again before it acts. The page has no `globalThis.tachyonWindow` global any more, and a service that reads `globalThis` fails to build with `TY1360`. A service that the native app links in instead of running it in the page (Rust and C# on the desktop, Swift on Apple, Kotlin on Android) has no page, so the build refuses `WindowControls` there (`TY1317`); give the window work to a service that runs in the page. F# services have no browser APIs yet. Native service code belongs to the application. It runs as normal operating-system code, and this window-control policy does not sandbox (limit) it.",
   "group": "Native",
   "files": [
     {
       "name": "client/manifest.json",
-      "code": { "file": "client/manifest.json" }
+      "code": {
+        "file": "client/manifest.json"
+      }
     },
     {
       "name": "client/services/ReportService.js",
-      "code": { "file": "client/services/ReportService.js" }
+      "code": {
+        "file": "client/services/ReportService.js"
+      }
+    },
+    {
+      "name": "client/services/ReportService.ts",
+      "code": {
+        "file": "client/services/ReportService.ts"
+      }
+    },
+    {
+      "name": "client/services/ReportService.go",
+      "code": {
+        "file": "client/services/ReportService.go"
+      }
+    },
+    {
+      "name": "client/services/ReportService.kt",
+      "code": {
+        "file": "client/services/ReportService.kt"
+      }
+    },
+    {
+      "name": "client/services/ReportService.java",
+      "code": {
+        "file": "client/services/ReportService.java"
+      }
+    },
+    {
+      "name": "client/services/ReportService.dart",
+      "code": {
+        "file": "client/services/ReportService.dart"
+      }
+    },
+    {
+      "name": "client/services/ReportService.rb",
+      "code": {
+        "file": "client/services/ReportService.rb"
+      }
+    },
+    {
+      "name": "client/services/ReportService.swift",
+      "code": {
+        "file": "client/services/ReportService.swift"
+      }
     },
     {
       "name": "client/pages/tac.html",
-      "code": { "file": "client/pages/tac.html" }
+      "code": {
+        "file": "client/pages/tac.html"
+      }
     },
     {
       "name": "client/components/report/window/tac.html",
-      "code": { "file": "client/components/report/window/tac.html" }
+      "code": {
+        "file": "client/components/report/window/tac.html"
+      }
     },
     {
       "name": "grants",
-      "code": { "file": "grants.txt" }
+      "code": {
+        "file": "grants.txt"
+      }
     }
-  ]
+  ],
+  "verify": "tac"
 }

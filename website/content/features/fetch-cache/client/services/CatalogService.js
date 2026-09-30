@@ -3,25 +3,21 @@ export default class CatalogService {
   /** @type {ProductsClient} */
   @Needs
   productsClient;
-  /** @type {object[]} */
-  products = [];
+  count = 0;
+
   async load() {
-    const response = await fetch('/api/products', { credentials: 'omit' });
-    this.products = await this._productsFrom(response);
+    this.count = this.#countItems(await this.productsClient.list());
   }
-  /**
-   * @param {Event} _event
-   * @param {BehaviorJsonValue} product
-   */
-  async save(_event, product) {
-    await this.productsClient.save(product);
+
+  async add() {
+    await this.productsClient.save({ name: 'anvil' });
   }
+
   /**
-   * @param {Response} response
-   * @returns {Promise<object[]>}
+   * @param {{ items: string[] } | void} answer
+   * @returns {number}
    */
-  _productsFrom(response) {
-    if (!response.ok) throw new Error('Products unavailable');
-    return response.json();
+  #countItems(answer) {
+    return answer ? answer.items.length : 0;
   }
 }

@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- A JavaScript or TypeScript Tac service that reads `globalThis` fails with
+  `TY1360`, and one that calls `fetch` itself fails with `TY1361` (ADR 0087).
+  The window controls come from the injected `WindowControls` browser API, and
+  the network from an `HTTPClient` (mark a public read `Cached`). The native
+  host no longer defines `globalThis.tachyonWindow`, and `tachyon-env.d.ts` no
+  longer declares it. Setups and shared scripts may still call `fetch`.
+
 - A Store can extend `Repository<Entity, Id>`, like Spring Data's
   `CrudRepository` (ADR 0022 amendment), and then gets `findById`,
   `findAll(page)`, `save` and `deleteById` without declaring them, in every
@@ -554,6 +561,25 @@ machine contracts have their own, independent major versions.
   to delete; the guides list what is in them.
 
 ### Added
+
+- A Tac service reaches the native window through the injected `WindowControls`
+  browser API (ADR 0087): `@Needs windowControls` in JavaScript and TypeScript,
+  and a `WindowControls` field in every language that runs in the page, with
+  `granted`, `minimize`, `maximize`, `fullscreen`, `close`, `resize` and
+  `setTitle`. `tac.application.window.controls` still grants each control; a
+  control that is not granted, or any call in a browser tab, fails at once and
+  names the grant. Test units fake it like the other browser APIs. A service
+  that the native app links in (Rust and C# on the desktop, Swift on Apple,
+  Kotlin on Android) cannot use it yet (`TY1317`), and F# services have no
+  browser APIs yet.
+- `Cached`, `CacheKey`, `ClearCache` and `UpdateCache` work on `HTTPClient`
+  methods in every Tac language, like Spring's `@Cacheable` on any bean (ADR
+  0087): `CacheSettings` on the client names the cache. In JavaScript and
+  TypeScript a `Cached` GET is also a public read, so the service worker may
+  answer it by the manifest's `tac.cache` rules; other reads stay `no-store`.
+  New browser gates `scripts/cached-client-browser-test.mjs` and
+  `scripts/window-controls-browser-test.mjs` run in Chromium, Firefox and
+  WebKit.
 
 - F# takes a role through a Needs property as well as through its primary
   constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
@@ -2199,6 +2225,10 @@ machine contracts have their own, independent major versions.
   `--section="<heading>"` only the guides suite. Before, `--feature` alone also
   built every docs section (about 15 minutes). `--suite=` still chooses the
   suite when you write it.
+
+- Dart and Swift `HTTPClient` calls went around the behavior cache, so
+  `Cached`, `ClearCache` and `UpdateCache` did nothing on them; they now pass
+  through it like C#, Go, Kotlin, Java and F# (ADR 0087).
 
 - Java web services now start under Tachyon's content security policy
   (`script-src 'self' 'wasm-unsafe-eval'`), which `ty start`, `ty preview`

@@ -33,8 +33,9 @@ tac.application.version                                native
 tac.application.window                                 native
   width and height the window opens at (1024 by 768 unless set,
   each 64 to 16384), minWidth and minHeight, and controls: which
-  window controls a page may use (close, fullscreen, maximize,
-  minimize, resize, title). None are granted unless listed.
+  window controls a service may use through WindowControls (close,
+  fullscreen, maximize, minimize, resize, title). None are granted
+  unless listed.
 
 tac.origin                                              build
   The public address, such as https://example.com, without a path.
@@ -50,6 +51,7 @@ tac.elements                                            build
 tac.cache                                               build
   Service-worker rules: [{ "path": "/api/*", "policy":
   "network-first" }]; cache-first, network-first or no-store.
+  They answer navigations, assets and Cached HTTPClient GETs.
 
 tac.metadata                                            build
   defaults, and routes keyed by route: title, description,

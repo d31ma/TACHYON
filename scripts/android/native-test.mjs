@@ -40,7 +40,14 @@ function countStatus(page) {
 }
 
 function writeFixture(project) {
-  write(project, 'client/manifest.json', JSON.stringify({ name: 'Phase Five', start_url: '/', tac: { application: { id: 'dev.tachyon.phase-five', version: '0.1.0' } } }));
+  write(project, 'client/manifest.json', JSON.stringify({ name: 'Phase Five', start_url: '/', tac: { scripts: ['/shared/android-probe.js'], application: { id: 'dev.tachyon.phase-five', version: '0.1.0' } } }));
+  write(project, 'client/shared/android-probe.js', `const hostCall = globalThis.__tachyonNativeHostCall;
+globalThis.__tachyonNativeHostCall = (capability, payload) => {
+  const request = JSON.parse(payload);
+  if (capability === 'companion.invoke' && request.op === 'init') { globalThis.androidGateOwner = request.owner; globalThis.androidGateService = request.service; }
+  return hostCall(capability, payload);
+};
+`);
   write(project, 'client/models/NativeEvent.kt', 'data class NativeEvent(val text: String)\n');
   write(project, 'client/shared/identity.txt', 'root-relative-native-asset');
   write(project, 'client/shared/bridge-probe.html', '<!doctype html><title>Native frame boundary probe</title><p>Frame content remains supported.</p>');
@@ -50,21 +57,16 @@ function writeFixture(project) {
     write(project, `client/pages/${prefix}tac.html`, `<android-${name.toLowerCase()} />`);
     write(project, `client/components/android/${name.toLowerCase()}/tac.html`, `<main aria-label="Android native evidence"><h1>${prefix ? 'Second route' : 'First route'}</h1><p>Built by {${instance}.builtBy}</p><button on:click="${instance}.increase()" aria-label="Increase count">Increase</button><output aria-label="Count">{${instance}.count}</output><input aria-label="Your name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" placeholder="Name"><a href="/items/7/">Second route</a></main>`);
     write(project, `client/components/android/${name.toLowerCase()}/tac.css`, 'h1 { color: rgb(12, 34, 56); }');
-    write(project, `client/services/Android${name}Service.js`, `const hostCall = globalThis.__tachyonNativeHostCall;
-globalThis.__tachyonNativeHostCall = (capability, payload) => {
-  const request = JSON.parse(payload);
-  if (capability === 'companion.invoke' && request.op === 'init') { globalThis.androidGateOwner = request.owner; globalThis.androidGateService = request.service; }
-  return hostCall(capability, payload);
-};
-/**
+    write(project, `client/services/Android${name}Service.js`, `/**
  * @typedef {Object} NativeEvent
  * @property {string} text
  */
 @Service()
 export default class Android${name}Service {
+  received = '';
   /** @param {NativeEvent} value */
   @OnEvent
-  receive(value) { globalThis.receivedNativeEvent = value.text; }
+  receive(value) { this.received = value.text; }
 }
 `);
     write(project, `client/services/Android${name}Service.kt`, `class Android${name}Service {
