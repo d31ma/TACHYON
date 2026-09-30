@@ -1191,10 +1191,9 @@ process.exit(0)
         let path = Self::write(root, "client/services/StampService.dart", source.as_bytes());
         let services = [("StampService", path.as_path())];
         let instances = std::collections::BTreeSet::from([String::from("stamp")]);
-        let modules =
-            crate::tac_dart::build_all(root, &services, &instances, crate::BuildProfile::Release)
-                .await
-                .expect("build");
+        let modules = crate::tac_dart::build_all(root, &services, &instances, crate::BuildProfile::Release)
+            .await
+            .expect("build");
         for (name, bytes) in modules {
             Self::write(root, &name, &bytes);
         }

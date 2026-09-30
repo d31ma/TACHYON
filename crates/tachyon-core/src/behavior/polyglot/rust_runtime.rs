@@ -66,7 +66,10 @@ impl BehaviorValue {
             _ => None,
         }
     }
-    pub fn map_value(&self, plan: &[(&str, Option<&[&str]>, Self)]) -> BehaviorResult<Self> {
+    pub fn map_value(
+        &self,
+        plan: &[(&str, Option<&[&str]>, Self)],
+    ) -> BehaviorResult<Self> {
         if !matches!(self, Self::Object(_)) {
             return Err(behavior_invalid());
         }
@@ -1067,10 +1070,7 @@ fn behavior_application_inputs(
         return Err(behavior_invalid());
     };
     let mut flat = std::collections::BTreeMap::new();
-    if !root
-        .iter()
-        .any(|(key, _)| matches!(key.as_str(), "tac" | "yon"))
-    {
+    if !root.iter().any(|(key, _)| matches!(key.as_str(), "tac" | "yon")) {
         return Err(behavior_invalid());
     }
     for (key, value) in root {
@@ -1247,13 +1247,7 @@ unsafe extern "C" {
 #[cfg(not(target_arch = "wasm32"))]
 fn behavior_monotonic_ms() -> u64 {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-    u64::try_from(
-        START
-            .get_or_init(std::time::Instant::now)
-            .elapsed()
-            .as_millis(),
-    )
-    .unwrap_or(u64::MAX)
+    u64::try_from(START.get_or_init(std::time::Instant::now).elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 #[cfg(target_arch = "wasm32")]
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -1307,10 +1301,7 @@ impl BehaviorContext {
         })
     }
 
-    fn cache_adapter(
-        &self,
-        name: &str,
-    ) -> BehaviorResult<std::sync::Arc<dyn BehaviorCacheAdapter>> {
+    fn cache_adapter(&self, name: &str) -> BehaviorResult<std::sync::Arc<dyn BehaviorCacheAdapter>> {
         self.0
             .configuration
             .caches
@@ -1327,11 +1318,7 @@ impl BehaviorContext {
             && behavior_builtin_entities(name).is_some()
     }
     fn http_adapter(&self, name: &str) -> BehaviorResult<&std::sync::Arc<dyn BehaviorHttpAdapter>> {
-        self.0
-            .configuration
-            .http
-            .get(name)
-            .ok_or_else(behavior_invalid)
+        self.0.configuration.http.get(name).ok_or_else(behavior_invalid)
     }
     fn entity_adapter(
         &self,
@@ -1802,9 +1789,7 @@ fn behavior_check_query_result(
             let BehaviorValue::Array(rows) = result else {
                 return Err(behavior_invalid());
             };
-            let all_objects = rows
-                .iter()
-                .all(|row| matches!(row, BehaviorValue::Object(_)));
+            let all_objects = rows.iter().all(|row| matches!(row, BehaviorValue::Object(_)));
             if rows.len() as u64 > size || !all_objects {
                 return Err(behavior_invalid());
             }
@@ -2155,9 +2140,7 @@ fn behavior_query(
     let mut used = std::collections::BTreeSet::new();
     let mut predicates = Vec::new();
     for predicate in &policy.predicates {
-        predicates.push(behavior_query_predicate(
-            policy, predicate, args, &mut used,
-        )?);
+        predicates.push(behavior_query_predicate(policy, predicate, args, &mut used)?);
     }
     let predicates = BehaviorValue::Array(predicates).checked(65_536)?;
     let order = behavior_query_order(policy)?;
@@ -2201,14 +2184,12 @@ fn behavior_invalid_query_policy(policy: &BehaviorQueryPolicy, argument_count: u
         .collect::<std::collections::BTreeSet<_>>();
     let invalid_fields = policy.fields.is_empty()
         || policy.fields.len() > 64
-        || policy
-            .fields
-            .iter()
-            .any(|field| !behavior_identifier(field))
+        || policy.fields.iter().any(|field| !behavior_identifier(field))
         || unique_fields.len() != policy.fields.len()
         || !policy.fields.contains(&entity.id);
-    let invalid_sizes =
-        policy.default_size == 0 || policy.default_size > policy.max_size || policy.max_size > 100;
+    let invalid_sizes = policy.default_size == 0
+        || policy.default_size > policy.max_size
+        || policy.max_size > 100;
     let invalid_limits =
         policy.predicates.len() > 8 || policy.order_by.len() > 5 || argument_count > 32;
     let invalid_operation = !matches!(
@@ -2373,9 +2354,9 @@ fn behavior_exchange_path(
             && !text.is_empty()
             && text != "."
             && text != ".."
-            && text.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'-')
-            });
+            && text
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'-'));
         if !allowed {
             return Err(behavior_invalid());
         }
@@ -2462,13 +2443,7 @@ fn behavior_allowed_header(key: &str, value: &str) -> bool {
     {
         return false;
     }
-    let forbidden = [
-        "host",
-        "connection",
-        "content-length",
-        "transfer-encoding",
-        "cookie",
-    ];
+    let forbidden = ["host", "connection", "content-length", "transfer-encoding", "cookie"];
     !forbidden.contains(&key.to_ascii_lowercase().as_str())
 }
 fn behavior_safe_path(path: &str) -> bool {
@@ -2513,23 +2488,14 @@ impl BehaviorCalls {
     }
 
     pub fn record(key: &str) {
-        let mut keys = Self::keys()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut keys = Self::keys().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if !keys.iter().any(|known| known == key) {
             keys.push(key.to_owned());
         }
     }
 
     pub fn take() -> BehaviorValue {
-        let mut keys = Self::keys()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        BehaviorValue::Array(
-            std::mem::take(&mut *keys)
-                .into_iter()
-                .map(BehaviorValue::from)
-                .collect(),
-        )
+        let mut keys = Self::keys().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        BehaviorValue::Array(std::mem::take(&mut *keys).into_iter().map(BehaviorValue::from).collect())
     }
 }
