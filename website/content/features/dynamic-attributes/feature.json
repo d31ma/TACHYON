@@ -15,6 +15,86 @@
     {
       "name": "client/services/LinkService.js",
       "code": { "file": "client/services/LinkService.js" }
+    },
+    {
+      "name": "client/services/LinkService.ts",
+      "code": { "file": "client/services/LinkService.ts" }
+    },
+    {
+      "name": "client/models/Topic.ts",
+      "code": { "file": "client/models/Topic.ts" }
+    },
+    {
+      "name": "client/services/LinkService.dart",
+      "code": { "file": "client/services/LinkService.dart" }
+    },
+    {
+      "name": "client/models/Topic.dart",
+      "code": { "file": "client/models/Topic.dart" }
+    },
+    {
+      "name": "client/services/LinkService.rs",
+      "code": { "file": "client/services/LinkService.rs" }
+    },
+    {
+      "name": "client/models/Topic.rs",
+      "code": { "file": "client/models/Topic.rs" }
+    },
+    {
+      "name": "client/services/LinkService.go",
+      "code": { "file": "client/services/LinkService.go" }
+    },
+    {
+      "name": "client/models/Topic.go",
+      "code": { "file": "client/models/Topic.go" }
+    },
+    {
+      "name": "client/services/LinkService.rb",
+      "code": { "file": "client/services/LinkService.rb" }
+    },
+    {
+      "name": "client/models/Topic.rb",
+      "code": { "file": "client/models/Topic.rb" }
+    },
+    {
+      "name": "client/services/LinkService.swift",
+      "code": { "file": "client/services/LinkService.swift" }
+    },
+    {
+      "name": "client/models/Topic.swift",
+      "code": { "file": "client/models/Topic.swift" }
+    },
+    {
+      "name": "client/services/LinkService.kt",
+      "code": { "file": "client/services/LinkService.kt" }
+    },
+    {
+      "name": "client/models/Topic.kt",
+      "code": { "file": "client/models/Topic.kt" }
+    },
+    {
+      "name": "client/services/LinkService.java",
+      "code": { "file": "client/services/LinkService.java" }
+    },
+    {
+      "name": "client/models/Topic.java",
+      "code": { "file": "client/models/Topic.java" }
+    },
+    {
+      "name": "client/services/LinkService.cs",
+      "code": { "file": "client/services/LinkService.cs" }
+    },
+    {
+      "name": "client/models/Topic.cs",
+      "code": { "file": "client/models/Topic.cs" }
+    },
+    {
+      "name": "client/services/LinkService.fs",
+      "code": { "file": "client/services/LinkService.fs" }
+    },
+    {
+      "name": "client/models/Topic.fs",
+      "code": { "file": "client/models/Topic.fs" }
     }
   ],
   "verify": "tac"

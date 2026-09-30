@@ -15,6 +15,86 @@
     {
       "name": "client/services/BasketService.js",
       "code": { "file": "client/services/BasketService.js" }
+    },
+    {
+      "name": "client/services/BasketService.ts",
+      "code": { "file": "client/services/BasketService.ts" }
+    },
+    {
+      "name": "client/models/Tab.ts",
+      "code": { "file": "client/models/Tab.ts" }
+    },
+    {
+      "name": "client/services/BasketService.dart",
+      "code": { "file": "client/services/BasketService.dart" }
+    },
+    {
+      "name": "client/models/Tab.dart",
+      "code": { "file": "client/models/Tab.dart" }
+    },
+    {
+      "name": "client/services/BasketService.rs",
+      "code": { "file": "client/services/BasketService.rs" }
+    },
+    {
+      "name": "client/models/Tab.rs",
+      "code": { "file": "client/models/Tab.rs" }
+    },
+    {
+      "name": "client/services/BasketService.go",
+      "code": { "file": "client/services/BasketService.go" }
+    },
+    {
+      "name": "client/models/Tab.go",
+      "code": { "file": "client/models/Tab.go" }
+    },
+    {
+      "name": "client/services/BasketService.rb",
+      "code": { "file": "client/services/BasketService.rb" }
+    },
+    {
+      "name": "client/models/Tab.rb",
+      "code": { "file": "client/models/Tab.rb" }
+    },
+    {
+      "name": "client/services/BasketService.swift",
+      "code": { "file": "client/services/BasketService.swift" }
+    },
+    {
+      "name": "client/models/Tab.swift",
+      "code": { "file": "client/models/Tab.swift" }
+    },
+    {
+      "name": "client/services/BasketService.kt",
+      "code": { "file": "client/services/BasketService.kt" }
+    },
+    {
+      "name": "client/models/Tab.kt",
+      "code": { "file": "client/models/Tab.kt" }
+    },
+    {
+      "name": "client/services/BasketService.java",
+      "code": { "file": "client/services/BasketService.java" }
+    },
+    {
+      "name": "client/models/Tab.java",
+      "code": { "file": "client/models/Tab.java" }
+    },
+    {
+      "name": "client/services/BasketService.cs",
+      "code": { "file": "client/services/BasketService.cs" }
+    },
+    {
+      "name": "client/models/Tab.cs",
+      "code": { "file": "client/models/Tab.cs" }
+    },
+    {
+      "name": "client/services/BasketService.fs",
+      "code": { "file": "client/services/BasketService.fs" }
+    },
+    {
+      "name": "client/models/Tab.fs",
+      "code": { "file": "client/models/Tab.fs" }
     }
   ],
   "verify": "tac"

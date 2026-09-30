@@ -15,6 +15,46 @@
     {
       "name": "client/services/BadgeService.js",
       "code": { "file": "client/services/BadgeService.js" }
+    },
+    {
+      "name": "client/services/BadgeService.ts",
+      "code": { "file": "client/services/BadgeService.ts" }
+    },
+    {
+      "name": "client/services/BadgeService.dart",
+      "code": { "file": "client/services/BadgeService.dart" }
+    },
+    {
+      "name": "client/services/BadgeService.rs",
+      "code": { "file": "client/services/BadgeService.rs" }
+    },
+    {
+      "name": "client/services/BadgeService.go",
+      "code": { "file": "client/services/BadgeService.go" }
+    },
+    {
+      "name": "client/services/BadgeService.rb",
+      "code": { "file": "client/services/BadgeService.rb" }
+    },
+    {
+      "name": "client/services/BadgeService.swift",
+      "code": { "file": "client/services/BadgeService.swift" }
+    },
+    {
+      "name": "client/services/BadgeService.kt",
+      "code": { "file": "client/services/BadgeService.kt" }
+    },
+    {
+      "name": "client/services/BadgeService.java",
+      "code": { "file": "client/services/BadgeService.java" }
+    },
+    {
+      "name": "client/services/BadgeService.cs",
+      "code": { "file": "client/services/BadgeService.cs" }
+    },
+    {
+      "name": "client/services/BadgeService.fs",
+      "code": { "file": "client/services/BadgeService.fs" }
     }
   ],
   "verify": "tac"

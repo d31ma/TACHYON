@@ -15,6 +15,86 @@
     {
       "name": "client/services/StockService.js",
       "code": { "file": "client/services/StockService.js" }
+    },
+    {
+      "name": "client/services/StockService.ts",
+      "code": { "file": "client/services/StockService.ts" }
+    },
+    {
+      "name": "client/models/Product.ts",
+      "code": { "file": "client/models/Product.ts" }
+    },
+    {
+      "name": "client/services/StockService.dart",
+      "code": { "file": "client/services/StockService.dart" }
+    },
+    {
+      "name": "client/models/Product.dart",
+      "code": { "file": "client/models/Product.dart" }
+    },
+    {
+      "name": "client/services/StockService.rs",
+      "code": { "file": "client/services/StockService.rs" }
+    },
+    {
+      "name": "client/models/Product.rs",
+      "code": { "file": "client/models/Product.rs" }
+    },
+    {
+      "name": "client/services/StockService.go",
+      "code": { "file": "client/services/StockService.go" }
+    },
+    {
+      "name": "client/models/Product.go",
+      "code": { "file": "client/models/Product.go" }
+    },
+    {
+      "name": "client/services/StockService.rb",
+      "code": { "file": "client/services/StockService.rb" }
+    },
+    {
+      "name": "client/models/Product.rb",
+      "code": { "file": "client/models/Product.rb" }
+    },
+    {
+      "name": "client/services/StockService.swift",
+      "code": { "file": "client/services/StockService.swift" }
+    },
+    {
+      "name": "client/models/Product.swift",
+      "code": { "file": "client/models/Product.swift" }
+    },
+    {
+      "name": "client/services/StockService.kt",
+      "code": { "file": "client/services/StockService.kt" }
+    },
+    {
+      "name": "client/models/Product.kt",
+      "code": { "file": "client/models/Product.kt" }
+    },
+    {
+      "name": "client/services/StockService.java",
+      "code": { "file": "client/services/StockService.java" }
+    },
+    {
+      "name": "client/models/Product.java",
+      "code": { "file": "client/models/Product.java" }
+    },
+    {
+      "name": "client/services/StockService.cs",
+      "code": { "file": "client/services/StockService.cs" }
+    },
+    {
+      "name": "client/models/Product.cs",
+      "code": { "file": "client/models/Product.cs" }
+    },
+    {
+      "name": "client/services/StockService.fs",
+      "code": { "file": "client/services/StockService.fs" }
+    },
+    {
+      "name": "client/models/Product.fs",
+      "code": { "file": "client/models/Product.fs" }
     }
   ],
   "verify": "tac"

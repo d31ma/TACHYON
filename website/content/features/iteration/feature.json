@@ -15,6 +15,86 @@
     {
       "name": "client/services/InventoryService.js",
       "code": { "file": "client/services/InventoryService.js" }
+    },
+    {
+      "name": "client/services/InventoryService.ts",
+      "code": { "file": "client/services/InventoryService.ts" }
+    },
+    {
+      "name": "client/models/Product.ts",
+      "code": { "file": "client/models/Product.ts" }
+    },
+    {
+      "name": "client/services/InventoryService.dart",
+      "code": { "file": "client/services/InventoryService.dart" }
+    },
+    {
+      "name": "client/models/Product.dart",
+      "code": { "file": "client/models/Product.dart" }
+    },
+    {
+      "name": "client/services/InventoryService.rs",
+      "code": { "file": "client/services/InventoryService.rs" }
+    },
+    {
+      "name": "client/models/Product.rs",
+      "code": { "file": "client/models/Product.rs" }
+    },
+    {
+      "name": "client/services/InventoryService.go",
+      "code": { "file": "client/services/InventoryService.go" }
+    },
+    {
+      "name": "client/models/Product.go",
+      "code": { "file": "client/models/Product.go" }
+    },
+    {
+      "name": "client/services/InventoryService.rb",
+      "code": { "file": "client/services/InventoryService.rb" }
+    },
+    {
+      "name": "client/models/Product.rb",
+      "code": { "file": "client/models/Product.rb" }
+    },
+    {
+      "name": "client/services/InventoryService.swift",
+      "code": { "file": "client/services/InventoryService.swift" }
+    },
+    {
+      "name": "client/models/Product.swift",
+      "code": { "file": "client/models/Product.swift" }
+    },
+    {
+      "name": "client/services/InventoryService.kt",
+      "code": { "file": "client/services/InventoryService.kt" }
+    },
+    {
+      "name": "client/models/Product.kt",
+      "code": { "file": "client/models/Product.kt" }
+    },
+    {
+      "name": "client/services/InventoryService.java",
+      "code": { "file": "client/services/InventoryService.java" }
+    },
+    {
+      "name": "client/models/Product.java",
+      "code": { "file": "client/models/Product.java" }
+    },
+    {
+      "name": "client/services/InventoryService.cs",
+      "code": { "file": "client/services/InventoryService.cs" }
+    },
+    {
+      "name": "client/models/Product.cs",
+      "code": { "file": "client/models/Product.cs" }
+    },
+    {
+      "name": "client/services/InventoryService.fs",
+      "code": { "file": "client/services/InventoryService.fs" }
+    },
+    {
+      "name": "client/models/Product.fs",
+      "code": { "file": "client/models/Product.fs" }
     }
   ],
   "verify": "tac"
