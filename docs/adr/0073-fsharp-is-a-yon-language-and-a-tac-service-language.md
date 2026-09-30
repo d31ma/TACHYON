@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-28 (behavior annotations, events, lifecycle hooks,
   `NeedsAll`, sockets, streams, executed coverage and the test context:
-  2026-09-29; Needs properties: 2026-09-29)
+  2026-09-29; Needs properties: 2026-09-29; browser APIs: 2026-09-30)
 - Builds on: [ADR 0037](0037-csharp-services-reach-the-web-as-webassembly.md)
   (the .NET browser runtime), [ADR 0048](0048-yon-routes-come-from-annotations.md)
   (routes), [ADR 0062](0062-yon-uses-native-http-types.md) (native HTTP
@@ -238,6 +238,32 @@ parameters stay the recommended form.
 - `TY2015` refuses `[<Needs>]` on anything but a settable `member val` with a
   written type, and a type that takes the same role twice: as a constructor
   parameter and as a Needs property, or as two Needs properties.
+
+### Browser APIs (added 2026-09-30)
+
+An F# Tac service uses Tachyon's browser APIs (ADR 0065) under the same
+names as a C# service: `let clock = Clock()` in the type, then
+`clock.NowMs()`.
+
+- The C# classes of the browser APIs and their `TacWebHost` move into the C#
+  library below the F# library (`FsharpBehaviors`, now written for every page
+  with F# services). The C# browser project finds them there through its
+  reference, so a page with C# and F# services still has one `TacWebHost`,
+  and the page answers both languages through it. A page without F# services
+  keeps the classes in its own C# source, as before.
+- The built-in browser events (`ConnectivityChanged`, `PositionFound`, …) are
+  F# records in the global namespace, compiled before the services:
+  `type ConnectivityChanged = { Online: bool }`. `ShareFinished` has no field,
+  so it is a class: `type ShareFinished() = class end`. On such a page, C#
+  services read the same records; an F# record has the same constructor and
+  properties as the C# record it replaces.
+- A method without a written return type (`member this.Forget() =`) may
+  return `unit`. The view cannot know the type, so the member table calls it
+  through `TacMember.Result`, which accepts a method that returns a value and
+  one that returns nothing. A method with a written type keeps its direct
+  call.
+- An F# test unit cannot use the browser APIs yet, like a C# test unit: its
+  test program has no page clients. Test such a service in the browser.
 
 ### Not yet available in F#
 

@@ -570,8 +570,7 @@ machine contracts have their own, independent major versions.
   control that is not granted, or any call in a browser tab, fails at once and
   names the grant. Test units fake it like the other browser APIs. A service
   that the native app links in (Rust and C# on the desktop, Swift on Apple,
-  Kotlin on Android) cannot use it yet (`TY1317`), and F# services have no
-  browser APIs yet.
+  Kotlin on Android) cannot use it yet (`TY1317`).
 - `Cached`, `CacheKey`, `ClearCache` and `UpdateCache` work on `HTTPClient`
   methods in every Tac language, like Spring's `@Cacheable` on any bean (ADR
   0087): `CacheSettings` on the client names the cache. In JavaScript and
@@ -581,6 +580,17 @@ machine contracts have their own, independent major versions.
   `scripts/window-controls-browser-test.mjs` run in Chromium, Firefox and
   WebKit, and `scripts/window-grant-macos-test.mjs` checks that a granted
   resize reaches a real macOS window and an ungranted one does not.
+- F# Tac services use Tachyon's browser APIs (ADR 0073 amendment): `Clock`,
+  `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`,
+  `Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls`,
+  under the same names as in C# (`let clock = Clock()`, then
+  `clock.NowMs()`), and they hear the built-in browser events as F# records,
+  such as
+  `type ConnectivityChanged = { Online: bool }`. On a page with F# services,
+  the C# browser API classes live in the C# library below the F# library, so
+  both languages share one page bridge. The web API browser test has an F#
+  row, and it checks F# in Firefox and WebKit as well as Chromium; the window
+  controls browser test has an F# row too.
 
 - F# takes a role through a Needs property as well as through its primary
   constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
@@ -2236,6 +2246,9 @@ machine contracts have their own, independent major versions.
   the service file that used it; it is now refused at the client file with
   "not available in Java Tac code". F# refusals said "C# Tac code" and `[Name]`;
   they now say F# and `[<Name>]`.
+- An F# Tac method without a written return type (`member this.Forget() =`)
+  that returns `unit` now builds for the web; the generated C# member table
+  called it as if it returned a value (`CS0029`).
 
 - WebKit no longer warns on every Tachyon page about the content security
   policy. The policy allowed the inline speculation rules with Chrome's

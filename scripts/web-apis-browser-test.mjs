@@ -23,6 +23,8 @@ class WebApiGate {
   static settleTimeout = 5_000
   static settleStep = 50
   static activationLifespan = 6_000
+  static napMs = 20
+  static consoleLines = []
 
   static files = {
     'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js","fs"]},"visibility":{"check":false}}}\n',
@@ -540,6 +542,14 @@ type FsStampService() =
     member this.Forget() =
         this.Pasted <- ""
 
+    member this.Year() : int = System.DateTime.UtcNow.Year
+
+    member this.Roll() : int = System.Random().Next(1, 7)
+
+    member this.Say() : unit = printfn "fs prints to the console"
+
+    member this.Nap() : unit = System.Threading.Thread.Sleep(20)
+
     [<OnEvent({"replay":true})>]
     member this.HearConnectivity(changed: ConnectivityChanged) : unit =
         this.Online <- changed.Online
@@ -801,6 +811,23 @@ class JavaStampService {
     WebApiGate.expect(await WebApiGate.settled(page, language, 'pasted', ''), '', `${label}: a method that returns nothing still runs`)
   }
 
+  static async checkOwnRuntime(page, language) {
+    const report = await page.evaluate((name) => {
+      const service = __tachyonTac.service(`${name}Stamp`)
+      service.say()
+      const before = Date.now()
+      service.nap()
+      return { year: service.year(), roll: service.roll(), napped: Date.now() - before, browserYear: new Date().getUTCFullYear() }
+    }, language)
+    WebApiGate.expect(report.year, report.browserYear, `${language}: the language's own clock gives the time`)
+    WebApiGate.expect(report.roll >= 1 && report.roll <= 6, true, `${language}: the language's own random numbers work`)
+    WebApiGate.expect(report.napped >= WebApiGate.napMs, true, `${language}: a sleep makes the page wait`)
+    const printed = `${language} prints to the console`
+    const deadline = Date.now() + WebApiGate.settleTimeout
+    while (!WebApiGate.consoleLines.includes(printed) && Date.now() < deadline) await page.waitForTimeout(WebApiGate.settleStep)
+    WebApiGate.expect(WebApiGate.consoleLines.includes(printed), true, `${language}: console output reaches the browser console`)
+  }
+
   static async checkEngine(browserType, origin) {
     const browser = await browserType.launch({ timeout: 30_000 })
     try {
@@ -838,6 +865,7 @@ class JavaStampService {
       const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce', geolocation: WebApiGate.position })
       await context.grantPermissions(WebApiGate.permissions, { origin })
       const page = await context.newPage()
+      page.on('console', (message) => WebApiGate.consoleLines.push(message.text()))
       await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
       const refusals = await WebApiGate.refusals(page)
       WebApiGate.expect(refusals.active, false, 'the page has no user action after the activation lifespan')
@@ -849,7 +877,10 @@ class JavaStampService {
         await WebApiGate.checkPreferences(page, context, language)
         await WebApiGate.checkPrompts(page, language)
       }
-      for (const language of WebApiGate.everyEngineLanguages) await WebApiGate.checkUnitMethod(page, language)
+      for (const language of WebApiGate.everyEngineLanguages) {
+        await WebApiGate.checkUnitMethod(page, language)
+        await WebApiGate.checkOwnRuntime(page, language)
+      }
       for (const browserType of WebApiGate.otherEngines) {
         if (WebApiGate.everyEngineLanguages.length > 0) await WebApiGate.checkEngine(browserType, origin)
       }
