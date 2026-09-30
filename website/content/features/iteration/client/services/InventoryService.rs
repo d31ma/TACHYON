@@ -8,7 +8,14 @@ pub struct InventoryService {
 impl InventoryService {
     pub fn new() -> Self {
         Self {
-            products: vec![Product { name: String::from("Anvil") }, Product { name: String::from("Rope") }],
+            products: vec![
+                Product {
+                    name: String::from("Anvil"),
+                },
+                Product {
+                    name: String::from("Rope"),
+                },
+            ],
         }
     }
 }

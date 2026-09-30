@@ -14,7 +14,10 @@ impl BasketService {
             count: 0,
             label: String::new(),
             selected: String::new(),
-            tabs: vec![Tab { id: String::from("a"), name: String::from("A") }],
+            tabs: vec![Tab {
+                id: String::from("a"),
+                name: String::from("A"),
+            }],
         }
     }
 

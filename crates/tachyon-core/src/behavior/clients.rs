@@ -20,7 +20,12 @@ pub(super) fn plan(
             providers.insert(item.name.clone());
         }
     }
-    providers.extend(needed_contracts(input, registrations, environment, resources)?);
+    providers.extend(needed_contracts(
+        input,
+        registrations,
+        environment,
+        resources,
+    )?);
     if providers.is_empty() {
         return Ok(None);
     }

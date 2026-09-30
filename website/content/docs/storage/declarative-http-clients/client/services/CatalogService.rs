@@ -1,8 +1,16 @@
 #[Service]
-struct CatalogService { catalog: CatalogClient, products: Vec<String>, error: String }
+struct CatalogService {
+    catalog: CatalogClient,
+    products: Vec<String>,
+    error: String,
+}
 impl CatalogService {
     fn new() -> Self {
-        Self { catalog: CatalogClient::new(), products: Vec::new(), error: String::new() }
+        Self {
+            catalog: CatalogClient::new(),
+            products: Vec::new(),
+            error: String::new(),
+        }
     }
 
     fn load(&mut self) {

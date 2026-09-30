@@ -4029,7 +4029,7 @@
             },
             {
               "name": "client/setups/CatalogSetup.rs",
-              "code": "#[tac::setup]\nstruct CatalogSetup {}\nimpl CatalogSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        struct CatalogTransport;\n        impl BehaviorHttpAdapter for CatalogTransport {\n            fn exchange(&self, _request: &BehaviorHttpRequest, _execution: &BehaviorExecution) -> BehaviorResult<BehaviorValue> {\n                Ok(BehaviorValue::Array(vec![\"anvil\".into(), \"rope\".into()]))\n            }\n        }\n\n        let mut configuration = BehaviorConfiguration::default();\n        configuration.http.insert(\"catalog\".into(), std::sync::Arc::new(CatalogTransport));\n        Ok(configuration)\n    }\n}\n"
+              "code": "#[tac::setup]\nstruct CatalogSetup {}\nimpl CatalogSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        struct CatalogTransport;\n        impl BehaviorHttpAdapter for CatalogTransport {\n            fn exchange(\n                &self,\n                _request: &BehaviorHttpRequest,\n                _execution: &BehaviorExecution,\n            ) -> BehaviorResult<BehaviorValue> {\n                Ok(BehaviorValue::Array(vec![\"anvil\".into(), \"rope\".into()]))\n            }\n        }\n\n        let mut configuration = BehaviorConfiguration::default();\n        configuration\n            .http\n            .insert(\"catalog\".into(), std::sync::Arc::new(CatalogTransport));\n        Ok(configuration)\n    }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.go",
@@ -4065,7 +4065,7 @@
             },
             {
               "name": "client/services/CatalogService.rs",
-              "code": "#[Service]\nstruct CatalogService { catalog: CatalogClient, products: Vec<String>, error: String }\nimpl CatalogService {\n    fn new() -> Self {\n        Self { catalog: CatalogClient::new(), products: Vec::new(), error: String::new() }\n    }\n\n    fn load(&mut self) {\n        match self.catalog.all() {\n            Ok(BehaviorValue::Array(items)) => self.show(&items),\n            _ => self.show_failure(),\n        }\n    }\n\n    fn show(&mut self, items: &[BehaviorValue]) {\n        self.products = items.iter().filter_map(Self::name).collect();\n        self.error = String::new();\n    }\n\n    fn name(item: &BehaviorValue) -> Option<String> {\n        match item {\n            BehaviorValue::String(name) => Some(name.clone()),\n            _ => None,\n        }\n    }\n\n    fn show_failure(&mut self) {\n        self.error = String::from(\"Products could not be loaded. Please retry.\");\n    }\n}\n"
+              "code": "#[Service]\nstruct CatalogService {\n    catalog: CatalogClient,\n    products: Vec<String>,\n    error: String,\n}\nimpl CatalogService {\n    fn new() -> Self {\n        Self {\n            catalog: CatalogClient::new(),\n            products: Vec::new(),\n            error: String::new(),\n        }\n    }\n\n    fn load(&mut self) {\n        match self.catalog.all() {\n            Ok(BehaviorValue::Array(items)) => self.show(&items),\n            _ => self.show_failure(),\n        }\n    }\n\n    fn show(&mut self, items: &[BehaviorValue]) {\n        self.products = items.iter().filter_map(Self::name).collect();\n        self.error = String::new();\n    }\n\n    fn name(item: &BehaviorValue) -> Option<String> {\n        match item {\n            BehaviorValue::String(name) => Some(name.clone()),\n            _ => None,\n        }\n    }\n\n    fn show_failure(&mut self) {\n        self.error = String::from(\"Products could not be loaded. Please retry.\");\n    }\n}\n"
             },
             {
               "name": "client/services/CatalogService.go",
@@ -9281,7 +9281,7 @@
             },
             {
               "name": "client/services/CatalogService.rs",
-              "code": "#[Service]\nstruct CatalogService { catalog: CatalogClient, count: i64 }\nimpl CatalogService {\n    fn new() -> Self {\n        Self { catalog: CatalogClient::new(), count: 0 }\n    }\n\n    fn load(&mut self) {\n        let answer = self.catalog.all().unwrap_or(BehaviorValue::Null);\n        self.count = Self::count_items(&answer);\n    }\n\n    fn count_items(answer: &BehaviorValue) -> i64 {\n        match answer.get(\"items\") {\n            Some(BehaviorValue::Array(items)) => items.len() as i64,\n            _ => 0,\n        }\n    }\n}\n"
+              "code": "#[Service]\nstruct CatalogService {\n    catalog: CatalogClient,\n    count: i64,\n}\nimpl CatalogService {\n    fn new() -> Self {\n        Self {\n            catalog: CatalogClient::new(),\n            count: 0,\n        }\n    }\n\n    fn load(&mut self) {\n        let answer = self.catalog.all().unwrap_or(BehaviorValue::Null);\n        self.count = Self::count_items(&answer);\n    }\n\n    fn count_items(answer: &BehaviorValue) -> i64 {\n        match answer.get(\"items\") {\n            Some(BehaviorValue::Array(items)) => items.len() as i64,\n            _ => 0,\n        }\n    }\n}\n"
             },
             {
               "name": "client/setups/CatalogSetup.go",
@@ -11098,27 +11098,27 @@
             },
             {
               "name": "server/models/Product.rs",
-              "code": "use crate::models::Detail;\n#[derive(Clone)]\npub struct Product {\npub id: i64,\npub name: String,\npub detail: Detail,\npub items: Vec<Detail>,\npub secret: String,\n}\n"
+              "code": "use crate::models::Detail;\n#[derive(Clone)]\npub struct Product {\n    pub id: i64,\n    pub name: String,\n    pub detail: Detail,\n    pub items: Vec<Detail>,\n    pub secret: String,\n}\n"
             },
             {
               "name": "server/models/Detail.rs",
-              "code": "#[derive(Clone)]\npub struct Detail {\npub name: String,\npub secret: String,\n}\n"
+              "code": "#[derive(Clone)]\npub struct Detail {\n    pub name: String,\n    pub secret: String,\n}\n"
             },
             {
               "name": "server/models/Summary.rs",
-              "code": "use crate::models::ShortDetail;\n#[derive(Clone)]\npub struct Summary {\npub id: i64,\npub name: String,\npub detail: ShortDetail,\npub items: Vec<ShortDetail>,\npub kind: String,\n}\n"
+              "code": "use crate::models::ShortDetail;\n#[derive(Clone)]\npub struct Summary {\n    pub id: i64,\n    pub name: String,\n    pub detail: ShortDetail,\n    pub items: Vec<ShortDetail>,\n    pub kind: String,\n}\n"
             },
             {
               "name": "server/models/ShortDetail.rs",
-              "code": "#[derive(Clone)]\npub struct ShortDetail {\npub name: String,\n}\n"
+              "code": "#[derive(Clone)]\npub struct ShortDetail {\n    pub name: String,\n}\n"
             },
             {
               "name": "server/converters/ProductConverter.rs",
-              "code": "use crate::models::*;\n#[Converter]\ntrait ProductConverter {\n#[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\nfn map(&self, product: Product) -> BehaviorResult<Summary>;\n}\n"
+              "code": "use crate::models::*;\n#[Converter]\ntrait ProductConverter {\n    #[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\n    fn map(&self, product: Product) -> BehaviorResult<Summary>;\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.rs",
-              "code": "use crate::models::{Product, Detail, Summary};\n#[RequestRoute(\"/catalog\")]\n#[Public]\nstruct CatalogController {\n#[Needs]\nconverter: std::sync::Arc<ProductConverter>,\n}\nimpl CatalogController {\n#[GetRoute]\nfn get_catalog(&self) -> Result<Summary, YonResourceError> {\nlet detail = Detail{name: \"detail\".into(), secret: \"hidden\".into()};\nself.converter.map(Product{id:7, name:\"Anvil\".into(), detail:detail.clone(), items:vec![detail], secret:\"hidden\".into()}).map_err(|_| YonResourceError)\n}\n}\n"
+              "code": "use crate::models::{Detail, Product, Summary};\n#[RequestRoute(\"/catalog\")]\n#[Public]\nstruct CatalogController {\n    #[Needs]\n    converter: std::sync::Arc<ProductConverter>,\n}\nimpl CatalogController {\n    #[GetRoute]\n    fn get_catalog(&self) -> Result<Summary, YonResourceError> {\n        let detail = Detail {\n            name: \"detail\".into(),\n            secret: \"hidden\".into(),\n        };\n        self.converter\n            .map(Product {\n                id: 7,\n                name: \"Anvil\".into(),\n                detail: detail.clone(),\n                items: vec![detail],\n                secret: \"hidden\".into(),\n            })\n            .map_err(|_| YonResourceError)\n    }\n}\n"
             },
             {
               "name": "server/models/Product.fs",

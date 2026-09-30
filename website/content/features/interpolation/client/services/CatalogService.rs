@@ -12,7 +12,10 @@ impl CatalogService {
         Self {
             title: String::from("Catalog"),
             count: 6,
-            product: Product { name: String::from("Anvil"), price: String::from("£42.00") },
+            product: Product {
+                name: String::from("Anvil"),
+                price: String::from("£42.00"),
+            },
         }
     }
 }

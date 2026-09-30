@@ -227,7 +227,7 @@
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub title: String,\n    pub count: i32,\n    pub product: Product,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            title: String::from(\"Catalog\"),\n            count: 6,\n            product: Product { name: String::from(\"Anvil\"), price: String::from(\"£42.00\") },\n        }\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub title: String,\n    pub count: i32,\n    pub product: Product,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            title: String::from(\"Catalog\"),\n            count: 6,\n            product: Product {\n                name: String::from(\"Anvil\"),\n                price: String::from(\"£42.00\"),\n            },\n        }\n    }\n}\n"
         },
         {
           "name": "client/models/Product.rs",
@@ -352,7 +352,7 @@
         },
         {
           "name": "client/services/LinkService.rs",
-          "code": "use crate::models::Topic;\n\n#[Service]\npub struct LinkService {\n    pub topic: Topic,\n    pub state: String,\n    pub message: String,\n}\n\nimpl LinkService {\n    pub fn new() -> Self {\n        Self {\n            topic: Topic { slug: String::from(\"routing\"), title: String::from(\"Routing\") },\n            state: String::from(\"ready\"),\n            message: String::from(\"Everything is up to date.\"),\n        }\n    }\n}\n"
+          "code": "use crate::models::Topic;\n\n#[Service]\npub struct LinkService {\n    pub topic: Topic,\n    pub state: String,\n    pub message: String,\n}\n\nimpl LinkService {\n    pub fn new() -> Self {\n        Self {\n            topic: Topic {\n                slug: String::from(\"routing\"),\n                title: String::from(\"Routing\"),\n            },\n            state: String::from(\"ready\"),\n            message: String::from(\"Everything is up to date.\"),\n        }\n    }\n}\n"
         },
         {
           "name": "client/models/Topic.rs",
@@ -453,7 +453,7 @@
         },
         {
           "name": "client/services/StockService.rs",
-          "code": "use crate::models::Product;\n\n#[Service]\npub struct StockService {\n    pub products: Vec<Product>,\n    pub restocking: bool,\n}\n\nimpl StockService {\n    pub fn new() -> Self {\n        Self { products: Vec::new(), restocking: true }\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct StockService {\n    pub products: Vec<Product>,\n    pub restocking: bool,\n}\n\nimpl StockService {\n    pub fn new() -> Self {\n        Self {\n            products: Vec::new(),\n            restocking: true,\n        }\n    }\n}\n"
         },
         {
           "name": "client/models/Product.rs",
@@ -554,7 +554,7 @@
         },
         {
           "name": "client/services/InventoryService.rs",
-          "code": "use crate::models::Product;\n\n#[Service]\npub struct InventoryService {\n    pub products: Vec<Product>,\n}\n\nimpl InventoryService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![Product { name: String::from(\"Anvil\") }, Product { name: String::from(\"Rope\") }],\n        }\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct InventoryService {\n    pub products: Vec<Product>,\n}\n\nimpl InventoryService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![\n                Product {\n                    name: String::from(\"Anvil\"),\n                },\n                Product {\n                    name: String::from(\"Rope\"),\n                },\n            ],\n        }\n    }\n}\n"
         },
         {
           "name": "client/models/Product.rs",
@@ -712,7 +712,7 @@
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub products: Vec<Product>,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![\n                Product { id: String::from(\"anvil\"), name: String::from(\"Anvil\"), price: String::from(\"£42.00\") },\n                Product { id: String::from(\"rope\"), name: String::from(\"Rope\"), price: String::from(\"£8.00\") },\n            ],\n        }\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[Service]\npub struct CatalogService {\n    pub products: Vec<Product>,\n}\n\nimpl CatalogService {\n    pub fn new() -> Self {\n        Self {\n            products: vec![\n                Product {\n                    id: String::from(\"anvil\"),\n                    name: String::from(\"Anvil\"),\n                    price: String::from(\"£42.00\"),\n                },\n                Product {\n                    id: String::from(\"rope\"),\n                    name: String::from(\"Rope\"),\n                    price: String::from(\"£8.00\"),\n                },\n            ],\n        }\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.go",
@@ -882,7 +882,7 @@
         },
         {
           "name": "client/services/BasketService.rs",
-          "code": "use crate::models::Tab;\n\n#[Service]\npub struct BasketService {\n    pub count: i32,\n    pub label: String,\n    selected: String,\n    pub tabs: Vec<Tab>,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self {\n            count: 0,\n            label: String::new(),\n            selected: String::new(),\n            tabs: vec![Tab { id: String::from(\"a\"), name: String::from(\"A\") }],\n        }\n    }\n\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n\n    pub fn select(&mut self, id: String) {\n        self.selected = id;\n    }\n}\n"
+          "code": "use crate::models::Tab;\n\n#[Service]\npub struct BasketService {\n    pub count: i32,\n    pub label: String,\n    selected: String,\n    pub tabs: Vec<Tab>,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self {\n            count: 0,\n            label: String::new(),\n            selected: String::new(),\n            tabs: vec![Tab {\n                id: String::from(\"a\"),\n                name: String::from(\"A\"),\n            }],\n        }\n    }\n\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n\n    pub fn select(&mut self, id: String) {\n        self.selected = id;\n    }\n}\n"
         },
         {
           "name": "client/models/Tab.rs",

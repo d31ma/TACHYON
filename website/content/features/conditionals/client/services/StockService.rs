@@ -8,6 +8,9 @@ pub struct StockService {
 
 impl StockService {
     pub fn new() -> Self {
-        Self { products: Vec::new(), restocking: true }
+        Self {
+            products: Vec::new(),
+            restocking: true,
+        }
     }
 }

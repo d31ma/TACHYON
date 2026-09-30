@@ -1,8 +1,14 @@
 #[Service]
-struct CatalogService { catalog: CatalogClient, count: i64 }
+struct CatalogService {
+    catalog: CatalogClient,
+    count: i64,
+}
 impl CatalogService {
     fn new() -> Self {
-        Self { catalog: CatalogClient::new(), count: 0 }
+        Self {
+            catalog: CatalogClient::new(),
+            count: 0,
+        }
     }
 
     fn load(&mut self) {

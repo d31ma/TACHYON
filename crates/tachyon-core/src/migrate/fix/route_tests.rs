@@ -404,7 +404,10 @@ fn spring_names_that_were_never_ours_are_renamed() {
         contract.starts_with("from typing import Annotated, Protocol\n@http_client"),
         "{contract}"
     );
-    assert!(contract.contains("class OrdersClient(Protocol):"), "{contract}");
+    assert!(
+        contract.contains("class OrdersClient(Protocol):"),
+        "{contract}"
+    );
     assert!(contract.contains("path_variable]): ...\n"), "{contract}");
 }
 
