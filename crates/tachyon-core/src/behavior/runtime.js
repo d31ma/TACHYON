@@ -353,11 +353,11 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
 
   class SharedSetups {
     static #key = Symbol.for('tachyon.behavior.setups')
-    static acquire(Configuration, options, configure) {
-      globalThis[SharedSetups.#key] ??= new WeakMap()
+    static acquire(identity, options, configure) {
+      globalThis[SharedSetups.#key] ??= new Map()
       const setups = globalThis[SharedSetups.#key]
-      if (!setups.has(Configuration)) setups.set(Configuration, new Map())
-      const selections = setups.get(Configuration)
+      if (!setups.has(identity)) setups.set(identity, new Map())
+      const selections = setups.get(identity)
       const selection = JSON.stringify([[...options.profiles].sort(), Object.keys(options.properties).sort().map((name) => [name, options.properties[name]])])
       if (!selections.has(selection)) {
         const shared = { configuration: configure(), users: 0 }
@@ -415,7 +415,9 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       contexts.add(this)
     }
     async initialize(Configuration, options) {
-      this.#setup = SharedSetups.acquire(Configuration, options,
+      const record = records.get(Configuration)
+      const identity = record.moduleOwned ? `${moduleId}:${record.name}` : `${environment}:${record.name}`
+      this.#setup = SharedSetups.acquire(identity, options,
         () => this.#perform((operation) => operation.call(() => Configuration.configure(operation.execution), true)))
       const configuration = await this.#setup.configuration
       exactKeys(configuration, ['caches', 'http', 'entities', 'authorize', 'authorizeEntity'], 'configuration adapter object')

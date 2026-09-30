@@ -996,4 +996,26 @@ for (const environment of ['tac', 'yon']) {
   })
 }
 
+await test('two service modules that each inline the same Setup share it, and a module-owned configuration stays in its module', async () => {
+  let configured = 0
+  const inlinedSetup = () => class NotesSetup {
+    static configure() {
+      configured++
+      return { http: {} }
+    }
+  }
+  const moduleWith = (Setup, moduleId, moduleOwned) => ({
+    Setup,
+    Behaviors: BehaviorRuntimeTest.createBehaviors([{ type: Setup, name: 'NotesSetup', configuration: true, moduleOwned, methods: [] }], 'tac', moduleId),
+  })
+  const create = ({ Behaviors, Setup }) => Behaviors.create(Setup, { partition: 'shared', signal: new AbortController().signal })
+  const writer = await create(moduleWith(inlinedSetup(), '3'.repeat(64), false))
+  const reader = await create(moduleWith(inlinedSetup(), '4'.repeat(64), false))
+  assert.equal(configured, 1)
+  const ownedOne = await create(moduleWith(inlinedSetup(), '5'.repeat(64), true))
+  const ownedTwo = await create(moduleWith(inlinedSetup(), '6'.repeat(64), true))
+  assert.equal(configured, 3)
+  for (const context of [writer, reader, ownedOne, ownedTwo]) context.dispose()
+})
+
 process.stdout.write(`Behavior runtime: ${BehaviorRuntimeTest.passed} checks passed.\n`)

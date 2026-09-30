@@ -580,7 +580,7 @@ fn behavior_entries(
         ));
     }
     output.push_str(clients::ClientRuntime::SOURCE);
-    entries.push(String::from("{type:__tachyon_ClientConfiguration,name:'TacClientConfiguration',configuration:true,methods:[]}"));
+    entries.push(String::from("{type:__tachyon_ClientConfiguration,name:'TacClientConfiguration',configuration:true,moduleOwned:true,methods:[]}"));
     Ok(entries)
 }
 
