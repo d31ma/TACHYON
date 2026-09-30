@@ -1,7 +1,7 @@
 use brotli::enc::BrotliEncoderParams;
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy)]
@@ -32,6 +32,27 @@ impl ContentEncoding {
 
     pub(super) fn encode(self, bytes: &[u8]) -> io::Result<Vec<u8>> {
         (self.encoder)(bytes)
+    }
+
+    pub(super) fn matches(self, encoded: &[u8], source: &[u8]) -> bool {
+        self.reader(encoded)
+            .is_some_and(|reader| Self::decoded_matches(reader, source))
+    }
+
+    fn reader(self, encoded: &[u8]) -> Option<Box<dyn Read + '_>> {
+        match self.extension {
+            "br" => Some(Box::new(brotli::Decompressor::new(encoded, 4096))),
+            "gz" => Some(Box::new(flate2::read::GzDecoder::new(encoded))),
+            _ => None,
+        }
+    }
+
+    fn decoded_matches(reader: Box<dyn Read + '_>, source: &[u8]) -> bool {
+        let mut decoded = Vec::new();
+        let read = reader
+            .take(source.len() as u64 + 1)
+            .read_to_end(&mut decoded);
+        read.is_ok() && decoded == source
     }
 
     fn brotli(bytes: &[u8]) -> io::Result<Vec<u8>> {
