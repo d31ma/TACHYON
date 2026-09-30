@@ -69,12 +69,12 @@ field and Tachyon fills it:
 | --- | --- |
 | JavaScript, TypeScript | `@Needs windowControls` (type `TacWindowControls`) |
 | Rust | `window_controls: WindowControls` (filled by `Default`) |
-| Go | `// @Needs` field `WindowControls WindowControls` |
+| Go | `// @Needs` field `windowControls WindowControls` |
 | C# | `private readonly WindowControls windowControls = new();` |
-| F# | the constructor parameter `windowControls: WindowControls` |
+| F# | none yet: F# services have no browser APIs, so this waits for the F# browser APIs |
 | Kotlin | `private val windowControls = WindowControls()` |
 | Java | `private final WindowControls windowControls = new WindowControls();` |
-| Dart | `@Needs() final WindowControls windowControls` |
+| Dart | `@Needs() final WindowControls windowControls;` |
 | Ruby | `WindowControls.new` |
 | Swift | `private let windowControls = WindowControls()` |
 
@@ -94,7 +94,7 @@ The grants stay where they are: `tac.application.window.controls` in
 checks each grant before it acts. A call to a control that is not granted
 fails at once, and the message names the grant to add. Each language fails
 in its own way, as its `Clipboard` does: JavaScript throws an `Error`, Rust
-returns `Err(String)`, Go returns an `error`, C#, F# and Java throw an
+returns `Err(String)`, Go returns an `error`, C# and Java throw an
 exception (Java an `IllegalStateException`), Kotlin, Dart and Ruby raise,
 and Swift throws. In a browser tab no control is granted, because the page
 has no native window, so `granted` answers `false` there. A test unit gives
@@ -197,6 +197,8 @@ refuses the `cache` option of `@HTTPClient`, with a message that names
 - Projects that used `@HTTPClient({"cache": ...})` or
   `globalThis.tachyonWindow` must change when slice 5 lands. The build
   message says what to write instead.
+- `template/tac-web.js` grows by the window controls, so its size budget
+  (ADR 0065) grows from 8,000 to 9,500 bytes.
 - A `Cached` read can be kept twice: in the page's behavior cache and in the
   worker. The page cache answers first. The worker answers only when the
   page cache has no live answer, for example after a reload while offline.
