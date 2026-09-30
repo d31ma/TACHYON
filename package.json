@@ -23,6 +23,7 @@
     "test:service-worker-browser": "node scripts/service-worker-browser-test.mjs",
     "test:cached-client-browser": "node scripts/cached-client-browser-test.mjs",
     "test:window-controls-browser": "node scripts/window-controls-browser-test.mjs",
+    "test:window-grant-macos": "node scripts/window-grant-macos-test.mjs",
     "test:island-expression": "node scripts/island-expression-test.mjs",
     "test:runtime-browser": "node scripts/runtime-browser-test.mjs",
     "test:behavior-runtime": "node scripts/behavior-runtime-test.mjs",
