@@ -1277,7 +1277,7 @@ class Runtime {
     },
   })
 }
-const ownerResources = (element) => ({
+const ownerResources = (element, signal) => ({
   view: element, lifecycle: null, applicationEventPublisher: null,
   resourceLoader: Object.freeze({ precache: precacheAssets, clearAssetCache: clearStaticCache }),
   taskScheduler: Object.freeze({ render }),
@@ -1291,6 +1291,7 @@ const ownerResources = (element) => ({
   notifications: TacWebApis.notifications,
   geolocation: TacWebApis.geolocation,
   windowControls: TacWebApis.windowControls,
+  filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {
   if (!owner || typeof owner !== 'object') return owner
@@ -1307,7 +1308,7 @@ const attachRuntime = (owner, scope, element) => {
   const module = Owners.modules.get(owner)
   const graph = Runtime.graphs.get(owner) || module?.__tachyon_event_owners__?.(owner) || [owner]
   Runtime.graphs.set(owner, graph)
-  const resources = ownerResources(element)
+  const resources = ownerResources(element, Owners.managed.get(owner)?.signal)
   for (const instance of graph) {
     const metadata = module?.__tachyon_event_plan__?.types?.find((type) => type.name === instance.constructor?.name) || {}
     Runtime.events.attach(instance, metadata, resources)

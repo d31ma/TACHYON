@@ -15,7 +15,14 @@ impl MacOsHostGenerator {
         include_str!("prelude.swift"),
         include_str!("prelude_apple.swift"),
         include_str!("TacAwaited.swift"),
-        include_str!("TacOwnerThread.swift")
+        include_str!("TacOwnerThread.swift"),
+        include_str!("capabilities/FilePickerResult.swift"),
+        include_str!("capabilities/FilePickerStatus.swift"),
+        include_str!("capabilities/FilePickerOptions.swift"),
+        include_str!("capabilities/FilePicker.swift"),
+        include_str!("capabilities/NativeCapabilities.swift"),
+        include_str!("capabilities/WindowControls.swift"),
+        include_str!("capabilities/NativeCapabilityFailure.swift")
     );
     pub(super) const APPLE_JSON_REQUEST: &str = include_str!("apple_json.swift");
     const FRAMEWORK_ARGUMENTS: [&str; 8] = [
@@ -277,7 +284,10 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
 }
 
 fn window_controls(window: &super::config::WindowConfiguration) -> String {
-    let mut arms = String::new();
+    let granted = serde_json::to_string(&window.controls).unwrap_or_else(|_| String::from("[]"));
+    let mut arms = format!(
+        "        case \"window.granted\":\n            let request = tachyonParseJSONRequest(payload) ?? [:]\n            let granted: [String] = {granted}\n            let control = request[\"control\"] as? String ?? \"\"\n            return granted.contains(control) ? \"{{\\\"granted\\\":true}}\" : \"{{\\\"granted\\\":false}}\"\n"
+    );
     if window.grants("minimize") {
         arms.push_str("        case \"window.minimize\":\n            NSApplication.shared.keyWindow?.miniaturize(nil)\n            return \"{\\\"ok\\\":true}\"\n");
     }
@@ -313,7 +323,7 @@ fn with_window_settings(host: &str, window: &super::config::WindowConfiguration)
         .replace("__WINDOW_CONTROLS__", &window_controls(window))
 }
 
-fn swift_source(
+pub(super) fn swift_source(
     application: &NativeApplication,
     companion_call: &str,
     index: &NativeRouteIndex,
@@ -349,6 +359,11 @@ fn swift_source(
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit(companion_call))
+        .replace("__NATIVE_GRANTS__", &serde_json::to_string(&application.native_capabilities).unwrap_or_else(|_| String::from("[]")))
+        .replace("__NATIVE_CAPABILITY_MODELS__", if companion_call.contains("tacNativeInvoke") { "" } else { concat!(include_str!("capabilities/FilePickerStatus.swift"), include_str!("capabilities/FilePickerResult.swift")) })
+        .replace("__NATIVE_FILE_PICKER__", include_str!("capabilities/MacOsFilePicker.swift"))
+        .replace("__NATIVE_FILE_PICKER_GRANTED__", if application.native_capabilities.iter().any(|grant| grant == "filePicker") { "true" } else { "false" })
+        .replace("__NATIVE_CAPABILITY_REGISTER__", if companion_call.contains("tacNativeInvoke") { "NativeCapabilities.call = { capability, payload in MainActor.assumeIsolated { NativeBridge.shared.handle(capability, payload) } }" } else { "" })
         .replace("__TACHYON_RUST_SHIM__", rust_shim)
 }
 
@@ -385,7 +400,10 @@ private func tacRustEmit(_ payload: UnsafePointer<CChar>?) {
     const SWIFT_HOST: &str = r##"import AppKit
 import WebKit
 import Foundation
+import UniformTypeIdentifiers
 
+__NATIVE_CAPABILITY_MODELS__
+__NATIVE_FILE_PICKER__
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
 
@@ -576,7 +594,10 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         NSApplication.shared.keyWindow?.title = String(title.prefix(256))
     }
 
-    private func handle(_ capability: String, _ payload: String) -> String {
+    fileprivate func handle(_ capability: String, _ payload: String) -> String {
+        if capability.hasPrefix("filePicker."), let request = tachyonParseJSONRequest(payload) {
+            return MacOsFilePicker.shared.call(String(capability.dropFirst(11)), request)
+        }
         switch capability {
 __WINDOW_CONTROLS__
         case "companion.invoke":
@@ -613,12 +634,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
     private var webView: WKWebView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        MacOsFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
+        __NATIVE_CAPABILITY_REGISTER__
         Telemetry.shared.record("controller.created")
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: "tachyon-app")
         configuration.websiteDataStore = .default()
         let shim = WKUserScript(
-            source: TACHYON_NATIVE_SHIM,
+            source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;",
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
@@ -671,6 +694,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         tachyonDisposeCompanions()
+        MacOsFilePicker.shared.disposeAll()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -679,6 +703,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
 
     func applicationWillTerminate(_ notification: Notification) {
         tachyonDisposeCompanions()
+        MacOsFilePicker.shared.disposeAll()
         Telemetry.shared.record("controller.destroyed")
     }
 }
@@ -719,6 +744,7 @@ mod tests {
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
+            native_capabilities: Vec::new(),
         }
     }
 

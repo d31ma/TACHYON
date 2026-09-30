@@ -101,3 +101,9 @@ func tacAwait<Value>(_ work: @escaping () async throws -> Value) throws -> Value
     try MainActor.executor.runUntil { awaited.result != nil }
     return try awaited.value()
 }
+
+func tacCreateNativeOwner<T>(_ owner: String, _ work: () -> T) -> T {
+    work()
+}
+
+func tacDisposeNativeOwner(_ owner: String) {}

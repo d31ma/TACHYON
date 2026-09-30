@@ -205,8 +205,9 @@ removes its IndexedDB store.
    shim drops `globalThis.tachyonWindow` in the same slice.
 6. The `cache` option of `@HTTPClient` is refused, and its IndexedDB store
    (`FetchCache` in `tac-client.js`) and its storage-gate rows are removed.
-7. A native `WindowControls` in the companion preludes (Rust, C#, Swift,
-   Kotlin) that asks the host directly with the same grants.
+7. Native `WindowControls` follows the activation-owned provider seam in
+   ADR 0089. The first compiled Swift/macOS slice asks the host directly with
+   the same grants; Rust, C# and Kotlin registration remain pending.
 
 ## Consequences
 

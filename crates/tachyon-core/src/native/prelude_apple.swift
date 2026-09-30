@@ -56,3 +56,11 @@ func tacAwait<Value>(_ work: @escaping () async throws -> Value) throws -> Value
     TacOwnerThread.wait(for: finished)
     return try awaited.value()
 }
+
+func tacCreateNativeOwner<T>(_ owner: String, _ work: () -> T) -> T {
+    NativeCapabilities.create(owner, work)
+}
+
+func tacDisposeNativeOwner(_ owner: String) {
+    NativeCapabilities.dispose(owner)
+}

@@ -156,10 +156,11 @@ private func tacHandle(_ raw: String) throws -> String {
         guard tacServiceKnown(service) else {
             return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"
         }
-        guard let members = tacServiceMembers(service, request["props"] as? [String: Any] ?? [:]) else {
+        if TacNativeState.activations.count >= 256 { return "{\"error\":\"Too many native activations.\"}" }
+        guard let members = tacCreateNativeOwner(owner, { tacServiceMembers(service, request["props"] as? [String: Any] ?? [:]) }) else {
+            tacDisposeNativeOwner(owner)
             return "{\"error\":\"Native service is missing a required property or it has the wrong type.\",\"code\":\"TY_NATIVE_REQUIRED\"}"
         }
-        if TacNativeState.activations.count >= 256 { return "{\"error\":\"Too many native activations.\"}" }
         let activation = TacActivation(route, service, owner, members)
         TacNativeState.activations[owner] = activation
         TacNativeState.executing = activation
@@ -500,6 +501,7 @@ private func tacDrain(_ owner: TacActivation) {
 
 private func tacDisposeActivation(_ owner: TacActivation) {
     owner.disposed = true
+    tacDisposeNativeOwner(owner.owner)
     owner.queue.removeAll(); owner.retained.removeAll(); owner.deferred.removeAll()
     for (_, member) in owner.members.sorted(by: { $0.key < $1.key }) {
         if case .hook(true, let invoke) = member { do { try invoke() } catch { tacEventFailure() } }

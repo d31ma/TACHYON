@@ -24,6 +24,9 @@ mod macos;
 mod manifest_setting;
 #[cfg(test)]
 mod model_tests;
+mod native_capabilities;
+#[cfg(test)]
+mod native_capability_tests;
 #[cfg(test)]
 mod native_web_api_tests;
 mod registry;

@@ -262,6 +262,7 @@ fn write_host_descriptor(
         "bridgeVersion": 3,
         "companions": companion_descriptions,
         "windowControls": application.window.controls,
+        "nativeCapabilities": application.native_capabilities,
         "hostCapabilities": ["companion.invoke"],
     });
     write_pretty_json(&stage.join("tachyon.host.json"), &host)

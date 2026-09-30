@@ -94,3 +94,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [86. A Component Can Be Exported as a Custom Element](0086-a-component-can-be-exported-as-a-custom-element.md)
 - [85. Lua Is a Yon Language](0085-lua-is-a-yon-language.md)
 - [87. Services Reach the Window and the Network Through Injection](0087-services-reach-the-window-and-the-network-through-injection.md)
+- [89. Native capabilities are activation-owned service providers](0089-native-capabilities-are-activation-owned-service-providers.md)

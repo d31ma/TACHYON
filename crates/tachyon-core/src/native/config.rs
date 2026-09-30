@@ -16,6 +16,7 @@ pub(super) struct NativeApplication {
     pub(super) entry_route: String,
     pub(super) icons: Vec<(u32, String)>,
     pub(super) window: WindowConfiguration,
+    pub(super) native_capabilities: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -210,6 +211,17 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
             "The manifest member tachyon moved to tac.application. Move id, version and window there.",
         ));
     }
+    if let Some(tac) = &manifest.tac
+        && (tac.native_capabilities.len() > 1
+            || tac
+                .native_capabilities
+                .iter()
+                .any(|grant| grant != "filePicker"))
+    {
+        return Err(config_failure(
+            "Manifest tac.nativeCapabilities accepts filePicker once.",
+        ));
+    }
     let Some(application) = manifest.application() else {
         return Ok(());
     };
@@ -363,6 +375,8 @@ pub(crate) struct TacMember {
     pub(super) origin: Option<String>,
     #[serde(default)]
     application: Option<ManifestApplication>,
+    #[serde(default, rename = "nativeCapabilities")]
+    pub(super) native_capabilities: Vec<String>,
     #[serde(default)]
     pub(super) scripts: Vec<String>,
     #[serde(default)]
@@ -380,7 +394,7 @@ pub(crate) struct TacMember {
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 15] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 16] = [
         "origin",
         "application",
         "scripts",
@@ -395,6 +409,7 @@ impl TacMember {
         "signatures",
         "constants",
         "browserApis",
+        "nativeCapabilities",
         "elements",
     ];
 }
@@ -443,6 +458,10 @@ impl NativeApplication {
         if let Some(application) = manifest.application() {
             self.apply_manifest_application(application);
         }
+        self.native_capabilities = manifest
+            .tac
+            .as_ref()
+            .map_or_else(Vec::new, |tac| tac.native_capabilities.clone());
         self.icons = manifest.raster_icons();
         self
     }
@@ -485,6 +504,7 @@ impl NativeApplication {
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: WindowConfiguration::default(),
+            native_capabilities: Vec::new(),
         }
     }
 }

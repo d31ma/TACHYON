@@ -56,8 +56,7 @@ pub(super) fn source(
         let body = service_body(language, item, &mut imports)?;
         let namespace = format!("TachyonService{index}");
         let (body, fsharp_body) = crate::fsharp_source::FsharpSource::web_split(&body);
-        let (fsharp_body, runtime) =
-            crate::fsharp_source::FsharpSource::runtime_split(fsharp_body);
+        let (fsharp_body, runtime) = crate::fsharp_source::FsharpSource::runtime_split(fsharp_body);
         namespaces.push_str(&namespace_source(language, &namespace, body));
         fsharp.push_str(&crate::fsharp_source::FsharpSource::web_namespace(
             &namespace,
@@ -135,7 +134,15 @@ fn compiled_service_body(
         .source
         .strip_prefix(&item.snapshot_root)
         .unwrap_or(&identity);
-    let roles = crate::behavior::ServiceRoles::read(relative, captured)?;
+    let mut roles = crate::behavior::ServiceRoles::read(relative, captured)?;
+    if language == NativeCompanion::Swift && !item.web_assembly {
+        let (_, fields) = super::native_capabilities::NativeCapabilities::swift_service(
+            captured,
+            &identity,
+            &item.class,
+        );
+        roles.required.retain(|name| !fields.contains(name));
+    }
     let mut body = lowered_body(
         language,
         item,
@@ -176,7 +183,17 @@ fn lowered_body(
         crate::events::describe(module, &identity, &item.snapshot_root, "client")?;
     }
     let prepared = super::events::prepare(language, authored, events.as_ref(), &identity)?;
-    let authored = prepared.source.as_str();
+    let (native_source, native_fields) = if language == NativeCompanion::Swift && !item.web_assembly
+    {
+        super::native_capabilities::NativeCapabilities::swift_service(
+            &prepared.source,
+            &identity,
+            &item.class,
+        )
+    } else {
+        (prepared.source.clone(), Vec::new())
+    };
+    let authored = native_source.as_str();
     if !item.web_assembly {
         crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
         crate::annotation_layout::NativeWebApis::refuse(&identity, authored)?;
@@ -184,11 +201,13 @@ fn lowered_body(
     let lowered = crate::behavior::lower(&identity, authored, "tac")?;
     let authored = lowered.as_deref().unwrap_or(authored);
     let portable = item.source.to_string_lossy();
+    let mut excluded = prepared.excluded.clone();
+    excluded.extend(native_fields);
     let table = crate::companion::owner_table(
         super::events::companion_language(language),
         authored,
         &portable,
-        &prepared.excluded,
+        &excluded,
         &prepared.entries,
         needs_all,
     )?;

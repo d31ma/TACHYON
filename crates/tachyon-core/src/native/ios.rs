@@ -555,6 +555,7 @@ mod tests {
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
+            native_capabilities: Vec::new(),
         }
     }
 
