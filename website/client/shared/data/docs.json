@@ -1123,6 +1123,7 @@
       "sections": [
         {
           "heading": "Signals between components",
+          "target": "web",
           "body": "An injected applicationEventPublisher and OnEvent connect services that have no shared parent. To publish, call publishEvent(model) or publishEvent(model, retain) with a value of a model type. The name of the model type is the event name. Retain and replay are false by default. Payloads (the data an event carries) are finite JSON of up to 64 KiB. Each listener receives its own copy. A listener whose return type is a model publishes the value it returns as that model. Disposal (cleanup of a service) unregisters its listeners. A page's events stay in the page: Tachyon does not send them to the server. A listener for a Topic model also receives the server's events of that model (see Topics).",
           "files": [
             {
@@ -1140,6 +1141,86 @@
             {
               "name": "client/components/release/panel/tac.html",
               "code": "<main>\n  <p>{release.release}</p>\n  <button on:click=\"release.announce()\">Announce</button>\n</main>\n"
+            },
+            {
+              "name": "client/services/ReleaseService.ts",
+              "code": "import type { ReleaseChanged } from '/models/ReleaseChanged.ts';\n\n@Service\nexport default class ReleaseService {\n  applicationEventPublisher!: ApplicationEventPublisher;\n  release: string = '';\n  announce(): void {\n    const changed: ReleaseChanged = { release: 'TACHYON' };\n    this.applicationEventPublisher.publishEvent(changed, true);\n  }\n  @OnEvent({\"replay\":true})\n  receive(changed: ReleaseChanged): void { this.release = changed.release; }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.java",
+              "code": "import models.ReleaseChanged;\n\n@Service\nclass ReleaseService {\n    String release = \"\";\n    ApplicationEventPublisher applicationEventPublisher;\n\n    void announce() {\n        applicationEventPublisher.publishEvent(new ReleaseChanged(\"TACHYON\"), true);\n    }\n\n    @OnEvent({\"replay\":true})\n    void receive(ReleaseChanged changed) { release = changed.release(); }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.dart",
+              "code": "import 'models/ReleaseChanged.dart';\n\n@Service\nclass ReleaseService {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n  String release = '';\n\n  void announce() {\n    applicationEventPublisher.publishEvent(const ReleaseChanged('TACHYON'), true);\n  }\n\n  @OnEvent({\"replay\":true})\n  void receive(ReleaseChanged changed) {\n    release = changed.release;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.rs",
+              "code": "use crate::models::ReleaseChanged;\n\n#[Service]\n#[derive(Default)]\nstruct ReleaseService {\n    release: String,\n    application_event_publisher: ApplicationEventPublisher,\n}\n\nimpl ReleaseService {\n    fn announce(&mut self) {\n        let changed = ReleaseChanged { release: String::from(\"TACHYON\") };\n        self.application_event_publisher.publish_event(changed, true);\n    }\n\n    #[OnEvent({\"replay\":true})]\n    fn receive(&mut self, changed: ReleaseChanged) { self.release = changed.release; }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.go",
+              "code": "// @Service\ntype ReleaseService struct {\n\tRelease                   string\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\nfunc (release *ReleaseService) Announce() {\n\tchanged := ReleaseChanged{Release: \"TACHYON\"}\n\trelease.applicationEventPublisher.PublishEvent(changed, true)\n}\n\n// @OnEvent({\"replay\":true})\nfunc (release *ReleaseService) Receive(changed ReleaseChanged) {\n\trelease.Release = changed.Release\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.rb",
+              "code": "#[Service]\nclass ReleaseService\n  # @return [String]\n  attr_reader :release\n\n  def initialize\n    @release = \"\"\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  def announce\n    @events.publish_event(ReleaseChanged.new(release: \"TACHYON\"), true)\n  end\n\n  # @param changed [ReleaseChanged]\n  # @return [void]\n  #[OnEvent({\"replay\":true})]\n  def receive(changed)\n    @release = changed.release\n  end\nend\n"
+            },
+            {
+              "name": "client/services/ReleaseService.swift",
+              "code": "@Service\nfinal class ReleaseService {\n    var release: String = \"\"\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    func announce() {\n        applicationEventPublisher.publishEvent(ReleaseChanged(release: \"TACHYON\"), true)\n    }\n\n    @OnEvent({\"replay\":true})\n    func receive(_ changed: ReleaseChanged) { release = changed.release }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.kt",
+              "code": "import models.ReleaseChanged\n\n@Service\nclass ReleaseService {\n    var release: String = \"\"\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    fun announce() {\n        applicationEventPublisher.publishEvent(ReleaseChanged(\"TACHYON\"), true)\n    }\n\n    @OnEvent({\"replay\":true})\n    fun receive(changed: ReleaseChanged) { release = changed.release }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.cs",
+              "code": "using Models;\n\n[Service]\npublic class ReleaseService {\n    public string Release = \"\";\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    public void Announce() {\n        applicationEventPublisher.PublishEvent(new ReleaseChanged(\"TACHYON\"), true);\n    }\n\n    [OnEvent({\"replay\":true})]\n    public void Receive(ReleaseChanged changed) { Release = changed.Release; }\n}\n"
+            },
+            {
+              "name": "client/services/ReleaseService.fs",
+              "code": "open Models\n\n[<Service>]\ntype ReleaseService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Release = \"\" with get, set\n\n    member this.Announce() : unit =\n        applicationEventPublisher.PublishEvent({ Release = \"TACHYON\" }, true)\n\n    [<OnEvent({\"replay\":true})>]\n    member this.Receive(changed: ReleaseChanged) : unit =\n        this.Release <- changed.Release\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.ts",
+              "code": "export type ReleaseChanged = { release: string };\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.java",
+              "code": "record ReleaseChanged(String release) {}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.dart",
+              "code": "class ReleaseChanged {\n  final String release;\n\n  const ReleaseChanged(this.release);\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.rs",
+              "code": "pub struct ReleaseChanged {\n    pub release: String,\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.go",
+              "code": "type ReleaseChanged struct {\n\tRelease string `json:\"release\"`\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.rb",
+              "code": "# @!attribute [r] release\n#   @return [String]\nReleaseChanged = Data.define(:release)\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.swift",
+              "code": "struct ReleaseChanged {\n    let release: String\n}\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.kt",
+              "code": "data class ReleaseChanged(val release: String)\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.cs",
+              "code": "public record ReleaseChanged(string Release);\n"
+            },
+            {
+              "name": "client/models/ReleaseChanged.fs",
+              "code": "type ReleaseChanged = { Release: string }\n"
             }
           ]
         },
@@ -1214,12 +1295,108 @@
             {
               "name": "client/models/SettledOrder.dart",
               "code": "class SettledOrder {\n  final int total;\n\n  const SettledOrder(this.total);\n}\n"
+            },
+            {
+              "name": "client/services/OrdersService.java",
+              "code": "import java.util.ArrayList;\nimport java.util.List;\nimport models.PlacedOrder;\nimport models.SettledOrder;\n\n@Service\nclass OrdersService {\n    ApplicationEventPublisher applicationEventPublisher;\n    List<String> log = new ArrayList<>();\n    int settled = 0;\n    long audited = 0;\n\n    void place(long total) {\n        applicationEventPublisher.publishEvent(new PlacedOrder(\"paid\", total));\n    }\n\n    @OnEvent({\"id\":\"orders-log\"})\n    @Order(-10)\n    void record(PlacedOrder order) { log.add(order.status()); }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    SettledOrder settleLargeOrder(PlacedOrder order) {\n        settled += 1;\n        return new SettledOrder(order.total());\n    }\n\n    @OnEvent\n    @InBackground\n    void audit(SettledOrder order) { audited = order.total(); }\n}\n"
+            },
+            {
+              "name": "client/services/OrdersService.rs",
+              "code": "use crate::models::{PlacedOrder, SettledOrder};\n\n#[Service]\n#[derive(Default)]\nstruct OrdersService {\n    application_event_publisher: ApplicationEventPublisher,\n    log: Vec<String>,\n    settled: i64,\n    audited: i64,\n}\n\nimpl OrdersService {\n    fn place(&mut self, total: i64) {\n        let order = PlacedOrder { status: String::from(\"paid\"), total };\n        self.application_event_publisher.publish_event(order, false);\n    }\n\n    #[OnEvent({\"id\":\"orders-log\"})]\n    #[Order(-10)]\n    fn record(&mut self, order: PlacedOrder) { self.log.push(order.status); }\n\n    #[OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n    fn settle_large_order(&mut self, order: PlacedOrder) -> SettledOrder {\n        self.settled += 1;\n        SettledOrder { total: order.total }\n    }\n\n    #[OnEvent]\n    #[InBackground]\n    fn audit(&mut self, order: SettledOrder) { self.audited = order.total; }\n}\n"
+            },
+            {
+              "name": "client/services/OrdersService.go",
+              "code": "// @Service\ntype OrdersService struct {\n\tLog                       []string\n\tSettled                   int64\n\tAudited                   int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\nfunc (orders *OrdersService) Place(total int64) {\n\torder := PlacedOrder{Status: \"paid\", Total: total}\n\torders.applicationEventPublisher.PublishEvent(order, false)\n}\n\n// @OnEvent({\"id\":\"orders-log\"})\n// @Order(-10)\nfunc (orders *OrdersService) Record(order PlacedOrder) {\n\torders.Log = append(orders.Log, order.Status)\n}\n\n// @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\nfunc (orders *OrdersService) SettleLargeOrder(order PlacedOrder) SettledOrder {\n\torders.Settled++\n\treturn SettledOrder{Total: order.Total}\n}\n\n// @OnEvent\n// @InBackground\nfunc (orders *OrdersService) Audit(order SettledOrder) {\n\torders.Audited = order.Total\n}\n"
+            },
+            {
+              "name": "client/services/OrdersService.rb",
+              "code": "#[Service]\nclass OrdersService\n  # @return [Array<String>]\n  attr_reader :log\n  # @return [Integer]\n  attr_reader :settled\n  # @return [Integer]\n  attr_reader :audited\n\n  def initialize\n    @log = []\n    @settled = 0\n    @audited = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @param total [Integer]\n  # @return [void]\n  def place(total)\n    @events.publish_event(PlacedOrder.new(status: \"paid\", total: total))\n  end\n\n  # @param order [PlacedOrder]\n  # @return [void]\n  #[OnEvent({\"id\":\"orders-log\"})]\n  #[Order(-10)]\n  def record(order)\n    @log = [*@log, order.status]\n  end\n\n  # @param order [PlacedOrder]\n  # @return [SettledOrder]\n  #[OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n  def settle_large_order(order)\n    @settled += 1\n    SettledOrder.new(total: order.total)\n  end\n\n  # @param order [SettledOrder]\n  # @return [void]\n  #[OnEvent]\n  #[InBackground]\n  def audit(order)\n    @audited = order.total\n  end\nend\n"
+            },
+            {
+              "name": "client/services/OrdersService.swift",
+              "code": "@Service\nfinal class OrdersService {\n    let applicationEventPublisher: ApplicationEventPublisher\n    var log: [String] = []\n    var settled: Int = 0\n    var audited: Int = 0\n\n    func place(_ total: Int) {\n        applicationEventPublisher.publishEvent(PlacedOrder(status: \"paid\", total: total))\n    }\n\n    @OnEvent({\"id\":\"orders-log\"})\n    @Order(-10)\n    func record(_ order: PlacedOrder) { log.append(order.status) }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    func settleLargeOrder(_ order: PlacedOrder) -> SettledOrder {\n        settled += 1\n        return SettledOrder(total: order.total)\n    }\n\n    @OnEvent\n    @InBackground\n    func audit(_ order: SettledOrder) { audited = order.total }\n}\n"
+            },
+            {
+              "name": "client/services/OrdersService.kt",
+              "code": "import models.PlacedOrder\nimport models.SettledOrder\n\n@Service\nclass OrdersService {\n    val applicationEventPublisher: ApplicationEventPublisher\n    var log: List<String> = listOf()\n    var settled: Int = 0\n    var audited: Long = 0\n\n    fun place(total: Long) {\n        applicationEventPublisher.publishEvent(PlacedOrder(\"paid\", total))\n    }\n\n    @OnEvent({\"id\":\"orders-log\"})\n    @Order(-10)\n    fun record(order: PlacedOrder) { log = log + order.status }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    fun settleLargeOrder(order: PlacedOrder): SettledOrder {\n        settled += 1\n        return SettledOrder(order.total)\n    }\n\n    @OnEvent\n    @InBackground\n    fun audit(order: SettledOrder) { audited = order.total }\n}\n"
+            },
+            {
+              "name": "client/services/OrdersService.cs",
+              "code": "using System.Collections.Generic;\nusing Models;\n\n[Service]\npublic class OrdersService {\n    public List<string> Log = new List<string>();\n    public int Settled = 0;\n    public long Audited = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    public void Place(long total) {\n        applicationEventPublisher.PublishEvent(new PlacedOrder(\"paid\", total));\n    }\n\n    [OnEvent({\"id\":\"orders-log\"})]\n    [Order(-10)]\n    public void Record(PlacedOrder order) { Log.Add(order.Status); }\n\n    [OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n    public SettledOrder SettleLargeOrder(PlacedOrder order) {\n        Settled += 1;\n        return new SettledOrder(order.Total);\n    }\n\n    [OnEvent]\n    [InBackground]\n    public void Audit(SettledOrder order) { Audited = order.Total; }\n}\n"
+            },
+            {
+              "name": "client/services/OrdersService.fs",
+              "code": "open Models\n\n[<Service>]\ntype OrdersService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Log : string list = [] with get, set\n    member val Settled = 0 with get, set\n    member val Audited = 0L with get, set\n\n    member this.Place(total: int64) : unit =\n        applicationEventPublisher.PublishEvent({ Status = \"paid\"; Total = total })\n\n    [<OnEvent({\"id\":\"orders-log\"})>]\n    [<Order(-10)>]\n    member this.Record(order: PlacedOrder) : unit =\n        this.Log <- this.Log @ [ order.Status ]\n\n    [<OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})>]\n    member this.SettleLargeOrder(order: PlacedOrder) : SettledOrder =\n        this.Settled <- this.Settled + 1\n        { SettledOrder.Total = order.Total }\n\n    [<OnEvent>]\n    [<InBackground>]\n    member this.Audit(order: SettledOrder) : unit =\n        this.Audited <- order.Total\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.java",
+              "code": "record PlacedOrder(String status, long total) {}\n"
+            },
+            {
+              "name": "client/models/SettledOrder.java",
+              "code": "record SettledOrder(long total) {}\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.rs",
+              "code": "pub struct PlacedOrder {\n    pub status: String,\n    pub total: i64,\n}\n"
+            },
+            {
+              "name": "client/models/SettledOrder.rs",
+              "code": "pub struct SettledOrder {\n    pub total: i64,\n}\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.go",
+              "code": "type PlacedOrder struct {\n\tStatus string `json:\"status\"`\n\tTotal  int64  `json:\"total\"`\n}\n"
+            },
+            {
+              "name": "client/models/SettledOrder.go",
+              "code": "type SettledOrder struct {\n\tTotal int64 `json:\"total\"`\n}\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.rb",
+              "code": "# @!attribute [r] status\n#   @return [String]\n# @!attribute [r] total\n#   @return [Integer]\nPlacedOrder = Data.define(:status, :total)\n"
+            },
+            {
+              "name": "client/models/SettledOrder.rb",
+              "code": "# @!attribute [r] total\n#   @return [Integer]\nSettledOrder = Data.define(:total)\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.swift",
+              "code": "struct PlacedOrder {\n    let status: String\n    let total: Int\n}\n"
+            },
+            {
+              "name": "client/models/SettledOrder.swift",
+              "code": "struct SettledOrder {\n    let total: Int\n}\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.kt",
+              "code": "data class PlacedOrder(val status: String, val total: Long)\n"
+            },
+            {
+              "name": "client/models/SettledOrder.kt",
+              "code": "data class SettledOrder(val total: Long)\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.cs",
+              "code": "public record PlacedOrder(string Status, long Total);\n"
+            },
+            {
+              "name": "client/models/SettledOrder.cs",
+              "code": "public record SettledOrder(long Total);\n"
+            },
+            {
+              "name": "client/models/PlacedOrder.fs",
+              "code": "type PlacedOrder = { Status: string; Total: int64 }\n"
+            },
+            {
+              "name": "client/models/SettledOrder.fs",
+              "code": "type SettledOrder = { Total: int64 }\n"
             }
           ]
         },
         {
-          "heading": "Compiled services: Swift, Kotlin, C#, Rust, Go and Dart",
-          "body": "Each example injects the publisher and publishes a CatalogCount model during initialization. The model lives in client/models in the language of the service. A listener updates the count, and cleanup resets it. The prelude (code that Tachyon adds before your code) constructs any member of type ApplicationEventPublisher. That member is not in the page's member table. Each activation has a new owner. Tachyon rejects old callbacks. Listener work waits in a queue until the active callback returns. Native and Go service hooks and event methods are synchronous. A Go service is not native: it runs as WebAssembly in the web view on every target, with the same rules. A Dart service compiles to WebAssembly (WasmGC) and follows the same shape. A Kotlin service links into the Android app and compiles to WebAssembly (WasmGC) for every other target. A Swift service links into the macOS and iOS apps. On the other targets it runs as WebAssembly. There, as for Kotlin and Rust, its events go through the page's event bus: its listeners hear events from every service and component on the page, and a listener for a Topic model reads the topic stream (ADR 0082). A Java service runs as WebAssembly on every target and uses the same page event bus: it publishes client/models records and classes with ApplicationEventPublisher, its OnEvent listeners take one model, and a listener for a Topic model reads the topic stream (ADR 0083). The same example works in both. It declares the publisher with Needs, and its hooks are synchronous. Helper types cannot own events. You cannot publish from background work that has no owner. You still configure native HTTP clients manually. Only JavaScript and TypeScript services receive the browser resources.",
+          "heading": "Swift, Kotlin, Java, C#, F#, Rust, Go, Dart and Ruby services",
+          "body": "Each example injects the publisher and publishes a CatalogCount model during initialization. The model lives in client/models in the language of the service. A listener updates the count, and cleanup resets it. The prelude (code that Tachyon adds before your code) constructs any member of type ApplicationEventPublisher. That member is not in the page's member table. Each activation has a new owner. Tachyon rejects old callbacks. Listener work waits in a queue until the active callback returns. Native and Go service hooks and event methods are synchronous. A Go service is not native: it runs as WebAssembly in the web view on every target, with the same rules. A Dart service compiles to WebAssembly (WasmGC) and follows the same shape. A Kotlin service links into the Android app and compiles to WebAssembly (WasmGC) for every other target. A Swift service links into the macOS and iOS apps. On the other targets it runs as WebAssembly. There, as for Kotlin and Rust, its events go through the page's event bus: its listeners hear events from every service and component on the page, and a listener for a Topic model reads the topic stream (ADR 0082). A Java service runs as WebAssembly on every target and uses the same page event bus: it publishes client/models records and classes with ApplicationEventPublisher, its OnEvent listeners take one model, and a listener for a Topic model reads the topic stream (ADR 0083). The same example works in both. It declares the publisher with Needs, and its hooks are synchronous. A Ruby or F# service also runs as WebAssembly on every target and uses the page event bus: Ruby creates its publisher with ApplicationEventPublisher.new, and F# takes it as a constructor parameter. Helper types cannot own events. You cannot publish from background work that has no owner. You still configure native HTTP clients manually. Only JavaScript and TypeScript services receive the browser resources.",
           "axis": "language",
           "files": [
             {
@@ -1285,12 +1462,28 @@
             {
               "name": "client/models/CatalogCount.dart",
               "code": "class CatalogCount {\n  final int count;\n\n  const CatalogCount(this.count);\n}\n"
+            },
+            {
+              "name": "client/services/CatalogService.rb",
+              "code": "#[Service]\nclass CatalogService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    announce\n  end\n\n  # @param value [CatalogCount]\n  # @return [void]\n  #[OnEvent]\n  def changed(value)\n    @count = value.count\n  end\n\n  # @return [void]\n  #[OnStop]\n  def cleanup\n    @count = 0\n  end\n\n  private\n\n  # @return [void]\n  def announce\n    @events.publish_event(CatalogCount.new(count: 5))\n  end\nend\n"
+            },
+            {
+              "name": "client/services/CatalogService.fs",
+              "code": "open Models\n\n[<Service>]\ntype CatalogService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Count = 0 with get, set\n\n    [<OnStart>]\n    member this.Initialize() : unit =\n        this.Announce()\n\n    member private this.Announce() : unit =\n        applicationEventPublisher.PublishEvent({ Count = 5 })\n\n    [<OnEvent>]\n    member this.Changed(value: CatalogCount) : unit =\n        this.Count <- value.Count\n\n    [<OnStop>]\n    member this.Cleanup() : unit =\n        this.Count <- 0\n"
+            },
+            {
+              "name": "client/models/CatalogCount.rb",
+              "code": "# @!attribute [r] count\n#   @return [Integer]\nCatalogCount = Data.define(:count)\n"
+            },
+            {
+              "name": "client/models/CatalogCount.fs",
+              "code": "type CatalogCount = { Count: int }\n"
             }
           ]
         },
         {
           "heading": "Yon: every supported language",
-          "body": "Choose one language. The roles below live in the shared server/services folder. The controller lives in server/controllers. Tachyon finds both automatically. PublishService injects the applicationEventPublisher provider through Needs. JavaScript matches it by field name. Every other language matches it by type. PublishService publishes a ProbeReady model during OnStart. ProbeService listens for ProbeReady and keeps the result, and GET returns it as JSON. Events belong only to this invocation (this one run of the route), unless the model is a Topic. A Topic event is also saved in the topic log, and Tachyon calls its listeners in the other files and languages once (see Topics). JavaScript, TypeScript and Python support async hooks, async listeners and InBackground. PHP, Java, Groovy, Kotlin, C#, Rust, Dart and Go use synchronous event listeners. They reject InBackground at compile time. Tachyon rejects compiled async methods, streaming event containers and transient event providers. The initialization and endpoint queues finish before serialization (turning the result into JSON). Then cleanup runs in reverse order, within the supervisor deadline (the time limit of the process that runs the route).",
+          "body": "Choose one language. The roles below live in the shared server/services folder. The controller lives in server/controllers. Tachyon finds both automatically. PublishService injects the applicationEventPublisher provider through Needs. JavaScript matches it by field name. Every other language matches it by type: F# takes it as a constructor parameter. A Ruby service creates its publisher itself with ApplicationEventPublisher.new. PublishService publishes a ProbeReady model during OnStart. ProbeService listens for ProbeReady and keeps the result, and GET returns it as JSON. Events belong only to this invocation (this one run of the route), unless the model is a Topic. A Topic event is also saved in the topic log, and Tachyon calls its listeners in the other files and languages once (see Topics). JavaScript, TypeScript and Python support async hooks, async listeners and InBackground. PHP, Java, Groovy, Kotlin, C#, F#, Rust, Dart, Go and Ruby use synchronous event listeners. They reject InBackground at compile time. Tachyon rejects compiled async methods, streaming event containers and transient event providers. The initialization and endpoint queues finish before serialization (turning the result into JSON). Then cleanup runs in reverse order, within the supervisor deadline (the time limit of the process that runs the route).",
           "axis": "language",
           "files": [
             {
@@ -1464,6 +1657,38 @@
             {
               "name": "server/models/ProbeReady.dart",
               "code": "class ProbeReady {\n  final int value;\n\n  const ProbeReady(this.value);\n}\n"
+            },
+            {
+              "name": "server/services/ProbeService.rb",
+              "code": "#[Service]\nclass ProbeService\n  # @return [ProbeReady, nil]\n  attr_reader :last\n\n  def initialize\n    @last = nil\n  end\n\n  # @param ready [ProbeReady]\n  # @return [void]\n  #[OnEvent]\n  def observe(ready)\n    @last = ready\n  end\n\n  # @return [void]\n  #[OnStop]\n  def destroy\n    @last = nil\n  end\nend\n"
+            },
+            {
+              "name": "server/services/PublishService.rb",
+              "code": "#[Service]\nclass PublishService\n  # @return [void]\n  #[OnStart]\n  def start\n    ApplicationEventPublisher.new.publish_event(ProbeReady.new(value: 7))\n  end\nend\n"
+            },
+            {
+              "name": "server/services/ProbeService.fs",
+              "code": "open Models\n\n[<Service>]\ntype ProbeService() =\n    member val Last : ProbeReady option = None with get, set\n\n    [<OnEvent>]\n    member this.Observe(ready: ProbeReady) : unit =\n        this.Last <- Some ready\n\n    [<OnStop>]\n    member this.Destroy() : unit =\n        this.Last <- None\n"
+            },
+            {
+              "name": "server/services/PublishService.fs",
+              "code": "open Models\n\n[<Service>]\ntype PublishService(applicationEventPublisher: ApplicationEventPublisher) =\n    [<OnStart>]\n    member this.Initialize() : unit =\n        applicationEventPublisher.PublishEvent({ Value = 7L }) |> ignore\n"
+            },
+            {
+              "name": "server/controllers/ProbeController.rb",
+              "code": "#[RequestRoute(\"/probe\")]\n#[Public]\nclass ProbeController\n  #[Needs]\n  # @return [ProbeService]\n  attr_reader :probe_service\n\n  #[Needs]\n  # @return [PublishService]\n  attr_reader :publish_service\n\n  # @return [ProbeReady, nil]\n  #[GetRoute]\n  def get_probe\n    probe_service.last\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/ProbeController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/probe\")>]\n[<Public>]\ntype ProbeController(probeService: ProbeService, publishService: PublishService) =\n    [<GetRoute>]\n    member this.GetProbe() : ProbeReady option =\n        probeService.Last\n"
+            },
+            {
+              "name": "server/models/ProbeReady.rb",
+              "code": "# @!attribute [r] value\n#   @return [Integer]\nProbeReady = Data.define(:value)\n"
+            },
+            {
+              "name": "server/models/ProbeReady.fs",
+              "code": "type ProbeReady = { Value: int64 }\n"
             }
           ]
         },
@@ -3295,7 +3520,7 @@
             },
             {
               "name": "client/services/CatalogService.js",
-              "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  /** @type {unknown[]} */\n  products = []\n  error = ''\n\n  async load() {\n    await this.catalogClient.all().then((products) => this.#show(products), () => this.#showFailure())\n  }\n\n  /**\n   * @param {unknown} products\n   * @returns {void}\n   */\n  #show(products) {\n    if (!Array.isArray(products)) return this.#showFailure()\n    this.products = products\n    this.error = ''\n  }\n\n  #showFailure() {\n    this.error = 'Products could not be loaded. Please retry.'\n  }\n}"
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  /** @type {unknown[]} */\n  products = []\n  error = ''\n\n  async load() {\n    await this.catalogClient.all().then((products) => this._show(products), () => this._showFailure())\n  }\n\n  /**\n   * @param {unknown} products\n   * @returns {void}\n   */\n  _show(products) {\n    if (!Array.isArray(products)) return this._showFailure()\n    this.products = products\n    this.error = ''\n  }\n\n  _showFailure() {\n    this.error = 'Products could not be loaded. Please retry.'\n  }\n}"
             },
             {
               "name": "client/clients/CatalogClient.ts",
@@ -5769,7 +5994,7 @@
             },
             {
               "name": "client/services/UserListService.js",
-              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserListService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {{ name: string }[]} */\n  users = [];\n  @OnStart\n  async initialize() { await this._refresh(); }\n  /** @param {UsersChanged} changed */\n  @OnEvent\n  async usersChanged(changed) { await this.#refreshWhenSaved(changed); }\n  async _refresh() { this.users = /** @type {{ name: string }[]} */ (await this.usersClient.list()); }\n  /** @param {UsersChanged} changed */\n  async #refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }\n}"
+              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserListService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {{ name: string }[]} */\n  users = [];\n  @OnStart\n  async initialize() { await this._refresh(); }\n  /** @param {UsersChanged} changed */\n  @OnEvent\n  async usersChanged(changed) { await this._refreshWhenSaved(changed); }\n  async _refresh() { this.users = /** @type {{ name: string }[]} */ (await this.usersClient.list()); }\n  /** @param {UsersChanged} changed */\n  async _refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }\n}"
             },
             {
               "name": "client/clients/UsersClient.ts",
