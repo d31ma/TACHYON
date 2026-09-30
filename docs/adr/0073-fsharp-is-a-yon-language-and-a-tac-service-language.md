@@ -91,7 +91,9 @@ C# work.
   a C# service. No native host links F#, so every target, Windows included,
   runs F# services in its web view.
 - A service's page members are its public properties (`member val Count = 6
-  with get, set`, writable with `set`) and its public methods.
+  with get, set`, writable with `set`) and its public methods. The value of a
+  `member val` may continue on the lines below it, with `with get, set` at
+  its end.
 - Client test units compile the service and the test for .NET on the build
   machine.
 - `ty doctor` reports the .NET SDK for F# handlers, and the .NET WebAssembly

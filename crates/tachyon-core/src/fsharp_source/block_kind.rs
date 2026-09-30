@@ -2,5 +2,6 @@
 pub(crate) enum BlockKind {
     Type,
     Member,
+    Value,
     Skip,
 }

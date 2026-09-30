@@ -25,6 +25,7 @@ impl MemberHeader {
     const ABSTRACT_WORD: &'static str = "abstract ";
     const TASKS: [&'static str; 2] = ["Task<", "System.Threading.Tasks.Task<"];
     const PROPERTY_ACCESSORS: &'static str = " with ";
+    const ACCESSOR_CLAUSES: [&'static str; 2] = ["with get", "with set"];
 
     pub(crate) fn member(trimmed: &str, body_code: &[bool]) -> Self {
         let words = Self::words(trimmed);
@@ -67,6 +68,16 @@ impl MemberHeader {
             text: format!("{modifiers}{kind} {} = {initial}", name.trim()),
             closer: String::from(";"),
         }
+    }
+
+    pub(crate) fn accessors_start(text: &str, code: &[bool]) -> usize {
+        Self::ACCESSOR_CLAUSES
+            .iter()
+            .flat_map(|clause| text.match_indices(clause))
+            .map(|(at, _)| at)
+            .filter(|at| code.get(*at).copied().unwrap_or(false))
+            .min()
+            .unwrap_or(text.len())
     }
 
     pub(crate) fn binding(trimmed: &str, code: &[bool]) -> Self {

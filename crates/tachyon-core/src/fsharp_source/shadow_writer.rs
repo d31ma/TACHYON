@@ -69,6 +69,7 @@ impl<'a> ShadowWriter<'a> {
             | (None, LineKind::Other | LineKind::Let | LineKind::Do) => {
                 self.write_body(index);
             }
+            (Some(BlockKind::Value), _) => self.write_value_body(index),
             (Some(BlockKind::Skip), _) => self.write_empty(index),
             (_, LineKind::Attribute) => self.write_attributes(index),
             (None, LineKind::Open) => self.write_open(index),
@@ -204,7 +205,14 @@ impl<'a> ShadowWriter<'a> {
 
     fn write_member_value(&mut self, index: usize) {
         let header = MemberHeader::value(self.lines[index].trimmed());
-        self.open_member(index, &header);
+        self.open_block(index, &header, BlockKind::Value);
+    }
+
+    fn write_value_body(&mut self, index: usize) {
+        let line = &self.lines[index];
+        let end = MemberHeader::accessors_start(line.text, line.code);
+        let text = FsharpBody::csharp(&line.text[..end], &line.code[..end]);
+        self.written.push((text, index));
     }
 
     fn write_constructor(&mut self, index: usize) {
@@ -224,10 +232,14 @@ impl<'a> ShadowWriter<'a> {
     }
 
     fn open_member(&mut self, index: usize, header: &MemberHeader) {
+        self.open_block(index, header, BlockKind::Member);
+    }
+
+    fn open_block(&mut self, index: usize, header: &MemberHeader, kind: BlockKind) {
         self.push(index, &header.text);
         let indent = self.lines[index].indent();
         self.blocks
-            .push(OpenBlock::body(indent, BlockKind::Member, &header.closer));
+            .push(OpenBlock::body(indent, kind, &header.closer));
         self.attributes.clear();
     }
 

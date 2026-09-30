@@ -177,6 +177,23 @@ mod tests {
     }
 
     #[test]
+    fn a_member_value_over_several_lines_keeps_its_accessors_out_of_the_value() {
+        let source = "[<Service>]\ntype InventoryService() =\n    member val Names : obj =\n        [ \"Anvil\"; \"Rope\" ]\n        with get, set\n\n    member val Count : int =\n        2 with get\n";
+        let shadow = FsharpShadow::of(source);
+        assert!(!shadow.text().contains("get"), "{}", shadow.text());
+        assert!(
+            shadow.text().contains("public object Names ="),
+            "{}",
+            shadow.text()
+        );
+        assert!(
+            shadow.text().contains("public int Count ="),
+            "{}",
+            shadow.text()
+        );
+    }
+
+    #[test]
     fn a_store_with_options_is_not_a_provider_and_its_abstract_members_have_bodies() {
         let source = "[<Store(typeof<EntryEntity>, {\"fields\":[\"id\"],\"defaultSize\":20,\"maxSize\":100})>]\ntype EntryStore(context: BehaviorContext) =\n    member val behaviors : BehaviorContext = context\n\n    abstract findById: id: BehaviorJSON -> Task<BehaviorJSON>\n";
         let shadow = FsharpShadow::of(source);

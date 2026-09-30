@@ -62,7 +62,7 @@
       {
         "name": "client/services/TallyService.fs",
         "code": "[<Service>]\ntype TallyService() =\n    member val Count = 6 with get, set\n\n    member this.Runtime : string = \"F#, compiled by .NET\"\n\n    member this.Doubled() : int =\n        this.Count * 2\n",
-        "note": "The .NET SDK compiles the F# service to an assembly, and the page runs it on the same .NET browser runtime as C#. No native host links F#, so every target, Windows included, runs it in its web view. A page with C# and F# services downloads the .NET runtime once."
+        "note": "The .NET SDK compiles the F# service to an assembly, and the page runs it on the same .NET browser runtime as C#. No native host links F#, so every target, Windows included, runs it in its web view. A page with C# and F# services downloads the .NET runtime once. The page reads the service's public properties, such as `member val Count = 6 with get, set`. A long value may go on the lines below `member val Count =`, with `with get, set` after it."
       }
     ]
   },

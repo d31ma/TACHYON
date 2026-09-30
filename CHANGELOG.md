@@ -2155,6 +2155,12 @@ machine contracts have their own, independent major versions.
   block by the SHA-256 hash of its text, which Chromium, Firefox and WebKit
   all understand.
 
+- An F# `member val` whose value continues on the lines below it, with
+  `with get, set` on the last line, now builds. The build read the accessor
+  words as part of the value, so the generated C# member table failed with
+  `CS1061` ("no definition for 'get'"); it now leaves them out, as it already
+  did for a `member val` on one line (ADR 0073).
+
 - Java web services now start under Tachyon's content security policy
   (`script-src 'self' 'wasm-unsafe-eval'`), which `ty start`, `ty preview`
   and the native hosts send. TeaVM's `runtime.js` made functions from text
