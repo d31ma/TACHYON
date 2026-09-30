@@ -6025,7 +6025,7 @@
         },
         {
           "heading": "Signal-driven UI",
-          "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. A form declares an applicationEventPublisher and publishes a collection change through it. Panels that care about the change register with OnEvent. They do not need to know who sent it. Both services inject the single UsersClient that Tachyon discovers automatically in client/clients. Each service owns its cancellation lifetime (the signal that stops its work). HTTPClient handles the JSON request and response. After a successful save, the form publishes a UsersChanged model, and the list listens for that model. Choose JavaScript or TypeScript. HTTPClient is the browser transport, and only JavaScript and TypeScript services use it.",
+          "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. A form declares an applicationEventPublisher and publishes a collection change through it. Panels that care about the change register with OnEvent. They do not need to know who sent it. Both services inject the single UsersClient that Tachyon discovers automatically in client/clients. Each service owns its cancellation lifetime (the signal that stops its work). HTTPClient handles the JSON request and response. After a successful save, the form publishes a UsersChanged model, and the list listens for that model. Choose JavaScript, TypeScript or Ruby. In JavaScript and TypeScript, HTTPClient is the browser transport. A Ruby service builds its UsersClient, and the client answers through the http adapter of UsersSetup, here a list kept in memory. Both Ruby services share that one list, because Tachyon configures a Setup once per page, like a Spring @Configuration. The other compiled languages still give each service its own copy of a Setup, so their tabs come later.",
           "axis": "language",
           "files": [
             {
@@ -6067,6 +6067,30 @@
             {
               "name": "client/models/UsersChanged.ts",
               "code": "export interface UsersChanged {\n  saved: boolean\n}\n"
+            },
+            {
+              "name": "client/clients/UsersClient.rb",
+              "code": "#[HTTPClient]\nclass UsersClient\n  # @return [Array<Hash>]\n  #[GetRequest(\"/users\")]\n  def list()\n  end\n\n  # @param form [Hash]\n  # @return [Hash]\n  #[PostRequest(\"/users\")]\n  def save(\n    #[RequestBody]\n    form\n  )\n  end\nend\n"
+            },
+            {
+              "name": "client/setups/UsersSetup.rb",
+              "code": "#[Setup]\nclass UsersSetup\n  BODY = \"body\"\n\n  # @param _execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(_execution)\n    users = [{ \"name\" => \"Ada\" }]\n    exchange = lambda do |request, _running|\n      users << request[BODY] if request.key?(BODY)\n      users\n    end\n    { \"http\" => { \"users\" => { \"exchange\" => exchange } } }\n  end\nend\n"
+            },
+            {
+              "name": "client/services/UserFormService.rb",
+              "code": "#[Service]\nclass UserFormService\n  # @return [User]\n  attr_reader :form\n\n  def initialize\n    @users_client = UsersClient.new\n    @events = ApplicationEventPublisher.new\n    @form = User.new(name: \"\")\n  end\n\n  # @param name [String]\n  # @return [void]\n  def typed(name)\n    @form = User.new(name: name)\n  end\n\n  # @return [void]\n  def save\n    @users_client.save(@form.to_h)\n    @events.publish_event(UsersChanged.new(saved: true))\n  end\nend\n"
+            },
+            {
+              "name": "client/services/UserListService.rb",
+              "code": "#[Service]\nclass UserListService\n  # @return [Array<User>]\n  attr_reader :users\n\n  def initialize\n    @users_client = UsersClient.new\n    @users = []\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    refresh\n  end\n\n  # @param changed [UsersChanged]\n  # @return [void]\n  #[OnEvent]\n  def users_changed(changed)\n    refresh_when_saved(changed)\n  end\n\n  private\n\n  # @return [void]\n  def refresh\n    @users = @users_client.list.map { |user| User.new(name: user[\"name\"]) }\n  end\n\n  # @param changed [UsersChanged]\n  # @return [void]\n  def refresh_when_saved(changed)\n    refresh if changed.saved\n  end\nend\n"
+            },
+            {
+              "name": "client/models/User.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\nUser = Data.define(:name)\n"
+            },
+            {
+              "name": "client/models/UsersChanged.rb",
+              "code": "# @!attribute [r] saved\n#   @return [Boolean]\nUsersChanged = Data.define(:saved)\n"
             }
           ]
         },
