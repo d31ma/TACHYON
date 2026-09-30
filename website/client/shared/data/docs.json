@@ -206,7 +206,7 @@
       "sections": [
         {
           "heading": "Step 1: Make a page",
-          "body": "Start in the folder that `ty init my-app` made on the Install page. For this guide, keep the default answers (press Enter for each question), so the app has pages and a server in JavaScript. A page is a `tac.html` file in `client/pages`. Its folder is its URL, so `client/pages/hello/tac.html` is the page at /hello. A component is a part of a page that you can use again. The folder `client/components/hello/card` becomes the tag `<hello-card>`.\n\nRun `ty preview` in the project folder, and keep it running while you follow the steps. It builds the app again each time you save a file. When `ty preview` starts, it checks that every public method has a test. The project from `ty init` already has its tests, and step 5 adds the tests for the classes that you add. Open the address that `ty preview` prints, and add /hello at the end.\n\nResult: the page shows the heading Hello and the text This is my first page.",
+          "body": "Start in the folder that `ty init my-app` made on the Install page. The questions of `ty init` choose the language of the pages (Tac) and the language of the server (Yon). The default is JavaScript for both, and `ty init my-app --tac dart --yon py` chooses other languages without questions. Each step below shows its code in every language: choose yours above the code. A page is a `tac.html` file in `client/pages`. Its folder is its URL, so `client/pages/hello/tac.html` is the page at /hello. A component is a part of a page that you can use again. The folder `client/components/hello/card` becomes the tag `<hello-card>`.\n\nRun `ty preview` in the project folder, and keep it running while you follow the steps. It builds the app again each time you save a file. When `ty preview` starts, it checks that every public method has a test. The project from `ty init` already has its tests, and step 5 adds the tests for the classes that you add. Open the address that `ty preview` prints, and add /hello at the end.\n\nResult: the page shows the heading Hello and the text This is my first page.",
           "files": [
             {
               "name": "client/pages/hello/tac.html",
@@ -221,7 +221,8 @@
         {
           "heading": "Step 2: Add a service",
           "axis": "language",
-          "body": "A service is a class in `client/services` that holds the data and the actions of a view. The view calls `CounterService` by the name `counter`: Tachyon removes `Service` from the class name and starts the rest with a small letter. A field is a value that belongs to the service, such as `count`. `{counter.count}` shows the field in the page. `on:click=\"counter.increment()\"` calls the method when you click the button. When the method changes the field, the page updates.\n\nChange the component and add the service. In the page, add `hydrate=\"load\"`: it starts the component and its service as soon as the page opens. A component without a service must not have `hydrate`, so step 1 did not use it. Save the files, and `ty preview` builds the app again. Choose JavaScript or TypeScript above the code.\n\nResult: each click on Click me adds one to the number on the page.",
+          "target": "web",
+          "body": "A service is a class in `client/services` that holds the data and the actions of a view. The view calls `CounterService` by the name `counter`: Tachyon removes `Service` from the class name and starts the rest with a small letter. A field is a value that belongs to the service, such as `count`. `{counter.count}` shows the field in the page. `on:click=\"counter.increment()\"` calls the method when you click the button. When the method changes the field, the page updates.\n\nChange the component and add the service. In the page, add `hydrate=\"load\"`: it starts the component and its service as soon as the page opens. A component without a service must not have `hydrate`, so step 1 did not use it. Save the files, and `ty preview` builds the app again. Choose your language above the code. Go, C# and F# start public names with a capital letter, such as `Count` and `Increment`, but the view still writes `counter.count` and `counter.increment()`.\n\nResult: each click on Click me adds one to the number on the page.",
           "files": [
             {
               "name": "client/pages/hello/tac.html",
@@ -238,13 +239,49 @@
             {
               "name": "client/services/CounterService.ts",
               "code": "@Service\nexport default class CounterService {\n  count = 0\n\n  increment(): void {\n    this.count += 1\n  }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.java",
+              "code": "@Service\nclass CounterService {\n    int count = 0;\n\n    void increment() {\n        count += 1;\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.kt",
+              "code": "@Service\nclass CounterService {\n  var count: Int = 0\n\n  fun increment() {\n    count += 1\n  }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.cs",
+              "code": "[Service]\npublic class CounterService\n{\n    public int Count = 0;\n\n    public void Increment() => Count += 1;\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.fs",
+              "code": "[<Service>]\ntype CounterService() =\n    member val Count : int = 0 with get, set\n\n    member this.Increment() : unit =\n        this.Count <- this.Count + 1\n"
+            },
+            {
+              "name": "client/services/CounterService.rs",
+              "code": "#[Service]\npub struct CounterService {\n    pub count: i32,\n}\n\nimpl CounterService {\n    pub fn new() -> Self {\n        Self { count: 0 }\n    }\n\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.go",
+              "code": "// @Service\ntype CounterService struct {\n\tCount int\n}\n\nfunc (counter *CounterService) Increment() {\n\tcounter.Count += 1\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.dart",
+              "code": "@Service\nclass CounterService {\n  int count = 0;\n\n  void increment() {\n    count += 1;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.rb",
+              "code": "#[Service]\nclass CounterService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n  end\n\n  # @return [void]\n  def increment\n    @count += 1\n  end\nend\n"
+            },
+            {
+              "name": "client/services/CounterService.swift",
+              "code": "@Service\nfinal class CounterService {\n  var count: Int = 0\n\n  func increment() {\n    count += 1\n  }\n}\n"
             }
           ]
         },
         {
           "heading": "Step 3: Add a controller that returns a model",
           "axis": "language",
-          "body": "Yon is the server part of Tachyon. A controller is a class in `server/controllers` that answers HTTP requests. `RequestRoute(\"/api/greeting\")` gives its path. `Public` says that anyone may call it: every route must say who may call it, or the build stops (see Who may call a route). `GetRoute` makes the method `getGreeting` answer GET requests on that path.\n\nA model is a data type that describes the shape of a value. Here the model `Greeting` has one text field, `message`. In JavaScript, a JSDoc `@typedef` comment describes the model. In TypeScript, the model is an interface in `server/models/Greeting.ts`. The method returns a Greeting, and Yon turns it into JSON. The same `ty preview` serves the pages and the controller on one port.\n\nResult: open /api/greeting. It shows {\"message\":\"Hello from Yon\"}.",
+          "body": "Yon is the server part of Tachyon. A controller is a class in `server/controllers` that answers HTTP requests. `RequestRoute(\"/api/greeting\")` gives its path. `Public` says that anyone may call it: every route must say who may call it, or the build stops (see Who may call a route). `GetRoute` makes the method `getGreeting` answer GET requests on that path. Each language writes the name in its own style, such as `get_greeting` in Python or `GetGreeting` in C#. A Rust controller also has `fn new()`, because Tachyon makes the controller with it.\n\nA model is a data type that describes the shape of a value. Here the model `Greeting` has one text field, `message`. The model lives in `server/models`, in a file named after it, such as `Greeting.ts` or `Greeting.py`. JavaScript reads the TypeScript model with `/** @import { Greeting } from '/models/Greeting.ts' */`. The method returns a Greeting, and Yon turns it into JSON. The same `ty preview` serves the pages and the controller on one port.\n\nResult: open /api/greeting. It shows {\"message\":\"Hello from Yon\"}.",
           "files": [
             {
               "name": "server/controllers/GreetingController.js",
@@ -257,13 +294,109 @@
             {
               "name": "server/controllers/GreetingController.ts",
               "code": "import type { Greeting } from '/models/Greeting.ts'\n\n@RequestRoute(\"/api/greeting\")\n@Public\nexport default class GreetingController {\n  @GetRoute\n  getGreeting(): Greeting {\n    return { message: 'Hello from Yon' }\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Greeting:\n    message: str\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.py",
+              "code": "from models import Greeting\n\n\n@request_route(\"/api/greeting\")\n@public\nclass GreetingController:\n    @get_route\n    def get_greeting(self) -> Greeting:\n        return Greeting(\"Hello from Yon\")\n"
+            },
+            {
+              "name": "server/models/Greeting.php",
+              "code": "<?php\nclass Greeting\n{\n    public function __construct(public string $message) {}\n}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.php",
+              "code": "<?php\nuse Models\\Greeting;\n\n#[RequestRoute(\"/api/greeting\")]\n#[Public]\nclass GreetingController {\n    #[GetRoute]\n    public function getGreeting(): Greeting {\n        return new Greeting('Hello from Yon');\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.java",
+              "code": "record Greeting(String message) {}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.java",
+              "code": "import models.Greeting;\n\n@RequestRoute(\"/api/greeting\")\n@Public\nclass GreetingController {\n    @GetRoute\n    Greeting getGreeting() {\n        return new Greeting(\"Hello from Yon\");\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.groovy",
+              "code": "record Greeting(String message) {}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.groovy",
+              "code": "import models.Greeting\n\n@RequestRoute(\"/api/greeting\")\n@Public\nclass GreetingController {\n    @GetRoute\n    Greeting getGreeting() {\n        return new Greeting(\"Hello from Yon\")\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.kt",
+              "code": "data class Greeting(val message: String)\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.kt",
+              "code": "import models.Greeting\n\n@RequestRoute(\"/api/greeting\")\n@Public\nclass GreetingController {\n    @GetRoute\n    fun getGreeting(): Greeting = Greeting(\"Hello from Yon\")\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.cs",
+              "code": "public record Greeting(string Message);\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.cs",
+              "code": "using Models;\n\n[RequestRoute(\"/api/greeting\")]\n[Public]\nclass GreetingController {\n    [GetRoute]\n    public Greeting GetGreeting() {\n        return new Greeting(\"Hello from Yon\");\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.fs",
+              "code": "type Greeting = { Message: string }\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/api/greeting\")>]\n[<Public>]\ntype GreetingController() =\n    [<GetRoute>]\n    member this.GetGreeting() : Greeting =\n        { Message = \"Hello from Yon\" }\n"
+            },
+            {
+              "name": "server/models/Greeting.rs",
+              "code": "pub struct Greeting {\n    pub message: String,\n}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.rs",
+              "code": "use crate::models::Greeting;\n\n#[RequestRoute(\"/api/greeting\")]\n#[Public]\nstruct GreetingController {}\nimpl GreetingController {\n    fn new() -> Self {\n        Self {}\n    }\n\n    #[GetRoute]\n    fn get_greeting(&self) -> Greeting {\n        Greeting { message: String::from(\"Hello from Yon\") }\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.go",
+              "code": "type Greeting struct {\n\tMessage string `json:\"message\"`\n}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.go",
+              "code": "// @RequestRoute(\"/api/greeting\")\n// @Public\ntype GreetingController struct{}\n\n// @GetRoute\nfunc (controller *GreetingController) GetGreeting() Greeting {\n\treturn Greeting{Message: \"Hello from Yon\"}\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.dart",
+              "code": "class Greeting {\n  final String message;\n\n  const Greeting(this.message);\n}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.dart",
+              "code": "import 'models/Greeting.dart';\n\n@RequestRoute(\"/api/greeting\")\n@Public\nclass GreetingController {\n  @GetRoute\n  Greeting getGreeting() => const Greeting('Hello from Yon');\n}\n"
+            },
+            {
+              "name": "server/models/Greeting.rb",
+              "code": "# @!attribute [r] message\n#   @return [String]\nGreeting = Data.define(:message)\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.rb",
+              "code": "#[RequestRoute(\"/api/greeting\")]\n#[Public]\nclass GreetingController\n  # @return [Greeting]\n  #[GetRoute]\n  def get_greeting\n    Greeting.new(message: \"Hello from Yon\")\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Greeting.lua",
+              "code": "---@class Greeting\n---@field message string\nGreeting = {}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.lua",
+              "code": "-- @RequestRoute(\"/api/greeting\")\n-- @Public\n---@class GreetingController\nGreetingController = {}\n\n---@return Greeting\n-- @GetRoute\nfunction GreetingController:get_greeting()\n  return { message = \"Hello from Yon\" }\nend\n"
             }
           ]
         },
         {
           "heading": "Step 4: Call the server from the page",
           "axis": "language",
-          "body": "A client class sends HTTP requests for the page. Put it in `client/clients`. `HTTPClient` marks the class. `GetRequest(\"/api/greeting\")` makes the method `getGreeting` send a GET request to the controller of step 3. Leave the method body empty: Tachyon writes it. An empty body returns nothing to the type checker, so the method declares its answer as `Promise<Greeting | void>`. `export default` lets the type checker and the other classes find the client without an import.\n\nIn the service, `Needs` asks Tachyon to put a `GreetingClient` into the field `greetingClient`. The method `askServer` waits for the answer. The private method `messageOf` gives its message, or an empty text when there is no answer, and `askServer` saves it in the field `message`. A public method of a service holds no decision (TY1314), so the check sits in the private method. The page has its own copy of the model in `client/models/Greeting.ts`, because the browser cannot read files in `server/`. JavaScript reads its type with `/** @import { Greeting } from '/models/Greeting.ts' */`. Change the component, the service and add the client. The page file stays the same as in step 2.\n\nResult: click Ask the server. The text Hello from Yon appears under the buttons. A path such as `/api/greeting` stays on the same origin, so no host needs to be listed. A request to another host needs that host in `tac.outgoing.hosts`.",
+          "body": "This step is shown in JavaScript and TypeScript. In the other Tac languages, an HTTPClient cannot yet send a request from the browser to the server, so skip to step 5 if you chose one of them. A client class sends HTTP requests for the page. Put it in `client/clients`. `HTTPClient` marks the class. `GetRequest(\"/api/greeting\")` makes the method `getGreeting` send a GET request to the controller of step 3. Leave the method body empty: Tachyon writes it. An empty body returns nothing to the type checker, so the method declares its answer as `Promise<Greeting | void>`. `export default` lets the type checker and the other classes find the client without an import.\n\nIn the service, `Needs` asks Tachyon to put a `GreetingClient` into the field `greetingClient`. The method `askServer` waits for the answer. The private method `messageOf` gives its message, or an empty text when there is no answer, and `askServer` saves it in the field `message`. A public method of a service holds no decision (TY1314), so the check sits in the private method. The page has its own copy of the model in `client/models/Greeting.ts`, because the browser cannot read files in `server/`. JavaScript reads its type with `/** @import { Greeting } from '/models/Greeting.ts' */`. Change the component, the service and add the client. The page file stays the same as in step 2.\n\nResult: click Ask the server. The text Hello from Yon appears under the buttons. A path such as `/api/greeting` stays on the same origin, so no host needs to be listed. A request to another host needs that host in `tac.outgoing.hosts`.",
           "files": [
             {
               "name": "client/pages/hello/tac.html",
@@ -279,7 +412,7 @@
             },
             {
               "name": "client/services/CounterService.js",
-              "code": "/** @import { Greeting } from '/models/Greeting.ts' */\n@Service\nexport default class CounterService {\n  /** @type {GreetingClient} */\n  @Needs\n  greetingClient;\n  count = 0\n  message = ''\n\n  increment() {\n    this.count += 1\n  }\n\n  async askServer() {\n    const greeting = await this.greetingClient.getGreeting()\n    this.message = this.#messageOf(greeting)\n  }\n\n  /**\n   * @param {Greeting | void} greeting\n   * @returns {string}\n   */\n  #messageOf(greeting) {\n    return greeting ? greeting.message : ''\n  }\n}\n"
+              "code": "/** @import { Greeting } from '/models/Greeting.ts' */\n@Service\nexport default class CounterService {\n  /** @type {GreetingClient} */\n  @Needs\n  greetingClient;\n  count = 0\n  message = ''\n\n  increment() {\n    this.count += 1\n  }\n\n  async askServer() {\n    const greeting = await this.greetingClient.getGreeting()\n    this.message = this._messageOf(greeting)\n  }\n\n  /**\n   * @param {Greeting | void} greeting\n   * @returns {string}\n   */\n  _messageOf(greeting) {\n    return greeting ? greeting.message : ''\n  }\n}\n"
             },
             {
               "name": "client/models/Greeting.ts",
@@ -298,7 +431,7 @@
         {
           "heading": "Step 5: Test the service and the controller",
           "axis": "language",
-          "body": "A test unit is a class in `client/tests` or `server/tests` whose name ends with `Test`. Each method whose name starts with `test` is one test case. `Test(HelloTestSetup)` names the Setup that the test uses. The Setup file must be in the same folder as the test.\n\n`this.construct(CounterService)` makes the service in the same way that Tachyon makes it for the page. `Fake` marks the field `greetingClient`, and `construct` gives the fake to the service in place of the real `GreetingClient`. So the test does not call the server. A controller is made in the same way: `this.construct(GreetingController)` makes the controller, and the test calls `getGreeting` directly, without HTTP. `GreetingClient` needs no test, because Tachyon writes its method.\n\nRun `ty test` in the project folder. Then stop `ty preview` (press Ctrl+C) and run `ty preview` again. It starts, because a test case now calls every public method. A test must really call a method: a call on the fake `greetingClient` does not count for `GreetingClient`, and writing only the name of a method does not count at all. `ty test --coverage` shows which case first called each method.\n\nResult: `ty test` prints one ok line for each test case and ends with 0 failed.",
+          "body": "A test unit is a class in `client/tests` or `server/tests` whose name ends with `Test`. Each method whose name starts with `test` is one test case. `Test(HelloTestSetup)` names the Setup that the test uses. The Setup file must be in the same folder as the test.\n\n`this.construct(CounterService)` makes the service in the same way that Tachyon makes it for the page. `Fake` marks the field `greetingClient`, and `construct` gives the fake to the service in place of the real `GreetingClient`. So the test does not call the server. A controller is made in the same way: `this.construct(GreetingController)` makes the controller, and the test calls `getGreeting` directly, without HTTP. `GreetingClient` needs no test, because Tachyon writes its method. The Ruby controller test also uses `construct`. In the other languages, the test makes the class itself, such as `new CounterService()` in Java or `GreetingController()` in Python, because the class needs nothing from Tachyon. The Tac languages that skipped step 4 have no `greetingClient` yet, so their test checks only `increment`.\n\nRun `ty test` in the project folder. Then stop `ty preview` (press Ctrl+C) and run `ty preview` again. It starts, because a test case now calls every public method. A test must really call a method: a call on the fake `greetingClient` does not count for `GreetingClient`, and writing only the name of a method does not count at all. `ty test --coverage` shows which case first called each method.\n\nResult: `ty test` prints one ok line for each test case and ends with 0 failed.",
           "files": [
             {
               "name": "client/tests/HelloTestSetup.js",
@@ -331,6 +464,174 @@
             {
               "name": "server/tests/GreetingControllerTest.ts",
               "code": "@Test(GreetingTestSetup, {\"partition\":\"tests\"})\nexport default class GreetingControllerTest {\n  async testGetGreetingSaysHello(): Promise<void> {\n    const controller = this.construct(GreetingController)\n    const greeting = controller.getGreeting()\n    Assert.equals('Hello from Yon', greeting.message)\n  }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.py",
+              "code": "@TestSetup\nclass GreetingTestSetup:\n    @staticmethod\n    def configure(execution: object) -> dict:\n        return {}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.py",
+              "code": "@Test(GreetingTestSetup, {\"partition\":\"tests\"})\nclass GreetingControllerTest:\n    async def test_get_greeting_says_hello(self) -> None:\n        controller = GreetingController()\n        greeting = controller.get_greeting()\n        Assert.equals('Hello from Yon', greeting.message)\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.php",
+              "code": "<?php\n#[TestSetup]\nclass GreetingTestSetup {\n    public static function configure(mixed $execution): array { return []; }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.php",
+              "code": "<?php\n#[Test(GreetingTestSetup::class, {\"partition\":\"tests\"})]\nclass GreetingControllerTest {\n    public function testGetGreetingSaysHello(): void {\n        $controller = new GreetingController();\n        $greeting = $controller->getGreeting();\n        Assert::equals('Hello from Yon', $greeting->message);\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.java",
+              "code": "@TestSetup\nclass GreetingTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.java",
+              "code": "@Test(GreetingTestSetup.class, {\"partition\":\"tests\"})\nclass GreetingControllerTest {\n    void testGetGreetingSaysHello() {\n        GreetingController controller = new GreetingController();\n        Greeting greeting = controller.getGreeting();\n        Assert.equals(\"Hello from Yon\", greeting.message());\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.groovy",
+              "code": "@TestSetup\nclass GreetingTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null)\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.groovy",
+              "code": "@Test(GreetingTestSetup.class, {\"partition\":\"tests\"})\nclass GreetingControllerTest {\n    void testGetGreetingSaysHello() {\n        GreetingController controller = new GreetingController()\n        Greeting greeting = controller.getGreeting()\n        Assert.equals(\"Hello from Yon\", greeting.message())\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.kt",
+              "code": "@TestSetup\nclass GreetingTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.kt",
+              "code": "@Test(GreetingTestSetup::class, {\"partition\":\"tests\"})\nclass GreetingControllerTest {\n    fun testGetGreetingSaysHello() {\n        val controller = GreetingController()\n        val greeting = controller.getGreeting()\n        Assert.equals(\"Hello from Yon\", greeting.message)\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.cs",
+              "code": "[TestSetup]\npublic sealed class GreetingTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.cs",
+              "code": "[Test(typeof(GreetingTestSetup), {\"partition\":\"tests\"})]\nsealed class GreetingControllerTest {\n    void testGetGreetingSaysHello() {\n        var controller = new GreetingController();\n        var greeting = controller.GetGreeting();\n        Assert.equals(\"Hello from Yon\", greeting.Message);\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.fs",
+              "code": "[<TestSetup>]\ntype GreetingTestSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.fs",
+              "code": "[<Test(typeof<GreetingTestSetup>, {\"partition\":\"tests\"})>]\ntype GreetingControllerTest() =\n    member this.testGetGreetingSaysHello() : unit =\n        let controller = GreetingController()\n        let greeting = controller.GetGreeting()\n        Assert.equals(\"Hello from Yon\", greeting.Message)\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.rs",
+              "code": "#[TestSetup]\nstruct GreetingTestSetup {}\nimpl GreetingTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.rs",
+              "code": "#[Test(GreetingTestSetup, {\"partition\":\"tests\"})]\nstruct GreetingControllerTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl GreetingControllerTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n\n    fn test_get_greeting_says_hello(&self) {\n        let controller = GreetingController::new();\n        let greeting = controller.get_greeting();\n        Assert::equals(String::from(\"Hello from Yon\"), greeting.message);\n    }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.go",
+              "code": "// @TestSetup\ntype GreetingTestSetup struct{}\n\nfunc (GreetingTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.go",
+              "code": "// @Test(GreetingTestSetup, {\"partition\":\"tests\"})\ntype GreetingControllerTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *GreetingControllerTest) TestGetGreetingSaysHello() {\n\tcontroller := &GreetingController{}\n\tgreeting := controller.GetGreeting()\n\tAssert.Equals(\"Hello from Yon\", greeting.Message)\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.dart",
+              "code": "@TestSetup\nclass GreetingTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.dart",
+              "code": "@Test(GreetingTestSetup, {\"partition\":\"tests\"})\nclass GreetingControllerTest {\n  Future<void> testGetGreetingSaysHello() async {\n    final controller = GreetingController();\n    final greeting = controller.getGreeting();\n    Assert.equals('Hello from Yon', greeting.message);\n  }\n}\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.rb",
+              "code": "#[TestSetup]\nclass GreetingTestSetup\n  # @param execution [Object]\n  # @return [Hash]\n  def self.configure(execution)\n    {}\n  end\nend\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.rb",
+              "code": "#[Test(GreetingTestSetup, {\"partition\":\"tests\"})]\nclass GreetingControllerTest\n  # @return [void]\n  def test_get_greeting_says_hello\n    controller = construct(GreetingController)\n    greeting = controller.get_greeting\n    Assert.equals(\"Hello from Yon\", greeting.message)\n  end\nend\n"
+            },
+            {
+              "name": "server/tests/GreetingTestSetup.lua",
+              "code": "-- @TestSetup\n---@class GreetingTestSetup\nGreetingTestSetup = {}\n\n---@param execution table\n---@return table\nfunction GreetingTestSetup.configure(execution)\n  return {}\nend\n"
+            },
+            {
+              "name": "server/tests/GreetingControllerTest.lua",
+              "code": "-- @Test(GreetingTestSetup, {\"partition\":\"tests\"})\n---@class GreetingControllerTest\nGreetingControllerTest = {}\n\nfunction GreetingControllerTest:test_get_greeting_says_hello()\n  local greeting = GreetingController:get_greeting()\n  Assert.equals(\"Hello from Yon\", greeting.message)\nend\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.java",
+              "code": "@TestSetup\nclass HelloTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.java",
+              "code": "@Test(HelloTestSetup.class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    void testIncrementAddsOne() {\n        CounterService counter = new CounterService();\n        counter.increment();\n        Assert.equals(1, counter.count);\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.kt",
+              "code": "@TestSetup\nclass HelloTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.kt",
+              "code": "@Test(HelloTestSetup::class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    fun testIncrementAddsOne() {\n        val counter = CounterService()\n        counter.increment()\n        Assert.equals(1, counter.count)\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.cs",
+              "code": "[TestSetup]\npublic sealed class HelloTestSetup {\n    public static BehaviorAdapters configure(BehaviorExecution execution) { return new BehaviorAdapters(); }\n}\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.cs",
+              "code": "[Test(typeof(HelloTestSetup), {\"partition\":\"tests\"})]\nsealed class CounterServiceTest {\n    void testIncrementAddsOne() {\n        var counter = new CounterService();\n        counter.Increment();\n        Assert.equals(1, counter.Count);\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.fs",
+              "code": "[<TestSetup>]\ntype HelloTestSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.fs",
+              "code": "[<Test(typeof<HelloTestSetup>, {\"partition\":\"tests\"})>]\ntype CounterServiceTest() =\n    member this.testIncrementAddsOne() : unit =\n        let counter = CounterService()\n        counter.Increment()\n        Assert.equals(1, counter.Count)\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.rs",
+              "code": "#[TestSetup]\nstruct HelloTestSetup {}\nimpl HelloTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.rs",
+              "code": "#[Test(HelloTestSetup, {\"partition\":\"tests\"})]\nstruct CounterServiceTest { behaviors: std::cell::RefCell<Option<BehaviorContext>> }\nimpl CounterServiceTest {\n    fn new() -> Self { Self { behaviors: std::cell::RefCell::new(None) } }\n\n    fn testIncrementAddsOne(&self) {\n        let mut counter = CounterService::new();\n        counter.increment();\n        Assert::equals(1, counter.count);\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.go",
+              "code": "// @TestSetup\ntype HelloTestSetup struct{}\n\nfunc (HelloTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.go",
+              "code": "// @Test(HelloTestSetup, {\"partition\":\"tests\"})\ntype CounterServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *CounterServiceTest) TestIncrementAddsOne() {\n\tcounter := &CounterService{}\n\tcounter.Increment()\n\tAssert.Equals(1, counter.Count)\n}\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.dart",
+              "code": "@TestSetup\nclass HelloTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.dart",
+              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n  Future<void> testIncrementAddsOne() async {\n    final counter = CounterService();\n    counter.increment();\n    Assert.equals(1, counter.count);\n  }\n}\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.rb",
+              "code": "#[TestSetup]\nclass HelloTestSetup\n  # @param execution [Object]\n  # @return [Hash]\n  def self.configure(execution)\n    {}\n  end\nend\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.rb",
+              "code": "#[Test(HelloTestSetup, {\"partition\":\"tests\"})]\nclass CounterServiceTest\n  # @return [void]\n  def test_increment_adds_one\n    counter = CounterService.new\n    counter.increment\n    Assert.equals(1, counter.count)\n  end\nend\n"
+            },
+            {
+              "name": "client/tests/HelloTestSetup.swift",
+              "code": "@TestSetup\nfinal class HelloTestSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        BehaviorAdapters()\n    }\n}\n"
+            },
+            {
+              "name": "client/tests/CounterServiceTest.swift",
+              "code": "@Test(HelloTestSetup, {\"partition\":\"tests\"})\nfinal class CounterServiceTest {\n    func testIncrementAddsOne() async throws {\n        let counter = CounterService()\n        counter.increment()\n        try Assert.equals(1, counter.count)\n    }\n}\n"
             }
           ]
         },
@@ -373,7 +674,7 @@
         },
         {
           "heading": "Models: types without a role",
-          "body": "Data types that several files share live in client/models/ or server/models/. A models folder is not a role folder. A models file holds data, not behavior (ADR 0041, ADR 0043). Choose a language below. TypeScript, JavaScript, Rust, C#, Dart, Kotlin, Go, Java and Ruby models work in both realms. A JavaScript models file holds one JSDoc `@typedef` comment and `export {}`, such as `client/models/CartTotal.js` for `CartTotal`. Every JavaScript file of the realm uses a JavaScript model by its name, with no import. JavaScript also reads the TypeScript models of its realm: write `/** @import { Guide } from '/models/Guide.ts' */` above the class. Routes, events and `/api.json` read these models like the models of any other language. A `@typedef` in another JavaScript file of client/ or server/ is a model outside its folder. `ty migrate fix --write` moves it to the models folder. It keeps one file for identical copies. When a copy matches a model that the realm already has, in JavaScript or TypeScript, the fix removes the copy and imports that model. It reports a copy that differs, and leaves that file for you. The build refuses an inline `@typedef` with `TY1310`; `ty migrate fix --write` moves it into the models folder. Swift models live only in client/models/, because Swift is not a Yon language. Python and PHP models live only in server/models/, because those languages run only in Yon. So their example, like the Java one, is a route that returns the guide, and the page is not part of it. A controller returns a model, or takes one with FromBody, and Yon turns it into JSON and back, like Spring. A PHP array has no item type, so a doc comment gives it: `/** @var list<Guide> */` on a property, or `@param list<Guide> $guides` and `@return list<Guide>` on a controller method. A TypeScript models file holds interfaces, type aliases and import type statements. TypeScript removes a type-only import, so the browser never loads the models file. In the other languages, a models file holds structs, records, data classes, enums and type aliases with fields only. It also holds the imports they need. Every models file holds one model: one interface, type alias, JSDoc `@typedef`, struct, record, class, enum or Ruby record, and the file is named after it, such as `Guide.ts` for `Guide` (ADR 0067). Put a second model, even a small enum, in its own file next to the first. A models file with two models fails with `TY1318`, and `ty migrate fix --write` splits it into one file per model. Other files import a model in the usual way of their language: `import type { Guide } from '/models/Guide.ts'`, `use crate::models::Guide;`, `using Models;`, `import 'models/Guide.dart';`, `import models.Guide`, `import models.Guide;`, `from models import Guide` or `use Models\\Guide;`. JavaScript, Swift, Go and Ruby use the type name with no import. A Ruby model is a Data.define record whose fields have YARD @!attribute types. A Go models file holds one type, because Tachyon compiles it as another file of the program's package main. The framework adds the realm's models files of that language to every program it builds in that language. It never routes a models file and never ships one on its own. A Rust model declares its type and fields pub, because the models files become the module crate::models. Each Rust models file is its own module inside it, so a model that uses another model writes `use crate::models::Item;`. When a models file does not compile, the error names that file. A role annotation in a models folder fails with TY1310. The message names the role folder where the type belongs. A method, a function, a constant or a service marker also fails with TY1310. So does any other statement, or a language in the wrong realm.",
+          "body": "Data types that several files share live in client/models/ or server/models/. A models folder is not a role folder. A models file holds data, not behavior (ADR 0041, ADR 0043). Choose a language below. TypeScript, JavaScript, Rust, C#, F#, Dart, Kotlin, Go, Java and Ruby models work in both realms, so their tab shows the service that the page reads and a route that returns the same guide. A JavaScript models file holds one JSDoc `@typedef` comment and `export {}`, such as `client/models/CartTotal.js` for `CartTotal`. Every JavaScript file of the realm uses a JavaScript model by its name, with no import. JavaScript also reads the TypeScript models of its realm: write `/** @import { Guide } from '/models/Guide.ts' */` above the class. Routes, events and `/api.json` read these models like the models of any other language. A `@typedef` in another JavaScript file of client/ or server/ is a model outside its folder. `ty migrate fix --write` moves it to the models folder. It keeps one file for identical copies. When a copy matches a model that the realm already has, in JavaScript or TypeScript, the fix removes the copy and imports that model. It reports a copy that differs, and leaves that file for you. The build refuses an inline `@typedef` with `TY1310`; `ty migrate fix --write` moves it into the models folder. Swift models live only in client/models/, because Swift is not a Yon language. Python, PHP, Groovy and Lua models live only in server/models/, because those languages run only in Yon. So their example is only a route that returns the guide, and the page is not part of it. A controller returns a model, or takes one with FromBody, and Yon turns it into JSON and back, like Spring. A PHP array has no item type, so a doc comment gives it: `/** @var list<Guide> */` on a property, or `@param list<Guide> $guides` and `@return list<Guide>` on a controller method. A TypeScript models file holds interfaces, type aliases and import type statements. TypeScript removes a type-only import, so the browser never loads the models file. In the other languages, a models file holds structs, records, data classes, enums and type aliases with fields only. It also holds the imports they need. Every models file holds one model: one interface, type alias, JSDoc `@typedef`, struct, record, class, enum or Ruby record, and the file is named after it, such as `Guide.ts` for `Guide` (ADR 0067). Put a second model, even a small enum, in its own file next to the first. A models file with two models fails with `TY1318`, and `ty migrate fix --write` splits it into one file per model. Other files import a model in the usual way of their language: `import type { Guide } from '/models/Guide.ts'`, `use crate::models::Guide;`, `using Models;`, `import 'models/Guide.dart';`, `import models.Guide`, `import models.Guide;`, `open Models`, `from models import Guide` or `use Models\\Guide;`. JavaScript, Swift, Go, Ruby and Lua use the type name with no import. A Ruby model is a Data.define record whose fields have YARD @!attribute types. A Lua model is a table whose fields have `---@field` types. A Go models file holds one type, because Tachyon compiles it as another file of the program's package main. The framework adds the realm's models files of that language to every program it builds in that language. It never routes a models file and never ships one on its own. A Rust model declares its type and fields pub, because the models files become the module crate::models. Each Rust models file is its own module inside it, so a model that uses another model writes `use crate::models::Item;`. When a models file does not compile, the error names that file. A role annotation in a models folder fails with TY1310. The message names the role folder where the type belongs. A method, a function, a constant or a service marker also fails with TY1310. So does any other statement, or a language in the wrong realm.",
           "axis": "language",
           "files": [
             {
@@ -487,12 +788,108 @@
             {
               "name": "client/models/Guide.rb",
               "code": "# @!attribute [r] title\n#   @return [String]\n# @!attribute [r] pages\n#   @return [Integer]\nGuide = Data.define(:title, :pages)\n"
+            },
+            {
+              "name": "client/models/Guide.js",
+              "code": "/** @typedef {{ title: string, pages: number }} Guide */\nexport {}\n"
+            },
+            {
+              "name": "server/models/Guide.js",
+              "code": "/** @typedef {{ title: string, pages: number }} Guide */\nexport {}\n"
+            },
+            {
+              "name": "client/services/GuideService.js",
+              "code": "@Service\nexport default class GuideService {\n  /** @type {Guide} */\n  _current = { title: 'Models hold types', pages: 3 }\n\n  /** @returns {string} */\n  get title() {\n    return this._current.title\n  }\n\n  /** @returns {number} */\n  get pages() {\n    return this._current.pages\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/GuideController.js",
+              "code": "@RequestRoute(\"/guide\")\n@Public\nexport default class GuideController {\n  /** @returns {Guide} */\n  @GetRoute\n  getGuide() {\n    return { title: 'Models hold types', pages: 3 }\n  }\n}\n"
+            },
+            {
+              "name": "server/models/Guide.ts",
+              "code": "export interface Guide {\n  title: string;\n  pages: number;\n}\n"
+            },
+            {
+              "name": "server/controllers/GuideController.ts",
+              "code": "import type { Guide } from '/models/Guide.ts';\n\n@RequestRoute(\"/guide\")\n@Public\nexport default class GuideController {\n  @GetRoute\n  getGuide(): Guide {\n    return { title: 'Models hold types', pages: 3 };\n  }\n}\n"
+            },
+            {
+              "name": "client/models/Guide.java",
+              "code": "record Guide(String title, int pages) {}\n"
+            },
+            {
+              "name": "client/services/GuideService.java",
+              "code": "import models.Guide;\n\n@Service\nclass GuideService {\n    String title = \"\";\n    int pages = 0;\n\n    GuideService() {\n        Guide guide = new Guide(\"Models hold types\", 3);\n        title = guide.title();\n        pages = guide.pages();\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Guide.kt",
+              "code": "data class Guide(val title: String, val pages: Int)\n"
+            },
+            {
+              "name": "server/controllers/GuideController.kt",
+              "code": "import models.Guide\n\n@RequestRoute(\"/guide\")\n@Public\nclass GuideController {\n    @GetRoute\n    fun getGuide(): Guide = Guide(\"Models hold types\", 3)\n}\n"
+            },
+            {
+              "name": "server/models/Guide.cs",
+              "code": "public record Guide(string Title, int Pages);\n"
+            },
+            {
+              "name": "server/controllers/GuideController.cs",
+              "code": "using Models;\n\n[RequestRoute(\"/guide\")]\n[Public]\nclass GuideController {\n    [GetRoute]\n    public Guide GetGuide() {\n        return new Guide(\"Models hold types\", 3);\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Guide.fs",
+              "code": "type Guide = { Title: string; Pages: int }\n"
+            },
+            {
+              "name": "server/controllers/GuideController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/guide\")>]\n[<Public>]\ntype GuideController() =\n    [<GetRoute>]\n    member this.GetGuide() : Guide =\n        { Title = \"Models hold types\"; Pages = 3 }\n"
+            },
+            {
+              "name": "server/models/Guide.rs",
+              "code": "pub struct Guide {\n    pub title: String,\n    pub pages: i64,\n}\n"
+            },
+            {
+              "name": "server/controllers/GuideController.rs",
+              "code": "use crate::models::Guide;\n\n#[RequestRoute(\"/guide\")]\n#[Public]\nstruct GuideController {}\nimpl GuideController {\n    fn new() -> Self {\n        Self {}\n    }\n\n    #[GetRoute]\n    fn get_guide(&self) -> Guide {\n        Guide { title: String::from(\"Models hold types\"), pages: 3 }\n    }\n}\n"
+            },
+            {
+              "name": "server/models/Guide.go",
+              "code": "type Guide struct {\n\tTitle string `json:\"title\"`\n\tPages int64  `json:\"pages\"`\n}\n"
+            },
+            {
+              "name": "server/controllers/GuideController.go",
+              "code": "// @RequestRoute(\"/guide\")\n// @Public\ntype GuideController struct{}\n\n// @GetRoute\nfunc (controller *GuideController) GetGuide() Guide {\n\treturn Guide{Title: \"Models hold types\", Pages: 3}\n}\n"
+            },
+            {
+              "name": "server/models/Guide.dart",
+              "code": "class Guide {\n  final String title;\n  final int pages;\n\n  const Guide(this.title, this.pages);\n}\n"
+            },
+            {
+              "name": "server/controllers/GuideController.dart",
+              "code": "import 'models/Guide.dart';\n\n@RequestRoute(\"/guide\")\n@Public\nclass GuideController {\n  @GetRoute\n  Guide getGuide() => const Guide('Models hold types', 3);\n}\n"
+            },
+            {
+              "name": "server/models/Guide.rb",
+              "code": "# @!attribute [r] title\n#   @return [String]\n# @!attribute [r] pages\n#   @return [Integer]\nGuide = Data.define(:title, :pages)\n"
+            },
+            {
+              "name": "server/controllers/GuideController.rb",
+              "code": "#[RequestRoute(\"/guide\")]\n#[Public]\nclass GuideController\n  # @return [Guide]\n  #[GetRoute]\n  def get_guide\n    Guide.new(title: \"Models hold types\", pages: 3)\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Guide.lua",
+              "code": "---@class Guide\n---@field title string\n---@field pages integer\nGuide = {}\n"
+            },
+            {
+              "name": "server/controllers/GuideController.lua",
+              "code": "-- @RequestRoute(\"/guide\")\n-- @Public\n---@class GuideController\nGuideController = {}\n\n---@return Guide\n-- @GetRoute\nfunction GuideController:get_guide()\n  return { title = \"Models hold types\", pages = 3 }\nend\n"
             }
           ]
         },
         {
           "heading": "Yon: every language implementation",
-          "body": "Choose one language below for GET /money. Each implementation returns {\"amount\":42}. Copy the controller from server/controllers and the shared server/services role file. The compiler finds only role files in the same language as the controller. It orders them by their definition dependencies, and this order is always the same. Needs infers the controller's dependency from the field it marks, so you do not write a constructor. JavaScript names the field moneyService to match the exact lowerCamel name of MoneyService, and Ruby names its attr_reader money_service, the snake_case name. The other languages use its concrete type, which is Arc<MoneyService> in Rust and *MoneyService in Go. Types in the discovered role files are available by name in the assembled unit. So do not import these role files into each other. You do not need a runtime annotation package or an HTTP method decorator. RequestRoute on the class and GetRoute on the method declare GET /money. The controller role, the route and error handler markers, StreamRoute, Gateway and Schedule exist only in Yon. Tac mirrors Service, Lifetime, Store in its bare and entity-bound forms, HTTPClient, Helper, Needs, Named, OnStart, OnStop, OnEvent, Order and InBackground. In Tac, a service is what a view addresses. For browser JS/TS, HTTPClient also supports transport that Tachyon manages automatically. Native clients keep HTTP adapters that you configure yourself. Swift is not a Yon endpoint language. Needs selects each field it marks that is not static and has no initial value, in declaration order. Fields with a default value and static fields are not injected. Named names the provider when the field does not. Missing or ambiguous providers fail closed: Tachyon rejects them and does not guess. Unsupported optional, generic, interface or function field types also fail closed. Discovery covers only the realm's shared role folders. Other controllers are not part of the program. Each invocation still owns its instance graph (the objects it creates), and Tachyon adds no global container.",
+          "body": "Choose one language below for GET /money. Each implementation returns {\"amount\":42}. Copy the controller from server/controllers and the shared server/services role file. The compiler finds only role files in the same language as the controller. It orders them by their definition dependencies, and this order is always the same. Needs infers the controller's dependency from the field it marks, so you do not write a constructor. JavaScript names the field moneyService to match the exact lowerCamel name of MoneyService, Ruby names its attr_reader money_service, the snake_case name, and Lua names its table field money_service in the same way. The other languages use its concrete type, which is Arc<MoneyService> in Rust and *MoneyService in Go. Types in the discovered role files are available by name in the assembled unit. So do not import these role files into each other. You do not need a runtime annotation package or an HTTP method decorator. RequestRoute on the class and GetRoute on the method declare GET /money. The controller role, the route and error handler markers, StreamRoute, Gateway and Schedule exist only in Yon. Tac mirrors Service, Lifetime, Store in its bare and entity-bound forms, HTTPClient, Helper, Needs, Named, OnStart, OnStop, OnEvent, Order and InBackground. In Tac, a service is what a view addresses. For browser JS/TS, HTTPClient also supports transport that Tachyon manages automatically. Native clients keep HTTP adapters that you configure yourself. Swift is not a Yon endpoint language. Needs selects each field it marks that is not static and has no initial value, in declaration order. Fields with a default value and static fields are not injected. Named names the provider when the field does not. Missing or ambiguous providers fail closed: Tachyon rejects them and does not guess. Unsupported optional, generic, interface or function field types also fail closed. Discovery covers only the realm's shared role folders. Other controllers are not part of the program. Each invocation still owns its instance graph (the objects it creates), and Tachyon adds no global container.",
           "axis": "language",
           "files": [
             {
@@ -634,12 +1031,36 @@
             {
               "name": "server/controllers/MoneyController.rb",
               "code": "#[RequestRoute(\"/money\")]\n#[Public]\nclass MoneyController\n  #[Needs]\n  # @return [MoneyService]\n  attr_reader :money_service\n\n  # @return [Money]\n  #[GetRoute]\n  def get_money\n    Money.new(amount: money_service.amount)\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Money.fs",
+              "code": "type Money = { Amount: int64 }\n"
+            },
+            {
+              "name": "server/services/MoneyService.fs",
+              "code": "[<Service>]\ntype MoneyService() =\n    member this.Amount() : int64 = 42L\n"
+            },
+            {
+              "name": "server/controllers/MoneyController.fs",
+              "code": "open Models\n\n[<RequestRoute(\"/money\")>]\n[<Public>]\ntype MoneyController() =\n    [<Needs>]\n    member val Money : MoneyService = Unchecked.defaultof<MoneyService> with get, set\n\n    [<GetRoute>]\n    member this.GetMoney() : Money =\n        { Amount = this.Money.Amount() }\n"
+            },
+            {
+              "name": "server/models/Money.lua",
+              "code": "---@class Money\n---@field amount integer\nMoney = {}\n"
+            },
+            {
+              "name": "server/services/MoneyService.lua",
+              "code": "-- @Service\n---@class MoneyService\nMoneyService = {}\n\n---@return integer\nfunction MoneyService:amount()\n  return 42\nend\n"
+            },
+            {
+              "name": "server/controllers/MoneyController.lua",
+              "code": "-- @RequestRoute(\"/money\")\n-- @Public\n---@class MoneyController\nMoneyController = {\n  -- @Needs\n  ---@type MoneyService\n  money_service = nil,\n}\n\n---@return Money\n-- @GetRoute\nfunction MoneyController:get_money()\n  return { amount = self.money_service:amount() }\nend\n"
             }
           ]
         },
         {
           "heading": "Tac: every service language",
-          "body": "Tac supports shared role modules in JavaScript, TypeScript, Dart, Swift, Kotlin, C#, Rust and Go. The example declares a MoneyEntity mapping in the required client/entities folder. Table is a modifier and does not change that path. The view shows local service state, not the result of a database query. Declaring an entity does not connect to a database and does not fetch data. To run queries, explicitly supply an authorized public client adapter and own its behavior context. Select one language tab and copy its service file and entity file. The shared page client/pages/tac.html places <money-panel hydrate=\"load\" />, and the view reads {money.amount}. Annotation discovery selects that language automatically. The native application opens that page, because the manifest's start_url is /. JavaScript, TypeScript and Dart run on every target. Rust links on macOS, Windows and Linux, C# links on Windows, and both reach every other target, including the web, as WebAssembly. Go reaches every target as WebAssembly (ADR 0035, ADR 0037, ADR 0045). Swift links on macOS and iOS and Kotlin on Android. Both reach every other target as WebAssembly, where the built-in Store keeps its rows in IndexedDB, as it does for the other WebAssembly languages (ADR 0059, ADR 0078, ADR 0082). Keep the native MoneyService type first in the file. The compiler appends the discovered entity declarations after it. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.",
+          "body": "Tac supports shared role modules in every Tac language: JavaScript, TypeScript, Dart, Swift, Kotlin, Java, C#, F#, Rust, Go and Ruby. The example declares a MoneyEntity mapping in the required client/entities folder. Table is a modifier and does not change that path. The view shows local service state, not the result of a database query. Declaring an entity does not connect to a database and does not fetch data. To run queries, explicitly supply an authorized public client adapter and own its behavior context. Select one language tab and copy its service file and entity file. The shared page client/pages/tac.html places <money-panel hydrate=\"load\" />, and the view reads {money.amount}. Annotation discovery selects that language automatically. The native application opens that page, because the manifest's start_url is /. JavaScript, TypeScript and Dart run on every target. Rust links on macOS, Windows and Linux, C# links on Windows, and both reach every other target, including the web, as WebAssembly. Go reaches every target as WebAssembly (ADR 0035, ADR 0037, ADR 0045). F# runs on the same .NET browser runtime as C# on every target. Java reaches the page as WebAssembly through TeaVM, and Ruby through Tachyon's mruby WebAssembly runtime (ADR 0049). Swift links on macOS and iOS and Kotlin on Android. Both reach every other target as WebAssembly, where the built-in Store keeps its rows in IndexedDB, as it does for the other WebAssembly languages (ADR 0059, ADR 0078, ADR 0082). Keep the native MoneyService type first in the file. The compiler appends the discovered entity declarations after it. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.",
           "axis": "language",
           "files": [
             {
@@ -713,6 +1134,30 @@
             {
               "name": "client/entities/MoneyEntity.dart",
               "code": "@Entity({\"adapter\":\"publicMoney\"})\n@Table('money')\nclass MoneyEntity {\n  @Id\n  int id = 0;\n}\n"
+            },
+            {
+              "name": "client/entities/MoneyEntity.java",
+              "code": "@Entity({\"adapter\":\"publicMoney\"})\n@Table(\"money\")\nclass MoneyEntity {\n    @Id\n    long id;\n}\n"
+            },
+            {
+              "name": "client/services/MoneyService.java",
+              "code": "class MoneyService {\n    int amount = 42;\n}\n"
+            },
+            {
+              "name": "client/entities/MoneyEntity.fs",
+              "code": "[<Entity({\"adapter\":\"publicMoney\"})>]\n[<Table(\"money\")>]\ntype MoneyEntity() =\n    [<Id>]\n    member val id : int64 = 0L with get, set\n"
+            },
+            {
+              "name": "client/services/MoneyService.fs",
+              "code": "type MoneyService() =\n    member val Amount : int = 42 with get, set\n"
+            },
+            {
+              "name": "client/entities/MoneyEntity.rb",
+              "code": "#[Entity({\"adapter\":\"publicMoney\"})]\n#[Table(\"money\")]\nclass MoneyEntity\n  # @return [Integer]\n  #[Id]\n  attr_reader :id\nend\n"
+            },
+            {
+              "name": "client/services/MoneyService.rb",
+              "code": "class MoneyService\n  # @return [Integer]\n  attr_reader :amount\n\n  def initialize\n    @amount = 42\n  end\nend\n"
             }
           ]
         },
