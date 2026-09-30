@@ -1683,6 +1683,21 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- A Converter needs no behavior context and is injected like any other role
+  (ADR 0022 amendment "a service asks for its converter"), like a MapStruct
+  mapper that Spring injects. A controller or service asks for it with
+  `@Needs ProductConverter converter` (a Needs field in every language, a
+  primary constructor parameter in F#, `#[Needs]` above
+  `attr_reader :product_converter` in Ruby) in Yon and in Tac. This replaces
+  building it by hand: `new ProductConverter(context)`,
+  `ProductConverter(context)`, `ProductConverter::new(context)`,
+  `&ProductConverter{behaviors: context}` and
+  `Behaviors.construct(ProductConverter, {behaviors: context})` no longer
+  compile, because the converter has no constructor argument. `ty migrate`
+  reports each place that still builds one (`converter.built_by_hand`). The
+  mapping pages drop their Setup: a mapping needs no context. The C#, Swift
+  and Dart `mapValue` of the behavior runtime is static.
+
 - ADR 0082 and the WebAssembly compiler page record the Swift size
   measurements: linker flags, leaving out reflection metadata, leaving out
   the `Codable` coder and Embedded Swift either save nothing or change how

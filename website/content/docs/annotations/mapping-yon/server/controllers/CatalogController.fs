@@ -3,12 +3,9 @@ open Models
 
 [<RequestRoute("/catalog")>]
 [<Public>]
-type CatalogController() =
+type CatalogController(converter: ProductConverter) =
     [<GetRoute>]
     member this.GetCatalog() : CatalogSummary =
-        use signal = new BehaviorSignal()
-        use context = Behaviors.create(typeof<CatalogSetup>, "public-catalog", signal)
-        let mapper = ProductConverter(context)
         let product = BehaviorJSON.Parse("{\"detail\":{\"id\":7},\"name\":\"Anvil\",\"extra\":\"dropped\"}")
-        let summary = mapper.toSummary(product)
+        let summary = converter.toSummary(product)
         { Summary = JsonNode.Parse(summary.ToString()) }

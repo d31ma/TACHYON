@@ -3,16 +3,16 @@ import 'models/CatalogSummary.dart';
 @RequestRoute("/catalog")
 @Public
 class CatalogController {
+  @Needs
+  final ProductConverter converter;
+
   @GetRoute
   CatalogSummary getCatalog() {
-    final context = Behaviors.create(CatalogSetup, partition: 'public-catalog', signal: BehaviorSignal());
-    final mapper = ProductConverter(context);
-    final summary = mapper.toSummary({
+    final summary = converter.toSummary({
       'detail': {'id': 7},
       'name': 'Anvil',
       'extra': 'dropped',
     });
-    context.dispose();
     return CatalogSummary(summary);
   }
 }

@@ -4,15 +4,13 @@ use Models\CatalogSummary;
 #[RequestRoute("/catalog")]
 #[Public]
 class CatalogController {
+    #[Needs]
+    private ProductConverter $converter;
+
     #[GetRoute]
     public function getCatalog(): CatalogSummary {
-        $signal = new BehaviorSignal();
-        $options = ['partition' => 'public-catalog', 'signal' => $signal];
-        $context = Behaviors::create(CatalogSetup::class, $options);
-        $mapper = Behaviors::construct(ProductConverter::class, ['behaviors' => $context]);
         $product = ['detail' => ['id' => 7], 'name' => 'Anvil', 'extra' => 'dropped'];
-        $summary = $mapper->toSummary($product);
-        $context->dispose();
+        $summary = $this->converter->toSummary($product);
         return new CatalogSummary($summary);
     }
 }

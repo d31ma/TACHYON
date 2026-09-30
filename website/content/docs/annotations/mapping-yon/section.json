@@ -1,15 +1,9 @@
 {
   "heading": "Mapping: Yon",
   "axis": "language",
-  "summary": "Converter and Convert do the work of Converter and Convert from MapStruct, the Java mapping library, with the same shape that Spring gives a repository. You declare only signatures, and the compiler writes their bodies from a literal field plan.",
-  "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. The compiler finds it and injects it like any other role. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nA Converter is a contract, like a MapStruct @Mapper interface: it has no implementation, and Tachyon generates each mapping. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go, and an interface of `abstract` members in F#. It is a trait in Rust, an abstract interface class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript has no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. JavaScript and TypeScript declare the answer as Promise<BehaviorJsonObject | void> for the same reason. In every case, the compiler writes the constructor, the behavior context and the method. So the source declares nothing else: a method body, a field, a constructor, a method without Convert, or a class where the language has a contract form fails the build with TY1308 (\"A Converter has no implementation: Tachyon generates each mapping.\"). `ty migrate fix --write` rewrites a class converter as a contract.",
+  "summary": "Converter and Convert do the work of Mapper and Mapping from MapStruct, the Java mapping library, with the same shape that Spring gives a repository. You declare only signatures, the compiler writes their bodies from a literal field plan, and a controller or service asks for the converter with Needs.",
+  "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. A controller or service asks for it with Needs, like a MapStruct mapper that Spring injects: a Needs field, a constructor parameter in F#, or Needs above an attr_reader in Ruby. In JavaScript and Ruby the field name names the provider (productConverter, product_converter). A converter needs no behavior context and no Setup, because a mapping reads only its argument, so Tachyon builds it with no constructor argument. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nA Converter is a contract, like a MapStruct @Mapper interface: it has no implementation, and Tachyon generates each mapping. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go, and an interface of `abstract` members in F#. It is a trait in Rust, an abstract interface class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript and Ruby have no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. JavaScript and TypeScript declare the answer as Promise<BehaviorJsonObject | void> for the same reason. In every case, the compiler writes the class and each method, and the class has no constructor argument. So the source declares nothing else: a method body, a field, a constructor, a method without Convert, or a class where the language has a contract form fails the build with TY1308 (\"A Converter has no implementation: Tachyon generates each mapping.\"). `ty migrate fix --write` rewrites a class converter as a contract. `ty migrate` reports code that still builds a converter with a context, such as `new ProductConverter(context)` or `Behaviors.construct(ProductConverter, ...)`: remove it and ask for the converter with Needs.",
   "files": [
-    {
-      "name": "server/setups/CatalogSetup.js",
-      "code": {
-        "file": "server/setups/CatalogSetup.js"
-      }
-    },
     {
       "name": "server/converters/ProductConverter.js",
       "code": {
@@ -26,12 +20,6 @@
       "name": "server/models/CatalogSummary.ts",
       "code": {
         "file": "server/models/CatalogSummary.ts"
-      }
-    },
-    {
-      "name": "server/setups/CatalogSetup.ts",
-      "code": {
-        "file": "server/setups/CatalogSetup.ts"
       }
     },
     {
@@ -53,12 +41,6 @@
       }
     },
     {
-      "name": "server/setups/CatalogSetup.py",
-      "code": {
-        "file": "server/setups/CatalogSetup.py"
-      }
-    },
-    {
       "name": "server/converters/ProductConverter.py",
       "code": {
         "file": "server/converters/ProductConverter.py"
@@ -74,12 +56,6 @@
       "name": "server/models/CatalogSummary.php",
       "code": {
         "file": "server/models/CatalogSummary.php"
-      }
-    },
-    {
-      "name": "server/setups/CatalogSetup.php",
-      "code": {
-        "file": "server/setups/CatalogSetup.php"
       }
     },
     {
@@ -104,18 +80,6 @@
       "name": "server/models/CatalogSummary.groovy",
       "code": {
         "file": "server/models/CatalogSummary.groovy"
-      }
-    },
-    {
-      "name": "server/setups/CatalogSetup.java",
-      "code": {
-        "file": "server/setups/CatalogSetup.java"
-      }
-    },
-    {
-      "name": "server/setups/CatalogSetup.groovy",
-      "code": {
-        "file": "server/setups/CatalogSetup.groovy"
       }
     },
     {
@@ -149,12 +113,6 @@
       }
     },
     {
-      "name": "server/setups/CatalogSetup.kt",
-      "code": {
-        "file": "server/setups/CatalogSetup.kt"
-      }
-    },
-    {
       "name": "server/converters/ProductConverter.kt",
       "code": {
         "file": "server/converters/ProductConverter.kt"
@@ -170,12 +128,6 @@
       "name": "server/models/CatalogSummary.cs",
       "code": {
         "file": "server/models/CatalogSummary.cs"
-      }
-    },
-    {
-      "name": "server/setups/CatalogSetup.cs",
-      "code": {
-        "file": "server/setups/CatalogSetup.cs"
       }
     },
     {
@@ -197,12 +149,6 @@
       }
     },
     {
-      "name": "server/setups/CatalogSetup.rs",
-      "code": {
-        "file": "server/setups/CatalogSetup.rs"
-      }
-    },
-    {
       "name": "server/converters/ProductConverter.rs",
       "code": {
         "file": "server/converters/ProductConverter.rs"
@@ -218,12 +164,6 @@
       "name": "server/models/CatalogSummary.go",
       "code": {
         "file": "server/models/CatalogSummary.go"
-      }
-    },
-    {
-      "name": "server/setups/CatalogSetup.go",
-      "code": {
-        "file": "server/setups/CatalogSetup.go"
       }
     },
     {
@@ -245,12 +185,6 @@
       }
     },
     {
-      "name": "server/setups/CatalogSetup.dart",
-      "code": {
-        "file": "server/setups/CatalogSetup.dart"
-      }
-    },
-    {
       "name": "server/converters/ProductConverter.dart",
       "code": {
         "file": "server/converters/ProductConverter.dart"
@@ -269,12 +203,6 @@
       }
     },
     {
-      "name": "server/setups/CatalogSetup.fs",
-      "code": {
-        "file": "server/setups/CatalogSetup.fs"
-      }
-    },
-    {
       "name": "server/converters/ProductConverter.fs",
       "code": {
         "file": "server/converters/ProductConverter.fs"
@@ -284,6 +212,24 @@
       "name": "server/controllers/CatalogController.fs",
       "code": {
         "file": "server/controllers/CatalogController.fs"
+      }
+    },
+    {
+      "name": "server/models/CatalogSummary.rb",
+      "code": {
+        "file": "server/models/CatalogSummary.rb"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.rb",
+      "code": {
+        "file": "server/converters/ProductConverter.rb"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.rb",
+      "code": {
+        "file": "server/controllers/CatalogController.rb"
       }
     }
   ]

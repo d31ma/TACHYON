@@ -1,27 +1,19 @@
 import "fmt"
 
 type CatalogService struct {
-	Title     string
-	behaviors *BehaviorContext
+	Title string
+	// @Needs
+	converter *ProductConverter
 }
 
 // @OnStart
-func (catalog *CatalogService) Start() error {
+func (catalog *CatalogService) Start() {
 	catalog.Title = "Not mapped."
-	context, err := BehaviorsCreate[CatalogSetup](NewBehaviorOptions("public-catalog", NewBehaviorSignal()))
-	catalog.behaviors = context
-	return err
 }
 
 func (catalog *CatalogService) Load() error {
-	mapper := &ProductConverter{behaviors: catalog.behaviors}
 	product := map[string]any{"detail": map[string]any{"id": 7}, "name": "Anvil", "extra": "dropped"}
-	return catalog.showSummary(mapper.ToSummary(product))
-}
-
-// @OnStop
-func (catalog *CatalogService) Stop() {
-	catalog.behaviors.Dispose()
+	return catalog.showSummary(catalog.converter.ToSummary(product))
 }
 
 func (catalog *CatalogService) showSummary(summary BehaviorValue, failure error) error {

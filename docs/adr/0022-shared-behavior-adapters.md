@@ -277,3 +277,33 @@ no implementation, and Tachyon generates each query.
 - Typed entity results in the compiled languages (reading a JSON row into the
   Entity class) are not part of this amendment; results stay the runtime's
   JSON values, as for every other query.
+
+## Amendment (2026-09-30): a service asks for its converter
+
+- A Converter needs no behavior context. A mapping reads only its argument,
+  so a Converter is a plain type with no constructor argument, like a
+  MapStruct mapper that Spring injects. This replaces the context that the
+  first converter amendment gave it: `new ProductConverter(context)`,
+  `ProductConverter::new(context)`, `&ProductConverter{behaviors: context}`
+  and `Behaviors.construct(ProductConverter, {behaviors: context})` are gone.
+  `ty migrate` reports code that still builds a converter with a context
+  (`converter.built_by_hand`).
+- Every language maps without a context. Java, Groovy and Kotlin already
+  called the static `Behaviors.mapValue`; C#, F#, Swift and Dart call the
+  static `BehaviorContext.MapValue` / `BehaviorContext.mapValue`; Rust and
+  Go call `map_value` and `BehaviorMapValue` on the value. JavaScript,
+  Python, PHP and Ruby get a context-free wrapper for a method whose only
+  policy is a mapping, as a gateway method already had. A type whose methods
+  are all Convert (or Gateway) gets no `behaviors` field and no constructor.
+- Yon: `@Converter` is a provider role, like `@Helper` (Spring's
+  `@Component`), so a controller or service asks for a converter with
+  `@Needs`, an F# constructor parameter, or `#[Needs]` above a Ruby
+  `attr_reader`. The container reads a class, so the contract lowering turns
+  the interface form into a class in Java, Groovy, Kotlin, C#, PHP, Dart,
+  Rust and Go; Python, F# and Swift keep their existing lowering.
+- Tac: the injection that builds a Store for a `@Needs` field also builds a
+  converter from `client/converters` (a private initial value in Kotlin,
+  Swift, Java and C#, `Arc` plus `Default` in Rust, a `New…Converter()`
+  call in Go, a private reader in Ruby, a `let` binding for an F#
+  constructor parameter). A JavaScript or TypeScript owner resolves a needed
+  converter as a provider; Dart builds it with the service.
