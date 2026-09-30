@@ -10878,7 +10878,7 @@
             },
             {
               "name": "server/controllers/CatalogController.js",
-              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nproductConverter;\n/** @returns {Summary} */\n@GetRoute\nasync getCatalog() {\nconst detail = {name: 'detail', secret: 'detail-private'};\nreturn this.productConverter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n}\n}\n"
+              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n/** @type {ProductConverter} */\n@Needs\nproductConverter;\n/** @returns {Promise<Summary>} */\n@GetRoute\nasync getCatalog() {\nconst detail = {name: 'detail', secret: 'detail-private'};\nreturn this.productConverter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n}\n}\n"
             },
             {
               "name": "server/models/Product.py",
@@ -11291,7 +11291,7 @@
             },
             {
               "name": "client/services/CatalogService.js",
-              "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n  result = '';\n  async load() {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n  /** @type {string} */\n  result = '';\n  /** @returns {Promise<void>} */\n  async load() {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.ts",
@@ -11315,7 +11315,7 @@
             },
             {
               "name": "client/services/CatalogService.ts",
-              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  productConverter!: ProductConverter;\n  result = '';\n  async load() {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  productConverter!: ProductConverter;\n  result: string = '';\n  async load(): Promise<void> {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
             }
           ]
         },
