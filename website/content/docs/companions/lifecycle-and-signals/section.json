@@ -1,19 +1,8 @@
 {
   "heading": "Start, stop and events",
+  "target": "web",
   "body": "OnStart marks a method with no arguments that initializes the service. It runs after Tachyon injects resources and attaches the DOM. OnStop stops and cleans up the work that the service owns. To publish, a class declares an applicationEventPublisher field with no value. Then it calls publishEvent(model[, retain]) with a value of a model type. OnEvent registers a local listener that belongs to its owner, and the model type of its one parameter is the event it hears. Order sets the order of listeners. InBackground detaches a listener (it runs in the background). Retention and replay are off unless you turn them on. When a service is removed or hot-replaced (replaced with new code while the page runs), Tachyon unregisters its listeners automatically.",
   "files": [
-    {
-      "name": "client/services/ReleaseService.js",
-      "code": {
-        "file": "client/services/ReleaseService.js"
-      }
-    },
-    {
-      "name": "client/models/ReleaseChanged.js",
-      "code": {
-        "file": "client/models/ReleaseChanged.js"
-      }
-    },
     {
       "name": "client/pages/tac.html",
       "code": {
@@ -25,6 +14,139 @@
       "code": {
         "file": "client/components/release/panel/tac.html"
       }
+    },
+    {
+      "name": "client/services/ReleaseService.js",
+      "code": {
+        "file": "client/services/ReleaseService.js"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.ts",
+      "code": {
+        "file": "client/services/ReleaseService.ts"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.dart",
+      "code": {
+        "file": "client/services/ReleaseService.dart"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.rs",
+      "code": {
+        "file": "client/services/ReleaseService.rs"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.go",
+      "code": {
+        "file": "client/services/ReleaseService.go"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.rb",
+      "code": {
+        "file": "client/services/ReleaseService.rb"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.swift",
+      "code": {
+        "file": "client/services/ReleaseService.swift"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.kt",
+      "code": {
+        "file": "client/services/ReleaseService.kt"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.java",
+      "code": {
+        "file": "client/services/ReleaseService.java"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.cs",
+      "code": {
+        "file": "client/services/ReleaseService.cs"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.fs",
+      "code": {
+        "file": "client/services/ReleaseService.fs"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.js",
+      "code": {
+        "file": "client/models/ReleaseChanged.js"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.ts",
+      "code": {
+        "file": "client/models/ReleaseChanged.ts"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.dart",
+      "code": {
+        "file": "client/models/ReleaseChanged.dart"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.rs",
+      "code": {
+        "file": "client/models/ReleaseChanged.rs"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.go",
+      "code": {
+        "file": "client/models/ReleaseChanged.go"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.rb",
+      "code": {
+        "file": "client/models/ReleaseChanged.rb"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.swift",
+      "code": {
+        "file": "client/models/ReleaseChanged.swift"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.kt",
+      "code": {
+        "file": "client/models/ReleaseChanged.kt"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.java",
+      "code": {
+        "file": "client/models/ReleaseChanged.java"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.cs",
+      "code": {
+        "file": "client/models/ReleaseChanged.cs"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.fs",
+      "code": {
+        "file": "client/models/ReleaseChanged.fs"
+      }
     }
-  ]
+  ],
+  "axis": "language"
 }

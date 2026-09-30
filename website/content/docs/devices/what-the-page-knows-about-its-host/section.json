@@ -1,7 +1,31 @@
 {
   "heading": "What the page knows about its host",
-  "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a service injects view. This works only in the browser. The application itself is responsible for native capabilities.",
-  "code": {
-    "file": "example.js"
-  }
+  "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a JavaScript or TypeScript service injects view. This works only in the browser. A service in another language has no DOM (the tree of page elements), so it cannot read this mark. The application itself is responsible for native capabilities.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/platform/badge/tac.html",
+      "code": {
+        "file": "client/components/platform/badge/tac.html"
+      }
+    },
+    {
+      "name": "client/services/PlatformService.js",
+      "code": {
+        "file": "client/services/PlatformService.js"
+      }
+    },
+    {
+      "name": "client/services/PlatformService.ts",
+      "code": {
+        "file": "client/services/PlatformService.ts"
+      }
+    }
+  ]
 }

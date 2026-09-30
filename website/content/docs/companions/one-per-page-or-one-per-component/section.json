@@ -1,6 +1,7 @@
 {
   "heading": "One per page, or one per component",
-  "body": "By default, a service is a page singleton: the page has one instance of it. Tachyon creates it when the first view that names it renders. Tachyon initialises it once, and every component that names it shares it. Tachyon disposes of it (cleans it up) when the user leaves the page. A service built from its component's properties is different. It has one instance for each component instance. Tachyon constructs it with those properties and disposes of it with the component. You write no constructor for it. A bare @NeedsAll (with no arguments) takes every uninitialised field, like Lombok's does. The properties with the same names fill those fields. This works the same in JavaScript, TypeScript, Dart, Rust, C# and Go. In Rust, C# and Go, it takes every field that a property names. No Lifetime is needed, because a page singleton is constructed with no properties at all (ADR 0039; an ADR is an architecture decision record). Use Lifetime({\"value\":\"prototype\"}) for a service that keeps state for each component but takes no properties. A view reads those fields directly, not through a method that returns them. Tachyon injects collaborators (other services that this service uses). It does not pass them as constructor arguments. In the view, properties from a parent and loop bindings have no service name in front of them. A service field can be declared, left undefined and named after another service. That field receives that singleton, in the same way a Yon service receives its collaborators.",
+  "target": "web",
+  "body": "By default, a service is a page singleton: the page has one instance of it. Tachyon creates it when the first view that names it renders. Tachyon initialises it once, and every component that names it shares it. Tachyon disposes of it (cleans it up) when the user leaves the page. A service built from its component's properties is different. It has one instance for each component instance. Tachyon constructs it with those properties and disposes of it with the component. You write no constructor for it. A bare @NeedsAll (with no arguments) takes every uninitialised field, like Lombok's does. The properties with the same names fill those fields. This works the same in JavaScript, TypeScript, Dart, Rust, Go, Ruby, Swift, Kotlin and C#. A Go field that a property fills is marked // @Required. A list property arrives in a Rust TacValue field or a C# object field; both hold any JSON value. A Java service does not receive properties yet. F# refuses a service that takes properties with TY1405, because an F# Tac service takes no primary constructor parameter except its ApplicationEventPublisher. No Lifetime is needed, because a page singleton is constructed with no properties at all (ADR 0039; an ADR is an architecture decision record). Use Lifetime({\"value\":\"prototype\"}) for a service that keeps state for each component but takes no properties. A view reads those fields directly, not through a method that returns them. Tachyon injects collaborators (other services that this service uses). It does not pass them as constructor arguments. In the view, properties from a parent and loop bindings have no service name in front of them. A service field can be declared, left undefined and named after another service. That field receives that singleton, in the same way a Yon service receives its collaborators.",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -25,6 +26,55 @@
       "code": {
         "file": "client/services/SnippetService.js"
       }
+    },
+    {
+      "name": "client/services/SnippetService.ts",
+      "code": {
+        "file": "client/services/SnippetService.ts"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.dart",
+      "code": {
+        "file": "client/services/SnippetService.dart"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.rs",
+      "code": {
+        "file": "client/services/SnippetService.rs"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.go",
+      "code": {
+        "file": "client/services/SnippetService.go"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.rb",
+      "code": {
+        "file": "client/services/SnippetService.rb"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.swift",
+      "code": {
+        "file": "client/services/SnippetService.swift"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.kt",
+      "code": {
+        "file": "client/services/SnippetService.kt"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.cs",
+      "code": {
+        "file": "client/services/SnippetService.cs"
+      }
     }
-  ]
+  ],
+  "axis": "language"
 }
