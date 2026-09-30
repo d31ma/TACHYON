@@ -6,7 +6,7 @@ use std::path::{Component, Path};
 pub(crate) struct Topics;
 
 impl Topics {
-    const SPELLINGS: [&'static str; 7] = [
+    const SPELLINGS: [&'static str; 9] = [
         "@Topic",
         "@Topic()",
         "@topic",
@@ -14,6 +14,8 @@ impl Topics {
         "#[Topic]",
         "#[Topic()]",
         "[Topic]",
+        "[<Topic>]",
+        "[<Topic()>]",
     ];
     const COMMENT_LEADERS: [&'static str; 5] = ["/**", "///", "//", "# ", "*"];
     const MAX_SLUG_BYTES: usize = 64;
@@ -191,6 +193,7 @@ mod tests {
             "/** @Topic */\nexport interface OrderPlaced { customer: Customer }\n",
             "/**\n * @Topic\n * @typedef {Object} OrderPlaced\n * @property {Customer} customer\n */\n",
             "#[Topic]\nOrderPlaced = Data.define(:customer)\n",
+            "[<Topic>]\ntype OrderPlaced = { Customer: Customer }\n",
         ];
         for source in cases {
             assert_eq!(
@@ -209,11 +212,21 @@ mod tests {
 
     #[test]
     fn blanking_keeps_offsets_and_removes_the_marker() {
-        let source = "#[Topic]\npub struct OrderPlaced {}\n";
-        let blanked = Topics::blanked(source);
-        assert_eq!(blanked.len(), source.len());
-        assert!(!blanked.contains("Topic"));
-        assert!(blanked.contains("pub struct OrderPlaced"));
+        for (source, declaration) in [
+            (
+                "#[Topic]\npub struct OrderPlaced {}\n",
+                "pub struct OrderPlaced",
+            ),
+            (
+                "[<Topic>]\ntype OrderPlaced = { Id: string }\n",
+                "type OrderPlaced",
+            ),
+        ] {
+            let blanked = Topics::blanked(source);
+            assert_eq!(blanked.len(), source.len());
+            assert!(!blanked.contains("Topic"));
+            assert!(blanked.contains(declaration));
+        }
     }
 
     #[test]
@@ -267,6 +280,14 @@ mod tests {
             (
                 "server/models/OrderPlaced.rb",
                 "#[Topic]\nOrderPlaced = Data.define(:id)\n",
+            ),
+            (
+                "server/models/OrderPlaced.fs",
+                "[<Topic>]\ntype OrderPlaced = { Id: string }\n",
+            ),
+            (
+                "client/models/OrderPlaced.fs",
+                "[<Topic>]\ntype OrderPlaced = { Id: string }\n",
             ),
         ];
         for (path, source) in cases {
