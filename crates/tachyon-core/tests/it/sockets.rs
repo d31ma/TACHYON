@@ -549,6 +549,83 @@ end
         ],
     };
 
+    const LUA: Self = Self {
+        program: "lua",
+        files: &[
+            (
+                "server/models/ChatMessage.lua",
+                "---@class ChatMessage\n---@field text string\nChatMessage = {}\n",
+            ),
+            (
+                "server/controllers/ChatController.lua",
+                r#"-- @SocketRoute("/chat")
+-- @Public
+---@class ChatController
+ChatController = {
+  ALL = "all",
+  ---@type integer
+  count = 0,
+}
+
+---@param session SocketSession
+---@return nil
+-- @OnOpen
+function ChatController:on_open(session)
+  session:send(setmetatable({ text = "welcome" }, ChatMessage))
+end
+
+---@param session SocketSession
+---@param message ChatMessage
+---@return nil
+-- @OnMessage
+function ChatController:on_message(session, message)
+  self.count = self.count + 1
+  self:_send_hello(self:_peers_for(session, message))
+  self:_answer(session, message)
+end
+
+---@param session SocketSession
+---@param failure any
+---@return nil
+-- @OnError
+function ChatController:on_error(session, failure)
+  session:send(setmetatable({ text = "sorry" }, ChatMessage))
+end
+
+---@param session SocketSession
+---@param message ChatMessage
+---@return SocketPeer[]
+function ChatController:_peers_for(session, message)
+  if message.text ~= ChatController.ALL then
+    return {}
+  end
+  return session:open_sessions()
+end
+
+---@param peers SocketPeer[]
+---@return nil
+function ChatController:_send_hello(peers)
+  for _, peer in ipairs(peers) do
+    peer:send(setmetatable({ text = "hello all" }, ChatMessage))
+  end
+end
+
+---@param session SocketSession
+---@param message ChatMessage
+---@return nil
+function ChatController:_answer(session, message)
+  if message.text == "fail" then
+    error("secret-canary")
+  end
+  if message.text ~= ChatController.ALL then
+    session:send(setmetatable({ text = message.text .. " " .. self.count }, ChatMessage))
+  end
+end
+"#,
+            ),
+        ],
+    };
+
     const RUST: Self = Self {
         program: "rustc",
         files: &[
@@ -706,6 +783,7 @@ class ChatController {
         let flag = match program.as_str() {
             "go" => "version",
             "kotlinc" => "-version",
+            "lua" => "-v",
             _ => "--version",
         };
         let found = std::process::Command::new(&program)
@@ -1006,6 +1084,16 @@ async fn a_ruby_socket_route_keeps_one_object_for_each_connection() {
         return;
     }
     let server = Server::start(&ChatProject::RUBY).await;
+    server.chat().await;
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn a_lua_socket_route_keeps_one_object_for_each_connection() {
+    if !ChatProject::LUA.available() {
+        return;
+    }
+    let server = Server::start(&ChatProject::LUA).await;
     server.chat().await;
     server.stop().await;
 }

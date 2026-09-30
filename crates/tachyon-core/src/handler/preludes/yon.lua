@@ -200,7 +200,7 @@ end
 YonInput = {}
 
 function YonInput.read()
-  local input = io.stdin:read("a") or ""
+  local input = YonInput.text()
   if #input > YonLimits.MAX_FRAME_BYTES then
     YonFailures.stop("The request exceeds the protocol frame limit.")
   end
@@ -209,6 +209,136 @@ function YonInput.read()
     os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
   end
   return envelope
+end
+
+function YonInput.text()
+  if os.getenv("YON_SOCKET_FRAMES") == "1" then
+    return YonFrames.read() or ""
+  end
+  return io.stdin:read("a") or ""
+end
+
+YonFrames = { output = io.stdout }
+
+function YonFrames.read()
+  local prefix = io.stdin:read(4)
+  if prefix == nil or #prefix < 4 then
+    return nil
+  end
+  local length = string.unpack(">I4", prefix)
+  if length > YonLimits.MAX_FRAME_BYTES then
+    os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
+  end
+  if length == 0 then
+    return ""
+  end
+  return io.stdin:read(length)
+end
+
+function YonFrames.write(payload)
+  YonFrames.output:write(string.pack(">I4", #payload), payload)
+  YonFrames.output:flush()
+end
+
+SocketPeer = {}
+SocketPeer.__index = SocketPeer
+
+function SocketPeer:send(message)
+  self.session:send_to(message, self.id)
+end
+
+SocketSession = {}
+SocketSession.__index = SocketSession
+
+function SocketSession.new(id)
+  return setmetatable({ id = id, inbox = {}, closed = false, sessions = nil }, SocketSession)
+end
+
+function SocketSession:send(message)
+  self:send_to(message, nil)
+end
+
+function SocketSession:close()
+  self.closed = true
+  self:write({ kind = "close" })
+end
+
+function SocketSession:open_sessions()
+  self.sessions = nil
+  self:write({ kind = "sessions" })
+  while self.sessions == nil and not self.closed do
+    self:receive()
+  end
+  local peers = {}
+  for index, id in ipairs(self.sessions or {}) do
+    peers[index] = setmetatable({ session = self, id = tostring(id) }, SocketPeer)
+  end
+  return peers
+end
+
+function SocketSession:send_to(message, to)
+  self:write({ kind = "event", to = to, body = { encoding = "utf8", data = YonJson.encode(message) } })
+end
+
+function SocketSession:next_message()
+  while #self.inbox == 0 and not self.closed do
+    self:receive()
+  end
+  return table.remove(self.inbox, 1)
+end
+
+function SocketSession:receive()
+  local raw = YonFrames.read()
+  local ok, frame = pcall(YonJson.decode, raw or "")
+  if raw == nil or not ok or type(frame) ~= "table" then
+    self.closed = true
+    return
+  end
+  if frame.request_id ~= self.id then
+    os.exit(YonLimits.PROTOCOL_ERROR_EXIT_CODE)
+  end
+  self:take(frame)
+end
+
+function SocketSession:take(frame)
+  if frame.kind == "message" then
+    self.inbox[#self.inbox + 1] = YonJson.decode((frame.body or {}).data or "null")
+  elseif frame.kind == "sessions" then
+    self.sessions = type(frame.sessions) == "table" and frame.sessions or {}
+  else
+    self.closed = true
+  end
+end
+
+function SocketSession:write(frame)
+  frame.protocol_version = 1
+  frame.request_id = self.id
+  YonFrames.write(YonJson.encode(frame))
+end
+
+YonSocket = {}
+
+function YonSocket.run(endpoint, request)
+  local session = SocketSession.new(request.request_id)
+  YonSocket.attempt(endpoint, session, endpoint.open, session)
+  while true do
+    local message = session:next_message()
+    if message == nil and #session.inbox == 0 and session.closed then
+      break
+    end
+    YonSocket.attempt(endpoint, session, endpoint.message, session, message)
+  end
+  pcall(endpoint.close, endpoint, session)
+  os.exit(0)
+end
+
+function YonSocket.attempt(endpoint, session, action, ...)
+  local ok, failure = pcall(action, endpoint, ...)
+  if ok then
+    return
+  end
+  io.stderr:write(YonJson.encode({ event = "handler.socket_failed", request_id = session.id, message = YonFailures.message(failure) }), "\n")
+  pcall(endpoint.error, endpoint, session, failure)
 end
 
 YonInvocation = {}
@@ -314,6 +444,7 @@ YonRunner = {}
 
 function YonRunner.main(program)
   local standard_output = io.stdout
+  YonFrames.output = standard_output
   io.output(io.stderr)
   print = YonRunner.print
   local request = YonInput.read()

@@ -1,4 +1,6 @@
-use super::{LuaBehaviorEdits, LuaInput, LuaLowering, LuaResources, LuaTestUnit, LuaView};
+use super::{
+    LuaBehaviorEdits, LuaInput, LuaLowering, LuaResources, LuaSockets, LuaTestUnit, LuaView,
+};
 use crate::Failure;
 use crate::behavior::LuaBehaviorPlan;
 use crate::events::EventModule;
@@ -13,8 +15,7 @@ type Lowering = fn(&LuaInput<'_>) -> Result<Option<Lowered>, Failure>;
 pub(crate) struct LuaYon;
 
 impl LuaYon {
-    const LATER: &'static str = "Lua classes do not support {} yet (ADR 0085). Write this class in another Yon language, or leave the annotation out.";
-    const STREAMS: &'static str = "sockets (SocketRoute)";
+    const SOCKET_EVENTS: &'static str = "A @SocketRoute class cannot hold @OnEvent, @OnStart or @OnStop methods. Put them in a @Service and give the socket class a @Needs field for it";
     const REALM: &'static str = "yon";
     const MODELS: &'static str = "server";
     const LOWERINGS: [Lowering; 2] = [Self::roles, Self::test_unit];
@@ -127,11 +128,6 @@ impl LuaYon {
         })
     }
 
-    fn refused(used: bool, source: &Path, contents: &str, feature: &str) -> Result<(), Failure> {
-        used.then(|| Self::failure(source, contents, &Self::LATER.replace("{}", feature)))
-            .map_or(Ok(()), Err)
-    }
-
     fn routes(
         input: &LuaInput<'_>,
         authored: &str,
@@ -139,7 +135,6 @@ impl LuaYon {
         events: Option<&EventModule>,
     ) -> Result<Lowered, Failure> {
         let (source, contents) = (input.source, input.contents);
-        Self::refused(Self::streams(&parsed.plan), source, contents, Self::STREAMS)?;
         LuaResources::refuse(&parsed.plan, source, contents)
             .map_err(|message| Self::failure(source, contents, &message))?;
         let program = Self::program(&parsed.plan, authored, events)
@@ -156,14 +151,13 @@ impl LuaYon {
         contents: &str,
         events: Option<&EventModule>,
     ) -> Result<String, String> {
-        events.map_or_else(
-            || LuaLowering::new(plan).program(contents),
-            |events| LuaLowering::evented_program(plan, contents, events),
-        )
-    }
-
-    fn streams(plan: &Plan) -> bool {
-        plan.routes.iter().any(|route| route.socket.is_some())
+        let socket = plan.routes.iter().find_map(|route| route.socket.as_ref());
+        match (socket, events) {
+            (Some(_), Some(_)) => Err(String::from(Self::SOCKET_EVENTS)),
+            (Some(methods), None) => LuaSockets::new(plan, methods).program(contents),
+            (None, Some(events)) => LuaLowering::evented_program(plan, contents, events),
+            (None, None) => LuaLowering::new(plan).program(contents),
+        }
     }
 
     fn patterned(plan: &Plan) -> Vec<Route> {
