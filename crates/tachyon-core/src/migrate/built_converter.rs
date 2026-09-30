@@ -1,4 +1,5 @@
 use super::{MigrationFinding, MigrationStatus};
+use std::fs;
 use std::path::Path;
 
 pub(super) struct BuiltConverter;
@@ -12,6 +13,7 @@ impl BuiltConverter {
     const GO_LITERAL: char = '{';
     const CONTEXT_FIELD: &'static str = "behaviors";
     const DECLARATION_WORD: &'static str = "class";
+    const MAX_SOURCE_BYTES: usize = 1024 * 1024;
     const EXTENSIONS: [&'static str; 14] = [
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "fs", "rs", "swift", "dart", "go",
         "rb",
@@ -19,7 +21,14 @@ impl BuiltConverter {
     const DETAIL: &'static str = "A Converter needs no behavior context: Tachyon builds it, and it has no constructor argument.";
     const ACTION: &'static str = "Remove the code that builds the converter with a context, such as new ProductConverter(context) or Behaviors.construct(ProductConverter, ...), and ask for it with Needs: a Needs field, an F# constructor parameter, or Needs above a Ruby attr_reader.";
 
-    pub(super) fn scans(relative: &str) -> bool {
+    pub(super) fn read_finding(root: &Path, relative: &str) -> Option<MigrationFinding> {
+        Self::scans(relative).then_some(())?;
+        let bytes = fs::read(root.join(relative)).ok()?;
+        (bytes.len() <= Self::MAX_SOURCE_BYTES).then_some(())?;
+        Self::finding(relative, std::str::from_utf8(&bytes).ok()?)
+    }
+
+    fn scans(relative: &str) -> bool {
         Path::new(relative)
             .extension()
             .and_then(|extension| extension.to_str())
@@ -62,7 +71,8 @@ impl BuiltConverter {
         let constructed = before_name.ends_with(Self::CONSTRUCT_CALL);
         let declared = before_name.ends_with(Self::DECLARATION_WORD);
         let called = [Self::called_with_arguments(after), declared] == [true, false];
-        named && [constructed, called, Self::go_literal_with_context(after)].contains(&true)
+        let built = [constructed, called, Self::go_literal_with_context(after)].contains(&true);
+        [named, built] == [true, true]
     }
 
     fn called_with_arguments(after: &str) -> bool {
@@ -79,6 +89,6 @@ impl BuiltConverter {
     }
 
     fn is_name_character(character: char) -> bool {
-        character.is_ascii_alphanumeric() || character == '_'
+        [character.is_ascii_alphanumeric(), character == '_'].contains(&true)
     }
 }

@@ -69,7 +69,11 @@ fn needed_contracts(
 ) -> Result<BTreeSet<String>, Failure> {
     let contracts: BTreeSet<String> = registrations
         .iter()
-        .filter(|item| is_injected_contract(item))
+        .filter(|item| {
+            ["repositoryRole", "mapper"]
+                .iter()
+                .any(|key| item.data.contains_key(*key))
+        })
         .map(|item| item.name.clone())
         .collect();
     let mut needed = BTreeSet::new();
@@ -90,12 +94,6 @@ fn needed_contracts(
         }
     }
     Ok(needed)
-}
-
-fn is_injected_contract(item: &Registration) -> bool {
-    ["repositoryRole", "mapper"]
-        .iter()
-        .any(|key| item.data.contains_key(*key))
 }
 
 fn default_class_name(
