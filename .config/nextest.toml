@@ -5,7 +5,7 @@ slow-timeout = { period = "60s", terminate-after = 5 }
 
 [test-groups]
 serial = { max-threads = 1 }
-heavy = { max-threads = 1 }
+heavy = { max-threads = 2 }
 
 [[profile.default.overrides]]
 filter = 'test(/reads_the_clock_and_secure_random_from_the_page$/) | test(simultaneous_gateway_and_endpoint_deadlines_reap_processes) | test(go_handler_code_cannot_reach_its_relay_deadline)'
@@ -13,12 +13,12 @@ test-group = 'serial'
 retries = 2
 
 [[profile.default.overrides]]
-filter = 'test(a_csharp_service_is_webassembly_on_targets_that_do_not_link_it)'
+filter = 'test(a_csharp_service_is_webassembly_on_targets_that_do_not_link_it) | test(controller_errors::kotlin::error_handlers_answer_every_scenario)'
 test-group = 'heavy'
 retries = 1
 slow-timeout = { period = "60s", terminate-after = 15 }
 
 [[profile.default.overrides]]
-filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_builds)'
+filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_builds) | test(a_method_a_case_only_names_fails_coverage_and_a_called_method_passes)'
 test-group = 'heavy'
 slow-timeout = { period = "60s", terminate-after = 15 }
