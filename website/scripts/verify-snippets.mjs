@@ -120,6 +120,8 @@ class Toolchains {
   }
   /** @type {Map<string,Promise<boolean>>} */
   static checks = new Map()
+  /** @type {Map<string,Promise<boolean>>} */
+  static webTargets = new Map()
   /** @type {Map<string, {count:number, reason:string}>} */
   static loadFailures = new Map()
 }
@@ -705,7 +707,7 @@ function filesForTacLanguage(clientFiles, extension) {
 async function bundleProject(label, files, withPlaceholders = false, webOnly = false) {
   const clientFiles = files.filter(file => !file.name.startsWith('server/'))
   for (const extension of extensionsToBundle(clientFiles)) {
-    const nativeTarget = webOnly ? undefined : Languages.nativeTargets[extension]
+    const nativeTarget = await nativeTargetWithoutWebToolchain(extension, webOnly)
     const languageTag = extension ? ` [${extension.slice(1)}]` : ''
     await inStagingDirectory(`${label}${languageTag}`, async root => {
       const selectedFiles = filesForTacLanguage(clientFiles, extension)
@@ -714,10 +716,21 @@ async function bundleProject(label, files, withPlaceholders = false, webOnly = f
       const bundleArguments = ['bundle', root]
       if (nativeTarget) bundleArguments.push('--target', nativeTarget, '--native')
       const cached = await unlessPassedBefore(label, root, bundleArguments, () => runCommand(Settings.binary, bundleArguments))
-      const note = nativeTarget ? ' (native source staging only)' : ''
+      const note = nativeTarget ? ' (native source staging only: no web toolchain)' : ''
       pass(`${label}${languageTag}${note}${cached}`, 'bundle')
     })
   }
+}
+
+/**
+ * @param {string} extension
+ * @param {boolean} webOnly
+ * @returns {Promise<string|undefined>}
+ */
+async function nativeTargetWithoutWebToolchain(extension, webOnly) {
+  const nativeTarget = Languages.nativeTargets[extension]
+  if (!nativeTarget || webOnly || Settings.requireToolchains) return undefined
+  return await hasWebTarget(extension) ? undefined : nativeTarget
 }
 
 /**
@@ -1345,7 +1358,7 @@ async function verifyTacConfiguration(label, files) {
     if (!await canRunTestUnits(stepLabel, extension)) continue
     await inStagingDirectory(stepLabel, async root => {
       for (const file of filesForTacLanguage(files, extension)) writeSnippetFile(root, file.name, file.code)
-      if (!await hasConfigurationWebTarget(extension)) {
+      if (!await hasWebTarget(extension)) {
         await verifyNativeConfiguration(stepLabel, root, files, extension)
         return
       }
@@ -1358,7 +1371,13 @@ async function verifyTacConfiguration(label, files) {
 }
 
 /** @param {string} extension */
-async function hasConfigurationWebTarget(extension) {
+function hasWebTarget(extension) {
+  if (!Toolchains.webTargets.has(extension)) Toolchains.webTargets.set(extension, findWebTarget(extension).catch(() => false))
+  return /** @type {Promise<boolean>} */ (Toolchains.webTargets.get(extension))
+}
+
+/** @param {string} extension */
+async function findWebTarget(extension) {
   if (extension === '.swift') return Boolean(process.env.TAC_SWIFT_WASM_SDK) && await isToolAvailable(process.env.TAC_SWIFT_WASM_COMPILER ?? 'swiftc')
   if (extension === '.kt') return Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && await isToolAvailable('kotlinc-js')
   if (extension === '.java') return Boolean(process.env.TAC_TEAVM_HOME) && await isToolAvailable('javac')

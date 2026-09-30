@@ -404,6 +404,17 @@ jobs:
           unzip -q "${compiler}" -d "${RUNNER_TEMP}/kotlin"
           echo "${RUNNER_TEMP}/kotlin/kotlinc/bin" >> "${GITHUB_PATH}"
 
+      - name: Install the checksum-pinned Kotlin/Wasm standard library for Kotlin web services
+        run: |
+          set -euo pipefail
+          library="${RUNNER_TEMP}/kotlin-stdlib-wasm-js-2.1.10.klib"
+          expected_checksum=db9ab6772a2d3af9121d570a058cc64cf36893e1c089726b799b4d1252184ca2
+          curl --fail --location --silent --show-error --max-time 120 \
+            --output "${library}" \
+            https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-wasm-js/2.1.10/kotlin-stdlib-wasm-js-2.1.10.klib
+          echo "${expected_checksum}  ${library}" | shasum -a 256 --check
+          echo "TAC_KOTLIN_WASM_STDLIB=${library}" >> "${GITHUB_ENV}"
+
       - name: Install checksum-pinned Dart SDK for Dart services and published examples
         run: |
           set -euo pipefail
