@@ -8,7 +8,7 @@ class CatalogController {
 final ProductConverter converter;
 @GetRoute
 Summary getCatalog() {
-const detail = Detail('detail', 'hidden');
-return converter.map(Product(7, 'Anvil', detail, [detail], 'hidden'));
+const detail = Detail('detail', 'detail-private');
+return converter.map(Product(7, 'Anvil', detail, [detail], 'product-private'));
 }
 }

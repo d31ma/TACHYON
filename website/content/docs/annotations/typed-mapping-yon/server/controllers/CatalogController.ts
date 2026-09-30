@@ -6,7 +6,7 @@ class CatalogController {
 converter!: ProductConverter;
 @GetRoute
 async getCatalog(): Promise<Summary> {
-const detail = {name: 'detail', secret: 'hidden'};
-return this.converter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});
+const detail = {name: 'detail', secret: 'detail-private'};
+return this.converter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});
 }
 }

@@ -10,7 +10,7 @@ impl CatalogController {
     fn get_catalog(&self) -> Result<Summary, YonResourceError> {
         let detail = Detail {
             name: "detail".into(),
-            secret: "hidden".into(),
+            secret: "detail-private".into(),
         };
         self.converter
             .map(Product {
@@ -18,7 +18,7 @@ impl CatalogController {
                 name: "Anvil".into(),
                 detail: detail.clone(),
                 items: vec![detail],
-                secret: "hidden".into(),
+                secret: "product-private".into(),
             })
             .map_err(|_| YonResourceError)
     }

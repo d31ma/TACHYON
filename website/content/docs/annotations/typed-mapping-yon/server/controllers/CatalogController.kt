@@ -8,7 +8,7 @@ class CatalogController {
 val converter: ProductConverter
 @GetRoute
 fun getCatalog(): Summary {
-val detail = Detail("detail", "hidden")
-return converter.map(Product(7, "Anvil", detail, listOf(detail), "hidden"))
+val detail = Detail("detail", "detail-private")
+return converter.map(Product(7, "Anvil", detail, listOf(detail), "product-private"))
 }
 }

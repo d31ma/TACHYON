@@ -10854,7 +10854,7 @@
             },
             {
               "name": "server/controllers/CatalogController.ts",
-              "code": "import type { Summary } from '/models/Summary.ts'\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nconverter!: ProductConverter;\n@GetRoute\nasync getCatalog(): Promise<Summary> {\nconst detail = {name: 'detail', secret: 'hidden'};\nreturn this.converter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n}\n}\n"
+              "code": "import type { Summary } from '/models/Summary.ts'\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nconverter!: ProductConverter;\n@GetRoute\nasync getCatalog(): Promise<Summary> {\nconst detail = {name: 'detail', secret: 'detail-private'};\nreturn this.converter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n}\n}\n"
             },
             {
               "name": "server/models/Product.js",
@@ -10878,7 +10878,7 @@
             },
             {
               "name": "server/controllers/CatalogController.js",
-              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nproductConverter;\n/** @returns {Summary} */\n@GetRoute\nasync getCatalog() {\nconst detail = {name: 'detail', secret: 'hidden'};\nreturn this.productConverter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n}\n}\n"
+              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nproductConverter;\n/** @returns {Summary} */\n@GetRoute\nasync getCatalog() {\nconst detail = {name: 'detail', secret: 'detail-private'};\nreturn this.productConverter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n}\n}\n"
             },
             {
               "name": "server/models/Product.py",
@@ -10902,7 +10902,7 @@
             },
             {
               "name": "server/controllers/CatalogController.py",
-              "code": "from typing import Annotated\nfrom models import Product, Detail, Summary\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController:\n    converter: Annotated[ProductConverter, Needs]\n    @GetRoute\n    async def get_catalog(self) -> Summary:\n        detail = Detail('detail', 'hidden')\n        return self.converter.map(Product(7, 'Anvil', detail, [detail], 'hidden'))\n"
+              "code": "from typing import Annotated\nfrom models import Product, Detail, Summary\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController:\n    converter: Annotated[ProductConverter, Needs]\n    @GetRoute\n    async def get_catalog(self) -> Summary:\n        detail = Detail('detail', 'detail-private')\n        return self.converter.map(Product(7, 'Anvil', detail, [detail], 'product-private'))\n"
             },
             {
               "name": "server/models/Product.go",
@@ -10926,7 +10926,7 @@
             },
             {
               "name": "server/controllers/CatalogController.go",
-              "code": "// @RequestRoute(\"/catalog\")\n// @Public\ntype CatalogController struct {\n\t// @Needs\n\tconverter *ProductConverter\n}\n\n// @GetRoute\nfunc (controller *CatalogController) GetCatalog() (Summary, error) {\n\tdetail := Detail{Name: \"detail\", Secret: \"hidden\"}\n\tvalue, failure := controller.converter.Map(Product{ID: 7, Name: \"Anvil\", Detail: detail, Items: []Detail{detail}, Secret: \"hidden\"})\n\tif failure != nil {\n\t\treturn Summary{}, YonResourceError{}\n\t}\n\treturn value, nil\n}\n"
+              "code": "// @RequestRoute(\"/catalog\")\n// @Public\ntype CatalogController struct {\n\t// @Needs\n\tconverter *ProductConverter\n}\n\n// @GetRoute\nfunc (controller *CatalogController) GetCatalog() (Summary, error) {\n\tdetail := Detail{Name: \"detail\", Secret: \"detail-private\"}\n\tvalue, failure := controller.converter.Map(Product{ID: 7, Name: \"Anvil\", Detail: detail, Items: []Detail{detail}, Secret: \"product-private\"})\n\treturn value, controller.asResourceError(failure)\n}\n\nfunc (controller *CatalogController) asResourceError(failure error) error {\n\tif failure != nil {\n\t\treturn YonResourceError{}\n\t}\n\treturn nil\n}\n"
             },
             {
               "name": "server/models/Product.rb",
@@ -10950,7 +10950,7 @@
             },
             {
               "name": "server/controllers/CatalogController.rb",
-              "code": "#[RequestRoute(\"/catalog\")]\n#[Public]\nclass CatalogController\n  #[Needs]\n  # @return [ProductConverter]\n  attr_reader :product_converter\n  # @return [Summary]\n  #[GetRoute]\n  def get_catalog\n    detail = Detail.new(name: \"detail\", secret: \"hidden\")\n    product_converter.map(Product.new(id: 7, name: \"Anvil\", detail: detail, items: [detail], secret: \"hidden\"))\n  end\nend\n"
+              "code": "#[RequestRoute(\"/catalog\")]\n#[Public]\nclass CatalogController\n  #[Needs]\n  # @return [ProductConverter]\n  attr_reader :product_converter\n  # @return [Summary]\n  #[GetRoute]\n  def get_catalog\n    detail = Detail.new(name: \"detail\", secret: \"detail-private\")\n    product_converter.map(Product.new(id: 7, name: \"Anvil\", detail: detail, items: [detail], secret: \"product-private\"))\n  end\nend\n"
             },
             {
               "name": "server/models/Product.php",
@@ -10974,7 +10974,7 @@
             },
             {
               "name": "server/controllers/CatalogController.php",
-              "code": "<?php\nuse Models\\Product;\nuse Models\\Detail;\nuse Models\\Summary;\n#[RequestRoute(\"/catalog\")]\n#[Public]\nclass CatalogController {\n#[Needs]\nprivate ProductConverter $converter;\n#[GetRoute]\npublic function getCatalog(): Summary {\n$detail = new Detail(\"detail\", \"hidden\");\nreturn $this->converter->map(new Product(7, \"Anvil\", $detail, [$detail], \"hidden\"));\n}\n}\n"
+              "code": "<?php\nuse Models\\Product;\nuse Models\\Detail;\nuse Models\\Summary;\n#[RequestRoute(\"/catalog\")]\n#[Public]\nclass CatalogController {\n#[Needs]\nprivate ProductConverter $converter;\n#[GetRoute]\npublic function getCatalog(): Summary {\n$detail = new Detail(\"detail\", \"detail-private\");\nreturn $this->converter->map(new Product(7, \"Anvil\", $detail, [$detail], \"product-private\"));\n}\n}\n"
             },
             {
               "name": "server/models/Product.dart",
@@ -10998,7 +10998,7 @@
             },
             {
               "name": "server/controllers/CatalogController.dart",
-              "code": "import 'models/Product.dart';\nimport 'models/Detail.dart';\nimport 'models/Summary.dart';\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nfinal ProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nconst detail = Detail('detail', 'hidden');\nreturn converter.map(Product(7, 'Anvil', detail, [detail], 'hidden'));\n}\n}\n"
+              "code": "import 'models/Product.dart';\nimport 'models/Detail.dart';\nimport 'models/Summary.dart';\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nfinal ProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nconst detail = Detail('detail', 'detail-private');\nreturn converter.map(Product(7, 'Anvil', detail, [detail], 'product-private'));\n}\n}\n"
             },
             {
               "name": "server/models/Product.java",
@@ -11022,7 +11022,7 @@
             },
             {
               "name": "server/controllers/CatalogController.java",
-              "code": "import models.Product;\nimport models.Detail;\nimport models.Summary;\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nDetail detail = new Detail(\"detail\", \"hidden\");\nreturn converter.map(new Product(7, \"Anvil\", detail, java.util.List.of(detail), \"hidden\"));\n}\n}\n"
+              "code": "import models.Product;\nimport models.Detail;\nimport models.Summary;\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nDetail detail = new Detail(\"detail\", \"detail-private\");\nreturn converter.map(new Product(7, \"Anvil\", detail, java.util.List.of(detail), \"product-private\"));\n}\n}\n"
             },
             {
               "name": "server/models/Product.groovy",
@@ -11046,7 +11046,7 @@
             },
             {
               "name": "server/controllers/CatalogController.groovy",
-              "code": "import models.Product;\nimport models.Detail;\nimport models.Summary;\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nDetail detail = new Detail(\"detail\", \"hidden\");\nreturn converter.map(new Product(7, \"Anvil\", detail, java.util.List.of(detail), \"hidden\"));\n}\n}\n"
+              "code": "import models.Product;\nimport models.Detail;\nimport models.Summary;\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nDetail detail = new Detail(\"detail\", \"detail-private\");\nreturn converter.map(new Product(7, \"Anvil\", detail, java.util.List.of(detail), \"product-private\"));\n}\n}\n"
             },
             {
               "name": "server/models/Product.kt",
@@ -11070,7 +11070,7 @@
             },
             {
               "name": "server/controllers/CatalogController.kt",
-              "code": "import models.Product\nimport models.Detail\nimport models.Summary\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nval converter: ProductConverter\n@GetRoute\nfun getCatalog(): Summary {\nval detail = Detail(\"detail\", \"hidden\")\nreturn converter.map(Product(7, \"Anvil\", detail, listOf(detail), \"hidden\"))\n}\n}\n"
+              "code": "import models.Product\nimport models.Detail\nimport models.Summary\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nval converter: ProductConverter\n@GetRoute\nfun getCatalog(): Summary {\nval detail = Detail(\"detail\", \"detail-private\")\nreturn converter.map(Product(7, \"Anvil\", detail, listOf(detail), \"product-private\"))\n}\n}\n"
             },
             {
               "name": "server/models/Product.cs",
@@ -11094,7 +11094,7 @@
             },
             {
               "name": "server/controllers/CatalogController.cs",
-              "code": "using Models;\n[RequestRoute(\"/catalog\")]\n[Public]\nclass CatalogController {\n[Needs]\nProductConverter _converter;\n[GetRoute]\npublic Summary GetCatalog() {\nvar detail = new Detail(\"detail\", \"hidden\");\nreturn _converter.map(new Product(7, \"Anvil\", detail, new[] {detail}, \"hidden\"));\n}\n}\n"
+              "code": "using Models;\n[RequestRoute(\"/catalog\")]\n[Public]\nclass CatalogController {\n[Needs]\nProductConverter _converter;\n[GetRoute]\npublic Summary GetCatalog() {\nvar detail = new Detail(\"detail\", \"detail-private\");\nreturn _converter.map(new Product(7, \"Anvil\", detail, new[] {detail}, \"product-private\"));\n}\n}\n"
             },
             {
               "name": "server/models/Product.rs",
@@ -11118,7 +11118,7 @@
             },
             {
               "name": "server/controllers/CatalogController.rs",
-              "code": "use crate::models::{Detail, Product, Summary};\n#[RequestRoute(\"/catalog\")]\n#[Public]\nstruct CatalogController {\n    #[Needs]\n    converter: std::sync::Arc<ProductConverter>,\n}\nimpl CatalogController {\n    #[GetRoute]\n    fn get_catalog(&self) -> Result<Summary, YonResourceError> {\n        let detail = Detail {\n            name: \"detail\".into(),\n            secret: \"hidden\".into(),\n        };\n        self.converter\n            .map(Product {\n                id: 7,\n                name: \"Anvil\".into(),\n                detail: detail.clone(),\n                items: vec![detail],\n                secret: \"hidden\".into(),\n            })\n            .map_err(|_| YonResourceError)\n    }\n}\n"
+              "code": "use crate::models::{Detail, Product, Summary};\n#[RequestRoute(\"/catalog\")]\n#[Public]\nstruct CatalogController {\n    #[Needs]\n    converter: std::sync::Arc<ProductConverter>,\n}\nimpl CatalogController {\n    #[GetRoute]\n    fn get_catalog(&self) -> Result<Summary, YonResourceError> {\n        let detail = Detail {\n            name: \"detail\".into(),\n            secret: \"detail-private\".into(),\n        };\n        self.converter\n            .map(Product {\n                id: 7,\n                name: \"Anvil\".into(),\n                detail: detail.clone(),\n                items: vec![detail],\n                secret: \"product-private\".into(),\n            })\n            .map_err(|_| YonResourceError)\n    }\n}\n"
             },
             {
               "name": "server/models/Product.fs",
@@ -11142,7 +11142,7 @@
             },
             {
               "name": "server/controllers/CatalogController.fs",
-              "code": "open Models\n[<RequestRoute(\"/catalog\")>]\n[<Public>]\ntype CatalogController(converter: ProductConverter) =\n    [<GetRoute>]\n    member this.GetCatalog() : Summary =\n        let detail : Detail = { name = \"detail\"; secret = \"hidden\" }\n        converter.map({ id = 7; name = \"Anvil\"; detail = detail; items = [detail]; secret = \"hidden\" })\n"
+              "code": "open Models\n[<RequestRoute(\"/catalog\")>]\n[<Public>]\ntype CatalogController(converter: ProductConverter) =\n    [<GetRoute>]\n    member this.GetCatalog() : Summary =\n        let detail : Detail = { name = \"detail\"; secret = \"detail-private\" }\n        converter.map({ id = 7; name = \"Anvil\"; detail = detail; items = [detail]; secret = \"product-private\" })\n"
             }
           ]
         },

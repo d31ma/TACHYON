@@ -9,7 +9,7 @@ class CatalogController {
 private ProductConverter $converter;
 #[GetRoute]
 public function getCatalog(): Summary {
-$detail = new Detail("detail", "hidden");
-return $this->converter->map(new Product(7, "Anvil", $detail, [$detail], "hidden"));
+$detail = new Detail("detail", "detail-private");
+return $this->converter->map(new Product(7, "Anvil", $detail, [$detail], "product-private"));
 }
 }

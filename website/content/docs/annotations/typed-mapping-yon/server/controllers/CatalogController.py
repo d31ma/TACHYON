@@ -6,5 +6,5 @@ class CatalogController:
     converter: Annotated[ProductConverter, Needs]
     @GetRoute
     async def get_catalog(self) -> Summary:
-        detail = Detail('detail', 'hidden')
-        return self.converter.map(Product(7, 'Anvil', detail, [detail], 'hidden'))
+        detail = Detail('detail', 'detail-private')
+        return self.converter.map(Product(7, 'Anvil', detail, [detail], 'product-private'))
