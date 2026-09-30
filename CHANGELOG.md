@@ -615,7 +615,7 @@ machine contracts have their own, independent major versions.
   host call instead of a loop in Java. The browser copy of the Java behavior
   runtime no longer uses regular expressions or `String.format`, which makes
   a service with behavior annotations about 70 % smaller (a notes service:
-  375,346 to 108,377 bytes, 43,669 with Brotli); the JVM runtime is
+  375,346 to 108,381 bytes, 43,823 with Brotli); the JVM runtime is
   unchanged. CI installs the checksum-pinned TeaVM jars and runs the Java web
   service tests.
 - Java web services now exchange models and events with the page and use the

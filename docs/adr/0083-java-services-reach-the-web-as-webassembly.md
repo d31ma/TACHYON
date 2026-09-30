@@ -311,13 +311,14 @@ Release builds, `java/services.wasm` in bytes (Brotli in brackets):
 
 | Program | Before | After |
 | --- | --- | --- |
-| The counter of the first step | 73,320 (30,758) | 73,320 (30,758) |
-| A notes service with `@Cached`, `Store` and `@AllOrNothing` | 375,346 (114,056) | 108,377 (43,669) |
-| The website's `@Retry` and `@MaxAtOnce` example | not measured | 98,996 (40,211) |
-| A service that uses all nine browser APIs and their events | not possible | 84,784 (33,731) |
+| The counter of the first step | 73,320 (30,758) | 73,322 (30,782) |
+| A notes service with `@Cached`, `Store` and `@AllOrNothing` | 375,346 (114,056) | 108,381 (43,823) |
+| The website's `@Retry` and `@MaxAtOnce` example | not measured | 99,000 (40,143) |
+| A service that uses all nine browser APIs and their events | not possible | 84,786 (33,807) |
 
 `tachyon-java.js` grew from 5,190 to 5,310 bytes (1,734 with Brotli) for the
-`pause` call.
+`pause` call. `java/runtime.js` grew from 16,425 to 26,985 bytes (5,250 to
+6,675 with Brotli) for the table of JavaScript bodies (see below).
 
 ### The content security policy
 
@@ -341,7 +342,7 @@ A service cannot add a body of its own, because `TY1317` refuses TeaVM
 interop in a service. A body that is not in the table throws a clear error.
 When the runtime is not the one that Tachyon knows, the build stops and asks
 for TeaVM 0.15.0. The patch is part of the build cache key, and it adds
-about 11 KB to `runtime.js` (1.5 KB with Brotli).
+about 11 KB to `runtime.js` (1.4 KB with Brotli).
 
 ### Continuous integration
 
