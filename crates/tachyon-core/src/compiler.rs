@@ -23,6 +23,7 @@ mod service_script;
 mod service_worker;
 mod shared_assets;
 mod site_build;
+mod speculation_rules;
 mod tool_build;
 mod typescript_cache;
 mod typescript_compiler;
@@ -43,6 +44,7 @@ pub(crate) use content_digest::ContentDigest;
 pub(crate) use output_path::OutputPath;
 pub(crate) use page_head::PageHead;
 pub(crate) use portable_path::PortablePath;
+pub(crate) use speculation_rules::SpeculationRules;
 use service_worker::ServiceWorker;
 use site_build::SiteBuild;
 use std::io;
@@ -59,9 +61,6 @@ tachyon-component, tachyon-island { display: block; }\n";
         r#"<link rel="stylesheet" href="/.tachyon/navigation.css" data-tachyon-runtime>"#;
     const COMPONENT_STYLE_LINK: &str =
         r#"<link rel="stylesheet" href="/.tachyon/components.css" data-tachyon-runtime>"#;
-    const SPECULATION_RULES: &str = r#"<script type="speculationrules" data-tachyon-runtime>
-{"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}
-</script>"#;
     const SERVICE_WORKER: &str = r"const VERSION = '__VERSION__'
 const CACHE = 'tachyon-static-' + VERSION
 const PREFIX = 'tachyon-static-'

@@ -116,9 +116,10 @@ impl ServerResponse {
     fn content_security_policy(hosts: &crate::safety::DeclaredHosts) -> HeaderValue {
         let policy = format!(
             "default-src 'self'; connect-src 'self' {}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; \
-             script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules'; object-src 'none'; \
+             script-src 'self' 'wasm-unsafe-eval' {}; object-src 'none'; \
              base-uri 'none'; frame-ancestors 'none'",
-            hosts.connect_sources()
+            hosts.connect_sources(),
+            crate::compiler::SpeculationRules::script_source()
         );
         HeaderValue::from_str(&policy)
             .unwrap_or_else(|_| HeaderValue::from_static("default-src 'self'"))

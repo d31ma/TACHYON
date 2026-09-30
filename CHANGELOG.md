@@ -565,6 +565,18 @@ machine contracts have their own, independent major versions.
   that takes one role twice, or `[<Needs>]` on anything but a settable typed
   property, stops the build with `TY2015`; only `NeedsAll` with a list of
   fields is still refused in F#.
+- `ty init --tac java` and `ty add language client java` create a Java page
+  service, its test unit and its test setup (ADR 0083). `ty test` runs a Java
+  Tac test unit with `javac --release 21` and `java -ea`, and
+  `ty test --coverage` records the calls of Java page services.
+- `ty doctor --install` offers to install each missing tool that Tachyon can
+  install, as `ty init` does (`--yes` installs without asking). For Java web
+  services it downloads the five TeaVM 0.15.0 jars from Maven Central, checks
+  each one against the SHA-256 that Tachyon pins (the same list as the CI
+  job), and moves them into `<Tachyon cache>/teavm-0.15.0` only when all five
+  match (`TY1409` otherwise). The build finds TeaVM there when
+  `TAC_TEAVM_HOME` is not set. `ty doctor` now shows `javac` and `teavm` as
+  two rows for Java web services.
 
 - F# controllers hold `SocketRoute` (with `OnOpen`, `OnMessage`, `OnClose`
   and `OnError`) and `StreamRoute` (ADR 0073). Tachyon runs the C# socket and
@@ -2135,6 +2147,13 @@ machine contracts have their own, independent major versions.
   not bring back its runtime shims.
 
 ### Fixed
+
+- WebKit no longer warns on every Tachyon page about the content security
+  policy. The policy allowed the inline speculation rules with Chrome's
+  `'inline-speculation-rules'` keyword, which WebKit does not know, so WebKit
+  reported an invalid source and refused the block. The policy now allows the
+  block by the SHA-256 hash of its text, which Chromium, Firefox and WebKit
+  all understand.
 
 - Java web services now start under Tachyon's content security policy
   (`script-src 'self' 'wasm-unsafe-eval'`), which `ty start`, `ty preview`

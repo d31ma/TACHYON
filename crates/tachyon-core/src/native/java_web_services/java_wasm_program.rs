@@ -48,8 +48,8 @@ impl JavaWasmProgram {
         "--strip-debug",
         "--strip-producers",
     ];
-    const MISSING_TEAVM: &'static str = "Java web services need TeaVM 0.15. Download the TeaVM command-line jar (org.teavm:cli:0.15.0, the -all jar) and the teavm-classlib, teavm-jso-impl, teavm-platform and teavm-metaprogramming-impl jars of the same version from Maven Central into one folder, and point TAC_TEAVM_HOME at it. Run ty doctor";
-    const UNKNOWN_RUNTIME: &'static str = "The TeaVM runtime.js is not the one of TeaVM 0.15.0, so Tachyon cannot make it run without code made from text, which the page's content security policy forbids. Install TeaVM 0.15.0 and point TAC_TEAVM_HOME at it.";
+    const MISSING_TEAVM: &'static str = "Java web services need TeaVM 0.15.0. Run `ty doctor --install` to download its five jars from Maven Central into Tachyon's cache, or put the TeaVM command-line jar (org.teavm:cli:0.15.0, the -all jar) and the teavm-classlib, teavm-jso-impl, teavm-platform and teavm-metaprogramming-impl jars of the same version into one folder and point TAC_TEAVM_HOME at it. Run ty doctor";
+    const UNKNOWN_RUNTIME: &'static str = "The TeaVM runtime.js is not the one of TeaVM 0.15.0, so Tachyon cannot make it run without code made from text, which the page's content security policy forbids. Run `ty doctor --install` for TeaVM 0.15.0, or point TAC_TEAVM_HOME at the jars of TeaVM 0.15.0.";
     const MISSING_JDK: &'static str = "Install a JDK 21 or newer and put its bin folder on PATH";
 
     pub(super) fn is_installed() -> bool {

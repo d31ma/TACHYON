@@ -199,7 +199,7 @@ fn unknown_and_conflicting_answers_are_refused_with_ty1408() {
         "{unknown}"
     );
     assert!(
-        unknown.contains("js, ts, dart, rs, cs, fs, go, rb, swift, kt"),
+        unknown.contains("js, ts, dart, rs, cs, fs, go, rb, swift, kt, java"),
         "{unknown}"
     );
     let python_page = error_text(&answers(None, Some("py"), None));

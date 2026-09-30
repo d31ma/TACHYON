@@ -412,7 +412,11 @@ mod tests {
             report.toolchains
         );
         assert!(!report.toolchains[1].required, "{:?}", report.toolchains);
-        assert!(report.toolchains[1].install.contains("standard Go compiler"));
+        assert!(
+            report.toolchains[1]
+                .install
+                .contains("standard Go compiler")
+        );
         assert!(!report.toolchains[2].required, "{:?}", report.toolchains);
         let entry = &report.toolchains[0];
         assert_eq!(entry.requirement, "Go services on the web");
@@ -434,14 +438,18 @@ mod tests {
         let report = check(root.path()).expect("report");
         assert_eq!(
             command_names(&report),
-            ["javac + TAC_TEAVM_HOME", "wasm-opt"],
+            ["javac", "teavm", "wasm-opt"],
             "{:?}",
             report.toolchains
         );
-        let entry = &report.toolchains[0];
-        assert_eq!(entry.requirement, "Java services on the web");
-        assert!(entry.required, "{entry:?}");
-        assert!(entry.install.contains("TeaVM 0.15.0"), "{entry:?}");
+        let compiler = &report.toolchains[0];
+        assert_eq!(compiler.requirement, "Java services on the web");
+        assert!(compiler.install.contains("JDK 21"), "{compiler:?}");
+        let tea_vm = &report.toolchains[1];
+        assert_eq!(tea_vm.requirement, "Java services on the web");
+        assert!(tea_vm.required, "{tea_vm:?}");
+        assert!(tea_vm.install.contains("ty doctor --install"), "{tea_vm:?}");
+        assert!(tea_vm.install.contains("TeaVM 0.15.0"), "{tea_vm:?}");
     }
 
     #[cfg(unix)]

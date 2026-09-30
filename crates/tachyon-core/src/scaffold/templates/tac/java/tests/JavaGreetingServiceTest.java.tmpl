@@ -1,0 +1,8 @@
+@Test(JavaGreetingTestSetup.class, {"partition":"tests"})
+class JavaGreetingServiceTest {
+    void testGreetChangesTheMessage() {
+        JavaGreetingService greeting = new JavaGreetingService();
+        greeting.greet();
+        Assert.equals("Java says hello again.", greeting.message);
+    }
+}

@@ -14,11 +14,12 @@ pub enum TacLanguage {
     Ruby,
     Swift,
     Kotlin,
+    Java,
 }
 
 impl TacLanguage {
     const OUTPUT: &'static str = "client/";
-    const ROWS: [LanguageRow; 10] = [
+    const ROWS: [LanguageRow; 11] = [
         ("js,javascript", "JavaScript", "shell", ""),
         ("ts,typescript", "TypeScript", "typeScriptGreeting", ""),
         ("dart", "Dart", "dartGreeting", ""),
@@ -38,6 +39,12 @@ impl TacLanguage {
             "Kotlin",
             "kotlinGreeting",
             "Kotlin services run in the Android app. The web and the other targets use the JavaScript copy of the service.",
+        ),
+        (
+            "java",
+            "Java",
+            "javaGreeting",
+            "Java services reach every target as WebAssembly through TeaVM 0.15.0. Tachyon can install TeaVM into its cache, or you point TAC_TEAVM_HOME at the TeaVM jars.",
         ),
     ];
 
@@ -75,6 +82,7 @@ impl Choice for TacLanguage {
         Self::Ruby,
         Self::Swift,
         Self::Kotlin,
+        Self::Java,
     ];
     const QUESTION: &'static str =
         "Which languages do you want for the pages (Tac)? You can choose more than one.";

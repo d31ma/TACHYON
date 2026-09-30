@@ -148,22 +148,29 @@ impl KnownToolchains {
     }
 
     pub(super) fn java_web() -> Toolchain {
-        let state = match (
-            crate::native::JavaWebServices::teavm_installed(),
-            crate::wasm_optimizer::WasmOptimizer::is_installed(),
-        ) {
-            (false, _) => ToolchainState::Missing,
-            (true, false) => ToolchainState::Incomplete(String::from(
-                "wasm-opt (Binaryen) was not found, so release builds ship Java about 2x larger. Install Binaryen or put Emscripten on PATH",
-            )),
-            (true, true) => CommandProbe::version_state("javac", &["-version"]),
+        Toolchain {
+            requirement: String::from("Java services on the web"),
+            command: String::from("javac"),
+            state: CommandProbe::version_state("javac", &["-version"]),
+            install: String::from("Install a JDK 21 or newer and put its bin folder on PATH."),
+            required: true,
+        }
+    }
+
+    pub(super) fn tea_vm() -> Toolchain {
+        let home = crate::native::JavaWebServices::teavm_home();
+        let state = if crate::native::JavaWebServices::teavm_installed() {
+            ToolchainState::Ready(format!("TeaVM 0.15.0 in {}", home.display()))
+        } else {
+            ToolchainState::Missing
         };
         Toolchain {
             requirement: String::from("Java services on the web"),
-            command: String::from("javac + TAC_TEAVM_HOME"),
+            command: String::from("teavm"),
             state,
-            install: String::from(
-                "Install a JDK 21 or newer. Download TeaVM 0.15.0 from Maven Central (the org.teavm:cli -all jar and the teavm-classlib, teavm-jso-impl, teavm-platform and teavm-metaprogramming-impl jars) into one folder and set TAC_TEAVM_HOME to it.",
+            install: format!(
+                "Run `ty doctor --install`. Tachyon downloads the five TeaVM 0.15.0 jars from Maven Central, checks each one against the SHA-256 that it pins, and keeps them in {}. Or put the jars into a folder of your own and set TAC_TEAVM_HOME to it.",
+                crate::native::JavaWebServices::managed_teavm_folder().display()
             ),
             required: true,
         }

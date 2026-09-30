@@ -741,6 +741,8 @@ fn development_server_builds_and_serves_with_defensive_headers() {
     assert!(response.contains("x-content-type-options: nosniff"));
     assert!(response.contains("content-security-policy:"));
     assert!(response.contains("'wasm-unsafe-eval'"));
+    assert!(response.contains("'sha256-"), "{response}");
+    assert!(!response.contains("inline-speculation-rules"), "{response}");
     assert!(response.contains(r#"{"ok":true,"framework":"Tachyon"}"#));
     assert!(head.starts_with("HTTP/1.1 200 OK"), "{head}");
     assert!(!head.contains(r#"{"ok":true,"framework":"Tachyon"}"#));

@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::path::Path;
 use tachyon_core::tool_setup::{
     Consent, InstallContext, InstallRecipes, NeededTool, SystemRunner, ToolCheck, ToolSetup,
@@ -14,6 +15,13 @@ impl ToolStep {
         consent: Consent,
     ) -> Result<(), Failure> {
         Self::run_unless_skipped(root, choices, skip, consent)
+    }
+
+    pub fn install_for_project(root: &Path, answer_yes: bool) -> Result<(), Failure> {
+        println!("Checking the tools that this project needs...");
+        let missing = ToolCheck::missing_for_project(root)?;
+        let consent = Consent::from_options(answer_yes, std::io::stdin().is_terminal());
+        Self::setup(root, &missing, consent)
     }
 
     pub fn print_notes(choices: &ProjectChoices) {

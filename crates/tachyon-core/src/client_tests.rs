@@ -109,6 +109,12 @@ pub fn run_with(
         ),
         "swift" => swift(directory, &portable, &lowered, &name, &models),
         "kt" => kotlin(directory, &portable, &lowered, &name, &models),
+        "java" => java(
+            directory,
+            &portable,
+            &models.add_to_program(&lowered),
+            &name,
+        ),
         "cs" => csharp(
             directory,
             &portable,
@@ -201,7 +207,10 @@ fn lower_unit(
 }
 
 fn native_source(relative: &Path, extension: &str, assembled: String) -> Result<String, Failure> {
-    if !matches!(extension, "cs" | "rs" | "go" | "swift" | "kt" | "rb") {
+    if !matches!(
+        extension,
+        "cs" | "rs" | "go" | "swift" | "kt" | "rb" | "java"
+    ) {
         return Ok(assembled);
     }
     let stripped = crate::behavior::ServiceRoles::read(relative, &assembled)?.source;
@@ -691,6 +700,33 @@ fn kotlin(
         portable,
     )?;
     execute(Command::new("java").arg("-jar").arg(&jar), portable)
+}
+
+fn java(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result<String, Failure> {
+    let classes = directory.join("classes");
+    std::fs::write(
+        directory.join("Unit.java"),
+        format!(
+            "{lowered}\nfinal class TachyonTestMain {{\n\
+             public static void main(String[] arguments) {{ System.out.println(Behaviors.encode(new {name}().POST())); }}\n}}\n"
+        ),
+    )
+    .map_err(|error| stage_failure(portable, &error))?;
+    execute(
+        Command::new("javac")
+            .args(["--release", "21", "-nowarn", "-d"])
+            .arg(&classes)
+            .arg(directory.join("Unit.java")),
+        portable,
+    )?;
+    execute(
+        Command::new("java")
+            .arg("-ea")
+            .arg("-cp")
+            .arg(&classes)
+            .arg("TachyonTestMain"),
+        portable,
+    )
 }
 
 fn csharp(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result<String, Failure> {

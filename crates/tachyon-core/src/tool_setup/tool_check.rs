@@ -28,6 +28,14 @@ impl ToolCheck {
         Ok(tools)
     }
 
+    pub fn missing_for_project(root: &Path) -> Result<Vec<NeededTool>, Failure> {
+        let report = DoctorReport::check(root)?;
+        let mut tools = Self::from_report(&report.toolchains);
+        tools.sort();
+        tools.dedup();
+        Ok(tools)
+    }
+
     fn from_report(toolchains: &[Toolchain]) -> Vec<NeededTool> {
         toolchains
             .iter()

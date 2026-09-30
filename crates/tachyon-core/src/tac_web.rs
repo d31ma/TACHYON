@@ -246,7 +246,7 @@ fn module(instance: &str, class: &str, shared: &str, topics: &serde_json::Value)
     )
 }
 
-fn base64(bytes: &[u8]) -> String {
+pub(crate) fn base64(bytes: &[u8]) -> String {
     let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
         let mut triple = 0u32;

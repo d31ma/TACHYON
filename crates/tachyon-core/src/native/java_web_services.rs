@@ -10,6 +10,7 @@ use java_value_type::JavaValueType;
 use java_wasm_program::JavaWasmProgram;
 use java_web_apis::JavaWebApis;
 use std::path::{Path, PathBuf};
+use tea_vm_toolchain::TeaVmToolchain;
 
 mod java_browser_runtime;
 mod java_class_reader;
@@ -126,6 +127,14 @@ impl JavaWebServices {
 
     pub(crate) fn teavm_installed() -> bool {
         JavaWasmProgram::is_installed()
+    }
+
+    pub(crate) fn teavm_home() -> PathBuf {
+        TeaVmToolchain::home()
+    }
+
+    pub(crate) fn managed_teavm_folder() -> PathBuf {
+        TeaVmToolchain::managed_folder()
     }
 
     pub(crate) async fn build(

@@ -1,6 +1,6 @@
 use super::{
     ArchiveRecipes, DotnetRecipes, EmscriptenRecipe, InstallContext, InstallPlan, NeededTool,
-    RustRecipes, SdkmanRecipes, SystemRecipes, TinyGoRecipe, TypeScriptRecipe,
+    RustRecipes, SdkmanRecipes, SystemRecipes, TeaVmRecipe, TinyGoRecipe, TypeScriptRecipe,
 };
 
 pub struct InstallRecipes;
@@ -29,6 +29,7 @@ impl InstallRecipes {
             NeededTool::TypeScript => TypeScriptRecipe::plan(context),
             NeededTool::Emscripten => EmscriptenRecipe::plan(context),
             NeededTool::Java => SdkmanRecipes::java(context),
+            NeededTool::TeaVm => TeaVmRecipe::plan(),
             NeededTool::Groovy => SdkmanRecipes::groovy(context),
             NeededTool::Kotlin => SdkmanRecipes::kotlin(context),
             NeededTool::Gradle => SdkmanRecipes::gradle(context),

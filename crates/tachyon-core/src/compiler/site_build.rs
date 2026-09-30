@@ -538,7 +538,7 @@ impl<'a> SiteBuild<'a> {
         if !self.component_styles.is_empty() {
             html = PageHead::inject_before(&html, "</head>", WebCompiler::COMPONENT_STYLE_LINK);
         }
-        html = PageHead::inject_before(&html, "</head>", WebCompiler::SPECULATION_RULES);
+        html = PageHead::inject_before(&html, "</head>", &super::SpeculationRules::tag());
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 

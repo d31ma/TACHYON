@@ -73,7 +73,7 @@
       "code": {
         "file": "client/services/TallyService.java"
       },
-      "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083)."
+      "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083). `ty init --tac java` creates a Java service with its test unit, and `ty doctor --install` puts the TeaVM 0.15.0 jars into the Tachyon cache after it checks each one against its pinned SHA-256; `TAC_TEAVM_HOME` can point at your own copy instead."
     },
     {
       "name": "client/services/TallyService.cs",

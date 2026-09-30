@@ -11,6 +11,7 @@ pub enum NeededTool {
     CCompiler,
     Emscripten,
     Java,
+    TeaVm,
     Groovy,
     Kotlin,
     Gradle,
@@ -28,7 +29,7 @@ pub enum NeededTool {
 }
 
 impl NeededTool {
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::Bun,
         Self::TypeScript,
         Self::Python,
@@ -38,6 +39,7 @@ impl NeededTool {
         Self::CCompiler,
         Self::Emscripten,
         Self::Java,
+        Self::TeaVm,
         Self::Groovy,
         Self::Kotlin,
         Self::Gradle,
@@ -53,7 +55,7 @@ impl NeededTool {
         Self::AndroidSdk,
         Self::LinuxDesktop,
     ];
-    const ENTRIES: [ToolEntry; 23] = [
+    const ENTRIES: [ToolEntry; 24] = [
         ToolEntry {
             label: "Bun, the JavaScript and TypeScript runtime",
             commands: &["bun", "node", "YON_JAVASCRIPT_RUNTIME"],
@@ -89,6 +91,10 @@ impl NeededTool {
         ToolEntry {
             label: "a Java JDK",
             commands: &["java", "javac"],
+        },
+        ToolEntry {
+            label: "TeaVM 0.15.0, which compiles Java services to WebAssembly",
+            commands: &["teavm"],
         },
         ToolEntry {
             label: "Apache Groovy",

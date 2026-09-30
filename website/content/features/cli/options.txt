@@ -6,7 +6,7 @@ Options every command understands
 ty init [directory]                 asks questions in a terminal; each one is also an option
   --name <name>                    the app name (TAC_APP_NAME also works)
   --realm client|server|both       the parts to create (both)
-  --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, swift, kt (js)
+  --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, swift, kt, java (js)
   --yon <l>[,<l>]                  js, ts, py, go, java, kt, cs, fs, php, rb, lua, rs, dart (js)
   --target <t>[,<t>]               web, macos, windows, linux, ios, android (web)
   --features <f>[,<f>]             storage, sockets, topics, streams, http-client,
@@ -47,6 +47,7 @@ ty serve                            compatibility development server
 
 ty start                            --host, --port, --allow-non-loopback, --out-dir
 ty doctor [project] --json          machine-readable toolchain report
+ty doctor [project] --install       offer to install each missing tool (-y/--yes: all)
 ty migrate check [project]          every construct not yet supported
 ty cache status | clean             where the runtime cache is, or remove it
 

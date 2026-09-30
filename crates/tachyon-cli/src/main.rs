@@ -325,6 +325,18 @@ enum Command {
             long
         )]
         json: bool,
+        #[arg(
+            help = "Offer to install each missing tool that Tachyon can install, then report",
+            long,
+            conflicts_with = "json"
+        )]
+        install: bool,
+        #[arg(
+            help = "With --install, install every missing tool without asking",
+            long,
+            requires = "install"
+        )]
+        yes: bool,
     },
     #[command(about = "Inspect or clear the installation cache", display_order = 6)]
     Cache {
@@ -561,7 +573,17 @@ async fn execute(command: &Command) -> Result<(), Failure> {
         Command::Dev { .. } => execute_dev_command(command).await,
         Command::Start { .. } => execute_start_command(command).await,
         Command::Preview { .. } => execute_preview_command(command).await,
-        Command::Doctor { project, json } => execute_doctor(project, *json),
+        Command::Doctor {
+            project,
+            json,
+            install,
+            yes,
+        } => {
+            if *install {
+                tool_step::ToolStep::install_for_project(project, *yes)?;
+            }
+            execute_doctor(project, *json)
+        }
         Command::Cache { command } => execute_cache(command.as_ref()),
         Command::Test { project, coverage } => execute_test(project, *coverage).await,
         Command::Types { project } => execute_types(project),

@@ -2,7 +2,7 @@
 
 use super::{
     Consent, HostPlatform, InstallContext, InstallPlan, InstallRecipes, InstallStep, NeededTool,
-    PlanKind, Sha256Check, ToolCommand, ToolRunner, ToolSetup,
+    PlanKind, Sha256Check, TeaVmRecipe, ToolCommand, ToolRunner, ToolSetup,
 };
 use crate::Failure;
 use sha2::{Digest, Sha256};
@@ -201,7 +201,8 @@ fn admin_and_manual_tools_are_only_explained() {
 }
 
 #[test]
-fn every_tool_has_a_plan_on_every_system_and_automatic_plans_stay_in_the_home_folder() {
+fn every_tool_has_a_plan_on_every_system_and_automatic_plans_stay_in_the_home_folder_or_the_cache()
+{
     let home = tempfile::tempdir().expect("home");
     for system in [
         HostPlatform::MACOS,
@@ -223,7 +224,7 @@ fn every_tool_has_a_plan_on_every_system_and_automatic_plans_stay_in_the_home_fo
                 | InstallStep::MoveFolder { to: folder, .. } = step
                 {
                     assert!(
-                        folder.starts_with(home.path()),
+                        folder.starts_with(home.path()) || folder.starts_with(crate::cache::root()),
                         "{tool:?} on {system}: {text}"
                     );
                 }
@@ -287,7 +288,9 @@ fn tinygo_and_binaryen_install_from_their_pinned_or_published_downloads() {
     let tinygo = InstallRecipes::plan(NeededTool::TinyGo, &mac);
     let steps: Vec<String> = tinygo.steps.iter().map(InstallStep::text).collect();
     assert!(
-        steps.iter().any(|step| step.contains("tinygo0.42.0.darwin-")),
+        steps
+            .iter()
+            .any(|step| step.contains("tinygo0.42.0.darwin-")),
         "{steps:?}"
     );
     let binaryen = InstallRecipes::plan(NeededTool::Binaryen, &mac);
@@ -298,6 +301,89 @@ fn tinygo_and_binaryen_install_from_their_pinned_or_published_downloads() {
             .any(|step| step.contains("binaryen-version_133-") && step.contains(".tar.gz.sha256")),
         "{steps:?}"
     );
-    assert_eq!(NeededTool::for_command("wasm-opt"), Some(NeededTool::Binaryen));
+    assert_eq!(
+        NeededTool::for_command("wasm-opt"),
+        Some(NeededTool::Binaryen)
+    );
     assert_eq!(NeededTool::for_command("tinygo"), Some(NeededTool::TinyGo));
+}
+
+#[test]
+fn teavm_installs_the_five_pinned_maven_central_jars_of_the_ci_job_into_the_tachyon_cache() {
+    let home = tempfile::tempdir().expect("home");
+    let plan = InstallRecipes::plan(
+        NeededTool::TeaVm,
+        &context(home.path(), HostPlatform::MACOS),
+    );
+    assert_eq!(plan.kind, PlanKind::Automatic);
+    let folder = crate::native::JavaWebServices::managed_teavm_folder();
+    assert!(
+        folder.starts_with(crate::cache::root()),
+        "{}",
+        folder.display()
+    );
+    let urls: Vec<&str> = plan
+        .steps
+        .iter()
+        .filter_map(|step| match step {
+            InstallStep::Download { url, .. } => Some(url.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(urls.len(), 5, "{urls:?}");
+    assert!(
+        urls.iter().all(
+            |url| url.starts_with("https://repo1.maven.org/maven2/org/teavm/")
+                && url.contains("/0.15.0/")
+        ),
+        "{urls:?}"
+    );
+    let pinned: Vec<String> = plan
+        .steps
+        .iter()
+        .filter_map(|step| match step {
+            InstallStep::CheckPinned { file, sha256 } => Some(format!(
+                "{} {sha256}",
+                file.file_name().expect("jar").to_string_lossy()
+            )),
+            _ => None,
+        })
+        .collect();
+    let workflow = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.github/workflows/rust-ci.yml"),
+    )
+    .expect("CI workflow");
+    assert_eq!(pinned.len(), 5, "{pinned:?}");
+    assert!(
+        pinned.iter().all(|line| workflow.contains(line.as_str())),
+        "{pinned:?}"
+    );
+    assert_eq!(
+        plan.steps.last(),
+        Some(&InstallStep::MoveFolder {
+            from: PathBuf::from(format!("{}.unfinished", folder.display())),
+            to: folder,
+        })
+    );
+}
+
+#[test]
+fn a_teavm_jar_with_a_wrong_hash_stops_the_install_and_leaves_no_teavm_folder() {
+    let cache = tempfile::tempdir().expect("cache");
+    let folder = cache.path().join("teavm-0.15.0");
+    let mut runner = FakeRunner::new(b"not the TeaVM jar", "");
+    let mut input = "".as_bytes();
+    let mut output = Vec::new();
+    let error = ToolSetup::new(&mut input, &mut output, &mut runner, Consent::Always)
+        .run(&[TeaVmRecipe::plan_into(&folder)])
+        .expect_err("hash mismatch");
+    assert!(error.to_string().contains("TY1409"), "{error}");
+    assert_eq!(runner.commands.len(), 1, "no download after a failed check");
+    assert!(!folder.exists());
+    assert!(
+        !cache
+            .path()
+            .join("teavm-0.15.0.unfinished/cli-0.15.0-all.jar")
+            .exists()
+    );
 }
