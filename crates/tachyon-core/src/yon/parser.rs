@@ -699,13 +699,13 @@ fn declares_namespace(extension: &str, line: &str) -> bool {
 }
 
 fn names_a_type(extension: &str, token: &str) -> bool {
-    if extension == "go" {
-        return token == "type";
+    match (extension, token) {
+        ("go", _) => token == "type",
+        ("rb" | "py", _) => token == "class",
+        (_, "record") => matches!(extension, "java" | "cs" | "groovy"),
+        (_, "object") => extension == "kt",
+        _ => matches!(token, "class" | "struct" | "interface" | "enum"),
     }
-    matches!(
-        token,
-        "class" | "struct" | "interface" | "object" | "enum" | "record"
-    )
 }
 
 fn declared_type(input: &Input<'_>, declaration: &Declaration) -> Option<(String, usize)> {
@@ -2357,10 +2357,35 @@ mod tests {
             "reserved __Yon",
         );
         rejects(
+            "java",
+            "@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n public Object get() { return null; }\n}\nrecord ApplicationEventPublisher() {}",
+            "framework-owned DataSource, RedisTemplate or ApplicationEventPublisher",
+        );
+        rejects(
             "js",
             &controller(" @UseGuards(Auth)\n @GetRoute\n get() {}"),
             "does not implement",
         );
+    }
+
+    #[test]
+    fn a_parameter_named_like_another_language_type_keyword_is_not_a_declaration() {
+        for (extension, source) in [
+            (
+                "rb",
+                "#[RequestRoute(\"/c\")]\nclass C\n  #[PostRoute]\n  def post(record)\n    ApplicationEventPublisher.new.publish_event(record)\n  end\nend\n",
+            ),
+            (
+                "py",
+                "@request_route(\"/c\")\nclass C:\n    @post_route\n    def post(self, object):\n        return object or ApplicationEventPublisher\n",
+            ),
+            (
+                "js",
+                "@RequestRoute(\"/c\")\nclass C {\n @PostRoute\n post(record) { return record || ApplicationEventPublisher; }\n}",
+            ),
+        ] {
+            assert_eq!(parsed(extension, source).plan.routes.len(), 1);
+        }
     }
 
     #[test]
