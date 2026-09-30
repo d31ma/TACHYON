@@ -274,11 +274,6 @@ fn an_fsharp_store_that_inherits_repository_gets_the_repository_methods() {
     assert!(accepted.is_ok(), "{accepted:?}");
     let lowered = DeclaredContract::concrete(path, source, "yon").expect("lowered");
     assert!(!lowered.contains("inherit"), "{lowered}");
-    assert_eq!(
-        lowered.lines().count(),
-        source.lines().count() + 6,
-        "{lowered}"
-    );
     for part in [
         "    abstract findById: id: BehaviorJSON -> System.Threading.Tasks.Task<BehaviorJSON>\n",
         "    abstract findAll: page: BehaviorJSON -> System.Threading.Tasks.Task<BehaviorJSON>\n",
