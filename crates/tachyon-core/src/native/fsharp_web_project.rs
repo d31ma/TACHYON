@@ -155,11 +155,10 @@ mod tests {
         let files = FsharpWebProject::files(root.path(), "namespace TachyonService0\n", "")
             .unwrap_or_else(|error| panic!("files: {error}"));
         let named = |wanted: &str| {
-            files
-                .iter()
-                .find(|(name, _)| name == wanted)
-                .map(|(_, contents)| contents.clone())
-                .unwrap_or_else(|| panic!("no {wanted} in {files:?}"))
+            files.iter().find(|(name, _)| name == wanted).map_or_else(
+                || panic!("no {wanted} in {files:?}"),
+                |(_, contents)| contents.clone(),
+            )
         };
         let project = named("FsharpServices/FsharpServices.fsproj");
         assert!(
