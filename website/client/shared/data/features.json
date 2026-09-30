@@ -1877,7 +1877,7 @@
     {
       "id": "gateways",
       "title": "Calling a method in another language",
-      "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed. In the example, JavaScript calls the Java class `ReportService.java`, and Python calls it too. Java, Groovy and every other language call the Python class `LedgerService.py`, and every language also runs the program `forecast.py`. Lua cannot declare a gateway yet: the build refuses `@Gateway` in Lua with `TY1308`.",
+      "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed. In the example, JavaScript and TypeScript call the Java class `ReportService.java`, and Python calls it too. Java, Groovy and every other language call the Python class `LedgerService.py`, and every language also runs the program `forecast.py`. Lua cannot declare a gateway yet: the build refuses `@Gateway` in Lua with `TY1308`.",
       "group": "Polyglot",
       "files": [
         {
@@ -1949,16 +1949,16 @@
           "code": "import models.Balance\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    final LedgerClient ledgerClient\n\n    @GetRoute\n    Balance getLedger() {\n        return new Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L))\n    }\n}\n"
         },
         {
-          "name": "server/clients/LedgerClient.ts",
-          "code": "@HTTPClient\nexport default class LedgerClient {\n  @Gateway({\"class\":\"server/services/LedgerService.py\"})\n  async balance(account: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
+          "name": "server/clients/ReportClient.ts",
+          "code": "@HTTPClient\nexport default class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.java\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
         },
         {
-          "name": "server/controllers/LedgerController.ts",
-          "code": "import type { Balance } from '/models/Balance.ts'\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n  @Needs\n  readonly ledgerClient!: LedgerClient;\n\n  @GetRoute\n  async getLedger(): Promise<Balance> {\n    const balance = await this.ledgerClient.balance('ACME-7');\n    const forecast = await this.ledgerClient.forecast(1);\n    return { balance, forecast };\n  }\n}\n"
+          "name": "server/controllers/ReportController.ts",
+          "code": "import type { Report } from '/models/Report.ts'\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @Needs\n  readonly reportClient!: ReportClient;\n\n  @GetRoute\n  async getReport(): Promise<Report> {\n    const summary = await this.reportClient.summarize('2026-Q3');\n    const forecast = await this.reportClient.forecast(3);\n    return { summary, forecast };\n  }\n}\n"
         },
         {
-          "name": "server/models/Balance.ts",
-          "code": "export interface Balance {\n  balance: unknown\n  forecast: unknown\n}\n"
+          "name": "server/models/Report.ts",
+          "code": "export interface Report {\n  summary: unknown\n  forecast: unknown\n}\n"
         },
         {
           "name": "server/clients/LedgerClient.php",
