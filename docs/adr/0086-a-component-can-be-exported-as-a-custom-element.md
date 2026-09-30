@@ -2,7 +2,8 @@
 
 - Status: Accepted (slice 1: components whose services are JavaScript or
   TypeScript; slice 2: a project without pages, TypeScript declarations and
-  named slots; the items under "Later" are open)
+  named slots; slice 3: services in compiled languages; the items under
+  "Later" are open)
 - Date: 2026-09-29
 - Relates to: [ADR 0029](0029-pages-compose-components.md) (a component is
   the unit of view, behaviour and style),
@@ -128,6 +129,15 @@ page that has no Tac view plan.
 An element whose component uses a service activates when it joins the page,
 like `hydrate="load"`.
 
+A service in a compiled language (WebAssembly), such as Rust, Go or Ruby,
+works inside an exported element (slice 3). Its module in
+`.tachyon/services/` imports the shared runtime of its language, such as
+`tachyon-rust.js`, as it does on a Tac page. So a host page loads one
+runtime per language, even with several elements whose services use that
+language, and a singleton service is shared by those elements. A host page
+with a Content Security Policy must allow `'wasm-unsafe-eval'` in
+`script-src`. The policy that the Tachyon server sends already allows it.
+
 ### Build output
 
 There is no new build target. `ty build` and `ty preview` write one ES module
@@ -206,10 +216,20 @@ children without any `<slot>` already did. No new code is needed.
   Chromium, Firefox and WebKit.
 - CI runs `scripts/web-components-browser-test.mjs`.
 
+## Acceptance (slice 3)
+
+- A plain HTML host page, tested in Chromium, Firefox and WebKit, runs a
+  Rust, a Go and a Ruby service inside exported elements: the view starts,
+  a button in the shadow root calls a method, and a Rust and a Go event
+  reach the host page.
+- Each language runtime loads once, and a second element shares the
+  singleton service.
+
 ## Later
 
-- Services in compiled languages (WebAssembly) inside exported elements,
-  once each loader is tested there.
+- Tests of C#, F#, Swift, Kotlin, Java and Dart services inside exported
+  elements. They load the same way, but only Rust, Go and Ruby are tested
+  there.
 - Serving an export from another origin (CORS headers, and resolving service
   URLs against the runtime's own URL).
 - Typed props in the declarations (from the types of the fields that a

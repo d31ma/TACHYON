@@ -597,6 +597,11 @@ machine contracts have their own, independent major versions.
   exported element. A child for a slot that the component does not declare
   stops the build with `TY1404`. CI runs the web components browser test in
   Chromium, Firefox and WebKit.
+- Exported elements, slice 3 (ADR 0086). Services in compiled languages
+  (WebAssembly) run inside exported elements, through the same loaders as
+  on a Tac page: each language runtime loads once per page, and elements
+  share a singleton service. The browser test runs Rust, Go and Ruby
+  services in a plain HTML host page in Chromium, Firefox and WebKit.
 - Lua is a Yon language (ADR 0085). Controllers, services and the other
   roles, error handlers and error types, root middleware (`middleware.lua`),
   models and test units run on Lua 5.4 or newer. Lua has no annotation
