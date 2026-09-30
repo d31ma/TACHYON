@@ -90,7 +90,9 @@ impl ComponentSlots {
     }
 
     fn collect(&mut self, nodes: &[TemplateNode]) {
-        nodes.iter().for_each(|node| self.add(&node.kind));
+        for node in nodes {
+            self.add(&node.kind);
+        }
     }
 
     fn add(&mut self, kind: &TemplateNodeKind) {

@@ -113,13 +113,17 @@ impl<'a> ElementDeclaration<'a> {
         let props: String = self
             .props
             .iter()
-            .map(|prop| format!("  {}: {}\n", Self::member_name(prop), Self::PROP_TYPE))
+            .map(|prop| Self::prop_line(prop))
             .collect();
         let listeners: String = Self::LISTENER_METHODS
             .iter()
             .map(|(method, options)| self.listener_lines(&class, method, options))
             .collect();
         format!("export declare class {class} extends HTMLElement {{\n{props}{listeners}}}\n\n")
+    }
+
+    fn prop_line(prop: &str) -> String {
+        format!("  {}: {}\n", Self::member_name(prop), Self::PROP_TYPE)
     }
 
     fn listener_lines(&self, class: &str, method: &str, options: &str) -> String {

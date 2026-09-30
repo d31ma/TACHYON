@@ -44,12 +44,10 @@ impl ElementEvents {
     fn add_source(&mut self, project_root: &Path, script: &Path, language: &str) {
         let source = std::fs::read_to_string(script).unwrap_or_default();
         let tables = Self::model_tables(project_root, language, &source);
-        Publications::event_names(language, &source)
-            .into_iter()
-            .for_each(|name| {
-                self.add_models(&tables, &name);
-                self.names.insert(name);
-            });
+        for name in Publications::event_names(language, &source) {
+            self.add_models(&tables, &name);
+            self.names.insert(name);
+        }
     }
 
     fn add_models(&mut self, tables: &[ModelTable], name: &str) {
