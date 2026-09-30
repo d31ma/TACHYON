@@ -14,10 +14,11 @@ pub(crate) enum WebLanguage {
     Swift,
     Java,
     Ruby,
+    Lua,
 }
 
 impl WebLanguage {
-    pub(crate) const PREFERENCE: [Self; 7] = [
+    pub(crate) const PREFERENCE: [Self; 8] = [
         Self::Rust,
         Self::Go,
         Self::CSharp,
@@ -25,6 +26,7 @@ impl WebLanguage {
         Self::Kotlin,
         Self::Java,
         Self::Ruby,
+        Self::Lua,
     ];
 
     const fn shared_module(self) -> &'static str {
@@ -36,6 +38,7 @@ impl WebLanguage {
             Self::Swift => "tachyon-swift.js",
             Self::Java => "tachyon-java.js",
             Self::Ruby => "tachyon-ruby-services.js",
+            Self::Lua => "tachyon-lua-services.js",
         }
     }
 
@@ -48,6 +51,7 @@ impl WebLanguage {
             Self::Swift => "swift",
             Self::Java => "java",
             Self::Ruby => "rb",
+            Self::Lua => "lua",
         }
     }
 }
@@ -177,6 +181,10 @@ async fn build_language(
             published.extend(crate::tac_ruby::RubyWebServices::runtime_files().await?);
             ruby_engine(snapshot_root, &chosen)?
         }
+        WebLanguage::Lua => {
+            published.extend(crate::tac_lua::LuaWebServices::runtime_files().await?);
+            lua_engine(snapshot_root, &chosen)?
+        }
     };
     let shared = language.shared_module();
     let head = WebEngine::SHARED_HEAD;
@@ -224,6 +232,15 @@ fn ruby_engine(
     let program = crate::tac_ruby::RubyWebServices::program(snapshot_root, chosen)?;
     let literal = serde_json::to_string(&program).unwrap_or_default();
     Ok(WebEngine::RUBY_ENGINE.replace("__RUBY_PROGRAM__", &literal))
+}
+
+fn lua_engine(
+    snapshot_root: &Path,
+    chosen: &[(String, String, PathBuf)],
+) -> Result<String, Failure> {
+    let program = crate::tac_lua::LuaWebServices::program(snapshot_root, chosen)?;
+    let literal = serde_json::to_string(&program).unwrap_or_default();
+    Ok(WebEngine::LUA_ENGINE.replace("__LUA_PROGRAM__", &literal))
 }
 
 fn module(instance: &str, class: &str, shared: &str, topics: &serde_json::Value) -> String {
@@ -506,6 +523,20 @@ const ruby = await TachyonRuby.start(rubyModule, writeLine, (payload) => { publi
 const bootFailure = ruby.boot(__RUBY_PROGRAM__)
 if (bootFailure) throw new Error(`Ruby services did not start: ${JSON.parse(bootFailure).error}`)
 const transport = (text) => ruby.invoke(text)
+";
+
+    const LUA_ENGINE: &str = r"const { TachyonLua } = await import('./lua/tachyon-lua.js')
+const luaResponse = await fetch(new URL('./lua/tachyon-lua.wasm', import.meta.url))
+const luaModule = await WebAssembly.compile(await luaResponse.arrayBuffer())
+const writeLine = (line, descriptor) => { if (descriptor === 2) console.error(line); else console.log(line) }
+const luaHost = (text) => {
+  if (JSON.parse(text).api) return webHost(text)
+  return storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' })
+}
+const lua = await TachyonLua.start(luaModule, writeLine, (payload) => { published.push(payload) }, luaHost)
+const bootFailure = lua.boot(__LUA_PROGRAM__)
+if (bootFailure) throw new Error(`Lua services did not start: ${JSON.parse(bootFailure).error}`)
+const transport = (text) => lua.invoke(text)
 ";
 
     const SHARED_TAIL: &str = r"const publishers = new Map()

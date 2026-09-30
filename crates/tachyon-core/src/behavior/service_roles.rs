@@ -14,7 +14,7 @@ impl ServiceRoles {
     ];
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
-        crate::fsharp_source::FsharpView::either(path, source, |path, source| {
+        crate::lua_source::LuaView::either(path, source, |path, source| {
             Self::scan(path, source, false)
         })
     }

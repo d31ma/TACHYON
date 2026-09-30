@@ -23,7 +23,7 @@ use lua_lowering::LuaLowering;
 pub(crate) use lua_models::LuaModels;
 pub(crate) use lua_shadow::LuaShadow;
 pub(crate) use lua_style::LuaStyle;
-use lua_test_unit::LuaTestUnit;
+pub(crate) use lua_test_unit::LuaTestUnit;
 use lua_types::LuaTypes;
 pub(crate) use lua_view::LuaView;
 pub(crate) use lua_yon::LuaYon;
@@ -48,6 +48,18 @@ impl LuaSource {
 
     pub(crate) fn syntax(extension: &str) -> &str {
         Self::syntax_of(extension)
+    }
+
+    pub(crate) fn long_string(text: &str) -> String {
+        let equals = "=".repeat(Self::closing_level(text));
+        format!("[{equals}[{text}]{equals}]")
+    }
+
+    fn closing_level(text: &str) -> usize {
+        let probe = format!("{text}]");
+        (0..=text.len())
+            .find(|level| !probe.contains(&format!("]{}]", "=".repeat(*level))))
+            .unwrap_or_default()
     }
 
     fn syntax_of(extension: &str) -> &str {

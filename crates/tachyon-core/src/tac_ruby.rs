@@ -1,9 +1,7 @@
 mod ruby_model_readers;
 mod runtime_build;
 mod runtime_sources;
-mod runtime_step;
 mod runtime_tools;
-mod source_archive;
 
 pub(crate) use runtime_build::RubyRuntimeBuild;
 
@@ -140,7 +138,7 @@ impl RubyWebServices {
         ))
     }
 
-    fn metadata(
+    pub(crate) fn metadata(
         members: &RubyMembers,
         events: Option<&EventModule>,
         required: &[String],

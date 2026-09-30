@@ -12,6 +12,7 @@ pub enum TacLanguage {
     FSharp,
     Go,
     Ruby,
+    Lua,
     Swift,
     Kotlin,
     Java,
@@ -28,6 +29,7 @@ impl TacLanguage {
         ("fs,fsharp,f#", "F#", "fSharpGreeting", ""),
         ("go", "Go", "goGreeting", ""),
         ("rb,ruby", "Ruby", "rubyGreeting", ""),
+        ("lua", "Lua", "luaGreeting", ""),
         (
             "swift",
             "Swift",
@@ -80,6 +82,7 @@ impl Choice for TacLanguage {
         Self::FSharp,
         Self::Go,
         Self::Ruby,
+        Self::Lua,
         Self::Swift,
         Self::Kotlin,
         Self::Java,

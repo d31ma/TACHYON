@@ -129,7 +129,7 @@ fn entry_extension<'a>(entry: &'a Path, environment: &str) -> Result<&'a str, Fa
         .unwrap_or("");
     let supported = Module::EXTENSIONS.contains(&extension)
         && !(environment == "yon" && extension == "swift")
-        && !(environment == "tac" && matches!(extension, "groovy" | "py" | "php" | "lua"));
+        && !(environment == "tac" && matches!(extension, "groovy" | "py" | "php"));
     if !supported {
         return Err(invalid(
             entry,

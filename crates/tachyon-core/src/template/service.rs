@@ -25,6 +25,7 @@ pub(crate) struct ServiceDefinition {
     native: Vec<(NativeCompanion, PathBuf)>,
     go: Option<PathBuf>,
     ruby: Option<PathBuf>,
+    lua: Option<PathBuf>,
     java: Option<PathBuf>,
     fsharp: Option<PathBuf>,
     prototype: bool,
@@ -42,6 +43,7 @@ impl ServiceDefinition {
             native: Vec::new(),
             go: None,
             ruby: None,
+            lua: None,
             java: None,
             fsharp: None,
             prototype: false,
@@ -119,6 +121,7 @@ impl ServiceDefinition {
         let native = match language {
             WebLanguage::Go => return self.go.as_deref(),
             WebLanguage::Ruby => return self.ruby.as_deref(),
+            WebLanguage::Lua => return self.lua.as_deref(),
             WebLanguage::Java => return self.java.as_deref(),
             WebLanguage::Rust => NativeCompanion::Rust,
             WebLanguage::CSharp => NativeCompanion::CSharp,
@@ -289,7 +292,7 @@ fn add_service_file(
     let Some((class, extension)) = service_file_name(path) else {
         diagnostics.push(service_diagnostic(
             relative,
-            "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go or rb extension.",
+            "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go, rb or lua extension.",
             "Rename it, for example client/services/BasketService.js declaring class BasketService.",
         ));
         return false;
@@ -315,6 +318,10 @@ fn add_service_file(
     }
     if extension == "java" {
         definition.java = Some(path.to_path_buf());
+        return true;
+    }
+    if extension == crate::lua_source::LuaSource::EXTENSION {
+        definition.lua = Some(path.to_path_buf());
         return true;
     }
     if extension == crate::fsharp_source::FsharpSource::EXTENSION {
@@ -404,8 +411,9 @@ fn set_required_fields(
             || FsharpConstructorProps::takes_props(path, &source);
         if needs_all {
             let class = &definition.class;
-            let props = RequiredFields::props(path, &source, class, &injectable);
-            let injected = RequiredFields::injected_fields(path, &source, class, &injectable);
+            let (path, source) = crate::lua_source::LuaView::analysis(path, &source);
+            let props = RequiredFields::props(&path, &source, class, &injectable);
+            let injected = RequiredFields::injected_fields(&path, &source, class, &injectable);
             definition.required = props;
             definition.injected = injected;
         }
@@ -448,6 +456,9 @@ fn marked_source(definition: &ServiceDefinition) -> Option<&Path> {
     if let Some(fsharp) = &definition.fsharp {
         return Some(fsharp);
     }
+    if let Some(lua) = &definition.lua {
+        return Some(lua);
+    }
     let (_, path) = definition.native.first()?;
     Some(path)
 }
@@ -475,6 +486,7 @@ fn service_file_name(path: &Path) -> Option<(String, &'static str)> {
         "rs" => "rs",
         "go" => "go",
         "rb" => "rb",
+        "lua" => "lua",
         _ => return None,
     };
     let name = stem.strip_suffix("Service")?;

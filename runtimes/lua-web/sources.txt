@@ -1,0 +1,2 @@
+lua 5.4.9 2335b6c582a52654f94612bf10d2f4672805d05329aa6568b1d8cd9e5c6fb8e6 https://www.lua.org/ftp/lua-5.4.9.tar.gz
+emscripten 6.0.10 084896c728d82e44d7aa54afc4a7bf64031dda83f3a4c47ee3164cece247cd76 https://storage.googleapis.com/webassembly/emscripten-releases-builds/mac/666337b525e673e769121856d175f6f52b8ead64/wasm-binaries-arm64.tar.xz

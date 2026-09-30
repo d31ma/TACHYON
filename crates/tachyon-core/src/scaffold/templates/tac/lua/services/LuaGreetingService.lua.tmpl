@@ -1,0 +1,12 @@
+-- @Service
+---@class LuaGreetingService
+LuaGreetingService = {
+  ---@type string
+  message = "Hello from Lua",
+}
+
+---@return string
+function LuaGreetingService:greet()
+  self.message = "Lua says hello again."
+  return self.message
+end

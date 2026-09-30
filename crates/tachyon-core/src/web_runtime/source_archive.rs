@@ -1,4 +1,4 @@
-use super::runtime_step::RubyRuntimeStep;
+use super::WebRuntimeStep;
 use crate::Failure;
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -10,24 +10,24 @@ pub(crate) struct SourceArchive {
     pub(crate) version: String,
     checksum: String,
     url: String,
+    step: WebRuntimeStep,
 }
 
 impl SourceArchive {
     const DOWNLOAD_LIMIT: Duration = Duration::from_mins(10);
     const UNPACK_LIMIT: Duration = Duration::from_mins(5);
 
-    pub(crate) fn pinned(sources: &str, name: &str) -> Result<Self, Failure> {
-        let line = Self::line_named(sources, name).ok_or_else(|| {
-            RubyRuntimeStep::failure(&format!("The Ruby runtime sources do not pin '{name}'."))
-        })?;
-        Self::from_line(line)
+    pub(crate) fn pinned(step: WebRuntimeStep, sources: &str, name: &str) -> Result<Self, Failure> {
+        let line = Self::line_named(sources, name)
+            .ok_or_else(|| step.failure(&format!("The runtime sources do not pin '{name}'.")))?;
+        Self::from_line(step, line)
     }
 
     pub(crate) async fn unpack_into(&self, work: &Path, target: &str) -> Result<(), Failure> {
         let archive = format!("{}.tar.gz", self.name);
         self.download(&work.join(&archive)).await?;
         self.verify(&work.join(&archive))?;
-        RubyRuntimeStep::create_folder(&work.join(target))?;
+        self.step.create_folder(&work.join(target))?;
         let mut command = Command::new("tar");
         command
             .args([
@@ -39,7 +39,9 @@ impl SourceArchive {
             ])
             .current_dir(work);
         let label = format!("tar to unpack {}", self.name);
-        RubyRuntimeStep::run(&mut command, &label, Self::UNPACK_LIMIT).await
+        self.step
+            .run(&mut command, &label, Self::UNPACK_LIMIT)
+            .await
     }
 
     async fn download(&self, archive: &Path) -> Result<(), Failure> {
@@ -50,17 +52,19 @@ impl SourceArchive {
             .arg(archive)
             .arg(&self.url);
         let label = format!("curl to download {}", self.name);
-        RubyRuntimeStep::run(&mut command, &label, Self::DOWNLOAD_LIMIT).await
+        self.step
+            .run(&mut command, &label, Self::DOWNLOAD_LIMIT)
+            .await
     }
 
     fn verify(&self, archive: &Path) -> Result<(), Failure> {
-        let bytes = RubyRuntimeStep::read_file(archive)?;
+        let bytes = self.step.read_file(archive)?;
         let actual = crate::compiler::hex_digest(Sha256::digest(&bytes));
         if actual == self.checksum {
             return Ok(());
         }
         let _ = std::fs::remove_file(archive);
-        Err(RubyRuntimeStep::failure(&format!(
+        Err(self.step.failure(&format!(
             "The {} download from {} has SHA-256 {actual}, but Tachyon pins {}. Tachyon deleted the download and stopped.",
             self.name, self.url, self.checksum
         )))
@@ -72,11 +76,11 @@ impl SourceArchive {
             .find(|line| line.split_whitespace().next() == Some(name))
     }
 
-    fn from_line(line: &str) -> Result<Self, Failure> {
+    fn from_line(step: WebRuntimeStep, line: &str) -> Result<Self, Failure> {
         let fields: Vec<&str> = line.split_whitespace().collect();
         let [name, version, checksum, url] = fields[..] else {
-            return Err(RubyRuntimeStep::failure(&format!(
-                "The Ruby runtime source line '{line}' needs a name, a version, a SHA-256 and a URL."
+            return Err(step.failure(&format!(
+                "The runtime source line '{line}' needs a name, a version, a SHA-256 and a URL."
             )));
         };
         Ok(Self {
@@ -84,6 +88,7 @@ impl SourceArchive {
             version: String::from(version),
             checksum: String::from(checksum),
             url: String::from(url),
+            step,
         })
     }
 }
@@ -91,7 +96,7 @@ impl SourceArchive {
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
-    use super::SourceArchive;
+    use super::{SourceArchive, WebRuntimeStep};
     use sha2::{Digest, Sha256};
     use std::path::Path;
 
@@ -120,7 +125,12 @@ mod tests {
 
     fn pinned(archive: &Path, checksum: &str) -> SourceArchive {
         let url = url::Url::from_file_path(archive).expect("file url");
-        SourceArchive::pinned(&format!("demo 1 {checksum} {url}\n"), "demo").expect("pinned")
+        SourceArchive::pinned(
+            WebRuntimeStep::new("Demo"),
+            &format!("demo 1 {checksum} {url}\n"),
+            "demo",
+        )
+        .expect("pinned")
     }
 
     #[tokio::test]
@@ -164,7 +174,7 @@ mod tests {
 
     #[test]
     fn a_source_line_needs_all_four_fields() {
-        let failure = SourceArchive::pinned("demo 1 abc\n", "demo")
+        let failure = SourceArchive::pinned(WebRuntimeStep::new("Demo"), "demo 1 abc\n", "demo")
             .err()
             .expect("a short line must be refused");
         assert!(
@@ -173,6 +183,9 @@ mod tests {
                 .contains("needs a name, a version, a SHA-256 and a URL"),
             "{failure}"
         );
-        assert!(SourceArchive::pinned("other 1 abc url\n", "demo").is_err());
+        assert!(
+            SourceArchive::pinned(WebRuntimeStep::new("Demo"), "other 1 abc url\n", "demo")
+                .is_err()
+        );
     }
 }

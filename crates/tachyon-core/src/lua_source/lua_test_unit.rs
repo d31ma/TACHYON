@@ -2,14 +2,14 @@ use super::LuaLowering;
 use crate::behavior::UnitTable;
 use std::fmt::Write as _;
 
-pub(super) struct LuaTestUnit<'u> {
+pub(crate) struct LuaTestUnit<'u> {
     unit: &'u UnitTable,
 }
 
 impl<'u> LuaTestUnit<'u> {
     const ASSERT: &'static str = include_str!("lua_assert.lua");
 
-    pub(super) fn new(unit: &'u UnitTable) -> Self {
+    pub(crate) fn new(unit: &'u UnitTable) -> Self {
         Self { unit }
     }
 
@@ -18,24 +18,42 @@ impl<'u> LuaTestUnit<'u> {
         authored: &str,
         lowering: &LuaLowering<'_>,
     ) -> Result<String, String> {
-        let unit = &self.unit.name;
-        let resolve = lowering.provider_index(unit)?;
-        let mut output = format!("{authored}\n{}\n{}", Self::ASSERT, lowering.providers()?);
-        let _ = writeln!(
-            output,
-            "function {unit}:construct(role)\n  local built = YonGenerated.providers[role]({{}})\n  for _, name in ipairs({fakes}) do\n    if self[name] ~= nil and rawget(built, name) ~= nil then\n      built[name] = self[name]\n    end\n  end\n  return built\nend\n",
+        let resolve = lowering.provider_index(&self.unit.name)?;
+        Ok(format!(
+            "{authored}\n{}\n{}{}Handler = {{ YON_FRAMES = true }}\n\nfunction Handler.POST(request)\n{}end\n",
+            Self::ASSERT,
+            lowering.providers()?,
+            self.construct("YonGenerated.providers[role]({})"),
+            self.runner(&format!("YonGenerated.resolve_{resolve}({{}})"))
+        ))
+    }
+
+    pub(crate) fn tac_program(&self, authored: &str) -> String {
+        format!(
+            "{}\n{authored}\n{}print(YonJson.encode((function()\n{}end)()))\n",
+            Self::ASSERT,
+            self.construct("TacServices.construct(role)"),
+            self.runner(&format!("TacServices.construct({})", self.unit.name))
+        )
+    }
+
+    fn construct(&self, builder: &str) -> String {
+        format!(
+            "function {unit}:construct(role)\n  local built = {builder}\n  for _, name in ipairs({fakes}) do\n    if self[name] ~= nil and rawget(built, name) ~= nil then\n      built[name] = self[name]\n    end\n  end\n  return built\nend\n\n",
+            unit = self.unit.name,
             fakes = self.fake_list()
-        );
-        let _ = write!(
-            output,
-            "Handler = {{ YON_FRAMES = true }}\n\nfunction Handler.POST(request)\n  local unit = YonGenerated.resolve_{resolve}({{}})\n  local results = {{}}\n  for _, row in ipairs(YonJson.decode({cases})) do\n{clear}    {setup}.configure({execution})\n    local ok, failure = pcall(unit[row[2]], unit, table.unpack(row[3] or {{}}))\n    local result = {{ name = row[1], passed = ok, called = {{}} }}\n    if not ok then\n      result.error = YonFailures.message(failure)\n    end\n    results[#results + 1] = result\n  end\n  return {{ unit = {name}, cases = results }}\nend\n",
+        )
+    }
+
+    fn runner(&self, unit: &str) -> String {
+        format!(
+            "  local unit = {unit}\n  local results = {{}}\n  for _, row in ipairs(YonJson.decode({cases})) do\n{clear}    {setup}.configure({execution})\n    local ok, failure = pcall(unit[row[2]], unit, table.unpack(row[3] or {{}}))\n    local result = {{ name = row[1], passed = ok, called = {{}} }}\n    if not ok then\n      result.error = tostring(type(failure) == \"table\" and failure.message or failure)\n    end\n    results[#results + 1] = result\n  end\n  return {{ unit = {name}, cases = results }}\n",
             cases = Self::quoted(&self.unit.cases.to_string()),
             clear = self.clear_fakes(),
             setup = self.unit.configuration,
             execution = self.execution(),
-            name = Self::quoted(unit),
-        );
-        Ok(output)
+            name = Self::quoted(&self.unit.name),
+        )
     }
 
     fn fake_list(&self) -> String {
@@ -69,12 +87,6 @@ impl<'u> LuaTestUnit<'u> {
     }
 
     fn quoted(text: &str) -> String {
-        let probe = format!("{text}]");
-        let mut level = 0;
-        while probe.contains(&format!("]{}]", "=".repeat(level))) {
-            level += 1;
-        }
-        let equals = "=".repeat(level);
-        format!("[{equals}[{text}]{equals}]")
+        super::LuaSource::long_string(text)
     }
 }

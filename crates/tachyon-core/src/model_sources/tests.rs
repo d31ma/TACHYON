@@ -16,6 +16,8 @@ impl Sources {
     const GO_SERVICE: &str = "package main\n\nimport \"strconv\"\n\n// @Service()\ntype GuideService struct {\n\tPages int\n}\n\nfunc (service *GuideService) Read() string {\n\tguide := Guide{Title: \"Guide\", Pages: 3}\n\tservice.Pages = guide.Pages\n\treturn guide.Title + \" \" + strconv.Itoa(guide.Pages)\n}\n";
     const RUBY_MODEL: &str = "# @!attribute [r] title\n#   @return [String]\n# @!attribute [r] pages\n#   @return [Integer]\nGuide = Data.define(:title, :pages)\n";
     const RUBY_SERVICE: &str = "#[Service]\nclass GuideService\n  attr_reader :pages\n\n  def read\n    guide = Guide.new(title: \"Guide\", pages: 3)\n    @pages = guide.pages\n    \"#{guide.title} #{guide.pages}\"\n  end\nend\n";
+    const LUA_MODEL: &str = "---@class Guide\n---@field title string\n---@field pages integer\nGuide = {}\n";
+    const LUA_SERVICE: &str = "-- @Service\n---@class GuideService\nGuideService = {\n  ---@type integer\n  pages = 0,\n}\n\n---@return string\nfunction GuideService:read()\n  local guide = setmetatable({ title = \"Guide\", pages = 3 }, Guide)\n  self.pages = guide.pages\n  return guide.title .. \" \" .. guide.pages\nend\n";
     const KOTLIN_MODEL: &str = "data class Guide(val title: String, val pages: Int)\n";
     const KOTLIN_SERVICE: &str = "import models.Guide\n\n@Service\nclass GuideService {\n    var pages: Int = 0\n\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + guide.pages\n    }\n}\n";
     const SWIFT_MODEL: &str = "struct Guide {\n    let title: String\n    let pages: Int\n}\n";
@@ -110,6 +112,7 @@ async fn build_web_service(root: &Path, language: WebLanguage, extension: &str) 
         WebLanguage::Kotlin => (Sources::KOTLIN_MODEL, Sources::KOTLIN_SERVICE),
         WebLanguage::Swift => (Sources::SWIFT_MODEL, Sources::SWIFT_SERVICE),
         WebLanguage::Java => (Sources::JAVA_MODEL, Sources::JAVA_SERVICE),
+        WebLanguage::Lua => (Sources::LUA_MODEL, Sources::LUA_SERVICE),
     };
     write(root, &format!("client/models/Guide.{extension}"), model);
     if matches!(language, WebLanguage::CSharp) {
@@ -186,6 +189,23 @@ async fn a_ruby_web_service_uses_a_model() {
     }
     let root = tempfile::tempdir().expect("project");
     build_web_service(root.path(), WebLanguage::Ruby, "rb").await;
+    let report = run_driver(root.path(), &fetching_driver());
+    assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
+}
+
+#[tokio::test]
+async fn a_lua_web_service_uses_a_model() {
+    if !available("node", "--version") {
+        assert!(std::env::var_os("CI").is_none(), "CI must provide node");
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    if let Some(reason) = crate::tac_lua::LuaRuntimeBuild::unavailable_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    build_web_service(root.path(), WebLanguage::Lua, "lua").await;
     let report = run_driver(root.path(), &fetching_driver());
     assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
 }

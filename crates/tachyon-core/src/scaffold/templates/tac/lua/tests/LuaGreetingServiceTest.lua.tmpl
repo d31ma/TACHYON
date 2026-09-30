@@ -1,0 +1,9 @@
+-- @Test(LuaGreetingTestSetup, {"partition":"tests"})
+---@class LuaGreetingServiceTest
+LuaGreetingServiceTest = {}
+
+function LuaGreetingServiceTest:test_greet_changes_the_message()
+  local greeting = self:construct(LuaGreetingService)
+  greeting:greet()
+  Assert.equals("Lua says hello again.", greeting.message)
+end

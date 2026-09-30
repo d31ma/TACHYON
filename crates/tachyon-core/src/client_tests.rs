@@ -86,6 +86,10 @@ pub fn run_with(
         let printed = fsharp_unit::FsharpUnit::run(project, relative, &source, &portable)?;
         return checked(&printed, &portable);
     }
+    if extension == crate::lua_source::LuaSource::EXTENSION {
+        let program = crate::tac_lua::LuaClientUnit::program(project, relative, &source)?;
+        return run_lua(&program, &portable);
+    }
     let lowered = lower_unit(project, relative, &source, extension, &portable)?;
     if extension == "rb" {
         let name = unit_name(&source, &portable)?;
@@ -337,6 +341,16 @@ fn run_ruby(
         .args(["--disable=rubyopt", "-E", "UTF-8:UTF-8"])
         .arg(&unit)
         .current_dir(staging.path());
+    let printed = execute(&mut command, portable)?;
+    checked(&printed, portable)
+}
+
+fn run_lua(program: &str, portable: &str) -> Result<TestReport, Failure> {
+    let staging = stage_directory(portable)?;
+    let unit = staging.path().join("unit.lua");
+    std::fs::write(&unit, program).map_err(|error| stage_failure(portable, &error))?;
+    let mut command = Command::new(crate::lua_source::LuaSource::RUNTIME);
+    command.arg(&unit).current_dir(staging.path());
     let printed = execute(&mut command, portable)?;
     checked(&printed, portable)
 }

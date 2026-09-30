@@ -1,5 +1,4 @@
 use super::runtime_sources::RubyRuntimeSources;
-use super::runtime_step::RubyRuntimeStep;
 use super::runtime_tools::RubyRuntimeTools;
 use crate::Failure;
 use crate::doctor::Toolchain;
@@ -75,12 +74,13 @@ impl RubyRuntimeBuild {
             return Ok(bytes);
         }
         Self::build(cached).await?;
-        RubyRuntimeStep::read_file(cached)
+        RubyRuntimeSources::STEP.read_file(cached)
     }
 
     async fn build(cached: &Path) -> Result<(), Failure> {
         RubyRuntimeTools::readiness()?;
-        let folder = RubyRuntimeStep::work_folder(&crate::cache::root().join(Self::CACHE_FOLDER))?;
+        let folder =
+            RubyRuntimeSources::STEP.work_folder(&crate::cache::root().join(Self::CACHE_FOLDER))?;
         let work = folder.path();
         RubyRuntimeSources::write_into(&work.join("runtime"))?;
         RubyRuntimeSources::archive("mruby")?
@@ -91,7 +91,7 @@ impl RubyRuntimeBuild {
             .await?;
         Self::compile_library(work).await?;
         Self::link(work).await?;
-        RubyRuntimeStep::publish(&work.join(Self::FILE_NAME), cached)
+        RubyRuntimeSources::STEP.publish(&work.join(Self::FILE_NAME), cached)
     }
 
     async fn compile_library(work: &Path) -> Result<(), Failure> {
@@ -104,22 +104,25 @@ impl RubyRuntimeBuild {
             .current_dir(work.join("mruby"))
             .env("MRUBY_CONFIG", configuration)
             .env("TAC_RUBY_BUILD_DIR", work.join("build"));
-        RubyRuntimeStep::run(&mut command, "the mruby build", Self::COMPILE_LIMIT).await
+        RubyRuntimeSources::STEP
+            .run(&mut command, "the mruby build", Self::COMPILE_LIMIT)
+            .await
     }
 
     async fn link(work: &Path) -> Result<(), Failure> {
-        let mut command = Command::new(RubyRuntimeTools::EMCC);
+        let mut command = Command::new(crate::web_runtime::EmscriptenTool::EMCC);
         command
             .args(Self::LINK_ARGUMENTS)
             .arg(Self::LIBRARY)
             .args(["-o", Self::FILE_NAME])
             .current_dir(work);
-        RubyRuntimeStep::run(
-            &mut command,
-            "emcc to link the Ruby runtime",
-            Self::LINK_LIMIT,
-        )
-        .await
+        RubyRuntimeSources::STEP
+            .run(
+                &mut command,
+                "emcc to link the Ruby runtime",
+                Self::LINK_LIMIT,
+            )
+            .await
     }
 
     fn jobs() -> usize {

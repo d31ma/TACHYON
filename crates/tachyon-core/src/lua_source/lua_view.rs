@@ -42,6 +42,13 @@ impl LuaView {
         }
     }
 
+    pub(crate) fn analysis(path: &Path, source: &str) -> (PathBuf, String) {
+        Self::of(path, source).map_or_else(
+            || (path.to_path_buf(), source.to_owned()),
+            |view| (view.shadow_path.clone(), view.text().to_owned()),
+        )
+    }
+
     pub(crate) fn either<T>(
         path: &Path,
         source: &str,

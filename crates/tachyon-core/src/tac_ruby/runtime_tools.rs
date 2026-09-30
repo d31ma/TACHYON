@@ -1,16 +1,12 @@
 use super::runtime_sources::RubyRuntimeSources;
-use super::runtime_step::RubyRuntimeStep;
 use crate::Failure;
 use crate::doctor::{CommandProbe, Toolchain, ToolchainState};
+use crate::web_runtime::EmscriptenTool;
 use std::fmt::Write as _;
 
 pub(crate) struct RubyRuntimeTools;
 
 impl RubyRuntimeTools {
-    #[cfg(windows)]
-    pub(crate) const EMCC: &'static str = "emcc.bat";
-    #[cfg(not(windows))]
-    pub(crate) const EMCC: &'static str = "emcc";
     #[cfg(target_os = "macos")]
     const HOST_COMPILER: &'static str = "clang";
     #[cfg(not(target_os = "macos"))]
@@ -22,9 +18,9 @@ impl RubyRuntimeTools {
     pub(crate) fn toolchains() -> Vec<Toolchain> {
         vec![
             Self::row(
-                Self::EMCC,
-                Self::emscripten_state(),
-                &Self::emscripten_install(),
+                EmscriptenTool::EMCC,
+                Self::emscripten().state(),
+                &Self::emscripten().install(),
             ),
             Self::row(
                 "ruby",
@@ -59,40 +55,8 @@ impl RubyRuntimeTools {
         }
     }
 
-    fn emscripten_install() -> String {
-        let minimum = RubyRuntimeSources::minimum_emscripten();
-        format!(
-            "Install Emscripten {minimum} or newer. With the official emsdk (https://emscripten.org/docs/getting_started/downloads.html): `emsdk install latest`, `emsdk activate latest`, then load `emsdk_env.sh` (macOS and Linux) or run `emsdk_env.bat` (Windows). On macOS, `brew install emscripten` also works."
-        )
-    }
-
-    fn emscripten_state() -> ToolchainState {
-        CommandProbe::run(Self::EMCC, &["--version"])
-            .map_or(ToolchainState::Missing, Self::version_state)
-    }
-
-    fn version_state(line: String) -> ToolchainState {
-        let minimum = RubyRuntimeSources::minimum_emscripten();
-        if Self::numbers(&line) >= Self::numbers(&minimum) {
-            return ToolchainState::Ready(line);
-        }
-        ToolchainState::Incomplete(format!("{line}, but {minimum} or newer is required"))
-    }
-
-    fn numbers(text: &str) -> Vec<u32> {
-        let version = text.split_whitespace().find(|word| Self::is_version(word));
-        Self::parts(version.unwrap_or_default())
-    }
-
-    fn is_version(word: &str) -> bool {
-        word.contains('.') && word.split('.').all(|part| part.parse::<u32>().is_ok())
-    }
-
-    fn parts(version: &str) -> Vec<u32> {
-        version
-            .split('.')
-            .filter_map(|part| part.parse().ok())
-            .collect()
+    fn emscripten() -> EmscriptenTool {
+        EmscriptenTool::new(RubyRuntimeSources::minimum_emscripten())
     }
 
     fn host_compiler() -> String {
@@ -114,7 +78,7 @@ impl RubyRuntimeTools {
         if missing.is_empty() {
             return Ok(());
         }
-        Err(RubyRuntimeStep::failure(&Self::missing_message(missing)))
+        Err(RubyRuntimeSources::STEP.failure(&Self::missing_message(missing)))
     }
 
     fn missing_message(missing: &[Toolchain]) -> String {
@@ -137,9 +101,9 @@ mod tests {
     fn the_readiness_failure_lists_each_missing_tool_with_its_install_steps() {
         let rows = vec![
             RubyRuntimeTools::row(
-                RubyRuntimeTools::EMCC,
+                crate::web_runtime::EmscriptenTool::EMCC,
                 ToolchainState::Missing,
-                &RubyRuntimeTools::emscripten_install(),
+                &RubyRuntimeTools::emscripten().install(),
             ),
             RubyRuntimeTools::row(
                 "ruby",
@@ -171,14 +135,15 @@ mod tests {
             )
         };
         assert!(matches!(
-            RubyRuntimeTools::version_state(line("6.0.10")),
+            RubyRuntimeTools::emscripten().version_state(line("6.0.10")),
             ToolchainState::Ready(_)
         ));
         assert!(matches!(
-            RubyRuntimeTools::version_state(line("7.1.0")),
+            RubyRuntimeTools::emscripten().version_state(line("7.1.0")),
             ToolchainState::Ready(_)
         ));
-        let ToolchainState::Incomplete(reason) = RubyRuntimeTools::version_state(line("6.0.9"))
+        let ToolchainState::Incomplete(reason) =
+            RubyRuntimeTools::emscripten().version_state(line("6.0.9"))
         else {
             panic!("an older Emscripten must be reported");
         };

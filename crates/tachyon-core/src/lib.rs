@@ -41,6 +41,7 @@ mod schedule;
 mod server;
 mod storage;
 mod tac_dart;
+mod tac_lua;
 mod tac_ruby;
 mod tac_web;
 mod template;
@@ -52,6 +53,7 @@ mod wasm_optimizer;
 mod wasm_release_note;
 mod wasm_release_step;
 mod web_api_clients;
+mod web_runtime;
 mod yon;
 
 pub use annotation_layout::SimplerForms;

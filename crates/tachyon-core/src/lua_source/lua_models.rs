@@ -7,6 +7,13 @@ impl LuaModels {
         Self::model_lines(records)
     }
 
+    pub(crate) fn named_converters(records: &[(String, Record)]) -> String {
+        records
+            .iter()
+            .map(|(name, record)| Self::named_model_text(name, record))
+            .collect()
+    }
+
     pub(crate) fn descriptor(shape: &Shape) -> Option<String> {
         Self::shape_descriptor(shape)
     }
@@ -16,6 +23,10 @@ impl LuaModels {
             .iter()
             .map(|(name, record)| Self::model_text(name, record))
             .collect()
+    }
+
+    fn named_model_text(name: &str, record: &Record) -> String {
+        format!("{name}.__name = {name:?}\n{}", Self::model_text(name, record))
     }
 
     fn model_text(name: &str, record: &Record) -> String {

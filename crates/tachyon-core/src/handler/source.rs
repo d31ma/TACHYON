@@ -2472,7 +2472,10 @@ fn prepare_lua(
     let contents = std::str::from_utf8(bytes)
         .map_err(|_| invalid_source(portable, "Handler source must be valid UTF-8."))?;
     let workspace = RuntimeWorkspace::new(portable)?;
-    let runtime = include_str!("preludes/yon.lua");
+    let runtime = concat!(
+        include_str!("../lua_source/lua_json.lua"),
+        include_str!("preludes/yon.lua")
+    );
     let runtime_copy =
         stage_script_file(cache, &workspace, ("yon-runtime", "lua"), runtime, portable)?;
     let handler_copy = stage_script_file(

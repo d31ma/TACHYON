@@ -979,6 +979,8 @@ impl Scan {
 pub(crate) struct Messages;
 
 impl Messages {
+    const LUA_LATER: &'static str = " Lua gets it in a later step (ADR 0085).";
+    const NOTHING_LATER: &'static str = "";
     pub(crate) fn spelled(language: &str, name: &str) -> String {
         match language {
             "py" => format!("@{}", Self::snake_case(name)),
@@ -1058,10 +1060,11 @@ impl Messages {
             )
         } else {
             format!(
-                "{spelled} is not available in {} {} code; it works in {}. {}",
+                "{spelled} is not available in {} {} code; it works in {}.{} {}",
                 Self::language_name(language),
                 realm.word(),
                 Self::language_list(places),
+                Self::later(language),
                 rule.explained()
             )
         };
@@ -1069,6 +1072,10 @@ impl Messages {
             message = format!("{message} {}", rule.advice);
         }
         message
+    }
+
+    fn later(language: &str) -> &'static str {
+        [Self::NOTHING_LATER, Self::LUA_LATER][usize::from(language == "lua")]
     }
 
     fn retired(rule: &Rule, language: &str) -> String {

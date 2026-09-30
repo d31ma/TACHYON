@@ -68,6 +68,11 @@ impl ServiceToolchains {
                 .then(crate::tac_ruby::RubyRuntimeBuild::toolchains)
                 .unwrap_or_default(),
         );
+        toolchains.extend(
+            Self::uses_web_service(services, WebLanguage::Lua)
+                .then(crate::tac_lua::LuaRuntimeBuild::toolchains)
+                .unwrap_or_default(),
+        );
         toolchains.extend(KnownToolchains::fylo(root));
         toolchains.extend(scripts.contains("dart").then(KnownToolchains::dart));
         toolchains

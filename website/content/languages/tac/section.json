@@ -55,6 +55,13 @@
       }
     },
     {
+      "name": "client/services/TallyService.lua",
+      "note": "Lua runs on Tachyon's own Lua 5.4 WebAssembly runtime (ADR 0085). The first build of a project with a Lua service builds that runtime once on your machine, with Emscripten, into the Tachyon cache. The page loads the runtime once for all Lua services. Each service is one global table; its fields are the table's fields, and the page reads and changes them. It runs on every target, because native hosts display the application in a web view.",
+      "code": {
+        "file": "client/services/TallyService.lua"
+      }
+    },
+    {
       "name": "client/services/TallyService.swift",
       "code": {
         "file": "client/services/TallyService.swift"

@@ -265,6 +265,8 @@ impl AnnotationRules {
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
     ];
     const TAC: &'static [&'static str] =
+        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua"];
+    const TAC_RESOURCE: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_BEHAVIOR: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
@@ -277,7 +279,7 @@ impl AnnotationRules {
         &["js", "ts", "py", "php", "kt", "cs", "dart", "rb"];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts"];
     const TAC_VALUE_SOURCE: &'static [&'static str] =
-        &["js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift"];
+        &["js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua"];
     const YON_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "go", "rb", "php", "dart", "lua",
     ];
@@ -590,7 +592,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class that saves and finds records",
         )
-        .reach(Self::TAC, Self::YON),
+        .reach(Self::TAC_RESOURCE, Self::YON),
         Rule::new(
             "Query",
             Self::METHOD,
@@ -816,7 +818,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class that sends HTTP requests and gives the path they start with",
         )
-        .reach(Self::TAC, Self::YON),
+        .reach(Self::TAC_RESOURCE, Self::YON),
         Rule::new(
             "GetRequest",
             Self::METHOD,
