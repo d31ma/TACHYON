@@ -11,7 +11,6 @@ pub enum NeededTool {
     CCompiler,
     Emscripten,
     Java,
-    TeaVm,
     Groovy,
     Kotlin,
     Gradle,
@@ -26,6 +25,7 @@ pub enum NeededTool {
     Xcode,
     AndroidSdk,
     LinuxDesktop,
+    TeaVm,
 }
 
 impl NeededTool {
@@ -39,7 +39,6 @@ impl NeededTool {
         Self::CCompiler,
         Self::Emscripten,
         Self::Java,
-        Self::TeaVm,
         Self::Groovy,
         Self::Kotlin,
         Self::Gradle,
@@ -54,6 +53,7 @@ impl NeededTool {
         Self::Xcode,
         Self::AndroidSdk,
         Self::LinuxDesktop,
+        Self::TeaVm,
     ];
     const ENTRIES: [ToolEntry; 24] = [
         ToolEntry {
@@ -91,10 +91,6 @@ impl NeededTool {
         ToolEntry {
             label: "a Java JDK",
             commands: &["java", "javac"],
-        },
-        ToolEntry {
-            label: "TeaVM 0.15.0, which compiles Java services to WebAssembly",
-            commands: &["teavm"],
         },
         ToolEntry {
             label: "Apache Groovy",
@@ -151,6 +147,10 @@ impl NeededTool {
         ToolEntry {
             label: "the Linux desktop libraries (GTK and WebKitGTK)",
             commands: &["pkg-config"],
+        },
+        ToolEntry {
+            label: "TeaVM 0.15.0, which compiles Java services to WebAssembly",
+            commands: &["teavm"],
         },
     ];
 
