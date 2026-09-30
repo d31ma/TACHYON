@@ -8,9 +8,8 @@ public sealed class CatalogService {
     }
 
     [OnStart]
-    public async System.Threading.Tasks.Task Initialize() {
+    public void Initialize() {
         behaviors = Behaviors.create(typeof(ApplicationSetup), "public-catalog", new BehaviorSignal());
-        BehaviorJSON first = await Page(BehaviorJSON.Parse("{\"page\":1}"));
-        Offset = first.Integer;
+        Offset = Page(BehaviorJSON.Parse("{\"page\":1}")).Result.Integer;
     }
 }

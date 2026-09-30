@@ -10,8 +10,11 @@ final class CatalogService {
     @OnStart
     func initialize() async throws {
         behaviors = try Behaviors.create(ApplicationSetup.self, partition: "public-catalog", signal: BehaviorSignal())
-        if case .number(let first) = try await page(.object(["page": .number(1)])) {
-            offset = Int(first)
-        }
+        offset = offsetOf(try await page(.object(["page": .number(1)])))
+    }
+
+    private func offsetOf(_ value: BehaviorJSON) -> Int {
+        guard case .number(let number) = value else { return 0 }
+        return Int(number)
     }
 }

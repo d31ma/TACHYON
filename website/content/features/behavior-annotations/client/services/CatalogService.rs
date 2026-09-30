@@ -17,8 +17,13 @@ impl CatalogService {
     #[OnStart]
     fn initialize(&mut self) {
         let first = BehaviorValue::object([("page", BehaviorValue::Number(1.0))]);
-        if let Ok(BehaviorValue::Number(offset)) = self.page(first) {
-            self.offset = offset;
+        self.offset = Self::offset_of(self.page(first));
+    }
+
+    fn offset_of(value: BehaviorResult<BehaviorValue>) -> f64 {
+        match value {
+            Ok(BehaviorValue::Number(offset)) => offset,
+            _ => 0.0,
         }
     }
 }

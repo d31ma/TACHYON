@@ -1,3 +1,5 @@
+import "errors"
+
 // @Service
 type CatalogService struct {
 	behaviors *BehaviorContext
@@ -14,13 +16,13 @@ func (catalog *CatalogService) Page(
 // @OnStart
 func (catalog *CatalogService) Initialize() error {
 	context, err := BehaviorsCreate[ApplicationSetup](NewBehaviorOptions("public-catalog", NewBehaviorSignal()))
-	if err != nil {
-		return err
-	}
 	catalog.behaviors = context
-	offset, err := catalog.Page(map[string]any{"page": 1})
-	if number, ok := offset.(float64); ok {
-		catalog.Offset = int64(number)
-	}
-	return err
+	offset, pageErr := catalog.Page(map[string]any{"page": 1})
+	catalog.Offset = catalog.offsetOf(offset)
+	return errors.Join(err, pageErr)
+}
+
+func (catalog *CatalogService) offsetOf(value BehaviorValue) int64 {
+	number, _ := value.(float64)
+	return int64(number)
 }
