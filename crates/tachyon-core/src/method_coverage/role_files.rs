@@ -7,8 +7,8 @@ impl RoleFiles {
     const REALMS: [&'static str; 2] = ["client", "server"];
     const UTILITY_FOLDER: &'static str = "utils";
     const TEST_FOLDER: &'static str = "tests";
-    const SOURCE_EXTENSIONS: [&'static str; 13] = [
-        "js", "ts", "py", "php", "java", "kt", "cs", "fs", "rs", "swift", "dart", "go", "rb",
+    const SOURCE_EXTENSIONS: [&'static str; 14] = [
+        "js", "ts", "py", "php", "java", "kt", "cs", "fs", "rs", "swift", "dart", "go", "rb", "lua",
     ];
 
     pub(crate) fn sources(project: &Path) -> Vec<(PathBuf, String)> {

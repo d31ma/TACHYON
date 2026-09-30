@@ -6,7 +6,7 @@ pub(crate) struct CallHooks;
 
 impl CallHooks {
     const TEST_FOLDER: &'static str = "tests";
-    const RECORDED: [(&'static str, &'static str); 23] = [
+    const RECORDED: [(&'static str, &'static str); 25] = [
         ("client", "js"),
         ("client", "ts"),
         ("client", "rb"),
@@ -18,6 +18,7 @@ impl CallHooks {
         ("client", "swift"),
         ("client", "kt"),
         ("client", "java"),
+        ("client", "lua"),
         ("server", "js"),
         ("server", "ts"),
         ("server", "py"),
@@ -30,6 +31,7 @@ impl CallHooks {
         ("server", "rs"),
         ("server", "dart"),
         ("server", "go"),
+        ("server", "lua"),
     ];
 
     pub(crate) fn records(realm: &str, language: &str) -> bool {

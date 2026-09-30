@@ -1,3 +1,19 @@
+BehaviorCalls = { calls = {} }
+
+function BehaviorCalls.record(key)
+  BehaviorCalls.calls[key] = true
+end
+
+function BehaviorCalls.take()
+  local names = {}
+  for key in pairs(BehaviorCalls.calls) do
+    names[#names + 1] = key
+  end
+  table.sort(names)
+  BehaviorCalls.calls = {}
+  return names
+end
+
 Assert = {
   NOTHING_THROWN = "Expected an error to be thrown, but nothing was thrown.",
   MESSAGE_SEPARATOR = " ==> ",

@@ -40,6 +40,11 @@
         "code": "#[Service]\nclass TallyService\n  # @return [Integer]\n  attr_reader :count\n  # @return [String]\n  attr_reader :runtime\n\n  def initialize\n    @count = 6\n    @runtime = \"Ruby, on the mruby web runtime\"\n  end\n\n  # @return [Integer]\n  def doubled\n    @count * 2\n  end\nend"
       },
       {
+        "name": "client/services/TallyService.lua",
+        "note": "Lua runs on Tachyon's own Lua 5.4 WebAssembly runtime (ADR 0085). The first build of a project with a Lua service builds that runtime once on your machine, with Emscripten, into the Tachyon cache. The page loads the runtime once for all Lua services. Each service is one global table; its fields are the table's fields, and the page reads and changes them. It runs on every target, because native hosts display the application in a web view.",
+        "code": "-- @Service\n---@class TallyService\nTallyService = {\n  ---@type integer\n  count = 6,\n  ---@type string\n  runtime = \"Lua, on the Lua web runtime\",\n}\n\n---@return integer\nfunction TallyService:doubled()\n  return self.count * 2\nend\n"
+      },
+      {
         "name": "client/services/TallyService.swift",
         "code": "@Service\nfinal class TallyService {\n  var count: Int = 6\n  let runtime = \"Swift, in the app or as WebAssembly\"\n\n  func doubled() -> Int { count * 2 }\n}",
         "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library."
@@ -338,7 +343,7 @@
       {
         "id": "lua",
         "name": "Lua",
-        "note": "Lua keeps the OrdersController and OrderService in separate files, one file for each role. A Lua class is a global table: `OrdersController = {}`. Its methods are `function OrdersController:get_orders()`. Lua has no annotations, so Tachyon reads comment markers: `-- @RequestRoute(\"/orders\")` on the controller table and `-- @GetRoute` on its method declare GET /orders. `-- @Public` says that anyone may call its routes; every route must say who may call it. `-- @Needs` on a field of the table asks Tachyon to fill `order_service` with the OrderService. LuaCATS comments (`---@class`, `---@field`, `---@type`, `---@return`) give every field and return value a type. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Lua keeps the OrdersController and OrderService in separate files, one file for each role. A Lua class is a global table: `OrdersController = {}`. Its methods are `function OrdersController:get_orders()`. Lua has no annotations, so Tachyon reads comment markers: `-- @RequestRoute(\"/orders\")` on the controller table and `-- @GetRoute` on its method declare GET /orders. `-- @Public` says that anyone may call its routes; every route must say who may call it. `-- @Needs` on a field of the table asks Tachyon to fill `order_service` with the OrderService. LuaCATS comments (`---@class`, `---@field`, `---@type`, `---@return`) give every field and return value a type. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route. Lua also writes Tac services in the same form, `client/services/TallyService.lua`, which run in the page on Tachyon's Lua WebAssembly runtime (ADR 0085).",
         "files": [
           {
             "name": "server/models/Order.lua",

@@ -10,6 +10,7 @@ mod fsharp_call_body;
 mod fsharp_members;
 mod hook_statement;
 mod kotlin_body;
+mod lua_body;
 mod method_body;
 mod method_header;
 mod method_state;
@@ -40,6 +41,7 @@ use fsharp_call_body::FsharpCallBody;
 use fsharp_members::FsharpMembers;
 use hook_statement::HookStatement;
 use kotlin_body::KotlinBody;
+use lua_body::LuaBody;
 use method_body::MethodBody;
 use method_header::MethodHeader;
 use public_method::PublicMethod;
@@ -82,6 +84,9 @@ impl PublicMethods {
     fn find(language: &str, masked: &str) -> Vec<PublicMethod> {
         if language == "rb" {
             return ruby_methods(masked);
+        }
+        if language == crate::lua_source::LuaSource::EXTENSION {
+            return LuaBody::methods(masked);
         }
         let mut found = Vec::new();
         let mut seen = BTreeSet::new();

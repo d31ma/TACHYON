@@ -386,6 +386,26 @@ fn a_ruby_method_records_its_call_after_its_signature() {
 }
 
 #[test]
+fn a_lua_method_records_its_call_after_its_parameters_on_the_same_line() {
+    let output = hooked(
+        "server/controllers/CatalogController.lua",
+        "-- @RequestRoute(\"/catalog\")\n-- @Public\n---@class CatalogController\nCatalogController = {}\n\n---@return integer\n-- @GetRoute\nfunction CatalogController:total()\n  return 2\nend\n\n---@param id integer\n---@return integer\n-- @GetRoute(\"/{id}\")\nfunction CatalogController:find(\n  -- @FromPath\n  id\n)\n  return id\nend\n\n---@return integer\nfunction CatalogController:_hidden()\n  return 3\nend\n",
+    );
+    assert!(
+        output.contains("function CatalogController:total() BehaviorCalls.record(\"CatalogController.total\");\n  return 2\n"),
+        "{output}"
+    );
+    assert!(
+        output.contains("  id\n) BehaviorCalls.record(\"CatalogController.find\");\n  return id\n"),
+        "{output}"
+    );
+    assert!(
+        output.contains("function CatalogController:_hidden()\n  return 3"),
+        "{output}"
+    );
+}
+
+#[test]
 fn a_php_method_records_its_call_even_with_its_brace_on_the_next_line() {
     let output = hooked(
         "server/services/CatalogService.php",
@@ -546,6 +566,11 @@ fn every_language_reports_its_own_public_methods() {
         (
             "rb",
             "#[Service]\nclass CatalogService\n  def initialize\n    @count = 2\n  end\n\n  def total\n    @count\n  end\n\n  def self.build\n    new\n  end\n\n  private\n\n  def hidden\n    3\n  end\nend\n",
+            vec!["total"],
+        ),
+        (
+            "lua",
+            "-- @Service\n---@class CatalogService\nCatalogService = {\n  ---@type integer\n  count = 2,\n}\n\n---@return integer\nfunction CatalogService:total()\n  return self.count\nend\n\n---@return integer\nfunction CatalogService:_hidden()\n  return 3\nend\n",
             vec!["total"],
         ),
         (

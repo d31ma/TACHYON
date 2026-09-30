@@ -1,6 +1,6 @@
 use super::{
-    BraceBody, DartBody, FsharpCallBody, KotlinBody, MethodHeader, PublicMethod, PythonBody,
-    RoleClass, RubyBody, SourceEdit, SwiftBody,
+    BraceBody, DartBody, FsharpCallBody, KotlinBody, LuaBody, MethodHeader, PublicMethod,
+    PythonBody, RoleClass, RubyBody, SourceEdit, SwiftBody,
 };
 
 pub(crate) struct MethodBody;
@@ -19,6 +19,7 @@ impl MethodBody {
             "dart" => DartBody::edits(header),
             "swift" => SwiftBody::edits(header),
             "fs" => FsharpCallBody::edits(header),
+            "lua" => LuaBody::edits(header),
             _ => BraceBody::edits(header),
         }
     }
