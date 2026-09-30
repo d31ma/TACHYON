@@ -494,7 +494,7 @@ impl<'a> Parser<'a> {
                 "Executable script elements are outside the Phase 3 view contract.",
                 "Use a colocated Tac island companion.",
             )),
-            "slot" => slot_kind(&mut attributes, source_path, range),
+            "slot" => Self::slot_kind(&mut attributes, source_path, range),
             _ if self.components.contains(name) => {
                 component_kind(name, attributes, source_path, range)
             }
@@ -645,25 +645,27 @@ fn switch_value(
     })
 }
 
-fn slot_kind(
-    attributes: &mut BTreeMap<String, TemplateAttribute>,
-    source_path: &str,
-    range: SourceRange,
-) -> Result<TemplateNodeKind, Failure> {
-    let name = attributes.remove("name");
-    reject_attributes(attributes, source_path, range, "slot")?;
-    let Some(attribute) = name else {
-        return Ok(TemplateNodeKind::Slot(None));
-    };
-    match attribute.value {
-        AttributeValue::Static(name) if !name.trim().is_empty() => {
-            Ok(TemplateNodeKind::Slot(Some(name)))
+impl Parser<'_> {
+    fn slot_kind(
+        attributes: &mut BTreeMap<String, TemplateAttribute>,
+        source_path: &str,
+        range: SourceRange,
+    ) -> Result<TemplateNodeKind, Failure> {
+        let name = attributes.remove("name");
+        reject_attributes(attributes, source_path, range, "slot")?;
+        let Some(attribute) = name else {
+            return Ok(TemplateNodeKind::Slot(None));
+        };
+        match attribute.value {
+            AttributeValue::Static(name) if !name.trim().is_empty() => {
+                Ok(TemplateNodeKind::Slot(Some(name)))
+            }
+            _ => Err(control_failure(
+                source_path,
+                range,
+                "<slot name> needs a fixed name that is not empty, such as <slot name=\"title\">.",
+            )),
         }
-        _ => Err(control_failure(
-            source_path,
-            range,
-            "<slot name> needs a fixed name that is not empty, such as <slot name=\"title\">.",
-        )),
     }
 }
 
