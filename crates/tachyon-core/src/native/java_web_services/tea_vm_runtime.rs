@@ -14,14 +14,14 @@ impl TeaVmRuntime {
         rethrowJavaAsJs(e);
     }
 };`)(j,t)}"#,
-            r#"function S(t,e){const c=t.length;return function(...a){const p=a.slice(0,e?c-1:c);p.length=e?c-1:c;if(e){p.push(a.slice(c-1))}try{return t(...p)}catch(r){j(r)}}}"#,
+            r"function S(t,e){const c=t.length;return function(...a){const p=a.slice(0,e?c-1:c);p.length=e?c-1:c;if(e){p.push(a.slice(c-1))}try{return t(...p)}catch(r){j(r)}}}",
         ),
         (
             r#"function W(e,t){return new Function("constructor",`return function ${e}(marker, javaObject) {
     return constructor.call(this, marker, javaObject);
 }
 `)(t)}"#,
-            r#"function W(e,t){return{[e]:function(r,o){return t.call(this,r,o)}}[e]}"#,
+            r"function W(e,t){return{[e]:function(r,o){return t.call(this,r,o)}}[e]}",
         ),
         (
             r#"defineMethod(e,t,n,r){const o=[];const a=[];for(let e=1;e<n.length;++e){const l="p"+e;o.push(l);a.push(l)}if(r){const c=a.length-1;a[c]="..."+a[c]}const s=a.join(", ");e.prototype[t]=new Function("rethrowJavaAsJs","fn",`return function(${s}) {
@@ -31,7 +31,7 @@ impl TeaVmRuntime {
         rethrowJavaAsJs(e);
     }
 };`)(j,n)}"#,
-            r#"defineMethod(e,t,n,r){const c=n.length-1;e.prototype[t]=function(...a){const p=a.slice(0,r?c-1:c);p.length=r?c-1:c;if(r){p.push(a.slice(c-1))}try{return n(this,...p)}catch(o){j(o)}}}"#,
+            r"defineMethod(e,t,n,r){const c=n.length-1;e.prototype[t]=function(...a){const p=a.slice(0,r?c-1:c);p.length=r?c-1:c;if(r){p.push(a.slice(c-1))}try{return n(this,...p)}catch(o){j(o)}}}",
         ),
         (
             r#"const C=[];for(let e=0;e<32;++e){const F=C.length===0?"":C.join(", ");const T=[...C,"body"].join(", ");t.teavmJso["createFunction"+e]=new Function("wrapCallFromJavaToJs",...C,"body",`return new Function('wrapCallFromJavaToJs', ${T}).bind(this, wrapCallFromJavaToJs);`).bind(null,k);t.teavmJso["bindFunction"+e]=(e,...t)=>e.bind(null,...t);t.teavmJso["callFunction"+e]=new Function("rethrowJsAsJava","fn",...C,`try {
