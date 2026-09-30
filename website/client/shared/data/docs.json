@@ -5969,7 +5969,7 @@
         },
         {
           "heading": "Signal-driven UI",
-          "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. A form declares an applicationEventPublisher and publishes a collection change through it. Panels that care about the change register with OnEvent. They do not need to know who sent it. Both services inject the single UsersClient that Tachyon discovers automatically in client/clients. Each service owns its cancellation lifetime (the signal that stops its work). HTTPClient handles the JSON request and response. After a successful submit, the form publishes a UsersChanged model, and the list listens for that model. Choose JavaScript or TypeScript. HTTPClient is the browser transport, and only JavaScript and TypeScript services use it.",
+          "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. A form declares an applicationEventPublisher and publishes a collection change through it. Panels that care about the change register with OnEvent. They do not need to know who sent it. Both services inject the single UsersClient that Tachyon discovers automatically in client/clients. Each service owns its cancellation lifetime (the signal that stops its work). HTTPClient handles the JSON request and response. After a successful save, the form publishes a UsersChanged model, and the list listens for that model. Choose JavaScript or TypeScript. HTTPClient is the browser transport, and only JavaScript and TypeScript services use it.",
           "axis": "language",
           "files": [
             {
@@ -5978,7 +5978,7 @@
             },
             {
               "name": "client/components/users/form/tac.html",
-              "code": "<form on:submit=\"userForm.save()\">\n  <input aria-label=\"Name\" :value=\"userForm.form.name\" on:input=\"userForm.typed($event.target.value)\" />\n  <button>Save</button>\n</form>\n"
+              "code": "<form>\n  <input aria-label=\"Name\" :value=\"userForm.form.name\" on:input=\"userForm.typed($event.target.value)\" />\n  <button type=\"button\" on:click=\"userForm.save()\">Save</button>\n</form>\n"
             },
             {
               "name": "client/components/users/list/tac.html",
@@ -5990,7 +5990,7 @@
             },
             {
               "name": "client/services/UserFormService.js",
-              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserFormService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  /** @type {{ name: string }} */\n  form = { name: '' };\n  /**\n   * @param {Event} _event\n   * @param {string} name\n   */\n  typed(_event, name) { this.form = { ...this.form, name }; }\n  /** @param {Event} event */\n  async save(event) {\n    event.preventDefault();\n    await this.usersClient.save(this.form);\n    /** @type {UsersChanged} */\n    const changed = { saved: true };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}"
+              "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserFormService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  /** @type {{ name: string }} */\n  form = { name: '' };\n  /**\n   * @param {Event} _event\n   * @param {string} name\n   */\n  typed(_event, name) { this.form = { ...this.form, name }; }\n  async save() {\n    await this.usersClient.save(this.form);\n    /** @type {UsersChanged} */\n    const changed = { saved: true };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}"
             },
             {
               "name": "client/services/UserListService.js",
@@ -6002,7 +6002,7 @@
             },
             {
               "name": "client/services/UserFormService.ts",
-              "code": "import type { UsersChanged } from '/models/UsersChanged.ts';\n\n@Service\nexport default class UserFormService {\n  @Needs\n  readonly usersClient!: UsersClient;\n  applicationEventPublisher!: ApplicationEventPublisher;\n  form = { name: '' };\n  typed(_event: Event, name: string) { this.form = { ...this.form, name }; }\n  async save(event: Event) {\n    event.preventDefault();\n    await this.usersClient.save(this.form);\n    const changed: UsersChanged = { saved: true };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}"
+              "code": "import type { UsersChanged } from '/models/UsersChanged.ts';\n\n@Service\nexport default class UserFormService {\n  @Needs\n  readonly usersClient!: UsersClient;\n  applicationEventPublisher!: ApplicationEventPublisher;\n  form = { name: '' };\n  typed(_event: Event, name: string) { this.form = { ...this.form, name }; }\n  async save() {\n    await this.usersClient.save(this.form);\n    const changed: UsersChanged = { saved: true };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}"
             },
             {
               "name": "client/services/UserListService.ts",
