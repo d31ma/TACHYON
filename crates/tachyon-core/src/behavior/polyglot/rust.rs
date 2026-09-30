@@ -337,7 +337,9 @@ fn service(
     if methods.is_empty() {
         return Ok(());
     }
-    let needs_context = methods.iter().any(|method| super::method_needs_context(method));
+    let needs_context = methods
+        .iter()
+        .any(|method| super::method_needs_context(method));
     if needs_context && !has_context_field(declaration) {
         return Err(format!(
             "Annotated Rust service {} requires a behaviors: BehaviorContext field",
@@ -405,19 +407,34 @@ fn validate_method(method: &Method) -> Result<(), String> {
         .chars()
         .filter(|character| !character.is_whitespace())
         .collect::<String>();
-    if !matches!(
-        return_type.as_str(),
-        "BehaviorResult<BehaviorValue>" | "Result<BehaviorValue,BehaviorError>"
-    ) {
+    let model_result = method
+        .metadata
+        .get("mapping")
+        .and_then(|policy| policy.get("result"))
+        .and_then(Value::as_str);
+    let typed = model_result.is_some_and(|model| {
+        [
+            format!("BehaviorResult<{model}>"),
+            format!("Result<{model},BehaviorError>"),
+        ]
+        .contains(&return_type)
+    });
+    if !typed
+        && !matches!(
+            return_type.as_str(),
+            "BehaviorResult<BehaviorValue>" | "Result<BehaviorValue,BehaviorError>"
+        )
+    {
         return Err(format!(
             "Rust behavior method {} must return BehaviorResult<BehaviorValue>; convert explicit JSON data at the application response boundary",
             method.name
         ));
     }
-    if method
-        .parameters
-        .iter()
-        .any(|parameter| parameter.type_source.trim() != "BehaviorValue")
+    if !typed
+        && method
+            .parameters
+            .iter()
+            .any(|parameter| parameter.type_source.trim() != "BehaviorValue")
     {
         return Err(format!(
             "Rust behavior method {} arguments must use the bounded BehaviorValue type",
@@ -540,11 +557,88 @@ fn mapping_call(method: &Method, policy: &Value) -> Result<String, String> {
             value_literal(&field.constant)
         ));
     }
+    let Some(result) = policy.get("result").and_then(Value::as_str) else {
+        return Ok(format!(
+            "{}.map_value(&[{}])",
+            value.name,
+            entries.join(", ")
+        ));
+    };
+    let tac = policy["realm"] == "tac";
+    let (kind, reader, source, object) = if tac {
+        (
+            "TacValue",
+            "TacModel",
+            format!("TacModel::write({})", value.name),
+            "Object",
+        )
+    } else {
+        (
+            "Json",
+            "YonRead",
+            format!("Json::from({})", value.name),
+            "Map",
+        )
+    };
+    let mapped = typed_fields(&fields, tac);
     Ok(format!(
-        "{}.map_value(&[{}])",
-        value.name,
-        entries.join(", ")
+        "fn __tachyon_shape(value: {kind}, map: fn({kind}) -> {kind}) -> {kind} {{ match value {{ {kind}::List(items) => {kind}::List(items.into_iter().map(|item| __tachyon_shape(item, map)).collect()), {kind}::{object}(_) => map(value), value => value }} }}\nlet __tachyon_source = {source};\nOk(<{result} as {reader}>::read(&{mapped}))"
     ))
+}
+
+fn typed_fields(fields: &[super::super::mapper::Plan], tac: bool) -> String {
+    let entries: Vec<String> = fields.iter().map(|field| typed_entry(field, tac)).collect();
+    if tac {
+        format!("TacValue::Object(vec![{}])", entries.join(", "))
+    } else {
+        format!(
+            "Json::map([{}] as [(&str, Json); {}])",
+            entries.join(", "),
+            entries.len()
+        )
+    }
+}
+
+fn typed_entry(field: &super::super::mapper::Plan, tac: bool) -> String {
+    let kind = if tac { "TacValue" } else { "Json" };
+    let mut value = match &field.source {
+        Some(path) => {
+            let mut read = String::from("__tachyon_source");
+            for name in path {
+                if tac {
+                    read = format!("tac_read_field::<TacValue>(&{read}, {name:?})");
+                } else {
+                    let _ = write!(read, ".get({name:?})");
+                }
+            }
+            format!("{read}.clone()")
+        }
+        None => match &field.constant {
+            Value::Bool(flag) if tac => format!("TacValue::Flag({flag})"),
+            Value::Bool(flag) => format!("Json::from({flag})"),
+            Value::Number(number) if tac => format!(
+                "TacValue::Float({:?}_f64)",
+                number.as_f64().unwrap_or_default()
+            ),
+            Value::Number(number) => {
+                format!("Json::from({:?}_f64)", number.as_f64().unwrap_or_default())
+            }
+            Value::String(text) if tac => format!("TacValue::Text(String::from({text:?}))"),
+            Value::String(text) => format!("Json::from({text:?})"),
+            _ => format!("{kind}::Null"),
+        },
+    };
+    if let Some(fields) = &field.fields {
+        value = format!(
+            "__tachyon_shape({value}, |__tachyon_source| {})",
+            typed_fields(fields, tac)
+        );
+    }
+    if tac {
+        format!("(String::from({:?}), {value})", field.target)
+    } else {
+        format!("({:?}, {value})", field.target)
+    }
 }
 
 fn quoted_names(names: &[String]) -> String {

@@ -1097,10 +1097,15 @@ class BehaviorContext {
       for (final name in source.split('.')) {
         current = BehaviorJson.get(current, name);
       }
-      output[target] = current;
+      output[target] = BehaviorJson.has(field, 'fields') ? _mapShape(current, BehaviorJson.get(field, 'fields')) : current;
     }
     BehaviorJson.encode(output);
     return output;
+  }
+
+  static Object? _mapShape(Object? value, Object? fields) {
+    if (value is List) return value.map((item) => _mapShape(item, fields)).toList();
+    return value is Map ? mapValue({'fields': fields}, value) : value;
   }
 
   Future<Object?> query(Object? metadata, List<Object?> arguments) => _operation((execution) async {

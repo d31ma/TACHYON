@@ -327,9 +327,14 @@ impl DartConverters {
         let table = ModelTable::from_files(files);
         let mut parents = BTreeMap::new();
         let mut reads = String::new();
+        let mut aliases = String::new();
         let mut records = Vec::new();
         for (_, source) in files {
             for (name, model) in ModelParser::models("dart", source) {
+                let _ = writeln!(
+                    aliases,
+                    "{name} tachyonReadModel{name}(Object? value) => __yon_read_{name}(value);"
+                );
                 match model {
                     Model::Record(record) => {
                         parents.insert(name.clone(), record.bases);
@@ -349,7 +354,7 @@ impl DartConverters {
             Self::record_write(&mut writes, name, fields);
         }
         format!(
-            "{reads}\nObject? __yon_json(Object? value) {{\n{writes}  if (value is Enum) return value.name;\n  if (value is List) return value.map(__yon_json).toList();\n  if (value is Map) return value.map((key, item) => MapEntry(key, __yon_json(item)));\n  return value;\n}}\n"
+            "{reads}\n{aliases}\nObject? tachyonPlainModel(Object? value) => __yon_json(value);\nObject? __yon_json(Object? value) {{\n{writes}  if (value is Enum) return value.name;\n  if (value is List) return value.map(__yon_json).toList();\n  if (value is Map) return value.map((key, item) => MapEntry(key, __yon_json(item)));\n  return value;\n}}\n"
         )
     }
 

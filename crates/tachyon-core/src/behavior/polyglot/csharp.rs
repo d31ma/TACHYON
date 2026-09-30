@@ -329,7 +329,8 @@ fn gateway_body(method: &Method, policy: &Value) -> String {
 }
 
 fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
-    if !returns_json_or_task_json(method) {
+    let result = policy.get("result").and_then(Value::as_str);
+    if result.is_none() && !returns_json_or_task_json(method) {
         return Err(
             "C# mapping methods require BehaviorJSON or async Task<BehaviorJSON>".to_owned(),
         );
@@ -339,9 +340,21 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
         .parameters
         .get(argument)
         .ok_or("Convert reads an argument the method does not declare")?;
+    let plan = quote(&policy.to_string());
+    let Some(result) = result else {
+        return Ok(format!(
+            "\nreturn BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), BehaviorJSON.From({}));\n",
+            value.name
+        ));
+    };
+    if policy["realm"] == "tac" {
+        return Ok(format!(
+            "\nreturn TacModels.Read<{result}>(Tac.ParseValue(BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), BehaviorJSON.Parse(Tac.EncodeValue(TacModels.Plain({})))).ToString()));\n",
+            value.name
+        ));
+    }
     Ok(format!(
-        "\nreturn BehaviorContext.MapValue(BehaviorJSON.Parse({}), BehaviorJSON.From({}));\n",
-        quote(&policy.to_string()),
+        "\nreturn System.Text.Json.JsonSerializer.Deserialize<{result}>(BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), BehaviorJSON.Parse(System.Text.Json.JsonSerializer.Serialize({}))).ToString(), YonModels.Options)!;\n",
         value.name
     ))
 }

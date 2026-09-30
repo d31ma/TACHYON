@@ -42,7 +42,10 @@ pub(crate) fn assemble(
             "Annotation source exceeds 1 MiB or contains NUL.",
         ));
     }
-    let (mut modules, total) = read_modules(&root, entry, source, &paths, environment)?;
+    let mut converters =
+        crate::declared_contract::ConverterModelTable::new(snapshot_root, environment, extension);
+    let (mut modules, total) =
+        read_modules(&root, entry, source, &paths, environment, &mut converters)?;
     test_configuration::include(
         &root,
         entry,
@@ -162,6 +165,7 @@ fn read_modules(
     entry_source: &str,
     paths: &[PathBuf],
     environment: &str,
+    converters: &mut crate::declared_contract::ConverterModelTable<'_>,
 ) -> Result<(Vec<Module>, usize), Failure> {
     let extension = entry_extension(entry, environment)?;
     let mut names = BTreeSet::new();
@@ -201,6 +205,7 @@ fn read_modules(
             crate::events::BrowserStreams::refuse_outside_script(path, &text)?;
         }
         let text = rebase_shared_imports(entry, path, &text, extension)?;
+        let text = converters.written(path, text)?;
         let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment)
             .unwrap_or(text);
         let text = crate::method_coverage::CallHooks::for_entry(entry, path, text)?;

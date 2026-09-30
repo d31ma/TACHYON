@@ -854,6 +854,7 @@ fn method_policy(
                 parameter_types.push(parameter.type_source.as_str());
             }
             let signature = super::mapper::ConvertSignature {
+                method: format!("{owner}.{}", method.name),
                 parameter_types,
                 return_type: &method.return_type,
             };
@@ -2441,6 +2442,10 @@ fn method_return_type(language: &str, tail: &str, words: &[&str]) -> String {
             .map_or("", |(_, ty)| ty.trim())
             .to_owned(),
         "kt" | "php" => tail.strip_prefix(':').unwrap_or(tail).trim().to_owned(),
+        "py" => tail
+            .split_once("->")
+            .map_or("", |(_, ty)| ty.trim().trim_end_matches(':').trim_end())
+            .to_owned(),
         "java" | "cs" | "dart" => leading_return_type(words),
         _ => String::new(),
     }

@@ -714,7 +714,8 @@ fn mutation_argument(
 }
 
 fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
-    if !returns_object(method) {
+    let result = policy.get("result").and_then(Value::as_str);
+    if result.is_none() && !returns_object(method) {
         return Err("Java mapping methods must return Object bounded JSON".to_owned());
     }
     let (argument, fields) = super::super::mapper::plan(policy)?;
@@ -726,10 +727,22 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
     for field in &fields {
         entries.push(mapping_entry(field)?);
     }
+    let plan = format!("new Object[][]{{{}}}", entries.join(", "));
+    let Some(result) = result else {
+        return Ok(format!(
+            "return Behaviors.mapValue({}, {plan});",
+            value.name
+        ));
+    };
+    if policy["realm"] == "tac" {
+        return Ok(format!(
+            "return TacModels.read{result}(Behaviors.mapValue(TacJsonReader.read(TacJsonWriter.write({})), {plan}));",
+            value.name
+        ));
+    }
     Ok(format!(
-        "return Behaviors.mapValue({}, new Object[][]{{{}}});",
-        value.name,
-        entries.join(", ")
+        "try {{ return ({result}) YonModels.read({result}.class, Behaviors.mapValue(Json.parse(Json.write({})), {plan})); }} catch (RuntimeException failure) {{ throw failure; }} catch (Exception failure) {{ throw new IllegalArgumentException(\"The mapped value does not fit {result}.\", failure); }}",
+        value.name
     ))
 }
 
@@ -738,11 +751,23 @@ fn mapping_entry(field: &Plan) -> Result<String, String> {
         Some(path) => format!("new String[]{{{}}}", quoted_list(path)),
         None => "null".to_owned(),
     };
+    let nested = mapping_nested(field)?;
     Ok(format!(
-        "{{{}, {read}, {}}}",
+        "{{{}, {read}, {}, {nested}}}",
         quote(&field.target),
         literal(Some(&field.constant))?
     ))
+}
+
+fn mapping_nested(field: &Plan) -> Result<String, String> {
+    let Some(fields) = &field.fields else {
+        return Ok("null".to_owned());
+    };
+    let entries = fields
+        .iter()
+        .map(mapping_entry)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(format!("new Object[][]{{{}}}", entries.join(", ")))
 }
 
 fn quoted_list(names: &[String]) -> String {

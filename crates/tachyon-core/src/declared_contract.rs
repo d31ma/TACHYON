@@ -8,6 +8,8 @@ mod contract_form;
 mod contract_member;
 mod contract_rewrite;
 mod contract_role;
+mod converter_model_table;
+mod converter_models;
 mod crud_members;
 mod crud_template;
 mod fsharp_class_type;
@@ -20,12 +22,12 @@ mod go_method;
 mod indented_members;
 mod indented_syntax;
 mod injected_contract;
+mod injected_field;
 mod marker_line;
 mod member_indent;
 mod member_scanner;
 mod repository_base;
 mod rust_contract_rewrite;
-mod injected_field;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -48,6 +50,7 @@ use concrete_contract::ConcreteContract;
 use contract_check::ContractCheck;
 use contract_rewrite::ContractRewrite;
 pub(crate) use contract_rewrite::SourceEdit;
+pub(crate) use converter_model_table::ConverterModelTable;
 use fsharp_contract::FsharpContract;
 use fsharp_contract_rewrite::FsharpContractRewrite;
 use fsharp_injected_contract::FsharpInjectedContract;

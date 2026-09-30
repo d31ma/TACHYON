@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"math"
 	"reflect"
@@ -854,6 +855,7 @@ type BehaviorMappingField struct {
 	Target   string
 	Source   []string
 	Constant BehaviorValue
+	Fields   []BehaviorMappingField
 }
 
 type behaviorConfigurationSource interface {
@@ -1070,9 +1072,63 @@ func BehaviorMapValue(value BehaviorValue, plan []BehaviorMappingField) (Behavio
 			}
 			current = nested[name]
 		}
+		if field.Fields != nil {
+			var failure error
+			current, failure = behaviorMapShape(current, field.Fields)
+			if failure != nil {
+				return nil, failure
+			}
+		}
 		output[field.Target] = current
 	}
 	return behaviorChecked(output, 1048576)
+}
+
+func behaviorMapShape(value any, fields []BehaviorMappingField) (any, error) {
+	if items, listed := value.([]any); listed {
+		output := make([]any, len(items))
+		for index, item := range items {
+			mapped, failure := behaviorMapShape(item, fields)
+			if failure != nil {
+				return nil, failure
+			}
+			output[index] = mapped
+		}
+		return output, nil
+	}
+	if _, object := value.(map[string]any); object {
+		return BehaviorMapValue(value, fields)
+	}
+	return value, nil
+}
+
+func BehaviorMapModel[Result any](value any, plan []BehaviorMappingField) (Result, error) {
+	var result Result
+	plain, failure := behaviorPlainModel(value)
+	if failure != nil {
+		return result, failure
+	}
+	mapped, failure := BehaviorMapValue(plain, plan)
+	if failure != nil {
+		return result, failure
+	}
+	text, failure := json.Marshal(mapped)
+	if failure != nil || json.Unmarshal(text, &result) != nil {
+		return result, behaviorInvalid()
+	}
+	return result, nil
+}
+
+func behaviorPlainModel(value any) (any, error) {
+	text, failure := json.Marshal(value)
+	if failure != nil {
+		return nil, behaviorInvalid()
+	}
+	var plain any
+	if json.Unmarshal(text, &plain) != nil {
+		return nil, behaviorInvalid()
+	}
+	return plain, nil
 }
 
 func behaviorValidationError(field string, rule string) error {

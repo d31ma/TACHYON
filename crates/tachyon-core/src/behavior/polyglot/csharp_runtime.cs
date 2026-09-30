@@ -669,9 +669,15 @@ public sealed class BehaviorContext : System.IDisposable {
             if (!field.Has("source")) { output[field.Get("target").Text] = field.Get("constant"); continue; }
             var current = value;
             foreach (var name in field.Get("source").Text.Split('.')) current = current.Get(name);
-            output[field.Get("target").Text] = current;
+            output[field.Get("target").Text] = field.Has("fields") ? MapShape(current, field.Get("fields")) : current;
         }
         var result = BehaviorJSON.Object(output); result.Bound(1048576); return result;
+    }
+    private static BehaviorJSON MapShape(BehaviorJSON value, BehaviorJSON fields) {
+        if (value.Value.ValueKind == System.Text.Json.JsonValueKind.Array)
+            return BehaviorJSON.Array(System.Array.ConvertAll(value.Items, item => MapShape(item, fields)));
+        return value.Value.ValueKind == System.Text.Json.JsonValueKind.Object
+            ? MapValue(BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["fields"] = fields }), value) : value;
     }
     public BehaviorRepository repository(System.Type entity) => new BehaviorRepository(this, Behaviors.Entity(entity));
     public System.Threading.Tasks.Task<BehaviorJSON> Query(BehaviorJSON metadata, BehaviorJSON[] arguments) => Operation(async execution => {

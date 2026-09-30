@@ -61,6 +61,18 @@ impl<'a> BehaviorBody<'a> {
             .mapped_argument
             .and_then(|index| self.method.parameters.get(index))
             .ok_or("Convert reads an argument the method does not declare")?;
+        if let Some(result) = policy.get("result").and_then(Value::as_str) {
+            let plan = Self::quote(&policy.to_string());
+            return Ok(if policy["realm"] == "tac" {
+                format!(
+                    "TacModels.Read<{result}>(Tac.ParseValue(BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), BehaviorJSON.Parse(Tac.EncodeValue(TacModels.Plain({value})))).ToString()))"
+                )
+            } else {
+                format!(
+                    "System.Text.Json.JsonSerializer.Deserialize<{result}>(BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), BehaviorJSON.Parse(System.Text.Json.JsonSerializer.Serialize({value}, YonModels.Options))).ToString(), YonModels.Options)"
+                )
+            });
+        }
         Ok(format!(
             "BehaviorContext.MapValue(BehaviorJSON.Parse({}), BehaviorJSON.From({value}))",
             Self::quote(&policy.to_string())

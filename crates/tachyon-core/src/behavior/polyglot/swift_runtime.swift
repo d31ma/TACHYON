@@ -617,9 +617,14 @@ final class BehaviorContext {
             for name in path.split(separator: ".", omittingEmptySubsequences: false) {
                 current = current.get(String(name))
             }
-            output[target] = current
+            output[target] = field.has("fields") ? try mapShape(current, field.get("fields")) : current
         }
         let result = BehaviorJSON.object(output); _ = try result.encoded(); return result
+    }
+    private static func mapShape(_ value: BehaviorJSON, _ fields: BehaviorJSON) throws -> BehaviorJSON {
+        if case .array(let items) = value { return .array(try items.map { try mapShape($0, fields) }) }
+        if case .object = value { return try mapValue(.object(["fields": fields]), value) }
+        return value
     }
     func query(_ metadata: BehaviorJSON, arguments: [BehaviorJSON]) async throws -> BehaviorJSON {
         try await operation { execution in

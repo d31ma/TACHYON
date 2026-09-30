@@ -336,6 +336,13 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
         .parameters
         .get(argument)
         .ok_or("Convert reads an argument the method does not declare")?;
+    if let Some(result) = policy.get("result").and_then(Value::as_str) {
+        return Ok(format!(
+            "\n    return tachyonReadModel{result}(BehaviorContext.mapValue(BehaviorJson.parse({}), BehaviorJson.from(tachyonPlainModel({}))));\n",
+            quote(&policy.to_string()),
+            value.name
+        ));
+    }
     let mapped = format!(
         "BehaviorContext.mapValue(BehaviorJson.parse({}), BehaviorJson.from({}))",
         quote(&policy.to_string()),

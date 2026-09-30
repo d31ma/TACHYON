@@ -272,8 +272,8 @@ These restrictions fail before any adapter runs.
 | `@Retry({"maxRetries":3,"delayMs":10,"multiplier":2,"maxDelayMs":200,"jitterMs":5})` | Runs one async method again after a bounded delay, which can grow exponentially. `maxRetries` is 1 through 8. `delayMs`, `maxDelayMs` and `jitterMs` are millisecond literals. `multiplier` is 1 through 10. Framework refusals are never retried: invalid policy, denied authorization, disposed context, expired deadline. An adapter fault or an error that the method raised is retried. |
 | `@MaxAtOnce({"limit":4,"policy":"block"})` | Limits how many calls to one method run at the same time. `limit` is 1 through 64. `block` waits for a free slot, but only until the operation deadline. `reject` refuses at once. A call that retries keeps its slot across every attempt. PHP runs one synchronous call at a time and accepts only `reject`. |
 | `@AllOrNothing({"adapter":"data"})` | Runs one async service method inside a transaction on the named `configuration.entities` adapter. It calls `begin` before the body, `commit` after the body returns, and `rollback` when the body raises an error. Every repository and `@Query` command issued while the transaction is open carries the transaction when its entity uses the same adapter, also from a Store that was injected with its own behavior context: the open transaction follows the call, like Spring's propagation REQUIRED. A nested AllOrNothing joins the open transaction; it does not nest. There are no savepoints. A method that retries opens a new transaction for each attempt. The adapter decides: an adapter that ignores the transaction key is not transactional. The managed Yon datasource answers `{"operation":"transaction","action":"begin"\|"commit"\|"rollback"}` with a bounded count and lifetime. FYLO refuses, because documents have no transaction to open. |
-| `@Converter` | The role that holds `@Convert` methods, like MapStruct's `@Mapper`. It takes no arguments and follows the role layout: a `<Name>Converter` type in `converters/`. A Converter is a contract with no implementation, in the bodiless form of its language (an abstract interface class in Dart). A method body, a field, a constructor, a method without `@Convert` or a class form where the language has a contract form fails with `TY1308`: "A Converter has no implementation: Tachyon generates each mapping." A Converter needs no behavior context and has no constructor argument: a controller or service asks for it with `@Needs` in Yon and in Tac (an F# constructor parameter, `#[Needs]` above a Ruby `attr_reader`). `ty migrate fix --write` rewrites a class converter, and `ty migrate` reports code that still builds one with a context. |
-| `@Convert({"fields":[{"source":"detail.id","target":"productId"},{"target":"kind","constant":"product"}]})` | Declares the whole method as a field plan over its one bounded JSON parameter. Each entry names its `target`. It also takes either a dotted `source` path or a literal `constant`. A `source` path has at most 8 names, and an absent path maps to `null`, as in MapStruct. The method takes exactly one parameter; its parameter and result keep the language's JSON value type. At most 32 entries. A target written twice is refused. Like a query, it is **declared as a signature with an empty body**. Nothing else is copied: an input field without a mapping is dropped. |
+| `@Converter` | The role that holds `@Convert` methods, like MapStruct's `@Mapper`. It takes no arguments and follows the role layout: a `<Name>Converter` type in `converters/`. A Converter is a contract with no implementation, in the bodiless form of its language (an abstract interface class in Dart). A method body, a field, a constructor, a class form where the language has a contract form fails with `TY1308`: "A Converter has no implementation: Tachyon generates each mapping." A Converter needs no behavior context and has no constructor argument: a controller or service asks for it with `@Needs` in Yon and in Tac (an F# constructor parameter, `#[Needs]` above a Ruby `attr_reader`). `ty migrate fix --write` rewrites a class converter, and `ty migrate` reports code that still builds one with a context. |
+| `@Convert({"fields":[{"source":"detail.id","target":"productId"},{"target":"kind","constant":"product"}]})` | Declares the whole method as a field plan over its one bounded JSON parameter. Each entry names its `target`. It also takes either a dotted `source` path or a literal `constant`. A `source` path has at most 8 names, and an absent path maps to `null`, as in MapStruct. The method takes exactly one parameter. JSON-value signatures require the field plan; model signatures infer same-named fields and may omit `@Convert`. At most 32 entries. A target written twice is refused. Like a query, it is **declared as a signature with an empty body**. Nothing else is copied: an input field without a mapping is dropped. |
 | `@Description('Charges the card and records the order')` | One bounded literal line: at most 256 characters, with no quotes, escapes or control characters. It is carried into the registration for tools. It changes no behavior. It annotates a class that already declares one. |
 | `RestClient` (not an annotation) | `behaviors.restClient("catalog").get("/products").query({...}).header(name, value).body(value).retrieve()` calls a configured `http` adapter directly in code. It has the same rules as the declarative form: a bounded path relative to the origin, headers owned by the transport are refused, no body on GET or HEAD, `redirect: error`, `credentials: omit`, a 1 MiB response limit and the operation's own deadline. Python spells it `rest_client`. |
 | `@Schedule({"fixedDelaySeconds":300,"initialDelaySeconds":30})` | On a worker under `server/workers`, declares the schedule that the supervisor already follows. `fixedDelaySeconds` is 1 through 86,400. `initialDelaySeconds` is 0 through 86,400 and defaults to one full interval. A worker declares its schedule here or in `.tachyonrc.workers`, never in both (`TY1502`). There is no cron field and no Tac equivalent, because a browser page has no supervisor to run a detached timer. |
@@ -731,6 +731,32 @@ The type checker checks field names and value types. The runtime checks the
 exact set of required fields. Missing, extra, accessor and `undefined`
 arguments fail. JavaScript may also call the generated positional constructor
 directly.
+
+## Typed-model converter signatures
+
+A Converter may declare `map(source: Product): ProductSummary` with no
+`@Convert` marker or field plan. Both types must name models in the realm's
+`models/` folder. JavaScript uses JSDoc `@param` and `@returns` types; its model
+files may declare JSDoc `@typedef` models. TypeScript model files are also
+available to JavaScript roles.
+
+The compiler copies exact, same-named target fields, widens integer values to
+numbers, and projects nested models and lists recursively. It drops source
+fields absent from the target. Nullable source fields cannot fill required
+target fields. Missing or incompatible target fields fail the build with a
+field-specific diagnostic; cyclic model projections are bounded. An explicit
+`@Convert({"fields":[...]})` supplies overrides for named target fields while
+the compiler infers the rest. JSON-value methods still require a complete
+explicit plan. Model and JSON-value signatures cannot be mixed.
+
+Server runtime tests cover JavaScript, TypeScript, Python, Ruby, PHP, Dart, Go,
+Java, Groovy, Kotlin, C#, F# and Rust, including nested different models and
+lists. Tac adapters use the client model readers, but their typed-mapping
+native runtime qualification remains a separate gate. Ruby Tac typed-model
+mapping is refused until its native model reader is implemented; its explicit
+JSON-value plans remain available. Lua behavior annotations remain refused
+under [ADR 0085](adr/0085-lua-is-a-yon-language.md); enabling Lua converters requires that
+behavior adapter first. Swift is a Tac language and has no Yon server probe.
 
 ## Adapter Contracts
 

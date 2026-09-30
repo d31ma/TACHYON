@@ -27,8 +27,10 @@ pub(crate) use polyglot::{
 };
 #[cfg(test)]
 mod extensions_tests;
+mod jsdoc_signature;
 pub(crate) mod literal;
 mod mapper;
+mod model_mapping;
 mod mutations;
 mod parameters;
 mod polyglot;
@@ -38,8 +40,8 @@ mod renamed;
 pub(crate) use http_client::HttpClientSource;
 pub(crate) use queries::derives_name as is_derived_query;
 pub(crate) use renamed::{RenamedAnnotation, RoutingRename};
-mod resilience;
 mod call_style;
+mod resilience;
 mod ruby;
 mod service_roles;
 pub(crate) use service_roles::ServiceRoles;
@@ -1909,7 +1911,7 @@ fn method_policy(
         "Check" | "PageDefaults" | "CacheKey" => Err(parameters::refuse_method_form(input, marker)),
         "ClearCache" | "UpdateCache" => cache_mutation_method_policy(input, method, marker),
         "Retry" | "MaxAtOnce" | "AllOrNothing" => resilience_method_policy(input, method, marker),
-        "Convert" => mapping_method_policy(input, method, marker),
+        "Convert" => mapping_method_policy(input, method, marker, owner),
         "WebCall" => http_exchange_method_policy(input, method, marker),
         "Gateway" => gateway_method_policy(input, method, marker, owner),
         _ => Err(input.failure(
@@ -1977,6 +1979,7 @@ fn mapping_method_policy(
     input: &Input<'_>,
     method: &Method,
     marker: &Marker,
+    owner: &str,
 ) -> Result<(&'static str, Value), Failure> {
     if !method.asynchronous && !method.declared {
         return Err(input.failure(
@@ -1995,10 +1998,19 @@ fn mapping_method_policy(
             "Convert writes the whole method; declare its signature with an empty body",
         ));
     }
-    let signature = mapper::ConvertSignature {
+    let mut signature = mapper::ConvertSignature {
+        method: format!("{owner}.{}", method.name),
         parameter_types: javascript_parameter_types(input, method),
         return_type: javascript_result_type(input, method),
     };
+    let documented = jsdoc_signature::JsdocSignature::before(input.source, marker.span.start);
+    if let (Some((parameter, result)), Some(first)) =
+        (documented, signature.parameter_types.first_mut())
+        && first.is_empty()
+    {
+        *first = parameter;
+        signature.return_type = result;
+    }
     Ok(("mapping", mapper::mapping(input, marker, &signature)?))
 }
 

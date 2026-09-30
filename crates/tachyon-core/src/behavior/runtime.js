@@ -817,10 +817,14 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     }
   }
   function validateMapping(policy) {
-    if (!plain(policy) || !integer(policy.argument, 0, 31) || !Array.isArray(policy.fields)
-      || policy.fields.length === 0 || policy.fields.length > 32) invalid('Invalid behavior mapping policy.')
+    if (!plain(policy) || !integer(policy.argument, 0, 31)) invalid('Invalid behavior mapping policy.')
+    if (policy.result !== undefined && !identifier(policy.result)) invalid('Invalid behavior mapping result model.')
+    validateMappingFields(policy.fields, policy.result === undefined ? 1 : 0, 0)
+  }
+  function validateMappingFields(fields, least, depth) {
+    if (depth > 8 || !Array.isArray(fields) || fields.length < least || fields.length > 256) invalid('Invalid behavior mapping policy.')
     const targets = new Set()
-    for (const field of policy.fields) {
+    for (const field of fields) {
       if (!plain(field) || typeof field.target !== 'string' || !field.target || field.target.length > 256) invalid('Invalid behavior mapping target.')
       if (targets.size === targets.add(field.target).size) invalid('Behavior mapping writes one target twice.')
       const constant = own(field, 'constant')
@@ -830,19 +834,30 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
         const segments = String(field.source).split('.')
         if (segments.length > 8 || segments.some((name) => !name || name.length > 256)) invalid('Invalid behavior mapping source path.')
       }
+      if (field.fields !== undefined) {
+        if (constant) invalid('A behavior mapping constant has no nested fields.')
+        validateMappingFields(field.fields, 0, depth + 1)
+      }
     }
   }
   function mapValue(policy, args) {
     const input = args[policy.argument]
     if (!plain(input) || Array.isArray(input)) invalid('A behavior mapping reads one JSON object argument.')
+    return json(mapFields(input, policy.fields))
+  }
+  function mapFields(input, fields) {
     const output = {}
-    for (const field of policy.fields) {
+    for (const field of fields) {
       if (own(field, 'constant')) { output[field.target] = field.constant; continue }
       let value = input
       for (const name of String(field.source).split('.')) value = plain(value) && own(value, name) ? value[name] : null
-      output[field.target] = value
+      output[field.target] = field.fields ? shapedValue(value, field.fields) : value
     }
-    return json(output)
+    return output
+  }
+  function shapedValue(value, fields) {
+    if (Array.isArray(value)) return value.map((item) => shapedValue(item, fields))
+    return plain(value) ? mapFields(value, fields) : value
   }
   function validateCacheable(method, record) {
     const keys = method.cacheable.keyArgs

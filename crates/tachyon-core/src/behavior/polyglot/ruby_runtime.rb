@@ -210,9 +210,14 @@ class BehaviorBoundary
         current = named(current)
         current = current.is_a?(Hash) && current.key?(name) ? current[name] : nil
       end
-      output[field["target"]] = current
+      output[field["target"]] = field.key?("fields") ? map_shape(current, field["fields"]) : current
     end
     copy(output)
+  end
+
+  def self.map_shape(value, fields)
+    return value.map { |item| map_shape(item, fields) } if value.is_a?(Array)
+    value.is_a?(Hash) ? map_value({"argument" => 0, "fields" => fields}, [value]) : value
   end
 
   def self.exchange_path(policy, arguments)

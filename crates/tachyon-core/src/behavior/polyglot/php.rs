@@ -194,10 +194,27 @@ fn only_policy<'a>(method: &'a Method, key: &str) -> Option<&'a Value> {
 }
 
 fn mapping_body(policy: &Value, arguments: &[String]) -> String {
+    let plan = format!(
+        "json_decode('{}',true,32,JSON_THROW_ON_ERROR)",
+        escape_single_quoted(&policy.to_string())
+    );
+    let Some(result) = policy.get("result").and_then(Value::as_str) else {
+        return format!(
+            "\nreturn BehaviorBoundary::mapValue({plan}, [{}]);\n",
+            arguments.join(",")
+        );
+    };
+    let values: Vec<String> = arguments
+        .iter()
+        .map(|name| {
+            format!(
+                "json_decode(json_encode({name},JSON_THROW_ON_ERROR),true,512,JSON_THROW_ON_ERROR)"
+            )
+        })
+        .collect();
     format!(
-        "\nreturn BehaviorBoundary::mapValue(json_decode('{}',true,32,JSON_THROW_ON_ERROR), [{}]);\n",
-        escape_single_quoted(&policy.to_string()),
-        arguments.join(",")
+        "\nreturn YonModels::read({result}::class, BehaviorBoundary::mapValue({plan}, [{}]));\n",
+        values.join(",")
     )
 }
 

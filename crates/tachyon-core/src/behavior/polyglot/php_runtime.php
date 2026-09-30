@@ -103,9 +103,14 @@ final class BehaviorBoundary {
             if(!array_key_exists('source',$field)) { $output[$field['target']]=$field['constant']??null; continue; }
             $current=$value;
             foreach(explode('.',$field['source']) as $name)$current=is_array($current)&&array_key_exists($name,$current)?$current[$name]:null;
-            $output[$field['target']]=$current;
+            $output[$field['target']]=isset($field['fields'])?self::mapShape($current,$field['fields']):$current;
         }
         return self::copy($output);
+    }
+    private static function mapShape(mixed $value,array $fields): mixed {
+        if(!is_array($value))return $value;
+        if(array_is_list($value))return array_map(fn($item)=>self::mapShape($item,$fields),$value);
+        return self::mapValue(['argument'=>0,'fields'=>$fields],[$value]);
     }
     public static function exchangePath(array $policy,array $args): string {
         $path=$policy['path'];

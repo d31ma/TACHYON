@@ -6,6 +6,7 @@ use std::path::Path;
 
 mod converters;
 mod language_kinds;
+mod mapping_models;
 mod model_files;
 mod php_doc;
 mod type_text;
@@ -25,6 +26,7 @@ mod web_event_model_tests;
 mod declared_name_tests;
 
 pub(crate) use converters::{Converters, DartValues};
+pub(crate) use mapping_models::MappingModels;
 pub(crate) use php_doc::PhpDoc;
 pub(crate) use type_text::TypeText;
 pub(crate) use web_event_models::WebEventModels;

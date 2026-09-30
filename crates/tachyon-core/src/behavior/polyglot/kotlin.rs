@@ -716,7 +716,8 @@ fn mutation_argument(
 }
 
 fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
-    if !returns_any(method) {
+    let result = policy.get("result").and_then(Value::as_str);
+    if result.is_none() && !returns_any(method) {
         return Err("Kotlin mapping methods must return Any? bounded JSON".to_owned());
     }
     let (argument, fields) = super::super::mapper::plan(policy)?;
@@ -728,10 +729,19 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
     for field in &fields {
         entries.push(mapping_entry(field)?);
     }
+    let plan = format!("arrayOf({})", entries.join(", "));
+    let Some(result) = result else {
+        return Ok(format!("return Behaviors.mapValue({}, {plan})", value.name));
+    };
+    if policy["realm"] == "tac" {
+        return Ok(format!(
+            "return tacModel({result}::class, Behaviors.mapValue(tacPlain({}), {plan})) as {result}",
+            value.name
+        ));
+    }
     Ok(format!(
-        "return Behaviors.mapValue({}, arrayOf({}))",
-        value.name,
-        entries.join(", ")
+        "return YonModels.read({result}::class.java, Behaviors.mapValue(Json.parse(Json.write({})), {plan})) as {result}",
+        value.name
     ))
 }
 
@@ -740,11 +750,23 @@ fn mapping_entry(field: &Plan) -> Result<String, String> {
         Some(path) => format!("arrayOf<String>({})", quoted_list(path)),
         None => "null".to_owned(),
     };
+    let nested = mapping_nested(field)?;
     Ok(format!(
-        "arrayOf({}, {read}, {})",
+        "arrayOf({}, {read}, {}, {nested})",
         quote(&field.target),
         literal(Some(&field.constant))?
     ))
+}
+
+fn mapping_nested(field: &Plan) -> Result<String, String> {
+    let Some(fields) = &field.fields else {
+        return Ok("null".to_owned());
+    };
+    let entries = fields
+        .iter()
+        .map(mapping_entry)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(format!("arrayOf<Array<Any?>>({})", entries.join(", ")))
 }
 
 fn quoted_list(names: &[String]) -> String {

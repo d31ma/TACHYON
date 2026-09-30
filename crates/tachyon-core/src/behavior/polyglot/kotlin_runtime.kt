@@ -589,9 +589,15 @@ object Behaviors {
             var current: Any? = source
             @Suppress("UNCHECKED_CAST")
             for (name in path as Array<String>) { current = (current as? Map<*, *>)?.get(name) }
+            @Suppress("UNCHECKED_CAST")
+            if (entry.size > 3 && entry[3] != null) current = mapShape(current, entry[3] as Array<Array<Any?>>)
             output[entry[0] as String] = current
         }
         return copy(output, 1048576)
+    }
+    private fun mapShape(value: Any?, plan: Array<Array<Any?>>): Any? {
+        if (value is List<*>) return value.map { mapShape(it, plan) }
+        return if (value is Map<*, *>) mapValue(value, plan) else value
     }
     fun json(value: Any?, limit: Int = 1048576): String = encode(copy(value, limit))
     fun copy(value: Any?, limit: Int): Any? {

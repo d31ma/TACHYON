@@ -1,3 +1,4 @@
+use super::model_mapping::ModelMapping;
 use super::{Input, Marker};
 use crate::Failure;
 use serde_json::{Map, Value};
@@ -26,6 +27,7 @@ impl MappingLimits {
 }
 
 pub(super) struct ConvertSignature<'a> {
+    pub method: String,
     pub parameter_types: Vec<&'a str>,
     pub return_type: &'a str,
 }
@@ -35,22 +37,97 @@ pub(super) fn mapping(
     marker: &Marker,
     signature: &ConvertSignature<'_>,
 ) -> Result<Value, Failure> {
+    let fail = |message: String| {
+        input.failure(
+            marker.span.start,
+            format!("{}: {message}", signature.method),
+        )
+    };
     let written = super::literal::parse(&marker.arguments).ok();
     if written
         .as_ref()
         .is_some_and(|value| value.get("argument").is_some())
     {
-        return Err(input.failure(
-            marker.span.start,
-            "Convert reads its one parameter, so it has no \"argument\" key: remove it",
+        return Err(fail(
+            "Convert reads its one parameter, so it has no \"argument\" key: remove it".to_owned(),
         ));
     }
     if signature.parameter_types.len() != 1 {
-        return Err(input.failure(
-            marker.span.start,
-            "A Convert method takes exactly one parameter: the value it converts",
+        return Err(fail(
+            "A Convert method takes exactly one parameter: the value it converts".to_owned(),
         ));
     }
+    let mut object = options(input, marker, written)?;
+    let models = match object.remove("models") {
+        Some(Value::Object(models)) => models,
+        _ => Map::new(),
+    };
+    let mapping = ModelMapping::new(&models);
+    let source = mapping
+        .model_in(signature.parameter_types[0])
+        .map_err(fail)?;
+    let target = mapping.model_in(signature.return_type).map_err(fail)?;
+    match (source, target) {
+        (Some(source), Some(target)) => {
+            if input.extension() == "rb"
+                && object.get("realm").and_then(Value::as_str) == Some("tac")
+            {
+                return Err(fail("Typed-model converters in Ruby Tac require a native model reader; use an explicit JSON-value field plan until that adapter is available".to_owned()));
+            }
+            let written = written_entries(input, marker, object.get("fields"), 0)?;
+            let implicit = mapping.entries(&source, &target, &written).map_err(fail)?;
+            Ok(typed(written, implicit, &target, object.get("realm")))
+        }
+        (None, None) => untyped(input, marker, signature, &object),
+        (Some(model), None) | (None, Some(model)) => Err(fail(format!(
+            "A mapping method converts a model into a model, or a JSON value into a JSON value: {model} is a model, so declare the other side with a model type too"
+        ))),
+    }
+}
+
+fn options(
+    input: &Input<'_>,
+    marker: &Marker,
+    written: Option<Value>,
+) -> Result<Map<String, Value>, Failure> {
+    let object = match written {
+        Some(Value::Object(object)) => object,
+        None if marker.arguments.trim().is_empty() => Map::new(),
+        _ => {
+            return Err(input.failure(
+                marker.span.start,
+                "Convert takes a strict JSON object with a \"fields\" list",
+            ));
+        }
+    };
+    if object
+        .keys()
+        .any(|key| !matches!(key.as_str(), "fields" | "models" | "realm"))
+    {
+        return Err(input.failure(
+            marker.span.start,
+            "Convert requires exactly these keys: fields",
+        ));
+    }
+    Ok(object)
+}
+
+fn typed(
+    mut written: Vec<Value>,
+    implicit: Vec<Value>,
+    target: &str,
+    realm: Option<&Value>,
+) -> Value {
+    written.extend(implicit);
+    serde_json::json!({"argument": 0, "fields": written, "result": target, "realm": realm.and_then(Value::as_str).unwrap_or("yon")})
+}
+
+fn untyped(
+    input: &Input<'_>,
+    marker: &Marker,
+    signature: &ConvertSignature<'_>,
+    object: &Map<String, Value>,
+) -> Result<Value, Failure> {
     let types = [signature.parameter_types[0], signature.return_type];
     if let Some(model) = types
         .into_iter()
@@ -58,19 +135,34 @@ pub(super) fn mapping(
     {
         return Err(input.failure(
             marker.span.start,
-            format!("Convert reads and writes JSON values; a model type such as '{model}' in its signature is not supported yet. Declare the parameter and result with the language's JSON value type"),
+            format!("Convert maps JSON values or models, and '{model}' is neither: declare it in the models folder, or use the language's JSON value type"),
         ));
     }
-    let mut object = super::object(input, marker, &["fields"])?;
-    let Some(fields) = object["fields"].as_array() else {
+    if !object.contains_key("fields") {
+        return Err(input.failure(
+            marker.span.start,
+            "This mapping method reads and writes JSON values, so Convert lists its field plan: {\"fields\":[{\"source\":\"name\",\"target\":\"title\"}]}. Declare model types to copy same-named fields without a plan",
+        ));
+    }
+    let entries = written_entries(input, marker, object.get("fields"), 1)?;
+    Ok(serde_json::json!({"argument": 0, "fields": entries}))
+}
+
+fn written_entries(
+    input: &Input<'_>,
+    marker: &Marker,
+    fields: Option<&Value>,
+    least: usize,
+) -> Result<Vec<Value>, Failure> {
+    let empty = Value::Array(Vec::new());
+    let Some(entries) = fields.unwrap_or(&empty).as_array() else {
         return Err(too_many_fields(input, marker));
     };
-    if fields.is_empty() || fields.len() > MappingLimits::MAX_FIELDS {
+    if entries.len() < least || entries.len() > MappingLimits::MAX_FIELDS {
         return Err(too_many_fields(input, marker));
     }
-    let entries = fields.clone();
     let mut targets = std::collections::BTreeSet::new();
-    for entry in &entries {
+    for entry in entries {
         let plan = entry.as_object().ok_or_else(|| {
             input.failure(marker.span.start, "Convert.fields entries are objects")
         })?;
@@ -83,9 +175,7 @@ pub(super) fn mapping(
             ));
         }
     }
-    object.insert("argument".to_owned(), Value::from(0));
-    object.insert("fields".to_owned(), Value::Array(entries));
-    Ok(Value::Object(object))
+    Ok(entries.clone())
 }
 
 fn names_a_model(language: &str, type_text: &str) -> bool {
@@ -176,6 +266,7 @@ pub(super) struct Plan {
     pub target: String,
     pub source: Option<Vec<String>>,
     pub constant: Value,
+    pub fields: Option<Vec<Plan>>,
 }
 
 pub(super) fn plan(policy: &Value) -> Result<(usize, Vec<Plan>), String> {
@@ -203,6 +294,11 @@ fn field_from_entry(entry: &Value) -> Result<Plan, String> {
         target: target.to_owned(),
         source,
         constant: entry.get("constant").cloned().unwrap_or(Value::Null),
+        fields: entry
+            .get("fields")
+            .and_then(Value::as_array)
+            .map(|entries| entries.iter().map(field_from_entry).collect())
+            .transpose()?,
     })
 }
 

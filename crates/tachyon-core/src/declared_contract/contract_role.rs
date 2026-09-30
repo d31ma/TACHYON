@@ -13,6 +13,7 @@ pub(crate) struct ContractRole {
     pub(crate) names_entity: bool,
     pub(crate) managed_in_browser: bool,
     member_markers: &'static [&'static str],
+    every_method_maps: bool,
     member_rule: &'static str,
     lowered_in: &'static [&'static str],
 }
@@ -45,6 +46,7 @@ impl ContractRole {
         names_entity: false,
         managed_in_browser: true,
         member_markers: &Self::CLIENT_CALLS,
+        every_method_maps: false,
         member_rule: "{owner}.{method} has no request annotation. Each method of an HTTPClient sends a request: mark it with {markers}",
         lowered_in: &Self::EVERY_LANGUAGE,
     };
@@ -60,6 +62,7 @@ impl ContractRole {
         names_entity: true,
         managed_in_browser: false,
         member_markers: &Self::STORE_CALLS,
+        every_method_maps: false,
         member_rule: "{owner}.{method} is not a query. Each method of a Store runs a query: start its name with findBy, countBy, existsBy or deleteBy (find_by_, count_by_, exists_by_ or delete_by_ in snake_case), or mark it with {markers}",
         lowered_in: &Self::EVERY_LANGUAGE,
     };
@@ -71,10 +74,11 @@ impl ContractRole {
         noun: "converter",
         works: "mappings",
         no_implementation: "A Converter has no implementation: Tachyon generates each mapping.",
-        help: "A Converter is a contract, like a MapStruct @Mapper interface: each method is a Convert signature, and Tachyon writes the body from its field plan. `ty migrate fix --write` rewrites a class converter. See docs/BEHAVIOR_ANNOTATIONS.md.",
+        help: "A Converter is a contract, like a MapStruct @Mapper interface: each method is a mapping signature, and Tachyon writes the body: it copies same-named fields between typed models, and a Convert field plan names the rest. `ty migrate fix --write` rewrites a class converter. See docs/BEHAVIOR_ANNOTATIONS.md.",
         names_entity: false,
         managed_in_browser: false,
         member_markers: &Self::CONVERTER_CALLS,
+        every_method_maps: true,
         member_rule: "{owner}.{method} is not a mapping. Each method of a Converter copies fields: mark it with {markers}",
         lowered_in: &Self::INJECTED_CLASS_LANGUAGES,
     };
@@ -123,7 +127,12 @@ impl ContractRole {
             self.names_entity,
             crate::behavior::is_derived_query(&crate::go_source::lower_first(&member.name(code))),
         ] == [true, true];
-        [member.is_marked_with(self.member_markers), derived].contains(&true)
+        [
+            member.is_marked_with(self.member_markers),
+            derived,
+            self.every_method_maps,
+        ]
+        .contains(&true)
     }
 
     pub(crate) fn member_rule(self, owner: &str, method: &str, markers: &str) -> String {

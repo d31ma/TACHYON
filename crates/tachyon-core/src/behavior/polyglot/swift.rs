@@ -306,7 +306,7 @@ fn written_body(method: &Method) -> Result<Option<String>, String> {
 }
 
 fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
-    if method.return_type.trim() != "BehaviorJSON" {
+    if policy.get("result").is_none() && method.return_type.trim() != "BehaviorJSON" {
         return Err("Swift mapping methods require throws -> BehaviorJSON".to_owned());
     }
     let (argument, _) = mapper::plan(policy)?;
@@ -314,6 +314,13 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
         .parameters
         .get(argument)
         .ok_or("Convert reads an argument the method does not declare")?;
+    if let Some(result) = policy.get("result").and_then(Value::as_str) {
+        return Ok(format!(
+            "\nlet mapped = try BehaviorContext.mapValue(BehaviorJSON.parse({}), BehaviorJSON.parse(tacEncode(tacModelValue({}))))\nreturn try tacModel({result}.self, tacParseJSON(mapped.encoded()))\n",
+            quote(&policy.to_string()),
+            value.name
+        ));
+    }
     Ok(format!(
         "\nreturn try BehaviorContext.mapValue(BehaviorJSON.parse({}), try BehaviorJSON.from({}))\n",
         quote(&policy.to_string()),

@@ -750,9 +750,18 @@ final class Behaviors {
             for (String name : (String[])entry[1]) {
                 current = current instanceof java.util.Map<?, ?> ? ((java.util.Map<?, ?>)current).get(name) : null;
             }
+            if (entry.length > 3 && entry[3] != null) current = mapShape(current, (Object[][])entry[3]);
             output.put((String)entry[0], current);
         }
         return copy(output, 1048576);
+    }
+    static Object mapShape(Object value, Object[][] plan) {
+        if (value instanceof java.util.List<?> items) {
+            java.util.List<Object> output = new java.util.ArrayList<>();
+            for (Object item : items) output.add(mapShape(item, plan));
+            return output;
+        }
+        return value instanceof java.util.Map<?, ?> ? mapValue(value, plan) : value;
     }
     static Object copy(Object value, int limit) {
         if (limit < 1 || limit > 1048576) throw fail("json-size");

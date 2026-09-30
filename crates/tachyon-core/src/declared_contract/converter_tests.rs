@@ -84,11 +84,11 @@ fn a_class_converter_is_refused_where_the_language_has_a_contract_form() {
 }
 
 #[test]
-fn a_converter_method_without_convert_is_refused() {
+fn a_converter_signature_may_omit_convert_before_model_resolution() {
     let source =
         "@Converter\ninterface ProductConverter {\n    fun toSummary(product: Any?): Any?\n}\n";
-    let message = ConverterSamples::refusal("kt", source);
-    assert!(message.contains("is not a mapping"), "{message}");
+    let checked = DeclaredContract::check(Path::new(&ConverterSamples::path("kt")), source);
+    assert!(checked.is_ok(), "{checked:?}");
 }
 
 #[test]

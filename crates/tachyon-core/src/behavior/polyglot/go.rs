@@ -310,7 +310,9 @@ fn service(
     if methods.is_empty() {
         return Ok(());
     }
-    let needs_context = methods.iter().any(|method| super::method_needs_context(method));
+    let needs_context = methods
+        .iter()
+        .any(|method| super::method_needs_context(method));
     if needs_context && !has_context_field(declaration) {
         return Err(format!(
             "Annotated Go service {} requires a behaviors *BehaviorContext field",
@@ -394,16 +396,23 @@ fn has_context_field(declaration: &Type) -> bool {
 
 fn validate_method(method: &Method) -> Result<(), String> {
     let results = compact(&method.return_type);
-    if results != GoNames::RESULTS {
+    let model_result = method
+        .metadata
+        .get("mapping")
+        .and_then(|policy| policy.get("result"))
+        .and_then(Value::as_str);
+    let typed = model_result.is_some_and(|model| results == format!("({model},error)"));
+    if results != GoNames::RESULTS && !typed {
         return Err(format!(
             "Go behavior method {} must return (BehaviorValue, error); convert explicit JSON data at the application response boundary",
             method.name
         ));
     }
-    if method
-        .parameters
-        .iter()
-        .any(|parameter| parameter.type_source.trim() != "BehaviorValue")
+    if !typed
+        && method
+            .parameters
+            .iter()
+            .any(|parameter| parameter.type_source.trim() != "BehaviorValue")
     {
         return Err(format!(
             "Go behavior method {} arguments must use the bounded BehaviorValue type",
@@ -511,27 +520,33 @@ fn mapping_call(method: &Method, policy: &Value) -> Result<String, String> {
         .parameters
         .get(argument)
         .ok_or("Convert reads an argument the method does not declare")?;
+    let plan = mapping_fields(&fields)?;
+    Ok(match policy.get("result").and_then(Value::as_str) {
+        Some(result) => format!("BehaviorMapModel[{result}]({}, {plan})", value.name),
+        None => format!("BehaviorMapValue({}, {plan})", value.name),
+    })
+}
+
+fn mapping_fields(fields: &[super::super::mapper::Plan]) -> Result<String, String> {
     let mut entries = Vec::new();
-    for field in &fields {
-        let entry = match &field.source {
-            Some(path) => format!(
-                "{{Target: {}, Source: []string{{{}}}}}",
-                quoted(&field.target),
-                quoted_names(path)
-            ),
-            None => format!(
-                "{{Target: {}, Constant: {}}}",
-                quoted(&field.target),
-                value_literal(&field.constant)
-            ),
+    for field in fields {
+        let read = match &field.source {
+            Some(path) => format!("Source: []string{{{}}}", quoted_names(path)),
+            None => format!("Constant: {}", value_literal(&field.constant)),
         };
-        entries.push(entry);
+        let nested = field
+            .fields
+            .as_ref()
+            .map(|fields| mapping_fields(fields))
+            .transpose()?
+            .map(|plan| format!(", Fields: {plan}"))
+            .unwrap_or_default();
+        entries.push(format!(
+            "{{Target: {}, {read}{nested}}}",
+            quoted(&field.target)
+        ));
     }
-    Ok(format!(
-        "BehaviorMapValue({}, []BehaviorMappingField{{{}}})",
-        value.name,
-        entries.join(", ")
-    ))
+    Ok(format!("[]BehaviorMappingField{{{}}}", entries.join(", ")))
 }
 
 fn value_literal(constant: &Value) -> String {

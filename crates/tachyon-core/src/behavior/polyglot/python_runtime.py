@@ -8,6 +8,7 @@ import random as _behavior_random
 import re as _behavior_re
 import sys as _behavior_sys
 import time as _behavior_time
+import typing as _behavior_typing
 
 class _BehaviorOpenTransactions:
     OPEN = vars(_behavior_sys).setdefault('_tachyon_behavior_transactions', _behavior_contextvars.ContextVar('tachyon_behavior_transactions', default=None))
@@ -270,19 +271,35 @@ def _behavior_read_path(value, source):
             current = None
     return current
 
-def _behavior_map_value(policy, args):
+def _behavior_map_value(policy, args, original=None):
     value = None
     if policy['argument'] < len(args):
         value = args[policy['argument']]
+    typed = 'result' in policy
+    if typed:
+        value = _behavior_builtins.YonModels.plain(value)
     if not isinstance(value, dict):
         _behavior_invalid('A behavior mapping reads one JSON object argument.')
+    output = _behavior_copy(_behavior_map_fields(value, policy['fields']))
+    if not typed:
+        return output
+    result = _behavior_typing.get_type_hints(original).get('return')
+    return _behavior_builtins.YonModels.read(result, output)
+
+def _behavior_map_fields(value, fields):
     output = {}
-    for field in policy['fields']:
+    for field in fields:
         if 'source' not in field:
             output[field['target']] = field.get('constant')
             continue
-        output[field['target']] = _behavior_read_path(value, field['source'])
-    return _behavior_copy(output)
+        found = _behavior_read_path(value, field['source'])
+        output[field['target']] = _behavior_shaped(found, field['fields']) if 'fields' in field else found
+    return output
+
+def _behavior_shaped(value, fields):
+    if isinstance(value, list):
+        return [_behavior_shaped(item, fields) for item in value]
+    return _behavior_map_fields(value, fields) if isinstance(value, dict) else value
 
 def _behavior_pick_argument(args, index):
     if index >= len(args):
@@ -762,7 +779,7 @@ class _BehaviorContext:
     async def _run_target(self, call):
         metadata = call.metadata
         if metadata.get('mapping') is not None:
-            return _behavior_map_value(metadata['mapping'], call.args)
+            return _behavior_map_value(metadata['mapping'], call.args, call.original)
         policy = metadata.get('httpExchange')
         if policy is not None and policy.get('generated'):
             filled = dict(policy, path=_behavior_exchange_path(policy, call.args))
@@ -1091,11 +1108,11 @@ def _behavior_gateway_wrapper(policy, original):
 
 def _behavior_mapping_wrapper(policy, original):
     def call(instance, *args):
-        return _behavior_map_value(policy, args)
+        return _behavior_map_value(policy, args, original)
     if not _behavior_inspect.iscoroutinefunction(original):
         return call
     async def asynchronous(instance, *args):
-        return _behavior_map_value(policy, args)
+        return _behavior_map_value(policy, args, original)
     return asynchronous
 
 def _behavior_valid_adapter_name(name):

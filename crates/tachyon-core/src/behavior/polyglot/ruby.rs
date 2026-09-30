@@ -64,11 +64,16 @@ impl RubyLowering {
                 Self::line_breaks(original)
             )
         } else if let Some(policy) = Self::only(method, "mapping") {
-            format!(
-                "; BehaviorBoundary.map_value(JSON.parse({}), [{arguments}]){}",
-                Self::single_quoted(&policy.to_string()),
-                Self::line_breaks(original)
-            )
+            let plan = Self::single_quoted(&policy.to_string());
+            let breaks = Self::line_breaks(original);
+            match policy.get("result").and_then(Value::as_str) {
+                Some(result) => format!(
+                    "; YonModels.read({result}, BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}].map {{ |value| YonModels.plain(value) }}), defined?(YonGenerated) && YonGenerated.respond_to?(:field_types) ? YonGenerated.field_types : {{}}){breaks}"
+                ),
+                None => format!(
+                    "; BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}]){breaks}"
+                ),
+            }
         } else if let Some(policy) = Self::only(method, "valid") {
             let index = policy["argument"]
                 .as_u64()

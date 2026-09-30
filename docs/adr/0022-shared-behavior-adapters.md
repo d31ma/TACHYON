@@ -344,3 +344,21 @@ no implementation, and Tachyon generates each query.
   that `configure` ran once and that both contexts see the same adapter
   state, disposes one context twice, and checks that `configure` runs again
   only after the last context is disposed.
+
+## Amendment (2026-09-30): implicit typed-model converter plans
+
+Converter contracts may omit Convert when both method types are declared
+models. The compiler resolves models before concrete contract rewriting,
+infers exact same-name target fields, validates shape compatibility, and emits
+bounded recursive projection plans for nested models and lists. Explicit
+field entries override only their named targets; JSON-value contracts retain
+the explicit-plan requirement. Model tables and realm tags are compiler-owned
+metadata and cannot be authored as Convert options.
+
+Native code reads and writes through the model adapter for its realm. The
+server runtime qualification covers the thirteen languages listed in
+BEHAVIOR_ANNOTATIONS.md. Ruby Tac typed models currently fail closed because
+converter model metadata is not yet wired into its native reader, while explicit JSON mapping remains
+supported. Lua converters depend on ADR 0085 behavior annotation support.
+Native Tac typed-model execution and Swift qualification remain required
+before claiming complete language parity.

@@ -595,6 +595,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Converter signatures between declared models infer same-named fields,
+  recursively project nested models and lists, and allow explicit field
+  overrides. Model methods may omit Convert; JSON methods still need a plan.
+  Server execution is tested in thirteen languages, including JavaScript
+  JSDoc models and F#. Ruby Tac typed models fail closed until its native
+  reader exists; Lua behavior annotations and native Tac qualification
+  remain separate compatibility gates.
+
 - A Tac service reaches the native window through the injected `WindowControls`
   browser API (ADR 0087): `@Needs windowControls` in JavaScript and TypeScript,
   and a `WindowControls` field in every language that runs in the page, with
