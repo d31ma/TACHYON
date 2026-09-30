@@ -86,7 +86,7 @@ impl<'r, 'a> BracedMembers<'r, 'a> {
         let trait_impl = (self.words.text(at) == "impl") & self.words.has_word(header, &["for"]);
         let line = self.words.line_begin(at)..at;
         let public_trait = (self.words.text(at) == "trait") & self.words.has_word(line, &["pub"]);
-        self.spelling.public_by_pub() & (trait_impl | public_trait)
+        trait_impl | public_trait
     }
 
     fn is_container(&self, at: usize) -> bool {
@@ -206,7 +206,7 @@ impl<'r, 'a> BracedMembers<'r, 'a> {
         let hash = self.words.text(head.name_at.wrapping_sub(1)) == "#";
         let keyword = self.has_private_word(head);
         let lowercase = self.spelling.has_receiver_groups() & name.starts_with(char::is_lowercase);
-        let unmarked = self.spelling.public_by_pub() & !self.has_pub(head);
+        let unmarked = !self.spelling.public_words().is_empty() & !self.has_public_word(head);
         underscore | hash | keyword | lowercase | unmarked
     }
 
@@ -216,8 +216,8 @@ impl<'r, 'a> BracedMembers<'r, 'a> {
             .any(|at| self.spelling.is_private_word(self.words.text(at)))
     }
 
-    fn has_pub(&self, head: &Head) -> bool {
+    fn has_public_word(&self, head: &Head) -> bool {
         let line = self.words.line_begin(head.at)..head.at;
-        self.words.has_word(line, &["pub"])
+        self.words.has_word(line, self.spelling.public_words())
     }
 }

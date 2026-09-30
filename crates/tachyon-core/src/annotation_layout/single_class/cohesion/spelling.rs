@@ -14,7 +14,7 @@ pub(in super::super) struct Spelling {
     private_words: &'static [&'static str],
     query_syntax: bool,
     receiver_groups: bool,
-    pub_methods: bool,
+    public_words: &'static [&'static str],
     parentheses_call: bool,
     layout: Layout,
     private_hint: &'static str,
@@ -194,7 +194,7 @@ impl Spelling {
         private_words: &[],
         query_syntax: false,
         receiver_groups: false,
-        pub_methods: false,
+        public_words: &[],
         parentheses_call: true,
         layout: Layout::Braced,
         private_hint: "a private method whose name starts with `#`, such as `#pick(value)`",
@@ -220,6 +220,7 @@ impl Spelling {
         lambda_marks: &["=>", "delegate"],
         containers: &["class", "record", "struct"],
         private_words: &["private"],
+        public_words: &["public", "internal"],
         query_syntax: true,
         private_hint: "a private method, such as `private Item Pick(Item value)`",
         ..Self::JAVASCRIPT
@@ -273,7 +274,7 @@ impl Spelling {
         lambda_marks: &["|"],
         heads: &["fn"],
         containers: &["impl", "trait"],
-        pub_methods: true,
+        public_words: &["pub"],
         private_hint: "a private function without `pub`, such as `fn pick(&self, value: &Item) -> Item`",
         ..Self::JAVASCRIPT
     };
@@ -396,8 +397,8 @@ impl Spelling {
         self.receiver_groups
     }
 
-    pub(in super::super) const fn public_by_pub(&self) -> bool {
-        self.pub_methods
+    pub(in super::super) const fn public_words(&self) -> &'static [&'static str] {
+        self.public_words
     }
 
     pub(in super::super) const fn calls_need_parentheses(&self) -> bool {

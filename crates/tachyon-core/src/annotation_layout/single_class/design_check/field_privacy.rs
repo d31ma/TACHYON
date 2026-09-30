@@ -8,6 +8,7 @@ impl FieldPrivacy {
     const PRIVATE_WORDS: [&'static str; 3] = ["private", "fileprivate", "protected"];
     const RUBY_SECTION: &'static str = "private";
     const PUB: &'static str = "pub";
+    const CSHARP_PUBLIC_WORDS: [&'static str; 2] = ["public", "internal"];
     const HASH: &'static str = "#";
     const UNDERSCORE: char = '_';
 
@@ -25,6 +26,7 @@ impl FieldPrivacy {
             "dart" | "py" => name.starts_with(Self::UNDERSCORE),
             "go" => name.starts_with(char::is_lowercase),
             "rs" => !Self::has_word_before(class, at, &[Self::PUB]),
+            "cs" => !Self::has_word_before(class, at, &Self::CSHARP_PUBLIC_WORDS),
             "rb" => Self::in_ruby_private_part(class, at),
             _ => Self::has_word_before(class, at, &Self::PRIVATE_WORDS),
         }

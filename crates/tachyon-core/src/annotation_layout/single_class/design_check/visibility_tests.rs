@@ -242,3 +242,15 @@ fn a_gateway_that_names_another_method_keeps_that_method_public() {
         Vec::<String>::new()
     );
 }
+
+#[test]
+fn a_csharp_member_without_an_access_modifier_is_private() {
+    let service = "[Service]\npublic class PriceService\n{\n    const string Currency = \"EUR\";\n    int step = 2;\n    internal int Spare = 3;\n\n    public string Shown()\n    {\n        return Label(step);\n    }\n\n    string Label(int count)\n    {\n        return Currency + count;\n    }\n}\n";
+    let caller = "@Service\n@NeedsAll\nexport default class UserService {\n  priceService\n\n  help() {\n    return this.priceService.shown()\n  }\n}\n";
+    let files = [
+        ("server/services/PriceService.cs", service),
+        ("server/services/UserService.js", caller),
+    ];
+    let names = VisibilityProject::names_in(&files, "server/services/PriceService.cs");
+    assert_eq!(names, vec!["Spare"]);
+}

@@ -2195,6 +2195,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- `TY1333` treats a C# method or field without an access modifier as private,
+  as C# does. It reported `const string Currency = "EUR";` or `int Total()`
+  inside a class as public and unused. Only `public` and `internal` members
+  are public now.
+
 - A Ruby or Lua Needs field takes its provider from its type comment, like
   every typed language: `# @return [CheckoutService]` above
   `attr_reader :service`, or `---@type CheckoutService` above `service = nil`.
