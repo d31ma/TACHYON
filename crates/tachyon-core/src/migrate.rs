@@ -10,6 +10,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 mod built_converter;
+#[cfg(test)]
+mod built_converter_tests;
 mod fix;
 pub use fix::{MigrationFix, MigrationFixPlan};
 

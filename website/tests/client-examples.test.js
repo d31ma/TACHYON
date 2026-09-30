@@ -108,7 +108,9 @@ function collectExamples(docs, catalogue) {
 
 async function checkRuntimeContract(example, module) {
   if (example.name.startsWith('annotations: Mapping: Tac')) {
-    const service = new module.default()
+    expect(typeof module.__tachyon_create_owner__, example.name).toBe('function')
+    const transport = async () => { throw new Error('a mapping sends no request') }
+    const service = await module.__tachyon_create_owner__({}, new AbortController().signal, transport)
     await service.load()
     expect(service.title, example.name).toBe('product 7: Anvil')
   }
