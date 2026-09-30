@@ -53,14 +53,6 @@ impl LuaView {
         )
     }
 
-    pub(crate) fn only<T>(
-        path: &Path,
-        source: &str,
-        check: impl Fn(&Path, &str) -> Result<T, Failure>,
-    ) -> Result<T, Failure> {
-        Self::of(path, source).map_or_else(|| check(path, source), |view| view.checked(&check))
-    }
-
     pub(crate) fn path(&self) -> &Path {
         &self.shadow_path
     }

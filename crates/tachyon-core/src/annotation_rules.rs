@@ -355,8 +355,8 @@ impl AnnotationRules {
             "puts a stand-in object into this field while a test runs",
         )
         .bare()
-        .reach(Self::TAC_BEHAVIOR, Self::YON)
-        .class_needs(Self::TEST_CLASSES),
+        .class_needs(Self::TEST_CLASSES)
+        .reach(Self::TAC_BEHAVIOR, Self::YON),
         Rule::new(
             "ValueSource",
             Self::METHOD,

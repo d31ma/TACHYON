@@ -1251,6 +1251,7 @@ mod tests {
             "go" => String::from("type Handler struct{}"),
             "py" => String::from("class Handler:\n    pass\n"),
             "rb" => String::from("class Handler\nend\n"),
+            "lua" => String::from("Handler = {}\n"),
             _ => String::from("class Handler {}"),
         }
     }
@@ -1263,6 +1264,7 @@ mod tests {
             "go" => format!("type {name} struct{{}}"),
             "py" => format!("class {name}:\n    pass\n"),
             "rb" => format!("class {name}\nend\n"),
+            "lua" => format!("{name} = {{}}\n"),
             _ => format!("class {name} {{}}"),
         }
     }

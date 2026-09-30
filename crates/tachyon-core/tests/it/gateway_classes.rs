@@ -949,7 +949,7 @@ fn class_targets_are_checked_when_the_caller_is_built() {
         ),
         ("server/services/ReportService.js", "caller's own language"),
         (
-            "server/services/Report.lua",
+            "server/services/Report.sh",
             "not written in a Yon language",
         ),
         ("server/controllers/ReportController.py", "not a role file"),
@@ -973,7 +973,7 @@ fn class_targets_are_checked_when_the_caller_is_built() {
                 ("server/services/HopService.py", declares_gateway),
                 ("server/services/StaticService.py", static_method),
                 ("server/services/RedefinedService.py", redefined),
-                ("server/services/Report.lua", "print(1)\n"),
+                ("server/services/Report.sh", "echo 1\n"),
             ],
             &Callers::javascript(target),
         );
