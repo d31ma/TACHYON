@@ -142,9 +142,11 @@ fn lower_methods(
         record["methods"][&method.name] = Value::Object(method.metadata.clone());
         let arguments = argument_names(method);
         let original = &module.source[method.body.clone()];
-        let replacement = if let Some(policy) = gateway_only_policy(method) {
+        let replacement = if let Some(policy) = only_policy(method, "gateway") {
             gateway_body(policy, &arguments)
-        } else if let Some(policy) = validation_only_policy(method) {
+        } else if let Some(policy) = only_policy(method, "mapping") {
+            mapping_body(policy, &arguments)
+        } else if let Some(policy) = only_policy(method, "valid") {
             validation_body(policy, &arguments, original)
         } else {
             invocation_body(type_declaration, method, &arguments, original)
@@ -184,11 +186,19 @@ fn argument_names(method: &Method) -> Vec<String> {
     names
 }
 
-fn gateway_only_policy(method: &Method) -> Option<&Value> {
+fn only_policy<'a>(method: &'a Method, key: &str) -> Option<&'a Value> {
     if method.metadata.len() != 1 {
         return None;
     }
-    method.metadata.get("gateway")
+    method.metadata.get(key)
+}
+
+fn mapping_body(policy: &Value, arguments: &[String]) -> String {
+    format!(
+        "\nreturn BehaviorBoundary::mapValue(json_decode('{}',true,32,JSON_THROW_ON_ERROR), [{}]);\n",
+        escape_single_quoted(&policy.to_string()),
+        arguments.join(",")
+    )
 }
 
 fn gateway_body(policy: &Value, arguments: &[String]) -> String {
@@ -197,13 +207,6 @@ fn gateway_body(policy: &Value, arguments: &[String]) -> String {
         "\nreturn BehaviorBoundary::gateway('{key}', [{}]);\n",
         arguments.join(",")
     )
-}
-
-fn validation_only_policy(method: &Method) -> Option<&Value> {
-    if method.metadata.len() != 1 {
-        return None;
-    }
-    method.metadata.get("valid")
 }
 
 fn validation_body(policy: &Value, arguments: &[String], original: &str) -> String {

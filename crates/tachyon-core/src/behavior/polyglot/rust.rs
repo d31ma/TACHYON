@@ -79,7 +79,7 @@ fn lower_type(
 
 fn declared_struct(declaration: &Type) -> String {
     let name = &declaration.name;
-    if super::has_only_gateways(declaration) {
+    if super::needs_no_context(declaration) {
         return format!(
             "struct {name} {{}}\nimpl {name} {{ pub fn new() -> Self {{ Self {{}} }} }}\nimpl"
         );
@@ -337,7 +337,7 @@ fn service(
     if methods.is_empty() {
         return Ok(());
     }
-    let needs_context = methods.iter().any(|method| method_needs_context(method));
+    let needs_context = methods.iter().any(|method| super::method_needs_context(method));
     if needs_context && !has_context_field(declaration) {
         return Err(format!(
             "Annotated Rust service {} requires a behaviors: BehaviorContext field",
@@ -372,13 +372,6 @@ fn service(
         output.push_str("_ => None, } } }\n");
     }
     Ok(())
-}
-
-fn method_needs_context(method: &Method) -> bool {
-    if method.metadata.contains_key("gateway") {
-        return false;
-    }
-    method.metadata.keys().any(|key| key != "valid")
 }
 
 fn gateway_body(method: &Method, policy: &Value) -> String {

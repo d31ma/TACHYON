@@ -601,6 +601,7 @@ fn managed_role(name: &str) -> bool {
     matches!(
         name,
         "service" | "requestroute" | "socketroute" | "store" | "client" | "httpclient" | "helper"
+            | "converter"
     )
 }
 

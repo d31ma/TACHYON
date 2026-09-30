@@ -1369,7 +1369,7 @@ fn resolve_marker(
     if name == "client" {
         return Ok(None);
     }
-    if matches!(name, "service" | "lifetime" | "helper") && environment == "yon" {
+    if matches!(name, "service" | "lifetime" | "helper" | "converter") && environment == "yon" {
         return Ok(None);
     }
     let canonical = known_marker(name);
@@ -1566,7 +1566,7 @@ fn supply_declared(input: &Input<'_>, language: &str, types: &mut [Type]) -> Res
                 "An abstract behavior declaration cannot write a method body",
             ));
         }
-        if has_only_gateways(ty) {
+        if needs_no_context(ty) {
             continue;
         }
         ty.fields.push(Field {
@@ -1581,12 +1581,25 @@ fn supply_declared(input: &Input<'_>, language: &str, types: &mut [Type]) -> Res
     Ok(())
 }
 
-fn has_only_gateways(ty: &Type) -> bool {
+fn method_needs_context(method: &Method) -> bool {
+    if method.metadata.contains_key("gateway") {
+        return false;
+    }
+    method
+        .metadata
+        .keys()
+        .any(|key| !["valid", "mapping"].contains(&key.as_str()))
+}
+
+fn needs_no_context(ty: &Type) -> bool {
     if ty.methods.is_empty() {
         return false;
     }
     for method in &ty.methods {
-        if method.metadata.len() != 1 || !method.metadata.contains_key("gateway") {
+        let free = ["gateway", "mapping"]
+            .iter()
+            .any(|key| method.metadata.contains_key(*key));
+        if method.metadata.len() != 1 || !free {
             return false;
         }
     }

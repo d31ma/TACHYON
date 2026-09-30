@@ -1084,6 +1084,15 @@ def _behavior_gateway_wrapper(policy, original):
         return _behavior_gateway_call(policy, args)
     return asynchronous
 
+def _behavior_mapping_wrapper(policy, original):
+    def call(instance, *args):
+        return _behavior_map_value(policy, args)
+    if not _behavior_inspect.iscoroutinefunction(original):
+        return call
+    async def asynchronous(instance, *args):
+        return _behavior_map_value(policy, args)
+    return asynchronous
+
 def _behavior_valid_adapter_name(name):
     if type(name) is not str:
         return False
@@ -1149,6 +1158,8 @@ class _BehaviorFactory:
             return _behavior_gateway_wrapper(metadata['gateway'], original)
         if set(metadata) == {'valid'}:
             return _behavior_validating_wrapper(metadata, original)
+        if set(metadata) == {'mapping'}:
+            return _behavior_mapping_wrapper(metadata['mapping'], original)
         if _behavior_inspect.iscoroutinefunction(original):
             return self._invoking_wrapper(name, original)
         return self._checking_wrapper(metadata, original)

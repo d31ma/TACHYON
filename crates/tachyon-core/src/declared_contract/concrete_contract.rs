@@ -169,7 +169,7 @@ impl<'a> ConcreteContract<'a> {
         let setup = declaration.setup();
         let context = ContextMembers {
             language: self.form.language,
-            tac: [self.tac, declaration.role.context_from_caller].contains(&true),
+            tac: self.tac,
             provided: self.is_provided(declaration),
             needs_context,
             owner: &declaration.name,
@@ -352,7 +352,7 @@ impl<'a> ConcreteContract<'a> {
         let setup = declaration.setup();
         let context = ContextMembers {
             language: self.form.language,
-            tac: [self.tac, declaration.role.context_from_caller].contains(&true),
+            tac: self.tac,
             provided: self.is_provided(declaration),
             needs_context,
             owner: &declaration.name,

@@ -340,7 +340,7 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
         .get(argument)
         .ok_or("Convert reads an argument the method does not declare")?;
     Ok(format!(
-        "\nreturn this.behaviors.MapValue(BehaviorJSON.Parse({}), BehaviorJSON.From({}));\n",
+        "\nreturn BehaviorContext.MapValue(BehaviorJSON.Parse({}), BehaviorJSON.From({}));\n",
         quote(&policy.to_string()),
         value.name
     ))

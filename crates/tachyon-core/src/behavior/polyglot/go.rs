@@ -71,7 +71,7 @@ fn lower_type(
 }
 
 fn declared_struct(declaration: &Type) -> Edit {
-    let fields = if super::has_only_gateways(declaration) {
+    let fields = if super::needs_no_context(declaration) {
         String::from("struct{}")
     } else {
         format!("struct {{ behaviors {} }}", GoNames::CONTEXT_TYPE)
@@ -310,7 +310,7 @@ fn service(
     if methods.is_empty() {
         return Ok(());
     }
-    let needs_context = methods.iter().any(|method| method_needs_context(method));
+    let needs_context = methods.iter().any(|method| super::method_needs_context(method));
     if needs_context && !has_context_field(declaration) {
         return Err(format!(
             "Annotated Go service {} requires a behaviors *BehaviorContext field",
@@ -383,13 +383,6 @@ fn receiver_name(module: &Module, method: &Method) -> String {
     }
     let signature = &module.source[method.signature.clone()];
     crate::go_source::receiver_name(signature)
-}
-
-fn method_needs_context(method: &Method) -> bool {
-    if method.metadata.contains_key("gateway") {
-        return false;
-    }
-    method.metadata.keys().any(|key| key != "valid")
 }
 
 fn has_context_field(declaration: &Type) -> bool {

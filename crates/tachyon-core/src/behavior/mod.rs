@@ -353,7 +353,7 @@ fn test_source_markers<'a>(
 fn tac_only_marker(input: &Input<'_>, marker: &Marker) -> bool {
     if matches!(
         marker.name.as_str(),
-        "Client" | "Service" | "Lifetime" | "Helper"
+        "Client" | "Service" | "Lifetime" | "Helper" | "Converter"
     ) {
         return true;
     }

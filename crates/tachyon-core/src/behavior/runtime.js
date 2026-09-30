@@ -896,6 +896,12 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
           value: async function (...args) { return callGateway(policy, args) } })
         continue
       }
+      if (method.mapping && Object.keys(method).every((key) => ['name', 'mapping'].includes(key))) {
+        const policy = method.mapping
+        Object.defineProperty(type.prototype, method.name, { ...descriptor,
+          value: async function (...args) { return mapValue(policy, args) } })
+        continue
+      }
       if (method.valid && Object.keys(method).every((key) => ['name', 'valid'].includes(key))) {
         const validate = (owner, args) => Reflect.apply(original, owner, methodArguments(args, method))
         const asynchronous = Object.getPrototypeOf(original) === Object.getPrototypeOf(async function () {})

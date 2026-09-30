@@ -63,6 +63,12 @@ impl RubyLowering {
                 "; BehaviorBoundary.gateway({key:?}, [{arguments}]){}",
                 Self::line_breaks(original)
             )
+        } else if let Some(policy) = Self::only(method, "mapping") {
+            format!(
+                "; BehaviorBoundary.map_value(JSON.parse({}), [{arguments}]){}",
+                Self::single_quoted(&policy.to_string()),
+                Self::line_breaks(original)
+            )
         } else if let Some(policy) = Self::only(method, "valid") {
             let index = policy["argument"]
                 .as_u64()

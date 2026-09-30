@@ -315,7 +315,7 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
         .get(argument)
         .ok_or("Convert reads an argument the method does not declare")?;
     Ok(format!(
-        "\nreturn try self.behaviors.mapValue(BehaviorJSON.parse({}), try BehaviorJSON.from({}))\n",
+        "\nreturn try BehaviorContext.mapValue(BehaviorJSON.parse({}), try BehaviorJSON.from({}))\n",
         quote(&policy.to_string()),
         value.name
     ))

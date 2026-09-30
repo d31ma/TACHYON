@@ -62,8 +62,7 @@ impl<'a> BehaviorBody<'a> {
             .and_then(|index| self.method.parameters.get(index))
             .ok_or("Convert reads an argument the method does not declare")?;
         Ok(format!(
-            "{}.MapValue(BehaviorJSON.Parse({}), BehaviorJSON.From({value}))",
-            self.receiver,
+            "BehaviorContext.MapValue(BehaviorJSON.Parse({}), BehaviorJSON.From({value}))",
             Self::quote(&policy.to_string())
         ))
     }

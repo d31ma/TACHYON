@@ -12,7 +12,6 @@ pub(crate) struct ContractRole {
     pub(crate) help: &'static str,
     pub(crate) names_entity: bool,
     pub(crate) managed_in_browser: bool,
-    pub(crate) context_from_caller: bool,
     member_markers: &'static [&'static str],
     member_rule: &'static str,
     lowered_in: &'static [&'static str],
@@ -32,7 +31,7 @@ impl ContractRole {
     const STORE_CALLS: [&'static str; 1] = ["query"];
     const CONVERTER_CALLS: [&'static str; 1] = ["convert"];
     const EVERY_LANGUAGE: [&'static str; 0] = [];
-    const CALLER_CONTEXT_LANGUAGES: [&'static str; 2] = ["js", "ts"];
+    const INJECTED_CLASS_LANGUAGES: [&'static str; 7] = ["java", "groovy", "kt", "cs", "php", "dart", "rs"];
     const CLIENT: Self = Self {
         marker: "HTTPClient",
         titled: "An HTTPClient",
@@ -44,7 +43,6 @@ impl ContractRole {
         help: "An HTTPClient is a contract, like a Spring @HttpExchange interface: each method is a signature that says which request it sends, and Tachyon writes the body, the constructor and the behavior context. `ty migrate fix --write` rewrites a class client. See docs/BEHAVIOR_ANNOTATIONS.md.",
         names_entity: false,
         managed_in_browser: true,
-        context_from_caller: false,
         member_markers: &Self::CLIENT_CALLS,
         member_rule: "{owner}.{method} has no request annotation. Each method of an HTTPClient sends a request: mark it with {markers}",
         lowered_in: &Self::EVERY_LANGUAGE,
@@ -60,7 +58,6 @@ impl ContractRole {
         help: "A Store is a contract, like a Spring Data repository interface: it names its Entity, each method is a derived query (findBy, countBy, existsBy or deleteBy) or a Query, it may extend Repository<Entity, Id> to get findById, findAll, save and deleteById without declaring them, and Tachyon writes the body, the constructor and the behavior context from the Setup. A service or controller injects it with Needs. AllOrNothing goes on the service method: a store call inside it joins the open transaction, like Spring's @Transactional. `ty migrate fix --write` rewrites a class store. See docs/BEHAVIOR_ANNOTATIONS.md.",
         names_entity: true,
         managed_in_browser: false,
-        context_from_caller: false,
         member_markers: &Self::STORE_CALLS,
         member_rule: "{owner}.{method} is not a query. Each method of a Store runs a query: start its name with findBy, countBy, existsBy or deleteBy (find_by_, count_by_, exists_by_ or delete_by_ in snake_case), or mark it with {markers}",
         lowered_in: &Self::EVERY_LANGUAGE,
@@ -76,10 +73,9 @@ impl ContractRole {
         help: "A Converter is a contract, like a MapStruct @Mapper interface: each method is a Convert signature, and Tachyon writes the body from its field plan. `ty migrate fix --write` rewrites a class converter. See docs/BEHAVIOR_ANNOTATIONS.md.",
         names_entity: false,
         managed_in_browser: false,
-        context_from_caller: true,
         member_markers: &Self::CONVERTER_CALLS,
         member_rule: "{owner}.{method} is not a mapping. Each method of a Converter copies fields: mark it with {markers}",
-        lowered_in: &Self::CALLER_CONTEXT_LANGUAGES,
+        lowered_in: &Self::INJECTED_CLASS_LANGUAGES,
     };
     const ALL: [Self; 3] = [Self::CLIENT, Self::STORE, Self::CONVERTER];
     const OTHER_ROLES: [&'static str; 12] = [
@@ -138,7 +134,7 @@ impl ContractRole {
 
     pub(crate) fn needs_context(self, members: &[ContractMember]) -> bool {
         let requests = members.iter().any(ContractMember::sends_request);
-        [self.names_entity, requests, self.context_from_caller].contains(&true)
+        [self.names_entity, requests].contains(&true)
     }
 
     pub(crate) fn is_lowered_in(self, language: &str) -> bool {

@@ -376,6 +376,7 @@ fn framework_name(name: &str) -> bool {
             | "store"
             | "client"
             | "helper"
+            | "converter"
             | "lifetime"
             | "needs"
             | "stream"
@@ -739,7 +740,7 @@ fn role(name: &str) -> Option<Role> {
         "service" => Some(Role::Service),
         "store" => Some(Role::Repository),
         "client" => Some(Role::Client),
-        "helper" => Some(Role::Component),
+        "helper" | "converter" => Some(Role::Component),
         "errorhandler" => Some(Role::ErrorHandler),
         _ => None,
     }

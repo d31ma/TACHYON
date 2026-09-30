@@ -627,7 +627,7 @@ public sealed class BehaviorContext : System.IDisposable {
         foreach (var part in path.Split('/')) if (part == "." || part == "..") return false;
         return true;
     }
-    public BehaviorJSON MapValue(BehaviorJSON plan, BehaviorJSON value) {
+    public static BehaviorJSON MapValue(BehaviorJSON plan, BehaviorJSON value) {
         if (value.Value.ValueKind != System.Text.Json.JsonValueKind.Object) throw new BehaviorError("JSON_OBJECT");
         var output = new System.Collections.Generic.Dictionary<string, BehaviorJSON>();
         foreach (var field in plan.Get("fields").Items) {

@@ -1039,7 +1039,7 @@ class BehaviorContext {
 
   BehaviorRepository repository(Type entity) => BehaviorRepository._(this, Behaviors.entity(entity));
 
-  Object? mapValue(Object? plan, Object? value) {
+  static Object? mapValue(Object? plan, Object? value) {
     if (value is! Map) throw BehaviorError('JSON_OBJECT');
     final output = <String, Object?>{};
     for (final field in BehaviorJson.items(BehaviorJson.get(plan, 'fields'))) {

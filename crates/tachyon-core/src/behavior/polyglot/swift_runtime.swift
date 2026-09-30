@@ -575,7 +575,7 @@ final class BehaviorContext {
         return !path.split(separator: "/", omittingEmptySubsequences: false).contains { $0 == "." || $0 == ".." }
     }
     func repository(_ entity: Any.Type) throws -> BehaviorRepository { BehaviorRepository(context: self, mapping: try Behaviors.entity(entity)) }
-    func mapValue(_ plan: BehaviorJSON, _ value: BehaviorJSON) throws -> BehaviorJSON {
+    static func mapValue(_ plan: BehaviorJSON, _ value: BehaviorJSON) throws -> BehaviorJSON {
         guard case .object = value else { throw BehaviorError("JSON_OBJECT") }
         var output: [String: BehaviorJSON] = [:]
         for field in try plan.get("fields").items {
