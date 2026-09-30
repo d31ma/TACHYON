@@ -371,3 +371,70 @@ Java web service tests with a JDK 21.
 
 - `ty init` does not offer Java for the pages yet, and does not install
   TeaVM; a project points `TAC_TEAVM_HOME` at the jars itself.
+
+## Amendment: `ty init`, the TeaVM install and the speculation rules hash (2026-09-30)
+
+### `ty init --tac java`
+
+- `TacLanguage::Java` (`java`) gives `ty init --tac java` and
+  `ty add language client java` a Java page service
+  (`JavaGreetingService`), its test unit and its test setup. The page gets
+  the same greeting component as the other page languages. A Java page
+  service has no JavaScript copy; it reaches every target as WebAssembly.
+- `ty test` runs a Java Tac test unit: the behavior lowering that Yon Java
+  test units use, the project's Java models, `javac --release 21`, then
+  `java -ea` on a small main class that prints the report as JSON.
+  `ty test --coverage` records the calls of Java page services
+  (`CallHooks`), so a new Java project passes `ty test --coverage` without a
+  name check.
+
+### Installing TeaVM
+
+- `ty doctor` shows two rows for Java web services: `javac` (a JDK 21 or
+  newer; `ty init` installs it with SDKMAN like the other JDK uses) and
+  `teavm`.
+- `NeededTool::TeaVm` downloads the five TeaVM 0.15.0 jars from Maven
+  Central (`repo1.maven.org/maven2/org/teavm`), checks each one against the
+  SHA-256 that Tachyon pins (the list of the CI job; a test compares the
+  two), and moves the folder to `<Tachyon cache>/teavm-0.15.0` only when all
+  five match. A wrong jar stops the install with `TY1409` and is deleted. The
+  jars never go into the project.
+- `ty init` and `ty add` offer the install like any other tool.
+  `ty doctor --install` (with `--yes` to skip the question) offers every
+  missing tool of an existing project.
+- `TeaVmToolchain` reads `TAC_TEAVM_HOME` first and falls back to the cache
+  folder, so a project needs no variable after the install. The build cache
+  key already holds the jar paths.
+
+### The content security policy and WebKit
+
+The policy allowed the inline speculation rules block with
+`'inline-speculation-rules'`. Only Chromium knows that keyword. WebKit
+reported it as an invalid source and refused the block on every page;
+Firefox ignored it. The warning was right, so the policy now names the
+SHA-256 hash of the block's text (`SpeculationRules::script_source`), which
+every engine reads. Chromium still runs the rules; WebKit and Firefox no
+longer log anything. The Linux and Windows hosts send their own policy,
+which names neither the keyword nor the hash, so their web views still
+refuse the block (WebKitGTK logs it); a page in a native host has no use for
+prefetching, and those policies are left for a later change.
+
+### Checks
+
+- New tests failed on the base commit and pass after the change: the doctor
+  rows (`javac`, `teavm`, `wasm-opt`), the Tac language list with `java`,
+  `init_wizard::a_java_page_service_passes_its_tests_with_coverage_and_builds_with_teavm`,
+  and the server policy (a `'sha256-` source, no
+  `'inline-speculation-rules'`). The TeaVM plan test compares the pinned
+  jars with the CI job; a wrong jar stops the install with `TY1409` and
+  leaves no TeaVM folder; `TeaVmToolchain` falls back to the cache folder.
+- On the Mac, with `TAC_TEAVM_HOME` unset, `ty doctor --install --yes`
+  downloaded the five jars from Maven Central, every SHA-256 matched, and the
+  folder moved to the Tachyon cache on ANNEX; `ty doctor` then reported
+  3 of 3 ready. A project made with `ty init --tac java` outside the
+  repository passed `ty test --coverage` (`greet` called) and `ty build`
+  made `java/services.wasm` with TeaVM from the cache.
+- A Java page served by `ty start` was checked in Chromium, Firefox and
+  WebKit: before the change WebKit logged the invalid source and the refused
+  block; after it, no engine logged a policy or speculation rules message,
+  and the Java service answered a click in all three.
