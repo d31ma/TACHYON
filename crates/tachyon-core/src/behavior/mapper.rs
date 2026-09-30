@@ -37,145 +37,271 @@ pub(super) fn mapping(
     marker: &Marker,
     signature: &ConvertSignature<'_>,
 ) -> Result<Value, Failure> {
-    let fail = |message: String| {
-        input.failure(
-            marker.span.start,
-            format!("{}: {message}", signature.method),
-        )
-    };
     let written = super::literal::parse(&marker.arguments).ok();
-    if written
-        .as_ref()
-        .is_some_and(|value| value.get("argument").is_some())
-    {
-        return Err(fail(
-            "Convert reads its one parameter, so it has no \"argument\" key: remove it".to_owned(),
-        ));
-    }
-    if signature.parameter_types.len() != 1 {
-        return Err(fail(
-            "A Convert method takes exactly one parameter: the value it converts".to_owned(),
-        ));
-    }
-    let mut object = options(input, marker, written)?;
-    let models = match object.remove("models") {
-        Some(Value::Object(models)) => models,
-        _ => Map::new(),
-    };
-    let mapping = ModelMapping::new(&models);
-    let source = mapping
-        .model_in(signature.parameter_types[0])
-        .map_err(fail)?;
-    let target = mapping.model_in(signature.return_type).map_err(fail)?;
-    match (source, target) {
-        (Some(source), Some(target)) => {
-            if input.extension() == "rb"
-                && object.get("realm").and_then(Value::as_str) == Some("tac")
-            {
-                return Err(fail("Typed-model converters in Ruby Tac require a native model reader; use an explicit JSON-value field plan until that adapter is available".to_owned()));
-            }
-            let written = written_entries(input, marker, object.get("fields"), 0)?;
-            let implicit = mapping.entries(&source, &target, &written).map_err(fail)?;
-            Ok(typed(written, implicit, &target, object.get("realm")))
-        }
-        (None, None) => untyped(input, marker, signature, &object),
-        (Some(model), None) | (None, Some(model)) => Err(fail(format!(
-            "A mapping method converts a model into a model, or a JSON value into a JSON value: {model} is a model, so declare the other side with a model type too"
-        ))),
-    }
+    signature.check_signature(input, marker, written.as_ref())?;
+    let object = ConvertSignature::options(input, marker, written)?;
+    signature.resolve_models(input, marker, object)
 }
 
-fn options(
-    input: &Input<'_>,
-    marker: &Marker,
-    written: Option<Value>,
-) -> Result<Map<String, Value>, Failure> {
-    let object = match written {
-        Some(Value::Object(object)) => object,
-        None if marker.arguments.trim().is_empty() => Map::new(),
-        _ => {
-            return Err(input.failure(
-                marker.span.start,
-                "Convert takes a strict JSON object with a \"fields\" list",
+impl ConvertSignature<'_> {
+    fn failure(&self, input: &Input<'_>, marker: &Marker, message: &str) -> Failure {
+        input.failure(marker.span.start, format!("{}: {message}", self.method))
+    }
+
+    fn check_signature(
+        &self,
+        input: &Input<'_>,
+        marker: &Marker,
+        written: Option<&Value>,
+    ) -> Result<(), Failure> {
+        self.check_argument(input, marker, written)?;
+        self.check_arity(input, marker)
+    }
+
+    fn check_argument(
+        &self,
+        input: &Input<'_>,
+        marker: &Marker,
+        written: Option<&Value>,
+    ) -> Result<(), Failure> {
+        if written.is_some_and(|value| value.get("argument").is_some()) {
+            return Err(self.failure(
+                input,
+                marker,
+                "Convert reads its one parameter, so it has no \"argument\" key: remove it",
             ));
         }
-    };
-    if object
-        .keys()
-        .any(|key| !matches!(key.as_str(), "fields" | "models" | "realm"))
-    {
-        return Err(input.failure(
-            marker.span.start,
-            "Convert requires exactly these keys: fields",
-        ));
+        Ok(())
     }
-    Ok(object)
-}
 
-fn typed(
-    mut written: Vec<Value>,
-    implicit: Vec<Value>,
-    target: &str,
-    realm: Option<&Value>,
-) -> Value {
-    written.extend(implicit);
-    serde_json::json!({"argument": 0, "fields": written, "result": target, "realm": realm.and_then(Value::as_str).unwrap_or("yon")})
-}
+    fn check_arity(&self, input: &Input<'_>, marker: &Marker) -> Result<(), Failure> {
+        if self.parameter_types.len() != 1 {
+            return Err(self.failure(
+                input,
+                marker,
+                "A Convert method takes exactly one parameter: the value it converts",
+            ));
+        }
+        Ok(())
+    }
 
-fn untyped(
-    input: &Input<'_>,
-    marker: &Marker,
-    signature: &ConvertSignature<'_>,
-    object: &Map<String, Value>,
-) -> Result<Value, Failure> {
-    let types = [signature.parameter_types[0], signature.return_type];
-    if let Some(model) = types
-        .into_iter()
-        .find(|kind| names_a_model(input.extension(), kind))
-    {
-        return Err(input.failure(
-            marker.span.start,
-            format!("Convert maps JSON values or models, and '{model}' is neither: declare it in the models folder, or use the language's JSON value type"),
-        ));
+    fn resolve_models(
+        &self,
+        input: &Input<'_>,
+        marker: &Marker,
+        mut object: Map<String, Value>,
+    ) -> Result<Value, Failure> {
+        let models = object
+            .remove("models")
+            .and_then(|value| value.as_object().cloned())
+            .unwrap_or_default();
+        let mapping = ModelMapping::new(&models);
+        let source = mapping
+            .model_in(self.parameter_types[0])
+            .map_err(|message| self.failure(input, marker, &message))?;
+        let target = mapping
+            .model_in(self.return_type)
+            .map_err(|message| self.failure(input, marker, &message))?;
+        self.model_policy(input, marker, &object, &mapping, (source, target))
     }
-    if !object.contains_key("fields") {
-        return Err(input.failure(
-            marker.span.start,
-            "This mapping method reads and writes JSON values, so Convert lists its field plan: {\"fields\":[{\"source\":\"name\",\"target\":\"title\"}]}. Declare model types to copy same-named fields without a plan",
-        ));
-    }
-    let entries = written_entries(input, marker, object.get("fields"), 1)?;
-    Ok(serde_json::json!({"argument": 0, "fields": entries}))
-}
 
-fn written_entries(
-    input: &Input<'_>,
-    marker: &Marker,
-    fields: Option<&Value>,
-    least: usize,
-) -> Result<Vec<Value>, Failure> {
-    let empty = Value::Array(Vec::new());
-    let Some(entries) = fields.unwrap_or(&empty).as_array() else {
-        return Err(too_many_fields(input, marker));
-    };
-    if entries.len() < least || entries.len() > MappingLimits::MAX_FIELDS {
-        return Err(too_many_fields(input, marker));
+    fn model_policy(
+        &self,
+        input: &Input<'_>,
+        marker: &Marker,
+        object: &Map<String, Value>,
+        mapping: &ModelMapping<'_>,
+        models: (Option<String>, Option<String>),
+    ) -> Result<Value, Failure> {
+        match models {
+            (Some(source), Some(target)) => {
+                self.typed_policy(input, marker, object, mapping, &source, &target)
+            }
+            (None, None) => self.untyped(input, marker, object),
+            (Some(model), None) | (None, Some(model)) => {
+                Err(self.mixed_model(input, marker, &model))
+            }
+        }
     }
-    let mut targets = std::collections::BTreeSet::new();
-    for entry in entries {
-        let plan = entry.as_object().ok_or_else(|| {
-            input.failure(marker.span.start, "Convert.fields entries are objects")
-        })?;
-        field_plan(input, marker, plan)?;
-        let target = plan["target"].as_str().unwrap_or_default();
+
+    fn mixed_model(&self, input: &Input<'_>, marker: &Marker, model: &str) -> Failure {
+        let message = format!(
+            "A mapping method converts a model into a model, or a JSON value into a JSON value: {model} is a model, so declare the other side with a model type too"
+        );
+        self.failure(input, marker, &message)
+    }
+
+    fn typed_policy(
+        &self,
+        input: &Input<'_>,
+        marker: &Marker,
+        object: &Map<String, Value>,
+        mapping: &ModelMapping<'_>,
+        source: &str,
+        target: &str,
+    ) -> Result<Value, Failure> {
+        self.native_reader(input, marker, object)?;
+        let written = Self::written_entries(input, marker, object.get("fields"), 0)?;
+        let implicit = mapping
+            .entries(source, target, &written)
+            .map_err(|message| self.failure(input, marker, &message))?;
+        Ok(Self::typed(written, implicit, target, object.get("realm")))
+    }
+
+    fn native_reader(
+        &self,
+        input: &Input<'_>,
+        marker: &Marker,
+        object: &Map<String, Value>,
+    ) -> Result<(), Failure> {
+        if input.extension() == "rb" && object.get("realm").and_then(Value::as_str) == Some("tac") {
+            let message = "Typed-model converters in Ruby Tac require a native model reader; use an explicit JSON-value field plan until that adapter is available";
+            return Err(self.failure(input, marker, message));
+        }
+        Ok(())
+    }
+
+    fn options(
+        input: &Input<'_>,
+        marker: &Marker,
+        written: Option<Value>,
+    ) -> Result<Map<String, Value>, Failure> {
+        let object = Self::read_options(input, marker, written)?;
+        Self::check_keys(input, marker, &object)?;
+        Ok(object)
+    }
+
+    fn read_options(
+        input: &Input<'_>,
+        marker: &Marker,
+        written: Option<Value>,
+    ) -> Result<Map<String, Value>, Failure> {
+        match written {
+            Some(Value::Object(object)) => Ok(object),
+            None if marker.arguments.trim().is_empty() => Ok(Map::new()),
+            _ => Err(input.failure(
+                marker.span.start,
+                "Convert takes a strict JSON object with a \"fields\" list",
+            )),
+        }
+    }
+
+    fn check_keys(
+        input: &Input<'_>,
+        marker: &Marker,
+        object: &Map<String, Value>,
+    ) -> Result<(), Failure> {
+        if object
+            .keys()
+            .any(|key| !["fields", "models", "realm"].contains(&key.as_str()))
+        {
+            return Err(input.failure(
+                marker.span.start,
+                "Convert requires exactly these keys: fields",
+            ));
+        }
+        Ok(())
+    }
+
+    fn typed(
+        mut written: Vec<Value>,
+        implicit: Vec<Value>,
+        target: &str,
+        realm: Option<&Value>,
+    ) -> Value {
+        written.extend(implicit);
+        serde_json::json!({"argument":0,"fields":written,"result":target,"realm":realm.and_then(Value::as_str).unwrap_or("yon")})
+    }
+
+    fn untyped(
+        &self,
+        input: &Input<'_>,
+        marker: &Marker,
+        object: &Map<String, Value>,
+    ) -> Result<Value, Failure> {
+        let types = [self.parameter_types[0], self.return_type];
+        let model = types
+            .into_iter()
+            .find(|kind| names_a_model(input.extension(), kind));
+        Self::json_types(input, marker, model)?;
+        Self::json_fields(input, marker, object)?;
+        let entries = Self::written_entries(input, marker, object.get("fields"), 1)?;
+        Ok(serde_json::json!({"argument":0,"fields":entries}))
+    }
+
+    fn json_types(input: &Input<'_>, marker: &Marker, model: Option<&str>) -> Result<(), Failure> {
+        if let Some(model) = model {
+            return Err(input.failure(marker.span.start,format!("Convert maps JSON values or models, and '{model}' is neither: declare it in the models folder, or use the language's JSON value type")));
+        }
+        Ok(())
+    }
+
+    fn json_fields(
+        input: &Input<'_>,
+        marker: &Marker,
+        object: &Map<String, Value>,
+    ) -> Result<(), Failure> {
+        if !object.contains_key("fields") {
+            return Err(input.failure(marker.span.start,"This mapping method reads and writes JSON values, so Convert lists its field plan: {\"fields\":[{\"source\":\"name\",\"target\":\"title\"}]}. Declare model types to copy same-named fields without a plan"));
+        }
+        Ok(())
+    }
+
+    fn written_entries(
+        input: &Input<'_>,
+        marker: &Marker,
+        fields: Option<&Value>,
+        least: usize,
+    ) -> Result<Vec<Value>, Failure> {
+        let empty = Value::Array(Vec::new());
+        let entries = fields
+            .unwrap_or(&empty)
+            .as_array()
+            .ok_or_else(|| too_many_fields(input, marker))?;
+        Self::field_count(input, marker, entries.len(), least)?;
+        Self::check_entries(input, marker, entries)?;
+        Ok(entries.clone())
+    }
+
+    fn field_count(
+        input: &Input<'_>,
+        marker: &Marker,
+        count: usize,
+        least: usize,
+    ) -> Result<(), Failure> {
+        if count < least || count > MappingLimits::MAX_FIELDS {
+            return Err(too_many_fields(input, marker));
+        }
+        Ok(())
+    }
+
+    fn check_entries(input: &Input<'_>, marker: &Marker, entries: &[Value]) -> Result<(), Failure> {
+        let mut targets = std::collections::BTreeSet::new();
+        for entry in entries {
+            let plan = entry.as_object().ok_or_else(|| {
+                input.failure(marker.span.start, "Convert.fields entries are objects")
+            })?;
+            field_plan(input, marker, plan)?;
+            let target = plan["target"].as_str().unwrap_or_default();
+            Self::unique_target(input, marker, &mut targets, target)?;
+        }
+        Ok(())
+    }
+
+    fn unique_target(
+        input: &Input<'_>,
+        marker: &Marker,
+        targets: &mut std::collections::BTreeSet<String>,
+        target: &str,
+    ) -> Result<(), Failure> {
         if !targets.insert(target.to_owned()) {
             return Err(input.failure(
                 marker.span.start,
                 format!("Convert writes the target '{target}' twice"),
             ));
         }
+        Ok(())
     }
-    Ok(entries.clone())
 }
 
 fn names_a_model(language: &str, type_text: &str) -> bool {
@@ -277,29 +403,29 @@ pub(super) fn plan(policy: &Value) -> Result<(usize, Vec<Plan>), String> {
     let entries = policy["fields"]
         .as_array()
         .ok_or("Convert fields missing")?;
-    let mut fields = Vec::with_capacity(entries.len());
-    for entry in entries {
-        fields.push(field_from_entry(entry)?);
-    }
+    let fields: Result<Vec<_>, String> = entries.iter().map(Plan::from_entry).collect();
+    let fields = fields?;
     Ok((argument, fields))
 }
 
-fn field_from_entry(entry: &Value) -> Result<Plan, String> {
-    let target = entry["target"].as_str().ok_or("Convert target missing")?;
-    let source = entry
-        .get("source")
-        .and_then(Value::as_str)
-        .map(|path| path.split('.').map(str::to_owned).collect());
-    Ok(Plan {
-        target: target.to_owned(),
-        source,
-        constant: entry.get("constant").cloned().unwrap_or(Value::Null),
-        fields: entry
-            .get("fields")
-            .and_then(Value::as_array)
-            .map(|entries| entries.iter().map(field_from_entry).collect())
-            .transpose()?,
-    })
+impl Plan {
+    fn from_entry(entry: &Value) -> Result<Self, String> {
+        let target = entry["target"].as_str().ok_or("Convert target missing")?;
+        let source = entry
+            .get("source")
+            .and_then(Value::as_str)
+            .map(|path| path.split('.').map(str::to_owned).collect());
+        Ok(Plan {
+            target: target.to_owned(),
+            source,
+            constant: entry.get("constant").cloned().unwrap_or(Value::Null),
+            fields: entry
+                .get("fields")
+                .and_then(Value::as_array)
+                .map(|entries| entries.iter().map(Self::from_entry).collect())
+                .transpose()?,
+        })
+    }
 }
 
 #[cfg(test)]

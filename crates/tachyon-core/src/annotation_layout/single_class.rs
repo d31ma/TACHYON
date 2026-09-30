@@ -5,6 +5,8 @@ pub(super) mod design_check;
 pub(super) mod duplication;
 mod go;
 mod load_time;
+mod shared_class;
+pub(super) use shared_class::SharedClass;
 mod ruby;
 pub(super) mod rule_switch;
 pub(super) mod simpler_forms;
@@ -64,23 +66,6 @@ pub(super) fn validate_error_source(path: &Path, source: &str) -> Result<(), Fai
     let mut parser = Parser::new(&input, &tokens);
     parser.read()?;
     parser.finish(path.file_stem().and_then(|name| name.to_str()))?;
-    Ok(())
-}
-
-pub(super) fn validate_shared_source(path: &Path, source: &str) -> Result<(), Failure> {
-    let input = Input::new(path, source);
-    let tokens = Tokens::read(&input)?;
-    tokens.check_complete(&input)?;
-    if tokens.has_framework_marker() {
-        return Err(input.failure(
-            0,
-            "Shared code cannot carry a Tachyon annotation",
-            "Put an annotated class in its server role folder. Keep one plain class and its imports in server/shared/.",
-        ));
-    }
-    let mut parser = Parser::new(&input, &tokens);
-    parser.read()?;
-    parser.finish(None)?;
     Ok(())
 }
 

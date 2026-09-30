@@ -19,11 +19,7 @@ impl<'a> ConverterModelTable<'a> {
     const SERVER: &'static str = "server";
 
     pub(crate) fn new(root: &'a Path, environment: &str, extension: &'a str) -> Self {
-        let realm = if environment == Self::TAC {
-            Self::CLIENT
-        } else {
-            Self::SERVER
-        };
+        let realm = Self::realm_of(environment);
         Self {
             root,
             realm,
@@ -32,37 +28,51 @@ impl<'a> ConverterModelTable<'a> {
         }
     }
 
+    fn realm_of(environment: &str) -> &'static str {
+        if environment == Self::TAC {
+            Self::CLIENT
+        } else {
+            Self::SERVER
+        }
+    }
+
+    fn environment_of(&self) -> &'static str {
+        if self.realm == Self::CLIENT {
+            "tac"
+        } else {
+            "yon"
+        }
+    }
+
     pub(crate) fn written(&mut self, path: &Path, text: String) -> Result<String, Failure> {
         let in_converters = path
             .iter()
             .nth(1)
             .is_some_and(|folder| folder == Self::FOLDER);
-        if !in_converters {
-            return Ok(text);
-        }
-        let failed = |message: String| Self::failure(path, message);
-        if self.table.is_none() {
-            let table =
-                ModelTable::read_realm(self.root, self.realm, self.extension).map_err(failed)?;
-            self.table = Some(table);
-        }
+        let written = in_converters
+            .then(|| self.with_models(path, &text))
+            .transpose()?;
+        Ok(written.flatten().unwrap_or(text))
+    }
+
+    fn with_models(&mut self, path: &Path, text: &str) -> Result<Option<String>, Failure> {
+        self.load_models(path)?;
         let models = self
             .table
             .as_ref()
-            .map(|table| MappingModels::mentioned(table, &text))
+            .map(|table| MappingModels::mentioned(table, text))
             .unwrap_or_default();
-        let written = ConverterModels::written(
-            path,
-            &text,
-            &models,
-            if self.realm == Self::CLIENT {
-                "tac"
-            } else {
-                "yon"
-            },
-        )
-        .map_err(failed)?;
-        Ok(written.unwrap_or(text))
+        ConverterModels::written(path, text, &models, self.environment_of())
+            .map_err(|message| Self::failure(path, message))
+    }
+
+    fn load_models(&mut self, path: &Path) -> Result<(), Failure> {
+        if self.table.is_none() {
+            let table = ModelTable::read_realm(self.root, self.realm, self.extension)
+                .map_err(|message| Self::failure(path, message))?;
+            self.table = Some(table);
+        }
+        Ok(())
     }
 
     fn failure(path: &Path, message: String) -> Failure {

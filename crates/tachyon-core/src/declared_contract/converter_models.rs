@@ -34,12 +34,39 @@ impl<'a> ConverterModels<'a> {
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        if extension == "fs" {
-            return Self::fsharp(source, models, realm);
+        Self::for_extension(extension, source, models, realm)
+    }
+
+    fn for_extension(
+        extension: &str,
+        source: &'a str,
+        models: &'a Map<String, Value>,
+        realm: &'a str,
+    ) -> Result<Option<String>, String> {
+        match extension {
+            "fs" => Self::fsharp(source, models, realm),
+            _ => Self::standard(extension, source, models, realm),
         }
-        let Some(form) = ContractForm::of(extension) else {
-            return Ok(None);
-        };
+    }
+
+    fn standard(
+        extension: &str,
+        source: &'a str,
+        models: &'a Map<String, Value>,
+        realm: &'a str,
+    ) -> Result<Option<String>, String> {
+        ContractForm::of(extension)
+            .map(|form| Self::rewrite(form, source, models, realm))
+            .transpose()
+            .map(Option::flatten)
+    }
+
+    fn rewrite(
+        form: ContractForm,
+        source: &'a str,
+        models: &'a Map<String, Value>,
+        realm: &'a str,
+    ) -> Result<Option<String>, String> {
         let mask = crate::lexical::code_mask(form.language, source);
         let rewrite = Self {
             form,
@@ -59,12 +86,21 @@ impl<'a> ConverterModels<'a> {
     ) -> Result<Option<String>, String> {
         let mask = crate::lexical::code_mask("fs", source);
         let code = HttpClientSource::masked(source, &mask.code);
-        if !code
+        let has_converter = code
             .lines()
-            .any(|line| line.trim_start().starts_with("[<Converter"))
-        {
-            return Ok(None);
-        }
+            .any(|line| line.trim_start().starts_with("[<Converter"));
+        has_converter
+            .then(|| Self::fsharp_rewrite(source, models, realm, code))
+            .transpose()
+            .map(Option::flatten)
+    }
+
+    fn fsharp_rewrite(
+        source: &'a str,
+        models: &'a Map<String, Value>,
+        realm: &'a str,
+        code: String,
+    ) -> Result<Option<String>, String> {
         let rewrite = Self {
             form: ContractForm::of("cs").ok_or("C# contract spelling unavailable")?,
             source,
@@ -72,57 +108,88 @@ impl<'a> ConverterModels<'a> {
             models,
             realm,
         };
-        let mut edits = Vec::new();
-        let mut offset = 0;
-        let mut marked = false;
-        for line in source.split_inclusive('\n') {
-            let trimmed = line.trim();
-            if trimmed.starts_with("[<Convert(") || trimmed == "[<Convert>]" {
-                if let Some(edit) =
-                    rewrite.arguments_edit(offset..offset + line.trim_end().len())?
-                {
-                    edits.push(edit);
-                }
-                marked = true;
-            } else if rewrite.code[offset..offset + line.len()]
-                .trim_start()
-                .starts_with("abstract ")
-            {
-                if !marked {
-                    let indent: String = line
-                        .chars()
-                        .take_while(|character| character.is_whitespace() && *character != '\n')
-                        .collect();
-                    edits.push((
-                        offset..offset,
-                        format!(
-                            "{indent}[<Convert{}>]\n",
-                            rewrite.written_arguments(Map::new())
-                        ),
-                    ));
-                }
-                marked = false;
-            }
-            offset += line.len();
-        }
+        let edits = rewrite.fsharp_edits()?;
         Ok((!edits.is_empty()).then(|| Self::apply(source, edits)))
     }
 
-    fn edits(&self) -> Result<Vec<SourceEdit>, String> {
+    fn fsharp_edits(&self) -> Result<Vec<SourceEdit>, String> {
         let mut edits = Vec::new();
-        for declaration in ContractDeclaration::find(self.form, self.source, &self.code) {
-            if declaration.role.normalized != Self::ROLE {
-                continue;
-            }
-            let pattern = self.marker_pattern(declaration.marker_at);
-            for member in declaration.members(self.form, &self.code) {
-                if !member.method || member.is_constructor(&self.code) {
-                    continue;
-                }
-                edits.extend(self.member_edit(&member, &pattern)?);
-            }
+        let mut offset = 0;
+        let mut marked = false;
+        for line in self.source.split_inclusive('\n') {
+            edits.extend(self.fsharp_line(line, offset, &mut marked)?);
+            offset += line.len();
         }
         Ok(edits)
+    }
+
+    fn fsharp_line(
+        &self,
+        line: &str,
+        offset: usize,
+        marked: &mut bool,
+    ) -> Result<Option<SourceEdit>, String> {
+        let trimmed = line.trim();
+        let convert = [trimmed.starts_with("[<Convert("), trimmed == "[<Convert>]"].contains(&true);
+        let member = self.code[offset..offset + line.len()]
+            .trim_start()
+            .starts_with("abstract ");
+        match (convert, member) {
+            (true, _) => {
+                *marked = true;
+                self.arguments_edit(offset..offset + line.trim_end().len())
+            }
+            (_, true) => {
+                let edit = (!*marked).then(|| self.fsharp_marker(line, offset));
+                *marked = false;
+                Ok(edit)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn fsharp_marker(&self, line: &str, offset: usize) -> SourceEdit {
+        let indent: String = line
+            .chars()
+            .take_while(|character| [' ', '\t', '\r'].contains(character))
+            .collect();
+        (
+            offset..offset,
+            format!(
+                "{indent}[<Convert{}>]\n",
+                self.written_arguments(Map::new())
+            ),
+        )
+    }
+
+    fn edits(&self) -> Result<Vec<SourceEdit>, String> {
+        let declarations = ContractDeclaration::find(self.form, self.source, &self.code);
+        let converters = declarations
+            .into_iter()
+            .filter(|declaration| declaration.role.normalized == Self::ROLE);
+        let edits: Result<Vec<_>, String> = converters
+            .map(|declaration| self.declaration_edits(&declaration))
+            .collect();
+        Ok(edits?.into_iter().flatten().collect())
+    }
+
+    fn declaration_edits(
+        &self,
+        declaration: &ContractDeclaration,
+    ) -> Result<Vec<SourceEdit>, String> {
+        let pattern = self.marker_pattern(declaration.marker_at);
+        let members = declaration.members(self.form, &self.code);
+        let methods = members
+            .into_iter()
+            .filter(|member| self.mapping_member(member));
+        let edits: Result<Vec<_>, String> = methods
+            .map(|member| self.member_edit(&member, &pattern))
+            .collect();
+        Ok(edits?.into_iter().flatten().collect())
+    }
+
+    fn mapping_member(&self, member: &ContractMember) -> bool {
+        [member.method, !member.is_constructor(&self.code)] == [true, true]
     }
 
     fn marker_pattern(&self, marker_at: usize) -> MarkerPattern {
@@ -146,9 +213,14 @@ impl<'a> ConverterModels<'a> {
         let markers_start = member
             .first_marker
             .map_or(declaration_line, |at| Self::line_start(self.source, at));
-        if let Some(line) = self.convert_line(markers_start..declaration_line) {
-            return self.arguments_edit(line);
-        }
+        self.convert_line(markers_start..declaration_line)
+            .map_or_else(
+                || Ok(Some(self.member_marker(declaration_line, pattern))),
+                |line| self.arguments_edit(line),
+            )
+    }
+
+    fn member_marker(&self, declaration_line: usize, pattern: &MarkerPattern) -> SourceEdit {
         let indent: String = self.source[declaration_line..]
             .chars()
             .take_while(|character| [' ', '\t'].contains(character))
@@ -156,19 +228,17 @@ impl<'a> ConverterModels<'a> {
         let arguments = self.written_arguments(Map::new());
         let (prefix, suffix) = pattern;
         let marker = format!("{indent}{prefix}{}{arguments}{suffix}\n", Self::MARKER);
-        Ok(Some((declaration_line..declaration_line, marker)))
+        (declaration_line..declaration_line, marker)
     }
 
     fn convert_line(&self, range: Range<usize>) -> Option<Range<usize>> {
         let mut offset = range.start;
-        for line in self.source[range].split_inclusive('\n') {
+        self.source[range].split_inclusive('\n').find_map(|line| {
             let start = offset;
             offset += line.len();
-            if self.names_convert(line) {
-                return Some(start..start + line.trim_end().len());
-            }
-        }
-        None
+            self.names_convert(line)
+                .then_some(start..start + line.trim_end().len())
+        })
     }
 
     fn names_convert(&self, line: &str) -> bool {
@@ -176,14 +246,22 @@ impl<'a> ConverterModels<'a> {
         let uncommented = trimmed
             .strip_prefix(Self::COMMENT)
             .map_or(trimmed, str::trim_start);
-        let Some(rest) = uncommented.strip_prefix(self.form.marker_prefix()) else {
-            return false;
-        };
-        let name: String = rest
-            .chars()
-            .take_while(|character| character.is_ascii_alphanumeric() || *character == '_')
-            .collect();
-        HttpClientSource::normalized(&name) == Self::MARKER.to_ascii_lowercase()
+        uncommented
+            .strip_prefix(self.form.marker_prefix())
+            .map(Self::marker_name)
+            .is_some_and(|name| {
+                HttpClientSource::normalized(&name) == Self::MARKER.to_ascii_lowercase()
+            })
+    }
+
+    fn marker_name(rest: &str) -> String {
+        rest.chars()
+            .take_while(|character| Self::name_character(*character))
+            .collect()
+    }
+
+    fn name_character(character: char) -> bool {
+        character.is_ascii_alphanumeric() || character == '_'
     }
 
     fn arguments_edit(&self, line: Range<usize>) -> Result<Option<SourceEdit>, String> {
@@ -196,18 +274,34 @@ impl<'a> ConverterModels<'a> {
         let close = open
             .and_then(|_| text.rfind(')'))
             .filter(|close| *close > name_end);
-        let written = match (open, close) {
-            (Some(open), Some(close)) => text[open + 1..close].trim(),
-            _ => "",
-        };
-        let options = if written.is_empty() {
-            Map::new()
-        } else {
-            match crate::behavior::literal::parse(written) {
-                Ok(Value::Object(options)) => options,
-                _ => return Ok(None),
-            }
-        };
+        let bounds = open.zip(close);
+        let written = bounds.map_or("", |(open, close)| text[open + 1..close].trim());
+        let replaced = bounds.map_or(
+            line.start + name_end..line.start + name_end,
+            |(open, close)| line.start + open..line.start + close + 1,
+        );
+        Self::marker_options(written)
+            .map(|options| {
+                self.qualified_arguments(options)
+                    .map(|arguments| (replaced, arguments))
+            })
+            .transpose()
+    }
+
+    fn marker_options(written: &str) -> Option<Map<String, Value>> {
+        written.is_empty().then(Map::new).or_else(|| {
+            crate::behavior::literal::parse(written)
+                .ok()
+                .and_then(|value| value.as_object().cloned())
+        })
+    }
+
+    fn qualified_arguments(&self, options: Map<String, Value>) -> Result<String, String> {
+        Self::authored_keys(&options)?;
+        Ok(self.written_arguments(options))
+    }
+
+    fn authored_keys(options: &Map<String, Value>) -> Result<(), String> {
         if options.contains_key(Self::MODELS) || options.contains_key("realm") {
             return Err(format!(
                 "{} has no \"{}\" key: Tachyon reads the models from the models folder",
@@ -215,22 +309,22 @@ impl<'a> ConverterModels<'a> {
                 Self::MODELS
             ));
         }
-        let replaced = match (open, close) {
-            (Some(open), Some(close)) => line.start + open..line.start + close + 1,
-            _ => line.start + name_end..line.start + name_end,
-        };
-        Ok(Some((replaced, self.written_arguments(options))))
+        Ok(())
     }
 
     fn written_arguments(&self, mut options: Map<String, Value>) -> String {
+        self.add_models(&mut options);
+        options
+            .is_empty()
+            .then(String::new)
+            .unwrap_or_else(|| format!("({})", Value::Object(options)))
+    }
+
+    fn add_models(&self, options: &mut Map<String, Value>) {
         if !self.models.is_empty() {
             options.insert(Self::MODELS.to_owned(), Value::Object(self.models.clone()));
             options.insert("realm".to_owned(), Value::String(self.realm.to_owned()));
         }
-        if options.is_empty() {
-            return String::new();
-        }
-        format!("({})", Value::Object(options))
     }
 
     fn line_at(&self, at: usize) -> &str {

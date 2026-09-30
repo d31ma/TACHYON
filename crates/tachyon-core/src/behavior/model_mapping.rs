@@ -1,4 +1,4 @@
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 
 pub(super) struct ModelMapping<'a> {
@@ -30,20 +30,28 @@ impl<'a> ModelMapping<'a> {
 
     pub(super) fn model_in(&self, type_text: &str) -> Result<Option<String>, String> {
         let words: Vec<&str> = type_text
-            .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+            .split(Self::word_boundary)
             .filter(|word| !word.is_empty())
             .collect();
-        let Some(model) = words.iter().find(|word| self.models.contains_key(**word)) else {
-            return Ok(None);
-        };
-        let listed = type_text.contains(Self::LIST)
-            || words.iter().any(|word| Self::LIST_WORDS.contains(word));
-        if listed {
+        let model = words.iter().find(|word| self.models.contains_key(**word));
+        model
+            .map(|model| Self::one_model(type_text, &words, model))
+            .transpose()
+    }
+
+    fn word_boundary(character: char) -> bool {
+        !character.is_ascii_alphanumeric() && character != '_'
+    }
+
+    fn one_model(type_text: &str, words: &[&str], model: &str) -> Result<String, String> {
+        if type_text.contains(Self::LIST)
+            || words.iter().any(|word| Self::LIST_WORDS.contains(word))
+        {
             return Err(format!(
                 "A mapping method converts one {model}, never a list: declare one model in and one model out, and map a list item by item"
             ));
         }
-        Ok(Some((*model).to_owned()))
+        Ok(model.to_owned())
     }
 
     pub(super) fn entries(
@@ -57,15 +65,21 @@ impl<'a> ModelMapping<'a> {
             .filter_map(|entry| entry["target"].as_str().map(str::to_owned))
             .collect();
         let target_fields = self.fields(target);
-        if let Some(unknown) = written
-            .iter()
-            .find(|name| !target_fields.contains_key(*name))
-        {
+        Self::known_targets(&written, &target_fields, target)?;
+        self.nested(source, target, &written, 0)
+    }
+
+    fn known_targets(
+        written: &BTreeSet<String>,
+        fields: &Map<String, Value>,
+        target: &str,
+    ) -> Result<(), String> {
+        if let Some(unknown) = written.iter().find(|name| !fields.contains_key(*name)) {
             return Err(format!(
                 "Convert writes '{unknown}', but {target} has no field '{unknown}'. Name a field of {target} as the target"
             ));
         }
-        self.nested(source, target, &written, 0)
+        Ok(())
     }
 
     fn nested(
@@ -75,36 +89,67 @@ impl<'a> ModelMapping<'a> {
         written: &BTreeSet<String>,
         depth: usize,
     ) -> Result<Vec<Value>, String> {
+        Self::bounded_depth(target, depth)?;
+        let source_fields = self.fields(source);
+        let target_fields = self.fields(target);
+        let remaining: Vec<_> = target_fields
+            .iter()
+            .filter(|(name, _)| !written.contains(*name))
+            .collect();
+        let entries: Result<Vec<_>, String> = remaining
+            .iter()
+            .map(|(name, shape)| {
+                source_fields
+                    .get(*name)
+                    .map(|source_shape| {
+                        self.project_field(source_shape, shape, (source, target, name), depth)
+                    })
+                    .transpose()
+            })
+            .collect();
+        let entries: Vec<Value> = entries?.into_iter().flatten().collect();
+        let missing: Vec<_> = remaining
+            .iter()
+            .filter(|(name, _)| !source_fields.contains_key(*name))
+            .map(|(name, _)| format!("'{name}'"))
+            .collect();
+        Self::required_fields(source, target, &missing)?;
+        Ok(entries)
+    }
+
+    fn bounded_depth(target: &str, depth: usize) -> Result<(), String> {
         if depth > Self::MAX_DEPTH {
             return Err(format!(
                 "{target} nests models more than 8 levels deep: map the deeper levels with their own method"
             ));
         }
-        let source_fields = self.fields(source);
-        let mut entries = Vec::new();
-        let mut missing = Vec::new();
-        for (name, target_shape) in &self.fields(target) {
-            if written.contains(name) {
-                continue;
-            }
-            let Some(source_shape) = source_fields.get(name) else {
-                missing.push(format!("'{name}'"));
-                continue;
-            };
-            let described = (source, target, name.as_str());
-            let mut entry = json!({"source": name, "target": name});
-            if let Some(fields) = self.fitted(source_shape, target_shape, described, depth)? {
-                entry["fields"] = Value::Array(fields);
-            }
-            entries.push(entry);
+        Ok(())
+    }
+
+    fn required_fields(source: &str, target: &str, missing: &[String]) -> Result<(), String> {
+        if !missing.is_empty() {
+            return Err(format!(
+                "{target} has fields that {source} does not have: {}. Tachyon never leaves a target field unset: give {source} the same field, or add a Convert entry for each (a source path, or a constant such as null)",
+                missing.join(", ")
+            ));
         }
-        if missing.is_empty() {
-            return Ok(entries);
-        }
-        Err(format!(
-            "{target} has fields that {source} does not have: {}. Tachyon never leaves a target field unset: give {source} the same field, or add a Convert entry for each (a source path, or a constant such as null)",
-            missing.join(", ")
-        ))
+        Ok(())
+    }
+
+    fn project_field(
+        &self,
+        source: &Value,
+        target: &Value,
+        described: (&str, &str, &str),
+        depth: usize,
+    ) -> Result<Value, String> {
+        let name = described.2;
+        let fields = self.fitted(source, target, described, depth)?;
+        let mut entry = Map::new();
+        entry.insert("source".to_owned(), Value::String(name.to_owned()));
+        entry.insert("target".to_owned(), Value::String(name.to_owned()));
+        entry.extend(fields.map(|fields| ("fields".to_owned(), Value::Array(fields))));
+        Ok(Value::Object(entry))
     }
 
     fn fitted(
@@ -114,26 +159,44 @@ impl<'a> ModelMapping<'a> {
         described: (&str, &str, &str),
         depth: usize,
     ) -> Result<Option<Vec<Value>>, String> {
-        let (source_model, target_model, name) = described;
         let source_text = source.as_str().unwrap_or(Self::ANY);
         let target_text = target.as_str().unwrap_or(Self::ANY);
         let (source_required, source_core) = Self::parts(source_text);
         let (target_required, target_core) = Self::parts(target_text);
+        Self::required_value(source_required, target_required, described)?;
+        self.fitted_core(source_core, target_core, depth)
+            .map_err(|message| Self::incompatible(&message, source_core, target_core, described))
+    }
+
+    fn required_value(
+        source_required: bool,
+        target_required: bool,
+        described: (&str, &str, &str),
+    ) -> Result<(), String> {
+        let (source_model, target_model, name) = described;
         if target_required && !source_required {
             return Err(format!(
                 "{target_model}.{name} always has a value, but {source_model}.{name} may be missing. Make {target_model}.{name} optional, or fill it with a Convert entry"
             ));
         }
-        self.fitted_core(source_core, target_core, depth).map_err(|message| {
-            if !message.is_empty() {
-                return format!("{target_model}.{name}: {message}");
-            }
-            format!(
-                "{target_model}.{name} is {}, but {source_model}.{name} is {}. Give both fields the same type, or fill {target_model}.{name} with a Convert entry",
-                Self::plain_name(target_core),
-                Self::plain_name(source_core)
-            )
-        })
+        Ok(())
+    }
+
+    fn incompatible(
+        message: &str,
+        source: &str,
+        target: &str,
+        described: (&str, &str, &str),
+    ) -> String {
+        let (source_model, target_model, name) = described;
+        if !message.is_empty() {
+            return format!("{target_model}.{name}: {message}");
+        }
+        format!(
+            "{target_model}.{name} is {}, but {source_model}.{name} is {}. Give both fields the same type, or fill {target_model}.{name} with a Convert entry",
+            Self::plain_name(target),
+            Self::plain_name(source)
+        )
     }
 
     fn fitted_core(
@@ -142,28 +205,53 @@ impl<'a> ModelMapping<'a> {
         target: &str,
         depth: usize,
     ) -> Result<Option<Vec<Value>>, String> {
+        Self::required_item(source, target)?;
+        let source = source.trim_start_matches('?');
+        let target = target.trim_start_matches('?');
+        let scalar = Self::compatible_scalar(source, target);
+        let items = source
+            .strip_prefix(Self::LIST)
+            .zip(target.strip_prefix(Self::LIST));
+        let models = [source, target].map(|name| self.models.contains_key(name));
+        self.fitted_shape(source, target, depth, scalar, items, models)
+    }
+
+    fn required_item(source: &str, target: &str) -> Result<(), String> {
         if source.starts_with('?') && !target.starts_with('?') {
             return Err("An optional list item cannot fill a required item".to_owned());
         }
-        let source = source.trim_start_matches('?');
-        let target = target.trim_start_matches('?');
-        let widened = [source, target] == [Self::INTEGER, Self::NUMBER];
-        if target == Self::ANY || source == target && Self::SCALARS.contains(&source) || widened {
-            return Ok(None);
-        }
-        if let (Some(source_item), Some(target_item)) = (
-            source.strip_prefix(Self::LIST),
-            target.strip_prefix(Self::LIST),
-        ) {
-            return self.fitted_core(source_item, target_item, depth);
-        }
-        let models = [source, target].map(|name| self.models.contains_key(name));
-        if models == [true, true] {
-            return self
+        Ok(())
+    }
+
+    fn compatible_scalar(source: &str, target: &str) -> bool {
+        let same_scalar = [source == target, Self::SCALARS.contains(&source)] == [true, true];
+        [
+            target == Self::ANY,
+            same_scalar,
+            [source, target] == [Self::INTEGER, Self::NUMBER],
+        ]
+        .contains(&true)
+    }
+
+    fn fitted_shape(
+        &self,
+        source: &str,
+        target: &str,
+        depth: usize,
+        scalar: bool,
+        items: Option<(&str, &str)>,
+        models: [bool; 2],
+    ) -> Result<Option<Vec<Value>>, String> {
+        match (scalar, items, models) {
+            (true, _, _) => Ok(None),
+            (_, Some((source_item, target_item)), _) => {
+                self.fitted_core(source_item, target_item, depth)
+            }
+            (_, _, [true, true]) => self
                 .nested(source, target, &BTreeSet::new(), depth + 1)
-                .map(Some);
+                .map(Some),
+            _ => Err(String::new()),
         }
-        Err(String::new())
     }
 
     fn fields(&self, model: &str) -> Map<String, Value> {
@@ -181,9 +269,13 @@ impl<'a> ModelMapping<'a> {
     }
 
     fn plain_name(core: &str) -> String {
-        if let Some(item) = core.strip_prefix(Self::LIST) {
-            return format!("a list of {}", Self::plain_name(item));
-        }
+        core.strip_prefix(Self::LIST).map_or_else(
+            || Self::scalar_name(core),
+            |item| format!("a list of {}", Self::plain_name(item)),
+        )
+    }
+
+    fn scalar_name(core: &str) -> String {
         match core {
             "any" => "any JSON value".to_owned(),
             "string" => "text".to_owned(),

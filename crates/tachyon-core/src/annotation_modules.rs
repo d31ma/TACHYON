@@ -9,7 +9,9 @@ use std::io::{ErrorKind, Read};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+mod shared_imports;
 mod test_configuration;
+use shared_imports::SharedImports;
 
 #[cfg(test)]
 mod error_tests;
@@ -204,7 +206,7 @@ fn read_modules(
         if environment == "tac" {
             crate::events::BrowserStreams::refuse_outside_script(path, &text)?;
         }
-        let text = rebase_shared_imports(entry, path, &text, extension)?;
+        let text = SharedImports::rebase(entry, path, &text, extension)?;
         let text = converters.written(path, text)?;
         let text = crate::declared_contract::DeclaredContract::concrete(path, &text, environment)
             .unwrap_or(text);
@@ -1178,7 +1180,7 @@ fn relocatable_import(path: &Path, source: &str, masked: &str) -> bool {
     for range in statements {
         let statement = &source[range];
         let shared = import_specifier(&folded(statement))
-            .and_then(|specifier| shared_import_path(path, specifier))
+            .and_then(|specifier| SharedImports::path(path, specifier))
             .is_some();
         if !is_safe_import_statement(statement) && !shared {
             return true;
@@ -1217,71 +1219,6 @@ fn is_safe_import_statement(text: &str) -> bool {
     }
     import_specifier(statement)
         .is_some_and(|specifier| specifier.starts_with('/') && !specifier.starts_with("//"))
-}
-
-fn shared_import_path(path: &Path, specifier: &str) -> Option<PathBuf> {
-    if !path.starts_with("server") || !specifier.starts_with('.') || specifier.contains('\\') {
-        return None;
-    }
-    let parent = path.parent()?;
-    let mut resolved = parent.to_path_buf();
-    for part in Path::new(specifier).components() {
-        match part {
-            std::path::Component::Normal(name) => resolved.push(name),
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
-                if !resolved.pop() {
-                    return None;
-                }
-            }
-            _ => return None,
-        }
-    }
-    resolved.starts_with("server/shared").then_some(resolved)
-}
-
-fn rebase_shared_imports(
-    entry: &Path,
-    path: &Path,
-    source: &str,
-    extension: &str,
-) -> Result<String, Failure> {
-    if !matches!(extension, "js" | "ts") {
-        return Ok(source.to_owned());
-    }
-    let masked = masked_source(path, source)?;
-    let mut output = source.to_owned();
-    for range in import_statements(source, &masked).into_iter().rev() {
-        let statement = &source[range.clone()];
-        let folded = folded(statement);
-        let Some(specifier) = import_specifier(&folded) else {
-            continue;
-        };
-        let Some(target) = shared_import_path(path, specifier) else {
-            continue;
-        };
-        let parent: Vec<_> = entry
-            .parent()
-            .unwrap_or(Path::new(""))
-            .components()
-            .collect();
-        let target: Vec<_> = target.components().collect();
-        let shared = parent
-            .iter()
-            .zip(&target)
-            .take_while(|(left, right)| left == right)
-            .count();
-        let mut relative = PathBuf::new();
-        for _ in shared..parent.len() {
-            relative.push("..");
-        }
-        for part in &target[shared..] {
-            relative.push(part.as_os_str());
-        }
-        let relative = relative.to_string_lossy().replace('\\', "/");
-        output.replace_range(range, &statement.replace(specifier, &relative));
-    }
-    Ok(output)
 }
 
 fn import_specifier(line: &str) -> Option<&str> {
@@ -1575,7 +1512,7 @@ mod tests {
             &output,
             "import { OrderCode } from \"../shared/orders.js\";",
         );
-        let rebased = rebase_shared_imports(
+        let rebased = SharedImports::rebase(
             Path::new(Sample::ENTRY),
             Path::new("server/services/nested/OrderService.js"),
             "import { OrderCode } from '../../shared/orders.js';",
