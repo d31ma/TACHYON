@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { ensureBundle } from './helpers/ensure-bundle.js'
 
 class Patterns {
-  static needs = /[@#[]+Needs(\(\))?[\s\]]|Annotated\[[^\]]*\bneeds\b/
+  static needs = /[@#[<]+Needs(\(\))?[\s\]>]|Annotated\[[^\]]*\bneeds\b/
 }
 
 function read(relative) {
@@ -230,8 +230,8 @@ describe('language coverage', () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     const sections = docs.topics['project-folders'].sections
     for (const [framework, extensions, entryPattern, modulePattern] of [
-      ['yon', ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts'], /^server\/controllers\/MoneyController\.[a-z]+$/, /^server\/services\/MoneyService\./],
-      ['tac', ['cs', 'dart', 'go', 'js', 'kt', 'rs', 'swift', 'ts'], /^client\/services\/MoneyService\.[a-z]+$/, /^client\/entities\/MoneyEntity\./],
+      ['yon', ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'], /^server\/controllers\/MoneyController\.[a-z]+$/, /^server\/services\/MoneyService\./],
+      ['tac', ['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'rb', 'rs', 'swift', 'ts'], /^client\/services\/MoneyService\.[a-z]+$/, /^client\/entities\/MoneyEntity\./],
     ]) {
       const section = sections.find(entry => entry.files?.some(file => entryPattern.test(file.name)))
       expect(section.axis).toBe('language')
@@ -261,7 +261,7 @@ describe('language coverage', () => {
             if (Patterns.needs.test(module.code)) expect(module.code).not.toMatch(authored)
             else if (extension !== 'rs') expect(module.code).not.toMatch(authored)
           }
-          expect(selected).not.toMatch(/\bMoney(?:Controller|Service)\s*\(/)
+          expect(selected).not.toMatch(/(?<!type )\bMoney(?:Controller|Service)\s*\(/)
         }
       }
     }
