@@ -343,3 +343,27 @@ async fn a_dart_controller_binds_arguments_and_models() {
 async fn a_go_controller_binds_arguments_and_models() {
     assert_orders(&OrderProject::GO).await;
 }
+
+#[test]
+fn a_rust_model_that_fails_to_compile_is_named_in_the_error() {
+    if !available("cargo") {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, source) in OrderProject::RUST.files {
+        write(root.path(), relative, source);
+    }
+    write(
+        root.path(),
+        "server/models/OrderList.rs",
+        "pub struct OrderList {\n    pub orders: Vec<Order>,\n}\n",
+    );
+    let failure = HandlerSource::discover(root.path(), "server/controllers/OrdersController.rs")
+        .expect_err("compile error");
+    let rendered = failure.to_string();
+    assert!(rendered.contains("Handler failed to compile"), "{rendered}");
+    assert!(
+        rendered.contains("Source: 'server/models/OrderList.rs'"),
+        "{rendered}"
+    );
+}

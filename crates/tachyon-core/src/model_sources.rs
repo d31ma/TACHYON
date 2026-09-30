@@ -119,7 +119,11 @@ impl ModelSources {
         let mut modules = String::new();
         for (index, file) in self.files.iter().enumerate() {
             let _ = writeln!(exports, "pub use self::model_{index}::*;");
-            let _ = writeln!(modules, "mod model_{index} {{\n{}\n}}", file.source);
+            let _ = writeln!(
+                modules,
+                "#[doc = {:?}]\nmod model_{index} {{\n{}\n}}",
+                file.portable, file.source
+            );
         }
         format!("#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{modules}}}\n")
     }

@@ -2195,6 +2195,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- When a Rust model file does not compile, for example because it uses
+  another model without `use crate::models::Item;`, the error names that
+  model file. It named the controller file, because the build puts every
+  model into the controller's program.
+
 - `TY1333` treats a C# method or field without an access modifier as private,
   as C# does. It reported `const string Currency = "EUR";` or `int Total()`
   inside a class as public and unused. Only `public` and `internal` members

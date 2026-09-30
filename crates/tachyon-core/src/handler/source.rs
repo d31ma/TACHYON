@@ -23,10 +23,12 @@ mod fsharp_program;
 mod go;
 mod groovy_build;
 mod groovy_handler;
+mod rust_error_place;
 mod test_unit_asserts;
 use fsharp_handler::FsharpHandler;
 use go::{GoHandler, GoSharedCode};
 use groovy_handler::GroovyHandler;
+use rust_error_place::RustErrorPlace;
 use test_unit_asserts::TestUnitAsserts;
 
 #[derive(Debug)]
@@ -1544,7 +1546,8 @@ impl RustPackages {
             let online = Self::cargo(workspace, &target, false);
             let fetched =
                 bounded_command_output(online, CompilerOutput::DEADLINE, CompilerOutput::MAX_BYTES);
-            check_compiler_output("cargo", fetched, portable)?;
+            let source = Self::failed_file(fetched.as_ref().ok(), workspace, source_name);
+            check_compiler_output("cargo", fetched, source.as_deref().unwrap_or(portable))?;
         }
         let binary = target.join("release").join(format!(
             "{}{}",
@@ -1557,6 +1560,16 @@ impl RustPackages {
                 &format!("Cannot collect the compiled Rust handler: {error}"),
             )
         })
+    }
+
+    fn failed_file(
+        output: Option<&CompilerOutput>,
+        workspace: &Path,
+        source_name: &str,
+    ) -> Option<String> {
+        let detail = String::from_utf8_lossy(&output?.stderr);
+        let program = fs::read_to_string(workspace.join(source_name)).ok()?;
+        RustErrorPlace::model_file(&detail, source_name, &program)
     }
 
     fn cargo(workspace: &Path, target: &Path, offline: bool) -> std::process::Command {
