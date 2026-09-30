@@ -1,6 +1,6 @@
 {
   "heading": "Roles: Tac",
-  "body": "These are the same roles, in the browser and in a native companion. A native companion is an app that runs outside the browser, such as a phone or desktop app. An entry is the file that the compiler starts from. A Tac entry is the service itself, at client/services/<Name>Service.<ext>. The page places <billing-panel hydrate=\"load\" />. The view refers to the service instance as {billing.total} (ADR 0030). The service's role files live in the realm's shared client/ folders: stores, helpers, converters, setups and entities. The compiler finds only files in the same language as the entry. The browser service languages are JavaScript, TypeScript, Dart, Rust, C#, Go and Ruby. Dart compiles to WebAssembly with garbage collection (WasmGC), behind one JavaScript module per service (ADR 0033). A service written only in Rust, only in C# or in Go compiles to WebAssembly (ADR 0035, ADR 0037, ADR 0045). Service, Lifetime and Needs work in every Tac language. Helper works only in JavaScript, TypeScript and Dart. BillingService reads its total through the injected helper. BillingStore shows the form of a Store: a contract with no implementation that names its Entity, and Tachyon generates each query. The Swift, Kotlin, C#, Rust and Go tabs place Store, Setup and Entity next to a plain service type. That is why the Swift, Kotlin, C#, Rust and Go services hold their own state. In Tac, Helper is a browser role. HTTPClient uses a network transport that the framework manages for you, and that transport works only in the browser. So the compiler rejects both in a native companion. Controllers (RequestRoute) do not exist in Tac at all.",
+  "body": "These are the same roles, in the browser and in a native companion. A native companion is an app that runs outside the browser, such as a phone or desktop app. An entry is the file that the compiler starts from. A Tac entry is the service itself, at client/services/<Name>Service.<ext>. The page places <billing-panel hydrate=\"load\" />. The view refers to the service instance as {billing.total} (ADR 0030). The service's role files live in the realm's shared client/ folders: stores, helpers, converters, setups and entities. The compiler finds only files in the same language as the entry. The browser service languages are JavaScript, TypeScript, Dart, Rust, C#, Go and Ruby. Dart compiles to WebAssembly with garbage collection (WasmGC), behind one JavaScript module per service (ADR 0033). A service written only in Rust, only in C# or in Go compiles to WebAssembly (ADR 0035, ADR 0037, ADR 0045). Service, Lifetime and Needs work in every Tac language. Helper works only in JavaScript, TypeScript and Dart. BillingService reads its total through the injected helper. BillingStore shows the form of a Store: a contract with no implementation that names its Entity, and Tachyon generates each query. The Swift, Kotlin, Java, C#, F#, Rust, Go and Ruby tabs place Store, Setup and Entity next to a plain service type. That is why those services hold their own state. In Tac, Helper is a browser role. HTTPClient uses a network transport that the framework manages for you, and that transport works only in the browser. So the compiler rejects both in a native companion. Controllers (RequestRoute) do not exist in Tac at all.",
   "axis": "language",
   "files": [
     {
@@ -223,6 +223,78 @@
       "name": "client/entities/BillingEntity.dart",
       "code": {
         "file": "client/entities/BillingEntity.dart"
+      }
+    },
+    {
+      "name": "client/services/BillingService.rb",
+      "code": {
+        "file": "client/services/BillingService.rb"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.rb",
+      "code": {
+        "file": "client/stores/BillingStore.rb"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.rb",
+      "code": {
+        "file": "client/setups/BillingSetup.rb"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.rb",
+      "code": {
+        "file": "client/entities/BillingEntity.rb"
+      }
+    },
+    {
+      "name": "client/services/BillingService.java",
+      "code": {
+        "file": "client/services/BillingService.java"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.java",
+      "code": {
+        "file": "client/stores/BillingStore.java"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.java",
+      "code": {
+        "file": "client/setups/BillingSetup.java"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.java",
+      "code": {
+        "file": "client/entities/BillingEntity.java"
+      }
+    },
+    {
+      "name": "client/services/BillingService.fs",
+      "code": {
+        "file": "client/services/BillingService.fs"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.fs",
+      "code": {
+        "file": "client/stores/BillingStore.fs"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.fs",
+      "code": {
+        "file": "client/setups/BillingSetup.fs"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.fs",
+      "code": {
+        "file": "client/entities/BillingEntity.fs"
       }
     }
   ]

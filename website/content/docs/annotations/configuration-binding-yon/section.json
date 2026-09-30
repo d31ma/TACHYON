@@ -2,6 +2,7 @@
   "heading": "Configuration binding: Yon",
   "axis": "language",
   "summary": "One Setup role class carries the whole policy. Settings binds the YON_CATALOG_ prefix, and the Setup class's own fields are the settings, with @Min and @Max on a field. WhenProfile selects the active environment. WhenSetting turns the bean on or off based on a bound property. Setting binds a single canonical yon. path with a literal default. Every YON_CATALOG_ name in the snapshot must be declared. WhenProfile and WhenSetting are both decided before configure runs. The private snapshot stays private. Secrets live in .env. server/application.json holds placeholders and safe defaults. The controller returns selected fields that are not secret, never the resolved configuration.",
+  "body": "Lua has no tab here, because the build refuses Setup in Lua Yon code with TY1308.",
   "files": [
     {
       "name": "server/application.json",
@@ -198,6 +199,22 @@
     {
       "name": "server/helpers/Endpoint.dart",
       "code": { "file": "server/helpers/Endpoint.dart" }
+    },
+    {
+      "name": "server/models/Settings.rb",
+      "code": { "file": "server/models/Settings.rb" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rb",
+      "code": { "file": "server/setups/CatalogSetup.rb" }
+    },
+    {
+      "name": "server/controllers/SettingsController.rb",
+      "code": { "file": "server/controllers/SettingsController.rb" }
+    },
+    {
+      "name": "server/helpers/Endpoint.rb",
+      "code": { "file": "server/helpers/Endpoint.rb" }
     }
   ]
 }

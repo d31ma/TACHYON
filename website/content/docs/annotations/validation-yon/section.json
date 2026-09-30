@@ -2,6 +2,7 @@
   "heading": "Validation: Yon",
   "axis": "language",
   "summary": "`Checked` declares a field schema on a plain type. That type is a behavior-only class in its own file in a role folder, `server/helpers/OrderInput.<ext>`, and discovery composes it into the same unit as the method that names it (ADR 0044). Check sits on one parameter and checks it against that schema before the annotated method body runs. It returns a checked copy; it does not construct the type. The option shapes are fixed. Checked(), Required() and NotEmpty() accept no arguments. Length takes exactly {\"min\",\"max\"}. In JavaScript, TypeScript and Python, Check takes no arguments: the parameter's type names the Checked class (a JSDoc @param type in JavaScript). The other languages keep the JSON parameter type and name the class in Check: Check(OrderInput.class) in Java, Check(OrderInput::class) in Kotlin and PHP, Check(typeof(OrderInput)) in C#, and Check(OrderInput) in Dart, Rust and Go. The controller reads the body with FromBody as a plain JSON value (any in TypeScript and Go, dict in Python, array in PHP, Object in Java, Any? in Kotlin, BehaviorJSON in C#, Object? in Dart, Json in Rust) and passes it to the service. Min and Max take a bare finite number, not an object. Length, Min and Max ignore a missing or null value, so only Required makes a bound required. Choose one language below for POST /orders. Each one rejects a blank name, a level above 9 and a missing level. Otherwise it answers 200 with the checked payload. Unknown fields such as sku stay in the payload after validation. This does not make it safe to assign all of them to an object at once.",
+  "body": "Lua has no tab here, because the build refuses Check in Lua Yon code with TY1308.",
   "files": [
     {
       "name": "server/services/OrderService.js",
@@ -217,6 +218,24 @@
       "name": "server/helpers/OrderInput.dart",
       "code": {
         "file": "server/helpers/OrderInput.dart"
+      }
+    },
+    {
+      "name": "server/helpers/OrderInput.rb",
+      "code": {
+        "file": "server/helpers/OrderInput.rb"
+      }
+    },
+    {
+      "name": "server/services/OrderService.rb",
+      "code": {
+        "file": "server/services/OrderService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rb",
+      "code": {
+        "file": "server/controllers/OrdersController.rb"
       }
     }
   ]

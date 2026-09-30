@@ -141,6 +141,18 @@
       "code": {
         "file": "client/services/CatalogService.fs"
       }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rb",
+      "code": {
+        "file": "client/setups/CatalogSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "heading": "Outgoing HTTP: Tac",
   "axis": "language",
-  "summary": "In the browser, HTTPClient is the auto-managed transport. A read is sent no-store, so it is always fresh; to keep a read, put CacheSettings on the client and Cached on the read, as CatalogClient does (see the feature \"Caching public reads\"). The cache option of HTTPClient is replaced by Cached (ADR 0087). A Tac HTTPClient must declare at least one request method, such as GetRequest. Like a Spring @HttpExchange interface, a client has no implementation: JavaScript and TypeScript write a class whose methods have empty bodies, and a service injects it with Needs. Swift, Kotlin, C#, F#, Rust, Go and Dart write the client in their bodiless form (a protocol, an interface, an F# type with only abstract members, a trait, a Go interface or an abstract interface class) in client/clients. Tachyon generates the client and its behavior context from the Setup with the same stem (CatalogClient uses CatalogSetup), whose HTTP adapter sends the request. The service builds the client: CatalogClient() in Swift, Kotlin, F# and Dart, new CatalogClient() in C#, CatalogClient::new() in Rust and NewCatalogClient() in Go. A client with a method body, a field or another role, such as a service that is also an HTTPClient, fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts.",
+  "summary": "In the browser, HTTPClient is the auto-managed transport. A read is sent no-store, so it is always fresh; to keep a read, put CacheSettings on the client and Cached on the read, as CatalogClient does (see the feature \"Caching public reads\"). The cache option of HTTPClient is replaced by Cached (ADR 0087). A Tac HTTPClient must declare at least one request method, such as GetRequest. Like a Spring @HttpExchange interface, a client has no implementation: JavaScript, TypeScript and Ruby write a class whose methods have empty bodies, and a service injects it with Needs. Swift, Kotlin, Java, C#, F#, Rust, Go and Dart write the client in their bodiless form (a protocol, an interface, an F# type with only abstract members, a trait, a Go interface or an abstract interface class) in client/clients. Tachyon generates the client and its behavior context from the Setup with the same stem (CatalogClient uses CatalogSetup), whose HTTP adapter sends the request. The service builds the client: CatalogClient() in Swift, Kotlin, F# and Dart, new CatalogClient() in Java and C#, CatalogClient::new() in Rust and NewCatalogClient() in Go. A client with a method body, a field or another role, such as a service that is also an HTTPClient, fails with TY1308. A request to another origin needs its host in `tac.outgoing.hosts`: the build checks request URLs, and the page's `connect-src` lets the browser reach only these hosts.",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -163,6 +163,42 @@
       "name": "client/clients/CatalogClient.dart",
       "code": {
         "file": "client/clients/CatalogClient.dart"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rb",
+      "code": {
+        "file": "client/setups/CatalogSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.rb",
+      "code": {
+        "file": "client/clients/CatalogClient.rb"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.java",
+      "code": {
+        "file": "client/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.java",
+      "code": {
+        "file": "client/clients/CatalogClient.java"
       }
     }
   ]
