@@ -1,3 +1,4 @@
+use super::java_enclosure::JavaEnclosure;
 use super::java_model::JavaModel;
 use super::java_model_reader::JavaModelReader;
 use super::java_model_table::JavaModelTable;
@@ -21,7 +22,8 @@ impl JavaModels {
             .project_files()
             .into_iter()
             .map(|(path, source)| {
-                let compiled = crate::topics::Topics::blanked(&source);
+                let blanked = crate::topics::Topics::blanked(&source);
+                let compiled = JavaEnclosure::model_source(&blanked);
                 let models = JavaModelReader::models(&compiled);
                 (path, models, compiled)
             })

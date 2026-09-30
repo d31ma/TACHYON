@@ -31,6 +31,10 @@ impl JavaEnclosure {
         wrapped
     }
 
+    pub(super) fn model_source(source: &str) -> String {
+        Self::without_model_imports(source)
+    }
+
     fn inserted(source: &str, inserts: &[(usize, String)]) -> String {
         let mut wrapped = String::with_capacity(source.len() + 64);
         let mut from = 0;
@@ -72,5 +76,15 @@ mod tests {
             source.lines().count() + 1,
             "{wrapped}"
         );
+    }
+    #[test]
+    fn nested_model_imports_are_blanked_without_moving_source_lines() {
+        let source = "import java.util.List;\nimport models.Detail;\nrecord Product(List<Detail> items) {}\n";
+        let compiled = JavaEnclosure::model_source(source);
+        assert!(compiled.contains("import java.util.List;"));
+        assert!(!compiled.contains("import models.Detail;"));
+        assert!(compiled.contains("record Product(List<Detail> items) {}"));
+        assert_eq!(compiled.lines().count(), source.lines().count());
+        assert_eq!(compiled.len(), source.len());
     }
 }

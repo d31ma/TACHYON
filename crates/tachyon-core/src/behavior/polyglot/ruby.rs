@@ -64,16 +64,8 @@ impl RubyLowering {
                 Self::line_breaks(original)
             )
         } else if let Some(policy) = Self::only(method, "mapping") {
-            let plan = Self::single_quoted(&policy.to_string());
-            let breaks = Self::line_breaks(original);
-            match policy.get("result").and_then(Value::as_str) {
-                Some(result) => format!(
-                    "; YonModels.read({result}, BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}].map {{ |value| YonModels.plain(value) }}), defined?(YonGenerated) && YonGenerated.respond_to?(:field_types) ? YonGenerated.field_types : {{}}){breaks}"
-                ),
-                None => format!(
-                    "; BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}]){breaks}"
-                ),
-            }
+            let mapped = Self::mapping_body(policy, &arguments);
+            format!("; {mapped}{}", Self::line_breaks(original))
         } else if let Some(policy) = Self::only(method, "valid") {
             let index = policy["argument"]
                 .as_u64()
@@ -99,6 +91,26 @@ impl RubyLowering {
             range: method.body.clone(),
             replacement,
         }
+    }
+
+    fn mapping_body(policy: &Value, arguments: &str) -> String {
+        let plan = Self::single_quoted(&policy.to_string());
+        match policy.get("result").and_then(Value::as_str) {
+            Some(result) => Self::typed_mapping(policy, &plan, result, arguments),
+            None => format!("BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}])"),
+        }
+    }
+
+    fn typed_mapping(policy: &Value, plan: &str, result: &str, arguments: &str) -> String {
+        if policy.get("realm").and_then(Value::as_str) == Some("tac") {
+            let result = Self::single_quoted(result);
+            return format!(
+                "TacValues.read({result}, BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}].map {{ |value| TacValues.plain(value) }}), JSON.parse({plan})[\"models\"])"
+            );
+        }
+        format!(
+            "YonModels.read({result}, BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}].map {{ |value| YonModels.plain(value) }}), defined?(YonGenerated) && YonGenerated.respond_to?(:field_types) ? YonGenerated.field_types : {{}})"
+        )
     }
 
     fn only<'a>(method: &'a Method, key: &str) -> Option<&'a Value> {

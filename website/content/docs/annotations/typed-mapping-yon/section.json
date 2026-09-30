@@ -1,0 +1,476 @@
+{
+  "heading": "Typed model mapping: Yon",
+  "axis": "language",
+  "summary": "Model types supply same-named fields. Convert overrides only the targets it names.",
+  "body": "GET /catalog returns {\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}. The controller asks for ProductConverter with Needs. The source Product holds secret fields; the target Summary and ShortDetail do not, so those fields are dropped even inside the list. The explicit kind constant overrides that target. Every other target comes from the model signatures.\n\nWhen source and target fields already match, omit Convert entirely. Missing or incompatible target fields fail the build and name the field that needs an explicit entry. One method maps one model; model-valued fields and lists are projected recursively. A JSON-value signature still needs its literal field plan.\n\nThese examples execute in the thirteen supported Yon converter languages. Lua Converter/Convert support remains unavailable under ADR 0085 and is queued separately.",
+  "files": [
+    {
+      "name": "server/models/Product.ts",
+      "code": {
+        "file": "server/models/Product.ts"
+      }
+    },
+    {
+      "name": "server/models/Detail.ts",
+      "code": {
+        "file": "server/models/Detail.ts"
+      }
+    },
+    {
+      "name": "server/models/Summary.ts",
+      "code": {
+        "file": "server/models/Summary.ts"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.ts",
+      "code": {
+        "file": "server/models/ShortDetail.ts"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.ts",
+      "code": {
+        "file": "server/converters/ProductConverter.ts"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.ts",
+      "code": {
+        "file": "server/controllers/CatalogController.ts"
+      }
+    },
+    {
+      "name": "server/models/Product.js",
+      "code": {
+        "file": "server/models/Product.js"
+      }
+    },
+    {
+      "name": "server/models/Detail.js",
+      "code": {
+        "file": "server/models/Detail.js"
+      }
+    },
+    {
+      "name": "server/models/Summary.js",
+      "code": {
+        "file": "server/models/Summary.js"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.js",
+      "code": {
+        "file": "server/models/ShortDetail.js"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.js",
+      "code": {
+        "file": "server/converters/ProductConverter.js"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.js",
+      "code": {
+        "file": "server/controllers/CatalogController.js"
+      }
+    },
+    {
+      "name": "server/models/Product.py",
+      "code": {
+        "file": "server/models/Product.py"
+      }
+    },
+    {
+      "name": "server/models/Detail.py",
+      "code": {
+        "file": "server/models/Detail.py"
+      }
+    },
+    {
+      "name": "server/models/Summary.py",
+      "code": {
+        "file": "server/models/Summary.py"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.py",
+      "code": {
+        "file": "server/models/ShortDetail.py"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.py",
+      "code": {
+        "file": "server/converters/ProductConverter.py"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.py",
+      "code": {
+        "file": "server/controllers/CatalogController.py"
+      }
+    },
+    {
+      "name": "server/models/Product.go",
+      "code": {
+        "file": "server/models/Product.go"
+      }
+    },
+    {
+      "name": "server/models/Detail.go",
+      "code": {
+        "file": "server/models/Detail.go"
+      }
+    },
+    {
+      "name": "server/models/Summary.go",
+      "code": {
+        "file": "server/models/Summary.go"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.go",
+      "code": {
+        "file": "server/models/ShortDetail.go"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.go",
+      "code": {
+        "file": "server/converters/ProductConverter.go"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.go",
+      "code": {
+        "file": "server/controllers/CatalogController.go"
+      }
+    },
+    {
+      "name": "server/models/Product.rb",
+      "code": {
+        "file": "server/models/Product.rb"
+      }
+    },
+    {
+      "name": "server/models/Detail.rb",
+      "code": {
+        "file": "server/models/Detail.rb"
+      }
+    },
+    {
+      "name": "server/models/Summary.rb",
+      "code": {
+        "file": "server/models/Summary.rb"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.rb",
+      "code": {
+        "file": "server/models/ShortDetail.rb"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.rb",
+      "code": {
+        "file": "server/converters/ProductConverter.rb"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.rb",
+      "code": {
+        "file": "server/controllers/CatalogController.rb"
+      }
+    },
+    {
+      "name": "server/models/Product.php",
+      "code": {
+        "file": "server/models/Product.php"
+      }
+    },
+    {
+      "name": "server/models/Detail.php",
+      "code": {
+        "file": "server/models/Detail.php"
+      }
+    },
+    {
+      "name": "server/models/Summary.php",
+      "code": {
+        "file": "server/models/Summary.php"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.php",
+      "code": {
+        "file": "server/models/ShortDetail.php"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.php",
+      "code": {
+        "file": "server/converters/ProductConverter.php"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.php",
+      "code": {
+        "file": "server/controllers/CatalogController.php"
+      }
+    },
+    {
+      "name": "server/models/Product.dart",
+      "code": {
+        "file": "server/models/Product.dart"
+      }
+    },
+    {
+      "name": "server/models/Detail.dart",
+      "code": {
+        "file": "server/models/Detail.dart"
+      }
+    },
+    {
+      "name": "server/models/Summary.dart",
+      "code": {
+        "file": "server/models/Summary.dart"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.dart",
+      "code": {
+        "file": "server/models/ShortDetail.dart"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.dart",
+      "code": {
+        "file": "server/converters/ProductConverter.dart"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.dart",
+      "code": {
+        "file": "server/controllers/CatalogController.dart"
+      }
+    },
+    {
+      "name": "server/models/Product.java",
+      "code": {
+        "file": "server/models/Product.java"
+      }
+    },
+    {
+      "name": "server/models/Detail.java",
+      "code": {
+        "file": "server/models/Detail.java"
+      }
+    },
+    {
+      "name": "server/models/Summary.java",
+      "code": {
+        "file": "server/models/Summary.java"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.java",
+      "code": {
+        "file": "server/models/ShortDetail.java"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.java",
+      "code": {
+        "file": "server/converters/ProductConverter.java"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.java",
+      "code": {
+        "file": "server/controllers/CatalogController.java"
+      }
+    },
+    {
+      "name": "server/models/Product.groovy",
+      "code": {
+        "file": "server/models/Product.groovy"
+      }
+    },
+    {
+      "name": "server/models/Detail.groovy",
+      "code": {
+        "file": "server/models/Detail.groovy"
+      }
+    },
+    {
+      "name": "server/models/Summary.groovy",
+      "code": {
+        "file": "server/models/Summary.groovy"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.groovy",
+      "code": {
+        "file": "server/models/ShortDetail.groovy"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.groovy",
+      "code": {
+        "file": "server/converters/ProductConverter.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.groovy",
+      "code": {
+        "file": "server/controllers/CatalogController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Product.kt",
+      "code": {
+        "file": "server/models/Product.kt"
+      }
+    },
+    {
+      "name": "server/models/Detail.kt",
+      "code": {
+        "file": "server/models/Detail.kt"
+      }
+    },
+    {
+      "name": "server/models/Summary.kt",
+      "code": {
+        "file": "server/models/Summary.kt"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.kt",
+      "code": {
+        "file": "server/models/ShortDetail.kt"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.kt",
+      "code": {
+        "file": "server/converters/ProductConverter.kt"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.kt",
+      "code": {
+        "file": "server/controllers/CatalogController.kt"
+      }
+    },
+    {
+      "name": "server/models/Product.cs",
+      "code": {
+        "file": "server/models/Product.cs"
+      }
+    },
+    {
+      "name": "server/models/Detail.cs",
+      "code": {
+        "file": "server/models/Detail.cs"
+      }
+    },
+    {
+      "name": "server/models/Summary.cs",
+      "code": {
+        "file": "server/models/Summary.cs"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.cs",
+      "code": {
+        "file": "server/models/ShortDetail.cs"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.cs",
+      "code": {
+        "file": "server/converters/ProductConverter.cs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.cs",
+      "code": {
+        "file": "server/controllers/CatalogController.cs"
+      }
+    },
+    {
+      "name": "server/models/Product.rs",
+      "code": {
+        "file": "server/models/Product.rs"
+      }
+    },
+    {
+      "name": "server/models/Detail.rs",
+      "code": {
+        "file": "server/models/Detail.rs"
+      }
+    },
+    {
+      "name": "server/models/Summary.rs",
+      "code": {
+        "file": "server/models/Summary.rs"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.rs",
+      "code": {
+        "file": "server/models/ShortDetail.rs"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.rs",
+      "code": {
+        "file": "server/converters/ProductConverter.rs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.rs",
+      "code": {
+        "file": "server/controllers/CatalogController.rs"
+      }
+    },
+    {
+      "name": "server/models/Product.fs",
+      "code": {
+        "file": "server/models/Product.fs"
+      }
+    },
+    {
+      "name": "server/models/Detail.fs",
+      "code": {
+        "file": "server/models/Detail.fs"
+      }
+    },
+    {
+      "name": "server/models/Summary.fs",
+      "code": {
+        "file": "server/models/Summary.fs"
+      }
+    },
+    {
+      "name": "server/models/ShortDetail.fs",
+      "code": {
+        "file": "server/models/ShortDetail.fs"
+      }
+    },
+    {
+      "name": "server/converters/ProductConverter.fs",
+      "code": {
+        "file": "server/converters/ProductConverter.fs"
+      }
+    },
+    {
+      "name": "server/controllers/CatalogController.fs",
+      "code": {
+        "file": "server/controllers/CatalogController.fs"
+      }
+    }
+  ]
+}

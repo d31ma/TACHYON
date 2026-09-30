@@ -140,25 +140,24 @@ impl ConvertSignature<'_> {
         source: &str,
         target: &str,
     ) -> Result<Value, Failure> {
-        self.native_reader(input, marker, object)?;
         let written = Self::written_entries(input, marker, object.get("fields"), 0)?;
         let implicit = mapping
             .entries(source, target, &written)
             .map_err(|message| self.failure(input, marker, &message))?;
-        Ok(Self::typed(written, implicit, target, object.get("realm")))
+        let policy = Self::typed(written, implicit, target, object.get("realm"));
+        Ok(Self::native_policy(input, object, mapping, policy))
     }
 
-    fn native_reader(
-        &self,
+    fn native_policy(
         input: &Input<'_>,
-        marker: &Marker,
         object: &Map<String, Value>,
-    ) -> Result<(), Failure> {
+        mapping: &ModelMapping<'_>,
+        mut policy: Value,
+    ) -> Value {
         if input.extension() == "rb" && object.get("realm").and_then(Value::as_str) == Some("tac") {
-            let message = "Typed-model converters in Ruby Tac require a native model reader; use an explicit JSON-value field plan until that adapter is available";
-            return Err(self.failure(input, marker, message));
+            policy["models"] = mapping.reader_models();
         }
-        Ok(())
+        policy
     }
 
     fn options(

@@ -65,7 +65,7 @@ impl<'a> BehaviorBody<'a> {
             let plan = Self::quote(&policy.to_string());
             return Ok(if policy["realm"] == "tac" {
                 format!(
-                    "TacModels.Read<{result}>(Tac.ParseValue(BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), BehaviorJSON.Parse(Tac.EncodeValue(TacModels.Plain({value})))).ToString()))"
+                    "TacMappingModels.read{result}(BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), TacMappingModels.write(box {value})))"
                 )
             } else {
                 format!(

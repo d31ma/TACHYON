@@ -1,6 +1,6 @@
 use super::fsharp_behaviors_project::FsharpBehaviorsProject;
 use crate::Failure;
-use crate::fsharp_source::FsharpSource;
+use crate::fsharp_source::{FsharpMappingModels, FsharpSource};
 use crate::model_sources::ModelSources;
 use crate::route_types::{ModelTable, WebEventSources};
 use std::path::Path;
@@ -56,6 +56,8 @@ impl FsharpWebProject {
         runtime: &str,
     ) -> Result<Vec<(String, String)>, Failure> {
         let models = ModelSources::read(snapshot_root, "client", FsharpSource::EXTENSION)?;
+        let fsharp = FsharpMappingModels::program(fsharp, &models.project_files())
+            .map_err(|message| super::host::native_tool_failure(1605, &message))?;
         let services = format!(
             "{}{fsharp}",
             FsharpSource::models_file(&models.separate_files())
@@ -72,7 +74,7 @@ impl FsharpWebProject {
             ),
         ];
         files.extend(FsharpBehaviorsProject::files(runtime));
-        Ok(Self::wanted(files, fsharp))
+        Ok(Self::wanted(files, &fsharp))
     }
 
     fn services_project() -> String {

@@ -751,12 +751,15 @@ explicit plan. Model and JSON-value signatures cannot be mixed.
 
 Server runtime tests cover JavaScript, TypeScript, Python, Ruby, PHP, Dart, Go,
 Java, Groovy, Kotlin, C#, F# and Rust, including nested different models and
-lists. Tac adapters use the client model readers, but their typed-mapping
-native runtime qualification remains a separate gate. Ruby Tac typed-model
-mapping is refused until its native model reader is implemented; its explicit
-JSON-value plans remain available. Lua behavior annotations remain refused
-under [ADR 0085](adr/0085-lua-is-a-yon-language.md); enabling Lua converters requires that
-behavior adapter first. Swift is a Tac language and has no Yon server probe.
+lists. Tac runtime tests cover JavaScript and TypeScript in Chromium, Firefox
+and WebKit, plus actual WebAssembly compilation and execution for Dart, Go,
+Java, Kotlin, C#, F#, Rust, Ruby and Swift. Ruby reconstructs typed results
+through TacValues model metadata; F# uses generated record codecs. These
+checks qualify converter execution in web builds, not native host deployment.
+Lua behavior annotations remain refused under
+[ADR 0085](adr/0085-lua-is-a-yon-language.md). Lua converter support is deferred
+to [a separate prerequisite](queue/NEXT/LUA-CONVERTER-PREREQUISITE.md).
+Swift is a Tac language and has no Yon server probe.
 
 ## Adapter Contracts
 

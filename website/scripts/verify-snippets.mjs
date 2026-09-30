@@ -1201,6 +1201,11 @@ async function verifyLanguageSnippets() {
  * @param {GuideSection} section
  */
 function expectedGuideValue(slug, section) {
+  if (slug === 'annotations' && section.heading === 'Typed model mapping: Yon') {
+    return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, {
+      id: 7, name: 'Anvil', detail: { name: 'detail' }, items: [{ name: 'detail' }], kind: 'product',
+    }, 'Typed converters must project nested models and lists, drop secrets and preserve explicit overrides')
+  }
   if (slug === 'application-configuration' && section.heading === 'Access from every Yon language') {
     return (/** @type {Record<string,unknown>} */ value) =>
       assert.deepEqual(value, { pageSize: 20, port: 0 }, 'Each language must bind the same private configuration snapshot')

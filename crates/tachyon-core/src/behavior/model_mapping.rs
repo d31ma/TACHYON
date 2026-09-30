@@ -28,6 +28,14 @@ impl<'a> ModelMapping<'a> {
         Self { models }
     }
 
+    pub(super) fn reader_models(&self) -> Value {
+        let models = self
+            .models
+            .iter()
+            .map(|(name, fields)| (name.clone(), serde_json::json!({"fields": fields})));
+        Value::Object(models.collect())
+    }
+
     pub(super) fn model_in(&self, type_text: &str) -> Result<Option<String>, String> {
         let words: Vec<&str> = type_text
             .split(Self::word_boundary)

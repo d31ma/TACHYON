@@ -63,7 +63,13 @@
       "include": "mapping-yon/section.json"
     },
     {
+      "include": "typed-mapping-yon/section.json"
+    },
+    {
       "include": "mapping-tac/section.json"
+    },
+    {
+      "include": "typed-mapping-tac/section.json"
     },
     {
       "include": "scheduling-yon/section.json"

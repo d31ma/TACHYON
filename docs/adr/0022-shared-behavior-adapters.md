@@ -356,9 +356,10 @@ the explicit-plan requirement. Model tables and realm tags are compiler-owned
 metadata and cannot be authored as Convert options.
 
 Native code reads and writes through the model adapter for its realm. The
-server runtime qualification covers the thirteen languages listed in
-BEHAVIOR_ANNOTATIONS.md. Ruby Tac typed models currently fail closed because
-converter model metadata is not yet wired into its native reader, while explicit JSON mapping remains
-supported. Lua converters depend on ADR 0085 behavior annotation support.
-Native Tac typed-model execution and Swift qualification remain required
-before claiming complete language parity.
+server runtime qualification covers thirteen languages. Tac qualification
+covers JavaScript and TypeScript browser execution and actual WebAssembly
+compilation and execution in Dart, Go, Java, Kotlin, C#, F#, Rust, Ruby and
+Swift. Ruby uses compiler-owned TacValues model metadata; F# uses generated
+record codecs. Native host deployment is outside this qualification. Lua
+converters remain unsupported under ADR 0085 and are explicitly deferred to
+the separate LUA-CONVERTER-PREREQUISITE queue item.

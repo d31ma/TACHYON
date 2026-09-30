@@ -10670,7 +10670,7 @@
           "heading": "Mapping: Yon",
           "axis": "language",
           "summary": "Converter signatures generate mappings from a literal JSON field plan or from declared source and target model types. Explicit fields override inferred same-named model fields.",
-          "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. A controller or service asks for it with Needs, like a MapStruct mapper that Spring injects: a Needs field, a constructor parameter in F#, or Needs above an attr_reader in Ruby. In JavaScript and Ruby the field name names the provider (productConverter, product_converter). A converter needs no behavior context and no Setup, because a mapping reads only its argument, so Tachyon builds it with no constructor argument. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nA Converter is a contract, like a MapStruct @Mapper interface: it has no implementation, and Tachyon generates each mapping. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go, and an interface of `abstract` members in F#. It is a trait in Rust, an abstract interface class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript and Ruby have no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. JavaScript and TypeScript declare the answer as Promise<BehaviorJsonObject | void> for the same reason. In every case, the compiler writes the class and each method, and the class has no constructor argument. So the source declares nothing else: a method body, a field, a constructor, a class where the language has a contract form fails the build with TY1308 (\"A Converter has no implementation: Tachyon generates each mapping.\"). `ty migrate fix --write` rewrites a class converter as a contract. `ty migrate` reports code that still builds a converter with a context, such as `new ProductConverter(context)` or `Behaviors.construct(ProductConverter, ...)`: remove it and ask for the converter with Needs.\n\nTyped model signatures may omit Convert: Tachyon infers exact same-named target fields from models in the realm models folder and projects nested models and lists. Explicit Convert fields override their named targets; missing or incompatible target fields fail the build. JavaScript uses JSDoc parameter, return and typedef model types. JSON-value signatures keep the complete literal field plan shown here. Server runtime qualification covers thirteen languages. Native Tac typed-model qualification remains open; Ruby Tac typed models are refused pending a native reader. Lua behavior annotations require the ADR 0085 adapter first.",
+          "body": "GET /catalog returns {\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}. Converter is the role. A converter copies values from its input into a new output shape. It is a <Name>Converter type in server/converters. A controller or service asks for it with Needs, like a MapStruct mapper that Spring injects: a Needs field, a constructor parameter in F#, or Needs above an attr_reader in Ruby. In JavaScript and Ruby the field name names the provider (productConverter, product_converter). A converter needs no behavior context and no Setup, because a mapping reads only its argument, so Tachyon builds it with no constructor argument. Convert describes the whole method. Each entry names its target (the output field). Each entry takes either a source path of at most eight names joined by dots, or a literal constant. The method takes exactly one parameter, the value it converts, and the plan reads it. The parameter and the result keep the language's JSON value type. A source that is missing maps to null, exactly as in MapStruct. An input field that no entry names is dropped, so extra never reaches the output. A Convert has at most 32 entries. Writing the same target twice fails the build.\n\nA Converter is a contract, like a MapStruct @Mapper interface: it has no implementation, and Tachyon generates each mapping. It is an interface in Java, Groovy, Kotlin, C#, PHP and Go, and an interface of `abstract` members in F#. It is a trait in Rust, an abstract interface class in Dart and a Protocol class in Python. Python writes the stub (the empty body) as an Ellipsis. JavaScript and Ruby have no method without a body. TypeScript cannot put a decorator on an abstract member. So both keep an empty body. JavaScript and TypeScript declare the answer as Promise<BehaviorJsonObject | void> for the same reason. In every case, the compiler writes the class and each method, and the class has no constructor argument. So the source declares nothing else: a method body, a field, a constructor, a class where the language has a contract form fails the build with TY1308 (\"A Converter has no implementation: Tachyon generates each mapping.\"). `ty migrate fix --write` rewrites a class converter as a contract. `ty migrate` reports code that still builds a converter with a context, such as `new ProductConverter(context)` or `Behaviors.construct(ProductConverter, ...)`: remove it and ask for the converter with Needs.\n\nTyped model signatures may omit Convert: Tachyon infers exact same-named target fields from models in the realm models folder and projects nested models and lists. Explicit Convert fields override their named targets; missing or incompatible target fields fail the build. JavaScript uses JSDoc parameter, return and typedef model types. JSON-value signatures keep the complete literal field plan shown here. Server runtime qualification covers thirteen languages. Tac converter execution is qualified in JavaScript and TypeScript browsers and in compiled WebAssembly for Dart, Go, Java, Kotlin, C#, F#, Rust, Ruby and Swift. Ruby uses the TacValues model reader. Native host deployment is outside these checks. Lua converters remain unsupported under ADR 0085 and are deferred to a separate prerequisite. The next typed-model sections provide executable examples.",
           "files": [
             {
               "name": "server/converters/ProductConverter.js",
@@ -10827,10 +10827,330 @@
           ]
         },
         {
+          "heading": "Typed model mapping: Yon",
+          "axis": "language",
+          "summary": "Model types supply same-named fields. Convert overrides only the targets it names.",
+          "body": "GET /catalog returns {\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}. The controller asks for ProductConverter with Needs. The source Product holds secret fields; the target Summary and ShortDetail do not, so those fields are dropped even inside the list. The explicit kind constant overrides that target. Every other target comes from the model signatures.\n\nWhen source and target fields already match, omit Convert entirely. Missing or incompatible target fields fail the build and name the field that needs an explicit entry. One method maps one model; model-valued fields and lists are projected recursively. A JSON-value signature still needs its literal field plan.\n\nThese examples execute in the thirteen supported Yon converter languages. Lua Converter/Convert support remains unavailable under ADR 0085 and is queued separately.",
+          "files": [
+            {
+              "name": "server/models/Product.ts",
+              "code": "import type { Detail } from '/models/Detail.ts'\nexport interface Product { id: number; name: string; detail: Detail; items: Detail[]; secret: string }\n"
+            },
+            {
+              "name": "server/models/Detail.ts",
+              "code": "export interface Detail { name: string; secret: string }\n"
+            },
+            {
+              "name": "server/models/Summary.ts",
+              "code": "import type { ShortDetail } from '/models/ShortDetail.ts'\nexport interface Summary { id: number; name: string; detail: ShortDetail; items: ShortDetail[]; kind: string }\n"
+            },
+            {
+              "name": "server/models/ShortDetail.ts",
+              "code": "export interface ShortDetail { name: string }\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.ts",
+              "code": "import type { Product } from '/models/Product.ts'\nimport type { Summary } from '/models/Summary.ts'\n@Converter\nclass ProductConverter {\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nasync map(product: Product): Promise<Summary> {}\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.ts",
+              "code": "import type { Summary } from '/models/Summary.ts'\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nconverter!: ProductConverter;\n@GetRoute\nasync getCatalog(): Promise<Summary> {\nconst detail = {name: 'detail', secret: 'hidden'};\nreturn this.converter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.js",
+              "code": "/** @typedef {Object} Product\n * @property {number} id\n * @property {string} name\n * @property {Detail} detail\n * @property {Detail[]} items\n * @property {string} secret\n */\nexport {};\n"
+            },
+            {
+              "name": "server/models/Detail.js",
+              "code": "/** @typedef {Object} Detail\n * @property {string} name\n * @property {string} secret\n */\nexport {};\n"
+            },
+            {
+              "name": "server/models/Summary.js",
+              "code": "/** @typedef {Object} Summary\n * @property {number} id\n * @property {string} name\n * @property {ShortDetail} detail\n * @property {ShortDetail[]} items\n * @property {string} kind\n */\nexport {};\n"
+            },
+            {
+              "name": "server/models/ShortDetail.js",
+              "code": "/** @typedef {Object} ShortDetail\n * @property {string} name\n */\nexport {};\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.js",
+              "code": "@Converter\nclass ProductConverter {\n/** @param {Product} product\n * @returns {Summary} */\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nasync map(product) {}\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.js",
+              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nproductConverter;\n/** @returns {Summary} */\n@GetRoute\nasync getCatalog() {\nconst detail = {name: 'detail', secret: 'hidden'};\nreturn this.productConverter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.py",
+              "code": "from dataclasses import dataclass\nfrom models import Detail\n@dataclass\nclass Product:\n    id: int\n    name: str\n    detail: Detail\n    items: list[Detail]\n    secret: str\n"
+            },
+            {
+              "name": "server/models/Detail.py",
+              "code": "from dataclasses import dataclass\n@dataclass\nclass Detail:\n    name: str\n    secret: str\n"
+            },
+            {
+              "name": "server/models/Summary.py",
+              "code": "from dataclasses import dataclass\nfrom models import ShortDetail\n@dataclass\nclass Summary:\n    id: int\n    name: str\n    detail: ShortDetail\n    items: list[ShortDetail]\n    kind: str\n"
+            },
+            {
+              "name": "server/models/ShortDetail.py",
+              "code": "from dataclasses import dataclass\n@dataclass\nclass ShortDetail:\n    name: str\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.py",
+              "code": "from typing import Protocol\nfrom models import Product, Summary\n@Converter\nclass ProductConverter(Protocol):\n    @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n    def map(self, product: Product) -> Summary: ...\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.py",
+              "code": "from typing import Annotated\nfrom models import Product, Detail, Summary\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController:\n    converter: Annotated[ProductConverter, Needs]\n    @GetRoute\n    async def get_catalog(self) -> Summary:\n        detail = Detail('detail', 'hidden')\n        return self.converter.map(Product(7, 'Anvil', detail, [detail], 'hidden'))\n"
+            },
+            {
+              "name": "server/models/Product.go",
+              "code": "type Product struct {\n\tID     int      `json:\"id\"`\n\tName   string   `json:\"name\"`\n\tDetail Detail   `json:\"detail\"`\n\tItems  []Detail `json:\"items\"`\n\tSecret string   `json:\"secret\"`\n}\n"
+            },
+            {
+              "name": "server/models/Detail.go",
+              "code": "type Detail struct {\n\tName   string `json:\"name\"`\n\tSecret string `json:\"secret\"`\n}\n"
+            },
+            {
+              "name": "server/models/Summary.go",
+              "code": "type Summary struct {\n\tID     int           `json:\"id\"`\n\tName   string        `json:\"name\"`\n\tDetail ShortDetail   `json:\"detail\"`\n\tItems  []ShortDetail `json:\"items\"`\n\tKind   string        `json:\"kind\"`\n}\n"
+            },
+            {
+              "name": "server/models/ShortDetail.go",
+              "code": "type ShortDetail struct {\n\tName string `json:\"name\"`\n}\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.go",
+              "code": "// @Converter\ntype ProductConverter interface {\n\t// @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n\tMap(product Product) (Summary, error)\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.go",
+              "code": "// @RequestRoute(\"/catalog\")\n// @Public\ntype CatalogController struct {\n\t// @Needs\n\tconverter *ProductConverter\n}\n\n// @GetRoute\nfunc (controller *CatalogController) GetCatalog() (Summary, error) {\n\tdetail := Detail{Name: \"detail\", Secret: \"hidden\"}\n\tvalue, failure := controller.converter.Map(Product{ID: 7, Name: \"Anvil\", Detail: detail, Items: []Detail{detail}, Secret: \"hidden\"})\n\tif failure != nil {\n\t\treturn Summary{}, YonResourceError{}\n\t}\n\treturn value, nil\n}\n"
+            },
+            {
+              "name": "server/models/Product.rb",
+              "code": "# @!attribute [r] id\n#   @return [Integer]\n# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] detail\n#   @return [Detail]\n# @!attribute [r] items\n#   @return [Array<Detail>]\n# @!attribute [r] secret\n#   @return [String]\nProduct = Data.define(:id, :name, :detail, :items, :secret)\n"
+            },
+            {
+              "name": "server/models/Detail.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] secret\n#   @return [String]\nDetail = Data.define(:name, :secret)\n"
+            },
+            {
+              "name": "server/models/Summary.rb",
+              "code": "# @!attribute [r] id\n#   @return [Integer]\n# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] detail\n#   @return [ShortDetail]\n# @!attribute [r] items\n#   @return [Array<ShortDetail>]\n# @!attribute [r] kind\n#   @return [String]\nSummary = Data.define(:id, :name, :detail, :items, :kind)\n"
+            },
+            {
+              "name": "server/models/ShortDetail.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\nShortDetail = Data.define(:name)\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.rb",
+              "code": "#[Converter]\nclass ProductConverter\n  # @param product [Product]\n  # @return [Summary]\n  #[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\n  def map(product)\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.rb",
+              "code": "#[RequestRoute(\"/catalog\")]\n#[Public]\nclass CatalogController\n  #[Needs]\n  # @return [ProductConverter]\n  attr_reader :product_converter\n  # @return [Summary]\n  #[GetRoute]\n  def get_catalog\n    detail = Detail.new(name: \"detail\", secret: \"hidden\")\n    product_converter.map(Product.new(id: 7, name: \"Anvil\", detail: detail, items: [detail], secret: \"hidden\"))\n  end\nend\n"
+            },
+            {
+              "name": "server/models/Product.php",
+              "code": "<?php\nuse Models\\Detail;\nclass Product {\npublic function __construct(public int $id, public string $name, public Detail $detail,\n/** @var list<Detail> */\npublic array $items, public string $secret) {}\n}\n"
+            },
+            {
+              "name": "server/models/Detail.php",
+              "code": "<?php\nclass Detail {\npublic function __construct(public string $name, public string $secret) {}\n}\n"
+            },
+            {
+              "name": "server/models/Summary.php",
+              "code": "<?php\nuse Models\\ShortDetail;\nclass Summary {\npublic function __construct(public int $id, public string $name, public ShortDetail $detail,\n/** @var list<ShortDetail> */\npublic array $items, public string $kind) {}\n}\n"
+            },
+            {
+              "name": "server/models/ShortDetail.php",
+              "code": "<?php\nclass ShortDetail {\npublic function __construct(public string $name) {}\n}\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.php",
+              "code": "<?php\nuse Models\\Product;\nuse Models\\Summary;\n#[Converter]\ninterface ProductConverter {\n#[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\npublic function map(Product $product): Summary;\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.php",
+              "code": "<?php\nuse Models\\Product;\nuse Models\\Detail;\nuse Models\\Summary;\n#[RequestRoute(\"/catalog\")]\n#[Public]\nclass CatalogController {\n#[Needs]\nprivate ProductConverter $converter;\n#[GetRoute]\npublic function getCatalog(): Summary {\n$detail = new Detail(\"detail\", \"hidden\");\nreturn $this->converter->map(new Product(7, \"Anvil\", $detail, [$detail], \"hidden\"));\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.dart",
+              "code": "import 'Detail.dart';\nclass Product {\nfinal int id;\nfinal String name;\nfinal Detail detail;\nfinal List<Detail> items;\nfinal String secret;\nconst Product(this.id, this.name, this.detail, this.items, this.secret);\n}\n"
+            },
+            {
+              "name": "server/models/Detail.dart",
+              "code": "class Detail {\nfinal String name;\nfinal String secret;\nconst Detail(this.name, this.secret);\n}\n"
+            },
+            {
+              "name": "server/models/Summary.dart",
+              "code": "import 'ShortDetail.dart';\nclass Summary {\nfinal int id;\nfinal String name;\nfinal ShortDetail detail;\nfinal List<ShortDetail> items;\nfinal String kind;\nconst Summary(this.id, this.name, this.detail, this.items, this.kind);\n}\n"
+            },
+            {
+              "name": "server/models/ShortDetail.dart",
+              "code": "class ShortDetail {\nfinal String name;\nconst ShortDetail(this.name);\n}\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.dart",
+              "code": "import 'models/Product.dart';\nimport 'models/Summary.dart';\n@Converter\nabstract interface class ProductConverter {\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nSummary map(Product product);\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.dart",
+              "code": "import 'models/Product.dart';\nimport 'models/Detail.dart';\nimport 'models/Summary.dart';\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nfinal ProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nconst detail = Detail('detail', 'hidden');\nreturn converter.map(Product(7, 'Anvil', detail, [detail], 'hidden'));\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.java",
+              "code": "import models.Detail;\nrecord Product(int id, String name, Detail detail, java.util.List<Detail> items, String secret) {}\n"
+            },
+            {
+              "name": "server/models/Detail.java",
+              "code": "record Detail(String name, String secret) {}\n"
+            },
+            {
+              "name": "server/models/Summary.java",
+              "code": "import models.ShortDetail;\nrecord Summary(int id, String name, ShortDetail detail, java.util.List<ShortDetail> items, String kind) {}\n"
+            },
+            {
+              "name": "server/models/ShortDetail.java",
+              "code": "record ShortDetail(String name) {}\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.java",
+              "code": "import models.Product;\nimport models.Summary;\n@Converter\ninterface ProductConverter {\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nSummary map(Product product);\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.java",
+              "code": "import models.Product;\nimport models.Detail;\nimport models.Summary;\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nDetail detail = new Detail(\"detail\", \"hidden\");\nreturn converter.map(new Product(7, \"Anvil\", detail, java.util.List.of(detail), \"hidden\"));\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.groovy",
+              "code": "import models.Detail;\nrecord Product(int id, String name, Detail detail, java.util.List<Detail> items, String secret) {}\n"
+            },
+            {
+              "name": "server/models/Detail.groovy",
+              "code": "record Detail(String name, String secret) {}\n"
+            },
+            {
+              "name": "server/models/Summary.groovy",
+              "code": "import models.ShortDetail;\nrecord Summary(int id, String name, ShortDetail detail, java.util.List<ShortDetail> items, String kind) {}\n"
+            },
+            {
+              "name": "server/models/ShortDetail.groovy",
+              "code": "record ShortDetail(String name) {}\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.groovy",
+              "code": "import models.Product;\nimport models.Summary;\n@Converter\ninterface ProductConverter {\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nSummary map(Product product);\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.groovy",
+              "code": "import models.Product;\nimport models.Detail;\nimport models.Summary;\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nProductConverter converter;\n@GetRoute\nSummary getCatalog() {\nDetail detail = new Detail(\"detail\", \"hidden\");\nreturn converter.map(new Product(7, \"Anvil\", detail, java.util.List.of(detail), \"hidden\"));\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.kt",
+              "code": "import models.Detail\ndata class Product(val id: Int, val name: String, val detail: Detail, val items: List<Detail>, val secret: String)\n"
+            },
+            {
+              "name": "server/models/Detail.kt",
+              "code": "data class Detail(val name: String, val secret: String)\n"
+            },
+            {
+              "name": "server/models/Summary.kt",
+              "code": "import models.ShortDetail\ndata class Summary(val id: Int, val name: String, val detail: ShortDetail, val items: List<ShortDetail>, val kind: String)\n"
+            },
+            {
+              "name": "server/models/ShortDetail.kt",
+              "code": "data class ShortDetail(val name: String)\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.kt",
+              "code": "import models.Product\nimport models.Summary\n@Converter\ninterface ProductConverter {\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nfun map(product: Product): Summary\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.kt",
+              "code": "import models.Product\nimport models.Detail\nimport models.Summary\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n@Needs\nval converter: ProductConverter\n@GetRoute\nfun getCatalog(): Summary {\nval detail = Detail(\"detail\", \"hidden\")\nreturn converter.map(Product(7, \"Anvil\", detail, listOf(detail), \"hidden\"))\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.cs",
+              "code": "public record Product(int id, string name, Detail detail, Detail[] items, string secret);\n"
+            },
+            {
+              "name": "server/models/Detail.cs",
+              "code": "public record Detail(string name, string secret);\n"
+            },
+            {
+              "name": "server/models/Summary.cs",
+              "code": "public record Summary(int id, string name, ShortDetail detail, ShortDetail[] items, string kind);\n"
+            },
+            {
+              "name": "server/models/ShortDetail.cs",
+              "code": "public record ShortDetail(string name);\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.cs",
+              "code": "using Models;\n[Converter]\ninterface ProductConverter {\n[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\nSummary map(Product product);\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.cs",
+              "code": "using Models;\n[RequestRoute(\"/catalog\")]\n[Public]\nclass CatalogController {\n[Needs]\nProductConverter _converter;\n[GetRoute]\npublic Summary GetCatalog() {\nvar detail = new Detail(\"detail\", \"hidden\");\nreturn _converter.map(new Product(7, \"Anvil\", detail, new[] {detail}, \"hidden\"));\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.rs",
+              "code": "use crate::models::Detail;\n#[derive(Clone)]\npub struct Product {\npub id: i64,\npub name: String,\npub detail: Detail,\npub items: Vec<Detail>,\npub secret: String,\n}\n"
+            },
+            {
+              "name": "server/models/Detail.rs",
+              "code": "#[derive(Clone)]\npub struct Detail {\npub name: String,\npub secret: String,\n}\n"
+            },
+            {
+              "name": "server/models/Summary.rs",
+              "code": "use crate::models::ShortDetail;\n#[derive(Clone)]\npub struct Summary {\npub id: i64,\npub name: String,\npub detail: ShortDetail,\npub items: Vec<ShortDetail>,\npub kind: String,\n}\n"
+            },
+            {
+              "name": "server/models/ShortDetail.rs",
+              "code": "#[derive(Clone)]\npub struct ShortDetail {\npub name: String,\n}\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.rs",
+              "code": "use crate::models::*;\n#[Converter]\ntrait ProductConverter {\n#[Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})]\nfn map(&self, product: Product) -> BehaviorResult<Summary>;\n}\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.rs",
+              "code": "use crate::models::{Product, Detail, Summary};\n#[RequestRoute(\"/catalog\")]\n#[Public]\nstruct CatalogController {\n#[Needs]\nconverter: std::sync::Arc<ProductConverter>,\n}\nimpl CatalogController {\n#[GetRoute]\nfn get_catalog(&self) -> Result<Summary, YonResourceError> {\nlet detail = Detail{name: \"detail\".into(), secret: \"hidden\".into()};\nself.converter.map(Product{id:7, name:\"Anvil\".into(), detail:detail.clone(), items:vec![detail], secret:\"hidden\".into()}).map_err(|_| YonResourceError)\n}\n}\n"
+            },
+            {
+              "name": "server/models/Product.fs",
+              "code": "type Product = { id: int; name: string; detail: Detail; items: Detail list; secret: string }\n"
+            },
+            {
+              "name": "server/models/Detail.fs",
+              "code": "type Detail = { name: string; secret: string }\n"
+            },
+            {
+              "name": "server/models/Summary.fs",
+              "code": "type Summary = { id: int; name: string; detail: ShortDetail; items: ShortDetail list; kind: string }\n"
+            },
+            {
+              "name": "server/models/ShortDetail.fs",
+              "code": "type ShortDetail = { name: string }\n"
+            },
+            {
+              "name": "server/converters/ProductConverter.fs",
+              "code": "open Models\n[<Converter>]\ntype ProductConverter =\n    [<Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})>]\n    abstract map: product: Product -> Summary\n"
+            },
+            {
+              "name": "server/controllers/CatalogController.fs",
+              "code": "open Models\n[<RequestRoute(\"/catalog\")>]\n[<Public>]\ntype CatalogController(converter: ProductConverter) =\n    [<GetRoute>]\n    member this.GetCatalog() : Summary =\n        let detail : Detail = { name = \"detail\"; secret = \"hidden\" }\n        converter.map({ id = 7; name = \"Anvil\"; detail = detail; items = [detail]; secret = \"hidden\" })\n"
+            }
+          ]
+        },
+        {
           "heading": "Mapping: Tac",
           "axis": "language",
           "summary": "Converter signatures generate mappings from a literal JSON field plan or from declared source and target model types. Explicit fields override inferred same-named model fields.",
-          "body": "Select a language tab and copy the page, the component view and the two role files. JavaScript, TypeScript and Dart bundle for the web. Go, F#, Java and Ruby bundle for the web as WebAssembly. Swift, Kotlin, C# and Rust stage their native hosts. The view reads {catalog.title} from the service. A view can read only from a service (ADR 0030). The browser services ask for the converter with Needs: a Needs field, a `#[Needs]` `attr_reader` in Ruby, or a constructor parameter in F#. A converter needs no behavior context and no Setup, so Tachyon builds it and the service only maps. The native services stay plain types, as they do elsewhere in Tac. The compiler finds the annotated converter file and adds it to the same compile unit.\n\nThe annotation and its options are the same as in Yon. The converter is the same contract too, with a protocol in Swift, and a method body fails the build with TY1308. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.\n\nTyped model signatures may omit Convert: Tachyon infers exact same-named target fields from models in the realm models folder and projects nested models and lists. Explicit Convert fields override their named targets; missing or incompatible target fields fail the build. JavaScript uses JSDoc parameter, return and typedef model types. JSON-value signatures keep the complete literal field plan shown here. Server runtime qualification covers thirteen languages. Native Tac typed-model qualification remains open; Ruby Tac typed models are refused pending converter model metadata wiring into its native reader. Lua behavior annotations require the ADR 0085 adapter first.",
+          "body": "Select a language tab and copy the page, the component view and the two role files. JavaScript, TypeScript and Dart bundle for the web. Go, F#, Java and Ruby bundle for the web as WebAssembly. Swift, Kotlin, C# and Rust stage their native hosts. The view reads {catalog.title} from the service. A view can read only from a service (ADR 0030). The browser services ask for the converter with Needs: a Needs field, a `#[Needs]` `attr_reader` in Ruby, or a constructor parameter in F#. A converter needs no behavior context and no Setup, so Tachyon builds it and the service only maps. The native services stay plain types, as they do elsewhere in Tac. The compiler finds the annotated converter file and adds it to the same compile unit.\n\nThe annotation and its options are the same as in Yon. The converter is the same contract too, with a protocol in Swift, and a method body fails the build with TY1308. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.\n\nTyped model signatures may omit Convert: Tachyon infers exact same-named target fields from models in the realm models folder and projects nested models and lists. Explicit Convert fields override their named targets; missing or incompatible target fields fail the build. JavaScript uses JSDoc parameter, return and typedef model types. JSON-value signatures keep the complete literal field plan shown here. Server runtime qualification covers thirteen languages. Tac converter execution is qualified in JavaScript and TypeScript browsers and in compiled WebAssembly for Dart, Go, Java, Kotlin, C#, F#, Rust, Ruby and Swift. Ruby uses the TacValues model reader. Native host deployment is outside these checks. Lua converters remain unsupported under ADR 0085 and are deferred to a separate prerequisite. The next typed-model sections provide executable examples.",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -10927,6 +11247,75 @@
             {
               "name": "client/services/CatalogService.java",
               "code": "@Service\nclass CatalogService {\n    @Needs\n    ProductConverter productConverter;\n    String title = \"Not mapped.\";\n\n    void load() {\n        Object summary = productConverter.toSummary(java.util.Map.of(\n            \"detail\", java.util.Map.of(\"id\", 7), \"name\", \"Anvil\", \"extra\", \"dropped\"));\n        title = titleOf((java.util.Map<?, ?>) summary);\n    }\n\n    private String titleOf(java.util.Map<?, ?> summary) {\n        return summary.get(\"kind\") + \" \" + summary.get(\"productId\") + \": \" + summary.get(\"title\");\n    }\n}\n"
+            }
+          ]
+        },
+        {
+          "heading": "Typed model mapping: Tac",
+          "axis": "language",
+          "target": "web",
+          "summary": "A service injects the converter and uses typed models for both implicit copying and public projection.",
+          "body": "Click Map to see the same Summary as in the Yon example. The injected ProductConverter first copies Product without a Convert marker, then projects Summary using its signatures and the explicit kind override. The target models omit secret fields in nested objects and lists.\n\nModels belong to client/models and the converter to client/converters. A mapping needs no Setup or external adapter: it reads only its argument. The JavaScript signatures use JSDoc types and the TypeScript signatures use model interfaces.",
+          "files": [
+            {
+              "name": "client/components/catalog/panel/tac.html",
+              "code": "<main><p id=\"result\">{catalog.result}</p><button on:click=\"catalog.load()\">Map</button></main>\n"
+            },
+            {
+              "name": "client/converters/ProductConverter.js",
+              "code": "@Converter\nexport default class ProductConverter {\n/** @param {Product} product\n * @returns {Summary} */\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nasync map(product) {}\n/** @param {Product} product\n * @returns {Product} */\nasync copy(product) {}\n}\n"
+            },
+            {
+              "name": "client/manifest.json",
+              "code": "{\"tac\":{\"visibility\":{\"check\":false},\"budgets\":{\"check\":false}}}\n"
+            },
+            {
+              "name": "client/models/Detail.js",
+              "code": "/** @typedef {Object} Detail\n * @property {string} name\n * @property {string} secret\n */\nexport {};\n"
+            },
+            {
+              "name": "client/models/Product.js",
+              "code": "/** @typedef {Object} Product\n * @property {number} id\n * @property {string} name\n * @property {Detail} detail\n * @property {Detail[]} items\n * @property {string} secret\n */\nexport {};\n"
+            },
+            {
+              "name": "client/models/ShortDetail.js",
+              "code": "/** @typedef {Object} ShortDetail\n * @property {string} name\n */\nexport {};\n"
+            },
+            {
+              "name": "client/models/Summary.js",
+              "code": "/** @typedef {Object} Summary\n * @property {number} id\n * @property {string} name\n * @property {ShortDetail} detail\n * @property {ShortDetail[]} items\n * @property {string} kind\n */\nexport {};\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<catalog-panel hydrate=\"load\" />\n"
+            },
+            {
+              "name": "client/services/CatalogService.js",
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n  result = '';\n  async load() {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
+            },
+            {
+              "name": "client/converters/ProductConverter.ts",
+              "code": "import type { Product } from '/models/Product.ts'\nimport type { Summary } from '/models/Summary.ts'\n@Converter\nexport default class ProductConverter {\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nasync map(product: Product): Promise<Summary> {}\nasync copy(product: Product): Promise<Product> {}\n}\n"
+            },
+            {
+              "name": "client/models/Detail.ts",
+              "code": "export interface Detail { name: string; secret: string }\n"
+            },
+            {
+              "name": "client/models/Product.ts",
+              "code": "import type { Detail } from '/models/Detail.ts'\nexport interface Product { id: number; name: string; detail: Detail; items: Detail[]; secret: string }\n"
+            },
+            {
+              "name": "client/models/ShortDetail.ts",
+              "code": "export interface ShortDetail { name: string }\n"
+            },
+            {
+              "name": "client/models/Summary.ts",
+              "code": "import type { ShortDetail } from '/models/ShortDetail.ts'\nexport interface Summary { id: number; name: string; detail: ShortDetail; items: ShortDetail[]; kind: string }\n"
+            },
+            {
+              "name": "client/services/CatalogService.ts",
+              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  productConverter!: ProductConverter;\n  result = '';\n  async load() {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
             }
           ]
         },

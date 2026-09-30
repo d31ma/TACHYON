@@ -469,7 +469,7 @@ mod tests {
         );
     }
     #[test]
-    fn ruby_tac_typed_models_fail_closed_without_a_native_reader() {
+    fn ruby_tac_typed_models_use_the_native_reader_with_compiler_owned_shapes() {
         let models = json!({"Product":{"name":"string"},"Summary":{"name":"string"}});
         let source = "#[Converter]\nclass ProductConverter\n  # @param product [Product]\n  # @return [Summary]\n  def map(product)\n  end\nend\n";
         let path = Path::new("client/converters/ProductConverter.rb");
@@ -477,11 +477,14 @@ mod tests {
             ConverterModels::written(path, source, models.as_object().expect("models"), "tac")
                 .expect("rewrite")
                 .expect("metadata");
-        let failure =
-            crate::behavior::lower(path, &rewritten, "tac").expect_err("missing native reader");
+        let lowered = crate::behavior::lower(path, &rewritten, "tac")
+            .expect("native model reader")
+            .expect("lowered converter");
+        assert!(lowered.contains("TacValues.read('Summary'"), "{lowered}");
+        assert!(lowered.contains("TacValues.plain(value)"), "{lowered}");
         assert!(
-            failure.to_string().contains("native model reader"),
-            "{failure}"
+            lowered.contains("\"Summary\":{\"fields\":{\"name\":\"string\"}}"),
+            "{lowered}"
         );
     }
 }

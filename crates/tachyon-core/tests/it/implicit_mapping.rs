@@ -241,3 +241,6 @@ async fn implicit_mapping_dart_models_execute_with_overrides_and_nested_lists() 
 async fn implicit_mapping_js_models_execute_with_overrides_and_nested_lists() {
     assert_mapping("js").await;
 }
+
+#[cfg(test)]
+mod tac_mapping;
