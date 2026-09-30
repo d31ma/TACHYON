@@ -72,7 +72,7 @@ field and Tachyon fills it:
 | Rust | `window_controls: WindowControls` (filled by `Default`) |
 | Go | `// @Needs` field `windowControls WindowControls` |
 | C# | `private readonly WindowControls windowControls = new();` |
-| F# | none yet: F# services have no browser APIs, so this waits for the F# browser APIs |
+| F# | `let windowControls = WindowControls()` in the type (the C# class, see ADR 0073) |
 | Kotlin | `private val windowControls = WindowControls()` |
 | Java | `private final WindowControls windowControls = new WindowControls();` |
 | Dart | `@Needs() final WindowControls windowControls;` |

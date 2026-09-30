@@ -241,9 +241,9 @@ parameters stay the recommended form.
 
 ### Browser APIs (added 2026-09-30)
 
-An F# Tac service uses Tachyon's browser APIs (ADR 0065) under the same
-names as a C# service: `let clock = Clock()` in the type, then
-`clock.NowMs()`.
+An F# Tac service uses Tachyon's browser APIs (ADR 0065) and
+`WindowControls` (ADR 0087) under the same names as a C# service:
+`let clock = Clock()` in the type, then `clock.NowMs()`.
 
 - The C# classes of the browser APIs and their `TacWebHost` move into the C#
   library below the F# library (`FsharpBehaviors`, now written for every page

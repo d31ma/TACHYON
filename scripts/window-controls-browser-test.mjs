@@ -15,7 +15,7 @@ class WindowControlsGate {
   static launchers = { chromium, firefox, webkit }
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
   static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
-  static allLanguages = ['js', 'ts', 'rust', 'go', 'csharp', 'kotlin', 'dart', 'ruby', 'swift', ...(WindowControlsGate.withJava ? ['java'] : [])]
+  static allLanguages = ['js', 'ts', 'rust', 'go', 'csharp', 'fsharp', 'kotlin', 'dart', 'ruby', 'swift', ...(WindowControlsGate.withJava ? ['java'] : [])]
   static languages = process.env.TAC_WINDOW_LANGUAGES?.split(',') ?? WindowControlsGate.allLanguages
   static grants = ['minimize', 'resize', 'title']
   static notGranted = 'The close window control is not granted. Add "close" to tac.application.window.controls in client/manifest.json.'
