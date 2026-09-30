@@ -114,7 +114,7 @@ describe('annotation routes and clients in published examples', () => {
     assert.ok(section)
     for (const extension of ['cs', 'dart', 'go', 'java', 'kt', 'rs', 'swift']) {
       const service = section.files.find(file => file.name === `client/services/CatalogService.${extension}`)
-      const client = section.files.find(file => file.name === `client/clients/CatalogClient.${extension}`)
+      const client = section.files.find(file => file.name === `client/remotes/CatalogClient.${extension}`)
       assert.ok(service)
       assert.ok(client)
       expect(service.code).toMatch(/(?:@|#\[|\[)Service\b/)

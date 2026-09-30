@@ -336,7 +336,7 @@ describe('language coverage', () => {
     expect(clients.body).toContain('HTTPClient')
     expect(clients.body).toContain('explicitly configured')
     for (const extension of ['js', 'ts']) {
-      const provider = clients.files.find(file => file.name.endsWith(`/clients/CatalogClient.${extension}`))
+      const provider = clients.files.find(file => file.name.endsWith(`/remotes/CatalogClient.${extension}`))
       expect(provider.code).toMatch(/^@HTTPClient\b/m)
       expect(provider.code).toContain('@GetRequest(')
       const service = clients.files.find(file => file.name === `client/services/CatalogService.${extension}`)
@@ -353,8 +353,8 @@ describe('language coverage', () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     for (const section of [docs.topics.cookbook.sections[1], docs.topics['application-configuration'].sections.find(section => section.heading.startsWith('Public Tac output'))]) {
       expect(section.axis).toBe('language')
-      expect(section.files.some(file => /\/clients\/\w+Client\.js$/.test(file.name))).toBe(true)
-      expect(section.files.some(file => /\/clients\/\w+Client\.ts$/.test(file.name))).toBe(true)
+      expect(section.files.some(file => /\/remotes\/\w+Client\.js$/.test(file.name))).toBe(true)
+      expect(section.files.some(file => /\/remotes\/\w+Client\.ts$/.test(file.name))).toBe(true)
       expect(section.files.map(file => file.code).join('\n')).not.toMatch(/\bfetch\s*\(/)
     }
     const features = JSON.parse(await read('client/shared/data/features.json')).features
@@ -366,7 +366,7 @@ describe('language coverage', () => {
     expect(worker.summary).toContain('TY1361')
     expect(worker.summary).toContain('public read')
     for (const extension of ['js', 'ts']) {
-      const client = worker.files.find(file => file.name === `client/clients/ProductsClient.${extension}`)
+      const client = worker.files.find(file => file.name === `client/remotes/ProductsClient.${extension}`)
       expect(client.code).toContain('@Cached')
       expect(client.code).toContain('@ClearCache({"method":"list"})')
       const service = worker.files.find(file => file.name === `client/services/CatalogService.${extension}`)
@@ -449,7 +449,7 @@ describe('language coverage', () => {
 
   test('published test units select separate test-only configuration files in every language', async () => {
     const docs = await readJson('client/shared/data/docs.json')
-    for (const [realm, count] of [['Yon', 14], ['Tac', 11]]) {
+    for (const [realm, count] of [['Yon', 14], ['Tac', 12]]) {
       const section = docs.topics.annotations.sections.find((entry) => entry.heading === `Test units: ${realm}`)
       const configurations = section.files.filter((file) => /\/tests\/CatalogTestSetup\./.test(file.name))
       expect(configurations).toHaveLength(count)
