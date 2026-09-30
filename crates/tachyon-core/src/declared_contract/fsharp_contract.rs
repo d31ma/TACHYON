@@ -189,7 +189,13 @@ impl<'a> FsharpContract<'a> {
             .map_or_else(String::new, |(_, entity)| {
                 let lines: String = Self::CRUD_MEMBERS
                     .iter()
-                    .map(|member| format!("{indent}{}\n", member.replace("{entity}", entity)))
+                    .flat_map(|member| {
+                        [
+                            indent.clone(),
+                            member.replace("{entity}", entity),
+                            String::from("\n"),
+                        ]
+                    })
                     .collect();
                 format!("{lines}\n")
             })
