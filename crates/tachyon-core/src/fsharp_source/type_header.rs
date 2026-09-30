@@ -31,6 +31,11 @@ impl TypeHeader {
         }
     }
 
+    pub(crate) fn constructor_types(trimmed: &str) -> Vec<String> {
+        let declared = Self::declared_name(trimmed);
+        Self::parameter_types(&FsharpParameters::read(declared.rest).0)
+    }
+
     pub(crate) fn exception(trimmed: &str) -> Self {
         let declared = trimmed.trim_start_matches("exception").trim();
         let name = declared.split_whitespace().next().unwrap_or(declared);

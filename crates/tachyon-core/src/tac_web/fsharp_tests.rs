@@ -7,7 +7,8 @@ use std::process::Command;
 struct FsharpSignal;
 
 impl FsharpSignal {
-    const FILES: [(&str, &str); 3] = [
+    const SERVICE: &str = "client/services/SignalService.fs";
+    const MODELS: [(&str, &str); 2] = [
         (
             "client/models/SignalSent.fs",
             "type SignalSent = { Size: int }\n",
@@ -16,16 +17,19 @@ impl FsharpSignal {
             "client/models/SignalEcho.fs",
             "type SignalEcho = { Size: int }\n",
         ),
-        (
-            "client/services/SignalService.fs",
-            "open Models\n\n[<Service>]\n[<NeedsAll>]\ntype SignalService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Largest = 0 with get, set\n    member val Echoed = 0 with get, set\n    member val Started = false with get, set\n\n    \
+    ];
+    const CONSTRUCTED: &str = "open Models\n\n[<Service>]\n[<NeedsAll>]\ntype SignalService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Largest = 0 with get, set\n    member val Echoed = 0 with get, set\n    member val Started = false with get, set\n\n    \
              [<OnStart>]\n    member this.Start() : unit =\n        this.Started <- true\n\n    \
              member this.Send(size: int) : unit =\n        applicationEventPublisher.PublishEvent({ SignalSent.Size = size })\n\n    \
              [<OnEvent({\"condition\":\"value.size > 5\"})>]\n    member this.Record(value: SignalSent) : SignalEcho =\n        this.Largest <- max this.Largest value.Size\n        { SignalEcho.Size = value.Size * 10 }\n\n    \
              [<OnEvent>]\n    [<Order(1)>]\n    member this.Echo(value: SignalEcho) : unit =\n        this.Echoed <- value.Size\n\n    \
-             [<OnStop>]\n    member this.Stop() : unit =\n        this.Started <- false\n",
-        ),
-    ];
+             [<OnStop>]\n    member this.Stop() : unit =\n        this.Started <- false\n";
+    const NEEDS_PROPERTY: &str = "open Models\n\n[<Service>]\ntype SignalService() =\n    [<Needs>]\n    member val Publisher : ApplicationEventPublisher = Unchecked.defaultof<ApplicationEventPublisher> with get, set\n    member val Largest = 0 with get, set\n    member val Echoed = 0 with get, set\n    member val Started = false with get, set\n\n    \
+             [<OnStart>]\n    member this.Start() : unit =\n        this.Started <- true\n\n    \
+             member this.Send(size: int) : unit =\n        this.Publisher.PublishEvent({ SignalSent.Size = size })\n\n    \
+             [<OnEvent({\"condition\":\"value.size > 5\"})>]\n    member this.Record(value: SignalSent) : SignalEcho =\n        this.Largest <- max this.Largest value.Size\n        { SignalEcho.Size = value.Size * 10 }\n\n    \
+             [<OnEvent>]\n    [<Order(1)>]\n    member this.Echo(value: SignalEcho) : unit =\n        this.Echoed <- value.Size\n\n    \
+             [<OnStop>]\n    member this.Stop() : unit =\n        this.Started <- false\n";
 
     const DRIVER: &str = "const { default: SignalService, __tachyon_event_plan__: plan } = await import('./SignalService.js')\n\
          const { default: ApplicationEvents } = await import('./application-events.mjs')\n\
@@ -70,11 +74,11 @@ fn run_driver(root: &Path, script: &str) -> serde_json::Value {
     serde_json::from_str(stdout.trim()).expect("report")
 }
 
-async fn publish_signal(root: &Path) {
-    let mut source = PathBuf::new();
-    for (relative, text) in FsharpSignal::FILES {
-        source = write(root, relative, text);
+async fn publish_signal(root: &Path, service: &str) {
+    for (relative, text) in FsharpSignal::MODELS {
+        write(root, relative, text);
     }
+    let source = write(root, FsharpSignal::SERVICE, service);
     let services = [(
         String::from("signal"),
         String::from("SignalService"),
@@ -103,15 +107,17 @@ async fn publish_signal(root: &Path) {
     .expect("event runtime");
 }
 
-#[tokio::test]
-async fn an_fsharp_service_publishes_and_listens_on_the_page_event_bus() {
+async fn signal_report(service: &str) -> Option<serde_json::Value> {
     if !fsharp_web_ready() {
         eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
-        return;
+        return None;
     }
     let root = tempfile::tempdir().expect("project");
-    publish_signal(root.path()).await;
-    let report = run_driver(root.path(), FsharpSignal::DRIVER);
+    publish_signal(root.path(), service).await;
+    Some(run_driver(root.path(), FsharpSignal::DRIVER))
+}
+
+fn assert_signalled(report: &serde_json::Value) {
     assert_eq!(report["largest"], 8, "{report}");
     assert_eq!(report["echoed"], 80, "{report}");
     assert_eq!(report["started"], true, "{report}");
@@ -123,4 +129,18 @@ async fn an_fsharp_service_publishes_and_listens_on_the_page_event_bus() {
             ["SignalEcho", {"size": 80}],
         ])
     );
+}
+
+#[tokio::test]
+async fn an_fsharp_service_publishes_and_listens_on_the_page_event_bus() {
+    if let Some(report) = signal_report(FsharpSignal::CONSTRUCTED).await {
+        assert_signalled(&report);
+    }
+}
+
+#[tokio::test]
+async fn an_fsharp_service_takes_its_publisher_as_a_needs_property() {
+    if let Some(report) = signal_report(FsharpSignal::NEEDS_PROPERTY).await {
+        assert_signalled(&report);
+    }
 }

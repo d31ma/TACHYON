@@ -1,4 +1,4 @@
-use super::{FsharpLexer, ShadowWriter};
+use super::{FieldNeeds, FsharpLexer, ShadowWriter};
 
 pub(crate) struct FsharpShadow {
     text: String,
@@ -12,7 +12,7 @@ impl FsharpShadow {
     const CONSTRUCTOR_NEEDS: &'static str = "[Needs(";
 
     pub(crate) fn of(source: &str) -> Self {
-        let plain = FsharpLexer::without_comments(source);
+        let plain = FieldNeeds::moved(&FsharpLexer::without_comments(source));
         let code = FsharpLexer::code_mask(&plain).code;
         let written = ShadowWriter::write(&plain, &code);
         let (source_starts, source_lengths) = Self::source_lines(source);

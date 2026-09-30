@@ -18,7 +18,7 @@ impl FsharpServiceEvents {
     const PUBLISHER_TYPE: &'static str = "ApplicationEventPublisher";
     const PUBLISHER: &'static str = "public sealed class ApplicationEventPublisher {\n    public static System.Action<object, bool> Sink;\n    public void PublishEvent(object value, bool retain = false) => Sink?.Invoke(value, retain);\n    public void publishEvent(object value, bool retain = false) => PublishEvent(value, retain);\n}\n";
     const CONNECTION: &'static str = "static class FsharpEventSetup {\n    [System.Runtime.CompilerServices.ModuleInitializer]\n    internal static void Connect() { ApplicationEventPublisher.Sink = Tac.PublishModel; }\n}\n";
-    const CONSTRUCTOR_REFUSAL: &'static str = "An F# Tac service takes no primary constructor parameters except its ApplicationEventPublisher (ADR 0073)";
+    const CONSTRUCTOR_REFUSAL: &'static str = "An F# Tac service takes no primary constructor parameter or Needs property except its ApplicationEventPublisher (ADR 0073)";
 
     pub(super) fn read(view: &FsharpView, root: &Path, class: &str) -> Result<Self, Failure> {
         let publisher = Self::takes_publisher(view.text(), class)

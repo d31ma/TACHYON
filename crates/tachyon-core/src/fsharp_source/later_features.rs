@@ -8,16 +8,20 @@ pub(crate) struct LaterFeatures;
 impl LaterFeatures {
     const MESSAGE: &'static str = "F# classes do not support {} yet (ADR 0073). Write this class in C#, or leave the annotation out.";
     const NAMES: [&'static str; 1] =
-        ["field injection with Needs: take dependencies as primary constructor parameters"];
+        ["NeedsAll with a list of fields: write NeedsAll alone, or mark each property with Needs"];
+    const LISTED_NEEDS_ALL: &'static str = "[NeedsAll(";
 
     pub(crate) fn refuse(view: &FsharpView, source: &Path, contents: &str) -> Result<(), Failure> {
-        let found = Self::found(view).map_err(|failure| view.failure(&failure))?;
+        let found = Self::found(view);
         let first = found.iter().position(|used| *used);
         first.map_or(Ok(()), |index| Err(Self::failure(source, contents, index)))
     }
 
-    fn found(view: &FsharpView) -> Result<[bool; 1], Failure> {
-        Ok([crate::yon::prepare_required_args(view.path(), view.text())?.is_some()])
+    fn found(view: &FsharpView) -> [bool; 1] {
+        [view
+            .text()
+            .lines()
+            .any(|line| line.trim_start().starts_with(Self::LISTED_NEEDS_ALL))]
     }
 
     fn failure(source: &Path, contents: &str, index: usize) -> Failure {
@@ -60,18 +64,25 @@ mod tests {
     }
 
     #[test]
-    fn events_and_needs_all_are_accepted_and_field_needs_is_refused() {
+    fn events_and_needs_all_are_accepted_and_a_needs_all_list_is_refused() {
         let events = "open Models\n\n[<Service>]\n[<NeedsAll>]\ntype AuditService(publisher: ApplicationEventPublisher) =\n    [<OnStart>]\n    member this.Start() : unit = ()\n\n    [<OnEvent>]\n    member this.Record(order: PlacedOrder) : unit = ()\n";
         let yon = refused("server/services/AuditService.fs", events);
         assert!(yon.is_none(), "{yon:?}");
-        let field = "[<Service>]\ntype AuditService() =\n    [<Needs>]\n    [<DefaultValue>]\n    val mutable store : AuditStore\n";
-        let refusal = refused("server/services/AuditService.fs", field);
+        let listed = "[<Service>]\n[<NeedsAll(\"store\")>]\ntype AuditService() =\n    [<DefaultValue>]\n    val mutable store : AuditStore\n";
+        let refusal = refused("server/services/AuditService.fs", listed);
         assert!(
             refusal
                 .as_ref()
-                .is_some_and(|text| text.contains("field injection with Needs")),
+                .is_some_and(|text| text.contains("NeedsAll with a list of fields")),
             "{refusal:?}"
         );
+    }
+
+    #[test]
+    fn a_needs_property_is_accepted() {
+        let field = "[<Service>]\ntype AuditService() =\n    [<Needs>]\n    member val Store : AuditStore = Unchecked.defaultof<AuditStore> with get, set\n";
+        let yon = refused("server/services/AuditService.fs", field);
+        assert!(yon.is_none(), "{yon:?}");
     }
 
     #[test]

@@ -1,6 +1,8 @@
 mod attribute_line;
 mod behavior_body;
 mod block_kind;
+mod field_need;
+mod field_needs;
 mod fsharp_behaviors;
 mod fsharp_body;
 mod fsharp_events;
@@ -33,6 +35,8 @@ mod type_name;
 use attribute_line::AttributeLine;
 use behavior_body::BehaviorBody;
 use block_kind::BlockKind;
+use field_need::FieldNeed;
+pub(crate) use field_needs::FieldNeeds;
 pub(crate) use fsharp_behaviors::FsharpBehaviors;
 use fsharp_body::FsharpBody;
 use fsharp_events::FsharpEvents;
@@ -95,11 +99,12 @@ impl FsharpSource {
             .map_or(extension, |(_, syntax)| syntax)
     }
 
-    pub(crate) fn refuse_later_features(
+    pub(crate) fn refuse_unsupported(
         view: &FsharpView,
         source: &Path,
         contents: &str,
     ) -> Result<(), crate::Failure> {
+        FieldNeeds::refuse(source, contents)?;
         LaterFeatures::refuse(view, source, contents)
     }
 

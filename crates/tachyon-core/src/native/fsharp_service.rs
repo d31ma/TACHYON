@@ -3,7 +3,7 @@ use super::registry::NativeCompanionInput;
 use crate::Failure;
 use crate::behavior::{DetachedCsharp, ServiceRoles};
 use crate::companion::CompanionLanguage;
-use crate::fsharp_source::{FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView};
+use crate::fsharp_source::{FieldNeeds, FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView};
 use std::path::Path;
 
 pub(super) struct FsharpService;
@@ -35,7 +35,7 @@ impl FsharpService {
         )?;
         let authored = assembled.as_deref().unwrap_or(authored);
         let view = FsharpView::tac(relative, authored);
-        FsharpSource::refuse_later_features(&view, relative, authored)?;
+        FsharpSource::refuse_unsupported(&view, relative, authored)?;
         let events = FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class)?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let table = crate::companion::owner_table(
@@ -47,7 +47,7 @@ impl FsharpService {
             false,
         )
         .map_err(|failure| view.failure(&failure))?;
-        let table = events.table(&table, &item.class);
+        let table = FieldNeeds::constructed(authored, &events.table(&table, &item.class));
         let detached = Self::detached(&view)?;
         let stripped = FsharpMarkers::strip(authored);
         let Some(detached) = detached else {
@@ -79,5 +79,38 @@ impl FsharpService {
             1308,
             &format!("{}: {message}", source.to_string_lossy().replace('\\', "/")),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use super::FsharpService;
+    use crate::native::registry::NativeCompanionInput;
+    use crate::project::NativeCompanion;
+
+    const SERVICE: &str = "[<Service>]\ntype SignalService() =\n    [<Needs>]\n    member val Publisher : ApplicationEventPublisher = Unchecked.defaultof<ApplicationEventPublisher> with get, set\n\n    member this.Send(size: int) : unit =\n        this.Publisher.PublishEvent(size)\n";
+
+    #[test]
+    fn a_needs_publisher_property_is_set_after_the_constructor() {
+        let root = tempfile::tempdir().expect("project");
+        let source = root.path().join("client/services/SignalService.fs");
+        std::fs::create_dir_all(source.parent().expect("parent")).expect("folders");
+        std::fs::write(&source, SERVICE).expect("source");
+        let item = NativeCompanionInput {
+            snapshot_root: root.path().to_path_buf(),
+            language: NativeCompanion::CSharp,
+            source,
+            service: String::from("signal"),
+            class: String::from("SignalService"),
+            web_assembly: true,
+        };
+        let body =
+            FsharpService::body(&item, SERVICE).unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(
+            body.contains("new SignalService() { Publisher = new ApplicationEventPublisher() }"),
+            "{body}"
+        );
     }
 }

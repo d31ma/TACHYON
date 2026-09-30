@@ -41,6 +41,10 @@ impl FsharpParameters {
         Some((parameters, &text[closing + 1..]))
     }
 
+    pub(crate) fn closing(text: &str) -> Option<usize> {
+        Self::closing_parenthesis(text)
+    }
+
     fn closing_parenthesis(text: &str) -> Option<usize> {
         let mut depth = 0_i32;
         let mut closing = None;
