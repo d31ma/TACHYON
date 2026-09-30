@@ -14,13 +14,14 @@ class CachedClientGate {
   static browsers = (process.env.TAC_CACHED_CLIENT_BROWSERS ?? 'chromium,firefox,webkit').split(',')
   static launchers = { chromium, firefox, webkit }
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
-  static languages = (process.env.TAC_CACHED_CLIENT_LANGUAGES ?? 'js,ts,go,kt,dart,swift,fs').split(',')
+  static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
+  static languages = process.env.TAC_CACHED_CLIENT_LANGUAGES?.split(',') ?? ['js', 'ts', 'go', 'kt', 'dart', 'swift', 'fs', ...(CachedClientGate.withJava ? ['java'] : [])]
   static settleTimeout = 10_000
   static settleStep = 50
   static settings = '{"name":"stamps","ttlMs":60000,"maxBytes":4096,"maxEntries":8}'
 
   static files = {
-    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs"]},"visibility":{"check":false}}}\n',
+    'client/manifest.json': '{"tac":{"names":{"words":["js","ts","kt","fs"]},"visibility":{"check":false},"budgets":{"check":false}}}\n',
     'client/pages/tac.html': '<stamp-page />\n',
     'client/components/stamp/page/tac.html': `<main>${CachedClientGate.languages.map((language) => `<p id="${language}">{${language}Stamp.stamp}</p>`).join('\n')}</main>\n`,
     'client/clients/JsStampClient.js': `@HTTPClient
@@ -243,6 +244,36 @@ type FsStampService() =
             this.loads <- this.loads + 1
         }
 `,
+    ...(CachedClientGate.withJava ? { 'client/clients/JavaStampClient.java': `@CacheSettings(${CachedClientGate.settings})
+@HTTPClient
+interface JavaStampClient {
+    @Cached
+    @GetRequest("/api/stamp")
+    Object read();
+}
+`,
+    'client/setups/JavaStampSetup.java': `import java.util.Map;
+
+@Setup
+class JavaStampSetup {
+    static Behaviors.Configuration configure(Behaviors.Execution execution) {
+        Behaviors.HttpAdapter stamps = (request, running) -> Map.of("stamp", new java.util.Random().nextInt(1_000_000_000) + 1);
+        return new Behaviors.Configuration(Map.of(), Map.of("javaStamp", stamps), Map.of(), null);
+    }
+}
+`,
+    'client/services/JavaStampService.java': `@Service
+class JavaStampService {
+    private final JavaStampClient stamps = new JavaStampClient();
+    String stamp = "";
+    int loads = 0;
+
+    void load() {
+        stamp = String.valueOf(stamps.read());
+        loads += 1;
+    }
+}
+` } : {}),
   }
 
   static write(project) {
