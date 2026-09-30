@@ -1,6 +1,6 @@
-use super::{LuaInput, LuaLowering, LuaTestUnit, LuaView};
+use super::{LuaBehaviorEdits, LuaInput, LuaLowering, LuaTestUnit, LuaView};
 use crate::Failure;
-use crate::behavior::UnitTable;
+use crate::behavior::LuaBehaviorPlan;
 use crate::events::EventModule;
 use crate::failure::{diagnostic, source_span};
 use crate::yon::Lowered;
@@ -15,8 +15,6 @@ pub(crate) struct LuaYon;
 impl LuaYon {
     const LATER: &'static str = "Lua classes do not support {} yet (ADR 0085). Write this class in another Yon language, or leave the annotation out.";
     const STREAMS: &'static str = "streams and sockets (StreamRoute, SocketRoute)";
-    const BEHAVIORS: &'static str =
-        "behavior annotations (for example Cached, Retry or Transactional)";
     const REALM: &'static str = "yon";
     const MODELS: &'static str = "server";
     const LOWERINGS: [Lowering; 2] = [Self::roles, Self::test_unit];
@@ -43,22 +41,32 @@ impl LuaYon {
     fn roles(input: &LuaInput<'_>) -> Result<Option<Lowered>, Failure> {
         let view = input.view;
         let mapped = |failure: Failure| view.failure(&failure);
-        let behaviors =
-            crate::behavior::lower(view.path(), view.text(), Self::REALM).map_err(mapped)?;
-        Self::refused(
-            behaviors.is_some(),
-            input.source,
-            input.contents,
-            Self::BEHAVIORS,
-        )?;
         let events = Self::events(input)?;
         let text = events
             .as_ref()
             .map_or(view.text(), |module| module.source.as_str());
-        let parsed = crate::yon::parser::parse(view.path(), text).map_err(mapped)?;
+        let behaviors =
+            crate::behavior::lua_plan(view.path(), text, Self::REALM).map_err(mapped)?;
+        let erased = behaviors.as_ref().map_or(text, |plan| plan.erased.as_str());
+        let parsed = crate::yon::parser::parse(view.path(), erased).map_err(mapped)?;
+        let authored = Self::with_behaviors(input, behaviors.as_ref())?;
         parsed
-            .map(|parsed| Self::routes(input, &parsed, events.as_ref()))
+            .map(|parsed| Self::routes(input, &authored, &parsed, events.as_ref()))
             .transpose()
+    }
+
+    fn with_behaviors(
+        input: &LuaInput<'_>,
+        behaviors: Option<&LuaBehaviorPlan>,
+    ) -> Result<String, Failure> {
+        behaviors.map_or_else(
+            || Ok(input.contents.to_owned()),
+            |plan| {
+                LuaBehaviorEdits::new(plan)
+                    .program(input.source, input.contents)
+                    .map_err(|message| Self::failure(input.source, input.contents, &message))
+            },
+        )
     }
 
     fn events(input: &LuaInput<'_>) -> Result<Option<EventModule>, Failure> {
@@ -72,30 +80,45 @@ impl LuaYon {
     }
 
     fn test_unit(input: &LuaInput<'_>) -> Result<Option<Lowered>, Failure> {
-        let (source, contents, view) = (input.source, input.contents, input.view);
+        let view = input.view;
         let mapped = |failure: Failure| view.failure(&failure);
         let behaviors =
-            crate::behavior::lower(view.path(), view.text(), Self::REALM).map_err(mapped)?;
-        let text = behaviors.as_deref().unwrap_or(view.text());
+            crate::behavior::lua_plan(view.path(), view.text(), Self::REALM).map_err(mapped)?;
+        let text = behaviors
+            .as_ref()
+            .map_or(view.text(), |plan| plan.erased.as_str());
         let parsed = crate::yon::parser::parse_test(view.path(), text).map_err(mapped)?;
         let units =
             crate::behavior::unit_tables(view.path(), view.text(), Self::REALM).map_err(mapped)?;
+        let authored = Self::with_behaviors(input, behaviors.as_ref())?;
+        let unit_behaviors = Self::unit_behaviors(behaviors.as_ref());
         parsed
             .zip(units.first())
-            .map(|(parsed, unit)| Self::unit_program(source, contents, &parsed.plan, unit))
+            .map(|(parsed, unit)| {
+                Self::unit_program(
+                    input,
+                    &authored,
+                    &parsed.plan,
+                    &LuaTestUnit::new(unit).with_behaviors(unit_behaviors),
+                )
+            })
             .transpose()
     }
 
+    fn unit_behaviors(behaviors: Option<&LuaBehaviorPlan>) -> bool {
+        behaviors.is_some()
+    }
+
     fn unit_program(
-        source: &Path,
-        contents: &str,
+        input: &LuaInput<'_>,
+        authored: &str,
         plan: &Plan,
-        unit: &UnitTable,
+        unit: &LuaTestUnit<'_>,
     ) -> Result<Lowered, Failure> {
         let lowering = LuaLowering::new(plan);
-        let program = LuaTestUnit::new(unit)
-            .program(contents, &lowering)
-            .map_err(|message| Self::failure(source, contents, &message))?;
+        let program = unit
+            .program(authored, &lowering)
+            .map_err(|message| Self::failure(input.source, input.contents, &message))?;
         Ok(Lowered {
             source: program,
             routes: Vec::new(),
@@ -110,12 +133,13 @@ impl LuaYon {
 
     fn routes(
         input: &LuaInput<'_>,
+        authored: &str,
         parsed: &Parsed,
         events: Option<&EventModule>,
     ) -> Result<Lowered, Failure> {
         let (source, contents) = (input.source, input.contents);
         Self::refused(Self::streams(&parsed.plan), source, contents, Self::STREAMS)?;
-        let program = Self::program(&parsed.plan, contents, events)
+        let program = Self::program(&parsed.plan, authored, events)
             .map_err(|message| Self::failure(source, contents, &message))?;
         Ok(Lowered {
             source: program,

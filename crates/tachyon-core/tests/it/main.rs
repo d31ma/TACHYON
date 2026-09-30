@@ -6,6 +6,7 @@ mod behavior_dynamic;
 mod behavior_fsharp;
 mod behavior_go;
 mod behavior_jvm;
+mod behavior_lua;
 mod behavior_rust;
 mod client_application_config;
 mod composed_types;

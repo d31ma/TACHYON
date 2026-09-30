@@ -6,22 +6,37 @@ use std::fmt::Write as _;
 pub(super) struct RubyLowering;
 
 impl RubyLowering {
+    pub(super) fn records(module: &Module) -> Result<String, String> {
+        let mut records = Map::new();
+        for type_declaration in &module.types {
+            records.insert(
+                type_declaration.name.clone(),
+                Self::with_methods(type_declaration),
+            );
+        }
+        serde_json::to_string(&records).map_err(|error| error.to_string())
+    }
+
+    fn with_methods(type_declaration: &Type) -> Value {
+        let mut record = Self::type_record(type_declaration);
+        for method in &type_declaration.methods {
+            record["methods"][&method.name] = Value::Object(method.metadata.clone());
+        }
+        record
+    }
+
     pub(super) fn lower(module: &Module) -> Result<String, String> {
         let mut edits = Vec::new();
-        let mut records = Map::new();
         let mut units = String::new();
         for type_declaration in &module.types {
-            let mut record = Self::type_record(type_declaration);
             for method in &type_declaration.methods {
-                record["methods"][&method.name] = Value::Object(method.metadata.clone());
                 edits.push(Self::method_edit(module, type_declaration, method));
             }
-            records.insert(type_declaration.name.clone(), record);
             if let Some(unit) = polyglot_unit(type_declaration) {
                 units.push_str(&Self::test_members(&unit));
             }
         }
-        let encoded = serde_json::to_string(&records).map_err(|error| error.to_string())?;
+        let encoded = Self::records(module)?;
         let suffix = format!(
             "{}\nBehaviors.register({}, {:?}, {:?})\n{units}{}",
             include_str!("ruby_runtime.rb"),

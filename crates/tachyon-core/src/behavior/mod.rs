@@ -22,8 +22,8 @@ pub(crate) use gateway::{
     target_failure as gateway_target_failure, target_signature as gateway_target_signature,
 };
 pub(crate) use polyglot::{
-    DetachedCsharp, HelperRole, JavaBuiltins, KotlinBuiltins, NativeStorage, PlannedMethod,
-    PlannedType, SwiftPlatform, gateway_unit_runtime,
+    DetachedCsharp, HelperRole, JavaBuiltins, KotlinBuiltins, LuaBehaviorMethod, LuaBehaviorPlan,
+    NativeStorage, PlannedMethod, PlannedType, SwiftPlatform, gateway_unit_runtime,
 };
 #[cfg(test)]
 mod extensions_tests;
@@ -228,6 +228,14 @@ fn own_markers(input: &Input<'_>, environment: &str) -> Result<Vec<Marker>, Fail
         .into_iter()
         .filter(|marker| !tac_only_marker(input, marker))
         .collect())
+}
+
+pub(crate) fn lua_plan(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Option<LuaBehaviorPlan>, Failure> {
+    polyglot::lua_plan(path, source, environment)
 }
 
 pub(crate) fn unit_tables(

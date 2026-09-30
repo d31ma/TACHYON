@@ -22,7 +22,9 @@ mod java_builtins;
 pub(crate) use java_builtins::JavaBuiltins;
 mod kotlin;
 mod kotlin_builtins;
+mod lua_plan;
 pub(crate) use kotlin_builtins::KotlinBuiltins;
+pub(crate) use lua_plan::{LuaBehaviorMethod, LuaBehaviorPlan};
 mod native_storage;
 pub(crate) use native_storage::NativeStorage;
 #[cfg(test)]
@@ -191,6 +193,19 @@ pub(super) fn lower(
             .map(Some)
             .map_err(|message| module_failure(path, source, message)),
     }
+}
+
+pub(super) fn lua_plan(
+    path: &Path,
+    source: &str,
+    environment: &str,
+) -> Result<Option<LuaBehaviorPlan>, Failure> {
+    let Some(Prepared::Annotated(module)) = prepare(path, source, environment)? else {
+        return Ok(None);
+    };
+    LuaBehaviorPlan::of(&module)
+        .map(Some)
+        .map_err(|message| module_failure(path, source, message))
 }
 
 pub(super) fn unit_tables(

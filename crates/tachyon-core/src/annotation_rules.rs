@@ -262,10 +262,14 @@ impl AnnotationRules {
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb", "lua",
     ];
     const YON_BEHAVIOR: &'static [&'static str] = &[
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb", "lua",
+    ];
+    pub(crate) const YON_RESOURCE: &'static [&'static str] = &[
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
     ];
-    const TAC: &'static [&'static str] =
-        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua"];
+    const TAC: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua",
+    ];
     pub(crate) const TAC_RESOURCE: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_BEHAVIOR: &'static [&'static str] =
@@ -278,8 +282,9 @@ impl AnnotationRules {
     const YON_STREAM: &'static [&'static str] =
         &["js", "ts", "py", "php", "kt", "cs", "dart", "rb"];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts"];
-    const TAC_VALUE_SOURCE: &'static [&'static str] =
-        &["js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua"];
+    const TAC_VALUE_SOURCE: &'static [&'static str] = &[
+        "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua",
+    ];
     const YON_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "py", "rs", "java", "groovy", "kt", "cs", "go", "rb", "php", "dart", "lua",
     ];
@@ -586,7 +591,7 @@ impl AnnotationRules {
         )
         .needs_arguments()
         .instance()
-        .reach(Self::NOWHERE, Self::YON_BEHAVIOR),
+        .reach(Self::NOWHERE, Self::YON_RESOURCE),
         Rule::new(
             "Store",
             Self::TYPE,
@@ -818,7 +823,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class that sends HTTP requests and gives the path they start with",
         )
-        .reach(Self::TAC_RESOURCE, Self::YON),
+        .reach(Self::TAC_RESOURCE, Self::YON_RESOURCE),
         Rule::new(
             "GetRequest",
             Self::METHOD,
@@ -1143,7 +1148,7 @@ impl Rule {
     const fn request(self) -> Self {
         Self {
             tac: AnnotationRules::TAC_RESOURCE,
-            yon: AnnotationRules::YON,
+            yon: AnnotationRules::YON_RESOURCE,
             clashes: AnnotationRules::HTTP_METHODS,
             class_needs: &["HTTPClient"],
             ..self
@@ -1164,7 +1169,7 @@ impl Rule {
     const fn request_part(self) -> Self {
         Self {
             tac: AnnotationRules::TAC_RESOURCE,
-            yon: AnnotationRules::YON,
+            yon: AnnotationRules::YON_RESOURCE,
             clashes: AnnotationRules::REQUEST_PARTS,
             class_needs: &["HTTPClient"],
             ..self
