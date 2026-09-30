@@ -128,6 +128,7 @@ class Toolchains {
 
 class Staging {
   static activeDirectories = new Set()
+  static keptFolders = new Set(['.tachyon', 'dist'])
 }
 
 /** @param {string} repo */
@@ -584,7 +585,7 @@ function writeSnippetFile(root, name, code) {
 function emptyStagingDirectory(root) {
   mkdirSync(root, { recursive: true })
   for (const entry of readdirSync(root)) {
-    if (entry !== '.tachyon') rmSync(path.join(root, entry), { recursive: true, force: true })
+    if (!Staging.keptFolders.has(entry)) rmSync(path.join(root, entry), { recursive: true, force: true })
   }
   utimesSync(root, new Date(), new Date())
 }
