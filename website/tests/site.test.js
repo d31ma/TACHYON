@@ -419,7 +419,7 @@ describe('language coverage', () => {
     const tac = languages.tac.files.map((file) => file.name.split('.').pop())
     const yon = languages.yon.entries.map((entry) => entry.id)
 
-    for (const extension of ['js', 'ts', 'dart', 'rs', 'swift', 'kt', 'cs', 'fs', 'go', 'rb']) {
+    for (const extension of ['js', 'ts', 'dart', 'rs', 'swift', 'kt', 'cs', 'fs', 'go', 'rb', 'lua']) {
       expect(tac).toContain(extension)
     }
     for (const extension of ['html', 'css']) {
@@ -466,8 +466,8 @@ describe('language coverage', () => {
 
   test('every service language shows the same class, spelled its own way', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
-    const companions = languages.tac.files.filter((file) => /\.(js|ts|dart|rs|swift|kt|java|cs|fs|go|rb)$/.test(file.name))
-    expect(companions.length).toBe(11)
+    const companions = languages.tac.files.filter((file) => /\.(js|ts|dart|rs|swift|kt|java|cs|fs|go|rb|lua)$/.test(file.name))
+    expect(companions.length).toBe(12)
     for (const entry of companions) {
       const code = entry.code
       expect(code).toMatch(/\b(class|struct|type)\b/)
@@ -483,9 +483,10 @@ describe('language coverage', () => {
   test('every service language marks the class as a service, spelled its own way', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const markers = { js: '@Service', ts: '@Service', dart: '@Service', swift: '@Service',
-                      kt: '@Service', java: '@Service', cs: '[Service]', fs: '[<Service>]', rs: '#[Service]', go: '// @Service', rb: '#[Service]' }
+                      kt: '@Service', java: '@Service', cs: '[Service]', fs: '[<Service>]', rs: '#[Service]', go: '// @Service', rb: '#[Service]',
+                      lua: '-- @Service' }
     const services = languages.tac.files.filter((file) => file.name.startsWith('client/services/'))
-    expect(services.length).toBe(11)
+    expect(services.length).toBe(12)
     for (const service of services) {
       const extension = service.name.split('.').pop()
       expect(service.code.split('\n')).toContain(markers[extension])
@@ -864,6 +865,7 @@ describe('documentation structure', () => {
     expect(reachOf(service('dart'))).toEqual(everyPlatform)
     expect(reachOf(service('go'))).toEqual(everyPlatform)
     expect(reachOf(service('rb'))).toEqual(everyPlatform)
+    expect(reachOf(service('lua'))).toEqual(everyPlatform)
     expect(reachOf(service('rs'))).toEqual(everyPlatform)
     expect(reachOf(service('cs'))).toEqual(everyPlatform)
     expect(reachOf(service('swift'))).toEqual(['macos', 'ios'])
@@ -894,7 +896,7 @@ describe('documentation structure', () => {
       .map((file) => languageOf(file.name))
 
     const browser = ['JavaScript', 'TypeScript', 'Dart', 'Java']
-    const everywhere = ['C#', 'F#', 'Rust', 'Go', 'Ruby']
+    const everywhere = ['C#', 'F#', 'Rust', 'Go', 'Ruby', 'Lua']
     expect(shownOn('web')).toEqual([...browser, ...everywhere])
     expect(shownOn('macos')).toEqual([...browser, 'Swift', ...everywhere])
     expect(shownOn('ios')).toEqual([...browser, 'Swift', ...everywhere])

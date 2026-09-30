@@ -25,6 +25,7 @@ class FileTypes {
     fs: FileTypes.allPlatforms,
     go: FileTypes.allPlatforms,
     rb: FileTypes.allPlatforms,
+    lua: FileTypes.allPlatforms,
     java: FileTypes.allPlatforms,
     html: FileTypes.allPlatforms,
     css: FileTypes.allPlatforms,

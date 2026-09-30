@@ -417,6 +417,104 @@ async function checkRubyService(browser) {
   }
 }
 
+function writeLuaFixtures(project) {
+  write(project, 'client/pages/tac.html', '<lua-layout :open="false" />');
+  write(project, 'client/components/lua/layout/tac.html', '<lua-drawer :open="open" />');
+  write(project, 'client/components/lua/drawer/tac.html', `<main>
+<button id="lua-toggle" on:click="luaDrawer.toggle()" :aria-expanded="luaDrawer.open ? 'true' : 'false'">Menu</button>
+<nav id="lua-panel" :data-open="luaDrawer.open ? 'true' : 'false'" on:keydown="luaDrawer.dismiss($event.key)"><a id="lua-link" href="#top">Top</a></nav>
+<p id="lua-count">{luaCounter.count}</p>
+<p id="lua-notes">{luaCounter.notes.length}</p>
+<button id="lua-increment" on:click="luaCounter.increment()">Increment</button></main>`);
+  write(project, 'client/services/LuaDrawerService.lua', `-- @Service
+-- @NeedsAll
+---@class LuaDrawerService
+LuaDrawerService = {
+  ---@type boolean
+  open = false,
+}
+
+---@return boolean
+function LuaDrawerService:toggle()
+  self.open = not self.open
+  return self.open
+end
+
+---@param key string
+---@return nil
+function LuaDrawerService:dismiss(key)
+  self:_close_on_escape(key)
+end
+
+---@param key string
+---@return nil
+function LuaDrawerService:_close_on_escape(key)
+  if key == "Escape" then
+    self.open = false
+  end
+end
+`);
+  write(project, 'client/services/LuaCounterService.lua', `-- @Service
+---@class LuaCounterService
+LuaCounterService = {
+  ---@type integer
+  count = 0,
+  ---@type string[]
+  notes = {},
+}
+
+---@return integer
+function LuaCounterService:increment()
+  self.count = self.count + 1
+  self.notes[#self.notes + 1] = "clicked"
+  return self.count
+end
+`);
+}
+
+async function checkLuaService(browser) {
+  const project = mkdtempSync(path.join(tmpdir(), 'ty-runtime-lua-'));
+  let server;
+  try {
+    writeLuaFixtures(project);
+    buildProject(project);
+    server = serveDist(path.join(project, 'dist'), RuntimeGate.webAssemblyPolicy);
+    await listen(server);
+    const errors = [];
+    const page = await browser.newPage();
+    page.setDefaultTimeout(15000);
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    await page.waitForFunction(() => document.querySelector('#lua-count')?.textContent === '0');
+    const settled = async () => {
+      await page.evaluate(() => __tachyonTac.render());
+      return page.evaluate(() => [
+        document.querySelector('#lua-toggle').getAttribute('aria-expanded'),
+        document.querySelector('#lua-panel').dataset.open,
+        document.querySelector('#lua-count').textContent,
+        document.querySelector('#lua-notes').textContent,
+      ]);
+    };
+    assert.deepEqual(await settled(), ['false', 'false', '0', '0'], 'the Lua drawer starts from the prop its parents pass');
+    await page.click('#lua-increment');
+    assert.deepEqual(await settled(), ['false', 'false', '1', '1'], 'a Lua method call shows its new fields at once');
+    await page.click('#lua-increment');
+    assert.deepEqual(await settled(), ['false', 'false', '2', '2'], 'every Lua method call shows its own new fields');
+    await page.click('#lua-toggle');
+    assert.deepEqual(await settled(), ['true', 'true', '2', '2'], 'the Lua drawer opens on the first click');
+    await page.click('#lua-toggle');
+    assert.deepEqual(await settled(), ['false', 'false', '2', '2'], 'the Lua drawer closes on the second click');
+    await page.click('#lua-toggle');
+    await page.focus('#lua-link');
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await settled(), ['false', 'false', '2', '2'], 'Escape closes the Lua drawer at once');
+    assert.deepEqual(errors, [], 'the Lua page runs without errors');
+  } finally {
+    await closeServer(server);
+    rmSync(project, { recursive: true, force: true });
+  }
+}
+
 function writeEventMeshFixtures(project, withCSharp) {
   write(project, 'client/pages/tac.html', '<event-mesh />');
   write(project, 'client/components/event/mesh/tac.html', `<main>
@@ -1213,8 +1311,9 @@ async function main() {
     await checkDelayedNativeEdits(browser, nativeOrigin);
     await checkGoService(browser);
     await checkRubyService(browser);
+    await checkLuaService(browser);
     await checkWebAssemblyEvents(browser);
-    console.log('Tac runtime browser gate passed: service lifecycle, persistence, explicit signals, HMR disposal, counted loops/bounds, BOM/entities, native transport, strict CSP, Go and Ruby WebAssembly services, WebAssembly event delivery.');
+    console.log('Tac runtime browser gate passed: service lifecycle, persistence, explicit signals, HMR disposal, counted loops/bounds, BOM/entities, native transport, strict CSP, Go, Ruby and Lua WebAssembly services, WebAssembly event delivery.');
   } finally {
     try {
       const cleanup = await Promise.allSettled([browser?.close(), closeServer(server), closeServer(nativeServer)]);

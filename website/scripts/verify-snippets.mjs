@@ -97,7 +97,7 @@ class Languages {
   static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb', '.lua'])
   /** @type {Record<string,string>} */
   static nativeTargets = { '.swift': 'macos', '.kt': 'android', '.cs': 'windows', '.rs': 'linux' }
-  static tacSourceExtensions = new Set(['.js', '.ts', '.dart', '.go', '.rb', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
+  static tacSourceExtensions = new Set(['.js', '.ts', '.dart', '.go', '.rb', '.lua', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
 }
 
 class Toolchains {
