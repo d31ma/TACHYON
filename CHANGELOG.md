@@ -39,6 +39,9 @@ machine contracts have their own, independent major versions.
   as a C# one does (ADR 0073); `type CatalogTestSetup() = class end` no
   longer compiles, because every F# test case now opens a behavior context
   from its setup. The website, `ty init` and the examples declare it.
+  `# @return [ProductStore]` builds the store the first time it runs. An F#
+  service takes the store as a primary constructor parameter, and Tachyon
+  turns that parameter into a `let` binding that builds the store.
 
 - `@Converter` is a contract with no implementation, like a MapStruct
   `@Mapper` interface (`TY1308`, ADR 0022 amendment): the same bodiless form

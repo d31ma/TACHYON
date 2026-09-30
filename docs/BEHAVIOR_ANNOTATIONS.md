@@ -865,7 +865,9 @@ instead of `Store`. The partition is the store name in lowerCamel case without
   fills it with `Default` (derive it, or write no `fn new`). In Go, Tachyon builds the store before the service starts. Dart
   builds it with the service. A Ruby service documents its `attr_reader`
   with `# @return [ProductStore]`, and Tachyon builds the store the first time
-  the reader runs. F# Tac services cannot ask for a store yet.
+  the reader runs. An F# service takes the store as a primary constructor
+  parameter, `type ProductService(products: ProductStore) =`, and Tachyon
+  turns it into `let products = ProductStore()`.
 - A Store without an Entity fails with `TY1308`. Code that only runs SQL
   belongs in a service that asks for a `DataSource`.
 - Do not put the Service role and the Store role on one type.

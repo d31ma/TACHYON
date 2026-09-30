@@ -1,3 +1,4 @@
+use super::fsharp_injected_store::FsharpInjectedStore;
 use super::store_field::StoreField;
 use std::path::Path;
 
@@ -54,6 +55,7 @@ impl<'a> InjectedStore<'a> {
     const EMPTY_ARGUMENTS: &'static str = "()";
     const STORE_FOLDER: &'static str = "client/stores";
     const GO: &'static str = "go";
+    const FSHARP: &'static str = "fs";
     const RUBY: &'static str = "rb";
     const RUBY_COMMENT: &'static str = "# ";
     const GO_METHOD: &'static str =
@@ -70,6 +72,9 @@ impl<'a> InjectedStore<'a> {
     pub(crate) fn filled(path: &Path, source: &str, stores: &'a [String]) -> Option<String> {
         let language = path.extension()?.to_str()?;
         let owner = path.file_stem()?.to_str()?;
+        if language == Self::FSHARP {
+            return FsharpInjectedStore::filled(source, stores);
+        }
         let (form, marker, filled) = Self::FORMS.iter().find(|(form, _, _)| *form == language)?;
         let injected = Self {
             language: form,

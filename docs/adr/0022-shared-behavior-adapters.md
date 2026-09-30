@@ -240,8 +240,11 @@ no implementation, and Tachyon generates each query.
   `# @return [ProductStore]`; Tachyon replaces it with a private reader that
   builds the store once, and the Tac Ruby store opens its context in
   `initialize`.
-- F# Tac services cannot ask for a store yet (F# refuses field `Needs`, and
-  its constructor parameters are component props); that is planned.
+- F#: F# refuses field `Needs`, so an F# service takes the store as a
+  primary constructor parameter (`type NotesService(notes: NoteStore) =`).
+  Tachyon removes that parameter and adds `let notes = NoteStore()` as the
+  first line of the type, so the service builds the store, and the F# store
+  opens the context of its Setup like the C# store.
 
 ## Amendment (2026-09-29): the Repository base and derived deletes
 

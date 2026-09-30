@@ -588,6 +588,40 @@ public sealed class CsNotesService {
 `);
 }
 
+function writeFsharpFixture(project) {
+  write(project, 'client/setups/FsNotesSetup.fs', `[<Setup>]
+type FsNotesSetup() =
+    static member configure(execution: BehaviorExecution) : BehaviorAdapters = BehaviorAdapters()
+`);
+  write(project, 'client/entities/FsNoteEntity.fs', `[<Entity({"adapter":"indexeddb"})>]
+[<Table("fsNotes")>]
+type FsNoteEntity() =
+    [<Id>]
+    member val id : string = "" with get, set
+    member val text : string = "" with get, set
+`);
+  write(project, 'client/stores/FsNoteStore.fs', `open System.Threading.Tasks
+
+[<Store(typeof<FsNoteEntity>, {"fields":["id","text"],"defaultSize":20,"maxSize":100,"setup":"FsNotesSetup"})>]
+type FsNoteStore =
+    inherit Repository<FsNoteEntity, string>
+
+    abstract findByText: text: BehaviorJSON -> Task<BehaviorJSON>
+`);
+  write(project, 'client/services/FsNotesService.fs', `open System.Threading.Tasks
+
+[<Service>]
+type FsNotesService(noteStore: FsNoteStore) =
+    member val label : string = "F# notes" with get, set
+
+    member this.keep(id: BehaviorJSON) : Task<BehaviorJSON> =
+        noteStore.save(BehaviorJSON.Object(dict [ "id", id; "text", BehaviorJSON.From("kept") ]))
+
+    member this.kept() : Task<BehaviorJSON> = noteStore.findByText(BehaviorJSON.From("kept"))
+`);
+  write(project, 'client/components/storage/fs/tac.html', '<p id="fs">{fsNotes.label}</p>\n');
+}
+
 function writeFixture(project) {
   write(project, 'client/pages/tac.html', '<storage-page />\n');
   write(project, 'client/manifest.json', JSON.stringify({ tac: { budgets: { script: StorageGate.scriptBudgetKilobytes }, visibility: { check: false } } }));
@@ -604,7 +638,7 @@ function writeFixture(project) {
   <storage-go />
   <storage-ruby />
   <storage-rs />
-${StorageGate.withCSharp ? '  <storage-cs />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}</main>
+${StorageGate.withCSharp ? '  <storage-cs />\n  <storage-fs />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}</main>
 `);
   for (const [name, policy] of [['CacheFirstClient','cache-first'],['NetworkFirstClient','network-first'],['FreshClient','no-store'],['ReloadClient','reload']]) {
     write(project, 'client/clients/' + name + '.js', `@HTTPClient({"cache":"${policy}","adapter":"${name}"})
@@ -741,6 +775,7 @@ class NoteStore extends Repository {
   writeRubyFixture(project);
   writeRustFixture(project);
   if (StorageGate.withCSharp) writeCSharpFixture(project);
+  if (StorageGate.withCSharp) writeFsharpFixture(project);
   if (StorageGate.withKotlin) writeKotlinFixture(project);
   if (StorageGate.withSwift) writeSwiftFixture(project);
   if (StorageGate.withJava) writeJavaFixture(project);
@@ -1047,6 +1082,7 @@ async function checkWebAssemblyStorage(browser, origin) {
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').list())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'the Ruby Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('rubyNotes').kept())), JSON.stringify([{ id: 'r1', text: 'kept' }]), 'a Ruby service that needs RubyNoteStore reads through the store, which opens the context of its Setup');
   if (StorageGate.withCSharp) await checkCSharpStorage(page, evaluate);
+  if (StorageGate.withCSharp) await checkFsharpStorage(evaluate);
   if (StorageGate.withKotlin) await checkKotlinStorage(page, evaluate);
   if (StorageGate.withSwift) await checkSwiftStorage(page, evaluate);
   if (StorageGate.withJava) await checkJavaStorage(page, evaluate);
@@ -1088,6 +1124,11 @@ async function checkCSharpStorage(page, evaluate) {
   expect(JSON.stringify(await evaluate(() => __root('csNotes').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'the C# cache entry survives a reload through the Cache API');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').list())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'the C# Store row survives a reload and the refused AllOrNothing saved nothing');
   expect(JSON.stringify(await evaluate(() => __root('csNotes').kept())), JSON.stringify([{ id: 'c1', text: 'kept' }]), 'a C# service that needs CsNoteStore reads through the store, which opens the context of its Setup');
+}
+
+async function checkFsharpStorage(evaluate) {
+  await evaluate(() => __root('fsNotes').keep('f1'));
+  expect(JSON.stringify(await evaluate(() => __root('fsNotes').kept())), JSON.stringify([{ id: 'f1', text: 'kept' }]), 'an F# service whose constructor takes FsNoteStore saves and reads through the store, which extends Repository and opens the context of its Setup');
 }
 
 async function checkKotlinStorage(page, evaluate) {

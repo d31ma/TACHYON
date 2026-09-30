@@ -109,6 +109,23 @@ fn a_native_service_field_that_needs_a_store_builds_the_store() {
 }
 
 #[test]
+fn an_fsharp_constructor_parameter_typed_with_a_store_becomes_a_store_binding() {
+    let source = "[<Service>]\ntype ProductService(prices: PriceClient, products: ProductStore) =\n    member val summary : string = \"\" with get, set\n";
+    let path = TacInjection::service_path("fs");
+    let injected = DeclaredContract::injected(Path::new(&path), source, &TacInjection::stores())
+        .expect("the F# service was not injected");
+    assert!(
+        injected.contains(
+            "type ProductService(prices: PriceClient) =\n    let products = ProductStore()\n    member val summary"
+        ),
+        "{injected}"
+    );
+    let other = "[<Service>]\ntype ProductService(prices: PriceClient) =\n    member this.Total() : int = 1\n";
+    let left = DeclaredContract::injected(Path::new(&path), other, &TacInjection::stores());
+    assert!(left.is_none(), "{left:?}");
+}
+
+#[test]
 fn a_needs_field_of_another_type_is_left_alone() {
     let source = "@Service\nclass ProductService {\n    @Needs\n    val prices: PriceClient\n}\n";
     let path = TacInjection::service_path("kt");
