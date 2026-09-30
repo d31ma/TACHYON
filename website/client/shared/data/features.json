@@ -2919,7 +2919,7 @@
         },
         {
           "name": "client/services/ReportService.js",
-          "code": "@Service\nexport default class ReportService {\n  /** @type {TacWindowControls} */\n  @Needs\n  windowControls;\n  problem = '';\n\n  minimize() {\n    this.#keepProblem(() => this.windowControls.minimize());\n  }\n\n  resize() {\n    this.#keepProblem(() => this.windowControls.resize(1280, 800));\n  }\n\n  rename() {\n    this.#keepProblem(() => this.windowControls.setTitle('Quarterly report'));\n  }\n\n  /** @param {() => void} call */\n  #keepProblem(call) {\n    try {\n      call();\n    } catch (refusal) {\n      this.problem = refusal.message;\n    }\n  }\n}\n"
+          "code": "@Service\nexport default class ReportService {\n  /** @type {TacWindowControls} */\n  @Needs\n  windowControls;\n  problem = '';\n\n  minimize() {\n    this.#keepProblem(() => this.windowControls.minimize());\n  }\n\n  resize() {\n    this.#keepProblem(() => this.windowControls.resize(1280, 800));\n  }\n\n  rename() {\n    this.#keepProblem(() => this.windowControls.setTitle('Quarterly report'));\n  }\n\n  /** @param {() => void} call */\n  #keepProblem(call) {\n    try {\n      call();\n    } catch (refusal) {\n      this.problem = /** @type {Error} */ (refusal).message;\n    }\n  }\n}\n"
         },
         {
           "name": "client/services/ReportService.ts",

@@ -303,6 +303,12 @@ declare global {
     <Owner, Arguments extends unknown[], Result extends BehaviorJsonValue | void>(target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
   }
 
+  /** A cache annotation: on a service method the answer is JSON; on an HTTPClient request method, whose body Tachyon writes, declare `Promise<Hello | void>`. */
+  interface BehaviorCacheMethodAnnotation {
+    <Owner, Arguments extends unknown[], Result extends BehaviorJsonValue | void>(value: (this: Owner, ...arguments_: Arguments) => Promise<Result>, context: ClassMethodDecoratorContext<Owner, (this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
+    <Owner, Arguments extends unknown[], Result extends BehaviorJsonValue | void>(target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
+  }
+
   interface BehaviorPromiseMethodAnnotation {
     <Owner, Arguments extends unknown[], Result>(value: (this: Owner, ...arguments_: Arguments) => Promise<Result>, context: ClassMethodDecoratorContext<Owner, (this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
     <Owner, Arguments extends unknown[], Result>(target: object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<(this: Owner, ...arguments_: Arguments) => Promise<Result>>): void;
@@ -585,14 +591,14 @@ declare global {
   const SessionState: BehaviorBareMarker<BehaviorFieldAnnotation>;
   /** CacheSettings: names the cache that this class's Cached methods use, and sets its limits. In Tac, a cache that the Setup does not configure is kept in the browser Cache API (in memory only where that API is missing). */
   function CacheSettings(options: BehaviorCacheConfigOptions): BehaviorClassAnnotation;
-  /** Cached: keep this method's answer in the class cache. The cache key is the parameters marked @CacheKey, or every parameter when none is marked. */
-  const Cached: BehaviorBareMarker<BehaviorAsyncMethodAnnotation>;
+  /** Cached: keep this method's answer in the class cache, on a service or an HTTPClient method (ADR 0087). The cache key is the parameters marked @CacheKey, or every parameter when none is marked. */
+  const Cached: BehaviorBareMarker<BehaviorCacheMethodAnnotation>;
   /** CacheKey: this parameter is part of the cache key of its @Cached method. */
   const CacheKey: BehaviorParameterAnnotation & (() => BehaviorParameterAnnotation);
   /** ClearCache: after this method runs, remove the cached answer of `method`. Parameters with the same names as that method's key parameters choose the entry. */
-  function ClearCache(options: BehaviorCacheMutationOptions): BehaviorAsyncMethodAnnotation;
+  function ClearCache(options: BehaviorCacheMutationOptions): BehaviorCacheMethodAnnotation;
   /** UpdateCache: after this method runs, store its answer as the cached answer of `method`. Parameters are matched by name. */
-  function UpdateCache(options: BehaviorCacheMutationOptions): BehaviorAsyncMethodAnnotation;
+  function UpdateCache(options: BehaviorCacheMutationOptions): BehaviorCacheMethodAnnotation;
   /** PageDefaults: this parameter is a page request. With sizes, it fills in missing page values; without sizes, it marks the page parameter of a Store query. */
   const PageDefaults: BehaviorParameterAnnotation & ((options?: BehaviorPageableDefaultOptions) => BehaviorParameterAnnotation);
   /** Entity: this class is stored by the named entity adapter. Mark its identifier field with @Id. */

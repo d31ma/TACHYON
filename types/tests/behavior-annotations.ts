@@ -181,6 +181,18 @@ class ProductRemoteClient {
 }
 void ProductRemoteClient;
 
+@HTTPClient({"adapter":"catalog"})
+@CacheSettings({"name":"remote","ttlMs":1000,"maxBytes":4096,"maxEntries":20})
+class CachedRemoteClient {
+  @Cached
+  @GetRequest("/products")
+  async all(): Promise<BehaviorJsonValue | void> {}
+  @ClearCache({"method":"all"})
+  @PostRequest("/products/refresh")
+  async refresh(): Promise<BehaviorJsonValue | void> {}
+}
+void CachedRemoteClient;
+
 @CacheSettings({"name":"products","ttlMs":1000,"maxBytes":4096,"maxEntries":20})
 class ProductService {
   @Needs()

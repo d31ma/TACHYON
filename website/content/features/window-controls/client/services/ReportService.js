@@ -22,7 +22,7 @@ export default class ReportService {
     try {
       call();
     } catch (refusal) {
-      this.problem = refusal.message;
+      this.problem = /** @type {Error} */ (refusal).message;
     }
   }
 }
