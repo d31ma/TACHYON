@@ -38,6 +38,168 @@
       "code": {
         "file": "client/services/CatalogService.ts"
       }
+    },
+    {
+      "name": "client/clients/CatalogClient.java",
+      "code": {
+        "file": "client/clients/CatalogClient.java"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.dart",
+      "code": {
+        "file": "client/clients/CatalogClient.dart"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.rs",
+      "code": {
+        "file": "client/clients/CatalogClient.rs"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.go",
+      "code": {
+        "file": "client/clients/CatalogClient.go"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.rb",
+      "code": {
+        "file": "client/clients/CatalogClient.rb"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.swift",
+      "code": {
+        "file": "client/clients/CatalogClient.swift"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.kt",
+      "code": {
+        "file": "client/clients/CatalogClient.kt"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.cs",
+      "code": {
+        "file": "client/clients/CatalogClient.cs"
+      }
+    },
+    {
+      "name": "client/clients/CatalogClient.fs",
+      "code": {
+        "file": "client/clients/CatalogClient.fs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.java",
+      "code": {
+        "file": "client/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.dart",
+      "code": {
+        "file": "client/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rs",
+      "code": {
+        "file": "client/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.go",
+      "code": {
+        "file": "client/setups/CatalogSetup.go"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rb",
+      "code": {
+        "file": "client/setups/CatalogSetup.rb"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.swift",
+      "code": {
+        "file": "client/setups/CatalogSetup.swift"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.kt",
+      "code": {
+        "file": "client/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.cs",
+      "code": {
+        "file": "client/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.fs",
+      "code": {
+        "file": "client/setups/CatalogSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
     }
   ]
 }
