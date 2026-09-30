@@ -3528,7 +3528,7 @@
             },
             {
               "name": "client/services/PlatformService.js",
-              "code": "@Service\nexport default class PlatformService {\n  @Needs\n  view;\n  nativeHost = false;\n  @OnStart\n  initialize() { this.nativeHost = this.view.ownerDocument.body.dataset.platform === 'native'; }\n}"
+              "code": "@Service\nexport default class PlatformService {\n  /** @type {HTMLElement} */\n  @Needs\n  view;\n  /** @type {boolean} */\n  nativeHost = false;\n  @OnStart\n  initialize() { this.nativeHost = this.view.ownerDocument.body.dataset.platform === 'native'; }\n}\n"
             },
             {
               "name": "client/services/PlatformService.ts",
