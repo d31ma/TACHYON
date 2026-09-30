@@ -364,6 +364,9 @@ fn ruby_setup(out: &mut String, plan: &Plan, events: &EventModule) -> Result<(),
             );
         }
     }
+    if events.types.is_empty() {
+        return Ok(());
+    }
     out.push_str("      cache.keys.each do |index|\n        case index\n");
     for event_type in &events.types {
         let owner = index(plan, &event_type.name)?;

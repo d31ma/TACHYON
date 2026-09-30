@@ -717,6 +717,25 @@ end
 }
 
 #[tokio::test]
+async fn ruby_publishes_an_event_that_no_listener_takes() {
+    execute_expected(
+        "rb",
+        r#"#[RequestRoute("/probe")]
+#[Public]
+class ProbeController
+  #[GetRoute]
+  def get_probe
+    ApplicationEventPublisher.new.publish_event(ProbeReady.new(status: "paid", total: 10))
+    { "published" => true }
+  end
+end
+"#,
+        serde_json::json!({"published": true}),
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn java_events_and_lifecycle() {
     execute(
         "java",
