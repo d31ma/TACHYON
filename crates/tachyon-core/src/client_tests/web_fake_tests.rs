@@ -24,6 +24,15 @@ impl Units {
     const SWIFT_SERVICE: &str = "@Service\nfinal class StampService {\n  private let clock = Clock()\n  private let connectivity = Connectivity()\n  var online: Bool = false\n\n  func stamp() throws -> String {\n    \"\\(Int(clock.nowMs())) \\(try connectivity.online())\"\n  }\n\n  @OnEvent\n  func hearConnectivity(_ changed: ConnectivityChanged) {\n    online = changed.online\n  }\n}\n";
     const SWIFT_UNIT: &str = "@Test(StampTestSetup)\nfinal class StampServiceTest {\n  func testUsesTheBrowserFakes() async throws {\n    BrowserFakes.answer(\"clock\", \"now\", 1000)\n    BrowserFakes.answer(\"connectivity\", \"online\", false)\n    try Assert.equals(\"1000 false\", try StampService().stamp())\n  }\n\n  func testHearsTheBuiltInEventModel() async throws {\n    let service = StampService()\n    service.hearConnectivity(ConnectivityChanged(online: true))\n    try Assert.isTrue(service.online, \"the listener hears the event model\")\n  }\n\n  func testAsksForAnAnswer() async throws {\n    let error = try await Assert.throws { _ = try SecureRandom().uuid() }\n    try Assert.isTrue(String(describing: error).contains(\"BrowserFakes.answer\"), \"a refusal that names BrowserFakes.answer\")\n  }\n}\n";
 
+    const JS_WINDOW_SERVICE: &str = "@Service\nexport default class StampService {\n  @Needs\n  windowControls;\n\n  shrink() {\n    this.windowControls.minimize();\n    return this.windowControls.granted('minimize');\n  }\n}\n";
+    const JS_WINDOW_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  windowControls;\n\n  async testUsesTheFakeWindow() {\n    this.windowControls = { minimize: () => null, granted: () => true };\n    const service = this.construct(StampService);\n    Assert.isTrue(service.shrink(), 'the fake window answers');\n  }\n}\n";
+    const GO_WINDOW_SERVICE: &str = "// @Service\ntype StampService struct {\n\t// @Needs\n\twindowControls WindowControls\n}\n\nfunc (stamp *StampService) Allowed() bool {\n\tgranted, _ := stamp.windowControls.Granted(\"minimize\")\n\treturn granted\n}\n";
+    const GO_WINDOW_UNIT: &str = "// @Test(StampTestSetup)\ntype StampServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *StampServiceTest) TestUsesTheFakeWindow() {\n\tBrowserFakes{}.Answer(\"windowControls\", \"granted\", true)\n\tservice := &StampService{}\n\tAssert.IsTrue(service.Allowed(), \"the fake window answers\")\n}\n";
+    const RUBY_WINDOW_SERVICE: &str = "#[Service]\nclass StampService\n  def allowed\n    WindowControls.new.granted(\"minimize\")\n  end\nend\n";
+    const RUBY_WINDOW_UNIT: &str = "#[Test(StampTestSetup)]\nclass StampServiceTest\n  def test_uses_the_fake_window\n    BrowserFakes.answer(\"windowControls\", \"granted\", true)\n    Assert.is_true(StampService.new.allowed, \"the fake window answers\")\n  end\nend\n";
+    const SWIFT_WINDOW_SERVICE: &str = "@Service\nfinal class StampService {\n  private let windowControls = WindowControls()\n\n  func allowed() throws -> Bool {\n    return try windowControls.granted(\"minimize\")\n  }\n}\n";
+    const SWIFT_WINDOW_UNIT: &str = "@Test(StampTestSetup)\nfinal class StampServiceTest {\n  func testUsesTheFakeWindow() async throws {\n    BrowserFakes.answer(\"windowControls\", \"granted\", true)\n    try Assert.isTrue(try StampService().allowed(), \"the fake window answers\")\n  }\n}\n";
+
     fn available(program: &str, flag: &str) -> bool {
         Command::new(program)
             .arg(flag)
@@ -105,4 +114,58 @@ fn a_swift_unit_answers_the_browser_apis_with_browser_fakes() {
     let files = [Units::SWIFT_SETUP, Units::SWIFT_SERVICE, Units::SWIFT_UNIT];
     let results = Units::passed("swift", files);
     assert_eq!(results.len(), 3, "{results:?}");
+}
+
+#[test]
+fn a_unit_fakes_the_window_controls_in_every_language_with_browser_fakes() {
+    let cases = [
+        (
+            "node",
+            "--version",
+            "js",
+            [
+                Units::JS_SETUP,
+                Units::JS_WINDOW_SERVICE,
+                Units::JS_WINDOW_UNIT,
+            ],
+        ),
+        (
+            "go",
+            "version",
+            "go",
+            [
+                Units::GO_SETUP,
+                Units::GO_WINDOW_SERVICE,
+                Units::GO_WINDOW_UNIT,
+            ],
+        ),
+        (
+            "ruby",
+            "--version",
+            "rb",
+            [
+                Units::RUBY_SETUP,
+                Units::RUBY_WINDOW_SERVICE,
+                Units::RUBY_WINDOW_UNIT,
+            ],
+        ),
+        (
+            "swiftc",
+            "--version",
+            "swift",
+            [
+                Units::SWIFT_SETUP,
+                Units::SWIFT_WINDOW_SERVICE,
+                Units::SWIFT_WINDOW_UNIT,
+            ],
+        ),
+    ];
+    for (program, flag, extension, files) in cases {
+        if !Units::available(program, flag) {
+            eprintln!("skipping {extension}: {program} is unavailable");
+            continue;
+        }
+        let results = Units::passed(extension, files);
+        assert_eq!(results.len(), 1, "{extension}: {results:?}");
+    }
 }

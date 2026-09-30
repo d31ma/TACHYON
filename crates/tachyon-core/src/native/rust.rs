@@ -19,7 +19,8 @@ impl RustCompanion {
         include_str!("web_apis/clipboard.rs"),
         include_str!("web_apis/share.rs"),
         include_str!("web_apis/notifications.rs"),
-        include_str!("web_apis/geolocation.rs")
+        include_str!("web_apis/geolocation.rs"),
+        include_str!("web_apis/window_controls.rs")
     );
     const VALUE_TYPES_START: &str = "#[derive(Clone, Default)]\npub enum TacValue";
     const LISTENER_TYPE_START: &str = "pub struct TacListener";

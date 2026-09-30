@@ -584,8 +584,9 @@ fn the_fix_turns_an_fsharp_class_client_into_a_contract() {
 struct CachedSamples;
 
 impl CachedSamples {
-    const TAC_LANGUAGES: [&'static str; 10] =
-        ["java", "kt", "cs", "go", "dart", "rs", "swift", "js", "ts", "rb"];
+    const TAC_LANGUAGES: [&'static str; 10] = [
+        "java", "kt", "cs", "go", "dart", "rs", "swift", "js", "ts", "rb",
+    ];
     const SETTINGS: &'static str =
         "CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":4096,\"maxEntries\":8})";
 
@@ -606,7 +607,9 @@ impl CachedSamples {
     fn is_marker(line: &str, marker: &str) -> bool {
         let trimmed = line.trim();
         let written = trimmed.trim_start_matches("// ");
-        let opened = ["@", "[", "#["].iter().any(|open| written.starts_with(open));
+        let opened = ["@", "[", "#["]
+            .iter()
+            .any(|open| written.starts_with(open));
         [opened, written.contains(marker)] == [true, true]
     }
 }
@@ -623,7 +626,9 @@ fn a_tac_client_accepts_cache_settings_and_cached_reads_in_every_language() {
         let checked = DeclaredContract::check(Path::new(&path), &cached);
         assert!(checked.is_ok(), "{extension}: {checked:?}\n{cached}");
         let lowered = DeclaredContract::concrete(Path::new(&path), &cached, "tac");
-        let keeps = lowered.as_deref().is_none_or(|text| text.contains("Cached"));
+        let keeps = lowered
+            .as_deref()
+            .is_none_or(|text| text.contains("Cached"));
         assert!(keeps, "{extension} dropped Cached:\n{lowered:?}");
     }
 }

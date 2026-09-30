@@ -8,7 +8,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 8_000;
+    const MOST_RUNTIME_BYTES: usize = 9_500;
 
     const RUNTIME_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\
          const web = globalThis[Symbol.for('tachyon.tac.web')]\n\
@@ -429,6 +429,24 @@ answers.notGranted = asOwner('clipboard', 'readText')
 answers.permissionNotGranted = ask('notifications', 'permission')
 await new Promise((resolve) => setTimeout(resolve, 0))
 console.log(JSON.stringify({ answers, effects }))
+";
+
+    const WINDOW_DRIVER: &str = r"globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
+;(0, eval)(await readFile('./tac-web.js', 'utf8'))
+const web = globalThis[Symbol.for('tachyon.tac.web')]
+const ask = (call, args = []) => JSON.parse(web.host(JSON.stringify({ api: 'windowControls', call, args })))
+const answers = { tabGranted: ask('granted', ['minimize']), tabMinimize: ask('minimize') }
+const sent = []
+globalThis.__tachyonNativeHostCall = (capability, payload) => { sent.push([capability, JSON.parse(payload)]) }
+globalThis.__tachyonWindowControls = Object.freeze(['minimize', 'resize', 'title'])
+answers.granted = ask('granted', ['minimize'])
+answers.closeGranted = ask('granted', ['close'])
+answers.minimize = ask('minimize')
+answers.close = ask('close')
+answers.resize = ask('resize', [1280, 800])
+answers.tooSmall = ask('resize', [10, 800])
+answers.title = ask('setTitle', ['Report'])
+console.log(JSON.stringify({ answers, sent }))
 ";
 
     const RUST_PROMPTS: &str = r#"#[Service]
@@ -1389,6 +1407,47 @@ fn the_page_runtime_grants_checks_gestures_and_answers_its_caller_with_events() 
             ["caller", "NotificationPermissionChanged", {"permission": "granted"}],
             ["everyone", "PositionFound", position],
             ["everyone", "PositionFound", position],
+        ])
+    );
+}
+
+#[test]
+fn the_page_runtime_sends_only_granted_window_controls_to_the_native_host() {
+    if !WebApis::node_available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("root");
+    let report = WebApis::run(root.path(), WebApis::WINDOW_DRIVER);
+    let answers = &report["answers"];
+    assert_eq!(answers["tabGranted"], serde_json::json!({"value": false}));
+    assert_eq!(
+        answers["tabMinimize"]["error"],
+        "The minimize window control needs the native app window."
+    );
+    assert_eq!(answers["granted"], serde_json::json!({"value": true}));
+    assert_eq!(answers["closeGranted"], serde_json::json!({"value": false}));
+    for sent in ["minimize", "resize", "title"] {
+        assert_eq!(
+            answers[sent],
+            serde_json::json!({"value": null}),
+            "{sent}: {report}"
+        );
+    }
+    assert_eq!(
+        answers["close"]["error"],
+        "The close window control is not granted. Add \"close\" to tac.application.window.controls in client/manifest.json."
+    );
+    assert_eq!(
+        answers["tooSmall"]["error"],
+        "A window size is a whole number from 64 to 16384."
+    );
+    assert_eq!(
+        report["sent"],
+        serde_json::json!([
+            ["window.minimize", {}],
+            ["window.resize", {"width": 1280, "height": 800}],
+            ["window.title", {"title": "Report"}],
         ])
     );
 }

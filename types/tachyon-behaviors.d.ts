@@ -410,6 +410,8 @@ declare global {
   interface TacNotifications { permission(): NotificationPermission; requestPermission(): null; show(title: string, body: string): null; }
   /** Geolocation: the position of the device (ADR 0065). Grant "geolocation" in tac.browserApis. `currentPosition` answers with `PositionFound` or `BrowserCallFailed`. */
   interface TacGeolocation { currentPosition(): null; }
+  /** WindowControls: the controls of the native app window (ADR 0087). Grant them in tac.application.window.controls. `granted` answers false in a browser tab; a call to a control that is not granted throws. */
+  interface TacWindowControls { granted(control: 'close' | 'fullscreen' | 'maximize' | 'minimize' | 'resize' | 'title'): boolean; minimize(): null; maximize(): null; fullscreen(): null; close(): null; resize(width: number, height: number): null; setTitle(text: string): null; }
   /** ConnectivityChanged: a built-in event model. The page publishes it when the browser goes online or offline (ADR 0065). */
   interface ConnectivityChanged { online: boolean; }
   /** VisibilityChanged: a built-in event model. The page publishes it when the page is shown or hidden (ADR 0065). */
@@ -442,6 +444,7 @@ declare global {
     share: TacShare;
     notifications: TacNotifications;
     geolocation: TacGeolocation;
+    windowControls: TacWindowControls;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */
   const OnEvent: ApplicationEventListenerAnnotation & ((options?: ApplicationEventListenerOptions) => ApplicationEventListenerAnnotation);

@@ -5,7 +5,7 @@ pub(super) struct JavaWebApis;
 impl JavaWebApis {
     const HOST: (&'static str, &'static str) =
         ("TacWebHost", include_str!("prelude/TacWebHost.java"));
-    const CLIENTS: [(&'static str, &'static str); 9] = [
+    const CLIENTS: [(&'static str, &'static str); 10] = [
         ("Clock", include_str!("../web_apis/Clock.java")),
         (
             "SecureRandom",
@@ -27,6 +27,10 @@ impl JavaWebApis {
             include_str!("../web_apis/Notifications.java"),
         ),
         ("Geolocation", include_str!("../web_apis/Geolocation.java")),
+        (
+            "WindowControls",
+            include_str!("../web_apis/WindowControls.java"),
+        ),
     ];
     const EVENTS_FILE: &'static str = "tachyon/TacWebEvents.java";
     const EXTENSION: &'static str = "java";

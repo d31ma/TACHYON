@@ -18,7 +18,7 @@ struct StagedService {
 
 impl GoServices {
     const MODULE: &str = "tachyonservices";
-    const RUNTIME_FILES: [(&str, &str); 15] = [
+    const RUNTIME_FILES: [(&str, &str); 16] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         (
@@ -61,6 +61,10 @@ impl GoServices {
             include_str!("web_apis/geolocation.go"),
         ),
         (
+            "tac/window_controls.go",
+            include_str!("web_apis/window_controls.go"),
+        ),
+        (
             "tac/browser_fakes.go",
             include_str!("web_apis/browser_fakes.go"),
         ),
@@ -68,7 +72,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 19] = [
+    const ALIASED_TYPES: [&str; 20] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -79,6 +83,7 @@ impl GoServices {
         "Share",
         "Notifications",
         "Geolocation",
+        "WindowControls",
         "ConnectivityChanged",
         "VisibilityChanged",
         "PreferencesChanged",

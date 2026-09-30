@@ -82,6 +82,7 @@ impl WindowsHostGenerator {
         include_str!("web_apis/Share.cs"),
         include_str!("web_apis/Notifications.cs"),
         include_str!("web_apis/Geolocation.cs"),
+        include_str!("web_apis/WindowControls.cs"),
         include_str!("prelude.cs")
     );
     const CSHARP_COMPANION_USING: &str = "using System;\nusing System.Collections;\n\

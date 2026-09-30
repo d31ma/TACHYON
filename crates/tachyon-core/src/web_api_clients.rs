@@ -1,7 +1,7 @@
 pub(crate) struct WebApiClients;
 
 impl WebApiClients {
-    pub(crate) const TYPE_NAMES: [&'static str; 9] = [
+    pub(crate) const TYPE_NAMES: [&'static str; 10] = [
         "Clock",
         "SecureRandom",
         "Connectivity",
@@ -11,6 +11,7 @@ impl WebApiClients {
         "Share",
         "Notifications",
         "Geolocation",
+        "WindowControls",
     ];
 
     pub(crate) fn is_client_type(declared: &str) -> bool {

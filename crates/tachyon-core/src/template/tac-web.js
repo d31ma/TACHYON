@@ -5,6 +5,8 @@ class TacWebApis {
   static reducedMotion = '(prefers-reduced-motion: reduce)'
   static grants = 'meta[name="tachyon-browser-apis"]'
   static positionTimeout = 10000
+  static smallestWindow = 64
+  static largestWindow = 16384
   static caller = null
   static events = null
   static clock = Object.freeze({
@@ -38,6 +40,12 @@ class TacWebApis {
   static geolocation = Object.freeze({
     currentPosition: () => TacWebApis.later({ api: 'geolocation', call: 'currentPosition', gesture: false }, () => TacWebApis.position(), (position) => TacWebApis.found(position)),
   })
+  static windowControls = Object.freeze({
+    granted: (control) => TacWebApis.windowGrants().includes(control),
+    ...Object.fromEntries(['minimize', 'maximize', 'fullscreen', 'close'].map((control) => [control, () => TacWebApis.window(control, {})])),
+    resize: (width, height) => TacWebApis.window('resize', TacWebApis.windowSize(width, height)),
+    setTitle: (text) => TacWebApis.window('title', { title: String(text) }),
+  })
   static apis = Object.freeze({
     clock: TacWebApis.clock,
     secureRandom: TacWebApis.secureRandom,
@@ -48,6 +56,7 @@ class TacWebApis {
     share: TacWebApis.share,
     notifications: TacWebApis.notifications,
     geolocation: TacWebApis.geolocation,
+    windowControls: TacWebApis.windowControls,
   })
   static installed = TacWebApis.install()
 
@@ -118,6 +127,23 @@ class TacWebApis {
     if (Notification.permission !== 'granted') throw new Error('Notifications are not allowed. Call requestPermission first.')
     new Notification(String(title), { body: String(body ?? '') })
     return null
+  }
+
+  static windowGrants() {
+    return Array.isArray(globalThis.__tachyonWindowControls) ? globalThis.__tachyonWindowControls : []
+  }
+
+  static window(control, payload) {
+    if (typeof globalThis.__tachyonNativeHostCall !== 'function') throw new Error(`The ${control} window control needs the native app window.`)
+    if (!TacWebApis.windowGrants().includes(control)) throw new Error(`The ${control} window control is not granted. Add "${control}" to tac.application.window.controls in client/manifest.json.`)
+    void Promise.resolve(globalThis.__tachyonNativeHostCall(`window.${control}`, JSON.stringify(payload))).catch(() => {})
+    return null
+  }
+
+  static windowSize(width, height) {
+    const { smallestWindow: least, largestWindow: most } = TacWebApis
+    if (![width, height].every((size) => Number.isInteger(size) && size >= least && size <= most)) throw new RangeError(`A window size is a whole number from ${least} to ${most}.`)
+    return { width, height }
   }
 
   static position() {

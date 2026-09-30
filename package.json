@@ -22,6 +22,7 @@
     "test:events-browser": "node scripts/events-browser-test.mjs",
     "test:service-worker-browser": "node scripts/service-worker-browser-test.mjs",
     "test:cached-client-browser": "node scripts/cached-client-browser-test.mjs",
+    "test:window-controls-browser": "node scripts/window-controls-browser-test.mjs",
     "test:island-expression": "node scripts/island-expression-test.mjs",
     "test:runtime-browser": "node scripts/runtime-browser-test.mjs",
     "test:behavior-runtime": "node scripts/behavior-runtime-test.mjs",

@@ -1475,6 +1475,7 @@ const ownerResources = (element) => ({
   share: TacWebApis.share,
   notifications: TacWebApis.notifications,
   geolocation: TacWebApis.geolocation,
+  windowControls: TacWebApis.windowControls,
 })
 const attachRuntime = (owner, scope, element) => {
   if (!owner || typeof owner !== 'object') return owner

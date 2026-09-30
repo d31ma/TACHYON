@@ -26,6 +26,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) =>
   globalThis.webkit?.messageHandlers?.tachyon
     ? globalThis.webkit.messageHandlers.tachyon.postMessage({ capability, payload })
     : globalThis.__tachyonHostPost?.(capability, payload)
+globalThis.__tachyonWindowControls = Object.freeze(__WINDOW_CONTROLS__)
 globalThis.tachyonWindow = Object.fromEntries(
   __WINDOW_CONTROLS__.map((name) => [
     name,
@@ -299,7 +300,8 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::{
-        NativeHost, c_string_escape, copy_tree, first_line, quoted_string_escape, xml_escape,
+        NativeHost, c_string_escape, copy_tree, first_line, native_shim, quoted_string_escape,
+        xml_escape,
     };
     use std::fs;
 
@@ -328,6 +330,26 @@ mod tests {
         assert!(NativeHost::SHIM.contains("messageHandlers.tachyon"));
         assert!(NativeHost::SHIM.contains("__tachyonHostPost"));
         assert!(NativeHost::SHIM.contains("dataset.platform = 'native'"));
+    }
+
+    #[test]
+    fn the_shim_gives_the_page_runtime_only_the_granted_window_controls() {
+        let window = crate::native::config::WindowConfiguration {
+            controls: vec![String::from("minimize"), String::from("title")],
+            ..crate::native::config::WindowConfiguration::default()
+        };
+        let shim = native_shim(&window);
+        assert!(
+            shim.contains(
+                "globalThis.__tachyonWindowControls = Object.freeze(['minimize', 'title'])"
+            ),
+            "{shim}"
+        );
+        let nothing = native_shim(&crate::native::config::WindowConfiguration::default());
+        assert!(
+            nothing.contains("globalThis.__tachyonWindowControls = Object.freeze([])"),
+            "{nothing}"
+        );
     }
 
     #[test]

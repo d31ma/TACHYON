@@ -28,7 +28,8 @@ impl RubyWebServices {
         include_str!("tac_ruby/clipboard.rb"),
         include_str!("tac_ruby/share.rb"),
         include_str!("tac_ruby/notifications.rb"),
-        include_str!("tac_ruby/geolocation.rb")
+        include_str!("tac_ruby/geolocation.rb"),
+        include_str!("tac_ruby/window_controls.rb")
     );
     pub(crate) const RUNTIME_PATH: &'static str = "ruby/tachyon-ruby.wasm";
     pub(crate) const GLUE_PATH: &'static str = "ruby/tachyon-ruby.js";

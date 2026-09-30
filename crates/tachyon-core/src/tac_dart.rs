@@ -459,7 +459,8 @@ final class TacService {\n\
         include_str!("tac_dart/clipboard.dart"),
         include_str!("tac_dart/share.dart"),
         include_str!("tac_dart/notifications.dart"),
-        include_str!("tac_dart/geolocation.dart")
+        include_str!("tac_dart/geolocation.dart"),
+        include_str!("tac_dart/window_controls.dart")
     );
 
     fn read(source: &str, class: &str, models: &[String]) -> Result<Self, String> {
