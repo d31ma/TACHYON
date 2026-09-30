@@ -2166,6 +2166,13 @@ machine contracts have their own, independent major versions.
   The check reads F# through its C# view, and the help used the view's
   language; it now uses the language of the file you wrote.
 
+- An F# service field marked `[<SessionState>]` or `[<LocalState>]` is now
+  saved and restored, as in the other service languages. The build did not
+  read F# attributes on service fields, so it accepted the markers and saved
+  nothing; it now reads the fields through the F# service's C# view. The
+  storage browser test checks that an F# `LocalState` counter survives a
+  reload.
+
 - `verify-snippets --feature=<id>` now runs only the features suite, and
   `--section="<heading>"` only the guides suite. Before, `--feature` alone also
   built every docs section (about 15 minutes). `--suite=` still chooses the

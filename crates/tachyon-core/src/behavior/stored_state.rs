@@ -23,6 +23,10 @@ impl StoredState {
     }
 
     pub(crate) fn fields(path: &Path, source: &str) -> Result<BTreeMap<String, String>, Failure> {
+        crate::fsharp_source::FsharpView::either(path, source, Self::written_fields)
+    }
+
+    fn written_fields(path: &Path, source: &str) -> Result<BTreeMap<String, String>, Failure> {
         let language = path
             .extension()
             .and_then(|value| value.to_str())
@@ -223,6 +227,10 @@ mod tests {
             (
                 "EditorService.rb",
                 "#[Service]\nclass EditorService\n  #[SessionState]\n  attr_accessor :draft\n  #[LocalState]\n  attr_accessor :theme\nend\n",
+            ),
+            (
+                "EditorService.fs",
+                "[<Service>]\ntype EditorService() =\n    [<SessionState>]\n    member val Draft = \"\" with get, set\n\n    [<LocalState>]\n    member val theme : string = \"light\" with get, set\n",
             ),
         ];
         for (file, source) in sources {

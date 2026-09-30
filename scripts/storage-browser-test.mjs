@@ -614,12 +614,19 @@ type JournalStore =
 type JournalService(entries: JournalStore) =
     member val label : string = "F# journal" with get, set
 
+    [<LocalState>]
+    member val count : int = 0 with get, set
+
+    member this.increment() : int =
+        this.count <- this.count + 1
+        this.count
+
     member this.keep(id: BehaviorJSON, text: BehaviorJSON) : Task<BehaviorJSON> =
         entries.save(BehaviorJSON.Object(dict [ "id", id; "text", text ]))
 
     member this.kept() : Task<BehaviorJSON> = entries.findByText(BehaviorJSON.From("kept"))
 `);
-  write(project, 'client/components/storage/journal/tac.html', '<p id="journal">{journal.label}</p>\n');
+  write(project, 'client/components/storage/journal/tac.html', '<p id="journal">{journal.label}</p>\n<button id="journal-bump" on:click="journal.increment()">+</button>\n<p id="journal-count">{journal.count}</p>\n');
 }
 
 function writeFixture(project) {
@@ -1096,7 +1103,7 @@ async function checkWebAssemblyStoredFields(browser, origin) {
   const page = await context.newPage();
   await page.goto(origin, { waitUntil: 'networkidle' });
   const services = [['rs', 'rsCounter', 'Rust'], ['go', 'goNotes', 'Go'], ['ruby', 'rubyNotes', 'Ruby']];
-  if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#']);
+  if (StorageGate.withCSharp) services.push(['cs', 'csNotes', 'C#'], ['journal', 'journal', 'F#']);
   if (StorageGate.withKotlin) services.push(['kt', 'ktNotes', 'Kotlin']);
   if (StorageGate.withSwift) services.push(['swift', 'swiftCounter', 'Swift']);
   if (StorageGate.withJava) services.push(['java', 'javaCounter', 'Java']);
