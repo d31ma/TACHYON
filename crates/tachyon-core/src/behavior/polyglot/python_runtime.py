@@ -604,10 +604,10 @@ def _behavior_valid_rows(result, size):
 
 def _behavior_check_query_result(policy, query, result):
     operation = policy['operation']
-    if operation == 'find' and not _behavior_valid_rows(result, query['page']['size']):
+    if operation in ('find', 'findOne') and not _behavior_valid_rows(result, query['page']['size']):
         _behavior_invalid('Query find result requires a bounded array of objects.')
-    if operation == 'count' and (type(result) is not int or not 0 <= result <= _BehaviorLimits.MAX_SAFE_INTEGER):
-        _behavior_invalid('Query count result requires a nonnegative safe integer.')
+    if operation in ('count', 'delete') and (type(result) is not int or not 0 <= result <= _BehaviorLimits.MAX_SAFE_INTEGER):
+        _behavior_invalid('Query count and delete results require a nonnegative safe integer.')
     if operation == 'exists' and type(result) is not bool:
         _behavior_invalid('Query exists result requires a boolean.')
 
@@ -898,9 +898,12 @@ class _BehaviorContext:
     async def _query(self, policy, args, execution):
         _behavior_check_query_arity(policy, args)
         where = _behavior_query_where(policy, args)
-        query = {'kind': policy['operation'], 'where': _behavior_copy(where, _BehaviorLimits.CONFIGURATION_JSON_BYTES), 'orderBy': _behavior_copy(policy['orderBy'])}
+        single = policy['operation'] == 'findOne'
+        query = {'kind': 'find' if single else policy['operation'], 'where': _behavior_copy(where, _BehaviorLimits.CONFIGURATION_JSON_BYTES), 'orderBy': _behavior_copy(policy['orderBy'])}
         if policy['operation'] == 'find':
             query['page'] = _behavior_query_page(policy, args)
+        if single:
+            query['page'] = _behavior_page({'size': 1}, {'defaultSize': 1, 'maxSize': 1, 'sort': policy['fields']})
         entity = policy['entity']
         command = {'operation': 'query', 'entity': entity['name'], 'table': entity['table'], 'idField': entity['id'], 'query': query}
         joined = _BehaviorOpenTransactions.of(entity['adapter'])
@@ -915,6 +918,8 @@ class _BehaviorContext:
         result = _behavior_copy(await _behavior_adapter(adapter, (_behavior_copy(command), execution), execution))
         _behavior_check_query_result(policy, query, result)
         execution.check()
+        if single:
+            return result[0] if result else None
         return result
     async def evict(self, instance, name, args):
         record = self._record(instance)

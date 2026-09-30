@@ -300,7 +300,7 @@ class BehaviorContext
   ADAPTER_GROUPS = ["caches", "http", "entities"].freeze
   ADAPTER_KEYS = ["caches", "http", "entities", "authorize", "authorizeEntity"].freeze
   RESERVED_NAMES = ["__proto__", "prototype", "constructor", "behaviors", "tac"].freeze
-  QUERY_RESULTS = { "find" => "array", "count" => "count", "exists" => "boolean" }.freeze
+  QUERY_RESULTS = { "find" => "array", "findOne" => "array", "count" => "count", "exists" => "boolean", "delete" => "count" }.freeze
 
   attr_reader :partition
 
@@ -643,8 +643,10 @@ class BehaviorContext
 
   def query(policy, arguments, execution)
     where = policy["where"].map { |predicate| query_predicate(predicate, arguments) }
-    query = { "kind" => policy["operation"], "where" => BehaviorBoundary.copy(where, 65_536), "orderBy" => policy["orderBy"] }
+    single = policy["operation"] == "findOne"
+    query = { "kind" => single ? "find" : policy["operation"], "where" => BehaviorBoundary.copy(where, 65_536), "orderBy" => policy["orderBy"] }
     query["page"] = query_page(policy, arguments) if policy["operation"] == "find"
+    query["page"] = BehaviorBoundary.page({ "size" => 1 }, { "defaultSize" => 1, "maxSize" => 1, "sort" => policy["fields"] }) if single
     entity = policy["entity"]
     command = { "operation" => "query", "entity" => entity["name"], "table" => entity["table"], "idField" => entity["id"], "query" => query }
     joined = BehaviorOpenTransactions.of(entity["adapter"])
@@ -658,7 +660,7 @@ class BehaviorContext
     result = BehaviorBoundary.copy(BehaviorBoundary.adapter(function, [BehaviorBoundary.copy(command), execution], execution))
     check_query_result(policy["operation"], result, query)
     execution.check
-    result
+    single ? result.first : result
   end
 
   def query_predicate(predicate, arguments)
@@ -688,12 +690,12 @@ class BehaviorContext
 
   def check_query_result(operation, result, query)
     case operation
-    when "find"
+    when "find", "findOne"
       rows = result.is_a?(Array) && result.size <= query["page"]["size"] && result.all? { |row| row.is_a?(Hash) }
       BehaviorBoundary.invalid("Query find result requires a bounded array of objects.") unless rows
-    when "count"
+    when "count", "delete"
       count = result.is_a?(Integer) && result >= 0 && result <= BehaviorBoundary::MAX_SAFE_INTEGER
-      BehaviorBoundary.invalid("Query count result requires a nonnegative safe integer.") unless count
+      BehaviorBoundary.invalid("Query count and delete results require a nonnegative safe integer.") unless count
     when "exists"
       BehaviorBoundary.invalid("Query exists result requires a boolean.") unless result == true || result == false
     end

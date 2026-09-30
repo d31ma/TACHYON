@@ -649,8 +649,8 @@ public sealed class BehaviorContext : System.IDisposable {
         var adapter = EntityAdapter(entityAdapter);
         var result = await Adapter(execution, () => adapter.execute(command, execution)); result.Bound(1048576);
         string kind = metadata.Get("operation").Text;
-        if (kind == "find") { var rows = result.Items; if (rows.Length > command.Get("query").Get("page").Get("size").Integer) throw new BehaviorError("QUERY_RESULT"); foreach (var row in rows) _ = row.Members; }
-        else if (kind == "count") { if (result.Integer < 0) throw new BehaviorError("QUERY_RESULT"); }
+        if (kind == "find" || kind == "findOne") { var rows = result.Items; if (rows.Length > command.Get("query").Get("page").Get("size").Integer) throw new BehaviorError("QUERY_RESULT"); foreach (var row in rows) _ = row.Members; if (kind == "findOne") return rows.Length == 0 ? BehaviorJSON.Parse("null") : rows[0]; }
+        else if (kind == "count" || kind == "delete") { if (result.Integer < 0) throw new BehaviorError("QUERY_RESULT"); }
         else if (kind == "exists") { _ = result.Boolean; }
         else throw new BehaviorError("QUERY_KIND");
         return result;
@@ -682,8 +682,9 @@ public sealed class BehaviorContext : System.IDisposable {
         var order = metadata.Get("orderBy");
         foreach (var item in order.Items) { if (!fields.Contains(item.Get("field").Text) || System.Array.IndexOf(new[] { "asc", "desc" }, item.Get("direction").Text) < 0) throw new BehaviorError("QUERY_ORDER"); }
         string kind = metadata.Get("operation").Text;
-        if (kind != "find" && kind != "count" && kind != "exists") throw new BehaviorError("QUERY_KIND");
-        var query = new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["kind"] = BehaviorJSON.From(kind), ["where"] = bindings, ["orderBy"] = order };
+        if (System.Array.IndexOf(new[] { "find", "findOne", "count", "exists", "delete" }, kind) < 0) throw new BehaviorError("QUERY_KIND");
+        var query = new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["kind"] = BehaviorJSON.From(kind == "findOne" ? "find" : kind), ["where"] = bindings, ["orderBy"] = order };
+        if (kind == "findOne") query["page"] = BehaviorPage.Normalize(BehaviorJSON.Parse("{\"size\":1}"), BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["defaultSize"] = BehaviorJSON.From(1), ["maxSize"] = BehaviorJSON.From(1), ["sort"] = metadata.Get("fields") }));
         if (kind == "find") {
             var input = BehaviorJSON.Parse("{}");
             if (!metadata.Get("pageArgument").IsNull) { long index = metadata.Get("pageArgument").Integer; if (index < 0 || index >= arguments.Length) throw new BehaviorError("QUERY_ARGUMENT"); input = arguments[index]; }

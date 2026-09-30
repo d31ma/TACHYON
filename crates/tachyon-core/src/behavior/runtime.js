@@ -585,13 +585,15 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
         }
         return result
       })
-      const query = { kind: policy.operation, where: json(where, 65536), orderBy: policy.orderBy }
+      const single = policy.operation === 'findOne'
+      const query = { kind: single ? 'find' : policy.operation, where: json(where, 65536), orderBy: policy.orderBy }
       if (policy.operation === 'find') {
         const raw = policy.pageArgument === null ? {} : args[policy.pageArgument]
         const page = normalizePage(raw, { defaultSize: policy.defaultSize, maxSize: policy.maxSize, sort: policy.fields })
         if (page.sort.length && policy.orderBy.length) invalid('Query sort conflicts with its declared ordering.')
         query.page = page
       }
+      if (single) query.page = normalizePage({ size: 1 }, { defaultSize: 1, maxSize: 1, sort: policy.fields })
       const command = freeze({ operation: 'query', entity: policy.entity.name, table: policy.entity.table, idField: policy.entity.id, query, ...this.#joined(policy.entity.adapter) })
       const authorize = this.#configuration?.authorizeEntity
       const builtin = this.#builtin('entities', policy.entity.adapter)
@@ -599,8 +601,9 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       const adapter = this.#adapter('entities', policy.entity.adapter, 'execute')
       if (typeof authorize === 'function' && await operation.call(() => authorize(command, operation.execution), true) !== true) throw new BehaviorError('unauthorized', 'Store query was not authorized.')
       const result = json(await operation.call(() => adapter.execute(command, operation.execution), true))
-      if (policy.operation === 'find' && (!Array.isArray(result) || result.length > query.page.size || result.some((row) => !plain(row)))) invalid('Query find result requires a bounded array of objects.')
-      if (policy.operation === 'count' && !integer(result, 0, Number.MAX_SAFE_INTEGER)) invalid('Query count result requires a nonnegative safe integer.')
+      if (query.kind === 'find' && (!Array.isArray(result) || result.length > query.page.size || result.some((row) => !plain(row)))) invalid('Query find result requires a bounded array of objects.')
+      if (['count', 'delete'].includes(policy.operation) && !integer(result, 0, Number.MAX_SAFE_INTEGER)) invalid('Query count and delete results require a nonnegative safe integer.')
+      if (single) return result[0] ?? null
       if (policy.operation === 'exists' && typeof result !== 'boolean') invalid('Query exists result requires a boolean.')
       return result
     }
@@ -824,7 +827,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     if (method.cacheable || method.cachePut || method.cacheEvict || method.pageable || method.httpExchange) invalid('Query cannot combine other method behaviors.')
     if (!plain(query) || !plain(query.entity) || !identifier(query.entity.name)
       || !identifier(query.entity.adapter) || !identifier(query.entity.table) || !identifier(query.entity.id)
-      || !['find', 'count', 'exists'].includes(query.operation)
+      || !['find', 'findOne', 'count', 'exists', 'delete'].includes(query.operation)
       || !Array.isArray(query.fields) || query.fields.length > 64 || !query.fields.includes(query.entity.id)
       || query.fields.some((field) => !identifier(field))
       || !integer(query.defaultSize, 1, 100) || !integer(query.maxSize, query.defaultSize, 100)
@@ -837,7 +840,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
         || (nullary ? own(predicate, 'argument') : !integer(predicate.argument, 0, 31))) invalid('Invalid query predicate.')
     }
     if (query.orderBy.some((entry) => !query.fields.includes(entry.field) || !['asc', 'desc'].includes(entry.direction))) invalid('Invalid query ordering.')
-    if (query.operation !== 'find' && (query.pageArgument !== null || query.orderBy.length)) invalid('Count and exists cannot request pagination or ordering.')
+    if (query.operation !== 'find' && (query.pageArgument !== null || query.orderBy.length)) invalid('FindOne, count, exists and delete cannot request pagination or ordering.')
   }
   function validateRetryable(policy) {
     if (!plain(policy) || !integer(policy.maxRetries, 1, 8) || !integer(policy.delayMs, 0, 60000)

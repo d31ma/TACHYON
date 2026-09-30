@@ -2193,7 +2193,18 @@ func (context *BehaviorContext) Query(policy BehaviorQueryPolicy, input []Behavi
 	if err := operation.execution.Check(); err != nil {
 		return nil, err
 	}
+	if policy.Operation == "findOne" {
+		return behaviorFirstRow(result), nil
+	}
 	return result, nil
+}
+
+func behaviorFirstRow(result BehaviorValue) BehaviorValue {
+	rows, _ := result.([]any)
+	if len(rows) == 0 {
+		return nil
+	}
+	return rows[0]
 }
 
 func behaviorCheckedList(values []BehaviorValue) ([]BehaviorValue, error) {
@@ -2219,7 +2230,7 @@ func behaviorCheckQueryCommand(command *BehaviorEntityCommand) error {
 
 func behaviorCheckQueryResult(operation string, command *BehaviorEntityCommand, result BehaviorValue) error {
 	switch operation {
-	case "find":
+	case "find", "findOne":
 		var size BehaviorValue
 		if query, isObject := command.Query.(map[string]any); isObject {
 			if page, isPage := query["page"].(map[string]any); isPage {
@@ -2240,7 +2251,7 @@ func behaviorCheckQueryResult(operation string, command *BehaviorEntityCommand, 
 			}
 		}
 		return nil
-	case "count":
+	case "count", "delete":
 		_, err := behaviorInteger(result, true, 0, 0, 9007199254740991)
 		return err
 	case "exists":
@@ -2645,6 +2656,14 @@ func behaviorQuery(policy BehaviorQueryPolicy, args []BehaviorValue) (BehaviorVa
 		return nil, err
 	}
 	query := map[string]any{"kind": policy.Operation, "where": checked, "orderBy": order}
+	if policy.Operation == "findOne" {
+		page, err := behaviorPage(map[string]any{"size": 1}, &BehaviorPagePolicy{Argument: 0, DefaultSize: 1, MaxSize: 1, Sort: policy.Fields})
+		if err != nil {
+			return nil, err
+		}
+		query["kind"] = "find"
+		query["page"] = page
+	}
 	if policy.Operation == "find" {
 		page, err := behaviorQueryPage(policy, args, used)
 		if err != nil {
@@ -2687,7 +2706,7 @@ func behaviorInvalidQueryPolicy(policy BehaviorQueryPolicy, argumentCount int) b
 	switch policy.Operation {
 	case "find":
 		return false
-	case "count", "exists":
+	case "findOne", "count", "exists", "delete":
 		return policy.HasPageArgument || len(policy.OrderBy) > 0
 	}
 	return true

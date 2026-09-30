@@ -405,7 +405,21 @@ class TacEntityStorage {
       .filter((row) => query.where.every((predicate) => TacEntityStorage.matches(row, predicate)))
     if (query.kind === 'count') return rows.length
     if (query.kind === 'exists') return rows.length > 0
+    if (query.kind === 'delete') return TacEntityStorage.deleteRows(command, rows.map((row) => row[command.idField]), pending)
     return TacEntityStorage.page(rows, query.page, query.orderBy, command.idField)
+  }
+
+  static async deleteRows(command, ids, pending) {
+    if (pending) { for (const id of ids) TacEntityStorage.staged(pending, command.table).set(id, null); return ids.length }
+    if (!ids.length) return 0
+    const database = await TacEntityStorage.database()
+    const transaction = database.transaction(command.table, 'readwrite')
+    const done = TacEntityStorage.finished(transaction)
+    const store = transaction.objectStore(command.table)
+    for (const id of ids) store.delete(id)
+    await done
+    TacEntityMirror.apply(new Map([[command.table, new Map(ids.map((id) => [id, null]))]]))
+    return ids.length
   }
 }
 
@@ -458,6 +472,7 @@ class TacEntityMirror {
     const found = visible.filter((row) => query.where.every((predicate) => TacEntityStorage.matches(row, predicate)))
     if (query.kind === 'count') return found.length
     if (query.kind === 'exists') return found.length > 0
+    if (query.kind === 'delete') { for (const row of found) TacEntityMirror.write(command, pending, row[command.idField], null); return found.length }
     return TacEntityStorage.page(found, query.page, query.orderBy, command.idField)
   }
 

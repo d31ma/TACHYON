@@ -1349,7 +1349,12 @@ impl BehaviorContext {
             .checked(1_048_576)?;
         behavior_check_query_result(policy.operation, &command, &result)?;
         active.execution.check()?;
-        Ok(result)
+        match (policy.operation, result) {
+            ("findOne", BehaviorValue::Array(rows)) => {
+                Ok(rows.into_iter().next().unwrap_or(BehaviorValue::Null))
+            }
+            (_, result) => Ok(result),
+        }
     }
     pub fn dispose(&self) {
         self.0.disposed.abort();
@@ -1723,7 +1728,7 @@ fn behavior_check_query_result(
     result: &BehaviorValue,
 ) -> BehaviorResult<()> {
     match operation {
-        "find" => {
+        "find" | "findOne" => {
             let size = command
                 .query
                 .as_ref()
@@ -1738,7 +1743,7 @@ fn behavior_check_query_result(
                 return Err(behavior_invalid());
             }
         }
-        "count" => {
+        "count" | "delete" => {
             behavior_integer(Some(result), 0, 0, 9_007_199_254_740_991)?;
         }
         "exists" => {
@@ -2097,6 +2102,20 @@ fn behavior_query(
         let page = behavior_query_page(policy, args, &mut used)?;
         query.insert(String::from("page"), page);
     }
+    if policy.operation == "findOne" {
+        let one = BehaviorValue::object([("size", BehaviorValue::Number(1.0))]);
+        let page = behavior_page(
+            &one,
+            &BehaviorPagePolicy {
+                argument: 0,
+                default_size: 1,
+                max_size: 1,
+                sort: policy.fields.clone(),
+            },
+        )?;
+        query.insert(String::from("kind"), "find".into());
+        query.insert(String::from("page"), page);
+    }
     if used != (0..args.len()).collect() {
         return Err(behavior_invalid());
     }
@@ -2122,7 +2141,10 @@ fn behavior_invalid_query_policy(policy: &BehaviorQueryPolicy, argument_count: u
         || policy.max_size > 100;
     let invalid_limits =
         policy.predicates.len() > 8 || policy.order_by.len() > 5 || argument_count > 32;
-    let invalid_operation = !matches!(policy.operation, "find" | "count" | "exists")
+    let invalid_operation = !matches!(
+        policy.operation,
+        "find" | "findOne" | "count" | "exists" | "delete"
+    )
         || (policy.operation != "find"
             && (policy.page_argument.is_some() || !policy.order_by.is_empty()));
     invalid_entity || invalid_fields || invalid_sizes || invalid_limits || invalid_operation

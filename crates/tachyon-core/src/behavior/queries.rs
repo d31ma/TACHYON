@@ -14,6 +14,35 @@ impl QueryLimits {
     const MAX_PARSE_STEPS: usize = 4096;
 }
 
+struct CrudQueries;
+
+impl CrudQueries {
+    const FIND_ALL: [&'static str; 2] = ["findAll", "find_all"];
+    const FIND_BY_ID: [&'static str; 2] = ["findById", "find_by_id"];
+    const ID_TAILS: [&'static str; 2] = ["Id", "id"];
+    const FIND_ONE: &'static str = "findOne";
+    const OPERATIONS: [&'static str; 5] = ["find", "findOne", "count", "exists", "delete"];
+
+    fn find_all(name: &str, arity: usize) -> Option<Value> {
+        let page = (arity == 1).then_some(0);
+        Self::FIND_ALL
+            .contains(&name)
+            .then(|| json!({"operation":"find","where":[],"pageArgument":page,"orderBy":[]}))
+    }
+
+    fn operation(name: &str, operation: &'static str) -> &'static str {
+        [operation, Self::FIND_ONE][usize::from(Self::FIND_BY_ID.contains(&name))]
+    }
+
+    fn id_terms(tail: &str, id: &Value) -> Option<Vec<Term>> {
+        let field = id.as_str().filter(|_| Self::ID_TAILS.contains(&tail))?;
+        Some(vec![Term {
+            field: field.to_owned(),
+            operator: "eq",
+        }])
+    }
+}
+
 pub(super) fn repository(input: &Input<'_>, marker: &Marker) -> Result<Value, Failure> {
     let extension = input.extension();
     let example = format!(
@@ -143,10 +172,10 @@ fn validate_query(input: &Input<'_>, at: usize, query: &Value) -> Result<(), Fai
         ));
     }
     let operation = query["operation"].as_str().unwrap_or("");
-    if !matches!(operation, "find" | "count" | "exists") {
+    if !CrudQueries::OPERATIONS.contains(&operation) {
         return Err(input.failure(
             at,
-            "Query.operation must be find, count or exists; derived mutations are unsupported",
+            "Query.operation must be find, findOne, count, exists or delete",
         ));
     }
     validate_predicates(input, at, &query["where"])?;
@@ -160,7 +189,7 @@ fn validate_query(input: &Input<'_>, at: usize, query: &Value) -> Result<(), Fai
     if operation != "find" && (!query["pageArgument"].is_null() || !order.is_empty()) {
         return Err(input.failure(
             at,
-            "Count and exists queries take no page parameter and use orderBy []",
+            "FindOne, count, exists and delete queries take no page parameter and use orderBy []",
         ));
     }
     Ok(())
@@ -237,7 +266,11 @@ fn too_many_sort_fields(input: &Input<'_>, at: usize) -> Failure {
 }
 
 pub(crate) fn derives_name(name: &str) -> bool {
-    derived_prefix(name).is_some()
+    [
+        derived_prefix(name).is_some(),
+        CrudQueries::FIND_ALL.contains(&name),
+    ]
+    .contains(&true)
 }
 
 fn derived_prefix(name: &str) -> Option<(&'static str, &str, bool)> {
@@ -245,6 +278,7 @@ fn derived_prefix(name: &str) -> Option<(&'static str, &str, bool)> {
         ("find", "findBy", "find_by_"),
         ("count", "countBy", "count_by_"),
         ("exists", "existsBy", "exists_by_"),
+        ("delete", "deleteBy", "delete_by_"),
     ] {
         if let Some(tail) = name.strip_prefix(camel) {
             return Some((operation, tail, false));
@@ -378,13 +412,30 @@ fn camel_case_spelling(field: &str) -> String {
     result
 }
 
-fn derived(input: &Input<'_>, at: usize, name: &str, fields: &[Value]) -> Result<Value, Failure> {
+fn derived(
+    input: &Input<'_>,
+    at: usize,
+    name: &str,
+    arity: usize,
+    fields: &[Value],
+    id: &Value,
+) -> Result<Value, Failure> {
+    if let Some(query) = CrudQueries::find_all(name, arity) {
+        return Ok(query);
+    }
     let Some((operation, tail, snake)) = derived_prefix(name) else {
         return Err(input.failure(
             at,
-            "Derived queries require findBy/countBy/existsBy or their snake_case prefixes",
+            "Derived queries require findBy/countBy/existsBy/deleteBy or their snake_case prefixes",
         ));
     };
+    let operation = CrudQueries::operation(name, operation);
+    if let Some(terms) = CrudQueries::id_terms(tail, id) {
+        let predicates = predicates_from_terms(&terms);
+        return Ok(
+            json!({"operation":operation,"where":predicates,"pageArgument":null,"orderBy":[]}),
+        );
+    }
     if name.len() > QueryLimits::MAX_NAME || tail.is_empty() {
         return Err(input.failure(
             at,
@@ -447,7 +498,7 @@ pub(super) fn resolve(
     }
     let mut query = match query {
         Some(query) => query.clone(),
-        None => derived(input, at, method_name, fields)?,
+        None => derived(input, at, method_name, arity, fields, &entity["id"])?,
     };
     if let Some(page) = page {
         query["pageArgument"] = page.clone();
@@ -717,15 +768,15 @@ mod tests {
             ("IsNull", "isNull", 0),
             ("IsNotNull", "isNotNull", 0),
         ] {
-            for operation in ["find", "count", "exists"] {
-                let result = resolve_query(&format!("{operation}ById{suffix}"), arity, None)
+            for operation in ["find", "count", "exists", "delete"] {
+                let result = resolve_query(&format!("{operation}ByStatus{suffix}"), arity, None)
                     .expect("supported derived operator");
                 assert_eq!(result["operation"], operation);
                 assert_eq!(result["where"][0]["operator"], operator);
             }
         }
         for name in [
-            "deleteById",
+            "deleteBy",
             "findBy",
             "findByUnknown",
             "findByIdOrStatus",
@@ -735,7 +786,44 @@ mod tests {
         }
         assert!(derives_name("findBy"));
         assert!(derives_name("exists_by_id"));
-        assert!(!derives_name("findAll"));
+        assert!(derives_name("delete_by_status"));
+        assert!(!derives_name("saveAll"));
+    }
+
+    #[test]
+    fn the_repository_base_methods_are_derived_queries_on_the_entity_id() {
+        let entity = json!({"adapter":"data","id":"sku"});
+        let mut policy = repository_policy();
+        policy["fields"] = json!(["sku", "status"]);
+        let resolved = |name: &str, arity: usize| {
+            resolve_binding("Product", &entity, "products", &policy, name, arity, None)
+                .expect("repository base query")
+        };
+        let one = json!([{"field":"sku","operator":"eq","argument":0}]);
+        for (name, operation) in [
+            ("findById", "findOne"),
+            ("find_by_id", "findOne"),
+            ("existsById", "exists"),
+            ("deleteById", "delete"),
+            ("delete_by_id", "delete"),
+        ] {
+            let query = resolved(name, 1);
+            assert_eq!(
+                [&query["operation"], &query["where"]],
+                [&json!(operation), &one]
+            );
+        }
+        let all = resolved("findAll", 1);
+        assert_eq!(
+            [&all["operation"], &all["where"], &all["pageArgument"]],
+            [&json!("find"), &json!([]), &json!(0)]
+        );
+        assert_eq!(resolved("find_all", 0)["pageArgument"], Value::Null);
+        let deleted = resolved("deleteByStatus", 1);
+        assert_eq!(
+            [&deleted["operation"], &deleted["orderBy"]],
+            [&json!("delete"), &json!([])]
+        );
     }
 
     #[test]
@@ -800,7 +888,7 @@ mod tests {
     fn strict_query_schema_and_aggregate_restrictions() {
         assert!(explicit(&input(), &marker("Query", &query())).is_err());
         for (key, value) in [
-            ("operation", json!("delete")),
+            ("operation", json!("update")),
             ("where", json!({})),
             ("orderBy", json!({})),
         ] {
@@ -808,7 +896,7 @@ mod tests {
             changed_query[key] = value;
             assert!(check_query(&changed_query).is_err());
         }
-        for operation in ["count", "exists"] {
+        for operation in ["findOne", "count", "exists", "delete"] {
             let mut value = query();
             value["operation"] = json!(operation);
             assert!(check_query(&value).is_err());
@@ -853,7 +941,7 @@ mod tests {
 
     #[test]
     fn find_ordering_has_one_deterministic_id_tiebreaker() {
-        let derived = resolve_query("findById", 1, None).expect("derived query");
+        let derived = resolve_query("findByStatus", 1, None).expect("derived query");
         assert_eq!(
             derived["orderBy"],
             json!([{"field":"id","direction":"asc"}])

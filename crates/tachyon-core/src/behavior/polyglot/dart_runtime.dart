@@ -1070,13 +1070,14 @@ class BehaviorContext {
         final result = await _adapter(execution, () => adapter.execute(command, execution));
         BehaviorJson.encode(result);
         switch (BehaviorJson.text(BehaviorJson.get(metadata, 'operation'))) {
-          case 'find':
+          case 'find' || 'findOne':
             final rows = BehaviorJson.items(result);
             final size = BehaviorJson.integer(
                 BehaviorJson.get(BehaviorJson.get(BehaviorJson.get(command, 'query'), 'page'), 'size'));
             if (rows.length > size) throw BehaviorError('QUERY_RESULT');
             rows.forEach(BehaviorJson.members);
-          case 'count':
+            if (BehaviorJson.get(metadata, 'operation') == 'findOne') return rows.isEmpty ? null : rows.first;
+          case 'count' || 'delete':
             if (BehaviorJson.integer(result) < 0) throw BehaviorError('QUERY_RESULT');
           case 'exists':
             BehaviorJson.boolean(result);
@@ -1129,8 +1130,16 @@ class BehaviorContext {
       }
     }
     final kind = BehaviorJson.text(BehaviorJson.get(metadata, 'operation'));
-    if (!const ['find', 'count', 'exists'].contains(kind)) throw BehaviorError('QUERY_KIND');
-    final query = <String, Object?>{'kind': kind, 'where': conditions, 'orderBy': order};
+    if (!const ['find', 'findOne', 'count', 'exists', 'delete'].contains(kind)) throw BehaviorError('QUERY_KIND');
+    final single = kind == 'findOne';
+    final query = <String, Object?>{'kind': single ? 'find' : kind, 'where': conditions, 'orderBy': order};
+    if (single) {
+      query['page'] = BehaviorPage.normalize(const <String, Object?>{'size': 1}, {
+        'defaultSize': 1,
+        'maxSize': 1,
+        'sort': BehaviorJson.get(metadata, 'fields'),
+      });
+    }
     if (kind == 'find') {
       Object? input = const <String, Object?>{};
       final argument = BehaviorJson.get(metadata, 'pageArgument');

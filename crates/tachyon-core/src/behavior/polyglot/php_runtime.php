@@ -348,7 +348,9 @@ final class BehaviorContext {
             }
             $where[]=$entry;
         }
-        $query=['kind'=>$policy['operation'],'where'=>BehaviorBoundary::copy($where,65536),'orderBy'=>$policy['orderBy']];
+        $single=$policy['operation']==='findOne';
+        $query=['kind'=>$single?'find':$policy['operation'],'where'=>BehaviorBoundary::copy($where,65536),'orderBy'=>$policy['orderBy']];
+        if($single)$query['page']=BehaviorBoundary::page(['size'=>1],['defaultSize'=>1,'maxSize'=>1,'sort'=>$policy['fields']]);
         if($policy['operation']==='find') {
             $index=$policy['pageArgument'];
             if($index!==null&&!array_key_exists($index,$args))BehaviorBoundary::invalid('Query page argument is missing.');
@@ -364,10 +366,12 @@ final class BehaviorContext {
         $adapter=$this->adapter('entities',$entity['adapter'],'execute');
         if(BehaviorBoundary::adapter($authorize,[BehaviorBoundary::copy($command),$execution],$execution)!==true)throw new BehaviorError('unauthorized','Store query was not authorized.');
         $result=BehaviorBoundary::copy(BehaviorBoundary::adapter($adapter,[BehaviorBoundary::copy($command),$execution],$execution));
-        if($policy['operation']==='find'&&(!is_array($result)||!array_is_list($result)||count($result)>$query['page']['size']||array_filter($result,static fn($row)=>!($row instanceof stdClass)&&(!is_array($row)||array_is_list($row)))))BehaviorBoundary::invalid('Query find result requires a bounded array of objects.');
-        if($policy['operation']==='count'&&(!is_int($result)||$result<0||$result>9007199254740991))BehaviorBoundary::invalid('Query count result requires a nonnegative safe integer.');
+        if($query['kind']==='find'&&(!is_array($result)||!array_is_list($result)||count($result)>$query['page']['size']||array_filter($result,static fn($row)=>!($row instanceof stdClass)&&(!is_array($row)||array_is_list($row)))))BehaviorBoundary::invalid('Query find result requires a bounded array of objects.');
+        if(in_array($policy['operation'],['count','delete'],true)&&(!is_int($result)||$result<0||$result>9007199254740991))BehaviorBoundary::invalid('Query count and delete results require a nonnegative safe integer.');
         if($policy['operation']==='exists'&&!is_bool($result))BehaviorBoundary::invalid('Query exists result requires a boolean.');
-        $execution->check();return $result;
+        $execution->check();
+        if($single)return $result[0]??null;
+        return $result;
     }
     public function evict(object $instance,string $method,array $args): void {
         $record=$this->record($instance,get_class($instance),$method);

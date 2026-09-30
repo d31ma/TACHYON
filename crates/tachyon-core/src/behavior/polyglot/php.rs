@@ -163,7 +163,8 @@ fn check_query_result(method: &Method) -> Result<(), String> {
     };
     let result = match query["operation"].as_str() {
         Some("find") => "array",
-        Some("count") => "int",
+        Some("findOne") => "?array",
+        Some("count" | "delete") => "int",
         _ => "bool",
     };
     if ["", "mixed", result].contains(&method.return_type.as_str()) {

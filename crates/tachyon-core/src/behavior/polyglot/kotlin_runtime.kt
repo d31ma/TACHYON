@@ -390,11 +390,12 @@ object Behaviors {
             execution.check()
             val result = copy(raw, 1048576)
             when (kind) {
-                "count" -> integer(result, 0, 9007199254740991L, "query-result")
+                "count", "delete" -> integer(result, 0, 9007199254740991L, "query-result")
                 "exists" -> { if (result !is Boolean) fail("query-result"); result }
                 else -> {
                     if (result !is List<*> || result.size > (map(query["page"])["size"] as Long) || result.any { it !is Map<*, *> }) fail("query-result")
-                    execution.check(); result
+                    execution.check()
+                    if (kind == "findOne") result.firstOrNull() else result
                 }
             }
         }
@@ -466,7 +467,7 @@ object Behaviors {
         integer(value, -9007199254740991L, 9007199254740991L, "entity-id")
     }
     private fun queryDescriptor(kind: String, fields: Array<String>, where: Array<Array<Any?>>, orderBy: Array<Array<String>>, input: Any?, defaultSize: Int, maxSize: Int): Map<String, Any?> {
-        if (kind !in setOf("find", "count", "exists")) fail("query")
+        if (kind !in setOf("find", "findOne", "count", "exists", "delete")) fail("query")
         val filters = where.map { predicate ->
             if (predicate.size !in 2..3 || predicate[0] !in fields || predicate[1] !is String) fail("query")
             val operator = predicate[1] as String
@@ -492,6 +493,7 @@ object Behaviors {
             if (order.size != 2 || order[0] !in fields || !seen.add(order[0]) || order[1] !in setOf("asc", "desc")) fail("query")
             record("field" to order[0], "direction" to order[1])
         }
+        if (kind == "findOne") return map(copy(record("kind" to "find", "where" to bindings, "orderBy" to ordering, "page" to page(mapOf("size" to 1L), 1, 1, fields)), 1048576))
         if (kind != "find") return map(copy(record("kind" to kind, "where" to bindings, "orderBy" to ordering), 1048576))
         val page = page(input, defaultSize, maxSize, fields)
         if ((page["sort"] as List<*>).isNotEmpty()) fail("pagination")

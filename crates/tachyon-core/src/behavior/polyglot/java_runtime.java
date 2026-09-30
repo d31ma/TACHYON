@@ -503,13 +503,15 @@ final class Behaviors {
                 Object result;
                 try { result = adapter.execute(command, execution); } catch (RuntimeException error) { throw fail("entity-adapter"); }
                 execution.check(); result = copy(result, 1048576);
-                if (kind.equals("count")) return integer(result, 0, 9007199254740991L, "query-result");
+                if (kind.equals("count") || kind.equals("delete")) return integer(result, 0, 9007199254740991L, "query-result");
                 if (kind.equals("exists")) { if (!(result instanceof Boolean)) throw fail("query-result"); return result; }
                 if (!(result instanceof java.util.List<?>)) throw fail("query-result");
                 java.util.List<?> rows = (java.util.List<?>)result;
                 if (rows.size() > (Long)map(query.get("page")).get("size")) throw fail("query-result");
                 for (Object row : rows) if (!(row instanceof java.util.Map<?, ?>)) throw fail("query-result");
-                execution.check(); return result;
+                execution.check();
+                if (kind.equals("findOne")) return rows.isEmpty() ? null : rows.get(0);
+                return result;
             });
         }
         RestClient restClient(String name) {
@@ -616,7 +618,7 @@ final class Behaviors {
         integer(value, -9007199254740991L, 9007199254740991L, "entity-id");
     }
     static java.util.Map<String, Object> queryDescriptor(String kind, String[] fields, Object[][] where, String[][] orderBy, Object input, int defaultSize, int maxSize) {
-        if (!java.util.Set.of("find", "count", "exists").contains(kind)) throw fail("query");
+        if (!java.util.Set.of("find", "findOne", "count", "exists", "delete").contains(kind)) throw fail("query");
         java.util.List<String> allowed = java.util.Arrays.asList(fields);
         java.util.List<Object> filters = new java.util.ArrayList<>();
         for (Object[] predicate : where) {
@@ -647,6 +649,7 @@ final class Behaviors {
             if (order.length != 2 || !allowed.contains(order[0]) || !seen.add(order[0]) || !java.util.Set.of("asc", "desc").contains(order[1])) throw fail("query");
             ordering.add(record("field", order[0], "direction", order[1]));
         }
+        if (kind.equals("findOne")) return map(copy(record("kind", "find", "where", bindings, "orderBy", ordering, "page", page(java.util.Map.of("size", 1L), 1, 1, fields)), 1048576));
         if (!kind.equals("find")) return map(copy(record("kind", kind, "where", bindings, "orderBy", ordering), 1048576));
         java.util.Map<String, Object> page = page(input, defaultSize, maxSize, fields);
         if (!((java.util.List<?>)page.get("sort")).isEmpty()) throw fail("pagination");

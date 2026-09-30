@@ -27,6 +27,7 @@ pub(super) enum ResultKind {
     Changed,
     Saved(Value),
     Affected,
+    Deleted,
 }
 
 impl ResultKind {
@@ -297,6 +298,7 @@ impl Dialect {
             "find" => Ok(ResultKind::Rows),
             "count" => Ok(ResultKind::Count),
             "exists" => Ok(ResultKind::Exists),
+            "delete" => Ok(ResultKind::Deleted),
             _ => Err(failure("Unsupported repository query kind.")),
         }
     }
@@ -304,6 +306,7 @@ impl Dialect {
     fn select_sql(self, result: &ResultKind, table: &str) -> String {
         match (result, self) {
             (ResultKind::Rows, _) => format!("SELECT * FROM {table}"),
+            (ResultKind::Deleted, _) => format!("DELETE FROM {table}"),
             (_, Self::SqlServer) => format!("SELECT COUNT_BIG(*) AS tachyon_count FROM {table}"),
             _ => format!("SELECT COUNT(*) AS tachyon_count FROM {table}"),
         }

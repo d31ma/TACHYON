@@ -201,8 +201,24 @@ impl FyloStore {
         match kind {
             "count" => Ok(json!(rows.len())),
             "exists" => Ok(json!(!rows.is_empty())),
+            "delete" => self.delete_rows(collection, id_field, &rows).await,
             _ => Err(failure("Unsupported repository query kind.")),
         }
+    }
+
+    async fn delete_rows(
+        &self,
+        collection: &str,
+        id_field: &str,
+        rows: &[Value],
+    ) -> Result<Value, Failure> {
+        let mut deleted = 0_usize;
+        for row in rows {
+            let command = json!({ "id": row.get(id_field).cloned().unwrap_or(Value::Null) });
+            let answer = self.delete(&command, collection).await?;
+            deleted += usize::from(answer == json!(true));
+        }
+        Ok(json!(deleted))
     }
 
     async fn page(
@@ -406,7 +422,7 @@ fn alternatives_filter(alternatives: &[Map<String, Value>]) -> Value {
 fn empty_query_result(kind: &str) -> Result<Value, Failure> {
     match kind {
         "find" => Ok(json!([])),
-        "count" => Ok(json!(0)),
+        "count" | "delete" => Ok(json!(0)),
         "exists" => Ok(json!(false)),
         _ => Err(failure("Unsupported repository query kind.")),
     }

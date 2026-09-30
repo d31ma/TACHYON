@@ -601,7 +601,8 @@ final class BehaviorContext {
             let result = try await self.adapter(execution, { try await adapter.execute(command, execution) }); _ = try result.encoded()
             switch try metadata.get("operation").text {
             case "find": let rows = try result.items; guard rows.count <= (try command.get("query").get("page").get("size").integer) else { throw BehaviorError("QUERY_RESULT") }; for row in rows { _ = try row.members }
-            case "count": guard try result.integer >= 0 else { throw BehaviorError("QUERY_RESULT") }
+            case "findOne": let rows = try result.items; guard rows.count <= 1 else { throw BehaviorError("QUERY_RESULT") }; for row in rows { _ = try row.members }; return rows.first ?? .null
+            case "count", "delete": guard try result.integer >= 0 else { throw BehaviorError("QUERY_RESULT") }
             case "exists": _ = try result.boolean
             default: throw BehaviorError("QUERY_KIND")
             }
@@ -627,8 +628,9 @@ final class BehaviorContext {
         let bindings = BehaviorJSON.array(conditions); _ = try bindings.encoded(maximum: 65536)
         let order = metadata.get("orderBy")
         for item in try order.items { guard fields.contains(try item.get("field").text), ["asc", "desc"].contains(try item.get("direction").text) else { throw BehaviorError("QUERY_ORDER") } }
-        let kind = try metadata.get("operation").text; guard ["find", "count", "exists"].contains(kind) else { throw BehaviorError("QUERY_KIND") }
-        var query: [String: BehaviorJSON] = ["kind": .string(kind), "where": bindings, "orderBy": order]
+        let kind = try metadata.get("operation").text; guard ["find", "findOne", "count", "exists", "delete"].contains(kind) else { throw BehaviorError("QUERY_KIND") }
+        var query: [String: BehaviorJSON] = ["kind": .string(kind == "findOne" ? "find" : kind), "where": bindings, "orderBy": order]
+        if kind == "findOne" { query["page"] = try BehaviorPage.normalize(.object(["size": .number(1)]), policy: .object(["defaultSize": .number(1), "maxSize": .number(1), "sort": metadata.get("fields")])) }
         if kind == "find" {
             var input = BehaviorJSON.object([:])
             if metadata.get("pageArgument") != .null { let index = try metadata.get("pageArgument").integer; guard arguments.indices.contains(index) else { throw BehaviorError("QUERY_ARGUMENT") }; input = arguments[index] }

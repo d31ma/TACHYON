@@ -649,6 +649,7 @@ pub(super) fn mutation_result(kind: &ResultKind, affected: u64) -> Value {
     match kind {
         ResultKind::Saved(value) => value.clone(),
         ResultKind::Changed => json!(affected > 0),
+        ResultKind::Deleted => json!(affected),
         _ => json!({"affectedRows": affected}),
     }
 }

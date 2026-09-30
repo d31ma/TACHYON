@@ -206,6 +206,21 @@ async fn startup_is_optional_and_does_not_create_sqlite_files() {
     assert!(!path.exists());
 }
 
+#[tokio::test]
+async fn a_delete_query_removes_every_matching_row_and_answers_the_count() {
+    let store = sqlite().await;
+    execute(&store, json!({"operation":"sql","mode":"execute","parameters":[],"sql":"CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)"})).await;
+    for (id, name) in [(1, "old"), (2, "old"), (3, "kept")] {
+        execute(&store, json!({"operation":"save","table":"items","idField":"id","value":{"id":id,"name":name}})).await;
+    }
+    let delete_old = json!({"operation":"query","table":"items","idField":"id","query":{"kind":"delete","where":[{"field":"name","operator":"eq","value":"old"}],"orderBy":[]}});
+    assert_eq!(execute(&store, delete_old.clone()).await, json!(2));
+    assert_eq!(execute(&store, delete_old).await, json!(0));
+    assert_eq!(count_items(&store).await, json!(1));
+    let paged = json!({"operation":"query","table":"items","idField":"id","query":{"kind":"delete","where":[],"orderBy":[],"page":{"size":1}}});
+    assert!(is_rejected(&store, &paged).await);
+}
+
 #[test]
 fn all_dialects_parameterize_and_quote_identifiers() {
     for (dialect, placeholder, quoted) in [
@@ -441,6 +456,11 @@ async fn fylo_repository_round_trip() {
     assert_eq!(found[0]["name"], json!("anvil"));
     let sql = execute(&store, json!({"operation":"sql","mode":"rows","sql":"SELECT * FROM products WHERE name = $1","parameters":["rope"]})).await;
     assert_eq!(sql[0]["name"], json!("rope"));
+    let delete_rope = json!({"query":{"kind":"delete","where":[{"field":"name","operator":"eq","value":"rope"}]}});
+    assert_eq!(
+        execute(&store, fylo_command("query", delete_rope)).await,
+        json!(1)
+    );
     let delete = fylo_command("delete", json!({ "id": id }));
     assert_eq!(execute(&store, delete.clone()).await, json!(true));
     assert_eq!(execute(&store, delete).await, json!(false));
