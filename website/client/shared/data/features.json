@@ -1078,11 +1078,11 @@
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "#[Service]\nstruct CatalogService {\n    behaviors: BehaviorContext,\n    offset: f64,\n}\n\nimpl CatalogService {\n    fn new() -> Self {\n        let options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        Self { behaviors: Behaviors::create::<ApplicationSetup>(options).expect(\"behavior context\"), offset: 0.0 }\n    }\n\n    fn page(&self, #[PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] input: BehaviorValue) -> BehaviorResult<BehaviorValue> {\n        Ok(input.get(\"offset\").cloned().unwrap_or(BehaviorValue::Null))\n    }\n\n    #[OnStart]\n    fn initialize(&mut self) {\n        let first = BehaviorValue::object([(\"page\", BehaviorValue::Number(1.0))]);\n        if let Ok(BehaviorValue::Number(offset)) = self.page(first) {\n            self.offset = offset;\n        }\n    }\n}\n"
+          "code": "#[Service]\nstruct CatalogService {\n    behaviors: BehaviorContext,\n    offset: f64,\n}\n\nimpl CatalogService {\n    fn new() -> Self {\n        let options = BehaviorOptions::new(\"public-catalog\", BehaviorSignal::new());\n        Self { behaviors: Behaviors::create::<ApplicationSetup>(options).expect(\"behavior context\"), offset: 0.0 }\n    }\n\n    fn page(&self, #[PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] input: BehaviorValue) -> BehaviorResult<BehaviorValue> {\n        Ok(input.get(\"offset\").cloned().unwrap_or(BehaviorValue::Null))\n    }\n\n    #[OnStart]\n    fn initialize(&mut self) {\n        let first = BehaviorValue::object([(\"page\", BehaviorValue::Number(1.0))]);\n        self.offset = Self::offset_of(self.page(first));\n    }\n\n    fn offset_of(value: BehaviorResult<BehaviorValue>) -> f64 {\n        match value {\n            Ok(BehaviorValue::Number(offset)) => offset,\n            _ => 0.0,\n        }\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.go",
-          "code": "// @Service\ntype CatalogService struct {\n\tbehaviors *BehaviorContext\n\tOffset    int64\n}\n\nfunc (catalog *CatalogService) Page(\n\t// @PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})\n\tinput BehaviorValue,\n) (BehaviorValue, error) {\n\treturn input.(map[string]any)[\"offset\"], nil\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() error {\n\tcontext, err := BehaviorsCreate[ApplicationSetup](NewBehaviorOptions(\"public-catalog\", NewBehaviorSignal()))\n\tif err != nil {\n\t\treturn err\n\t}\n\tcatalog.behaviors = context\n\toffset, err := catalog.Page(map[string]any{\"page\": 1})\n\tif number, ok := offset.(float64); ok {\n\t\tcatalog.Offset = int64(number)\n\t}\n\treturn err\n}\n"
+          "code": "import \"errors\"\n\n// @Service\ntype CatalogService struct {\n\tbehaviors *BehaviorContext\n\tOffset    int64\n}\n\nfunc (catalog *CatalogService) Page(\n\t// @PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})\n\tinput BehaviorValue,\n) (BehaviorValue, error) {\n\treturn input.(map[string]any)[\"offset\"], nil\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() error {\n\tcontext, err := BehaviorsCreate[ApplicationSetup](NewBehaviorOptions(\"public-catalog\", NewBehaviorSignal()))\n\tcatalog.behaviors = context\n\toffset, pageErr := catalog.Page(map[string]any{\"page\": 1})\n\tcatalog.Offset = catalog.offsetOf(offset)\n\treturn errors.Join(err, pageErr)\n}\n\nfunc (catalog *CatalogService) offsetOf(value BehaviorValue) int64 {\n\tnumber, _ := value.(float64)\n\treturn int64(number)\n}\n"
         },
         {
           "name": "client/services/CatalogService.rb",
@@ -1090,11 +1090,11 @@
         },
         {
           "name": "client/services/CatalogService.swift",
-          "code": "@Service\nfinal class CatalogService {\n    var behaviors: BehaviorContext!\n    var offset: Int = 0\n\n    func page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) _ input: BehaviorJSON) async throws -> BehaviorJSON {\n        input.get(\"offset\")\n    }\n\n    @OnStart\n    func initialize() async throws {\n        behaviors = try Behaviors.create(ApplicationSetup.self, partition: \"public-catalog\", signal: BehaviorSignal())\n        if case .number(let first) = try await page(.object([\"page\": .number(1)])) {\n            offset = Int(first)\n        }\n    }\n}\n"
+          "code": "@Service\nfinal class CatalogService {\n    var behaviors: BehaviorContext!\n    var offset: Int = 0\n\n    func page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) _ input: BehaviorJSON) async throws -> BehaviorJSON {\n        input.get(\"offset\")\n    }\n\n    @OnStart\n    func initialize() async throws {\n        behaviors = try Behaviors.create(ApplicationSetup.self, partition: \"public-catalog\", signal: BehaviorSignal())\n        offset = offsetOf(try await page(.object([\"page\": .number(1)])))\n    }\n\n    private func offsetOf(_ value: BehaviorJSON) -> Int {\n        guard case .number(let number) = value else { return 0 }\n        return Int(number)\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.kt",
-          "code": "@Service\nclass CatalogService {\n    lateinit var behaviors: Behaviors.Context\n    var offset: Long = 0\n\n    fun page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: Map<String, Any?>): Any? = input[\"offset\"]\n\n    @OnStart\n    fun initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", Behaviors.Options(\"public-catalog\", Behaviors.Signal()))\n        offset = (page(mapOf(\"page\" to 1)) as Number).toLong()\n    }\n}\n"
+          "code": "@Service\nclass CatalogService {\n    lateinit var behaviors: Behaviors.Context\n    var offset: Long = 0\n\n    fun page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: Map<String, Any?>): Any? {\n        return input[\"offset\"]\n    }\n\n    @OnStart\n    fun initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", Behaviors.Options(\"public-catalog\", Behaviors.Signal()))\n        offset = (page(mapOf(\"page\" to 1)) as Number).toLong()\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.java",
@@ -1102,7 +1102,7 @@
         },
         {
           "name": "client/services/CatalogService.cs",
-          "code": "[Service]\npublic sealed class CatalogService {\n    public BehaviorContext behaviors;\n    public long Offset = 0;\n\n    public System.Threading.Tasks.Task<BehaviorJSON> Page([PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] BehaviorJSON input) {\n        return System.Threading.Tasks.Task.FromResult(input.Get(\"offset\"));\n    }\n\n    [OnStart]\n    public async System.Threading.Tasks.Task Initialize() {\n        behaviors = Behaviors.create(typeof(ApplicationSetup), \"public-catalog\", new BehaviorSignal());\n        BehaviorJSON first = await Page(BehaviorJSON.Parse(\"{\\\"page\\\":1}\"));\n        Offset = first.Integer;\n    }\n}\n"
+          "code": "[Service]\npublic sealed class CatalogService {\n    public BehaviorContext behaviors;\n    public long Offset = 0;\n\n    public System.Threading.Tasks.Task<BehaviorJSON> Page([PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})] BehaviorJSON input) {\n        return System.Threading.Tasks.Task.FromResult(input.Get(\"offset\"));\n    }\n\n    [OnStart]\n    public void Initialize() {\n        behaviors = Behaviors.create(typeof(ApplicationSetup), \"public-catalog\", new BehaviorSignal());\n        Offset = Page(BehaviorJSON.Parse(\"{\\\"page\\\":1}\")).Result.Integer;\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.fs",
@@ -2772,7 +2772,7 @@
         },
         {
           "name": "client/services/RuntimeNoteService.fs",
-          "code": "[<Service>]\ntype RuntimeNoteService() =\n    member val Runtime : string = \"F#, compiled by .NET\" with get\n\n    member this.ShowsNotes(development: bool) : bool =\n        development\n"
+          "code": "[<Service>]\ntype RuntimeNoteService() =\n    member val Runtime : string = \"F#, compiled by .NET\" with get, set\n\n    member this.ShowsNotes(development: bool) : bool =\n        development\n"
         },
         {
           "name": "client/pages/tac.html",
