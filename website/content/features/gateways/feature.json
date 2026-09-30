@@ -1,7 +1,7 @@
 {
   "id": "gateways",
   "title": "Calling a method in another language",
-  "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed.",
+  "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed. In the example, JavaScript calls the Java class `ReportService.java`, and Python calls it too. Java, Groovy and every other language call the Python class `LedgerService.py`, and every language also runs the program `forecast.py`. Lua cannot declare a gateway yet: the build refuses `@Gateway` in Lua with `TY1308`.",
   "group": "Polyglot",
   "files": [
     {
@@ -71,6 +71,114 @@
     {
       "name": "server/controllers/LedgerController.groovy",
       "code": { "file": "server/controllers/LedgerController.groovy" }
+    },
+    {
+      "name": "server/clients/LedgerClient.ts",
+      "code": { "file": "server/clients/LedgerClient.ts" }
+    },
+    {
+      "name": "server/controllers/LedgerController.ts",
+      "code": { "file": "server/controllers/LedgerController.ts" }
+    },
+    {
+      "name": "server/models/Balance.ts",
+      "code": { "file": "server/models/Balance.ts" }
+    },
+    {
+      "name": "server/clients/LedgerClient.php",
+      "code": { "file": "server/clients/LedgerClient.php" }
+    },
+    {
+      "name": "server/controllers/LedgerController.php",
+      "code": { "file": "server/controllers/LedgerController.php" }
+    },
+    {
+      "name": "server/models/Balance.php",
+      "code": { "file": "server/models/Balance.php" }
+    },
+    {
+      "name": "server/clients/LedgerClient.cs",
+      "code": { "file": "server/clients/LedgerClient.cs" }
+    },
+    {
+      "name": "server/controllers/LedgerController.cs",
+      "code": { "file": "server/controllers/LedgerController.cs" }
+    },
+    {
+      "name": "server/models/Ledger.cs",
+      "code": { "file": "server/models/Ledger.cs" }
+    },
+    {
+      "name": "server/clients/LedgerClient.fs",
+      "code": { "file": "server/clients/LedgerClient.fs" }
+    },
+    {
+      "name": "server/controllers/LedgerController.fs",
+      "code": { "file": "server/controllers/LedgerController.fs" }
+    },
+    {
+      "name": "server/models/Balance.fs",
+      "code": { "file": "server/models/Balance.fs" }
+    },
+    {
+      "name": "server/clients/LedgerClient.kt",
+      "code": { "file": "server/clients/LedgerClient.kt" }
+    },
+    {
+      "name": "server/controllers/LedgerController.kt",
+      "code": { "file": "server/controllers/LedgerController.kt" }
+    },
+    {
+      "name": "server/models/Balance.kt",
+      "code": { "file": "server/models/Balance.kt" }
+    },
+    {
+      "name": "server/clients/LedgerClient.rs",
+      "code": { "file": "server/clients/LedgerClient.rs" }
+    },
+    {
+      "name": "server/controllers/LedgerController.rs",
+      "code": { "file": "server/controllers/LedgerController.rs" }
+    },
+    {
+      "name": "server/models/Balance.rs",
+      "code": { "file": "server/models/Balance.rs" }
+    },
+    {
+      "name": "server/clients/LedgerClient.go",
+      "code": { "file": "server/clients/LedgerClient.go" }
+    },
+    {
+      "name": "server/controllers/LedgerController.go",
+      "code": { "file": "server/controllers/LedgerController.go" }
+    },
+    {
+      "name": "server/models/Balance.go",
+      "code": { "file": "server/models/Balance.go" }
+    },
+    {
+      "name": "server/clients/LedgerClient.dart",
+      "code": { "file": "server/clients/LedgerClient.dart" }
+    },
+    {
+      "name": "server/controllers/LedgerController.dart",
+      "code": { "file": "server/controllers/LedgerController.dart" }
+    },
+    {
+      "name": "server/models/Balance.dart",
+      "code": { "file": "server/models/Balance.dart" }
+    },
+    {
+      "name": "server/clients/LedgerClient.rb",
+      "code": { "file": "server/clients/LedgerClient.rb" }
+    },
+    {
+      "name": "server/controllers/LedgerController.rb",
+      "code": { "file": "server/controllers/LedgerController.rb" }
+    },
+    {
+      "name": "server/models/Balance.rb",
+      "code": { "file": "server/models/Balance.rb" }
     }
   ],
   "verify": "yon-gateway"

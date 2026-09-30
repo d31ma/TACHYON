@@ -4,10 +4,10 @@ import { SiteContent } from './site-content.mjs'
 
 /** @typedef {{ file: string, text: string }} CodeFile */
 /** @typedef {{ name: string, extension: string, code: string, named: boolean }} UnitFile */
-/** @typedef {{ page: string, id: string, title: string, text: string, files: UnitFile[] }} SnippetUnit */
+/** @typedef {{ page: string, id: string, title: string, text: string, files: UnitFile[], notApplicable?: string[] }} SnippetUnit */
 /** @typedef {{ name: string, code: CodeFile | string }} ContentFile */
-/** @typedef {{ heading: string, body?: string, code?: CodeFile | string, files?: ContentFile[] }} ContentSection */
-/** @typedef {{ id: string, title: string, summary?: string, files?: ContentFile[] }} ContentFeature */
+/** @typedef {{ heading: string, body?: string, code?: CodeFile | string, files?: ContentFile[], notApplicable?: string[] }} ContentSection */
+/** @typedef {{ id: string, title: string, summary?: string, files?: ContentFile[], notApplicable?: string[] }} ContentFeature */
 
 export class SnippetUnits {
   static docsPage = 'docs/page.json'
@@ -60,6 +60,7 @@ export class SnippetUnits {
       title: section.heading,
       text: SnippetUnits.textOf(section.body ?? ''),
       files: [...SnippetUnits.namedFiles(section.files ?? []), ...SnippetUnits.unnamedFiles(section.code)],
+      notApplicable: section.notApplicable,
     }
   }
 
@@ -83,6 +84,7 @@ export class SnippetUnits {
       title: feature.title,
       text: [feature.summary ?? '', ...SnippetUnits.proseTexts(files)].join('\n'),
       files: SnippetUnits.namedFiles(files),
+      notApplicable: feature.notApplicable,
     }
   }
 

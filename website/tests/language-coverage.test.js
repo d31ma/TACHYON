@@ -142,6 +142,16 @@ describe('the language coverage audit', () => {
     expect(Samples.kinds(generalCoverage, 'tac')).toEqual({ js: CoverageAudit.kinds.missing, fs: CoverageAudit.kinds.missing })
   })
 
+  test('a language the text says does not apply is not applicable only when the text names it', () => {
+    const files = [{ name: 'client/services/Tally.rs', code: '#[Service]\nstruct Tally {}\n' }]
+    const quiet = { ...Samples.unit('WebAssembly', files), notApplicable: ['js'] }
+    const stated = { ...Samples.unit('WebAssembly', files, 'JavaScript is not WebAssembly.'), notApplicable: ['js'] }
+    const [quietCoverage, statedCoverage] = Samples.audit().audit([quiet, stated])
+    expect(Samples.kinds(quietCoverage, 'tac')).toEqual({ js: CoverageAudit.kinds.missing, fs: CoverageAudit.kinds.missing })
+    expect(Samples.kinds(statedCoverage, 'tac')).toEqual({ js: CoverageAudit.kinds.notApplicable, fs: CoverageAudit.kinds.missing })
+    expect(statedCoverage.realms[0].gaps[0]).toMatchObject({ reason: CoverageAudit.statedNotApplicable, stated: true })
+  })
+
   test('model files count only when the realm shows no role file', () => {
     const files = [{ name: 'server/controllers/GuideController.py' }, { name: 'server/models/Guide.java' }]
     const coverage = Samples.audit().audit([Samples.unit('Models', files)])[0]

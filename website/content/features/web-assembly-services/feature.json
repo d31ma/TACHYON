@@ -1,9 +1,10 @@
 {
   "id": "web-assembly-services",
-  "title": "Rust, Go, C#, F# and Ruby on the web",
+  "title": "Services that run as WebAssembly",
+  "notApplicable": ["js", "ts"],
   "group": "Polyglot",
   "target": "web",
-  "summary": "A service written only in Rust, only in Go, only in C# or only in F# runs on every target. A host that links the service runs it natively: Rust on macOS, Windows and Linux, and C# on Windows. The other targets run it as WebAssembly: the web, iOS and Android for Rust, and every target except Windows for C#. No host links Go or F#, so a Go or F# service runs as WebAssembly on every target. An F# service runs on the same .NET browser runtime as C# (ADR 0073). A Ruby service runs on every target too, on Tachyon's mruby WebAssembly runtime, which your machine builds once with Ruby and Emscripten (ADR 0049, ADR 0054). The WebAssembly service uses the same companion protocol (ADR 0035, ADR 0037, ADR 0045). Views read its fields, methods receive JSON arguments, and `Service` and `NeedsAll` are declared above its type.",
+  "summary": "A service written only in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby runs on every target. A host that links the service runs it natively: Rust on macOS, Windows and Linux, C# on Windows, Swift on macOS and iOS, and Kotlin on Android. The other targets run it as WebAssembly. No host links Go, F#, Java, Dart or Ruby, so these services run as WebAssembly on every target. An F# service runs on the same .NET browser runtime as C# (ADR 0073). Swift uses the Swift SDK for WebAssembly (ADR 0082). Kotlin and Dart compile to WebAssembly with garbage collection (WasmGC), and TeaVM compiles Java to WasmGC (ADR 0083); WasmGC needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. A Ruby service runs on Tachyon's mruby WebAssembly runtime, which your machine builds once with Ruby and Emscripten (ADR 0049, ADR 0054). The WebAssembly service uses the same companion protocol (ADR 0035, ADR 0037, ADR 0045). Views read its fields, methods receive JSON arguments, and `Service` and `NeedsAll` are declared above its type. JavaScript and TypeScript services are not WebAssembly: the browser runs them as JavaScript, so this page has no JavaScript or TypeScript tab (see \"Polyglot native services\" for them).",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -51,6 +52,30 @@
       "name": "client/services/TallyService.rb",
       "code": {
         "file": "client/services/TallyService.rb"
+      }
+    },
+    {
+      "name": "client/services/TallyService.swift",
+      "code": {
+        "file": "client/services/TallyService.swift"
+      }
+    },
+    {
+      "name": "client/services/TallyService.kt",
+      "code": {
+        "file": "client/services/TallyService.kt"
+      }
+    },
+    {
+      "name": "client/services/TallyService.java",
+      "code": {
+        "file": "client/services/TallyService.java"
+      }
+    },
+    {
+      "name": "client/services/TallyService.dart",
+      "code": {
+        "file": "client/services/TallyService.dart"
       }
     }
   ]

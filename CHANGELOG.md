@@ -1755,6 +1755,17 @@ machine contracts have their own, independent major versions.
   converter-injection changes, and the shared-Setup runtime adds about 2 KB
   (roughly 280 bytes of Brotli for each JavaScript service module that
   embeds the behavior runtime). One runtime per page will cut this.
+- Website: the browser API guides (clock and random numbers, connectivity and
+  preferences, clipboard and geolocation, and what each service language can
+  use) show every Tac service language, and so do the WebAssembly, native
+  services, compiled publishing, gateway and Tac mapping examples. The
+  WebAssembly feature is now "Services that run as WebAssembly" and adds Swift,
+  Kotlin, Java and Dart; it says why JavaScript and TypeScript have no tab, and
+  the native service guide says why only Swift, Kotlin, C# and Rust do. The
+  gateway feature says that Lua refuses `@Gateway` (`TY1308`). The language
+  coverage audit reads a section's or feature's `notApplicable` languages and
+  counts one only when the text names it. verify-snippets runs a feature's
+  server file with the controller in its language instead of parsing it alone.
 
 - A Converter needs no behavior context and is injected like any other role
   (ADR 0022 amendment "a service asks for its converter"), like a MapStruct

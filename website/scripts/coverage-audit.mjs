@@ -28,6 +28,7 @@ export class CoverageAudit {
   static annotationMarker = /(?:@|#\[|\[<|^\s*\[)\s*([A-Za-z_]\w*)/gm
   static noExample = 'no example yet; the rule table accepts the annotations the other tabs use'
   static unknownToRuleTable = 'no example yet; the rule table does not check this language, so no refusal is known'
+  static statedNotApplicable = 'the text says why this language does not apply'
 
   /** @type {Record<Realm, string[]>} */
   realmLanguages
@@ -208,11 +209,29 @@ export class CoverageAudit {
    * @returns {Gap}
    */
   gap(question) {
+    if (CoverageAudit.isStatedNotApplicable(question)) return CoverageAudit.notApplicable(question.language)
     const sibling = this.siblingShowing(question)
     if (sibling) return CoverageAudit.shownElsewhere(question.language, sibling)
     const refusal = this.reach.refusal(question.realm, question.language, question.annotations, question.present)
     if (refusal) return CoverageAudit.refused(question, refusal)
     return this.missing(question)
+  }
+
+  /**
+   * @param {GapQuestion} question
+   * @returns {boolean}
+   */
+  static isStatedNotApplicable(question) {
+    const { unit, language } = question
+    return (unit.notApplicable ?? []).includes(language) && CoverageAudit.namesLanguage(unit.text, language)
+  }
+
+  /**
+   * @param {string} language
+   * @returns {Gap}
+   */
+  static notApplicable(language) {
+    return { language, kind: CoverageAudit.kinds.notApplicable, reason: CoverageAudit.statedNotApplicable, stated: true }
   }
 
   /**

@@ -1449,7 +1449,7 @@
     {
       "id": "native-companions",
       "title": "Polyglot native services",
-      "summary": "Native services can use Rust, Swift, Kotlin or C#. Their file layout matches JavaScript services: `client/services/BasketService.swift` is next to `BasketService.js`. Each language uses its own toolchain (its own compiler and build tools). On supported native targets, the compiled service links into the host and can call platform APIs directly. Tachyon generates a member table (a list of the fields and methods of the service) so that views can use them. It needs this table because a compiled class has no reflection (a way to list the members of a class while the program runs). If no browser script is present, a Rust or C# service also runs as WebAssembly on the web and on every native target that does not link it (ADR 0035, ADR 0037). No host links Go, so a Go service always runs as WebAssembly (ADR 0045). A Ruby service runs on Tachyon's mruby WebAssembly runtime on every target (ADR 0054). The example also shows the TypeScript, Dart, Go and Ruby versions. So each platform tab lists every language that can answer on that platform.",
+      "summary": "Native services can use Rust, Swift, Kotlin or C#. Their file layout matches JavaScript services: `client/services/BasketService.swift` is next to `BasketService.js`. Each language uses its own toolchain (its own compiler and build tools). On supported native targets, the compiled service links into the host and can call platform APIs directly. Tachyon generates a member table (a list of the fields and methods of the service) so that views can use them. It needs this table because a compiled class has no reflection (a way to list the members of a class while the program runs). If no browser script is present, a Rust or C# service also runs as WebAssembly on the web and on every native target that does not link it (ADR 0035, ADR 0037). No host links Go, so a Go service always runs as WebAssembly (ADR 0045). A Ruby service runs on Tachyon's mruby WebAssembly runtime on every target (ADR 0054). The example also shows the TypeScript, Dart, Go, Ruby, Java and F# versions: no host links Java or F#, so they run as WebAssembly in the web view of every target. So each platform tab lists every language that can answer on that platform.",
       "group": "Polyglot",
       "files": [
         {
@@ -1499,15 +1499,27 @@
         {
           "name": "client/services/BasketService.rb",
           "code": "class BasketService\n  # @return [Integer]\n  attr_reader :count\n  # @return [String]\n  attr_reader :label\n\n  # @return [void]\n  #[OnStart]\n  def start\n    @count = 6\n    @label = \"Ruby\"\n  end\n\n  # @return [Integer]\n  def doubled\n    @count * 2\n  end\nend\n"
+        },
+        {
+          "name": "client/services/BasketService.java",
+          "code": "@Service\nclass BasketService {\n    int count = 6;\n    final String label = \"Java\";\n\n    int doubled() {\n        return count * 2;\n    }\n}\n"
+        },
+        {
+          "name": "client/services/BasketService.fs",
+          "code": "[<Service>]\ntype BasketService() =\n    member val Count = 6 with get, set\n\n    member this.Label : string = \"F#\"\n\n    member this.Doubled() : int =\n        this.Count * 2\n"
         }
       ]
     },
     {
       "id": "web-assembly-services",
-      "title": "Rust, Go, C#, F# and Ruby on the web",
+      "title": "Services that run as WebAssembly",
+      "notApplicable": [
+        "js",
+        "ts"
+      ],
       "group": "Polyglot",
       "target": "web",
-      "summary": "A service written only in Rust, only in Go, only in C# or only in F# runs on every target. A host that links the service runs it natively: Rust on macOS, Windows and Linux, and C# on Windows. The other targets run it as WebAssembly: the web, iOS and Android for Rust, and every target except Windows for C#. No host links Go or F#, so a Go or F# service runs as WebAssembly on every target. An F# service runs on the same .NET browser runtime as C# (ADR 0073). A Ruby service runs on every target too, on Tachyon's mruby WebAssembly runtime, which your machine builds once with Ruby and Emscripten (ADR 0049, ADR 0054). The WebAssembly service uses the same companion protocol (ADR 0035, ADR 0037, ADR 0045). Views read its fields, methods receive JSON arguments, and `Service` and `NeedsAll` are declared above its type.",
+      "summary": "A service written only in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby runs on every target. A host that links the service runs it natively: Rust on macOS, Windows and Linux, C# on Windows, Swift on macOS and iOS, and Kotlin on Android. The other targets run it as WebAssembly. No host links Go, F#, Java, Dart or Ruby, so these services run as WebAssembly on every target. An F# service runs on the same .NET browser runtime as C# (ADR 0073). Swift uses the Swift SDK for WebAssembly (ADR 0082). Kotlin and Dart compile to WebAssembly with garbage collection (WasmGC), and TeaVM compiles Java to WasmGC (ADR 0083); WasmGC needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. A Ruby service runs on Tachyon's mruby WebAssembly runtime, which your machine builds once with Ruby and Emscripten (ADR 0049, ADR 0054). The WebAssembly service uses the same companion protocol (ADR 0035, ADR 0037, ADR 0045). Views read its fields, methods receive JSON arguments, and `Service` and `NeedsAll` are declared above its type. JavaScript and TypeScript services are not WebAssembly: the browser runs them as JavaScript, so this page has no JavaScript or TypeScript tab (see \"Polyglot native services\" for them).",
       "files": [
         {
           "name": "client/pages/tac.html",
@@ -1535,11 +1547,27 @@
         },
         {
           "name": "reach",
-          "code": "TallyService.rs  one small module, from rustc --target wasm32-unknown-unknown\nTallyService.go  one module, about 360 KB from TinyGo in a release build (2.7 MB from the standard Go compiler)\nTallyService.cs  the .NET browser runtime, about 3 MB, cached once\nTallyService.fs  the same .NET browser runtime, plus a small F# library\nTallyService.swift  the Swift standard library, about 3.4 MB (0.9 MB with Brotli), from swiftc -target wasm32-unknown-wasip1\nTallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc\n\nA service with several is Rust on the web, then Go, then C#, then F#: Rust's\nmodule is a small file, Go's carries the Go runtime, and C#'s is a\nruntime. On the web a service has no DOM and no platform;\nit is state and logic over the properties its tag passes, which may\ncarry a data file of up to 1 MiB. A method call carries up to 64 KiB.\nA bigger request fails with an error that names the size and the limit:\n  Web service documentation: The request is 1072202 bytes.\n  The limit is 1048576 bytes. Pass less data to the service.\nty doctor checks for the\nwasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,\nand, for Ruby, Emscripten 6.0.10 or newer and a C compiler.\nA release build also writes Brotli copies, so a browser downloads about\na quarter to a third of these sizes (ty start sends them).\n"
+          "code": "TallyService.rs  one small module, from rustc --target wasm32-unknown-unknown\nTallyService.go  one module, about 360 KB from TinyGo in a release build (2.7 MB from the standard Go compiler)\nTallyService.cs  the .NET browser runtime, about 3 MB, cached once\nTallyService.fs  the same .NET browser runtime, plus a small F# library\nTallyService.swift  the Swift standard library, about 3.4 MB (0.9 MB with Brotli), from swiftc -target wasm32-unknown-wasip1\nTallyService.kt  one WasmGC module from kotlinc, which uses the browser's garbage collector\nTallyService.java  one WasmGC module from TeaVM\nTallyService.dart  one WasmGC module from dart compile wasm\nTallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc\n\nA service with several is Rust on the web, then Go, then C#, then F#: Rust's\nmodule is a small file, Go's carries the Go runtime, and C#'s is a\nruntime. On the web a service has no DOM and no platform;\nit is state and logic over the properties its tag passes, which may\ncarry a data file of up to 1 MiB. A method call carries up to 64 KiB.\nA bigger request fails with an error that names the size and the limit:\n  Web service documentation: The request is 1072202 bytes.\n  The limit is 1048576 bytes. Pass less data to the service.\nty doctor checks for the\nwasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,\nand, for Ruby, Emscripten 6.0.10 or newer and a C compiler.\nA release build also writes Brotli copies, so a browser downloads about\na quarter to a third of these sizes (ty start sends them).\n"
         },
         {
           "name": "client/services/TallyService.rb",
           "code": "#[Service]\nclass TallyService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n  end\n\n  # @param amount [Integer]\n  # @return [Integer]\n  def add(amount)\n    @count += amount\n  end\n\n  # @param unit [String]\n  # @return [String]\n  def summary(unit)\n    \"#{@count} #{unit}\"\n  end\nend\n"
+        },
+        {
+          "name": "client/services/TallyService.swift",
+          "code": "@Service\nfinal class TallyService {\n    var count: Int = 0\n\n    func add(_ amount: Int) {\n        count += amount\n    }\n\n    func summary(_ unit: String) -> String {\n        return \"\\(count) \\(unit)\"\n    }\n}\n"
+        },
+        {
+          "name": "client/services/TallyService.kt",
+          "code": "@Service\nclass TallyService {\n    var count: Int = 0\n\n    fun add(amount: Int) {\n        count += amount\n    }\n\n    fun summary(unit: String): String = \"$count $unit\"\n}\n"
+        },
+        {
+          "name": "client/services/TallyService.java",
+          "code": "@Service\nclass TallyService {\n    int count = 0;\n\n    void add(int amount) {\n        count += amount;\n    }\n\n    String summary(String unit) {\n        return count + \" \" + unit;\n    }\n}\n"
+        },
+        {
+          "name": "client/services/TallyService.dart",
+          "code": "@Service\nclass TallyService {\n  int count = 0;\n\n  void add(int amount) {\n    count += amount;\n  }\n\n  String summary(String unit) => '$count $unit';\n}\n"
         }
       ]
     },
@@ -1849,7 +1877,7 @@
     {
       "id": "gateways",
       "title": "Calling a method in another language",
-      "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed.",
+      "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed. In the example, JavaScript calls the Java class `ReportService.java`, and Python calls it too. Java, Groovy and every other language call the Python class `LedgerService.py`, and every language also runs the program `forecast.py`. Lua cannot declare a gateway yet: the build refuses `@Gateway` in Lua with `TY1308`.",
       "group": "Polyglot",
       "files": [
         {
@@ -1919,6 +1947,114 @@
         {
           "name": "server/controllers/LedgerController.groovy",
           "code": "import models.Balance\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    final LedgerClient ledgerClient\n\n    @GetRoute\n    Balance getLedger() {\n        return new Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L))\n    }\n}\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.ts",
+          "code": "@HTTPClient\nexport default class LedgerClient {\n  @Gateway({\"class\":\"server/services/LedgerService.py\"})\n  async balance(account: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.ts",
+          "code": "import type { Balance } from '/models/Balance.ts'\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n  @Needs\n  readonly ledgerClient!: LedgerClient;\n\n  @GetRoute\n  async getLedger(): Promise<Balance> {\n    const balance = await this.ledgerClient.balance('ACME-7');\n    const forecast = await this.ledgerClient.forecast(1);\n    return { balance, forecast };\n  }\n}\n"
+        },
+        {
+          "name": "server/models/Balance.ts",
+          "code": "export interface Balance {\n  balance: unknown\n  forecast: unknown\n}\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.php",
+          "code": "<?php\n#[HTTPClient]\ninterface LedgerClient {\n    #[Gateway({\"class\":\"server/services/LedgerService.py\"})]\n    public function balance(mixed $account): mixed;\n\n    #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    public function forecast(mixed $months): mixed;\n}\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.php",
+          "code": "<?php\nuse Models\\Balance;\n\n#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController {\n    #[Needs]\n    public LedgerClient $ledgerClient;\n\n    #[GetRoute]\n    public function getLedger(): Balance {\n        return new Balance($this->ledgerClient->balance('ACME-7'), $this->ledgerClient->forecast(1));\n    }\n}\n"
+        },
+        {
+          "name": "server/models/Balance.php",
+          "code": "<?php\nclass Balance {\n    public function __construct(\n        public mixed $balance,\n        public mixed $forecast,\n    ) {}\n}\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.cs",
+          "code": "[HTTPClient]\ninterface LedgerClient {\n    [Gateway({\"class\":\"server/services/LedgerService.py\",\"method\":\"balance\"})]\n    BehaviorJSON Balance(BehaviorJSON account);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.cs",
+          "code": "using System.Text.Json.Nodes;\nusing Models;\n\n[RequestRoute(\"/ledger\")]\n[Public]\nclass LedgerController {\n    [Needs]\n    readonly LedgerClient _ledgerClient;\n\n    [GetRoute]\n    public Ledger GetLedger() {\n        var balance = _ledgerClient.Balance(BehaviorJSON.From(\"ACME-7\"));\n        var forecast = _ledgerClient.Forecast(BehaviorJSON.From(1));\n        return new Ledger(JsonNode.Parse(balance.ToString()), JsonNode.Parse(forecast.ToString()));\n    }\n}\n"
+        },
+        {
+          "name": "server/models/Ledger.cs",
+          "code": "using System.Text.Json.Nodes;\n\npublic record Ledger(JsonNode Balance, JsonNode Forecast);\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.fs",
+          "code": "[<HTTPClient>]\ntype LedgerClient =\n    [<Gateway({\"class\":\"server/services/LedgerService.py\",\"method\":\"balance\"})>]\n    abstract Balance: account: BehaviorJSON -> BehaviorJSON\n\n    [<Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})>]\n    abstract Forecast: months: BehaviorJSON -> BehaviorJSON\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.fs",
+          "code": "open System.Text.Json.Nodes\nopen Models\n\n[<RequestRoute(\"/ledger\")>]\n[<Public>]\ntype LedgerController(ledgerClient: LedgerClient) =\n    [<GetRoute>]\n    member this.GetLedger() : Balance =\n        let balance = ledgerClient.Balance(BehaviorJSON.From(\"ACME-7\"))\n        let forecast = ledgerClient.Forecast(BehaviorJSON.From(1))\n        { Balance = JsonNode.Parse(balance.ToString())\n          Forecast = JsonNode.Parse(forecast.ToString()) }\n"
+        },
+        {
+          "name": "server/models/Balance.fs",
+          "code": "open System.Text.Json.Nodes\n\ntype Balance = { Balance: JsonNode; Forecast: JsonNode }\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.kt",
+          "code": "@HTTPClient\ninterface LedgerClient {\n    @Gateway({\"class\":\"server/services/LedgerService.py\"})\n    fun balance(account: Any?): Any?\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    fun forecast(months: Any?): Any?\n}\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.kt",
+          "code": "import models.Balance\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    val ledgerClient: LedgerClient\n\n    @GetRoute\n    fun getLedger(): Balance = Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L))\n}\n"
+        },
+        {
+          "name": "server/models/Balance.kt",
+          "code": "data class Balance(val balance: Any?, val forecast: Any?)\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.rs",
+          "code": "#[HTTPClient]\ntrait LedgerClient {\n    #[Gateway({\"class\":\"server/services/LedgerService.py\"})]\n    fn balance(&self, account: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n\n    #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    fn forecast(&self, months: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n}\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.rs",
+          "code": "use crate::models::Balance;\n\n#[RequestRoute(\"/ledger\")]\n#[Public]\nstruct LedgerController {\n    #[Needs]\n    ledger_client: std::sync::Arc<LedgerClient>,\n}\nimpl LedgerController {\n    #[GetRoute]\n    fn get_ledger(&self) -> Result<Balance, YonResourceError> {\n        let balance = self.ledger_client.balance(\"ACME-7\".into()).map_err(|_| YonResourceError)?;\n        let forecast = self.ledger_client.forecast(BehaviorValue::Number(1.0)).map_err(|_| YonResourceError)?;\n        Ok(Balance { balance: Self::json(&balance)?, forecast: Self::json(&forecast)? })\n    }\n\n    fn json(value: &BehaviorValue) -> Result<Json, YonResourceError> {\n        let text = value.to_json(1_048_576).map_err(|_| YonResourceError)?;\n        Json::parse(&text).map_err(|_| YonResourceError)\n    }\n}\n"
+        },
+        {
+          "name": "server/models/Balance.rs",
+          "code": "use crate::Json;\n\npub struct Balance {\n    pub balance: Json,\n    pub forecast: Json,\n}\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.go",
+          "code": "// @HTTPClient\ntype LedgerClient interface {\n\t// @Gateway({\"class\":\"server/services/LedgerService.py\",\"method\":\"balance\"})\n\tBalance(account BehaviorValue) (BehaviorValue, error)\n\n\t// @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n\tForecast(months BehaviorValue) (BehaviorValue, error)\n}\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.go",
+          "code": "import \"errors\"\n\n// @RequestRoute(\"/ledger\")\n// @Public\ntype LedgerController struct {\n\t// @Needs\n\tledgerClient *LedgerClient\n}\n\n// @GetRoute\nfunc (controller *LedgerController) GetLedger() (Balance, error) {\n\tbalance, balanceErr := controller.ledgerClient.Balance(\"ACME-7\")\n\tforecast, forecastErr := controller.ledgerClient.Forecast(1)\n\treturn Balance{Balance: balance, Forecast: forecast}, errors.Join(balanceErr, forecastErr)\n}\n"
+        },
+        {
+          "name": "server/models/Balance.go",
+          "code": "type Balance struct {\n\tBalance  any `json:\"balance\"`\n\tForecast any `json:\"forecast\"`\n}\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.dart",
+          "code": "@HTTPClient\nabstract interface class LedgerClient {\n  @Gateway({\"class\":\"server/services/LedgerService.py\"})\n  Future<Object?> balance(Object? account);\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  Future<Object?> forecast(Object? months);\n}\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.dart",
+          "code": "import 'models/Balance.dart';\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n  @Needs\n  final LedgerClient ledgerClient;\n\n  @GetRoute\n  Future<Balance> getLedger() async {\n    final balance = await ledgerClient.balance('ACME-7');\n    final forecast = await ledgerClient.forecast(1);\n    return Balance(balance, forecast);\n  }\n}\n"
+        },
+        {
+          "name": "server/models/Balance.dart",
+          "code": "class Balance {\n  final Object? balance;\n  final Object? forecast;\n\n  const Balance(this.balance, this.forecast);\n}\n"
+        },
+        {
+          "name": "server/clients/LedgerClient.rb",
+          "code": "#[HTTPClient]\nclass LedgerClient\n  # @param account [String]\n  # @return [void]\n  #[Gateway({\"class\":\"server/services/LedgerService.py\"})]\n  def balance(account)\n  end\n\n  # @param months [Integer]\n  # @return [void]\n  #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n  def forecast(months)\n  end\nend\n"
+        },
+        {
+          "name": "server/controllers/LedgerController.rb",
+          "code": "#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController\n  #[Needs]\n  # @return [LedgerClient]\n  attr_reader :ledger_client\n\n  # @return [Balance]\n  #[GetRoute]\n  def get_ledger\n    Balance.new(balance: ledger_client.balance(\"ACME-7\"), forecast: ledger_client.forecast(1))\n  end\nend\n"
+        },
+        {
+          "name": "server/models/Balance.rb",
+          "code": "# @!attribute [r] balance\n#   @return [Object]\n# @!attribute [r] forecast\n#   @return [Object]\nBalance = Data.define(:balance, :forecast)\n"
         }
       ],
       "verify": "yon-gateway"
@@ -2459,7 +2595,7 @@
     {
       "id": "companion-publish",
       "title": "Compiled services publish to the page",
-      "summary": "Native services, WebAssembly services and TypeScript or Dart browser services inject an `ApplicationEventPublisher` for local events. `OnEvent` receives the events, and `OnStart`/`OnStop` run when the service starts and stops. Call the publisher to publish an event. A listener that is not `InBackground` can also return a model value. The runtime then publishes it as the model named by the return type of the listener. Each activation gets a new ID. The runtime rejects callbacks from an old activation. Each example publishes a `CatalogCount` model when it starts and updates its count in a listener for that model. Ruby names the model of a listener in a YARD tag, # @param value [CatalogCount]. The JavaScript `CatalogService` only listens, to events published by its native or WebAssembly counterpart.",
+      "summary": "Native services, WebAssembly services and TypeScript or Dart browser services inject an `ApplicationEventPublisher` for local events. `OnEvent` receives the events, and `OnStart`/`OnStop` run when the service starts and stops. Call the publisher to publish an event. A listener that is not `InBackground` can also return a model value. The runtime then publishes it as the model named by the return type of the listener. Each activation gets a new ID. The runtime rejects callbacks from an old activation. Each example publishes a `CatalogCount` model when it starts and updates its count in a listener for that model. Ruby names the model of a listener in a YARD tag, # @param value [CatalogCount]. F# takes the publisher as a constructor parameter, `type CatalogService(applicationEventPublisher: ApplicationEventPublisher)`. The JavaScript `CatalogService` only listens, to events published by its native or WebAssembly counterpart.",
       "group": "Native",
       "files": [
         {
@@ -2537,6 +2673,22 @@
         {
           "name": "client/models/CatalogCount.rb",
           "code": "# @!attribute [r] count\n#   @return [Integer]\nCatalogCount = Data.define(:count)\n"
+        },
+        {
+          "name": "client/services/CatalogService.java",
+          "code": "import models.CatalogCount;\n\nclass CatalogService {\n    int count = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @OnStart\n    void initialize() { announce(); }\n\n    private void announce() { applicationEventPublisher.publishEvent(new CatalogCount(5)); }\n\n    @OnEvent\n    void changed(CatalogCount value) { count = value.count(); }\n\n    @OnStop\n    void cleanup() { count = 0; }\n}\n"
+        },
+        {
+          "name": "client/services/CatalogService.fs",
+          "code": "open Models\n\n[<Service>]\ntype CatalogService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Count = 0 with get, set\n\n    [<OnStart>]\n    member this.Initialize() : unit =\n        this.Announce()\n\n    member private this.Announce() : unit =\n        applicationEventPublisher.PublishEvent({ Count = 5 })\n\n    [<OnEvent>]\n    member this.Changed(value: CatalogCount) : unit =\n        this.Count <- value.Count\n\n    [<OnStop>]\n    member this.Cleanup() : unit =\n        this.Count <- 0\n"
+        },
+        {
+          "name": "client/models/CatalogCount.java",
+          "code": "record CatalogCount(int count) {}\n"
+        },
+        {
+          "name": "client/models/CatalogCount.fs",
+          "code": "type CatalogCount = { Count: int }\n"
         }
       ],
       "axis": "language"

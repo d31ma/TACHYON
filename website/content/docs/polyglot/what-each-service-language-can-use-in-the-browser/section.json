@@ -1,6 +1,6 @@
 {
   "heading": "What each service language can use in the browser",
-  "body": "A service in Rust, Go, C#, F#, Kotlin, Java, Dart, Ruby or Swift runs in the page, but it does not call the browser itself. It reaches the browser only through Tachyon: the view reads its fields and calls its methods, events carry values in and out, and the storage annotations keep its data. Tachyon also gives every language a small set of browser APIs: `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls` (see the next sections and the feature \"What a page may do to its window\"). Other browser work, such as a request to the server, lives in a JavaScript or TypeScript service. That service publishes a typed event, and the service in the other language receives it with `OnEvent`.\n\nThe table shows what each language can use in the page. Tachyon's tests check every row.\n\n| What | Rust | Go | C# | F# | Kotlin | Dart | Ruby | Swift | Java |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| Fields and methods for the view | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `publishEvent` and `OnEvent` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Store` and caches | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `LocalState` and `SessionState` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `HTTPClient` sent by the browser | No | No | No | No | No | No | No | No | No |\n| `HTTPClient` sent by the Setup's HTTP adapter, with `Cached`, `ClearCache` and `UpdateCache` | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |\n| `StreamRequest` and `SocketRequest` | No | No | No | No | No | No | No | No | No |\n| `Clock` and `SecureRandom` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Connectivity`, `PageVisibility`, `Preferences` and their change events | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Clipboard`, `Share`, `Notifications` and `Geolocation`, after a grant | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `WindowControls`, after a grant in `tac.application.window.controls` (a native window only; not in a service that the native app links in) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| The current time from the language itself | No, use `Clock` | Yes | Yes | Yes, `System.DateTime.UtcNow` | Yes, `System.currentTimeMillis()` | Yes | Yes | No `Date` (no Foundation), use `Clock` | Yes, `System.currentTimeMillis()` |\n| Random numbers from the language itself | No, use `SecureRandom` | Yes | Yes | Yes, `System.Random` | Yes | Yes | Yes | Yes, `Int.random(in:)` | Yes, `java.util.Random` |\n| Wait (sleep) | No | Yes, the page waits | Yes, the page waits | Yes, `Thread.Sleep` makes the page wait | Yes, `Thread.sleep` makes the page wait | Yes, in an `async` method | No | Yes, `Task.sleep` in an `async` method makes the page wait | No; only the wait of a `Retry` or a blocking `MaxAtOnce`, which makes the page wait |\n| Console output | No | Yes | Yes | Yes, `printfn` | Yes | Yes | Yes | Yes, `print` | Yes, `System.out` |\n\nSend requests from a JavaScript or TypeScript client. Its answers, and the messages of a stream or a socket, reach the other languages as typed events. In Rust, `std::time::SystemTime::now()` and `std::thread::sleep` stop the service with an error, and `println!` prints nothing. Use Tachyon's `Clock` and `SecureRandom` instead (see \"Clock and secure random numbers\"). Ruby refuses `sleep`, because a Ruby call must return before the page goes on.\n\nTachyon refuses code that calls the browser directly, and the build stops with `TY1317`: Go `syscall/js`; Dart `dart:js_interop`, `dart:js`, `dart:js_util`, `dart:html`, `package:web` and `package:js`; C# `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` and `JSHost`; Rust `wasm_bindgen`, `web_sys`, `js_sys` and `wasm_import_module`; Kotlin `external`, `@JsFun`, `@JsExport`, `@JsModule`, `@JsName`, `js(…)`, `kotlinx.browser`, `org.w3c` and `kotlin.js`; Java `org.teavm`, `native` methods and TeaVM's `JS…` annotations such as `JSBody`, `JSObject` and `JSExport`; Ruby `TachyonWeb` and `JS`; and Swift `JavaScriptKit`, `JavaScriptEventLoop`, `JSObject`, `JSValue`, `JSClosure`, `JSPromise`, `@_extern` and `@_expose`. Such code breaks the test units of the language, and a native target has no browser. Tachyon's own code on the page is not checked.\n\nIn the example, `PlaceService` in JavaScript reads the browser and publishes a `PlaceFound` event. `MapService` in Rust or Go receives the event with `OnEvent`. The same pattern works for any browser API outside Tachyon's set.",
+  "body": "A service in Rust, Go, C#, F#, Kotlin, Java, Dart, Ruby or Swift runs in the page, but it does not call the browser itself. It reaches the browser only through Tachyon: the view reads its fields and calls its methods, events carry values in and out, and the storage annotations keep its data. Tachyon also gives every language a small set of browser APIs: `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls` (see the next sections and the feature \"What a page may do to its window\"). Other browser work, such as a request to the server, lives in a JavaScript or TypeScript service. That service publishes a typed event, and the service in the other language receives it with `OnEvent`.\n\nThe table shows what each language can use in the page. Tachyon's tests check every row.\n\n| What | Rust | Go | C# | F# | Kotlin | Dart | Ruby | Swift | Java |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| Fields and methods for the view | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `publishEvent` and `OnEvent` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Store` and caches | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `LocalState` and `SessionState` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `HTTPClient` sent by the browser | No | No | No | No | No | No | No | No | No |\n| `HTTPClient` sent by the Setup's HTTP adapter, with `Cached`, `ClearCache` and `UpdateCache` | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |\n| `StreamRequest` and `SocketRequest` | No | No | No | No | No | No | No | No | No |\n| `Clock` and `SecureRandom` | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Connectivity`, `PageVisibility`, `Preferences` and their change events | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `Clipboard`, `Share`, `Notifications` and `Geolocation`, after a grant | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| `WindowControls`, after a grant in `tac.application.window.controls` (a native window only; not in a service that the native app links in) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |\n| The current time from the language itself | No, use `Clock` | Yes | Yes | Yes, `System.DateTime.UtcNow` | Yes, `System.currentTimeMillis()` | Yes | Yes | No `Date` (no Foundation), use `Clock` | Yes, `System.currentTimeMillis()` |\n| Random numbers from the language itself | No, use `SecureRandom` | Yes | Yes | Yes, `System.Random` | Yes | Yes | Yes | Yes, `Int.random(in:)` | Yes, `java.util.Random` |\n| Wait (sleep) | No | Yes, the page waits | Yes, the page waits | Yes, `Thread.Sleep` makes the page wait | Yes, `Thread.sleep` makes the page wait | Yes, in an `async` method | No | Yes, `Task.sleep` in an `async` method makes the page wait | No; only the wait of a `Retry` or a blocking `MaxAtOnce`, which makes the page wait |\n| Console output | No | Yes | Yes | Yes, `printfn` | Yes | Yes | Yes | Yes, `print` | Yes, `System.out` |\n\nSend requests from a JavaScript or TypeScript client. Its answers, and the messages of a stream or a socket, reach the other languages as typed events. In Rust, `std::time::SystemTime::now()` and `std::thread::sleep` stop the service with an error, and `println!` prints nothing. Use Tachyon's `Clock` and `SecureRandom` instead (see \"Clock and secure random numbers\"). Ruby refuses `sleep`, because a Ruby call must return before the page goes on.\n\nTachyon refuses code that calls the browser directly, and the build stops with `TY1317`: Go `syscall/js`; Dart `dart:js_interop`, `dart:js`, `dart:js_util`, `dart:html`, `package:web` and `package:js`; C# `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` and `JSHost`; Rust `wasm_bindgen`, `web_sys`, `js_sys` and `wasm_import_module`; Kotlin `external`, `@JsFun`, `@JsExport`, `@JsModule`, `@JsName`, `js(…)`, `kotlinx.browser`, `org.w3c` and `kotlin.js`; Java `org.teavm`, `native` methods and TeaVM's `JS…` annotations such as `JSBody`, `JSObject` and `JSExport`; Ruby `TachyonWeb` and `JS`; and Swift `JavaScriptKit`, `JavaScriptEventLoop`, `JSObject`, `JSValue`, `JSClosure`, `JSPromise`, `@_extern` and `@_expose`. Such code breaks the test units of the language, and a native target has no browser. Tachyon's own code on the page is not checked.\n\nIn the example, `PlaceService` in JavaScript or TypeScript reads the browser and publishes a `PlaceFound` event. `MapService` receives the event with `OnEvent`, and the view shows its fields. Write `MapService` in any service language: the tabs show each one. The same pattern works for any browser API outside Tachyon's set.",
   "files": [
     {
       "name": "client/services/PlaceService.js",
@@ -36,6 +36,126 @@
       "name": "client/models/PlaceFound.go",
       "code": {
         "file": "client/models/PlaceFound.go"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/map/panel/tac.html",
+      "code": {
+        "file": "client/components/map/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/MapService.js",
+      "code": {
+        "file": "client/services/MapService.js"
+      }
+    },
+    {
+      "name": "client/services/PlaceService.ts",
+      "code": {
+        "file": "client/services/PlaceService.ts"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.ts",
+      "code": {
+        "file": "client/models/PlaceFound.ts"
+      }
+    },
+    {
+      "name": "client/services/MapService.ts",
+      "code": {
+        "file": "client/services/MapService.ts"
+      }
+    },
+    {
+      "name": "client/services/MapService.dart",
+      "code": {
+        "file": "client/services/MapService.dart"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.dart",
+      "code": {
+        "file": "client/models/PlaceFound.dart"
+      }
+    },
+    {
+      "name": "client/services/MapService.rb",
+      "code": {
+        "file": "client/services/MapService.rb"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.rb",
+      "code": {
+        "file": "client/models/PlaceFound.rb"
+      }
+    },
+    {
+      "name": "client/services/MapService.swift",
+      "code": {
+        "file": "client/services/MapService.swift"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.swift",
+      "code": {
+        "file": "client/models/PlaceFound.swift"
+      }
+    },
+    {
+      "name": "client/services/MapService.kt",
+      "code": {
+        "file": "client/services/MapService.kt"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.kt",
+      "code": {
+        "file": "client/models/PlaceFound.kt"
+      }
+    },
+    {
+      "name": "client/services/MapService.java",
+      "code": {
+        "file": "client/services/MapService.java"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.java",
+      "code": {
+        "file": "client/models/PlaceFound.java"
+      }
+    },
+    {
+      "name": "client/services/MapService.cs",
+      "code": {
+        "file": "client/services/MapService.cs"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.cs",
+      "code": {
+        "file": "client/models/PlaceFound.cs"
+      }
+    },
+    {
+      "name": "client/services/MapService.fs",
+      "code": {
+        "file": "client/services/MapService.fs"
+      }
+    },
+    {
+      "name": "client/models/PlaceFound.fs",
+      "code": {
+        "file": "client/models/PlaceFound.fs"
       }
     }
   ]

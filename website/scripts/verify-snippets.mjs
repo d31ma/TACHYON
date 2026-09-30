@@ -1135,6 +1135,10 @@ async function verifyFeatureFile(feature, file, hasPage) {
     await executeMiddleware(label, file)
     return
   }
+  if (isRunWithItsController(feature, file)) {
+    skip(label, 'staged and run with the controller in its language')
+    return
+  }
   if (Patterns.goSharedFile.test(file.name)) {
     const probe = { name: 'server/controllers/ProbeController.go', code: Patterns.goSharedProbe }
     await executeHandler(label, [probe, file], probe)
@@ -1145,6 +1149,16 @@ async function verifyFeatureFile(feature, file, hasPage) {
     return
   }
   skip(label, 'descriptive output, shell command, or stylesheet; not an executable snippet')
+}
+
+/**
+ * @param {Feature} feature
+ * @param {Snippet} file
+ */
+function isRunWithItsController(feature, file) {
+  if (!file.name.startsWith('server/') || Patterns.goSharedFile.test(file.name)) return false
+  const extension = path.extname(file.name)
+  return feature.files.some(other => Patterns.controllerPath.test(other.name) && path.extname(other.name) === extension)
 }
 
 /** @param {Feature} feature */

@@ -44,6 +44,42 @@
       "code": {
         "file": "client/services/TicketService.fs"
       }
+    },
+    {
+      "name": "client/services/TicketService.ts",
+      "code": {
+        "file": "client/services/TicketService.ts"
+      }
+    },
+    {
+      "name": "client/services/TicketService.dart",
+      "code": {
+        "file": "client/services/TicketService.dart"
+      }
+    },
+    {
+      "name": "client/services/TicketService.go",
+      "code": {
+        "file": "client/services/TicketService.go"
+      }
+    },
+    {
+      "name": "client/services/TicketService.rb",
+      "code": {
+        "file": "client/services/TicketService.rb"
+      }
+    },
+    {
+      "name": "client/services/TicketService.kt",
+      "code": {
+        "file": "client/services/TicketService.kt"
+      }
+    },
+    {
+      "name": "client/services/TicketService.cs",
+      "code": {
+        "file": "client/services/TicketService.cs"
+      }
     }
   ]
 }

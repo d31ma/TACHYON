@@ -50,6 +50,42 @@
       "code": {
         "file": "client/services/PlaceService.fs"
       }
+    },
+    {
+      "name": "client/services/PlaceService.ts",
+      "code": {
+        "file": "client/services/PlaceService.ts"
+      }
+    },
+    {
+      "name": "client/services/PlaceService.dart",
+      "code": {
+        "file": "client/services/PlaceService.dart"
+      }
+    },
+    {
+      "name": "client/services/PlaceService.go",
+      "code": {
+        "file": "client/services/PlaceService.go"
+      }
+    },
+    {
+      "name": "client/services/PlaceService.rb",
+      "code": {
+        "file": "client/services/PlaceService.rb"
+      }
+    },
+    {
+      "name": "client/services/PlaceService.kt",
+      "code": {
+        "file": "client/services/PlaceService.kt"
+      }
+    },
+    {
+      "name": "client/services/PlaceService.cs",
+      "code": {
+        "file": "client/services/PlaceService.cs"
+      }
     }
   ]
 }

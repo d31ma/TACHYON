@@ -44,6 +44,42 @@
       "code": {
         "file": "client/services/StatusService.fs"
       }
+    },
+    {
+      "name": "client/services/StatusService.ts",
+      "code": {
+        "file": "client/services/StatusService.ts"
+      }
+    },
+    {
+      "name": "client/services/StatusService.dart",
+      "code": {
+        "file": "client/services/StatusService.dart"
+      }
+    },
+    {
+      "name": "client/services/StatusService.go",
+      "code": {
+        "file": "client/services/StatusService.go"
+      }
+    },
+    {
+      "name": "client/services/StatusService.rb",
+      "code": {
+        "file": "client/services/StatusService.rb"
+      }
+    },
+    {
+      "name": "client/services/StatusService.kt",
+      "code": {
+        "file": "client/services/StatusService.kt"
+      }
+    },
+    {
+      "name": "client/services/StatusService.cs",
+      "code": {
+        "file": "client/services/StatusService.cs"
+      }
     }
   ]
 }

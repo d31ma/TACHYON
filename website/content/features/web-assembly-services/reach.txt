@@ -3,6 +3,9 @@ TallyService.go  one module, about 360 KB from TinyGo in a release build (2.7 MB
 TallyService.cs  the .NET browser runtime, about 3 MB, cached once
 TallyService.fs  the same .NET browser runtime, plus a small F# library
 TallyService.swift  the Swift standard library, about 3.4 MB (0.9 MB with Brotli), from swiftc -target wasm32-unknown-wasip1
+TallyService.kt  one WasmGC module from kotlinc, which uses the browser's garbage collector
+TallyService.java  one WasmGC module from TeaVM
+TallyService.dart  one WasmGC module from dart compile wasm
 TallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc
 
 A service with several is Rust on the web, then Go, then C#, then F#: Rust's
