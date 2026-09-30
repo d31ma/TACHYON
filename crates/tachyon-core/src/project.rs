@@ -246,6 +246,7 @@ mod tests {
                 "MoneyStore",
             ),
             ("clients", "HTTPClient()", "MoneyClient"),
+            ("remotes", "HTTPClient()", "LedgerClient"),
             ("helpers", "Helper()", "MoneyHelper"),
             ("converters", "Converter()", "MoneySummaryConverter"),
             ("setups", "Setup()", "MoneySetup"),
@@ -264,6 +265,7 @@ mod tests {
             "client/services/MoneyService.js",
             "client/stores/MoneyStore.js",
             "client/clients/MoneyClient.js",
+            "client/remotes/LedgerClient.js",
             "client/helpers/MoneyHelper.js",
             "client/converters/MoneySummaryConverter.js",
             "client/setups/MoneySetup.js",
@@ -411,7 +413,7 @@ mod tests {
     fn layer_discovery_rejects_external_and_cyclic_links_without_following_them() {
         use std::os::unix::fs::symlink;
 
-        for layer in ["services", "stores", "clients", "helpers"] {
+        for layer in ["services", "stores", "clients", "remotes", "helpers"] {
             let root = project_with_home_page("<main>Safe</main>");
             let outside = tempfile::tempdir().expect("outside");
             fs::write(outside.path().join("source.py"), "class XService: pass")
@@ -529,7 +531,7 @@ mod tests {
             "server/services/ARepository.py",
             "class ARepository: pass",
         );
-        for layer in ["services", "stores", "clients", "helpers"] {
+        for layer in ["services", "stores", "clients", "remotes", "helpers"] {
             write_file(
                 root.path(),
                 &format!("server/{layer}/invalid.py"),

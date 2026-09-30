@@ -346,7 +346,10 @@ fn old_clients_and_web_calls_become_http_clients() {
         let text = plan.to_text(false);
         plan.write(project.path()).expect("write");
         assert_eq!(
-            read(project.path(), client.relative),
+            read(
+                project.path(),
+                &client.relative.replace("/clients/", "/remotes/")
+            ),
             client.expected,
             "{text}"
         );
@@ -393,13 +396,13 @@ fn spring_names_that_were_never_ours_are_renamed() {
     );
     plan(project.path()).write(project.path()).expect("write");
     assert_eq!(
-        read(project.path(), "server/clients/OrdersClient.py"),
+        read(project.path(), "server/remotes/OrdersClient.py"),
         "from typing import Annotated\n@http_client(\"/api/orders\")\nclass OrdersClient:\n    @get_request(\"/{id}\")\n    async def one(self, id: Annotated[object, path_variable]):\n        pass\n"
     );
     plan(project.path())
         .write(project.path())
         .expect("write again");
-    let contract = read(project.path(), "server/clients/OrdersClient.py");
+    let contract = read(project.path(), "server/remotes/OrdersClient.py");
     assert!(
         contract.starts_with("from typing import Annotated, Protocol\n@http_client"),
         "{contract}"

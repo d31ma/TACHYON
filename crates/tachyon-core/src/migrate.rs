@@ -476,10 +476,10 @@ fn classify_file(
     if relative.starts_with("client/clients/") || relative.starts_with("server/clients/") {
         findings.push(MigrationFinding::new(
             relative,
-            "role.integrations",
+            "role.remotes",
             MigrationStatus::Supported,
-            "clients remains a compatibility alias; integrations is the canonical outbound role folder.",
-            Some("Optionally run ty migrate --fix to move files and recognized paths; review the plan first."),
+            "clients remains a compatibility alias; remotes is the canonical outbound role folder.",
+            Some("Optionally run ty migrate fix --write to move files and recognized paths; review the plan first."),
         ));
     }
     let Some(mut finding) = classify_name(relative, name) else {
@@ -720,7 +720,7 @@ fn route_role_finding(relative: &str, name: &str) -> Option<MigrationFinding> {
             | "repositories"
             | "stores"
             | "clients"
-            | "integrations"
+            | "remotes"
             | "configurations"
             | "setups"
             | "entities"

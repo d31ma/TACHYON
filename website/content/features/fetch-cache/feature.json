@@ -11,9 +11,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.js",
+      "name": "client/remotes/ProductsClient.js",
       "code": {
-        "file": "client/integrations/ProductsClient.js"
+        "file": "client/remotes/ProductsClient.js"
       }
     },
     {
@@ -23,9 +23,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.ts",
+      "name": "client/remotes/ProductsClient.ts",
       "code": {
-        "file": "client/integrations/ProductsClient.ts"
+        "file": "client/remotes/ProductsClient.ts"
       }
     },
     {
@@ -35,9 +35,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.rs",
+      "name": "client/remotes/ProductsClient.rs",
       "code": {
-        "file": "client/integrations/ProductsClient.rs"
+        "file": "client/remotes/ProductsClient.rs"
       }
     },
     {
@@ -53,9 +53,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.go",
+      "name": "client/remotes/ProductsClient.go",
       "code": {
-        "file": "client/integrations/ProductsClient.go"
+        "file": "client/remotes/ProductsClient.go"
       }
     },
     {
@@ -71,9 +71,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.cs",
+      "name": "client/remotes/ProductsClient.cs",
       "code": {
-        "file": "client/integrations/ProductsClient.cs"
+        "file": "client/remotes/ProductsClient.cs"
       }
     },
     {
@@ -89,9 +89,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.fs",
+      "name": "client/remotes/ProductsClient.fs",
       "code": {
-        "file": "client/integrations/ProductsClient.fs"
+        "file": "client/remotes/ProductsClient.fs"
       }
     },
     {
@@ -107,9 +107,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.kt",
+      "name": "client/remotes/ProductsClient.kt",
       "code": {
-        "file": "client/integrations/ProductsClient.kt"
+        "file": "client/remotes/ProductsClient.kt"
       }
     },
     {
@@ -125,9 +125,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.java",
+      "name": "client/remotes/ProductsClient.java",
       "code": {
-        "file": "client/integrations/ProductsClient.java"
+        "file": "client/remotes/ProductsClient.java"
       }
     },
     {
@@ -143,9 +143,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.dart",
+      "name": "client/remotes/ProductsClient.dart",
       "code": {
-        "file": "client/integrations/ProductsClient.dart"
+        "file": "client/remotes/ProductsClient.dart"
       }
     },
     {
@@ -161,9 +161,9 @@
       }
     },
     {
-      "name": "client/integrations/ProductsClient.swift",
+      "name": "client/remotes/ProductsClient.swift",
       "code": {
-        "file": "client/integrations/ProductsClient.swift"
+        "file": "client/remotes/ProductsClient.swift"
       }
     },
     {

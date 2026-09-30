@@ -407,7 +407,7 @@
               "code": "<section>\n  <h1>Hello</h1>\n  <p>You clicked {counter.count} times.</p>\n  <button on:click=\"counter.increment()\">Click me</button>\n  <button on:click=\"counter.askServer()\">Ask the server</button>\n  <p>{counter.message}</p>\n</section>\n"
             },
             {
-              "name": "client/clients/GreetingClient.js",
+              "name": "client/remotes/GreetingClient.js",
               "code": "/** @import { Greeting } from '/models/Greeting.ts' */\n@HTTPClient\nexport default class GreetingClient {\n  /** @returns {Promise<Greeting | void>} */\n  @GetRequest(\"/api/greeting\")\n  async getGreeting() {}\n}\n"
             },
             {
@@ -419,7 +419,7 @@
               "code": "export type Greeting = {\n  message: string\n}\n"
             },
             {
-              "name": "client/clients/GreetingClient.ts",
+              "name": "client/remotes/GreetingClient.ts",
               "code": "import type { Greeting } from '/models/Greeting.ts'\n\n@HTTPClient\nexport default class GreetingClient {\n  @GetRequest(\"/api/greeting\")\n  async getGreeting(): Promise<Greeting | void> {}\n}\n"
             },
             {
@@ -3927,7 +3927,7 @@
               "code": "<main><p>API base: {settings.api}</p></main>\n"
             },
             {
-              "name": "client/clients/ApplicationClient.js",
+              "name": "client/remotes/ApplicationClient.js",
               "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  /** @returns {Promise<BehaviorJsonObject | void>} */\n  @GetRequest(\"/manifest.webmanifest\")\n  async load() {}\n}"
             },
             {
@@ -3935,7 +3935,7 @@
               "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
             },
             {
-              "name": "client/clients/ApplicationClient.ts",
+              "name": "client/remotes/ApplicationClient.ts",
               "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  async load(): Promise<BehaviorJsonObject | void> {}\n}"
             },
             {
@@ -3976,7 +3976,7 @@
               "code": "<main><button on:click=\"catalog.load()\">Load products</button><p>{catalog.error}</p><p>Products: {catalog.products.length}</p></main>"
             },
             {
-              "name": "client/clients/CatalogClient.js",
+              "name": "client/remotes/CatalogClient.js",
               "code": "@HTTPClient({\"adapter\":\"api\"})\nexport default class CatalogClient {\n  /** @returns {Promise<BehaviorJsonValue | void>} */\n  @GetRequest(\"/api/products\")\n  async all() {}\n}"
             },
             {
@@ -3984,7 +3984,7 @@
               "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  /** @type {unknown[]} */\n  products = []\n  error = ''\n\n  async load() {\n    await this.catalogClient.all().then((products) => this._show(products), () => this._showFailure())\n  }\n\n  /**\n   * @param {unknown} products\n   * @returns {void}\n   */\n  _show(products) {\n    if (!Array.isArray(products)) return this._showFailure()\n    this.products = products\n    this.error = ''\n  }\n\n  _showFailure() {\n    this.error = 'Products could not be loaded. Please retry.'\n  }\n}"
             },
             {
-              "name": "client/clients/CatalogClient.ts",
+              "name": "client/remotes/CatalogClient.ts",
               "code": "@HTTPClient({\"adapter\":\"api\"})\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<BehaviorJsonValue | void> {}\n}"
             },
             {
@@ -3992,39 +3992,39 @@
               "code": "@Service\nexport default class CatalogService {\n  @Needs\n  readonly catalogClient!: CatalogClient;\n  products: BehaviorJsonValue[] = []\n  error = ''\n\n  async load() {\n    await this.catalogClient.all().then((products) => this.show(products), () => this.showFailure())\n  }\n\n  private show(products: unknown): void {\n    if (!Array.isArray(products)) return this.showFailure()\n    this.products = products\n    this.error = ''\n  }\n\n  private showFailure(): void {\n    this.error = 'Products could not be loaded. Please retry.'\n  }\n}"
             },
             {
-              "name": "client/clients/CatalogClient.java",
+              "name": "client/remotes/CatalogClient.java",
               "code": "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/api/products\")\n    Object all();\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.dart",
+              "name": "client/remotes/CatalogClient.dart",
               "code": "@HTTPClient\nabstract interface class CatalogClient {\n  @GetRequest(\"/api/products\")\n  Future<Object?> all();\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.rs",
+              "name": "client/remotes/CatalogClient.rs",
               "code": "#[HTTPClient]\ntrait CatalogClient {\n    #[GetRequest(\"/api/products\")]\n    fn all(&self) -> BehaviorResult<BehaviorValue>;\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.go",
+              "name": "client/remotes/CatalogClient.go",
               "code": "// @HTTPClient\ntype CatalogClient interface {\n\t// @GetRequest(\"/api/products\")\n\tAll() (BehaviorValue, error)\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.rb",
+              "name": "client/remotes/CatalogClient.rb",
               "code": "#[HTTPClient]\nclass CatalogClient\n  # @return [Array<String>]\n  #[GetRequest(\"/api/products\")]\n  def all\n  end\nend\n"
             },
             {
-              "name": "client/clients/CatalogClient.swift",
+              "name": "client/remotes/CatalogClient.swift",
               "code": "@HTTPClient\nprotocol CatalogClient {\n    @GetRequest(\"/api/products\")\n    func all() async throws -> BehaviorJSON\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.kt",
+              "name": "client/remotes/CatalogClient.kt",
               "code": "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/api/products\")\n    fun all(): Any?\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.cs",
+              "name": "client/remotes/CatalogClient.cs",
               "code": "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All();\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.fs",
+              "name": "client/remotes/CatalogClient.fs",
               "code": "open System.Threading.Tasks\n\n[<HTTPClient>]\ntype CatalogClient =\n    [<GetRequest(\"/api/products\")>]\n    abstract All: unit -> Task<BehaviorJSON>\n"
             },
             {
@@ -5604,7 +5604,7 @@
         },
         {
           "heading": "Helper calls in each language",
-          "body": "JavaScript, TypeScript and Python use Behaviors.properties(CatalogSettings, values) and Behaviors.validate(Input, value). PHP uses Behaviors::properties(CatalogSettings::class, $values) and ::validate(Input::class, $value). Java and Kotlin use string names that Tachyon generates from the same source, for example Behaviors.properties(\"CatalogSettings\", values). They do not use reflection. C# passes typeof(CatalogSettings). Swift passes CatalogSettings.self with try. Rust uses Behaviors::properties::<CatalogSettings>(&values)? and ::validate::<Input>(value)?. Go uses BehaviorsProperties[CatalogSettings](values) and BehaviorsValidate[Input](value). These factories are synchronous. In JavaScript, TypeScript, Python, C#, Dart and Swift, the cache, HTTP and query methods are async. In Java, Groovy, Kotlin, PHP, Rust and Go, these integrations are synchronous, with cooperative limits. With cooperative limits, the running code checks the limits itself. C# and Swift use BehaviorJSON. Rust uses BehaviorValue with BehaviorResult, and Go uses BehaviorValue with (BehaviorValue, error). The JVM (Java virtual machine) languages use strict native values that are compatible with JSON. Context creation keeps its current API, with optional profiles and properties. See docs/BEHAVIOR_ANNOTATIONS.md for the exact typed forms and for fixtures you can run."
+          "body": "JavaScript, TypeScript and Python use Behaviors.properties(CatalogSettings, values) and Behaviors.validate(Input, value). PHP uses Behaviors::properties(CatalogSettings::class, $values) and ::validate(Input::class, $value). Java and Kotlin use string names that Tachyon generates from the same source, for example Behaviors.properties(\"CatalogSettings\", values). They do not use reflection. C# passes typeof(CatalogSettings). Swift passes CatalogSettings.self with try. Rust uses Behaviors::properties::<CatalogSettings>(&values)? and ::validate::<Input>(value)?. Go uses BehaviorsProperties[CatalogSettings](values) and BehaviorsValidate[Input](value). These factories are synchronous. In JavaScript, TypeScript, Python, C#, Dart and Swift, the cache, HTTP and query methods are async. In Java, Groovy, Kotlin, PHP, Rust and Go, these remotes are synchronous, with cooperative limits. With cooperative limits, the running code checks the limits itself. C# and Swift use BehaviorJSON. Rust uses BehaviorValue with BehaviorResult, and Go uses BehaviorValue with (BehaviorValue, error). The JVM (Java virtual machine) languages use strict native values that are compatible with JSON. Context creation keeps its current API, with optional profiles and properties. See docs/BEHAVIOR_ANNOTATIONS.md for the exact typed forms and for fixtures you can run."
         },
         {
           "heading": "Context ownership and cache permission",
@@ -5669,7 +5669,7 @@
           "body": "`@Gateway` declares a method that another language answers. Write it like a request method: a method without a body in an `HTTPClient` contract. In JavaScript and TypeScript its answer is `Promise<BehaviorJsonValue | void>`. The annotation names one of two targets.\n\n`{\"class\":\"server/services/ReportService.java\",\"method\":\"summarize\"}` names a role file in another Yon language. `method` is optional. By default, it is the name of the annotated method. Tachyon builds a small unit in the language of the target. The unit puts together the role files of that language. It creates the class with its own dependencies. It calls only the methods that callers declared. The target runs like a route: it has the same environment and its own managed storage.\n\n`{\"command\":[\"python3\",\"server/helpers/forecast.py\"]}` names a program. The first entry is a program on the `PATH` of the server. Every entry that contains a slash is a file under `server/helpers/`. No shell runs, and the arguments of the call never go on the command line. The program reads `{\"method\": \"forecast\", \"arguments\": [3]}` on stdin (standard input) and writes only the JSON result on stdout (standard output). Exit status 0 means success. Any other status is a failure. The program gets only the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows) and the names you add to the allowlist. It never gets `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values.\n\nThe positional arguments of the method travel as JSON. The return value of the other side becomes the result of the method. Typed languages use their JSON value type: `Object` in Java, `Any?` in Kotlin, `BehaviorJsonValue` in TypeScript, `BehaviorValue` in Go. These are the limits: at most 32 arguments; 1 MiB of JSON each way, at most 32 levels deep and 10,000 values; 64 calls and 4 calls at the same time per request; and the time left in the request. Each call starts a new process, so a JVM or .NET target spends its start-up time again on every call.\n\nA failure reaches the caller as a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. The messages of the target and its stderr (error output) never reach the caller. The server logs only a `handler.gateway_failed` event with the code. Only one hop (one call from one language to another) is allowed. Tachyon refuses a target class that declares its own gateway.\n\nThe build checks every target. It fails with `TY1312` when the file is missing or outside `server/`. It also fails when the file is in the caller's own language. In that case, inject it instead. It also fails when it is not a Yon language. It fails when the target has no concrete instance method of that name. It also fails when the method takes a different number of arguments. It fails when the method uses a type that is not the JSON value type of the language. Tachyon selects Java, Groovy, Kotlin and C# overloads by argument count and JSON types, not by source order. Overloads are methods with the same name but different parameters. Ambiguous signatures also fail with `TY1312`. So do callers that ask for different argument counts for the same target method. Rust target methods use `&self`. Tachyon refuses a method that consumes `self` or borrows `&mut self`. A Go target method is exported. So Tachyon calls the method whose name starts with an upper-case letter (`summarize` calls `Summarize`). A misused annotation fails with `TY1308`. This happens in Tac, on an HTTP verb method, or together with another method annotation. `server/gateways/` is reserved for the generated units (`TY1310`). A missing program fails at start-up with `TY2112`, and Firecracker isolation refuses gateways (`TY2010`).\n\nEvery Yon language below calls a class in another language. The examples also show an explicit Python command target.",
           "files": [
             {
-              "name": "server/clients/ReportClient.js",
+              "name": "server/remotes/ReportClient.js",
               "code": "@HTTPClient\nexport default class ReportClient {\n  /**\n   * @param {string} period\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  async summarize(period) {}\n\n  /**\n   * @param {number} months\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
             },
             {
@@ -5685,7 +5685,7 @@
               "code": "export interface Report {\n  summary: unknown\n  forecast: unknown\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.ts",
+              "name": "server/remotes/ReportClient.ts",
               "code": "@HTTPClient\nexport default class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.go\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
@@ -5697,7 +5697,7 @@
               "code": "from dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass Report:\n    summary: Any\n    forecast: Any\n"
             },
             {
-              "name": "server/clients/ReportClient.py",
+              "name": "server/remotes/ReportClient.py",
               "code": "from typing import Protocol\n\n@http_client\nclass ReportClient(Protocol):\n    @gateway({\"class\":\"server/services/ReportService.js\"})\n    def summarize(self, period: str) -> object: ...\n\n    @gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    def forecast(self, months: int) -> object: ...\n"
             },
             {
@@ -5717,7 +5717,7 @@
               "code": "<?php\nclass Report {\n    public function __construct(\n        public mixed $summary,\n        public mixed $forecast,\n    ) {}\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.php",
+              "name": "server/remotes/ReportClient.php",
               "code": "<?php\n#[HTTPClient]\ninterface ReportClient {\n    #[Gateway({\"class\":\"server/services/ReportService.py\"})]\n    public function summarize(mixed $period): mixed;\n\n    #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    public function forecast(mixed $months): mixed;\n}\n"
             },
             {
@@ -5733,11 +5733,11 @@
               "code": "record Report(Object summary, Object forecast) {}\n"
             },
             {
-              "name": "server/clients/ReportClient.java",
+              "name": "server/remotes/ReportClient.java",
               "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period);\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months);\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.groovy",
+              "name": "server/remotes/ReportClient.groovy",
               "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period)\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months)\n}\n"
             },
             {
@@ -5753,7 +5753,7 @@
               "code": "data class Report(val summary: Any?, val forecast: Any?)\n"
             },
             {
-              "name": "server/clients/ReportClient.kt",
+              "name": "server/remotes/ReportClient.kt",
               "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    fun summarize(period: Any?): Any?\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    fun forecast(months: Any?): Any?\n}\n"
             },
             {
@@ -5765,7 +5765,7 @@
               "code": "using System.Text.Json.Nodes;\n\npublic record Report(JsonNode Summary, JsonNode Forecast);\n"
             },
             {
-              "name": "server/clients/ReportClient.cs",
+              "name": "server/remotes/ReportClient.cs",
               "code": "[HTTPClient]\ninterface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})]\n    BehaviorJSON Summarize(BehaviorJSON period);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
             },
             {
@@ -5777,7 +5777,7 @@
               "code": "use crate::Json;\n\npub struct Report {\n    pub summary: Json,\n    pub forecast: Json,\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.rs",
+              "name": "server/remotes/ReportClient.rs",
               "code": "#[HTTPClient]\ntrait ReportClient {\n    #[Gateway({\"class\":\"server/services/ReportService.py\"})]\n    fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n\n    #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    fn forecast(&self, months: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n}\n"
             },
             {
@@ -5789,7 +5789,7 @@
               "code": "type Report struct {\n\tSummary  any `json:\"summary\"`\n\tForecast any `json:\"forecast\"`\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.go",
+              "name": "server/remotes/ReportClient.go",
               "code": "// @HTTPClient\ntype ReportClient interface {\n\t// @Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})\n\tSummarize(period BehaviorValue) (BehaviorValue, error)\n\n\t// @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n\tForecast(months BehaviorValue) (BehaviorValue, error)\n}\n"
             },
             {
@@ -5805,7 +5805,7 @@
               "code": "class Report {\n  final Object? summary;\n  final Object? forecast;\n\n  const Report(this.summary, this.forecast);\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.dart",
+              "name": "server/remotes/ReportClient.dart",
               "code": "@HTTPClient\nabstract interface class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  Future<Object?> summarize(Object? period);\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  Future<Object?> forecast(Object? months);\n}\n"
             },
             {
@@ -6783,7 +6783,7 @@
               "code": "<ul>\n  <loop :for=\"user of userList.users\"><li>{user.name}</li></loop>\n</ul>\n"
             },
             {
-              "name": "client/clients/UsersClient.js",
+              "name": "client/remotes/UsersClient.js",
               "code": "@HTTPClient({\"adapter\":\"users\"})\nexport default class UsersClient {\n  /** @returns {Promise<{ name: string }[] | void>} */\n  @GetRequest(\"/users\")\n  async list() {}\n  /** @param {{ name: string }} form */\n  @PostRequest(\"/users\")\n  async save(@RequestBody form) {}\n}"
             },
             {
@@ -6795,7 +6795,7 @@
               "code": "/** @import { UsersChanged } from '/models/UsersChanged.ts' */\n@Service\nexport default class UserListService {\n  /** @type {UsersClient} */\n  @Needs\n  usersClient;\n  /** @type {{ name: string }[]} */\n  users = [];\n  @OnStart\n  async initialize() { await this._refresh(); }\n  /** @param {UsersChanged} changed */\n  @OnEvent\n  async usersChanged(changed) { await this._refreshWhenSaved(changed); }\n  async _refresh() { this.users = /** @type {{ name: string }[]} */ (await this.usersClient.list()); }\n  /** @param {UsersChanged} changed */\n  async _refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }\n}"
             },
             {
-              "name": "client/clients/UsersClient.ts",
+              "name": "client/remotes/UsersClient.ts",
               "code": "@HTTPClient({\"adapter\":\"users\"})\nexport default class UsersClient {\n  @GetRequest(\"/users\")\n  async list(): Promise<BehaviorJsonValue | void> {}\n  @PostRequest(\"/users\")\n  async save(@RequestBody form: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}"
             },
             {
@@ -6811,7 +6811,7 @@
               "code": "export interface UsersChanged {\n  saved: boolean\n}\n"
             },
             {
-              "name": "client/clients/UsersClient.rb",
+              "name": "client/remotes/UsersClient.rb",
               "code": "#[HTTPClient]\nclass UsersClient\n  # @return [Array<Hash>]\n  #[GetRequest(\"/users\")]\n  def list()\n  end\n\n  # @param form [Hash]\n  # @return [Hash]\n  #[PostRequest(\"/users\")]\n  def save(\n    #[RequestBody]\n    form\n  )\n  end\nend\n"
             },
             {
@@ -6862,7 +6862,7 @@
           "axis": "language",
           "files": [
             {
-              "name": "server/clients/BillingClient.js",
+              "name": "server/remotes/BillingClient.js",
               "code": "@HTTPClient(\"/billing\")\nexport default class BillingClient {\n  /** @returns {Promise<BehaviorJsonValue | void>} */\n  @GetRequest(\"/surcharge\")\n  async surcharge() {}\n}\n"
             },
             {
@@ -6894,7 +6894,7 @@
               "code": "export interface Bill {\n  total: number\n}\n"
             },
             {
-              "name": "server/clients/BillingClient.ts",
+              "name": "server/remotes/BillingClient.ts",
               "code": "@HTTPClient(\"/billing\")\nexport default class BillingClient {\n  @GetRequest(\"/surcharge\")\n  async surcharge(): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
@@ -6926,7 +6926,7 @@
               "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Bill:\n    total: int\n"
             },
             {
-              "name": "server/clients/BillingClient.py",
+              "name": "server/remotes/BillingClient.py",
               "code": "from typing import Protocol\n\n@http_client(\"/billing\")\nclass BillingClient(Protocol):\n    @get_request(\"/surcharge\")\n    async def surcharge(self) -> object: ...\n"
             },
             {
@@ -6958,7 +6958,7 @@
               "code": "<?php\nclass Bill {\n    public function __construct(public int $total) {}\n}\n"
             },
             {
-              "name": "server/clients/BillingClient.php",
+              "name": "server/remotes/BillingClient.php",
               "code": "<?php\n#[HTTPClient(\"/billing\")]\ninterface BillingClient {\n  #[GetRequest(\"/surcharge\")]\n  public function surcharge(): array;\n}\n"
             },
             {
@@ -6994,11 +6994,11 @@
               "code": "record Bill(int total) {}\n"
             },
             {
-              "name": "server/clients/BillingClient.java",
+              "name": "server/remotes/BillingClient.java",
               "code": "@HTTPClient(\"/billing\")\ninterface BillingClient {\n  @GetRequest(\"/surcharge\")\n  Object surcharge();\n}\n"
             },
             {
-              "name": "server/clients/BillingClient.groovy",
+              "name": "server/remotes/BillingClient.groovy",
               "code": "@HTTPClient(\"/billing\")\ninterface BillingClient {\n  @GetRequest(\"/surcharge\")\n  Object surcharge()\n}\n"
             },
             {
@@ -7054,7 +7054,7 @@
               "code": "data class Bill(val total: Int)\n"
             },
             {
-              "name": "server/clients/BillingClient.kt",
+              "name": "server/remotes/BillingClient.kt",
               "code": "@HTTPClient(\"/billing\")\ninterface BillingClient {\n  @GetRequest(\"/surcharge\")\n  fun surcharge(): Any?\n}\n"
             },
             {
@@ -7090,7 +7090,7 @@
               "code": "type Bill = { Total: int }\n"
             },
             {
-              "name": "server/clients/BillingClient.cs",
+              "name": "server/remotes/BillingClient.cs",
               "code": "[HTTPClient(\"/billing\")]\ninterface BillingClient {\n  [GetRequest(\"/surcharge\")]\n  System.Threading.Tasks.Task<BehaviorJSON> Surcharge();\n}\n"
             },
             {
@@ -7146,7 +7146,7 @@
               "code": "pub struct Bill {\n    pub total: i64,\n}\n"
             },
             {
-              "name": "server/clients/BillingClient.rs",
+              "name": "server/remotes/BillingClient.rs",
               "code": "#[HTTPClient(\"/billing\")]\ntrait BillingClient {\n    #[GetRequest(\"/surcharge\")]\n    fn surcharge(&self) -> BehaviorResult<BehaviorValue>;\n}\n"
             },
             {
@@ -7178,7 +7178,7 @@
               "code": "type Bill struct {\n\tTotal int `json:\"total\"`\n}\n"
             },
             {
-              "name": "server/clients/BillingClient.go",
+              "name": "server/remotes/BillingClient.go",
               "code": "// @HTTPClient(\"/billing\")\ntype BillingClient interface {\n\t// @GetRequest(\"/surcharge\")\n\tSurcharge() (BehaviorValue, error)\n}\n"
             },
             {
@@ -7210,7 +7210,7 @@
               "code": "class Bill {\n  final int total;\n\n  const Bill(this.total);\n}\n"
             },
             {
-              "name": "server/clients/BillingClient.dart",
+              "name": "server/remotes/BillingClient.dart",
               "code": "@HTTPClient(\"/billing\")\nabstract interface class BillingClient {\n  @GetRequest(\"/surcharge\")\n  Future<Object?> surcharge();\n}\n"
             },
             {
@@ -7242,7 +7242,7 @@
               "code": "# @!attribute [r] total\n#   @return [Integer]\nBill = Data.define(:total)\n"
             },
             {
-              "name": "server/clients/BillingClient.rb",
+              "name": "server/remotes/BillingClient.rb",
               "code": "#[HTTPClient(\"/billing\")]\nclass BillingClient\n  # @return [void]\n  #[GetRequest(\"/surcharge\")]\n  def surcharge\n  end\nend\n"
             },
             {
@@ -9033,10 +9033,10 @@
         {
           "heading": "Outgoing HTTP: Yon",
           "axis": "language",
-          "summary": "A client (a contract that sends HTTP requests to another server) is marked with HTTPClient. It lives in server/clients/<Name>Client.<ext>, and Needs injects it into a service. Like a Spring @HttpExchange interface, it has no implementation: each method is a signature with a request marker (GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest), and Tachyon generates the request.",
+          "summary": "A client (a contract that sends HTTP requests to another server) is marked with HTTPClient. It lives in server/remotes/<Name>Client.<ext>, and Needs injects it into a service. Like a Spring @HttpExchange interface, it has no implementation: each method is a signature with a request marker (GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest), and Tachyon generates the request.",
           "files": [
             {
-              "name": "server/clients/CatalogClient.js",
+              "name": "server/remotes/CatalogClient.js",
               "code": "@HTTPClient\nexport default class CatalogClient {\n  /**\n   * @param {number} page\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page) {}\n\n  /**\n   * @param {BehaviorJsonValue} product\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @PostRequest(\"/products\")\n  async add(@RequestBody product) {}\n}\n"
             },
             {
@@ -9052,7 +9052,7 @@
               "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  /** @type {CatalogService} */\n  @Needs\n  catalogService;\n  /** @returns {Promise<unknown>} */\n  @GetRoute\n  async getCatalog() { return await this.catalogService.products(); }\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.ts",
+              "name": "server/remotes/CatalogClient.ts",
               "code": "@HTTPClient\nexport default class CatalogClient {\n  @GetRequest(\"/products\")\n  async all(@RequestParam(\"page\") page: number): Promise<BehaviorJsonValue | void> {}\n\n  @PostRequest(\"/products\")\n  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
@@ -9068,7 +9068,7 @@
               "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  @Needs\n  readonly catalog!: CatalogService;\n  @GetRoute\n  async getCatalog() { return await this.catalog.products(); }\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.py",
+              "name": "server/remotes/CatalogClient.py",
               "code": "from typing import Annotated, Protocol\n\n@http_client\nclass CatalogClient(Protocol):\n    @get_request(\"/products\")\n    async def all(self, page: Annotated[int, request_param(\"page\")]) -> object: ...\n\n    @post_request(\"/products\")\n    async def add(self, product: Annotated[object, request_body]) -> object: ...\n"
             },
             {
@@ -9084,7 +9084,7 @@
               "code": "from typing import Annotated\n\n@request_route(\"/catalog\")\n@public\nclass CatalogController:\n    catalog: Annotated[CatalogService, needs]\n    @get_route\n    async def get_catalog(self) -> None:\n        return await self.catalog.products()\n"
             },
             {
-              "name": "server/clients/CatalogClient.php",
+              "name": "server/remotes/CatalogClient.php",
               "code": "<?php\n#[HTTPClient]\ninterface CatalogClient {\n    #[GetRequest(\"/products\")]\n    public function all(#[RequestParam(\"page\")] int $page): array;\n\n    #[PostRequest(\"/products\")]\n    public function add(#[RequestBody] array $product): array;\n}\n"
             },
             {
@@ -9100,11 +9100,11 @@
               "code": "<?php\n#[RequestRoute(\"/catalog\")]\n#[Public]\nclass CatalogController {\n    #[Needs]\n    public CatalogService $catalog;\n    #[GetRoute]\n    public function getCatalog(): array { return $this->catalog->products(); }\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.java",
+              "name": "server/remotes/CatalogClient.java",
               "code": "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    Object all(@RequestParam(\"page\") long page);\n\n    @PostRequest(\"/products\")\n    Object add(@RequestBody Object product);\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.groovy",
+              "name": "server/remotes/CatalogClient.groovy",
               "code": "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    Object all(@RequestParam(\"page\") long page)\n\n    @PostRequest(\"/products\")\n    Object add(@RequestBody Object product)\n}\n"
             },
             {
@@ -9132,7 +9132,7 @@
               "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n    @Needs\n    final CatalogService catalog\n    @GetRoute\n    Object getCatalog() { return catalog.products() }\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.kt",
+              "name": "server/remotes/CatalogClient.kt",
               "code": "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    fun all(@RequestParam(\"page\") page: Long): Any?\n\n    @PostRequest(\"/products\")\n    fun add(@RequestBody product: Any?): Any?\n}\n"
             },
             {
@@ -9148,11 +9148,11 @@
               "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n    @Needs\n    val catalog: CatalogService\n    @GetRoute\n    fun getCatalog(): Any? = catalog.products()\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.cs",
+              "name": "server/remotes/CatalogClient.cs",
               "code": "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All([RequestParam(\"page\")] BehaviorJSON page);\n\n    [PostRequest(\"/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> Add([RequestBody] BehaviorJSON product);\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.fs",
+              "name": "server/remotes/CatalogClient.fs",
               "code": "open System.Threading.Tasks\n\n[<HTTPClient>]\ntype CatalogClient =\n    [<GetRequest(\"/products\")>]\n    abstract All: [<RequestParam(\"page\")>] page: BehaviorJSON -> Task<BehaviorJSON>\n\n    [<PostRequest(\"/products\")>]\n    abstract Add: [<RequestBody>] product: BehaviorJSON -> Task<BehaviorJSON>\n"
             },
             {
@@ -9180,7 +9180,7 @@
               "code": "[<RequestRoute(\"/catalog\")>]\n[<Public>]\ntype CatalogController(catalog: CatalogService) =\n    [<GetRoute>]\n    member this.GetCatalog() : obj = catalog.Products()\n"
             },
             {
-              "name": "server/clients/CatalogClient.rs",
+              "name": "server/remotes/CatalogClient.rs",
               "code": "#[HTTPClient]\ntrait CatalogClient {\n    #[GetRequest(\"/products\")]\n    fn all(&self, #[RequestParam(\"page\")] page: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n\n    #[PostRequest(\"/products\")]\n    fn add(&self, #[RequestBody] product: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n}\n"
             },
             {
@@ -9196,7 +9196,7 @@
               "code": "#[RequestRoute(\"/catalog\")]\n#[Public]\nstruct CatalogController {\n  #[Needs]\n  catalog: std::sync::Arc<CatalogService>,\n}\nimpl CatalogController {\n    #[GetRoute]\n    fn get_catalog(&self) -> Json { self.catalog.products().unwrap_or(Json::Null) }\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.dart",
+              "name": "server/remotes/CatalogClient.dart",
               "code": "@HTTPClient\nabstract interface class CatalogClient {\n  @GetRequest(\"/products\")\n  Future<Object?> all(@RequestParam(\"page\") int page);\n\n  @PostRequest(\"/products\")\n  Future<Object?> add(@RequestBody Object? product);\n}\n"
             },
             {
@@ -9232,7 +9232,7 @@
               "code": "#[Helper]\nstruct CatalogTransportHelper;\nimpl BehaviorHttpAdapter for CatalogTransportHelper {\n    fn exchange(&self, _request: &BehaviorHttpRequest, _execution: &BehaviorExecution) -> BehaviorResult<BehaviorValue> {\n        Ok(BehaviorValue::object([(\"items\", BehaviorValue::Array(vec![\"anvil\".into()]))]))\n    }\n}\n\nimpl CatalogTransportHelper {\n    fn new() -> Self { Self }\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.go",
+              "name": "server/remotes/CatalogClient.go",
               "code": "// @HTTPClient\ntype CatalogClient interface {\n\t// @GetRequest(\"/products\")\n\tAll(\n\t\t// @RequestParam(\"page\")\n\t\tpage BehaviorValue,\n\t) (BehaviorValue, error)\n\n\t// @PostRequest(\"/products\")\n\tAdd(\n\t\t// @RequestBody\n\t\tproduct BehaviorValue,\n\t) (BehaviorValue, error)\n}\n"
             },
             {
@@ -9252,7 +9252,7 @@
               "code": "// @Helper\ntype CatalogTransportHelper struct{}\n\nfunc (helper *CatalogTransportHelper) Exchange(request *BehaviorHttpRequest, execution *BehaviorExecution) (BehaviorValue, error) {\n\treturn map[string]any{\"items\": []any{\"anvil\"}}, nil\n}\n"
             },
             {
-              "name": "server/clients/CatalogClient.rb",
+              "name": "server/remotes/CatalogClient.rb",
               "code": "#[HTTPClient]\nclass CatalogClient\n  # @param page [Integer]\n  # @return [Hash]\n  #[GetRequest(\"/products\")]\n  def all(\n    #[RequestParam(\"page\")]\n    page\n  )\n  end\n\n  # @param product [Hash]\n  # @return [Hash]\n  #[PostRequest(\"/products\")]\n  def add(\n    #[RequestBody]\n    product\n  )\n  end\nend\n"
             },
             {
@@ -9284,7 +9284,7 @@
               "code": "<main><h1>Catalog</h1><button on:click=\"catalog.load()\">Load</button><p>Loaded {catalog.count} products</p></main>\n"
             },
             {
-              "name": "client/clients/CatalogClient.js",
+              "name": "client/remotes/CatalogClient.js",
               "code": "@HTTPClient\n@CacheSettings({\"name\":\"catalog\",\"ttlMs\":60000,\"maxBytes\":65536,\"maxEntries\":16})\nexport default class CatalogClient {\n  /** @returns {Promise<{ items: string[] } | void>} */\n  @Cached\n  @GetRequest(\"/api/products\")\n  async all() {}\n\n  /** @param {object} product */\n  @PostRequest(\"/api/products\")\n  async add(@RequestBody product) {}\n}\n"
             },
             {
@@ -9292,7 +9292,7 @@
               "code": "@Service\nexport default class CatalogService {\n  /** @type {CatalogClient} */\n  @Needs\n  catalogClient;\n  count = 0;\n\n  async load() {\n    const answer = await this.catalogClient.all();\n    this.count = this._countItems(answer);\n  }\n\n  /**\n   * @param {{ items: string[] } | void} answer\n   * @returns {number}\n   */\n  _countItems(answer) {\n    return answer ? answer.items.length : 0;\n  }\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.ts",
+              "name": "client/remotes/CatalogClient.ts",
               "code": "@HTTPClient\n@CacheSettings({\"name\":\"catalog\",\"ttlMs\":60000,\"maxBytes\":65536,\"maxEntries\":16})\nexport default class CatalogClient {\n  @Cached\n  @GetRequest(\"/api/products\")\n  async all(): Promise<{ items: string[] } | void> {}\n\n  @PostRequest(\"/api/products\")\n  async add(@RequestBody product: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
@@ -9356,31 +9356,31 @@
               "code": "@Service\nclass CatalogService {\n  final CatalogClient catalog = CatalogClient();\n  int count = 0;\n\n  Future<void> load() async {\n    final answer = await catalog.all() as Map;\n    count = (answer['items'] as List).length;\n  }\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.swift",
+              "name": "client/remotes/CatalogClient.swift",
               "code": "@HTTPClient\nprotocol CatalogClient {\n    @GetRequest(\"/api/products\")\n    func all() async throws -> BehaviorJSON\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.kt",
+              "name": "client/remotes/CatalogClient.kt",
               "code": "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/api/products\")\n    fun all(): Any?\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.cs",
+              "name": "client/remotes/CatalogClient.cs",
               "code": "[HTTPClient]\ninterface CatalogClient {\n    [GetRequest(\"/api/products\")]\n    System.Threading.Tasks.Task<BehaviorJSON> All();\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.fs",
+              "name": "client/remotes/CatalogClient.fs",
               "code": "open System.Threading.Tasks\n\n[<HTTPClient>]\ntype CatalogClient =\n    [<GetRequest(\"/api/products\")>]\n    abstract All: unit -> Task<BehaviorJSON>\n"
             },
             {
-              "name": "client/clients/CatalogClient.rs",
+              "name": "client/remotes/CatalogClient.rs",
               "code": "#[HTTPClient]\ntrait CatalogClient {\n    #[GetRequest(\"/api/products\")]\n    fn all(&self) -> BehaviorResult<BehaviorValue>;\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.go",
+              "name": "client/remotes/CatalogClient.go",
               "code": "// @HTTPClient\ntype CatalogClient interface {\n\t// @GetRequest(\"/api/products\")\n\tAll() (BehaviorValue, error)\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.dart",
+              "name": "client/remotes/CatalogClient.dart",
               "code": "@HTTPClient\nabstract interface class CatalogClient {\n  @GetRequest(\"/api/products\")\n  Future<Object?> all();\n}\n"
             },
             {
@@ -9392,7 +9392,7 @@
               "code": "#[Service]\nclass CatalogService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @catalog = CatalogClient.new\n    @count = 0\n  end\n\n  # @return [void]\n  def load\n    @count = @catalog.all[\"items\"].length\n  end\nend\n"
             },
             {
-              "name": "client/clients/CatalogClient.rb",
+              "name": "client/remotes/CatalogClient.rb",
               "code": "#[HTTPClient]\nclass CatalogClient\n  # @return [Hash]\n  #[GetRequest(\"/api/products\")]\n  def all\n  end\nend\n"
             },
             {
@@ -9404,7 +9404,7 @@
               "code": "@Service\nclass CatalogService {\n    private final CatalogClient catalog = new CatalogClient();\n    int count = 0;\n\n    void load() {\n        java.util.Map<?, ?> answer = (java.util.Map<?, ?>) catalog.all();\n        count = ((java.util.List<?>) answer.get(\"items\")).size();\n    }\n}\n"
             },
             {
-              "name": "client/clients/CatalogClient.java",
+              "name": "client/remotes/CatalogClient.java",
               "code": "@HTTPClient\ninterface CatalogClient {\n    @GetRequest(\"/api/products\")\n    Object all();\n}\n"
             }
           ]
@@ -9416,7 +9416,7 @@
           "body": "Choose one language for GET /report. Each implementation returns {\"summary\":{\"period\":\"2026-Q3\",\"total\":42,...},\"forecast\":{\"months\":2,\"growth\":[1.5,1.5]}}. The controller returns a `Report` model, and each of its two fields holds a gateway result. A gateway is a method that calls code written in another language. `ReportClient` declares two gateways. `summarize` names the Python class `server/services/ReportService.py`. The Python tab names the JavaScript class `server/services/ReportService.js` instead, because a gateway never calls the caller's own language. The TypeScript tab names the Go class `server/services/ReportService.go` to show a Go target. The Go tab holds that class. Tachyon calls its exported method `Summarize`. `forecast` names the program `python3 server/helpers/forecast.py`. This program reads `{\"method\": \"forecast\", \"arguments\": [2]}` on stdin (standard input). It writes only the JSON result on stdout (standard output). So the Python tab also holds two more things: the class that most of the other languages call, and the program that every language calls. The arguments and results use the JSON value type of each language. JavaScript and Python use none. TypeScript uses `BehaviorJsonValue`. PHP uses `mixed` or no type. Ruby uses no type. Java uses `Object`. Kotlin uses `Any?`. C# and F# use `BehaviorJSON`. Rust uses `BehaviorValue` and `BehaviorResult<BehaviorValue>`. Dart uses `Object?` and `Future<Object?>`. Go uses `BehaviorValue` and `(BehaviorValue, error)`. The C#, F# and Go methods are named `Summarize`, so their options add `\"method\":\"summarize\"`. A failure is a `BehaviorError`. Its code is `invalid`, `timeout`, `capacity` or `adapter`, and its message is always `Gateway call failed.`. Gateway exists only in Yon. The full rules are in the Yon guide, in the section Calling a method in another language. Lua has no tab here, because the build refuses Gateway in Lua Yon code with TY1308.",
           "files": [
             {
-              "name": "server/clients/ReportClient.js",
+              "name": "server/remotes/ReportClient.js",
               "code": "@HTTPClient\nexport default class ReportClient {\n  /**\n   * @param {string} period\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  async summarize(period) {}\n\n  /**\n   * @param {number} months\n   * @returns {Promise<BehaviorJsonValue | void>}\n   */\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months) {}\n}\n"
             },
             {
@@ -9432,7 +9432,7 @@
               "code": "export interface Report {\n  summary: unknown\n  forecast: unknown\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.ts",
+              "name": "server/remotes/ReportClient.ts",
               "code": "@HTTPClient\nexport default class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.go\"})\n  async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  async forecast(months: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}\n}\n"
             },
             {
@@ -9444,7 +9444,7 @@
               "code": "from dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass Report:\n    summary: Any\n    forecast: Any\n"
             },
             {
-              "name": "server/clients/ReportClient.py",
+              "name": "server/remotes/ReportClient.py",
               "code": "from typing import Protocol\n\n@http_client\nclass ReportClient(Protocol):\n    @gateway({\"class\":\"server/services/ReportService.js\"})\n    def summarize(self, period: str) -> object: ...\n\n    @gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    def forecast(self, months: int) -> object: ...\n"
             },
             {
@@ -9464,7 +9464,7 @@
               "code": "<?php\nclass Report {\n    public function __construct(\n        public mixed $summary,\n        public mixed $forecast,\n    ) {}\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.php",
+              "name": "server/remotes/ReportClient.php",
               "code": "<?php\n#[HTTPClient]\ninterface ReportClient {\n    #[Gateway({\"class\":\"server/services/ReportService.py\"})]\n    public function summarize(mixed $period): mixed;\n\n    #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    public function forecast(mixed $months): mixed;\n}\n"
             },
             {
@@ -9480,11 +9480,11 @@
               "code": "record Report(Object summary, Object forecast) {}\n"
             },
             {
-              "name": "server/clients/ReportClient.java",
+              "name": "server/remotes/ReportClient.java",
               "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period);\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months);\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.groovy",
+              "name": "server/remotes/ReportClient.groovy",
               "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period)\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    Object forecast(Object months)\n}\n"
             },
             {
@@ -9500,7 +9500,7 @@
               "code": "data class Report(val summary: Any?, val forecast: Any?)\n"
             },
             {
-              "name": "server/clients/ReportClient.kt",
+              "name": "server/remotes/ReportClient.kt",
               "code": "@HTTPClient\ninterface ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    fun summarize(period: Any?): Any?\n\n    @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n    fun forecast(months: Any?): Any?\n}\n"
             },
             {
@@ -9512,7 +9512,7 @@
               "code": "using System.Text.Json.Nodes;\n\npublic record Report(JsonNode Summary, JsonNode Forecast);\n"
             },
             {
-              "name": "server/clients/ReportClient.cs",
+              "name": "server/remotes/ReportClient.cs",
               "code": "[HTTPClient]\ninterface ReportClient {\n    [Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})]\n    BehaviorJSON Summarize(BehaviorJSON period);\n\n    [Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    BehaviorJSON Forecast(BehaviorJSON months);\n}\n"
             },
             {
@@ -9524,7 +9524,7 @@
               "code": "use crate::Json;\n\npub struct Report {\n    pub summary: Json,\n    pub forecast: Json,\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.rs",
+              "name": "server/remotes/ReportClient.rs",
               "code": "#[HTTPClient]\ntrait ReportClient {\n    #[Gateway({\"class\":\"server/services/ReportService.py\"})]\n    fn summarize(&self, period: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n\n    #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n    fn forecast(&self, months: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n}\n"
             },
             {
@@ -9536,7 +9536,7 @@
               "code": "type Report struct {\n\tSummary  any `json:\"summary\"`\n\tForecast any `json:\"forecast\"`\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.go",
+              "name": "server/remotes/ReportClient.go",
               "code": "// @HTTPClient\ntype ReportClient interface {\n\t// @Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})\n\tSummarize(period BehaviorValue) (BehaviorValue, error)\n\n\t// @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n\tForecast(months BehaviorValue) (BehaviorValue, error)\n}\n"
             },
             {
@@ -9552,7 +9552,7 @@
               "code": "class Report {\n  final Object? summary;\n  final Object? forecast;\n\n  const Report(this.summary, this.forecast);\n}\n"
             },
             {
-              "name": "server/clients/ReportClient.dart",
+              "name": "server/remotes/ReportClient.dart",
               "code": "@HTTPClient\nabstract interface class ReportClient {\n  @Gateway({\"class\":\"server/services/ReportService.py\"})\n  Future<Object?> summarize(Object? period);\n\n  @Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})\n  Future<Object?> forecast(Object? months);\n}\n"
             },
             {
@@ -9564,7 +9564,7 @@
               "code": "# @!attribute [r] summary\n#   @return [Object]\n# @!attribute [r] forecast\n#   @return [Object]\nReport = Data.define(:summary, :forecast)\n"
             },
             {
-              "name": "server/clients/ReportClient.rb",
+              "name": "server/remotes/ReportClient.rb",
               "code": "#[HTTPClient]\nclass ReportClient\n  # @param period [String]\n  # @return [void]\n  #[Gateway({\"class\":\"server/services/ReportService.py\"})]\n  def summarize(period)\n  end\n\n  # @param months [Integer]\n  # @return [void]\n  #[Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})]\n  def forecast(months)\n  end\nend\n"
             },
             {
@@ -9576,7 +9576,7 @@
               "code": "open System.Text.Json.Nodes\n\ntype Report = { Summary: JsonNode; Forecast: JsonNode }\n"
             },
             {
-              "name": "server/clients/ReportClient.fs",
+              "name": "server/remotes/ReportClient.fs",
               "code": "[<HTTPClient>]\ntype ReportClient =\n    [<Gateway({\"class\":\"server/services/ReportService.py\",\"method\":\"summarize\"})>]\n    abstract Summarize: period: BehaviorJSON -> BehaviorJSON\n\n    [<Gateway({\"command\":[\"python3\",\"server/helpers/forecast.py\"]})>]\n    abstract Forecast: months: BehaviorJSON -> BehaviorJSON\n"
             },
             {
@@ -9823,7 +9823,7 @@
               "code": "{\n  \"name\": \"Catalog\",\n  \"short_name\": \"Catalog\",\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {\n    \"catalog\": {\n      \"title\": \"Catalog\",\n      \"page\": {\n        \"size\": 20\n      },\n      \"cache\": {\n        \"enabled\": true\n      }\n    }\n  }\n}\n"
             },
             {
-              "name": "client/clients/ApplicationClient.js",
+              "name": "client/remotes/ApplicationClient.js",
               "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  /** @returns {Promise<BehaviorJsonObject | void>} */\n  @GetRequest(\"/manifest.webmanifest\")\n  async load() {}\n}\n"
             },
             {
@@ -9835,7 +9835,7 @@
               "code": "@Service\nexport default class SettingsService {\n  /** @type {ApplicationClient} */\n  @Needs\n  applicationClient;\n  title = 'Catalog';\n  pageSize = 20;\n  @OnStart\n  async initialize() {\n    const application = /** @type {BehaviorJsonObject} */ (await this.applicationClient.load());\n    const catalog = Behaviors.properties(CatalogSetup, application);\n    const values = Behaviors.values(PublicValues, application);\n    this.title = String(values.title);\n    this.pageSize = Number(catalog.pageSize);\n    const lifetime = new AbortController();\n    const context = await Behaviors.create(CatalogSetup, {\n      partition: 'public-catalog',\n      signal: lifetime.signal,\n      profiles: ['public'],\n      properties: application,\n    });\n    context.dispose();\n    lifetime.abort();\n  }\n}\n"
             },
             {
-              "name": "client/clients/ApplicationClient.ts",
+              "name": "client/remotes/ApplicationClient.ts",
               "code": "@HTTPClient({\"adapter\":\"publicConfiguration\"})\nexport default class ApplicationClient {\n  @GetRequest(\"/manifest.webmanifest\")\n  async load(): Promise<BehaviorJsonObject | void> {}\n}\n"
             },
             {

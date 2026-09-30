@@ -111,7 +111,7 @@ pub(super) struct RoleRename {
 impl RoleRename {
     const REALMS: [&str; 2] = ["client", "server"];
     const FOLDERS: [(&str, &str, &str, &str); 5] = [
-        ("clients", "integrations", "Client", "Client"),
+        ("clients", "remotes", "Client", "Client"),
         ("repositories", "stores", "Repository", "Store"),
         ("configurations", "setups", "Configuration", "Setup"),
         ("mappers", "converters", "Mapper", "Converter"),
@@ -179,7 +179,7 @@ impl RoleRename {
         let old_folder = Self::role_folder(from);
         let new_folder = Self::role_folder(to);
         if old_folder.ends_with("/clients/") {
-            self.add_integration_paths(from, to);
+            self.add_remote_paths(from, to);
             return;
         }
         if old_folder != new_folder {
@@ -187,14 +187,15 @@ impl RoleRename {
         }
     }
 
-    fn add_integration_paths(&mut self, from: &str, to: &str) {
-        self.folder_paths.insert((String::from(from), String::from(to)));
+    fn add_remote_paths(&mut self, from: &str, to: &str) {
+        self.folder_paths
+            .insert((String::from(from), String::from(to)));
         let Some((_, rest)) = from.split_once("/clients/") else {
             return;
         };
         for prefix in ["", "./", "../"] {
             let old = format!("{prefix}clients/{rest}");
-            let new = format!("{prefix}integrations/{rest}");
+            let new = format!("{prefix}remotes/{rest}");
             self.folder_paths.insert((old, new));
         }
     }

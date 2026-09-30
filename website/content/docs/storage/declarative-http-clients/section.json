@@ -16,9 +16,9 @@
       }
     },
     {
-      "name": "client/integrations/CatalogClient.js",
+      "name": "client/remotes/CatalogClient.js",
       "code": {
-        "file": "client/integrations/CatalogClient.js"
+        "file": "client/remotes/CatalogClient.js"
       }
     },
     {
@@ -28,9 +28,9 @@
       }
     },
     {
-      "name": "client/integrations/CatalogClient.ts",
+      "name": "client/remotes/CatalogClient.ts",
       "code": {
-        "file": "client/integrations/CatalogClient.ts"
+        "file": "client/remotes/CatalogClient.ts"
       }
     },
     {
@@ -40,57 +40,57 @@
       }
     },
     {
-      "name": "client/integrations/CatalogClient.java",
+      "name": "client/remotes/CatalogClient.java",
       "code": {
-        "file": "client/integrations/CatalogClient.java"
+        "file": "client/remotes/CatalogClient.java"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.dart",
+      "name": "client/remotes/CatalogClient.dart",
       "code": {
-        "file": "client/integrations/CatalogClient.dart"
+        "file": "client/remotes/CatalogClient.dart"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.rs",
+      "name": "client/remotes/CatalogClient.rs",
       "code": {
-        "file": "client/integrations/CatalogClient.rs"
+        "file": "client/remotes/CatalogClient.rs"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.go",
+      "name": "client/remotes/CatalogClient.go",
       "code": {
-        "file": "client/integrations/CatalogClient.go"
+        "file": "client/remotes/CatalogClient.go"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.rb",
+      "name": "client/remotes/CatalogClient.rb",
       "code": {
-        "file": "client/integrations/CatalogClient.rb"
+        "file": "client/remotes/CatalogClient.rb"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.swift",
+      "name": "client/remotes/CatalogClient.swift",
       "code": {
-        "file": "client/integrations/CatalogClient.swift"
+        "file": "client/remotes/CatalogClient.swift"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.kt",
+      "name": "client/remotes/CatalogClient.kt",
       "code": {
-        "file": "client/integrations/CatalogClient.kt"
+        "file": "client/remotes/CatalogClient.kt"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.cs",
+      "name": "client/remotes/CatalogClient.cs",
       "code": {
-        "file": "client/integrations/CatalogClient.cs"
+        "file": "client/remotes/CatalogClient.cs"
       }
     },
     {
-      "name": "client/integrations/CatalogClient.fs",
+      "name": "client/remotes/CatalogClient.fs",
       "code": {
-        "file": "client/integrations/CatalogClient.fs"
+        "file": "client/remotes/CatalogClient.fs"
       }
     },
     {

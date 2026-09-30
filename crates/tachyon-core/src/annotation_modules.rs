@@ -255,7 +255,7 @@ struct Module {
 
 impl Module {
     const ROLE_FOLDERS: [&str; 9] = [
-        "integrations",
+        "remotes",
         "clients",
         "setups",
         "controllers",

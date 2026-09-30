@@ -268,6 +268,7 @@ fn only_the_chosen_realms_languages_and_features_are_generated() {
         "server/controllers/ChatController.js",
         "server/models/ChatMessage.js",
         "client/services/ChatService.ts",
+        "client/remotes/ChatClient.ts",
         "client/models/ChatMessage.ts",
         "server/services/NoteService.js",
     ] {

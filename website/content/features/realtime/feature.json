@@ -107,15 +107,15 @@
       }
     },
     {
-      "name": "client/integrations/TicksClient.js",
+      "name": "client/remotes/TicksClient.js",
       "code": {
-        "file": "client/integrations/TicksClient.js"
+        "file": "client/remotes/TicksClient.js"
       }
     },
     {
-      "name": "client/integrations/TicksClient.ts",
+      "name": "client/remotes/TicksClient.ts",
       "code": {
-        "file": "client/integrations/TicksClient.ts"
+        "file": "client/remotes/TicksClient.ts"
       }
     },
     {

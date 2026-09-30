@@ -117,3 +117,59 @@ fn error_discovery_never_follows_a_source_symlink() {
     );
     assert!(result.is_err());
 }
+
+#[test]
+fn remotes_and_clients_aliases_compose_in_both_realms() {
+    for realm in ["client", "server"] {
+        for folder in ["remotes", "clients"] {
+            let root = tempfile::tempdir().expect("project");
+            let (role, environment) = if realm == "client" {
+                ("Service", "tac")
+            } else {
+                ("RequestRoute", "yon")
+            };
+            let entry = format!("{realm}/services/OrdersService.js");
+            let entry = if realm == "server" {
+                String::from("server/controllers/OrdersController.js")
+            } else {
+                entry
+            };
+            let source = if role == "Service" {
+                "@Service\nclass OrdersService { @Needs ordersClient; }\n"
+            } else {
+                Sources::CONTROLLER
+            };
+            Sources::write(root.path(), &entry, source);
+            Sources::write(
+                root.path(),
+                &format!("{realm}/{folder}/OrdersClient.js"),
+                "@HTTPClient\nclass OrdersClient {}\n",
+            );
+            let composed = assemble(root.path(), Path::new(&entry), source, environment)
+                .expect("outbound role discovery")
+                .expect("composed outbound class");
+            assert!(composed.contains("class OrdersClient"), "{realm}/{folder}");
+        }
+    }
+}
+
+#[test]
+fn remotes_and_clients_aliases_refuse_duplicate_type_names() {
+    let root = Sources::project();
+    for folder in ["remotes", "clients"] {
+        Sources::write(
+            root.path(),
+            &format!("server/{folder}/OrdersClient.js"),
+            "@HTTPClient\nclass OrdersClient {}\n",
+        );
+    }
+    let error = assemble(
+        root.path(),
+        Path::new("server/controllers/OrdersController.js"),
+        Sources::CONTROLLER,
+        "yon",
+    )
+    .expect_err("conflicting identities")
+    .to_string();
+    assert!(error.contains("duplicate type name"), "{error}");
+}

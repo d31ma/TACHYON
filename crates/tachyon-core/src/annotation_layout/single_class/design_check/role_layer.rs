@@ -15,7 +15,7 @@ impl RoleLayer {
         ("helpers", Self::Helper, "a helper"),
         ("stores", Self::DataAccess, "a store"),
         ("repositories", Self::DataAccess, "a repository"),
-        ("integrations", Self::DataAccess, "a client"),
+        ("remotes", Self::DataAccess, "a client"),
         ("clients", Self::DataAccess, "a client"),
         ("converters", Self::Other, "a converter"),
         ("mappers", Self::Other, "a mapper"),

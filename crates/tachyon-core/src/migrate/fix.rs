@@ -555,8 +555,10 @@ impl MigrationFixPlan {
         edits: &mut Vec<TextEdit>,
         notes: &mut Vec<String>,
     ) {
-        let planned = match crate::declared_contract::DeclaredContract::rewrite(Path::new(relative), source)
-        {
+        let planned = match crate::declared_contract::DeclaredContract::rewrite(
+            Path::new(relative),
+            source,
+        ) {
             Ok(planned) => planned,
             Err(problem) => {
                 self.manual_steps.push(ManualStep::new(
@@ -1048,18 +1050,19 @@ impl MigrationFixPlan {
         edits: &mut Vec<TextEdit>,
         notes: &mut Vec<String>,
     ) {
-        let fitting: Vec<TextEdit> = roles
-            .path_edits(source)
-            .into_iter()
-            .filter(|edit| Self::fits(edits, edit))
-            .collect();
-        let note = fitting.first().map(|_| {
-            String::from(
-                "Changed the paths of files that moved to a renamed role folder (ADR 0047).",
-            )
-        });
-        notes.extend(note);
-        edits.extend(fitting);
+        let mut changed = false;
+        for edit in roles.path_edits(source) {
+            if !Self::fits(edits, &edit) {
+                continue;
+            }
+            edits.push(edit);
+            changed = true;
+        }
+        if changed {
+            notes.push(String::from(
+                "Changed the paths of files that moved to a renamed role folder.",
+            ));
+        }
     }
 
     fn fits(edits: &[TextEdit], edit: &TextEdit) -> bool {

@@ -26,7 +26,7 @@ impl CapturedSources {
         "client/controllers",
         "client/stores",
         "client/repositories",
-        "client/integrations",
+        "client/remotes",
         "client/clients",
         "client/helpers",
         "client/converters",

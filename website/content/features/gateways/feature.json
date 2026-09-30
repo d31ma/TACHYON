@@ -25,8 +25,8 @@
       "code": { "file": "spellings.txt" }
     },
     {
-      "name": "server/integrations/ReportClient.js",
-      "code": { "file": "server/integrations/ReportClient.js" }
+      "name": "server/remotes/ReportClient.js",
+      "code": { "file": "server/remotes/ReportClient.js" }
     },
     {
       "name": "server/models/Report.js",
@@ -41,8 +41,8 @@
       "code": { "file": "server/models/Forecast.py" }
     },
     {
-      "name": "server/integrations/ForecastClient.py",
-      "code": { "file": "server/integrations/ForecastClient.py" }
+      "name": "server/remotes/ForecastClient.py",
+      "code": { "file": "server/remotes/ForecastClient.py" }
     },
     {
       "name": "server/controllers/ForecastController.py",
@@ -57,12 +57,12 @@
       "code": { "file": "server/models/Balance.groovy" }
     },
     {
-      "name": "server/integrations/LedgerClient.java",
-      "code": { "file": "server/integrations/LedgerClient.java" }
+      "name": "server/remotes/LedgerClient.java",
+      "code": { "file": "server/remotes/LedgerClient.java" }
     },
     {
-      "name": "server/integrations/LedgerClient.groovy",
-      "code": { "file": "server/integrations/LedgerClient.groovy" }
+      "name": "server/remotes/LedgerClient.groovy",
+      "code": { "file": "server/remotes/LedgerClient.groovy" }
     },
     {
       "name": "server/controllers/LedgerController.java",
@@ -73,8 +73,8 @@
       "code": { "file": "server/controllers/LedgerController.groovy" }
     },
     {
-      "name": "server/integrations/ReportClient.ts",
-      "code": { "file": "server/integrations/ReportClient.ts" }
+      "name": "server/remotes/ReportClient.ts",
+      "code": { "file": "server/remotes/ReportClient.ts" }
     },
     {
       "name": "server/controllers/ReportController.ts",
@@ -85,8 +85,8 @@
       "code": { "file": "server/models/Report.ts" }
     },
     {
-      "name": "server/integrations/LedgerClient.php",
-      "code": { "file": "server/integrations/LedgerClient.php" }
+      "name": "server/remotes/LedgerClient.php",
+      "code": { "file": "server/remotes/LedgerClient.php" }
     },
     {
       "name": "server/controllers/LedgerController.php",
@@ -97,8 +97,8 @@
       "code": { "file": "server/models/Balance.php" }
     },
     {
-      "name": "server/integrations/LedgerClient.cs",
-      "code": { "file": "server/integrations/LedgerClient.cs" }
+      "name": "server/remotes/LedgerClient.cs",
+      "code": { "file": "server/remotes/LedgerClient.cs" }
     },
     {
       "name": "server/controllers/LedgerController.cs",
@@ -109,8 +109,8 @@
       "code": { "file": "server/models/Ledger.cs" }
     },
     {
-      "name": "server/integrations/LedgerClient.fs",
-      "code": { "file": "server/integrations/LedgerClient.fs" }
+      "name": "server/remotes/LedgerClient.fs",
+      "code": { "file": "server/remotes/LedgerClient.fs" }
     },
     {
       "name": "server/controllers/LedgerController.fs",
@@ -121,8 +121,8 @@
       "code": { "file": "server/models/Balance.fs" }
     },
     {
-      "name": "server/integrations/LedgerClient.kt",
-      "code": { "file": "server/integrations/LedgerClient.kt" }
+      "name": "server/remotes/LedgerClient.kt",
+      "code": { "file": "server/remotes/LedgerClient.kt" }
     },
     {
       "name": "server/controllers/LedgerController.kt",
@@ -133,8 +133,8 @@
       "code": { "file": "server/models/Balance.kt" }
     },
     {
-      "name": "server/integrations/LedgerClient.rs",
-      "code": { "file": "server/integrations/LedgerClient.rs" }
+      "name": "server/remotes/LedgerClient.rs",
+      "code": { "file": "server/remotes/LedgerClient.rs" }
     },
     {
       "name": "server/controllers/LedgerController.rs",
@@ -145,8 +145,8 @@
       "code": { "file": "server/models/Balance.rs" }
     },
     {
-      "name": "server/integrations/LedgerClient.go",
-      "code": { "file": "server/integrations/LedgerClient.go" }
+      "name": "server/remotes/LedgerClient.go",
+      "code": { "file": "server/remotes/LedgerClient.go" }
     },
     {
       "name": "server/controllers/LedgerController.go",
@@ -157,8 +157,8 @@
       "code": { "file": "server/models/Balance.go" }
     },
     {
-      "name": "server/integrations/LedgerClient.dart",
-      "code": { "file": "server/integrations/LedgerClient.dart" }
+      "name": "server/remotes/LedgerClient.dart",
+      "code": { "file": "server/remotes/LedgerClient.dart" }
     },
     {
       "name": "server/controllers/LedgerController.dart",
@@ -169,8 +169,8 @@
       "code": { "file": "server/models/Balance.dart" }
     },
     {
-      "name": "server/integrations/LedgerClient.rb",
-      "code": { "file": "server/integrations/LedgerClient.rb" }
+      "name": "server/remotes/LedgerClient.rb",
+      "code": { "file": "server/remotes/LedgerClient.rb" }
     },
     {
       "name": "server/controllers/LedgerController.rb",

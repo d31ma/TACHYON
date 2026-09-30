@@ -22,9 +22,9 @@
       }
     },
     {
-      "name": "client/integrations/UsersClient.js",
+      "name": "client/remotes/UsersClient.js",
       "code": {
-        "file": "client/integrations/UsersClient.js"
+        "file": "client/remotes/UsersClient.js"
       }
     },
     {
@@ -40,9 +40,9 @@
       }
     },
     {
-      "name": "client/integrations/UsersClient.ts",
+      "name": "client/remotes/UsersClient.ts",
       "code": {
-        "file": "client/integrations/UsersClient.ts"
+        "file": "client/remotes/UsersClient.ts"
       }
     },
     {
@@ -64,9 +64,9 @@
       }
     },
     {
-      "name": "client/integrations/UsersClient.rb",
+      "name": "client/remotes/UsersClient.rb",
       "code": {
-        "file": "client/integrations/UsersClient.rb"
+        "file": "client/remotes/UsersClient.rb"
       }
     },
     {

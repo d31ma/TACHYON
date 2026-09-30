@@ -453,9 +453,102 @@ fn a_component_becomes_a_helper_in_the_helpers_folder() {
     );
     let order = read(root, "server/services/OrderService.py");
     assert!(order.contains("tax_helper: TaxHelper"), "{order}");
-    let client = read(root, "server/clients/ReportClient.py");
+    let client = read(root, "server/remotes/ReportClient.py");
     assert!(client.contains("\"server/helpers/report.rb\""), "{client}");
     assert_eq!(read(root, "server/helpers/report.rb"), "puts 1\n");
     assert!(!root.join("client/delegates/PricingComponent.js").exists());
     assert!(!root.join("server/delegates/report.rb").exists());
+}
+
+#[test]
+fn remotes_migration_preserves_role_api_and_updates_paths_in_both_realms() {
+    let project = project();
+    let body = "@HTTPClient\nexport default class OrdersClient {}\n";
+    for realm in ["client", "server"] {
+        write(
+            project.path(),
+            &format!("{realm}/clients/OrdersClient.js"),
+            body,
+        );
+        write(
+            project.path(),
+            &format!("{realm}/shared/entry.js"),
+            &format!(
+                "import Remote from '../clients/OrdersClient.js';\nconst location = '{realm}/clients/OrdersClient.js';\n"
+            ),
+        );
+    }
+    let planned = plan(project.path());
+    planned.write(project.path()).expect("safe migration");
+    for realm in ["client", "server"] {
+        assert!(
+            !project
+                .path()
+                .join(format!("{realm}/clients/OrdersClient.js"))
+                .exists()
+        );
+        assert_eq!(
+            read(project.path(), &format!("{realm}/remotes/OrdersClient.js")),
+            body
+        );
+        let importer = read(project.path(), &format!("{realm}/shared/entry.js"));
+        assert!(
+            importer.contains("../remotes/OrdersClient.js"),
+            "{importer}"
+        );
+        assert!(
+            importer.contains(&format!("{realm}/remotes/OrdersClient.js")),
+            "{importer}"
+        );
+    }
+}
+
+#[test]
+fn remotes_migration_keeps_colliding_files_and_their_imports() {
+    let project = project();
+    for realm in ["client", "server"] {
+        write(
+            project.path(),
+            &format!("{realm}/clients/OrdersClient.js"),
+            "@HTTPClient\nclass OrdersClient {}\n",
+        );
+        write(
+            project.path(),
+            &format!("{realm}/remotes/OrdersClient.js"),
+            "destination stays\n",
+        );
+        write(
+            project.path(),
+            &format!("{realm}/clients/SafeClient.js"),
+            "@HTTPClient\nclass SafeClient {}\n",
+        );
+        write(
+            project.path(),
+            &format!("{realm}/shared/entry.js"),
+            "import Collision from '../clients/OrdersClient.js';\nimport Safe from '../clients/SafeClient.js';\n",
+        );
+    }
+    let planned = plan(project.path());
+    assert!(planned.to_text(false).contains("already exists"));
+    planned
+        .write(project.path())
+        .expect("noncolliding changes only");
+    for realm in ["client", "server"] {
+        assert_eq!(
+            read(project.path(), &format!("{realm}/remotes/OrdersClient.js")),
+            "destination stays\n"
+        );
+        assert!(
+            project
+                .path()
+                .join(format!("{realm}/clients/OrdersClient.js"))
+                .exists()
+        );
+        let importer = read(project.path(), &format!("{realm}/shared/entry.js"));
+        assert!(
+            importer.contains("../clients/OrdersClient.js"),
+            "{importer}"
+        );
+        assert!(importer.contains("../remotes/SafeClient.js"), "{importer}");
+    }
 }

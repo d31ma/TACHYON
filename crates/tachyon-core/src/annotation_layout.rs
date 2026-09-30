@@ -390,8 +390,8 @@ impl Role {
             "identityprovider" => ("IdentityProvider", "IdentityProvider", "controllers"),
             "service" => ("Service", "Service", "services"),
             "store" => ("Store", "Store", "stores"),
-            "client" => ("Client", "Client", "integrations"),
-            "httpclient" => ("HTTPClient", "Client", "integrations"),
+            "client" => ("Client", "Client", "remotes"),
+            "httpclient" => ("HTTPClient", "Client", "remotes"),
             "helper" => ("Helper", "Helper", "helpers"),
             "converter" => ("Converter", "Converter", "converters"),
             "setup" => ("Setup", "Setup", "setups"),
@@ -431,7 +431,7 @@ impl Role {
         if self.is_controller() {
             return parent == "server/controllers";
         }
-        if self.folder == "integrations" && matches!(parent, "client/clients" | "server/clients") {
+        if self.folder == "remotes" && matches!(parent, "client/clients" | "server/clients") {
             return true;
         }
         parent == format!("client/{}", self.folder) || parent == format!("server/{}", self.folder)
@@ -1050,7 +1050,7 @@ mod tests {
         for (folder, role) in [
             ("services", "Service"),
             ("stores", "Store"),
-            ("clients", "Client"),
+            ("remotes", "Client"),
             ("setups", "Setup"),
             ("entities", "Entity"),
             ("helpers", "Helper"),

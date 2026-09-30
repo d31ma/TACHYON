@@ -17,7 +17,7 @@ impl<'a> PathParts<'a> {
         "controllers",
         "stores",
         "repositories",
-        "integrations",
+        "remotes",
         "clients",
         "converters",
         "mappers",

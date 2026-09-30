@@ -1,12 +1,12 @@
 {
   "heading": "Outgoing HTTP: Yon",
   "axis": "language",
-  "summary": "A client (a contract that sends HTTP requests to another server) is marked with HTTPClient. It lives in server/integrations/<Name>Client.<ext>, and Needs injects it into a service. Like a Spring @HttpExchange interface, it has no implementation: each method is a signature with a request marker (GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest), and Tachyon generates the request.",
+  "summary": "A client (a contract that sends HTTP requests to another server) is marked with HTTPClient. It lives in server/remotes/<Name>Client.<ext>, and Needs injects it into a service. Like a Spring @HttpExchange interface, it has no implementation: each method is a signature with a request marker (GetRequest, PostRequest, PutRequest, PatchRequest or DeleteRequest), and Tachyon generates the request.",
   "files": [
     {
-      "name": "server/integrations/CatalogClient.js",
+      "name": "server/remotes/CatalogClient.js",
       "code": {
-        "file": "server/integrations/CatalogClient.js"
+        "file": "server/remotes/CatalogClient.js"
       }
     },
     {
@@ -28,9 +28,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.ts",
+      "name": "server/remotes/CatalogClient.ts",
       "code": {
-        "file": "server/integrations/CatalogClient.ts"
+        "file": "server/remotes/CatalogClient.ts"
       }
     },
     {
@@ -52,9 +52,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.py",
+      "name": "server/remotes/CatalogClient.py",
       "code": {
-        "file": "server/integrations/CatalogClient.py"
+        "file": "server/remotes/CatalogClient.py"
       }
     },
     {
@@ -76,9 +76,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.php",
+      "name": "server/remotes/CatalogClient.php",
       "code": {
-        "file": "server/integrations/CatalogClient.php"
+        "file": "server/remotes/CatalogClient.php"
       }
     },
     {
@@ -100,15 +100,15 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.java",
+      "name": "server/remotes/CatalogClient.java",
       "code": {
-        "file": "server/integrations/CatalogClient.java"
+        "file": "server/remotes/CatalogClient.java"
       }
     },
     {
-      "name": "server/integrations/CatalogClient.groovy",
+      "name": "server/remotes/CatalogClient.groovy",
       "code": {
-        "file": "server/integrations/CatalogClient.groovy"
+        "file": "server/remotes/CatalogClient.groovy"
       }
     },
     {
@@ -148,9 +148,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.kt",
+      "name": "server/remotes/CatalogClient.kt",
       "code": {
-        "file": "server/integrations/CatalogClient.kt"
+        "file": "server/remotes/CatalogClient.kt"
       }
     },
     {
@@ -172,15 +172,15 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.cs",
+      "name": "server/remotes/CatalogClient.cs",
       "code": {
-        "file": "server/integrations/CatalogClient.cs"
+        "file": "server/remotes/CatalogClient.cs"
       }
     },
     {
-      "name": "server/integrations/CatalogClient.fs",
+      "name": "server/remotes/CatalogClient.fs",
       "code": {
-        "file": "server/integrations/CatalogClient.fs"
+        "file": "server/remotes/CatalogClient.fs"
       }
     },
     {
@@ -220,9 +220,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.rs",
+      "name": "server/remotes/CatalogClient.rs",
       "code": {
-        "file": "server/integrations/CatalogClient.rs"
+        "file": "server/remotes/CatalogClient.rs"
       }
     },
     {
@@ -244,9 +244,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.dart",
+      "name": "server/remotes/CatalogClient.dart",
       "code": {
-        "file": "server/integrations/CatalogClient.dart"
+        "file": "server/remotes/CatalogClient.dart"
       }
     },
     {
@@ -298,9 +298,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.go",
+      "name": "server/remotes/CatalogClient.go",
       "code": {
-        "file": "server/integrations/CatalogClient.go"
+        "file": "server/remotes/CatalogClient.go"
       }
     },
     {
@@ -328,9 +328,9 @@
       }
     },
     {
-      "name": "server/integrations/CatalogClient.rb",
+      "name": "server/remotes/CatalogClient.rb",
       "code": {
-        "file": "server/integrations/CatalogClient.rb"
+        "file": "server/remotes/CatalogClient.rb"
       }
     },
     {

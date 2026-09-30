@@ -145,7 +145,7 @@ client/
       tac.css
   services/
     CatalogService.js
-  clients/
+  remotes/
   stores/
   setups/
   entities/
@@ -162,7 +162,7 @@ server/
       yon.js
   services/
   stores/
-  clients/
+  remotes/
   helpers/
   workers/
     cleanup/
@@ -341,12 +341,16 @@ By default, a service is a page singleton:
 instead. Tachyon constructs it with that instance's properties and disposes it
 with that instance.
 
-A service's collaborators live in `client/clients/`, `client/stores/`,
+A service's collaborators live in `client/remotes/`, `client/stores/`,
 `client/setups/`, `client/entities/` and `client/helpers/`.
 A `@Needs` field named after a collaborator receives it, as it does for a
 Yon service (ADR 0038). Yon uses exactly the same folders: `server/services/`,
-`server/clients/`, `server/stores/`, `server/setups/`,
-`server/entities/`, `server/helpers/`. Every route shares them (ADR 0031).
+`server/remotes/`, `server/stores/`, `server/setups/`,
+`server/entities/`, `server/helpers/`. Every route shares them (ADR 0031). The older `clients/` folder remains a
+compatibility alias in both realms. New apps use `remotes/` for outbound HTTP,
+socket and gateway contracts; role annotations and class names are unchanged.
+See [the migration guide](docs/REMOTES_MIGRATION.md).
+
 
 Data types without a role live in `client/models/` or `server/models/`: in
 TypeScript, Rust, C#, F#, Dart and Kotlin in both realms, Swift in the client,

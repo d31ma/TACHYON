@@ -4,9 +4,9 @@
   "axis": "language",
   "files": [
     {
-      "name": "server/integrations/BillingClient.js",
+      "name": "server/remotes/BillingClient.js",
       "code": {
-        "file": "server/integrations/BillingClient.js"
+        "file": "server/remotes/BillingClient.js"
       }
     },
     {
@@ -52,9 +52,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.ts",
+      "name": "server/remotes/BillingClient.ts",
       "code": {
-        "file": "server/integrations/BillingClient.ts"
+        "file": "server/remotes/BillingClient.ts"
       }
     },
     {
@@ -100,9 +100,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.py",
+      "name": "server/remotes/BillingClient.py",
       "code": {
-        "file": "server/integrations/BillingClient.py"
+        "file": "server/remotes/BillingClient.py"
       }
     },
     {
@@ -148,9 +148,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.php",
+      "name": "server/remotes/BillingClient.php",
       "code": {
-        "file": "server/integrations/BillingClient.php"
+        "file": "server/remotes/BillingClient.php"
       }
     },
     {
@@ -202,15 +202,15 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.java",
+      "name": "server/remotes/BillingClient.java",
       "code": {
-        "file": "server/integrations/BillingClient.java"
+        "file": "server/remotes/BillingClient.java"
       }
     },
     {
-      "name": "server/integrations/BillingClient.groovy",
+      "name": "server/remotes/BillingClient.groovy",
       "code": {
-        "file": "server/integrations/BillingClient.groovy"
+        "file": "server/remotes/BillingClient.groovy"
       }
     },
     {
@@ -292,9 +292,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.kt",
+      "name": "server/remotes/BillingClient.kt",
       "code": {
-        "file": "server/integrations/BillingClient.kt"
+        "file": "server/remotes/BillingClient.kt"
       }
     },
     {
@@ -346,9 +346,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.cs",
+      "name": "server/remotes/BillingClient.cs",
       "code": {
-        "file": "server/integrations/BillingClient.cs"
+        "file": "server/remotes/BillingClient.cs"
       }
     },
     {
@@ -430,9 +430,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.rs",
+      "name": "server/remotes/BillingClient.rs",
       "code": {
-        "file": "server/integrations/BillingClient.rs"
+        "file": "server/remotes/BillingClient.rs"
       }
     },
     {
@@ -478,9 +478,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.go",
+      "name": "server/remotes/BillingClient.go",
       "code": {
-        "file": "server/integrations/BillingClient.go"
+        "file": "server/remotes/BillingClient.go"
       }
     },
     {
@@ -526,9 +526,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.dart",
+      "name": "server/remotes/BillingClient.dart",
       "code": {
-        "file": "server/integrations/BillingClient.dart"
+        "file": "server/remotes/BillingClient.dart"
       }
     },
     {
@@ -574,9 +574,9 @@
       }
     },
     {
-      "name": "server/integrations/BillingClient.rb",
+      "name": "server/remotes/BillingClient.rb",
       "code": {
-        "file": "server/integrations/BillingClient.rb"
+        "file": "server/remotes/BillingClient.rb"
       }
     },
     {

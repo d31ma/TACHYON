@@ -8,6 +8,14 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+### Changed
+
+- New outbound role folders are `client/remotes/` and `server/remotes/`.
+  `clients/` remains a compatibility alias. Scaffolds and examples use the new
+  folder, while the existing opt-in migration preserves class/annotation names,
+  rewrites paths for moved files and refuses destination collisions.
+
+
 ### Fixed
 
 - Yon controllers and services can call plain classes in `server/shared/` in

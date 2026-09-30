@@ -179,15 +179,15 @@
       }
     },
     {
-      "name": "client/integrations/ChatClient.js",
+      "name": "client/remotes/ChatClient.js",
       "code": {
-        "file": "client/integrations/ChatClient.js"
+        "file": "client/remotes/ChatClient.js"
       }
     },
     {
-      "name": "client/integrations/ChatClient.ts",
+      "name": "client/remotes/ChatClient.ts",
       "code": {
-        "file": "client/integrations/ChatClient.ts"
+        "file": "client/remotes/ChatClient.ts"
       }
     },
     {

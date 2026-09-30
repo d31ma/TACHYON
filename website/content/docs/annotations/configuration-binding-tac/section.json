@@ -16,8 +16,8 @@
       "code": { "file": "client/manifest.json" }
     },
     {
-      "name": "client/integrations/ApplicationClient.js",
-      "code": { "file": "client/integrations/ApplicationClient.js" }
+      "name": "client/remotes/ApplicationClient.js",
+      "code": { "file": "client/remotes/ApplicationClient.js" }
     },
     {
       "name": "client/setups/CatalogSetup.js",
@@ -28,8 +28,8 @@
       "code": { "file": "client/services/SettingsService.js" }
     },
     {
-      "name": "client/integrations/ApplicationClient.ts",
-      "code": { "file": "client/integrations/ApplicationClient.ts" }
+      "name": "client/remotes/ApplicationClient.ts",
+      "code": { "file": "client/remotes/ApplicationClient.ts" }
     },
     {
       "name": "client/setups/CatalogSetup.ts",
