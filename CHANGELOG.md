@@ -1741,6 +1741,12 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The storage browser gate allows 330 KB of script on its route instead of
+  320 KB: the fixture already loads 326 KB after the browser-injection and
+  converter-injection changes, and the shared-Setup runtime adds about 2 KB
+  (roughly 280 bytes of Brotli for each JavaScript service module that
+  embeds the behavior runtime). One runtime per page will cut this.
+
 - A Converter needs no behavior context and is injected like any other role
   (ADR 0022 amendment "a service asks for its converter"), like a MapStruct
   mapper that Spring injects. A controller or service asks for it with

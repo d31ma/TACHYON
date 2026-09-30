@@ -22,7 +22,7 @@ class StorageGate {
   static withKotlin = kotlinWebAvailable();
   static withSwift = swiftWebAvailable();
   static withJava = javaWebAvailable();
-  static scriptBudgetKilobytes = 320;
+  static scriptBudgetKilobytes = 330;
   static mappedNote = JSON.stringify({ kind: 'note', title: 'mapped' });
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' };
 
