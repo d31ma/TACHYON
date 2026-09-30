@@ -1,7 +1,7 @@
 {
   "heading": "Saved service fields",
   "target": "web",
-  "body": "A service field marked @SessionState is saved in sessionStorage for the life of the tab. A field marked @LocalState is saved in localStorage, so it comes back in later visits on this device. Both markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, Java, C#, Rust, Go and Ruby services. F# services cannot save fields yet. Tachyon no longer reads the old `$` and `$$` prefixes; `ty migrate fix --write` changes them to the markers. Tachyon restores saved values before OnStart runs. Each assignment stores JSON of up to 64 KiB. When a service method changes its own saved field, the new value is saved as the method returns; this is also true for a Rust, Go, C#, Swift, Kotlin, Java or Ruby service that runs as WebAssembly. To save a change inside the value, assign the field again. Template handlers and OnEvent methods render the view again automatically. Background work uses an injected taskScheduler. If the browser denies storage or its quota (storage limit) is full, the UI still works. Never save secrets.",
+  "body": "A service field marked @SessionState is saved in sessionStorage for the life of the tab. A field marked @LocalState is saved in localStorage, so it comes back in later visits on this device. Both markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, Java, C#, F#, Rust, Go and Ruby services. Tachyon no longer reads the old `$` and `$$` prefixes; `ty migrate fix --write` changes them to the markers. Tachyon restores saved values before OnStart runs. Each assignment stores JSON of up to 64 KiB. When a service method changes its own saved field, the new value is saved as the method returns; this is also true for a Rust, Go, C#, F#, Swift, Kotlin, Java or Ruby service that runs as WebAssembly. To save a change inside the value, assign the field again. Template handlers and OnEvent methods render the view again automatically. Background work uses an injected taskScheduler. If the browser denies storage or its quota (storage limit) is full, the UI still works. Never save secrets.",
   "axis": "language",
   "files": [
     {
@@ -62,6 +62,12 @@
       "name": "client/services/EditorService.cs",
       "code": {
         "file": "client/services/EditorService.cs"
+      }
+    },
+    {
+      "name": "client/services/EditorService.fs",
+      "code": {
+        "file": "client/services/EditorService.fs"
       }
     }
   ]

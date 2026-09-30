@@ -76,9 +76,10 @@ table, the TypeScript hover text and the other Tac languages did not know it.
    assignment, stored as JSON of at most 64 KiB, and namespaced by the
    service and the page (`tac:<scope>:<field>`). A value saved under the old
    key (`tac:<scope>:$$field` or `$field`) moves to the new key once.
-   - The markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, C#,
-     Rust, Go and Ruby (`#[LocalState]` above `attr_accessor :name`; the page
-     name is lowerCamel): the compiler reads them into the page plan (`stored`), and the
+   - The markers work in JavaScript, TypeScript, Dart, Swift, Kotlin, Java,
+     C#, F# (`[<LocalState>]` above a settable `member val`, read through the
+     F# service's C# view), Rust, Go and Ruby (`#[LocalState]` above
+     `attr_accessor :name`; the page name is lowerCamel): the compiler reads them into the page plan (`stored`), and the
      client runtime binds the field, also through the native and WebAssembly
      field bridges. They are bare, belong on fields, exclude each other and
      `@Needs`, and are Tac only (rule table rows).
