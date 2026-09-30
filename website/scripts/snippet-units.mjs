@@ -4,10 +4,10 @@ import { SiteContent } from './site-content.mjs'
 
 /** @typedef {{ file: string, text: string }} CodeFile */
 /** @typedef {{ name: string, extension: string, code: string, named: boolean }} UnitFile */
-/** @typedef {{ page: string, id: string, title: string, text: string, files: UnitFile[], javascriptOnly?: string }} SnippetUnit */
+/** @typedef {{ page: string, id: string, title: string, text: string, files: UnitFile[] }} SnippetUnit */
 /** @typedef {{ name: string, code: CodeFile | string }} ContentFile */
 /** @typedef {{ heading: string, body?: string, code?: CodeFile | string, files?: ContentFile[] }} ContentSection */
-/** @typedef {{ id: string, title: string, summary?: string, files?: ContentFile[], javascriptOnly?: string }} ContentFeature */
+/** @typedef {{ id: string, title: string, summary?: string, files?: ContentFile[] }} ContentFeature */
 
 export class SnippetUnits {
   static docsPage = 'docs/page.json'
@@ -83,7 +83,6 @@ export class SnippetUnits {
       title: feature.title,
       text: [feature.summary ?? '', ...SnippetUnits.proseTexts(files)].join('\n'),
       files: SnippetUnits.namedFiles(files),
-      javascriptOnly: feature.javascriptOnly,
     }
   }
 

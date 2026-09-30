@@ -654,10 +654,7 @@ machine contracts have their own, independent major versions.
   shared behavior annotation features show a tab for every Tac service
   language, and the path variable controller has a Lua tab. Development mode
   and path variables pass `page.development` and `page.path` to a service
-  method, so no service needs the DOM. Window controls and cached public reads
-  add TypeScript and say that other languages hand that work to a JavaScript
-  or TypeScript service; their `feature.json` sets `javascriptOnly`, which the
-  audit counts as not applicable only for the languages the feature names.
+  method, so no service needs the DOM.
 
 - Java web services now use Tachyon's browser APIs (`Clock`, `SecureRandom`,
   `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,

@@ -1,7 +1,7 @@
 {
   "id": "window-controls",
   "title": "What a page may do to its window",
-  "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service can use. By default, no controls are granted. The host (the native app that shows the page) makes only the granted controls available. It checks each grant before it runs a request. Native service code belongs to the application. It runs as normal operating-system code. This window-control policy does not sandbox it (limit what it can do). Only JavaScript and TypeScript services can call `tachyonWindow`. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby cannot call the window controls: it publishes an event, and a JavaScript or TypeScript service that listens with `OnEvent` calls the control (see Events between services in the docs).",
+  "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service can use. By default, no controls are granted. The host (the native app that shows the page) makes only the granted controls available. It checks each grant before it runs a request. Native service code belongs to the application. It runs as normal operating-system code. This window-control policy does not sandbox it (limit what it can do).",
   "group": "Native",
   "files": [
     {
@@ -11,10 +11,6 @@
     {
       "name": "client/services/ReportService.js",
       "code": { "file": "client/services/ReportService.js" }
-    },
-    {
-      "name": "client/services/ReportService.ts",
-      "code": { "file": "client/services/ReportService.ts" }
     },
     {
       "name": "client/pages/tac.html",
@@ -28,6 +24,5 @@
       "name": "grants",
       "code": { "file": "grants.txt" }
     }
-  ],
-  "javascriptOnly": "only JavaScript and TypeScript services can call tachyonWindow"
+  ]
 }
