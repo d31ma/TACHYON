@@ -83,6 +83,10 @@ impl JavaModelSchema {
     }
 
     pub(crate) fn blank_bytes(bytes: &mut [u8]) {
+        Self::clear_bytes(bytes);
+    }
+
+    fn clear_bytes(bytes: &mut [u8]) {
         for byte in bytes {
             *byte = [b' ', *byte][usize::from(b"\n\r".contains(byte))];
         }
