@@ -223,6 +223,14 @@ fn write_current_project(root: &Path, language: &str) -> String {
     let extension = language;
     authored_behaviors::write(root, language, "server", extension);
     let entry = format!("server/controllers/ProductsController.{extension}");
+    if language == "go" {
+        for (relative, source) in crate::behavior_go::GoInjection::FILES {
+            let target = root.join(relative);
+            fs::create_dir_all(target.parent().expect("injected Go fixture parent"))
+                .expect("injected Go fixture directory");
+            fs::write(target, source).expect("existing injected Go fixture");
+        }
+    }
     if language == "js" {
         behavior_layout::write(
             root,

@@ -127,10 +127,10 @@ async fn a_scheduled_go_worker_runs_without_its_marker() {
     assert_eq!(response.body.expect("body").data, r#"{"beat":true}"#);
 }
 
-struct GoInjection;
+pub(super) struct GoInjection;
 
 impl GoInjection {
-    const FILES: [(&str, &str); 2] = [
+    pub(super) const FILES: [(&str, &str); 2] = [
         (
             "server/services/CounterService.go",
             "// @yon::Service()\ntype CounterService struct {\n\tvalue int\n}\n\nfunc (counter *CounterService) Value() int { return 42 }\n",
