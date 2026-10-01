@@ -13,6 +13,7 @@ pub(super) struct BracedMembers<'r, 'a> {
 
 impl<'r, 'a> BracedMembers<'r, 'a> {
     const BODY_OPENERS: &'static [&'static str] = &["{", "=", ";"];
+    const RUST_BODY_OPENERS: &'static [&'static str] = &["{", ";"];
     const CONTAINER_BLOCKERS: &'static [&'static str] =
         &["->", ">", ":", "(", ",", "&", "<", "=", "."];
     const NOT_BEFORE_NAME: &'static [&'static str] = &[
@@ -144,9 +145,9 @@ impl<'r, 'a> BracedMembers<'r, 'a> {
 
     fn head_parts(&self, at: usize, depth: usize) -> Head {
         let name_at = self.name_index(at);
-        let opener = self
-            .words
-            .find_at_depth(name_at + 1, depth, Self::BODY_OPENERS);
+        let opener =
+            self.words
+                .find_at_depth(name_at + 1, depth, Self::body_openers(self.words.text(at)));
         let line_column = self.words.column(self.words.line_begin(at));
         let (body, resume) = self.body(opener, depth, line_column);
         Head {
@@ -154,6 +155,13 @@ impl<'r, 'a> BracedMembers<'r, 'a> {
             name_at,
             body,
             resume: resume.max(name_at + 1),
+        }
+    }
+
+    fn body_openers(head: &str) -> &'static [&'static str] {
+        match head {
+            "fn" => Self::RUST_BODY_OPENERS,
+            _ => Self::BODY_OPENERS,
         }
     }
 

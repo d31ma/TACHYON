@@ -282,6 +282,56 @@ fn rust_utility_boundary_refuses_function_local_persistent_state() {
 }
 
 #[test]
+fn rust_utility_multiline_generics_are_method_headers_not_stored_state() {
+    let source =
+        include_str!("../../../../tests/fixtures/rust-utility-multiline/NativeCounterUtils.rs");
+    for path in [
+        "client/utils/NativeCounterUtils.rs",
+        "server/utils/NativeCounterUtils.rs",
+    ] {
+        assert_eq!(messages(path, source), Vec::<String>::new(), "{path}");
+    }
+}
+
+#[test]
+fn rust_utility_multiline_where_constraints_are_method_headers() {
+    let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count<T>(\n        value: T,\n    ) -> usize\n    where\n        T: Iterator<Item = u8>,\n    {\n        Self::read(value)\n    }\n\n    fn read<T>(\n        value: T,\n    ) -> usize\n    where\n        T: Iterator<Item = u8>,\n    {\n        value.count()\n    }\n}\n";
+    assert_eq!(
+        messages("client/utils/TitleUtils.rs", source),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn rust_utility_multiline_generics_still_reject_real_persistent_state() {
+    let source =
+        include_str!("../../../../tests/fixtures/rust-utility-multiline/NativeCounterUtils.rs");
+    let field = source.replacen(
+        "pub struct NativeCounterUtils;",
+        "pub struct NativeCounterUtils { count: usize }",
+        1,
+    );
+    let local = source.replacen(
+        "let values: Option<(T, T)>",
+        "static mut COUNT: usize = 0;\n        let values: Option<(T, T)>",
+        1,
+    );
+    for invalid in [field, local] {
+        assert!(
+            codes("client/utils/NativeCounterUtils.rs", &invalid).contains(&1316),
+            "{:?}",
+            messages("client/utils/NativeCounterUtils.rs", &invalid)
+        );
+    }
+}
+
+#[test]
+fn rust_utility_multiline_generic_bodies_still_receive_cohesion_checks() {
+    let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn delta<T: Copy + PartialOrd + std::ops::Sub<Output = T>>(\n        current: T,\n        previous: T,\n    ) -> T {\n        if current >= previous { current - previous } else { previous - current }\n    }\n}\n";
+    assert_eq!(codes("client/utils/TitleUtils.rs", source), vec![1314]);
+}
+
+#[test]
 fn the_folder_the_name_and_the_single_class_are_checked() {
     let class =
         "export default class TextUtils {\n  static slug(value) {\n    return value\n  }\n}\n";
