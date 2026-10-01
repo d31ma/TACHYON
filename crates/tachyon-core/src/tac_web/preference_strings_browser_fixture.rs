@@ -9,7 +9,7 @@ struct PreferenceStringsBrowserFixture {
 }
 
 impl PreferenceStringsBrowserFixture {
-    const FILES: [(&'static str, &'static str); 3] = [
+    const FILES: [(&'static str, &'static str); 4] = [
         (
             "client/services/ChoiceService.java",
             include_str!(
@@ -19,6 +19,12 @@ impl PreferenceStringsBrowserFixture {
         (
             "client/pages/tac.html",
             include_str!("../../tests/fixtures/tac-preference-strings/client/pages/tac.html"),
+        ),
+        (
+            "client/components/preference/choice/tac.html",
+            include_str!(
+                "../../tests/fixtures/tac-preference-strings/client/components/preference/choice/tac.html"
+            ),
         ),
         (
             "client/manifest.json",
