@@ -1,6 +1,6 @@
 # ADR 0089: Native capabilities are activation-owned service providers
 
-- Status: Accepted contract; macOS FilePicker and Swift WindowControls slice in progress
+- Status: Accepted contract; macOS FilePicker and Swift/Rust providers qualified; remaining compiled platform seams in progress
 - Date: 2026-09-30
 - Relates to ADR 0025 (NeedsAll), ADR 0030 (native services), ADR 0065 (page APIs), ADR 0087 (WindowControls)
 
@@ -9,7 +9,7 @@
 A service receives OS capabilities through existing Needs/NeedsAll injection.
 Platform imports and calls belong to adapters. There is no second application
 container. JavaScript/TypeScript receive a `filePicker` activation resource;
-compiled Swift receives a required `FilePicker` field through its generated
+compiled services receive a required `FilePicker` field through their generated
 service construction. Native `WindowControls` uses the same construction seam
 and retains `tac.application.window.controls` grants.
 
@@ -50,15 +50,36 @@ loading more than the content limit plus one byte.
 The native host registers its adapter during application startup. The existing
 Swift service factory establishes the constructing owner, supplies providers,
 and removes their capability lifetime when the activation is disposed.
+Each provider retains the activation scope, not an owner-name membership test:
+reusing a disposed owner's name cannot revive its earlier providers. Disposal
+uses that scope's captured adapter even after another adapter is registered.
 TestSetup/fake code can replace the provider transport before constructing a
-service. The generated provider keeps that transport, so a later registration
+service. Rust captures its shared provider scope while the normal Default-based
+service factory runs. Its native WindowControls uses that scope; the existing
+WebAssembly WindowControls keeps its page-host transport. The generated provider keeps that transport, so a later registration
 cannot silently replace an existing activation's dependency.
 
 The macOS WK message bridge requires the main frame, local `tachyon-app://bundle`
 origin and bounded canonical JSON before dispatch. The native companion adapter
 uses its existing owner-thread execution path. A browser tab returns
 `unsupported`; no browser picker is substituted. Other native hosts must
-register an adapter explicitly before advertising support.
+register an adapter explicitly before advertising support. macOS window actions
+target the AppDelegate-owned window registered with NativeBridge, including when
+the app is in the background or a modal picker has focus. They return unavailable
+when no owned window exists; they never select another application's key window.
+
+Rust's optional `tac_native_set_capability_adapter` C ABI registers a paired
+call/free callback. Call receives borrowed, NUL-terminated operation and JSON
+strings for the duration of the call. It returns a host-owned allocation and
+byte length; Rust copies at most 1,048,576 UTF-8 bytes and invokes free exactly
+once for every non-null answer. Null, empty, excessive or invalid UTF-8 replies
+become `unavailable`. Request JSON is limited to 65,536 bytes and operation names
+to 64 bytes. The host guarantees that its returned pointer is valid for the
+reported length and that the paired free function accepts the original pointer
+and length. The macOS host implements both callbacks on the owner thread; no
+Rust allocator frees Swift memory. Registration without both callbacks selects
+the unsupported adapter. This generated FFI boundary contains the unsafe slice
+read; framework implementation remains subject to the repository unsafe ban.
 
 ## Support and remaining slices
 
@@ -68,7 +89,9 @@ register an adapter explicitly before advertising support.
 | macOS compiled Swift | Needs/NeedsAll FilePicker and WindowControls | generated companion compile/execution with fake, native host execution |
 | Browser tab | typed unsupported FilePicker result | provider execution |
 | iOS / Android / Linux / Windows | unsupported until platform adapter registered | separate OS interaction and grant tests |
-| Native Rust / C# / Kotlin | provider registration and injection pending | compiled activation and fake-backed service tests before enabling |
+| macOS compiled Rust | NeedsAll default providers, captured registration and native WindowControls | compiled fake/unsupported/disposal, static-library host link and actual owned-window title/resize/grant test |
+| Rust WebAssembly | existing page WindowControls, unsupported native FilePicker | generated wasm32 compilation |
+| Native C# / Kotlin | provider registration and injection in parallel work | compiled activation and fake-backed service tests before enabling |
 
 The platform matrix is not expanded merely because the macOS source compiles.
 An OS interaction claim requires the actual native picker, selection, bounded

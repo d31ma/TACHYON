@@ -1,3 +1,3 @@
 enum NativeCapabilityFailure: Error {
-    case denied, invalid
+    case denied, invalid, unavailable
 }

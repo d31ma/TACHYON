@@ -10,8 +10,10 @@ impl NativeCapabilityCheck {
     const CALLER: &str = r#"import Foundation
 @main struct Caller {
     static func main() {
+        var disposals: Int = 0
         NativeCapabilities.call = { capability, _ in
-            capability == "window.granted" ? "{\"granted\":true}" : "{\"status\":\"cancelled\"}"
+            if capability == "filePicker.dispose" { disposals += 1 }
+            return capability == "window.granted" ? "{\"granted\":true}" : "{\"status\":\"cancelled\"}"
         }
         let owner = "6F9619FF-8B86-D011-B42D-00C04FC964FF"
         let prefix = "{\"route\":\"/\",\"owner\":\"" + owner + "\",\"service\":\"import\","
@@ -19,8 +21,22 @@ impl NativeCapabilityCheck {
         print(tacNativeInvoke(prefix + "\"op\":\"call\",\"name\":\"choose\",\"args\":[]}"))
         print(tacNativeInvoke(prefix + "\"op\":\"call\",\"name\":\"allowed\",\"args\":[]}"))
         let retained = NativeCapabilities.create(owner) { NativeCapabilities.filePicker() }
+        let controls = NativeCapabilities.create(owner) { NativeCapabilities.windowControls() }
+        do {
+            try controls.minimize()
+            preconditionFailure("A failed native action must report unavailable")
+        } catch NativeCapabilityFailure.unavailable {} catch {
+            preconditionFailure("Unexpected failure: \(error)")
+        }
+        NativeCapabilities.call = { _, _ in "{\"status\":\"unsupported\"}" }
+        precondition(retained.open().status == .cancelled)
         print(tacNativeInvoke(prefix + "\"op\":\"dispose\"}"))
+        precondition(disposals == 1)
         precondition(retained.open().status == .disposed)
+        let replacement = NativeCapabilities.create(owner) { NativeCapabilities.filePicker() }
+        precondition(replacement.open().status == .unsupported)
+        precondition(retained.open().status == .disposed)
+        NativeCapabilities.dispose(owner)
     }
 }
 "#;

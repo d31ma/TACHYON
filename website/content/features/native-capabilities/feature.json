@@ -1,0 +1,14 @@
+{
+  "id": "native-capabilities",
+  "title": "Inject an OS file picker into a service",
+  "summary": "A service asks for `filePicker` with `Needs`; platform calls stay in the adapter. `tac.nativeCapabilities` grants the capability separately from browser APIs. The macOS host uses NSOpenPanel and returns a selected file as an opaque activation-owned handle. `readText(handle)` reads at most 65,536 UTF-8 bytes and `release(handle)` ends access. Cancel, denied, unsupported, invalid and unavailable are typed results. A browser tab returns unsupported and opens no picker. Compiled native services request a typed FilePicker field through Needs or NeedsAll; the provider captures their activation and registered transport (ADR 0089). Other OS file pickers remain unsupported until an adapter is registered and qualified.",
+  "group": "Native",
+  "files": [
+    { "name": "client/manifest.json", "code": { "file": "client/manifest.json" } },
+    { "name": "client/services/PickerService.js", "code": { "file": "client/services/PickerService.js" } },
+    { "name": "client/services/PickerService.ts", "code": { "file": "client/services/PickerService.ts" } },
+    { "name": "client/pages/tac.html", "code": { "file": "client/pages/tac.html" } },
+    { "name": "client/components/picker/panel/tac.html", "code": { "file": "client/components/picker/panel/tac.html" } }
+  ],
+  "verify": "tac"
+}

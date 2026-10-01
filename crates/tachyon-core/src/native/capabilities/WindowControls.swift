@@ -1,16 +1,14 @@
 final class WindowControls {
-    private let owner: String
-    private let call: (String, String) -> String
+    private let scope: NativeCapabilityScope
 
-    init(owner: String, call: @escaping (String, String) -> String) {
-        self.owner = owner
-        self.call = call
+    init(scope: NativeCapabilityScope) {
+        self.scope = scope
     }
 
     func granted(_ control: String) -> Bool {
-        guard NativeCapabilities.active(owner),
-              let request = try? JSONSerialization.data(withJSONObject: ["control": control]),
-              let result = try? JSONSerialization.jsonObject(with: Data(call("window.granted", String(decoding: request, as: UTF8.self)).utf8)) as? [String: Any] else { return false }
+        guard scope.isActive,
+              let request = try? JSONSerialization.data(withJSONObject: ["owner": scope.owner, "control": control]),
+              let result = try? JSONSerialization.jsonObject(with: Data(scope.invoke("window.granted", String(decoding: request, as: UTF8.self)).utf8)) as? [String: Any] else { return false }
         return result["granted"] as? Bool ?? false
     }
 
@@ -25,9 +23,11 @@ final class WindowControls {
     func setTitle(_ title: String) throws { try invoke("title", ["title": title]) }
 
     private func invoke(_ control: String, _ values: [String: Any] = [:]) throws {
-        guard granted(control), let data = try? JSONSerialization.data(withJSONObject: values) else {
-            throw NativeCapabilityFailure.denied
-        }
-        _ = call("window." + control, String(decoding: data, as: UTF8.self))
+        guard granted(control) else { throw NativeCapabilityFailure.denied }
+        var request = values
+        request["owner"] = scope.owner
+        guard let data = try? JSONSerialization.data(withJSONObject: request),
+              let result = try? JSONSerialization.jsonObject(with: Data(scope.invoke("window." + control, String(decoding: data, as: UTF8.self)).utf8)) as? [String: Any],
+              result["ok"] as? Bool == true else { throw NativeCapabilityFailure.unavailable }
     }
 }

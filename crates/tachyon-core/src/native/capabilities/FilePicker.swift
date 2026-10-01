@@ -1,10 +1,8 @@
 final class FilePicker {
-    private let owner: String
-    private let call: (String, String) -> String
+    private let scope: NativeCapabilityScope
 
-    init(owner: String, call: @escaping (String, String) -> String) {
-        self.owner = owner
-        self.call = call
+    init(scope: NativeCapabilityScope) {
+        self.scope = scope
     }
 
     func available() -> Bool {
@@ -12,7 +10,7 @@ final class FilePicker {
     }
 
     func open(_ options: FilePickerOptions = FilePickerOptions()) -> FilePickerResult {
-        guard !options.multiple, options.types.allSatisfy({ ["text/plain", "application/json"].contains($0) }) else {
+        guard !options.multiple, options.types.count <= 2, options.types.allSatisfy({ ["text/plain", "application/json"].contains($0) }) else {
             return FilePickerResult(status: .invalid)
         }
         return answer("open", ["types": options.types])
@@ -27,14 +25,14 @@ final class FilePicker {
     }
 
     private func answer(_ operation: String, _ fields: [String: Any]) -> FilePickerResult {
-        guard NativeCapabilities.active(owner) else { return FilePickerResult(status: .disposed) }
+        guard scope.isActive else { return FilePickerResult(status: .disposed) }
         var request = fields
-        request["owner"] = owner
+        request["owner"] = scope.owner
         guard let data = try? JSONSerialization.data(withJSONObject: request),
               let text = String(data: data, encoding: .utf8),
-              let result = try? JSONDecoder().decode(FilePickerResult.self, from: Data(call("filePicker." + operation, text).utf8)) else {
+              let result = try? JSONDecoder().decode(FilePickerResult.self, from: Data(scope.invoke("filePicker." + operation, text).utf8)) else {
             return FilePickerResult(status: .unavailable)
         }
-        return result
+        return scope.isActive ? result : FilePickerResult(status: .disposed)
     }
 }

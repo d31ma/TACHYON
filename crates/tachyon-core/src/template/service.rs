@@ -82,6 +82,36 @@ impl ServiceDefinition {
         &self.injected
     }
 
+    fn inject_native_capabilities(&mut self) {
+        let names = self.native_capability_fields();
+        self.required.retain(|name| !names.contains(name));
+        let missing: Vec<String> = names
+            .into_iter()
+            .filter(|name| !self.injected.contains(name))
+            .collect();
+        self.injected.extend(missing);
+    }
+
+    fn native_capability_fields(&self) -> Vec<String> {
+        marked_source(self)
+            .and_then(|path| {
+                fs::read_to_string(path)
+                    .ok()
+                    .map(|source| self.classify_native_capabilities(path, &source))
+            })
+            .unwrap_or_default()
+    }
+
+    fn classify_native_capabilities(&self, path: &Path, source: &str) -> Vec<String> {
+        let types = BTreeSet::from([String::from("FilePicker"), String::from("WindowControls")]);
+        let fields = RequiredFields::injected_fields(path, source, &self.class, &types);
+        self.required
+            .iter()
+            .filter(|name| fields.contains(name))
+            .cloned()
+            .collect()
+    }
+
     pub(crate) const fn stored(&self) -> &BTreeMap<String, String> {
         &self.stored
     }
@@ -249,9 +279,13 @@ impl ServiceRegistry {
     }
 
     pub(crate) fn for_target(mut self, target: Option<tachyon_contracts::NativeTarget>) -> Self {
-        for service in self.services.values_mut() {
-            service.target = target;
-        }
+        self.services
+            .values_mut()
+            .for_each(|service| service.target = target);
+        self.services
+            .values_mut()
+            .filter(|service| service.script.is_none() && service.linked())
+            .for_each(ServiceDefinition::inject_native_capabilities);
         self
     }
 
@@ -913,6 +947,45 @@ mod tests {
             let service = registry.get(instance).expect(instance);
             assert_eq!(service.required(), ["files", "owner"], "{instance}");
             assert!(service.is_prototype(), "{instance}");
+        }
+    }
+
+    #[test]
+    fn a_native_capability_is_injected_instead_of_a_component_prop() {
+        use tachyon_contracts::NativeTarget;
+        let variants = [
+            (
+                "client/services/PickerService.swift",
+                NativeTarget::Macos,
+                "@Service\n@NeedsAll\nfinal class PickerService {\n private let filePicker: FilePicker\n private let windowControls: WindowControls\n let title: String\n}\n",
+            ),
+            (
+                "client/services/PickerService.cs",
+                NativeTarget::Windows,
+                "[Service]\n[NeedsAll]\npublic class PickerService {\n public readonly FilePicker FilePicker;\n public readonly WindowControls WindowControls;\n public readonly string Title;\n}\n",
+            ),
+            (
+                "client/services/PickerService.kt",
+                NativeTarget::Android,
+                "@Service\n@NeedsAll\nclass PickerService {\n val filePicker: FilePicker\n val windowControls: WindowControls\n val title: String\n}\n",
+            ),
+        ];
+        for (path, target, source) in variants {
+            let root = project(&[(path, source)]);
+            let registry = ServiceRegistry::discover(root.path()).expect("service");
+            assert_eq!(
+                registry.get("picker").expect("web").required(),
+                ["filePicker", "windowControls", "title"],
+                "{path}"
+            );
+            let native = registry.for_target(Some(target));
+            let service = native.get("picker").expect("native");
+            assert_eq!(service.required(), ["title"], "{path}");
+            assert_eq!(
+                service.injected(),
+                ["filePicker", "windowControls"],
+                "{path}"
+            );
         }
     }
 

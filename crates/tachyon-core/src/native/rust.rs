@@ -11,6 +11,14 @@ impl RustCompanion {
     const PRELUDE: &str = concat!(
         concat!(
             include_str!("prelude.rs"),
+            include_str!("capabilities/rust/native_capability_adapter.rs"),
+            include_str!("capabilities/rust/native_capability_scope.rs"),
+            include_str!("capabilities/rust/native_capabilities.rs"),
+            include_str!("capabilities/rust/file_picker_status.rs"),
+            include_str!("capabilities/rust/file_picker_result.rs"),
+            include_str!("capabilities/rust/file_picker_options.rs"),
+            include_str!("capabilities/rust/file_picker.rs"),
+            include_str!("capabilities/rust/window_controls.rs"),
             include_str!("web_apis/tac_web_host.rs")
         ),
         include_str!("web_apis/clock.rs"),

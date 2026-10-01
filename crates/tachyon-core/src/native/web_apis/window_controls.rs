@@ -1,7 +1,8 @@
-
+#[cfg(target_arch = "wasm32")]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WindowControls;
 
+#[cfg(target_arch = "wasm32")]
 impl WindowControls {
     const API: &'static str = "windowControls";
 

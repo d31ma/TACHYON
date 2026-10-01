@@ -206,8 +206,10 @@ removes its IndexedDB store.
 6. The `cache` option of `@HTTPClient` is refused, and its IndexedDB store
    (`FetchCache` in `tac-client.js`) and its storage-gate rows are removed.
 7. Native `WindowControls` follows the activation-owned provider seam in
-   ADR 0089. The first compiled Swift/macOS slice asks the host directly with
-   the same grants; Rust, C# and Kotlin registration remain pending.
+   ADR 0089. Compiled Swift and Rust/macOS providers ask the host directly with
+   the same grants. Rust's actual owned-window title/resize check passes; the
+   host uses its AppDelegate-owned window rather than a global key window.
+   C# and Kotlin host registration remains in the parallel native workstream.
 
 ## Consequences
 

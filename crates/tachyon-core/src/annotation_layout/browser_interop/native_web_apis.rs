@@ -38,35 +38,3 @@ impl NativeWebApis {
         }
         crate::web_api_clients::WebApiClients::TYPE_NAMES
             .into_iter()
-            .filter(|name| !matches!(extension, "cs" | "kt" | "rs") || *name != "WindowControls")
-            .map(String::from)
-            .collect()
-    }
-
-    fn extension(path: &Path) -> &str {
-        path.extension()
-            .and_then(|extension| extension.to_str())
-            .unwrap_or_default()
-    }
-
-    fn language(extension: &str) -> &'static str {
-        Self::LANGUAGES
-            .iter()
-            .find(|(known, _)| *known == extension)
-            .map_or("Native", |(_, language)| language)
-    }
-
-    fn problem(path: &Path, source: &str, language: &str, range: Range<usize>) -> Diagnostic {
-        let name = &source[range.clone()];
-        let message = format!(
-            "{language} services that are linked into the app cannot use `{name}`: it belongs to the page."
-        );
-        let file = path.to_string_lossy().replace('\\', "/");
-        diagnostic(
-            BrowserInteropCheck::CODE,
-            message,
-            Some(String::from(Self::HELP)),
-            source_span(&file, range.start, range.end),
-        )
-    }
-}

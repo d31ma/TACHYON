@@ -1,32 +1,30 @@
 enum NativeCapabilities {
     nonisolated(unsafe) static var call: (String, String) -> String = { _, _ in "{\"status\":\"unsupported\"}" }
-    nonisolated(unsafe) private static var constructing: String? = nil
-    nonisolated(unsafe) private static var owners: Set<String> = []
+    nonisolated(unsafe) private static var constructing: NativeCapabilityScope? = nil
+    nonisolated(unsafe) private static var owners: [String: NativeCapabilityScope] = [:]
 
     static func create<T>(_ owner: String, _ work: () -> T) -> T {
         let previous = constructing
-        constructing = owner
-        owners.insert(owner)
+        let scope = owners[owner] ?? NativeCapabilityScope(owner: owner, call: call)
+        constructing = scope
+        owners[owner] = scope
         defer { constructing = previous }
         return work()
     }
 
-    static func active(_ owner: String) -> Bool {
-        Thread.isMainThread && owners.contains(owner)
+    private static func scope() -> NativeCapabilityScope {
+        constructing ?? NativeCapabilityScope(owner: "", call: call)
     }
 
     static func filePicker() -> FilePicker {
-        FilePicker(owner: constructing ?? "", call: call)
+        FilePicker(scope: scope())
     }
 
     static func windowControls() -> WindowControls {
-        WindowControls(owner: constructing ?? "", call: call)
+        WindowControls(scope: scope())
     }
 
     static func dispose(_ owner: String) {
-        owners.remove(owner)
-        guard let data = try? JSONSerialization.data(withJSONObject: ["owner": owner]),
-              let request = String(data: data, encoding: .utf8) else { return }
-        _ = call("filePicker.dispose", request)
+        owners.removeValue(forKey: owner)?.dispose()
     }
 }

@@ -36,6 +36,8 @@ mod native_window_control_tests;
 #[cfg(test)]
 mod native_capability_tests;
 #[cfg(test)]
+mod native_rust_capability_tests;
+#[cfg(test)]
 mod native_web_api_tests;
 mod registry;
 mod routes;

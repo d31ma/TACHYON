@@ -1,40 +1,62 @@
-use std::fmt::Write as _;
 use std::path::Path;
 
-pub(super) struct NativeCapabilities;
+pub(super) struct NativeCapabilities {
+    source: String,
+    excluded: Vec<String>,
+}
 
 impl NativeCapabilities {
     pub(super) fn swift_service(source: &str, path: &Path, class: &str) -> (String, Vec<String>) {
-        let fields =
-            crate::template::required_fields::RequiredFields::constructed(path, source, class);
-        let mut output = source.to_owned();
-        let mut excluded = Vec::new();
-        for (name, kind) in fields {
-            let provider = match kind.as_str() {
-                "FilePicker" => "filePicker",
-                "WindowControls" => "windowControls",
-                _ => continue,
-            };
-            let mut rewritten = String::new();
-            for line in output.split_inclusive('\n') {
-                let Some((prefix, declared)) = line.split_once(':') else {
-                    rewritten.push_str(line);
-                    continue;
-                };
-                if prefix.split_whitespace().last() == Some(name.as_str())
-                    && declared.trim() == kind
-                {
-                    let _ = writeln!(
-                        rewritten,
-                        "{prefix}: {kind} = NativeCapabilities.{provider}()"
-                    );
-                    excluded.push(name.clone());
-                } else {
-                    rewritten.push_str(line);
-                }
-            }
-            output = rewritten;
+        let fields = Self::fields(source, path, class);
+        let compilation = fields.into_iter().fold(
+            Self {
+                source: source.to_owned(),
+                excluded: Vec::new(),
+            },
+            |mut compilation, (name, kind, provider)| {
+                compilation.rewrite_field(&name, &kind, provider);
+                compilation
+            },
+        );
+        (compilation.source, compilation.excluded)
+    }
+
+    fn fields(source: &str, path: &Path, class: &str) -> Vec<(String, String, &'static str)> {
+        crate::template::required_fields::RequiredFields::constructed(path, source, class)
+            .into_iter()
+            .filter_map(|(name, kind)| Self::provider(&kind).map(|provider| (name, kind, provider)))
+            .collect()
+    }
+
+    fn provider(kind: &str) -> Option<&'static str> {
+        match kind {
+            "FilePicker" => Some("filePicker"),
+            "WindowControls" => Some("windowControls"),
+            _ => None,
         }
-        (output, excluded)
+    }
+
+    fn rewrite_field(&mut self, name: &str, kind: &str, provider: &str) {
+        let excluded = &mut self.excluded;
+        self.source = self
+            .source
+            .split_inclusive('\n')
+            .map(|line| Self::rewrite_line(line, name, kind, provider, excluded))
+            .collect();
+    }
+
+    fn rewrite_line(
+        line: &str,
+        name: &str,
+        kind: &str,
+        provider: &str,
+        excluded: &mut Vec<String>,
+    ) -> String {
+        let (prefix, declared) = line.split_once(':').unwrap_or((line, ""));
+        if prefix.split_whitespace().last() == Some(name) && declared.trim() == kind {
+            excluded.push(name.to_owned());
+            return format!("{prefix}: {kind} = NativeCapabilities.{provider}()\n");
+        }
+        line.to_owned()
     }
 }

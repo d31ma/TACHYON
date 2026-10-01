@@ -633,15 +633,24 @@ fn tac_activate(
     if existing.is_some() {
         tac_dispose_owner(owner);
     }
-    let Some(members) = tac_service_members(service) else {
+    if tac_active_owners().with(|slot| slot.borrow().len()) >= 256 {
+        return Err(String::from("{\"error\":\"Too many native activations.\"}"));
+    }
+    let (members, capabilities) =
+        NativeCapabilities::create(owner, || tac_service_members(service));
+    let Some(members) = members else {
+        capabilities.dispose();
         return Err(String::from(
             "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}",
         ));
     };
-    if tac_active_owners().with(|slot| slot.borrow().len()) >= 256 {
-        return Err(String::from("{\"error\":\"Too many native activations.\"}"));
-    }
-    let activation = std::rc::Rc::new(TacActivation::new(route, service, owner, members));
+    let activation = std::rc::Rc::new(TacActivation::new(
+        route,
+        service,
+        owner,
+        members,
+        capabilities,
+    ));
     tac_active_owners().with(|slot| slot.borrow_mut().insert(owner.clone(), activation.clone()));
     tac_set_executing(&activation);
     if let Some(TacValue::Object(properties)) = tac_entry(request, "props") {
@@ -966,6 +975,7 @@ struct TacActivation {
     service: String,
     owner: String,
     members: Vec<(&'static str, TacMember)>,
+    capabilities: std::rc::Rc<NativeCapabilityScope>,
     listeners: Vec<usize>,
     disposed: core::cell::Cell<bool>,
     queue: core::cell::RefCell<std::collections::VecDeque<(String, TacValue, bool)>>,
@@ -979,6 +989,7 @@ impl TacActivation {
         service: &str,
         owner: &str,
         members: Vec<(&'static str, TacMember)>,
+        capabilities: std::rc::Rc<NativeCapabilityScope>,
     ) -> Self {
         let mut listeners = Vec::new();
         for (index, (_, member)) in members.iter().enumerate() {
@@ -995,6 +1006,7 @@ impl TacActivation {
             service: service.to_owned(),
             owner: owner.to_owned(),
             members,
+            capabilities,
             listeners,
             disposed: core::cell::Cell::new(false),
             queue: core::cell::RefCell::new(std::collections::VecDeque::new()),
@@ -1453,6 +1465,7 @@ fn tac_drain(owner: &TacActivation) {
 
 fn tac_dispose_activation(owner: std::rc::Rc<TacActivation>) {
     owner.disposed.set(true);
+    owner.capabilities.dispose();
     owner.queue.borrow_mut().clear();
     owner.retained.borrow_mut().clear();
     owner.deferred.borrow_mut().clear();

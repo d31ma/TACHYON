@@ -21,6 +21,7 @@ impl MacOsHostGenerator {
         include_str!("capabilities/FilePickerOptions.swift"),
         include_str!("capabilities/FilePicker.swift"),
         include_str!("capabilities/NativeCapabilities.swift"),
+        include_str!("capabilities/NativeCapabilityScope.swift"),
         include_str!("capabilities/WindowControls.swift"),
         include_str!("capabilities/NativeCapabilityFailure.swift")
     );
@@ -138,9 +139,9 @@ pub(super) fn companion_call(swift: Option<&Path>, rust: Option<&Path>) -> &'sta
 
 pub(super) fn companion_emit(companion_call: &str) -> &'static str {
     if companion_call.contains("tacRustInvoke") && companion_call.contains("tacNativeInvoke") {
-        "TacBridge.emit = tachyonRelayPublish; tacRustNativeSetEmit(tacRustEmit)"
+        "TacBridge.emit = tachyonRelayPublish; tacRustNativeSetEmit(tacRustEmit); tacRustNativeSetCapabilityAdapter(tacRustCapabilityCall, tacRustCapabilityFree)"
     } else if companion_call.contains("tacRustInvoke") {
-        "tacRustNativeSetEmit(tacRustEmit)"
+        "tacRustNativeSetEmit(tacRustEmit); tacRustNativeSetCapabilityAdapter(tacRustCapabilityCall, tacRustCapabilityFree)"
     } else if companion_call.contains("tacNativeInvoke") {
         "TacBridge.emit = tachyonRelayPublish"
     } else {
@@ -289,16 +290,16 @@ fn window_controls(window: &super::config::WindowConfiguration) -> String {
         "        case \"window.granted\":\n            let request = tachyonParseJSONRequest(payload) ?? [:]\n            let granted: [String] = {granted}\n            let control = request[\"control\"] as? String ?? \"\"\n            return granted.contains(control) ? \"{{\\\"granted\\\":true}}\" : \"{{\\\"granted\\\":false}}\"\n"
     );
     if window.grants("minimize") {
-        arms.push_str("        case \"window.minimize\":\n            NSApplication.shared.keyWindow?.miniaturize(nil)\n            return \"{\\\"ok\\\":true}\"\n");
+        arms.push_str("        case \"window.minimize\":\n            window?.miniaturize(nil)\n            return \"{\\\"ok\\\":true}\"\n");
     }
     if window.grants("maximize") {
-        arms.push_str("        case \"window.maximize\":\n            NSApplication.shared.keyWindow?.zoom(nil)\n            return \"{\\\"ok\\\":true}\"\n");
+        arms.push_str("        case \"window.maximize\":\n            window?.zoom(nil)\n            return \"{\\\"ok\\\":true}\"\n");
     }
     if window.grants("fullscreen") {
-        arms.push_str("        case \"window.fullscreen\":\n            NSApplication.shared.keyWindow?.toggleFullScreen(nil)\n            return \"{\\\"ok\\\":true}\"\n");
+        arms.push_str("        case \"window.fullscreen\":\n            window?.toggleFullScreen(nil)\n            return \"{\\\"ok\\\":true}\"\n");
     }
     if window.grants("close") {
-        arms.push_str("        case \"window.close\":\n            NSApplication.shared.keyWindow?.performClose(nil)\n            return \"{\\\"ok\\\":true}\"\n");
+        arms.push_str("        case \"window.close\":\n            window?.performClose(nil)\n            return \"{\\\"ok\\\":true}\"\n");
     }
     if window.grants("resize") {
         arms.push_str("        case \"window.resize\":\n            NativeBridge.resize(payload)\n            return \"{\\\"ok\\\":true}\"\n");
@@ -328,11 +329,7 @@ pub(super) fn swift_source(
     companion_call: &str,
     index: &NativeRouteIndex,
 ) -> String {
-    let rust_shim = if companion_call.contains("tacRustInvoke") {
-        MacOsHostGenerator::RUST_SHIM
-    } else {
-        ""
-    };
+    let rust_shim = MacOsHostGenerator::rust_shim(companion_call);
     let host = MacOsHostGenerator::SWIFT_HOST.replace(
         "__TACHYON_JSON_REQUEST__",
         MacOsHostGenerator::APPLE_JSON_REQUEST,
@@ -359,11 +356,31 @@ pub(super) fn swift_source(
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit(companion_call))
-        .replace("__NATIVE_GRANTS__", &serde_json::to_string(&application.native_capabilities).unwrap_or_else(|_| String::from("[]")))
-        .replace("__NATIVE_CAPABILITY_MODELS__", if companion_call.contains("tacNativeInvoke") { "" } else { concat!(include_str!("capabilities/FilePickerStatus.swift"), include_str!("capabilities/FilePickerResult.swift")) })
-        .replace("__NATIVE_FILE_PICKER__", include_str!("capabilities/MacOsFilePicker.swift"))
-        .replace("__NATIVE_FILE_PICKER_GRANTED__", if application.native_capabilities.iter().any(|grant| grant == "filePicker") { "true" } else { "false" })
-        .replace("__NATIVE_CAPABILITY_REGISTER__", if companion_call.contains("tacNativeInvoke") { "NativeCapabilities.call = { capability, payload in MainActor.assumeIsolated { NativeBridge.shared.handle(capability, payload) } }" } else { "" })
+        .replace(
+            "__NATIVE_GRANTS__",
+            &serde_json::to_string(&application.native_capabilities)
+                .unwrap_or_else(|_| String::from("[]")),
+        )
+        .replace(
+            "__NATIVE_CAPABILITY_MODELS__",
+            MacOsHostGenerator::capability_models(companion_call),
+        )
+        .replace(
+            "__NATIVE_FILE_PICKER__",
+            include_str!("capabilities/MacOsFilePicker.swift"),
+        )
+        .replace(
+            "__NATIVE_FILE_PICKER_GRANTED__",
+            &application
+                .native_capabilities
+                .iter()
+                .any(|grant| grant == "filePicker")
+                .to_string(),
+        )
+        .replace(
+            "__NATIVE_CAPABILITY_REGISTER__",
+            MacOsHostGenerator::capability_registration(companion_call),
+        )
         .replace("__TACHYON_RUST_SHIM__", rust_shim)
 }
 
@@ -373,6 +390,30 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl MacOsHostGenerator {
+    fn rust_shim(call: &str) -> &'static str {
+        if call.contains("tacRustInvoke") {
+            return Self::RUST_SHIM;
+        }
+        ""
+    }
+
+    fn capability_models(call: &str) -> &'static str {
+        if call.contains("tacNativeInvoke") {
+            return "";
+        }
+        concat!(
+            include_str!("capabilities/FilePickerStatus.swift"),
+            include_str!("capabilities/FilePickerResult.swift")
+        )
+    }
+
+    fn capability_registration(call: &str) -> &'static str {
+        if call.contains("tacNativeInvoke") {
+            return "NativeCapabilities.call = { capability, payload in MainActor.assumeIsolated { NativeBridge.shared.handle(capability, payload) } }";
+        }
+        ""
+    }
+
     pub(super) const RUST_SHIM: &str = r#"@_silgen_name("tac_native_invoke")
 private func tacRustNativeInvoke(_ request: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
 
@@ -381,6 +422,31 @@ private func tacRustNativeFree(_ answer: UnsafeMutablePointer<CChar>?)
 
 @_silgen_name("tac_native_set_emit")
 private func tacRustNativeSetEmit(_ emit: @convention(c) (UnsafePointer<CChar>?) -> Void)
+
+@_silgen_name("tac_native_set_capability_adapter")
+private func tacRustNativeSetCapabilityAdapter(
+    _ call: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?, UnsafeMutablePointer<Int>?) -> UnsafeMutablePointer<UInt8>?,
+    _ free: @convention(c) (UnsafeMutablePointer<UInt8>?, Int) -> Void
+)
+
+private func tacRustCapabilityCall(
+    _ capability: UnsafePointer<CChar>?, _ payload: UnsafePointer<CChar>?, _ length: UnsafeMutablePointer<Int>?
+) -> UnsafeMutablePointer<UInt8>? {
+    guard Thread.isMainThread, let capability, let payload, let length else { return nil }
+    let answer = MainActor.assumeIsolated {
+        NativeBridge.shared.handle(String(cString: capability), String(cString: payload))
+    }
+    let bytes = Array(answer.utf8)
+    guard !bytes.isEmpty, bytes.count <= 1048576 else { return nil }
+    let result = UnsafeMutablePointer<UInt8>.allocate(capacity: bytes.count)
+    result.initialize(from: bytes, count: bytes.count)
+    length.pointee = bytes.count
+    return result
+}
+
+private func tacRustCapabilityFree(_ answer: UnsafeMutablePointer<UInt8>?, _ length: Int) {
+    answer?.deallocate()
+}
 
 private func tacRustInvoke(_ request: String) -> String {
     request.withCString { pointer in
@@ -538,6 +604,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
 private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     static let shared = NativeBridge()
     weak var webView: WKWebView?
+    weak var window: NSWindow?
 
     func userContentController(
         _ controller: WKUserContentController,
@@ -579,7 +646,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     static func resize(_ payload: String) {
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        guard let window = NSApplication.shared.keyWindow else { return }
+        guard let window = NativeBridge.shared.window else { return }
         let width = (parsed["width"] as? NSNumber)?.doubleValue ?? Double(window.frame.width)
         let height = (parsed["height"] as? NSNumber)?.doubleValue ?? Double(window.frame.height)
         guard width.isFinite, height.isFinite,
@@ -591,10 +658,13 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         let data = payload.data(using: .utf8) ?? Data()
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         guard let title = parsed["title"] as? String else { return }
-        NSApplication.shared.keyWindow?.title = String(title.prefix(256))
+        NativeBridge.shared.window?.title = String(title.prefix(256))
     }
 
     fileprivate func handle(_ capability: String, _ payload: String) -> String {
+        if capability.hasPrefix("window."), capability != "window.granted", window == nil {
+            return "{\"error\":\"Native window unavailable.\"}"
+        }
         if capability.hasPrefix("filePicker."), let request = tachyonParseJSONRequest(payload) {
             return MacOsFilePicker.shared.call(String(capability.dropFirst(11)), request)
         }
@@ -672,6 +742,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
         window.contentMinSize = NSSize(width: __WINDOW_MIN_WIDTH__, height: __WINDOW_MIN_HEIGHT__)
         window.makeKeyAndOrderFront(nil)
         self.window = window
+        NativeBridge.shared.window = window
         NSApplication.shared.activate(ignoringOtherApps: true)
 
         view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
