@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
-    let helpers = helper_names(language);
+    let helpers = role_names(language);
     for (relative, source) in files(language) {
         let source = super::behavior_layout::rename(source, &helpers);
         let (relative, mut source) = role_copy(relative, source, &helpers, language);
@@ -108,7 +108,7 @@ fn model_imports(source: String, language: &str, names: &[&str]) -> String {
     format!("{imports}{source}")
 }
 
-fn helper_names(language: &str) -> BTreeMap<String, String> {
+fn role_names(language: &str) -> BTreeMap<String, String> {
     let names: &[&str] = match language {
         "rs" | "go" => &[
             "CatalogChecks",
@@ -130,10 +130,17 @@ fn helper_names(language: &str) -> BTreeMap<String, String> {
         "py" | "php" | "rb" => &["Backend", "HandlerChecks", "Resilient"],
         _ => &[],
     };
-    names
+    let mut roles: BTreeMap<_, _> = names
         .iter()
         .map(|name| ((*name).to_owned(), format!("{name}Helper")))
-        .collect()
+        .collect();
+    if ["py", "php", "rb"].contains(&language) {
+        roles.insert(
+            "ProductSummaries".into(),
+            "ProductSummariesConverter".into(),
+        );
+    }
+    roles
 }
 
 fn role_copy(
@@ -149,7 +156,13 @@ fn role_copy(
         .unwrap_or("");
     let role = names
         .get(stem)
-        .map(|name| ("helpers", "Helper", name.as_str()))
+        .map(|name| {
+            if name.ends_with("Converter") {
+                ("converters", "Converter", name.as_str())
+            } else {
+                ("helpers", "Helper", name.as_str())
+            }
+        })
         .or_else(|| service_copy(language, stem).map(|name| ("services", "Service", name)));
     role.map_or_else(
         || (relative.to_owned(), source.clone()),
@@ -183,6 +196,9 @@ fn marked_copy(mut source: String, language: &str, name: &str, role: &str) -> St
     let (declaration, marker) = match language {
         "rs" => ("struct", format!("#[{role}]")),
         "go" => ("type", format!("// @{role}")),
+        "php" if source.contains(&format!("interface {name}")) => {
+            ("interface", format!("#[{role}]"))
+        }
         "php" | "rb" => ("class", format!("#[{role}]")),
         "cs" => ("class", format!("[{role}]")),
         "py" => ("class", format!("@{}", role.to_ascii_lowercase())),
