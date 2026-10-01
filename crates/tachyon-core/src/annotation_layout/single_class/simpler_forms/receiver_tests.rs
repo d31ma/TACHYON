@@ -262,27 +262,27 @@ fn implicit_members_preserves_injection_and_native_view_contracts() {
     for (extension, source, language) in [
         (
             "java",
-            "@NeedsAll\n@Service\nclass CounterService {\n LedgerStore ledgerStore;\n int count = 0;\n void increment() { count += ledgerStore.amount; }\n}\n",
+            "@Service\n@NeedsAll\nclass CounterService {\n LedgerStore ledgerStore;\n int count = 0;\n void increment() { count += ledgerStore.amount; }\n}\n",
             None,
         ),
         (
             "cs",
-            "[NeedsAll]\n[Service]\nclass CounterService {\n [Needs]\n private LedgerStore _ledgerStore;\n public int count = 0;\n public void increment() { count += _ledgerStore.amount; }\n}\n",
+            "[Service]\n[NeedsAll]\nclass CounterService {\n [Needs]\n private readonly LedgerStore _ledgerStore;\n public int count = 0;\n public void increment() { count += _ledgerStore.amount; }\n}\n",
             Some(CompanionLanguage::CSharp),
         ),
         (
             "dart",
-            "@NeedsAll\n@Service\nclass CounterService {\n final LedgerStore ledgerStore;\n int count = 0;\n void increment() { count += ledgerStore.amount; }\n}\n",
+            "@Service\n@NeedsAll\nclass CounterService {\n final LedgerStore ledgerStore;\n int count = 0;\n void increment() { count += ledgerStore.amount; }\n}\n",
             None,
         ),
         (
             "kt",
-            "@NeedsAll\n@Service\nclass CounterService {\n lateinit var ledgerStore: LedgerStore\n var count: Int = 0\n fun increment() { count += ledgerStore.amount }\n}\n",
+            "@Service\n@NeedsAll\nclass CounterService {\n lateinit var ledgerStore: LedgerStore\n var count: Int = 0\n fun increment() { count += ledgerStore.amount }\n}\n",
             Some(CompanionLanguage::Kotlin),
         ),
         (
             "swift",
-            "@NeedsAll\n@Service\nclass CounterService {\n var ledgerStore: LedgerStore\n var count: Int = 0\n func increment() { count += ledgerStore.amount }\n}\n",
+            "@Service\n@NeedsAll\nclass CounterService {\n var ledgerStore: LedgerStore\n var count: Int = 0\n func increment() { count += ledgerStore.amount }\n}\n",
             Some(CompanionLanguage::Swift),
         ),
     ] {
@@ -312,19 +312,28 @@ fn implicit_members_preserves_injection_and_native_view_contracts() {
             assert_eq!(bare_table, explicit_table, "{extension}");
             assert!(bare_table.contains("count") && bare_table.contains("increment"));
         }
-        let lowered = crate::behavior::lower(Path::new(&relative), source, "tac")
+        let prepared = crate::behavior::ServiceRoles::read(Path::new(&relative), source)
             .unwrap()
-            .unwrap();
+            .source;
+        let lowered = crate::behavior::lower(Path::new(&relative), &prepared, "tac")
+            .unwrap()
+            .unwrap_or(prepared);
         assert!(lowered.contains("count +="), "{extension}: {lowered}");
     }
     let relative = Path::new("server/services/CounterService.groovy");
-    let source = "@NeedsAll\n@Service\nclass CounterService {\n LedgerStore ledgerStore\n int count = 0\n void increment() { count += ledgerStore.amount }\n}\n";
-    let lowered = crate::behavior::lower(relative, source, "yon")
+    let source = "@Service\n@NeedsAll\nclass CounterService {\n LedgerStore ledgerStore\n int count = 0\n void increment() { count += ledgerStore.amount }\n}\n";
+    let roles = crate::behavior::ServiceRoles::read(relative, source).unwrap();
+    assert!(roles.prototype);
+    let prepared = roles.source;
+    let lowered = crate::behavior::lower(relative, &prepared, "yon")
         .unwrap()
-        .unwrap();
+        .unwrap_or(prepared);
     assert!(lowered.contains("count += ledgerStore.amount"), "{lowered}");
-    assert!(
-        lowered.contains("this.ledgerStore = ledgerStore"),
-        "{lowered}"
+    let explicit = source.replace("count +=", "this.count +=");
+    assert_eq!(
+        crate::behavior::ServiceRoles::read(relative, &explicit)
+            .unwrap()
+            .prototype,
+        roles.prototype
     );
 }

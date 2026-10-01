@@ -94,9 +94,11 @@ impl SimplerForms {
         let wanted = switch.covers(Path::new(relative));
         let forms = FormScan::forms(Path::new(relative), source);
         let receiver_wanted = receivers.covers(Path::new(relative));
-        let receiver_forms = receiver_wanted
-            .then(|| ReceiverForms::find(Path::new(relative), source))
-            .unwrap_or_default();
+        let receiver_forms = if receiver_wanted {
+            ReceiverForms::find(Path::new(relative), source)
+        } else {
+            Vec::new()
+        };
         let selected = forms.into_iter().filter(|_| wanted).collect();
         let selected_receivers = receiver_forms
             .into_iter()
