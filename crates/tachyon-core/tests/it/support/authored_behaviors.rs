@@ -8,6 +8,7 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         let (relative, mut source) = role_copy(relative, source, &helpers, language);
         let relative = model_copy(relative, language);
         source = model_source(&relative, source, language);
+        source = ruby_converter_source(&relative, source, language);
         let relative = relative.replacen("server/clients/", "server/remotes/", 1);
         let relative = relative.replacen("server/", &format!("{realm}/"), 1);
         let relative = Path::new(&relative).with_extension(extension);
@@ -21,6 +22,25 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         std::fs::create_dir_all(target.parent().expect("fixture parent"))
             .expect("fixture directories");
         std::fs::write(target, source).expect("authored fixture");
+    }
+}
+
+fn ruby_converter_source(relative: &str, source: String, language: &str) -> String {
+    if language != "rb" {
+        return source;
+    }
+    match relative {
+        "server/converters/ProductSummariesConverter.rb" => {
+            source.replace("  attr_accessor :behaviors\n", "")
+        }
+        "server/controllers/ProductsController.rb" => source
+            .replace("class ProductsController\n", "class ProductsController\n  #[Needs]\n  # @return [ProductSummariesConverter]\n  attr_reader :product_summaries_converter\n")
+            .replace("HandlerChecksHelper.exercise(context, signal)", "HandlerChecksHelper.exercise(context, signal, product_summaries_converter)"),
+        "server/helpers/HandlerChecksHelper.rb" => source
+            .replace("def self.check_mapping(context)\n    summaries = Behaviors.construct(ProductSummariesConverter, behaviors: context)", "def self.check_mapping(summaries)")
+            .replace("def self.exercise(context, signal)", "def self.exercise(context, signal, summaries)")
+            .replace("check_mapping(context)", "check_mapping(summaries)"),
+        _ => source,
     }
 }
 
