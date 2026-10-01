@@ -70,6 +70,8 @@ class DocumentTitleBrowserGate {
   static async managed(page) {
     await page.locator('#kotlin-first-container .kotlin-write').click()
     await DocumentTitleBrowserGate.title(page, 'Kotlin click — 🌍')
+    await page.locator('#kotlin-first-container .kotlin-attempt').click()
+    await DocumentTitleBrowserGate.title(page, 'Kotlin attempt — 雪')
     await page.locator('#kotlin-first-container .kotlin-empty').click()
     await DocumentTitleBrowserGate.title(page, '')
     await page.locator('#show-second').click()
@@ -87,8 +89,10 @@ class DocumentTitleBrowserGate {
     await page.locator('#script-write').click()
     await page.waitForFunction(() => document.querySelector('#script-ready')?.textContent === '1', undefined, { timeout: 5000 })
     await DocumentTitleBrowserGate.title(page, 'Script click — 🦊')
+    await page.locator('#script-attempt').click()
+    await DocumentTitleBrowserGate.title(page, 'Script attempt — 雪')
     await page.locator('#script-invalid').click()
-    await DocumentTitleBrowserGate.title(page, 'Script click — 🦊')
+    await DocumentTitleBrowserGate.title(page, 'Script attempt — 雪')
     await page.locator('#script-empty').click()
     await DocumentTitleBrowserGate.title(page, '')
     const retiredButton = await page.locator('#script-write').elementHandle()
@@ -105,7 +109,7 @@ class DocumentTitleBrowserGate {
     await page.locator('#show-script').click()
     await page.waitForFunction(() => document.querySelector('#script-ready')?.textContent === '0', undefined, { timeout: 5000 })
     await DocumentTitleBrowserGate.title(page, 'Script start — 🦊')
-    return { kotlinUnicode: true, empty: true, independentMountedOwners: true, firstDisposalDoesNotRestoreTitle: true, kotlinRemount: true, scriptUnicode: true, scriptOversizedRefused: true, scriptRetiredDomListenerInactive: true, scriptRemount: true }
+    return { kotlinUnicode: true, kotlinAttemptUiWrite: true, scriptAttemptUiWrite: true, empty: true, independentMountedOwners: true, firstDisposalDoesNotRestoreTitle: true, kotlinRemount: true, scriptUnicode: true, scriptOversizedRefused: true, scriptRetiredDomListenerInactive: true, scriptRemount: true }
   }
 
   static async facade(page) {
