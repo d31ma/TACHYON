@@ -1,6 +1,6 @@
 # ADR0092: Settings and validation data live in models
 
-Status: accepted design; adapter qualification in progress.
+Status: Accepted design; adapter qualification in progress.
 
 The explicit role guard exposed historical settings and validation data classes
 under helpers. These declarations describe data; they do not receive a Helper
