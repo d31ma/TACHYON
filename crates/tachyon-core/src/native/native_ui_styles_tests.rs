@@ -137,6 +137,16 @@ async fn native_ui_styles_compiles_and_rejects_unsupported_css_without_opening_a
         result.contains("native-ui-styles-css-profile-passed"),
         "{result}"
     );
+    let installed = fixture.generation("installed", "main { color: black; }");
+    let candidate = fixture.generation("candidate", "main { color: blue; }");
+    let arguments = std::iter::once("store")
+        .chain(installed.iter().chain(candidate.iter()).map(String::as_str))
+        .collect::<Vec<_>>();
+    let receipt = NativeUiStylesFixture::execute(&executable, &arguments).await;
+    assert!(
+        receipt.contains("native-ui-styles-retained-rollback-passed"),
+        "{receipt}"
+    );
 }
 
 #[tokio::test]

@@ -127,6 +127,7 @@ import WebKit
 
     private func rolledBack(_ ticket: NativeUiStyleTicket) async throws {
         do {
+            try assets.prepareRollback(ticket.generation)
             let result = try await acknowledged("rollback", ticket)
             try NativeUiRuntimeFailure.require(result == "rolledback", "Stylesheet rollback was not acknowledged")
             try assets.rollback(ticket.generation)

@@ -23,6 +23,7 @@ import WebKit
         switch arguments.count {
         case 2: try css()
         case 7: try await ui(arguments)
+        case 8: try retainedStore(arguments)
         default: throw NativeUiRuntimeFailure(description: "Invalid stylesheet fixture arguments")
         }
     }
@@ -43,6 +44,31 @@ import WebKit
 
     private static func cssFailure(_ source: String) -> Error? {
         do { try NativeUiCssProfile.validate(Data(source.utf8)); return nil } catch { return error }
+    }
+
+    @MainActor private static func retainedStore(_ arguments: [String]) throws {
+        let installed = try generation(arguments[2], arguments[3], arguments[4])
+        let candidate = try generation(arguments[5], arguments[6], arguments[7])
+        let assets = NativeUiStyleAssets(installed)
+        let root = URL(string: "tachyon-app://bundle/styles/theme.css")!
+        let old = try NativeUiStyleAddress.url(installed.descriptor.generation, "styles/theme.css")
+        let new = try NativeUiStyleAddress.url(candidate.descriptor.generation, "styles/theme.css")
+        try assets.stage(candidate)
+        try assets.promote(candidate.descriptor.generation)
+        try assets.prepareRollback(candidate.descriptor.generation)
+        try NativeUiRuntimeFailure.require(try assets.asset(root) == installed.asset("styles/theme.css"), "Pending rollback served candidate at old root")
+        try NativeUiRuntimeFailure.require(try assets.asset(old) == installed.asset("styles/theme.css") && assets.asset(new) == candidate.asset("styles/theme.css"), "Pending rollback retired a generation before acknowledgement")
+        try assets.promote(candidate.descriptor.generation)
+        try NativeUiRuntimeFailure.require(try assets.asset(root) == candidate.asset("styles/theme.css") && assets.asset(old) == installed.asset("styles/theme.css"), "Committed reconciliation did not restore candidate with retained rollback")
+        try assets.prepareRollback(candidate.descriptor.generation)
+        try assets.rollback(candidate.descriptor.generation)
+        try NativeUiRuntimeFailure.require(try assets.asset(root) == installed.asset("styles/theme.css") && assets.asset(old) == installed.asset("styles/theme.css"), "Acknowledged rollback lost installed capture")
+        try NativeUiRuntimeFailure.require(storeFailure(assets, new) != nil, "Acknowledged rollback did not retire candidate")
+        print("native-ui-styles-retained-rollback-passed")
+    }
+
+    @MainActor private static func storeFailure(_ assets: NativeUiStyleAssets, _ url: URL) -> Error? {
+        do { _ = try assets.asset(url); return nil } catch { return error }
     }
 
     @MainActor private static func ui(_ arguments: [String]) async throws {

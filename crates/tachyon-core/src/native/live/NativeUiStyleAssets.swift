@@ -23,8 +23,13 @@ import Foundation
         promoteKnown(generation)
     }
 
-    func rollback(_ generation: String) throws {
+    func prepareRollback(_ generation: String) throws {
+        try NativeUiRuntimeFailure.require([current, other].compactMap { $0 }.contains { $0.descriptor.generation == generation }, "Unknown rollback generation")
         try restore(generation)
+    }
+
+    func rollback(_ generation: String) throws {
+        try prepareRollback(generation)
         other = nil
     }
 
@@ -53,9 +58,14 @@ import Foundation
     }
 
     private func restore(_ generation: String) throws {
-        let previous = current.descriptor.generation == generation ? other : current
-        try NativeUiRuntimeFailure.require(previous != nil, "Rollback generation is unavailable")
-        current = previous ?? current
+        if current.descriptor.generation == generation { try restoreCurrent() }
+    }
+
+    private func restoreCurrent() throws {
+        guard let previous = other else { throw NativeUiRuntimeFailure(description: "Rollback generation is unavailable") }
+        let candidate = current
+        current = previous
+        other = candidate
     }
 
     private func captured(_ path: String) throws -> Data {
