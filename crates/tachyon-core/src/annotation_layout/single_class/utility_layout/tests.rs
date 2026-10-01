@@ -190,6 +190,48 @@ fn a_field_or_stored_value_is_refused() {
 }
 
 #[test]
+fn script_utilities_refuse_same_line_state_before_or_between_methods() {
+    let cases = [
+        "class TextUtils { static cache = 1; static text() { return 'Ready'; } }",
+        "class TextUtils { static text() { return 'Ready'; } static cache = 1; static more() { return 'Ready'; } }",
+        "class TextUtils { static cache = 1; static async text() { return 'Ready'; } }",
+        "class TextUtils { static cache = 1; static get text() { return 'Ready'; } }",
+        "class TextUtils { static cache = 1; private static text(): string { return 'Ready'; } }",
+    ];
+    for source in cases {
+        assert_eq!(
+            codes("client/utils/TextUtils.ts", source),
+            vec![1316],
+            "{source}"
+        );
+    }
+    assert_eq!(codes("client/utils/TextUtils.js", cases[0]), vec![1316]);
+}
+
+#[test]
+fn script_utility_prefixes_preserve_multiple_methods_without_hiding_instance_methods() {
+    for source in [
+        "class TextUtils { static text() { return TextUtils.#lower(); } static #lower() { return 'Ready'; } }",
+        "class TextUtils { static get text() { return 'Ready'; } static set label(value) { void value; } }",
+        "class TextUtils { static async text() { return 'Ready'; } static *lines() { yield 'Ready'; } }",
+        "class TextUtils {\n static\n async text() { return 'Ready'; }\n static more() { return 'Ready'; }\n}",
+    ] {
+        assert_eq!(
+            codes("client/utils/TextUtils.js", source),
+            Vec::<u16>::new(),
+            "{source}"
+        );
+    }
+    let source =
+        "class TextUtils { static text() { return 'Ready'; } plain() { return 'Ready'; } }";
+    let found = messages("client/utils/TextUtils.js", source);
+    assert_eq!(codes("client/utils/TextUtils.js", source), vec![1316]);
+    assert!(found[0].contains("Method `plain`"));
+    let typed = "class TextUtils { public static text(): string { return TextUtils.lower(); } private static lower(): string { return 'Ready'; } }";
+    assert_eq!(codes("client/utils/TextUtils.ts", typed), Vec::<u16>::new());
+}
+
+#[test]
 fn rust_utility_boundary_accepts_immutable_associated_constants() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    const TITLE: &'static str = \"Ready\";\n    pub(crate) const WIDTH: usize = { 2 + 3 };\n    pub fn text() -> String { Self::TITLE.to_owned() }\n}\n";
     assert_eq!(

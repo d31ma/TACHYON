@@ -11,7 +11,9 @@ use std::path::Path;
 use tachyon_diagnostics::Diagnostic;
 
 mod rust_constants;
+mod script_methods;
 use rust_constants::RustConstants;
+use script_methods::ScriptMethods;
 
 pub(crate) struct UtilityShape<'r, 'a> {
     path: String,
@@ -140,7 +142,7 @@ impl UtilityShape<'_, '_> {
     }
 
     fn has_static_word(&self, method: &Method) -> bool {
-        let head = self.words.line_begin(method.head)..method.body.start.max(method.head);
+        let head = self.method_start(method)..method.body.start.max(method.head);
         self.words.has_word(head, &["static"])
     }
 
@@ -205,12 +207,16 @@ impl UtilityShape<'_, '_> {
 
     fn span(&self, method: &Method) -> Range<usize> {
         let closing = usize::from(self.layout == Layout::Ended);
-        let start = if self.extension == "rs" {
-            RustConstants::method_start(self.words, method.head)
-        } else {
-            self.words.line_begin(method.head)
-        };
+        let start = self.method_start(method);
         start..method.body.end + closing
+    }
+
+    fn method_start(&self, method: &Method) -> usize {
+        match self.extension {
+            "rs" => RustConstants::method_start(self.words, method.head),
+            "js" | "ts" => ScriptMethods::start(self.words, method.head),
+            _ => self.words.line_begin(method.head),
+        }
     }
 
     fn in_marker(&self, at: usize) -> bool {

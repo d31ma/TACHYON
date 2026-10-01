@@ -66,14 +66,11 @@ impl UtilityModule {
     }
 
     fn export_tail(tail: &str, name: &str) -> bool {
-        let tail = tail.trim_start();
-        let direct = Self::exported_class(tail, name);
-        let listed = Self::exported_binding(tail, name);
-        [direct, listed].contains(&true)
+        Self::exported_class(tail.trim_start(), name)
     }
 
     fn exported_class(tail: &str, name: &str) -> bool {
-        let tail = tail.strip_prefix("abstract ").unwrap_or(tail);
+        let tail = Self::without_abstract(tail);
         Self::keyword(tail, 0, "class")
             .then(|| tail.strip_prefix("class"))
             .flatten()
@@ -81,22 +78,9 @@ impl UtilityModule {
             .is_some_and(|tail| Self::keyword(tail, 0, name))
     }
 
-    fn exported_binding(tail: &str, name: &str) -> bool {
-        tail.strip_prefix('{')
-            .and_then(|tail| tail.split_once('}'))
-            .is_some_and(|(bindings, _)| {
-                bindings
-                    .split(',')
-                    .any(|binding| Self::named_binding(binding, name))
-            })
-    }
-
-    fn named_binding(binding: &str, name: &str) -> bool {
-        let words: Vec<_> = binding.split_whitespace().collect();
-        [
-            words.as_slice() == [name],
-            words.as_slice() == [name, "as", name],
-        ]
-        .contains(&true)
+    fn without_abstract(tail: &str) -> &str {
+        Self::keyword(tail, 0, "abstract")
+            .then(|| tail[8..].trim_start())
+            .unwrap_or(tail)
     }
 }
