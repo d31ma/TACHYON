@@ -95,7 +95,7 @@ impl ScriptDeclarations {
     fn number(words: &Words<'_>, text: &str, start: usize, end: usize) -> bool {
         let value = &text[words.start(start)..words.start(end)];
         let first = value.trim_start().bytes().next().unwrap_or(b' ');
-        let numeric = first.is_ascii_digit() | [b'-', b'+', b'.'].contains(&first);
+        let numeric = first.is_ascii_digit() | b"-+.".contains(&first);
         let parsed = value.trim().replace('_', "").parse::<f64>().is_ok();
         numeric & parsed
     }
