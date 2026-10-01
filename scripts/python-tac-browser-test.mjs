@@ -108,6 +108,11 @@ class PythonTacGate {
   }
 
   static async exercise(page) {
+    await page.locator('#view-increment').click()
+    await page.waitForFunction(() => document.querySelector('#view-count')?.textContent === '4', undefined, { timeout: 5_000 })
+    await page.locator('#view-echo').click()
+    await page.waitForFunction(() => document.querySelector('#view-echo-count')?.textContent === '1', undefined, { timeout: 5_000 })
+    assert.equal(await page.locator('#view-model').textContent(), 'initial')
     return page.evaluate(async () => {
       const { default: CounterService } = await import('/.tachyon/services/CounterService.js')
       const { default: AuditService } = await import('/.tachyon/services/AuditService.js')
@@ -135,6 +140,14 @@ class PythonTacGate {
       refused.disposed = attempt(() => first.increment())
       first.__tachyonDispose()
       second.__tachyonDispose()
+      const view = document.querySelector('[data-tachyon-component="python-probe"]')
+      if (!view) throw new Error('The actual owning view was not attached')
+      view.remove()
+      const deadline = performance.now() + 5_000
+      while (audit.snapshot()[1] !== 1) {
+        if (performance.now() >= deadline) throw new Error('Detached view did not release the last shared helper')
+        await new Promise(resolve => setTimeout(resolve, 10))
+      }
       const stopped = audit.snapshot()
       audit.__tachyonDispose()
       return { before, incremented, state, refused, retained, stopped }
