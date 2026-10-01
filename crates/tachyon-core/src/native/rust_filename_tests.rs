@@ -59,8 +59,7 @@ fn main() {
         let built = NativeCompiler::build_async(root.path(), &options)
             .await
             .expect("ordinary native collection and staging");
-        let source = std::fs::read_to_string(built.output_directory().join("project/companion.rs"))
-            .expect("actual generated Rust source");
+        let source = built.output_directory().join("project/companion.rs");
         NativePageGraphCheck::execute(&source, Self::CALLER).await;
     }
 }
