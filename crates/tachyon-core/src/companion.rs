@@ -486,8 +486,7 @@ impl Member {
     }
 
     fn getter_word(declared: &str, at: usize) -> bool {
-        let before = declared[..at]
-            .as_bytes()
+        let before = declared.as_bytes()[..at]
             .last()
             .is_some_and(u8::is_ascii_whitespace);
         let call = declared[at + 3..].trim_start().starts_with('(');
