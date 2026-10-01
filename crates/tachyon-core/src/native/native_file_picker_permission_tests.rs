@@ -126,7 +126,7 @@ impl FilePickerPermissionCheck {
             .arg("-o")
             .arg(self.root.join("picker-check"));
         let result =
-            crate::external_command::run(&mut command, Duration::from_secs(60), Self::OUTPUT_LIMIT)
+            crate::external_command::run(&mut command, Duration::from_mins(1), Self::OUTPUT_LIMIT)
                 .await;
         self.receipt("compile", result);
     }

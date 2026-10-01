@@ -6,7 +6,7 @@ use std::path::Path;
 struct PackagedUtilityCheck;
 
 impl PackagedUtilityCheck {
-    const CALLER: &str = r###"
+    const CALLER: &str = r##"
 struct PackagedUtilityProbe;
 
 impl PackagedUtilityProbe {
@@ -33,7 +33,7 @@ impl PackagedUtilityProbe {
 fn main() {
     PackagedUtilityProbe::run();
 }
-"###;
+"##;
 
     async fn execute(root: &Path) {
         let source = root.join("dist-checkpoint07/macos/project/companion.rs");

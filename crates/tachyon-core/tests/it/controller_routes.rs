@@ -77,14 +77,14 @@ class OrdersController {
     getOrders() { return this.total.calculate(6); }
 }
 "#;
-    const TOTAL: &'static str = r#"import { InvoiceLabel } from '../../../shared/text/InvoiceLabel.js';
+    const TOTAL: &'static str = r"import { InvoiceLabel } from '../../../shared/text/InvoiceLabel.js';
 @Service
 @Needs(RateService)
 class TotalService {
     constructor(rate) { this.rate = rate; }
     calculate(value) { return { total: value * this.rate.value(), label: InvoiceLabel.text() }; }
 }
-"#;
+";
     const RATE: &'static str = "@Service\nclass RateService { value() { return 7; } }\n";
     const LABEL: &'static str =
         "export class InvoiceLabel { static text() { return 'shared-rebased'; } }\n";
