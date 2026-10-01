@@ -1,10 +1,11 @@
 pub(super) struct NativeUiStylesSources;
 
 impl NativeUiStylesSources {
-    const STYLES: [&str; 10] = [
+    const STYLES: [&str; 11] = [
         include_str!("live/NativeUiCssMode.swift"),
         include_str!("live/NativeUiCssMask.swift"),
         include_str!("live/NativeUiCssProfile.swift"),
+        include_str!("live/NativeUiCssGrammar.swift"),
         include_str!("live/NativeUiStyleAddress.swift"),
         include_str!("live/NativeUiStyleAssets.swift"),
         include_str!("live/NativeUiStyleScheme.swift"),

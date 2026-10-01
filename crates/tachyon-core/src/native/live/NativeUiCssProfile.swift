@@ -2,9 +2,14 @@ import Foundation
 
 struct NativeUiCssProfile {
     static func validate(_ bytes: Data) throws {
+        try bounded(bytes)
         let source = try utf8(bytes)
         let masked = try NativeUiCssMask.read(source)
-        try references(masked)
+        try NativeUiCssGrammar.validate(masked)
+    }
+
+    private static func bounded(_ bytes: Data) throws {
+        try NativeUiRuntimeFailure.require(bytes.count <= 1048576, "Stylesheet grammar profile byte bound exceeded")
     }
 
     private static func utf8(_ bytes: Data) throws -> String {
@@ -12,9 +17,4 @@ struct NativeUiCssProfile {
         return source
     }
 
-    private static func references(_ source: String) throws {
-        let pattern = try NSRegularExpression(pattern: "[A-Za-z_-][A-Za-z0-9_-]*\\s*\\(", options: .caseInsensitive)
-        let range = NSRange(source.startIndex..., in: source)
-        try NativeUiRuntimeFailure.require(pattern.firstMatch(in: source, range: range) == nil, "CSS functions need a separately qualified dependency profile")
-    }
 }

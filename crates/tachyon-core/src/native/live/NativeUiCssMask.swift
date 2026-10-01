@@ -30,7 +30,7 @@ final class NativeUiCssMask {
 
     private func code(_ at: Int) throws -> Unicode.Scalar {
         let operations: [Unicode.Scalar: (Int) throws -> Unicode.Scalar] = [
-            "/": slash, "'": beginQuote, "\"": beginQuote, "@": refused, "\\": refused,
+            "/": slash, "'": beginQuote, "\"": beginQuote, "\\": refused,
         ]
         return try operations[scalars[at]].map { try $0(at) } ?? scalars[at]
     }
@@ -73,6 +73,6 @@ final class NativeUiCssMask {
     private func escaped(_ at: Int) -> Unicode.Scalar { mode = .quoted; return " " }
 
     private func refused(_ at: Int) throws -> Unicode.Scalar {
-        throw NativeUiRuntimeFailure(description: "CSS at-rules and escaped code are not supported by this style profile")
+        throw NativeUiRuntimeFailure(description: "Escaped CSS code is not supported by this style profile")
     }
 }
