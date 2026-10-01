@@ -10,8 +10,10 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 mod client_utilities;
+mod module_input;
 mod shared_imports;
 mod test_configuration;
+use module_input::ModuleInput;
 use shared_imports::SharedImports;
 
 #[cfg(test)]
@@ -120,13 +122,16 @@ fn open_entry_root(
 
 fn read_modules(
     root: &Dir,
-    entry: &Path,
-    entry_source: &str,
-    paths: &[PathBuf],
-    environment: &str,
+    input: ModuleInput<'_>,
     converters: &mut crate::declared_contract::ConverterModelTable<'_>,
     imported_utilities: &client_utilities::ClientUtilities,
 ) -> Result<(Vec<Module>, usize), Failure> {
+    let ModuleInput {
+        entry,
+        source: entry_source,
+        paths,
+        environment,
+    } = input;
     let extension = entry_extension(entry, environment)?;
     let mut names = BTreeSet::new();
     register_names(entry, entry_source, &mut names)?;
@@ -301,7 +306,17 @@ impl Module {
         paths.extend(Discovery::native_contract_paths(&root, extension)?);
         let mut converters =
             crate::declared_contract::ConverterModelTable::new(snapshot_root, "tac", extension);
-        let (modules, _) = read_modules(&root, entry, &captured, &paths, "tac", &mut converters)?;
+        let utilities =
+            client_utilities::ClientUtilities::imported(&root, entry, &captured, &paths)?;
+        let captured = utilities.with_source(&captured);
+        Self::require_source_bound(entry, &captured)?;
+        let input = ModuleInput {
+            entry,
+            source: &captured,
+            paths: &paths,
+            environment: "tac",
+        };
+        let (modules, _) = read_modules(&root, input, &mut converters, &utilities)?;
         refuse_tac_helpers(&modules, extension, "tac")?;
         let mut units = vec![(entry.to_path_buf(), captured)];
         units.extend(
@@ -347,15 +362,13 @@ impl Module {
         let utilities = client_utilities::ClientUtilities::imported(&root, entry, source, &paths)?;
         let source = utilities.with_source(source);
         Self::require_source_bound(entry, &source)?;
-        let (mut modules, total) = read_modules(
-            &root,
+        let input = ModuleInput {
             entry,
-            &source,
-            &paths,
+            source: &source,
+            paths: &paths,
             environment,
-            &mut converters,
-            &utilities,
-        )?;
+        };
+        let (mut modules, total) = read_modules(&root, input, &mut converters, &utilities)?;
         Self::refuse_native_peer_lifetimes(&modules, native_services)?;
         test_configuration::include(
             &root,
