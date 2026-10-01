@@ -71,6 +71,7 @@ class PythonTacGate {
       const online = await PythonTacGate.exercise(page)
       diagnostics.phase = 'waiting-for-pinned-cache'
       const cached = await PythonTacGate.waitForPinnedCache(page)
+      diagnostics.documentCache = await page.evaluate(async () => ({ paths: (await Promise.all((await caches.keys()).map(async name => (await (await caches.open(name)).keys()).map(request => new URL(request.url).pathname)))).flat() }))
       diagnostics.phase = 'offline-reload'
       await context.setOffline(true)
       await page.reload({ waitUntil: 'networkidle', timeout: 20_000 })
@@ -94,6 +95,7 @@ class PythonTacGate {
     page.on('requestfailed', request => PythonTacGate.record(diagnostics.failedRequests, { path: PythonTacGate.safePath(request.url()), resource: request.resourceType(), error: PythonTacGate.summary(request.failure()?.errorText ?? 'unknown failure') }))
     page.on('response', response => {
       if (response.status() >= 400) PythonTacGate.record(diagnostics.httpErrors, { path: PythonTacGate.safePath(response.url()), status: response.status() })
+      if (response.request().resourceType() === 'document') diagnostics.documentHeaders = { vary: response.headers()['vary'] ?? '', cacheControl: response.headers()['cache-control'] ?? '', contentEncoding: response.headers()['content-encoding'] ?? '' }
     })
     page.on('request', request => {
       const url = new URL(request.url())
