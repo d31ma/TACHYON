@@ -316,13 +316,14 @@ mod tests {
     #[test]
     fn rust_provider_construction_reports_a_typed_dependency_cycle() {
         let source = "struct RootService { peer: PeerService }\nimpl RootService { fn new(peer: PeerService) -> Self { Self { peer } } }\nstruct PeerService { root: RootService }\nimpl PeerService { fn new(root: RootService) -> Self { Self { root } } }\n";
-        let failure = RustConstruction::instance(
+        let Err(failure) = RustConstruction::instance(
             source,
             "client/services/RootService.rs",
             "RootService",
             false,
-        )
-        .unwrap_err();
+        ) else {
+            panic!("construction must be refused");
+        };
         assert!(
             failure.to_string().contains("dependency cycle"),
             "{failure}"
@@ -332,13 +333,14 @@ mod tests {
     #[test]
     fn rust_provider_construction_requires_real_declared_constructor_providers() {
         let source = "struct RootService { count: i64 }\nimpl RootService { fn new(count: i64) -> Self { Self { count } } }\n";
-        let failure = RustConstruction::instance(
+        let Err(failure) = RustConstruction::instance(
             source,
             "client/services/RootService.rs",
             "RootService",
             false,
-        )
-        .unwrap_err();
+        ) else {
+            panic!("construction must be refused");
+        };
         assert!(
             failure
                 .to_string()
@@ -350,13 +352,14 @@ mod tests {
     #[test]
     fn rust_provider_construction_does_not_borrow_another_types_default() {
         let source = "struct RootService { peer: PeerService }\n#[derive(Default)]\nstruct PeerService { count: i64 }\n";
-        let failure = RustConstruction::instance(
+        let Err(failure) = RustConstruction::instance(
             source,
             "client/services/RootService.rs",
             "RootService",
             false,
-        )
-        .unwrap_err();
+        ) else {
+            panic!("construction must be refused");
+        };
         assert!(failure.to_string().contains("RootService"), "{failure}");
         assert!(
             failure.to_string().contains("needs a constructor"),

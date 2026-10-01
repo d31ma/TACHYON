@@ -83,14 +83,14 @@ fn main() {
             .arg(&source)
             .arg("-o")
             .arg(&executable);
-        let compiled =
+        let build =
             crate::external_command::run(&mut command, std::time::Duration::from_mins(2), 65536)
                 .await
                 .expect("Rust compile");
         assert!(
-            compiled.status.success(),
+            build.status.success(),
             "{}",
-            String::from_utf8_lossy(&compiled.stderr)
+            String::from_utf8_lossy(&build.stderr)
         );
         let mut command = tokio::process::Command::new(&executable);
         let executed =
@@ -164,14 +164,14 @@ fn main() {
         .arg(&staged)
         .arg("-o")
         .arg(&executable);
-    let compiled =
+    let build =
         crate::external_command::run(&mut compiler, std::time::Duration::from_mins(2), 65536)
             .await
             .expect("compile");
     assert!(
-        compiled.status.success(),
+        build.status.success(),
         "{}",
-        String::from_utf8_lossy(&compiled.stderr)
+        String::from_utf8_lossy(&build.stderr)
     );
     let mut caller = tokio::process::Command::new(&executable);
     let executed =
@@ -230,14 +230,14 @@ fn main() {
         .arg(&file)
         .arg("-o")
         .arg(&executable);
-    let compiled =
+    let build =
         crate::external_command::run(&mut command, std::time::Duration::from_mins(2), 65536)
             .await
             .expect("compile");
     assert!(
-        compiled.status.success(),
+        build.status.success(),
         "{}",
-        String::from_utf8_lossy(&compiled.stderr)
+        String::from_utf8_lossy(&build.stderr)
     );
     let mut command = tokio::process::Command::new(&executable);
     let executed =
