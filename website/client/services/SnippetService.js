@@ -39,8 +39,8 @@ export default class SnippetService {
 
   /** @returns {LanguageChoice[]} */
   companions() {
-    const languages = this.#languagesOf(this.#companionNames(this.#available()))
-    const choices = this.#choices(languages, this.#chosenLanguage(languages))
+    const companionNames = this.#languagesOf(this.#companionNames(this.#available()))
+    const choices = this.#choices(companionNames, this.#chosenLanguage(companionNames))
     return this.#severalOrNone(choices)
   }
 
@@ -135,20 +135,20 @@ export default class SnippetService {
   }
 
   /**
-   * @param {string[]} languages
+   * @param {string[]} companionNames
    * @returns {string}
    */
-  #chosenLanguage(languages) {
-    return languages.includes(this.companion) ? this.companion : languages[0]
+  #chosenLanguage(companionNames) {
+    return companionNames.includes(this.companion) ? this.companion : companionNames[0]
   }
 
   /**
-   * @param {string[]} languages
+   * @param {string[]} companionNames
    * @param {string} chosen
    * @returns {LanguageChoice[]}
    */
-  #choices(languages, chosen) {
-    return languages.map((language) => ({ name: language, label: language, current: language === chosen }))
+  #choices(companionNames, chosen) {
+    return companionNames.map((language) => ({ name: language, label: language, current: language === chosen }))
   }
 
   /**
