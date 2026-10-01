@@ -1,3 +1,4 @@
+use super::script_service_references::ScriptServiceReferences;
 use super::{RequiredFields, ServiceDefinition, ServiceRegistry};
 use std::collections::BTreeSet;
 
@@ -52,11 +53,20 @@ impl ServiceReach {
         names: &BTreeSet<String>,
         path: &std::path::Path,
     ) -> BTreeSet<String> {
-        match std::fs::read_to_string(path) {
-            Ok(source) => {
-                RequiredFields::service_dependencies(path, &source, definition.class(), names)
-            }
-            Err(_) => names.clone(),
+        std::fs::read_to_string(path)
+            .map(|source| Self::declared_dependencies(definition, names, path, &source))
+            .unwrap_or_else(|_| names.clone())
+    }
+
+    fn declared_dependencies(
+        definition: &ServiceDefinition,
+        names: &BTreeSet<String>,
+        path: &std::path::Path,
+        source: &str,
+    ) -> BTreeSet<String> {
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("js" | "ts") => ScriptServiceReferences::read(path, source, names),
+            _ => RequiredFields::service_dependencies(path, source, definition.class(), names),
         }
     }
 }

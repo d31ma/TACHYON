@@ -7,6 +7,7 @@ mod context;
 mod expression;
 mod frontend;
 mod model;
+mod script_service_references;
 pub(crate) mod required_fields;
 mod service;
 mod service_reach;

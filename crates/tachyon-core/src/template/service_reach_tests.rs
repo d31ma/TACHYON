@@ -76,6 +76,58 @@ fn a_route_catalog_keeps_transitive_undefined_fields_without_needs_all() {
 }
 
 #[test]
+fn explicitly_undefined_fields_and_constructor_assignments_keep_injected_services() {
+    for source in [
+        "@Service\nexport default class RootService { middle = undefined; count = 1; }",
+        "@Service\nexport default class RootService { count = 1; constructor() { this.middle = undefined; } }",
+        "@Service\nexport default class RootService { middle: MiddleService = undefined; count = 1; }",
+    ] {
+        let root = project();
+        write(root.path(), "client/services/RootService.ts", source);
+        let page = render(root.path(), "<reachable />");
+        assert_eq!(
+            page.services,
+            names(&["root", "middle", "leaf"]),
+            "{source}"
+        );
+        assert!(!page.html.contains("ShowcaseService.js"));
+    }
+}
+
+#[test]
+fn reflective_and_computed_property_writes_conservatively_keep_all_providers() {
+    for body in [
+        "this['middle'] = undefined",
+        "const key = 'middle'; this[key] = undefined",
+        "const key = 'middle'; this[key] ??= undefined",
+        "Object.assign(this, values)",
+        "Object.defineProperty(this, 'middle', { value: undefined })",
+        "Reflect.set(this, key, undefined)",
+    ] {
+        let root = project();
+        let source = format!(
+            "@Service\nexport default class RootService {{ count = 1; constructor(values) {{ {body}; }} }}"
+        );
+        write(root.path(), "client/services/RootService.ts", &source);
+        let services = ServiceRegistry::discover(root.path()).expect("services");
+        let page = render(root.path(), "<reachable />");
+        assert_eq!(page.services, services.names(), "{body}");
+    }
+}
+
+#[test]
+fn comments_strings_and_computed_method_reads_do_not_force_unused_providers() {
+    let root = project();
+    write(
+        root.path(),
+        "client/services/RootService.ts",
+        "@Service\nexport default class RootService { middle: MiddleService; count = 1; hint = 'showcase'; tap(key) { /* unused showcase */ return this[key]() === undefined; } }",
+    );
+    let page = render(root.path(), "<reachable />");
+    assert_eq!(page.services, names(&["root", "middle", "leaf"]));
+}
+
+#[test]
 fn conditionals_and_delayed_components_keep_every_potential_service() {
     let root = project();
     let page = render(
