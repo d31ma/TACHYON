@@ -43,11 +43,12 @@ import WebKit
             "@layer brand { @media (min-width: 800px) { main:not(.hidden) { width: clamp(1rem, calc(20px + 1vw), 2rem); color: rgb(10 20 30); } } }",
             "@supports (display: grid) { main { grid-template-columns: repeat(2, minmax(0, 1fr)); background: radial-gradient(red, blue); } }",
             "@container sidebar (width > 10px) { main { transform: translateX(2px); } } @keyframes pulse { from { opacity: .5; } to { opacity: 1; } }",
+            "@container telemetry/**/ (min-width: 10px) { main { width: max(10px, 20px); } } @media screen and (min-width: 800px) { main { color: blue; } }",
         ]
         try sources.forEach { try NativeUiCssProfile.validate(Data($0.utf8)) }
         let refused = [
             "@font-face { src: url('unknown.woff'); }", "@namespace url('outside');", "@property --color { syntax: '<color>'; initial-value: red; inherits: false; }",
-            "main { background: URL('outside'); }", "main { background: image-set('outside' 1x); }", "main { background: var(--outside); }",
+            "main { background: URL('outside'); }", "main { background: ur/**/l('outside'); }", "main { background: image-set('outside' 1x); }", "main { background: var(--outside); }",
             "main { background: attr(data-image); }", "main { width: env(unknown); }", "main { width: unknown(1); }", "@/**/media { main { color: red; } }",
             "main { width: calc(1px; }", "main { color: blue; } }", "main { width: " + String(repeating: "(", count: 65) + "1" + String(repeating: ")", count: 65) + "; }",
         ]

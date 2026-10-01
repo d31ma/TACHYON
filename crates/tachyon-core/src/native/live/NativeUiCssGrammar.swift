@@ -45,7 +45,7 @@ struct NativeUiCssGrammar {
     }
 
     private static func vocabulary(_ source: String) throws {
-        let pattern = try NSRegularExpression(pattern: "@([A-Za-z_-][A-Za-z0-9_-]*)?|([A-Za-z_-][A-Za-z0-9_-]*)\\s*\\(")
+        let pattern = try NSRegularExpression(pattern: "@([A-Za-z_-][A-Za-z0-9_-]*)?|([A-Za-z_-][A-Za-z0-9_-]*)\\(")
         let range = NSRange(source.startIndex..., in: source)
         let tokens = pattern.matches(in: source, range: range)
         try NativeUiRuntimeFailure.require(tokens.count <= 16384, "CSS grammar token bound exceeded")
