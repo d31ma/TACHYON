@@ -183,7 +183,7 @@ impl SharedAssets {
         Ok(())
     }
 
-    fn strip_css_imports(path: &Path, bytes: Vec<u8>) -> Vec<u8> {
+    pub(super) fn strip_css_imports(path: &Path, bytes: Vec<u8>) -> Vec<u8> {
         let script = Self::is_script(path);
         Self::strip_when_script(script, bytes)
     }

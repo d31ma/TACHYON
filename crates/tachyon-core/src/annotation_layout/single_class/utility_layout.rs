@@ -12,8 +12,6 @@ pub(crate) struct UtilityLayout;
 impl UtilityLayout {
     const FOLDERS: [&'static str; 2] = ["client/utils", "server/utils"];
     const SUFFIX: &'static str = "Utils";
-    const FOLDER_HELP: &'static str =
-        "Move the file directly into client/utils or server/utils, without a subfolder (ADR 0064).";
     const NAME_HELP: &'static str = "Name the file and its class <Topic>Utils, such as TextUtils, with the same spelling (ADR 0064).";
     const MARKER_HELP: &'static str = "Delete the annotation. Tachyon gives every utility class to the code of its realm without an annotation or an import (ADR 0064).";
 
@@ -29,12 +27,6 @@ impl UtilityLayout {
     fn check_utility(path: &Path, source: &str) -> Result<(), Failure> {
         let input = Input::new(path, source);
         let stem = Self::stem(path);
-        Self::require(
-            Self::is_direct(path),
-            &input,
-            "A utility class belongs directly in a utils folder",
-            Self::FOLDER_HELP,
-        )?;
         Self::require(
             Self::is_utility_name(stem),
             &input,
@@ -57,13 +49,6 @@ impl UtilityLayout {
         path.file_stem()
             .and_then(|value| value.to_str())
             .unwrap_or("")
-    }
-
-    fn is_direct(path: &Path) -> bool {
-        let parent = path.parent().unwrap_or(Path::new(""));
-        Self::FOLDERS
-            .iter()
-            .any(|folder| parent == Path::new(folder))
     }
 
     fn is_utility_name(stem: &str) -> bool {

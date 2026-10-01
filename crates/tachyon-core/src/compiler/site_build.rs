@@ -10,6 +10,7 @@ use super::page_state::PageState;
 use super::portable_path::PortablePath;
 use super::precompression::CompressedFiles;
 use super::route_build_state::RouteBuildState;
+use super::script_assets::ScriptAssets;
 use super::service_checks::ServiceChecks;
 use super::service_script::ServiceScript;
 use super::service_worker::ServiceWorker;
@@ -165,8 +166,12 @@ impl<'a> SiteBuild<'a> {
             self.service_script_files(),
         )
         .await;
-        let built = [dart?, web?, scripts?];
+        let (scripts, assets) = scripts?;
+        let built = [dart?, web?, scripts];
         self.add_built_services(built);
+        self.files
+            .retain(|(path, _)| !assets.iter().any(|(asset, _)| asset == path));
+        self.files.extend(assets);
         Ok(())
     }
 
@@ -667,16 +672,22 @@ impl<'a> SiteBuild<'a> {
         crate::tac_web::build_all(self.snapshot_root, web_services, jobs, self.profile).await
     }
 
-    async fn service_script_files(&self) -> Result<BuiltServices, Failure> {
+    async fn service_script_files(
+        &self,
+    ) -> Result<(BuiltServices, Vec<(PathBuf, Vec<u8>)>), Failure> {
         let started = Instant::now();
         let mut built = BuiltServices::default();
+        let mut assets = ScriptAssets::new(self.project.root(), self.snapshot_root);
         for (source, class) in self.script_services() {
             let bytes =
                 ServiceScript::module(self.project.root(), self.snapshot_root, source).await?;
+            let output = PathBuf::from(format!(".tachyon/services/{class}.js"));
+            let bytes = assets.rewrite(source, &output, bytes)?;
             built.files.push((format!("{class}.js"), bytes));
         }
+        let files = assets.collect().await?;
         Self::add_script_timing(&mut built, started);
-        Ok(built)
+        Ok((built, files))
     }
 
     fn script_services(&self) -> Vec<(&Path, &str)> {

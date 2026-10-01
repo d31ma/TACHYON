@@ -193,7 +193,14 @@ fn a_field_or_stored_value_is_refused() {
 fn the_folder_the_name_and_the_single_class_are_checked() {
     let class =
         "export default class TextUtils {\n  static slug(value) {\n    return value\n  }\n}\n";
-    assert_eq!(codes("client/utils/text/TextUtils.js", class), vec![1310]);
+    assert_eq!(
+        codes("client/utils/text/TextUtils.js", class),
+        Vec::<u16>::new()
+    );
+    assert_eq!(
+        codes("server/utils/text/TextUtils.js", class),
+        Vec::<u16>::new()
+    );
     assert_eq!(
         codes("client/utils/Text.js", &class.replace("TextUtils", "Text")),
         vec![1310]

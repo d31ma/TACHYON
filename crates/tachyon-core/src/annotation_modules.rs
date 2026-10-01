@@ -9,6 +9,7 @@ use std::io::{ErrorKind, Read};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+mod client_utilities;
 mod shared_imports;
 mod test_configuration;
 use shared_imports::SharedImports;
@@ -130,7 +131,11 @@ fn read_modules(
     register_names(entry, entry_source, &mut names)?;
     let mut total = entry_source.len();
     let mut modules = Vec::new();
+    let imported_utilities = client_utilities::ClientUtilities::imported(root, entry, entry_source, paths)?;
     for path in paths {
+        if imported_utilities.contains(path) {
+            continue;
+        }
         let text = read_module_text(root, path, Module::MAX_SOURCE.saturating_sub(total))?;
         total += text.len();
         let shared_source = [

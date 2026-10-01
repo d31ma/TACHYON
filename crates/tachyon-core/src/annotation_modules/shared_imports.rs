@@ -5,12 +5,13 @@ pub(super) struct SharedImports;
 
 impl SharedImports {
     pub(super) fn path(path: &Path, specifier: &str) -> Option<PathBuf> {
-        let parent = Self::server_parent(path, specifier)?;
+        let parent = Self::realm_parent(path, specifier)?;
         Self::resolve(parent, specifier)
     }
 
-    fn server_parent<'a>(path: &'a Path, specifier: &str) -> Option<&'a Path> {
-        if !path.starts_with("server") || !specifier.starts_with('.') || specifier.contains('\\') {
+    fn realm_parent<'a>(path: &'a Path, specifier: &str) -> Option<&'a Path> {
+        let realm = [path.starts_with("server"), path.starts_with("client")].contains(&true);
+        if [realm, specifier.starts_with('.'), !specifier.contains('\\')].contains(&false) {
             return None;
         }
         path.parent()
@@ -21,7 +22,16 @@ impl SharedImports {
         for part in Path::new(specifier).components() {
             Self::add_component(&mut resolved, part)?;
         }
-        resolved.starts_with("server/shared").then_some(resolved)
+        let realm = parent.components().next()?;
+        let same_realm = resolved.components().next() == Some(realm);
+        let allowed_folder = [
+            resolved.starts_with("server/shared"),
+            resolved.starts_with("client/shared"),
+            resolved.starts_with("client/utils"),
+        ]
+        .contains(&true);
+        let allowed = [same_realm, allowed_folder].into_iter().all(|holds| holds);
+        allowed.then_some(resolved)
     }
 
     fn add_component(resolved: &mut PathBuf, part: Component<'_>) -> Option<()> {

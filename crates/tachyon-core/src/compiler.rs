@@ -19,6 +19,11 @@ mod portable_path;
 mod precompression;
 mod route_budget;
 mod route_build_state;
+mod script_assets;
+#[cfg(test)]
+mod script_assets_tests;
+pub(crate) mod script_import;
+pub(crate) mod script_imports;
 mod service_checks;
 mod service_script;
 mod service_worker;
@@ -381,8 +386,8 @@ mod tests {
     use super::build_stage::BuildStage;
     use super::component_script::ComponentScript;
     use super::page_state::PageState;
+    use super::script_assets::ScriptAssets;
     use super::service_checks::ServiceChecks;
-    use super::service_script::ServiceScript;
     use super::typescript_cache::TypeScriptCache;
     use super::typescript_compiler::TypeScriptCompiler;
     use super::{BuildOptions, BuildResult, WebCompiler};
@@ -591,22 +596,33 @@ export default class Counter {
     }
 
     #[test]
-    fn authored_shared_imports_work_from_legacy_locations_and_rust_output() {
+    fn authored_shared_imports_rebase_to_the_emitted_script_location() {
         let root = tempfile::tempdir().expect("project");
-        let source = root.path().join("client/components/site/header/tac.js");
-        let emitted = ServiceScript::rewrite_client_shared_imports(
+        write_file(
             root.path(),
-            &source,
-            b"import '../../../shared/scripts/imports.js'\n".to_vec(),
+            "client/shared/scripts/imports.js",
+            "export class Imports {}",
         );
+        let source = root.path().join("client/components/site/header/tac.js");
+        let output = Path::new(".tachyon/services/HeaderService.js");
+        let mut assets = ScriptAssets::new(root.path(), root.path());
+        let emitted = assets
+            .rewrite(
+                &source,
+                output,
+                b"import '../../../shared/scripts/imports.js'\n".to_vec(),
+            )
+            .expect("shared dependency");
         assert_eq!(
             String::from_utf8(emitted).expect("UTF-8"),
-            "import '/shared/scripts/imports.js'\n"
+            "import '../../shared/scripts/imports.js'\n"
         );
 
         let unrelated = b"import '../../../services/client.js'\n".to_vec();
         assert_eq!(
-            ServiceScript::rewrite_client_shared_imports(root.path(), &source, unrelated.clone()),
+            assets
+                .rewrite(&source, output, unrelated.clone())
+                .expect("unrelated import"),
             unrelated
         );
     }
