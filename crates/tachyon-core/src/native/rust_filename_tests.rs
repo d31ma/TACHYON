@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::native_page_graph_tests::NativePageGraphCheck;
-use crate::ProjectDiscovery;
+use super::{NativeBuildOptions, NativeCompiler};
 use std::path::Path;
 use tachyon_contracts::NativeTarget;
 
@@ -51,17 +51,16 @@ fn main() {
             &format!("client/models/feature/{}.rs", names[2]),
             Self::MODEL,
         );
-        let project = ProjectDiscovery::discover(root.path()).expect("project");
-        let (web, inputs) = super::build_web_bundle(&project, NativeTarget::Macos)
+        let options = NativeBuildOptions {
+            output_directory: "dist".into(),
+            target: NativeTarget::Macos,
+            package: false,
+        };
+        let built = NativeCompiler::build_async(root.path(), &options)
             .await
-            .expect("ordinary native collection");
-        assert_eq!(inputs.len(), 1);
-        assert_eq!(inputs[0].class, "LabelService");
-        assert_eq!(inputs[0].service, "label");
-        assert!(inputs[0].source.ends_with(format!("{}.rs", names[0])));
-        let source = super::rust::stage(&inputs, web.path(), "org.tachyon.rust-filenames")
-            .expect("stage")
-            .expect("Rust source");
+            .expect("ordinary native collection and staging");
+        let source = std::fs::read_to_string(built.output_directory().join("project/companion.rs"))
+            .expect("actual generated Rust source");
         NativePageGraphCheck::execute(&source, Self::CALLER).await;
     }
 }
