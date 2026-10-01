@@ -37,6 +37,7 @@ fn model_copy(relative: String, language: &str) -> String {
 
 fn metadata_names(language: &str) -> &'static [&'static str] {
     match language {
+        "js" | "ts" => &["ApplicationSettings", "ApplicationValues", "ProductInput"],
         "rs" | "go" | "py" | "php" | "rb" => &["ApplicationValues", "Settings", "ProductInput"],
         "java" | "groovy" | "kt" => &["ApplicationValues", "Settings", "Input"],
         "cs" => &[
@@ -94,8 +95,16 @@ fn model_imports(source: String, language: &str, names: &[&str]) -> String {
             .map(|name| format!("import models.{name}\n"))
             .collect(),
         "cs" => "using Models;\n".to_owned(),
+        "py" => format!("from models import {}\n", names.join(", ")),
+        "php" => names
+            .iter()
+            .map(|name| format!("use Models\\{name};\n"))
+            .collect(),
         _ => String::new(),
     };
+    if language == "php" {
+        return source.replacen("<?php\n", &format!("<?php\n{imports}"), 1);
+    }
     format!("{imports}{source}")
 }
 
@@ -162,6 +171,7 @@ fn role_copy(
 
 fn service_copy<'a>(language: &str, name: &'a str) -> Option<&'a str> {
     match (language, name) {
+        ("js" | "ts", "InputService") => Some(name),
         ("cs", "AnnotatedValidationService") | ("py" | "php" | "rb", "ValidationService") => {
             Some(name)
         }
