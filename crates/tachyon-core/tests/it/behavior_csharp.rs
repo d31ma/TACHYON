@@ -25,19 +25,17 @@ async fn csharp_annotations_execute_in_plain_and_injected_yon_endpoints() {
 
 fn injected_source() -> &'static str {
     r#"
-[Service]
-class Counter { public int value = 42; }
 [RequestRoute("/products")]
 [Public]
 [NeedsAll]
-[Needs(typeof(Counter))]
+[Needs(typeof(CounterService))]
 class ProductsController {
-    readonly Counter _counter;
+    readonly CounterService _counter;
     [GetRoute]
     public HttpResponseMessage GetProducts(HttpRequestMessage request) {
         RequireCounter();
         RequireGet(request);
-        return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(CatalogExercises.run().GetAwaiter().GetResult().ToString(), System.Text.Encoding.UTF8, "application/json") };
+        return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(CatalogExercisesHelper.run().GetAwaiter().GetResult().ToString(), System.Text.Encoding.UTF8, "application/json") };
     }
     private void RequireCounter() {
         if (_counter.value != 42) throw new System.Exception("constructor injection failed");
@@ -54,6 +52,11 @@ async fn exercise(injected: bool) {
     let relative = "server/controllers/ProductsController.cs";
     authored_behaviors::write(project.path(), "cs", "server", "cs");
     if injected {
+        behavior_layout::write(
+            project.path(),
+            "server/services/CounterService.cs",
+            "[Service]\nclass CounterService { public int value = 42; }\n",
+        );
         behavior_layout::write(project.path(), relative, injected_source());
     }
     let source = HandlerSource::discover(project.path(), relative).expect("C# annotated discovery");
