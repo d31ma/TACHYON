@@ -12,7 +12,12 @@ struct NativeUiProfileFixture;
 impl NativeUiProfileFixture {
     fn project() -> tempfile::TempDir {
         let root = tempfile::tempdir().expect("project");
-        Self::write(root.path(), "client/pages/tac.html", "<main>Ready</main>");
+        Self::write(root.path(), "client/pages/tac.html", "<ui-panel />");
+        Self::write(
+            root.path(),
+            "client/components/ui/panel/tac.html",
+            "<main>Ready</main>",
+        );
         Self::write(
             root.path(),
             "client/shared/theme.css",
@@ -159,7 +164,7 @@ async fn native_ui_profile_retains_strict_document_and_script_changes() {
     let candidate_root = NativeUiProfileFixture::project();
     NativeUiProfileFixture::write(
         candidate_root.path(),
-        "client/pages/tac.html",
+        "client/components/ui/panel/tac.html",
         "<main>Changed</main>",
     );
     let candidate_build = NativeUiProfileFixture::build(candidate_root.path(), true).await;
