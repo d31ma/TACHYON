@@ -10,16 +10,16 @@ export default class ScriptTitleService {
     this.documentTitle.set('Script start — 🦊')
   }
 
-  write(title: string): void {
+  write(_event: Event, title: string): void {
     this.documentTitle.set(title)
     this.writes++
   }
 
   oversized(): boolean {
-    return this.attempt('x'.repeat(1025))
+    return this.accepted('x'.repeat(1025))
   }
 
-  attempt(title: string): boolean {
+  attempt(_event: Event, title: string): boolean {
     return this.accepted(title)
   }
 
