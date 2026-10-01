@@ -225,9 +225,16 @@ fn rust_utility_boundary_does_not_allow_top_level_stored_values() {
 fn rust_utility_boundary_refuses_function_local_persistent_state() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);\n        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)\n    }\n}\n";
     assert_eq!(codes("client/utils/TitleUtils.rs", source), vec![1316]);
+    let mutable = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        static mut COUNT: usize = 0;\n        0\n    }\n}\n";
+    assert_eq!(codes("client/utils/TitleUtils.rs", mutable), vec![1316]);
     let local = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        let count = 1;\n        count + 1\n    }\n}\n";
     assert_eq!(
         codes("client/utils/TitleUtils.rs", local),
+        Vec::<u16>::new()
+    );
+    let literal = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn title() -> &'static str {\n        // static COUNT: usize = 1;\n        let text = \"static COUNT: usize = 1;\";\n        text\n    }\n}\n";
+    assert_eq!(
+        codes("client/utils/TitleUtils.rs", literal),
         Vec::<u16>::new()
     );
 }

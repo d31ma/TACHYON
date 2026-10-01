@@ -161,7 +161,18 @@ impl UtilityShape<'_, '_> {
     }
 
     fn member_state(&self) -> Option<usize> {
-        (0..self.words.len()).find(|at| self.is_state(*at))
+        (0..self.words.len()).find(|at| self.rust_static_declaration(*at) | self.is_state(*at))
+    }
+
+    fn rust_static_declaration(&self, at: usize) -> bool {
+        let name = at + 1 + usize::from(self.words.text(at + 1) == "mut");
+        let declaration = [
+            self.extension == "rs",
+            self.words.text(at) == "static",
+            self.words.is_name(name),
+            self.words.text(name + 1) == ":",
+        ];
+        declaration.into_iter().all(|valid| valid)
     }
 
     fn is_state(&self, at: usize) -> bool {
