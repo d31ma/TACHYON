@@ -6,6 +6,9 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
     for (relative, source) in files(language) {
         let source = super::behavior_layout::rename(source, &helpers);
         let (relative, mut source) = role_copy(relative, source, &helpers, language);
+        let relative = model_copy(relative, language);
+        source = model_source(&relative, source, language);
+        let relative = relative.replacen("server/clients/", "server/remotes/", 1);
         let relative = relative.replacen("server/", &format!("{realm}/"), 1);
         let relative = Path::new(&relative).with_extension(extension);
         if language == "js" && realm == "server" {
@@ -19,6 +22,78 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
             .expect("fixture directories");
         std::fs::write(target, source).expect("authored fixture");
     }
+}
+
+fn model_copy(relative: String, language: &str) -> String {
+    let name = Path::new(&relative)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    metadata_names(language)
+        .contains(&name)
+        .then(|| relative.replacen("server/helpers/", "server/models/", 1))
+        .unwrap_or(relative)
+}
+
+fn metadata_names(language: &str) -> &'static [&'static str] {
+    match language {
+        "rs" | "go" | "py" | "php" | "rb" => &["ApplicationValues", "Settings", "ProductInput"],
+        "java" | "groovy" | "kt" => &["ApplicationValues", "Settings", "Input"],
+        "cs" => &[
+            "AnnotatedValues",
+            "AnnotatedSettings",
+            "AnnotatedInput",
+            "AnnotatedPageInput",
+        ],
+        _ => &[],
+    }
+}
+
+fn model_source(relative: &str, source: String, language: &str) -> String {
+    if relative.starts_with("server/models/") {
+        return public_rust_model(relative, source, language);
+    }
+    let names = referenced_models(&source, language);
+    model_imports(source, language, &names)
+}
+
+fn public_rust_model(relative: &str, source: String, language: &str) -> String {
+    if language != "rs" {
+        return source;
+    }
+    let name = Path::new(relative)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .expect("audited model name");
+    source.replacen(&format!("struct {name}"), &format!("pub struct {name}"), 1)
+}
+
+fn referenced_models(source: &str, language: &str) -> Vec<&'static str> {
+    metadata_names(language)
+        .iter()
+        .copied()
+        .filter(|name| {
+            source
+                .split(|value: char| !value.is_alphanumeric() && value != '_')
+                .any(|word| word == *name)
+        })
+        .collect()
+}
+
+fn model_imports(source: String, language: &str, names: &[&str]) -> String {
+    if names.is_empty() {
+        return source;
+    }
+    let imports = match language {
+        "rs" => format!("use crate::models::{{{}}};\n", names.join(", ")),
+        "kt" => names
+            .iter()
+            .map(|name| format!("import models.{name}\n"))
+            .collect(),
+        "cs" => "using Models;\n".to_owned(),
+        _ => String::new(),
+    };
+    format!("{imports}{source}")
 }
 
 fn helper_names(language: &str) -> BTreeMap<String, String> {
