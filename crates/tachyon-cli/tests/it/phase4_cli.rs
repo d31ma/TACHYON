@@ -98,6 +98,10 @@ fn a_mixture_stages_only_the_service_language_that_answers_the_target() {
     let project = tempfile::tempdir().expect("project");
     write_phase4_project(project.path());
     write(
+        &project.path().join("client/components/phase/four/tac.html"),
+        "<main><p>{phaseFour.runtime}</p></main>",
+    );
+    write(
         &project
             .path()
             .join("client/services/PhaseFourService.swift"),
@@ -439,6 +443,10 @@ fn service_with_roles(language: &str, lifetime: &str) -> String {
 fn bundle_service(language: &str, source: &str, target: &[&str]) -> (tempfile::TempDir, Output) {
     let project = tempfile::tempdir().expect("project");
     write_phase4_project(project.path());
+    write(
+        &project.path().join("client/components/phase/four/tac.html"),
+        "<main><p>{phaseFour.count}</p></main>",
+    );
     write(
         &project
             .path()
