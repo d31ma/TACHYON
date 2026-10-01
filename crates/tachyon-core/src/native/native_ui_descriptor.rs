@@ -3,8 +3,11 @@ use super::{
     native_ui_problem::NativeUiProblem,
 };
 use crate::Failure;
+use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt as _, OpenOptionsSyncExt as _};
+use cap_std::fs::{Dir, OpenOptions};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::io::Write as _;
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -42,6 +45,41 @@ impl NativeUiDescriptor {
         })?;
         descriptor.validate()?;
         Ok(descriptor)
+    }
+
+    pub(super) fn emit(&self, output: &Dir) -> Result<String, Failure> {
+        let source = self.bytes()?;
+        let name = format!("native-ui-{}.json", Self::sha256(&source));
+        let mut options = OpenOptions::new();
+        options
+            .write(true)
+            .create_new(true)
+            .follow(FollowSymlinks::No)
+            .nonblock(true);
+        let mut file = output
+            .open_with(&name, &options)
+            .map_err(|error| NativeUiProblem::io(&error))?;
+        let result = Self::write(&mut file, &source);
+        Self::publication(output, &name, result)?;
+        Ok(name)
+    }
+
+    fn write(file: &mut cap_std::fs::File, source: &[u8]) -> Result<(), Failure> {
+        file.write_all(source)
+            .map_err(|error| NativeUiProblem::io(&error))?;
+        file.sync_all().map_err(|error| NativeUiProblem::io(&error))
+    }
+
+    fn publication(output: &Dir, name: &str, result: Result<(), Failure>) -> Result<(), Failure> {
+        if let Err(error) = result {
+            output.remove_file(name).map_err(|cleanup| {
+                NativeUiProblem::failure(&format!(
+                    "{error}; cannot remove failed native descriptor: {cleanup}"
+                ))
+            })?;
+            return Err(error);
+        }
+        Ok(())
     }
 
     pub(super) fn bytes(&self) -> Result<Vec<u8>, Failure> {

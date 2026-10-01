@@ -1,6 +1,6 @@
 use super::{
-    native_ui_asset::NativeUiAsset, native_ui_descriptor::NativeUiDescriptor,
-    native_ui_problem::NativeUiProblem,
+    native_ui_asset::NativeUiAsset, native_ui_bounds::NativeUiBounds,
+    native_ui_descriptor::NativeUiDescriptor, native_ui_problem::NativeUiProblem,
 };
 use crate::Failure;
 use cap_fs_ext::{DirExt as _, FollowSymlinks, OpenOptionsFollowExt as _, OpenOptionsSyncExt as _};
@@ -13,17 +13,43 @@ pub(super) struct NativeUiCapture {
     pub(super) bytes: BTreeMap<String, Vec<u8>>,
     total_bytes: u64,
     entries: usize,
+    bounds: NativeUiBounds,
 }
 
 impl NativeUiCapture {
-    const MAX_ASSET_BYTES: u64 = 16 * 1024 * 1024;
-    const MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
     const MAX_FILES: usize = 4096;
     const MAX_ENTRIES: usize = 8192;
     const MAX_DEPTH: usize = 32;
 
     pub(super) fn read(root: &Dir) -> Result<Self, Failure> {
+        Self::with_bounds(root, NativeUiBounds::web())
+    }
+
+    pub(super) fn artifact(root: &Dir) -> Result<Self, Failure> {
+        Self::with_bounds(root, NativeUiBounds::artifact())
+    }
+
+    pub(super) fn subtree(&self, prefix: &str) -> Result<Self, Failure> {
+        self.subtree_capture(prefix)
+    }
+
+    fn subtree_capture(&self, prefix: &str) -> Result<Self, Failure> {
         let mut capture = Self::default();
+        self.bytes
+            .iter()
+            .filter_map(|(path, bytes)| path.strip_prefix(prefix).map(|relative| (relative, bytes)))
+            .try_for_each(|(relative, bytes)| {
+                capture.captured(relative.to_owned(), bytes.clone())
+            })?;
+        capture.nonempty()?;
+        Ok(capture)
+    }
+
+    fn with_bounds(root: &Dir, bounds: NativeUiBounds) -> Result<Self, Failure> {
+        let mut capture = Self {
+            bounds,
+            ..Self::default()
+        };
         capture.visit(root, Path::new(""), 0)?;
         capture
             .assets
@@ -79,7 +105,12 @@ impl NativeUiCapture {
 
     fn file(&mut self, root: &Dir, name: &std::ffi::OsStr, path: &Path) -> Result<(), Failure> {
         let portable = Self::portable(path)?;
-        let bytes = Self::bounded_read(root, name)?;
+        let bytes = self.bounded_read(root, name)?;
+        self.captured(portable, bytes)
+    }
+
+    fn captured(&mut self, portable: String, bytes: Vec<u8>) -> Result<(), Failure> {
+        self.asset_size(bytes.len() as u64)?;
         self.budget(bytes.len() as u64)?;
         let asset = NativeUiAsset {
             path: portable.clone(),
@@ -91,7 +122,7 @@ impl NativeUiCapture {
         Ok(())
     }
 
-    fn bounded_read(root: &Dir, name: &std::ffi::OsStr) -> Result<Vec<u8>, Failure> {
+    fn bounded_read(&self, root: &Dir, name: &std::ffi::OsStr) -> Result<Vec<u8>, Failure> {
         let mut options = OpenOptions::new();
         options.read(true).follow(FollowSymlinks::No).nonblock(true);
         let file = root
@@ -100,26 +131,28 @@ impl NativeUiCapture {
         let metadata = file
             .metadata()
             .map_err(|error| NativeUiProblem::io(&error))?;
-        Self::file_metadata(&metadata)?;
+        self.file_metadata(&metadata)?;
         let mut bytes = Vec::new();
-        file.take(Self::MAX_ASSET_BYTES + 1)
+        file.take(self.bounds.asset_bytes + 1)
             .read_to_end(&mut bytes)
             .map_err(|error| NativeUiProblem::io(&error))?;
-        Self::asset_size(bytes.len() as u64)?;
+        self.asset_size(bytes.len() as u64)?;
         Ok(bytes)
     }
 
-    fn file_metadata(metadata: &cap_std::fs::Metadata) -> Result<(), Failure> {
+    fn file_metadata(&self, metadata: &cap_std::fs::Metadata) -> Result<(), Failure> {
         NativeUiProblem::require(
             metadata.is_file(),
             "Native UI assets must be regular files.",
         )?;
-        Self::asset_size(metadata.len())
+        self.asset_size(metadata.len())
     }
 
-    fn asset_size(size: u64) -> Result<(), Failure> {
-        if size > Self::MAX_ASSET_BYTES {
-            return Err(NativeUiProblem::failure("Native UI asset exceeds 16 MiB."));
+    fn asset_size(&self, size: u64) -> Result<(), Failure> {
+        if size > self.bounds.asset_bytes {
+            return Err(NativeUiProblem::failure(
+                "Native update asset exceeds its byte limit.",
+            ));
         }
         Ok(())
     }
@@ -164,9 +197,9 @@ impl NativeUiCapture {
 
     fn total(&mut self, new_bytes: u64) -> Result<(), Failure> {
         self.total_bytes += new_bytes;
-        if self.total_bytes > Self::MAX_TOTAL_BYTES {
+        if self.total_bytes > self.bounds.total_bytes {
             return Err(NativeUiProblem::failure(
-                "Native UI generation exceeds 64 MiB.",
+                "Native update capture exceeds its total byte limit.",
             ));
         }
         Ok(())

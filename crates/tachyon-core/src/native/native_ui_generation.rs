@@ -16,6 +16,13 @@ pub struct NativeUiGeneration {
 impl NativeUiGeneration {
     pub fn capture(root: &Dir, contract: NativeUiContract) -> Result<Self, Failure> {
         let capture = NativeUiCapture::read(root)?;
+        Self::captured(capture, contract)
+    }
+
+    pub(super) fn captured(
+        capture: NativeUiCapture,
+        contract: NativeUiContract,
+    ) -> Result<Self, Failure> {
         let descriptor = NativeUiDescriptor::from_assets(contract, capture.assets)?;
         Ok(Self {
             descriptor,
@@ -28,6 +35,10 @@ impl NativeUiGeneration {
         let captured = Self::capture(root, descriptor.contract.clone())?;
         captured.matches(&descriptor)?;
         Ok(captured)
+    }
+
+    pub fn emit_descriptor(&self, output: &Dir) -> Result<String, Failure> {
+        self.descriptor.emit(output)
     }
 
     pub fn descriptor_bytes(&self) -> Result<Vec<u8>, Failure> {

@@ -100,6 +100,17 @@ impl NativeBuildResult {
 pub struct NativeCompiler;
 
 impl NativeCompiler {
+    pub fn emit_ui_descriptor(
+        build: &NativeBuildResult,
+        output: &cap_std::fs::Dir,
+    ) -> Result<String, Failure> {
+        Self::ui_generation(build)?.emit_descriptor(output)
+    }
+
+    pub fn ui_generation(build: &NativeBuildResult) -> Result<super::NativeUiGeneration, Failure> {
+        super::native_ui_artifact::NativeUiArtifact::generation(build)
+    }
+
     const MAX_NATIVE_SERVICES: usize = 128;
     const ARTIFACT_MANIFEST_NAME: &str = "artifact-manifest.json";
 

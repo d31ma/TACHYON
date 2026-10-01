@@ -31,6 +31,10 @@ mod manifest_setting;
 mod model_tests;
 mod native_capabilities;
 mod native_ui_asset;
+mod native_ui_artifact;
+mod native_ui_bounds;
+#[cfg(test)]
+mod native_ui_artifact_tests;
 mod native_ui_capture;
 mod native_ui_change;
 mod native_ui_contract;
