@@ -230,6 +230,20 @@ fn write_current_project(root: &Path, language: &str) -> String {
                 .expect("injected Go fixture directory");
             fs::write(target, source).expect("existing injected Go fixture");
         }
+        let helper = root.join("server/helpers/CatalogChecksHelper.go");
+        let source = fs::read_to_string(&helper).expect("generated Go helper");
+        let declaration = "func (checks CatalogChecksHelper) Answer() any {";
+        assert_eq!(
+            source.matches(declaration).count(),
+            1,
+            "audited unused plain entry in injected graph"
+        );
+        let copied = source.replacen(
+            declaration,
+            "func (checks CatalogChecksHelper) answer() any {",
+            1,
+        );
+        fs::write(helper, copied).expect("canonical injected migration reference");
     }
     if language == "js" {
         behavior_layout::write(
