@@ -2,12 +2,24 @@ import { readFile } from 'node:fs/promises'
 import { request } from 'node:http'
 import { createServer } from 'node:https'
 import path from 'node:path'
+import { PythonTacPublicAssets } from './python-tac-public-assets.mjs'
 
 export class PythonTacTestOrigin {
   static async run(upstream, fixture, probe) {
+    return PythonTacTestOrigin.serve(fixture, (incoming, outgoing) => PythonTacTestOrigin.forward(upstream, incoming, outgoing), probe)
+  }
+
+  static async publicStatic(fixture, probe) {
+    const assets = await PythonTacPublicAssets.read(path.join(fixture, 'dist'))
+    return PythonTacTestOrigin.serve(fixture, (incoming, outgoing) => assets.respond(incoming, outgoing), probe)
+  }
+
+  static async serve(fixture, handler, probe) {
     const [key, cert] = await Promise.all(['python-tac-test-key.pem', 'python-tac-test-cert.pem'].map(name => readFile(path.join(fixture, name))))
-    const server = createServer({ key, cert }, (incoming, outgoing) => PythonTacTestOrigin.forward(upstream, incoming, outgoing))
+    const server = createServer({ key, cert }, handler)
     server.setTimeout(10_000)
+    server.requestTimeout = 10_000
+    server.headersTimeout = 10_000
     await PythonTacTestOrigin.listen(server)
     try {
       return await probe(`https://python-tac.test:${server.address().port}`)

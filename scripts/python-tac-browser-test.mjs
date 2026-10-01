@@ -4,7 +4,6 @@ import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
-import { withServer } from './release/server-probe.mjs'
 import { PythonTacTestOrigin } from './python-tac-test-origin.mjs'
 
 class PythonTacGate {
@@ -24,12 +23,12 @@ class PythonTacGate {
       const expired = new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('Python Tac browser fixture exceeded 45 seconds')), PythonTacGate.timeoutMilliseconds)
       })
-      const result = await Promise.race([PythonTacGate.serve(binary, fixture, diagnostics), expired])
-      await PythonTacGate.receipt(fixture, { ...result, sourceCommit, serverBinary: binary, serverBinarySha256: compilerSha256, elapsedMilliseconds: performance.now() - started })
+      const result = await Promise.race([PythonTacGate.serve(fixture, diagnostics), expired])
+      await PythonTacGate.receipt(fixture, { ...result, sourceCommit, compilerReferenceBinary: binary, compilerReferenceBinarySha256: compilerSha256, cliServedResponses: false, elapsedMilliseconds: performance.now() - started })
       PythonTacGate.assertResult(result)
       console.log(JSON.stringify(result))
     } catch (error) {
-      await PythonTacGate.receipt(fixture, { ...diagnostics, status: 'fail', error: PythonTacGate.summary(error), sourceCommit, serverBinary: binary, serverBinarySha256: compilerSha256, elapsedMilliseconds: performance.now() - started })
+      await PythonTacGate.receipt(fixture, { ...diagnostics, status: 'fail', error: PythonTacGate.summary(error), sourceCommit, compilerReferenceBinary: binary, compilerReferenceBinarySha256: compilerSha256, cliServedResponses: false, elapsedMilliseconds: performance.now() - started })
       throw error
     } finally {
       clearTimeout(timer)
@@ -45,16 +44,11 @@ class PythonTacGate {
     await writeFile(path.join(fixture, 'python-tac-browser.json'), JSON.stringify({ ...result, scope: 'initial synchronous Python Tac Chromium fixture', asynchronousQualified: false, fullPythonTacQualified: false }, null, 2) + '\n')
   }
 
-  static async serve(binary, fixture, diagnostics) {
-    let result
-    await withServer(binary, ['preview', fixture, '--static', '--out-dir', 'dist', '--host', '127.0.0.1', '--port', '0', '--no-self-restart'], async request => {
-      const upstream = new URL((await request('/')).url).origin
-      result = await PythonTacTestOrigin.run(upstream, fixture, async origin => {
-        diagnostics.testOrigin = { origin, transport: 'HTTPS loopback proxy to ordinary ty preview; unmodified response bytes and headers', resolution: 'Chromium-only hostname mapping to 127.0.0.1', secureContext: 'Local self-signed test certificate accepted only by isolated browser; no published TLS identity qualification' }
-        return PythonTacGate.probe(origin, diagnostics)
-      })
+  static async serve(fixture, diagnostics) {
+    return PythonTacTestOrigin.publicStatic(fixture, async origin => {
+      diagnostics.testOrigin = { origin, transport: 'Explicit public static HTTPS test hosting of captured ordinary compiler dist bytes', cachePolicy: 'public, max-age=60; no Vary or content encoding; no source or worker rewrite', previewOfflineQualified: false, resolution: 'Chromium-only hostname mapping to 127.0.0.1', secureContext: 'Local self-signed test certificate accepted only by isolated browser; no published TLS identity qualification' }
+      return PythonTacGate.probe(origin, diagnostics)
     })
-    return result
   }
 
   static async probe(origin, diagnostics) {
