@@ -121,6 +121,26 @@ fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
     assert!(
         SimplerForms::edits(root.path(), "server/services/CounterService.java", source).is_empty()
     );
+    std::fs::create_dir_all(root.path().join("server")).unwrap();
+    std::fs::write(
+        root.path().join("server/application.json"),
+        r#"{"implicitMembers":{"suggest":true}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        SimplerForms::edits(root.path(), "server/services/CounterService.java", source).len(),
+        1
+    );
+    std::fs::write(
+        root.path().join("client/manifest.json"),
+        r#"{"tac":{"implicitMembers":{"suggest":false}}}"#,
+    )
+    .unwrap();
+    assert!(SimplerForms::edits(root.path(), relative, source).is_empty());
+    assert_eq!(
+        SimplerForms::edits(root.path(), "server/services/CounterService.java", source).len(),
+        1
+    );
 }
 
 #[test]

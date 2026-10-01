@@ -55,6 +55,8 @@ mod receiver_scope;
 #[cfg(test)]
 mod receiver_tests;
 #[cfg(test)]
+mod receiver_runtime_tests;
+#[cfg(test)]
 mod tests;
 
 pub(crate) use simpler_form::SimplerForm;
