@@ -1330,7 +1330,7 @@ fn csharp_arguments(parameters: &[String]) -> String {
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{CompanionLanguage, owner_table};
+    use super::{CompanionLanguage, RustGraph, owner_name, owner_table};
     use crate::Failure;
 
     struct Sources;
