@@ -7,6 +7,8 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         let source = super::behavior_layout::rename(source, &helpers);
         let (relative, mut source) = role_copy(relative, source, &helpers, language);
         let relative = model_copy(relative, language);
+        let (relative, copied) = csharp_data_copy(relative, source, language);
+        source = copied;
         source = model_source(&relative, source, language);
         source = ruby_converter_source(&relative, source, language);
         let relative = relative.replacen("server/clients/", "server/remotes/", 1);
@@ -55,6 +57,29 @@ fn model_copy(relative: String, language: &str) -> String {
         .unwrap_or(relative)
 }
 
+fn csharp_data_copy(relative: String, source: String, language: &str) -> (String, String) {
+    let name = Path::new(&relative)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    if language != "cs"
+        || !["ApplicationProperties", "InvalidProperties", "Product"].contains(&name)
+    {
+        return (relative, source);
+    }
+    let marker = format!("[Description(\"Behavior conformance {name}\")]\n");
+    let copied = source
+        .strip_prefix(&marker)
+        .expect("audited inert C# conformance description")
+        .to_owned();
+    let relative = if name == "ApplicationProperties" {
+        relative.replacen("server/helpers/", "server/shared/", 1)
+    } else {
+        relative
+    };
+    (relative, copied)
+}
+
 fn metadata_names(language: &str) -> &'static [&'static str] {
     match language {
         "js" | "ts" => &["ApplicationSettings", "ApplicationValues", "ProductInput"],
@@ -65,6 +90,8 @@ fn metadata_names(language: &str) -> &'static [&'static str] {
             "AnnotatedSettings",
             "AnnotatedInput",
             "AnnotatedPageInput",
+            "InvalidProperties",
+            "Product",
         ],
         _ => &[],
     }
