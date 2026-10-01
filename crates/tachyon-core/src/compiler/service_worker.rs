@@ -98,11 +98,20 @@ impl ServiceWorker {
             .map(|profile| profile.asset_limit(&portable, bytes))
             .transpose()?
             .unwrap_or(Self::MAX_ASSET_BYTES);
-        if bytes.len() <= ceiling {
-            Self::add_asset(&portable, bytes, assets);
-        }
+        Self::add_bounded_asset(&portable, bytes, ceiling, assets);
         Self::add_ceiling(&portable, ceiling, assets);
         Ok(())
+    }
+
+    fn add_bounded_asset(
+        portable: &str,
+        bytes: &[u8],
+        ceiling: usize,
+        assets: &mut BTreeMap<String, Value>,
+    ) {
+        if bytes.len() <= ceiling {
+            Self::add_asset(portable, bytes, assets);
+        }
     }
 
     fn add_ceiling(portable: &str, ceiling: usize, assets: &mut BTreeMap<String, Value>) {
