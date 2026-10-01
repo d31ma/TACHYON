@@ -126,8 +126,12 @@ fn rust_unrelated_immutable_labels_and_short_accessors_are_not_duplicate_behavio
 
 #[test]
 fn javascript_monitor_constant_tables_are_not_duplicate_behavior() {
-    let graph = include_str!("../../../../tests/fixtures/javascript-constant-duplication/GraphGroupRenderer.js");
-    let report = include_str!("../../../../tests/fixtures/javascript-constant-duplication/NativePreviewReport.js");
+    let graph = include_str!(
+        "../../../../tests/fixtures/javascript-constant-duplication/GraphGroupRenderer.js"
+    );
+    let report = include_str!(
+        "../../../../tests/fixtures/javascript-constant-duplication/NativePreviewReport.js"
+    );
     let problems = found(&[
         ("client/shared/scripts/GraphGroupRenderer.js", graph),
         ("client/shared/native/NativePreviewReport.js", report),
@@ -156,6 +160,30 @@ fn script_initializers(initializer: &str, static_member: bool) -> String {
         .collect::<Vec<_>>()
         .concat();
     format!("class First {{\n{fields}}}\n")
+}
+
+#[test]
+fn typescript_literal_constants_follow_the_same_declaration_contract() {
+    let first = script_initializers("'value'", true)
+        .replace("static #", "private static readonly ")
+        .replace(" = ", ": string = ");
+    let second = first.replace("First", "Second");
+    assert!(
+        found(&[
+            ("client/shared/First.ts", &first),
+            ("client/shared/Second.ts", &second),
+        ])
+        .is_empty()
+    );
+    let computed = first.replace("'value'", "make('value')");
+    let other = computed.replace("First", "Second");
+    assert!(
+        !found(&[
+            ("client/shared/First.ts", &computed),
+            ("client/shared/Second.ts", &other),
+        ])
+        .is_empty()
+    );
 }
 
 #[test]

@@ -21,6 +21,7 @@ mod import_words;
 mod project_files;
 mod project_source;
 mod rust_declarations;
+mod script_declarations;
 mod utility_name;
 
 #[cfg(test)]

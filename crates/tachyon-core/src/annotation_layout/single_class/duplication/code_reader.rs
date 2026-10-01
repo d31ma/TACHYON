@@ -2,6 +2,7 @@ use super::super::tokens::Token;
 use super::import_words::ImportWords;
 use super::project_source::ProjectSource;
 use super::rust_declarations::RustDeclarations;
+use super::script_declarations::ScriptDeclarations;
 use super::{Input, Tokens};
 use std::ops::Range;
 use std::path::Path;
@@ -34,8 +35,14 @@ impl<'r, 'a> CodeReader<'r, 'a> {
             imports: ImportWords::of(extension),
             depths: Self::depths(tokens),
             line_starts: Self::line_starts(text),
-            declarations: RustDeclarations::read(tokens, text, extension),
+            declarations: Self::declarations(tokens, text, extension),
         }
+    }
+
+    fn declarations(tokens: &Tokens<'_>, text: &str, extension: &str) -> Vec<Range<usize>> {
+        let mut ranges = RustDeclarations::read(tokens, text, extension);
+        ranges.extend(ScriptDeclarations::read(tokens, text, extension));
+        ranges
     }
 
     fn depths(tokens: &Tokens<'_>) -> Vec<usize> {
