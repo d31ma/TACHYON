@@ -47,30 +47,10 @@ class ProductsController {
 "#
 }
 
-fn qualify_resilience(root: &std::path::Path) {
-    let path = root.join("server/helpers/CatalogExercisesHelper.cs");
-    let source = std::fs::read_to_string(&path).expect("generated C# behavior entry");
-    let at = source
-        .find("        var catalog = new AnnotatedCatalogService")
-        .expect("existing owned behavior context precedes catalog construction");
-    let mut copied = source;
-    copied.insert_str(
-        at,
-        r#"        var resilient = new AnnotatedResilientHelper(context);
-        var attempts = await resilient.flaky();
-        if (attempts.Integer != 3 || resilient.attempts != 3) throw new System.Exception("owned helper retry failed");
-        var bounded = await resilient.bounded(BehaviorJSON.From("ok"));
-        if (bounded.Text != "ok") throw new System.Exception("owned helper concurrency bound failed");
-"#,
-    );
-    std::fs::write(path, copied).expect("qualified generated C# behavior entry");
-}
-
 async fn exercise(injected: bool) {
     let project = tempfile::tempdir().expect("project");
     let relative = "server/controllers/ProductsController.cs";
     authored_behaviors::write(project.path(), "cs", "server", "cs");
-    qualify_resilience(project.path());
     if injected {
         behavior_layout::write(
             project.path(),

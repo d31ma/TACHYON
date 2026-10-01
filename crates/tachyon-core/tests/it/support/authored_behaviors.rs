@@ -12,6 +12,7 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         source = model_source(&relative, source, language);
         source = ruby_converter_source(&relative, source, language);
         source = php_helper_source(&relative, source, language);
+        source = csharp_helper_source(&relative, source, language);
         let relative = relative.replacen("server/clients/", "server/remotes/", 1);
         let relative = relative.replacen("server/", &format!("{realm}/"), 1);
         let relative = Path::new(&relative).with_extension(extension);
@@ -25,6 +26,33 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         std::fs::create_dir_all(target.parent().expect("fixture parent"))
             .expect("fixture directories");
         std::fs::write(target, source).expect("authored fixture");
+    }
+}
+
+fn csharp_helper_source(relative: &str, source: String, language: &str) -> String {
+    if language != "cs" {
+        return source;
+    }
+    match relative {
+        "server/helpers/GuardedConfigHelper.cs" | "server/helpers/MissingConfigHelper.cs" => source
+            .replace(
+                "public static BehaviorAdapters configure(",
+                "private static BehaviorAdapters configure(",
+            ),
+        "server/helpers/CatalogExercisesHelper.cs" => {
+            let at = source
+                .find("        var catalog = new AnnotatedCatalogService")
+                .expect("existing owned behavior context precedes catalog construction");
+            let mut copied = source;
+            copied.insert_str(at, r#"        var resilient = new AnnotatedResilientHelper(context);
+        var attempts = await resilient.flaky();
+        if (attempts.Integer != 3 || resilient.attempts != 3) throw new System.Exception("owned helper retry failed");
+        var bounded = await resilient.bounded(BehaviorJSON.From("ok"));
+        if (bounded.Text != "ok") throw new System.Exception("owned helper concurrency bound failed");
+"#);
+            copied
+        }
+        _ => source,
     }
 }
 
