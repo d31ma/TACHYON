@@ -8,7 +8,10 @@ pub(super) struct KotlinComposedTypes {
 }
 
 impl KotlinComposedTypes {
-    pub(super) fn render(services: &[(PathBuf, String)]) -> Result<String, Failure> {
+    pub(super) fn render(
+        services: &[(PathBuf, String)],
+        files: &[(PathBuf, String)],
+    ) -> Result<String, Failure> {
         Self::read(files, !services.is_empty())?
             .map_or(Ok(String::new()), |types| types.program(services))
     }
