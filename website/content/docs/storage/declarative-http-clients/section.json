@@ -201,5 +201,6 @@
         "file": "client/services/CatalogService.fs"
       }
     }
-  ]
+  ],
+  "summary": " Dart now also supports an injected client with Needs and a default same-origin async browser transport when Setup has no matching HTTP adapter. See the executable Dart example in Calling the server from a page (ADR 0090). The other eight compiled language default transports and Fake replacement remain pending."
 }

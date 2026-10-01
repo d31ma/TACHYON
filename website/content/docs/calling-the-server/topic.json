@@ -8,6 +8,9 @@
   "sections": [
     {
       "include": "../storage/declarative-http-clients/section.json"
+    },
+    {
+      "include": "browser-http-dart/section.json"
     }
   ]
 }

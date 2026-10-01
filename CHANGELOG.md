@@ -10,6 +10,12 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Compiled browser Dart HTTPClients use an asynchronous same-origin transport
+  when Setup has no matching custom HTTP adapter. Injected clients return typed
+  model answers, omit credentials, preserve cache revalidation and cancel
+  requests when their owner is disposed. Other compiled language continuations
+  remain pending (ADR 0090).
+
 - New outbound role folders are `client/remotes/` and `server/remotes/`.
   `clients/` remains a compatibility alias. Scaffolds and examples use the new
   folder, while the existing opt-in migration preserves class/annotation names,

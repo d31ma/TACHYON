@@ -238,13 +238,19 @@ fn invocation_body(
     if !returns_future(method) {
         return Err("Dart asynchronous behaviors must be async and return a Future".to_owned());
     }
-    let authored = if is_declared_exchange(method) {
-        "return null;"
-    } else {
-        body
-    };
+    if is_declared_exchange(method) {
+        let value_type = future_value_type(&method.return_type);
+        let shape = crate::route_types::TypeText::shape("dart", value_type)?;
+        let decoded = crate::route_types::DartValues::read(&shape, "value");
+        return Ok(format!(
+            "\n{prefix}    return BehaviorBrowserHttp.decode(await behaviors.invoke({}, {}, [{}], () async {{ return null; }}), (value) => {decoded});\n",
+            quote(&type_declaration.name),
+            quote(&method.name),
+            json_arguments(method),
+        ));
+    }
     Ok(format!(
-        "\n{prefix}    return (await behaviors.invoke({}, {}, [{}], () async {{ {authored} }})){};\n",
+        "\n{prefix}    return (await behaviors.invoke({}, {}, [{}], () async {{ {body} }})){};\n",
         quote(&type_declaration.name),
         quote(&method.name),
         json_arguments(method),
@@ -492,6 +498,69 @@ mod tests {
         )
         .expect("Dart gateway lowering")
         .expect("lowered source")
+    }
+
+    #[test]
+    fn browser_http_models_use_checked_decoding() {
+        let path = std::path::Path::new("client/remotes/GreetingClient.dart");
+        let concrete = crate::declared_contract::DeclaredContract::concrete(
+            path,
+            "@HTTPClient\nabstract interface class GreetingClient {\n  @GetRequest(\"/api/greeting\")\n  Future<Greeting> read();\n}\n",
+            "tac",
+        ).expect("concrete contract");
+        let rewritten = crate::behavior::HttpClientSource::rewrite(path, &concrete)
+            .expect("HTTP rewrite")
+            .expect("rewritten source");
+        let lowered = lower_client(&rewritten);
+        assert!(
+            lowered.contains("BehaviorBrowserHttp.decode(await behaviors.invoke("),
+            "{lowered}"
+        );
+        assert!(lowered.contains("__yon_read_Greeting(value)"), "{lowered}");
+        assert!(!lowered.contains("as Greeting"), "{lowered}");
+    }
+
+    #[tokio::test]
+    async fn browser_http_runtime_preserves_typed_errors_and_abort_listeners() {
+        let source = include_str!("dart_runtime.dart")
+            .replace("__TAC_BEHAVIOR_MODULE__", "'test'")
+            .replace("__TAC_BEHAVIOR_ENVIRONMENT__", "'tac'")
+            .replace("__TAC_BEHAVIOR_REGISTRY__", "'{}'")
+            .replace("__TAC_BEHAVIOR_ENTITIES__", "")
+            .replace("__TAC_BEHAVIOR_TYPES__", "")
+            .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", "");
+        let main = r#"
+Future<void> main() async {
+  final owner = BehaviorSignal();
+  final signal = BehaviorSignal._child(owner);
+  final execution = BehaviorExecution('tac', 'test', signal, owner, Behaviors.now + 1000);
+  BehaviorBrowserHttp.host = (request, signal) async => '{"value":{"message":"typed"}}';
+  final answer = await BehaviorBrowserHttp.adapter!.exchange({}, execution);
+  if (BehaviorJson.get(answer, 'message') != 'typed') throw StateError('answer');
+  BehaviorBrowserHttp.host = (request, signal) async => '{"error":{"code":"HTTP_STATUS"}}';
+  try { await BehaviorBrowserHttp.adapter!.exchange({}, execution); throw StateError('accepted'); }
+  on BehaviorError catch (error) { if (error.code != 'HTTP_STATUS') rethrow; }
+  try { BehaviorBrowserHttp.decode(42, (value) => value as String); throw StateError('accepted'); }
+  on BehaviorError catch (error) { if (error.code != 'HTTP_RESPONSE') rethrow; }
+  var stopped = 0;
+  final remove = signal.watch(() => stopped += 1);
+  remove();
+  owner.abort();
+  if (stopped != 0 || !signal.aborted) throw StateError('removed listener');
+  signal.watch(() => stopped += 1);
+  if (stopped != 1) throw StateError('already aborted');
+  final scope = BehaviorSignal();
+  final context = await BehaviorBrowserHttp.withOwner(scope, () async {
+    await Future<void>.delayed(Duration.zero);
+    return BehaviorContext._(BehaviorAdapters(), 'test', BehaviorSignal(), 1000, 'test');
+  });
+  if (BehaviorBrowserHttp.owner != null) throw StateError('scope leaked');
+  scope.abort();
+  if (!context._signal.aborted || !context._released) throw StateError('scope disposal');
+  print('Dart browser HTTP runtime passed');
+}
+"#;
+        run_emitted(&(source + main), "Dart browser HTTP runtime passed").await;
     }
 
     #[test]

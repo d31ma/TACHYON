@@ -113,8 +113,22 @@ final class BehaviorSignal {
   BehaviorSignal._child(BehaviorSignal parent) : _parent = parent;
   final BehaviorSignal? _parent;
   bool _cancelled = false;
+  final Set<void Function()> _listeners = {};
   bool get aborted => _cancelled || (_parent?.aborted ?? false);
-  void abort() => _cancelled = true;
+  void abort() {
+    if (_cancelled) return;
+    _cancelled = true;
+    final listeners = _listeners.toList();
+    _listeners.clear();
+    for (final listener in listeners) { listener(); }
+  }
+
+  void Function() watch(void Function() listener) {
+    if (aborted) { listener(); return () {}; }
+    _listeners.add(listener);
+    final stopParent = _parent?.watch(listener);
+    return () { _listeners.remove(listener); stopParent?.call(); };
+  }
 }
 
 final class BehaviorExecution {
@@ -140,6 +154,38 @@ final class BehaviorCacheAdapter {
 final class BehaviorHttpAdapter {
   BehaviorHttpAdapter({required this.exchange});
   final Future<Object?> Function(Object? request, BehaviorExecution execution) exchange;
+}
+
+abstract final class BehaviorBrowserHttp {
+  static Future<String> Function(String request, BehaviorSignal signal)? host;
+  static final Object _ownerKey = Object();
+  static BehaviorSignal? get owner => behavior_async.Zone.current[_ownerKey] as BehaviorSignal?;
+
+  static T withOwner<T>(BehaviorSignal? signal, T Function() create) =>
+      behavior_async.runZoned(create, zoneValues: {_ownerKey: signal});
+  static BehaviorHttpAdapter? get adapter => Behaviors.environment == 'tac' && host != null
+      ? BehaviorHttpAdapter(exchange: _exchange) : null;
+
+  static T decode<T>(Object? value, T Function(Object?) read) {
+    try { return read(value); }
+    catch (_) { throw BehaviorError('HTTP_RESPONSE'); }
+  }
+
+  static Future<Object?> _exchange(Object? request, BehaviorExecution execution) async {
+    execution.check();
+    final send = host;
+    if (send == null) throw BehaviorError('HTTP_MISSING');
+    final text = BehaviorJson.encode(request, 65536);
+    final answer = BehaviorJson.parse(await send(text, execution.signal));
+    execution.check();
+    if (BehaviorJson.has(answer, 'error')) {
+      final code = BehaviorJson.get(BehaviorJson.get(answer, 'error'), 'code');
+      const allowed = ['HTTP_REQUEST', 'HTTP_ORIGIN', 'HTTP_HEADER', 'HTTP_QUERY', 'HTTP_BODY', 'HTTP_LIMIT', 'HTTP_RESPONSE', 'HTTP_STATUS', 'HTTP_CAPACITY', 'HTTP_NETWORK', 'HTTP_MISSING', 'CANCELLED', 'DEADLINE'];
+      throw BehaviorError(allowed.contains(code) ? code as String : 'HTTP_NETWORK');
+    }
+    if (!BehaviorJson.has(answer, 'value')) throw BehaviorError('HTTP_RESPONSE');
+    return BehaviorJson.from(BehaviorJson.get(answer, 'value'));
+  }
 }
 
 final class BehaviorEntityAdapter {
@@ -683,7 +729,10 @@ class _SharedSetup {
 }
 
 class BehaviorContext {
-  BehaviorContext._(this._adapters, this._partition, this._owner, this._timeoutMs, this._setupKey) : _signal = BehaviorSignal._child(_owner);
+  BehaviorContext._(this._adapters, this._partition, this._owner, this._timeoutMs, this._setupKey) : _signal = BehaviorSignal._child(_owner) {
+    _stopScope = BehaviorBrowserHttp.owner?.watch(dispose);
+  }
+  void Function()? _stopScope;
   final BehaviorAdapters _adapters;
   final String _setupKey;
   bool _released = false;
@@ -693,9 +742,22 @@ class BehaviorContext {
   final int _timeoutMs;
   int _active = 0;
   final Map<String, int> _slots = {};
+  final Set<String> _revalidate = {};
+  bool _revalidateAll = false;
+
+  void _markRevalidation(String key) {
+    if (_revalidate.length >= 4096) {
+      _revalidate.clear();
+      _revalidateAll = true;
+    }
+    if (!_revalidateAll) _revalidate.add(key);
+  }
 
   void dispose() {
     _signal.abort();
+    _revalidate.clear();
+    _stopScope?.call();
+    _stopScope = null;
     if (_released) return;
     _released = true;
     Behaviors._releaseSetup(_setupKey);
@@ -817,7 +879,9 @@ class BehaviorContext {
             return value;
           }
         }
-        final result = await _resilient(type, method, metadata, work, execution);
+        final readMetadata = <String, Object?>{...BehaviorJson.members(metadata), '_httpRevalidate': _revalidateAll || _revalidate.contains(key)};
+        final result = await _resilient(type, method, readMetadata, work, execution);
+        _revalidate.remove(key);
         execution.check();
         BehaviorJson.encode(result, BehaviorJson.integer(BehaviorJson.get(policy, 'maxBytes')));
         await _adapter(
@@ -910,6 +974,7 @@ class BehaviorContext {
     } else {
       await _adapter(execution, () => cache.delete(key, execution));
     }
+    _markRevalidation(key);
     return result;
   }
 
@@ -1013,8 +1078,10 @@ class BehaviorContext {
     final policy = BehaviorJson.get(metadata, 'httpExchange');
     final method = BehaviorJson.text(BehaviorJson.get(policy, 'method'));
     if ((method == 'GET' || method == 'HEAD') && BehaviorJson.has(result, 'body')) throw BehaviorError('HTTP_BODY');
-    final client = _adapters.http[BehaviorJson.text(BehaviorJson.get(policy, 'client'))] ?? (throw BehaviorError('HTTP_MISSING'));
+    final client = _adapters.http[BehaviorJson.text(BehaviorJson.get(policy, 'client'))] ?? BehaviorBrowserHttp.adapter ?? (throw BehaviorError('HTTP_MISSING'));
     final request = _request(result, method, BehaviorJson.text(BehaviorJson.get(policy, 'path')), execution);
+    if (method == 'GET' && BehaviorJson.has(metadata, 'cacheable')) request['publicRead'] = true;
+    if (BehaviorJson.get(metadata, '_httpRevalidate') == true) request['revalidate'] = true;
     return _adapter(execution, () => client.exchange(request, execution));
   }
 
@@ -1057,6 +1124,7 @@ class BehaviorContext {
         final key = await _authorize('cache:evict', type, method, policy, metadata, normalized, execution);
         final cache = _cache(policy);
         await _adapter(execution, () => cache.delete(key, execution));
+        _markRevalidation(key);
         return null;
       });
 
@@ -1070,7 +1138,7 @@ class BehaviorContext {
         BehaviorJson.keys(descriptor, const ['query', 'headers', 'body']);
         _validateHttp(descriptor);
         if ((method == 'GET' || method == 'HEAD') && BehaviorJson.has(descriptor, 'body')) throw BehaviorError('HTTP_BODY');
-        final client = _adapters.http[name] ?? (throw BehaviorError('HTTP_MISSING'));
+        final client = _adapters.http[name] ?? BehaviorBrowserHttp.adapter ?? (throw BehaviorError('HTTP_MISSING'));
         final request = _request(descriptor, method, path, execution);
         return _adapter(execution, () => client.exchange(request, execution));
       });

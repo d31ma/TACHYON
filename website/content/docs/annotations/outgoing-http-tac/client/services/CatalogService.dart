@@ -1,6 +1,7 @@
 @Service
 class CatalogService {
-  final CatalogClient catalog = CatalogClient();
+  @Needs
+  final CatalogClient catalog;
   int count = 0;
 
   Future<void> load() async {

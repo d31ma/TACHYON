@@ -38,6 +38,8 @@ impl<'a> ClientViewRenderer<'a> {
         "\n",
         include_str!("tac-web.js"),
         "\n",
+        include_str!("tac-http.js"),
+        "\n",
         include_str!("tac-native.js"),
         "\n",
         include_str!("tac-client.js")

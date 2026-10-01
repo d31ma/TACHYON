@@ -1,0 +1,78 @@
+{
+  "heading": "Dart awaits a real Yon endpoint",
+  "summary": "A Dart service receives an HTTPClient with Needs. The empty GreetingSetup uses Tachyon\u2019s default same-origin asynchronous browser transport; the typed Greeting answer is rendered after Yon replies. Credentials are omitted. Cached GETs may use the browser cache, and a successful ClearCache forces revalidation. OverrideSetup shows that a matching custom adapter still wins. This compiled Dart example is qualified in Chromium, Firefox and WebKit; the other compiled language transports and Fake replacement remain pending (ADR 0090).",
+  "files": [
+    {
+      "name": "client/components/greeting/panel/tac.html",
+      "code": {
+        "file": "client/components/greeting/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/models/Greeting.dart",
+      "code": {
+        "file": "client/models/Greeting.dart"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/remotes/GreetingClient.dart",
+      "code": {
+        "file": "client/remotes/GreetingClient.dart"
+      }
+    },
+    {
+      "name": "client/remotes/OverrideClient.dart",
+      "code": {
+        "file": "client/remotes/OverrideClient.dart"
+      }
+    },
+    {
+      "name": "client/services/GreetingService.dart",
+      "code": {
+        "file": "client/services/GreetingService.dart"
+      }
+    },
+    {
+      "name": "client/setups/GreetingSetup.dart",
+      "code": {
+        "file": "client/setups/GreetingSetup.dart"
+      }
+    },
+    {
+      "name": "client/setups/OverrideSetup.dart",
+      "code": {
+        "file": "client/setups/OverrideSetup.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ClearController.js",
+      "code": {
+        "file": "server/controllers/ClearController.js"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "server/models/Greeting.ts",
+      "code": {
+        "file": "server/models/Greeting.ts"
+      }
+    }
+  ]
+}
