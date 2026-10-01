@@ -131,7 +131,8 @@ fn read_modules(
     register_names(entry, entry_source, &mut names)?;
     let mut total = entry_source.len();
     let mut modules = Vec::new();
-    let imported_utilities = client_utilities::ClientUtilities::imported(root, entry, entry_source, paths)?;
+    let imported_utilities =
+        client_utilities::ClientUtilities::imported(root, entry, entry_source, paths)?;
     for path in paths {
         if imported_utilities.contains(path) {
             continue;
