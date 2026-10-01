@@ -45,7 +45,7 @@ class DocumentTitleBrowserGate {
       diagnostics.phase = 'ordinary-managed-view'
       await page.goto(origin, { waitUntil: 'networkidle', timeout: 15000 })
       await DocumentTitleBrowserGate.title(page, 'Kotlin first — 🚀')
-      const managed = await DocumentTitleBrowserGate.managed(page)
+      const managed = await DocumentTitleBrowserGate.managed(page, diagnostics)
       diagnostics.phase = 'compiled-kotlin-facade'
       const facade = await DocumentTitleBrowserGate.facade(page)
       DocumentTitleBrowserGate.checkFacade(facade)
@@ -63,11 +63,21 @@ class DocumentTitleBrowserGate {
   }
 
   static async title(page, expected) {
-    await page.waitForFunction(value => document.title === value, expected, { timeout: 5000 })
-    assert.equal(await page.title(), expected)
+    try {
+      await page.waitForFunction(value => document.title === value, expected, { timeout: 5000 })
+      assert.equal(await page.title(), expected)
+    } catch (error) {
+      const snapshot = await page.evaluate(() => ({
+        title: document.title,
+        kotlinLabels: [...document.querySelectorAll('.kotlin-label')].slice(0, 4).map(node => node.textContent?.slice(0, 256)),
+        mounted: ['kotlin-first-container', 'kotlin-second-container', 'script-container'].filter(id => document.getElementById(id)),
+        scriptWrites: document.querySelector('#script-ready')?.textContent?.slice(0, 64),
+      }))
+      throw new Error(`Expected title ${JSON.stringify(expected)}; actual fixture ${JSON.stringify(snapshot)}; ${String(error)}`)
+    }
   }
 
-  static async managed(page) {
+  static async managed(page, diagnostics) {
     await page.locator('#kotlin-first-container .kotlin-write').click()
     await DocumentTitleBrowserGate.title(page, 'Kotlin click — 🌍')
     await page.locator('#kotlin-first-container .kotlin-attempt').click()
@@ -80,9 +90,15 @@ class DocumentTitleBrowserGate {
     await page.locator('#hide-first').click()
     await page.locator('#kotlin-first-container').waitFor({ state: 'detached', timeout: 5000 })
     await DocumentTitleBrowserGate.title(page, 'Kotlin second — 雪')
-    await page.locator('#show-first').click()
-    await page.locator('#kotlin-first-container').waitFor({ timeout: 5000 })
-    await DocumentTitleBrowserGate.title(page, 'Kotlin first — 🚀')
+    const trace = await DocumentTitleBrowserGate.titleTrace(page)
+    try {
+      await page.locator('#show-first').click()
+      await page.locator('#kotlin-first-container').waitFor({ timeout: 5000 })
+      await DocumentTitleBrowserGate.title(page, 'Kotlin first — 🚀')
+    } finally {
+      diagnostics.remountTitleWrites = await trace.evaluate(value => value.finish())
+      await trace.dispose()
+    }
     await page.locator('#show-script').click()
     await page.locator('#script-ready').waitFor({ timeout: 5000 })
     await DocumentTitleBrowserGate.title(page, 'Script start — 🦊')
@@ -110,6 +126,22 @@ class DocumentTitleBrowserGate {
     await page.waitForFunction(() => document.querySelector('#script-ready')?.textContent === '0', undefined, { timeout: 5000 })
     await DocumentTitleBrowserGate.title(page, 'Script start — 🦊')
     return { kotlinUnicode: true, kotlinAttemptUiWrite: true, scriptAttemptUiWrite: true, empty: true, independentMountedOwners: true, firstDisposalDoesNotRestoreTitle: true, kotlinRemount: true, scriptUnicode: true, scriptOversizedRefused: true, scriptRetiredDomListenerInactive: true, scriptRemount: true }
+  }
+
+  static async titleTrace(page) {
+    return page.evaluateHandle(() => {
+      const entries = []
+      const observer = new MutationObserver(records => {
+        for (const record of records) {
+          const element = record.target.nodeType === Node.TEXT_NODE ? record.target.parentElement : record.target
+          if (element?.closest?.('title') && entries.length < 12) {
+            entries.push({ old: record.oldValue ?? [...record.removedNodes].map(node => node.textContent).join(''), added: [...record.addedNodes].map(node => node.textContent).join(''), current: document.title })
+          }
+        }
+      })
+      observer.observe(document.head, { subtree: true, childList: true, characterData: true, characterDataOldValue: true })
+      return { finish() { observer.disconnect(); return entries } }
+    })
   }
 
   static async facade(page) {
@@ -165,7 +197,7 @@ class DocumentTitleBrowserGate {
 
   static async reuse(page) {
     return page.evaluate(async () => {
-      const kotlin = await import('/.tachyon/kotlin/services.js')
+      const kotlin = await import('/.tachyon/services/kotlin/services.js')
       const owner = '86cf44d0-cc07-4132-aa86-a8d870eddf4e'
       const request = payload => JSON.parse(kotlin.tacInvoke(JSON.stringify({ route: 'web', service: 'kotlinTitle', owner, ...payload })))
       const initial = request({ op: 'init', props: { label: 'Fixed owner first', fails: false } })
