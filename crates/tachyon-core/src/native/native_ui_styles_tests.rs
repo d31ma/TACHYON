@@ -11,7 +11,7 @@ struct NativeUiStylesFixture {
 }
 
 impl NativeUiStylesFixture {
-    const SERVICE: &str = "@Service\nfinal class LiveCounterService {\n    static var starts: Int = 0\n    static var stops: Int = 0\n    var count: Int = 0\n    @OnStart\n    func start() { Self.starts += 1 }\n    @OnStop\n    func stop() { Self.stops += 1 }\n    func increment() -> Int { count += 1; return count }\n    func read() -> Int { count }\n    func identity() -> Int { ObjectIdentifier(self).hashValue }\n}\n";
+    const SERVICE: &str = "@Service\nfinal class LiveCounterService {\n    static var starts: Int = 0\n    static var stops: Int = 0\n    var count: Int = 0\n    @OnStart\n    func start() { Self.starts += 1 }\n    @OnStop\n    func stop() { Self.stops += 1 }\n    func increment() -> Int { count += 1; return count }\n    func read() -> Int { count }\n    func identity() -> Int { ObjectIdentifier(self).hashValue }\n    func started() -> Int { Self.starts }\n    func stopped() -> Int { Self.stops }\n}\n";
     const DOCUMENT: &str = r#"<!DOCTYPE html><html><head><link rel="stylesheet" href="/styles/theme.css"></head><body><input id="field" value="initial"><button id="click">Click</button><main id="sample">Native live style fixture</main><script>window.marker=Math.random().toString(36);window.events=0;document.querySelector('#click').addEventListener('click',()=>{window.events+=1})</script></body></html>"#;
 
     fn new() -> Self {

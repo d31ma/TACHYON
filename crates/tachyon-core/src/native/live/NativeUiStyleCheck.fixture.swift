@@ -70,11 +70,20 @@ import WebKit
         try await failedLoad(scene, candidate)
         try isolated(scene)
         await scene.session.invalidate()
-        try NativeUiRuntimeFailure.require(LiveCounterService.starts == 1 && LiveCounterService.stops == 0, "CSS updated native lifecycle")
+        try NativeUiRuntimeFailure.require(request("started") == "{\"value\":1}" && request("stopped") == "{\"value\":0}", "CSS updated native lifecycle")
         _ = tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"6F9619FF-8B86-D011-B42D-00C04FC964FF\",\"op\":\"dispose\"}")
-        try NativeUiRuntimeFailure.require(LiveCounterService.stops == 1, "Explicit final disposal must stop exactly once")
+        try observedStop()
+
         scene.window.close()
         print("native-ui-styles-webkit-passed pid=\(ProcessInfo.processInfo.processIdentifier) window=\(window)")
+    }
+
+    @MainActor private static func observedStop() throws {
+        let owner = "6F9619FF-8B86-D011-B42D-00C04FC964FE"
+        let answer = tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"\(owner)\",\"op\":\"init\"}")
+        try NativeUiRuntimeFailure.require(!answer.contains("error"), "Lifecycle observer did not initialize")
+        try NativeUiRuntimeFailure.require(request("stopped", owner) == "{\"value\":1}", "Explicit final disposal must stop exactly once")
+        _ = tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"\(owner)\",\"op\":\"dispose\"}")
     }
 
     @MainActor private static func initialized(_ scene: NativeUiStyleScene) async throws {
@@ -154,7 +163,7 @@ import WebKit
         return try NativeUiRuntimeGeneration.trusted(file, Data(contentsOf: URL(fileURLWithPath: descriptor)), fingerprint)
     }
 
-    @MainActor private static func request(_ method: String) -> String {
-        tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"6F9619FF-8B86-D011-B42D-00C04FC964FF\",\"op\":\"call\",\"name\":\"\(method)\",\"args\":[]}")
+    @MainActor private static func request(_ method: String, _ owner: String = "6F9619FF-8B86-D011-B42D-00C04FC964FF") -> String {
+        tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"\(owner)\",\"op\":\"call\",\"name\":\"\(method)\",\"args\":[]}")
     }
 }
