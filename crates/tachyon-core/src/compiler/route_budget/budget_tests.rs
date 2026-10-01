@@ -213,8 +213,8 @@ fn real_runtime_reports_auxiliary_bytes_and_keeps_the_wasm_transfer_budget() {
     assert!(failure.to_string().contains("budget is 3584 KB"));
     let proxy_sent = |path: &str| match path.rsplit('/').next().unwrap_or_default() {
         "pyodide.mjs" => Some(6453),
-        "pyodide.asm.mjs" => Some(207390),
-        "pyodide.asm.wasm" => Some(2741061),
+        "pyodide.asm.mjs" => Some(207_390),
+        "pyodide.asm.wasm" => Some(2_741_061),
         "pyodide-lock.json" => Some(21689),
         _ => None,
     };

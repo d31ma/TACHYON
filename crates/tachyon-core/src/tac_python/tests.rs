@@ -35,20 +35,17 @@ fn only_the_explicit_pinned_offline_profile_is_selected() {
 
 #[test]
 fn the_profile_cannot_relax_arbitrary_or_tampered_wasm() {
-    let profile = RuntimeProfile;
     assert_eq!(
-        profile
-            .asset_limit("other.wasm", b"other")
+        RuntimeProfile::asset_limit("other.wasm", b"other")
             .unwrap_or_else(|error| panic!("ordinary bound: {error:?}")),
         4 * 1024 * 1024
     );
     assert!(
-        profile
-            .asset_limit(
-                &RuntimeAssets::output_name(RuntimeAssets::WASM),
-                b"tampered"
-            )
-            .is_err()
+        RuntimeProfile::asset_limit(
+            &RuntimeAssets::output_name(RuntimeAssets::WASM),
+            b"tampered"
+        )
+        .is_err()
     );
     assert_eq!(RuntimeProfile::SCRIPT_BYTES, 512 * 1024);
 }
@@ -116,8 +113,7 @@ fn pinned_local_inventory_qualifies_the_profile_and_all_route_dependencies() {
         13_531_207
     );
     let wasm = RuntimeAssets::output_name(RuntimeAssets::WASM);
-    let ceiling = RuntimeProfile
-        .asset_limit(&wasm, by_path[&wasm])
+    let ceiling = RuntimeProfile::asset_limit(&wasm, by_path[&wasm])
         .unwrap_or_else(|error| panic!("verified runtime Wasm: {error:?}"));
     assert_eq!(ceiling, 10 * 1024 * 1024);
     assert!(

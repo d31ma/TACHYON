@@ -95,7 +95,7 @@ impl ServiceWorker {
     ) -> Result<(), Failure> {
         let portable = PortablePath::of(path);
         let ceiling = profile
-            .map(|profile| profile.asset_limit(&portable, bytes))
+            .map(|_| crate::tac_python::RuntimeProfile::asset_limit(&portable, bytes))
             .transpose()?
             .unwrap_or(Self::MAX_ASSET_BYTES);
         Self::add_bounded_asset(&portable, bytes, ceiling, assets);

@@ -28,7 +28,7 @@ impl RuntimeProfile {
         Ok(selected.filter(|_| crate::compiler::BudgetCheck::has_python_roots(files)))
     }
 
-    pub(crate) fn asset_limit(self, path: &str, bytes: &[u8]) -> Result<usize, Failure> {
+    pub(crate) fn asset_limit(path: &str, bytes: &[u8]) -> Result<usize, Failure> {
         Self::limit(path, bytes)
     }
 
@@ -60,12 +60,10 @@ impl RuntimeProfile {
         match std::fs::symlink_metadata(path) {
             Ok(metadata) => Ok(Some(metadata)),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(error) => {
-                return Err(RuntimeAssets::failure(
-                    "client/manifest.json",
-                    &format!("cannot inspect manifest: {error}"),
-                ));
-            }
+            Err(error) => Err(RuntimeAssets::failure(
+                "client/manifest.json",
+                &format!("cannot inspect manifest: {error}"),
+            )),
         }
     }
 

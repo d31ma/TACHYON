@@ -1,4 +1,5 @@
 use super::RuntimeProfile;
+use super::python_build::PythonBuild;
 use super::python_graph_guard::PythonGraphGuard;
 use super::python_provider_source::PythonProviderSource;
 use super::runtime_assets::RuntimeAssets;
@@ -28,7 +29,7 @@ impl PythonWebServices {
     pub(crate) fn build(
         root: &Path,
         services: &[(String, String, PathBuf)],
-    ) -> Result<(String, Vec<(String, Vec<u8>)>), Failure> {
+    ) -> Result<PythonBuild, Failure> {
         Self::require_profile(root)?;
         let program = Self::program(root, services)?;
         let quoted = serde_json::to_string(&program).map_err(|error| {
@@ -42,7 +43,7 @@ impl PythonWebServices {
             .into_iter()
             .map(Self::service_asset)
             .collect();
-        Ok((engine, assets))
+        Ok(PythonBuild { engine, assets })
     }
 
     pub(crate) fn program(
@@ -60,7 +61,7 @@ impl PythonWebServices {
             .map_err(|message| PythonProviderSource::failure(relative, &message))?;
         let descriptions = Self::descriptions(&providers, &table)?;
         PythonGraphGuard::check(&descriptions)?;
-        let metadata = Self::metadata(services, descriptions, &table);
+        let metadata = Self::metadata(services, &descriptions, &table);
         let source = Self::prepared(relative, units, &providers)?;
         let staged = Self::lowered(relative, &source, &models)?;
         Self::configured(&staged, &providers, &metadata)
@@ -133,7 +134,7 @@ impl PythonWebServices {
 
     fn metadata(
         services: &[(String, String, PathBuf)],
-        providers: Map<String, Value>,
+        providers: &Map<String, Value>,
         models: &ModelTable,
     ) -> Value {
         let services = services
@@ -150,14 +151,14 @@ impl PythonWebServices {
     ) -> Result<String, Failure> {
         let plain = units
             .into_iter()
-            .map(|(path, source)| Self::plain_unit(path, source, providers))
+            .map(|(path, source)| Self::plain_unit(path, &source, providers))
             .collect::<Result<Vec<_>, _>>()?;
         Module::with_models(entry, "", plain)
     }
 
     fn plain_unit(
         path: PathBuf,
-        source: String,
+        source: &str,
         providers: &[PythonProviderSource],
     ) -> Result<(PathBuf, String), Failure> {
         let prepared = providers
@@ -165,7 +166,7 @@ impl PythonWebServices {
             .find(|provider| provider.path == path)
             .map(|provider| provider.source.clone());
         let source = prepared.map_or_else(
-            || crate::behavior::ServiceRoles::without_roles(&path, &source),
+            || crate::behavior::ServiceRoles::without_roles(&path, source),
             Ok,
         )?;
         Ok((path, source))

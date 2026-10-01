@@ -81,7 +81,9 @@ impl<'a> PageBudget<'a> {
     }
 
     fn auxiliary(name: &str) -> bool {
-        name.ends_with(".zip") || name.ends_with(".json")
+        std::path::Path::new(name)
+            .extension()
+            .is_some_and(|extension| extension == "zip" || extension == "json")
     }
 
     fn sizes(

@@ -182,10 +182,9 @@ async fn build_language(
             String::from(WebEngine::JAVA_ENGINE)
         }
         WebLanguage::Python => {
-            let (engine, assets) =
-                crate::tac_python::PythonWebServices::build(snapshot_root, &chosen)?;
-            published.extend(assets);
-            engine
+            let built = crate::tac_python::PythonWebServices::build(snapshot_root, &chosen)?;
+            published.extend(built.assets);
+            built.engine
         }
         WebLanguage::Ruby => {
             published.extend(crate::tac_ruby::RubyWebServices::runtime_files().await?);
