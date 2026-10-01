@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
+use std::fmt::Write;
 use std::path::Path;
 
 pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
     let helpers = role_names(language);
     for (relative, source) in files(language) {
         let source = super::behavior_layout::rename(source, &helpers);
-        let (relative, mut source) = role_copy(relative, source, &helpers, language);
+        let (relative, mut source) = role_copy(relative, &source, &helpers, language);
         let relative = model_copy(relative, language);
         let (relative, copied) = csharp_data_copy(relative, source, language);
         source = copied;
@@ -100,10 +101,11 @@ fn model_copy(relative: String, language: &str) -> String {
         .file_stem()
         .and_then(|name| name.to_str())
         .unwrap_or("");
-    metadata_names(language)
-        .contains(&name)
-        .then(|| relative.replacen("server/helpers/", "server/models/", 1))
-        .unwrap_or(relative)
+    if metadata_names(language).contains(&name) {
+        relative.replacen("server/helpers/", "server/models/", 1)
+    } else {
+        relative
+    }
 }
 
 fn csharp_data_copy(relative: String, source: String, language: &str) -> (String, String) {
@@ -182,26 +184,25 @@ fn model_imports(source: String, language: &str, names: &[&str]) -> String {
         return source;
     }
     let imports = match language {
-        "rs" => names
-            .iter()
-            .map(|name| format!("use crate::models::{name};\n"))
-            .collect(),
-        "kt" => names
-            .iter()
-            .map(|name| format!("import models.{name}\n"))
-            .collect(),
+        "rs" => model_import_lines(names, "use crate::models::", ";"),
+        "kt" => model_import_lines(names, "import models.", ""),
         "cs" => "using Models;\n".to_owned(),
         "py" => format!("from models import {}\n", names.join(", ")),
-        "php" => names
-            .iter()
-            .map(|name| format!("use Models\\{name};\n"))
-            .collect(),
+        "php" => model_import_lines(names, "use Models\\", ";"),
         _ => String::new(),
     };
     if language == "php" {
         return source.replacen("<?php\n", &format!("<?php\n{imports}"), 1);
     }
     format!("{imports}{source}")
+}
+
+fn model_import_lines(names: &[&str], prefix: &str, suffix: &str) -> String {
+    let mut imports = String::new();
+    for name in names {
+        writeln!(imports, "{prefix}{name}{suffix}").expect("write fixture imports to a String");
+    }
+    imports
 }
 
 fn role_names(language: &str) -> BTreeMap<String, String> {
@@ -241,7 +242,7 @@ fn role_names(language: &str) -> BTreeMap<String, String> {
 
 fn role_copy(
     relative: &str,
-    source: String,
+    source: &str,
     names: &BTreeMap<String, String>,
     language: &str,
 ) -> (String, String) {
@@ -261,9 +262,9 @@ fn role_copy(
         })
         .or_else(|| service_copy(language, stem).map(|name| ("services", "Service", name)));
     role.map_or_else(
-        || (relative.to_owned(), source.clone()),
+        || (relative.to_owned(), source.to_owned()),
         |(folder, marker, name)| {
-            let source = marked_copy(source.clone(), language, name, marker);
+            let source = marked_copy(source.to_owned(), language, name, marker);
             let extension = path
                 .extension()
                 .and_then(|value| value.to_str())
