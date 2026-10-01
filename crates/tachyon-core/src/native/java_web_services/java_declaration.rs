@@ -97,21 +97,26 @@ impl JavaDeclaration {
     ) -> Result<Option<JavaMember>, String> {
         self.refuse_unknown_annotations()?;
         self.refuse_hidden_markers()?;
-        if self
-            .model_field()
-            .is_some_and(|(_, name)| injected.contains(&name))
-        {
-            return Ok(None);
-        }
-        self.visible_member(values)
+        self.visible_member(values, injected)
     }
 
-    fn visible_member(&self, values: &JavaValueType) -> Result<Option<JavaMember>, String> {
-        match (self.is_skipped(), self.is_method()) {
+    fn visible_member(
+        &self,
+        values: &JavaValueType,
+        injected: &[String],
+    ) -> Result<Option<JavaMember>, String> {
+        let hidden = [self.is_skipped(), self.is_injected_field(injected)].contains(&true);
+        match (hidden, self.is_method()) {
             (true, _) => Ok(None),
             (false, true) => self.method(values),
             (false, false) => self.field(values),
         }
+    }
+
+    fn is_injected_field(&self, injected: &[String]) -> bool {
+        let declared = self.rest.split('=').next().unwrap_or_default();
+        let (_, name) = Self::type_and_name(declared);
+        [self.is_method(), injected.contains(&name)] == [false, true]
     }
 
     fn is_skipped(&self) -> bool {
