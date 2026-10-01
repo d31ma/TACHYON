@@ -2,6 +2,7 @@ mod compiled;
 pub(crate) mod dynamic;
 mod error_calls;
 pub(crate) mod go_container;
+mod manual_helpers;
 pub(crate) mod parser;
 pub(crate) mod plan;
 mod required_args;
@@ -34,6 +35,7 @@ pub(crate) fn lower_with_routes(
     let marked = GroovySource::with_java_part(extension, contents);
     let contents = marked.as_deref().unwrap_or(contents);
     let extension = GroovySource::syntax(extension);
+    let manual_helpers = manual_helpers::ManualHelpers::read(source, contents)?;
     let mut event_module = crate::events::extract(source, contents, "yon")?;
     if let (Some(module), Some(root)) = (event_module.as_mut(), models_root) {
         crate::events::describe(module, source, root, "server")?;
@@ -41,15 +43,15 @@ pub(crate) fn lower_with_routes(
     let contents = event_module
         .as_ref()
         .map_or(contents, |module| module.source.as_str());
-    let prepared = required_args::prepare(source, contents)?;
+    let prepared = required_args::prepare_with_manual(source, contents, &manual_helpers)?;
     let contents = prepared.as_deref().unwrap_or(contents);
     let is_test = crate::behavior::test_configuration_name(source, contents, "yon")?.is_some();
     let behavior_source = crate::behavior::lower(source, contents, "yon")?;
     let contents = behavior_source.as_deref().unwrap_or(contents);
     let parsed = if is_test {
-        parser::parse_test(source, contents)?
+        parser::parse_test_prepared(source, contents, &manual_helpers)?
     } else {
-        parser::parse(source, contents)?
+        parser::parse_prepared(source, contents, None, &manual_helpers)?
     };
     let Some(parsed) = parsed else {
         if event_module.is_some() {
@@ -105,6 +107,7 @@ pub(crate) fn lower_gateway_unit(
     let contents = marked.as_deref().unwrap_or(contents);
     let extension = GroovySource::syntax(extension);
     let portable = source.to_string_lossy().replace('\\', "/");
+    let manual_helpers = manual_helpers::ManualHelpers::read(source, contents)?;
     if crate::events::extract(source, contents, "yon")?.is_some() {
         return Err(crate::behavior::gateway_target_failure(
             &portable,
@@ -112,11 +115,12 @@ pub(crate) fn lower_gateway_unit(
             "A gateway target language whose role files use local events or lifecycle hooks cannot host a gateway unit yet",
         ));
     }
-    let prepared = required_args::prepare(source, contents)?;
+    let prepared = required_args::prepare_with_manual(source, contents, &manual_helpers)?;
     let contents = prepared.as_deref().unwrap_or(contents);
     let behavior_source = crate::behavior::lower(source, contents, "yon")?;
     let contents = behavior_source.as_deref().unwrap_or(contents);
-    let Some(parsed) = parser::parse_gateway(source, contents, target)? else {
+    let Some(parsed) = parser::parse_prepared(source, contents, Some(target), &manual_helpers)?
+    else {
         return Err(crate::behavior::gateway_target_failure(
             &portable,
             0,

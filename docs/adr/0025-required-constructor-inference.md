@@ -64,6 +64,22 @@ This decision covers only inference for managed Yon roles. It does not add:
 
 Tac and unmanaged behavior types keep explicit construction and ownership.
 
+Formal Helper role and folder validation do not transfer caller-owned values to
+Yon DI. A source-local Helper with a proven explicit construction call and no
+class Needs, NeedsAll or Lifetime remains caller-owned when its lowered
+constructor needs arguments. Go uses a nonempty authored struct literal as
+construction proof. Field Needs may describe its existing explicit constructor;
+it does not select a managed provider. Capture precedes behavior and constructor
+lowering so that schema and annotation consumption cannot erase ownership.
+
+Zero-argument Helpers retain their existing managed identity and lifecycle.
+Caller-owned Helpers cannot carry managed OnStart, OnStop or OnEvent hooks;
+requesting them through DI or a gateway reports their path and the required
+class-level opt-in. Service and Converter constructor checks, duplicate names
+and bounded provider counts remain unchanged. Comments, strings, factory method
+references and similar names are not construction proof.
+
+
 ## Consequences
 
 - The recommended provider/controller examples need only role markers,

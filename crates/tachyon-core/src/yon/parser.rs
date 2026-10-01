@@ -10,6 +10,8 @@ mod access_marker;
 #[allow(clippy::expect_used, clippy::panic)]
 mod access_tests;
 mod errors;
+mod helper_providers;
+mod helper_sources;
 mod identity_marker;
 mod parameter_markers;
 mod routes;
@@ -26,6 +28,7 @@ struct Input<'a> {
     source: &'a str,
     code: String,
     extension: &'a str,
+    manual_helpers: BTreeSet<String>,
 }
 
 impl Input<'_> {
@@ -42,6 +45,15 @@ impl Input<'_> {
             Some("A controller is one @RequestRoute(\"/path\") class in server/controllers/. Mark each route method with @GetRoute, @PostRoute, @PutRoute, @PatchRoute or @DeleteRoute, and start its name with that HTTP method (ADR 0048). NeedsAll generates initialization and infers provider dependencies from fields; explicit @Needs remains available for handwritten constructors.".to_owned()),
             source_span(&self.path.to_string_lossy(), at, (at + 1).min(self.source.len())),
         ))
+    }
+
+    fn missing_provider(&self, name: &str) -> String {
+        if self.manual_helpers.contains(name) {
+            return format!(
+                "Helper {name} uses explicit caller construction; select class Needs or NeedsAll with declared source-local providers before requesting it through DI or a gateway"
+            );
+        }
+        format!("Gateway target {name} is not a managed Yon type")
     }
 }
 
@@ -64,23 +76,34 @@ struct ManagedType {
 }
 
 pub(crate) fn parse(path: &Path, source: &str) -> Result<Option<Parsed>, Failure> {
-    parse_with_root(path, source, None)
+    let manual = super::manual_helpers::ManualHelpers::read(path, source)?;
+    parse_prepared(path, source, None, &manual)
 }
 
-pub(crate) fn parse_gateway(
+pub(crate) fn parse_prepared(
     path: &Path,
     source: &str,
-    target: &str,
+    target: Option<&str>,
+    manual: &BTreeSet<String>,
 ) -> Result<Option<Parsed>, Failure> {
-    parse_with_root(path, source, Some(target))
+    parse_with_root(path, source, target, manual)
 }
 
 pub(crate) fn parse_test(path: &Path, source: &str) -> Result<Option<Parsed>, Failure> {
+    let manual = super::manual_helpers::ManualHelpers::read(path, source)?;
+    parse_test_prepared(path, source, &manual)
+}
+
+pub(crate) fn parse_test_prepared(
+    path: &Path,
+    source: &str,
+    manual: &BTreeSet<String>,
+) -> Result<Option<Parsed>, Failure> {
     let name = path
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or("");
-    let Some(mut parsed) = parse_with_root(path, source, Some(name))? else {
+    let Some(mut parsed) = parse_with_root(path, source, Some(name), manual)? else {
         return Ok(None);
     };
     parsed.plan.routes.push(Route {
@@ -96,6 +119,7 @@ fn parse_with_root(
     path: &Path,
     source: &str,
     gateway_target: Option<&str>,
+    manual: &BTreeSet<String>,
 ) -> Result<Option<Parsed>, Failure> {
     let extension = path
         .extension()
@@ -115,6 +139,7 @@ fn parse_with_root(
         source,
         code: masked_code(source, mask.code),
         extension: crate::groovy_source::GroovySource::syntax(extension),
+        manual_helpers: manual.clone(),
     };
     let declarations = declarations(&input)?;
     if declarations.is_empty() {
@@ -254,10 +279,7 @@ fn build_gateway_plan(
     let mut types = managed_types(input, declarations)?;
     add_resources(input, &mut types)?;
     let Some(root) = types.iter().position(|value| value.provider.name == target) else {
-        return Err(input.failure(
-            0,
-            format!("Gateway target {target} is not a managed Yon type"),
-        ));
+        return Err(input.failure(0, input.missing_provider(target)));
     };
     validate_graph(input, &types, Some(root))?;
     Ok(Plan {
@@ -773,9 +795,10 @@ fn managed_types(
             declaration: start,
         });
     }
-    if types.len() > Input::MAX_PROVIDERS {
+    if names.len() > Input::MAX_PROVIDERS {
         return Err(input.failure(0, "Yon permits at most 128 managed providers per source"));
     }
+    types = helper_providers::HelperProviders::select(input, types)?;
     if input.extension == "go" {
         add_go_injections(input, &mut types)?;
     } else if input.extension == "rb" {
@@ -785,6 +808,13 @@ fn managed_types(
         validate_constructors(input, &types)?;
     }
     Ok(types)
+}
+
+pub(super) fn helper_sources(
+    path: &Path,
+    source: &str,
+) -> Result<Vec<super::manual_helpers::HelperSource>, Failure> {
+    helper_sources::HelperSources::read(path, source)
 }
 
 fn validate_managed_declaration(
@@ -1699,6 +1729,11 @@ fn validate_graph(
                     || dependency.clone(),
                     |injection| format!("field '{}' of type {dependency}", injection.field),
                 );
+                if input.manual_helpers.contains(dependency) {
+                    return Err(
+                        input.failure(managed.declaration, input.missing_provider(dependency))
+                    );
+                }
                 return Err(input.failure(managed.declaration, format!("Unresolved dependency {dependency}: {} needs {needed}, but no provider {dependency} is declared; annotate and explicitly select its provider in this compilation unit", managed.provider.name)));
             }
         }
@@ -1832,6 +1867,70 @@ mod tests {
         }
         source.push_str("@RequestRoute(\"/c\")\n@Needs(P13)\nclass C {\n constructor(p) {}\n @GetRoute\n get() {}\n}\n");
         source
+    }
+
+    #[test]
+    fn caller_constructed_helpers_are_not_provider_factories() {
+        let source = "@Helper\nclass ReaderHelper { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderHelper(1); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        let plan = parsed("js", source).plan;
+        assert_eq!(
+            plan.providers
+                .iter()
+                .map(|item| item.name.as_str())
+                .collect::<Vec<_>>(),
+            ["ReaderService", "C"]
+        );
+    }
+
+    #[test]
+    fn caller_constructed_helpers_require_managed_opt_in_for_incoming_di() {
+        let source = "@Helper\nclass ReaderHelper { constructor(context) {} }\n@Service\n@Needs(ReaderHelper)\nclass ReaderService { constructor(helper) {} make() { return new ReaderHelper(1); } }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        rejects("js", source, "uses explicit caller construction");
+    }
+
+    #[test]
+    fn caller_construction_does_not_disable_managed_helper_validation() {
+        let source = "@Helper\n@Needs()\nclass ReaderHelper { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderHelper(1); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        rejects("js", source, "constructor has 1 arguments");
+    }
+
+    #[test]
+    fn caller_construction_does_not_disable_service_or_converter_validation() {
+        for marker in ["Service", "Converter"] {
+            let source = format!(
+                "@{marker}\nclass Reader {{ constructor(context) {{}} }}\n@Service\nclass Caller {{ reader = new Reader(1); }}\n@RequestRoute(\"/c\")\nclass C {{\n @GetRoute\n get() {{ return 1; }} }}"
+            );
+            rejects("js", &source, "constructor has 1 arguments");
+        }
+    }
+
+    #[test]
+    fn zero_argument_helpers_retain_existing_provider_identity() {
+        let source = "@Helper\nclass ReaderHelper {}\n@Service\nclass ReaderService { helper = new ReaderHelper(); }\n@RequestRoute(\"/c\")\nclass C {\n @GetRoute\n get() { return 1; } }";
+        assert!(
+            parsed("js", source)
+                .plan
+                .providers
+                .iter()
+                .any(|item| item.name == "ReaderHelper")
+        );
+    }
+
+    #[test]
+    fn caller_constructed_helpers_cannot_be_selected_as_gateway_targets() {
+        let source = "@Helper\nclass ReaderHelper { constructor(context) {} }\n@Service\nclass ReaderService { helper = new ReaderHelper(1); }";
+        let path = Path::new("server/helpers/ReaderHelper.js");
+        let manual = super::super::manual_helpers::ManualHelpers::read(path, source)
+            .expect("helper ownership");
+        let failure = parse_prepared(path, source, Some("ReaderHelper"), &manual)
+            .err()
+            .expect("explicit helper is not gateway provider");
+        assert!(
+            failure
+                .to_string()
+                .contains("uses explicit caller construction"),
+            "{failure}"
+        );
     }
 
     #[test]
