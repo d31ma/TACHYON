@@ -38,6 +38,7 @@ mod native_helper_tests;
 mod native_page_graph_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
+mod native_service_roots;
 #[cfg(test)]
 mod native_web_api_tests;
 #[cfg(test)]
