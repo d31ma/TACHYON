@@ -203,7 +203,7 @@ impl ManualHelpers {
             [
                 Self::factory_boundary(&prefix, factory),
                 Self::factory_tail(factory, after),
-                *factory != "behaviors::construct(" || extension == "php",
+                [*factory != "behaviors::construct(", extension == "php"].contains(&true),
             ] == [true, true, true]
         })
     }
