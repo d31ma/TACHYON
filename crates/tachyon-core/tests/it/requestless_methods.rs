@@ -233,11 +233,11 @@ async fn a_csharp_controller_reads_a_behavior_json_body() {
     Tools::write(
         root.path(),
         "server/services/OrderService.cs",
-        "[Service]\nclass OrderService {\n    public BehaviorJSON accept([Check(typeof(OrderInput))] BehaviorJSON order) { return order; }\n}\n",
+        "using Models;\n[Service]\nclass OrderService {\n    public BehaviorJSON accept([Check(typeof(OrderInput))] BehaviorJSON order) { return order; }\n}\n",
     );
     Tools::write(
         root.path(),
-        "server/helpers/OrderInput.cs",
+        "server/models/OrderInput.cs",
         "[Checked]\nclass OrderInput {\n    [NotEmpty]\n    public BehaviorJSON name;\n}\n",
     );
     Tools::write(
