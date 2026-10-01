@@ -240,13 +240,13 @@ impl Module {
                 Ok(Self { path, source })
             })
             .collect::<Result<Vec<_>, Failure>>()?;
-        Self::compose_models(entry, source, modules, extension)
+        Self::compose_models(entry, source, &modules, extension)
     }
 
     fn compose_models(
         entry: &Path,
         source: &str,
-        modules: Vec<Self>,
+        modules: &[Self],
         extension: &str,
     ) -> Result<String, Failure> {
         let compose = Self::model_composer(extension);
@@ -255,7 +255,7 @@ impl Module {
 
     fn model_composer(
         extension: &str,
-    ) -> fn(&Path, &str, Vec<Self>, &str) -> Result<String, Failure> {
+    ) -> fn(&Path, &str, &[Self], &str) -> Result<String, Failure> {
         match extension {
             "go" => Self::go_model_program,
             _ => Self::other_model_program,
@@ -265,22 +265,22 @@ impl Module {
     fn go_model_program(
         entry: &Path,
         source: &str,
-        modules: Vec<Self>,
+        modules: &[Self],
         _: &str,
     ) -> Result<String, Failure> {
-        compose_go(entry, source, &modules)
+        compose_go(entry, source, modules)
     }
 
     fn other_model_program(
         entry: &Path,
         source: &str,
-        modules: Vec<Self>,
+        modules: &[Self],
         extension: &str,
     ) -> Result<String, Failure> {
         compose(
             entry,
             source,
-            modules.into_iter().map(|module| module.source).collect(),
+            modules.iter().map(|module| module.source.clone()).collect(),
             extension,
             "yon",
         )
