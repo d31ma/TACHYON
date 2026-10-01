@@ -635,6 +635,9 @@ mod web_api_tests;
 mod preference_strings_tests;
 
 #[cfg(test)]
+mod preference_strings_browser_fixture;
+
+#[cfg(test)]
 mod kotlin_tests;
 
 #[cfg(test)]
