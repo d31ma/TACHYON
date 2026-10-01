@@ -1,4 +1,6 @@
 <section aria-label="Real website snippet integration">
+  <button id="snippet-copy-probe" on:click="clipboard.copy('fixture', 'Fixture text')"
+    :aria-label="clipboard.copied === 'fixture' ? 'Snippet copied' : 'Copy probe'">{clipboard.label('fixture')}</button>
   <div id="snippet-primary">
     <docs-snippet :files="snippetProbe.files" :axis="'platform'" />
   </div>
