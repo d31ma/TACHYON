@@ -37,6 +37,7 @@ pub(super) struct SiteBuild<'a> {
     pub(super) output_directory: PathBuf,
     components: ComponentRegistry,
     services: ServiceRegistry,
+    view_services: BTreeSet<String>,
     shared_data: BTreeSet<String>,
     component_styles: String,
     build_config_digest: Option<String>,
@@ -82,6 +83,7 @@ impl<'a> SiteBuild<'a> {
             output_directory,
             components,
             services,
+            view_services: BTreeSet::new(),
             shared_data,
             component_styles,
             build_config_digest,
@@ -150,7 +152,8 @@ impl<'a> SiteBuild<'a> {
             self.snapshot_root,
             has_styles,
         );
-        self.files.extend(elements.files(names)?);
+        self.files
+            .extend(elements.files(names, &mut self.view_services)?);
         Ok(())
     }
 
@@ -236,6 +239,7 @@ impl<'a> SiteBuild<'a> {
             service_timings: self.service_timings,
             service_notes: self.service_notes,
             compression: compressed.totals(&files),
+            view_services: self.view_services,
         })
     }
 
@@ -493,6 +497,7 @@ impl<'a> SiteBuild<'a> {
                 route.route(),
             )?;
         Self::check_page_bindings(route.route(), rendered.page_bindings)?;
+        self.view_services.extend(rendered.services);
         let html = PageHead::apply(site, rendered.html, route.route());
         let html = self.add_runtime_links(&html);
         let key = PortablePath::route_key(route.route());

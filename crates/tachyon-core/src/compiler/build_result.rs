@@ -1,5 +1,6 @@
 use super::CompressionTotals;
 use super::site_build::SiteBuild;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -14,6 +15,7 @@ pub struct BuildResult {
     pub(super) service_timings: Vec<(String, Duration)>,
     pub(super) service_notes: Vec<String>,
     pub(super) compression: CompressionTotals,
+    pub(super) view_services: BTreeSet<String>,
 }
 
 impl BuildResult {
@@ -60,6 +62,10 @@ impl BuildResult {
     #[must_use]
     pub const fn compression(&self) -> CompressionTotals {
         self.compression
+    }
+
+    pub(crate) fn native_service_roots(&self) -> &BTreeSet<String> {
+        &self.view_services
     }
 
     #[must_use]

@@ -6,6 +6,7 @@ use crate::template::{
     ClientViewRenderer, ComponentDefinition, ComponentRegistry, ServiceRegistry,
 };
 use serde_json::Value;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 pub(super) struct ExportedElements<'a> {
@@ -40,18 +41,26 @@ impl<'a> ExportedElements<'a> {
         }
     }
 
-    pub(super) fn files(&self, names: &[String]) -> Result<Vec<(PathBuf, Vec<u8>)>, Failure> {
+    pub(super) fn files(
+        &self,
+        names: &[String],
+        used_services: &mut BTreeSet<String>,
+    ) -> Result<Vec<(PathBuf, Vec<u8>)>, Failure> {
         let pairs = names
             .iter()
-            .map(|name| self.element_files(name))
+            .map(|name| self.element_files(name, used_services))
             .collect::<Result<Vec<_>, Failure>>()?;
         Ok(pairs.into_iter().flatten().collect())
     }
 
-    fn element_files(&self, name: &str) -> Result<[(PathBuf, Vec<u8>); 2], Failure> {
+    fn element_files(
+        &self,
+        name: &str,
+        used_services: &mut BTreeSet<String>,
+    ) -> Result<[(PathBuf, Vec<u8>); 2], Failure> {
         let component = self.component(name)?;
         Self::check_hyphen(name)?;
-        let definition = self.definition(name, component)?;
+        let definition = self.definition(name, component, used_services)?;
         let declaration = self.declaration(name, &definition);
         let module = format!("{}TacElements.define({definition})\n", Self::RUNTIME_IMPORT);
         Ok([
@@ -121,8 +130,13 @@ impl<'a> ExportedElements<'a> {
         })
     }
 
-    fn definition(&self, name: &str, component: &ComponentDefinition) -> Result<Value, Failure> {
-        let mut definition = self.renderer.element(name, component)?;
+    fn definition(
+        &self,
+        name: &str,
+        component: &ComponentDefinition,
+        used_services: &mut BTreeSet<String>,
+    ) -> Result<Value, Failure> {
+        let mut definition = self.renderer.element(name, component, used_services)?;
         definition["styles"] = Value::Bool(self.has_styles);
         Ok(definition)
     }

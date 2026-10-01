@@ -180,10 +180,20 @@ impl RustPageGraph {
             &mut imports,
         )?;
         let dispatch = self.dispatch(inputs)?;
+        let paths = super::rust_local_paths::RustLocalPaths::read(
+            &inputs[0].source,
+            &format!("{}\n{models}", self.source),
+        )?;
+        let models = paths.source(&models)?;
         Ok(format!(
             "#[allow(non_snake_case)]\nmod TachyonRustServices {{\nuse super::*;\n{}\n{}\n{definitions}\n{tables}\n{models}\n}}\n{dispatch}",
-            self.imports.source(),
-            self.source
+            self.imports
+                .source()
+                .lines()
+                .filter_map(|line| paths.import(line))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            paths.source(&self.source)?
         ))
     }
 

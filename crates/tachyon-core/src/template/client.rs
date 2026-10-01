@@ -17,6 +17,7 @@ pub(crate) struct ClientRenderedView {
     pub(crate) html: String,
     pub(crate) source_map: ViewSourceMap,
     pub(crate) components: BTreeSet<String>,
+    pub(crate) services: BTreeSet<String>,
     pub(crate) page_bindings: bool,
 }
 
@@ -85,6 +86,7 @@ impl<'a> ClientViewRenderer<'a> {
             html: page_html(&plan),
             source_map,
             components: encoder.used_components,
+            services: encoder.used_services,
             page_bindings: encoder.page_bindings,
         })
     }
@@ -93,10 +95,12 @@ impl<'a> ClientViewRenderer<'a> {
         self,
         name: &str,
         component: &ComponentDefinition,
+        used_services: &mut BTreeSet<String>,
     ) -> Result<Value, Failure> {
         let mut encoder = Encoder::new(self.components, self.services);
         let mut element = encoder.exported_component(name, component)?;
         element["services"] = Value::Object(self.service_catalog());
+        used_services.extend(encoder.used_services);
         Ok(element)
     }
 
@@ -156,6 +160,7 @@ struct Encoder<'a> {
     enclosing: Vec<EnclosingComponent>,
     loop_bindings: Vec<String>,
     used_components: BTreeSet<String>,
+    used_services: BTreeSet<String>,
     component_owner_depth: usize,
     page_bindings: bool,
     node_count: usize,
@@ -171,6 +176,7 @@ impl<'a> Encoder<'a> {
             enclosing: Vec::new(),
             loop_bindings: Vec::new(),
             used_components: BTreeSet::new(),
+            used_services: BTreeSet::new(),
             component_owner_depth: 0,
             page_bindings: false,
             node_count: 0,
@@ -593,14 +599,17 @@ impl<'a> Encoder<'a> {
         Err(client_failure(node, 1407, &message))
     }
 
-    fn named_services(&self, template_nodes: &[TemplateNode]) -> Vec<String> {
+    fn named_services(&mut self, template_nodes: &[TemplateNode]) -> Vec<String> {
         let mut named = BTreeSet::new();
         collect_identifiers(template_nodes, &mut named);
-        self.services
+        let services: Vec<String> = self
+            .services
             .names()
             .into_iter()
             .filter(|instance| named.contains(instance))
-            .collect()
+            .collect();
+        self.used_services.extend(services.iter().cloned());
+        services
     }
 
     fn service_entries(&self, service_names: &[String]) -> Vec<Value> {

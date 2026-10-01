@@ -353,7 +353,7 @@ async fn build_web_bundle(
                 None,
             ))
         })?;
-    WebCompiler::build_project_for_native(
+    let web = WebCompiler::build_project_for_native(
         project,
         &BuildOptions {
             output_directory: temporary_name,
@@ -364,18 +364,23 @@ async fn build_web_bundle(
     )
     .await?;
 
-    let companions = native_companions(project, target)?;
+    let companions = native_companions(project, target, web.native_service_roots())?;
     Ok((temporary_web, companions))
 }
 
 fn native_companions(
     project: &crate::Project,
     target: NativeTarget,
+    roots: &std::collections::BTreeSet<String>,
 ) -> Result<Vec<super::registry::NativeCompanionInput>, Failure> {
     let registry = crate::template::ServiceRegistry::discover(project.snapshot_root())?
         .for_target(Some(target));
+    let roots = super::native_service_roots::NativeServiceRoots::expand(&registry, roots);
     let mut compiled = Vec::new();
-    for (instance, service) in registry.iter() {
+    for (instance, service) in registry
+        .iter()
+        .filter(|(instance, _)| roots.contains(*instance))
+    {
         let Some((language, source)) = chosen_companion(service, target) else {
             continue;
         };
@@ -980,3 +985,7 @@ mod tests {
         assert!(companion.contains("owned-native-companion"));
     }
 }
+
+#[cfg(test)]
+#[path = "native_composition_tests.rs"]
+mod composition_tests;

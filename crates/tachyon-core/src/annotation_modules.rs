@@ -133,7 +133,11 @@ fn read_modules(
     for path in paths {
         let text = read_module_text(root, path, Module::MAX_SOURCE.saturating_sub(total))?;
         total += text.len();
-        let shared_source = path.starts_with("server/shared");
+        let shared_source = [
+            path.starts_with("server/shared"),
+            path.starts_with("client/shared/native"),
+        ]
+        .contains(&true);
         let error_source = crate::annotation_layout::is_error_source(path);
         let in_controllers = path.starts_with("server/controllers");
         if in_controllers && !wanted_controller_file(entry, path, &text)? {
@@ -222,7 +226,8 @@ impl Module {
         let captured = read_module_text(&root, entry, Self::MAX_SOURCE)?;
         crate::annotation_layout::FolderRoleCheck::check(entry, &captured)?;
         crate::annotation_layout::validate_transformed(entry, source)?;
-        let paths = discover_paths(&root, entry, extension, false, true)?;
+        let mut paths = discover_paths(&root, entry, extension, false, true)?;
+        paths.extend(Discovery::native_contract_paths(&root, extension)?);
         let mut converters =
             crate::declared_contract::ConverterModelTable::new(snapshot_root, "tac", extension);
         let (modules, _) = read_modules(&root, entry, &captured, &paths, "tac", &mut converters)?;
@@ -702,6 +707,40 @@ impl<'a> Discovery<'a> {
         let name = folder.file_name().and_then(OsStr::to_str).unwrap_or("");
         let mut discovery = Discovery::new("");
         discovery.search_role_folder(&parent, folder, name)?;
+        Ok(discovery.paths)
+    }
+
+    fn native_contract_paths(root: &Dir, extension: &str) -> Result<Vec<PathBuf>, Failure> {
+        if extension != "rs" {
+            return Ok(Vec::new());
+        }
+        Self::rust_contract_paths(root)
+    }
+
+    fn rust_contract_paths(root: &Dir) -> Result<Vec<PathBuf>, Failure> {
+        let client = open_parent(root, Path::new("client/entry"))?;
+        let shared = Self::optional_shared(&client)?;
+        shared.map_or_else(
+            || Ok(Vec::new()),
+            |shared| Self::collect_contract_paths(&shared),
+        )
+    }
+
+    fn optional_shared(client: &Dir) -> Result<Option<Dir>, Failure> {
+        match client.symlink_metadata("shared") {
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+            _ => client.open_dir_nofollow("shared").map(Some).map_err(|_| {
+                invalid(
+                    Path::new("client/shared"),
+                    "Native contracts require readable directories, never symlinks.",
+                )
+            }),
+        }
+    }
+
+    fn collect_contract_paths(shared: &Dir) -> Result<Vec<PathBuf>, Failure> {
+        let mut discovery = Self::new("rs");
+        discovery.search_role_folder(shared, Path::new("client/shared/native"), "native")?;
         Ok(discovery.paths)
     }
 

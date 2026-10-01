@@ -1,12 +1,20 @@
 use super::{
-    RustCollaborators, RustConstruction, block_named, blocks, declared_service, rust_owner_table,
-    rust_struct_fields, unnamed_service,
+    RustCollaborators, RustConstruction, block_named, blocks, declared_service, identifier,
+    rust_owner_table, rust_struct_fields, unnamed_service,
 };
 use crate::Failure;
 
 pub(crate) struct RustGraph;
 
 impl RustGraph {
+    pub(crate) fn type_names(source: &str) -> std::collections::BTreeSet<String> {
+        ["struct", "trait", "enum"]
+            .iter()
+            .flat_map(|keyword| blocks(source, keyword))
+            .map(|(header, _)| identifier(header.trim()))
+            .collect()
+    }
+
     pub(crate) fn instance(
         source: &str,
         path: &str,
@@ -39,7 +47,7 @@ impl RustGraph {
             .strip_suffix("]\n}\n")
             .ok_or_else(|| unnamed_service(path, Some(&name), "struct"))?;
         Ok(format!(
-            "pub(super) fn tac_members_{name}(scope: &NativeServiceScope) -> Result<Vec<(&'static str, TacMember)>, String> {{\nlet instance = {instance};\nOk(vec![{members}])\n}}\n"
+            "pub(super) fn tac_members_{name}(scope: &NativeServiceScope) -> ::core::result::Result<Vec<(&'static str, TacMember)>, String> {{\nlet instance = {instance};\nOk(vec![{members}])\n}}\n"
         ))
     }
 

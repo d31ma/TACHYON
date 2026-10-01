@@ -4,7 +4,7 @@ use super::registry::NativeCompanionInput;
 use crate::project::NativeCompanion;
 use std::path::Path;
 
-struct NativePageGraphCheck;
+pub(super) struct NativePageGraphCheck;
 
 impl NativePageGraphCheck {
     fn single(
@@ -216,7 +216,7 @@ fn main() {
             .map(|source| source.expect("native Rust source"))
     }
 
-    async fn execute(source: &Path, caller: &str) {
+    pub(super) async fn execute(source: &Path, caller: &str) {
         let staged = std::fs::read_to_string(source).expect("staged source");
         std::fs::write(source, staged + caller).expect("native caller");
         let executable = source.with_extension("check");

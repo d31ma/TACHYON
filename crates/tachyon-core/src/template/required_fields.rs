@@ -56,35 +56,35 @@ impl RequiredFields {
         injected
     }
 
+    pub(crate) fn service_dependencies(
+        path: &Path,
+        source: &str,
+        class: &str,
+        known: &BTreeSet<String>,
+    ) -> BTreeSet<String> {
+        Self::fields(path, source, class)
+            .into_iter()
+            .map(|field| field.name)
+            .filter(|name| known.contains(name))
+            .collect()
+    }
+
     fn injected_and_props(
         path: &Path,
         source: &str,
         class: &str,
         injectable: &BTreeSet<String>,
     ) -> (Vec<String>, Vec<String>) {
-        let Ok(code) = crate::annotation_layout::masked_source(path, source) else {
-            return (Vec::new(), Vec::new());
-        };
         let extension = path
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        if !Self::LANGUAGES.contains(&extension) {
-            return (Vec::new(), Vec::new());
-        }
         let local_classes = crate::annotation_layout::declaration_names(path, source)
             .unwrap_or_default()
             .into_iter()
             .filter(|name| name != class)
             .collect::<BTreeSet<_>>();
-        let fields = match extension {
-            "rb" => Self::ruby_fields(&code),
-            "lua" => Self::lua_fields(source, class),
-            "go" => Self::go_fields(source, class),
-            "rs" => Self::rust_fields(&code, class),
-            "fs" => Self::fsharp_fields(path, source, class),
-            _ => Self::declared_fields(extension, &code, class),
-        };
+        let fields = Self::fields(path, source, class);
         let (injected, props): (Vec<_>, Vec<_>) = fields
             .into_iter()
             .partition(|field| Self::injected(field, injectable, &local_classes));
@@ -92,6 +92,27 @@ impl RequiredFields {
             Self::prop_names(extension, injected),
             Self::prop_names(extension, props),
         )
+    }
+
+    fn fields(path: &Path, source: &str, class: &str) -> Vec<DeclaredField> {
+        let Ok(code) = crate::annotation_layout::masked_source(path, source) else {
+            return Vec::new();
+        };
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        if !Self::LANGUAGES.contains(&extension) {
+            return Vec::new();
+        }
+        match extension {
+            "rb" => Self::ruby_fields(&code),
+            "lua" => Self::lua_fields(source, class),
+            "go" => Self::go_fields(source, class),
+            "rs" => Self::rust_fields(&code, class),
+            "fs" => Self::fsharp_fields(path, source, class),
+            _ => Self::declared_fields(extension, &code, class),
+        }
     }
 
     fn prop_names(extension: &str, fields: Vec<DeclaredField>) -> Vec<String> {

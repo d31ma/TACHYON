@@ -23,3 +23,5 @@ pub(crate) use model::{
     TemplateProgram, TextPart, is_trivia,
 };
 pub(crate) use service::{ServiceDefinition, ServiceRegistry, instance_name};
+
+pub(crate) use required_fields::RequiredFields;

@@ -49,6 +49,7 @@ mod registry;
 mod routes;
 mod rust;
 mod rust_imports;
+mod rust_local_paths;
 mod rust_page_graph;
 mod rust_service_plan;
 mod rust_web_module;
