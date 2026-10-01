@@ -124,6 +124,59 @@ fn rust_unrelated_immutable_labels_and_short_accessors_are_not_duplicate_behavio
     }
 }
 
+#[test]
+fn javascript_monitor_constant_tables_are_not_duplicate_behavior() {
+    let graph = include_str!("../../../../tests/fixtures/javascript-constant-duplication/GraphGroupRenderer.js");
+    let report = include_str!("../../../../tests/fixtures/javascript-constant-duplication/NativePreviewReport.js");
+    let problems = found(&[
+        ("client/shared/scripts/GraphGroupRenderer.js", graph),
+        ("client/shared/native/NativePreviewReport.js", report),
+    ]);
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn javascript_constant_tables_do_not_hide_repeated_methods() {
+    let first = javascript_service("FirstService", "order", "a");
+    let second = javascript_service("SecondService", "invoice", "b");
+    let problems = found(&[
+        ("client/services/FirstService.js", &first),
+        ("client/services/SecondService.js", &second),
+    ]);
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert_eq!(problems[0].code.number(), 1315);
+    assert_eq!(tachyon_duplication::DuplicateFinder::MIN_TOKENS, 100);
+    assert_eq!(tachyon_duplication::DuplicateFinder::MIN_LINES, 10);
+}
+
+fn script_initializers(initializer: &str, static_member: bool) -> String {
+    let prefix = if static_member { "static " } else { "" };
+    let fields = (0..24)
+        .map(|index| format!("    {prefix}#VALUE_{index} = {initializer};\n"))
+        .collect::<Vec<_>>()
+        .concat();
+    format!("class First {{\n{fields}}}\n")
+}
+
+#[test]
+fn javascript_computed_and_instance_fields_still_count_as_code() {
+    for (initializer, static_member) in [
+        ("make('value')", true),
+        ("{ value: 'value', name: 'name' }", true),
+        ("`value ${make()}`", true),
+        ("'value'", false),
+    ] {
+        let first = script_initializers(initializer, static_member);
+        let second = first.replace("First", "Second");
+        let problems = found(&[
+            ("client/shared/First.js", &first),
+            ("client/shared/Second.js", &second),
+        ]);
+        assert!(!problems.is_empty(), "{initializer}: {problems:?}");
+        assert_eq!(problems[0].code.number(), 1315);
+    }
+}
+
 fn rust_calculation() -> String {
     (0..12)
         .map(|step| {
