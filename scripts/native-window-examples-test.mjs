@@ -10,6 +10,7 @@ import { CargoArtifacts } from './cargo-artifacts.mjs'
 class NativeWindowExamples {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static repo = fileURLToPath(new URL('../', import.meta.url))
+  static testRepo = process.env.TAC_NATIVE_WINDOW_TEST_REPO ?? NativeWindowExamples.repo
   static feature = path.join(NativeWindowExamples.repo, 'website/content/features/window-controls')
   static cases = { rs: 'macos', swift: 'macos', cs: 'windows', kt: 'android' }
 
@@ -37,7 +38,7 @@ class NativeWindowExamples {
     console.log(`retained native example artifacts: ${root}`)
     for (const [extension, target] of Object.entries(NativeWindowExamples.cases)) NativeWindowExamples.stage(root, extension, target)
     const test = 'native::native_window_example_tests::staged_native_window_examples_use_supervised_tools'
-    const output = NativeWindowExamples.command('cargo', ['test', '-p', 'tachyon-core', '--lib', '--all-features', test, '--locked', '--', '--exact', '--ignored', '--nocapture', '--test-threads=1'], NativeWindowExamples.repo, { ...process.env, TAC_NATIVE_WINDOW_OUT: root })
+    const output = NativeWindowExamples.command('cargo', ['test', '-p', 'tachyon-core', '--lib', '--all-features', test, '--locked', '--', '--exact', '--ignored', '--nocapture', '--test-threads=1'], NativeWindowExamples.testRepo, { ...process.env, TAC_NATIVE_WINDOW_OUT: root })
     assert.match(output, /test result: ok\. 1 passed; 0 failed;/, 'exact supervised verification test must execute')
     console.log(output.trim())
   }
