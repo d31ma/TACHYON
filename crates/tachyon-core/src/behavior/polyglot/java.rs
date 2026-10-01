@@ -1,5 +1,6 @@
 use super::super::mapper::Plan;
 use super::super::testing::Unit;
+use super::java_test_construction::JavaTestConstruction;
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
 use serde_json::Value;
 use std::fmt::Write as _;
@@ -80,6 +81,11 @@ fn lower_type(
     }
     if let Some(unit) = super::super::testing::polyglot_unit(type_declaration) {
         members.push_str(&test_members(&unit));
+        members.push_str(&JavaTestConstruction::members(
+            module,
+            type_declaration,
+            &unit,
+        ));
     }
     if !members.is_empty() {
         edits.push(Edit {

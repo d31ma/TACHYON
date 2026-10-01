@@ -27,6 +27,9 @@ pub struct TestReport {
 mod fsharp_unit;
 mod python_unit;
 
+#[cfg(test)]
+mod java_construct_tests;
+
 #[must_use]
 pub fn units(project: &Path, realm: &str) -> Vec<PathBuf> {
     let mut found = Vec::new();
