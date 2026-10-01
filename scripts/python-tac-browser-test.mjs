@@ -64,7 +64,7 @@ class PythonTacGate {
       const page = await context.newPage()
       PythonTacGate.observe(page, origin, diagnostics)
       diagnostics.phase = 'opening-python-view'
-      await PythonTacGate.open(page, origin)
+      await PythonTacGate.open(page, origin, diagnostics)
       diagnostics.phase = 'online-service-assertions'
       const online = await PythonTacGate.exercise(page)
       diagnostics.phase = 'waiting-for-pinned-cache'
@@ -114,8 +114,9 @@ class PythonTacGate {
     return url.protocol.startsWith('http') ? url.pathname.slice(0, 240) : url.protocol
   }
 
-  static async open(page, origin) {
+  static async open(page, origin, diagnostics) {
     await page.goto(origin, { waitUntil: 'networkidle', timeout: 20_000 })
+    diagnostics.pageContext = await page.evaluate(() => ({ origin: location.origin, isSecureContext, serviceWorkerAvailable: 'serviceWorker' in navigator }))
     await page.locator('#python-ready').waitFor({ timeout: 15_000 })
     assert.equal(await page.locator('#python-ready').textContent(), 'Python ready')
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, { timeout: 10_000 })
