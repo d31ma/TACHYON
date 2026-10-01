@@ -76,7 +76,7 @@ impl ManualHelpers {
         let before = &code[..at];
         let constructor = Self::constructor_call(extension, before, after);
         let definition = [extension == "dart", helper.body.contains(&at)] == [true, true];
-        let factory = Self::factory_call(before);
+        let factory = Self::factory_call(before, after);
         let declaration = (helper.declaration..helper.body.start).contains(&at);
         [
             Self::name_boundary(before, after),
@@ -144,7 +144,7 @@ impl ManualHelpers {
             .is_some_and(|rest| rest.trim_start().starts_with('('))
     }
 
-    fn factory_call(before: &str) -> bool {
+    fn factory_call(before: &str, after: &str) -> bool {
         let prefix: String = before.chars().rev().take(Self::CALL_PREFIX).collect();
         let prefix: String = prefix
             .chars()
@@ -152,9 +152,21 @@ impl ManualHelpers {
             .filter(|character| !character.is_whitespace())
             .collect();
         let prefix = prefix.to_ascii_lowercase();
-        Self::FACTORIES
-            .iter()
-            .any(|factory| Self::factory_boundary(&prefix, factory))
+        Self::FACTORIES.iter().any(|factory| {
+            [
+                Self::factory_boundary(&prefix, factory),
+                Self::factory_tail(factory, after),
+            ] == [true, true]
+        })
+    }
+
+    fn factory_tail(factory: &str, after: &str) -> bool {
+        let tail = after.trim_start();
+        match factory.as_bytes().last() {
+            Some(b'<') => Self::named_call(tail, ">"),
+            Some(b'[') => Self::named_call(tail, "]"),
+            _ => tail.starts_with([',', ')']),
+        }
     }
 
     fn factory_boundary(prefix: &str, factory: &str) -> bool {
@@ -239,6 +251,12 @@ mod tests {
     fn names(extension: &str, source: &str) -> BTreeSet<String> {
         ManualHelpers::read(Path::new(&format!("yon.{extension}")), source)
             .unwrap_or_else(|failure| panic!("{failure}"))
+    }
+
+    #[test]
+    fn generic_factory_reference_without_call_is_not_construction() {
+        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object method = Behaviors.construct<ProbeHelper>; }";
+        assert!(names("cs", source).is_empty());
     }
 
     #[test]
