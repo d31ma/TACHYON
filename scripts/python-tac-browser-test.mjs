@@ -126,24 +126,16 @@ class PythonTacGate {
 
   static async waitForPinnedCache(page) {
     const urls = PythonTacGate.assets.map(name => `/.tachyon/services/python/314.0.7/${name}`)
-    await page.waitForFunction(async paths => {
+    const snapshot = await page.waitForFunction(async paths => {
       const names = await caches.keys()
       const matches = await Promise.all(paths.map(async asset => {
         const responses = await Promise.all(names.map(async name => (await caches.open(name)).match(asset)))
-        return responses.some(response => response?.ok)
-      }))
-      return matches.every(Boolean)
-    }, urls, { timeout: 15_000 })
-    return page.evaluate(async paths => {
-      const result = []
-      const names = await caches.keys()
-      for (const asset of paths) {
-        const responses = await Promise.all(names.map(async name => (await caches.open(name)).match(asset)))
         const response = responses.find(value => value?.ok)
-        result.push({ path: asset, bytes: (await response.arrayBuffer()).byteLength })
-      }
-      return result
-    }, urls)
+        return response ? { path: asset, bytes: (await response.arrayBuffer()).byteLength } : null
+      }))
+      return matches.every(Boolean) ? matches : false
+    }, urls, { timeout: 15_000 })
+    try { return await snapshot.jsonValue() } finally { await snapshot.dispose() }
   }
 
   static async exercise(page) {
