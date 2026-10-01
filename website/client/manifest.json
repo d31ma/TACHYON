@@ -14,7 +14,7 @@
     { "src": "/shared/assets/logo.svg", "sizes": "any", "type": "image/svg+xml" }
   ],
   "tac": {
-    "browserApis": ["preferenceStrings"],
+    "browserApis": ["preferenceStrings", "documentTitle"],
     "origin": "https://tachyon.del.ma",
     "python": {
       "runtime": "pyodide-314.0.7",

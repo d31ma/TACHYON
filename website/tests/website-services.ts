@@ -3,6 +3,22 @@ function checkComposedServices(): void {
   const label: string = clipboard.label('install');
   const choice: PlatformChoiceService = new PlatformChoiceService();
   const chosen: void = choice.choose('web');
+  const feature: FeatureService = new FeatureService();
+  const slug: string = feature.id;
+  const featureSource: string = feature.source;
+  const featureEntry: __TachyonKotlinModels.FeatureEntry = feature.entry();
+  const compatibleEntry: {id: string; title: string; summary: string; group: string; files: Array<{name: string; code: string}>} = featureEntry;
+  const files: Array<{name: string; code: string}> = feature.files();
+  feature.routePath = '/docs/features/routing/';
+  void slug; void featureSource; void compatibleEntry; void files;
+  // @ts-expect-error Computed Kotlin val is readonly.
+  feature.id = 'other';
+  // @ts-expect-error Injected DocumentTitle does not become a public browser field.
+  feature.documentTitle.set('hidden');
+  // @ts-expect-error Lifecycle remains activation-owned.
+  feature.initialize();
+  // @ts-expect-error The actual page path is a String input.
+  feature.routePath = 42;
   const topic: TopicService = new TopicService();
   const sections = topic.sections();
   const heading: string | undefined = sections[0]?.heading;

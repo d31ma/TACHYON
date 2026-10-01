@@ -9,6 +9,7 @@ import { withServer } from './release/server-probe.mjs'
 class WebsiteLuaGate {
   static cases = [[0, 'About 1 minute to read'], [200, 'About 1 minute to read'], [201, 'About 2 minutes to read'], [1150, 'About 6 minutes to read']]
   static routes = ['/docs/annotations/', '/docs/types-in-every-language/']
+  static featureRoutes = ['routing', 'no-such-feature', 'companion-publish', 'routing']
   static quantityCases = [[1, 'feature', '1 feature'], [12, 'feature', '12 features'], [0, 'guide', '0 guides']]
 
   static async run() {
@@ -80,6 +81,7 @@ class WebsiteLuaGate {
       page.on('pageerror', error => WebsiteLuaGate.#record(diagnostics.errors, error.message))
       page.on('requestfailed', request => WebsiteLuaGate.#record(diagnostics.errors, `${new URL(request.url()).pathname}: ${request.failure()?.errorText}`))
       await WebsiteLuaGate.#routes(page, origin, diagnostics)
+      diagnostics.kotlinFeatures = await WebsiteLuaGate.#features(page, origin)
       diagnostics.fsharpQuantity = await WebsiteLuaGate.#quantity(page, origin)
       diagnostics.javaInstall = await WebsiteLuaGate.#install(page, origin)
       diagnostics.pythonLanguages = await WebsiteLuaGate.#languages(page)
@@ -118,6 +120,58 @@ class WebsiteLuaGate {
     await section.getByRole('button', { name: 'Tac · browser and native', exact: true }).click()
     await page.locator('#yon-language-examples').waitFor({ state: 'hidden' })
     return { ...actual, renderedNames }
+  }
+
+  static async #features(page, origin) {
+    const routes = []
+    for (const slug of WebsiteLuaGate.featureRoutes) routes.push(await WebsiteLuaGate.#feature(page, origin, slug))
+    return routes
+  }
+
+  static async #feature(page, origin, slug) {
+    const response = await page.goto(`${origin}/docs/features/${slug}/`)
+    assert.equal(response.status(), 200, 'the genuine dynamic feature route is served')
+    await page.waitForFunction(() => globalThis.__tachyonTac?.service('feature'))
+    const actual = await page.evaluate(() => {
+      const service = globalThis.__tachyonTac.service('feature')
+      const found = service.catalogue.features.find(entry => entry.id === service.id)
+      const entry = service.entry()
+      return { id: service.id, path: service.path(), source: service.source,
+        title: entry.title, summary: entry.summary, group: entry.group, verify: entry.verify,
+        groupAnchor: service.groupAnchor(), files: service.files(),
+        found: Boolean(found), catalogueTitle: found?.title, catalogueFiles: found?.files ?? [],
+        hidden: [typeof service.documentTitle, typeof service.initialize, typeof service.foundEntry] }
+    })
+    WebsiteLuaGate.#featureContract(actual, slug)
+    await page.waitForFunction(title => document.title === `${title} — Tachyon docs`, actual.title)
+    await page.waitForFunction(title => document.querySelector('.docs-article > h1')?.textContent.trim() === title, actual.title)
+    await page.waitForFunction(hasFiles => (document.querySelectorAll('.docs-article .demo-code-col').length > 0) === hasFiles, actual.files.length > 0)
+    await page.waitForFunction(verify => !verify || [...document.querySelectorAll('.docs-article > p')].some(paragraph => paragraph.textContent.includes(`Checked by ${verify}.`)), actual.verify)
+    const rendered = await page.locator('.docs-article .demo-code-col').evaluateAll(columns => columns.map(column => ({
+      name: column.querySelector('.demo-code-name')?.textContent.trim(),
+      code: column.querySelector('pre code')?.textContent
+    })))
+    WebsiteLuaGate.#featureFiles(actual.files, rendered)
+    const link = await page.locator('.docs-pagelinks__link').first().getAttribute('href')
+    assert.ok(link.endsWith(actual.source), 'edit link retains the original feature source')
+    const groups = await page.locator('.feature-group a').evaluateAll(links => links.map(link => link.getAttribute('href')))
+    assert.deepEqual(groups, actual.group ? [actual.groupAnchor] : [], 'real group link matches the service')
+    return { id: actual.id, path: actual.path, source: actual.source, title: await page.title(),
+      groupAnchor: actual.groupAnchor, files: actual.files.length, renderedNames: rendered.map(file => file.name), hidden: actual.hidden }
+  }
+
+  static #featureContract(actual, slug) {
+    assert.equal(actual.id, slug)
+    assert.equal(actual.path, `/docs/features/${slug}`)
+    assert.equal(actual.source, actual.found ? `website/content/features/${slug}/feature.json` : 'website/content/features/page.json')
+    assert.equal(actual.title, actual.catalogueTitle ?? 'Feature not found')
+    assert.deepEqual(actual.files, actual.catalogueFiles, 'typed nested snippet values survive the real Kotlin boundary')
+    assert.deepEqual(actual.hidden, ['undefined', 'undefined', 'undefined'], 'provider, hook and private helper stay private')
+  }
+
+  static #featureFiles(files, rendered) {
+    assert.equal(rendered.length > 0, files.length > 0, 'known features render snippets; unknown features have none')
+    for (const shown of rendered) assert.deepEqual(shown, files.find(file => file.name === shown.name), 'rendered code is the original catalogue text')
   }
 
   static async #routes(page, origin, diagnostics) {

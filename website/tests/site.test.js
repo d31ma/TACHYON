@@ -169,7 +169,7 @@ describe('published output', () => {
     const manifest = JSON.parse(await read('client/manifest.json'))
     expect(manifest.tac.metadata.routes['/']).toBeDefined()
     for (const sourcePath of [
-      'client/services/FeatureService.js',
+      'client/services/FeatureService.kt',
       'client/services/TopicService.ts',
       'client/services/SearchService.js',
     ]) {
@@ -178,6 +178,25 @@ describe('published output', () => {
       expect(source).not.toContain('mount(')
       expect(source).not.toContain('__tachyonOnMount')
     }
+  })
+
+  test('the Kotlin feature page receives genuine catalogue props and an injected title provider', async () => {
+    const source = await read('client/services/FeatureService.kt')
+    expect(source).toContain('@NeedsAll')
+    expect(source).toMatch(/@Needs\n\s*private val documentTitle: DocumentTitle/)
+    expect(source).toContain('var routePath: String')
+    expect(source).toContain('var catalogue: FeatureCatalogue')
+    expect(source).not.toContain('/shared/scripts/navigation.js')
+    expect(source).not.toContain('document.title')
+    expect(await read('client/pages/docs/features/_id/tac.html')).toContain(':route-path="page.path" :catalogue="data.features"')
+    const manifest = JSON.parse(await read('client/manifest.json'))
+    expect(manifest.tac.browserApis).toContain('documentTitle')
+    const testSource = await read('client/tests/FeatureServiceTest.kt')
+    expect(testSource).toContain('@Fake')
+    expect(testSource).toContain('construct(FeatureService::class)')
+    expect(testSource).toContain('testEntryIsTheFeatureTheUrlNames')
+    expect(testSource).toContain('testAnUnknownFeatureIsNotFoundRatherThanBroken')
+    expect(testSource).toContain('testInitializeTitlesTheDocumentAfterTheFeature')
   })
 
   test('a component is a view and its style; behaviour is a service', async () => {
