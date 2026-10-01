@@ -30,22 +30,6 @@ mod manifest_setting;
 #[cfg(test)]
 mod model_tests;
 mod native_capabilities;
-mod native_ui_asset;
-mod native_ui_artifact;
-mod native_ui_bounds;
-#[cfg(test)]
-mod native_ui_artifact_tests;
-mod native_ui_capture;
-mod native_ui_change;
-mod native_ui_contract;
-mod native_ui_descriptor;
-mod native_ui_generation;
-mod native_ui_problem;
-mod native_ui_profile;
-#[cfg(test)]
-mod native_ui_profile_tests;
-#[cfg(test)]
-mod native_ui_generation_tests;
 #[cfg(test)]
 mod native_capability_tests;
 #[cfg(all(test, target_os = "macos"))]
@@ -59,6 +43,22 @@ mod native_page_graph_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
 mod native_service_roots;
+mod native_ui_artifact;
+#[cfg(test)]
+mod native_ui_artifact_tests;
+mod native_ui_asset;
+mod native_ui_bounds;
+mod native_ui_capture;
+mod native_ui_change;
+mod native_ui_contract;
+mod native_ui_descriptor;
+mod native_ui_generation;
+#[cfg(test)]
+mod native_ui_generation_tests;
+mod native_ui_problem;
+mod native_ui_profile;
+#[cfg(test)]
+mod native_ui_profile_tests;
 #[cfg(test)]
 mod native_web_api_tests;
 #[cfg(test)]
@@ -86,9 +86,6 @@ mod swift_web_services;
 mod web_program_build;
 mod windows;
 
-pub use native_ui_change::NativeUiChange;
-pub use native_ui_contract::NativeUiContract;
-pub use native_ui_generation::NativeUiGeneration;
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,
@@ -100,6 +97,9 @@ pub(crate) use go::{
 };
 pub(crate) use java_web_services::JavaWebServices;
 pub(crate) use kotlin_web_services::KotlinWebServices;
+pub use native_ui_change::NativeUiChange;
+pub use native_ui_contract::NativeUiContract;
+pub use native_ui_generation::NativeUiGeneration;
 #[cfg(test)]
 pub(crate) use rust::companion_prelude;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
