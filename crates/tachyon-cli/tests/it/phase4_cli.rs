@@ -101,11 +101,11 @@ fn a_mixture_stages_only_the_service_language_that_answers_the_target() {
         &project
             .path()
             .join("client/services/PhaseFourService.swift"),
-        "final class PhaseFourService {\n  let runtime = \"Swift\"\n}\n",
+        "@Service\nfinal class PhaseFourService {\n  let runtime = \"Swift\"\n}\n",
     );
     write(
         &project.path().join("client/services/PhaseFourService.rs"),
-        "pub struct PhaseFourService {\n    pub runtime: &'static str,\n}\n\n\
+        "#[Service]\npub struct PhaseFourService {\n    pub runtime: &'static str,\n}\n\n\
          impl PhaseFourService {\n    pub fn new() -> Self {\n        \
          Self { runtime: \"Rust\" }\n    }\n}\n",
     );
@@ -179,7 +179,7 @@ fn write_multiple_native_services(project: &tempfile::TempDir) {
                 .path()
                 .join(format!("client/services/{class}.swift")),
             &format!(
-                "final class {class} {{\n var count: Int = 0\n func doubled() -> Int {{ count * 2 }}\n}}\n"
+                "@Service\nfinal class {class} {{\n var count: Int = 0\n func doubled() -> Int {{ count * 2 }}\n}}\n"
             ),
         );
     }
@@ -195,7 +195,7 @@ fn write_multiple_native_services(project: &tempfile::TempDir) {
     );
     write(
         &project.path().join("client/services/NativeRustService.rs"),
-        "#[derive(Default)]\nstruct NativeRustService {\n count: i64,\n}\nimpl NativeRustService {\n fn doubled(&self) -> i64 { self.count * 2 }\n}\n",
+        "#[Service]\n#[derive(Default)]\nstruct NativeRustService {\n count: i64,\n}\nimpl NativeRustService {\n fn doubled(&self) -> i64 { self.count * 2 }\n}\n",
     );
 }
 
@@ -252,7 +252,7 @@ fn a_swift_only_service_is_compiled_to_webassembly_for_the_web() {
         &project
             .path()
             .join("client/services/PhaseFourService.swift"),
-        "final class PhaseFourService {\n  let runtime = \"Swift\"\n}\n",
+        "@Service\nfinal class PhaseFourService {\n  let runtime = \"Swift\"\n}\n",
     );
 
     let output = run(ty()
@@ -381,7 +381,7 @@ fn a_rust_service_is_webassembly_on_targets_that_do_not_link_it() {
     ) {
         return;
     }
-    let source = "pub struct PhaseFourService {\n    pub count: i32,\n}\n\n\
+    let source = "#[Service]\npub struct PhaseFourService {\n    pub count: i32,\n}\n\n\
                   impl PhaseFourService {\n    pub fn new() -> Self {\n        \
                   Self { count: 6 }\n    }\n}\n";
     for target in ["ios", "android"] {
@@ -397,7 +397,7 @@ fn a_csharp_service_is_webassembly_on_targets_that_do_not_link_it() {
     ) {
         return;
     }
-    let source = "public class PhaseFourService\n{\n    public int Count = 6;\n}\n";
+    let source = "[Service]\npublic class PhaseFourService\n{\n    public int Count = 6;\n}\n";
     assert_staged_as_webassembly("cs", source, "linux", "tachyon-csharp.js");
 }
 

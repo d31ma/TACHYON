@@ -122,10 +122,14 @@ fn doctor_succeeds_when_only_a_native_target_toolchain_is_missing() {
     let project = tempfile::tempdir().expect("project");
     let services = project.path().join("client/services");
     std::fs::create_dir_all(&services).expect("services");
-    std::fs::write(services.join("CatalogService.kt"), "class CatalogService\n").expect("kotlin");
+    std::fs::write(
+        services.join("CatalogService.kt"),
+        "@Service\nclass CatalogService\n",
+    )
+    .expect("kotlin");
     std::fs::write(
         services.join("CatalogService.js"),
-        "export default class CatalogService {}\n",
+        "@Service\nexport default class CatalogService {}\n",
     )
     .expect("script");
     let (doctor_ready, doctor) = run_with_an_empty_path(project.path(), &["doctor"]);

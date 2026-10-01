@@ -706,20 +706,31 @@ fn check_component_root_file(root_file: &tempfile::TempDir) {
 }
 
 fn check_invalid_service_sources() {
-    for (relative, bytes) in [
-        ("client/services/BadService.js", b"bad\0script".to_vec()),
-        ("client/services/LargeService.js", vec![b'x'; 1_048_577]),
+    for (relative, bytes, code) in [
+        (
+            "client/services/BadService.js",
+            b"bad\0script".to_vec(),
+            "TY1310",
+        ),
+        (
+            "client/services/LargeService.js",
+            vec![b'x'; 1_048_577],
+            "TY1310",
+        ),
         (
             "client/services/bad.js",
-            b"export default class bad {}".to_vec(),
+            b"@Service\nexport default class bad {}".to_vec(),
+            "TY1310",
         ),
         (
             "client/services/QuietService.js",
-            b"export class QuietService {}".to_vec(),
+            b"@Service\nexport class QuietService {}".to_vec(),
+            "TY1310",
         ),
         (
             "client/services/nested/DeepService.js",
             b"export default class DeepService {}".to_vec(),
+            "TY1363",
         ),
     ] {
         let service = tempfile::tempdir().expect("service");
@@ -739,7 +750,7 @@ fn check_invalid_service_sources() {
         let output = run(ty().arg("build").arg(service.path()));
         assert!(!output.status.success(), "{relative}");
         assert!(
-            stderr(&output).contains("TY1310"),
+            stderr(&output).contains(code),
             "{relative}: {}",
             stderr(&output)
         );

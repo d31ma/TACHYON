@@ -355,6 +355,14 @@ fn add_service_file(
             return false;
         }
     };
+    if source.contains('\0') {
+        diagnostics.push(service_diagnostic(
+            relative,
+            "Service source must be NUL-free UTF-8.",
+            "Remove the NUL bytes from the source file.",
+        ));
+        return false;
+    }
     let relative_path = Path::new(relative);
     if let Err(failure) = crate::annotation_layout::FolderRoleCheck::check(relative_path, &source) {
         diagnostics.extend_from_slice(failure.diagnostics());
