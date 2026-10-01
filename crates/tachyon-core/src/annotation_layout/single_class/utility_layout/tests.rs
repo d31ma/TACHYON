@@ -222,6 +222,17 @@ fn rust_utility_boundary_does_not_allow_top_level_stored_values() {
 }
 
 #[test]
+fn rust_utility_boundary_refuses_function_local_persistent_state() {
+    let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);\n        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)\n    }\n}\n";
+    assert_eq!(codes("client/utils/TitleUtils.rs", source), vec![1316]);
+    let local = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        let count = 1;\n        count + 1\n    }\n}\n";
+    assert_eq!(
+        codes("client/utils/TitleUtils.rs", local),
+        Vec::<u16>::new()
+    );
+}
+
+#[test]
 fn the_folder_the_name_and_the_single_class_are_checked() {
     let class =
         "export default class TextUtils {\n  static slug(value) {\n    return value\n  }\n}\n";
