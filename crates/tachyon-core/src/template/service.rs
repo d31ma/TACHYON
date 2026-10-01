@@ -308,6 +308,22 @@ impl ServiceRegistry {
     pub(crate) fn digest(&self) -> &str {
         &self.digest
     }
+
+    fn has_registered_source(
+        relative: &str,
+        source: &str,
+        diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    ) -> bool {
+        let path = Path::new(relative);
+        if let Err(failure) = crate::annotation_layout::FolderRoleCheck::check(path, source) {
+            diagnostics.extend_from_slice(failure.diagnostics());
+            return false;
+        }
+        !matches!(
+            crate::annotation_layout::FolderRoleCheck::is_candidate(path, source),
+            Ok(false)
+        )
+    }
 }
 
 fn add_service_file(
@@ -363,15 +379,7 @@ fn add_service_file(
         ));
         return false;
     }
-    let relative_path = Path::new(relative);
-    if let Err(failure) = crate::annotation_layout::FolderRoleCheck::check(relative_path, &source) {
-        diagnostics.extend_from_slice(failure.diagnostics());
-        return false;
-    }
-    if matches!(
-        crate::annotation_layout::FolderRoleCheck::is_candidate(relative_path, &source),
-        Ok(false)
-    ) {
+    if !ServiceRegistry::has_registered_source(relative, &source, diagnostics) {
         return false;
     }
     let Some((class, extension)) = service_file_name(path) else {
