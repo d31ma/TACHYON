@@ -297,9 +297,11 @@ impl FolderReader<'_> {
         let marked = schema.is_some();
         let plain = schema.unwrap_or_else(|| source.clone());
         let script = ["js", "ts"].contains(&self.extension);
-        let plain = script
-            .then(|| crate::annotation_modules::Module::plain_model(relative, &plain))
-            .unwrap_or_else(|| Ok(plain.clone()))?;
+        let plain = if script {
+            crate::annotation_modules::Module::plain_model(relative, &plain)?
+        } else {
+            plain
+        };
         let inside = relative
             .strip_prefix(self.folder)
             .unwrap_or(relative)

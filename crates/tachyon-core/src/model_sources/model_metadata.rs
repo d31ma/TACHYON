@@ -12,12 +12,14 @@ impl ModelMetadata {
     }
 
     pub(crate) fn assembled(&self, path: &Path, source: &str) -> Result<String, Failure> {
-        self.files
-            .is_empty()
-            .then(|| Ok(source.to_owned()))
-            .unwrap_or_else(|| {
-                crate::annotation_modules::Module::with_models(path, source, self.files.clone())
-            })
+        self.assemble_present(path, source)
+    }
+
+    fn assemble_present(&self, path: &Path, source: &str) -> Result<String, Failure> {
+        if self.files.is_empty() {
+            return Ok(source.to_owned());
+        }
+        crate::annotation_modules::Module::with_models(path, source, self.files.clone())
     }
 
     pub(crate) fn without_declarations(
@@ -25,10 +27,14 @@ impl ModelMetadata {
         path: &Path,
         source: &str,
     ) -> Result<String, Failure> {
-        self.files
-            .is_empty()
-            .then(|| Ok(source.to_owned()))
-            .unwrap_or_else(|| self.without_types(path, source))
+        self.remove_present(path, source)
+    }
+
+    fn remove_present(&self, path: &Path, source: &str) -> Result<String, Failure> {
+        if self.files.is_empty() {
+            return Ok(source.to_owned());
+        }
+        self.without_types(path, source)
     }
 
     fn without_types(&self, path: &Path, source: &str) -> Result<String, Failure> {
@@ -40,7 +46,7 @@ impl ModelMetadata {
             .for_each(|block| {
                 crate::model_layout::JavaModelSchema::blank_bytes(
                     &mut bytes[block.start..block.end],
-                )
+                );
             });
         Ok(String::from_utf8_lossy(&bytes).into_owned())
     }

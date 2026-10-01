@@ -8,15 +8,17 @@ impl ModelSchema {
     const NAMES: [&'static str; 9] = crate::annotation_layout::SchemaMarkers::NAMES;
 
     pub(crate) fn plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
-        crate::lua_source::LuaView::of(path, source)
-            .map(|view| Self::lua_plain(&view, path, source))
-            .unwrap_or_else(|| Self::other_plain(path, source))
+        crate::lua_source::LuaView::of(path, source).map_or_else(
+            || Self::other_plain(path, source),
+            |view| Self::lua_plain(&view, path, source),
+        )
     }
 
     fn other_plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
-        crate::fsharp_source::FsharpView::of(path, source)
-            .map(|view| Self::fsharp_plain(&view, source))
-            .unwrap_or_else(|| Self::native_plain(path, source))
+        crate::fsharp_source::FsharpView::of(path, source).map_or_else(
+            || Self::native_plain(path, source),
+            |view| Self::fsharp_plain(&view, source),
+        )
     }
 
     pub(crate) fn require_realm(path: &Path, source: &str, schema: bool) -> Result<(), Failure> {
@@ -70,9 +72,7 @@ impl ModelSchema {
     ) -> Result<Option<String>, Failure> {
         let plain =
             Self::native_plain(view.path(), view.text()).map_err(|error| view.failure(&error))?;
-        plain
-            .map(|_| Err(Self::lua_failure(path, source)))
-            .unwrap_or(Ok(None))
+        plain.map_or(Ok(None), |_| Err(Self::lua_failure(path, source)))
     }
 
     fn lua_failure(path: &Path, source: &str) -> Failure {
@@ -93,21 +93,20 @@ impl ModelSchema {
     }
 
     fn native_plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
-        let java = path
-            .extension()
-            .is_some_and(|extension| extension == "java");
-        java.then(|| Self::java_plain(path, source))
-            .unwrap_or_else(|| Self::non_java_plain(path, source))
-    }
-
-    fn non_java_plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
-        let script = path
+        let extension = path
             .extension()
             .and_then(|value| value.to_str())
-            .is_some_and(|value| ["js", "ts"].contains(&value));
-        script
-            .then(|| Self::script_plain(path, source))
-            .unwrap_or_else(|| Self::polyglot_plain(path, source))
+            .unwrap_or("");
+        let project = Self::native_projector(extension);
+        project(path, source)
+    }
+
+    fn native_projector(extension: &str) -> fn(&Path, &str) -> Result<Option<String>, Failure> {
+        match extension {
+            "java" => Self::java_plain,
+            "js" | "ts" => Self::script_plain,
+            _ => Self::polyglot_plain,
+        }
     }
 
     fn script_plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
