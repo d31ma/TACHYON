@@ -57,6 +57,14 @@
       "code": { "file": "client/models/Product.rb" }
     },
     {
+      "name": "client/services/CatalogService.lua",
+      "code": { "file": "client/services/CatalogService.lua" }
+    },
+    {
+      "name": "client/models/Product.lua",
+      "code": { "file": "client/models/Product.lua" }
+    },
+    {
       "name": "client/services/CatalogService.swift",
       "code": { "file": "client/services/CatalogService.swift" }
     },

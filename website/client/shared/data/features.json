@@ -250,6 +250,14 @@
           "code": "# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] price\n#   @return [String]\nProduct = Data.define(:name, :price)\n"
         },
         {
+          "name": "client/services/CatalogService.lua",
+          "code": "-- @Service\n---@class CatalogService\nCatalogService = {\n  ---@type string\n  title = \"Catalog\",\n  ---@type integer\n  count = 6,\n  ---@type Product\n  product = setmetatable({ name = \"Anvil\", price = \"£42.00\" }, Product),\n}\n"
+        },
+        {
+          "name": "client/models/Product.lua",
+          "code": "---@class Product\n---@field name string\n---@field price string\nProduct = {}\n"
+        },
+        {
           "name": "client/services/CatalogService.swift",
           "code": "@Service\nfinal class CatalogService {\n  var title: String = \"Catalog\"\n  var count: Int = 6\n  var product: Product = Product(name: \"Anvil\", price: \"£42.00\")\n}\n"
         },

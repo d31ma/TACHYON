@@ -3,7 +3,7 @@
 
   <h1 class="text-title font-semibold text-balance">{topic.entry().title}</h1>
   <p class="mt-3 text-lede opacity-80 text-pretty"><loop :for="part of inlineCode.parts(topic.entry().summary)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></p>
-  <p class="mt-3 text-sm opacity-60">{readingTime.label(topic.words())}<logic :if="guidePosition.label(data.guides.order, topic.slug)"> · {guidePosition.label(data.guides.order, topic.slug)}</logic></p>
+  <p id="guide-reading-time" class="mt-3 text-sm opacity-60">{readingTime.label(topic.words())}<logic :if="guidePosition.label(data.guides.order, topic.slug)"> · {guidePosition.label(data.guides.order, topic.slug)}</logic></p>
   <logic :if="topic.before().length > 0">
     <p class="docs-before mt-3 opacity-80 text-pretty">Before you start, read: <loop :for="link of topic.before()"><a :href="link.path">{link.title}</a>{link.separator}</loop></p>
   </logic>
