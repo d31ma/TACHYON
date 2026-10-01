@@ -22,7 +22,7 @@ class NativeUiStyleLink {
 
   commit() {
     this.original.attributes.restore(this.candidate)
-    this.original.node.disabled = true
+    this.original.node.media = 'not all'
     this.pending = { original: new NativeUiStyleAttributes(this.original.node), candidate: new NativeUiStyleAttributes(this.candidate) }
   }
 

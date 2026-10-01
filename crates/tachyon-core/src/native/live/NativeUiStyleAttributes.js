@@ -11,9 +11,13 @@ class NativeUiStyleAttributes {
   }
 
   restore(node) {
-    node.disabled = this.disabled
+    this._disabled(node)
     this._attribute(node, 'disabled')
     this._attribute(node, 'media')
+  }
+
+  _disabled(node) {
+    if (node.disabled !== this.disabled) node.disabled = this.disabled
   }
 
   _attribute(node, name) {

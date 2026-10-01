@@ -97,6 +97,8 @@ import WebKit
 
     @MainActor private static func committed(_ scene: NativeUiStyleScene, _ marker: String, _ identity: String) async throws {
         try NativeUiRuntimeFailure.require(try await scene.color() == "rgb(0, 0, 255)", "Captured candidate CSS is not blue")
+        let retained = try await scene.page("const original=document.querySelectorAll('link[rel=stylesheet]')[0]; return String(!original.disabled && original.media==='not all' && original.sheet?.cssRules[0]?.cssText==='main { color: black; }')")
+        try NativeUiRuntimeFailure.require(retained == "true", "Original sheet was not retained loaded and inactive")
         try NativeUiRuntimeFailure.require(request("identity") == identity && request("read") == "{\"value\":1}", "Actual native root identity/state changed")
         let state = try await scene.page("document.querySelector('#click').click(); return JSON.stringify([window.marker, document.querySelector('#field').value, document.activeElement.id, window.events])")
         let expected = try JSONSerialization.data(withJSONObject: [marker, "kept", "field", 1], options: [])
