@@ -606,6 +606,7 @@ impl AnnotationRules {
             Self::METHOD,
             "turns an empty method into a query of the Store's records",
         )
+        .reach(Self::TAC_RESOURCE, Self::YON_BEHAVIOR)
         .instance()
         .class_needs(&["Store"]),
         Rule::new(
