@@ -28,6 +28,45 @@ fn messages(problems: &[Diagnostic]) -> Vec<String> {
 }
 
 #[test]
+fn implicit_members_used_by_a_view_stay_public() {
+    for (extension, source) in [
+        (
+            "java",
+            "@Service\nclass CounterService {\n public int count = 0;\n public void increment() { count++; }\n}\n",
+        ),
+        (
+            "cs",
+            "[Service]\nclass CounterService {\n public int count = 0;\n public void increment() { count++; }\n}\n",
+        ),
+        (
+            "dart",
+            "@Service\nclass CounterService {\n int count = 0;\n void increment() { count++; }\n}\n",
+        ),
+        (
+            "kt",
+            "@Service\nclass CounterService {\n var count: Int = 0\n fun increment() { count++ }\n}\n",
+        ),
+        (
+            "swift",
+            "@Service\nclass CounterService {\n var count: Int = 0\n func increment() { count += 1 }\n}\n",
+        ),
+    ] {
+        let relative = format!("client/services/CounterService.{extension}");
+        let problems = found(
+            1333,
+            &[
+                (&relative, source),
+                (
+                    "client/pages/tac.html",
+                    "<button onclick=\"counterService.increment()\">{{counterService.count}}</button>",
+                ),
+            ],
+        );
+        assert!(problems.is_empty(), "{extension}: {problems:?}");
+    }
+}
+
+#[test]
 fn a_javascript_cycle_names_every_class_of_the_loop() {
     let order = "@Service\n@NeedsAll\nexport default class OrderService {\n  paymentService;\n}\n";
     let payment =

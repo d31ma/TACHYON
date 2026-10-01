@@ -71,7 +71,12 @@ impl RoleClass {
         masked: &str,
     ) -> Result<Vec<PublicMethod>, Failure> {
         FsharpView::of(relative, source).map_or_else(
-            || Ok(PublicMethods::find(language, masked)),
+            || {
+                Ok(PublicMethods::find(
+                    crate::groovy_source::GroovySource::syntax(language),
+                    masked,
+                ))
+            },
             |view| Self::fsharp_methods(&view, utility),
         )
     }

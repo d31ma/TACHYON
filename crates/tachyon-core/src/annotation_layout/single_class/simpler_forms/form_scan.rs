@@ -32,6 +32,13 @@ impl FormScan {
     const MAX_SOURCE_BYTES: usize = 256 * 1024;
     const MINIFIED: &'static str = ".min.";
 
+    pub(super) fn combine(
+        found: Vec<SimplerForm>,
+        receivers: Vec<SimplerForm>,
+    ) -> Vec<SimplerForm> {
+        Self::separate(found.into_iter().chain(receivers).collect())
+    }
+
     pub(super) fn forms(path: &Path, source: &str) -> Vec<SimplerForm> {
         let extension = path
             .extension()

@@ -8,6 +8,8 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+- Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
+
 ### Changed
 
 - Compiled browser Dart HTTPClients use an asynchronous same-origin transport

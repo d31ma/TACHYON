@@ -66,18 +66,22 @@ impl RuleSwitch {
     }
 
     pub(crate) fn suggestions(project: &Dir, rule: &str) -> Self {
+        Self::suggestions_or(project, rule, true)
+    }
+
+    pub(crate) fn suggestions_or(project: &Dir, rule: &str, default: bool) -> Self {
         Self {
             tac: Self::switch(
                 project,
                 Self::MANIFEST,
                 &format!("/tac/{rule}/suggest"),
-                true,
+                default,
             ),
             yon: Self::switch(
                 project,
                 Self::APPLICATION,
                 &format!("/{rule}/suggest"),
-                true,
+                default,
             ),
         }
     }

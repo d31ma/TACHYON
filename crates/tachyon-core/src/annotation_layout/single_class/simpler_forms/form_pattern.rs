@@ -16,11 +16,13 @@ pub(crate) enum FormPattern {
     IsEmpty,
     ForEach,
     BooleanAssignment,
+    UnnecessaryReceiver,
 }
 
 impl FormPattern {
     const FIRST_CODE: u16 = 1340;
-    const MESSAGES: [&'static str; 16] = [
+    const RECEIVER_CODE: u16 = 1362;
+    const MESSAGES: [&'static str; 17] = [
         "This `if` only returns true or false. Return the condition itself.",
         "This compares a boolean with true or false. Use the boolean itself.",
         "This choice only picks true or false. Use the condition itself.",
@@ -37,9 +39,17 @@ impl FormPattern {
         "This checks that the size is zero. Ask if it is empty instead.",
         "This loop uses the index only to read each item. Loop over the items instead.",
         "This `if` only sets true or false. Set the condition itself.",
+        "This class member needs no explicit receiver. Use its bare name.",
     ];
 
     pub(crate) fn code(self) -> u16 {
+        self.number()
+    }
+
+    fn number(self) -> u16 {
+        if self == Self::UnnecessaryReceiver {
+            return Self::RECEIVER_CODE;
+        }
         Self::FIRST_CODE + self as u16
     }
 

@@ -67,3 +67,28 @@ over items instead of indexes (1354) and a boolean assignment (1355).
 The build output shows more lines, but none of them stops a build. Examples
 on the website and in the templates are written in the simpler forms, so a
 new project starts with no suggestions.
+
+## Receiver suggestion amendment — 2026-10-01
+
+TY1362 extends this family without renumbering its original sixteen codes.
+Java, Kotlin, C#, Groovy, Swift and Dart can access class members by their
+bare names. The suggestion removes an explicit receiver only inside an owned
+method, for a declared member, when no unqualified occurrence of the same name
+could indicate a parameter or local binding. Nested blocks are conservatively
+excluded, preserving Swift captured closures and Groovy/Kotlin receiver scopes.
+Qualified outer receivers, Dart initializing formals, strings and comments stay
+unchanged. Required receivers in other languages are outside this rule.
+Receiver scans additionally skip files over 16,384 tokens or 256 explicit member
+accesses, bounding conservative scope checks. Disabled realms do not run the
+receiver scan. Edits share the existing overlap filter before migration writes.
+
+This suggestion has its own opt-in switches: `tac.implicitMembers.suggest`
+in the client manifest and `implicitMembers.suggest` in the server application
+configuration. Both default to false. Existing simpler-form settings and codes
+keep their behavior. A migration applies receiver edits only when the matching
+realm opted in.
+
+Groovy remains a Yon language. Its source and call-hook coverage registration
+must include `.groovy` services, with the existing Java syntax reader and JVM
+runtime. This amendment does not introduce Tac Groovy support. F# private values
+may use `let`; F# members retain the self identifier required by that language.

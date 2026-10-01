@@ -1,6 +1,7 @@
 #![allow(clippy::needless_bitwise_bool)]
 
 use super::code_language::CodeLanguage;
+use super::receiver_forms::ReceiverForms;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -74,7 +75,7 @@ impl FormFiles {
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        let wanted = CodeLanguage::of(extension).is_some()
+        let wanted = (CodeLanguage::of(extension).is_some() | ReceiverForms::supports(extension))
             & length.is_some_and(|bytes| bytes <= Self::MAX_FILE_BYTES)
             & (self.found.len() < Self::MAX_FILES);
         let text = wanted
