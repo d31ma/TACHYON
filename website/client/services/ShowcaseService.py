@@ -8,7 +8,7 @@ class ShowcaseService:
     layer: str = ""
 
     @on_start
-    def _start(self) -> None:
+    def start(self) -> None:
         self.layer = "tac"
 
     def pick_layer(self, value: str) -> None:
