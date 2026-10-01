@@ -60,30 +60,23 @@ impl<'a> JavaTestConstruction<'a> {
     }
 
     fn arguments(&self, target: &Type, fields: &[String]) -> Result<String, String> {
-        fields
-            .iter()
-            .map(|name| self.binding(target, name))
-            .collect::<Result<Vec<_>, _>>()
-            .map(|arguments| arguments.join(", "))
+        let names =
+            super::typed_test_fakes::TypedTestFakes::new(self.owner, self.unit, |kind| kind)
+                .names(target, fields)?;
+        Ok(names
+            .into_iter()
+            .map(Self::assigned)
+            .collect::<Vec<_>>()
+            .join(", "))
     }
 
-    fn binding(&self, target: &Type, name: &String) -> Result<String, String> {
-        let expected = target.fields.iter().find(|field| field.name == *name);
-        let actual = self.owner.fields.iter().find(|field| field.name == *name);
-        match (self.unit.mocks.contains(name), expected, actual) {
-            (true, Some(expected), Some(actual)) if expected.type_source == actual.type_source => {
-                Ok(format!(
-                    "this.__tachyonAssignedFake(this.{name}, {})",
-                    Self::quoted(&format!(
-                        "Test.construct needs an assigned Fake named {name}."
-                    ))
-                ))
-            }
-            _ => Err(format!(
-                "Test.construct needs a matching typed Fake named {name} for {}.",
-                target.name
-            )),
-        }
+    fn assigned(name: &str) -> String {
+        format!(
+            "this.__tachyonAssignedFake(this.{name}, {})",
+            Self::quoted(&format!(
+                "Test.construct needs an assigned Fake named {name}."
+            ))
+        )
     }
 
     fn quoted(text: &str) -> String {

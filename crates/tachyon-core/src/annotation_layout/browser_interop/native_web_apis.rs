@@ -34,9 +34,9 @@ impl NativeWebApis {
     }
 
     pub(crate) fn refuse_preferences(path: &Path, source: &str) -> Result<(), Failure> {
-        BrowserInteropCheck::refuse(
-            super::preference_provider_check::PreferenceProviderCheck::native(path, source),
-        )
+        BrowserInteropCheck::refuse(super::browser_providers::BrowserProviders::native(
+            path, source,
+        ))
     }
 
     fn clients(extension: &str) -> Vec<String> {

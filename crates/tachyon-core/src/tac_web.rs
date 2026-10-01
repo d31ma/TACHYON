@@ -1607,3 +1607,6 @@ mod tests {
         assert!(source.contains("\"pre_destroy\":\"__tachyonDispose\""));
     }
 }
+
+#[cfg(test)]
+mod document_title_tests;

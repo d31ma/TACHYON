@@ -29,6 +29,7 @@ class TacWebApis {
     read: (key) => TacPreferenceStrings.read(key),
     write: (key, value) => TacPreferenceStrings.write(key, value),
   })
+  static documentTitle = Object.freeze({ set: (...arguments_) => TacDocumentTitle.host(...arguments_) })
   static clipboard = Object.freeze({
     writeText: (text) => TacWebApis.later({ api: 'clipboard', call: 'writeText', gesture: true }, () => navigator.clipboard.writeText(String(text)), () => null),
     readText: () => TacWebApis.later({ api: 'clipboard', call: 'readText', gesture: true }, () => navigator.clipboard.readText(), (text) => ['ClipboardTextRead', { text }]),
@@ -57,6 +58,7 @@ class TacWebApis {
     pageVisibility: TacWebApis.pageVisibility,
     preferences: TacWebApis.preferences,
     preferenceStrings: TacWebApis.preferenceStrings,
+    documentTitle: TacWebApis.documentTitle,
     clipboard: TacWebApis.clipboard,
     share: TacWebApis.share,
     notifications: TacWebApis.notifications,

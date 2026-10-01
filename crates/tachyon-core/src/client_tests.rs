@@ -35,6 +35,9 @@ mod java_preference_tests;
 #[cfg(test)]
 mod java_publisher_tests;
 
+#[cfg(test)]
+mod kotlin_document_title_tests;
+
 #[must_use]
 pub fn units(project: &Path, realm: &str) -> Vec<PathBuf> {
     let mut found = Vec::new();
@@ -715,7 +718,10 @@ fn kotlin(
     let jar = directory.join("unit.jar");
     std::fs::write(
         &path,
-        format!("{lowered}\nfun main() {{ println({name}().POST()) }}\n"),
+        format!(
+            "{}\n{lowered}\nfun main() {{ println({name}().POST()) }}\n",
+            kotlin_provider_contracts(lowered)
+        ),
     )
     .map_err(|error| stage_failure(portable, &error))?;
     let model_files = write_model_files(directory, portable, models)?;
@@ -729,6 +735,13 @@ fn kotlin(
         portable,
     )?;
     execute(Command::new("java").arg("-jar").arg(&jar), portable)
+}
+
+fn kotlin_provider_contracts(source: &str) -> &'static str {
+    if source.contains("DocumentTitle") {
+        return include_str!("native/web_apis/DocumentTitle.kt");
+    }
+    ""
 }
 
 fn java(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result<String, Failure> {

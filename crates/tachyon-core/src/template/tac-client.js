@@ -1287,6 +1287,7 @@ const ownerResources = (element, signal) => ({
   pageVisibility: TacWebApis.pageVisibility,
   preferences: TacWebApis.preferences,
   preferenceStrings: TacWebApis.preferenceStrings,
+  documentTitle: TacDocumentTitle.owned(signal),
   clipboard: TacWebApis.clipboard,
   share: TacWebApis.share,
   notifications: TacWebApis.notifications,

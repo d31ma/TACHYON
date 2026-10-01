@@ -80,6 +80,13 @@ fn lower_type(
     }
     if let Some(unit) = super::super::testing::polyglot_unit(type_declaration) {
         members.push_str(&test_members(&unit, &module.environment));
+        members.push_str(
+            &super::kotlin_test_construction::KotlinTestConstruction::members(
+                module,
+                type_declaration,
+                &unit,
+            ),
+        );
     }
     if !members.is_empty() {
         edits.push(Edit {

@@ -3,7 +3,9 @@ use crate::failure::{diagnostic, source_span};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
+mod constructor_field_policy;
 mod csharp_model_type;
+use constructor_field_policy::ConstructorFieldPolicy;
 pub(crate) mod go;
 mod rust_collaborators;
 mod rust_construction;
@@ -153,14 +155,15 @@ fn constructed_fields(
     class: &str,
     needs_all: bool,
 ) -> Vec<(String, String)> {
-    if !needs_all {
-        return Vec::new();
-    }
-    crate::template::required_fields::RequiredFields::constructed(
+    let fields = crate::template::required_fields::RequiredFields::constructed(
         std::path::Path::new(source_path),
         source,
         class,
-    )
+    );
+    fields
+        .into_iter()
+        .filter(|(_, kind)| ConstructorFieldPolicy::accepts(source_path, kind, needs_all))
+        .collect()
 }
 
 fn swift_constructor(fields: &[(String, String)]) -> String {
@@ -176,10 +179,12 @@ fn swift_constructor(fields: &[(String, String)]) -> String {
 }
 
 fn kotlin_constructor(fields: &[(String, String)]) -> String {
-    let mut constructor = String::from("\nconstructor(tacProps: Map<String, Any?>?) {\n");
+    let mut constructor =
+        String::from("\nconstructor(tacProps: Map<String, Any?>?, tacPage: TacPageScope) {\n");
     for (name, kind) in fields {
         let value = format!("tacRequiredValue(tacProps, \"{name}\")");
         let converted = match kind.as_str() {
+            "DocumentTitle" => String::from("tacPage.documentTitle"),
             "Int" | "Long" | "Double" | "Float" | "Boolean" | "String" => {
                 format!("{value}.let {{ {} }}", kotlin_value(kind, "it"))
             }
@@ -257,9 +262,9 @@ fn class_table(
             )
         }
         CompanionLanguage::Kotlin => {
-            let arguments = if constructs { "tacProps" } else { "" };
+            let arguments = if constructs { "tacProps, tacPage" } else { "" };
             format!(
-                "\nfun tacCreate(tacProps: Map<String, Any?>?): Map<String, Any> {{\nval tacInstance = {name}({arguments})\nreturn linkedMapOf(\n{entries})\n}}\n"
+                "\nfun tacCreate(tacProps: Map<String, Any?>?, tacPage: TacPageScope): Map<String, Any> {{\nval tacInstance = {name}({arguments})\nreturn linkedMapOf(\n{entries})\n}}\n"
             )
         }
         CompanionLanguage::CSharp => {

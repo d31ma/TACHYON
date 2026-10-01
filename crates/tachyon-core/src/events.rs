@@ -217,7 +217,7 @@ impl EventListener {
 }
 
 impl EventResource {
-    const TAC_NAMES: [&str; 17] = [
+    const TAC_NAMES: [&str; 18] = [
         "view",
         "lifecycle",
         "resourceLoader",
@@ -229,6 +229,7 @@ impl EventResource {
         "pageVisibility",
         "preferences",
         "preferenceStrings",
+        "documentTitle",
         "clipboard",
         "share",
         "notifications",

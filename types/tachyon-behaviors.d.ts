@@ -409,6 +409,7 @@ declare global {
   interface Preferences { scheme(): 'light' | 'dark'; motion(): 'reduce' | 'no-preference'; language(): string; }
   /** Clipboard: copies and reads text (ADR 0065). Grant "clipboard" in tac.browserApis and call it from a click or key handler. `readText` answers with a `ClipboardTextRead` event; a failure sends `BrowserCallFailed`. */
   interface PreferenceStrings { read(key: string): string | null; write(key: string, value: string): boolean; }
+  interface DocumentTitle { set(title: string): void; }
   interface TacClipboard { writeText(text: string): null; readText(): null; }
   /** Share: opens the share sheet of the device (ADR 0065). Grant "share" in tac.browserApis and call it from a click or key handler. Answers with `ShareFinished` or `BrowserCallFailed`. */
   interface TacShare { open(title: string, text: string, url: string): null; }
@@ -448,6 +449,7 @@ declare global {
     pageVisibility: PageVisibility;
     preferences: Preferences;
     preferenceStrings: PreferenceStrings;
+    documentTitle: DocumentTitle;
     clipboard: TacClipboard;
     share: TacShare;
     notifications: TacNotifications;

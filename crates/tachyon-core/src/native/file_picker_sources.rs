@@ -28,7 +28,11 @@ impl FilePickerSources {
             include_str!("capabilities/FilePickerOptions.kt"),
             include_str!("capabilities/NativeCapabilityOwner.kt"),
             include_str!("capabilities/NativeCapabilities.kt"),
-            include_str!("capabilities/FilePicker.kt")
+            include_str!("capabilities/FilePicker.kt"),
+            include_str!("web_apis/DocumentTitle.kt"),
+            include_str!("web_apis/DocumentTitleBounds.kt"),
+            include_str!("web_apis/TacPageScope.kt"),
+            include_str!("web_apis/BrowserDocumentTitle.kt")
         )
     }
 }

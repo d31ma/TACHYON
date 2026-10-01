@@ -155,6 +155,8 @@ private class TacJsonReader(private val text: String) {
 private fun tacModelEntries(value: Any?): Map<*, *> =
     value as? Map<*, *> ?: throw IllegalArgumentException("The event payload is not a model.")
 
+private fun tacPageScope(): TacPageScope = TacPageScope { title -> TacWebHost.call("documentTitle", "set", listOf(title)); Unit }
+
 object TacWebHost {
     private const val NO_PAGE = "This browser API needs the page, and this service runs without one."
 

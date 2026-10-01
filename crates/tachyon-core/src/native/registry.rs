@@ -248,6 +248,18 @@ fn lowered_body(
     let portable = item.source.to_string_lossy();
     let mut excluded = prepared.excluded.clone();
     excluded.extend(native_fields);
+    if item.web_assembly && language == NativeCompanion::Kotlin {
+        excluded.extend(
+            crate::template::required_fields::RequiredFields::constructed(
+                relative,
+                authored,
+                &item.class,
+            )
+            .into_iter()
+            .filter(|(_, kind)| kind == "DocumentTitle")
+            .map(|(name, _)| name),
+        );
+    }
     let table = crate::companion::owner_table(
         super::events::companion_language(language),
         authored,
@@ -327,7 +339,9 @@ fn member_entry(language: NativeCompanion, service: &str, namespace: &str) -> St
         NativeCompanion::Swift => {
             format!("case {service}: return {namespace}.tacCreate(tacProps)\n")
         }
-        NativeCompanion::Kotlin => format!("{service} -> {namespace}.tacCreate(tacProps)\n"),
+        NativeCompanion::Kotlin => {
+            format!("{service} -> {namespace}.tacCreate(tacProps, tacPage)\n")
+        }
         NativeCompanion::CSharp => format!("{service} => {namespace}.TacBridge.Create(),\n"),
         NativeCompanion::Rust => format!("{service} => Some({namespace}::tac_create()),\n"),
     }
@@ -368,7 +382,7 @@ fn kotlin_dispatch(services: &[(String, String)], entries: &str) -> String {
         let _ = writeln!(required, "{service} -> {namespace}.tacRequired");
     }
     format!(
-        "\nprivate fun tacServiceMembers(service: String, tacProps: Map<String, Any?>?): Map<String, Any>? = when (service) {{\n{entries}else -> null\n}}\n\
+        "\nprivate fun tacServiceMembers(service: String, tacProps: Map<String, Any?>?, tacPage: TacPageScope): Map<String, Any>? = when (service) {{\n{entries}else -> null\n}}\n\
          private fun tacServiceRequired(service: String): List<String> = when (service) {{\n{required}else -> emptyList()\n}}\n"
     )
 }

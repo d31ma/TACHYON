@@ -20,6 +20,12 @@ mod host;
 mod ios;
 mod java_web_services;
 mod kotlin_web_services;
+
+#[cfg(test)]
+mod kotlin_document_title_tests;
+
+#[cfg(test)]
+mod kotlin_document_title_scope_tests;
 mod linux;
 mod linux_window_controls;
 mod macos;

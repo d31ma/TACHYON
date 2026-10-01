@@ -47,6 +47,8 @@ private object TacAndroidThread {
 
 private const val tacPageListeners = false
 
+private fun tacPageScope(): TacPageScope = TacPageScope { throw IllegalStateException("DocumentTitle needs a browser page.") }
+
 private fun tacOnOwnerThread(): Boolean = Thread.currentThread() === TacAndroidThread.owner
 
 private fun tacEventFailure() { System.err.println("Tachyon native event delivery failed.") }

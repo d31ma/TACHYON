@@ -30,6 +30,10 @@ impl AndroidHostGenerator {
         include_str!("capabilities/NativeCapabilityOwner.kt"),
         include_str!("capabilities/NativeCapabilities.kt"),
         include_str!("capabilities/FilePicker.kt"),
+        include_str!("web_apis/DocumentTitle.kt"),
+        include_str!("web_apis/DocumentTitleBounds.kt"),
+        include_str!("web_apis/TacPageScope.kt"),
+        include_str!("web_apis/BrowserDocumentTitle.kt"),
         include_str!("capabilities/WindowControls.kt"),
         include_str!("capabilities/TacNativeCapabilityCall.kt"),
         include_str!("capabilities/TacNativeCapabilityRegistration.kt")

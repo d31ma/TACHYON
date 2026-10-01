@@ -6,10 +6,11 @@ use std::ops::Range;
 use std::path::Path;
 use tachyon_diagnostics::Diagnostic;
 
+mod browser_provider;
+mod browser_providers;
 mod interop_finder;
 mod interop_rules;
 mod native_web_apis;
-mod preference_provider_check;
 
 pub(crate) use native_web_apis::NativeWebApis;
 
@@ -18,6 +19,9 @@ mod tests;
 
 #[cfg(test)]
 mod preference_provider_tests;
+
+#[cfg(test)]
+mod document_title_provider_tests;
 
 pub(crate) struct BrowserInteropCheck;
 
@@ -35,9 +39,7 @@ impl BrowserInteropCheck {
         let mut problems = InteropRules::for_path(path)
             .map(|rules| Self::problems_with(path, source, rules))
             .unwrap_or_default();
-        problems.extend(preference_provider_check::PreferenceProviderCheck::browser(
-            path, source,
-        ));
+        problems.extend(browser_providers::BrowserProviders::browser(path, source));
         problems
     }
 

@@ -108,13 +108,21 @@ impl ServiceDefinition {
 
     fn browser_provider_types(&self, injectable: &BTreeSet<String>) -> BTreeSet<String> {
         let mut providers = injectable.clone();
-        providers.extend(self.java_browser_provider());
+        providers.extend(self.browser_provider());
         providers
     }
 
-    fn java_browser_provider(&self) -> Option<String> {
+    fn browser_provider(&self) -> Option<String> {
         let extension = marked_source(self)?.extension()?.to_str()?;
-        (extension == "java").then(|| String::from("PreferenceStrings"))
+        Self::browser_provider_for(extension)
+    }
+
+    fn browser_provider_for(extension: &str) -> Option<String> {
+        match extension {
+            "java" => Some(String::from("PreferenceStrings")),
+            "kt" => Some(String::from("DocumentTitle")),
+            _ => None,
+        }
     }
 
     fn inject_native_capabilities(&mut self) {
@@ -1067,6 +1075,18 @@ mod tests {
         let service = registry.get("choice").expect("choice");
         assert_eq!(service.required(), ["title"]);
         assert_eq!(service.injected(), ["preferences"]);
+    }
+
+    #[test]
+    fn kotlin_document_title_is_injected_without_consuming_component_props() {
+        let root = project(&[(
+            "client/services/TitleService.kt",
+            "@Service\n@NeedsAll\nclass TitleService {\n private val documentTitle: DocumentTitle\n val label: String\n fun write() { documentTitle.set(label) }\n}\n",
+        )]);
+        let registry = ServiceRegistry::discover(root.path()).expect("Kotlin service");
+        let service = registry.get("title").expect("title");
+        assert_eq!(service.required(), ["label"]);
+        assert_eq!(service.injected(), ["documentTitle"]);
     }
 
     #[test]
