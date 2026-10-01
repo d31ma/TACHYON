@@ -68,7 +68,11 @@ Formal Helper role and folder validation do not transfer caller-owned values to
 Yon DI. A source-local Helper with a proven explicit construction call and no
 class Needs, NeedsAll or Lifetime remains caller-owned when its lowered
 constructor needs arguments. Go uses a nonempty authored struct literal as
-construction proof. Field Needs may describe its existing explicit constructor;
+construction proof. Rust additionally preserves caller-owned associated method
+calls, Default construction and direct struct literals for Helpers without a
+new constructor. These types remain emitted and formally validated; they do not
+gain an unused managed factory. Authored constructors and overload errors stay
+validated, and a requested managed Helper still requires the construction ABI. Field Needs may describe its existing explicit constructor;
 it does not select a managed provider. Capture precedes behavior and constructor
 lowering so that schema and annotation consumption cannot erase ownership.
 

@@ -1,4 +1,4 @@
-use super::{Input, ManagedType, Signature, constructor_count, identifier, matching};
+use super::{Input, ManagedType, Signature, identifier, matching};
 use crate::Failure;
 use crate::ruby_source::Yard;
 use crate::yon::plan::{Injection, ParameterSource, RouteParameter};
@@ -126,7 +126,7 @@ impl RubyMethod {
             if !managed.provider.injections.is_empty() {
                 continue;
             }
-            let count = constructor_count(input, managed)?;
+            let count = super::helper_providers::HelperProviders::count(input, managed)?;
             let needed = managed.provider.dependencies.len();
             if count != needed {
                 return Err(input.failure(

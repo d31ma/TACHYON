@@ -1,5 +1,5 @@
 use super::{
-    Annotation, Declaration, Input, ManagedType, annotation, constructor_count, declared_type,
+    Annotation, Declaration, Input, ManagedType, annotation, constructor_probe, declared_type,
     masked_code, rust_type_bodies, type_body,
 };
 use crate::Failure;
@@ -10,10 +10,10 @@ use std::collections::BTreeSet;
 use std::ops::Range;
 use std::path::Path;
 
-pub(super) struct HelperSources;
+pub(in crate::yon) struct HelperSources;
 
 impl HelperSources {
-    pub(super) fn read(path: &Path, source: &str) -> Result<Vec<HelperSource>, Failure> {
+    pub(in crate::yon) fn read(path: &Path, source: &str) -> Result<Vec<HelperSource>, Failure> {
         let input = Self::helper_input(path, source)?;
         let declared = Self::helper_raw_declarations(&input)?;
         Self::helper_declarations(&input, declared)
@@ -156,9 +156,7 @@ impl HelperSources {
         [
             !character.is_ascii_alphanumeric(),
             !['_', ':'].contains(&character),
-        ]
-        .contains(&false)
-            == false
+        ] == [true, true]
     }
 
     fn helper_declarations(
@@ -227,7 +225,7 @@ impl HelperSources {
             body: body.clone(),
             declaration,
         };
-        let count = constructor_count(input, &managed).ok();
+        let count = constructor_probe(input, &managed).ok().flatten();
         Self::helper_zero_fields(input, body, count)
     }
 

@@ -12,6 +12,7 @@ mod access_tests;
 mod errors;
 mod helper_providers;
 mod helper_sources;
+pub(super) use helper_sources::HelperSources;
 mod identity_marker;
 mod parameter_markers;
 mod routes;
@@ -810,13 +811,6 @@ fn managed_types(
     Ok(types)
 }
 
-pub(super) fn helper_sources(
-    path: &Path,
-    source: &str,
-) -> Result<Vec<super::manual_helpers::HelperSource>, Failure> {
-    helper_sources::HelperSources::read(path, source)
-}
-
 fn validate_managed_declaration(
     input: &Input<'_>,
     start: usize,
@@ -1565,7 +1559,7 @@ fn add_go_injections(input: &Input<'_>, types: &mut [ManagedType]) -> Result<(),
 
 fn validate_constructors(input: &Input<'_>, types: &[ManagedType]) -> Result<(), Failure> {
     for managed in types {
-        let count = constructor_count(input, managed)?;
+        let count = helper_providers::HelperProviders::count(input, managed)?;
         if count != managed.provider.dependencies.len() {
             return Err(input.failure(
                 managed.declaration,
@@ -1580,7 +1574,7 @@ fn validate_constructors(input: &Input<'_>, types: &[ManagedType]) -> Result<(),
     Ok(())
 }
 
-fn constructor_count(input: &Input<'_>, managed: &ManagedType) -> Result<usize, Failure> {
+fn constructor_probe(input: &Input<'_>, managed: &ManagedType) -> Result<Option<usize>, Failure> {
     let primary = if input.extension == "kt" {
         kotlin_constructor(input, managed)?
     } else {
@@ -1615,13 +1609,7 @@ fn constructor_count(input: &Input<'_>, managed: &ManagedType) -> Result<usize, 
             }
         }
     }
-    if input.extension == "rs" && count.is_none() {
-        return Err(input.failure(
-            managed.declaration,
-            "Managed Rust providers require an inherent fn new(...) constructor",
-        ));
-    }
-    Ok(count.unwrap_or(0))
+    Ok(count)
 }
 
 fn constructor_parameters(
@@ -1867,6 +1855,28 @@ mod tests {
         }
         source.push_str("@RequestRoute(\"/c\")\n@Needs(P13)\nclass C {\n constructor(p) {}\n @GetRoute\n get() {}\n}\n");
         source
+    }
+
+    #[test]
+    fn rust_explicit_helper_forms_do_not_emit_managed_factories() {
+        let source = "#[Helper]\nstruct LiteralHelper {}\nimpl LiteralHelper { fn check(&self) {} }\n#[Helper]\nstruct StaticHelper {}\nimpl StaticHelper { fn answer() -> usize { 1 } }\n#[derive(Default)]\n#[Helper]\nstruct DefaultHelper {}\n#[RequestRoute(\"/c\")]\nstruct C;\nimpl C { fn new() -> Self { Self }\n #[GetRoute]\n fn get(&self) { LiteralHelper {}.check(); let _ = StaticHelper::answer(); let _ = DefaultHelper::default(); } }";
+        assert_eq!(
+            parsed("rs", source)
+                .plan
+                .providers
+                .iter()
+                .map(|item| item.name.as_str())
+                .collect::<Vec<_>>(),
+            ["C"]
+        );
+    }
+
+    #[test]
+    fn rust_explicit_helper_forms_still_reject_incoming_di_and_lifecycle() {
+        let source = "#[Helper]\nstruct StaticHelper {}\nimpl StaticHelper { fn answer() -> usize { 1 } }\n#[RequestRoute(\"/c\")]\n#[Needs(StaticHelper)]\nstruct C { helper: StaticHelper }\nimpl C { fn new(helper: StaticHelper) -> Self { Self { helper } }\n #[GetRoute]\n fn get(&self) { let _ = StaticHelper::answer(); } }";
+        rejects("rs", source, "uses explicit caller construction");
+        let hooked = "#[Helper]\nstruct StaticHelper {}\nimpl StaticHelper {\n #[OnStart]\n fn start(&self) {}\n fn answer() -> usize { 1 } }\n#[RequestRoute(\"/c\")]\nstruct C;\nimpl C { fn new() -> Self { Self }\n #[GetRoute]\n fn get(&self) { let _ = StaticHelper::answer(); } }";
+        rejects("rs", hooked, "lifecycle and event hooks require");
     }
 
     #[test]
