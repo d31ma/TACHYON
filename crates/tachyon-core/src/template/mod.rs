@@ -9,6 +9,10 @@ mod frontend;
 mod model;
 pub(crate) mod required_fields;
 mod service;
+mod service_reach;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod service_reach_tests;
 mod slotted_children;
 
 pub(crate) use accessibility::AccessibilityCheck;
@@ -23,5 +27,6 @@ pub(crate) use model::{
     TemplateProgram, TextPart, is_trivia,
 };
 pub(crate) use service::{ServiceDefinition, ServiceRegistry, instance_name};
+pub(crate) use service_reach::ServiceReach;
 
 pub(crate) use required_fields::RequiredFields;

@@ -60,7 +60,7 @@ class WebsiteLuaGate {
   static async #checkJavaEmitted(fixture) {
     const services = path.join(fixture, '.tachyon/services')
     const wrapper = await readFile(path.join(services, 'QuantityService.js'), 'utf8')
-    assert.match(wrapper, /from '\.\/tachyon-java-services\.js'/)
+    assert.match(wrapper, /from '\.\/tachyon-java\.js'/)
     const wasm = await readFile(path.join(services, 'java/services.wasm'))
     assert.deepEqual([...wasm.subarray(0, 4)], [0, 97, 115, 109], 'actual Java Wasm artifact exists')
   }

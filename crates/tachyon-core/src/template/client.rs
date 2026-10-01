@@ -3,8 +3,8 @@ use super::model::{ConditionalBranch, EventArgument, EventBinding};
 use super::slotted_children::SlottedChildren;
 use super::{
     AttributeValue, ComponentDefinition, ComponentRegistry, Expression, HydrationPolicy, Scope,
-    ServiceDefinition, ServiceRegistry, TemplateAttribute, TemplateNode, TemplateNodeKind,
-    TemplateProgram, TextPart,
+    ServiceDefinition, ServiceReach, ServiceRegistry, TemplateAttribute, TemplateNode,
+    TemplateNodeKind, TemplateProgram, TextPart,
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
@@ -66,8 +66,9 @@ impl<'a> ClientViewRenderer<'a> {
         route: &str,
     ) -> Result<ClientRenderedView, Failure> {
         let mut encoder = Encoder::new(self.components, self.services);
-        let catalog = self.service_catalog();
         let nodes = encoder.nodes(&program.nodes)?;
+        let reached = ServiceReach::expand(self.services, &encoder.used_services);
+        let catalog = self.service_catalog(&reached);
         self.check_shared_data(program, &nodes)?;
         let plan = json!({
             "schemaVersion": 1,
@@ -86,7 +87,7 @@ impl<'a> ClientViewRenderer<'a> {
             html: page_html(&plan),
             source_map,
             components: encoder.used_components,
-            services: encoder.used_services,
+            services: reached,
             page_bindings: encoder.page_bindings,
         })
     }
@@ -99,14 +100,19 @@ impl<'a> ClientViewRenderer<'a> {
     ) -> Result<Value, Failure> {
         let mut encoder = Encoder::new(self.components, self.services);
         let mut element = encoder.exported_component(name, component)?;
-        element["services"] = Value::Object(self.service_catalog());
-        used_services.extend(encoder.used_services);
+        let reached = ServiceReach::expand(self.services, &encoder.used_services);
+        element["services"] = Value::Object(self.service_catalog(&reached));
+        used_services.extend(reached);
         Ok(element)
     }
 
-    fn service_catalog(&self) -> serde_json::Map<String, Value> {
+    fn service_catalog(&self, reached: &BTreeSet<String>) -> serde_json::Map<String, Value> {
         let mut catalog = serde_json::Map::new();
-        for (instance, service) in self.services.iter() {
+        for (instance, service) in self
+            .services
+            .iter()
+            .filter(|(name, _)| reached.contains(*name))
+        {
             let mut entry = json!({
                 "module": service.module_url(),
                 "scope": service_scope(service),
