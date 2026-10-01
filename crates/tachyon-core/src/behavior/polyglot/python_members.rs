@@ -8,13 +8,14 @@ pub(crate) struct PythonMembers;
 
 impl PythonMembers {
     pub(crate) fn read(path: &Path, source: &str, class: &str) -> Result<Value, Failure> {
-        let plain = Self::plain(path, source)?;
+        let source = super::super::ServiceRoles::without_roles(path, source)?;
+        let plain = Self::plain(path, &source)?;
         let input = Self::input(path, &plain)?;
         let types = super::declarations(&input, "py")?;
         let mut description = Self::named(&input, &types, class)?;
-        let generated = Self::generated(path, source, class)?;
+        let generated = Self::generated(path, &source, class)?;
         description["inferred"] = json!(generated.is_some());
-        description["qualifiers"] = Self::qualifiers(path, source, class)?;
+        description["qualifiers"] = Self::qualifiers(path, &source, class)?;
         Self::set_generated(&mut description, generated);
         Ok(description)
     }
