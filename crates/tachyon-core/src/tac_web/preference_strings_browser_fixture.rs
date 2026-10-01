@@ -32,6 +32,27 @@ impl PreferenceStringsBrowserFixture {
         ),
     ];
 
+    const EVENT_FILES: [(&'static str, &'static str); 3] = [
+        (
+            "client/models/PlatformChanged.java",
+            include_str!(
+                "../../tests/fixtures/tac-preference-strings/client/models/PlatformChanged.java"
+            ),
+        ),
+        (
+            "client/services/LateService.java",
+            include_str!(
+                "../../tests/fixtures/tac-preference-strings/client/services/LateService.java"
+            ),
+        ),
+        (
+            "client/components/preference/late/tac.html",
+            include_str!(
+                "../../tests/fixtures/tac-preference-strings/client/components/preference/late/tac.html"
+            ),
+        ),
+    ];
+
     async fn run() {
         let fixture = Self::read();
         fixture.validate();
@@ -65,7 +86,7 @@ impl PreferenceStringsBrowserFixture {
     }
 
     fn stage(&self) {
-        for (relative, source) in Self::FILES {
+        for (relative, source) in Self::FILES.into_iter().chain(Self::EVENT_FILES) {
             let path = self.root.join(relative);
             std::fs::create_dir_all(path.parent().unwrap_or_else(|| panic!("fixture parent")))
                 .unwrap_or_else(|error| panic!("fixture directory: {error}"));

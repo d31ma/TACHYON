@@ -75,7 +75,7 @@ impl PreferenceFixture {
             class: String::from("ChoiceService"),
             members: Vec::new(),
             required: Vec::new(),
-            preferences: Vec::new(),
+            providers: Vec::new(),
             path: path.strip_prefix(root).expect("relative").to_path_buf(),
             source: String::from(source),
         };
@@ -135,7 +135,14 @@ impl PreferenceFixture {
 fn a_java_needs_preference_field_has_a_typed_constructor_and_is_not_a_page_member() {
     let root = tempfile::tempdir().expect("project");
     let (service, values) = PreferenceFixture::prepared(root.path());
-    assert_eq!(service.preferences, ["preferences"]);
+    assert_eq!(
+        service
+            .providers
+            .iter()
+            .map(super::java_constructor_provider::JavaConstructorProvider::name)
+            .collect::<Vec<_>>(),
+        ["preferences"]
+    );
     let names: Vec<&str> = service
         .members
         .iter()
@@ -164,7 +171,7 @@ fn an_existing_java_no_argument_factory_keeps_unrelated_constructor_overloads() 
     let root = tempfile::tempdir().expect("project");
     let source = "@Service\nclass ChoiceService {\n ChoiceService() {}\n ChoiceService(String unrelated) {}\n String answer() { return \"legacy\"; }\n}\n";
     let (service, values) = PreferenceFixture::prepared_source(root.path(), source);
-    assert!(service.preferences.is_empty());
+    assert!(service.providers.is_empty());
     let (_, table) = JavaServiceTable::new(&values).file(&[service]);
     assert!(table.contains("new TacService0.ChoiceService()"));
     assert!(!table.contains("new BrowserPreferenceStrings"));
@@ -190,4 +197,109 @@ fn disposed_java_preference_providers_cannot_call_the_host_or_follow_new_activat
             .arg("PreferenceMain"),
     );
     assert_eq!(report.trim(), "preference-ownership-qualified");
+}
+
+#[test]
+fn private_final_publisher_and_preference_fields_have_ordered_browser_factories() {
+    let root = tempfile::tempdir().expect("project");
+    let source = "@Service\nclass ChoiceService {\n @Needs\n private final ApplicationEventPublisher events;\n @Needs\n private final PreferenceStrings preferences;\n String read() { return preferences.read(\"tachyon.platform\"); }\n}\n";
+    let (service, values) = PreferenceFixture::prepared_source(root.path(), source);
+    assert_eq!(
+        service
+            .providers
+            .iter()
+            .map(super::java_constructor_provider::JavaConstructorProvider::name)
+            .collect::<Vec<_>>(),
+        ["events", "preferences"]
+    );
+    assert!(
+        service
+            .source
+            .contains("private final ApplicationEventPublisher events;")
+    );
+    assert!(service.source.contains("this.events = events;"));
+    assert!(
+        !service
+            .source
+            .contains("events = new ApplicationEventPublisher")
+    );
+    assert!(!service.members.iter().any(|member| member.name == "events"));
+    let (_, table) = JavaServiceTable::new(&values).file(&[service]);
+    assert!(table.contains("new TacService0.ChoiceService(new ApplicationEventPublisher(owner), new BrowserPreferenceStrings(preferences))"));
+}
+
+#[test]
+#[ignore = "requires the installed JDK; validates captured Java publisher ownership and retained model envelopes"]
+fn a_java_injected_publisher_cannot_publish_through_another_activation() {
+    let root = tempfile::tempdir().expect("project");
+    let model = root.path().join("client/models/PlatformChanged.java");
+    std::fs::create_dir_all(model.parent().expect("model parent")).expect("models");
+    std::fs::write(&model, "record PlatformChanged(String platform) {}\n").expect("model");
+    let mut files = PreferenceFixture::staged(root.path());
+    let host = root.path().join("TacHost.java");
+    let source = PreferenceFixture::HOST.replace(
+        "static void emit(String payload) {}",
+        "static String last; static void emit(String payload) { last = payload; }",
+    );
+    std::fs::write(host, source).expect("typed fake JDK host");
+    let driver = root.path().join("PublisherMain.java");
+    std::fs::write(&driver, r#"import models.PlatformChanged;
+final class PublisherMain {
+    public static void main(String[] ignored) {
+        TacActivation first = new TacActivation("/", "choice", "first");
+        TacActivation second = new TacActivation("/", "choice", "second");
+        ApplicationEventPublisher captured = new ApplicationEventPublisher(first);
+        TacEvents.runFor(first);
+        PlatformChanged changed = new PlatformChanged("macOS");
+        require(captured.publishEvent(changed, true) == changed, "returns original typed model");
+        TacEvents.drain();
+        java.util.Map<?, ?> envelope = (java.util.Map<?, ?>) TacJsonReader.read(TacHost.last);
+        require("first".equals(envelope.get("owner")), "captured owner envelope");
+        require("PlatformChanged".equals(envelope.get("name")), "genuine model name");
+        require(Boolean.TRUE.equals(envelope.get("retain")), "retention preserved");
+        require("macOS".equals(((java.util.Map<?, ?>) envelope.get("value")).get("platform")), "typed payload");
+        String before = TacHost.last;
+        TacEvents.runFor(second);
+        refused(() -> captured.publishEvent(changed, true));
+        TacEvents.drain();
+        require(before.equals(TacHost.last), "live old publisher cannot borrow new owner");
+        first.dispose();
+        TacEvents.runFor(second);
+        refused(() -> captured.publishEvent(changed, true));
+        ApplicationEventPublisher fresh = new ApplicationEventPublisher(second);
+        fresh.publishEvent(new PlatformChanged("Windows"), true);
+        TacEvents.drain();
+        require(TacHost.last.contains("\"owner\":\"second\""), "new publisher active");
+        TacEvents.runFor(second);
+        new ApplicationEventPublisher().publishEvent(changed);
+        TacEvents.drain();
+        require(TacHost.last.contains("\"retain\":false"), "legacy noarg publisher compatible");
+        second.dispose();
+        System.out.println("publisher-ownership-qualified");
+    }
+    private static void refused(Runnable action) {
+        try { action.run(); } catch (IllegalStateException expected) { return; }
+        throw new AssertionError("inactive/disposed owner was accepted");
+    }
+    private static void require(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
+    }
+}
+"#).expect("publisher driver");
+    files.push(driver);
+    let classes = root.path().join("classes");
+    PreferenceFixture::execute(
+        Command::new("javac")
+            .args(["--release", "21", "-nowarn", "-d"])
+            .arg(&classes)
+            .args(files),
+    );
+    let output = PreferenceFixture::execute(
+        Command::new("java")
+            .arg("-ea")
+            .arg("-cp")
+            .arg(classes)
+            .arg("PublisherMain"),
+    );
+    assert_eq!(output.trim(), "publisher-ownership-qualified");
 }

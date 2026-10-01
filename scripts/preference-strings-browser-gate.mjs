@@ -33,7 +33,7 @@ class PreferenceStringsBrowserGate {
   }
 
   static async receipt(root, result) {
-    await writeFile(path.join(root, 'preference-strings-browser.json'), JSON.stringify({ ...result, scope: 'ordinary production Java TeaVM adapter/table through Chromium', denial: 'SecurityError fault injected at browser Storage.prototype; host transport unchanged', internalRetainedJavaProvider: 'separately qualified by opt-in JDK ownership test', allLanguageParityQualified: false }, null, 2) + '\n')
+    await writeFile(path.join(root, 'preference-strings-browser.json'), JSON.stringify({ ...result, scope: 'ordinary production Java TeaVM adapter/table through Chromium', denial: 'SecurityError fault injected at browser Storage.prototype; host transport unchanged', internalRetainedJavaProvider: 'separate JDK ownership gate; this browser receipt proves facade disposal only', allLanguageParityQualified: false }, null, 2) + '\n')
   }
 
   static async probe(origin, diagnostics) {
@@ -51,6 +51,8 @@ class PreferenceStringsBrowserGate {
       await page.waitForFunction(() => document.querySelector('#preference-value')?.textContent === 'macOS', undefined, { timeout: 10_000 })
       await page.locator('#preference-write').click()
       await page.waitForFunction(() => document.querySelector('#preference-value')?.textContent === 'Linux', undefined, { timeout: 5_000 })
+      diagnostics.phase = 'retained-java-model-events'
+      const publication = await PreferenceStringsBrowserGate.publication(page)
       diagnostics.phase = 'compiled-java-activation'
       const activation = await PreferenceStringsBrowserGate.activation(page)
       PreferenceStringsBrowserGate.checkActivation(activation)
@@ -61,10 +63,37 @@ class PreferenceStringsBrowserGate {
       assert.deepEqual(diagnostics.failedRequests, [])
       assert.deepEqual(diagnostics.externalRequests, [])
       diagnostics.phase = 'complete'
-      return { ...diagnostics, activation, reloadRawValue: await page.locator('#preference-value').textContent() }
+      return { ...diagnostics, activation, publication, reloadRawValue: await page.locator('#preference-value').textContent() }
     } finally {
       await browser.close()
     }
+  }
+
+  static async publication(page) {
+    await page.locator('#preference-choose').click()
+    await page.waitForFunction(() => document.querySelector('#preference-value')?.textContent === 'macos', undefined, { timeout: 5_000 })
+    await page.locator('#preference-show-late').click()
+    await page.waitForFunction(() => document.querySelector('#preference-late-value')?.textContent === 'macos', undefined, { timeout: 5_000 })
+    const replay = await page.locator('#preference-late-value').textContent()
+    const setter = await page.evaluateHandle(() => {
+      const original = Storage.prototype.setItem
+      Storage.prototype.setItem = () => { throw new DOMException('Fixture storage denied', 'SecurityError') }
+      return original
+    })
+    try {
+      await page.locator('#preference-choose-denied').click()
+      await page.waitForFunction(() => document.querySelector('#preference-late-value')?.textContent === 'windows', undefined, { timeout: 5_000 })
+    } finally {
+      await setter.evaluate(original => { Storage.prototype.setItem = original })
+      await setter.dispose()
+    }
+    const denied = await page.evaluate(() => localStorage.getItem('tachyon.platform'))
+    assert.equal(denied, 'macos', 'denied write preserves stored raw value while publication still occurs')
+    await page.locator('#preference-hide-late').click()
+    await page.locator('#preference-late-value').waitFor({ state: 'detached', timeout: 5_000 })
+    await page.locator('#preference-show-late').click()
+    await page.waitForFunction(() => document.querySelector('#preference-late-value')?.textContent === 'windows', undefined, { timeout: 5_000 })
+    return { firstReplay: replay, deniedStoredValue: denied, deniedPublicationReplay: await page.locator('#preference-late-value').textContent() }
   }
 
   static observe(page, origin, diagnostics) {

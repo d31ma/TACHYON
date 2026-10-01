@@ -1,4 +1,5 @@
 use super::java_code::JavaCode;
+use super::java_constructor_provider::JavaConstructorProvider;
 use super::java_declaration::JavaDeclaration;
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
@@ -15,7 +16,7 @@ impl<'a> JavaPreferenceConstructor<'a> {
         path: &'a Path,
         source: &str,
         class: &'a str,
-    ) -> Result<Vec<String>, Failure> {
+    ) -> Result<Vec<JavaConstructorProvider>, Failure> {
         let reader = Self {
             path,
             class,
@@ -37,8 +38,8 @@ impl<'a> JavaPreferenceConstructor<'a> {
         match (found, defaults, preferences) {
             ([], _, _) | (_, 1.., _) => Ok(Vec::new()),
             (_, 0, [parameters]) | ([parameters], 0, []) => Ok(parameters.clone()),
-            (_, 0, []) => Err(self.failure("No Java browser constructor can be called without arguments or with only PreferenceStrings.")),
-            _ => Err(self.failure("More than one Java PreferenceStrings constructor is available; browser injection needs an unambiguous constructor.")),
+            (_, 0, []) => Err(self.failure("No Java browser constructor can be called without arguments or with only supported browser providers.")),
+            _ => Err(self.failure("More than one Java browser provider constructor is available; browser injection needs an unambiguous constructor.")),
         }
     }
 
@@ -60,7 +61,7 @@ impl<'a> JavaPreferenceConstructor<'a> {
     fn preference_only(parameters: &[(String, String)]) -> bool {
         parameters
             .iter()
-            .all(|(kind, _)| kind == "PreferenceStrings")
+            .all(|(kind, name)| JavaConstructorProvider::read(kind, name).is_some())
     }
 
     fn constructors(&self) -> Vec<Vec<(String, String)>> {
@@ -76,13 +77,16 @@ impl<'a> JavaPreferenceConstructor<'a> {
             .collect()
     }
 
-    fn checked(&self, parameters: &[(String, String)]) -> Result<Vec<String>, Failure> {
+    fn checked(
+        &self,
+        parameters: &[(String, String)],
+    ) -> Result<Vec<JavaConstructorProvider>, Failure> {
         let unsupported = parameters
             .iter()
-            .find(|(kind, _)| kind != "PreferenceStrings");
+            .find(|(kind, name)| JavaConstructorProvider::read(kind, name).is_none());
         unsupported.map_or_else(
-            || Ok(parameters.iter().map(|(_, name)| name.clone()).collect()),
-            |(kind, _)| Err(self.failure(&format!("Java browser constructor injection supports PreferenceStrings; {kind} needs its own provider adapter."))),
+            || Ok(parameters.iter().filter_map(|(kind, name)| JavaConstructorProvider::read(kind, name)).collect()),
+            |(kind, _)| Err(self.failure(&format!("Java browser constructor injection supports PreferenceStrings and ApplicationEventPublisher; {kind} needs its own provider adapter."))),
         )
     }
 
@@ -115,7 +119,13 @@ mod tests {
             "ChoiceService",
         )
         .expect("typed browser constructor");
-        assert_eq!(names, ["preferences"]);
+        assert_eq!(
+            names
+                .iter()
+                .map(super::JavaConstructorProvider::name)
+                .collect::<Vec<_>>(),
+            ["preferences"]
+        );
     }
 
     #[test]
@@ -144,7 +154,13 @@ mod tests {
             "ChoiceService",
         )
         .expect("unambiguous preference constructor");
-        assert_eq!(names, ["port"]);
+        assert_eq!(
+            names
+                .iter()
+                .map(super::JavaConstructorProvider::name)
+                .collect::<Vec<_>>(),
+            ["port"]
+        );
     }
 
     #[test]
@@ -174,5 +190,42 @@ mod tests {
             assert!(rendered.contains("ChoiceService.java"), "{rendered}");
             assert!(rendered.contains(message), "{rendered}");
         }
+    }
+}
+
+#[cfg(test)]
+mod publisher_tests {
+    #![allow(clippy::expect_used)]
+    use super::{JavaConstructorProvider, JavaPreferenceConstructor};
+    use std::path::Path;
+
+    #[test]
+    fn mixed_browser_constructor_providers_preserve_declared_order() {
+        let source = "class ChoiceService { ChoiceService(ApplicationEventPublisher events, PreferenceStrings preferences) {} }";
+        let providers = JavaPreferenceConstructor::read(
+            Path::new("client/services/ChoiceService.java"),
+            source,
+            "ChoiceService",
+        )
+        .expect("supported constructor");
+        assert_eq!(
+            providers,
+            [
+                JavaConstructorProvider::Publisher(String::from("events")),
+                JavaConstructorProvider::Preference(String::from("preferences"))
+            ]
+        );
+    }
+
+    #[test]
+    fn legacy_no_argument_factory_remains_preferred_over_a_publisher_overload() {
+        let source = "class ChoiceService { ChoiceService() {} ChoiceService(ApplicationEventPublisher events) {} }";
+        let providers = JavaPreferenceConstructor::read(
+            Path::new("client/services/ChoiceService.java"),
+            source,
+            "ChoiceService",
+        )
+        .expect("legacy constructor");
+        assert!(providers.is_empty());
     }
 }

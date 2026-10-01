@@ -32,6 +32,9 @@ mod java_construct_tests;
 #[cfg(test)]
 mod java_preference_tests;
 
+#[cfg(test)]
+mod java_publisher_tests;
+
 #[must_use]
 pub fn units(project: &Path, realm: &str) -> Vec<PathBuf> {
     let mut found = Vec::new();
@@ -735,7 +738,7 @@ fn java(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result<S
         format!(
             "{}\n{lowered}\nfinal class TachyonTestMain {{\n\
              public static void main(String[] arguments) {{ System.out.println(Behaviors.encode(new {name}().POST())); }}\n}}\n",
-            crate::native::JavaWebServices::test_preference_contract(lowered)
+            crate::native::JavaWebServices::test_provider_contracts(lowered)
         ),
     )
     .map_err(|error| stage_failure(portable, &error))?;

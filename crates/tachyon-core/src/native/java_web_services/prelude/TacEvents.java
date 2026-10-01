@@ -12,6 +12,16 @@ final class TacEvents {
         executing = activation;
     }
 
+    static void requireOwner(TacActivation owner) {
+        checkOwner(owner);
+    }
+
+    private static void checkOwner(TacActivation owner) {
+        if (owner != null && (owner.disposed || executing != owner)) {
+            throw new IllegalStateException("Java event publisher owner is disposed or inactive.");
+        }
+    }
+
     static void publish(Object value, boolean retain) {
         TacActivation owner = executing;
         String name = TacModels.name(value);

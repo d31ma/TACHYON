@@ -15,6 +15,7 @@ use tea_vm_toolchain::TeaVmToolchain;
 mod java_browser_runtime;
 mod java_class_reader;
 mod java_code;
+mod java_constructor_provider;
 mod java_declaration;
 mod java_enclosure;
 mod java_event_members;
@@ -28,6 +29,7 @@ mod java_models;
 mod java_preference_constructor;
 mod java_service;
 mod java_service_table;
+mod java_test_contracts;
 mod java_type_declaration;
 mod java_value_type;
 mod java_wasm_program;
@@ -170,16 +172,8 @@ impl JavaWebServices {
         Ok((program.published(), note))
     }
 
-    pub(crate) fn test_preference_contract(source: &str) -> &'static str {
-        Self::preference_contract(source)
-    }
-
-    fn preference_contract(source: &str) -> &'static str {
-        if source.contains("PreferenceStrings") {
-            include_str!("web_apis/PreferenceStrings.java")
-        } else {
-            ""
-        }
+    pub(crate) fn test_provider_contracts(source: &str) -> String {
+        java_test_contracts::JavaTestContracts::read(source)
     }
 
     fn authored(services: &[(String, String, PathBuf)]) -> Result<Vec<String>, Failure> {
@@ -205,7 +199,7 @@ impl JavaWebServices {
                 class: class.to_owned(),
                 members: Vec::new(),
                 required: Vec::new(),
-                preferences: Vec::new(),
+                providers: Vec::new(),
                 path: relative.to_path_buf(),
                 source: authored,
             };
@@ -241,7 +235,7 @@ impl JavaWebServices {
         let source =
             lowered.map_or_else(|| behavior_source, |text| JavaBrowserRuntime::adapt(&text));
         let source = models.without_declarations(relative, &source)?;
-        let preferences = java_preference_constructor::JavaPreferenceConstructor::read(
+        let providers = java_preference_constructor::JavaPreferenceConstructor::read(
             relative,
             &source,
             &authored.class,
@@ -251,10 +245,11 @@ impl JavaWebServices {
         let events_of_class = JavaEventMembers::new(relative, &authored.class, values);
         let mut members = reader.members(&authored.class, values)?;
         members.extend(events_of_class.listeners(events.as_ref())?);
-        let compiled = JavaEventMembers::with_publishers(&reader.without_markers(&source));
+        let compiled =
+            JavaEventMembers::with_publishers(&reader.without_markers(&source), &providers);
         Ok(JavaService {
             members,
-            preferences,
+            providers,
             source: JavaEnclosure::wrap(&compiled, &JavaEnclosure::holder(index)),
             required: roles.required,
             ..authored

@@ -1,3 +1,4 @@
+use super::java_constructor_provider::JavaConstructorProvider;
 use super::java_member::JavaMember;
 use super::java_member_kind::JavaMemberKind;
 use super::java_value_type::JavaValueType;
@@ -33,10 +34,10 @@ impl<'a> JavaEventMembers<'a> {
         module.map_or_else(|| Ok(Vec::new()), |module| self.module_listeners(module))
     }
 
-    pub(super) fn with_publishers(source: &str) -> String {
+    pub(super) fn with_publishers(source: &str, providers: &[JavaConstructorProvider]) -> String {
         source
             .split_inclusive('\n')
-            .map(Self::with_publisher)
+            .map(|line| Self::with_publisher(line, providers))
             .collect()
     }
 
@@ -69,7 +70,7 @@ impl<'a> JavaEventMembers<'a> {
         Ok(())
     }
 
-    fn with_publisher(line: &str) -> String {
+    fn with_publisher(line: &str, providers: &[JavaConstructorProvider]) -> String {
         let declaration = Self::FIELD_MODIFIERS
             .iter()
             .fold(line.trim(), |rest, modifier| {
@@ -78,7 +79,12 @@ impl<'a> JavaEventMembers<'a> {
         let is_publisher = declaration
             .strip_prefix(Self::PUBLISHER)
             .and_then(|rest| rest.strip_suffix(';'))
-            .is_some_and(Self::names_one_field);
+            .filter(|rest| Self::names_one_field(rest))
+            .is_some_and(|rest| {
+                !providers
+                    .iter()
+                    .any(|provider| provider.name() == rest.trim())
+            });
         match (is_publisher, line.rfind(';')) {
             (true, Some(end)) => {
                 format!("{}{}{}", &line[..end], Self::PUBLISHER_VALUE, &line[end..])
@@ -188,8 +194,26 @@ mod tests {
     fn an_uninitialised_publisher_field_is_constructed() {
         let source = "class A {\n    ApplicationEventPublisher applicationEventPublisher;\n      final ApplicationEventPublisher events;\n    ApplicationEventPublisher kept = null;\n    ApplicationEventPublisherX other;\n}\n";
         assert_eq!(
-            JavaEventMembers::with_publishers(source),
+            JavaEventMembers::with_publishers(source, &[]),
             "class A {\n    ApplicationEventPublisher applicationEventPublisher = new ApplicationEventPublisher();\n      final ApplicationEventPublisher events = new ApplicationEventPublisher();\n    ApplicationEventPublisher kept = null;\n    ApplicationEventPublisherX other;\n}\n"
+        );
+    }
+}
+
+#[cfg(test)]
+mod publisher_tests {
+    use super::{JavaConstructorProvider, JavaEventMembers};
+
+    #[test]
+    fn a_constructor_owned_publisher_keeps_its_authored_field_assignment() {
+        let source = "class ChoiceService {\n final ApplicationEventPublisher events;\n ApplicationEventPublisher legacy;\n ChoiceService(ApplicationEventPublisher events) { this.events = events; }\n}\n";
+        let providers = [JavaConstructorProvider::Publisher(String::from("events"))];
+        let compiled = JavaEventMembers::with_publishers(source, &providers);
+        assert!(compiled.contains("final ApplicationEventPublisher events;"));
+        assert!(compiled.contains("this.events = events;"));
+        assert!(
+            compiled
+                .contains("ApplicationEventPublisher legacy = new ApplicationEventPublisher();")
         );
     }
 }

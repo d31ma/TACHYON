@@ -1,4 +1,11 @@
 <main aria-label="Java raw preference fixture">
   <p id="preference-value">{choice.read('tachyon.platform')}</p>
   <button id="preference-write" on:click="choice.write('tachyon.platform', 'Linux')">Save Linux</button>
+  <button id="preference-choose" on:click="choice.choose('macos')">Choose macOS</button>
+  <button id="preference-choose-denied" on:click="choice.choose('windows')">Choose Windows</button>
+  <button id="preference-show-late" on:click="choice.showLate = true">Show late listener</button>
+  <button id="preference-hide-late" on:click="choice.showLate = false">Hide late listener</button>
+  <if :when="choice.showLate">
+    <preference-late />
+  </if>
 </main>

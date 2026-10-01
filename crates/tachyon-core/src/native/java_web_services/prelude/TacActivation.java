@@ -16,7 +16,7 @@ final class TacActivation {
 
     private java.util.Map<String, Object> created(String service) {
         try {
-            return TacServiceTable.members(service, preferences);
+            return TacServiceTable.members(service, preferences, this);
         } catch (RuntimeException failed) {
             preferences.dispose();
             throw failed;
