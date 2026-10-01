@@ -6,20 +6,21 @@ use std::path::Path;
 pub(super) struct RustUtilityExports;
 
 impl RustUtilityExports {
-    pub(super) fn source(path: &Path, source: &str) -> Result<String, Failure> {
+    pub(super) fn source(path: &Path, source: &str) -> Result<(String, bool), Failure> {
         let input = Input::new(path, source);
         let tokens = Tokens::read(&input)?;
         tokens.check_complete(&input)?;
         let words = Words::read(&tokens, source);
         let ranges = Self::ranges(&words);
-        Ok(Self::rewrite(source, &ranges))
+        let public = Self::public_type(&words);
+        Ok((Self::rewrite(source, &ranges), public))
     }
 
     fn ranges(words: &Words<'_>) -> BTreeMap<usize, usize> {
         Self::structures(words)
             .into_iter()
             .chain(Self::members(words))
-            .map(|at| Self::visibility(words, at))
+            .filter_map(|at| Self::visibility(words, at))
             .collect()
     }
 
@@ -50,18 +51,15 @@ impl RustUtilityExports {
             .collect()
     }
 
-    fn visibility(words: &Words<'_>, at: usize) -> (usize, usize) {
-        let start = RustConstants::method_start(words, at);
-        let end = Self::visibility_end(words, start);
-        (words.start(start), words.start(end))
+    fn public_type(words: &Words<'_>) -> bool {
+        Self::structures(words)
+            .into_iter()
+            .any(|at| words.text(at.wrapping_sub(1)) == "pub")
     }
 
-    fn visibility_end(words: &Words<'_>, start: usize) -> usize {
-        match (words.text(start), words.text(start + 1)) {
-            ("pub", "(") => words.after_group(start + 1),
-            ("pub", _) => start + 1,
-            _ => start,
-        }
+    fn visibility(words: &Words<'_>, at: usize) -> Option<(usize, usize)> {
+        let start = RustConstants::method_start(words, at);
+        (words.text(start) != "pub").then_some((words.start(start), words.start(start)))
     }
 
     fn rewrite(source: &str, ranges: &BTreeMap<usize, usize>) -> String {

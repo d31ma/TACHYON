@@ -26,7 +26,10 @@ impl UtilityLayout {
         checked.unwrap_or(Ok(()))
     }
 
-    pub(crate) fn native_rust_exports(path: &Path, source: &str) -> Result<String, Failure> {
+    pub(crate) fn native_rust_exports(
+        path: &Path,
+        source: &str,
+    ) -> Result<(String, bool), Failure> {
         RustUtilityExports::source(path, source)
     }
 

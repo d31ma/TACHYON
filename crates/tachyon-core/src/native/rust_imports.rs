@@ -16,11 +16,17 @@ impl RustImports {
     pub(super) fn scoped(path: &Path, source: &str, name: &str) -> Result<String, Failure> {
         let mut imports = Self::default();
         let body = imports.take(path, source)?;
-        let body = crate::annotation_layout::UtilityLayout::native_rust_exports(path, &body)?;
+        let (body, public) =
+            crate::annotation_layout::UtilityLayout::native_rust_exports(path, &body)?;
+        let export = Self::visibility(public);
         Ok(format!(
-            "mod __TachyonUtility_{name} {{\nuse super::*;\n{}\n{body}\n}}\nuse self::__TachyonUtility_{name}::{name};\n",
+            "mod __TachyonUtility_{name} {{\nuse super::*;\n{}\n{body}\n}}\n{export}use self::__TachyonUtility_{name}::{name};\n",
             imports.source()
         ))
+    }
+
+    fn visibility(public: bool) -> &'static str {
+        if public { "pub " } else { "" }
     }
 
     pub(super) fn take(&mut self, path: &Path, source: &str) -> Result<String, Failure> {
