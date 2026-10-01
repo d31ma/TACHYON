@@ -1,10 +1,13 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
+    let helpers = helper_names(language);
     for (relative, source) in files(language) {
+        let source = super::behavior_layout::rename(source, &helpers);
+        let (relative, mut source) = role_copy(relative, source, &helpers, language);
         let relative = relative.replacen("server/", &format!("{realm}/"), 1);
         let relative = Path::new(&relative).with_extension(extension);
-        let mut source = (*source).to_owned();
         if language == "js" && realm == "server" {
             source = source
                 .replace("TAC_", "YON_")
@@ -16,6 +19,93 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
             .expect("fixture directories");
         std::fs::write(target, source).expect("authored fixture");
     }
+}
+
+fn helper_names(language: &str) -> BTreeMap<String, String> {
+    let names: &[&str] = match language {
+        "rs" | "go" => &[
+            "CatalogChecks",
+            "Ledger",
+            "Memory",
+            "PureValidator",
+            "Resilient",
+        ],
+        "groovy" | "kt" | "java" => &["Resilient", "Validator"],
+        "cs" => &[
+            "AnnotatedResilient",
+            "CatalogExercises",
+            "Config",
+            "ConfigurationAnnotationTests",
+            "GuardedConfig",
+            "MissingConfig",
+            "ValidationAnnotationTests",
+        ],
+        "py" | "php" | "rb" => &["Backend", "HandlerChecks", "Resilient"],
+        _ => &[],
+    };
+    names
+        .iter()
+        .map(|name| ((*name).to_owned(), format!("{name}Helper")))
+        .collect()
+}
+
+fn role_copy(
+    relative: &str,
+    source: String,
+    names: &BTreeMap<String, String>,
+    language: &str,
+) -> (String, String) {
+    let path = Path::new(relative);
+    let stem = path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    let role = names
+        .get(stem)
+        .map(|name| ("helpers", "Helper", name.as_str()))
+        .or_else(|| service_copy(language, stem).map(|name| ("services", "Service", name)));
+    role.map_or_else(
+        || (relative.to_owned(), source.clone()),
+        |(folder, marker, name)| {
+            let source = marked_copy(source.clone(), language, name, marker);
+            let extension = path
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
+            (
+                path.with_file_name(format!("{name}.{extension}"))
+                    .to_string_lossy()
+                    .replacen("server/helpers/", &format!("server/{folder}/"), 1),
+                source,
+            )
+        },
+    )
+}
+
+fn service_copy<'a>(language: &str, name: &'a str) -> Option<&'a str> {
+    match (language, name) {
+        ("cs", "AnnotatedValidationService") | ("py" | "php" | "rb", "ValidationService") => {
+            Some(name)
+        }
+        _ => None,
+    }
+}
+
+fn marked_copy(mut source: String, language: &str, name: &str, role: &str) -> String {
+    let (declaration, marker) = match language {
+        "rs" => ("struct", format!("#[{role}]")),
+        "go" => ("type", format!("// @{role}")),
+        "php" | "rb" => ("class", format!("#[{role}]")),
+        "cs" => ("class", format!("[{role}]")),
+        "py" => ("class", format!("@{}", role.to_ascii_lowercase())),
+        _ => ("class", format!("@{role}")),
+    };
+    let at = source
+        .find(&format!("{declaration} {name}"))
+        .expect("explicit fixture role declaration");
+    let line = source[..at].rfind('\n').map_or(0, |at| at + 1);
+    source.insert_str(line, &format!("{marker}\n"));
+    source
 }
 
 fn files(language: &str) -> &'static [(&'static str, &'static str)] {

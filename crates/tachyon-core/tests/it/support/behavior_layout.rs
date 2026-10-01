@@ -277,7 +277,7 @@ fn comment_end(bytes: &[u8], start: usize) -> usize {
     cursor + 2
 }
 
-fn rename(source: &str, names: &BTreeMap<String, String>) -> String {
+pub(super) fn rename(source: &str, names: &BTreeMap<String, String>) -> String {
     let mut output = String::new();
     let bytes = source.as_bytes();
     let masked = mask(source, false);
