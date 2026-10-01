@@ -75,6 +75,21 @@ impl ScriptAssetFixture {
         );
     }
 
+    fn copy_bundle(source: &Path, target: &Path) {
+        std::fs::create_dir_all(target).expect("copy directory");
+        for entry in std::fs::read_dir(source).expect("bundle entries") {
+            let entry = entry.expect("bundle entry");
+            let kind = entry.file_type().expect("bundle type");
+            let destination = target.join(entry.file_name());
+            if kind.is_dir() {
+                Self::copy_bundle(&entry.path(), &destination);
+            } else {
+                assert!(kind.is_file(), "bundle must contain only regular files");
+                std::fs::copy(entry.path(), destination).expect("copy emitted bytes");
+            }
+        }
+    }
+
     fn managed_utility(root: &Path, declaration: &str, unused: bool) {
         Self::project(root, "../../utils/nested/TitleUtils.js");
         Self::write(
@@ -273,4 +288,53 @@ fn script_assets_refuse_unchecked_mjs_utilities() {
         .expect_err("mjs bypass refused")
         .to_string();
     assert!(failure.contains(".js or .ts"), "{failure}");
+}
+
+#[tokio::test]
+#[ignore = "requires TAC_MONITOR_SCRIPT_BUNDLE pointing to a completed copied monitor fixture bundle"]
+async fn script_assets_completed_monitor_bundle_executes_dependency_and_utility_module() {
+    let source = std::env::var_os("TAC_MONITOR_SCRIPT_BUNDLE").expect("completed bundle path");
+    let copied = tempfile::tempdir().expect("probe bundle copy");
+    ScriptAssetFixture::copy_bundle(Path::new(&source), copied.path());
+    ScriptAssetFixture::write(copied.path(), "package.json", "{\"type\":\"module\"}");
+    let mut command = tokio::process::Command::new("node");
+    let probe = r"const scripts = [];
+const attributes = new Map();
+globalThis.document = {
+    querySelector() { return null; },
+    createElement() { return {dataset: {}}; },
+    head: {append(script) { scripts.push(script); }},
+    documentElement: {setAttribute(name, value) { attributes.set(name, value); }}
+};
+globalThis.localStorage = {getItem() { return null; }, setItem() {}};
+const {default: SnapshotService} = await import('./tachyon-runtime/services/SnapshotService.js');
+const {default: ObservatoryService} = await import('./tachyon-runtime/services/ObservatoryService.js');
+const snapshot = new SnapshotService();
+const service = new ObservatoryService(snapshot);
+service.initialize();
+if (service.snapshot !== snapshot || service.status !== 'Ready') throw new Error('dependency or initialization changed');
+const files = ['duvay/duvay-wc.min.js', 'duvay/duvay.min.js', 'chartjs/chart.umd.min.js'];
+const markers = ['wc', 'behaviours', 'charts'];
+if (scripts.length !== 3 || attributes.get('w-theme') !== 'dark') throw new Error('utility effects changed');
+for (let index = 0; index < scripts.length; index++) {
+    const expected = new URL('./shared/assets/' + files[index], import.meta.url).href;
+    if (scripts[index].src !== expected || scripts[index].dataset.observatory !== markers[index]) throw new Error('utility module URL base changed');
+}
+console.log('Ready; injected snapshot and original utility URL base preserved');";
+    command
+        .args(["--input-type=module", "--eval", probe])
+        .current_dir(copied.path());
+    let output =
+        crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 64 * 1024)
+            .await
+            .expect("supervised Node");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "Ready; injected snapshot and original utility URL base preserved"
+    );
 }
