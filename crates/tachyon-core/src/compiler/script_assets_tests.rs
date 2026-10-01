@@ -3,6 +3,69 @@
 use super::{BuildOptions, WebCompiler};
 use std::path::Path;
 
+#[tokio::test]
+async fn script_assets_share_behavior_code_without_merging_source_contexts() {
+    let root = tempfile::tempdir().expect("project");
+    ScriptAssetFixture::write(root.path(), "client/pages/tac.html", "<counter-panel />");
+    ScriptAssetFixture::write(
+        root.path(),
+        "client/components/counter-panel/tac.html",
+        "<p>{alpha.count} {beta.count}</p>",
+    );
+    ScriptAssetFixture::write(
+        root.path(),
+        "client/services/AlphaService.ts",
+        "@Service\nexport default class AlphaService { count: number = 1; increment(): number { return ++this.count; } }",
+    );
+    ScriptAssetFixture::write(
+        root.path(),
+        "client/services/BetaService.js",
+        "@Service\nexport default class BetaService { count = 3; }",
+    );
+    WebCompiler::build_async(root.path(), &BuildOptions::default())
+        .await
+        .expect("ordinary release bundle");
+    let runtime = root.path().join("dist/.tachyon/behavior-runtime.js");
+    assert!(
+        runtime.is_file(),
+        "one transferable behavior factory module"
+    );
+    ScriptAssetFixture::write(root.path(), "dist/package.json", "{\"type\":\"module\"}");
+    let mut command = tokio::process::Command::new("node");
+    command.args([
+        "--input-type=module",
+        "--eval",
+        r"import assert from 'node:assert/strict';
+const {default: Alpha} = await import('./.tachyon/services/AlphaService.js');
+const {default: Beta} = await import('./.tachyon/services/BetaService.js');
+assert.equal(new Alpha().increment(), 2);
+assert.equal(new Beta().count, 3);
+const {__tachyon_create_behaviors__: factory} = await import('./.tachyon/behavior-runtime.js');
+class Input { constructor(name) { this.name = name; } }
+const first = factory([{type: Input, name: 'Input', methods: [], requiredArgs: ['name']}], 'tac', 'a'.repeat(64));
+const second = factory([], 'tac', 'b'.repeat(64));
+first.called('first');
+assert.deepEqual(second.takeCalled(), []);
+assert.deepEqual(first.takeCalled(), ['first']);
+assert.equal(first.construct(Input, {name: 'Ready'}).name, 'Ready');
+assert.throws(() => second.construct(Input, {name: 'wrong-context'}), /NeedsAll/);
+console.log('shared-code-independent-contexts-passed');",
+    ]).current_dir(root.path().join("dist"));
+    let output =
+        crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 64 * 1024)
+            .await
+            .expect("supervised actual emitted modules");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "shared-code-independent-contexts-passed"
+    );
+}
+
 struct ScriptAssetFixture;
 
 impl ScriptAssetFixture {

@@ -681,14 +681,18 @@ impl<'a> SiteBuild<'a> {
         let started = Instant::now();
         let mut built = BuiltServices::default();
         let mut assets = ScriptAssets::new(self.project.root(), self.snapshot_root);
+        let mut shared_runtime = false;
         for (source, class) in self.script_services() {
-            let bytes =
+            let module =
                 ServiceScript::module(self.project.root(), self.snapshot_root, source).await?;
+            shared_runtime |= module.behavior_runtime;
             let output = PathBuf::from(format!(".tachyon/services/{class}.js"));
-            let bytes = assets.rewrite(source, &output, bytes)?;
+            let bytes = assets.rewrite(source, &output, module.bytes)?;
+            let bytes = ServiceScript::linked(bytes, module.behavior_runtime);
             built.files.push((format!("{class}.js"), bytes));
         }
-        let files = assets.collect().await?;
+        let mut files = assets.collect().await?;
+        files.extend(ServiceScript::runtime(shared_runtime));
         Self::add_script_timing(&mut built, started);
         Ok((built, files))
     }
