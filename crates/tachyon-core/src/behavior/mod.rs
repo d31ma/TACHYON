@@ -1447,7 +1447,7 @@ fn injected_field(input: &Input<'_>, marker: &Marker) -> Result<String, Failure>
         .trim()
         .trim_end_matches(';')
         .trim();
-    let declaration = without_instance_field_modifiers(input, marker, line)?;
+    let declaration = without_instance_field_modifiers(input, marker.target, &marker.name, line)?;
     let name = declaration
         .split([':', '=', ' '])
         .next()
@@ -1467,15 +1467,13 @@ fn injected_field(input: &Input<'_>, marker: &Marker) -> Result<String, Failure>
 
 fn without_instance_field_modifiers<'a>(
     input: &Input<'_>,
-    marker: &Marker,
+    target: usize,
+    annotation: &str,
     mut declaration: &'a str,
 ) -> Result<&'a str, Failure> {
     while let Some((modifier, rest)) = declaration.split_once(' ') {
         if modifier == "static" {
-            return Err(input.failure(
-                marker.target,
-                format!("{} requires an instance field", marker.name),
-            ));
+            return Err(input.failure(target, format!("{annotation} requires an instance field")));
         }
         if !matches!(
             modifier,

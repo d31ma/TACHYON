@@ -1348,6 +1348,40 @@ mod tests {
     }
 
     #[test]
+    fn typescript_owned_resources_accept_existing_instance_field_modifiers() {
+        for declaration in [
+            "documentTitle!: DocumentTitle;",
+            "private documentTitle!: DocumentTitle;",
+            "protected readonly documentTitle?: DocumentTitle;",
+            "public documentTitle: DocumentTitle;",
+            "declare documentTitle: DocumentTitle;",
+        ] {
+            let source = format!("class Page {{\n@Needs\n{declaration}\n}}");
+            let module = tac_module(&source);
+            assert_eq!(module.types[0].resources.len(), 1);
+            assert_eq!(module.types[0].resources[0].field, "documentTitle");
+            assert_eq!(module.types[0].resources[0].name, "documentTitle");
+            assert!(module.source.contains(declaration), "{declaration}");
+            assert!(!module.source.contains("@Needs"), "{declaration}");
+        }
+    }
+
+    #[test]
+    fn typescript_owned_resources_refuse_static_initialized_and_method_targets() {
+        for declaration in [
+            "private static documentTitle!: DocumentTitle;",
+            "static readonly documentTitle: DocumentTitle;",
+            "private documentTitle: DocumentTitle = other;",
+            "private documentTitle(title: string): void {}",
+        ] {
+            let source = format!("class Page {{\n@Needs\n{declaration}\n}}");
+            let failure =
+                tac(&source).expect_err("resource must be an uninitialized instance field");
+            assert!(failure.to_string().contains("TY1308"), "{failure}");
+        }
+    }
+
+    #[test]
     fn extracts_lifecycle_event_and_resource_metadata_without_shifting_source() {
         let source = "class Page {\n@Needs\nview;\n@OnStart\nstart() {}\n@OnEvent({\"replay\":true})\nreceive(value: ProbeReady) {}\n@OnStop\nstop() {}\n}";
         let module = tac_module(source);

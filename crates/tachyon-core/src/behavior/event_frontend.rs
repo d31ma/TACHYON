@@ -54,6 +54,7 @@ fn field_target(
     let code = &input.code;
     let end = code[at..].find('\n').map_or(code.len(), |end| at + end);
     let declaration = input.source[at..end].trim().trim_end_matches(';').trim();
+    let declaration = super::without_instance_field_modifiers(input, at, "Resource", declaration)?;
     let text_before_type = declaration.split(':').next().unwrap_or("");
     let name = text_before_type.trim().trim_end_matches(['!', '?']);
     if !super::identifier(name) || declaration.contains(['=', '(', ')']) {
