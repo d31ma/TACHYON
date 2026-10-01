@@ -638,6 +638,9 @@ mod preference_strings_tests;
 mod preference_strings_browser_fixture;
 
 #[cfg(test)]
+mod document_title_browser_fixture;
+
+#[cfg(test)]
 mod kotlin_tests;
 
 #[cfg(test)]

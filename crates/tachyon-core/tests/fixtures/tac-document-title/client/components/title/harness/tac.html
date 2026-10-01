@@ -1,0 +1,16 @@
+<main aria-label="DocumentTitle actual browser fixture">
+  <button id="show-second" on:click="harness.second = true">Show second Kotlin owner</button>
+  <button id="hide-first" on:click="harness.first = false">Dispose first Kotlin owner</button>
+  <button id="show-first" on:click="harness.first = true">Remount first Kotlin owner</button>
+  <button id="show-script" on:click="harness.script = true">Show script owner</button>
+  <button id="hide-script" on:click="harness.script = false">Dispose script owner</button>
+  <if :when="harness.first">
+    <section id="kotlin-first-container"><title-kotlin :label="'Kotlin first — 🚀'" :fails="false" /></section>
+  </if>
+  <if :when="harness.second">
+    <section id="kotlin-second-container"><title-kotlin :label="'Kotlin second — 雪'" :fails="false" /></section>
+  </if>
+  <if :when="harness.script">
+    <section id="script-container"><title-script /></section>
+  </if>
+</main>
