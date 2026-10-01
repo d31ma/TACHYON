@@ -7,7 +7,7 @@ use std::path::Path;
 struct Sources;
 
 impl Sources {
-    const KOTLIN_SERVICE: &str = "@CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\nclass CatalogService {\n    var reads: Int = 0\n\n    @Cached\n    fun find(sku: String): Any? {\n        reads++\n        return mapOf(\"sku\" to sku, \"reads\" to reads)\n    }\n}\n";
+    const KOTLIN_SERVICE: &str = "@Service\n@CacheSettings({\"name\":\"catalog\",\"ttlMs\":30000,\"maxBytes\":65536,\"maxEntries\":256})\nclass CatalogService {\n    var reads: Int = 0\n\n    @Cached\n    fun find(sku: String): Any? {\n        reads++\n        return mapOf(\"sku\" to sku, \"reads\" to reads)\n    }\n}\n";
     const KOTLIN_SETUP: &str = "@Setup\nclass CatalogSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration(\n            authorize = Behaviors.Authorization { _, _ -> true })\n    }\n}\n";
 
     fn write(root: &Path, relative: &str, source: &str) {

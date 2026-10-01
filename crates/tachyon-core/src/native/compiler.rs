@@ -690,13 +690,13 @@ mod tests {
         fs::create_dir_all(&services).expect("services");
         for extension in extensions {
             let source = match *extension {
-                "js" | "ts" => "export default class TallyService {}\n",
-                "dart" => "class TallyService {}\n",
-                "go" => "type TallyService struct{ Count int }\n",
-                "rs" => "#[derive(Default)]\nstruct TallyService {}\n",
-                "cs" => "public class TallyService {}\n",
-                "swift" => "final class TallyService {}\n",
-                _ => "class TallyService\n",
+                "js" | "ts" => "@Service\nexport default class TallyService {}\n",
+                "dart" => "@Service\nclass TallyService {}\n",
+                "go" => "// @Service\ntype TallyService struct{ Count int }\n",
+                "rs" => "#[Service]\n#[derive(Default)]\nstruct TallyService {}\n",
+                "cs" => "[Service]\npublic class TallyService {}\n",
+                "swift" => "@Service\nfinal class TallyService {}\n",
+                _ => "@Service\nclass TallyService\n",
             };
             fs::write(services.join(format!("TallyService.{extension}")), source).expect("service");
         }
@@ -921,7 +921,7 @@ mod tests {
         write(
             authored,
             "client/services/OwnedCardService.swift",
-            "final class OwnedCardService {\n let marker: String = \"owned-native-companion\"\n}\n",
+            "@Service\nfinal class OwnedCardService {\n let marker: String = \"owned-native-companion\"\n}\n",
         );
         write(authored, "package.json", r#"{"type":"module"}"#);
         write(

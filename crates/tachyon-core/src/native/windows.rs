@@ -1341,7 +1341,7 @@ mod tests {
     }
 
     fn owned_card_service_source() -> &'static str {
-        "public class OwnedCardService {\npublic int Count = 0;\n}\n"
+        "[Service]\npublic class OwnedCardService {\npublic int Count = 0;\n}\n"
     }
 
     fn staged_companion_source(
@@ -1444,7 +1444,7 @@ mod tests {
             .expect("service directory");
         std::fs::write(
             &source,
-            "public class LeakyService {\npublic int Fail() { throw new System.InvalidOperationException(\"secret connection string\"); }\n}\n",
+            "[Service]\npublic class LeakyService {\npublic int Fail() { throw new System.InvalidOperationException(\"secret connection string\"); }\n}\n",
         )
         .expect("companion");
         let companions = [crate::native::registry::NativeCompanionInput {

@@ -1,10 +1,10 @@
 use super::go_compiler_choice::GoCompilerChoice;
 use super::go_web_build::GoWebBuild;
 use super::host::{native_io, native_tool_failure};
-use crate::wasm_release_step::WasmReleaseStep;
 use crate::Failure;
 use crate::companion::go::{GoTable, masked_code};
 use crate::go_source::GoFile;
+use crate::wasm_release_step::WasmReleaseStep;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -355,7 +355,8 @@ mod tests {
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         std::fs::write(&path, "// @Service\ntype BrokenService struct{ Count int }\n\nfunc (broken *BrokenService) Read() int {\n\treturn missing\n}\n").expect("service");
         let services = [(String::from("broken"), String::from("BrokenService"), path)];
-        let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await else {
+        let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await
+        else {
             panic!("an undefined name must fail the build");
         };
         let message = &failure.diagnostics()[0].message;
@@ -382,7 +383,7 @@ mod tests {
         let repository = root.path().join("client/stores/BillingStore.go");
         std::fs::create_dir_all(service.parent().expect("parent")).expect("services");
         std::fs::create_dir_all(repository.parent().expect("parent")).expect("stores");
-        std::fs::write(&service, "type BillingService struct {\n\tTotal int\n}\n\n// @OnStart\nfunc (billing *BillingService) Start() {\n\tbilling.Total = 42\n}\n").expect("service");
+        std::fs::write(&service, "// @Service\ntype BillingService struct {\n\tTotal int\n}\n\n// @OnStart\nfunc (billing *BillingService) Start() {\n\tbilling.Total = 42\n}\n").expect("service");
         std::fs::write(&repository, "// @Store\ntype BillingStore struct{}\n\nfunc (repository *BillingStore) Subtotal() int {\n\treturn 40\n}\n").expect("repository");
         let services = [(
             String::from("billing"),
@@ -401,7 +402,7 @@ mod tests {
         let files = [
             (
                 "client/services/TallyService.go",
-                "type TallyService struct {\n\tCount int\n}\n\n// @OnStart\nfunc (tally *TallyService) Start() {\n\ttally.Count = (&StepHelper{}).Size()\n}\n",
+                "// @Service\ntype TallyService struct {\n\tCount int\n}\n\n// @OnStart\nfunc (tally *TallyService) Start() {\n\ttally.Count = (&StepHelper{}).Size()\n}\n",
             ),
             (
                 "client/helpers/StepHelper.go",
@@ -418,7 +419,8 @@ mod tests {
             String::from("TallyService"),
             root.path().join(files[0].0),
         )];
-        let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await else {
+        let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await
+        else {
             panic!("a Tac Helper is a browser role");
         };
         let diagnostic = &failure.diagnostics()[0];
@@ -441,10 +443,14 @@ mod tests {
             return;
         }
         let root = tempfile::tempdir().expect("project");
-        let path = root.path().join("client/services/RandomService.go");
+        let path = root.path().join("client/services/ProfileService.go");
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
-        std::fs::write(&path, "import _ \"unsafe\"\n\n//go:linkname cheapRandom runtime.cheaprand\nfunc cheapRandom() uint32\n\n// @Service\ntype RandomService struct{}\n\nfunc (random *RandomService) Next() int {\n\treturn int(cheapRandom() % 6)\n}\n").expect("service");
-        let services = [(String::from("random"), String::from("RandomService"), path)];
+        std::fs::write(&path, "import \"runtime\"\n\n// @Service\ntype ProfileService struct{}\n\nfunc (profile *ProfileService) Count() int {\n\tcount, _ := runtime.ThreadCreateProfile(nil)\n\treturn count\n}\n").expect("service");
+        let services = [(
+            String::from("profile"),
+            String::from("ProfileService"),
+            path,
+        )];
         let built = web_go(root.path(), &services, crate::BuildProfile::Release)
             .await
             .expect("the standard compiler builds what TinyGo cannot");

@@ -12,12 +12,12 @@ impl Sources {
     const RUST_SERVICE: &str = "use crate::models::Guide;\n\n#[Service()]\n#[derive(Default)]\nstruct GuideService {\n    pages: i64,\n}\n\nimpl GuideService {\n    fn read(&mut self) -> String {\n        let guide = Guide { title: String::from(\"Guide\"), pages: 3 };\n        self.pages = guide.pages;\n        format!(\"{} {}\", guide.title, guide.pages)\n    }\n}\n";
     const SWIFT_MODEL: &str = "import Foundation\n\nstruct Guide: Codable, Equatable {\n    let title: String\n    var pages: Int = 0\n}\n";
     const SWIFT_KIND_MODEL: &str = "enum Kind: String, Codable {\n    case short, long\n}\n";
-    const SWIFT_SERVICE: &str = "class GuideService {\n    var pages: Int = 0\n    func read() -> String {\n        let guide = Guide(title: \"Guide\", pages: 3)\n        pages = guide.pages\n        return guide.title + \" \" + Kind.long.rawValue\n    }\n}\n";
-    const SWIFT_WAITING_SERVICE: &str = "class GuideService {\n    func load(_ name: String) async throws -> String {\n        try await Task.sleep(nanoseconds: 1_000_000)\n        return await MainActor.run { name + \" loaded\" }\n    }\n}\n";
+    const SWIFT_SERVICE: &str = "@Service\nclass GuideService {\n    var pages: Int = 0\n    func read() -> String {\n        let guide = Guide(title: \"Guide\", pages: 3)\n        pages = guide.pages\n        return guide.title + \" \" + Kind.long.rawValue\n    }\n}\n";
+    const SWIFT_WAITING_SERVICE: &str = "@Service\nclass GuideService {\n    func load(_ name: String) async throws -> String {\n        try await Task.sleep(nanoseconds: 1_000_000)\n        return await MainActor.run { name + \" loaded\" }\n    }\n}\n";
     const SWIFT_CALLER: &str = "@main\nstruct CompanionCaller {\n    static let request = \"{\\\"route\\\":\\\"/\\\",\\\"owner\\\":\\\"6F9619FF-8B86-D011-B42D-00C04FC964FF\\\",\\\"service\\\":\\\"guide\\\",\"\n\n    static func main() {\n        print(tacNativeInvoke(request + \"\\\"op\\\":\\\"init\\\"}\"))\n        print(tacNativeInvoke(request + \"\\\"op\\\":\\\"call\\\",\\\"name\\\":\\\"load\\\",\\\"args\\\":[\\\"Guide\\\"]}\"))\n    }\n}\n";
     const KOTLIN_MODEL: &str = "data class Guide(val title: String, val pages: Int)\n";
     const KOTLIN_KIND_MODEL: &str = "enum class Kind { SHORT, LONG }\n";
-    const KOTLIN_SERVICE: &str = "import models.Guide\nimport models.Kind\n\nclass GuideService {\n    var pages: Int = 0\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + Kind.LONG.name\n    }\n}\n";
+    const KOTLIN_SERVICE: &str = "import models.Guide\nimport models.Kind\n\n@Service\nclass GuideService {\n    var pages: Int = 0\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + Kind.LONG.name\n    }\n}\n";
 }
 
 fn available(program: &str, flag: &str) -> bool {
