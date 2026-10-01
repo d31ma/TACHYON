@@ -24,7 +24,7 @@ import Foundation
     }
 
     private static func documentRefused(_ selection: NativeUiStyleDocumentSelection, _ source: String) throws {
-        try NativeUiRuntimeFailure.require(documentFailure(selection, source) != nil, "Untrusted queried document selected styles")
+        try NativeUiRuntimeFailure.require(documentFailure(selection, source) != nil, "Untrusted queried document selected styles: " + source)
     }
 
     private static func documentFailure(_ selection: NativeUiStyleDocumentSelection, _ source: String) -> Error? {

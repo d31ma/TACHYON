@@ -6,7 +6,7 @@ import WebKit
     private var frame: WKFrameInfo?
 
     func configure(_ configuration: WKWebViewConfiguration) {
-        configuration.userContentController.addScriptMessageHandler(self, contentWorld: NativeUiStyleCall.world, name: Self.name)
+        configuration.userContentController.add(self, contentWorld: NativeUiStyleCall.world, name: Self.name)
         let source = "if(window.top!==window)window.webkit.messageHandlers.nativeStylesFrameFixture.postMessage('ready')"
         configuration.userContentController.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: false, in: NativeUiStyleCall.world))
     }
@@ -35,7 +35,8 @@ import WebKit
             try NativeUiRuntimeFailure.require(Date() < deadline, "Private-world child frame did not become ready")
             try await Task.sleep(nanoseconds: 10_000_000)
         }
-        return frame!
+        guard let frame else { throw NativeUiRuntimeFailure(description: "Private-world child frame is unavailable") }
+        return frame
     }
 
     private func childTicket(_ frame: WKFrameInfo, _ candidate: NativeUiRuntimeGeneration) throws -> NativeUiStyleTicket {
