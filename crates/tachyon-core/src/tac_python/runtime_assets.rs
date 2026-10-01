@@ -128,12 +128,21 @@ impl RuntimeAssets {
     }
 
     fn validate_asset(asset: &RuntimeAsset, bytes: &[u8]) -> Result<(), Failure> {
+        Self::validate_length(asset, bytes)?;
+        Self::validate_digest(asset, bytes)
+    }
+
+    fn validate_length(asset: &RuntimeAsset, bytes: &[u8]) -> Result<(), Failure> {
         if bytes.len() != asset.bytes {
             return Err(Self::failure(
                 asset.name,
                 "asset byte length differs from the pinned release",
             ));
         }
+        Ok(())
+    }
+
+    fn validate_digest(asset: &RuntimeAsset, bytes: &[u8]) -> Result<(), Failure> {
         let digest = format!("{:x}", Sha256::digest(bytes));
         if digest != asset.sha256 {
             return Err(Self::failure(

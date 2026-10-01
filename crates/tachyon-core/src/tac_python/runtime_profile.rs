@@ -19,18 +19,21 @@ impl RuntimeProfile {
     }
 
     fn selected(python: Option<&Value>) -> Result<Option<Self>, Failure> {
-        let Some(python) = python else {
-            return Ok(None);
-        };
-        if python.get("runtime").and_then(Value::as_str) != Some(RuntimeAssets::RUNTIME)
-            || python.get("profile").and_then(Value::as_str) != Some("offline")
-        {
+        python.map(Self::selected_profile).transpose()
+    }
+
+    fn selected_profile(python: &Value) -> Result<Self, Failure> {
+        let fields = [
+            python.get("runtime").and_then(Value::as_str) == Some(RuntimeAssets::RUNTIME),
+            python.get("profile").and_then(Value::as_str) == Some("offline"),
+        ];
+        if fields.contains(&false) {
             return Err(RuntimeAssets::failure(
                 "client/manifest.json",
                 "tac.python must select runtime 'pyodide-314.0.7' and profile 'offline'",
             ));
         }
-        Ok(Some(Self))
+        Ok(Self)
     }
 
     fn limit(path: &str, bytes: &[u8]) -> Result<usize, Failure> {
