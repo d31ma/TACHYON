@@ -103,6 +103,7 @@ class PreferenceStringsBrowserGate {
       const grant = document.querySelector('meta[name="tachyon-browser-apis"]')
       const granted = grant?.content ?? ''
       let second
+      let firstDisposed = false
       try {
         assertGrant(grant)
         const raw = { written: first.write('tachyon.platform', 'macOS'), read: first.read('tachyon.platform'), stored: originals.get.call(localStorage, 'tachyon.platform') }
@@ -121,6 +122,7 @@ class PreferenceStringsBrowserGate {
         const retainedRead = () => first.read('tachyon.platform')
         const retainedWrite = () => first.write('tachyon.platform', 'stale')
         first.__tachyonDispose()
+        firstDisposed = true
         second = new ChoiceService({})
         const beforeDisposed = { ...counters }
         const disposed = { read: failure(retainedRead), write: failure(retainedWrite), before: beforeDisposed, after: { ...counters }, freshWrite: second.write('tachyon.platform', 'Windows'), freshRead: second.read('tachyon.platform'), oldReadAfterNew: failure(retainedRead) }
@@ -129,7 +131,7 @@ class PreferenceStringsBrowserGate {
         if (grant) grant.content = granted
         Storage.prototype.getItem = originals.get
         Storage.prototype.setItem = originals.set
-        first.__tachyonDispose()
+        if (!firstDisposed) first.__tachyonDispose()
         second?.__tachyonDispose()
       }
       function failure(action) {
