@@ -32,6 +32,8 @@ mod model_tests;
 mod native_capabilities;
 #[cfg(test)]
 mod native_capability_tests;
+#[cfg(all(test, target_os = "macos"))]
+mod native_file_picker_permission_tests;
 #[cfg(test)]
 mod native_helper_tests;
 #[cfg(test)]
