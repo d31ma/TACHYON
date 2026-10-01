@@ -18,7 +18,7 @@ impl RuntimeRoots {
         let mut present = false;
         for path in paths.iter().filter(|path| Self::is_python(path)) {
             let relative = path.strip_prefix(root).unwrap_or(path);
-            let source = Self::source(path)?;
+            let source = Self::source(&root.join(path))?;
             crate::annotation_layout::validate(relative, &source)?;
             present = true;
         }

@@ -60,7 +60,7 @@ fn each_realm_holds_its_own_languages() {
         "'Guide.swift' is a Swift file, and only 'client/models/' holds Swift types",
         "Swift is not a Yon language. Declare this type in a server language in 'server/models/', or move it to 'client/models/'.",
     );
-    for (extension, language) in [("groovy", "Groovy"), ("py", "Python"), ("php", "PHP")] {
+    for (extension, language) in [("groovy", "Groovy"), ("php", "PHP")] {
         assert_language_refused(
             &format!("client/models/Guide.{extension}"),
             &format!(
@@ -74,13 +74,28 @@ fn each_realm_holds_its_own_languages() {
     assert_language_refused(
         "client/models/Guide.lua",
         "'Guide.lua' is in a language that a models folder does not hold",
-        "'client/models/' holds data types in TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Swift, Java and Ruby. Move code to its role folder, for example 'client/services/'.",
+        "'client/models/' holds data types in TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Swift, Java, Python and Ruby. Move code to its role folder, for example 'client/services/'.",
     );
     assert_language_refused(
         "server/models/nested/Guide.lua",
         "'Guide.lua' is in a language that a models folder does not hold",
         "'server/models/' holds data types in TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Java, Groovy, Python, PHP and Ruby. Move code to its role folder, for example 'server/services/'.",
     );
+}
+
+#[test]
+fn python_models_remain_data_only_in_both_realms() {
+    assert_accepted(
+        &["client/models/Guide.py", "server/models/Guide.py"],
+        "from dataclasses import dataclass\n\n@dataclass\nclass Guide:\n    title: str\n    pages: int\n",
+    );
+    for path in ["client/models/Guide.py", "server/models/Guide.py"] {
+        let diagnostic = refusal(
+            path,
+            "class Guide:\n    title: str\n\n    def read(self):\n        return self.title\n",
+        );
+        assert_eq!(diagnostic.code.number(), 1310);
+    }
 }
 
 #[test]

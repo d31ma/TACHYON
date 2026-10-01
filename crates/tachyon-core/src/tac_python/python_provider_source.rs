@@ -155,9 +155,7 @@ impl PythonProviderSource {
         self.require_property_owner()?;
         let shape = TypeText::shape("py", written)
             .map_err(|message| Self::failure(&self.path, &message))?;
-        models
-            .check_readable(&shape)
-            .map_err(|message| Self::failure(&self.path, &message))?;
+        self.require_model(&shape, models)?;
         Ok(json!({ "name": field["name"], "page": field["page"], "shape": shape }))
     }
 
@@ -194,9 +192,7 @@ impl PythonProviderSource {
         let written = field["type"].as_str().unwrap_or_default();
         let shape = TypeText::shape("py", written)
             .map_err(|message| Self::failure(&self.path, &message))?;
-        models
-            .check_readable(&shape)
-            .map_err(|message| Self::failure(&self.path, &message))?;
+        self.require_model(&shape, models)?;
         Ok((
             field["page"].as_str().unwrap_or_default().to_owned(),
             json!({ "name": field["name"], "shape": shape, "immutable": field["immutable"] }),
@@ -230,8 +226,22 @@ impl PythonProviderSource {
         let written = value.as_str().unwrap_or_default();
         let shape = TypeText::shape("py", written)
             .map_err(|message| Self::failure(&self.path, &message))?;
+        self.require_model(&shape, models)
+    }
+
+    fn require_model(
+        &self,
+        shape: &crate::route_types::Shape,
+        models: &ModelTable,
+    ) -> Result<(), Failure> {
+        models.check_names(shape).map_err(|message| {
+            Self::failure(
+                &self.path,
+                &message.replace("server/models/", "client/models/"),
+            )
+        })?;
         models
-            .check_readable(&shape)
+            .check_readable(shape)
             .map_err(|message| Self::failure(&self.path, &message))
     }
 

@@ -349,7 +349,7 @@ fn add_service_file(
     }
     let extension = path.extension().and_then(OsStr::to_str).unwrap_or("");
     if ![
-        "js", "ts", "dart", "swift", "kt", "java", "cs", "fs", "rs", "go", "rb", "lua",
+        "js", "ts", "dart", "swift", "kt", "java", "cs", "fs", "rs", "go", "rb", "py", "lua",
     ]
     .contains(&extension)
     {

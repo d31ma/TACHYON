@@ -86,7 +86,7 @@ impl Language {
     fn only_realm(self) -> Option<&'static str> {
         match self {
             Self::Swift => Some("client"),
-            Self::Groovy | Self::Python | Self::Php => Some("server"),
+            Self::Groovy | Self::Php => Some("server"),
             _ => None,
         }
     }
@@ -227,7 +227,9 @@ impl<'a> ModelFile<'a> {
     fn unsupported_language_help(&self) -> String {
         let realm = self.realm;
         let languages = match realm {
-            "client" => "TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Swift, Java and Ruby",
+            "client" => {
+                "TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Swift, Java, Python and Ruby"
+            }
             _ => {
                 "TypeScript, JavaScript, Rust, C#, Dart, Go, Kotlin, Java, Groovy, Python, PHP and Ruby"
             }
