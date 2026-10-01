@@ -67,7 +67,6 @@ pub(crate) fn required_fields(
     })
 }
 
-#[cfg(test)]
 pub(crate) fn prepare(path: &Path, source: &str) -> Result<Option<String>, Failure> {
     let manual = super::manual_helpers::ManualHelpers::read(path, source)?;
     prepare_with_manual(path, source, &manual)
