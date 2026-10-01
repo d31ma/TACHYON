@@ -11,6 +11,7 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         source = copied;
         source = model_source(&relative, source, language);
         source = ruby_converter_source(&relative, source, language);
+        source = php_helper_source(&relative, source, language);
         let relative = relative.replacen("server/clients/", "server/remotes/", 1);
         let relative = relative.replacen("server/", &format!("{realm}/"), 1);
         let relative = Path::new(&relative).with_extension(extension);
@@ -25,6 +26,26 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
             .expect("fixture directories");
         std::fs::write(target, source).expect("authored fixture");
     }
+}
+
+fn php_helper_source(relative: &str, mut source: String, language: &str) -> String {
+    if language != "php" || relative != "server/helpers/HandlerChecksHelper.php" {
+        return source;
+    }
+    for method in [
+        "behaviorError",
+        "exerciseCache",
+        "checkResilience",
+        "checkQueries",
+        "checkMapping",
+        "isCancelled",
+    ] {
+        source = source.replace(
+            &format!("public static function {method}("),
+            &format!("private static function {method}("),
+        );
+    }
+    source
 }
 
 fn ruby_converter_source(relative: &str, source: String, language: &str) -> String {
