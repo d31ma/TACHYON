@@ -58,10 +58,17 @@ impl PreferenceFixture {
 "#;
 
     fn prepared(root: &Path) -> (JavaService, super::java_value_type::JavaValueType) {
+        Self::prepared_source(root, Self::SOURCE)
+    }
+
+    fn prepared_source(
+        root: &Path,
+        source: &str,
+    ) -> (JavaService, super::java_value_type::JavaValueType) {
         let path = root.join("client/services/ChoiceService.java");
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
-        std::fs::write(&path, Self::SOURCE).expect("service");
-        let models = JavaModels::read(root, Self::SOURCE).expect("models");
+        std::fs::write(&path, source).expect("service");
+        let models = JavaModels::read(root, source).expect("models");
         let values = models.values();
         let authored = JavaService {
             instance: String::from("choice"),
@@ -70,7 +77,7 @@ impl PreferenceFixture {
             required: Vec::new(),
             preferences: Vec::new(),
             path: path.strip_prefix(root).expect("relative").to_path_buf(),
-            source: String::from(Self::SOURCE),
+            source: String::from(source),
         };
         let service = JavaWebServices::service(root, authored, 0, &values, &models)
             .expect("production Java lowering");
@@ -150,6 +157,17 @@ fn a_java_needs_preference_field_has_a_typed_constructor_and_is_not_a_page_membe
         table.contains("new TacService0.ChoiceService(new BrowserPreferenceStrings(preferences))")
     );
     assert!(!table.contains("current"));
+}
+
+#[test]
+fn an_existing_java_no_argument_factory_keeps_unrelated_constructor_overloads() {
+    let root = tempfile::tempdir().expect("project");
+    let source = "@Service\nclass ChoiceService {\n ChoiceService() {}\n ChoiceService(String unrelated) {}\n String answer() { return \"legacy\"; }\n}\n";
+    let (service, values) = PreferenceFixture::prepared_source(root.path(), source);
+    assert!(service.preferences.is_empty());
+    let (_, table) = JavaServiceTable::new(&values).file(&[service]);
+    assert!(table.contains("new TacService0.ChoiceService()"));
+    assert!(!table.contains("new BrowserPreferenceStrings"));
 }
 
 #[test]

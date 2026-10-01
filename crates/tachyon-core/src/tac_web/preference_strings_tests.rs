@@ -9,9 +9,9 @@ impl PreferenceHostFixture {
     const RUNTIME: &'static str = concat!(
         include_str!("../template/application-events.js"),
         "\n",
-        include_str!("../template/preference-bounds.js"),
+        include_str!("../template/tac-preference-bounds.js"),
         "\n",
-        include_str!("../template/preference-strings.js"),
+        include_str!("../template/tac-preference-strings.js"),
         "\n",
         include_str!("../template/tac-web.js"),
         "\n"

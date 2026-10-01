@@ -21,17 +21,46 @@ impl<'a> JavaPreferenceConstructor<'a> {
             class,
             code: JavaCode::new(source),
         };
-        let parameters = reader.parameters()?;
+        let found = reader.constructors();
+        let defaults = Self::defaults(&found);
+        let preferences = Self::preferences(&found);
+        let parameters = reader.parameters(&found, defaults, &preferences)?;
         reader.checked(&parameters)
     }
 
-    fn parameters(&self) -> Result<Vec<(String, String)>, Failure> {
-        let found = self.constructors();
-        match found.as_slice() {
-            [] => Ok(Vec::new()),
-            [parameters] => Ok(parameters.clone()),
-            _ => Err(self.failure("A Java browser service has one constructor.")),
+    fn parameters(
+        &self,
+        found: &[Vec<(String, String)>],
+        defaults: usize,
+        preferences: &[Vec<(String, String)>],
+    ) -> Result<Vec<(String, String)>, Failure> {
+        match (found, defaults, preferences) {
+            ([], _, _) | (_, 1.., _) => Ok(Vec::new()),
+            (_, 0, [parameters]) | ([parameters], 0, []) => Ok(parameters.clone()),
+            (_, 0, []) => Err(self.failure("No Java browser constructor can be called without arguments or with only PreferenceStrings.")),
+            _ => Err(self.failure("More than one Java PreferenceStrings constructor is available; browser injection needs an unambiguous constructor.")),
         }
+    }
+
+    fn defaults(found: &[Vec<(String, String)>]) -> usize {
+        found
+            .iter()
+            .filter(|parameters| parameters.is_empty())
+            .count()
+    }
+
+    fn preferences(found: &[Vec<(String, String)>]) -> Vec<Vec<(String, String)>> {
+        found
+            .iter()
+            .filter(|parameters| Self::preference_only(parameters))
+            .cloned()
+            .collect()
+    }
+
+    fn preference_only(parameters: &[(String, String)]) -> bool {
+        parameters
+            .iter()
+            .all(|(kind, _)| kind == "PreferenceStrings")
     }
 
     fn constructors(&self) -> Vec<Vec<(String, String)>> {
@@ -90,15 +119,48 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_and_overloaded_browser_constructors_are_located_errors() {
+    fn an_existing_no_argument_constructor_keeps_its_factory_path_with_overloads() {
+        for source in [
+            "class ChoiceService { ChoiceService() {} ChoiceService(String unrelated) {} }",
+            "class ChoiceService { ChoiceService(PreferenceStrings port) {} ChoiceService() {} }",
+            "class ChoiceService { String answer() { return \"implicit\"; } }",
+        ] {
+            let names = JavaPreferenceConstructor::read(
+                Path::new("client/services/ChoiceService.java"),
+                source,
+                "ChoiceService",
+            )
+            .expect("existing no-argument factory");
+            assert!(names.is_empty(), "{source}");
+        }
+    }
+
+    #[test]
+    fn one_preference_constructor_is_selected_among_unrelated_argument_overloads() {
+        let source = "class ChoiceService { ChoiceService(String unrelated) {} ChoiceService(PreferenceStrings port) {} }";
+        let names = JavaPreferenceConstructor::read(
+            Path::new("client/services/ChoiceService.java"),
+            source,
+            "ChoiceService",
+        )
+        .expect("unambiguous preference constructor");
+        assert_eq!(names, ["port"]);
+    }
+
+    #[test]
+    fn unsupported_and_ambiguous_argument_only_browser_constructors_are_located_errors() {
         for (source, message) in [
             (
                 "class ChoiceService { ChoiceService(String unrelated) {} }",
                 "String needs its own provider adapter",
             ),
             (
-                "class ChoiceService { ChoiceService() {} ChoiceService(PreferenceStrings port) {} }",
-                "one constructor",
+                "class ChoiceService { ChoiceService(String unrelated) {} ChoiceService(int other) {} }",
+                "No Java browser constructor",
+            ),
+            (
+                "class ChoiceService { ChoiceService(PreferenceStrings port) {} ChoiceService(PreferenceStrings first, PreferenceStrings second) {} }",
+                "unambiguous constructor",
             ),
         ] {
             let failure = JavaPreferenceConstructor::read(
