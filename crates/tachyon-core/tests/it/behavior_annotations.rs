@@ -230,10 +230,14 @@ fn invalid_native_tac_behavior_policies_fail_before_native_toolchain_execution()
             "client/services/PageViewService.js",
             "@Service()\nexport default class PageViewService {}",
         );
+        let declaration = match extension {
+            "rs" => "struct PageViewService {}",
+            _ => "class PageViewService {}",
+        };
         write(
             root.path(),
             &format!("client/services/PageViewService.{extension}"),
-            &format!("{registration}\n{marker}\nclass PageViewService {{}}"),
+            &format!("{registration}\n{marker}\n{declaration}"),
         );
         let failure = WebCompiler::build(root.path(), &BuildOptions::default())
             .expect_err("invalid native behavior policy");
