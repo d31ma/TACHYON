@@ -2,6 +2,11 @@
   "tac": {
     "files": [
       {
+        "name": "client/manifest.json",
+        "code": "{\n  \"tac\": {\n    \"python\": {\n      \"runtime\": \"pyodide-314.0.7\",\n      \"profile\": \"offline\"\n    }\n  }\n}\n",
+        "note": "The Python example explicitly selects the pinned offline runtime profile. The build uses verified Pyodide 314.0.7 core assets already present in the Tachyon cache; it does not download packages or use a CDN. Projects without a Python service do not ship the Python runtime."
+      },
+      {
         "name": "client/components/basket/tally/tac.html",
         "code": "<article class=\"tally\">\n  <h1>{tally.count} in the basket</h1>\n  <p>That is {tally.doubled()} at two apiece.</p>\n  <p class=\"runtime\">Answered by {tally.runtime}.</p>\n</article>"
       },
@@ -21,7 +26,7 @@
       },
       {
         "name": "client/services/TallyService.dart",
-        "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC), at -O4 in a release build. It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.",
+        "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC), at -O4 in a release build. It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json.",
         "code": "@Service\nclass TallyService {\n  int count = 6;\n  final String runtime = 'Dart, compiled to JavaScript';\n\n  int doubled() => count * 2;\n}\n"
       },
       {
@@ -40,6 +45,11 @@
         "code": "#[Service]\nclass TallyService\n  # @return [Integer]\n  attr_reader :count\n  # @return [String]\n  attr_reader :runtime\n\n  def initialize\n    @count = 6\n    @runtime = \"Ruby, on the mruby web runtime\"\n  end\n\n  # @return [Integer]\n  def doubled\n    @count * 2\n  end\nend"
       },
       {
+        "name": "client/services/TallyService.py",
+        "code": "@service\nclass TallyService:\n    count: int = 6\n    runtime: str = \"Python, on the pinned Pyodide web runtime\"\n\n    def doubled(self) -> int:\n        return self.count * 2\n",
+        "note": "Python runs synchronous typed services on the pinned Pyodide 314.0.7 WebAssembly interpreter. Its ordinary Service class exposes fields and methods through Tachyon’s typed bridge; self remains required. The explicit offline manifest profile permits the verified local core assets, roughly 14 MB before transfer compression. This initial web slice supports synchronous DI, models and lifecycle; async methods, browser capability adapters and native-host execution remain unqualified."
+      },
+      {
         "name": "client/services/TallyService.lua",
         "note": "Lua runs on Tachyon's own Lua 5.4 WebAssembly runtime (ADR 0085). The first build of a project with a Lua service builds that runtime once on your machine, with Emscripten, into the Tachyon cache. The page loads the runtime once for all Lua services. Each service is one global table; its fields are the table's fields, and the page reads and changes them. It runs on every target, because native hosts display the application in a web view.",
         "code": "-- @Service\n---@class TallyService\nTallyService = {\n  ---@type integer\n  count = 6,\n  ---@type string\n  runtime = \"Lua, on the Lua web runtime\",\n}\n\n---@return integer\nfunction TallyService:doubled()\n  return self.count * 2\nend\n"
@@ -47,27 +57,27 @@
       {
         "name": "client/services/TallyService.swift",
         "code": "@Service\nfinal class TallyService {\n  var count: Int = 6\n  let runtime = \"Swift, in the app or as WebAssembly\"\n\n  func doubled() -> Int { count * 2 }\n}",
-        "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library."
+        "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
       },
       {
         "name": "client/services/TallyService.kt",
         "code": "@Service\nclass TallyService {\n  var count: Int = 6\n  val runtime: String = \"Kotlin, compiled to WebAssembly or into the APK\"\n\n  fun doubled(): Int = count * 2\n}",
-        "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer."
+        "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
       },
       {
         "name": "client/services/TallyService.java",
         "code": "@Service\nclass TallyService {\n    int count = 6;\n    final String runtime = \"Java, compiled to WebAssembly by TeaVM\";\n\n    int doubled() {\n        return count * 2;\n    }\n}\n",
-        "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083). `ty init --tac java` creates a Java service with its test unit, and `ty doctor --install` puts the TeaVM 0.15.0 jars into the Tachyon cache after it checks each one against its pinned SHA-256; `TAC_TEAVM_HOME` can point at your own copy instead."
+        "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083). `ty init --tac java` creates a Java service with its test unit, and `ty doctor --install` puts the TeaVM 0.15.0 jars into the Tachyon cache after it checks each one against its pinned SHA-256; `TAC_TEAVM_HOME` can point at your own copy instead. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
       },
       {
         "name": "client/services/TallyService.cs",
         "code": "[Service]\npublic class TallyService\n{\n    public int Count = 6;\n    public string Runtime => \"C#, compiled by .NET\";\n\n    public int Doubled() => Count * 2;\n}",
-        "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the trimmed .NET browser runtime (compiled ahead of time when tac.dotnet.aot is true)."
+        "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the trimmed .NET browser runtime (compiled ahead of time when tac.dotnet.aot is true). Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
       },
       {
         "name": "client/services/TallyService.fs",
         "code": "[<Service>]\ntype TallyService() =\n    member val Count = 6 with get, set\n\n    member this.Runtime : string = \"F#, compiled by .NET\"\n\n    member this.Doubled() : int =\n        this.Count * 2\n",
-        "note": "The .NET SDK compiles the F# service to an assembly, and the page runs it on the same .NET browser runtime as C#. No native host links F#, so every target, Windows included, runs it in its web view. A page with C# and F# services downloads the .NET runtime once. The page reads the service's public properties, such as `member val Count = 6 with get, set`. A long value may go on the lines below `member val Count =`, with `with get, set` after it."
+        "note": "The .NET SDK compiles the F# service to an assembly, and the page runs it on the same .NET browser runtime as C#. No native host links F#, so every target, Windows included, runs it in its web view. A page with C# and F# services downloads the .NET runtime once. The page reads the service's public properties, such as `member val Count = 6 with get, set`. A long value may go on the lines below `member val Count =`, with `with get, set` after it. Private values can use let bindings. F# member declarations retain their required self identifier; the optional unnecessary-receiver rule does not rewrite them."
       }
     ]
   },
@@ -168,7 +178,7 @@
       {
         "id": "java",
         "name": "Java",
-        "note": "Java keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Java keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route. Members without this: read and change class fields by their bare name. Keep this. when a parameter or local has the same name. Optional TY1362 suggestions are enabled with implicitmembers.suggest in server/application.json; they are off by default.",
         "files": [
           {
             "name": "server/models/OrderList.java",
@@ -187,7 +197,7 @@
       {
         "id": "groovy",
         "name": "Groovy",
-        "note": "Groovy keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Every field and method has a declared type, not def, so that Tachyon can read the route types. Tachyon checks each file that you write. Then it joins the roles that use the same language, adds the protocol runtime and compiles your Groovy with its Java runtime on the same JVM. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Groovy keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Every field and method has a declared type, not def, so that Tachyon can read the route types. Tachyon checks each file that you write. Then it joins the roles that use the same language, adds the protocol runtime and compiles your Groovy with its Java runtime on the same JVM. The protocol runtime is the code that passes requests and responses between the server and your route. Members without this: read and change class fields by their bare name. Keep this. when a parameter or local has the same name. Optional TY1362 suggestions are enabled with implicitmembers.suggest in server/application.json; they are off by default.",
         "files": [
           {
             "name": "server/models/OrderList.groovy",
@@ -206,7 +216,7 @@
       {
         "id": "csharp",
         "name": "C#",
-        "note": "C# keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "C# keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route. Members without this: read and change class fields by their bare name. Keep this. when a parameter or local has the same name. Optional TY1362 suggestions are enabled with implicitmembers.suggest in server/application.json; they are off by default.",
         "files": [
           {
             "name": "server/models/OrderList.cs",
@@ -225,7 +235,7 @@
       {
         "id": "fsharp",
         "name": "F#",
-        "note": "F# keeps the OrdersController and OrderService in separate files, one type in each file. The attributes are F# attributes: RequestRoute on the controller type and GetRoute on its member declare GET /orders, and Public says that anyone may call its routes. A type takes the roles it needs as the parameters of its primary constructor, as Spring does with one constructor. A settable property marked Needs, `[<Needs>] member val OrderService : OrderService = Unchecked.defaultof<OrderService> with get, set`, receives a role too, like a Spring field. F# runs on .NET: Tachyon compiles your F# code and adds the same protocol runtime that C# uses.",
+        "note": "F# keeps the OrdersController and OrderService in separate files, one type in each file. The attributes are F# attributes: RequestRoute on the controller type and GetRoute on its member declare GET /orders, and Public says that anyone may call its routes. A type takes the roles it needs as the parameters of its primary constructor, as Spring does with one constructor. A settable property marked Needs, `[<Needs>] member val OrderService : OrderService = Unchecked.defaultof<OrderService> with get, set`, receives a role too, like a Spring field. F# runs on .NET: Tachyon compiles your F# code and adds the same protocol runtime that C# uses. Private values can use let bindings. F# member declarations still require the self identifier, such as member this.Total(); they are outside the optional unnecessary-receiver suggestion.",
         "files": [
           {
             "name": "server/models/OrderList.fs",
@@ -244,7 +254,7 @@
       {
         "id": "kotlin",
         "name": "Kotlin",
-        "note": "Kotlin keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Kotlin keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route. Members without this: read and change class fields by their bare name. Keep this. when a parameter or local has the same name. Optional TY1362 suggestions are enabled with implicitmembers.suggest in server/application.json; they are off by default.",
         "files": [
           {
             "name": "server/models/OrderList.kt",
@@ -301,7 +311,7 @@
       {
         "id": "dart",
         "name": "Dart",
-        "note": "Dart keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route.",
+        "note": "Dart keeps the OrdersController and OrderService in separate files, one file for each role. RequestRoute on the controller class and GetRoute on its method declare GET /orders. Public on the controller class says that anyone may call its routes; every route must say who may call it. Tachyon checks each file that you write. Then it joins the roles that use the same language and adds the protocol runtime. The protocol runtime is the code that passes requests and responses between the server and your route. Members without this: read and change class fields by their bare name. Keep this. when a parameter or local has the same name. Dart initializing formals such as Order(this.id) keep their receiver. Optional TY1362 suggestions are enabled with implicitmembers.suggest in server/application.json; they are off by default.",
         "files": [
           {
             "name": "server/models/OrderList.dart",
