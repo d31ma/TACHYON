@@ -93,9 +93,9 @@ class WebsiteLuaGate {
   static async #languages(page) {
     const section = page.locator('#languages')
     await section.getByRole('button', { name: 'Yon · server controllers', exact: true }).click()
-    await page.waitForFunction(() => globalThis.__tachyonTac?.service('languages'))
+    await page.waitForFunction(() => [...(globalThis.__tachyonTac?.instances.values() ?? [])].some(owner => owner.languages))
     const actual = await page.evaluate(() => {
-      const service = globalThis.__tachyonTac.service('languages')
+      const service = [...globalThis.__tachyonTac.instances.values()].find(owner => owner.languages).languages
       const expected = service.entries.flatMap(entry => Array.isArray(entry?.files) ? entry.files : [])
       return { expected: expected.map(file => file.name), names: service.handlers().map(file => file.name),
         hidden: [typeof service._files_of, typeof service._entry_files] }
@@ -105,7 +105,7 @@ class WebsiteLuaGate {
     assert.deepEqual(actual.hidden, ['undefined', 'undefined'])
     await page.locator('#yon-language-examples').waitFor({ state: 'visible' })
     await page.waitForFunction(() => {
-      const files = globalThis.__tachyonTac.service('languages').handlers()
+      const files = [...globalThis.__tachyonTac.instances.values()].find(owner => owner.languages).languages.handlers()
       const rendered = [...document.querySelectorAll('#yon-language-examples .demo-code-col')]
       return rendered.length > 0 && rendered.every(column => {
         const name = column.querySelector('.demo-code-name')?.textContent.trim()
@@ -133,10 +133,11 @@ class WebsiteLuaGate {
   static async #quantity(page, origin) {
     const response = await page.goto(`${origin}/docs/`)
     assert.equal(response.status(), 200)
-    await page.waitForFunction(() => globalThis.__tachyonTac?.service('quantity') && globalThis.__tachyonTac?.service('documentation'))
+    await page.waitForFunction(() => [...(globalThis.__tachyonTac?.instances.values() ?? [])].some(owner => owner.quantity && owner.documentation))
     const actual = await page.evaluate(cases => {
-      const service = globalThis.__tachyonTac.service('quantity')
-      const documentation = globalThis.__tachyonTac.service('documentation')
+      const owner = [...globalThis.__tachyonTac.instances.values()].find(candidate => candidate.quantity && candidate.documentation)
+      const service = owner.quantity
+      const documentation = owner.documentation
       return { count: documentation.count(), cases: cases.map(([count, noun]) => service.describe(count, noun)), hidden: typeof service.nounFor }
     }, WebsiteLuaGate.quantityCases)
     assert.deepEqual(actual.cases, WebsiteLuaGate.quantityCases.map(([, , label]) => label))

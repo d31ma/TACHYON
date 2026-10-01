@@ -56,15 +56,15 @@ mod native_ui_generation;
 #[cfg(test)]
 mod native_ui_generation_tests;
 mod native_ui_problem;
+mod native_ui_profile;
+#[cfg(test)]
+mod native_ui_profile_tests;
 #[cfg(all(test, target_os = "macos"))]
 mod native_ui_runtime_tests;
 #[cfg(all(test, target_os = "macos"))]
 mod native_ui_styles_sources;
 #[cfg(all(test, target_os = "macos"))]
 mod native_ui_styles_tests;
-mod native_ui_profile;
-#[cfg(test)]
-mod native_ui_profile_tests;
 #[cfg(test)]
 mod native_web_api_tests;
 #[cfg(test)]

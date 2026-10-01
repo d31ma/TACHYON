@@ -7,8 +7,8 @@ mod context;
 mod expression;
 mod frontend;
 mod model;
-mod script_service_references;
 pub(crate) mod required_fields;
+mod script_service_references;
 mod service;
 mod service_reach;
 #[cfg(test)]
