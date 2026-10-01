@@ -126,8 +126,16 @@ impl RustConstruction {
     }
 
     fn default_implementation((header, _): (&str, &str)) -> Option<String> {
-        let name = header.trim().strip_prefix("Default for ")?.trim();
-        Some(name.to_owned())
+        let (kind, name) = header.trim().split_once(" for ")?;
+        let available = matches!(
+            kind,
+            "Default"
+                | "core::default::Default"
+                | "::core::default::Default"
+                | "std::default::Default"
+                | "::std::default::Default"
+        );
+        available.then(|| name.trim().to_owned())
     }
 
     fn remember_derive(defaults: &mut BTreeSet<String>, previous: &mut String, line: &str) {
@@ -354,6 +362,32 @@ mod tests {
             failure.to_string().contains("needs a constructor"),
             "{failure}"
         );
+    }
+
+    #[test]
+    fn rust_provider_construction_accepts_qualified_default_implementations() {
+        for kind in [
+            "Default",
+            "core::default::Default",
+            "::core::default::Default",
+            "std::default::Default",
+            "::std::default::Default",
+        ] {
+            let source = format!(
+                "struct RootService {{ count: i64 }}\nimpl {kind} for RootService {{ fn default() -> Self {{ Self {{ count: 0 }} }} }}\n"
+            );
+            let expression = RustConstruction::instance(
+                &source,
+                "client/services/RootService.rs",
+                "RootService",
+                false,
+            )
+            .unwrap_or_else(|failure| panic!("{failure}"));
+            assert_eq!(
+                expression,
+                "<RootService as ::core::default::Default>::default()"
+            );
+        }
     }
 
     #[test]
