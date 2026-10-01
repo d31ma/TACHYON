@@ -77,6 +77,31 @@ impl ScriptAssetFixture {
 }
 
 #[tokio::test]
+#[ignore = "requires TAC_SCRIPT_ASSET_BUNDLE pointing to a completed CLI web bundle"]
+async fn script_assets_completed_native_bundle_executes_authored_utility() {
+    let root = std::env::var_os("TAC_SCRIPT_ASSET_BUNDLE").expect("completed bundle path");
+    let mut command = tokio::process::Command::new("node");
+    command.args([
+        "--input-type=module",
+        "--eval",
+        "const { default: LabelService } = await import('./tachyon-runtime/services/LabelService.js'); if (new LabelService().text !== 'Ready') throw new Error('wrong utility result'); console.log('LabelService.text=Ready');",
+    ]).current_dir(root);
+    let output =
+        crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 64 * 1024)
+            .await
+            .expect("supervised Node");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "LabelService.text=Ready"
+    );
+}
+
+#[tokio::test]
 async fn script_assets_publish_reachable_nested_transitive_utilities_with_cycles() {
     for import in [
         "../../utils/nested/TitleUtils.js",
