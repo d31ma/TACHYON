@@ -28,6 +28,10 @@ impl<'a> JavaTestConstruction<'a> {
              {}\
              throw new IllegalArgumentException(\"Test.construct needs a class with a declared Needs constructor.\");\n\
              }}));\n\
+             }}\n\
+             private <T> T __tachyonAssignedFake(T value, String message) {{\n\
+             if (value == null) throw new IllegalStateException(message);\n\
+             return value;\n\
              }}\n",
             self.cases()
         )
@@ -69,7 +73,7 @@ impl<'a> JavaTestConstruction<'a> {
         match (self.unit.mocks.contains(name), expected, actual) {
             (true, Some(expected), Some(actual)) if expected.type_source == actual.type_source => {
                 Ok(format!(
-                    "java.util.Objects.requireNonNull(this.{name}, {})",
+                    "this.__tachyonAssignedFake(this.{name}, {})",
                     Self::quoted(&format!(
                         "Test.construct needs an assigned Fake named {name}."
                     ))

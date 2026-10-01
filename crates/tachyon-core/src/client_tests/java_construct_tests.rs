@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use std::path::Path;
 
 #[test]
@@ -5,6 +7,10 @@ use std::path::Path;
 fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
     let root = tempfile::tempdir().expect("test project");
     let files = [
+        (
+            "client/services/NumberService.java",
+            "@Service\nclass NumberService {\n    @Needs\n    private final long count;\n    long answer() { return count; }\n}\n",
+        ),
         (
             "client/services/ChoiceService.java",
             "@Service\nclass ChoiceService {\n    @Needs\n    private final java.util.function.Supplier<String> port;\n    String answer() { return port.get(); }\n}\n",
@@ -19,6 +25,17 @@ fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
 class ChoiceServiceTest {
     @Fake
     java.util.function.Supplier<String> port;
+    @Fake
+    long count;
+
+    void testPrimitiveFakeIsInjected() {
+        count = 0;
+        NumberService first = construct(NumberService.class);
+        count = 17;
+        NumberService second = construct(NumberService.class);
+        Assert.equals(0L, first.answer(), "zero is a valid primitive fake");
+        Assert.equals(17L, second.answer(), "a primitive fake is passed through its typed constructor");
+    }
 
     void testPerConstructionFakeIdentity() {
         port = () -> "first";
@@ -76,7 +93,7 @@ class WrongFakeTest {
         std::fs::create_dir_all(path.parent().expect("fixture parent")).expect("fixture directory");
         std::fs::write(path, source).expect("fixture source");
     }
-    for (name, cases) in [("ChoiceServiceTest", 4), ("WrongFakeTest", 1)] {
+    for (name, cases) in [("ChoiceServiceTest", 5), ("WrongFakeTest", 1)] {
         let relative = format!("client/tests/{name}.java");
         let report =
             super::run(root.path(), Path::new(&relative)).expect("supervised native Java Test");

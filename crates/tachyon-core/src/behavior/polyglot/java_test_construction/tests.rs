@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use std::path::Path;
 
 fn lowered(fake: &str) -> String {
@@ -19,9 +21,7 @@ fn lowered(fake: &str) -> String {
 fn declared_fake_values_are_passed_to_the_real_typed_constructor() {
     let source = lowered("@Fake\n    String value;");
     assert!(source.contains("public ChoiceService(String value)"));
-    assert!(
-        source.contains("type.cast(new ChoiceService(java.util.Objects.requireNonNull(this.value")
-    );
+    assert!(source.contains("type.cast(new ChoiceService(this.__tachyonAssignedFake(this.value"));
     assert!(source.contains("private final String value;"));
     assert!(!source.contains("java.lang.reflect"));
     assert!(!source.contains("getDeclaredField"));
@@ -46,6 +46,7 @@ fn construction_requires_active_test_setup_and_an_assigned_fake() {
     let source = lowered("@Fake\n    String value;");
     assert!(source.contains("this.behaviors == null"));
     assert!(source.contains("Test.construct needs an assigned Fake named value"));
+    assert!(source.contains("if (value == null) throw new IllegalStateException(message)"));
     assert!(source.contains("Test.construct needs a class with a declared Needs constructor"));
     assert!(!source.contains("static <T> T construct"));
 }
