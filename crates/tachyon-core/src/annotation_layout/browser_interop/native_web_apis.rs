@@ -19,6 +19,7 @@ impl NativeWebApis {
     const HELP: &'static str = "Browser APIs need the page. Use this API in a JavaScript, TypeScript or WebAssembly service, and send the result to this service with an event. See /docs/native-services";
 
     pub(crate) fn refuse(path: &Path, source: &str) -> Result<(), Failure> {
+        Self::refuse_preferences(path, source)?;
         let extension = Self::extension(path);
         let mut names = crate::route_types::WebEventModels::names();
         names.extend(Self::clients(extension));
@@ -30,6 +31,12 @@ impl NativeWebApis {
             .map(|range| Self::problem(path, source, language, range))
             .collect();
         BrowserInteropCheck::refuse(problems)
+    }
+
+    pub(crate) fn refuse_preferences(path: &Path, source: &str) -> Result<(), Failure> {
+        BrowserInteropCheck::refuse(
+            super::preference_provider_check::PreferenceProviderCheck::native(path, source),
+        )
     }
 
     fn clients(extension: &str) -> Vec<String> {

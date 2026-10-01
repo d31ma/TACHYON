@@ -32,6 +32,18 @@ impl NativeCompanionInput {
             })
             .collect()
     }
+    fn refuse_preferences(&self, captured: &str) -> Result<(), Failure> {
+        match self.web_assembly {
+            true => Ok(()),
+            false => {
+                let relative = self
+                    .source
+                    .strip_prefix(&self.snapshot_root)
+                    .unwrap_or(&self.source);
+                crate::annotation_layout::NativeWebApis::refuse_preferences(relative, captured)
+            }
+        }
+    }
 }
 
 pub(super) fn source(
@@ -121,6 +133,7 @@ fn service_body(
 ) -> Result<String, Failure> {
     let captured = read_captured_source(&item.source)?;
     let captured = crate::without_bom(&captured);
+    item.refuse_preferences(captured)?;
     super::fsharp_service::FsharpService::body_or(item, captured, || {
         compiled_service_body(language, item, captured, imports)
     })

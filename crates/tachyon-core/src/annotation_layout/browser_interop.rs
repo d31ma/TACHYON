@@ -9,11 +9,15 @@ use tachyon_diagnostics::Diagnostic;
 mod interop_finder;
 mod interop_rules;
 mod native_web_apis;
+mod preference_provider_check;
 
 pub(crate) use native_web_apis::NativeWebApis;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod preference_provider_tests;
 
 pub(crate) struct BrowserInteropCheck;
 
@@ -28,9 +32,13 @@ impl BrowserInteropCheck {
     }
 
     pub(crate) fn problems(path: &Path, source: &str) -> Vec<Diagnostic> {
-        InteropRules::for_path(path)
+        let mut problems = InteropRules::for_path(path)
             .map(|rules| Self::problems_with(path, source, rules))
-            .unwrap_or_default()
+            .unwrap_or_default();
+        problems.extend(preference_provider_check::PreferenceProviderCheck::browser(
+            path, source,
+        ));
+        problems
     }
 
     fn problems_with(path: &Path, source: &str, rules: &InteropRules) -> Vec<Diagnostic> {

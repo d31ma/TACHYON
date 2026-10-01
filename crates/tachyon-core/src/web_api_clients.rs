@@ -14,7 +14,13 @@ impl WebApiClients {
         "WindowControls",
     ];
 
+    const PRIVATE_CLIENTS: [&'static str; 2] = ["FilePicker", "PreferenceStrings"];
+
     pub(crate) fn is_client_type(declared: &str) -> bool {
-        declared == "FilePicker" || Self::TYPE_NAMES.contains(&declared)
+        Self::client_type(declared)
+    }
+
+    fn client_type(declared: &str) -> bool {
+        Self::PRIVATE_CLIENTS.contains(&declared) || Self::TYPE_NAMES.contains(&declared)
     }
 }

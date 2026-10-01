@@ -23,6 +23,11 @@ impl RustPageGraph {
         let input = inputs[0];
         let captured = std::fs::read_to_string(&input.source)
             .map_err(|error| super::host::native_tool_failure(1605, &error.to_string()))?;
+        let relative = input
+            .source
+            .strip_prefix(&input.snapshot_root)
+            .unwrap_or(&input.source);
+        crate::annotation_layout::NativeWebApis::refuse_preferences(relative, &captured)?;
         let units = crate::annotation_modules::Module::native_units(
             &input.snapshot_root,
             &input.source,

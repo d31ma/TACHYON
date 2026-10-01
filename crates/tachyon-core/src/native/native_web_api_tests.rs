@@ -87,3 +87,30 @@ fn swift_and_kotlin_keep_their_own_clock_but_not_page_events() {
         "{error}"
     );
 }
+
+#[test]
+fn preference_strings_linked_source_fails_before_native_provider_generation() {
+    let rust = "#[Service]\n#[derive(Default)]\nstruct PlaceService { preferences: PreferenceStrings }\nimpl PlaceService { fn read(&self) -> String { String::new() } }\n";
+    let swift = "@Service\nclass PlaceService {\n var preferences: PreferenceStrings\n func read() -> String { return \"\" }\n}\n";
+    for (language, extension, authored) in [
+        (NativeCompanion::Rust, "rs", rust),
+        (NativeCompanion::Swift, "swift", swift),
+    ] {
+        let error = Services::built(language, extension, authored, false)
+            .expect_err("located unsupported native provider");
+        assert!(error.contains("TY1317"), "{error}");
+        assert!(
+            error.contains("PreferenceStrings has no supported provider"),
+            "{error}"
+        );
+        assert!(error.contains("linked native platform"), "{error}");
+        let start = authored
+            .find("PreferenceStrings")
+            .expect("authored provider type");
+        let location = format!(
+            "client/services/PlaceService.{extension}:{start}..{}",
+            start + "PreferenceStrings".len()
+        );
+        assert!(error.contains(&location), "{error}");
+    }
+}
