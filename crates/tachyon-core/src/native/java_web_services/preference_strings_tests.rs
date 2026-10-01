@@ -85,15 +85,19 @@ impl PreferenceFixture {
     }
 
     fn staged(root: &Path) -> Vec<std::path::PathBuf> {
-        let (service, values) = Self::prepared(root);
+        Self::staged_source(root, Self::SOURCE)
+    }
+
+    fn staged_source(root: &Path, source: &str) -> Vec<std::path::PathBuf> {
+        let (service, values) = Self::prepared_source(root, source);
         let mut files = JavaWebServices::prelude(std::slice::from_ref(&service), &values);
         files.retain(|(path, _)| {
             path.file_name()
                 .is_none_or(|name| name != "TacHost.java" && name != "TacServices.java")
         });
-        let models = JavaModels::read(root, Self::SOURCE).expect("models");
+        let models = JavaModels::read(root, source).expect("models");
         files.extend(models.sources(&values).expect("model codecs"));
-        files.extend(JavaWebApis::clients(Path::new("tachyon"), Self::SOURCE));
+        files.extend(JavaWebApis::clients(Path::new("tachyon"), source));
         files.extend([
             (
                 std::path::PathBuf::from("ChoiceService.java"),
@@ -235,7 +239,11 @@ fn a_java_injected_publisher_cannot_publish_through_another_activation() {
     let model = root.path().join("client/models/PlatformChanged.java");
     std::fs::create_dir_all(model.parent().expect("model parent")).expect("models");
     std::fs::write(&model, "record PlatformChanged(String platform) {}\n").expect("model");
-    let mut files = PreferenceFixture::staged(root.path());
+    let source = format!(
+        "import models.PlatformChanged;\n{}",
+        PreferenceFixture::SOURCE
+    );
+    let mut files = PreferenceFixture::staged_source(root.path(), &source);
     let host = root.path().join("TacHost.java");
     let source = PreferenceFixture::HOST.replace(
         "static void emit(String payload) {}",
@@ -243,8 +251,7 @@ fn a_java_injected_publisher_cannot_publish_through_another_activation() {
     );
     std::fs::write(host, source).expect("typed fake JDK host");
     let driver = root.path().join("PublisherMain.java");
-    std::fs::write(&driver, r#"import models.PlatformChanged;
-final class PublisherMain {
+    std::fs::write(&driver, r#"final class PublisherMain {
     public static void main(String[] ignored) {
         TacActivation first = new TacActivation("/", "choice", "first");
         TacActivation second = new TacActivation("/", "choice", "second");
