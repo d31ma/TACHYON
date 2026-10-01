@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn factory_names_must_be_exact() {
-        let source = "[Helper]\nclass ProbeHelper { [Needs] public BehaviorContext behaviors; }\nclass Caller { object value = Behaviors.construct(typeof(ProbeHelper), context); }";
+        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeHelper), context); }";
         assert_eq!(names("cs", source), BTreeSet::from(["ProbeHelper".into()]));
         assert!(
             names(
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn field_needs_does_not_opt_into_class_provider_ownership() {
-        let source = "[Helper]\nclass ProbeHelper { [Needs] public BehaviorContext behaviors; }\nclass Caller { object value = Behaviors.construct<ProbeHelper>(context); }";
+        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct<ProbeHelper>(context); }";
         assert_eq!(names("cs", source), BTreeSet::from(["ProbeHelper".into()]));
     }
 }
