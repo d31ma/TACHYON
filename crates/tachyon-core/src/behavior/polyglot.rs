@@ -6,6 +6,8 @@ use std::ops::Range;
 use std::path::Path;
 
 mod csharp;
+#[cfg(test)]
+mod csharp_test_construction_tests;
 mod dart;
 mod detached_csharp;
 pub(crate) use detached_csharp::DetachedCsharp;
