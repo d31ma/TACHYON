@@ -328,7 +328,15 @@ fn rust_utility_multiline_generics_still_reject_real_persistent_state() {
 #[test]
 fn rust_utility_multiline_generic_bodies_still_receive_cohesion_checks() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn delta<T: Copy + PartialOrd + std::ops::Sub<Output = T>>(\n        current: T,\n        previous: T,\n    ) -> T {\n        if current >= previous { current - previous } else { previous - current }\n    }\n}\n";
-    assert_eq!(codes("client/utils/TitleUtils.rs", source), vec![1314]);
+    let found = crate::annotation_layout::CohesionCheck::problems(
+        Path::new("client/utils/TitleUtils.rs"),
+        source,
+    )
+    .expect("readable generic method")
+    .into_iter()
+    .map(|problem| problem.code.number())
+    .collect::<Vec<_>>();
+    assert_eq!(found, vec![1314]);
 }
 
 #[test]
