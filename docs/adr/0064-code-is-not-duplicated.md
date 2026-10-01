@@ -116,3 +116,14 @@ Whole-folder aliases and globs, and namespace paths based on nested authored
 directories, are not qualified by this per-type lowering. Nested code blocks
 using a known fully qualified type are covered; nested directory namespaces
 are a separate contract.
+
+## Rust declaration projection — 2026-10-01
+
+Behavior-clone tokens exclude top-level unit-type and impl wrappers and
+associated constants initialized by a single literal value. Distinct label
+tables followed by short accessors therefore do not become a behavior clone
+merely because normalization replaces their different names and values.
+Computed or block constant initializers, method bodies and function-local
+declarations still count. Original source line positions and the existing
+100-token, ten-line thresholds remain unchanged. Utility state and instance
+method validation continues to inspect the complete authored source.

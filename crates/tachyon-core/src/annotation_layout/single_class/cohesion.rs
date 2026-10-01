@@ -36,6 +36,7 @@ mod words;
 mod tests;
 
 use super::rule_switch::RuleSwitch;
+pub(super) use utility_shape::RustConstants;
 pub(crate) use utility_shape::UtilityShape;
 
 pub(crate) struct CohesionCheck;

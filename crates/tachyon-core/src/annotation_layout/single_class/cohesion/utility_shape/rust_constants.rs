@@ -1,10 +1,13 @@
 use super::Words;
 use std::ops::Range;
 
-pub(super) struct RustConstants;
+pub(in crate::annotation_layout::single_class) struct RustConstants;
 
 impl RustConstants {
-    pub(super) fn read(words: &Words<'_>, extension: &str) -> Vec<Range<usize>> {
+    pub(in crate::annotation_layout::single_class) fn read(
+        words: &Words<'_>,
+        extension: &str,
+    ) -> Vec<Range<usize>> {
         let count = Self::word_count(words, extension);
         Self::ranges(words, count)
     }
@@ -56,7 +59,10 @@ impl RustConstants {
         words.find_at_depth(at + 3, words.depth(at), &[";"])
     }
 
-    pub(super) fn method_start(words: &Words<'_>, at: usize) -> usize {
+    pub(in crate::annotation_layout::single_class) fn method_start(
+        words: &Words<'_>,
+        at: usize,
+    ) -> usize {
         let modifiers = Self::modifiers(words, at);
         let external = Self::extern_abi(words, modifiers);
         Self::visibility(words, external)

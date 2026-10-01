@@ -12,7 +12,7 @@ use tachyon_diagnostics::Diagnostic;
 
 mod rust_constants;
 mod script_methods;
-use rust_constants::RustConstants;
+pub(in crate::annotation_layout::single_class) use rust_constants::RustConstants;
 use script_methods::ScriptMethods;
 
 pub(crate) struct UtilityShape<'r, 'a> {

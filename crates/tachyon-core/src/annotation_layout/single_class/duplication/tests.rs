@@ -107,6 +107,71 @@ fn imports_annotations_and_comments_do_not_count() {
 }
 
 #[test]
+fn rust_unrelated_immutable_labels_and_short_accessors_are_not_duplicate_behavior() {
+    let title = include_str!("../../../../tests/fixtures/rust-constant-duplication/TitleUtils.rs");
+    let metrics =
+        include_str!("../../../../tests/fixtures/rust-constant-duplication/MetricLabelsUtils.rs");
+    assert!(
+        found(&[
+            ("client/utils/TitleUtils.rs", title),
+            ("client/utils/MetricLabelsUtils.rs", metrics)
+        ])
+        .is_empty()
+    );
+    for (name, source) in [("TitleUtils", title), ("MetricLabelsUtils", metrics)] {
+        crate::annotation_layout::validate(Path::new(&format!("client/utils/{name}.rs")), source)
+            .expect("real stateless utility");
+    }
+}
+
+fn rust_calculation() -> String {
+    (0..12)
+        .map(|step| {
+            let prior = if step == 0 {
+                String::from("value")
+            } else {
+                format!("step{}", step - 1)
+            };
+            format!("        let step{step} = {prior}.wrapping_add({step}).wrapping_mul(7);\n")
+        })
+        .collect::<Vec<_>>()
+        .concat()
+}
+
+#[test]
+fn rust_substantive_repeated_methods_still_exceed_the_unchanged_threshold() {
+    let body = rust_calculation();
+    let first = format!(
+        "pub struct FirstUtils;\nimpl FirstUtils {{\n    pub fn score(value: u64) -> u64 {{\n{body}        step11\n    }}\n}}\n"
+    );
+    let second = first.replace("FirstUtils", "SecondUtils");
+    let diagnostics = found(&[
+        ("client/utils/FirstUtils.rs", &first),
+        ("client/utils/SecondUtils.rs", &second),
+    ]);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].code.number(), 1315);
+    assert!(diagnostics[0].spans[0].start > 0);
+    assert_eq!(tachyon_duplication::DuplicateFinder::MIN_TOKENS, 100);
+    assert_eq!(tachyon_duplication::DuplicateFinder::MIN_LINES, 10);
+}
+
+#[test]
+fn rust_computed_constant_bodies_still_count_as_behavior() {
+    let body = rust_calculation();
+    let first = format!(
+        "pub struct FirstUtils;\nimpl FirstUtils {{\n    const COMPUTED: u64 = {{\n        let value = 1_u64;\n{body}        step11\n    }};\n    pub fn score() -> u64 {{ Self::COMPUTED }}\n}}\n"
+    );
+    let second = first.replace("FirstUtils", "SecondUtils");
+    let diagnostics = found(&[
+        ("client/utils/FirstUtils.rs", &first),
+        ("client/utils/SecondUtils.rs", &second),
+    ]);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].code.number(), 1315);
+}
+
+#[test]
 fn every_language_reads_its_tokens() {
     let block = (0..10)
         .map(|line| format!("    total{line} = order.read(\"v\", {line}, total{line}, 7)\n"))

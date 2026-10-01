@@ -1,7 +1,9 @@
 use super::super::tokens::Token;
 use super::import_words::ImportWords;
 use super::project_source::ProjectSource;
+use super::rust_declarations::RustDeclarations;
 use super::{Input, Tokens};
+use std::ops::Range;
 use std::path::Path;
 use tachyon_duplication::{CodeToken, SourceFile, TokenKind};
 
@@ -10,6 +12,7 @@ pub(super) struct CodeReader<'r, 'a> {
     imports: &'static [&'static str],
     depths: Vec<usize>,
     line_starts: Vec<usize>,
+    declarations: Vec<Range<usize>>,
 }
 
 impl<'r, 'a> CodeReader<'r, 'a> {
@@ -19,18 +22,19 @@ impl<'r, 'a> CodeReader<'r, 'a> {
     pub(super) fn read(source: &ProjectSource) -> Option<SourceFile> {
         let input = Input::new(Path::new(&source.path), &source.text);
         let tokens = Tokens::read(&input).ok()?;
-        let reader = CodeReader::new(&tokens, &source.text, ImportWords::of(source.extension()));
+        let reader = CodeReader::new(&tokens, &source.text, source.extension());
         let kept = reader.kept();
         let production = !tokens.has_test_marker();
         production.then(|| SourceFile::new(source.path.clone(), source.language(), kept))
     }
 
-    fn new(tokens: &'r Tokens<'a>, text: &str, imports: &'static [&'static str]) -> Self {
+    fn new(tokens: &'r Tokens<'a>, text: &str, extension: &str) -> Self {
         Self {
             tokens,
-            imports,
+            imports: ImportWords::of(extension),
             depths: Self::depths(tokens),
             line_starts: Self::line_starts(text),
+            declarations: RustDeclarations::read(tokens, text, extension),
         }
     }
 
@@ -79,7 +83,15 @@ impl<'r, 'a> CodeReader<'r, 'a> {
     fn skipped_end(&self, at: usize) -> usize {
         self.import_end(at)
             .or_else(|| self.tokens.marker_end(at))
+            .or_else(|| self.declaration_end(at))
             .unwrap_or(at)
+    }
+
+    fn declaration_end(&self, at: usize) -> Option<usize> {
+        self.declarations
+            .iter()
+            .find(|range| range.contains(&at))
+            .map(|range| range.end)
     }
 
     fn import_end(&self, at: usize) -> Option<usize> {
