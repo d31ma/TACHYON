@@ -1333,14 +1333,14 @@ const nativeHost = () => typeof globalThis.__tachyonNativeHostCall === 'function
 const nativeCall = async (request, ownerId, service) => {
   const payload = JSON.stringify({ ...request, route: ClientView.plan.route, service, owner: ownerId })
   const limit = request.op === 'init' ? NativeState.startUpRequestLimit : NativeState.memberRequestLimit
-  if (payload.length > limit) throw new RangeError(NativeState.tooLarge(request, service, payload, limit))
+  if (payload.length > limit || new TextEncoder().encode(payload).byteLength > limit) throw new RangeError(NativeState.tooLarge(request, service, payload, limit))
   let timer
   try {
     const raw = await Promise.race([
       Promise.resolve(globalThis.__tachyonNativeHostCall('companion.invoke', payload)),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tac native call timed out.')), 10000) }),
     ])
-    if (typeof raw === 'string' && raw.length > 65536) throw new RangeError('Tac native response exceeds 64 KiB.')
+    if (typeof raw === 'string' && (raw.length > 65536 || new TextEncoder().encode(raw).byteLength > 65536)) throw new RangeError('Tac native response exceeds 64 KiB.')
     const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
     if (!answer || answer.error || answer.ok === false) throw new Error('Tac native call failed.')
     return answer.value
