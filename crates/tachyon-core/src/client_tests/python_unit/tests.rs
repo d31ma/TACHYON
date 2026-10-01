@@ -120,7 +120,13 @@ fn python_client_unit_startup_failure_is_reported_and_cleanup_always_runs() {
     );
     let failure =
         run(project.path(), Path::new(PythonProject::UNIT_PATH)).expect_err("setup failure");
-    assert!(format!("{failure:?}").contains("setup refused"));
+    let messages = failure
+        .diagnostics()
+        .iter()
+        .map(|problem| problem.message.as_str())
+        .collect::<Vec<_>>();
+    assert!(messages.contains(&"The test unit did not start: Behavior adapter failed."));
+    assert!(!format!("{failure:?}").contains("setup refused"));
 }
 
 #[test]
