@@ -1,6 +1,6 @@
 # ADR 0089: Native capabilities are activation-owned service providers
 
-- Status: Accepted contract; macOS FilePicker and Swift/Rust providers qualified; remaining compiled platform seams in progress
+- Status: Accepted contract; macOS FilePicker and Swift/Rust/C#/Kotlin providers qualified; selected-handle grant-revocation evidence pending
 - Date: 2026-09-30
 - Relates to ADR 0025 (NeedsAll), ADR 0030 (native services), ADR 0065 (page APIs), ADR 0087 (WindowControls)
 
@@ -91,10 +91,17 @@ read; framework implementation remains subject to the repository unsafe ban.
 | macOS JavaScript/TypeScript | Needs filePicker resource, Promise results | provider and generated app execution, real panel selection/cancel |
 | macOS compiled Swift | Needs/NeedsAll FilePicker and WindowControls | generated companion compile/execution with fake, native host execution |
 | Browser tab | typed unsupported FilePicker result | provider execution |
-| iOS / Android / Linux / Windows | unsupported until platform adapter registered | separate OS interaction and grant tests |
+| FilePicker on iOS / Android / Linux / Windows | typed unsupported; no platform picker rollout | no OS picker interaction claim |
 | macOS compiled Rust | NeedsAll default providers, captured registration and native WindowControls | compiled fake/unsupported/disposal, static-library host link and actual owned-window title/resize/grant test |
 | Rust WebAssembly | existing page WindowControls, unsupported native FilePicker | generated wasm32 compilation |
-| Native C# / Kotlin | provider registration and injection in parallel work | compiled activation and fake-backed service tests before enabling |
+| Native C# / Kotlin | Needs/NeedsAll captured providers, typed unsupported FilePicker, Windows/Android WindowControls registration | actual compiled activation/fake/disposal tests, Windows stub-host dispatch execution and complete Android API35 typecheck |
+
+Retained [managed qualification](../evidence/NATIVE-CAPABILITY-DI-MANAGED.md)
+and [four native example checks](../evidence/NATIVE-WINDOW-CONTROLS-EXAMPLES.md)
+supersede the earlier pending C#/Kotlin registration status. Windows desktop
+and Android device interaction remain unqualified. The original permission-change
+acceptance still needs real selected-handle revoke/regrant execution as recorded
+in the [queue brief](../queue/NEXT/NATIVE-CAPABILITY-DI.md).
 
 The platform matrix is not expanded merely because the macOS source compiles.
 An OS interaction claim requires the actual native picker, selection, bounded
