@@ -182,8 +182,11 @@ impl RustPageGraph {
         let dispatch = self.dispatch(inputs)?;
         let paths = super::rust_local_paths::RustLocalPaths::read(
             &inputs[0].source,
-            &format!("{}\n{models}", self.source),
+            &self.source,
+            &models,
         )?;
+        let definitions = paths.source(&definitions)?;
+        let tables = paths.source(&tables)?;
         let models = paths.source(&models)?;
         Ok(format!(
             "#[allow(non_snake_case)]\nmod TachyonRustServices {{\nuse super::*;\n{}\n{}\n{definitions}\n{tables}\n{models}\n}}\n{dispatch}",

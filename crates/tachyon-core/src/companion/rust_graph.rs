@@ -7,6 +7,12 @@ use crate::Failure;
 pub(crate) struct RustGraph;
 
 impl RustGraph {
+    pub(crate) fn declares_module(source: &str, name: &str) -> bool {
+        blocks(source, "mod")
+            .iter()
+            .any(|(header, _)| identifier(header.trim()) == name)
+    }
+
     pub(crate) fn type_names(source: &str) -> std::collections::BTreeSet<String> {
         ["struct", "trait", "enum"]
             .iter()
