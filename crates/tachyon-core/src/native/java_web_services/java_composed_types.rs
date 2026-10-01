@@ -45,16 +45,23 @@ impl JavaComposedTypes {
             .and_then(|name| name.to_str())
             .unwrap_or_default();
         models.require_service_name(path, class)?;
+        JavaPreferenceConstructor::read(path, source, class)?;
         let roles = crate::behavior::ServiceRoles::read(path, source)?;
         let required = Self::required_properties(path, source, class, !roles.required.is_empty());
         let assembled =
             crate::annotation_modules::Module::with_models(path, &roles.source, files.to_vec())?;
         let lowered = crate::behavior::lower(path, &assembled, "tac")?.unwrap_or(assembled);
         let plain = models.without_models(path, &lowered)?;
-        JavaPreferenceConstructor::read(path, &plain, class)?;
         let shown = path.to_string_lossy();
         let values = models.values();
-        let members = JavaClassReader::new(&shown, &plain).members(class, &values)?;
+        let injected = crate::template::RequiredFields::injected_fields(
+            path,
+            source,
+            class,
+            &Self::providers(),
+        );
+        let members = JavaClassReader::new(&shown, &plain)
+            .members_without_fields(class, &values, &injected)?;
         JavaTypeMembers::require_properties(path, &members, &required)?;
         let lines = JavaTypeMembers::lines(&members, &values);
         let properties = JavaTypeMembers::constructor(&members, &required, &values);
@@ -66,12 +73,15 @@ impl JavaComposedTypes {
         if !needed {
             return Vec::new();
         }
-        let providers = [
+        crate::template::RequiredFields::props(path, source, class, &Self::providers())
+    }
+
+    fn providers() -> std::collections::BTreeSet<String> {
+        [
             String::from("PreferenceStrings"),
             String::from("ApplicationEventPublisher"),
         ]
         .into_iter()
-        .collect();
-        crate::template::RequiredFields::props(path, source, class, &providers)
+        .collect()
     }
 }

@@ -90,9 +90,19 @@ impl JavaDeclaration {
         self.refuse_unknown_annotations()
     }
 
-    pub(super) fn member(&self, values: &JavaValueType) -> Result<Option<JavaMember>, String> {
+    pub(super) fn member_without_fields(
+        &self,
+        values: &JavaValueType,
+        injected: &[String],
+    ) -> Result<Option<JavaMember>, String> {
         self.refuse_unknown_annotations()?;
         self.refuse_hidden_markers()?;
+        if self
+            .model_field()
+            .is_some_and(|(_, name)| injected.contains(&name))
+        {
+            return Ok(None);
+        }
         self.visible_member(values)
     }
 

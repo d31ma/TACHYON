@@ -40,6 +40,15 @@ impl<'a> JavaClassReader<'a> {
         class: &str,
         values: &JavaValueType,
     ) -> Result<Vec<JavaMember>, Failure> {
+        self.members_without_fields(class, values, &[])
+    }
+
+    pub(super) fn members_without_fields(
+        &self,
+        class: &str,
+        values: &JavaValueType,
+        injected: &[String],
+    ) -> Result<Vec<JavaMember>, Failure> {
         let declared = self
             .code
             .declaration(Self::CLASS, class)
@@ -50,7 +59,7 @@ impl<'a> JavaClassReader<'a> {
             .body_after(declared)
             .ok_or_else(|| self.missing_class(class))?;
         let headers = self.code.member_headers(&body);
-        let members = self.declared(&headers, values)?;
+        let members = self.declared(&headers, values, injected)?;
         self.require_members(members, class)
     }
 
@@ -110,10 +119,11 @@ impl<'a> JavaClassReader<'a> {
         &self,
         headers: &[Range<usize>],
         values: &JavaValueType,
+        injected: &[String],
     ) -> Result<Vec<JavaMember>, Failure> {
         let mut members = Vec::new();
         for header in headers {
-            members.extend(self.member(header, values)?);
+            members.extend(self.member(header, values, injected)?);
         }
         Ok(members)
     }
@@ -122,9 +132,10 @@ impl<'a> JavaClassReader<'a> {
         &self,
         header: &Range<usize>,
         values: &JavaValueType,
+        injected: &[String],
     ) -> Result<Option<JavaMember>, Failure> {
         JavaDeclaration::parse(&self.code.text(header))
-            .member(values)
+            .member_without_fields(values, injected)
             .map_err(|message| self.failure(Self::SHAPE_CODE, message, header))
     }
 

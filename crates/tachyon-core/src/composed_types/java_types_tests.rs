@@ -127,6 +127,31 @@ fn unchanged_script_declarations_remain_byte_identical_and_other_java_roles_are_
 }
 
 #[test]
+fn generated_converter_dependencies_are_not_public_browser_constructor_arguments() {
+    let root = tempfile::tempdir().expect("project");
+    Fixtures::write(
+        root.path(),
+        "client/models/Summary.java",
+        "record Summary(String title) {}\n",
+    );
+    Fixtures::write(
+        root.path(),
+        "client/services/CatalogService.java",
+        "import models.Summary;\n@Service\nclass CatalogService {\n @Needs\n ProductConverter converter;\n public Summary read() { return null; }\n}\n",
+    );
+    let text = Fixtures::generated(root.path());
+    assert!(
+        text.contains("new (properties?: {  }): CatalogService"),
+        "{text}"
+    );
+    assert!(
+        text.contains("\"read\"(): __TachyonJavaModels.Summary | null;"),
+        "{text}"
+    );
+    assert!(!text.contains("ProductConverter"), "{text}");
+}
+
+#[test]
 fn invalid_java_members_and_provider_constructors_keep_located_errors() {
     for body in [
         "char answer() { return 'a'; }",
