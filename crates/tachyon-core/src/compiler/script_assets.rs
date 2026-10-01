@@ -246,15 +246,18 @@ impl<'a> ScriptAssets<'a> {
     }
 
     async fn compile(&self, path: &Path, bytes: &[u8]) -> Result<Vec<u8>, Failure> {
+        let source = std::str::from_utf8(bytes)
+            .map_err(|_| Self::failure(path, "module text must be UTF-8"))?;
+        let bytes = super::utility_module::UtilityModule::exported(path, source)?;
         if path.extension().is_none_or(|extension| extension != "ts") {
-            return Ok(SharedAssets::strip_css_imports(path, bytes.to_vec()));
+            return Ok(SharedAssets::strip_css_imports(path, bytes));
         }
         TypeScriptCompiler::transpile(
             self.tools_root,
             self.snapshot_root,
             &self.snapshot_root.join(path),
             &PortablePath::of(path),
-            bytes,
+            &bytes,
         )
         .await
     }

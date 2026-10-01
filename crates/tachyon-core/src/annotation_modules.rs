@@ -125,14 +125,13 @@ fn read_modules(
     paths: &[PathBuf],
     environment: &str,
     converters: &mut crate::declared_contract::ConverterModelTable<'_>,
+    imported_utilities: &client_utilities::ClientUtilities,
 ) -> Result<(Vec<Module>, usize), Failure> {
     let extension = entry_extension(entry, environment)?;
     let mut names = BTreeSet::new();
     register_names(entry, entry_source, &mut names)?;
     let mut total = entry_source.len();
     let mut modules = Vec::new();
-    let imported_utilities =
-        client_utilities::ClientUtilities::imported(root, entry, entry_source, paths)?;
     for path in paths {
         if imported_utilities.contains(path) {
             continue;
@@ -339,35 +338,40 @@ impl Module {
             && entry.starts_with("server/controllers")
             && crate::annotation_layout::has_route_controller(entry, source)?;
         let paths = discover_paths(&root, entry, extension, include_errors, native_services)?;
-        if source.len() > Module::MAX_SOURCE || source.contains('\0') {
-            return Err(invalid(
-                entry,
-                "Annotation source exceeds 1 MiB or contains NUL.",
-            ));
-        }
+        Self::require_source_bound(entry, source)?;
         let mut converters = crate::declared_contract::ConverterModelTable::new(
             snapshot_root,
             environment,
             extension,
         );
-        let (mut modules, total) =
-            read_modules(&root, entry, source, &paths, environment, &mut converters)?;
+        let utilities = client_utilities::ClientUtilities::imported(&root, entry, source, &paths)?;
+        let source = utilities.with_source(source);
+        Self::require_source_bound(entry, &source)?;
+        let (mut modules, total) = read_modules(
+            &root,
+            entry,
+            &source,
+            &paths,
+            environment,
+            &mut converters,
+            &utilities,
+        )?;
         Self::refuse_native_peer_lifetimes(&modules, native_services)?;
         test_configuration::include(
             &root,
             entry,
-            source,
+            &source,
             extension,
             environment,
             &mut modules,
             total,
         )?;
         if modules.is_empty() {
-            return Ok(None);
+            return Ok(utilities.changed().then_some(source));
         }
         refuse_tac_helpers(&modules, extension, environment)?;
-        let injected = injected_contracts(entry, source, &modules, environment);
-        let source = injected.as_deref().unwrap_or(source);
+        let injected = injected_contracts(entry, &source, &modules, environment);
+        let source = injected.as_deref().unwrap_or(&source);
         let output = if extension == "go" {
             compose_go(entry, source, &modules)?
         } else {
@@ -379,6 +383,16 @@ impl Module {
             return Err(invalid(entry, "Combined annotation source exceeds 1 MiB."));
         }
         Ok(Some(output))
+    }
+
+    fn require_source_bound(entry: &Path, source: &str) -> Result<(), Failure> {
+        if source.len() > Self::MAX_SOURCE || source.contains('\0') {
+            return Err(invalid(
+                entry,
+                "Annotation source exceeds 1 MiB or contains NUL.",
+            ));
+        }
+        Ok(())
     }
 
     fn refuse_native_peer_lifetimes(

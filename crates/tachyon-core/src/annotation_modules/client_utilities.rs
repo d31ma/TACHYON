@@ -4,7 +4,11 @@ use cap_std::fs::Dir;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-pub(super) struct ClientUtilities;
+#[derive(Default)]
+pub(super) struct ClientUtilities {
+    imported: BTreeSet<PathBuf>,
+    implicit: Vec<String>,
+}
 
 impl ClientUtilities {
     pub(super) fn imported(
@@ -12,8 +16,20 @@ impl ClientUtilities {
         entry: &Path,
         entry_source: &str,
         paths: &[PathBuf],
-    ) -> Result<BTreeSet<PathBuf>, Failure> {
+    ) -> Result<Self, Failure> {
         Self::collect(root, entry, entry_source, paths)
+    }
+
+    pub(super) fn contains(&self, path: &Path) -> bool {
+        self.imported.contains(path)
+    }
+
+    pub(super) fn with_source(&self, source: &str) -> String {
+        format!("{}{source}", self.implicit.concat())
+    }
+
+    pub(super) fn changed(&self) -> bool {
+        !self.implicit.is_empty()
     }
 
     fn collect(
@@ -21,18 +37,63 @@ impl ClientUtilities {
         entry: &Path,
         entry_source: &str,
         paths: &[PathBuf],
-    ) -> Result<BTreeSet<PathBuf>, Failure> {
+    ) -> Result<Self, Failure> {
+        Self::script_entry(entry)
+            .then(|| Self::collect_script(root, entry, entry_source, paths))
+            .transpose()
+            .map(Option::unwrap_or_default)
+    }
+
+    fn collect_script(
+        root: &Dir,
+        entry: &Path,
+        entry_source: &str,
+        paths: &[PathBuf],
+    ) -> Result<Self, Failure> {
         let mut imported = BTreeSet::new();
-        if !Self::script_entry(entry) {
-            return Ok(imported);
-        }
         Self::add(entry, entry_source, &mut imported);
         paths.iter().try_for_each(|path| {
             let source = read_module_text(root, path, Module::MAX_SOURCE)?;
             Self::add(path, &source, &mut imported);
             Ok::<_, Failure>(())
         })?;
-        Ok(imported)
+        let mut utilities = Self {
+            imported,
+            implicit: Vec::new(),
+        };
+        paths
+            .iter()
+            .try_for_each(|path| utilities.preserve_module(root, entry, path))?;
+        Ok(utilities)
+    }
+
+    fn preserve_module(&mut self, root: &Dir, entry: &Path, path: &Path) -> Result<(), Failure> {
+        let candidate = path.starts_with("client/utils") && !self.imported.contains(path);
+        candidate
+            .then(|| self.project_module(root, entry, path))
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn project_module(&mut self, root: &Dir, entry: &Path, path: &Path) -> Result<(), Failure> {
+        let source = read_module_text(root, path, Module::MAX_SOURCE)?;
+        self.add_module(entry, path, &source)
+    }
+
+    fn add_module(&mut self, entry: &Path, path: &Path, source: &str) -> Result<(), Failure> {
+        if !crate::compiler::utility_module::UtilityModule::needs_module(path, source)? {
+            return Ok(());
+        }
+        crate::annotation_layout::UtilityLayout::check(path, source)?;
+        let name = path
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .unwrap_or("");
+        let relative = SharedImports::relative_path(entry, path);
+        self.implicit
+            .push(format!("import {{ {name} }} from '{relative}';\n"));
+        self.imported.insert(path.to_path_buf());
+        Ok(())
     }
 
     fn script_entry(entry: &Path) -> bool {

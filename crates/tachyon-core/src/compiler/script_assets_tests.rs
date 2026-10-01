@@ -74,6 +74,92 @@ impl ScriptAssetFixture {
             String::from_utf8_lossy(&output.stderr)
         );
     }
+
+    fn managed_utility(root: &Path, declaration: &str, unused: bool) {
+        Self::project(root, "../../utils/nested/TitleUtils.js");
+        Self::write(
+            root,
+            "client/services/nested/LabelService.js",
+            "import { TitleUtils as LabelUtils } from '../../utils/nested/TitleUtils.js';\n@Service\nexport default class LabelService {\n @Needs\n snapshot;\n text = LabelUtils.text();\n}\n",
+        );
+        Self::write(
+            root,
+            "client/services/SnapshotService.js",
+            "@Service\nexport default class SnapshotService { read() { return TitleUtils.location(); } }\n",
+        );
+        Self::write(
+            root,
+            "client/utils/nested/TitleUtils.js",
+            &format!(
+                "{declaration} TitleUtils {{ static text() {{ return 'Ready'; }} static location() {{ return new URL('../../shared/assets/item.txt', import.meta.url).href; }} }}\n"
+            ),
+        );
+        Self::write(
+            root,
+            "client/shared/assets/item.txt",
+            "task-local utility asset\n",
+        );
+        Self::unused_user(root, unused);
+    }
+
+    fn unused_user(root: &Path, included: bool) {
+        if included {
+            Self::write(
+                root,
+                "client/services/UnusedService.js",
+                "import { TitleUtils } from '././../utils/nested/TitleUtils.js';\n@Service\nexport default class UnusedService { text() { return TitleUtils.text(); } }\n",
+            );
+        }
+    }
+
+    async fn invoke_managed_utility(root: &Path, default_export: bool) {
+        Self::write(root, "dist/package.json", "{\"type\":\"module\"}");
+        let mut command = tokio::process::Command::new("node");
+        let probe = format!(
+            "const {{ default: LabelService }} = await import('./.tachyon/services/LabelService.js'); const {{ default: SnapshotService }} = await import('./.tachyon/services/SnapshotService.js'); const utility = await import('./utils/nested/TitleUtils.js'); const actual = new SnapshotService().read(); const expected = new URL('./shared/assets/item.txt', import.meta.url).href; if (actual !== expected || new LabelService().text !== 'Ready') throw new Error('utility module base or ambient definition changed'); if ({default_export} && utility.default !== utility.TitleUtils) throw new Error('default export changed'); console.log('Ready; utility URL base preserved');"
+        );
+        command
+            .args(["--input-type=module", "--eval", &probe])
+            .current_dir(root.join("dist"));
+        let output = crate::external_command::run(
+            &mut command,
+            std::time::Duration::from_secs(30),
+            64 * 1024,
+        )
+        .await
+        .expect("supervised Node");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            "Ready; utility URL base preserved"
+        );
+    }
+}
+
+#[tokio::test]
+async fn script_assets_managed_javascript_graph_preserves_module_and_ambient_utility_users() {
+    for declaration in ["export class", "export default class", "class"] {
+        for unused in [false, true] {
+            let root = tempfile::tempdir().expect("project");
+            ScriptAssetFixture::managed_utility(root.path(), declaration, unused);
+            WebCompiler::build_async(root.path(), &BuildOptions::default())
+                .await
+                .expect("managed graph build");
+            let emitted =
+                std::fs::read_to_string(root.path().join("dist/utils/nested/TitleUtils.js"))
+                    .expect("module");
+            assert!(emitted.contains("import.meta.url"));
+            ScriptAssetFixture::invoke_managed_utility(
+                root.path(),
+                declaration == "export default class",
+            )
+            .await;
+        }
+    }
 }
 
 #[tokio::test]

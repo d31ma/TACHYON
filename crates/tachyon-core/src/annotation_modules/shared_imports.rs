@@ -93,7 +93,7 @@ impl SharedImports {
         }
     }
 
-    fn relative_path(entry: &Path, target: &Path) -> String {
+    pub(super) fn relative_path(entry: &Path, target: &Path) -> String {
         let parent: Vec<_> = entry
             .parent()
             .unwrap_or(Path::new(""))
