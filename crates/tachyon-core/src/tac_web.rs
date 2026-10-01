@@ -717,7 +717,7 @@ mod tests {
             ),
             (
                 "client/services/NotesService.go",
-                "// @CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n\
+                "// @Service\n// @CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n\
                  type NotesService struct {\n\tbehaviors *BehaviorContext\n\tReads     int\n}\n\n\
                  // @OnStart\nfunc (notes *NotesService) Start() error {\n\
                  \tcontext, err := BehaviorsCreate[BrowserSetup](NewBehaviorOptions(\"notes\", NewBehaviorSignal()))\n\
@@ -754,7 +754,7 @@ mod tests {
             ),
             (
                 "client/services/NotesService.rs",
-                "#[CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})]\n\
+                "#[Service]\n#[CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})]\n\
                  struct NotesService {\n    behaviors: BehaviorContext,\n    reads: std::cell::Cell<f64>,\n}\n\
                  impl NotesService {\n    fn new() -> Self {\n        \
                  let options = BehaviorOptions::new(\"notes\", BehaviorSignal::new());\n        \

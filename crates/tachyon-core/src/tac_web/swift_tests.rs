@@ -157,7 +157,8 @@ final class OrdersSetup {
         ),
         (
             "client/services/OrdersService.swift",
-            r#"final class OrdersService {
+            r#"@Service
+final class OrdersService {
     struct GatewayUnavailable: Error {}
 
     var behaviors: BehaviorContext!
@@ -213,16 +214,19 @@ final class CatalogSetup {
 "#,
         ),
         (
-            "client/helpers/PublicValues.swift",
-            r#"final class PublicValues {
+            "client/setups/PublicValuesSetup.swift",
+            r#"@Setup
+final class PublicValuesSetup {
     @Setting("${tac.catalog.title:Catalog}")
     var title: String = ""
+    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters { BehaviorAdapters() }
 }
 "#,
         ),
         (
             "client/services/SettingsService.swift",
-            r#"final class SettingsService {
+            r#"@Service
+final class SettingsService {
     var title: String = "Catalog"
     var pageSize: Int = 20
 
@@ -242,7 +246,7 @@ final class CatalogSetup {
         let published = try BehaviorJSON.parse(
             "{\"tac\":{\"catalog\":{\"title\":\"Catalog\",\"page\":{\"size\":20},\"cache\":{\"enabled\":true}}}}")
         let catalog = try Behaviors.properties(CatalogSetup.self, published)
-        let values = try Behaviors.values(PublicValues.self, published)
+        let values = try Behaviors.values(PublicValuesSetup.self, published)
         let context = try Behaviors.create(
             CatalogSetup.self, partition: "public-catalog", signal: BehaviorSignal(),
             profiles: ["public"], properties: published)

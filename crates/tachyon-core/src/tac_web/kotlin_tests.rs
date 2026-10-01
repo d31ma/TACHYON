@@ -48,15 +48,15 @@ impl KotlinFixtures {
     const SETTINGS_FILES: [(&str, &str); 3] = [
         (
             "client/services/SettingsService.kt",
-            "class SettingsService {\n    var title: String = \"Catalog\"\n    var pageSize: Long = 20\n\n    init {\n        val publicCatalog = mapOf(\n            \"title\" to \"Catalog\",\n            \"page\" to mapOf(\"size\" to 20),\n            \"cache\" to mapOf(\"enabled\" to true),\n        )\n        val published = mapOf(\"tac\" to mapOf(\"catalog\" to publicCatalog))\n        val setup = \"CatalogSetup\"\n        val catalog = Behaviors.properties(setup, published)\n        val values = Behaviors.values(\"PublicValues\", published)\n        title = values[\"title\"] as String\n        pageSize = catalog[\"pageSize\"] as Long\n        Behaviors.create(setup, Behaviors.Options(\n            \"public-catalog\", Behaviors.Signal(), profiles = listOf(\"public\"), properties = published\n        )).close()\n    }\n}\n",
+            "@Service\nclass SettingsService {\n    var title: String = \"Catalog\"\n    var pageSize: Long = 20\n\n    init {\n        val publicCatalog = mapOf(\n            \"title\" to \"Catalog\",\n            \"page\" to mapOf(\"size\" to 20),\n            \"cache\" to mapOf(\"enabled\" to true),\n        )\n        val published = mapOf(\"tac\" to mapOf(\"catalog\" to publicCatalog))\n        val setup = \"CatalogSetup\"\n        val catalog = Behaviors.properties(setup, published)\n        val values = Behaviors.values(\"PublicValuesSetup\", published)\n        title = values[\"title\"] as String\n        pageSize = catalog[\"pageSize\"] as Long\n        Behaviors.create(setup, Behaviors.Options(\n            \"public-catalog\", Behaviors.Signal(), profiles = listOf(\"public\"), properties = published\n        )).close()\n    }\n}\n",
         ),
         (
             "client/setups/CatalogSetup.kt",
             "@Setup\n@Settings({\"prefix\":\"TAC_CATALOG_\"})\n@WhenProfile(\"public\")\n@WhenSetting({\"name\":\"TAC_CATALOG_CACHE_ENABLED\",\"havingValue\":\"true\",\"matchIfMissing\":false})\nclass CatalogSetup {\n    @Min(1)\n    @Max(100)\n    var pageSize: Int = 20\n    var cacheEnabled: Boolean = false\n    var title: String = \"Catalog\"\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
         ),
         (
-            "client/helpers/PublicValues.kt",
-            "class PublicValues {\n    @Setting(\"${tac.catalog.title:Catalog}\")\n    var title: String = \"\"\n}\n",
+            "client/setups/PublicValuesSetup.kt",
+            "@Setup\nclass PublicValuesSetup {\n    @Setting(\"${tac.catalog.title:Catalog}\")\n    var title: String = \"\"\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n",
         ),
     ];
 
@@ -72,7 +72,7 @@ impl KotlinFixtures {
         ),
         (
             "client/services/NotesService.kt",
-            "@CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n\
+            "@Service\n@CacheSettings({\"name\":\"notes\",\"ttlMs\":60000,\"maxBytes\":4096,\"maxEntries\":8})\n\
              class NotesService {\n    \
              lateinit var behaviors: Behaviors.Context\n    \
              private var reads: Long = 0\n\n    \

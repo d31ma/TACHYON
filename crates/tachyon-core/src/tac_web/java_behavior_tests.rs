@@ -73,7 +73,7 @@ class SettingsService {
         java.util.Map<String, Object> published = java.util.Map.of("tac", java.util.Map.of("catalog", publicCatalog));
         String setup = "CatalogSetup";
         java.util.Map<String, Object> catalog = Behaviors.properties(setup, published);
-        java.util.Map<String, Object> values = Behaviors.values("PublicValues", published);
+        java.util.Map<String, Object> values = Behaviors.values("PublicValuesSetup", published);
         title = (String) values.get(TITLE);
         pageSize = ((Number) catalog.get("pageSize")).longValue();
         Behaviors.Options options = new Behaviors.Options(
@@ -102,16 +102,22 @@ class CatalogSetup {
 "#,
         ),
         (
-            "client/helpers/PublicValues.java",
-            r#"class PublicValues {
+            "client/setups/PublicValuesSetup.java",
+            r#"@Setup
+class PublicValuesSetup {
     @Setting("${tac.catalog.title:Catalog}")
     String title = "";
+    static Behaviors.Configuration configure(Behaviors.Execution execution) {
+        return new Behaviors.Configuration();
+    }
 }
 "#,
         ),
         (
             "client/services/OrderService.java",
-            r"@Service
+            r"import models.OrderInput;
+
+@Service
 class OrderService {
     Object accept(@Check(OrderInput.class) Object order) {
         return order;
@@ -120,7 +126,7 @@ class OrderService {
 ",
         ),
         (
-            "client/helpers/OrderInput.java",
+            "client/models/OrderInput.java",
             r#"@Checked
 class OrderInput {
     @NotEmpty
