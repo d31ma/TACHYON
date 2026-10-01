@@ -4,13 +4,13 @@ use super::{NativeUiContract, NativeUiGeneration};
 use cap_std::{ambient_authority, fs::Dir};
 use std::path::Path;
 
-struct NativeUiRuntimeFixture {
+pub(super) struct NativeUiRuntimeFixture {
     root: tempfile::TempDir,
     native_sha256: String,
 }
 
 impl NativeUiRuntimeFixture {
-    const SOURCES: [(&str, &str); 11] = [
+    pub(super) const SOURCES: [(&str, &str); 11] = [
         (
             "Failure.swift",
             include_str!("live/NativeUiRuntimeFailure.swift"),
