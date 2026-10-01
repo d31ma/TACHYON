@@ -1,6 +1,13 @@
 {
   "files": [
     {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      },
+      "note": "The Python example explicitly selects the pinned offline runtime profile. The build uses verified Pyodide 314.0.7 core assets already present in the Tachyon cache; it does not download packages or use a CDN. Projects without a Python service do not ship the Python runtime."
+    },
+    {
       "name": "client/components/basket/tally/tac.html",
       "code": {
         "file": "client/components/basket/tally/tac.html"
@@ -53,6 +60,13 @@
       "code": {
         "file": "client/services/TallyService.rb"
       }
+    },
+    {
+      "name": "client/services/TallyService.py",
+      "code": {
+        "file": "client/services/TallyService.py"
+      },
+      "note": "Python runs synchronous typed services on the pinned Pyodide 314.0.7 WebAssembly interpreter. Its ordinary Service class exposes fields and methods through Tachyon’s typed bridge; self remains required. The explicit offline manifest profile permits the verified local core assets, roughly 14 MB before transfer compression. This initial web slice supports synchronous DI, models and lifecycle; async methods, browser capability adapters and native-host execution remain unqualified."
     },
     {
       "name": "client/services/TallyService.lua",

@@ -17,7 +17,7 @@ export class CoverageAudit {
   static realms = /** @type {Realm[]} */ (['tac', 'yon'])
   static pathRealms = /** @type {[string, Realm][]} */ ([['client/', 'tac'], ['server/', 'yon'], ['middleware.', 'yon']])
   static controllerPrefix = 'server/controllers/'
-  static viewExtensions = ['html', 'css']
+  static viewExtensions = ['html', 'css', 'json']
   static modelFolder = '/models/'
   static codeRealms = /** @type {[RegExp, Realm][]} */ ([
     [/(?:@|#\[|\[<?|\/\/ @)\s*(?:RequestRoute|request_route|SocketRoute|socket_route)\b/, 'yon'],

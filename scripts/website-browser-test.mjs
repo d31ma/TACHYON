@@ -13,6 +13,27 @@ class WebsiteTest {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   static website = path.join(WebsiteTest.repo, 'website');
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty');
+
+  /** @param {import('playwright').Page} page */
+  static async checkShowcase(page) {
+    await WebsiteTest.assertLayer(page, 'tac', 'One component runs on every target.');
+    await page.getByRole('button', { name: 'Yon · server controllers', exact: true }).click();
+    await WebsiteTest.assertLayer(page, 'yon', 'In all eleven languages, a controller uses the same route annotations.');
+    await page.getByRole('button', { name: 'Tac · browser and native', exact: true }).click();
+    await WebsiteTest.assertLayer(page, 'tac', 'One component runs on every target.');
+  }
+
+  /**
+   * @param {import('playwright').Page} page
+   * @param {string} layer
+   * @param {string} summary
+   */
+  static async assertLayer(page, layer, summary) {
+    await page.waitForFunction(text => document.querySelector('#languages [aria-live="polite"]')?.textContent?.trim().startsWith(text), summary);
+    const controls = page.getByRole('group', { name: 'Framework layer', exact: true });
+    assert.equal(await controls.getByRole('button', { name: 'Tac · browser and native', exact: true }).getAttribute('aria-pressed'), String(layer === 'tac'));
+    assert.equal(await controls.getByRole('button', { name: 'Yon · server controllers', exact: true }).getAttribute('aria-pressed'), String(layer === 'yon'));
+  }
 }
 
 /**
@@ -112,6 +133,7 @@ async function checkViewport(activeBrowser, origin, width) {
     const response = await page.goto(`${origin}${route}`);
     assert.ok(response, `${width}px ${route}: navigation response`);
     assert.equal(response.status(), 200, `${width}px ${route}: page is served`);
+    if (route === '/') await WebsiteTest.checkShowcase(page);
     if (route === '/docs/') await checkDocsHome(page, width, errors);
     await openSearch(page, width, route, errors);
     await checkSearchTyping(page, width, route);

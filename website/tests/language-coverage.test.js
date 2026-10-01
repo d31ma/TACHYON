@@ -114,6 +114,14 @@ describe('the annotation rule table parser', () => {
 })
 
 describe('the language coverage audit', () => {
+  test('an explicit Python runtime manifest is configuration rather than a programming language', () => {
+    const page = { tac: { files: [
+      { name: 'client/manifest.json' },
+      { name: 'client/components/basket/tally/tac.html' },
+      { name: 'client/services/TallyService.py' },
+    ] }, yon: { entries: [] } }
+    expect(CoverageAudit.siteLanguages(page)).toEqual({ tac: ['py'], yon: [] })
+  })
   test('a language the build refuses is not supported yet, and the section may say so', () => {
     const stream = { name: 'server/controllers/TicksController.js', code: '@RequestRoute("/ticks")\n@Public\nclass TicksController {\n  @StreamRoute\n  streamTicks() {}\n}\n' }
     const quiet = Samples.audit().audit([Samples.unit('Streaming', [stream])])[0]

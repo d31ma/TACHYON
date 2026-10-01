@@ -48,6 +48,17 @@ function countByExtension(files) {
 }
 
 function expectServiceShape(source, className, extension) {
+  if (extension === 'lua') {
+    expect(source).toMatch(/^-- @Service$/m)
+    expect(source).toContain(`---@class ${className}`)
+    expect(source).toContain(`${className} = `)
+    return
+  }
+  if (extension === 'py') {
+    expect(source).toMatch(/^@service$/m)
+    expect(source).toContain(`class ${className}:`)
+    return
+  }
   if (extension === 'go') {
     expect(source).toMatch(/^\/\/ @Service$/m)
     expect(source).toContain(`type ${className} struct`)
@@ -176,12 +187,12 @@ describe('published output', () => {
     const services = (await readdir(fileURLToPath(new URL('../client/services', import.meta.url))))
     expect(services.length).toBeGreaterThanOrEqual(15)
     const counts = countByExtension(services)
-    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'js', 'kt', 'rb', 'rs', 'swift', 'ts'])
+    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'js', 'kt', 'lua', 'py', 'rb', 'rs', 'swift', 'ts'])
     const serviceCounts = Object.values(counts)
     expect(Math.max(...serviceCounts) - Math.min(...serviceCounts), JSON.stringify(counts)).toBeLessThanOrEqual(1)
     const instances = new Set()
     for (const file of services) {
-      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|dart|rs|cs|fs|go|rb|kt|swift)$/) ?? []
+      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|py|dart|rs|cs|fs|go|rb|kt|swift|lua)$/) ?? []
       expect(className, file).toBeDefined()
       const source = await read(`client/services/${file}`)
       expectServiceShape(source, className, extension)
@@ -419,7 +430,7 @@ describe('language coverage', () => {
     const tac = languages.tac.files.map((file) => file.name.split('.').pop())
     const yon = languages.yon.entries.map((entry) => entry.id)
 
-    for (const extension of ['js', 'ts', 'dart', 'rs', 'swift', 'kt', 'cs', 'fs', 'go', 'rb', 'lua']) {
+    for (const extension of ['js', 'ts', 'py', 'dart', 'rs', 'swift', 'kt', 'cs', 'fs', 'go', 'rb', 'lua']) {
       expect(tac).toContain(extension)
     }
     for (const extension of ['html', 'css']) {
@@ -432,7 +443,7 @@ describe('language coverage', () => {
     expect(yon).toHaveLength(14)
     for (const file of languages.tac.files) {
       expect(file.code.length).toBeGreaterThan(20)
-      expect(file.name).toMatch(/^client\/components\/basket\/tally\/tac\.(html|css)$|^client\/services\/TallyService\.[a-z]+$/)
+      expect(file.name).toMatch(/^client\/manifest\.json$|^client\/components\/basket\/tally\/tac\.(html|css)$|^client\/services\/TallyService\.[a-z]+$/)
     }
     expect(languages.tac.files.find((file) => file.name.endsWith('/tac.html')).code).toContain('{tally.')
     for (const entry of languages.yon.entries) {
@@ -466,8 +477,8 @@ describe('language coverage', () => {
 
   test('every service language shows the same class, spelled its own way', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
-    const companions = languages.tac.files.filter((file) => /\.(js|ts|dart|rs|swift|kt|java|cs|fs|go|rb|lua)$/.test(file.name))
-    expect(companions.length).toBe(12)
+    const companions = languages.tac.files.filter((file) => /\.(js|ts|py|dart|rs|swift|kt|java|cs|fs|go|rb|lua)$/.test(file.name))
+    expect(companions.length).toBe(13)
     for (const entry of companions) {
       const code = entry.code
       expect(code).toMatch(/\b(class|struct|type)\b/)
@@ -482,15 +493,25 @@ describe('language coverage', () => {
 
   test('every service language marks the class as a service, spelled its own way', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
-    const markers = { js: '@Service', ts: '@Service', dart: '@Service', swift: '@Service',
+    const markers = { js: '@Service', ts: '@Service', py: '@service', dart: '@Service', swift: '@Service',
                       kt: '@Service', java: '@Service', cs: '[Service]', fs: '[<Service>]', rs: '#[Service]', go: '// @Service', rb: '#[Service]',
                       lua: '-- @Service' }
     const services = languages.tac.files.filter((file) => file.name.startsWith('client/services/'))
-    expect(services.length).toBe(12)
+    expect(services.length).toBe(13)
     for (const service of services) {
       const extension = service.name.split('.').pop()
       expect(service.code.split('\n')).toContain(markers[extension])
     }
+  })
+
+  test('the real Python website service and published example explicitly select the pinned offline profile', async () => {
+    const website = JSON.parse(await read('client/manifest.json'))
+    const languages = JSON.parse(await read('client/shared/data/languages.json'))
+    const published = JSON.parse(languages.tac.files.find(file => file.name === 'client/manifest.json').code)
+    const profile = { runtime: 'pyodide-314.0.7', profile: 'offline' }
+    expect(website.tac.python).toEqual(profile)
+    expect(published.tac.python).toEqual(profile)
+    expect(await read('client/services/ShowcaseService.py')).toContain('@on_start')
   })
 
   test('the published data is what the browser will fetch', async () => {

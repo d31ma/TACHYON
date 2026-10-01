@@ -80,7 +80,7 @@ class Patterns {
   static pathVariable = /\{[a-z0-9_]+\}/g
   static pagePath = /^client\/pages\/.*tac\.html$/
   static componentViewPath = /^client\/components\/.*\/tac\.html$/
-  static servicePath = /^client\/services\/[A-Z]\w*Service\.(js|ts|dart|swift|kt|java|cs|fs|rs|go|rb|lua)$/
+  static servicePath = /^client\/services\/[A-Z]\w*Service\.(js|ts|py|dart|swift|kt|java|cs|fs|rs|go|rb|lua)$/
   static testUnitPath = /^(server|client)\/tests\/[A-Z]\w*Test\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
   static lastSourceExtension = /\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\b(?!.*\.(?:js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\b)/
   static languageTag = /\[(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)\]/
@@ -97,7 +97,7 @@ class Languages {
   static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb', '.lua'])
   /** @type {Record<string,string>} */
   static nativeTargets = { '.swift': 'macos', '.kt': 'android', '.cs': 'windows', '.rs': 'linux' }
-  static tacSourceExtensions = new Set(['.js', '.ts', '.dart', '.go', '.rb', '.lua', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
+  static tacSourceExtensions = new Set(['.js', '.ts', '.py', '.dart', '.go', '.rb', '.lua', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
 }
 
 class Toolchains {
