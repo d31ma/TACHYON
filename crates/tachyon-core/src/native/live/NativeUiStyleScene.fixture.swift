@@ -40,6 +40,10 @@ import WebKit
 
     func color() async throws -> String { try await page("return getComputedStyle(document.querySelector('#sample')).color") }
 
+    func stylesheetSnapshot() async throws -> String {
+        try await page("return JSON.stringify({color:getComputedStyle(document.querySelector('#sample')).color,links:Array.from(document.querySelectorAll('link[rel=stylesheet]')).map(node=>({href:node.href,media:node.media,disabled:node.disabled,sheet:Boolean(node.sheet),rules:(()=>{try{return Array.from(node.sheet?.cssRules??[]).map(rule=>rule.cssText)}catch(error){return String(error)}})()}))})")
+    }
+
     private func ready() async throws {
         let deadline = Date().addingTimeInterval(10)
         while !(await complete()) {
