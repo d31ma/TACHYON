@@ -1209,7 +1209,7 @@ fn python_relocates_imports(source: &str, words: &BTreeSet<&str>) -> bool {
                 names.split(',').all(|name| {
                     matches!(
                         name.trim(),
-                        "Any" | "Annotated" | "Protocol" | "Final" | "Optional"
+                        "Any" | "Annotated" | "Protocol" | "Final" | "Optional" | "ClassVar"
                     )
                 })
             });
@@ -2338,7 +2338,9 @@ mod tests {
         for names in [
             "Final",
             "Optional",
+            "ClassVar",
             "Annotated, Final, Optional",
+            "Final, ClassVar",
             "Any, Protocol, Final, Optional",
         ] {
             let source =
@@ -2351,6 +2353,7 @@ mod tests {
             "import vendor",
             "from typing import UnknownTypingName",
             "from typing import Optional as Maybe",
+            "from typing import ClassVar as Shared",
             "from __future__ import annotations",
         ] {
             let source = format!("{import}\n\n@helper\nclass CounterHelper:\n    pass\n");
