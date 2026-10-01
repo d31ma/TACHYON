@@ -103,6 +103,8 @@ fn reflective_and_computed_property_writes_conservatively_keep_all_providers() {
         "Object.assign(this, values)",
         "Object.defineProperty(this, 'middle', { value: undefined })",
         "Reflect.set(this, key, undefined)",
+        "const owner = this; const key = 'middle'; owner[key] = undefined",
+        "initialize(this, values)",
     ] {
         let root = project();
         let source = format!(

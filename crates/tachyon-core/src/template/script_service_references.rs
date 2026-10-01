@@ -26,7 +26,7 @@ impl ScriptServiceReferences {
         let names = Self::identifiers(code, known);
         let compact = Self::compact(code);
         let computed = Self::computed_write(&compact);
-        let reflective = Self::reflective_write(&compact);
+        let reflective = Self::reflective_write(&compact) || Self::escaped_owner(code);
         Self::selected(names, known, (computed, reflective))
     }
 
@@ -64,6 +64,20 @@ impl ScriptServiceReferences {
         Self::REFLECTIVE_WRITES
             .iter()
             .any(|prefix| code.contains(prefix))
+    }
+
+    fn escaped_owner(code: &str) -> bool {
+        code.match_indices("this").any(|(offset, _)| {
+            let before = code[..offset].chars().next_back();
+            let after = code[offset + 4..].chars().next();
+            let token = !before.is_some_and(Self::identifier_character)
+                && !after.is_some_and(Self::identifier_character);
+            token && !code[offset + 4..].trim_start().starts_with(['.', '['])
+        })
+    }
+
+    fn identifier_character(character: char) -> bool {
+        character.is_alphanumeric() || matches!(character, '_' | '$')
     }
 
     fn selected(
