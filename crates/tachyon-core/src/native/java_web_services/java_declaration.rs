@@ -68,6 +68,18 @@ impl JavaDeclaration {
             .collect()
     }
 
+    pub(super) fn constructor_parameters(&self, class: &str) -> Option<Vec<(String, String)>> {
+        let arguments = self
+            .rest
+            .strip_prefix(class)?
+            .trim_start()
+            .strip_prefix('(')?;
+        let close = arguments.len() - Self::after_closing_parenthesis(arguments).len();
+        Some(Self::named_parameters(
+            &arguments[..close.saturating_sub(1)],
+        ))
+    }
+
     pub(super) fn model_field(&self) -> Option<(String, String)> {
         let declared = self.rest.split('=').next().unwrap_or_default();
         let is_field = [self.is_skipped(), self.is_method()] == [false, false];
@@ -94,9 +106,7 @@ impl JavaDeclaration {
 
     fn is_skipped(&self) -> bool {
         let first = self.rest.split_whitespace().next().unwrap_or_default();
-        let stays_inside = Self::INSIDE_TYPES
-            .iter()
-            .any(|inside| first.starts_with(inside));
+        let stays_inside = Self::stays_inside(first);
         let skipped = [
             !self.is_visible(),
             first.is_empty(),
@@ -105,6 +115,15 @@ impl JavaDeclaration {
             [stays_inside, self.is_method()] == [true, false],
         ];
         skipped.contains(&true)
+    }
+
+    fn stays_inside(first: &str) -> bool {
+        match first {
+            "PreferenceStrings" => true,
+            _ => Self::INSIDE_TYPES
+                .iter()
+                .any(|inside| first.starts_with(inside)),
+        }
     }
 
     fn split_annotations(header: &str) -> (Vec<String>, &str) {

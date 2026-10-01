@@ -5,7 +5,15 @@ pub(super) struct JavaWebApis;
 impl JavaWebApis {
     const HOST: (&'static str, &'static str) =
         ("TacWebHost", include_str!("prelude/TacWebHost.java"));
-    const CLIENTS: [(&'static str, &'static str); 10] = [
+    const CLIENTS: [(&'static str, &'static str); 12] = [
+        (
+            "PreferenceStrings",
+            include_str!("../web_apis/PreferenceStrings.java"),
+        ),
+        (
+            "BrowserPreferenceStrings",
+            include_str!("../web_apis/BrowserPreferenceStrings.java"),
+        ),
         ("Clock", include_str!("../web_apis/Clock.java")),
         (
             "SecureRandom",
@@ -40,7 +48,7 @@ impl JavaWebApis {
             .chain(
                 Self::CLIENTS
                     .iter()
-                    .filter(|(name, _)| authored.contains(name)),
+                    .filter(|(name, _)| Self::needed(name, authored)),
             )
             .map(|(name, text)| Self::file(folder, name, text))
             .collect()
@@ -49,6 +57,14 @@ impl JavaWebApis {
     pub(super) fn events(authored: &str) -> Option<(PathBuf, String)> {
         let records = crate::route_types::WebEventSources::java_used_by(authored);
         (!records.is_empty()).then(|| (PathBuf::from(Self::EVENTS_FILE), records))
+    }
+
+    fn needed(name: &str, authored: &str) -> bool {
+        let token = match name {
+            "BrowserPreferenceStrings" => "PreferenceStrings",
+            _ => name,
+        };
+        authored.contains(token)
     }
 
     fn file(folder: &Path, name: &str, text: &str) -> (PathBuf, String) {

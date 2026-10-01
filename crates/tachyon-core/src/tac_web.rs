@@ -632,6 +632,9 @@ mod reach_tests;
 mod web_api_tests;
 
 #[cfg(test)]
+mod preference_strings_tests;
+
+#[cfg(test)]
 mod kotlin_tests;
 
 #[cfg(test)]

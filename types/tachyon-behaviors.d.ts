@@ -408,6 +408,7 @@ declare global {
   /** Preferences: the color scheme, the motion setting and the language of the browser. Listen for `PreferencesChanged` to hear changes (ADR 0065). */
   interface Preferences { scheme(): 'light' | 'dark'; motion(): 'reduce' | 'no-preference'; language(): string; }
   /** Clipboard: copies and reads text (ADR 0065). Grant "clipboard" in tac.browserApis and call it from a click or key handler. `readText` answers with a `ClipboardTextRead` event; a failure sends `BrowserCallFailed`. */
+  interface PreferenceStrings { read(key: string): string | null; write(key: string, value: string): boolean; }
   interface TacClipboard { writeText(text: string): null; readText(): null; }
   /** Share: opens the share sheet of the device (ADR 0065). Grant "share" in tac.browserApis and call it from a click or key handler. Answers with `ShareFinished` or `BrowserCallFailed`. */
   interface TacShare { open(title: string, text: string, url: string): null; }
@@ -446,6 +447,7 @@ declare global {
     connectivity: Connectivity;
     pageVisibility: PageVisibility;
     preferences: Preferences;
+    preferenceStrings: PreferenceStrings;
     clipboard: TacClipboard;
     share: TacShare;
     notifications: TacNotifications;

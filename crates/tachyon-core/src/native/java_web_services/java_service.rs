@@ -6,6 +6,7 @@ pub(super) struct JavaService {
     pub(super) class: String,
     pub(super) members: Vec<JavaMember>,
     pub(super) required: Vec<String>,
+    pub(super) preferences: Vec<String>,
     pub(super) path: PathBuf,
     pub(super) source: String,
 }

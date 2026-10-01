@@ -106,6 +106,17 @@ impl ServiceDefinition {
         &self.injected
     }
 
+    fn browser_provider_types(&self, injectable: &BTreeSet<String>) -> BTreeSet<String> {
+        let mut providers = injectable.clone();
+        providers.extend(self.java_browser_provider());
+        providers
+    }
+
+    fn java_browser_provider(&self) -> Option<String> {
+        let extension = marked_source(self)?.extension()?.to_str()?;
+        (extension == "java").then(|| String::from("PreferenceStrings"))
+    }
+
     fn inject_native_capabilities(&mut self) {
         let names = self.native_capability_fields();
         self.required.retain(|name| !names.contains(name));
@@ -531,8 +542,9 @@ fn set_required_fields(
             || FsharpConstructorProps::takes_props(path, &source);
         if needs_all {
             let class = &definition.class;
-            let props = RequiredFields::props(path, &source, class, &injectable);
-            let injected = RequiredFields::injected_fields(path, &source, class, &injectable);
+            let providers = definition.browser_provider_types(&injectable);
+            let props = RequiredFields::props(path, &source, class, &providers);
+            let injected = RequiredFields::injected_fields(path, &source, class, &providers);
             definition.required = props;
             definition.injected = injected;
         }
@@ -1043,6 +1055,18 @@ mod tests {
             assert_eq!(service.required(), ["files", "owner"], "{instance}");
             assert!(service.is_prototype(), "{instance}");
         }
+    }
+
+    #[test]
+    fn java_preference_strings_are_injected_without_consuming_component_props() {
+        let root = project(&[(
+            "client/services/ChoiceService.java",
+            "@Service\n@NeedsAll\nclass ChoiceService {\n @Needs\n private final PreferenceStrings preferences;\n String title;\n String answer() { return preferences.read(\"tachyon.platform\"); }\n}\n",
+        )]);
+        let registry = ServiceRegistry::discover(root.path()).expect("Java service");
+        let service = registry.get("choice").expect("choice");
+        assert_eq!(service.required(), ["title"]);
+        assert_eq!(service.injected(), ["preferences"]);
     }
 
     #[test]

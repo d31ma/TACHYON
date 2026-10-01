@@ -27,7 +27,10 @@ impl<'a> JavaServiceTable<'a> {
         let mut factories = String::new();
         for (index, service) in services.iter().enumerate() {
             let instance = Self::quoted(&service.instance);
-            let _ = writeln!(members, "            case {instance} -> service{index}();");
+            let _ = writeln!(
+                members,
+                "            case {instance} -> service{index}(preferences);"
+            );
             let _ = writeln!(
                 required,
                 "            case {instance} -> new String[] {{{}}};",
@@ -37,13 +40,19 @@ impl<'a> JavaServiceTable<'a> {
         }
         format!(
             "final class TacServiceTable {{\n    private TacServiceTable() {{\n    }}\n\n    \
-             static java.util.Map<String, Object> members(String name) {{\n        return switch (name) {{\n{members}            default -> null;\n        }};\n    }}\n\n    \
+             static java.util.Map<String, Object> members(String name, TacPreferenceScope preferences) {{\n        return switch (name) {{\n{members}            default -> null;\n        }};\n    }}\n\n    \
              static String[] required(String name) {{\n        return switch (name) {{\n{required}            default -> new String[0];\n        }};\n    }}\n{factories}}}\n"
         )
     }
 
     fn factory(&self, index: usize, service: &JavaService) -> String {
         let class = format!("{}.{}", JavaEnclosure::holder(index), service.class);
+        let arguments = service
+            .preferences
+            .iter()
+            .map(|_| "new BrowserPreferenceStrings(preferences)")
+            .collect::<Vec<_>>()
+            .join(", ");
         let mut entries = String::new();
         for member in &service.members {
             let _ = writeln!(
@@ -54,7 +63,7 @@ impl<'a> JavaServiceTable<'a> {
             );
         }
         format!(
-            "\n    private static java.util.Map<String, Object> service{index}() {{\n        {class} service = new {class}();\n        \
+            "\n    private static java.util.Map<String, Object> service{index}(TacPreferenceScope preferences) {{\n        {class} service = new {class}({arguments});\n        \
              java.util.Map<String, Object> members = new java.util.LinkedHashMap<>();\n{entries}        return members;\n    }}\n"
         )
     }

@@ -75,17 +75,19 @@ final class TacBridge {
         if (existing != null) {
             dispose(owner);
         }
-        java.util.Map<String, Object> members = TacServiceTable.members(service);
-        if (members == null) {
+        require(ACTIVATIONS.size() < MOST_ACTIVATIONS, "Too many native activations.");
+        TacActivation activation = new TacActivation(route, service, owner);
+        if (activation.members == null) {
+            activation.preferences.dispose();
             return UNKNOWN_SERVICE;
         }
-        require(ACTIVATIONS.size() < MOST_ACTIVATIONS, "Too many native activations.");
-        TacActivation activation = new TacActivation(route, service, owner, members);
         try {
             if (!assign(activation, props)) {
+                activation.preferences.dispose();
                 return MISSING_REQUIRED;
             }
         } catch (RuntimeException problem) {
+            activation.preferences.dispose();
             return MISSING_REQUIRED;
         }
         ACTIVATIONS.put(owner, activation);

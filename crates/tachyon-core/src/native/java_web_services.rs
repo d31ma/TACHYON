@@ -25,6 +25,7 @@ mod java_model_kind;
 mod java_model_reader;
 mod java_model_table;
 mod java_models;
+mod java_preference_constructor;
 mod java_service;
 mod java_service_table;
 mod java_type_declaration;
@@ -34,10 +35,17 @@ mod java_web_apis;
 mod tea_vm_runtime;
 mod tea_vm_toolchain;
 
+#[cfg(test)]
+mod preference_strings_tests;
+
 pub(crate) struct JavaWebServices;
 
 impl JavaWebServices {
-    const PRELUDE: [(&'static str, &'static str); 21] = [
+    const PRELUDE: [(&'static str, &'static str); 22] = [
+        (
+            "TacPreferenceScope.java",
+            include_str!("java_web_services/prelude/TacPreferenceScope.java"),
+        ),
         (
             "TacServices.java",
             include_str!("java_web_services/prelude/TacServices.java"),
@@ -162,6 +170,18 @@ impl JavaWebServices {
         Ok((program.published(), note))
     }
 
+    pub(crate) fn test_preference_contract(source: &str) -> &'static str {
+        Self::preference_contract(source)
+    }
+
+    fn preference_contract(source: &str) -> &'static str {
+        if source.contains("PreferenceStrings") {
+            include_str!("web_apis/PreferenceStrings.java")
+        } else {
+            ""
+        }
+    }
+
     fn authored(services: &[(String, String, PathBuf)]) -> Result<Vec<String>, Failure> {
         services
             .iter()
@@ -185,6 +205,7 @@ impl JavaWebServices {
                 class: class.to_owned(),
                 members: Vec::new(),
                 required: Vec::new(),
+                preferences: Vec::new(),
                 path: relative.to_path_buf(),
                 source: authored,
             };
@@ -220,6 +241,11 @@ impl JavaWebServices {
         let source =
             lowered.map_or_else(|| behavior_source, |text| JavaBrowserRuntime::adapt(&text));
         let source = models.without_declarations(relative, &source)?;
+        let preferences = java_preference_constructor::JavaPreferenceConstructor::read(
+            relative,
+            &source,
+            &authored.class,
+        )?;
         let shown = relative.to_string_lossy();
         let reader = JavaClassReader::new(&shown, &source);
         let events_of_class = JavaEventMembers::new(relative, &authored.class, values);
@@ -228,6 +254,7 @@ impl JavaWebServices {
         let compiled = JavaEventMembers::with_publishers(&reader.without_markers(&source));
         Ok(JavaService {
             members,
+            preferences,
             source: JavaEnclosure::wrap(&compiled, &JavaEnclosure::holder(index)),
             required: roles.required,
             ..authored

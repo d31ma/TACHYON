@@ -29,6 +29,8 @@ mod python_unit;
 
 #[cfg(test)]
 mod java_construct_tests;
+#[cfg(test)]
+mod java_preference_tests;
 
 #[must_use]
 pub fn units(project: &Path, realm: &str) -> Vec<PathBuf> {
@@ -731,8 +733,9 @@ fn java(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result<S
     std::fs::write(
         directory.join("Unit.java"),
         format!(
-            "{lowered}\nfinal class TachyonTestMain {{\n\
-             public static void main(String[] arguments) {{ System.out.println(Behaviors.encode(new {name}().POST())); }}\n}}\n"
+            "{}\n{lowered}\nfinal class TachyonTestMain {{\n\
+             public static void main(String[] arguments) {{ System.out.println(Behaviors.encode(new {name}().POST())); }}\n}}\n",
+            crate::native::JavaWebServices::test_preference_contract(lowered)
         ),
     )
     .map_err(|error| stage_failure(portable, &error))?;

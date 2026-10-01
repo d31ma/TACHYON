@@ -4,7 +4,13 @@ use crate::Failure;
 pub(crate) struct BrowserApiGrants;
 
 impl BrowserApiGrants {
-    const KNOWN: [&'static str; 4] = ["clipboard", "geolocation", "notifications", "share"];
+    const KNOWN: [&'static str; 5] = [
+        "clipboard",
+        "geolocation",
+        "notifications",
+        "preferenceStrings",
+        "share",
+    ];
     const META_NAME: &'static str = "tachyon-browser-apis";
 
     pub(crate) fn checked(grants: Vec<String>) -> Result<Vec<String>, Failure> {
@@ -45,5 +51,29 @@ impl BrowserApiGrants {
         Err(config_failure(
             "Manifest tac.browserApis lists a browser API more than once.",
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+    use super::BrowserApiGrants;
+
+    #[test]
+    fn preference_strings_use_the_existing_explicit_manifest_grant() {
+        let grants =
+            BrowserApiGrants::checked(vec![String::from("preferenceStrings")]).expect("grant");
+        assert_eq!(
+            BrowserApiGrants::meta_tag(&grants),
+            "<meta name=\"tachyon-browser-apis\" content=\"preferenceStrings\">"
+        );
+        assert!(BrowserApiGrants::checked(vec![String::from("PreferenceStrings")]).is_err());
+        assert!(
+            BrowserApiGrants::checked(vec![
+                String::from("preferenceStrings"),
+                String::from("preferenceStrings")
+            ])
+            .is_err()
+        );
     }
 }

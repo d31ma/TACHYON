@@ -5,12 +5,22 @@ final class TacActivation {
     final java.util.Map<String, Object> members;
     final java.util.ArrayDeque<TacEvent> queue = new java.util.ArrayDeque<>();
     boolean disposed;
+    final TacPreferenceScope preferences = new TacPreferenceScope();
 
-    TacActivation(String route, String service, String owner, java.util.Map<String, Object> members) {
+    TacActivation(String route, String service, String owner) {
         this.route = route;
         this.service = service;
         this.owner = owner;
-        this.members = members;
+        this.members = created(service);
+    }
+
+    private java.util.Map<String, Object> created(String service) {
+        try {
+            return TacServiceTable.members(service, preferences);
+        } catch (RuntimeException failed) {
+            preferences.dispose();
+            throw failed;
+        }
     }
 
     boolean belongsTo(String route, String service) {
@@ -27,6 +37,7 @@ final class TacActivation {
 
     void dispose() {
         disposed = true;
+        preferences.dispose();
         queue.clear();
         runHooks(true);
     }

@@ -224,6 +224,14 @@ mod tests {
     }
 
     #[test]
+    fn injected_preference_fields_and_constructors_stay_off_the_page() {
+        let source = "class ShelfService {\n final PreferenceStrings preferences;\n ShelfService(PreferenceStrings preferences) { this.preferences = preferences; }\n String answer() { return preferences.read(\"tachyon.platform\"); }\n}\n";
+        let members = read(source).expect("members");
+        let names: Vec<&str> = members.iter().map(|(name, ..)| name.as_str()).collect();
+        assert_eq!(names, ["answer"]);
+    }
+
+    #[test]
     fn listeners_publishers_and_behavior_contexts_stay_off_the_page() {
         let source = "class ShelfService {\n    ApplicationEventPublisher applicationEventPublisher;\n    Behaviors.Context behaviors;\n    int count = 0;\n\n    @OnEvent\n    @Order(-1)\n    void heard(Object value) {}\n}\n";
         let members = read(source).expect("members");
