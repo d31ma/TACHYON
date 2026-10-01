@@ -37,6 +37,7 @@ impl FolderRoleCheck {
     }
 
     pub(super) fn check_source(path: &Path, source: &str) -> Result<(), Failure> {
+        super::reject_renamed_annotations(path, source)?;
         let expected = Self::expected(path);
         expected.map_or(Ok(()), |(realm, folder, marker)| {
             Self::check_registered(path, source, realm, folder, marker)

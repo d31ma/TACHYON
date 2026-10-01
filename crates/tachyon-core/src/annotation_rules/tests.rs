@@ -624,7 +624,10 @@ fn deeper_paths_share_the_table_messages() {
     assert!(AnnotationRules::no_arguments("Service").starts_with("Service accepts no arguments"));
     assert!(AnnotationRules::belongs("Cached").starts_with("Cached belongs on a method"));
     let refusal = AnnotationRules::unavailable("Helper", "kt", "tac").expect("browser role");
-    assert!(refusal.contains("browser role"), "{refusal}");
+    assert!(
+        refusal.contains("qualified same-language Helper constructor"),
+        "{refusal}"
+    );
     assert_eq!(AnnotationRules::unavailable("Helper", "dart", "tac"), None);
     assert_eq!(Messages::snake_case("HTTPClient"), "http_client");
     assert_eq!(Messages::snake_case("OnEvent"), "on_event");

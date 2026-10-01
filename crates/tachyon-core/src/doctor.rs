@@ -166,7 +166,7 @@ mod tests {
     fn a_native_service_reports_its_native_toolchain() {
         let root = project_with(&[(
             "client/services/CatalogService.rs",
-            "struct CatalogService;",
+            "#[Service]\nstruct CatalogService;",
         )]);
         let report = check(root.path()).expect("report");
         let entry = report
@@ -194,15 +194,15 @@ mod tests {
         let root = project_with(&[
             (
                 "client/services/BasketService.ts",
-                "export default class BasketService {}\n",
+                "@Service\nexport default class BasketService {}\n",
             ),
             (
                 "client/services/ClockService.js",
-                "export default class ClockService {}\n",
+                "@Service\nexport default class ClockService {}\n",
             ),
             (
                 "client/services/TallyService.dart",
-                "class TallyService {}\n",
+                "@Service\nclass TallyService {}\n",
             ),
         ]);
         let report = check(root.path()).expect("report");
@@ -420,7 +420,7 @@ mod tests {
     fn a_go_web_service_reports_the_go_toolchain() {
         let root = project_with(&[(
             "client/services/BasketService.go",
-            "type BasketService struct{ Count int }\n",
+            "// @Service\ntype BasketService struct{ Count int }\n",
         )]);
         let report = check(root.path()).expect("report");
         assert_eq!(
@@ -540,11 +540,11 @@ mod tests {
         let root = project_with(&[
             (
                 "client/services/CatalogService.kt",
-                "class CatalogService\n",
+                "@Service\nclass CatalogService\n",
             ),
             (
                 "client/services/CatalogService.js",
-                "export default class CatalogService {}\n",
+                "@Service\nexport default class CatalogService {}\n",
             ),
             ("server/controllers/AController.py", "source"),
         ]);

@@ -1087,7 +1087,12 @@ mod tests {
             .join("client/services")
             .join(format!("OwnerProbeService.{extension}"));
         std::fs::create_dir_all(source.parent().expect("parent")).expect("fixture tree");
-        std::fs::write(&source, authored).expect("write fixture");
+        let marker = match extension {
+            "rs" => "#[Service]",
+            "cs" => "[Service]",
+            _ => "@Service",
+        };
+        std::fs::write(&source, format!("{marker}\n{authored}")).expect("write fixture");
         write_owner_models(root, extension);
         let companion = super::super::registry::NativeCompanionInput {
             snapshot_root: root.to_path_buf(),

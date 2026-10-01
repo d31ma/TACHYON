@@ -402,21 +402,19 @@ mod tests {
     #[test]
     fn a_go_helper_failure_names_the_helper_file() {
         let root = tempfile::tempdir().expect("project");
-        let service = "type TallyService struct{}\n";
+        let service = "// @Service\ntype TallyService struct{}\n";
         write_file(root.path(), "client/services/TallyService.go", service);
         write_file(
             root.path(),
             "client/helpers/StepHelper.go",
             "\n// @Helper\ntype StepHelper struct{}\n",
         );
-        let failure = ServiceChecks::check_native_source(
-            root.path(),
-            Path::new("client/services/TallyService.go"),
-            service,
-        )
-        .expect_err("Helper is a browser role");
+        let path = Path::new("client/services/TallyService.go");
+        let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
+        let failure = ServiceChecks::check_native_source(root.path(), path, &roles.source)
+            .expect_err("Helper is unavailable in Go");
         let diagnostic = &failure.diagnostics()[0];
-        assert!(diagnostic.message.contains("browser role"), "{failure}");
+        assert!(diagnostic.message.contains("not available"), "{failure}");
         assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.go");
         assert_eq!(diagnostic.spans[0].start, 4);
     }
@@ -427,34 +425,38 @@ mod tests {
         write_file(root.path(), &service_path, service);
         let helper_path = format!("client/helpers/StepHelper.{extension}");
         write_file(root.path(), &helper_path, helper);
-        ServiceChecks::check_native_source(root.path(), Path::new(&service_path), service)
-            .expect_err("Helper is a browser role")
+        let path = Path::new(&service_path);
+        let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
+        ServiceChecks::check_native_source(root.path(), path, &roles.source)
+            .expect_err("Helper is unavailable in this compiled language")
     }
 
     #[test]
-    fn a_rust_helper_failure_names_the_helper_file() {
-        let failure = helper_failure(
-            "struct TallyService {}\n",
-            "\n#[Helper]\nstruct StepHelper {}\n",
-            "rs",
+    fn a_rust_helper_is_supported_at_its_own_file() {
+        let root = tempfile::tempdir().expect("project");
+        let service = "#[Service]\nstruct TallyService {}\n";
+        write_file(root.path(), "client/services/TallyService.rs", service);
+        write_file(
+            root.path(),
+            "client/helpers/StepHelper.rs",
+            "#[Helper]\nstruct StepHelper {}\n",
         );
-        let diagnostic = &failure.diagnostics()[0];
-        assert_eq!(diagnostic.code.to_string(), "TY1308");
-        assert!(diagnostic.message.contains("browser role"), "{failure}");
-        assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.rs");
-        assert_eq!(diagnostic.spans[0].start, 1);
+        let path = Path::new("client/services/TallyService.rs");
+        let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
+        ServiceChecks::check_native_source(root.path(), path, &roles.source)
+            .expect("Rust Helper source is supported");
     }
 
     #[test]
     fn a_csharp_helper_failure_names_the_helper_file() {
         let failure = helper_failure(
-            "using System;\nclass TallyService {}\n",
+            "using System;\n[Service]\nclass TallyService {}\n",
             "using System;\n[Helper]\nclass StepHelper {}\n",
             "cs",
         );
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.to_string(), "TY1308");
-        assert!(diagnostic.message.contains("browser role"), "{failure}");
+        assert!(diagnostic.message.contains("not available"), "{failure}");
         assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.cs");
         assert_eq!(diagnostic.spans[0].start, 14);
     }
@@ -462,13 +464,13 @@ mod tests {
     #[test]
     fn kotlin_and_swift_helper_failures_name_the_helper_file() {
         for (extension, service) in [
-            ("kt", "class TallyService\n"),
-            ("swift", "final class TallyService {}\n"),
+            ("kt", "@Service\nclass TallyService\n"),
+            ("swift", "@Service\nfinal class TallyService {}\n"),
         ] {
             let helper = "\n@Helper\nclass StepHelper {}\n";
             let failure = helper_failure(service, helper, extension);
             let diagnostic = &failure.diagnostics()[0];
-            assert!(diagnostic.message.contains("browser role"), "{failure}");
+            assert!(diagnostic.message.contains("not available"), "{failure}");
             let expected = format!("client/helpers/StepHelper.{extension}");
             assert_eq!(diagnostic.spans[0].file, expected, "{failure}");
             assert_eq!(diagnostic.spans[0].start, 1, "{failure}");

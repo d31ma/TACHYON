@@ -519,22 +519,22 @@ mod tests {
     }
 
     #[test]
-    fn application_modules_are_captured_without_framework_annotation_parsing() {
+    fn plain_shared_modules_are_captured_without_framework_annotation_parsing() {
         let root = project_with_home_page("<main>Safe</main>");
         write_file(
             root.path(),
-            "server/services/ZRepository.py",
+            "server/shared/ZRepository.py",
             "class ZRepository: pass",
         );
         write_file(
             root.path(),
-            "server/services/ARepository.py",
+            "server/shared/ARepository.py",
             "class ARepository: pass",
         );
         for layer in ["services", "stores", "clients", "remotes", "helpers"] {
             write_file(
                 root.path(),
-                &format!("server/{layer}/invalid.py"),
+                &format!("server/shared/{layer}/invalid.py"),
                 [0xff, 0xfe],
             );
         }

@@ -11,11 +11,17 @@ fn error_handlers_use_controller_folder_and_error_handler_suffix() {
         )
         .is_ok()
     );
+    assert!(
+        validate(
+            Path::new("server/controllers/nested/OrdersErrorHandler.ts"),
+            source
+        )
+        .is_ok()
+    );
     for path in [
         "client/controllers/OrdersErrorHandler.ts",
         "server/services/OrdersErrorHandler.ts",
         "server/controllers/OrdersController.ts",
-        "server/controllers/nested/OrdersErrorHandler.ts",
     ] {
         assert!(validate(Path::new(path), source).is_err(), "{path}");
     }

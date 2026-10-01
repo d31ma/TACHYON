@@ -1379,8 +1379,19 @@ mod tests {
             let root = project();
             write_layer_modules(root.path(), extension);
             let report = check(root.path());
-            assert_eq!(report.findings.len(), 2);
-            for finding in &report.findings {
+            assert_eq!(report.findings.len(), 3);
+            let marker = report
+                .findings
+                .iter()
+                .find(|finding| finding.feature == "role.marker")
+                .expect("unregistered service migration");
+            assert_eq!(marker.status, MigrationStatus::Changed);
+            assert!(marker.source.starts_with("server/services/"));
+            for finding in report
+                .findings
+                .iter()
+                .filter(|finding| finding.feature != "role.marker")
+            {
                 assert_eq!(finding.status, MigrationStatus::Supported, "{finding:?}");
                 assert!(finding.detail.contains("snapshot"));
                 assert!(finding.detail.contains("imports"));
@@ -1960,12 +1971,12 @@ mod tests {
         write(
             root,
             "client/services/BasketService.swift",
-            "final class BasketService {}",
+            "@Service\nfinal class BasketService {}",
         );
         write(
             root,
             "client/services/BasketService.rs",
-            "struct BasketService;",
+            "#[Service]\nstruct BasketService;",
         );
         write(
             root,
