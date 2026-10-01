@@ -1,9 +1,10 @@
+use super::file_picker_sources::FilePickerSources;
 use crate::route_types::WebEventSources;
 
 pub(super) struct CsharpWebApis;
 
 impl CsharpWebApis {
-    pub(super) const SOURCE: &'static str = concat!(
+    const BROWSER: &'static str = concat!(
         include_str!("web_apis/TacWebHost.cs"),
         include_str!("web_apis/Clock.cs"),
         include_str!("web_apis/SecureRandom.cs"),
@@ -14,19 +15,18 @@ impl CsharpWebApis {
         include_str!("web_apis/Share.cs"),
         include_str!("web_apis/Notifications.cs"),
         include_str!("web_apis/Geolocation.cs"),
-        include_str!("web_apis/WindowControls.cs"),
-        include_str!("capabilities/FilePickerStatus.cs"),
-        include_str!("capabilities/FilePickerResult.cs"),
-        include_str!("capabilities/FilePickerOptions.cs"),
-        include_str!("capabilities/NativeCapabilityOwner.cs"),
-        include_str!("capabilities/NativeCapabilities.cs"),
-        include_str!("capabilities/FilePicker.cs"),
-        include_str!("capabilities/NativeCapabilityTransport.cs")
+        include_str!("web_apis/WindowControls.cs")
     );
+
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";
 
     pub(super) fn with_events() -> String {
-        format!("{}{}", Self::SOURCE, WebEventSources::csharp())
+        format!(
+            "{}{}{}",
+            Self::BROWSER,
+            FilePickerSources::csharp(),
+            WebEventSources::csharp()
+        )
     }
 
     pub(super) fn in_web_services(fsharp: &str) -> String {
@@ -35,15 +35,24 @@ impl CsharpWebApis {
     }
 
     pub(super) fn native() -> String {
-        let source = Self::SOURCE.replace(
+        let source = Self::BROWSER.replace(
             include_str!("web_apis/WindowControls.cs"),
             include_str!("capabilities/WindowControls.cs"),
         );
-        format!("{source}{}", WebEventSources::csharp())
+        format!(
+            "{source}{}{}",
+            FilePickerSources::csharp(),
+            WebEventSources::csharp()
+        )
     }
 
     pub(super) fn library() -> String {
-        format!("{}{}", Self::LIBRARY_USINGS, Self::SOURCE)
+        format!(
+            "{}{}{}",
+            Self::LIBRARY_USINGS,
+            Self::BROWSER,
+            FilePickerSources::csharp()
+        )
     }
 }
 

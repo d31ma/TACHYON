@@ -1,3 +1,4 @@
+use super::file_picker_sources::FilePickerSources;
 use super::registry::NativeCompanionInput;
 use crate::Failure;
 use crate::project::NativeCompanion;
@@ -23,14 +24,9 @@ impl KotlinWebServices {
         include_str!("web_apis/Share.kt"),
         include_str!("web_apis/Notifications.kt"),
         include_str!("web_apis/Geolocation.kt"),
-        include_str!("web_apis/WindowControls.kt"),
-        include_str!("capabilities/FilePickerStatus.kt"),
-        include_str!("capabilities/FilePickerResult.kt"),
-        include_str!("capabilities/FilePickerOptions.kt"),
-        include_str!("capabilities/NativeCapabilityOwner.kt"),
-        include_str!("capabilities/NativeCapabilities.kt"),
-        include_str!("capabilities/FilePicker.kt")
+        include_str!("web_apis/WindowControls.kt")
     );
+
     const JVM_SHIMS: [(&'static str, &'static str); 3] = [
         (
             "jvm_shims/java_util.kt",
@@ -99,10 +95,11 @@ impl KotlinWebServices {
             .collect();
         let authored = crate::behavior::KotlinBuiltins::in_browser(authored, Self::STORAGE);
         let program = format!(
-            "{authored}\n{}{}{}",
+            "{authored}\n{}{}{}{}",
             crate::route_types::WebEventSources::kotlin(),
             KotlinModelReaders::text(&texts),
-            Self::PRELUDE
+            Self::PRELUDE,
+            FilePickerSources::kotlin()
         );
         let mut sources = vec![(PathBuf::from(Self::PROGRAM_SOURCE), program)];
         sources.extend(model_files);
