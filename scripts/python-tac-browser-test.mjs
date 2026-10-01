@@ -5,6 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
+import { PythonTacTestOrigin } from './python-tac-test-origin.mjs'
 
 class PythonTacGate {
   static timeoutMilliseconds = 45_000
@@ -47,20 +48,21 @@ class PythonTacGate {
   static async serve(binary, fixture, diagnostics) {
     let result
     await withServer(binary, ['preview', fixture, '--static', '--out-dir', 'dist', '--host', '127.0.0.1', '--port', '0', '--no-self-restart'], async request => {
-      const url = new URL((await request('/')).url)
-      url.hostname = PythonTacGate.host
-      diagnostics.testOrigin = { origin: url.origin, transport: 'HTTP loopback server', resolution: 'Chromium-only hostname mapping to 127.0.0.1', secureContext: 'Chromium-only exact-origin test allowlist; no HTTPS qualification' }
-      result = await PythonTacGate.probe(url.origin, diagnostics)
+      const upstream = new URL((await request('/')).url).origin
+      result = await PythonTacTestOrigin.run(upstream, fixture, async origin => {
+        diagnostics.testOrigin = { origin, transport: 'HTTPS loopback proxy to ordinary ty preview; unmodified response bytes and headers', resolution: 'Chromium-only hostname mapping to 127.0.0.1', secureContext: 'Local self-signed test certificate accepted only by isolated browser; no published TLS identity qualification' }
+        return PythonTacGate.probe(origin, diagnostics)
+      })
     })
     return result
   }
 
   static async probe(origin, diagnostics) {
     diagnostics.phase = 'launching-browser'
-    const browser = await chromium.launch({ timeout: 10_000, args: [`--host-resolver-rules=MAP ${PythonTacGate.host} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${origin}`, '--no-proxy-server'] })
+    const browser = await chromium.launch({ timeout: 10_000, args: [`--host-resolver-rules=MAP ${PythonTacGate.host} 127.0.0.1`, '--ignore-certificate-errors', '--no-proxy-server'] })
     diagnostics.chromiumVersion = browser.version()
     try {
-      const context = await browser.newContext({ serviceWorkers: 'allow' })
+      const context = await browser.newContext({ serviceWorkers: 'allow', ignoreHTTPSErrors: true })
       const page = await context.newPage()
       PythonTacGate.observe(page, origin, diagnostics)
       diagnostics.phase = 'opening-python-view'

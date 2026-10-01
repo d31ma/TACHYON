@@ -55,6 +55,7 @@ impl PythonTacFixture {
         fixture.stage();
         fixture.stage_assets();
         fixture.build().await;
+        fixture.certificate().await;
         fixture.browser().await;
     }
 
@@ -119,6 +120,37 @@ impl PythonTacFixture {
         );
     }
 
+    async fn certificate(&self) {
+        assert!(self.root.is_absolute(), "fixture root must be absolute");
+        let mut command = tokio::process::Command::new("openssl");
+        command
+            .args([
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-nodes",
+                "-days",
+                "1",
+                "-subj",
+                "/CN=python-tac.test",
+                "-addext",
+                "subjectAltName=DNS:python-tac.test",
+                "-keyout",
+            ])
+            .arg(self.root.join("python-tac-test-key.pem"))
+            .arg("-out")
+            .arg(self.root.join("python-tac-test-cert.pem"));
+        let output = crate::external_command::run(&mut command, Duration::from_secs(10), 64 * 1024)
+            .await
+            .unwrap_or_else(|error| panic!("supervised fixture certificate: {error}"));
+        assert!(
+            output.status.success(),
+            "fixture certificate: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
     async fn browser(&self) {
         let mut command = tokio::process::Command::new("node");
         command
@@ -150,4 +182,10 @@ impl PythonTacFixture {
 #[ignore = "requires explicit pinned core assets, retained fixture/cache, source commit, preview binary and Chromium"]
 async fn pinned_python_tac_sync_di_models_and_offline_reload_use_the_real_compiler() {
     PythonTacFixture::run().await;
+}
+
+#[tokio::test]
+#[ignore = "requires the explicit retained Python Tac fixture environment; issues only a local one-day test certificate"]
+async fn python_tac_fixture_certificate_uses_the_supervised_sdk_path() {
+    PythonTacFixture::read().certificate().await;
 }
