@@ -30,15 +30,15 @@ mod manifest_setting;
 #[cfg(test)]
 mod model_tests;
 mod native_capabilities;
-mod native_window_controls;
-#[cfg(test)]
-mod native_window_control_tests;
 #[cfg(test)]
 mod native_capability_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
 #[cfg(test)]
 mod native_web_api_tests;
+#[cfg(test)]
+mod native_window_control_tests;
+mod native_window_controls;
 mod registry;
 mod routes;
 mod rust;
@@ -64,6 +64,8 @@ pub(crate) use go::{
 };
 pub(crate) use java_web_services::JavaWebServices;
 pub(crate) use kotlin_web_services::KotlinWebServices;
+#[cfg(test)]
+pub(crate) use rust::companion_prelude;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
 pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
 pub(crate) use site_map::SiteMap;

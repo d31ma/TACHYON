@@ -8,8 +8,16 @@ impl FilePickerSources {
             include_str!("capabilities/FilePickerOptions.cs"),
             include_str!("capabilities/NativeCapabilityOwner.cs"),
             include_str!("capabilities/NativeCapabilities.cs"),
-            include_str!("capabilities/FilePicker.cs"),
-            include_str!("capabilities/NativeCapabilityTransport.cs")
+            include_str!("capabilities/FilePicker.cs")
+        )
+    }
+
+    pub(super) fn csharp_native() -> String {
+        format!(
+            "{}{}{}",
+            Self::csharp(),
+            include_str!("capabilities/NativeCapabilityTransport.cs"),
+            include_str!("capabilities/NativeCapabilityRegistration.cs")
         )
     }
 

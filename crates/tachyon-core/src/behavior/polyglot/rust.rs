@@ -1090,7 +1090,7 @@ impl ContractService {{
     }
 
     fn native_bridge_program(lowered: &str, table: &str) -> String {
-        let prelude = include_str!("../../native/prelude.rs");
+        let prelude = crate::native::companion_prelude();
         format!(
             r###"{lowered}
 {table}

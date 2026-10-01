@@ -280,7 +280,7 @@ fn add_extends_an_existing_app() {
         .args(["add", "feature", "http-client", "--skip-tools", "--project"])
         .arg(&project));
     assert!(feature.status.success(), "{}", text(&feature));
-    assert!(project.join("client/clients/HelloClient.js").is_file());
+    assert!(project.join("client/remotes/HelloClient.js").is_file());
     let target = run(ty()
         .args(["add", "target", "linux", "--skip-tools", "--project"])
         .arg(&project));

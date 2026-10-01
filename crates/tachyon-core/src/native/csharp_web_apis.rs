@@ -41,7 +41,7 @@ impl CsharpWebApis {
         );
         format!(
             "{source}{}{}",
-            FilePickerSources::csharp(),
+            FilePickerSources::csharp_native(),
             WebEventSources::csharp()
         )
     }

@@ -62,7 +62,7 @@ impl ManagedCapabilityCheck {
         if (FilePickerResult.Decode("{\"status\":\"denied\",\"name\":\"private/path\",\"text\":\"secret\"}").Text != null) throw new Exception("Failure response exposed private data");
         if (FilePickerResult.Decode("{\"status\":\"selected\",\"handle\":\"opaque\",\"name\":\"private/path\"}").Status != FilePickerStatus.Unavailable) throw new Exception("Selection exposed a path");
         if (failing.ReadText(new string('a', 65537)).Status != FilePickerStatus.Invalid) throw new Exception("Oversize request reached adapter");
-        var register = (delegate* unmanaged<IntPtr, IntPtr, void>)&TacNative.NativeSetCapabilityAdapter;
+        var register = (delegate* unmanaged<IntPtr, IntPtr, void>)&NativeCapabilityRegistration.Register;
         register((IntPtr)(delegate* unmanaged<IntPtr, IntPtr, nuint*, IntPtr>)&Reply, (IntPtr)(delegate* unmanaged<IntPtr, nuint, void>)&Free);
         var linkedPicker = NativeCapabilities.Create("linked-picker", () => new FilePicker(NativeCapabilities.Provider()));
         var linkedWindow = NativeCapabilities.Create("linked-window", () => new WindowControls(NativeCapabilities.Provider()));

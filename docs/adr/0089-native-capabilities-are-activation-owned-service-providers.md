@@ -14,6 +14,9 @@ service construction. Native `WindowControls` uses the same construction seam
 and retains `tac.application.window.controls` grants.
 
 The additive manifest field `tac.nativeCapabilities` accepts `filePicker` once.
+Grants are compiled into the target adapter and page bootstrap from that manifest.
+The v3 native-host descriptor keeps its existing schema; it does not duplicate
+these manifest grants in an undeclared `nativeCapabilities` field.
 It is separate from `tac.browserApis`. Missing grants return `denied` before an
 OS picker opens. The host also checks the grant on each read. This grant does
 not replace OS user consent or signing entitlements. macOS uses NSOpenPanel's

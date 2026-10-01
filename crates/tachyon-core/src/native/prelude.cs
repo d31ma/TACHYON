@@ -598,9 +598,6 @@ public static class TacNative
     [UnmanagedCallersOnly(EntryPoint = "tac_native_free")]
     public static void NativeFree(IntPtr answer) => Marshal.FreeCoTaskMem(answer);
 
-    [UnmanagedCallersOnly(EntryPoint = "tac_native_set_capability_adapter")]
-    public static void NativeSetCapabilityAdapter(IntPtr call, IntPtr release) => NativeCapabilityTransport.Register(call, release);
-
     [UnmanagedCallersOnly(EntryPoint = "tac_native_set_emit")]
     public static unsafe void NativeSetEmit(IntPtr emit) => Tac.SetEmit(emit);
 }

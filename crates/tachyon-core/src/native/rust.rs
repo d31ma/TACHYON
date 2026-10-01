@@ -39,7 +39,7 @@ impl RustCompanion {
 }
 
 #[cfg(test)]
-pub(super) const fn companion_prelude() -> &'static str {
+pub(crate) const fn companion_prelude() -> &'static str {
     RustCompanion::PRELUDE
 }
 
