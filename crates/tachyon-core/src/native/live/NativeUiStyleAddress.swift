@@ -22,14 +22,14 @@ struct NativeUiStyleAddress {
         return path
     }
 
-    private static func origin(_ url: URL) throws {
+    static func origin(_ url: URL) throws {
         let authority = url.scheme == "tachyon-app" && url.host == "bundle"
             && url.port == nil && url.user == nil && url.password == nil
             && url.query == nil && url.fragment == nil
         try NativeUiRuntimeFailure.require(authority, "Only local captured generation assets are allowed")
     }
 
-    private static func encodedPath(_ url: URL) throws {
+    static func encodedPath(_ url: URL) throws {
         let encoded = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath.lowercased() ?? ""
         let ambiguous = ["%2f", "%5c", "%00"].contains { encoded.contains($0) }
         try NativeUiRuntimeFailure.require(!ambiguous, "Ambiguous asset URL encoding")

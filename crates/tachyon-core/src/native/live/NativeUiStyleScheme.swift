@@ -33,7 +33,7 @@ import WebKit
         return url
     }
 
-    private static func mime(_ suffix: String) -> String {
+    static func mime(_ suffix: String) -> String {
         switch suffix.lowercased() {
         case "html": return "text/html; charset=utf-8"
         case "css": return "text/css; charset=utf-8"

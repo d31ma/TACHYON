@@ -42,13 +42,20 @@ import WebKit
         try reconciled(result, ticket)
     }
 
-    func invalidate() async {
+    func invalidate() async { await finishInvalidation(beginInvalidation()) }
+
+    func beginInvalidation() -> NativeUiStyleInvalidation { startedInvalidation() }
+
+    func finishInvalidation(_ request: NativeUiStyleInvalidation) async {
+        await invalidated(request.previous)
+        completeInvalidation(request.epoch)
+    }
+
+    private func startedInvalidation() -> NativeUiStyleInvalidation {
         epoch += 1
-        let invalidationEpoch = epoch
         let previous = phase.ticket()
         phase = .invalidating(previous)
-        await invalidated(previous)
-        completeInvalidation(invalidationEpoch)
+        return NativeUiStyleInvalidation(epoch: epoch, previous: previous)
     }
 
     private func nextTicket(_ candidate: NativeUiRuntimeGeneration) throws -> NativeUiStyleTicket {

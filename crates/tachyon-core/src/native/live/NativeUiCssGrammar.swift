@@ -1,7 +1,7 @@
 import Foundation
 
 struct NativeUiCssGrammar {
-    private static let rules: Set<String> = ["media", "layer", "supports", "container", "keyframes"]
+    private static let rules: Set<String> = ["media", "layer", "supports", "container", "keyframes", "view-transition"]
     private static let functions: Set<String> = [
         "calc", "clamp", "min", "max", "minmax", "repeat",
         "rgb", "rgba", "hsl", "hsla", "color-mix", "linear-gradient", "radial-gradient",

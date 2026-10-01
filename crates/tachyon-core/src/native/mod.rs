@@ -62,6 +62,10 @@ mod native_ui_profile_tests;
 #[cfg(all(test, target_os = "macos"))]
 mod native_ui_runtime_tests;
 #[cfg(all(test, target_os = "macos"))]
+mod native_ui_host_sources;
+#[cfg(all(test, target_os = "macos"))]
+mod native_ui_host_tests;
+#[cfg(all(test, target_os = "macos"))]
 mod native_ui_styles_sources;
 #[cfg(all(test, target_os = "macos"))]
 mod native_ui_styles_tests;

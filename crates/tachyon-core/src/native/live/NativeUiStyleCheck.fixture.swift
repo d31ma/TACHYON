@@ -40,6 +40,7 @@ import WebKit
 
     private static func grammar() throws {
         let sources = [
+            "@view-transition { navigation: auto; } tachyon-component, tachyon-island { display: block; }",
             "@layer brand { @media (min-width: 800px) { main:not(.hidden) { width: clamp(1rem, calc(20px + 1vw), 2rem); color: rgb(10 20 30); } } }",
             "@supports (display: grid) { main { grid-template-columns: repeat(2, minmax(0, 1fr)); background: radial-gradient(red, blue); } }",
             "@container sidebar (width > 10px) { main { transform: translateX(2px); } } @keyframes pulse { from { opacity: .5; } to { opacity: 1; } }",

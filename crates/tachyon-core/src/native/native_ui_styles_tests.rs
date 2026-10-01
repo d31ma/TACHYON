@@ -6,21 +6,21 @@ use super::{
 use cap_std::{ambient_authority, fs::Dir};
 use std::path::{Path, PathBuf};
 
-struct NativeUiStylesFixture {
+pub(super) struct NativeUiStylesFixture {
     root: tempfile::TempDir,
 }
 
 impl NativeUiStylesFixture {
     const SERVICE: &str = "@Service\nfinal class LiveCounterService {\n    static var starts: Int = 0\n    static var stops: Int = 0\n    var count: Int = 0\n    @OnStart\n    func start() { Self.starts += 1 }\n    @OnStop\n    func stop() { Self.stops += 1 }\n    func increment() -> Int { count += 1; return count }\n    func read() -> Int { count }\n    func identity() -> Int { ObjectIdentifier(self).hashValue }\n    func started() -> Int { Self.starts }\n    func stopped() -> Int { Self.stops }\n}\n";
-    const DOCUMENT: &str = r#"<!DOCTYPE html><html><head><link rel="stylesheet" href="/styles/theme.css"></head><body><input id="field" value="initial"><button id="click">Click</button><main id="sample">Native live style fixture</main><script>window.marker=Math.random().toString(36);window.events=0;document.querySelector('#click').addEventListener('click',()=>{window.events+=1})</script></body></html>"#;
+    pub(super) const DOCUMENT: &str = r#"<!DOCTYPE html><html><head><link rel="stylesheet" href="/styles/theme.css"></head><body><input id="field" value="initial"><button id="click">Click</button><main id="sample">Native live style fixture</main><script>window.marker=Math.random().toString(36);window.events=0;document.querySelector('#click').addEventListener('click',()=>{window.events+=1})</script></body></html>"#;
 
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             root: tempfile::tempdir().expect("stylesheet fixture"),
         }
     }
 
-    fn write(&self, path: &str, bytes: &[u8]) -> PathBuf {
+    pub(super) fn write(&self, path: &str, bytes: &[u8]) -> PathBuf {
         let target = self.root.path().join(path);
         std::fs::create_dir_all(target.parent().expect("parent")).expect("directory");
         std::fs::write(&target, bytes).expect("fixture source");
@@ -28,13 +28,31 @@ impl NativeUiStylesFixture {
     }
 
     fn generation(&self, folder: &str, style: &str) -> [String; 3] {
+        self.anchored_generation(folder, style, &"a".repeat(64))
+    }
+
+    pub(super) fn root(&self) -> &Path {
+        self.root.path()
+    }
+
+    pub(super) fn anchored_generation(
+        &self,
+        folder: &str,
+        style: &str,
+        fingerprint: &str,
+    ) -> [String; 3] {
         self.write(&format!("{folder}/index.html"), Self::DOCUMENT.as_bytes());
         self.write(&format!("{folder}/styles/theme.css"), style.as_bytes());
+        self.capture_generation(folder, fingerprint)
+    }
+
+    pub(super) fn capture_generation(&self, folder: &str, fingerprint: &str) -> [String; 3] {
         let root = self.root.path().join(folder);
         let dir = Dir::open_ambient_dir(&root, ambient_authority())
             .expect("native test-owned trust authority");
-        let contract = NativeUiContract::macos("org.example.live".to_owned(), "a".repeat(64))
-            .expect("contract");
+        let contract =
+            NativeUiContract::macos("org.example.live".to_owned(), fingerprint.to_owned())
+                .expect("contract");
         let generation =
             NativeUiGeneration::capture(&dir, contract).expect("trusted source capture");
         let descriptor = self.write(
@@ -50,7 +68,7 @@ impl NativeUiStylesFixture {
         ]
     }
 
-    fn companion(&self) -> PathBuf {
+    pub(super) fn companion(&self) -> PathBuf {
         let source = self.write(
             "client/services/LiveCounterService.swift",
             Self::SERVICE.as_bytes(),
@@ -121,7 +139,7 @@ impl NativeUiStylesFixture {
         executable
     }
 
-    async fn execute(executable: &Path, arguments: &[&str]) -> String {
+    pub(super) async fn execute(executable: &Path, arguments: &[&str]) -> String {
         super::host::run_tool(&executable.to_string_lossy(), arguments)
             .await
             .expect("supervised actual stylesheet fixture")
