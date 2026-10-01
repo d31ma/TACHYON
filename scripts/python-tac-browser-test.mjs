@@ -152,7 +152,7 @@ class PythonTacGate {
     await page.locator('#view-echo').click()
     await page.waitForFunction(() => document.querySelector('#view-echo-count')?.textContent === '1', undefined, { timeout: 5_000 })
     assert.equal(await page.locator('#view-model').textContent(), 'initial')
-    return page.evaluate(async () => {
+    const lifetime = await page.evaluateHandle(async () => {
       const { default: CounterService } = await import('/.tachyon/services/CounterService.js')
       const { default: AuditService } = await import('/.tachyon/services/AuditService.js')
       const audit = new AuditService({})
@@ -179,18 +179,26 @@ class PythonTacGate {
       refused.disposed = attempt(() => first.increment())
       first.__tachyonDispose()
       second.__tachyonDispose()
-      const view = document.querySelector('[data-tachyon-component="python-probe"]')
-      if (!view) throw new Error('The actual owning view was not attached')
-      view.remove()
-      const deadline = performance.now() + 5_000
-      while (audit.snapshot()[1] !== 1) {
-        if (performance.now() >= deadline) throw new Error('Detached view did not release the last shared helper')
-        await new Promise(resolve => setTimeout(resolve, 10))
-      }
-      const stopped = audit.snapshot()
-      audit.__tachyonDispose()
-      return { before, incremented, state, refused, retained, stopped }
+      return { audit, result: { before, incremented, state, refused, retained } }
     })
+    try {
+      await page.locator('#view-hide').click()
+      await page.locator('[data-tachyon-component="python-probe"]').waitFor({ state: 'detached', timeout: 5_000 })
+      return await lifetime.evaluate(async ({ audit, result }) => {
+        try {
+          const deadline = performance.now() + 5_000
+          while (audit.snapshot()[1] !== 1) {
+            if (performance.now() >= deadline) throw new Error('Managed conditional unmount did not release the last shared helper')
+            await new Promise(resolve => setTimeout(resolve, 10))
+          }
+          return { ...result, stopped: audit.snapshot(), teardown: 'managed conditional unmount via Python service event' }
+        } finally {
+          audit.__tachyonDispose()
+        }
+      })
+    } finally {
+      await lifetime.dispose()
+    }
   }
 
   static assertResult(result) {
@@ -205,6 +213,7 @@ class PythonTacGate {
       assert.ok(Object.values(probe.refused).every(Boolean), JSON.stringify(probe.refused))
       assert.deepEqual(probe.retained, { lifecycle: [1, 0], secondIncremented: 4 })
       assert.deepEqual(probe.stopped, [1, 1])
+      assert.equal(probe.teardown, 'managed conditional unmount via Python service event')
     }
   }
 }

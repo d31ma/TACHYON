@@ -12,7 +12,7 @@ struct PythonTacFixture {
 }
 
 impl PythonTacFixture {
-    const FILES: [(&'static str, &'static str); 8] = [
+    const FILES: [(&'static str, &'static str); 9] = [
         (
             "client/models/Guide.py",
             include_str!("../../tests/fixtures/tac-python-sync/client/models/Guide.py"),
@@ -41,6 +41,12 @@ impl PythonTacFixture {
             "client/components/python/probe/tac.html",
             include_str!(
                 "../../tests/fixtures/tac-python-sync/client/components/python/probe/tac.html"
+            ),
+        ),
+        (
+            "client/components/python/lifecycle/tac.html",
+            include_str!(
+                "../../tests/fixtures/tac-python-sync/client/components/python/lifecycle/tac.html"
             ),
         ),
         (
