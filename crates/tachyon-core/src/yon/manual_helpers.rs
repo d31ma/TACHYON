@@ -174,6 +174,7 @@ impl ManualHelpers {
     ) -> Result<(), Failure> {
         selected
             .iter()
+            .filter(|helper| !helper.zero_argument)
             .try_for_each(|helper| Self::require_helper_lifecycle(path, code, helper))
     }
 
@@ -238,6 +239,24 @@ mod tests {
     fn names(extension: &str, source: &str) -> BTreeSet<String> {
         ManualHelpers::read(Path::new(&format!("yon.{extension}")), source)
             .unwrap_or_else(|failure| panic!("{failure}"))
+    }
+
+    #[test]
+    fn zero_argument_called_helper_keeps_managed_lifecycle() {
+        let source = "@Helper\nclass ProbeHelper {\n ProbeHelper() {}\n @OnStart\n void start() {}\n}\nclass Caller { Object value = new ProbeHelper(); }";
+        assert_eq!(
+            names("java", source),
+            BTreeSet::from(["ProbeHelper".into()])
+        );
+    }
+
+    #[test]
+    fn field_needs_called_helper_cannot_claim_managed_lifecycle() {
+        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n [OnStart]\n void Start() {}\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeHelper), context); }";
+        let failure = ManualHelpers::read(Path::new("yon.cs"), source)
+            .err()
+            .unwrap_or_else(|| panic!("expected lifecycle failure"));
+        assert!(failure.to_string().contains("caller-owned"));
     }
 
     #[test]
