@@ -45,7 +45,8 @@ impl RustGraph {
         events: (&[String], &str),
     ) -> Result<String, Failure> {
         let table = rust_owner_table(source, path, events.0, events.1, false)?;
-        let name = declared_service(path).ok_or_else(|| unnamed_service(path, None, "struct"))?;
+        let name =
+            declared_service(path, source).ok_or_else(|| unnamed_service(path, None, "struct"))?;
         let (_, members) = table
             .split_once("\nvec![")
             .ok_or_else(|| unnamed_service(path, Some(&name), "struct"))?;
@@ -58,7 +59,7 @@ impl RustGraph {
     }
 
     pub(crate) fn supports_arc(source: &str, path: &str, exposed: bool) -> Result<bool, Failure> {
-        let wanted = declared_service(path);
+        let wanted = declared_service(path, source);
         let (name, body) = block_named(source, "struct", wanted.as_deref())
             .ok_or_else(|| unnamed_service(path, wanted.as_deref(), "struct"))?;
         let collaborators = RustCollaborators::declared_beside(&name, source);

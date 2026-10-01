@@ -23,6 +23,17 @@ impl ClassFileName {
         Self::read_name(path, source)
     }
 
+    pub(crate) fn matching_declaration(path: &Path, source: &str) -> Option<String> {
+        Self::find_declaration(path, source)
+    }
+
+    fn find_declaration(path: &Path, source: &str) -> Option<String> {
+        super::declaration_names(path, source)
+            .ok()?
+            .into_iter()
+            .find(|name| Self::matches(path, name))
+    }
+
     fn render(path: &Path, name: &str) -> String {
         match path.extension().and_then(|extension| extension.to_str()) {
             Some("rs") => Self::snake_case(name),

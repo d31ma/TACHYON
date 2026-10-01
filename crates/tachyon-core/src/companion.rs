@@ -21,7 +21,7 @@ pub(crate) fn owner_name(
     source: &str,
     source_path: &str,
 ) -> Option<String> {
-    let wanted = declared_service(source_path);
+    let wanted = declared_service(source_path, source);
     if language == CompanionLanguage::Rust {
         block_named(source, "struct", wanted.as_deref()).map(|(name, _)| name)
     } else {
@@ -74,7 +74,7 @@ fn missing_constructor(source_path: &str, name: &str) -> Failure {
     ))
 }
 
-fn declared_service(source_path: &str) -> Option<String> {
+fn declared_service(source_path: &str, source: &str) -> Option<String> {
     let path = source_path.replace('\\', "/");
     let (parent, file) = path.rsplit_once('/')?;
     let role_parent = parent == "client/services"
@@ -88,10 +88,17 @@ fn declared_service(source_path: &str) -> Option<String> {
         Some((stem, _)) => stem,
         None => file,
     };
-    if !stem.ends_with("Service") {
+    if ![stem.ends_with("Service"), file.ends_with("_service.rs")].contains(&true) {
         return None;
     }
-    Some(stem.to_owned())
+    Some(
+        crate::annotation_layout::ClassFileName::matching_declaration(
+            std::path::Path::new(&path),
+            source,
+        )
+        .filter(|name| name.ends_with("Service"))
+        .unwrap_or_else(|| stem.to_owned()),
+    )
 }
 
 pub(crate) fn owner_table(
@@ -119,7 +126,7 @@ pub(crate) fn with_required_constructor(
     needs_all: bool,
 ) -> String {
     let source = crate::without_bom(source);
-    let wanted = declared_service(source_path);
+    let wanted = declared_service(source_path, source);
     let Some((name, body)) = class_body_named(source, wanted.as_deref()) else {
         return source.to_owned();
     };
@@ -192,7 +199,7 @@ fn class_owner_table(
     extra: &str,
     needs_all: bool,
 ) -> Result<String, Failure> {
-    let wanted = declared_service(source_path);
+    let wanted = declared_service(source_path, source);
     let Some((name, body)) = class_body_named(source, wanted.as_deref()) else {
         return Err(unnamed_service(source_path, wanted.as_deref(), "class"));
     };
@@ -280,7 +287,7 @@ fn rust_owner_table(
     extra: &str,
     needs_all: bool,
 ) -> Result<String, Failure> {
-    let wanted = declared_service(source_path);
+    let wanted = declared_service(source_path, source);
     let Some((name, body)) = block_named(source, "struct", wanted.as_deref()) else {
         return Err(unnamed_service(source_path, wanted.as_deref(), "struct"));
     };
@@ -1878,6 +1885,44 @@ mod tests {
         )
         .expect("unnamed");
         assert!(table.contains("CompanionService()"), "{table}");
+    }
+
+    #[test]
+    fn rust_snake_case_native_members_select_the_matching_declared_service() {
+        let source = "use crate::utils::TitleUtils as Titles;\n\
+                      #[derive(Default)]\nstruct EarlierService {}\n\
+                      #[derive(Default)]\nstruct LabelService;\n\
+                      impl LabelService {\n    pub fn read(&self) -> String { Titles::text() }\n}\n";
+        for path in [
+            "client/services/feature/native/label_service.rs",
+            "client/services/feature/native/LabelService.rs",
+        ] {
+            assert_eq!(
+                owner_name(CompanionLanguage::Rust, source, path).as_deref(),
+                Some("LabelService")
+            );
+            assert!(RustGraph::supports_arc(source, path, true).expect("immutable owner"));
+            let table = RustGraph::table(source, path, "scope.label()", (&[], ""))
+                .expect("named native graph owner");
+            assert!(table.contains("fn tac_members_LabelService("), "{table}");
+            assert!(table.contains("\"read\""), "{table}");
+            assert!(!table.contains("tac_members_EarlierService"), "{table}");
+        }
+    }
+
+    #[test]
+    fn rust_snake_case_native_members_preserve_declared_type_mismatch_errors() {
+        let failure = rust_member_table(
+            "#[derive(Default)]\nstruct OtherService { count: i64 }\n",
+            "client/services/feature/native/label_service.rs",
+        )
+        .expect_err("the filename must identify its actual service");
+        assert!(
+            failure
+                .to_string()
+                .contains("declares no struct named 'label_service'"),
+            "{failure}"
+        );
     }
 
     #[test]
