@@ -1367,21 +1367,6 @@ mod tests {
     }
 
     #[test]
-    fn typescript_owned_resources_refuse_static_initialized_and_method_targets() {
-        for declaration in [
-            "private static documentTitle!: DocumentTitle;",
-            "static readonly documentTitle: DocumentTitle;",
-            "private documentTitle: DocumentTitle = other;",
-            "private documentTitle(title: string): void {}",
-        ] {
-            let source = format!("class Page {{\n@Needs\n{declaration}\n}}");
-            let failure =
-                tac(&source).expect_err("resource must be an uninitialized instance field");
-            assert!(failure.to_string().contains("TY1308"), "{failure}");
-        }
-    }
-
-    #[test]
     fn extracts_lifecycle_event_and_resource_metadata_without_shifting_source() {
         let source = "class Page {\n@Needs\nview;\n@OnStart\nstart() {}\n@OnEvent({\"replay\":true})\nreceive(value: ProbeReady) {}\n@OnStop\nstop() {}\n}";
         let module = tac_module(source);

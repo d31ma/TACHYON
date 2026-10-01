@@ -1126,6 +1126,37 @@ export default class Chat {
     }
 
     #[test]
+    fn typescript_owned_resources_refuse_static_initialized_and_method_targets() {
+        let root = tempfile::tempdir().expect("resource project");
+        for declaration in [
+            "private static documentTitle!: DocumentTitle;",
+            "static readonly documentTitle: DocumentTitle;",
+            "private documentTitle: DocumentTitle = other;",
+            "private documentTitle(title: string): void {}",
+        ] {
+            let source = format!("@Service\nclass PageService {{\n@Needs\n{declaration}\n}}");
+            let failure = ComponentScript::prepare(
+                root.path(),
+                source.as_bytes(),
+                "client/services/PageService.ts",
+            )
+            .expect_err(&format!(
+                "resource target must fail full lowering: {declaration}"
+            ));
+            assert!(
+                failure.to_string().contains("TY1308"),
+                "{declaration}: {failure}"
+            );
+            assert!(
+                failure
+                    .to_string()
+                    .contains("client/services/PageService.ts"),
+                "{declaration}: {failure}"
+            );
+        }
+    }
+
+    #[test]
     fn required_prop_forwarding_accepts_nested_literals_without_outer_properties() {
         for literal in ["true", "false", "null", "(false)", "'false'"] {
             let layout = format!("<main><docs-sidebar :open=\"{literal}\" /></main>");
