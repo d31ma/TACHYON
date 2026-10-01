@@ -9,22 +9,26 @@ pub(super) struct PreferenceProviderCheck;
 
 impl PreferenceProviderCheck {
     const BROWSER_LANGUAGES: [&'static str; 3] = ["java", "js", "ts"];
+    const SOURCE_LANGUAGES: [&'static str; 13] = [
+        "java", "js", "ts", "rs", "cs", "swift", "kt", "dart", "go", "py", "rb", "lua", "fs",
+    ];
     const TYPE: &'static str = "PreferenceStrings";
     const HELP: &'static str = "PreferenceStrings currently has Java browser and JavaScript/TypeScript page providers. Keep raw-string browser preferences in those services and pass results through the existing typed event contract. A linked native or another language provider requires its own adapter.";
 
     pub(super) fn browser(path: &Path, source: &str) -> Vec<Diagnostic> {
         let client = path.starts_with("client");
         let supported = Self::BROWSER_LANGUAGES.contains(&Self::extension(path));
-        Self::browser_problems([client, supported], path, source)
+        let source_language = Self::SOURCE_LANGUAGES.contains(&Self::extension(path));
+        Self::browser_problems([client, supported, source_language], path, source)
     }
 
     pub(super) fn native(path: &Path, source: &str) -> Vec<Diagnostic> {
         Self::problems(path, source, "linked native platform")
     }
 
-    fn browser_problems(selection: [bool; 2], path: &Path, source: &str) -> Vec<Diagnostic> {
+    fn browser_problems(selection: [bool; 3], path: &Path, source: &str) -> Vec<Diagnostic> {
         match selection {
-            [true, false] => Self::problems(path, source, "browser language"),
+            [true, false, true] => Self::problems(path, source, "browser language"),
             _ => Vec::new(),
         }
     }

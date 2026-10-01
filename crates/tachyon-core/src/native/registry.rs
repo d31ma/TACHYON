@@ -33,15 +33,14 @@ impl NativeCompanionInput {
             .collect()
     }
     fn refuse_preferences(&self, captured: &str) -> Result<(), Failure> {
-        match self.web_assembly {
-            true => Ok(()),
-            false => {
-                let relative = self
-                    .source
-                    .strip_prefix(&self.snapshot_root)
-                    .unwrap_or(&self.source);
-                crate::annotation_layout::NativeWebApis::refuse_preferences(relative, captured)
-            }
+        if self.web_assembly {
+            Ok(())
+        } else {
+            let relative = self
+                .source
+                .strip_prefix(&self.snapshot_root)
+                .unwrap_or(&self.source);
+            crate::annotation_layout::NativeWebApis::refuse_preferences(relative, captured)
         }
     }
 }

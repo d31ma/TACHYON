@@ -78,3 +78,16 @@ fn preference_strings_inert_text_and_other_preferences_ports_are_unchanged() {
     )
     .expect("browser-specific validation does not change server source policy");
 }
+
+#[test]
+fn preference_strings_text_in_views_and_assets_is_not_provider_code() {
+    for path in [
+        "client/pages/tac.html",
+        "client/shared/theme.css",
+        "client/shared/readme.md",
+        "client/shared/data.json",
+    ] {
+        BrowserInteropCheck::check_file(Path::new(path), b"PreferenceStrings")
+            .expect("non-source content is not a provider declaration");
+    }
+}
