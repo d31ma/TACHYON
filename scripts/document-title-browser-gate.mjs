@@ -72,6 +72,7 @@ class DocumentTitleBrowserGate {
         kotlinLabels: [...document.querySelectorAll('.kotlin-label')].slice(0, 4).map(node => node.textContent?.slice(0, 256)),
         mounted: ['kotlin-first-container', 'kotlin-second-container', 'script-container'].filter(id => document.getElementById(id)),
         scriptWrites: document.querySelector('#script-ready')?.textContent?.slice(0, 64),
+        components: [...document.querySelectorAll('[data-tachyon-component]')].slice(0, 8).map(node => ({ name: node.dataset.tachyonComponent, active: node.dataset.tachyonActive, mountError: node.dataset.tachyonMountError })),
       }))
       throw new Error(`Expected title ${JSON.stringify(expected)}; actual fixture ${JSON.stringify(snapshot)}; ${String(error)}`)
     }

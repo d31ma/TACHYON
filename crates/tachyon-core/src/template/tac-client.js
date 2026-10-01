@@ -422,17 +422,17 @@ const importAsset = (raw) => {
 }
 
 const createOwner = async (module, properties) => {
-  if (typeof module.__tachyon_create_owner__ !== 'function') {
-    const required = module.__tachyon_required_args__
-    const owner = Array.isArray(required)
-      ? new module.default(...required.map((name) => properties?.[name]))
-      : new module.default(properties)
-    Owners.modules.set(owner, module)
-    return owner
-  }
   const controller = new AbortController()
   try {
-    const owner = await module.__tachyon_create_owner__(properties, controller.signal, clientRequest)
+    let owner
+    if (typeof module.__tachyon_create_owner__ !== 'function') {
+      const required = module.__tachyon_required_args__
+      owner = Array.isArray(required)
+        ? new module.default(...required.map((name) => properties?.[name]))
+        : new module.default(properties)
+    } else {
+      owner = await module.__tachyon_create_owner__(properties, controller.signal, clientRequest)
+    }
     Owners.managed.set(owner, controller)
     Owners.modules.set(owner, module)
     return owner
