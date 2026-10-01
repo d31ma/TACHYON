@@ -221,11 +221,16 @@ fn sitemap_entries_are_checked_before_the_build() {
 
 #[test]
 fn the_manifest_grants_browser_apis_by_name() {
-    let settings = load(&json!({ "browserApis": ["clipboard", "geolocation"] })).expect("settings");
-    assert_eq!(settings.browser_apis, ["clipboard", "geolocation"]);
+    let settings =
+        load(&json!({ "browserApis": ["clipboard", "geolocation", "preferenceStrings"] }))
+            .expect("settings");
+    assert_eq!(
+        settings.browser_apis,
+        ["clipboard", "geolocation", "preferenceStrings"]
+    );
     let unknown = load_error(&json!({ "browserApis": ["camera"] }));
     assert!(
-        unknown.contains("'camera' in tac.browserApis is not a browser API that needs a grant. Grant any of: clipboard, geolocation, notifications, share."),
+        unknown.contains("'camera' in tac.browserApis is not a browser API that needs a grant. Grant any of: clipboard, geolocation, notifications, preferenceStrings, share."),
         "{unknown}"
     );
     let twice = load_error(&json!({ "browserApis": ["share", "share"] }));
