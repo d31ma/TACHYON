@@ -473,6 +473,28 @@ fn classify_file(
         findings.push(built);
     }
     configuration_findings(root, relative, name, findings);
+    let path = Path::new(relative);
+    let language = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
+    if crate::annotation_rules::AnnotationRules::LANGUAGES.contains(&language) || language == "fs" {
+        let source = read_source(root, relative, "role source")?;
+        if let Err(failure) = crate::annotation_layout::FolderRoleCheck::check(path, &source) {
+            for item in failure.diagnostics().iter().filter(|item| {
+                item.code.number() == crate::annotation_layout::FolderRoleCheck::CODE
+            }) {
+                findings.push(MigrationFinding::new(
+                    relative,
+                    "role.marker",
+                    MigrationStatus::Changed,
+                    &item.message,
+                    item.help.as_deref(),
+                ));
+            }
+        }
+    }
+
     if relative.starts_with("client/clients/") || relative.starts_with("server/clients/") {
         findings.push(MigrationFinding::new(
             relative,
@@ -1606,6 +1628,27 @@ mod tests {
         let finding = with_source(&report, "server/routes/yon.py");
         assert_eq!(finding.status, MigrationStatus::Changed);
         assert!(action_contains(finding, "Handler"), "{finding:?}");
+    }
+
+    #[test]
+    fn unmarked_nested_roles_are_reported_without_blind_registration_edits() {
+        let root = tempfile::tempdir().expect("project");
+        let path = root.path().join("client/services/nested/MoneyService.js");
+        fs::create_dir_all(path.parent().expect("parent")).expect("folders");
+        fs::write(&path, "export default class MoneyService {}\n").expect("source");
+        let report = MigrationAnalysis::check(root.path()).expect("migration report");
+        let item = report
+            .findings
+            .iter()
+            .find(|item| item.feature == "role.marker")
+            .expect("explicit registration finding");
+        assert_eq!(item.status, MigrationStatus::Changed);
+        assert_eq!(item.source, "client/services/nested/MoneyService.js");
+        assert!(item.detail.contains("Service"));
+        assert_eq!(
+            fs::read_to_string(path).expect("unchanged source"),
+            "export default class MoneyService {}\n"
+        );
     }
 
     #[test]

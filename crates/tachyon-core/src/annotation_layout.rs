@@ -5,6 +5,7 @@ use std::path::Path;
 
 mod browser_interop;
 mod file_name_check;
+mod folder_role_check;
 mod inline_model_check;
 mod one_model_check;
 mod single_class;
@@ -12,6 +13,7 @@ mod typed_members;
 
 pub(crate) use browser_interop::{BrowserInteropCheck, NativeWebApis};
 pub(crate) use file_name_check::FileNameCheck;
+pub(crate) use folder_role_check::FolderRoleCheck;
 pub(crate) use inline_model_check::InlineModelCheck;
 pub(crate) use one_model_check::OneModelCheck;
 pub(crate) use single_class::cohesion::CohesionCheck;
@@ -96,29 +98,14 @@ pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
     crate::fsharp_source::FsharpStyle::check(path, source)?;
     crate::lua_source::LuaStyle::validate(path, source)?;
     crate::lua_source::LuaStyle::check_rules(path, source)?;
-    LuaView::either(path, source, validate_source)
+    LuaView::either(path, source, |path, source| {
+        FolderRoleCheck::check_source(path, source)?;
+        Input::validate_source(path, source)
+    })
 }
 
-fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
-    reject_renamed_annotations(path, source)?;
-    UtilityLayout::check(path, source)?;
-    if path.starts_with("server/shared") {
-        single_class::SharedClass::validate(path, source)?;
-    }
-    typed_members::TypedMembers::check(path, source)?;
-    check_topics(path, source)?;
-    let source = &crate::topics::Topics::blanked(source);
-    if is_error_source(path) {
-        single_class::validate_error_source(path, source)?;
-    } else {
-        primary_role(path, source)?;
-        crate::model_layout::validate(path, source)?;
-        OneModelCheck::check(path, source)?;
-        InlineModelCheck::check(path, source)?;
-        FileNameCheck::check(path, source)?;
-    }
-    crate::declared_contract::DeclaredContract::check(path, source)?;
-    crate::annotation_rules::AnnotationRules::check(path, source)
+pub(crate) fn validate_transformed(path: &Path, source: &str) -> Result<(), Failure> {
+    LuaView::either(path, source, Input::validate_source)
 }
 
 fn check_topics(path: &Path, source: &str) -> Result<(), Failure> {
@@ -429,12 +416,21 @@ impl Role {
 
     fn is_placed_in(self, parent: &str) -> bool {
         if self.is_controller() {
-            return parent == "server/controllers";
+            return Self::beneath(parent, "server/controllers");
         }
-        if self.folder == "remotes" && matches!(parent, "client/clients" | "server/clients") {
+        if self.folder == "remotes"
+            && (Self::beneath(parent, "client/clients") || Self::beneath(parent, "server/clients"))
+        {
             return true;
         }
-        parent == format!("client/{}", self.folder) || parent == format!("server/{}", self.folder)
+        Self::beneath(parent, &format!("client/{}", self.folder))
+            || Self::beneath(parent, &format!("server/{}", self.folder))
+    }
+    fn beneath(parent: &str, root: &str) -> bool {
+        parent == root
+            || parent
+                .strip_prefix(root)
+                .is_some_and(|tail| tail.starts_with('/'))
     }
 }
 
@@ -449,6 +445,28 @@ struct Input<'a> {
 }
 
 impl<'a> Input<'a> {
+    fn validate_source(path: &Path, source: &str) -> Result<(), Failure> {
+        reject_renamed_annotations(path, source)?;
+        UtilityLayout::check(path, source)?;
+        if path.starts_with("server/shared") {
+            single_class::SharedClass::validate(path, source)?;
+        }
+        typed_members::TypedMembers::check(path, source)?;
+        check_topics(path, source)?;
+        let source = &crate::topics::Topics::blanked(source);
+        if is_error_source(path) {
+            single_class::validate_error_source(path, source)?;
+        } else {
+            primary_role(path, source)?;
+            crate::model_layout::validate(path, source)?;
+            OneModelCheck::check(path, source)?;
+            InlineModelCheck::check(path, source)?;
+            FileNameCheck::check(path, source)?;
+        }
+        crate::declared_contract::DeclaredContract::check(path, source)?;
+        crate::annotation_rules::AnnotationRules::check(path, source)
+    }
+
     const MAX_CAPTURED_SOURCE: usize = 16 * 1024 * 1024;
 
     fn new(path: &'a Path, source: &'a str) -> Self {
@@ -501,7 +519,7 @@ impl<'a> Input<'a> {
         Err(self.failure(
             at,
             format!("@{} type '{name}' does not match its required role layout", role.marker),
-            format!("Name the type '{expected_name}' and place it in '{expected}' beneath the relevant client/server feature. The filename must exactly match the type, and its immediate parent must be '{}'.", role.folder),
+            format!("Name the type '{expected_name}' and place it in '{expected}' beneath the relevant client/server feature. The filename must exactly match the type, and it must remain beneath the realm's '{}' folder; nested organization folders are allowed.", role.folder),
         ))
     }
 
@@ -1010,6 +1028,10 @@ mod tests {
         let source = format!("@{marker}{arguments}\nclass Money{role} {{}}");
         for realm in ["client", "server"] {
             assert_valid(&format!("{realm}/{folder}/Money{role}.ts"), &source);
+            assert_valid(
+                &format!("{realm}/{folder}/nested/{folder}/Money{role}.ts"),
+                &source,
+            );
         }
         let beside_route = format!("server/controllers/money/{folder}/Money{role}.ts");
         let diagnostic = first_diagnostic(&beside_route, &source);
@@ -1028,7 +1050,6 @@ mod tests {
             format!("server/features/payments/{folder}/Money{role}.ts"),
             format!("client/shared/{folder}/Money{role}.ts"),
             format!("client/pages/{folder}/Money{role}.ts"),
-            format!("server/{folder}/nested/{folder}/Money{role}.ts"),
             format!("{folder}/Money{role}.ts"),
         ] {
             let failure = validate(Path::new(&stray), &source).expect_err(&stray);
@@ -1060,9 +1081,9 @@ mod tests {
         }
         let controller = "@RequestRoute(\"/money\")\nclass MoneyController {}";
         assert_valid("server/controllers/MoneyController.ts", controller);
+        assert_valid("server/controllers/nested/MoneyController.ts", controller);
         for stray in [
             "client/controllers/MoneyController.ts",
-            "server/controllers/nested/MoneyController.ts",
             "controllers/MoneyController.ts",
         ] {
             let help = help_text(&first_diagnostic(stray, controller));

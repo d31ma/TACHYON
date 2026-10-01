@@ -31,11 +31,13 @@ pub(crate) fn assemble(
 ) -> Result<Option<String>, Failure> {
     let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
     crate::behavior::BehaviorsImport::refuse(entry, source)?;
-    crate::annotation_layout::validate(entry, source)?;
     let extension = entry_extension(entry, environment)?;
     let root = open_entry_root(snapshot_root, entry, extension, environment)?;
+    let captured = read_module_text(&root, entry, Module::MAX_SOURCE)?;
+    crate::annotation_layout::FolderRoleCheck::check(entry, &captured)?;
+    crate::annotation_layout::validate_transformed(entry, source)?;
     let include_errors = environment == "yon"
-        && entry.parent() == Some(Path::new("server/controllers"))
+        && entry.starts_with("server/controllers")
         && crate::annotation_layout::has_route_controller(entry, source)?;
     let paths = discover_paths(&root, entry, extension, include_errors)?;
     if source.len() > Module::MAX_SOURCE || source.contains('\0') {
@@ -179,7 +181,7 @@ fn read_modules(
         total += text.len();
         let shared_source = path.starts_with("server/shared");
         let error_source = crate::annotation_layout::is_error_source(path);
-        let in_controllers = path.parent() == Some(Path::new("server/controllers"));
+        let in_controllers = path.starts_with("server/controllers");
         if in_controllers && !wanted_controller_file(entry, path, &text)? {
             continue;
         }
@@ -187,6 +189,7 @@ fn read_modules(
             crate::annotation_layout::validate(path, &text)?;
         }
         test_configuration::reject_role_file(path, &text)?;
+        crate::annotation_layout::FolderRoleCheck::check(path, &text)?;
         if !shared_source
             && !error_source
             && !crate::annotation_layout::UtilityLayout::is_utility(path)
@@ -545,8 +548,8 @@ fn discover_paths(
     include_errors: bool,
 ) -> Result<Vec<PathBuf>, Failure> {
     let entry_directory = entry.parent().unwrap_or_else(|| Path::new(""));
-    let service = entry_directory == Path::new("client/services");
-    let routed = entry_directory == Path::new("server/controllers");
+    let service = entry_directory.starts_with("client/services");
+    let routed = entry_directory.starts_with("server/controllers");
     let tested_controllers = tests_controllers(entry);
     let shared_parent = shared_role_parent(entry_directory, service, routed);
     let shared_directory = open_parent(root, &shared_parent.join("entry"))?;
@@ -599,16 +602,46 @@ fn shared_role_parent(entry_directory: &Path, service: bool, routed: bool) -> &P
     if routed {
         return Path::new("server");
     }
+    if entry_directory.components().nth(1).is_some_and(|part| {
+        Module::ROLE_FOLDERS
+            .iter()
+            .any(|folder| part.as_os_str() == *folder)
+    }) {
+        return entry_directory
+            .ancestors()
+            .find(|path| path.components().count() == 1)
+            .unwrap_or(entry_directory);
+    }
     entry_directory
 }
 
-struct Discovery<'a> {
+pub(crate) struct Discovery<'a> {
     extension: &'a str,
     entry_count: usize,
     paths: Vec<PathBuf>,
 }
 
 impl<'a> Discovery<'a> {
+    pub(crate) fn role_paths(project: &Path, folder: &Path) -> Result<Vec<PathBuf>, Failure> {
+        let root = open_root(project, folder)?;
+        let realm = folder
+            .components()
+            .next()
+            .map(std::path::Component::as_os_str)
+            .unwrap_or_default();
+        if root
+            .symlink_metadata(realm)
+            .is_err_and(|error| error.kind() == ErrorKind::NotFound)
+        {
+            return Ok(Vec::new());
+        }
+        let parent = open_parent(&root, folder)?;
+        let name = folder.file_name().and_then(OsStr::to_str).unwrap_or("");
+        let mut discovery = Discovery::new("");
+        discovery.search_role_folder(&parent, folder, name)?;
+        Ok(discovery.paths)
+    }
+
     const MAX_ENTRIES: usize = 4096;
     const MAX_DEPTH: usize = 32;
 
@@ -704,7 +737,9 @@ impl<'a> Discovery<'a> {
                 .map_err(|_| invalid(&child_path, "Cannot safely open role source directory."))?;
             return self.collect(&child, &child_path, depth + 1);
         }
-        if child_path.extension().and_then(|value| value.to_str()) == Some(self.extension) {
+        if self.extension.is_empty()
+            || child_path.extension().and_then(|value| value.to_str()) == Some(self.extension)
+        {
             self.paths.push(child_path);
         }
         Ok(())
@@ -1710,9 +1745,10 @@ mod tests {
             "server/services/group/services/GroupService.js",
             "@Service\nclass GroupService {}\n",
         );
-        let failure = run_error(root.path());
-        assert_contains(&failure, "sits outside its realm's shared role folder");
-        assert_contains(&failure, "server/services/group/services/GroupService.js");
+        let output = run(root.path())
+            .expect("nested role organization")
+            .expect("composed service");
+        assert_contains(&output, "class GroupService");
 
         let root = project();
         write(
@@ -1859,6 +1895,48 @@ mod tests {
             );
         }
         assert!(run(root.path()).is_err());
+    }
+
+    #[test]
+    fn nested_entries_compose_realm_wide_nested_providers_and_rebase_imports() {
+        for (entry, source, realm, environment) in [
+            (
+                "client/services/ui/ShellService.js",
+                "@Service\nexport default class ShellService {}",
+                "client",
+                "tac",
+            ),
+            (
+                "server/controllers/ui/ShellController.js",
+                "@RequestRoute(\"/shell\")\n@Public\nclass ShellController {}",
+                "server",
+                "yon",
+            ),
+        ] {
+            let root = tempfile::tempdir().expect("project");
+            write(root.path(), entry, source);
+            write(
+                root.path(),
+                &format!("{realm}/helpers/text/TextHelper.js"),
+                "@Helper\nclass TextHelper {}\n",
+            );
+            write(
+                root.path(),
+                &format!("{realm}/remotes/http/MoneyClient.js"),
+                "@HTTPClient\nclass MoneyClient {}\n",
+            );
+            let output = composed_entry(root.path(), entry, source, environment);
+            assert_contains(&output, "class TextHelper");
+            assert_contains(&output, "class MoneyClient");
+        }
+        let rebased = SharedImports::rebase(
+            Path::new("server/controllers/ui/ShellController.js"),
+            Path::new("server/services/orders/OrderService.js"),
+            "import { OrderCode } from '../../shared/orders.js';",
+            "js",
+        )
+        .expect("nested imports");
+        assert_contains(&rebased, "'../../shared/orders.js'");
     }
 
     #[test]
@@ -2123,7 +2201,7 @@ mod tests {
     }
 
     #[test]
-    fn plain_helpers_that_look_like_annotations_are_not_composed() {
+    fn unmarked_helpers_are_refused_even_when_native_syntax_looks_like_annotations() {
         let root = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
         for (extension, helper) in [
             (
@@ -2146,8 +2224,9 @@ mod tests {
                 &format!("server/helpers/Buffers.{extension}"),
                 helper,
             );
-            let composed = assemble(root.path(), Path::new(&entry), "", "yon").expect(extension);
-            assert_eq!(composed, None, "{extension}");
+            let failure = assemble(root.path(), Path::new(&entry), "", "yon").expect_err(extension);
+            assert_contains(&failure.to_string(), "required");
+            assert_contains(&failure.to_string(), "Helper");
         }
     }
 

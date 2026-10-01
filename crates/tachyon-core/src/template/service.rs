@@ -181,12 +181,13 @@ impl ServiceRegistry {
     const UTILITY_ROOT: &'static str = "client/utils";
     const MAX_SERVICES: usize = 256;
     const MAX_SERVICE_BYTES: u64 = 1_048_576;
-    const PROVIDER_FOLDERS: [&'static str; 8] = [
+    const PROVIDER_FOLDERS: [&'static str; 9] = [
         "client/stores",
         "client/remotes",
         "client/clients",
         "client/repositories",
         "client/configurations",
+        "client/setups",
         "client/helpers",
         "client/converters",
         "client/entities",
@@ -197,9 +198,19 @@ impl ServiceRegistry {
         let mut diagnostics = Vec::new();
         let mut services = BTreeMap::<String, ServiceDefinition>::new();
         let mut hasher = Sha256::new();
+        let mut variants = BTreeSet::new();
         for path in paths {
-            let file_name = path.file_name().and_then(OsStr::to_str).unwrap_or("");
-            let relative = format!("{}/{file_name}", Self::SERVICE_ROOT);
+            let relative = path
+                .strip_prefix(project_root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            if let Some((class, extension)) = service_file_name(&path)
+                && !variants.insert((class.clone(), extension.to_owned()))
+            {
+                diagnostics.push(service_diagnostic(&relative, &format!("Service '{class}' declares more than one {extension} file."), "Nested folders organize services; keep one file per service and language across the realm."));
+                continue;
+            }
             let added = add_service_file(&path, &relative, &mut services, &mut diagnostics);
             if added {
                 hash_file(&mut hasher, &relative, &path);
@@ -207,7 +218,7 @@ impl ServiceRegistry {
         }
         Self::hash_utilities(project_root, &mut hasher);
         set_native_service_scopes(&mut services);
-        set_required_fields(&mut services, Self::provider_names(project_root));
+        set_required_fields(&mut services, Self::provider_names(project_root)?);
         set_stored_fields(&mut services);
         if services.len() > Self::MAX_SERVICES {
             diagnostics.push(service_diagnostic(
@@ -243,39 +254,32 @@ impl ServiceRegistry {
         }
     }
 
-    fn provider_names(project_root: &Path) -> BTreeSet<String> {
+    fn provider_names(project_root: &Path) -> Result<BTreeSet<String>, Failure> {
         let mut names = BTreeSet::new();
         for folder in Self::PROVIDER_FOLDERS {
-            let Ok(entries) = fs::read_dir(project_root.join(folder)) else {
-                continue;
-            };
-            for entry in entries.flatten() {
-                let path = entry.path();
+            for path in
+                crate::annotation_modules::Discovery::role_paths(project_root, Path::new(folder))?
+            {
                 if let Some(class) = path.file_stem().and_then(OsStr::to_str) {
                     names.insert(crate::companion::lower_first(class));
                     names.insert(class.to_owned());
                 }
             }
         }
-        names
+        Ok(names)
     }
 
     fn service_paths(project_root: &Path) -> Result<Vec<PathBuf>, Failure> {
-        let root = project_root.join(Self::SERVICE_ROOT);
-        let entries = match fs::read_dir(&root) {
-            Ok(entries) => entries.collect::<Result<Vec<_>, _>>().unwrap_or_default(),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-            Err(error) => {
-                return Err(Failure::one(service_diagnostic(
-                    Self::SERVICE_ROOT,
-                    &format!("Cannot enumerate the services directory: {error}"),
-                    "Check the directory permissions.",
-                )));
-            }
-        };
-        let mut paths = entries.iter().map(fs::DirEntry::path).collect::<Vec<_>>();
-        paths.sort();
-        Ok(paths)
+        crate::annotation_modules::Discovery::role_paths(
+            project_root,
+            Path::new(Self::SERVICE_ROOT),
+        )
+        .map(|paths| {
+            paths
+                .into_iter()
+                .map(|path| project_root.join(path))
+                .collect()
+        })
     }
 
     pub(crate) fn for_target(mut self, target: Option<tachyon_contracts::NativeTarget>) -> Self {
@@ -318,10 +322,48 @@ fn add_service_file(
     if !metadata.is_file() {
         diagnostics.push(service_diagnostic(
             relative,
-            "Services are files directly below client/services.",
+            "Services must be regular files beneath client/services, never symlinks.",
             "Move collaborators to client/remotes, client/stores, client/setups, \
              client/entities or client/helpers; a symlink is never a service.",
         ));
+        return false;
+    }
+    let extension = path.extension().and_then(OsStr::to_str).unwrap_or("");
+    if ![
+        "js", "ts", "dart", "swift", "kt", "java", "cs", "fs", "rs", "go", "rb", "lua",
+    ]
+    .contains(&extension)
+    {
+        return false;
+    }
+    if metadata.len() > ServiceRegistry::MAX_SERVICE_BYTES {
+        diagnostics.push(service_diagnostic(
+            relative,
+            "A service source exceeds the 1 MiB limit.",
+            "Split the service into bounded role files.",
+        ));
+        return false;
+    }
+    let source = match fs::read_to_string(path) {
+        Ok(source) => source,
+        Err(error) => {
+            diagnostics.push(service_diagnostic(
+                relative,
+                &format!("Cannot read service source: {error}"),
+                "Use readable UTF-8 source.",
+            ));
+            return false;
+        }
+    };
+    let relative_path = Path::new(relative);
+    if let Err(failure) = crate::annotation_layout::FolderRoleCheck::check(relative_path, &source) {
+        diagnostics.extend_from_slice(failure.diagnostics());
+        return false;
+    }
+    if matches!(
+        crate::annotation_layout::FolderRoleCheck::is_candidate(relative_path, &source),
+        Ok(false)
+    ) {
         return false;
     }
     let Some((class, extension)) = service_file_name(path) else {
@@ -699,7 +741,7 @@ mod tests {
             ),
             (
                 "client/services/BasketService.swift",
-                "final class BasketService {}",
+                "@Service\nfinal class BasketService {}",
             ),
             (
                 "client/services/SnippetService.ts",
@@ -740,15 +782,15 @@ mod tests {
         let root = project(&[
             (
                 "client/services/ClockService.rs",
-                "#[derive(Default)]\nstruct ClockService {}\n",
+                "#[derive(Default)]\n#[Service]\nstruct ClockService {}\n",
             ),
             (
                 "client/services/BasketService.js",
-                "export default class BasketService {}",
+                "@Service\nexport default class BasketService {}",
             ),
             (
                 "client/services/BasketService.rs",
-                "#[derive(Default)]\nstruct BasketService {}\n",
+                "#[derive(Default)]\n#[Service]\nstruct BasketService {}\n",
             ),
         ]);
         let registry = ServiceRegistry::discover(root.path()).expect("registry");
@@ -778,7 +820,7 @@ mod tests {
     fn no_service_is_addressed_as_a_view_root() {
         for class in ["DataService", "PageService"] {
             let relative = format!("client/services/{class}.js");
-            let contents = format!("export default class {class} {{}}");
+            let contents = format!("@Service\nexport default class {class} {{}}");
             let error = discover_error(&[(&relative, &contents)], class);
             assert!(
                 error.diagnostics()[0].message.contains("built in"),
@@ -799,7 +841,7 @@ mod tests {
         let error = discover_error(
             &[(
                 "client/services/basket.js",
-                "export default class basket {}",
+                "@Service\nexport default class basket {}",
             )],
             "misnamed",
         );
@@ -835,19 +877,19 @@ mod tests {
         let root = project(&[
             (
                 "client/services/ClockService.go",
-                "type ClockService struct{}\n",
+                "// @Service\ntype ClockService struct{}\n",
             ),
             (
                 "client/services/ClockService.rs",
-                "#[derive(Default)]\nstruct ClockService {}\n",
+                "#[derive(Default)]\n#[Service]\nstruct ClockService {}\n",
             ),
             (
                 "client/services/TallyService.go",
-                "type TallyService struct{}\n",
+                "// @Service\ntype TallyService struct{}\n",
             ),
             (
                 "client/services/TallyService.cs",
-                "public class TallyService {}\n",
+                "[Service]\npublic class TallyService {}\n",
             ),
         ]);
         let registry = ServiceRegistry::discover(root.path()).expect("registry");
@@ -877,11 +919,11 @@ mod tests {
             &[
                 (
                     "client/services/BasketService.js",
-                    "export default class BasketService {}",
+                    "@Service\nexport default class BasketService {}",
                 ),
                 (
                     "client/services/BasketService.ts",
-                    "export default class BasketService {}",
+                    "@Service\nexport default class BasketService {}",
                 ),
             ],
             "two languages",
@@ -895,11 +937,11 @@ mod tests {
         let root = project(&[
             (
                 "client/services/BasketService.js",
-                "export default class BasketService {}",
+                "@Service\nexport default class BasketService {}",
             ),
             (
                 "client/services/BasketService.dart",
-                "class BasketService {}",
+                "@Service\nclass BasketService {}",
             ),
         ]);
         assert!(ServiceRegistry::discover(root.path()).is_err());
@@ -908,13 +950,16 @@ mod tests {
     #[test]
     fn a_dart_service_declares_its_class() {
         let error = discover_error(
-            &[("client/services/BasketService.dart", "class Basket {}")],
+            &[(
+                "client/services/BasketService.dart",
+                "@Service\nclass Basket {}",
+            )],
             "wrong Dart class",
         );
         assert!(
             error.diagnostics()[0]
                 .message
-                .contains("declares class BasketService")
+                .contains("required role layout")
         );
 
         let root = project(&[(
@@ -994,7 +1039,7 @@ mod tests {
         let error = discover_error(
             &[(
                 "client/services/BasketService.js",
-                "export class BasketService {}",
+                "@Service\nexport class BasketService {}",
             )],
             "no default export",
         );
@@ -1002,19 +1047,76 @@ mod tests {
     }
 
     #[test]
-    fn a_service_in_a_nested_directory_is_refused() {
-        let error = discover_error(
-            &[(
+    fn nested_services_retain_their_paths_and_injected_providers() {
+        let root = project(&[
+            (
                 "client/services/nested/DeepService.js",
-                "export default class DeepService {}",
-            )],
-            "nested directory",
+                "@Service\n@NeedsAll\nexport default class DeepService { moneyClient; }",
+            ),
+            (
+                "client/remotes/nested/MoneyClient.js",
+                "@HTTPClient\nexport default class MoneyClient {}",
+            ),
+        ]);
+        let registry = ServiceRegistry::discover(root.path()).expect("nested service");
+        let service = registry.get("deep").expect("deep");
+        assert_eq!(
+            service.script_path(),
+            Some(
+                root.path()
+                    .join("client/services/nested/DeepService.js")
+                    .as_path()
+            )
         );
-        assert_eq!(error.diagnostics()[0].code.number(), 1310);
+        assert_eq!(service.injected(), ["moneyClient"]);
+        assert!(service.required().is_empty());
+    }
+
+    #[test]
+    fn assets_barrels_and_abstract_contracts_are_not_registered_as_services() {
+        let root = project(&[
+            ("client/services/nested/data.json", "{}"),
+            (
+                "client/services/nested/index.ts",
+                "export { Other } from './Other'",
+            ),
+            (
+                "client/services/contracts/BaseService.ts",
+                "export abstract class BaseService {}",
+            ),
+            (
+                "client/services/nested/DeepService.js",
+                "@Service\nexport default class DeepService {}",
+            ),
+        ]);
+        let registry = ServiceRegistry::discover(root.path()).expect("eligible services only");
+        assert_eq!(registry.names(), BTreeSet::from([String::from("deep")]));
+    }
+
+    #[test]
+    fn an_absent_client_realm_has_no_services() {
+        let root = tempfile::tempdir().expect("empty project");
+        let registry = ServiceRegistry::discover(root.path()).expect("missing realm");
+        assert!(registry.names().is_empty());
+    }
+
+    #[test]
+    fn nesting_does_not_create_a_second_service_namespace() {
+        let error = discover_error(
+            &[
+                (
+                    "client/services/one/DeepService.rs",
+                    "#[tac::Service]\npub struct DeepService;",
+                ),
+                (
+                    "client/services/two/DeepService.rs",
+                    "#[tac::Service]\npub struct DeepService;",
+                ),
+            ],
+            "duplicate nested service",
+        );
         assert!(
-            error.diagnostics()[0]
-                .message
-                .contains("directly below client/services"),
+            error.to_string().contains("more than one rs file"),
             "{error}"
         );
     }
