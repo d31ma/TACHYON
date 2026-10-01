@@ -30,6 +30,15 @@ mod manifest_setting;
 #[cfg(test)]
 mod model_tests;
 mod native_capabilities;
+mod native_ui_asset;
+mod native_ui_capture;
+mod native_ui_change;
+mod native_ui_contract;
+mod native_ui_descriptor;
+mod native_ui_generation;
+mod native_ui_problem;
+#[cfg(test)]
+mod native_ui_generation_tests;
 #[cfg(test)]
 mod native_capability_tests;
 #[cfg(all(test, target_os = "macos"))]
@@ -68,6 +77,9 @@ mod swift_web_services;
 mod web_program_build;
 mod windows;
 
+pub use native_ui_change::NativeUiChange;
+pub use native_ui_contract::NativeUiContract;
+pub use native_ui_generation::NativeUiGeneration;
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,

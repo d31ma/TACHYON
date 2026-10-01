@@ -74,7 +74,10 @@ pub use migrate::{
     MigrationAnalysis, MigrationFinding, MigrationFix, MigrationFixPlan, MigrationReport,
     MigrationStatus,
 };
-pub use native::{NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory};
+pub use native::{
+    NativeBuildOptions, NativeBuildResult, NativeCompiler, NativeUiChange, NativeUiContract,
+    NativeUiGeneration, native_target_directory,
+};
 pub use project::{
     CompanionKind, HandlerNode, NativeCompanion, Project, ProjectDiscovery, RouteGraph, RouteNode,
     ViewKind,
