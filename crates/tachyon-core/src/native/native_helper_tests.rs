@@ -28,7 +28,11 @@ fn main() {
 }
 "###;
 
-    fn stage(root: &Path, needs: &str, dependency: &str) -> std::path::PathBuf {
+    fn stage(
+        root: &Path,
+        needs: &str,
+        dependency: &str,
+    ) -> Result<std::path::PathBuf, crate::Failure> {
         let helper = if dependency == "Service" {
             root.join("client/services/math/StepService.rs")
         } else {
@@ -45,7 +49,10 @@ fn main() {
         };
         std::fs::write(&helper, helper_source).expect("dependency source");
         let (role, field) = match needs {
-            "Needs" => ("#[Service]", "#[Needs]\n    step_helper: StepHelper,"),
+            "Needs" => (
+                "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]",
+                "#[Needs]\n    step_helper: StepHelper,",
+            ),
             _ => ("#[Service]\n#[NeedsAll]", "step_helper: StepHelper,"),
         };
         let source = format!(
@@ -66,13 +73,12 @@ fn main() {
             web_assembly: false,
         };
         super::rust::stage(&[input], root, "org.tachyon.helper")
-            .expect("native Rust staging")
-            .expect("staged source")
+            .map(|source| source.expect("staged source"))
     }
 
     async fn execute(needs: &str, dependency: &str) {
         let root = tempfile::tempdir().expect("fixture");
-        let source = Self::stage(root.path(), needs, dependency);
+        let source = Self::stage(root.path(), needs, dependency).expect("native Rust staging");
         let staged = std::fs::read_to_string(&source).expect("staged source");
         assert!(!staged.contains("#[Helper]"));
         std::fs::write(&source, staged + Self::CALLER).expect("actual native caller");
@@ -116,14 +122,26 @@ async fn a_compiled_rust_helper_is_injected_with_needs_all() {
     NativeHelperCheck::execute("NeedsAll", "Helper").await;
 }
 
-#[tokio::test]
-async fn a_compiled_rust_service_dependency_is_injected_with_explicit_needs() {
-    NativeHelperCheck::execute("Needs", "Service").await;
+#[test]
+fn a_native_rust_by_value_service_dependency_requires_arc_with_explicit_needs() {
+    let root = tempfile::tempdir().expect("fixture");
+    let failure = NativeHelperCheck::stage(root.path(), "Needs", "Service")
+        .expect_err("by-value Service cannot share page identity");
+    assert!(
+        failure.to_string().contains("requires Arc<Service>"),
+        "{failure}"
+    );
 }
 
-#[tokio::test]
-async fn a_compiled_rust_service_dependency_is_injected_with_needs_all() {
-    NativeHelperCheck::execute("NeedsAll", "Service").await;
+#[test]
+fn a_native_rust_by_value_service_dependency_requires_arc_with_needs_all() {
+    let root = tempfile::tempdir().expect("fixture");
+    let failure = NativeHelperCheck::stage(root.path(), "NeedsAll", "Service")
+        .expect_err("by-value Service cannot share page identity");
+    assert!(
+        failure.to_string().contains("requires Arc<Service>"),
+        "{failure}"
+    );
 }
 
 #[tokio::test]
@@ -190,9 +208,9 @@ async fn a_compiled_rust_arc_service_dependency_is_shared_within_its_owner() {
     let root = tempfile::tempdir().expect("fixture");
     let services = root.path().join("client/services");
     std::fs::create_dir_all(&services).expect("services");
-    std::fs::write(services.join("CounterService.rs"), "#[Service]\n#[derive(Default)]\nstruct CounterService { count: std::sync::atomic::AtomicI64 }\n").expect("counter");
+    std::fs::write(services.join("CounterService.rs"), "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]\n#[derive(Default)]\nstruct CounterService { count: std::sync::atomic::AtomicI64 }\n").expect("counter");
     let reader = services.join("ReaderService.rs");
-    std::fs::write(&reader, "#[Service]\nstruct ReaderService {\n    #[Needs]\n    first: std::sync::Arc<CounterService>,\n    #[Needs]\n    second: std::sync::Arc<CounterService>,\n}\nimpl ReaderService {\n    fn same(&self) -> bool { std::sync::Arc::ptr_eq(&self.first, &self.second) }\n    fn increment(&self) { self.first.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }\n    fn count(&self) -> i64 { self.second.count.load(std::sync::atomic::Ordering::SeqCst) }\n}\n").expect("reader");
+    std::fs::write(&reader, "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]\nstruct ReaderService {\n    #[Needs]\n    first: std::sync::Arc<CounterService>,\n    #[Needs]\n    second: std::sync::Arc<CounterService>,\n}\nimpl ReaderService {\n    fn same(&self) -> bool { std::sync::Arc::ptr_eq(&self.first, &self.second) }\n    fn increment(&self) { self.first.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }\n    fn count(&self) -> i64 { self.second.count.load(std::sync::atomic::Ordering::SeqCst) }\n}\n").expect("reader");
     let input = NativeCompanionInput {
         snapshot_root: root.path().to_path_buf(),
         language: NativeCompanion::Rust,
@@ -248,37 +266,5 @@ fn main() {
         executed.status.success(),
         "{}",
         String::from_utf8_lossy(&executed.stderr)
-    );
-}
-
-#[test]
-fn a_native_rust_peer_prototype_lifetime_has_an_explicit_diagnostic() {
-    let root = tempfile::tempdir().expect("fixture");
-    let services = root.path().join("client/services");
-    std::fs::create_dir_all(&services).expect("services");
-    let source = services.join("ReaderService.rs");
-    std::fs::write(&source, "#[Service]\n#[NeedsAll]\nstruct ReaderService { counter: std::sync::Arc<CounterService> }\nimpl ReaderService { fn read(&self) -> i64 { 1 } }\n").expect("root service");
-    std::fs::write(
-        services.join("CounterService.rs"),
-        "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]\n#[derive(Default)]\nstruct CounterService {}\n",
-    )
-    .expect("peer");
-    let input = NativeCompanionInput {
-        snapshot_root: root.path().to_path_buf(),
-        language: NativeCompanion::Rust,
-        source,
-        service: String::from("reader"),
-        class: String::from("ReaderService"),
-        web_assembly: false,
-    };
-    let failure = super::rust::stage(&[input], root.path(), "org.tachyon.prototype.unsupported")
-        .expect_err("unsupported peer prototype");
-    assert!(
-        failure.to_string().contains("prototype lifetime"),
-        "{failure}"
-    );
-    assert!(
-        failure.to_string().contains("CounterService.rs"),
-        "{failure}"
     );
 }

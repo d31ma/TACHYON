@@ -636,9 +636,15 @@ fn tac_activate(
     if tac_active_owners().with(|slot| slot.borrow().len()) >= 256 {
         return Err(String::from("{\"error\":\"Too many native activations.\"}"));
     }
-    let (members, capabilities) =
-        NativeCapabilities::create(owner, || tac_service_members(service));
+    let (members, capabilities) = NativeCapabilities::create(owner, || {
+        NativePageServices::build(route, owner, || tac_service_members(service))
+    });
+    let members = members.map_err(|_| {
+        capabilities.dispose();
+        String::from("{\"error\":\"Native service construction failed.\"}")
+    })?;
     let Some(members) = members else {
+        NativePageServices::rollback(owner);
         capabilities.dispose();
         return Err(String::from(
             "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}",
@@ -657,9 +663,11 @@ fn tac_activate(
         tac_assign_properties(&activation, service, properties);
     }
     if !tac_run_initializers(&activation) {
+        NativePageServices::rollback(owner);
         tac_dispose_owner(owner);
         return Err(String::from("{\"error\":\"Native initializer failed.\"}"));
     }
+    NativePageServices::commit(owner);
     tac_drain(&activation);
     Ok(())
 }
@@ -1491,6 +1499,7 @@ fn tac_dispose_owner(id: &str) {
     if let Some(owner) = owner {
         tac_dispose_activation(owner);
     }
+    NativePageServices::dispose_owner(id);
 }
 
 fn tac_dispose_all() {
@@ -1499,6 +1508,7 @@ fn tac_dispose_all() {
     for (_, owner) in owners {
         tac_dispose_activation(owner);
     }
+    NativePageServices::dispose_all();
 }
 
 fn tac_invoke_owned(raw: &str) -> String {

@@ -35,6 +35,8 @@ mod native_capability_tests;
 #[cfg(test)]
 mod native_helper_tests;
 #[cfg(test)]
+mod native_page_graph_tests;
+#[cfg(test)]
 mod native_rust_capability_tests;
 #[cfg(test)]
 mod native_web_api_tests;
@@ -46,6 +48,9 @@ mod native_window_controls;
 mod registry;
 mod routes;
 mod rust;
+mod rust_imports;
+mod rust_page_graph;
+mod rust_service_plan;
 mod rust_web_module;
 mod site;
 mod site_map;

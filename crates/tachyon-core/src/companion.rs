@@ -11,7 +11,9 @@ mod rust_model_type;
 
 pub(crate) use csharp_model_type::CsharpModelType;
 use rust_collaborators::RustCollaborators;
+mod rust_graph;
 use rust_construction::RustConstruction;
+pub(crate) use rust_graph::RustGraph;
 use rust_model_type::RustModelType;
 
 pub(crate) fn owner_name(
@@ -654,6 +656,7 @@ fn rust_field(line: &str) -> Option<Member> {
         || (declared.contains('<') && !RustModelType::is_model(declared))
         || RustModelType::is_runtime(declared)
         || crate::web_api_clients::WebApiClients::is_client_type(declared)
+        || !RustModelType::crosses(declared)
     {
         return None;
     } else {

@@ -48,9 +48,14 @@ impl NativeCapabilities {
             .lock()
             .map_or(NativeCapabilityAdapter::Unsupported, |value| *value);
         let scope = std::rc::Rc::new(NativeCapabilityScope::new(owner, adapter));
-        let previous = Self::constructing().with(|value| value.replace(Some(scope.clone())));
+        let result = Self::within(scope.clone(), work);
+        (result, scope)
+    }
+
+    fn within<T>(scope: std::rc::Rc<NativeCapabilityScope>, work: impl FnOnce() -> T) -> T {
+        let previous = Self::constructing().with(|value| value.replace(Some(scope)));
         let result = work();
         Self::constructing().with(|value| value.replace(previous));
-        (result, scope)
+        result
     }
 }

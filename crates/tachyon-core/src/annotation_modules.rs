@@ -211,6 +211,31 @@ pub(crate) struct Module {
 }
 
 impl Module {
+    pub(crate) fn native_units(
+        snapshot_root: &Path,
+        entry: &Path,
+        source: &str,
+    ) -> Result<Vec<(PathBuf, String)>, Failure> {
+        let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
+        let extension = entry_extension(entry, "tac")?;
+        let root = open_entry_root(snapshot_root, entry, extension, "tac")?;
+        let captured = read_module_text(&root, entry, Self::MAX_SOURCE)?;
+        crate::annotation_layout::FolderRoleCheck::check(entry, &captured)?;
+        crate::annotation_layout::validate_transformed(entry, source)?;
+        let paths = discover_paths(&root, entry, extension, false, true)?;
+        let mut converters =
+            crate::declared_contract::ConverterModelTable::new(snapshot_root, "tac", extension);
+        let (modules, _) = read_modules(&root, entry, &captured, &paths, "tac", &mut converters)?;
+        refuse_tac_helpers(&modules, extension, "tac")?;
+        let mut units = vec![(entry.to_path_buf(), captured)];
+        units.extend(
+            modules
+                .into_iter()
+                .map(|module| (module.path, module.source)),
+        );
+        Ok(units)
+    }
+
     pub(crate) fn native_source(
         snapshot_root: &Path,
         entry: &Path,

@@ -11,6 +11,8 @@ pub(super) struct RustConstruction {
     defaults: BTreeSet<String>,
     arc_cache: RefCell<BTreeMap<String, String>>,
     bindings: RefCell<Vec<String>>,
+    graph_services: BTreeSet<String>,
+    graph_dependencies: RefCell<BTreeSet<String>>,
 }
 
 impl RustConstruction {
@@ -23,7 +25,41 @@ impl RustConstruction {
         name: &str,
         needs_all: bool,
     ) -> Result<String, Failure> {
-        let mut construction = Self {
+        Self::prepared(source, path)?.expression(name, needs_all)
+    }
+
+    pub(super) fn graph_instance(
+        source: &str,
+        path: &str,
+        name: &str,
+        services: &BTreeSet<String>,
+    ) -> Result<(String, BTreeSet<String>), Failure> {
+        let _ = Self::instance(source, path, name, false)?;
+        let mut construction = Self::prepared(source, path)?;
+        construction.graph_services.clone_from(services);
+        let expression = construction.expression(name, false)?;
+        Ok((expression, construction.graph_dependencies.into_inner()))
+    }
+
+    pub(super) fn arc_dependencies(
+        source: &str,
+        path: &str,
+        name: &str,
+    ) -> Result<BTreeSet<String>, Failure> {
+        let mut construction = Self::prepared(source, path)?;
+        construction.read_constructors();
+        Ok(construction
+            .constructors
+            .get(name)
+            .into_iter()
+            .flatten()
+            .filter_map(|kind| Self::arc_inner(kind))
+            .map(str::to_owned)
+            .collect())
+    }
+
+    fn prepared(source: &str, path: &str) -> Result<Self, Failure> {
+        Ok(Self {
             source: crate::annotation_layout::masked_source(std::path::Path::new(path), source)?,
             path: path.to_owned(),
             fields: BTreeMap::new(),
@@ -31,12 +67,17 @@ impl RustConstruction {
             defaults: BTreeSet::new(),
             arc_cache: RefCell::new(BTreeMap::new()),
             bindings: RefCell::new(Vec::new()),
-        };
-        construction.read_types();
-        construction.read_constructors();
-        construction.read_defaults();
-        let value = construction.construct(name, needs_all, &[])?;
-        Ok(construction.bound_expression(&value))
+            graph_services: BTreeSet::new(),
+            graph_dependencies: RefCell::new(BTreeSet::new()),
+        })
+    }
+
+    fn expression(&mut self, name: &str, needs_all: bool) -> Result<String, Failure> {
+        self.read_types();
+        self.read_constructors();
+        self.read_defaults();
+        let value = self.construct(name, needs_all, &[])?;
+        Ok(self.bound_expression(&value))
     }
 
     fn read_types(&mut self) {
@@ -220,6 +261,9 @@ impl RustConstruction {
     }
 
     fn nominal(&self, kind: &str, trail: &[String]) -> Result<String, Failure> {
+        if self.graph_services.contains(kind) {
+            return Err(self.failure(kind, "requires Arc<Service> for page identity; a by-value Service dependency cannot preserve the declared singleton lifetime"));
+        }
         self.require_provider(kind)?;
         self.construct(kind, false, trail)
     }
@@ -236,6 +280,10 @@ impl RustConstruction {
     }
 
     fn arc(&self, kind: &str, trail: &[String]) -> Result<String, Failure> {
+        if self.graph_services.contains(kind) {
+            self.graph_dependencies.borrow_mut().insert(kind.to_owned());
+            return Ok(format!("scope.obtain(&tac_definition_{kind}())?"));
+        }
         let cached = self.arc_cache.borrow().get(kind).cloned();
         cached.map_or_else(
             || self.new_arc(kind, trail),

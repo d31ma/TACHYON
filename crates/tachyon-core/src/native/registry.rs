@@ -47,6 +47,9 @@ pub(super) fn source(
     if selected.is_empty() {
         return Ok(None);
     }
+    if language == NativeCompanion::Rust && selected.iter().all(|input| !input.web_assembly) {
+        return super::rust_page_graph::RustPageGraph::source(&selected).map(Some);
+    }
     let mut imports = BTreeSet::new();
     let mut namespaces = String::new();
     let mut services = Vec::new();
@@ -84,7 +87,7 @@ pub(super) fn source(
     )))
 }
 
-fn models_source(
+pub(super) fn models_source(
     language: NativeCompanion,
     snapshot_root: &Path,
     imports: &mut BTreeSet<String>,
