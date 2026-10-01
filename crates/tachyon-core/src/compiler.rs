@@ -1125,6 +1125,33 @@ export default class Chat {
             .expect("a loop binding supplies the prop");
     }
 
+    #[test]
+    fn required_prop_forwarding_accepts_nested_literals_without_outer_properties() {
+        for literal in ["true", "false", "null", "(false)", "'false'"] {
+            let layout = format!("<main><docs-sidebar :open=\"{literal}\" /></main>");
+            let tac = required_prop_build("<docs-layout />", &layout)
+                .unwrap_or_else(|failure| panic!("literal {literal} must build: {failure}"));
+            assert!(tac.contains(r#""required":["open"]"#), "{tac}");
+        }
+    }
+
+    #[test]
+    fn required_prop_forwarding_still_refuses_unknown_bare_identifiers() {
+        for identifier in ["missing", "$missing", "(missing)"] {
+            let layout = format!("<main><docs-sidebar :open=\"{identifier}\" /></main>");
+            let failure = required_prop_build("<docs-layout />", &layout)
+                .expect_err("unknown forwarded identifier must be refused");
+            assert!(failure.to_string().contains("TY1407"), "{failure}");
+            let name = identifier.trim_matches(['(', ')']);
+            assert!(
+                failure
+                    .to_string()
+                    .contains(&format!("gets it from `{name}`")),
+                "{failure}"
+            );
+        }
+    }
+
     fn named_prop_build(page: &str, field: &str) -> Result<String, Failure> {
         let root = tempfile::tempdir().expect("project");
         write_file(root.path(), "client/pages/tac.html", page);

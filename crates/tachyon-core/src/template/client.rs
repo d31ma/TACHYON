@@ -588,19 +588,14 @@ impl<'a> Encoder<'a> {
         let Some(enclosing) = self.enclosing.last() else {
             return Ok(());
         };
-        let source = expression.source().trim();
-        let bare = source
-            .chars()
-            .next()
-            .is_some_and(|first| first.is_alphabetic() || first == '_')
-            && source
-                .chars()
-                .all(|character| character.is_alphanumeric() || character == '_');
+        let Some(source) = expression.identifier_name() else {
+            return Ok(());
+        };
         let known = enclosing.props.contains(source)
             || enclosing.services.iter().any(|service| service == source)
             || self.loop_bindings.iter().any(|binding| binding == source)
             || ClientViewRenderer::VIEW_ROOTS.contains(&source);
-        if !bare || known {
+        if known {
             return Ok(());
         }
         let outer = &enclosing.name;

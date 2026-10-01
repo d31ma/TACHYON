@@ -50,6 +50,17 @@ impl Expression {
         &self.source
     }
 
+    pub(crate) fn identifier_name(&self) -> Option<&str> {
+        self.bare_identifier()
+    }
+
+    fn bare_identifier(&self) -> Option<&str> {
+        match &self.node {
+            ExpressionNode::Identifier(name) => Some(name),
+            _ => None,
+        }
+    }
+
     pub(crate) fn to_client_json(&self) -> String {
         client_json(&self.node)
     }
