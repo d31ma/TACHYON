@@ -2,21 +2,32 @@ use crate::Failure;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+mod tests;
+
 pub(super) struct RustLocalPaths {
     names: BTreeSet<String>,
     models: bool,
+    utilities: BTreeSet<String>,
     path: PathBuf,
 }
 
 impl RustLocalPaths {
-    pub(super) fn read(path: &Path, source: &str, models: &str) -> Result<Self, Failure> {
+    pub(super) fn read(
+        path: &Path,
+        source: &str,
+        models: &str,
+        utilities: &BTreeSet<String>,
+    ) -> Result<Self, Failure> {
         let masked = crate::annotation_layout::masked_source(path, source)?;
-        let names = crate::companion::RustGraph::type_names(&masked);
+        let mut names = crate::companion::RustGraph::type_names(&masked);
+        names.extend(utilities.iter().cloned());
         let models = crate::annotation_layout::masked_source(path, models)?;
         let models = crate::companion::RustGraph::declares_module(&models, "models");
         Ok(Self {
             names,
             models,
+            utilities: utilities.clone(),
             path: path.to_path_buf(),
         })
     }
@@ -25,7 +36,8 @@ impl RustLocalPaths {
         let masked = crate::annotation_layout::masked_source(&self.path, source)?;
         let mut rewritten = source.to_owned();
         self.references(&masked).into_iter().rev().for_each(|at| {
-            rewritten.replace_range(at..at + "crate".len(), self.namespace(&masked, at));
+            let prefix = self.prefix(&masked, at);
+            rewritten.replace_range(at..at + prefix.len(), self.namespace(&masked, at));
         });
         Ok(rewritten)
     }
@@ -45,6 +57,7 @@ impl RustLocalPaths {
         let known = [
             self.names.contains(name),
             [self.models, name == "models"] == [true; 2],
+            self.utility_name(&masked[at..]).is_some(),
         ]
         .contains(&true);
         [standalone, known].into_iter().all(|valid| valid)
@@ -59,10 +72,32 @@ impl RustLocalPaths {
     }
 
     fn namespace(&self, masked: &str, at: usize) -> &'static str {
-        match (self.models, Self::reference_name(masked, at)) {
-            (true, "models") => "crate::TachyonRustServices",
+        match (
+            self.utility_name(&masked[at..]).is_some(),
+            self.models,
+            Self::reference_name(masked, at),
+        ) {
+            (true, _, _) | (false, true, "models") => "crate::TachyonRustServices",
             _ => "self",
         }
+    }
+
+    fn prefix(&self, masked: &str, at: usize) -> &'static str {
+        if self.utility_name(&masked[at..]).is_some() {
+            "crate::utils"
+        } else {
+            "crate"
+        }
+    }
+
+    fn utility_name<'a>(&self, path: &'a str) -> Option<&'a str> {
+        let name = path.strip_prefix("crate::utils::")?;
+        let length = name
+            .bytes()
+            .take_while(|byte| Self::identifier_byte(*byte))
+            .count();
+        let name = &name[..length];
+        self.utilities.contains(name).then_some(name)
     }
 
     fn identifier_byte(byte: u8) -> bool {
@@ -70,7 +105,10 @@ impl RustLocalPaths {
     }
 
     pub(super) fn import(&self, statement: &str) -> Option<String> {
-        statement.strip_prefix("use crate::").map_or_else(
+        let local = statement
+            .strip_prefix("use crate::")
+            .map(|path| self.utility_import(path));
+        local.map_or_else(
             || Some(statement.to_owned()),
             |path| self.local_import(path),
         )
@@ -92,5 +130,13 @@ impl RustLocalPaths {
             (_, _, true, Some(alias)) if alias == name => None,
             (_, _, true, Some(alias)) => Some(format!("use self::{name} as {alias};")),
         }
+    }
+
+    fn utility_import<'a>(&self, path: &'a str) -> &'a str {
+        let qualified = format!("crate::{path}");
+        if self.utility_name(&qualified).is_some() {
+            return path.trim_start_matches("utils::");
+        }
+        path
     }
 }

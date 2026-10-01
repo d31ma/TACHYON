@@ -10,6 +10,9 @@ use std::ops::Range;
 use std::path::Path;
 use tachyon_diagnostics::Diagnostic;
 
+mod rust_constants;
+use rust_constants::RustConstants;
+
 pub(crate) struct UtilityShape<'r, 'a> {
     path: String,
     class_name: String,
@@ -20,6 +23,7 @@ pub(crate) struct UtilityShape<'r, 'a> {
     methods: Vec<Method>,
     members: Vec<(Range<usize>, usize)>,
     markers: Vec<Range<usize>>,
+    constants: Vec<Range<usize>>,
 }
 
 impl UtilityShape<'_, '_> {
@@ -61,6 +65,7 @@ impl UtilityShape<'_, '_> {
             methods: CohesionCheck::methods(&words, spelling),
             members: Self::member_levels(&words, spelling),
             markers: Self::markers(&tokens),
+            constants: RustConstants::read(&words, input.extension),
         };
         Ok(shape.diagnostics())
     }
@@ -166,12 +171,13 @@ impl UtilityShape<'_, '_> {
             .iter()
             .any(|method| self.span(method).contains(&at));
         let marker = self.in_marker(at);
+        let constant = self.constants.iter().any(|range| range.contains(&at));
         let text = self.words.text(at);
         let allowed = Self::SEPARATORS.contains(&text)
             | Self::STATEMENT_WORDS.contains(&text)
             | self.tokens.items.get(at).is_some_and(|token| token.literal);
         let instance_variable = (self.extension == "rb") & (text == "@");
-        (inside & outside_methods & !marker & !allowed) | instance_variable
+        (inside & outside_methods & !marker & !constant & !allowed) | instance_variable
     }
 
     fn inside_class(&self, at: usize) -> bool {
@@ -188,7 +194,12 @@ impl UtilityShape<'_, '_> {
 
     fn span(&self, method: &Method) -> Range<usize> {
         let closing = usize::from(self.layout == Layout::Ended);
-        self.words.line_begin(method.head)..method.body.end + closing
+        let start = if self.extension == "rs" {
+            RustConstants::method_start(self.words, method.head)
+        } else {
+            self.words.line_begin(method.head)
+        };
+        start..method.body.end + closing
     }
 
     fn in_marker(&self, at: usize) -> bool {

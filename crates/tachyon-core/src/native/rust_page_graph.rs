@@ -9,6 +9,7 @@ pub(super) struct RustPageGraph {
     arcs: BTreeSet<String>,
     initializers: BTreeMap<String, String>,
     imports: super::rust_imports::RustImports,
+    utilities: BTreeSet<String>,
 }
 
 impl RustPageGraph {
@@ -33,6 +34,7 @@ impl RustPageGraph {
             arcs: BTreeSet::new(),
             initializers: BTreeMap::new(),
             imports: super::rust_imports::RustImports::default(),
+            utilities: BTreeSet::new(),
         };
         for (path, source) in units {
             graph.add_unit(&path, &source, &input.snapshot_root)?;
@@ -96,10 +98,21 @@ impl RustPageGraph {
         };
         crate::behavior::NativeStorage::refuse_builtins(path, &cleaned)?;
         crate::annotation_layout::NativeWebApis::refuse(path, &cleaned)?;
+        self.utilities.extend(Self::utility_name(path));
         let cleaned = self.imports.take(path, &cleaned)?;
         self.source.push_str(&cleaned);
         self.source.push('\n');
         Ok(())
+    }
+
+    fn utility_name(path: &std::path::Path) -> Option<String> {
+        crate::annotation_layout::UtilityLayout::is_utility(path)
+            .then(|| {
+                path.file_stem()
+                    .and_then(|name| name.to_str())
+                    .map(str::to_owned)
+            })
+            .flatten()
     }
 
     fn describe(service: &mut RustServicePlan, root: &std::path::Path) -> Result<(), Failure> {
@@ -184,6 +197,7 @@ impl RustPageGraph {
             &inputs[0].source,
             &self.source,
             &models,
+            &self.utilities,
         )?;
         let definitions = paths.source(&definitions)?;
         let tables = paths.source(&tables)?;

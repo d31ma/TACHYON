@@ -157,6 +157,26 @@ async fn native_cli_collection_preserves_explicit_trait_composition_and_local_pa
 }
 
 #[tokio::test]
+async fn native_cli_collection_preserves_rust_utility_boundary_imports() {
+    let utilities = [
+        "pub struct TitleUtils;\nimpl TitleUtils { pub fn text() -> String { String::from(\"Ready\") } }\n",
+        "pub struct TitleUtils;\nimpl TitleUtils { const TITLE: &'static str = \"Ready\"; pub fn text() -> String { Self::TITLE.to_owned() } }\n",
+    ];
+    for utility in utilities {
+        let root = tempfile::tempdir().expect("fixture");
+        NativeCompositionCheck::project(root.path(), "<p>{snapshotReader.read()}</p>");
+        NativeCompositionCheck::write(root.path(), "client/utils/TitleUtils.rs", utility);
+        NativeCompositionCheck::write(
+            root.path(),
+            "client/services/SnapshotReaderService.rs",
+            "use crate::utils::{TitleUtils, TitleUtils as Label};\n#[Service]\n#[derive(Default)]\nstruct SnapshotReaderService;\nimpl SnapshotReaderService { fn read(&self) -> String { mod nested { pub fn value() -> String { crate::utils::TitleUtils::text() } } format!(\"{}:{}:{}\", TitleUtils::text(), Label::text(), nested::value()) } }\n",
+        );
+        NativeCompositionCheck::execute(root.path(), "{\\\"value\\\":\\\"Ready:Ready:Ready\\\"}")
+            .await;
+    }
+}
+
+#[tokio::test]
 async fn native_cli_collection_still_refuses_view_bound_automatic_trait_injection() {
     let root = tempfile::tempdir().expect("fixture");
     NativeCompositionCheck::trait_project(root.path(), "<p>{clockReader.read()}</p>");

@@ -190,6 +190,38 @@ fn a_field_or_stored_value_is_refused() {
 }
 
 #[test]
+fn rust_utility_boundary_accepts_immutable_associated_constants() {
+    let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    const TITLE: &'static str = \"Ready\";\n    pub(crate) const WIDTH: usize = { 2 + 3 };\n    pub fn text() -> String { Self::TITLE.to_owned() }\n}\n";
+    assert_eq!(
+        messages("client/utils/TitleUtils.rs", source),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn rust_utility_boundary_still_refuses_instance_and_mutable_state() {
+    let cases = [
+        "pub struct TitleUtils { count: usize }\nimpl TitleUtils { const TITLE: &'static str = \"Ready\"; pub fn text() -> String { Self::TITLE.to_owned() } }\n",
+        "pub struct TitleUtils;\nimpl TitleUtils { static mut COUNT: usize = 0; pub fn text() -> String { String::new() } }\n",
+        "pub struct TitleUtils;\nimpl TitleUtils { static COUNT: usize = 0; const TITLE: &'static str = \"Ready\"; pub fn text() -> String { Self::TITLE.to_owned() } }\n",
+        "pub struct TitleUtils;\nimpl TitleUtils { const TITLE: &'static str = \"Ready\"; pub fn text(&self) -> String { Self::TITLE.to_owned() } }\n",
+    ];
+    for source in cases {
+        assert_eq!(
+            codes("client/utils/TitleUtils.rs", source),
+            vec![1316],
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn rust_utility_boundary_does_not_allow_top_level_stored_values() {
+    let source = "static COUNT: usize = 0;\npub struct TitleUtils;\nimpl TitleUtils { pub fn text() -> String { String::new() } }\n";
+    assert!(!codes("client/utils/TitleUtils.rs", source).is_empty());
+}
+
+#[test]
 fn the_folder_the_name_and_the_single_class_are_checked() {
     let class =
         "export default class TextUtils {\n  static slug(value) {\n    return value\n  }\n}\n";

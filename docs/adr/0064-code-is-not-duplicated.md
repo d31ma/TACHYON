@@ -46,8 +46,13 @@ Tachyon runs its own copy-paste detection with SonarQube's semantics.
 4. **Utility classes.** `client/utils/` (Tac) and `server/utils/` (Yon)
    hold utility classes. A file there is named `<Topic>Utils.<ext>` and holds
    one class of the same name (`TY1310`) with no Tachyon annotation. The class
-   holds only static methods and no state (`TY1316`): no field, no stored
-   value, no constructor and no instance method. The methods follow the
+   holds only static methods and no state (`TY1316`): no field, no mutable
+   storage, no constructor and no instance method. Rust utility impl blocks
+   may hold immutable associated `const` items, including restricted visibility.
+   These compile-time values are not instance fields or `static` storage. This
+   2026-10-01 amendment follows Samuel's canonical coding guide and preserves
+   the rejection of instance fields, `static`/`static mut`, and receiver methods.
+   Other languages' constant/field policies are unchanged. The methods follow the
    cohesion rule of ADR 0063. Tachyon composes every utility class of a
    realm into each program of that realm and language, with no import:
    services, controllers, error handlers, stores, test units and the other
@@ -90,5 +95,22 @@ repository test keeps the number of duplicated blocks at or below
 - The detector reads tokens, not a parse tree. A long list of similar
   statements in one file can repeat itself; move it into a loop over data or
   into `shared/data`.
-- A utility class cannot keep a constant as a field. Return the value from a
-  static method instead.
+- Rust utilities may keep immutable associated constants in their impl block.
+  Other languages retain the existing field restriction. No mutable utility
+  state is allowed.
+
+## Native Rust utility paths — 2026-10-01
+
+Native Rust utilities remain validated plain classes in `client/utils/`, with
+no Service or Helper marker. Canonical native assembly places them beside
+the realm's other definitions. The compiler maps authored
+`crate::utils::<KnownUtility>` imports and qualified references to that actual
+canonical type location, using names from captured validated utility units.
+It preserves grouped imports, aliases, and nested qualified calls without
+changing application files or exporting a new root module. Comments, literals,
+unknown names, module aliases and arbitrary external crate paths are unchanged.
+An unqualified utility call keeps its existing common-module behavior.
+Whole-folder aliases and globs, and namespace paths based on nested authored
+directories, are not qualified by this per-type lowering. Nested code blocks
+using a known fully qualified type are covered; nested directory namespaces
+are a separate contract.
