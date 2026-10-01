@@ -143,7 +143,7 @@ impl RuntimeAssets {
     }
 
     fn validate_digest(asset: &RuntimeAsset, bytes: &[u8]) -> Result<(), Failure> {
-        let digest = format!("{:x}", Sha256::digest(bytes));
+        let digest = crate::compiler::hex_digest(Sha256::digest(bytes));
         if digest != asset.sha256 {
             return Err(Self::failure(
                 asset.name,
