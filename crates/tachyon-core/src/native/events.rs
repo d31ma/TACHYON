@@ -1092,12 +1092,12 @@ mod tests {
             "cs" => "[Service]",
             _ => "@Service",
         };
-        let marked = if extension == "rs" {
+        let role_source = if extension == "rs" {
             authored.replacen("#[derive(Default)]", "#[Service]\n#[derive(Default)]", 1)
         } else {
             format!("{marker}\n{authored}")
         };
-        std::fs::write(&source, marked).expect("write fixture");
+        std::fs::write(&source, role_source).expect("write fixture");
         write_owner_models(root, extension);
         let companion = super::super::registry::NativeCompanionInput {
             snapshot_root: root.to_path_buf(),

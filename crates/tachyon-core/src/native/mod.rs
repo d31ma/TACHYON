@@ -42,9 +42,9 @@ mod native_rust_capability_tests;
 mod native_web_api_tests;
 #[cfg(test)]
 mod native_window_control_tests;
+mod native_window_controls;
 #[cfg(all(test, target_os = "macos"))]
 mod native_window_example_tests;
-mod native_window_controls;
 mod registry;
 mod routes;
 mod rust;

@@ -26,7 +26,7 @@ impl NativePageGraphCheck {
         super::rust::stage(&[input], root, "org.tachyon.root-properties")
             .map(|source| source.expect("native source"))
     }
-    const PROVIDER: &str = r#"
+    const PROVIDER: &str = r"
 #[Service]
 struct CounterService {
     count: std::sync::atomic::AtomicI64,
@@ -40,8 +40,8 @@ impl CounterService {
     fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
     fn available(&self) -> bool { self.picker.available() }
 }
-"#;
-    const WRITER: &str = r#"
+";
+    const WRITER: &str = r"
 #[Service]
 #[NeedsAll]
 struct WriterService { counter: std::sync::Arc<CounterService> }
@@ -50,8 +50,8 @@ impl WriterService {
     fn identity(&self) -> i64 { std::sync::Arc::as_ptr(&self.counter) as usize as i64 }
     fn available(&self) -> bool { self.counter.available() }
 }
-"#;
-    const READER: &str = r#"
+";
+    const READER: &str = r"
 #[Service]
 #[NeedsAll]
 struct ReaderService { counter: std::sync::Arc<CounterService> }
@@ -60,7 +60,7 @@ impl ReaderService {
     fn identity(&self) -> i64 { std::sync::Arc::as_ptr(&self.counter) as usize as i64 }
     fn available(&self) -> bool { self.counter.available() }
 }
-"#;
+";
     const CALLER: &str = r###"
 fn request(service: &str, owner: &str, operation: &str, member: &str) -> String {
     tac_handle(&format!(r##"{{"route":"/","service":"{service}","owner":"{owner}","op":"{operation}","name":"{member}","args":[]}}"##))

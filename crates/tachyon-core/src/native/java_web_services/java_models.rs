@@ -12,79 +12,6 @@ pub(super) struct JavaModels {
     authored: crate::model_sources::ModelSources,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::JavaModels;
-    use std::path::Path;
-
-    struct Fixtures;
-
-    impl Fixtures {
-        const PATH: &'static str = "client/models/OrderInput.java";
-        const MODEL: &'static str = "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name;\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level;\n}\n";
-        const SERVICE: &'static str = "import models.OrderInput;\n@Service\nclass OrderService {\n    Object accept(@Check(OrderInput.class) Object order) { return order; }\n}\n";
-
-        fn models(root: &Path) -> JavaModels {
-            let path = root.join(Self::PATH);
-            std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
-            std::fs::write(path, Self::MODEL).expect("model");
-            JavaModels::read(root, Self::SERVICE).expect("models read")
-        }
-    }
-
-    #[test]
-    fn checked_java_models_preserve_schema_and_compile_as_one_plain_dto() {
-        let root = tempfile::tempdir().expect("project");
-        let models = Fixtures::models(root.path());
-        let path = Path::new("client/services/OrderService.java");
-        let roles =
-            crate::behavior::ServiceRoles::read(path, Fixtures::SERVICE).expect("service role");
-        let authored = models
-            .behavior_source(&roles.source, "OrderService")
-            .expect("assembled");
-        let lowered = crate::behavior::lower(path, &authored, "tac")
-            .expect("lowered")
-            .expect("schema");
-        let service = models
-            .without_declarations(path, &lowered)
-            .expect("service source");
-        let source = models.sources(&models.values()).expect("compiled models");
-        let dto = source
-            .iter()
-            .find(|(path, _)| path.ends_with("OrderInput.java"))
-            .expect("dto");
-        assert!(!service.contains("class OrderInput"));
-        assert!(service.contains("case \"OrderInput\": return validateRules"));
-        for marker in [
-            "@Checked",
-            "@NotEmpty",
-            "@Length",
-            "@Required",
-            "@Min",
-            "@Max",
-        ] {
-            assert!(!dto.1.contains(marker), "{marker}: {}", dto.1);
-        }
-        assert_eq!(dto.1.lines().count(), Fixtures::MODEL.lines().count());
-        assert_eq!(dto.1.len(), Fixtures::MODEL.len());
-        assert!(dto.1.contains("String name;") && dto.1.contains("Object level;"));
-    }
-
-    #[test]
-    fn a_java_model_cannot_shadow_its_service() {
-        let root = tempfile::tempdir().expect("project");
-        let models = Fixtures::models(root.path());
-        let failure = models
-            .behavior_source("@Service\nclass OrderInput {}", "OrderInput")
-            .expect_err("conflicting model");
-        assert!(
-            failure
-                .to_string()
-                .contains("conflicts with its service class")
-        );
-    }
-}
-
 impl JavaModels {
     const REALM: &'static str = "client";
     const EXTENSION: &'static str = "java";
@@ -200,5 +127,79 @@ impl JavaModels {
                 &format!("{}: {message}", path.display()),
             ))
         })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::JavaModels;
+    use std::path::Path;
+
+    struct Fixtures;
+
+    impl Fixtures {
+        const PATH: &'static str = "client/models/OrderInput.java";
+        const MODEL: &'static str = "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name;\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level;\n}\n";
+        const SERVICE: &'static str = "import models.OrderInput;\n@Service\nclass OrderService {\n    Object accept(@Check(OrderInput.class) Object order) { return order; }\n}\n";
+
+        fn models(root: &Path) -> JavaModels {
+            let path = root.join(Self::PATH);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
+            std::fs::write(path, Self::MODEL).expect("model");
+            JavaModels::read(root, Self::SERVICE).expect("models read")
+        }
+    }
+
+    #[test]
+    fn checked_java_models_preserve_schema_and_compile_as_one_plain_dto() {
+        let root = tempfile::tempdir().expect("project");
+        let models = Fixtures::models(root.path());
+        let path = Path::new("client/services/OrderService.java");
+        let roles =
+            crate::behavior::ServiceRoles::read(path, Fixtures::SERVICE).expect("service role");
+        let authored = models
+            .behavior_source(&roles.source, "OrderService")
+            .expect("assembled");
+        let lowered = crate::behavior::lower(path, &authored, "tac")
+            .expect("lowered")
+            .expect("schema");
+        let service = models
+            .without_declarations(path, &lowered)
+            .expect("service source");
+        let source = models.sources(&models.values()).expect("compiled models");
+        let dto = source
+            .iter()
+            .find(|(path, _)| path.ends_with("OrderInput.java"))
+            .expect("dto");
+        assert!(!service.contains("class OrderInput"));
+        assert!(service.contains("case \"OrderInput\": return validateRules"));
+        for marker in [
+            "@Checked",
+            "@NotEmpty",
+            "@Length",
+            "@Required",
+            "@Min",
+            "@Max",
+        ] {
+            assert!(!dto.1.contains(marker), "{marker}: {}", dto.1);
+        }
+        assert_eq!(dto.1.lines().count(), Fixtures::MODEL.lines().count());
+        assert_eq!(dto.1.len(), Fixtures::MODEL.len());
+        assert!(dto.1.contains("String name;") && dto.1.contains("Object level;"));
+    }
+
+    #[test]
+    fn a_java_model_cannot_shadow_its_service() {
+        let root = tempfile::tempdir().expect("project");
+        let models = Fixtures::models(root.path());
+        let failure = models
+            .behavior_source("@Service\nclass OrderInput {}", "OrderInput")
+            .expect_err("conflicting model");
+        assert!(
+            failure
+                .to_string()
+                .contains("conflicts with its service class")
+        );
     }
 }
