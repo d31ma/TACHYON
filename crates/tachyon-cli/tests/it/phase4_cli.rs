@@ -284,6 +284,10 @@ fn browser_services_keep_constants_inside_their_class() {
     let project = tempfile::tempdir().expect("project");
     write_phase4_project(project.path());
     write(
+        &project.path().join("client/shared/nothing.js"),
+        "export {};\n",
+    );
+    write(
         &project.path().join("client/components/phase/four/tac.html"),
         "<main><output>{phaseFour.count}</output></main>",
     );
