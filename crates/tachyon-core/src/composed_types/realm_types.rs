@@ -1,8 +1,8 @@
 use super::composition_check::CompositionCheck;
 use super::declaration::Declaration;
 use super::exported_class::ExportedClass;
-use super::java_declarations::JavaDeclarations;
 use super::model_declaration::ModelDeclaration;
+use super::native_declarations::NativeDeclarations;
 use crate::Failure;
 use cap_std::fs::{Dir, DirEntry, Metadata};
 use std::borrow::Cow;
@@ -16,7 +16,8 @@ pub(super) struct RealmTypes<'a> {
     declarations: BTreeMap<String, Declaration>,
     models: BTreeMap<String, ModelDeclaration>,
     test_units: BTreeMap<String, Declaration>,
-    java: JavaDeclarations,
+    java: NativeDeclarations,
+    kotlin: NativeDeclarations,
 }
 
 impl<'a> RealmTypes<'a> {
@@ -35,7 +36,8 @@ impl<'a> RealmTypes<'a> {
             declarations: BTreeMap::new(),
             models: BTreeMap::new(),
             test_units: BTreeMap::new(),
-            java: JavaDeclarations::new(),
+            java: NativeDeclarations::new("Java", "java"),
+            kotlin: NativeDeclarations::new("Kotlin", "kt"),
         };
         types.search_role_folders();
         types.text()
@@ -138,6 +140,7 @@ impl<'a> RealmTypes<'a> {
 
     fn add_file(&mut self, path: &Path) {
         self.add_java_file(path);
+        self.add_kotlin_file(path);
         let classes = self.classes_where(path, CompositionCheck::is_composed);
         Self::declare(&mut self.declarations, path, classes);
         let models = self.model_names(path);
@@ -147,10 +150,21 @@ impl<'a> RealmTypes<'a> {
     }
 
     fn add_java_file(&mut self, path: &Path) {
-        let source = JavaDeclarations::accepts(path)
+        let source = self
+            .java
+            .accepts(path)
             .then(|| self.bounded_source(path))
             .flatten();
         self.java.add(path, source);
+    }
+
+    fn add_kotlin_file(&mut self, path: &Path) {
+        let source = self
+            .kotlin
+            .accepts(path)
+            .then(|| self.bounded_source(path))
+            .flatten();
+        self.kotlin.add(path, source);
     }
 
     fn model_names(&self, path: &Path) -> Vec<String> {
@@ -246,7 +260,10 @@ impl<'a> RealmTypes<'a> {
             .cloned()
             .collect::<Vec<_>>();
         let java = self.java.lines(&names)?;
-        Ok(Self::global_lines(&format!("{script}{java}")))
+        let mut kotlin_names = names;
+        kotlin_names.extend(self.java.names());
+        let kotlin = self.kotlin.lines(&kotlin_names)?;
+        Ok(Self::global_lines(&format!("{script}{java}{kotlin}")))
     }
 
     fn global_lines(lines: &str) -> String {

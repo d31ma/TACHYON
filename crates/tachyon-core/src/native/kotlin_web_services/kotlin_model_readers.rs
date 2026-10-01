@@ -56,7 +56,7 @@ impl KotlinModelReaders {
         format!("{}.{name}", Self::MODEL_PACKAGE)
     }
 
-    fn enum_names(source: &str) -> Vec<String> {
+    pub(super) fn enum_names(source: &str) -> Vec<String> {
         source
             .lines()
             .filter_map(|line| line.trim_start().strip_prefix("enum class "))

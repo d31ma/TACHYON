@@ -6,7 +6,11 @@ use kotlin_model_readers::KotlinModelReaders;
 use kotlin_wasm_program::KotlinWasmProgram;
 use std::path::{Path, PathBuf};
 
+mod kotlin_composed_types;
 mod kotlin_model_readers;
+mod kotlin_type_members;
+mod kotlin_type_models;
+mod kotlin_type_values;
 mod kotlin_wasm_program;
 
 pub(crate) struct KotlinWebServices;
@@ -45,6 +49,13 @@ impl KotlinWebServices {
     const PROGRAM_SOURCE: &'static str = "services.kt";
     const MODEL_REALM: &'static str = "client";
     const MODEL_EXTENSION: &'static str = "kt";
+
+    pub(crate) fn composed_types(
+        services: &[(PathBuf, String)],
+        files: &[(PathBuf, String)],
+    ) -> Result<String, Failure> {
+        kotlin_composed_types::KotlinComposedTypes::render(services, files)
+    }
 
     pub(crate) async fn build(
         snapshot_root: &Path,

@@ -6,6 +6,14 @@ use std::fmt::Write as _;
 mod constructor_field_policy;
 mod csharp_model_type;
 use constructor_field_policy::ConstructorFieldPolicy;
+mod kotlin_header;
+mod kotlin_member;
+mod kotlin_members;
+#[cfg(test)]
+mod kotlin_members_tests;
+pub(crate) use kotlin_header::KotlinHeader;
+pub(crate) use kotlin_member::KotlinMember;
+pub(crate) use kotlin_members::KotlinMembers;
 pub(crate) mod go;
 mod rust_collaborators;
 mod rust_construction;
@@ -417,9 +425,45 @@ impl Member {
         after.split('{').next().unwrap_or_default()
     }
 
-    fn returned_type(effects: &str) -> Option<String> {
+    fn require_name(name: &str) -> Option<()> {
+        (!name.is_empty()).then_some(())
+    }
+
+    fn method_returned_type(signature: &str, language: &str) -> Option<String> {
+        let effects = Self::method_effects(signature);
+        Self::returned_type(effects, language)
+            .or_else(|| Self::block_returned_type(signature, language))
+    }
+
+    fn block_returned_type(signature: &str, language: &str) -> Option<String> {
+        let close = closing_parenthesis(signature)?;
+        let after = signature[close + 1..].trim_start();
+        Self::block_unit(after, language)
+    }
+
+    fn block_unit(after: &str, language: &str) -> Option<String> {
+        match (language, after.as_bytes().first()) {
+            ("tac.kt", Some(b'{')) => Some(String::from("Unit")),
+            _ => None,
+        }
+    }
+
+    fn returned_type(effects: &str, language: &str) -> Option<String> {
+        match language {
+            "tac.kt" => Self::kotlin_returned_type(effects),
+            _ => Self::swift_returned_type(effects),
+        }
+    }
+
+    fn swift_returned_type(effects: &str) -> Option<String> {
         let (_, returned) = effects.split_once("->")?;
         Some(returned.trim().to_owned())
+    }
+
+    fn kotlin_returned_type(effects: &str) -> Option<String> {
+        let returned = effects.trim_start().strip_prefix(':')?;
+        let declared = returned.split('=').next().unwrap_or_default().trim();
+        (!declared.is_empty()).then(|| declared.to_owned())
     }
 
     fn is_asynchronous(effects: &str) -> bool {
@@ -880,7 +924,7 @@ fn name_first(
     }
     let line = line.trim_start_matches("public ");
     if let Some(rest) = line.strip_prefix(function).and_then(after_keyword) {
-        return Ok(name_first_method(rest));
+        return Ok(name_first_method(rest, language));
     }
     for (keyword, writable) in [(mutable, true), (immutable, false)] {
         let Some(rest) = line.strip_prefix(keyword).and_then(after_keyword) else {
@@ -910,11 +954,9 @@ fn name_first(
     Ok(None)
 }
 
-fn name_first_method(rest: &str) -> Option<Member> {
+fn name_first_method(rest: &str, language: &str) -> Option<Member> {
     let name = identifier(rest);
-    if name.is_empty() {
-        return None;
-    }
+    Member::require_name(&name)?;
     let signature = rest[name.len()..].trim_start();
     let parameters = signature
         .strip_prefix('(')
@@ -922,7 +964,7 @@ fn name_first_method(rest: &str) -> Option<Member> {
     let effects = Member::method_effects(signature);
     Some(Member {
         name,
-        declared_type: Member::returned_type(effects),
+        declared_type: Member::method_returned_type(signature, language),
         method: true,
         mutable: false,
         parameters: Some(parameters),

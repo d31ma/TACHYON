@@ -26,11 +26,11 @@ impl JavaComposedTypes {
         files: &[(PathBuf, String)],
     ) -> Result<String, Failure> {
         let models = JavaTypeModels::read(files)?;
-        let mut text = models.lines();
-        for (path, source) in services {
-            text.push_str(&Self::service(path, source, &models, files)?);
-        }
-        Ok(text)
+        super::super::native_type_program::NativeTypeProgram::render(
+            services,
+            models.lines(),
+            |path, source| Self::service(path, source, &models, files),
+        )
     }
 
     fn service(

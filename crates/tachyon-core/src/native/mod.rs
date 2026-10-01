@@ -49,6 +49,7 @@ mod native_page_graph_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
 mod native_service_roots;
+mod native_type_program;
 mod native_ui_artifact;
 #[cfg(test)]
 mod native_ui_artifact_tests;

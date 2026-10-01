@@ -3,21 +3,25 @@ use crate::failure::{diagnostic, source_span};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-pub(super) struct JavaDeclarations {
+pub(super) struct NativeDeclarations {
+    language: &'static str,
+    extension: &'static str,
     services: BTreeMap<PathBuf, String>,
     models: BTreeMap<PathBuf, String>,
 }
 
-impl JavaDeclarations {
-    pub(super) fn new() -> Self {
+impl NativeDeclarations {
+    pub(super) fn new(language: &'static str, extension: &'static str) -> Self {
         Self {
+            language,
+            extension,
             services: BTreeMap::new(),
             models: BTreeMap::new(),
         }
     }
 
-    pub(super) fn accepts(path: &Path) -> bool {
-        Self::accepts_file(path)
+    pub(super) fn accepts(&self, path: &Path) -> bool {
+        self.accepts_file(path)
     }
 
     pub(super) fn add(&mut self, path: &Path, source: Option<String>) {
@@ -27,18 +31,15 @@ impl JavaDeclarations {
 
     pub(super) fn lines(&self, script_names: &[String]) -> Result<String, Failure> {
         self.require_distinct_names(script_names)?;
-        crate::native::JavaWebServices::composed_types(
-            &Self::files(&self.services),
-            &Self::files(&self.models),
-        )
+        self.render(&Self::files(&self.services), &Self::files(&self.models))
     }
 
-    fn accepts_file(path: &Path) -> bool {
-        Self::is_java(path) && Self::is_role_folder(path)
+    fn accepts_file(&self, path: &Path) -> bool {
+        self.is_language(path) && Self::is_role_folder(path)
     }
 
-    fn is_java(path: &Path) -> bool {
-        path.extension().and_then(|name| name.to_str()) == Some("java")
+    fn is_language(&self, path: &Path) -> bool {
+        path.extension().and_then(|name| name.to_str()) == Some(self.extension)
     }
 
     fn is_role_folder(path: &Path) -> bool {
@@ -75,18 +76,18 @@ impl JavaDeclarations {
     fn require_distinct_names(&self, script_names: &[String]) -> Result<(), Failure> {
         self.services
             .keys()
-            .try_for_each(|path| Self::require_unique(path, script_names))?;
+            .try_for_each(|path| self.require_unique(path, script_names))?;
         self.require_unique_services()?;
         self.require_model_namespace(script_names)
     }
 
-    fn require_unique(path: &Path, script_names: &[String]) -> Result<(), Failure> {
+    fn require_unique(&self, path: &Path, script_names: &[String]) -> Result<(), Failure> {
         let name = path
             .file_stem()
             .and_then(|name| name.to_str())
             .unwrap_or_default();
         if script_names.iter().any(|other| other == name) {
-            return Err(Self::collision(path, name));
+            return Err(self.collision(path, name));
         }
         Ok(())
     }
@@ -95,10 +96,11 @@ impl JavaDeclarations {
         let mut names = std::collections::BTreeSet::new();
         self.services
             .keys()
-            .try_for_each(|path| Self::insert_unique_name(path, &mut names))
+            .try_for_each(|path| self.insert_unique_name(path, &mut names))
     }
 
     fn insert_unique_name(
+        &self,
         path: &Path,
         names: &mut std::collections::BTreeSet<String>,
     ) -> Result<(), Failure> {
@@ -107,27 +109,53 @@ impl JavaDeclarations {
             .and_then(|name| name.to_str())
             .unwrap_or_default();
         if !names.insert(name.to_owned()) {
-            return Err(Self::collision(path, name));
+            return Err(self.collision(path, name));
         }
         Ok(())
     }
 
     fn require_model_namespace(&self, script_names: &[String]) -> Result<(), Failure> {
         let path = self.models.keys().next();
-        let duplicate = script_names
-            .iter()
-            .any(|name| name == "__TachyonJavaModels");
+        let duplicate = script_names.iter().any(|name| name == &self.namespace());
         match (path, duplicate, self.services.is_empty()) {
-            (Some(path), true, false) => Err(Self::collision(path, "__TachyonJavaModels")),
+            (Some(path), true, false) => Err(self.collision(path, &self.namespace())),
             _ => Ok(()),
         }
     }
 
-    fn collision(path: &Path, name: &str) -> Failure {
+    pub(super) fn names(&self) -> Vec<String> {
+        self.service_names()
+    }
+
+    fn service_names(&self) -> Vec<String> {
+        self.services
+            .keys()
+            .filter_map(|path| path.file_stem()?.to_str().map(String::from))
+            .collect()
+    }
+
+    fn namespace(&self) -> String {
+        format!("__Tachyon{}Models", self.language)
+    }
+
+    fn render(
+        &self,
+        services: &[(PathBuf, String)],
+        models: &[(PathBuf, String)],
+    ) -> Result<String, Failure> {
+        match self.extension {
+            "java" => crate::native::JavaWebServices::composed_types(services, models),
+            "kt" => crate::native::KotlinWebServices::composed_types(services, models),
+            _ => Ok(String::new()),
+        }
+    }
+
+    fn collision(&self, path: &Path, name: &str) -> Failure {
         Failure::one(diagnostic(
             1410,
             format!(
-                "The composed Java browser type '{name}' conflicts with an existing composed name."
+                "The composed {} browser type '{name}' conflicts with an existing composed name.",
+                self.language
             ),
             Some(String::from(
                 "Give each composed service and model type a distinct name across languages.",

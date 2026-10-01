@@ -1,10 +1,12 @@
 mod composition_check;
 mod declaration;
 mod exported_class;
-mod java_declarations;
 #[cfg(test)]
 mod java_types_tests;
+#[cfg(test)]
+mod kotlin_types_tests;
 mod model_declaration;
+mod native_declarations;
 mod realm_types;
 
 use crate::Failure;
