@@ -32,9 +32,9 @@ import WebKit
         try await withCheckedThrowingContinuation { continuation in
             let reply = NativeUiStyleReply(continuation)
             reply.deadline()
-            view.callAsyncJavaScript(NativeUiStyleScript.source, arguments: arguments, in: nil, contentWorld: world) { result in
+            view.callAsyncJavaScript(NativeUiStyleScript.source, arguments: arguments, in: nil, in: world, completionHandler: { result in
                 reply.resolve(result)
-            }
+            })
         }
     }
 }
