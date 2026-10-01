@@ -1194,9 +1194,12 @@ fn python_relocates_imports(source: &str, words: &BTreeSet<&str>) -> bool {
         let imports_typing = line
             .strip_prefix("from typing import ")
             .is_some_and(|names| {
-                names
-                    .split(',')
-                    .all(|name| matches!(name.trim(), "Any" | "Annotated" | "Protocol"))
+                names.split(',').all(|name| {
+                    matches!(
+                        name.trim(),
+                        "Any" | "Annotated" | "Protocol" | "Final" | "Optional"
+                    )
+                })
             });
         let allowed = imports_models
             || imports_typing
@@ -2304,7 +2307,6 @@ mod tests {
     fn discovery_rejects_unsupported_realm_languages() {
         for (realm, entry) in [
             ("yon", "server/controllers/MoneyController.swift"),
-            ("tac", "client/services/ShellService.py"),
             ("tac", "client/services/ShellService.php"),
             ("tac", "client/services/ShellService.groovy"),
         ] {
@@ -2316,6 +2318,51 @@ mod tests {
                 "not supported in this Tac or Yon realm",
             );
         }
+    }
+
+    #[test]
+    fn included_python_roles_accept_supported_typing_names_without_relocating_packages() {
+        let path = Path::new("client/helpers/CounterHelper.py");
+        for names in [
+            "Final",
+            "Optional",
+            "Annotated, Final, Optional",
+            "Any, Protocol, Final, Optional",
+        ] {
+            let source =
+                format!("from typing import {names}\n\n@helper\nclass CounterHelper:\n    pass\n");
+            validate_imports(path, &source, "py").expect("supported standard typing declarations");
+        }
+        for import in [
+            "from .counter import Counter",
+            "from vendor import Counter",
+            "import vendor",
+            "from typing import UnknownTypingName",
+            "from typing import Optional as Maybe",
+            "from __future__ import annotations",
+        ] {
+            let source = format!("{import}\n\n@helper\nclass CounterHelper:\n    pass\n");
+            let failure =
+                validate_imports(path, &source, "py").expect_err("the import guard remains narrow");
+            assert_eq!(failure.diagnostics()[0].code.to_string(), "TY2101");
+        }
+    }
+
+    #[test]
+    fn python_tac_discovers_formal_helpers_with_final_and_optional_annotations() {
+        let root = tempfile::tempdir().expect("project");
+        let entry = "client/services/ShellService.py";
+        let source = "from typing import Annotated\n\n@service\nclass ShellService:\n    counter: Annotated[CounterHelper, needs]\n\n    def value(self) -> int:\n        return self.counter.read()\n";
+        write(root.path(), entry, source);
+        write(
+            root.path(),
+            "client/helpers/CounterHelper.py",
+            "from typing import Final, Optional\n\n@helper\nclass CounterHelper:\n    _fixed: Final[int] = 1\n    _empty: Optional[str] = None\n\n    def read(self) -> int:\n        return self._fixed\n",
+        );
+        let composed = composed_entry(root.path(), entry, source, "tac");
+        assert!(composed.contains("class CounterHelper"));
+        assert!(composed.contains("class ShellService"));
+        assert!(composed.contains("from typing import Final, Optional"));
     }
 
     #[test]
