@@ -466,6 +466,34 @@ impl Member {
         (!declared.is_empty()).then(|| declared.to_owned())
     }
 
+    fn property_type(annotation: &str, language: &str) -> Option<String> {
+        match language {
+            "tac.kt" => Self::kotlin_property_type(annotation),
+            _ => annotated_type(annotation),
+        }
+    }
+
+    fn kotlin_property_type(annotation: &str) -> Option<String> {
+        let declared = annotated_type(annotation)?;
+        let end = Self::getter_start(&declared).unwrap_or(declared.len());
+        Some(declared[..end].trim().to_owned())
+    }
+
+    fn getter_start(declared: &str) -> Option<usize> {
+        declared
+            .match_indices("get")
+            .find_map(|(at, _)| Self::getter_word(declared, at).then_some(at))
+    }
+
+    fn getter_word(declared: &str, at: usize) -> bool {
+        let before = declared[..at]
+            .as_bytes()
+            .last()
+            .is_some_and(u8::is_ascii_whitespace);
+        let call = declared[at + 3..].trim_start().starts_with('(');
+        before && call
+    }
+
     fn is_asynchronous(effects: &str) -> bool {
         effects.split_whitespace().any(|word| word == "async")
     }
@@ -938,7 +966,7 @@ fn name_first(
         if Member::is_runtime_resource(annotation) {
             return Ok(None);
         }
-        let declared_type = annotated_type(annotation);
+        let declared_type = Member::property_type(annotation, language);
         if writable && declared_type.is_none() {
             return Err(missing_type(&name, source_path, language));
         }

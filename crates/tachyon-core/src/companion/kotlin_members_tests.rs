@@ -118,3 +118,63 @@ fn swift_arrow_and_async_metadata_are_unchanged_by_kotlin_colon_support() {
     assert!(rows.asynchronous);
     assert_eq!(empty.declared_type, None);
 }
+
+#[test]
+fn kotlin_typed_getters_keep_nullable_generic_types_and_field_mutability() {
+    let source = "@Service\nclass PanelService {\n val id: String get() = \"routing\"\n val rows: List<List<String?>> get() = emptyList()\n var note: String? = null\n   get() = field\n   set(value) { field = value }\n val later: String?\n   get() = null\n}\n";
+    let found = Fixtures::kotlin(source);
+    assert_eq!(
+        found
+            .iter()
+            .map(|member| (
+                member.name.as_str(),
+                member.value_type.as_str(),
+                member.mutable
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("id", "String", false),
+            ("later", "String?", false),
+            ("note", "String?", true),
+            ("rows", "List<List<String?>>", false),
+        ]
+    );
+    let runtime = owner_table(
+        CompanionLanguage::Kotlin,
+        source,
+        Fixtures::PATH,
+        &[],
+        "",
+        false,
+    )
+    .expect("existing Kotlin getter runtime");
+    assert!(runtime.contains("tacInstance.id"), "{runtime}");
+    assert!(runtime.contains("tacInstance.note ="), "{runtime}");
+    assert!(!runtime.contains("tacRead<String? get"), "{runtime}");
+}
+
+#[test]
+fn kotlin_getter_metadata_never_infers_the_expression_return_type() {
+    for declaration in ["val answer get() = 42", "val answer get() = \"String\""] {
+        let source = format!("@Service\nclass PanelService {{\n {declaration}\n}}\n");
+        let text = KotlinMembers::read(Path::new(Fixtures::PATH), &source)
+            .expect_err("no inferred getter types")
+            .to_string();
+        assert!(
+            text.contains("TY1405") && text.contains(Fixtures::PATH),
+            "{text}"
+        );
+    }
+    assert_eq!(
+        Member::property_type(": GetterValue = value", "tac.kt").as_deref(),
+        Some("GetterValue")
+    );
+    assert_eq!(
+        Member::property_type(": List<GetterValue> = rows", "tac.kt").as_deref(),
+        Some("List<GetterValue>")
+    );
+    assert_eq!(
+        Member::property_type(": String { return \"swift\" }", "tac.swift").as_deref(),
+        Some("String { return \"swift\" }")
+    );
+}

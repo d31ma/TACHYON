@@ -295,3 +295,22 @@ fn kotlin_composed_facades_typecheck_real_consumer_contracts() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn kotlin_composed_readonly_getters_retain_the_authored_field_contract() {
+    let root = tempfile::tempdir().expect("project");
+    Fixtures::write(
+        root.path(),
+        "client/services/TopicService.kt",
+        "@Service\nclass TopicService {\n val id: String get() = \"routing\"\n val source: String? get() = null\n val rows: List<List<String?>> get() = emptyList()\n}\n",
+    );
+    let text = Fixtures::generated(root.path());
+    for expected in [
+        "readonly \"id\": string;",
+        "readonly \"source\": string | null;",
+        "readonly \"rows\": Array<Array<string | null>>;",
+    ] {
+        assert!(text.contains(expected), "{expected}: {text}");
+    }
+    assert!(!text.contains("get()"), "{text}");
+}
