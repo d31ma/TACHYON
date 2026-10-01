@@ -251,6 +251,7 @@ private fun tacDrain(owner: TacActivation) {
 }
 private fun tacDisposeActivation(owner: TacActivation) {
     owner.disposed = true
+    NativeCapabilities.dispose(owner.owner)
     owner.queue.clear(); owner.retained.clear(); owner.deferred.clear()
     owner.sorted.forEach { if (it is TacHook && it.destroy) try { it.invoke() } catch (_: Exception) { tacEventFailure() } }
 }
@@ -426,9 +427,9 @@ private fun tacHandle(request: String): String {
         if (operation == "init" && (existing == null || existing.route != route || existing.service != service)) {
             if (existing != null) tacDisposeOwner(owner)
             val props = tacObject(parsed["props"])
-            val members = try { tacServiceMembers(service, props) }
+            val members = try { NativeCapabilities.create(owner) { tacServiceMembers(service, props) } }
                 catch (_: Exception) { return "{\"error\":\"Native service is missing a required property or it has the wrong type.\",\"code\":\"TY_NATIVE_REQUIRED\"}" }
-                ?: return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"
+                ?: run { NativeCapabilities.dispose(owner); return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}" }
             require(TacNativeState.activations.size < 256) { "Too many native activations." }
             val activation = TacActivation(route, service, owner, members)
             TacNativeState.activations[owner] = activation; TacNativeState.executing = activation

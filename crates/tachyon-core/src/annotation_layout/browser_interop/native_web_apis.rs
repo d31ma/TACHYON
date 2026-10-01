@@ -37,8 +37,10 @@ impl NativeWebApis {
             return Vec::new();
         }
         crate::web_api_clients::WebApiClients::TYPE_NAMES
+            .into_iter()
+            .filter(|name| !matches!(extension, "cs" | "kt" | "rs") || *name != "WindowControls")
             .map(String::from)
-            .to_vec()
+            .collect()
     }
 
     fn extension(path: &Path) -> &str {

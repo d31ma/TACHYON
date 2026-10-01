@@ -188,7 +188,7 @@ fn stage_companion(
     );
     let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
     let prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
-    let web_apis = CsharpWebApis::with_events();
+    let web_apis = CsharpWebApis::native();
     write(
         &project.join("TachyonCompanion.cs"),
         format!("{using}\n{application}\n{authored}\n{prelude}{web_apis}").as_bytes(),
@@ -554,6 +554,10 @@ fn c_source(
             "__LOCAL_BUNDLE_HELPERS__",
             &super::routes::c_local_bundle(index, companions, "https://tachyon.local"),
         )
+        .replace(
+            "__WINDOW_CONTROLS__",
+            &super::native_window_controls::NativeWindowControls::windows(&application.window),
+        )
         .replace("__APP_NAME__", &c_string_escape(&application.name))
         .replace(
             "__BUNDLE_ID__",
@@ -619,6 +623,24 @@ typedef const char *(*TachyonCompanionInvoke)(const char *);
 typedef void (*TachyonCompanionFree)(const char *);
 typedef void (*TachyonCompanionEmit)(const char *);
 typedef void (*TachyonCompanionSetEmit)(TachyonCompanionEmit);
+typedef unsigned char *(*TachyonCapabilityCall)(const char *, const char *, size_t *);
+typedef void (*TachyonCapabilityFree)(unsigned char *, size_t);
+typedef void (*TachyonCompanionSetCapabilityAdapter)(TachyonCapabilityCall, TachyonCapabilityFree);
+
+__WINDOW_CONTROLS__
+
+static unsigned char *tachyon_native_capability(const char *capability, const char *payload, size_t *length) {
+  if (length == NULL) return NULL;
+  *length = 0;
+  char *answer;
+  if (capability == NULL || payload == NULL || strnlen(capability, 65) > 64 || strnlen(payload, 65537) > 65536) answer = _strdup("{\"status\":\"invalid\"}");
+  else if (strncmp(capability, "window.", 7) == 0) answer = tachyon_window_control(capability, payload);
+  else answer = _strdup("{\"status\":\"unsupported\"}");
+  if (answer != NULL) *length = strlen(answer);
+  return (unsigned char *)answer;
+}
+
+static void tachyon_native_capability_free(unsigned char *answer, size_t length) { (void)length; free(answer); }
 
 static TachyonCompanionInvoke g_companion_invoke[3] = {NULL, NULL, NULL};
 static TachyonCompanionFree g_companion_free[3] = {NULL, NULL, NULL};
@@ -695,6 +717,9 @@ static void tachyon_companion_load_one(const wchar_t *filename, int language) {
   if (set_emit != NULL) {
     set_emit(tachyon_companion_emit);
   }
+  TachyonCompanionSetCapabilityAdapter set_adapter =
+      (TachyonCompanionSetCapabilityAdapter)GetProcAddress(library, "tac_native_set_capability_adapter");
+  if (set_adapter != NULL) set_adapter(tachyon_native_capability, tachyon_native_capability_free);
   if (g_companion_invoke[language] != NULL) {
     tachyon_record("companion.loaded");
   }
@@ -758,7 +783,7 @@ static char *tachyon_narrow(const wchar_t *value) {
 }
 
 static char *tachyon_handle(const char *capability, const char *payload) {
-  (void)payload;
+  if (strncmp(capability, "window.", 7) == 0) return tachyon_window_control(capability, payload);
   if (strcmp(capability, "companion.invoke") == 0) {
     int operation = tachyon_payload_string_matches(payload, "op", "init")
       || tachyon_payload_string_matches(payload, "op", "get")

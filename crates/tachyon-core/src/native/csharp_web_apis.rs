@@ -14,7 +14,14 @@ impl CsharpWebApis {
         include_str!("web_apis/Share.cs"),
         include_str!("web_apis/Notifications.cs"),
         include_str!("web_apis/Geolocation.cs"),
-        include_str!("web_apis/WindowControls.cs")
+        include_str!("web_apis/WindowControls.cs"),
+        include_str!("capabilities/FilePickerStatus.cs"),
+        include_str!("capabilities/FilePickerResult.cs"),
+        include_str!("capabilities/FilePickerOptions.cs"),
+        include_str!("capabilities/NativeCapabilityOwner.cs"),
+        include_str!("capabilities/NativeCapabilities.cs"),
+        include_str!("capabilities/FilePicker.cs"),
+        include_str!("capabilities/NativeCapabilityTransport.cs")
     );
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";
 
@@ -25,6 +32,14 @@ impl CsharpWebApis {
     pub(super) fn in_web_services(fsharp: &str) -> String {
         let own = fsharp.is_empty().then(Self::with_events);
         own.unwrap_or_default()
+    }
+
+    pub(super) fn native() -> String {
+        let source = Self::SOURCE.replace(
+            include_str!("web_apis/WindowControls.cs"),
+            include_str!("capabilities/WindowControls.cs"),
+        );
+        format!("{source}{}", WebEventSources::csharp())
     }
 
     pub(super) fn library() -> String {

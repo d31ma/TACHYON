@@ -1,0 +1,87 @@
+use super::config::WindowConfiguration;
+use std::fmt::Write;
+
+pub(super) struct NativeWindowControls;
+
+impl NativeWindowControls {
+    const WINDOWS_ACTIONS: [(&'static str, &'static str); 6] = [
+        ("minimize", "ShowWindow(g_window, SW_MINIMIZE);"),
+        (
+            "maximize",
+            "ShowWindow(g_window, IsZoomed(g_window) ? SW_RESTORE : SW_MAXIMIZE);",
+        ),
+        ("close", "PostMessageW(g_window, WM_CLOSE, 0, 0);"),
+        (
+            "resize",
+            r#"int width = tachyon_window_size(payload, "width"), height = tachyon_window_size(payload, "height"); if (!width || !height) return _strdup("{\"ok\":false,\"error\":\"Invalid window size.\"}"); RECT bounds = {0, 0, width, height}; AdjustWindowRect(&bounds, (DWORD)GetWindowLongPtrW(g_window, GWL_STYLE), FALSE); SetWindowPos(g_window, NULL, 0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top, SWP_NOMOVE | SWP_NOZORDER);"#,
+        ),
+        (
+            "title",
+            r#"uint16_t title[513]; if (!tachyon_window_title(payload, title, 513)) return _strdup("{\"ok\":false,\"error\":\"Invalid window title.\"}"); SetWindowTextW(g_window, (const wchar_t *)title);"#,
+        ),
+        (
+            "fullscreen",
+            r#"if (!tachyon_fullscreen_active) { MONITORINFO info = {sizeof(MONITORINFO)}; if (!GetWindowRect(g_window, &tachyon_fullscreen_bounds) || !GetMonitorInfoW(MonitorFromWindow(g_window, MONITOR_DEFAULTTONEAREST), &info)) return _strdup("{\"ok\":false}"); tachyon_fullscreen_style = GetWindowLongPtrW(g_window, GWL_STYLE); SetWindowLongPtrW(g_window, GWL_STYLE, tachyon_fullscreen_style & ~(LONG_PTR)WS_OVERLAPPEDWINDOW); SetWindowPos(g_window, HWND_TOP, info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right - info.rcMonitor.left, info.rcMonitor.bottom - info.rcMonitor.top, SWP_NOOWNERZORDER | SWP_FRAMECHANGED); } else { SetWindowLongPtrW(g_window, GWL_STYLE, tachyon_fullscreen_style); SetWindowPos(g_window, NULL, tachyon_fullscreen_bounds.left, tachyon_fullscreen_bounds.top, tachyon_fullscreen_bounds.right - tachyon_fullscreen_bounds.left, tachyon_fullscreen_bounds.bottom - tachyon_fullscreen_bounds.top, SWP_NOOWNERZORDER | SWP_FRAMECHANGED); } tachyon_fullscreen_active = !tachyon_fullscreen_active;"#,
+        ),
+    ];
+
+    pub(super) fn android(window: &WindowConfiguration) -> String {
+        let grants = Self::android_grants(window);
+        include_str!("native_window_controls_android.java").replace("__WINDOW_GRANTS__", &grants)
+    }
+
+    pub(super) fn windows(window: &WindowConfiguration) -> String {
+        let grants = Self::windows_grants(window);
+        let actions = Self::windows_actions(window);
+        include_str!("native_window_controls_windows.c")
+            .replace(
+                "__WINDOW_PAYLOAD__",
+                include_str!("native_window_payload.h"),
+            )
+            .replace("__WINDOW_GRANTS__", &grants)
+            .replace("__WINDOW_ACTIONS__", &actions)
+    }
+
+    fn android_grants(window: &WindowConfiguration) -> String {
+        let mut output = String::new();
+        for control in &window.controls {
+            let _ = writeln!(output, "      case {control:?}: return true;");
+        }
+        output
+    }
+
+    fn windows_grants(window: &WindowConfiguration) -> String {
+        let grants = window
+            .controls
+            .iter()
+            .map(|control| {
+                format!("tachyon_payload_string_matches(payload, \"control\", {control:?})")
+            })
+            .collect::<Vec<_>>()
+            .join(" || ");
+        if grants.is_empty() {
+            String::from("0")
+        } else {
+            grants
+        }
+    }
+
+    fn windows_actions(window: &WindowConfiguration) -> String {
+        let actions = Self::granted_actions(window);
+        let mut output = String::new();
+        for (control, body) in actions {
+            let _ = writeln!(
+                output,
+                "  if (strcmp(capability, \"window.{control}\") == 0) {{ {body} return _strdup(\"{{\\\"ok\\\":true}}\"); }}"
+            );
+        }
+        output
+    }
+
+    fn granted_actions(window: &WindowConfiguration) -> Vec<(&'static str, &'static str)> {
+        Self::WINDOWS_ACTIONS
+            .into_iter()
+            .filter(|(control, _)| window.grants(control))
+            .collect()
+    }
+}

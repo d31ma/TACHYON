@@ -23,7 +23,16 @@ impl AndroidHostGenerator {
     ];
     const KOTLIN_COMPANION_PRELUDE: &str = concat!(
         include_str!("prelude.kt"),
-        include_str!("prelude_android.kt")
+        include_str!("prelude_android.kt"),
+        include_str!("capabilities/FilePickerStatus.kt"),
+        include_str!("capabilities/FilePickerResult.kt"),
+        include_str!("capabilities/FilePickerOptions.kt"),
+        include_str!("capabilities/NativeCapabilityOwner.kt"),
+        include_str!("capabilities/NativeCapabilities.kt"),
+        include_str!("capabilities/FilePicker.kt"),
+        include_str!("capabilities/WindowControls.kt"),
+        include_str!("capabilities/TacNativeCapabilityCall.kt"),
+        include_str!("capabilities/TacNativeCapabilityRegistration.kt")
     );
 
     pub(super) async fn generate(
@@ -345,7 +354,7 @@ fn java_source(
         "emptyCompanion(request)"
     };
     let companion_emit = if has_companion {
-        "TacStore.setPreferences(getSharedPreferences(\"tachyon\", MODE_PRIVATE)); TacBridge.setEmit(this::relayPublish);"
+        "TacStore.setPreferences(getSharedPreferences(\"tachyon\", MODE_PRIVATE)); TacBridge.setEmit(this::relayPublish); TacNativeCapabilityRegistration.register(this::nativeCapability);"
     } else {
         "// No companion, so nothing publishes."
     };
@@ -368,6 +377,10 @@ fn java_source(
         .replace(
             "__ROUTE_DOCUMENTS__",
             &quoted_string_escape(&route_documents),
+        )
+        .replace(
+            "__NATIVE_WINDOW_CONTROLS__",
+            &super::native_window_controls::NativeWindowControls::android(&application.window),
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit)
@@ -471,6 +484,7 @@ public final class MainActivity extends Activity {
 
   private final class HostBridge {
     public String call(String capability, String payload, String ownerRoute) {
+      if (capability.startsWith("window.")) return nativeCapability(capability, payload);
       if ("companion.invoke".equals(capability)) {
         try {
           org.json.JSONObject request = new org.json.JSONObject(payload);
@@ -496,6 +510,8 @@ public final class MainActivity extends Activity {
           + safeName(capability) + "'\"}";
     }
   }
+
+__NATIVE_WINDOW_CONTROLS__
 
   private boolean currentDocument(WebView web, long generation, String ownerRoute) {
     String url = web.getUrl();

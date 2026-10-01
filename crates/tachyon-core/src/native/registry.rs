@@ -135,14 +135,29 @@ fn compiled_service_body(
         .strip_prefix(&item.snapshot_root)
         .unwrap_or(&identity);
     let mut roles = crate::behavior::ServiceRoles::read(relative, captured)?;
-    if language == NativeCompanion::Swift && !item.web_assembly {
-        let (_, fields) = super::native_capabilities::NativeCapabilities::swift_service(
-            captured,
-            &identity,
-            &item.class,
-        );
-        roles.required.retain(|name| !fields.contains(name));
-    }
+    let (_, swift_fields) = super::native_capabilities::NativeCapabilities::swift_service(
+        captured,
+        &identity,
+        &item.class,
+    );
+    let (_, mut fields) = super::managed_native_capabilities::ManagedNativeCapabilities::service(
+        language,
+        &identity,
+        captured,
+        &item.class,
+    );
+    fields.extend(
+        swift_fields
+            .into_iter()
+            .filter(|_| language == NativeCompanion::Swift),
+    );
+    let native_fields = fields
+        .into_iter()
+        .map(|field| crate::companion::lower_first(&field))
+        .collect::<Vec<_>>();
+    roles
+        .required
+        .retain(|name| [!item.web_assembly, native_fields.contains(name)] != [true, true]);
     let mut body = lowered_body(
         language,
         item,
@@ -190,8 +205,15 @@ fn lowered_body(
             &identity,
             &item.class,
         )
-    } else {
+    } else if item.web_assembly {
         (prepared.source.clone(), Vec::new())
+    } else {
+        super::managed_native_capabilities::ManagedNativeCapabilities::service(
+            language,
+            &identity,
+            &prepared.source,
+            &item.class,
+        )
     };
     let authored = native_source.as_str();
     if !item.web_assembly {

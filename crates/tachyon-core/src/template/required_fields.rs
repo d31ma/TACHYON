@@ -109,7 +109,7 @@ impl RequiredFields {
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        if !matches!(extension, "swift" | "kt") {
+        if !matches!(extension, "swift" | "kt" | "cs") {
             return Vec::new();
         }
         let Ok(code) = crate::annotation_layout::masked_source(path, source) else {

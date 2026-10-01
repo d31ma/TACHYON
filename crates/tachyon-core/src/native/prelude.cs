@@ -477,6 +477,7 @@ public partial class Tac
     private static void DisposeActivation(Activation owner)
     {
         owner.Disposed = true;
+        NativeCapabilities.Dispose(owner.Owner);
         owner.Queue.Clear(); owner.Retained.Clear(); owner.Deferred.Clear();
         foreach (var member in owner.Members.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => pair.Value)) {
             if (member.Lifecycle != null && member.Destroy) { try { member.Lifecycle(); } catch (Exception) { EventFailure(); } }
@@ -518,9 +519,9 @@ public partial class Tac
             if (operation == "init" && (existing == null || existing.Route != route || existing.Service != service)) {
                 if (existing != null) DisposeOwner(owner);
                 CreatingProps = parsed["props"] as JsonObject;
-                var table = TacServices.Members(service);
+                var table = NativeCapabilities.Create(owner, () => TacServices.Members(service));
                 CreatingProps = null;
-                if (table == null) return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}";
+                if (table == null) { NativeCapabilities.Dispose(owner); return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"; }
                 if (Activations.Count >= 256) throw new ArgumentException("Too many native activations.");
                 var activation = new Activation(route, service, owner, table);
                 Activations[owner] = activation; Executing = activation;
@@ -596,6 +597,9 @@ public static class TacNative
 
     [UnmanagedCallersOnly(EntryPoint = "tac_native_free")]
     public static void NativeFree(IntPtr answer) => Marshal.FreeCoTaskMem(answer);
+
+    [UnmanagedCallersOnly(EntryPoint = "tac_native_set_capability_adapter")]
+    public static void NativeSetCapabilityAdapter(IntPtr call, IntPtr release) => NativeCapabilityTransport.Register(call, release);
 
     [UnmanagedCallersOnly(EntryPoint = "tac_native_set_emit")]
     public static unsafe void NativeSetEmit(IntPtr emit) => Tac.SetEmit(emit);

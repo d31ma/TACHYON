@@ -15,6 +15,6 @@ impl WebApiClients {
     ];
 
     pub(crate) fn is_client_type(declared: &str) -> bool {
-        Self::TYPE_NAMES.contains(&declared)
+        declared == "FilePicker" || Self::TYPE_NAMES.contains(&declared)
     }
 }

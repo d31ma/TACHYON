@@ -22,10 +22,16 @@ mod kotlin_web_services;
 mod linux;
 mod linux_window_controls;
 mod macos;
+#[cfg(test)]
+mod managed_capability_tests;
+mod managed_native_capabilities;
 mod manifest_setting;
 #[cfg(test)]
 mod model_tests;
 mod native_capabilities;
+mod native_window_controls;
+#[cfg(test)]
+mod native_window_control_tests;
 #[cfg(test)]
 mod native_capability_tests;
 #[cfg(test)]
