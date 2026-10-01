@@ -29,6 +29,7 @@ class WebsiteLuaGate {
     try {
       await WebsiteLuaGate.#checkEmitted(fixture)
       await WebsiteLuaGate.#checkJavaEmitted(fixture)
+      await WebsiteLuaGate.#checkFsharpEmitted(fixture)
       await WebsiteLuaGate.#serve(binary, fixture, diagnostics)
       diagnostics.status = 'pass'
     } catch (error) {
@@ -59,10 +60,15 @@ class WebsiteLuaGate {
 
   static async #checkJavaEmitted(fixture) {
     const services = path.join(fixture, '.tachyon/services')
-    const wrapper = await readFile(path.join(services, 'QuantityService.js'), 'utf8')
+    const wrapper = await readFile(path.join(services, 'InstallService.js'), 'utf8')
     assert.match(wrapper, /from '\.\/tachyon-java\.js'/)
     const wasm = await readFile(path.join(services, 'java/services.wasm'))
     assert.deepEqual([...wasm.subarray(0, 4)], [0, 97, 115, 109], 'actual Java Wasm artifact exists')
+  }
+
+  static async #checkFsharpEmitted(fixture) {
+    const wrapper = await readFile(path.join(fixture, '.tachyon/services/QuantityService.js'), 'utf8')
+    assert.match(wrapper, /from '\.\/tachyon-csharp\.js'/)
   }
 
   static async #probe(origin, diagnostics) {
@@ -74,7 +80,8 @@ class WebsiteLuaGate {
       page.on('pageerror', error => WebsiteLuaGate.#record(diagnostics.errors, error.message))
       page.on('requestfailed', request => WebsiteLuaGate.#record(diagnostics.errors, `${new URL(request.url()).pathname}: ${request.failure()?.errorText}`))
       await WebsiteLuaGate.#routes(page, origin, diagnostics)
-      diagnostics.javaQuantity = await WebsiteLuaGate.#quantity(page, origin)
+      diagnostics.fsharpQuantity = await WebsiteLuaGate.#quantity(page, origin)
+      diagnostics.javaInstall = await WebsiteLuaGate.#install(page, origin)
       assert.deepEqual(diagnostics.errors, [], 'real website has no page or request errors')
     } finally {
       clearTimeout(deadline)
@@ -102,12 +109,38 @@ class WebsiteLuaGate {
       return { count: documentation.count(), cases: cases.map(([count, noun]) => service.describe(count, noun)), hidden: typeof service.nounFor }
     }, WebsiteLuaGate.quantityCases)
     assert.deepEqual(actual.cases, WebsiteLuaGate.quantityCases.map(([, , label]) => label))
-    assert.equal(actual.hidden, 'undefined', 'private Java method stays private')
+    assert.equal(actual.hidden, 'undefined', 'private F# method stays private')
     const label = `${actual.count} feature${actual.count === 1 ? '' : 's'}.`
     await page.waitForFunction(expected => document.querySelector('section:has(#features) > p')?.textContent.trim().startsWith(expected), label)
     const rendered = await page.locator('section:has(#features) > p').innerText()
-    assert.ok(rendered.trim().startsWith(label), 'real documentation feature count uses Java quantity service')
+    assert.ok(rendered.trim().startsWith(label), 'real documentation feature count uses F# quantity service')
     return { ...actual, rendered }
+  }
+
+  static async #install(page, origin) {
+    const response = await page.goto(`${origin}/`)
+    assert.equal(response.status(), 200)
+    await page.waitForFunction(() => globalThis.__tachyonTac?.service('install'))
+    const initial = await page.evaluate(() => {
+      const install = globalThis.__tachyonTac.service('install')
+      return { unix: install.shows('unix'), windows: install.shows('windows'), hidden: typeof install.system }
+    })
+    assert.deepEqual(initial, { unix: true, windows: false, hidden: 'undefined' })
+    await page.waitForFunction(() => document.querySelector('.command__text')?.textContent.startsWith('curl '))
+    const windows = page.getByRole('button', { name: 'Windows', exact: true })
+    await windows.click()
+    await page.waitForFunction(() => document.querySelector('.command__text')?.textContent.startsWith('irm '))
+    assert.equal(await windows.getAttribute('aria-pressed'), 'true')
+    const selected = await page.evaluate(() => {
+      const install = globalThis.__tachyonTac.service('install')
+      return { unix: install.shows('unix'), windows: install.shows('windows') }
+    })
+    assert.deepEqual(selected, { unix: false, windows: true })
+    await page.getByRole('button', { name: 'macOS · Linux', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('.command__text')?.textContent.startsWith('curl '))
+    assert.equal(await windows.getAttribute('aria-pressed'), 'false')
+    assert.equal(await page.locator('.command__text').count(), 1, 'exactly one real installer command is rendered')
+    return { initial, selected, restored: await page.locator('.command__text').innerText() }
   }
 
   static async #route(page, origin, route) {
