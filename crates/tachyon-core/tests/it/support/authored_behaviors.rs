@@ -85,7 +85,10 @@ fn model_imports(source: String, language: &str, names: &[&str]) -> String {
         return source;
     }
     let imports = match language {
-        "rs" => format!("use crate::models::{{{}}};\n", names.join(", ")),
+        "rs" => names
+            .iter()
+            .map(|name| format!("use crate::models::{name};\n"))
+            .collect(),
         "kt" => names
             .iter()
             .map(|name| format!("import models.{name}\n"))
