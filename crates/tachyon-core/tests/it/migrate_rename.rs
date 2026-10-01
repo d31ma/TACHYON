@@ -54,7 +54,8 @@ impl OldNames {
         ("FreshStart", "DirtiesContext"),
         ("Needs", "Autowired"),
     ];
-    const FOLDERS: [(&str, &str, &str, &str); 3] = [
+    const FOLDERS: [(&str, &str, &str, &str); 4] = [
+        ("remotes", "clients", "Client", "Client"),
         ("stores", "repositories", "Store", "Repository"),
         ("setups", "configurations", "Setup", "Configuration"),
         ("converters", "mappers", "Converter", "Mapper"),

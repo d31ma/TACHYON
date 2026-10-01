@@ -212,11 +212,11 @@ fn an_import_from_tachyon_behaviors_is_refused_in_tac_and_yon() {
 
 #[test]
 fn invalid_native_tac_behavior_policies_fail_before_native_toolchain_execution() {
-    for (extension, marker) in [
-        ("swift", "@CacheSettings()"),
-        ("kt", "@CacheSettings()"),
-        ("cs", "[Cache]"),
-        ("rs", "#[tac::cache]"),
+    for (extension, registration, marker) in [
+        ("swift", "@Service", "@CacheSettings()"),
+        ("kt", "@Service", "@CacheSettings()"),
+        ("cs", "[Service]", "[Cache]"),
+        ("rs", "#[Service]", "#[tac::cache]"),
     ] {
         let root = tempfile::tempdir().expect("project");
         write(root.path(), "client/pages/tac.html", "<page-view />");
@@ -233,7 +233,7 @@ fn invalid_native_tac_behavior_policies_fail_before_native_toolchain_execution()
         write(
             root.path(),
             &format!("client/services/PageViewService.{extension}"),
-            &format!("{marker}\nclass PageViewService {{}}"),
+            &format!("{registration}\n{marker}\nclass PageViewService {{}}"),
         );
         let failure = WebCompiler::build(root.path(), &BuildOptions::default())
             .expect_err("invalid native behavior policy");
