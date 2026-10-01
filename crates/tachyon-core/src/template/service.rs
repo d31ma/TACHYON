@@ -56,6 +56,28 @@ impl ServiceDefinition {
         }
     }
 
+    fn native_duplicate(
+        &self,
+        language: NativeCompanion,
+        relative: &str,
+        diagnostics: &mut Vec<tachyon_diagnostics::Diagnostic>,
+    ) -> bool {
+        let languages = self
+            .native
+            .iter()
+            .map(|(language, _)| *language)
+            .collect::<Vec<_>>();
+        let duplicate = languages.contains(&language);
+        if duplicate {
+            let extension = Path::new(relative)
+                .extension()
+                .and_then(OsStr::to_str)
+                .unwrap_or("native");
+            diagnostics.push(service_diagnostic(relative, &format!("Service '{}' declares more than one {extension} file.", self.class), "Nested folders organize services; keep one file per service and language across the realm."));
+        }
+        duplicate
+    }
+
     pub(crate) fn class(&self) -> &str {
         &self.class
     }
@@ -208,7 +230,7 @@ impl ServiceRegistry {
                 .unwrap_or(&path)
                 .to_string_lossy()
                 .replace('\\', "/");
-            if let Some((class, extension)) = service_file_name(&path)
+            if let Some((class, extension)) = service_file_name(&path, None)
                 && !variants.insert((class.clone(), extension.to_owned()))
             {
                 diagnostics.push(service_diagnostic(&relative, &format!("Service '{class}' declares more than one {extension} file."), "Nested folders organize services; keep one file per service and language across the realm."));
@@ -263,9 +285,15 @@ impl ServiceRegistry {
             for path in
                 crate::annotation_modules::Discovery::role_paths(project_root, Path::new(folder))?
             {
-                if let Some(class) = path.file_stem().and_then(OsStr::to_str) {
-                    names.insert(crate::companion::lower_first(class));
-                    names.insert(class.to_owned());
+                let class = match path.extension().and_then(OsStr::to_str) {
+                    Some("rs") => {
+                        crate::annotation_modules::Module::declared_type(project_root, &path)?
+                    }
+                    _ => path.file_stem().and_then(OsStr::to_str).map(str::to_owned),
+                };
+                if let Some(class) = class {
+                    names.insert(crate::companion::lower_first(&class));
+                    names.insert(class);
                 }
             }
         }
@@ -385,7 +413,7 @@ fn add_service_file(
     if !ServiceRegistry::has_registered_source(relative, &source, diagnostics) {
         return false;
     }
-    let Some((class, extension)) = service_file_name(path) else {
+    let Some((class, extension)) = service_file_name(Path::new(relative), Some(&source)) else {
         diagnostics.push(service_diagnostic(
             relative,
             "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go, rb, py or lua extension.",
@@ -431,6 +459,9 @@ fn add_service_file(
     let Some(language) = native_language(extension) else {
         return false;
     };
+    if definition.native_duplicate(language, relative, diagnostics) {
+        return false;
+    }
     definition.native.push((language, path.to_path_buf()));
     true
 }
@@ -574,8 +605,11 @@ pub(crate) fn instance_name(class: &str) -> String {
     first.to_ascii_lowercase().to_string() + characters.as_str()
 }
 
-fn service_file_name(path: &Path) -> Option<(String, &'static str)> {
-    let stem = path.file_stem()?.to_str()?;
+fn service_file_name(path: &Path, source: Option<&str>) -> Option<(String, &'static str)> {
+    let declared =
+        source.and_then(|source| crate::annotation_layout::ClassFileName::declared(path, source));
+    let stem = declared.as_deref().or_else(|| path.file_stem()?.to_str())?;
+    crate::annotation_layout::ClassFileName::matches(path, stem).then_some(())?;
     let extension = match path.extension()?.to_str()? {
         "js" => "js",
         "ts" => "ts",
@@ -1146,5 +1180,47 @@ mod tests {
             error.to_string().contains("more than one rs file"),
             "{error}"
         );
+    }
+    #[test]
+    fn rust_snake_case_services_keep_declared_acronyms_and_duplicate_identity() {
+        let source = "#[Service]\n#[derive(Default)]\npub struct HTTPReaderService;";
+        let root = project(&[("client/services/nested/http_reader_service.rs", source)]);
+        let registry = ServiceRegistry::discover(root.path()).expect("snake_case service");
+        let definition = registry
+            .get("hTTPReader")
+            .expect("declared class catalog identity");
+        assert_eq!(definition.class(), "HTTPReaderService");
+        assert!(
+            definition.native_companions()[0]
+                .1
+                .ends_with("nested/http_reader_service.rs")
+        );
+        for files in [
+            [
+                ("client/services/nested/http_reader_service.rs", source),
+                ("client/services/HTTPReaderService.rs", source),
+            ],
+            [
+                ("client/services/HTTPReaderService.rs", source),
+                ("client/services/nested/http_reader_service.rs", source),
+            ],
+        ] {
+            let failure = discover_error(&files, "same Rust class twice");
+            assert!(
+                failure.to_string().contains("more than one rs file"),
+                "{failure}"
+            );
+        }
+    }
+    #[test]
+    fn rust_snake_case_provider_inventory_keeps_actual_helper_types() {
+        let root = project(&[(
+            "client/helpers/nested/step_helper.rs",
+            "#[Helper]\n#[derive(Default)]\nstruct StepHelper;",
+        )]);
+        let names = ServiceRegistry::provider_names(root.path()).expect("captured provider names");
+        assert!(names.contains("StepHelper"));
+        assert!(names.contains("stepHelper"));
+        assert!(!names.contains("step_helper"));
     }
 }

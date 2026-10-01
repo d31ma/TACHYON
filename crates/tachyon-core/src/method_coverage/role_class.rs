@@ -33,15 +33,14 @@ impl RoleClass {
 
     fn type_name(relative: &Path, source: &str, utility: bool) -> Result<Option<String>, Failure> {
         let mut types = crate::annotation_layout::behaviour_types(relative, source)?;
-        types.extend(Self::utility_name(relative, utility));
+        types.extend(Self::utility_name(relative, source, utility));
         Ok(types.into_iter().next())
     }
 
-    fn utility_name(relative: &Path, utility: bool) -> Option<String> {
-        relative
-            .file_stem()
-            .filter(|_| utility)
-            .map(|stem| stem.to_string_lossy().into_owned())
+    fn utility_name(relative: &Path, source: &str, utility: bool) -> Option<String> {
+        utility
+            .then(|| crate::annotation_layout::ClassFileName::declared(relative, source))
+            .flatten()
     }
 
     fn with_type(

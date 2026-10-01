@@ -69,6 +69,8 @@ mod native_window_example_tests;
 mod registry;
 mod routes;
 mod rust;
+#[cfg(test)]
+mod rust_filename_tests;
 mod rust_imports;
 mod rust_local_paths;
 mod rust_page_graph;

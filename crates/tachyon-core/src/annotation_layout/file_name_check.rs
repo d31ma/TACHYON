@@ -1,3 +1,4 @@
+use super::ClassFileName;
 use crate::Failure;
 use crate::annotation_rules::AnnotationRules;
 use crate::failure::{diagnostic, source_span};
@@ -23,8 +24,7 @@ impl<'a> FileNameCheck<'a> {
     const FREE_FOLDERS: [&'static str; 4] = ["pages", "components", "shared", "workers"];
     const MODELS: &'static str = "models";
     const TYPE_LANGUAGES: [&'static str; 2] = ["go", "rs"];
-    const RULE: &'static str =
-        "A class file is named after its one class, with the same spelling, as in Java (ADR 0067).";
+    const RULE: &'static str = "A class file is named after its one class, in its language filename style; Rust accepts snake_case and legacy PascalCase (ADR 0067).";
 
     pub(crate) fn check(path: &'a Path, source: &str) -> Result<(), Failure> {
         let file = Self::new(path);
@@ -100,11 +100,13 @@ impl<'a> FileNameCheck<'a> {
 
     fn only_other_name(&self, names: &[String]) -> Option<String> {
         let other = [names.len() == 1, !self.has_named_type(names)] == [true, true];
-        other.then(|| names[0].clone())
+        other.then(|| ClassFileName::preferred(self.path, &names[0]))
     }
 
     fn has_named_type(&self, names: &[String]) -> bool {
-        names.iter().any(|name| name == self.stem)
+        names
+            .iter()
+            .any(|name| ClassFileName::matches(self.path, name))
     }
 
     fn require_named_type(&self, names: &[String]) -> Result<(), Failure> {
@@ -121,8 +123,9 @@ impl<'a> FileNameCheck<'a> {
             "The file name '{}' does not match the {kind} '{found}' that the file declares",
             self.stem
         );
+        let wanted = ClassFileName::preferred(self.path, found);
         let help = format!(
-            "Rename the file to '{found}.{}', or rename the {kind} to '{}'. {} `ty migrate fix --write` renames the file for you.",
+            "Rename the file to '{wanted}.{}', or rename the {kind} to '{}'. {} `ty migrate fix --write` renames the file for you.",
             self.extension,
             self.stem,
             Self::RULE

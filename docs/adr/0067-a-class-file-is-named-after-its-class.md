@@ -23,7 +23,8 @@ engineering instructions ask for the same rule in Tachyon's own code.
 1. **The rule.** In a Tachyon project, every file in `client/` or `server/`
    that declares a class, struct, record, interface, object, protocol, trait or
    model type is named after that type. The file name without the extension is
-   the type name with the same spelling and case, in every language:
+   the type name with the same spelling and case, except for the Rust
+   filename-style amendment below:
    `CartService.ts`, `Order.py`, `Order.rb`, `CartServiceTest.go`. Python and
    Ruby follow the PascalCase file names that Tachyon already uses for their
    role files, so each language has one naming style.
@@ -106,3 +107,29 @@ classes, Go types) and ignores nested types, imports and comments.
    and lists a manual step for a copy that differs. The build rule that refuses
    an inline `@typedef` (TY1310) stays off until the website examples, fixtures
    and templates follow it.
+
+## Amendment: Rust language filename style (2026-10-01)
+
+The canonical shared guide names Rust files in snake_case (`route_state.rs`
+contains `RouteState`). Rust project role files, utilities, models, error types
+and test units accept this exact conversion and their existing PascalCase
+filenames. Acronym boundaries are preserved: `HTTPReaderService` maps to
+`http_reader_service.rs`. Other languages keep their existing naming contract.
+
+The declared type remains authoritative. A filename cannot rename the Service,
+change its catalog key, register a role, relax a role suffix or change its realm
+folder. Nested organization folders remain legal. Marker, one-type, field,
+stateless utility, visibility and source-capture checks remain enabled. A
+snake_case and PascalCase file declaring the same Service in one realm and
+language are duplicates, not independent services.
+
+Compiler projection keeps authored type references and imports intact;
+visibility and native utility lowering use the actual Rust type rather than the
+filename stem. Migration does not rename already-valid legacy files. A mismatched
+single-type Rust file is offered the canonical snake_case filename.
+
+Prepared acceptance is `rust_snake_case` (filename conversion and mismatches,
+role/model/utility checks, marker/folder and duplicate negatives, cross-source
+visibility, and ordinary nested native collection with model/utility imports).
+At this source checkpoint these tests have not been executed; executable native
+acceptance must use a compiler built from the qualified source.

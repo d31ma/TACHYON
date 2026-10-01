@@ -67,7 +67,11 @@ pub(super) fn validate_error_source(path: &Path, source: &str) -> Result<(), Fai
     }
     let mut parser = Parser::new(&input, &tokens);
     parser.read()?;
-    parser.finish(path.file_stem().and_then(|name| name.to_str()))?;
+    let declared = parser.declared.clone();
+    let matching = declared
+        .as_deref()
+        .filter(|name| super::ClassFileName::matches(path, name));
+    parser.finish(matching.or_else(|| path.file_stem().and_then(|name| name.to_str())))?;
     Ok(())
 }
 
@@ -101,7 +105,7 @@ fn handler_name(path: &Path) -> Option<&'static str> {
     None
 }
 
-struct Parser<'a, 'b> {
+pub(super) struct Parser<'a, 'b> {
     input: &'a Input<'b>,
     tokens: &'a Tokens<'b>,
     at: usize,
@@ -113,6 +117,14 @@ struct Parser<'a, 'b> {
 }
 
 impl<'a, 'b> Parser<'a, 'b> {
+    pub(super) fn declared_name(path: &Path, source: &str) -> Result<Option<String>, Failure> {
+        let input = Input::new(path, source);
+        let tokens = Tokens::read(&input)?;
+        let mut parser = Parser::new(&input, &tokens);
+        parser.read()?;
+        Ok(parser.declared)
+    }
+
     fn new(input: &'a Input<'b>, tokens: &'a Tokens<'b>) -> Self {
         Self {
             input,

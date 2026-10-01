@@ -8,6 +8,7 @@ use super::design_problem::DesignProblem;
 use super::design_rule::DesignRule;
 use super::path_parts::PathParts;
 use super::token_index::TokenIndex;
+use crate::annotation_layout::ClassFileName;
 use std::path::Path;
 
 pub(super) struct ClassFile<'a> {
@@ -34,6 +35,13 @@ impl<'a> ClassFile<'a> {
         let spelling = Spelling::of(parts.extension)?;
         let input = Input::new(Path::new(&source.path), &source.text);
         let tokens = Tokens::read(&input).ok()?;
+        let declared = ClassFileName::declared(input.path, &source.text)
+            .unwrap_or_else(|| parts.name.to_owned());
+        let name = tokens
+            .items
+            .iter()
+            .find(|token| !token.literal & (token.text == declared))
+            .map_or(parts.name, |token| token.text);
         let production = !tokens.has_test_marker() & Self::is_role_class(&parts, &tokens);
         let words = Words::read(&tokens, &source.text);
         let methods = CohesionCheck::methods(&words, &spelling);
@@ -43,7 +51,7 @@ impl<'a> ClassFile<'a> {
             text: &source.text,
             realm: parts.realm,
             folder: parts.folder,
-            name: parts.name,
+            name,
             extension: parts.extension,
             authored_extension: &source.authored_extension,
             tokens,

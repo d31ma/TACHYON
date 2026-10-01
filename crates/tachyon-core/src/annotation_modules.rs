@@ -225,6 +225,15 @@ pub(crate) struct Module {
 }
 
 impl Module {
+    pub(crate) fn declared_type(root: &Path, path: &Path) -> Result<Option<String>, Failure> {
+        let root = Dir::open_ambient_dir(root, cap_std::ambient_authority())
+            .map_err(|error| invalid(path, &format!("Cannot open provider root: {error}")))?;
+        let source = read_module_text(&root, path, Self::MAX_SOURCE)?;
+        Ok(crate::annotation_layout::ClassFileName::declared(
+            path, &source,
+        ))
+    }
+
     pub(crate) fn plain_model(path: &Path, source: &str) -> Result<String, Failure> {
         erase_module_exports(path, source)
     }
@@ -760,7 +769,10 @@ fn discover_paths(
                 || path
                     .file_stem()
                     .and_then(|name| name.to_str())
-                    .is_some_and(|name| name.ends_with("ErrorHandler")))
+                    .is_some_and(|name| {
+                        name.ends_with("ErrorHandler")
+                            || (extension == "rs" && name.ends_with("_error_handler"))
+                    }))
     });
     paths.sort_by_key(|path| (!path.starts_with("server/shared"), path.clone()));
     Ok(paths)

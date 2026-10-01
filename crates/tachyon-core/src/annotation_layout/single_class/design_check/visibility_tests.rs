@@ -254,3 +254,18 @@ fn a_csharp_member_without_an_access_modifier_is_private() {
     let names = VisibilityProject::names_in(&files, "server/services/PriceService.cs");
     assert_eq!(names, vec!["Spare"]);
 }
+
+#[test]
+fn rust_snake_case_visibility_keeps_actual_service_and_utility_names() {
+    let service = "#[Service]\n#[derive(Default)]\nstruct LabelService;\nimpl LabelService { pub fn read(&self) -> String { TitleUtils::text() } pub fn unused(&self) -> i64 { 1 } }";
+    let utility = "pub struct TitleUtils;\nimpl TitleUtils { pub fn text() -> String { String::from(\"Ready\") } pub fn spare() -> i64 { 1 } }";
+    let files = [
+        ("client/services/nested/label_service.rs", service),
+        ("client/utils/nested/title_utils.rs", utility),
+        ("client/components/label/tac.html", "<p>{label.read()}</p>"),
+    ];
+    assert_eq!(VisibilityProject::names(&files), ["unused", "spare"]);
+    let messages = VisibilityProject::messages(&files);
+    assert!(messages[0].contains("in LabelService"));
+    assert!(messages[1].contains("in TitleUtils"));
+}

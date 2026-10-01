@@ -2,6 +2,7 @@
 
 use super::cohesion::UtilityShape;
 use super::{Failure, Input, Parser, Tokens};
+use crate::annotation_layout::ClassFileName;
 use std::path::Path;
 
 #[cfg(test)]
@@ -12,7 +13,7 @@ pub(crate) struct UtilityLayout;
 impl UtilityLayout {
     const FOLDERS: [&'static str; 2] = ["client/utils", "server/utils"];
     const SUFFIX: &'static str = "Utils";
-    const NAME_HELP: &'static str = "Name the file and its class <Topic>Utils, such as TextUtils, with the same spelling (ADR 0064).";
+    const NAME_HELP: &'static str = "Name the file and its class <Topic>Utils, such as TextUtils, in its language filename style; Rust accepts text_utils.rs or legacy TextUtils.rs (ADR 0064).";
     const MARKER_HELP: &'static str = "Delete the annotation. Tachyon gives every utility class to the code of its realm without an annotation or an import (ADR 0064).";
 
     pub(crate) fn is_utility(path: &Path) -> bool {
@@ -28,7 +29,7 @@ impl UtilityLayout {
         let input = Input::new(path, source);
         let stem = Self::stem(path);
         Self::require(
-            Self::is_utility_name(stem),
+            Self::is_utility_file(path, stem),
             &input,
             format!("The utility file name '{stem}' does not end with Utils"),
             Self::NAME_HELP,
@@ -51,6 +52,14 @@ impl UtilityLayout {
             .unwrap_or("")
     }
 
+    fn is_utility_file(path: &Path, stem: &str) -> bool {
+        let rust = path.extension().is_some_and(|extension| extension == "rs");
+        let snake = [rust, stem.len() > 6, stem.ends_with("_utils")]
+            .iter()
+            .all(|value| *value);
+        [Self::is_utility_name(stem), snake].contains(&true)
+    }
+
     fn is_utility_name(stem: &str) -> bool {
         (stem.len() > Self::SUFFIX.len()) & stem.ends_with(Self::SUFFIX)
     }
@@ -58,7 +67,14 @@ impl UtilityLayout {
     fn check_one_class(input: &Input<'_>, tokens: &Tokens<'_>, stem: &str) -> Result<(), Failure> {
         let mut parser = Parser::new(input, tokens);
         parser.read()?;
-        let named = parser.declared.as_deref() == Some(stem);
+        let named = parser.declared.as_deref().is_some_and(|name| {
+            [
+                Self::is_utility_name(name),
+                ClassFileName::matches(input.path, name),
+            ]
+            .iter()
+            .all(|value| *value)
+        });
         Self::require(
             named,
             input,

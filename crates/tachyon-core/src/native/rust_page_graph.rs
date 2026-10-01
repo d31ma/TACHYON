@@ -98,20 +98,16 @@ impl RustPageGraph {
         };
         crate::behavior::NativeStorage::refuse_builtins(path, &cleaned)?;
         crate::annotation_layout::NativeWebApis::refuse(path, &cleaned)?;
-        self.utilities.extend(Self::utility_name(path));
+        self.utilities.extend(Self::utility_name(path, source));
         let cleaned = self.imports.take(path, &cleaned)?;
         self.source.push_str(&cleaned);
         self.source.push('\n');
         Ok(())
     }
 
-    fn utility_name(path: &std::path::Path) -> Option<String> {
+    fn utility_name(path: &std::path::Path, source: &str) -> Option<String> {
         crate::annotation_layout::UtilityLayout::is_utility(path)
-            .then(|| {
-                path.file_stem()
-                    .and_then(|name| name.to_str())
-                    .map(str::to_owned)
-            })
+            .then(|| crate::annotation_layout::ClassFileName::declared(path, source))
             .flatten()
     }
 

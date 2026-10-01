@@ -100,10 +100,21 @@ pub(crate) fn parse_test_prepared(
     source: &str,
     manual: &BTreeSet<String>,
 ) -> Result<Option<Parsed>, Failure> {
-    let name = path
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or("");
+    let names = path
+        .extension()
+        .is_some_and(|extension| extension == "rs")
+        .then(|| crate::annotation_layout::declaration_names(path, source))
+        .transpose()?
+        .unwrap_or_default();
+    let name = names
+        .iter()
+        .find(|name| crate::annotation_layout::ClassFileName::matches(path, name))
+        .map(String::as_str)
+        .unwrap_or_else(|| {
+            path.file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or("")
+        });
     let Some(mut parsed) = parse_with_root(path, source, Some(name), manual)? else {
         return Ok(None);
     };
@@ -2313,6 +2324,15 @@ mod tests {
             .expect("managed types");
         assert!(!result.source.contains('@'), "{}", result.source);
         assert_eq!(result.source.len(), source.len());
+    }
+
+    #[test]
+    fn rust_snake_case_test_targets_choose_the_actual_type_from_composed_sources() {
+        let source = "#[Service]\nstruct PeerService;\nimpl PeerService { fn new() -> Self { Self } }\n#[Service]\nstruct NewsCaller;\nimpl NewsCaller { fn new() -> Self { Self } fn call(&self) -> i64 { 1 } }\n";
+        let parsed = parse_test(Path::new("server/tests/nested/news_caller.rs"), source)
+            .expect("typed test target")
+            .expect("managed types");
+        assert_eq!(parsed.plan.controller, "NewsCaller");
     }
 
     #[test]

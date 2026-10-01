@@ -232,3 +232,59 @@ fn the_wanted_name_is_the_only_declared_class() {
     let two = "class First {}\nclass Second {}\n";
     assert_eq!(wanted("server/services/Order.ts", two), None);
 }
+
+#[test]
+fn rust_snake_case_roles_and_models_keep_exact_type_marker_and_folder_checks() {
+    for (folder, name, snake, marker) in [
+        ("services", "RouteService", "route_service", "Service"),
+        ("helpers", "RouteHelper", "route_helper", "Helper"),
+        ("setups", "RouteSetup", "route_setup", "Setup"),
+        (
+            "controllers",
+            "RouteController",
+            "route_controller",
+            "RequestRoute",
+        ),
+    ] {
+        let source = format!("#[{marker}]\npub struct {name};\n");
+        let path = format!("server/{folder}/one/two/{snake}.rs");
+        assert!(
+            codes(&path, &source).is_empty(),
+            "{path}: {:?}",
+            codes(&path, &source)
+        );
+        assert!(codes(&format!("server/{folder}/{name}.rs"), &source).is_empty());
+        assert!(!codes(&format!("server/{folder}/wrong_{snake}.rs"), &source).is_empty());
+        assert!(!codes(&format!("server/shared/{snake}.rs"), &source).is_empty());
+        assert_eq!(codes(&path, &format!("pub struct {name};\n")), [1363]);
+    }
+    for source in [
+        "pub struct OrderInput { pub id: String }",
+        "pub enum OrderInput { Ready }",
+        "pub type OrderInput = String;",
+    ] {
+        assert!(
+            codes("server/models/nested/order_input.rs", source).is_empty(),
+            "{source}"
+        );
+        assert_eq!(
+            codes("server/models/nested/other_input.rs", source),
+            [FileNameCheck::CODE]
+        );
+        assert_eq!(
+            FileNameCheck::wanted_name(Path::new("server/models/other.rs"), source).as_deref(),
+            Some("order_input")
+        );
+        assert_eq!(
+            FileNameCheck::wanted_name(Path::new("server/models/order_input.rs"), source),
+            None
+        );
+    }
+    assert!(
+        !codes(
+            "client/helpers/route_service.rs",
+            "#[Helper]\nstruct RouteService;"
+        )
+        .is_empty()
+    );
+}

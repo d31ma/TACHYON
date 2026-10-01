@@ -404,3 +404,46 @@ fn coverage_counts_the_public_static_methods_of_a_utility_class() {
         .collect();
     assert_eq!(uncovered, vec!["rounded"], "{report:?}");
 }
+
+#[test]
+fn rust_snake_case_utilities_preserve_suffix_identity_and_statelessness() {
+    let source = "pub struct TitleUtils;\nimpl TitleUtils { const TITLE: &'static str = \"Ready\"; pub fn text() -> String { Self::TITLE.to_owned() } }\n";
+    for path in [
+        "client/utils/title_utils.rs",
+        "server/utils/nested/TitleUtils.rs",
+    ] {
+        assert!(
+            codes(path, source).is_empty(),
+            "{path}: {:?}",
+            messages(path, source)
+        );
+    }
+    for path in [
+        "client/utils/titleutils.rs",
+        "client/utils/text_utils.rs",
+        "client/utils/title__utils.rs",
+    ] {
+        assert_eq!(codes(path, source), [1310], "{path}");
+    }
+    assert_eq!(
+        codes(
+            "client/utils/title_utils.rs",
+            "#[Service]\nstruct TitleUtils;"
+        ),
+        [1310]
+    );
+    assert_eq!(
+        codes(
+            "client/utils/title_utils.rs",
+            "struct TitleUtils { count: u64 }"
+        ),
+        [1316]
+    );
+    assert_eq!(
+        codes(
+            "client/utils/title_utils.rs",
+            "struct TitleUtils;\nimpl TitleUtils { pub fn text(&self) {} }"
+        ),
+        [1316]
+    );
+}

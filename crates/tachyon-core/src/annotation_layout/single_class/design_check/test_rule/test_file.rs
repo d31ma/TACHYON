@@ -7,6 +7,7 @@ use super::super::super::duplication::ProjectSource;
 use super::super::design_problem::DesignProblem;
 use super::super::design_rule::DesignRule;
 use super::test_language::TestLanguage;
+use crate::annotation_layout::ClassFileName;
 use crate::groovy_source::GroovySource;
 use std::path::Path;
 
@@ -26,14 +27,19 @@ impl<'a> TestFile<'a> {
 
     pub(super) fn read(source: &'a ProjectSource) -> Option<Self> {
         let path = Path::new(&source.path);
-        let class_name = path.file_stem()?.to_str()?;
+        let declared = ClassFileName::declared(path, &source.text)?;
         let extension = source.extension();
-        Self::is_unit_path(&source.path, class_name).then_some(())?;
+        Self::is_unit_path(&source.path, &declared).then_some(())?;
         let language = TestLanguage::of(extension)?;
         let spelling = Spelling::of(GroovySource::syntax(extension))?;
         let input = Input::new(path, &source.text);
         let tokens = Tokens::read(&input).ok()?;
         tokens.has_test_marker().then_some(())?;
+        let class_name = tokens
+            .items
+            .iter()
+            .find(|token| !token.literal & (token.text == declared))?
+            .text;
         let words = Words::read(&tokens, &source.text);
         let methods = CohesionCheck::methods(&words, &spelling);
         Some(Self {

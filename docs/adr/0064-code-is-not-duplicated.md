@@ -45,7 +45,9 @@ Tachyon runs its own copy-paste detection with SonarQube's semantics.
    `duplication.block` finding.
 4. **Utility classes.** `client/utils/` (Tac) and `server/utils/` (Yon)
    hold utility classes. A file there is named `<Topic>Utils.<ext>` and holds
-   one class of the same name (`TY1310`) with no Tachyon annotation. The class
+   one class of the same name (`TY1310`) with no Tachyon annotation. Rust
+   accepts the exact snake_case filename (`text_utils.rs` for `TextUtils`)
+   alongside legacy `TextUtils.rs`, as amended in ADR0067. The class
    holds only static methods and no state (`TY1316`): no field, no mutable
    storage, no constructor and no instance method. Rust utility impl blocks
    may hold immutable associated `const` items, including restricted visibility.

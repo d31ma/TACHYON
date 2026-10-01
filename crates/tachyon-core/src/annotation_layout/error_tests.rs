@@ -105,3 +105,10 @@ fn error_sources_do_not_weaken_plain_model_or_load_time_rules() {
         );
     }
 }
+
+#[test]
+fn rust_snake_case_error_names_keep_the_declared_native_type() {
+    let source = "struct OrderNotFound;\nimpl std::fmt::Display for OrderNotFound { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, \"missing\") } }\nimpl std::error::Error for OrderNotFound {}";
+    assert!(validate(Path::new("server/errors/order_not_found.rs"), source).is_ok());
+    assert!(validate(Path::new("server/errors/other_error.rs"), source).is_err());
+}

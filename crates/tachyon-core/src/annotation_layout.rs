@@ -4,6 +4,7 @@ use crate::lua_source::LuaView;
 use std::path::Path;
 
 mod browser_interop;
+mod class_file_name;
 mod file_name_check;
 mod folder_role_check;
 mod inline_model_check;
@@ -12,6 +13,7 @@ mod single_class;
 mod typed_members;
 
 pub(crate) use browser_interop::{BrowserInteropCheck, NativeWebApis};
+pub(crate) use class_file_name::ClassFileName;
 pub(crate) use file_name_check::FileNameCheck;
 pub(crate) use folder_role_check::FolderRoleCheck;
 pub(crate) use inline_model_check::InlineModelCheck;
@@ -512,15 +514,15 @@ impl<'a> Input<'a> {
         expected_name: &str,
         at: usize,
     ) -> Result<(), Failure> {
-        let stem = self.path.file_stem().and_then(|value| value.to_str());
-        if role.has_suffix_in(name) && stem == Some(name) {
+        if role.has_suffix_in(name) && ClassFileName::matches(self.path, name) {
             return Ok(());
         }
-        let expected = format!("{}/{expected_name}.{}", role.folder, self.extension);
+        let file_name = ClassFileName::preferred(self.path, expected_name);
+        let expected = format!("{}/{file_name}.{}", role.folder, self.extension);
         Err(self.failure(
             at,
             format!("@{} type '{name}' does not match its required role layout", role.marker),
-            format!("Name the type '{expected_name}' and place it in '{expected}' beneath the relevant client/server feature. The filename must exactly match the type, and it must remain beneath the realm's '{}' folder; nested organization folders are allowed.", role.folder),
+            format!("Name the type '{expected_name}' and place it in '{expected}' beneath the relevant client/server feature. The filename must match the type in its language filename style (Rust snake_case or legacy PascalCase), and it must remain beneath the realm's '{}' folder; nested organization folders are allowed.", role.folder),
         ))
     }
 
@@ -549,6 +551,7 @@ impl<'a> Input<'a> {
     }
 
     fn destination(&self, role: Role, parent: &str, expected_name: &str) -> String {
+        let expected_name = ClassFileName::preferred(self.path, expected_name);
         if role.is_controller() {
             return format!("server/controllers/{expected_name}.{}", self.extension);
         }
