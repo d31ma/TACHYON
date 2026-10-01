@@ -137,7 +137,7 @@ impl GoInjection {
         ),
         (
             "server/controllers/ProductsController.go",
-            "// @RequestRoute(\"/products\")\n// @Public\n// @NeedsAll\n// @yon::Needs(CounterService)\ntype ProductsController struct {\n\tcounter *CounterService\n}\n\n// @GetRoute\nfunc (controller *ProductsController) GetProducts() (any, error) {\n\treturn controller.checkedProducts(controller.counter.Value())\n}\n\nfunc (controller *ProductsController) checkedProducts(value int) (any, error) {\n\tif value != controller.expectedCount() {\n\t\treturn map[string]any{\"error\": \"injection\"}, nil\n\t}\n\treturn CatalogChecks{}.Exercise()\n}\n\nfunc (ProductsController) expectedCount() int { return 42 }\n",
+            "// @RequestRoute(\"/products\")\n// @Public\n// @NeedsAll\n// @yon::Needs(CounterService)\ntype ProductsController struct {\n\tcounter *CounterService\n}\n\n// @GetRoute\nfunc (controller *ProductsController) GetProducts() (any, error) {\n\treturn controller.checkedProducts(controller.counter.Value())\n}\n\nfunc (controller *ProductsController) checkedProducts(value int) (any, error) {\n\tif value != controller.expectedCount() {\n\t\treturn map[string]any{\"error\": \"injection\"}, nil\n\t}\n\treturn CatalogChecksHelper{}.Exercise()\n}\n\nfunc (ProductsController) expectedCount() int { return 42 }\n",
         ),
     ];
 }
