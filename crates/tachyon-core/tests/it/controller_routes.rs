@@ -62,6 +62,92 @@ fn node_available() -> bool {
 
 struct ControllerSource;
 
+struct NestedYonRoleCheck;
+
+impl NestedYonRoleCheck {
+    const CONTROLLER_PATH: &'static str = "server/controllers/api/OrdersController.js";
+    const TOTAL_PATH: &'static str = "server/services/state/numbers/TotalService.js";
+    const CONTROLLER: &'static str = r#"@RequestRoute("/nested/orders")
+@Public
+@Needs(TotalService)
+class OrdersController {
+    constructor(total) { this.total = total; }
+
+    @GetRoute
+    getOrders() { return this.total.calculate(6); }
+}
+"#;
+    const TOTAL: &'static str = r#"import { InvoiceLabel } from '../../../shared/text/InvoiceLabel.js';
+@Service
+@Needs(RateService)
+class TotalService {
+    constructor(rate) { this.rate = rate; }
+    calculate(value) { return { total: value * this.rate.value(), label: InvoiceLabel.text() }; }
+}
+"#;
+    const RATE: &'static str = "@Service\nclass RateService { value() { return 7; } }\n";
+    const LABEL: &'static str =
+        "export class InvoiceLabel { static text() { return 'shared-rebased'; } }\n";
+
+    fn write(root: &Path) {
+        write(root, Self::CONTROLLER_PATH, Self::CONTROLLER);
+        write(root, Self::TOTAL_PATH, Self::TOTAL);
+        write(root, "server/services/tax/RateService.js", Self::RATE);
+        write(root, "server/shared/text/InvoiceLabel.js", Self::LABEL);
+    }
+
+    fn check_paths(root: &Path) {
+        let captured = HandlerSource::discover(root, Self::CONTROLLER_PATH)
+            .expect("capture nested controller and realm providers");
+        assert_eq!(captured.relative_path(), Self::CONTROLLER_PATH);
+        let project = ProjectDiscovery::discover(root).expect("nested route discovery");
+        let manifest = project.route_graph().manifest();
+        assert_eq!(manifest.routes.len(), 1);
+        assert_eq!(manifest.routes[0].route, "/nested/orders");
+        assert_eq!(manifest.routes[0].handlers[0].source, Self::CONTROLLER_PATH);
+    }
+
+    fn check_missing_marker(root: &Path) {
+        write(
+            root,
+            Self::TOTAL_PATH,
+            &Self::TOTAL.replace("@Service\n", ""),
+        );
+        let failure = HandlerSource::discover(root, Self::CONTROLLER_PATH)
+            .expect_err("a real nested provider must keep its formal role");
+        assert!(
+            failure
+                .diagnostics()
+                .iter()
+                .any(|found| found.code.number() == 1363)
+        );
+        assert!(failure.to_string().contains(Self::TOTAL_PATH), "{failure}");
+    }
+}
+
+#[tokio::test]
+async fn a_nested_yon_controller_executes_realm_providers_and_rebased_imports() {
+    let root = tempfile::tempdir().expect("project");
+    NestedYonRoleCheck::write(root.path());
+    NestedYonRoleCheck::check_paths(root.path());
+    let (port, stop, running) = serve_orders(root.path()).await;
+    let response = Exchange::without_body(port, "GET", "/nested/orders").await;
+    stop.send(()).expect("stop owned server");
+    tokio::time::timeout(Duration::from_secs(20), running)
+        .await
+        .expect("bounded shutdown")
+        .expect("server task")
+        .expect("server shutdown");
+    assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+    let (_, body) = response.split_once("\r\n\r\n").expect("HTTP body");
+    let body: serde_json::Value = serde_json::from_str(body).expect("actual JSON response");
+    assert_eq!(
+        body,
+        serde_json::json!({"total":42,"label":"shared-rebased"})
+    );
+    NestedYonRoleCheck::check_missing_marker(root.path());
+}
+
 impl ControllerSource {
     const JAVASCRIPT_ORDER: &str = r"/**
  * @typedef {Object} Order
