@@ -8,7 +8,21 @@ use tachyon_core::{
 struct FsharpCatalog;
 
 impl FsharpCatalog {
-    const FILES: [(&str, &str); 11] = [
+    fn staged(relative: &str, source: &str) -> (String, String) {
+        let relative = relative.replacen(
+            "server/helpers/OrderInput.fs",
+            "server/models/OrderInput.fs",
+            1,
+        );
+        let source = if relative == "server/services/OrderService.fs" {
+            format!("open Models\n\n{source}")
+        } else {
+            source.to_owned()
+        };
+        (relative, source)
+    }
+
+    pub(super) const FILES: [(&str, &str); 11] = [
         (
             "server/models/CatalogReport.fs",
             "open System.Text.Json.Nodes\n\ntype CatalogReport =\n    { First: JsonNode\n      Repeat: JsonNode\n      Written: JsonNode\n      Refreshed: JsonNode\n      Accepted: JsonNode\n      Rejected: string\n      Summary: JsonNode\n      Active: JsonNode\n      Others: JsonNode }\n",
@@ -67,6 +81,7 @@ async fn fsharp_behavior_annotations_run_through_the_csharp_runtime() {
     }
     let project = tempfile::tempdir().expect("project");
     for (relative, source) in FsharpCatalog::FILES {
+        let (relative, source) = FsharpCatalog::staged(relative, source);
         let target = project.path().join(relative);
         std::fs::create_dir_all(target.parent().expect("parent")).expect("folders");
         std::fs::write(target, source).expect("source");

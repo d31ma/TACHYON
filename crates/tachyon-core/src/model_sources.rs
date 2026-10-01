@@ -31,8 +31,9 @@ pub(crate) struct ModelSources {
 }
 
 impl ModelSources {
-    const DATA_LANGUAGES: [&str; 13] = [
+    const DATA_LANGUAGES: [&str; 15] = [
         "rs", "cs", "fs", "dart", "go", "kt", "swift", "java", "groovy", "py", "php", "lua", "rb",
+        "js", "ts",
     ];
     const MAX_FILES: usize = 256;
     const MAX_DEPTH: usize = 8;
@@ -81,7 +82,7 @@ impl ModelSources {
     pub(crate) fn changes_program_text(&self) -> bool {
         let inline = matches!(
             self.extension.as_str(),
-            "rs" | "cs" | "py" | "php" | "java" | "groovy" | "lua" | "rb"
+            "rs" | "cs" | "py" | "php" | "java" | "groovy" | "lua" | "rb" | "js" | "ts"
         );
         inline && !self.files.is_empty()
     }
@@ -97,7 +98,7 @@ impl ModelSources {
             "php" => self.php_program(program),
             "java" => self.java_program(program),
             "groovy" => self.groovy_program(program),
-            "lua" | "rb" => format!("{}\n{program}", self.joined_sources()),
+            "lua" | "rb" | "js" | "ts" => format!("{}\n{program}", self.joined_sources()),
             _ => program.to_owned(),
         }
     }

@@ -35,7 +35,8 @@ impl ModelSchema {
             path.starts_with("client/models"),
             !path
                 .extension()
-                .is_some_and(|extension| extension == "java"),
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| ["java", "js", "ts"].contains(&extension)),
         ]
         .contains(&false);
         unsupported
@@ -102,7 +103,44 @@ impl ModelSchema {
             .extension()
             .is_some_and(|extension| extension == "java");
         java.then(|| Self::java_plain(path, source))
+            .unwrap_or_else(|| Self::non_java_plain(path, source))
+    }
+
+    fn non_java_plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
+        let script = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| ["js", "ts"].contains(&value));
+        script
+            .then(|| Self::script_plain(path, source))
             .unwrap_or_else(|| Self::polyglot_plain(path, source))
+    }
+
+    fn script_plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        let mask = crate::lexical::code_mask(extension, source);
+        let input = Input {
+            path,
+            source,
+            code: super::super::visible_code(source, &mask.code),
+        };
+        let markers = super::super::markers(&input)?;
+        let schema = markers
+            .iter()
+            .any(|marker| Self::NAMES.contains(&marker.name.as_str()));
+        schema
+            .then(|| Self::script_projection(&input, &markers))
+            .transpose()
+    }
+
+    fn script_projection(input: &Input<'_>, markers: &[super::Marker]) -> Result<String, Failure> {
+        Self::require_schema(input, markers)?;
+        let environment = ["yon", "tac"][usize::from(input.path.starts_with("client"))];
+        super::super::lower(input.path, input.source, environment)?;
+        Ok(super::erase(input.source, markers))
     }
 
     fn polyglot_plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
