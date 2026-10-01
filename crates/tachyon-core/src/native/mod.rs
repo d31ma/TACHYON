@@ -35,6 +35,8 @@ mod native_capability_tests;
 #[cfg(test)]
 mod native_helper_tests;
 #[cfg(test)]
+mod native_packaged_utility_tests;
+#[cfg(test)]
 mod native_page_graph_tests;
 #[cfg(test)]
 mod native_rust_capability_tests;
