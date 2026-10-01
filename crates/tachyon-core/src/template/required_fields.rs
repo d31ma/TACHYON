@@ -316,10 +316,14 @@ impl RequiredFields {
 
     fn is_needs_marker(marker: &str) -> bool {
         let name = marker
-            .split(|character: char| !Self::is_word_character(character) && character != '.')
+            .split(Self::ends_java_marker)
             .next()
             .unwrap_or_default();
         name.rsplit('.').next() == Some("Needs")
+    }
+
+    const fn ends_java_marker(character: char) -> bool {
+        !matches!(character, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '.')
     }
 
     fn required_field(extension: &str, piece: &str, needs: bool) -> Option<DeclaredField> {

@@ -5,6 +5,7 @@ pub(super) struct NativeUiHostSources;
 
 impl NativeUiHostSources {
     const OWNER: &str = r"    private let liveStyleHost: NativeUiStyleHost
+    private var fixtureLaunched = false
 
     init(_ installed: NativeUiRuntimeGeneration) {
         liveStyleHost = NativeUiStyleHost(installed)
@@ -18,7 +19,8 @@ impl NativeUiHostSources {
         let owned = Self::owner(&body)?;
         let configured = Self::configuration(&owned)?;
         let bound = Self::binding(&configured)?;
-        let navigation = Self::navigation(&bound)?;
+        let launched = Self::launch(&bound)?;
+        let navigation = Self::navigation(&launched)?;
         let termination = Self::termination(&navigation)?;
         let replies = Self::replies(&termination)?;
         Ok(Self::fragments(&replies))
@@ -79,6 +81,14 @@ impl NativeUiHostSources {
             source,
             "        webView = view\n",
             "        webView = view\n        do { try liveStyleHost.bind(view) } catch { fatalError(\"Trusted host fixture binding failed: \\(error)\") }\n",
+        )
+    }
+
+    fn launch(source: &str) -> Result<String, Failure> {
+        Self::replace(
+            source,
+            "    func applicationDidFinishLaunching(_ notification: Notification) {\n",
+            "    func applicationDidFinishLaunching(_ notification: Notification) {\n        guard !fixtureLaunched else { return }\n        fixtureLaunched = true\n",
         )
     }
 
