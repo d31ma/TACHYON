@@ -3,27 +3,22 @@ use super::kotlin_type_models::KotlinTypeModels;
 use crate::Failure;
 use std::path::{Path, PathBuf};
 
-pub(super) struct KotlinComposedTypes<'a> {
+pub(super) struct KotlinComposedTypes {
     models: KotlinTypeModels,
-    files: &'a [(PathBuf, String)],
 }
 
-impl<'a> KotlinComposedTypes<'a> {
-    pub(super) fn render(
-        services: &[(PathBuf, String)],
-        files: &'a [(PathBuf, String)],
-    ) -> Result<String, Failure> {
+impl KotlinComposedTypes {
+    pub(super) fn render(services: &[(PathBuf, String)]) -> Result<String, Failure> {
         Self::read(files, !services.is_empty())?
             .map_or(Ok(String::new()), |types| types.program(services))
     }
 
-    fn read(files: &'a [(PathBuf, String)], needed: bool) -> Result<Option<Self>, Failure> {
+    fn read(files: &[(PathBuf, String)], needed: bool) -> Result<Option<Self>, Failure> {
         if !needed {
             return Ok(None);
         }
         Ok(Some(Self {
             models: KotlinTypeModels::read(files)?,
-            files,
         }))
     }
 
@@ -38,7 +33,7 @@ impl<'a> KotlinComposedTypes<'a> {
     fn service(&self, path: &Path, source: &str) -> Result<String, Failure> {
         let class = self.service_class(path, source)?;
         let roles = crate::behavior::ServiceRoles::read(path, source)?;
-        Self::validate_annotations(path, &roles.source, self.files)?;
+        Self::validate_annotations(path, &roles.source)?;
         let members = crate::companion::KotlinMembers::read(path, source)?;
         let required = Self::required_properties(path, source, &class, !roles.required.is_empty());
         let values = self.models.values();
@@ -60,14 +55,8 @@ impl<'a> KotlinComposedTypes<'a> {
         Ok(class.to_owned())
     }
 
-    fn validate_annotations(
-        path: &Path,
-        source: &str,
-        files: &[(PathBuf, String)],
-    ) -> Result<(), Failure> {
-        let assembled =
-            crate::annotation_modules::Module::with_models(path, source, files.to_vec())?;
-        crate::behavior::lower(path, &assembled, "tac").map(|_| ())
+    fn validate_annotations(path: &Path, source: &str) -> Result<(), Failure> {
+        crate::behavior::lower(path, source, "tac").map(|_| ())
     }
 
     fn required_properties(path: &Path, source: &str, class: &str, needed: bool) -> Vec<String> {

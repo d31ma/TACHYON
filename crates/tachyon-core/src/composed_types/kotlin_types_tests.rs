@@ -157,26 +157,30 @@ fn kotlin_public_default_constructors_keep_legacy_overload_compatibility() {
 
 #[test]
 fn kotlin_model_metadata_refusals_are_located_and_duplicate_names_cannot_merge() {
-    for (path, source, wanted) in [
+    for (path, source, wanted, diagnostic) in [
         (
             "client/models/Broken.kt",
             "data class Broken(val value: Map<String, Guide>)\n",
             "client/models/Broken.kt",
+            "TY1310",
         ),
         (
             "client/models/Broken.kt",
             "data class Broken(val value: Short)\n",
             "client/models/Broken.kt",
+            "TY1405",
         ),
         (
             "client/models/Broken.kt",
             "typealias Broken = String\n",
             "client/models/Broken.kt",
+            "TY1405",
         ),
         (
             "client/models/nested/Guide.kt",
             "data class Guide(val pages: Int)\n",
             "client/models/nested/Guide.kt",
+            "TY1405",
         ),
     ] {
         let root = tempfile::tempdir().expect("project");
@@ -185,7 +189,7 @@ fn kotlin_model_metadata_refusals_are_located_and_duplicate_names_cannot_merge()
         let text = ComposedTypes::write(root.path())
             .expect_err("unsupported or repeated DTO")
             .to_string();
-        assert!(text.contains("TY1405") && text.contains(wanted), "{text}");
+        assert!(text.contains(diagnostic) && text.contains(wanted), "{text}");
     }
 }
 
