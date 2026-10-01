@@ -17,3 +17,7 @@ run with the host's OS privileges.
 
 The grant list lives in manifest.json beside the application's name,
 icons and entry route. Unknown control names fail at build time.
+
+Native Rust, C#, Swift and Kotlin alternatives receive the same controls
+through Service + NeedsAll. Choose the alternative for your target and
+place it in client/services; native/ here only separates examples.

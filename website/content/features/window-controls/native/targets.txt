@@ -1,0 +1,21 @@
+Choose one native ReportService alternative for the target.
+
+  Rust      macOS, Linux, Windows
+  Swift     macOS, iOS
+  C#        Windows
+  Kotlin    Android
+
+The native/ folder here separates documentation alternatives. It is not
+an additional application discovery root. Put the chosen file in your
+application's client/services/ReportService.<extension>, replacing that
+language's browser example. Keep the same page and component HTML.
+
+Each native alternative is Service + NeedsAll. Its typed WindowControls
+field is filled by Tachyon's native activation provider. The service does
+not construct the provider or import a platform API. The native host
+registers its window adapter and checks the manifest grants again.
+
+The manifest grants minimize, resize and title. It does not grant close,
+maximize or fullscreen. Browser tabs have no native window and refuse
+these calls. Windows/Android source or SDK checks on macOS do not prove
+those operating systems' window interactions.
