@@ -31,12 +31,12 @@ mod shared_assets;
 mod site_build;
 mod speculation_rules;
 mod tool_build;
-pub(crate) mod utility_module;
-#[cfg(test)]
-mod utility_module_tests;
 mod typescript_cache;
 mod typescript_compiler;
 mod typescript_field_type;
+pub(crate) mod utility_module;
+#[cfg(test)]
+mod utility_module_tests;
 
 pub use build_options::BuildOptions;
 pub use build_profile::BuildProfile;

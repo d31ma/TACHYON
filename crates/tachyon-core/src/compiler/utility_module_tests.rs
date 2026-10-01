@@ -42,12 +42,11 @@ fn utility_module_ignores_regex_named_export_text() {
 #[test]
 fn utility_module_preserves_named_default_and_bare_exports() {
     let path = Path::new(UtilityModuleFixture::PATH);
-    for source in [format!("export {}", UtilityModuleFixture::BODY)] {
-        assert_eq!(
-            UtilityModule::exported(path, &source).expect("export"),
-            source.as_bytes()
-        );
-    }
+    let source = format!("export {}", UtilityModuleFixture::BODY);
+    assert_eq!(
+        UtilityModule::exported(path, &source).expect("export"),
+        source.as_bytes()
+    );
     for source in [
         UtilityModuleFixture::BODY.to_owned(),
         format!("export default {}", UtilityModuleFixture::BODY),

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Clone, Copy)]
 pub(super) struct ModuleInput<'a> {
     pub(super) entry: &'a Path,
     pub(super) source: &'a str,

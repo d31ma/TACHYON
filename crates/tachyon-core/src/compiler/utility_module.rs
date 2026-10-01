@@ -42,8 +42,11 @@ impl UtilityModule {
 
     pub(crate) fn exported(path: &Path, source: &str) -> Result<Vec<u8>, Failure> {
         path.starts_with("client/utils")
-            .then(|| Self::export_utility(path, source))
-            .unwrap_or_else(|| Ok(source.as_bytes().to_vec()))
+            .then_some(path)
+            .map_or_else(
+                || Ok(source.as_bytes().to_vec()),
+                |path| Self::export_utility(path, source),
+            )
     }
 
     fn export_utility(path: &Path, source: &str) -> Result<Vec<u8>, Failure> {
@@ -79,8 +82,9 @@ impl UtilityModule {
     }
 
     fn without_abstract(tail: &str) -> &str {
-        Self::keyword(tail, 0, "abstract")
-            .then(|| tail[8..].trim_start())
-            .unwrap_or(tail)
+        if Self::keyword(tail, 0, "abstract") {
+            return tail[8..].trim_start();
+        }
+        tail
     }
 }

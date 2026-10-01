@@ -8,9 +8,10 @@ pub(super) struct SharedImports;
 
 impl SharedImports {
     pub(super) fn canonical(entry: &Path, specifier: &str) -> String {
-        Self::path(entry, specifier)
-            .map(|target| Self::relative_path(entry, &target))
-            .unwrap_or_else(|| specifier.to_owned())
+        Self::path(entry, specifier).map_or_else(
+            || specifier.to_owned(),
+            |target| Self::relative_path(entry, &target),
+        )
     }
 
     pub(super) fn path(path: &Path, specifier: &str) -> Option<PathBuf> {
