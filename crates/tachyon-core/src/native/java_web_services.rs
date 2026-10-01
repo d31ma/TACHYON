@@ -15,6 +15,7 @@ use tea_vm_toolchain::TeaVmToolchain;
 mod java_browser_runtime;
 mod java_class_reader;
 mod java_code;
+mod java_composed_types;
 mod java_constructor_provider;
 mod java_declaration;
 mod java_enclosure;
@@ -31,6 +32,8 @@ mod java_service;
 mod java_service_table;
 mod java_test_contracts;
 mod java_type_declaration;
+mod java_type_members;
+mod java_type_models;
 mod java_value_type;
 mod java_wasm_program;
 mod java_web_apis;
@@ -170,6 +173,13 @@ impl JavaWebServices {
         let program = JavaWasmProgram::compile(&sources, profile).await?;
         let note = program.note(profile);
         Ok((program.published(), note))
+    }
+
+    pub(crate) fn composed_types(
+        services: &[(PathBuf, String)],
+        models: &[(PathBuf, String)],
+    ) -> Result<String, Failure> {
+        java_composed_types::JavaComposedTypes::render(services, models)
     }
 
     pub(crate) fn test_provider_contracts(source: &str) -> String {

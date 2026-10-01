@@ -1,7 +1,9 @@
 use super::composition_check::CompositionCheck;
 use super::declaration::Declaration;
 use super::exported_class::ExportedClass;
+use super::java_declarations::JavaDeclarations;
 use super::model_declaration::ModelDeclaration;
+use crate::Failure;
 use cap_std::fs::{Dir, DirEntry, Metadata};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -14,6 +16,7 @@ pub(super) struct RealmTypes<'a> {
     declarations: BTreeMap<String, Declaration>,
     models: BTreeMap<String, ModelDeclaration>,
     test_units: BTreeMap<String, Declaration>,
+    java: JavaDeclarations,
 }
 
 impl<'a> RealmTypes<'a> {
@@ -24,7 +27,7 @@ impl<'a> RealmTypes<'a> {
     const MODEL_FOLDER: &'static str = "models";
     const MODEL_EXTENSION: &'static str = "js";
 
-    pub(super) fn render(project: &'a Dir, realm: &'a str) -> String {
+    pub(super) fn render(project: &'a Dir, realm: &'a str) -> Result<String, Failure> {
         let mut types = Self {
             project,
             realm,
@@ -32,6 +35,7 @@ impl<'a> RealmTypes<'a> {
             declarations: BTreeMap::new(),
             models: BTreeMap::new(),
             test_units: BTreeMap::new(),
+            java: JavaDeclarations::new(),
         };
         types.search_role_folders();
         types.text()
@@ -133,12 +137,20 @@ impl<'a> RealmTypes<'a> {
     }
 
     fn add_file(&mut self, path: &Path) {
+        self.add_java_file(path);
         let classes = self.classes_where(path, CompositionCheck::is_composed);
         Self::declare(&mut self.declarations, path, classes);
         let models = self.model_names(path);
         self.add_models(path, models);
         let test_units = self.classes_where(path, CompositionCheck::is_test_unit);
         Self::declare(&mut self.test_units, path, test_units);
+    }
+
+    fn add_java_file(&mut self, path: &Path) {
+        let source = JavaDeclarations::accepts(path)
+            .then(|| self.bounded_source(path))
+            .flatten();
+        self.java.add(path, source);
     }
 
     fn model_names(&self, path: &Path) -> Vec<String> {
@@ -188,6 +200,10 @@ impl<'a> RealmTypes<'a> {
 
     fn read_source(&self, path: &Path) -> Option<String> {
         Self::source_extension(path)?;
+        self.bounded_source(path)
+    }
+
+    fn bounded_source(&self, path: &Path) -> Option<String> {
         self.small_file_size(path)?;
         self.project.read_to_string(path).ok()
     }
@@ -207,11 +223,11 @@ impl<'a> RealmTypes<'a> {
         metadata.is_file() && metadata.len() <= Self::MAX_SOURCE
     }
 
-    fn text(&self) -> String {
+    fn text(&self) -> Result<String, Failure> {
         let mut text = String::from("export {};\n");
-        text.push_str(&self.global_block());
+        text.push_str(&self.global_block()?);
         text.push_str(&self.test_unit_blocks());
-        text
+        Ok(text)
     }
 
     fn test_unit_blocks(&self) -> String {
@@ -221,11 +237,23 @@ impl<'a> RealmTypes<'a> {
             .collect()
     }
 
-    fn global_block(&self) -> String {
-        if self.declarations.is_empty() && self.models.is_empty() {
+    fn global_block(&self) -> Result<String, Failure> {
+        let script = self.declaration_lines();
+        let names = self
+            .declarations
+            .keys()
+            .chain(self.models.keys())
+            .cloned()
+            .collect::<Vec<_>>();
+        let java = self.java.lines(&names)?;
+        Ok(Self::global_lines(&format!("{script}{java}")))
+    }
+
+    fn global_lines(lines: &str) -> String {
+        if lines.is_empty() {
             return String::new();
         }
-        format!("\ndeclare global {{\n{}}}\n", self.declaration_lines())
+        format!("\ndeclare global {{\n{lines}}}\n")
     }
 
     fn declaration_lines(&self) -> String {

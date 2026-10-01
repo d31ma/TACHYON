@@ -1,6 +1,9 @@
 mod composition_check;
 mod declaration;
 mod exported_class;
+mod java_declarations;
+#[cfg(test)]
+mod java_types_tests;
 mod model_declaration;
 mod realm_types;
 
@@ -29,7 +32,7 @@ impl ComposedTypes {
     }
 
     fn write_realm_types(project: &Dir, realm: &str) -> Result<(), Failure> {
-        let text = RealmTypes::render(project, realm);
+        let text = RealmTypes::render(project, realm)?;
         Self::write_realm(project, realm, &text).map_err(|error| Self::write_failure(&error))
     }
 

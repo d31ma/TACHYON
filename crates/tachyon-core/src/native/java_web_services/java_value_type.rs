@@ -20,6 +20,63 @@ impl JavaValueType {
             .or_else(|| self.collection_reading(&kind, value, 0))
     }
 
+    pub(super) fn typescript(&self, kind: &str) -> Option<String> {
+        let kind = Self::compact(kind);
+        self.accepts_typescript(&kind)
+            .then(|| self.typescript_value(&kind))
+            .flatten()
+    }
+
+    fn accepts_typescript(&self, kind: &str) -> bool {
+        self.reading(kind, "value").is_some() || Self::is_nothing(kind)
+    }
+
+    fn typescript_value(&self, kind: &str) -> Option<String> {
+        Self::typescript_scalar(kind)
+            .map(String::from)
+            .or_else(|| self.typescript_model(kind))
+            .or_else(|| self.typescript_list(kind))
+            .or_else(|| self.typescript_map(kind))
+    }
+
+    fn typescript_scalar(kind: &str) -> Option<&'static str> {
+        Self::typescript_reader(Self::scalar(kind), kind)
+    }
+
+    fn typescript_reader(reader: Option<&str>, kind: &str) -> Option<&'static str> {
+        match reader {
+            Some("integer" | "whole" | "decimal" | "single") => Some("number"),
+            Some("optionalInteger" | "optionalWhole" | "optionalDecimal" | "optionalSingle") => {
+                Some("number | null")
+            }
+            Some("truth") => Some("boolean"),
+            Some("optionalTruth") => Some("boolean | null"),
+            Some("text") => Some("string | null"),
+            Some("same") => Some("unknown"),
+            _ => (kind == Self::NOTHING).then_some("void"),
+        }
+    }
+
+    fn typescript_model(&self, kind: &str) -> Option<String> {
+        self.models
+            .iter()
+            .any(|model| model == kind)
+            .then(|| format!("__TachyonJavaModels.{kind} | null"))
+    }
+
+    fn typescript_list(&self, kind: &str) -> Option<String> {
+        let item = Self::generic_argument(kind, &Self::LISTS)?;
+        let item = self.typescript_value(item)?;
+        Some(format!("Array<{item}> | null"))
+    }
+
+    fn typescript_map(&self, kind: &str) -> Option<String> {
+        let arguments = Self::generic_argument(kind, &Self::MAPS)?;
+        let item = arguments.strip_prefix(Self::MAP_KEY)?;
+        let item = self.typescript_value(item)?;
+        Some(format!("Record<string, {item}> | null"))
+    }
+
     pub(super) fn model_reader(name: &str) -> String {
         format!("{}{name}", Self::MODEL_READER_PREFIX)
     }
@@ -153,6 +210,36 @@ mod tests {
             "List<? extends Number>",
         ] {
             assert_eq!(plain().reading(kind, "value"), None, "{kind}");
+        }
+    }
+    #[test]
+    fn typescript_values_share_codec_admissibility_and_nullability() {
+        let values = JavaValueType::new(vec![String::from("Guide")]);
+        for (java, expected) in [
+            ("int", "number"),
+            ("Integer", "number | null"),
+            ("String", "string | null"),
+            ("boolean", "boolean"),
+            ("Boolean", "boolean | null"),
+            ("Object", "unknown"),
+            ("Guide", "__TachyonJavaModels.Guide | null"),
+            ("void", "void"),
+            (
+                "List<Map<String, Long>>",
+                "Array<Record<string, number | null> | null> | null",
+            ),
+        ] {
+            assert_eq!(values.typescript(java).as_deref(), Some(expected), "{java}");
+        }
+        for java in [
+            "char",
+            "int[]",
+            "Map<Integer, String>",
+            "Unknown",
+            "List<void>",
+            "List<? extends Number>",
+        ] {
+            assert_eq!(values.typescript(java), None, "{java}");
         }
     }
 }
