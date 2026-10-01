@@ -12,12 +12,13 @@ impl ManualHelpers {
     const CALL_PREFIX: usize = 256;
     const HOOKS: [&'static str; 3] = ["onstart", "onstop", "onevent"];
     const MARKER_PREFIXES: [&'static str; 5] = ["// @", "#[", "[<", "[", "@"];
-    const FACTORIES: [&'static str; 6] = [
+    const FACTORIES: [&'static str; 7] = [
         "behaviors.construct(",
         "behaviors.construct(typeof(",
         "behaviors.construct<",
         "behaviors.construct::<",
         "behaviors::construct::<",
+        "behaviors::construct(",
         "behaviorsconstruct[",
     ];
 
@@ -76,7 +77,7 @@ impl ManualHelpers {
         let before = &code[..at];
         let constructor = Self::constructor_call(extension, before, after);
         let definition = [extension == "dart", helper.body.contains(&at)] == [true, true];
-        let factory = Self::factory_call(before, after);
+        let factory = Self::factory_call(extension, before, after);
         let declaration = (helper.declaration..helper.body.start).contains(&at);
         let return_type = [extension == "rs", Self::rust_return_type(before)] == [true, true];
         let rust_declaration =
@@ -190,7 +191,7 @@ impl ManualHelpers {
             .is_some_and(|rest| rest.trim_start().starts_with('('))
     }
 
-    fn factory_call(before: &str, after: &str) -> bool {
+    fn factory_call(extension: &str, before: &str, after: &str) -> bool {
         let prefix: String = before.chars().rev().take(Self::CALL_PREFIX).collect();
         let prefix: String = prefix
             .chars()
@@ -202,7 +203,8 @@ impl ManualHelpers {
             [
                 Self::factory_boundary(&prefix, factory),
                 Self::factory_tail(factory, after),
-            ] == [true, true]
+                *factory != "behaviors::construct(" || extension == "php",
+            ] == [true, true, true]
         })
     }
 
@@ -211,6 +213,9 @@ impl ManualHelpers {
         match factory.as_bytes().last() {
             Some(b'<') => Self::named_call(tail, ">"),
             Some(b'[') => Self::named_call(tail, "]"),
+            _ if factory == "behaviors::construct(" => tail
+                .strip_prefix("::class")
+                .is_some_and(|rest| rest.trim_start().starts_with([',', ')'])),
             _ => tail.starts_with([',', ')']),
         }
     }
@@ -341,6 +346,46 @@ mod tests {
     fn generic_factory_reference_without_call_is_not_construction() {
         let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object method = Behaviors.construct<ProbeHelper>; }";
         assert!(names("cs", source).is_empty());
+    }
+
+    #[test]
+    fn php_class_constant_factory_proves_only_real_exact_calls() {
+        let declaration = "<?php\n#[Helper]\nclass ProbeHelper {\n #[Needs]\n public BehaviorContext $behaviors;\n}\n";
+        let caller =
+            "$value = Behaviors::construct(ProbeHelper::class, ['behaviors' => $context]);";
+        assert_eq!(
+            names("php", &format!("{declaration}{caller}")),
+            BTreeSet::from(["ProbeHelper".into()])
+        );
+        for reference in [
+            "$value = OtherBehaviors::construct(ProbeHelper::class, []);",
+            "$value = Behaviors::construct(ProbeHelper::classSuffix, []);",
+            "$value = ProbeHelper::class;",
+            "$method = Behaviors::construct; $type = ProbeHelper::class;",
+            "// Behaviors::construct(ProbeHelper::class, []);",
+            "$text = 'Behaviors::construct(ProbeHelper::class, [])';",
+        ] {
+            assert!(
+                names("php", &format!("{declaration}{reference}")).is_empty(),
+                "{reference}"
+            );
+        }
+    }
+
+    #[test]
+    fn php_factory_keeps_provider_optins_and_owned_hook_rejections() {
+        let source = "<?php\n#[Helper]\nclass ProbeHelper {\n #[Needs]\n public BehaviorContext $behaviors;\n}\n$value = Behaviors::construct(ProbeHelper::class, ['behaviors' => $context]);";
+        let managed = source.replace("#[Helper]", "#[Helper]\n#[NeedsAll]");
+        assert!(names("php", &managed).is_empty());
+        let hooked = source.replace(
+            " public BehaviorContext $behaviors;",
+            " public BehaviorContext $behaviors;\n #[OnStart]\n public function start(): void {}\n",
+        );
+        let failure = ManualHelpers::read(Path::new("yon.php"), &hooked)
+            .err()
+            .unwrap_or_else(|| panic!("expected caller-owned lifecycle failure"));
+        assert!(failure.to_string().contains("TY2015"));
+        assert!(failure.to_string().contains("caller-owned"));
     }
 
     #[test]
