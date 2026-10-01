@@ -79,6 +79,7 @@ impl DoctorReport {
         let workers = crate::Workers::discover(root)?;
         let yon = YonDiscovery::extensions(root, &workers);
         let mut toolchains = ServiceToolchains::list(root, &services);
+        toolchains.extend(crate::tac_python::RuntimeDoctor::for_project(root)?);
         let requirements = RuntimeRequirements::from_extensions(yon.iter().map(String::as_str));
         let resolved = requirements.resolve(&options.runtimes, &options.isolation)?;
         let probes = RuntimeProbe::all_sync(resolved, &options.environment)?;

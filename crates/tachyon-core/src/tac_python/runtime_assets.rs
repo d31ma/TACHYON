@@ -63,7 +63,7 @@ impl RuntimeAssets {
 
     pub(crate) fn failure(path: &str, message: &str) -> Failure {
         Failure::one(diagnostic(
-            1317,
+            1605,
             format!("Cannot use the pinned Python browser runtime: {message}"),
             Some(format!(
                 "Supply verified Pyodide {} core assets under '{}'. Use the pinned hashes in docs/queue/NEXT/PYTHON-TAC.md; ty never installs or fetches Python packages automatically.",

@@ -6,7 +6,7 @@ use crate::failure::diagnostic;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(super) struct ServiceWorker;
 
@@ -39,9 +39,12 @@ impl ServiceWorker {
         digest.get(..16).unwrap_or("0").to_owned()
     }
 
-    pub(super) fn assets(files: &[(PathBuf, Vec<u8>)]) -> Result<String, Failure> {
+    pub(super) fn assets_with_profile(
+        files: &[(PathBuf, Vec<u8>)],
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<String, Failure> {
         let mut assets = BTreeMap::new();
-        Self::add_assets(files, &mut assets);
+        Self::add_assets(files, &mut assets, profile)?;
         serde_json::to_string(&assets).map_err(|_| {
             Failure::one(diagnostic(
                 1201,
@@ -73,12 +76,40 @@ impl ServiceWorker {
         }
     }
 
-    fn add_assets(files: &[(PathBuf, Vec<u8>)], assets: &mut BTreeMap<String, Value>) {
-        let small = files
-            .iter()
-            .filter(|(_, bytes)| bytes.len() <= Self::MAX_ASSET_BYTES);
-        for (path, bytes) in small {
-            Self::add_asset(&PortablePath::of(path), bytes, assets);
+    fn add_assets(
+        files: &[(PathBuf, Vec<u8>)],
+        assets: &mut BTreeMap<String, Value>,
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<(), Failure> {
+        for (path, bytes) in files {
+            Self::add_profile_asset(path, bytes, assets, profile)?;
+        }
+        Ok(())
+    }
+
+    fn add_profile_asset(
+        path: &Path,
+        bytes: &[u8],
+        assets: &mut BTreeMap<String, Value>,
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<(), Failure> {
+        let portable = PortablePath::of(path);
+        let ceiling = profile
+            .map(|profile| profile.asset_limit(&portable, bytes))
+            .transpose()?
+            .unwrap_or(Self::MAX_ASSET_BYTES);
+        if bytes.len() <= ceiling {
+            Self::add_asset(&portable, bytes, assets);
+            Self::add_ceiling(&portable, ceiling, assets);
+        }
+        Ok(())
+    }
+
+    fn add_ceiling(portable: &str, ceiling: usize, assets: &mut BTreeMap<String, Value>) {
+        if ceiling > Self::MAX_ASSET_BYTES {
+            assets.entry(format!("/{portable}")).and_modify(|asset| {
+                asset["bodyLimit"] = serde_json::json!(ceiling);
+            });
         }
     }
 
@@ -101,5 +132,73 @@ impl ServiceWorker {
             aliases.push((directory.trim_end_matches('/').to_owned(), asset.clone()));
         }
         aliases
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ServiceWorker;
+    use crate::tac_python::RuntimeProfile;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn ordinary_assets_keep_exact_metadata_and_the_four_mib_ceiling() {
+        let files = vec![
+            (PathBuf::from("ordinary.js"), vec![1]),
+            (PathBuf::from("big.wasm"), vec![0; 4 * 1024 * 1024 + 1]),
+        ];
+        let metadata: serde_json::Value = serde_json::from_str(
+            &ServiceWorker::assets_with_profile(&files, None)
+                .unwrap_or_else(|error| panic!("ordinary assets: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("JSON: {error:?}"));
+        assert!(metadata["/ordinary.js"]["bodyLimit"].is_null());
+        assert_eq!(
+            metadata["/ordinary.js"]
+                .as_object()
+                .unwrap_or_else(|| panic!("asset"))
+                .len(),
+            2
+        );
+        assert!(metadata["/big.wasm"].is_null());
+    }
+
+    #[test]
+    fn a_profile_refuses_tampered_pinned_wasm_and_never_relaxes_other_files() {
+        let profile = RuntimeProfile::read(&serde_json::json!({"tac":{"python":{"runtime":"pyodide-314.0.7","profile":"offline"}}})).unwrap_or_else(|error| panic!("profile: {error:?}"));
+        let tampered = vec![(
+            PathBuf::from(".tachyon/services/python/314.0.7/pyodide.asm.wasm"),
+            vec![0],
+        )];
+        assert!(ServiceWorker::assets_with_profile(&tampered, profile).is_err());
+        let unrelated = vec![(PathBuf::from("other.wasm"), vec![0; 4 * 1024 * 1024 + 1])];
+        assert_eq!(
+            ServiceWorker::assets_with_profile(&unrelated, profile)
+                .unwrap_or_else(|error| panic!("unchanged default: {error:?}")),
+            "{}"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires pinned core Wasm; set TAC_PYTHON_CORE to the verified local directory"]
+    fn only_verified_pinned_wasm_receives_the_explicit_decoded_body_ceiling() {
+        let root = std::env::var_os("TAC_PYTHON_CORE")
+            .unwrap_or_else(|| panic!("explicit runtime assets"));
+        let bytes = std::fs::read(Path::new(&root).join("pyodide.asm.wasm"))
+            .unwrap_or_else(|error| panic!("pinned Wasm: {error:?}"));
+        let files = vec![(
+            PathBuf::from(".tachyon/services/python/314.0.7/pyodide.asm.wasm"),
+            bytes,
+        )];
+        let profile = RuntimeProfile::read(&serde_json::json!({"tac":{"python":{"runtime":"pyodide-314.0.7","profile":"offline"}}})).unwrap_or_else(|error| panic!("profile: {error:?}"));
+        let metadata: serde_json::Value = serde_json::from_str(
+            &ServiceWorker::assets_with_profile(&files, profile)
+                .unwrap_or_else(|error| panic!("verified runtime metadata: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("JSON: {error:?}"));
+        assert_eq!(
+            metadata["/.tachyon/services/python/314.0.7/pyodide.asm.wasm"]["bodyLimit"],
+            10 * 1024 * 1024
+        );
     }
 }

@@ -11,15 +11,42 @@ impl BudgetCheck {
     const PAGE_FILE: &'static str = "index.html";
     const SEPARATOR: char = '/';
 
+    #[cfg(test)]
     pub(crate) fn verify(
         project_root: &Path,
         files: &[(PathBuf, Vec<u8>)],
         release: bool,
         sent_bytes: &dyn Fn(&str) -> Option<u64>,
     ) -> Result<(), Failure> {
+        Self::check(project_root, files, release, sent_bytes).map(|_| ())
+    }
+
+    pub(crate) fn check(
+        project_root: &Path,
+        files: &[(PathBuf, Vec<u8>)],
+        release: bool,
+        sent_bytes: &dyn Fn(&str) -> Option<u64>,
+    ) -> Result<Vec<String>, Failure> {
+        let profile = crate::tac_python::RuntimeProfile::for_project(project_root)?;
         let settings = RouteBudgetSettings::read(project_root);
         let checked = Self::checked(files, settings.check & release);
-        Self::result(Self::diagnostics(checked, settings, sent_bytes))
+        let (diagnostics, notes) = Self::diagnostics(checked, settings, profile, sent_bytes)?;
+        Self::result(diagnostics)?;
+        Ok(notes)
+    }
+
+    pub(crate) fn has_python_roots(files: &[(PathBuf, Vec<u8>)]) -> bool {
+        let by_path: BTreeMap<String, &[u8]> = files
+            .iter()
+            .map(|(path, bytes)| (PortablePath::of(path), bytes.as_slice()))
+            .collect();
+        by_path
+            .keys()
+            .filter(|path| Self::is_page(path))
+            .any(|page| {
+                LoadedFiles::of(page, &by_path)
+                    .contains(crate::tac_python::RuntimeInventory::ENGINE)
+            })
     }
 
     fn checked(files: &[(PathBuf, Vec<u8>)], check: bool) -> &[(PathBuf, Vec<u8>)] {
@@ -29,8 +56,9 @@ impl BudgetCheck {
     fn diagnostics(
         files: &[(PathBuf, Vec<u8>)],
         settings: RouteBudgetSettings,
+        profile: Option<crate::tac_python::RuntimeProfile>,
         sent_bytes: &dyn Fn(&str) -> Option<u64>,
-    ) -> Vec<Diagnostic> {
+    ) -> Result<(Vec<Diagnostic>, Vec<String>), Failure> {
         let by_path: BTreeMap<String, &[u8]> = files
             .iter()
             .map(|(path, bytes)| (PortablePath::of(path), bytes.as_slice()))
@@ -39,11 +67,15 @@ impl BudgetCheck {
             .iter()
             .map(|(path, bytes)| (path.clone(), Self::size(path, bytes, sent_bytes)))
             .collect();
-        by_path
-            .keys()
-            .filter(|path| Self::is_page(path))
-            .flat_map(|page| Self::page_diagnostics(page, &by_path, &sizes, settings))
-            .collect()
+        let mut diagnostics = Vec::new();
+        let mut notes = Vec::new();
+        for page in by_path.keys().filter(|path| Self::is_page(path)) {
+            let (page_diagnostics, page_notes) =
+                Self::page_diagnostics(page, &by_path, &sizes, settings, profile, sent_bytes)?;
+            diagnostics.extend(page_diagnostics);
+            notes.extend(page_notes);
+        }
+        Ok((diagnostics, notes))
     }
 
     fn page_diagnostics(
@@ -51,15 +83,48 @@ impl BudgetCheck {
         files: &BTreeMap<String, &[u8]>,
         sizes: &BTreeMap<String, u64>,
         settings: RouteBudgetSettings,
-    ) -> Vec<Diagnostic> {
-        let loaded = LoadedFiles::of(page, files);
+        profile: Option<crate::tac_python::RuntimeProfile>,
+        sent_bytes: &dyn Fn(&str) -> Option<u64>,
+    ) -> Result<(Vec<Diagnostic>, Vec<String>), Failure> {
+        let mut loaded = LoadedFiles::of(page, files);
+        let inventory = crate::tac_python::RuntimeInventory::reachable(&loaded, files, sent_bytes)?;
+        Self::require_python_profile(profile, &inventory)?;
+        loaded.extend(inventory.iter().map(|(name, _)| name.clone()));
+        let settings = settings.for_python_route(!inventory.is_empty());
         let route = Self::route(page);
-        [settings.script, settings.web_assembly]
+        let diagnostics = [settings.script, settings.web_assembly]
             .into_iter()
             .map(|limit| RouteSize::new(route.clone(), limit, Self::sizes(&loaded, sizes, limit)))
             .filter(RouteSize::is_over)
             .map(|size| size.diagnostic())
-            .collect()
+            .collect();
+        let notes = Self::python_notes(&route, &inventory);
+        Ok((diagnostics, notes))
+    }
+
+    fn require_python_profile(
+        profile: Option<crate::tac_python::RuntimeProfile>,
+        inventory: &[(String, u64)],
+    ) -> Result<(), Failure> {
+        if [profile.is_none(), !inventory.is_empty()].contains(&false) {
+            return Ok(());
+        }
+        Err(crate::tac_python::RuntimeInventory::profile_missing())
+    }
+
+    fn python_notes(route: &str, inventory: &[(String, u64)]) -> Vec<String> {
+        if inventory.is_empty() {
+            return Vec::new();
+        }
+        let total: u64 = inventory.iter().map(|(_, bytes)| bytes).sum();
+        let auxiliary: u64 = inventory
+            .iter()
+            .filter(|(name, _)| name.ends_with(".zip") || name.ends_with(".json"))
+            .map(|(_, bytes)| bytes)
+            .sum();
+        vec![format!(
+            "Route '{route}' pinned Python runtime transfer: {total} bytes across all five dependencies, including {auxiliary} auxiliary ZIP/lock bytes. Script and WebAssembly limits retain their own categories."
+        )]
     }
 
     fn sizes(

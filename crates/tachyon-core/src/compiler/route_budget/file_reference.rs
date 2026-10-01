@@ -4,7 +4,7 @@ impl FileReference {
     const QUOTES: [char; 3] = ['"', '\'', '`'];
     const QUERY_MARKS: [char; 2] = ['?', '#'];
     const READ_EXTENSIONS: [&'static str; 4] = [".html", ".js", ".mjs", ".json"];
-    const REFERENCE_EXTENSIONS: [&'static str; 4] = [".js", ".mjs", ".wasm", ".json"];
+    const REFERENCE_EXTENSIONS: [&'static str; 5] = [".js", ".mjs", ".wasm", ".json", ".zip"];
     const SCHEME_MARK: &'static str = "://";
     const SAME_SCHEME_MARK: &'static str = "//";
     const SEPARATOR: char = '/';

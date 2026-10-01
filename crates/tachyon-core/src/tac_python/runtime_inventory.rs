@@ -15,6 +15,13 @@ impl RuntimeInventory {
         Self::runtime_files(loaded, files, sent_bytes)
     }
 
+    pub(crate) fn profile_missing() -> Failure {
+        RuntimeAssets::failure(
+            "client/manifest.json",
+            "a reachable Python service requires the explicit pinned offline profile",
+        )
+    }
+
     fn runtime_files(
         loaded: &BTreeSet<String>,
         files: &BTreeMap<String, &[u8]>,

@@ -7,6 +7,7 @@ pub(super) struct RouteBudgetSettings {
     pub(super) check: bool,
     pub(super) script: BudgetLimit,
     pub(super) web_assembly: BudgetLimit,
+    script_configured: bool,
 }
 
 impl RouteBudgetSettings {
@@ -37,7 +38,25 @@ impl RouteBudgetSettings {
                 .and_then(Value::as_bool)
                 .unwrap_or(Self::ON_BY_DEFAULT),
             script: Self::limit(budgets, Self::SCRIPT),
+            script_configured: budgets.get("script").and_then(Value::as_u64).is_some(),
             web_assembly: Self::limit(budgets, Self::WEB_ASSEMBLY),
+        }
+    }
+
+    pub(super) fn for_python_route(self, selected: bool) -> Self {
+        Self {
+            script: self.python_script(selected),
+            ..self
+        }
+    }
+
+    fn python_script(self, selected: bool) -> BudgetLimit {
+        if [selected, !self.script_configured].contains(&false) {
+            return self.script;
+        }
+        BudgetLimit {
+            bytes: crate::tac_python::RuntimeProfile::SCRIPT_BYTES,
+            ..self.script
         }
     }
 

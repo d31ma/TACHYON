@@ -42,6 +42,7 @@ pub use build_options::BuildOptions;
 pub use build_profile::BuildProfile;
 pub use build_result::BuildResult;
 pub use precompression::CompressionTotals;
+pub(crate) use route_budget::BudgetCheck;
 pub(crate) use tool_build::ToolBuild;
 
 use crate::failure::diagnostic;
@@ -187,7 +188,7 @@ async function cacheRead(request, asset) {
     if (!publicResponse(response) || (!asset && (!created || Date.now() - created > MAX_AGE))) {
       await bounded(cache.delete(request)); return null
     }
-    if (asset && !await matchesAsset(await bodyBytes(response.clone(), 4 * 1024 * 1024), asset)) {
+    if (asset && !await matchesAsset(await bodyBytes(response.clone(), asset.bodyLimit ?? 4 * 1024 * 1024), asset)) {
       await bounded(cache.delete(request)); return null
     }
     return response
@@ -199,7 +200,7 @@ async function cacheWrite(request, response, asset) {
   if (pendingWrites >= 16) return
   pendingWrites += 1
   try {
-    const bytes = await bodyBytes(response.clone(), asset ? 4 * 1024 * 1024 : 256 * 1024)
+    const bytes = await bodyBytes(response.clone(), asset ? (asset.bodyLimit ?? 4 * 1024 * 1024) : 256 * 1024)
     if (asset && !await matchesAsset(bytes, asset)) { await evict(request); return }
     const headers = new Headers(response.headers)
     headers.delete('content-encoding')

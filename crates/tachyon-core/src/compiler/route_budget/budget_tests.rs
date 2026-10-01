@@ -121,3 +121,105 @@ fn a_compressed_copy_counts_with_the_size_that_is_sent() {
         ]
     );
 }
+
+#[test]
+fn an_explicit_unused_python_profile_does_not_raise_an_ordinary_route_budget() {
+    let root = project(r#"{"tac":{"python":{"runtime":"pyodide-314.0.7","profile":"offline"}}}"#);
+    let files = vec![
+        file("index.html", "<script src='./ordinary.js'></script>", 0),
+        file("ordinary.js", "", 201 * 1024),
+        file(crate::tac_python::RuntimeInventory::ENGINE, "", 0),
+    ];
+    let failure = BudgetCheck::verify(root.path(), &files, true, &|_| None)
+        .err()
+        .unwrap_or_else(|| panic!("ordinary script default"));
+    assert!(failure.to_string().contains("budget is 200 KB"));
+}
+
+#[test]
+fn python_script_headroom_preserves_explicit_lower_limits_and_wasm_default() {
+    let ordinary = project("{}");
+    let selected = super::RouteBudgetSettings::read(ordinary.path()).for_python_route(true);
+    assert_eq!(selected.script.bytes, 512 * 1024);
+    assert_eq!(selected.web_assembly.bytes, 3584 * 1024);
+    let lower = project(r#"{"tac":{"budgets":{"script":100}}}"#);
+    assert_eq!(
+        super::RouteBudgetSettings::read(lower.path())
+            .for_python_route(true)
+            .script
+            .bytes,
+        100 * 1024
+    );
+}
+
+#[test]
+fn missing_python_runtime_dependencies_fail_without_bypassing_route_checks() {
+    let root = project(r#"{"tac":{"python":{"runtime":"pyodide-314.0.7","profile":"offline"}}}"#);
+    let files = vec![
+        file(
+            "index.html",
+            &format!(
+                "<script src='/{}'></script>",
+                crate::tac_python::RuntimeInventory::ENGINE
+            ),
+            0,
+        ),
+        file(crate::tac_python::RuntimeInventory::ENGINE, "", 0),
+    ];
+    assert!(
+        BudgetCheck::verify(root.path(), &files, true, &|_| None)
+            .err()
+            .unwrap_or_else(|| panic!("missing runtime"))
+            .to_string()
+            .contains("not emitted")
+    );
+}
+
+#[test]
+#[ignore = "requires pinned five-file core assets; set TAC_PYTHON_CORE to the verified local directory"]
+fn real_runtime_reports_auxiliary_bytes_and_keeps_the_wasm_transfer_budget() {
+    let root = project(r#"{"tac":{"python":{"runtime":"pyodide-314.0.7","profile":"offline"}}}"#);
+    let asset_root =
+        std::env::var_os("TAC_PYTHON_CORE").unwrap_or_else(|| panic!("explicit runtime assets"));
+    let names = [
+        "pyodide.mjs",
+        "pyodide.asm.mjs",
+        "pyodide.asm.wasm",
+        "python_stdlib.zip",
+        "pyodide-lock.json",
+    ];
+    let mut files: Vec<(PathBuf, Vec<u8>)> = names
+        .iter()
+        .map(|name| {
+            (
+                PathBuf::from(format!(".tachyon/services/python/314.0.7/{name}")),
+                std::fs::read(Path::new(&asset_root).join(name))
+                    .unwrap_or_else(|error| panic!("pinned asset: {error:?}")),
+            )
+        })
+        .collect();
+    files.push(file(
+        "index.html",
+        &format!(
+            "<script src='/{}'></script>",
+            crate::tac_python::RuntimeInventory::ENGINE
+        ),
+        0,
+    ));
+    files.push(file(crate::tac_python::RuntimeInventory::ENGINE, "", 0));
+    let failure = BudgetCheck::verify(root.path(), &files, true, &|_| None)
+        .err()
+        .unwrap_or_else(|| panic!("raw Wasm is over unchanged limit"));
+    assert!(failure.to_string().contains("budget is 3584 KB"));
+    let proxy_sent = |path: &str| match path.rsplit('/').next().unwrap_or_default() {
+        "pyodide.mjs" => Some(6453),
+        "pyodide.asm.mjs" => Some(207390),
+        "pyodide.asm.wasm" => Some(2741061),
+        "pyodide-lock.json" => Some(21689),
+        _ => None,
+    };
+    let notes = BudgetCheck::check(root.path(), &files, true, &proxy_sent)
+        .unwrap_or_else(|error| panic!("proxy size accounting: {error:?}"));
+    assert!(notes[0].contains("5522230 bytes"));
+    assert!(notes[0].contains("2567326 auxiliary ZIP/lock bytes"));
+}

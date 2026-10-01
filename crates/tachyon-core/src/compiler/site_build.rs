@@ -191,7 +191,9 @@ impl<'a> SiteBuild<'a> {
             WebCompiler::SERVICE_WORKER_REGISTRATION.as_bytes().to_vec(),
         );
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
-        let public_assets = ServiceWorker::assets(&self.files)?;
+        let python_profile =
+            crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
+        let public_assets = ServiceWorker::assets_with_profile(&self.files, python_profile)?;
         let service_worker = WebCompiler::SERVICE_WORKER
             .replace("__VERSION__", &version)
             .replace("__CACHE_RULES__", cache_rules)
@@ -217,12 +219,13 @@ impl<'a> SiteBuild<'a> {
         files.sort_by_key(|value| PortablePath::of(&value.0));
         let compressed = CompressedFiles::create(&files, &self.output_directory, self.compress)?;
         self.finish_compression_phase();
-        super::route_budget::BudgetCheck::verify(
-            self.snapshot_root,
-            &files,
-            self.compress,
-            &|path| compressed.sent_bytes(path),
-        )?;
+        self.service_notes
+            .extend(super::route_budget::BudgetCheck::check(
+                self.snapshot_root,
+                &files,
+                self.compress,
+                &|path| compressed.sent_bytes(path),
+            )?);
         super::ApiBaselineCheck::verify(self.snapshot_root, &files)?;
         let output_directory = std::mem::take(&mut self.output_directory);
         let stage = BuildStage::create(&output_directory)?;

@@ -42,6 +42,7 @@ mod server;
 mod storage;
 mod tac_dart;
 mod tac_lua;
+mod tac_python;
 mod tac_ruby;
 mod tac_web;
 mod template;
