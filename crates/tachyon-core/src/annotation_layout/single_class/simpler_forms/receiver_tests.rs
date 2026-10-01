@@ -113,7 +113,7 @@ fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
     assert!(SimplerForms::edits(root.path(), relative, source).is_empty());
     std::fs::write(
         root.path().join("client/manifest.json"),
-        r#"{"tac":{"implicitMembers":{"suggest":true}}}"#,
+        r#"{"tac":{"implicitmembers":{"suggest":true}}}"#,
     )
     .unwrap();
     assert!(SimplerForms::report(root.path()).contains("TY1362"));
@@ -124,7 +124,7 @@ fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
     std::fs::create_dir_all(root.path().join("server")).unwrap();
     std::fs::write(
         root.path().join("server/application.json"),
-        r#"{"implicitMembers":{"suggest":true}}"#,
+        r#"{"implicitmembers":{"suggest":true}}"#,
     )
     .unwrap();
     assert_eq!(
@@ -133,7 +133,7 @@ fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
     );
     std::fs::write(
         root.path().join("client/manifest.json"),
-        r#"{"tac":{"implicitMembers":{"suggest":false}}}"#,
+        r#"{"tac":{"implicitmembers":{"suggest":false}}}"#,
     )
     .unwrap();
     assert!(SimplerForms::edits(root.path(), relative, source).is_empty());
@@ -144,12 +144,45 @@ fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
 }
 
 #[test]
+fn implicit_members_opt_in_loads_as_framework_configuration() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(root.path().join("client/services")).unwrap();
+    std::fs::create_dir_all(root.path().join("server")).unwrap();
+    std::fs::write(
+        root.path().join("client/services/CounterService.java"),
+        "@Service\nclass CounterService {\n int count = 0;\n void increment() { this.count++; }\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.path().join("client/manifest.json"),
+        r#"{"tac":{"implicitmembers":{"suggest":true},"catalog":{"label":"Basket"}}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.path().join("server/application.json"),
+        r#"{"implicitmembers":{"suggest":true}}"#,
+    )
+    .unwrap();
+    let configuration = crate::ApplicationConfig::load_client(root.path()).unwrap();
+    let public: serde_json::Value =
+        serde_json::from_str(configuration.handler_json().unwrap()).unwrap();
+    assert_eq!(public.pointer("/tac/catalog/label").unwrap(), "Basket");
+    assert!(public.pointer("/tac/implicitmembers").is_none());
+    crate::ApplicationConfig::load_with_environment(
+        root.path(),
+        &std::collections::BTreeMap::new(),
+    )
+    .unwrap();
+    assert!(SimplerForms::report(root.path()).contains("TY1362"));
+}
+
+#[test]
 fn implicit_members_keeps_migration_edits_separate_and_bounded() {
     let root = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(root.path().join("client")).unwrap();
     std::fs::write(
         root.path().join("client/manifest.json"),
-        r#"{"tac":{"implicitMembers":{"suggest":true}}}"#,
+        r#"{"tac":{"implicitmembers":{"suggest":true}}}"#,
     )
     .unwrap();
     let relative = "client/services/CounterService.java";

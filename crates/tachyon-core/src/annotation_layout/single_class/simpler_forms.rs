@@ -51,11 +51,11 @@ mod total_loop;
 mod total_shape;
 
 mod receiver_forms;
+#[cfg(test)]
+mod receiver_runtime_tests;
 mod receiver_scope;
 #[cfg(test)]
 mod receiver_tests;
-#[cfg(test)]
-mod receiver_runtime_tests;
 #[cfg(test)]
 mod tests;
 
@@ -66,7 +66,7 @@ pub struct SimplerForms;
 
 impl SimplerForms {
     const RULE: &'static str = "simplify";
-    const RECEIVER_RULE: &'static str = "implicitMembers";
+    const RECEIVER_RULE: &'static str = "implicitmembers";
 
     #[must_use]
     pub fn report(project_root: &Path) -> String {
@@ -144,7 +144,7 @@ impl SimplerForms {
             return String::new();
         }
         format!(
-            "{count} simpler form(s) suggested. Run 'ty migrate fix --write' to apply them, or set tac.simplify.suggest / simplify.suggest to false to hide them. Receiver suggestions are controlled separately by tac.implicitMembers.suggest / implicitMembers.suggest.\n"
+            "{count} simpler form(s) suggested. Run 'ty migrate fix --write' to apply them, or set tac.simplify.suggest / simplify.suggest to false to hide them. Receiver suggestions are controlled separately by tac.implicitmembers.suggest / implicitmembers.suggest.\n"
         )
     }
 }

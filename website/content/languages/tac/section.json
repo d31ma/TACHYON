@@ -28,7 +28,7 @@
     },
     {
       "name": "client/services/TallyService.dart",
-      "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC), at -O4 in a release build. It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitMembers.suggest in client/manifest.json.",
+      "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC), at -O4 in a release build. It runs on every target, because native hosts display the application in a web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json.",
       "code": {
         "file": "client/services/TallyService.dart"
       }
@@ -66,28 +66,28 @@
       "code": {
         "file": "client/services/TallyService.swift"
       },
-      "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitMembers.suggest in client/manifest.json."
+      "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
     },
     {
       "name": "client/services/TallyService.kt",
       "code": {
         "file": "client/services/TallyService.kt"
       },
-      "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitMembers.suggest in client/manifest.json."
+      "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
     },
     {
       "name": "client/services/TallyService.java",
       "code": {
         "file": "client/services/TallyService.java"
       },
-      "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083). `ty init --tac java` creates a Java service with its test unit, and `ty doctor --install` puts the TeaVM 0.15.0 jars into the Tachyon cache after it checks each one against its pinned SHA-256; `TAC_TEAVM_HOME` can point at your own copy instead. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitMembers.suggest in client/manifest.json."
+      "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. It needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer (ADR 0083). `ty init --tac java` creates a Java service with its test unit, and `ty doctor --install` puts the TeaVM 0.15.0 jars into the Tachyon cache after it checks each one against its pinned SHA-256; `TAC_TEAVM_HOME` can point at your own copy instead. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
     },
     {
       "name": "client/services/TallyService.cs",
       "code": {
         "file": "client/services/TallyService.cs"
       },
-      "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the trimmed .NET browser runtime (compiled ahead of time when tac.dotnet.aot is true). Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitMembers.suggest in client/manifest.json."
+      "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the trimmed .NET browser runtime (compiled ahead of time when tac.dotnet.aot is true). Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
     },
     {
       "name": "client/services/TallyService.fs",

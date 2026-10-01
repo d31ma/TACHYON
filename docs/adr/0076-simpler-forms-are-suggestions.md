@@ -82,8 +82,8 @@ Receiver scans additionally skip files over 16,384 tokens or 256 explicit member
 accesses, bounding conservative scope checks. Disabled realms do not run the
 receiver scan. Edits share the existing overlap filter before migration writes.
 
-This suggestion has its own opt-in switches: `tac.implicitMembers.suggest`
-in the client manifest and `implicitMembers.suggest` in the server application
+This suggestion has its own opt-in switches: `tac.implicitmembers.suggest`
+in the client manifest and `implicitmembers.suggest` in the server application
 configuration. Both default to false. Existing simpler-form settings and codes
 keep their behavior. A migration applies receiver edits only when the matching
 realm opted in.

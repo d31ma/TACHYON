@@ -2,9 +2,9 @@
 sealed class CatalogServiceTest {
     int twice(int value) { return value * 2; }
     void testHasAContext() {
-        Assert.isTrue(this.behaviors != null, "the case has a context");
+        Assert.isTrue(behaviors != null, "the case has a context");
     }
     void testDoublesAValue() {
-        Assert.equals(8, this.twice(4));
+        Assert.equals(8, twice(4));
     }
 }

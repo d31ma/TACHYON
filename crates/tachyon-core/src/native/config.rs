@@ -394,7 +394,7 @@ pub(crate) struct TacMember {
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 16] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 17] = [
         "origin",
         "application",
         "scripts",
@@ -411,6 +411,7 @@ impl TacMember {
         "browserApis",
         "nativeCapabilities",
         "elements",
+        "implicitmembers",
     ];
 }
 
