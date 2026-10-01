@@ -78,9 +78,12 @@ impl ManualHelpers {
         let definition = [extension == "dart", helper.body.contains(&at)] == [true, true];
         let factory = Self::factory_call(before, after);
         let declaration = (helper.declaration..helper.body.start).contains(&at);
+        let return_type = [extension == "rs", Self::rust_return_type(before)] == [true, true];
+        let rust_declaration =
+            [extension == "rs", Self::rust_declaration_context(before)] == [true, true];
         [
             Self::name_boundary(before, after),
-            ![declaration, definition].contains(&true),
+            ![declaration, definition, return_type, rust_declaration].contains(&true),
             [constructor, factory].contains(&true),
         ] == [true, true, true]
     }
@@ -115,8 +118,51 @@ impl ManualHelpers {
         check(word, after.trim_start())
     }
 
-    fn rust_call(_word: &str, tail: &str) -> bool {
-        Self::named_call(tail, "::new")
+    fn rust_call(word: &str, tail: &str) -> bool {
+        let declaration = ["struct", "impl", "type", "for", "as", "->"].contains(&word);
+        [!declaration, Self::rust_invocation(tail)] == [true, true]
+    }
+
+    fn rust_invocation(tail: &str) -> bool {
+        let associated = Self::rust_associated(tail);
+        [associated, tail.starts_with('{')].contains(&true)
+    }
+
+    fn rust_associated(tail: &str) -> bool {
+        let Some(method) = tail.strip_prefix("::") else {
+            return false;
+        };
+        let length = method
+            .bytes()
+            .take_while(|byte| Self::name_byte(*byte))
+            .count();
+        [length > 0, method[length..].trim_start().starts_with('(')] == [true, true]
+    }
+
+    fn rust_declaration_context(before: &str) -> bool {
+        let tail = before.split_whitespace().next_back().unwrap_or("");
+        let prefix = before.trim_end().strip_suffix(tail).unwrap_or(before);
+        let word = if tail.ends_with("::") {
+            prefix.split_whitespace().next_back().unwrap_or("")
+        } else {
+            tail
+        };
+        ["struct", "impl", "type", "for", "as"].contains(&word)
+    }
+
+    fn rust_return_type(before: &str) -> bool {
+        before
+            .rsplit_once("->")
+            .is_some_and(|(_, tail)| tail.chars().all(Self::type_path_character))
+    }
+
+    fn type_path_character(character: char) -> bool {
+        [
+            character.is_ascii_alphanumeric(),
+            character.is_whitespace(),
+            ['_', ':', '&', '*', '\''].contains(&character),
+        ]
+        .contains(&true)
     }
 
     fn ruby_call(_word: &str, tail: &str) -> bool {
@@ -251,6 +297,44 @@ mod tests {
     fn names(extension: &str, source: &str) -> BTreeSet<String> {
         ManualHelpers::read(Path::new(&format!("yon.{extension}")), source)
             .unwrap_or_else(|failure| panic!("{failure}"))
+    }
+
+    #[test]
+    fn rust_associated_invocations_and_literals_prove_manual_ownership() {
+        let declaration =
+            "#[Helper]\nstruct ProbeHelper {}\nimpl ProbeHelper { fn answer() -> i32 { 1 } }\n";
+        for caller in [
+            "fn caller() { let value = ProbeHelper::answer(); }",
+            "fn caller() { let value = ProbeHelper::default(); }",
+            "fn caller() { let value = ProbeHelper {}; }",
+            "fn caller() -> ProbeHelper { ProbeHelper {} }",
+        ] {
+            assert_eq!(
+                names("rs", &format!("{declaration}{caller}")),
+                BTreeSet::from(["ProbeHelper".into()]),
+                "{caller}"
+            );
+        }
+    }
+
+    #[test]
+    fn rust_declarations_return_types_and_method_references_are_not_calls() {
+        let declaration = "#[Helper]\nstruct ProbeHelper {}\n";
+        for reference in [
+            "impl ProbeHelper {}",
+            "impl Trait for ProbeHelper {}",
+            "impl Trait for crate::ProbeHelper {}",
+            "fn caller() -> ProbeHelper { panic!() }",
+            "fn caller() -> crate::ProbeHelper { panic!() }",
+            "fn caller() -> &ProbeHelper { panic!() }",
+            "fn caller() { let method = ProbeHelper::answer; }",
+            "type Alias = ProbeHelper;",
+        ] {
+            assert!(
+                names("rs", &format!("{declaration}{reference}")).is_empty(),
+                "{reference}"
+            );
+        }
     }
 
     #[test]
