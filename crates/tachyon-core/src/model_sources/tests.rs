@@ -17,7 +17,8 @@ fn java_yon_checked_models_preserve_metadata_before_sdk_projection() {
     let lowered = crate::behavior::lower(entry, &authored, "yon")
         .expect("schema lowering")
         .expect("annotated source");
-    assert!(lowered.contains("OrderInput") && lowered.contains("required"));
+    assert!(lowered.contains("case \"OrderInput\": return validateRules"));
+    assert!(lowered.contains("new Rule(\"name\", true, false, null, null, null, null)"));
     let role = models
         .metadata()
         .without_declarations(entry, &lowered)
