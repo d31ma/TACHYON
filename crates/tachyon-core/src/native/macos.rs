@@ -358,8 +358,10 @@ pub(super) fn swift_source(
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit(companion_call))
         .replace(
             "__NATIVE_GRANTS__",
-            &serde_json::to_string(&application.native_capabilities)
-                .unwrap_or_else(|_| String::from("[]")),
+            &quoted_string_escape(
+                &serde_json::to_string(&application.native_capabilities)
+                    .unwrap_or_else(|_| String::from("[]")),
+            ),
         )
         .replace(
             "__NATIVE_CAPABILITY_MODELS__",

@@ -106,6 +106,12 @@ impl NativeCapabilityCheck {
 
     async fn host_compiles() -> String {
         let root = tempfile::tempdir().expect("project");
+        std::fs::create_dir_all(root.path().join("client")).expect("client directory");
+        std::fs::write(
+            root.path().join("client/manifest.json"),
+            r#"{"tac":{"nativeCapabilities":["filePicker"]}}"#,
+        )
+        .expect("actual manifest grant");
         let application =
             super::config::NativeApplication::discover(root.path()).expect("application");
         let index = super::routes::NativeRouteIndex {
