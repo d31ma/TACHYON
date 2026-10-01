@@ -11,7 +11,7 @@ fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
         ),
         (
             "client/services/ChoiceService.java",
-            "@Service\nclass ChoiceService {\n    @Needs\n    ReadPort port;\n    String answer() { return port.read(); }\n}\n",
+            "@Service\nclass ChoiceService {\n    @Needs\n    private final ReadPort port;\n    String answer() { return port.read(); }\n}\n",
         ),
         (
             "client/tests/ChoiceTestSetup.java",

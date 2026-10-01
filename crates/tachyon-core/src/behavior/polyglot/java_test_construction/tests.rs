@@ -4,15 +4,15 @@ fn lowered(fake: &str) -> String {
     let source = format!(
         "@Test(TestSetup)\nclass ChoiceServiceTest {{\n    {fake}\n    void testRead() {{}}\n}}\n\
          @TestSetup\nclass TestSetup {{\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {{\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null, null);\n    }}\n}}\n\
-         class ChoiceService {{\n    @Needs\n    String value;\n}}\n"
+         @Service\nclass ChoiceService {{\n    @Needs\n    private final String value;\n}}\n"
     );
-    crate::behavior::lower(
-        Path::new("client/tests/ChoiceServiceTest.java"),
-        &source,
-        "tac",
-    )
-    .expect("Test with declared fake")
-    .expect("Java lowering")
+    let path = Path::new("client/tests/ChoiceServiceTest.java");
+    let source = crate::behavior::ServiceRoles::read(path, &source)
+        .expect("production role stripping used by native Test staging")
+        .source;
+    crate::behavior::lower(path, &source, "tac")
+        .expect("Test with declared fake")
+        .expect("Java lowering")
 }
 
 #[test]
@@ -22,7 +22,7 @@ fn declared_fake_values_are_passed_to_the_real_typed_constructor() {
     assert!(
         source.contains("type.cast(new ChoiceService(java.util.Objects.requireNonNull(this.value")
     );
-    assert!(source.contains("final String value;"));
+    assert!(source.contains("private final String value;"));
     assert!(!source.contains("java.lang.reflect"));
     assert!(!source.contains("getDeclaredField"));
 }
