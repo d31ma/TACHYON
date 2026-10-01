@@ -86,21 +86,21 @@ impl PythonTacFixture {
     }
 
     fn stage(&self) {
-        Self::FILES
-            .iter()
-            .for_each(|(path, source)| Self::write(&self.root.join(path), source.as_bytes()));
+        for (path, source) in Self::FILES {
+            Self::write(&self.root.join(path), source.as_bytes());
+        }
     }
 
     fn stage_assets(&self) {
         let verified = RuntimeAssets::read(&self.core)
             .unwrap_or_else(|error| panic!("pinned fixture assets: {error:?}"));
         let target = RuntimeAssets::cached_root();
-        verified.into_iter().for_each(|(path, bytes)| {
+        for (path, bytes) in verified {
             let name = Path::new(&path)
                 .file_name()
                 .unwrap_or_else(|| panic!("pinned filename"));
             Self::write(&target.join(name), &bytes);
-        });
+        }
     }
 
     async fn build(&self) {
@@ -127,7 +127,7 @@ impl PythonTacFixture {
             .env("TAC_PYTHON_FIXTURE_OUT", &self.root)
             .env("TAC_PYTHON_SOURCE_COMMIT", &self.source)
             .env("TAC_BIN", &self.binary);
-        let output = crate::external_command::run(&mut command, Duration::from_secs(60), 1_048_576)
+        let output = crate::external_command::run(&mut command, Duration::from_mins(1), 1_048_576)
             .await
             .unwrap_or_else(|error| panic!("supervised browser probe: {error}"));
         assert!(
