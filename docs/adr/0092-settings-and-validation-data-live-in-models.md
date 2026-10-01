@@ -33,8 +33,15 @@ The approved recovery scope is the affected Yon languages and preservation of
 the existing Java Tac checked-model adapter. Other compiled Tac schema adapters
 remain pending; model capture reports a located TY1310 instead of accepting a
 schema and silently dropping its behavior. Plain client models remain supported.
-JavaScript and TypeScript model capture are implemented and qualified separately
-by the coordinator using their existing frontend.
+JavaScript and TypeScript schema classes contain data fields and literal defaults;
+constructors, methods, getters, inheritance and executable defaults are refused.
+They retain existing ambient model names: JavaScript uses JSDoc type references,
+and TypeScript uses type-only imports with the actual declared schema name.
+Renamed schema aliases and runtime value imports from models are not part of this
+adapter qualification. Ordinary JavaScript JSDoc models and TypeScript interfaces
+remain unchanged. Tac schema harvesting and plain data emission are qualified by
+an actual emitted-module probe: valid input reaches the service, invalid input
+fails before its call count changes. Four focused layout/discovery tests also pass.
 
 Acceptance requires the immutable settings and validation fixtures to execute
 through their actual language adapters, including invalid inputs and the

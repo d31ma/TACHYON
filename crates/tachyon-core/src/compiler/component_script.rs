@@ -36,6 +36,16 @@ impl ComponentScript {
             std::str::from_utf8(bytes).map_err(|_| Self::retired_decorator_failure(source_path))?;
         Self::refuse_retired_decorators(source, source_path)?;
         let path = Path::new(source_path);
+        let models = crate::model_sources::ModelSources::read(
+            snapshot_root,
+            "client",
+            path.extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or(""),
+        )?;
+        let metadata = models.metadata();
+        let assembled = metadata.assembled(path, source)?;
+        let source = assembled.as_str();
         crate::behavior::StoredState::refuse_sigils(path, source)?;
         let events = Self::described_events(snapshot_root, path, source)?;
         let resources = events
@@ -46,7 +56,14 @@ impl ComponentScript {
             .as_ref()
             .map_or(source, |events| events.source.as_str());
         let lowered = crate::behavior::lower_with_resources(path, source, "tac", &resources)?;
-        let mut bytes = Self::lowered_bytes(lowered, source);
+        let lowered = lowered
+            .map(|text| metadata.without_declarations(path, &text))
+            .transpose()?;
+        let plain = metadata.without_declarations(path, source)?;
+        let prepared = Self::lowered_bytes(lowered, &plain);
+        let mut bytes = models
+            .add_to_program(&String::from_utf8_lossy(&prepared))
+            .into_bytes();
         bytes.extend(Self::event_plan_export(events.as_ref(), source_path)?);
         Ok(bytes)
     }

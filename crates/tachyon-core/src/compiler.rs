@@ -380,6 +380,9 @@ pub(crate) fn publish(stage: tempfile::TempDir, destination: &Path) -> io::Resul
 mod web_api_tests;
 
 #[cfg(test)]
+mod model_script_tests;
+
+#[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
 

@@ -21,6 +21,7 @@ mod python;
 mod ruby;
 mod rust;
 mod schema_constructor;
+mod script_schema;
 mod swift;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -244,9 +245,26 @@ impl<'a> ModelFile<'a> {
         };
         let source = projection.as_deref().unwrap_or(self.source);
         let code = crate::annotation_layout::masked_source(self.path, source)?;
+        let script_schema =
+            projection.is_some() && matches!(language, Language::JavaScript | Language::TypeScript);
+        let code = if script_schema {
+            model_blocks::StringFill::apply(
+                self.path
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or(""),
+                source,
+                &code,
+            )
+        } else {
+            code
+        };
         let start = source.len() - crate::without_bom(source).len();
         let piece = Piece::new(start, &code[start..]);
         let refused = match (language, projection.is_some()) {
+            (Language::JavaScript | Language::TypeScript, true) => {
+                script_schema::ScriptSchema::first_refused(piece, source)
+            }
             (Language::Python, true) => python::PythonModel::schema_refused(piece),
             (Language::CSharp, true) => {
                 schema_constructor::SchemaConstructor::first_refused(piece, source)
@@ -257,9 +275,14 @@ impl<'a> ModelFile<'a> {
             return Ok(());
         };
         let realm = self.realm;
+        let declarations = if script_schema {
+            "data classes with fields and literal defaults"
+        } else {
+            language.declarations()
+        };
         Err(self.failure(
             at,
-            format!("A {} models file declares only {}", language.name(), language.declarations()),
+            format!("A {} models file declares only {}", language.name(), declarations),
             format!("Move behavior to a service or role file, for example '{realm}/services/', and plain code to '{realm}/shared/'."),
         ))
     }
@@ -339,7 +362,9 @@ pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
         return Ok(());
     };
     let language = model.check_language()?;
-    if language == Language::TypeScript {
+    if language == Language::TypeScript
+        && crate::behavior::ModelSchema::plain(path, source)?.is_none()
+    {
         return model.check_statements();
     }
     if language == Language::Go {
