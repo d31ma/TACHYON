@@ -488,11 +488,11 @@ function versionFlag(tool) {
 
 /** @param {string} tool */
 function isToolAvailable(tool) {
-  if (!Toolchains.checks.has(tool)) {
-    const check = runCommand(tool, [versionFlag(tool)], { timeout: 15_000 }).then(() => true, () => false)
-    Toolchains.checks.set(tool, check)
-  }
-  return Toolchains.checks.get(tool)
+  const cached = Toolchains.checks.get(tool)
+  if (cached) return cached
+  const check = runCommand(tool, [versionFlag(tool)], { timeout: 15_000 }).then(() => true, () => false)
+  Toolchains.checks.set(tool, check)
+  return check
 }
 
 /**

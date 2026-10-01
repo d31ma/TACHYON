@@ -1,7 +1,15 @@
-@Store()
-class Inventory {
-  find() { return ['one', 'two']; }
+@Entity({ adapter: 'memory' })
+class InventoryItem {
+  @Id
+  id = '';
 }
+
+@Store(InventoryItem, { fields: ['id'], defaultSize: 20, maxSize: 100 })
+class Inventory extends Repository<InventoryItem, string> {}
+
+// @ts-expect-error A Store must name its Entity and query options.
+@Store()
+class UnconfiguredStore {}
 
 @HTTPClient
 class RemoteCatalog {}
@@ -32,7 +40,7 @@ class Products {
 
   @GetRoute
   async getProducts(request: { method: string }) {
-    return { method: request.method, products: this.products.inventory.find() };
+    return { method: request.method, products: await this.products.inventory.findAll({}) };
   }
 
   @PostRoute
