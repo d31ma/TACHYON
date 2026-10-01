@@ -16,17 +16,18 @@ class PythonTacGate {
     const sourceCommit = PythonTacGate.required('TAC_PYTHON_SOURCE_COMMIT')
     const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
     const started = performance.now()
+    const diagnostics = { phase: 'starting-preview', errors: [], consoleErrors: [], failedRequests: [], httpErrors: [], externalRequests: [] }
     let timer
     try {
       const expired = new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('Python Tac browser fixture exceeded 45 seconds')), PythonTacGate.timeoutMilliseconds)
       })
-      const result = await Promise.race([PythonTacGate.serve(binary, fixture), expired])
+      const result = await Promise.race([PythonTacGate.serve(binary, fixture, diagnostics), expired])
       await PythonTacGate.receipt(fixture, { ...result, sourceCommit, serverBinary: binary, serverBinarySha256: compilerSha256, elapsedMilliseconds: performance.now() - started })
       PythonTacGate.assertResult(result)
       console.log(JSON.stringify(result))
     } catch (error) {
-      await PythonTacGate.receipt(fixture, { status: 'fail', error: String(error), sourceCommit, serverBinary: binary, serverBinarySha256: compilerSha256, elapsedMilliseconds: performance.now() - started })
+      await PythonTacGate.receipt(fixture, { ...diagnostics, status: 'fail', error: PythonTacGate.summary(error), sourceCommit, serverBinary: binary, serverBinarySha256: compilerSha256, elapsedMilliseconds: performance.now() - started })
       throw error
     } finally {
       clearTimeout(timer)
@@ -42,40 +43,70 @@ class PythonTacGate {
     await writeFile(path.join(fixture, 'python-tac-browser.json'), JSON.stringify({ ...result, scope: 'initial synchronous Python Tac Chromium fixture', asynchronousQualified: false, fullPythonTacQualified: false }, null, 2) + '\n')
   }
 
-  static async serve(binary, fixture) {
+  static async serve(binary, fixture, diagnostics) {
     let result
     await withServer(binary, ['preview', fixture, '--static', '--out-dir', 'dist', '--host', '127.0.0.1', '--port', '0', '--no-self-restart'], async request => {
       const origin = new URL((await request('/')).url).origin
-      result = await PythonTacGate.probe(origin)
+      result = await PythonTacGate.probe(origin, diagnostics)
     })
     return result
   }
 
-  static async probe(origin) {
+  static async probe(origin, diagnostics) {
+    diagnostics.phase = 'launching-browser'
     const browser = await chromium.launch({ timeout: 10_000 })
+    diagnostics.chromiumVersion = browser.version()
     try {
       const context = await browser.newContext({ serviceWorkers: 'allow' })
       const page = await context.newPage()
-      const errors = []
-      const externalRequests = []
-      page.on('pageerror', error => errors.push(String(error)))
-      page.on('request', request => {
-        const url = new URL(request.url())
-        if (url.protocol.startsWith('http') && url.origin !== origin) externalRequests.push(url.href)
-      })
+      PythonTacGate.observe(page, origin, diagnostics)
+      diagnostics.phase = 'opening-python-view'
       await PythonTacGate.open(page, origin)
+      diagnostics.phase = 'online-service-assertions'
       const online = await PythonTacGate.exercise(page)
+      diagnostics.phase = 'waiting-for-pinned-cache'
       const cached = await PythonTacGate.waitForPinnedCache(page)
+      diagnostics.phase = 'offline-reload'
       await context.setOffline(true)
       await page.reload({ waitUntil: 'networkidle', timeout: 20_000 })
       await page.locator('#python-ready').waitFor({ timeout: 15_000 })
       assert.equal(await page.locator('#python-ready').textContent(), 'Python ready')
+      diagnostics.phase = 'offline-service-assertions'
       const offline = await PythonTacGate.exercise(page)
       await context.setOffline(false)
-      return { status: 'pass', chromiumVersion: browser.version(), online, offline, cached, errors, externalRequests }
+      diagnostics.phase = 'complete'
+      return { ...diagnostics, status: 'pass', online, offline, cached }
     } finally {
       await browser.close()
     }
+  }
+
+  static observe(page, origin, diagnostics) {
+    page.on('pageerror', error => PythonTacGate.record(diagnostics.errors, PythonTacGate.summary(error)))
+    page.on('console', message => {
+      if (['error', 'warning'].includes(message.type())) PythonTacGate.record(diagnostics.consoleErrors, { type: message.type(), message: PythonTacGate.summary(message.text()) })
+    })
+    page.on('requestfailed', request => PythonTacGate.record(diagnostics.failedRequests, { path: PythonTacGate.safePath(request.url()), resource: request.resourceType(), error: PythonTacGate.summary(request.failure()?.errorText ?? 'unknown failure') }))
+    page.on('response', response => {
+      if (response.status() >= 400) PythonTacGate.record(diagnostics.httpErrors, { path: PythonTacGate.safePath(response.url()), status: response.status() })
+    })
+    page.on('request', request => {
+      const url = new URL(request.url())
+      if (url.protocol.startsWith('http') && url.origin !== origin) PythonTacGate.record(diagnostics.externalRequests, PythonTacGate.safePath(url.href))
+    })
+  }
+
+  static record(entries, value) {
+    if (entries.length < 20) entries.push(value)
+  }
+
+  static summary(value) {
+    return String(value).replace(/\u001b\[[0-9;]*m/g, '').split('\n').map(line => line.trim()).filter(Boolean).at(-1)?.slice(0, 360) ?? 'unknown error'
+  }
+
+  static safePath(value) {
+    const url = new URL(value)
+    return url.protocol.startsWith('http') ? url.pathname.slice(0, 240) : url.protocol
   }
 
   static async open(page, origin) {
