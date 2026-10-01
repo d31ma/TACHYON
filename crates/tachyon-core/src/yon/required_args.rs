@@ -68,6 +68,15 @@ pub(crate) fn required_fields(
 }
 
 pub(crate) fn prepare(path: &Path, source: &str) -> Result<Option<String>, Failure> {
+    let manual = super::manual_helpers::ManualHelpers::read(path, source)?;
+    prepare_with_manual(path, source, &manual)
+}
+
+pub(crate) fn prepare_with_manual(
+    path: &Path,
+    source: &str,
+    manual: &BTreeSet<String>,
+) -> Result<Option<String>, Failure> {
     if !mentions_constructor(source) {
         return Ok(None);
     }
@@ -97,10 +106,10 @@ pub(crate) fn prepare(path: &Path, source: &str) -> Result<Option<String>, Failu
     if !active_constructor(&input.code, extension) {
         return Ok(None);
     }
-    expand_source(&input)
+    expand_source(&input, manual)
 }
 
-fn expand_source(input: &Input<'_>) -> Result<Option<String>, Failure> {
+fn expand_source(input: &Input<'_>, manual: &BTreeSet<String>) -> Result<Option<String>, Failure> {
     let managed = declarations(input)?;
     let providers: BTreeSet<_> = managed
         .iter()
@@ -108,7 +117,7 @@ fn expand_source(input: &Input<'_>) -> Result<Option<String>, Failure> {
         .chain(["DataSource", "RedisTemplate", "ApplicationEventPublisher"])
         .collect();
     let mut edits = Vec::new();
-    for item in &managed {
+    for item in managed.iter().filter(|item| !manual.contains(&item.name)) {
         expand(input, item, &providers, &mut edits)?;
     }
     if edits.is_empty() {
@@ -600,7 +609,13 @@ fn accepts_arguments(marker: &Marker) -> bool {
 fn managed_role(name: &str) -> bool {
     matches!(
         name,
-        "service" | "requestroute" | "socketroute" | "store" | "client" | "httpclient" | "helper"
+        "service"
+            | "requestroute"
+            | "socketroute"
+            | "store"
+            | "client"
+            | "httpclient"
+            | "helper"
             | "converter"
     )
 }
@@ -717,6 +732,15 @@ fn matching(code: &str, start: usize, opening: u8, closing: u8) -> Option<usize>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn caller_owned_helper_field_needs_retains_authored_construction() {
+        let source = "[Helper]\nclass ProbeHelper {\n [Needs]\n public BehaviorContext behaviors;\n}\nclass Caller { object value = Behaviors.construct(typeof(ProbeHelper), context); }";
+        let output =
+            prepare(Path::new("yon.cs"), source).unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(output.is_none(), "{output:?}");
+        assert!(source.contains("[Needs]"));
+    }
 
     #[test]
     fn autowired_fields_generate_the_constructor() {
