@@ -1,0 +1,11 @@
+from typing import Annotated
+
+@service
+class AuditService:
+    audit: Annotated[AuditHelper, needs]
+
+    def ready(self) -> str:
+        return 'Python ready'
+
+    def snapshot(self) -> list[int]:
+        return self.audit.snapshot()

@@ -15,6 +15,8 @@ mod runtime_settings;
 #[cfg(test)]
 mod backend_tests;
 #[cfg(test)]
+mod browser_tests;
+#[cfg(test)]
 mod tests;
 
 pub(crate) use runtime_doctor::RuntimeDoctor;
