@@ -1280,7 +1280,9 @@ impl ImportMerge {
     }
 
     fn add_statement(&mut self, path: &Path, statement: &str) -> Result<(), Failure> {
-        let specifier = self.first_spelling(import_specifier(statement).unwrap_or_default());
+        let canonical =
+            SharedImports::canonical(path, import_specifier(statement).unwrap_or_default());
+        let specifier = self.first_spelling(&canonical);
         let statement = statement.trim_end_matches(';');
         if statement.contains(" with {") || statement.contains(" assert {") {
             self.verbatim.insert(statement.to_owned());

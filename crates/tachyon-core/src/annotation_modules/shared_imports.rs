@@ -1,9 +1,18 @@
 use super::{Failure, folded, import_specifier, import_statements, masked_source};
 use std::path::{Component, Path, PathBuf};
 
+#[cfg(test)]
+mod tests;
+
 pub(super) struct SharedImports;
 
 impl SharedImports {
+    pub(super) fn canonical(entry: &Path, specifier: &str) -> String {
+        Self::path(entry, specifier)
+            .map(|target| Self::relative_path(entry, &target))
+            .unwrap_or_else(|| specifier.to_owned())
+    }
+
     pub(super) fn path(path: &Path, specifier: &str) -> Option<PathBuf> {
         let parent = Self::realm_parent(path, specifier)?;
         Self::resolve(parent, specifier)
@@ -102,7 +111,15 @@ impl SharedImports {
         let target: Vec<_> = target.components().collect();
         let shared = Self::shared_depth(&parent, &target);
         let relative = Self::relative_components(parent.len() - shared, &target[shared..]);
-        relative.to_string_lossy().replace('\\', "/")
+        Self::relative_specifier(relative.to_string_lossy().replace('\\', "/"))
+    }
+
+    fn relative_specifier(path: String) -> String {
+        if path.starts_with('.') {
+            path
+        } else {
+            format!("./{path}")
+        }
     }
 
     fn shared_depth(parent: &[Component<'_>], target: &[Component<'_>]) -> usize {
