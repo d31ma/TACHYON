@@ -12,7 +12,7 @@ class PreferenceStringsBrowserGate {
     const binary = path.resolve(PreferenceStringsBrowserGate.required('TAC_BIN'))
     const sourceCommit = PreferenceStringsBrowserGate.required('TAC_PREFERENCE_SOURCE_COMMIT')
     const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
-    const diagnostics = { phase: 'starting-preview', sourceCommit, compilerSha256, errors: [], failedRequests: [], externalRequests: [] }
+    const diagnostics = { phase: 'starting-preview', sourceCommit, fixtureSourceCommit: process.env.TAC_PREFERENCE_FIXTURE_SOURCE_COMMIT ?? 'not supplied', compilerSha256, errors: [], failedRequests: [], externalRequests: [] }
     const started = performance.now()
     try {
       const result = await withServer(binary, ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
@@ -33,7 +33,7 @@ class PreferenceStringsBrowserGate {
   }
 
   static async receipt(root, result) {
-    await writeFile(path.join(root, 'preference-strings-browser.json'), JSON.stringify({ ...result, scope: 'ordinary production Java TeaVM adapter/table through Chromium', denial: 'SecurityError fault injected at browser Storage.prototype; host transport unchanged', internalRetainedJavaProvider: 'separate JDK ownership gate; this browser receipt proves facade disposal only', allLanguageParityQualified: false }, null, 2) + '\n')
+    await writeFile(path.join(root, 'preference-strings-browser.json'), JSON.stringify({ ...result, scope: 'ordinary production Java TeaVM adapter/table and actual website Snippet retained-model integration through Chromium', denial: 'SecurityError fault injected at browser Storage.prototype; host transport unchanged', internalRetainedJavaProvider: 'separate JDK ownership gate; this browser receipt proves facade disposal only', allLanguageParityQualified: false }, null, 2) + '\n')
   }
 
   static async probe(origin, diagnostics) {
@@ -53,6 +53,8 @@ class PreferenceStringsBrowserGate {
       await page.waitForFunction(() => document.querySelector('#preference-value')?.textContent === 'Linux', undefined, { timeout: 5_000 })
       diagnostics.phase = 'retained-java-model-events'
       const publication = await PreferenceStringsBrowserGate.publication(page)
+      diagnostics.phase = 'actual-website-snippet-replay'
+      const websiteSnippet = await PreferenceStringsBrowserGate.websiteSnippet(page)
       diagnostics.phase = 'compiled-java-activation'
       const activation = await PreferenceStringsBrowserGate.activation(page)
       PreferenceStringsBrowserGate.checkActivation(activation)
@@ -63,7 +65,7 @@ class PreferenceStringsBrowserGate {
       assert.deepEqual(diagnostics.failedRequests, [])
       assert.deepEqual(diagnostics.externalRequests, [])
       diagnostics.phase = 'complete'
-      return { ...diagnostics, activation, publication, reloadRawValue: await page.locator('#preference-value').textContent() }
+      return { ...diagnostics, activation, publication, websiteSnippet, reloadRawValue: await page.locator('#preference-value').textContent() }
     } finally {
       await browser.close()
     }
@@ -94,6 +96,43 @@ class PreferenceStringsBrowserGate {
     await page.locator('#preference-show-late').click()
     await page.waitForFunction(() => document.querySelector('#preference-late-value')?.textContent === 'windows', undefined, { timeout: 5_000 })
     return { firstReplay: replay, deniedStoredValue: denied, deniedPublicationReplay: await page.locator('#preference-late-value').textContent() }
+  }
+
+  static async websiteSnippet(page) {
+    const primary = page.locator('#snippet-primary')
+    await primary.getByRole('tab', { name: 'macOS', exact: true }).click()
+    await PreferenceStringsBrowserGate.selectedSnippet(primary, 'macOS', 'SwiftExample.swift')
+    const originalSetter = await page.evaluateHandle(() => {
+      const original = Storage.prototype.setItem
+      Storage.prototype.setItem = () => { throw new DOMException('Fixture storage denied', 'SecurityError') }
+      return original
+    })
+    try {
+      await primary.getByRole('tab', { name: 'Android', exact: true }).click()
+      await PreferenceStringsBrowserGate.selectedSnippet(primary, 'Android', 'KotlinExample.kt')
+    } finally {
+      await originalSetter.evaluate(original => { Storage.prototype.setItem = original })
+      await originalSetter.dispose()
+    }
+    const storedWhileDenied = await page.evaluate(() => localStorage.getItem('tachyon.platform'))
+    assert.equal(storedWhileDenied, 'macos', 'denial preserves raw storage while the live snippet receives Android')
+    await page.locator('#snippet-late-show').click()
+    const late = page.locator('#snippet-late')
+    await PreferenceStringsBrowserGate.selectedSnippet(late, 'Android', 'KotlinExample.kt')
+    await page.locator('#snippet-late-hide').click()
+    await late.waitFor({ state: 'detached', timeout: 5_000 })
+    await page.locator('#snippet-late-show').click()
+    await PreferenceStringsBrowserGate.selectedSnippet(late, 'Android', 'KotlinExample.kt')
+    await page.reload({ waitUntil: 'networkidle', timeout: 15_000 })
+    await PreferenceStringsBrowserGate.selectedSnippet(page.locator('#snippet-primary'), 'macOS', 'SwiftExample.swift')
+    return { storedWhileDenied, liveSelection: 'Android', lateSelection: 'Android', remountSelection: 'Android', reloadSelection: 'macOS', source: 'unmodified actual SnippetService, platforms module and docs/snippet component copied from website' }
+  }
+
+  static async selectedSnippet(snippet, platform, companion) {
+    await snippet.getByRole('tab', { name: platform, exact: true, selected: true }).waitFor({ timeout: 5_000 })
+    await snippet.locator('.demo-code-name', { hasText: companion }).waitFor({ timeout: 5_000 })
+    const names = await snippet.locator('.demo-code-name').allTextContents()
+    assert.deepEqual(names.sort(), [`client/services/${companion}`, 'client/components/probe/tac.html'].sort())
   }
 
   static observe(page, origin, diagnostics) {

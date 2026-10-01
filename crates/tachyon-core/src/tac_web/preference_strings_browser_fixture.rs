@@ -53,10 +53,41 @@ impl PreferenceStringsBrowserFixture {
         ),
     ];
 
+    const PROBE_FILES: [(&'static str, &'static str); 2] = [
+        (
+            "client/services/SnippetProbeService.js",
+            include_str!(
+                "../../tests/fixtures/tac-preference-strings/client/services/SnippetProbeService.js"
+            ),
+        ),
+        (
+            "client/components/snippet/probe/tac.html",
+            include_str!(
+                "../../tests/fixtures/tac-preference-strings/client/components/snippet/probe/tac.html"
+            ),
+        ),
+    ];
+
+    const WEBSITE_FILES: [&'static str; 12] = [
+        "client/services/PlatformChoiceService.java",
+        "client/services/SnippetService.js",
+        "client/services/ClipboardService.ts",
+        "client/models/PlatformChanged.java",
+        "client/models/PlatformChanged.ts",
+        "client/models/SnippetFile.ts",
+        "client/models/ShownFile.ts",
+        "client/models/LanguageChoice.ts",
+        "client/models/PlatformChoice.ts",
+        "client/models/TaskScheduler.ts",
+        "client/shared/scripts/platforms.js",
+        "client/components/docs/snippet/tac.html",
+    ];
+
     async fn run() {
         let fixture = Self::read();
         fixture.validate();
         fixture.stage();
+        fixture.stage_website();
         fixture.build().await;
         fixture.browser().await;
     }
@@ -86,11 +117,29 @@ impl PreferenceStringsBrowserFixture {
     }
 
     fn stage(&self) {
-        for (relative, source) in Self::FILES.into_iter().chain(Self::EVENT_FILES) {
+        for (relative, source) in Self::FILES
+            .into_iter()
+            .chain(Self::EVENT_FILES)
+            .chain(Self::PROBE_FILES)
+        {
             let path = self.root.join(relative);
             std::fs::create_dir_all(path.parent().unwrap_or_else(|| panic!("fixture parent")))
                 .unwrap_or_else(|error| panic!("fixture directory: {error}"));
             std::fs::write(path, source).unwrap_or_else(|error| panic!("fixture source: {error}"));
+        }
+    }
+
+    fn stage_website(&self) {
+        for relative in Self::WEBSITE_FILES {
+            let target = self.root.join(relative);
+            std::fs::create_dir_all(
+                target
+                    .parent()
+                    .unwrap_or_else(|| panic!("website fixture parent")),
+            )
+            .unwrap_or_else(|error| panic!("website fixture directory: {error}"));
+            std::fs::copy(self.repo.join("website").join(relative), target)
+                .unwrap_or_else(|error| panic!("actual website fixture source: {error}"));
         }
     }
 

@@ -1,0 +1,12 @@
+<section aria-label="Real website snippet integration">
+  <div id="snippet-primary">
+    <docs-snippet :files="snippetProbe.files" :axis="'platform'" />
+  </div>
+  <button id="snippet-late-show" on:click="snippetProbe.visible = true">Mount website snippet</button>
+  <button id="snippet-late-hide" on:click="snippetProbe.visible = false">Unmount website snippet</button>
+  <if :when="snippetProbe.visible">
+    <div id="snippet-late">
+      <docs-snippet :files="snippetProbe.files" :axis="'platform'" />
+    </div>
+  </if>
+</section>

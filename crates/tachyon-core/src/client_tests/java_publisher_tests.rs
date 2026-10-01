@@ -78,3 +78,20 @@ class ChoiceServiceTest {
     assert_eq!(report.cases.len(), 1);
     assert!(report.cases[0].passed, "{report:?}");
 }
+
+#[test]
+#[ignore = "requires the installed JDK; executes the actual website PlatformChoice Java Test with its model and typed fakes"]
+fn website_platform_choice_java_test_preserves_raw_storage_and_retained_events() {
+    let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../website");
+    let report = super::run(
+        &project,
+        Path::new("client/tests/PlatformChoiceServiceTest.java"),
+    )
+    .expect("actual website Java Test");
+    assert_eq!(
+        report.cases.len(),
+        3,
+        "all migrated and added cases execute"
+    );
+    assert!(report.cases.iter().all(|case| case.passed), "{report:?}");
+}
