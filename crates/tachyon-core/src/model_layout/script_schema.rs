@@ -45,7 +45,7 @@ impl ScriptSchema {
     }
 
     fn default_value(field: Piece<'_>, value: Piece<'_>, source: &str) -> bool {
-        field.find_top(b"=").map_or(true, |_| {
+        field.find_top(b"=").is_none_or(|_| {
             let literal = source[value.at..value.at + value.text.len()].trim();
             Self::literal(value, literal)
         })
