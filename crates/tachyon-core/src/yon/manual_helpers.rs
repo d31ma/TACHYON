@@ -22,7 +22,7 @@ impl ManualHelpers {
     ];
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<BTreeSet<String>, Failure> {
-        let candidates = super::parser::helper_sources(path, source)?;
+        let candidates = super::parser::HelperSources::read(path, source)?;
         Self::limit(path, &candidates)?;
         let code = crate::annotation_layout::masked_source(path, source)?;
         let extension = path
