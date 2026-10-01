@@ -134,6 +134,10 @@ impl NativeUiHostFixture {
             &format!("{folder}/topic/_slug/detail.txt"),
             b"captured nested route asset",
         );
+        self.fixture.write(
+            &format!("{folder}/topic/_slug/extra.html"),
+            document.as_bytes(),
+        );
         self.fixture
             .write(&format!("{folder}/styles/theme.css"), style.as_bytes());
         self.fixture.capture_generation(folder, fingerprint)
@@ -153,7 +157,7 @@ fn native_ui_host_fixture_preserves_default_generator_and_requires_exact_owned_s
     let original = fixture.original(&companion);
     assert!(!original.contains("NativeUiStyleHost"));
     let injected = NativeUiHostSources::host(&original).expect("opt-in fixture");
-    assert!(injected.contains("liveStyleHost.configure(configuration, tachyonDocument)"));
+    assert!(injected.contains("liveStyleHost.configure(configuration, tachyonDocument, NativeUiHostRoutesFixture.selectedDocument)"));
     assert!(injected.contains("liveStyleHost.invalidate()"));
     assert!(injected.contains("fixtureFrame.configure(configuration)"));
     assert_eq!(

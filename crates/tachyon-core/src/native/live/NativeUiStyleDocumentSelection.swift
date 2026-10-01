@@ -14,9 +14,10 @@ import Foundation
     func document(_ url: URL) throws -> String {
         let parts = try components(url)
         try limits(url, parts)
+        try pathname(parts)
         let normalized = try normalized(parts)
-        try pathname(normalized)
-        let path = try mapped(normalized.path)
+        try NativeUiStyleAddress.origin(normalized)
+        let path = try mapped(parts.path)
         try captured(path)
         return path
     }
@@ -41,11 +42,16 @@ import Foundation
         return url
     }
 
-    private func pathname(_ url: URL) throws {
-        try NativeUiStyleAddress.origin(url)
-        try NativeUiStyleAddress.encodedPath(url)
-        try reserved(url.path)
-        try canonical(url.path)
+    private func pathname(_ parts: URLComponents) throws {
+        try encoded(parts.percentEncodedPath)
+        try reserved(parts.path)
+        try canonical(parts.path)
+    }
+
+    private func encoded(_ path: String) throws {
+        let encoded = path.lowercased()
+        let ambiguous = ["%2f", "%5c", "%00"].contains { encoded.contains($0) }
+        try NativeUiRuntimeFailure.require(!ambiguous, "Ambiguous document URL encoding")
     }
 
     private func reserved(_ path: String) throws {

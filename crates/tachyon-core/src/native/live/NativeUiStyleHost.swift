@@ -8,8 +8,8 @@ import WebKit
 
     init(_ installed: NativeUiRuntimeGeneration) { assets = NativeUiStyleAssets(installed) }
 
-    func configure(_ configuration: WKWebViewConfiguration, _ document: @escaping (String) -> String?) {
-        selection = NativeUiStyleDocumentSelection(assets, document)
+    func configure(_ configuration: WKWebViewConfiguration, _ document: @escaping (String) -> String?, _ selectedDocument: @escaping (String) -> String?) {
+        selection = NativeUiStyleDocumentSelection(assets, selectedDocument)
         configuration.setURLSchemeHandler(NativeUiStyleHostScheme(assets, document), forURLScheme: "tachyon-app")
     }
 

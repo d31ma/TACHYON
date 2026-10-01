@@ -73,7 +73,7 @@ impl NativeUiHostSources {
         Self::replace(
             source,
             "        configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: \"tachyon-app\")",
-            "        liveStyleHost.configure(configuration, tachyonDocument)\n        fixtureFrame.configure(configuration)",
+            "        liveStyleHost.configure(configuration, tachyonDocument, NativeUiHostRoutesFixture.selectedDocument)\n        fixtureFrame.configure(configuration)",
         )
     }
 

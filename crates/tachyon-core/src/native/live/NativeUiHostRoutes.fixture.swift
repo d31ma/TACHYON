@@ -9,11 +9,15 @@ import Foundation
         print("native-ui-host-route-controls-passed")
     }
 
+    static func selectedDocument(_ path: String) -> String? {
+        tachyonRoute(path).flatMap { tachyonRouteDocuments[$0] }
+    }
+
     private static func documents(_ assets: NativeUiStyleAssets) throws {
-        let selection = NativeUiStyleDocumentSelection(assets, tachyonDocument)
-        let allowed = [("/?draft=1", "index.html"), ("/status/?draft=1", "status/index.html"), ("/topic/telemetry?draft=1", "topic/_slug/index.html"), ("/index.html?draft=1&label=%CE%BB", "index.html")]
+        let selection = NativeUiStyleDocumentSelection(assets, selectedDocument)
+        let allowed = [("/?draft=1", "index.html"), ("/status/?draft=1", "status/index.html"), ("/topic/telemetry/?draft=1", "topic/_slug/index.html"), ("/topic/telemetry?draft=1", "topic/_slug/index.html"), ("/index.html?draft=1&label=%CE%BB", "index.html")]
         try allowed.forEach { try document(selection, $0) }
-        let denied = ["/unknown?draft=1", "/styles/theme.css?draft=1", "/status?draft=1#section", "/status#", "/status%2findex.html?draft=1", "//status?draft=1", "/status//?draft=1", "/.tachyon-native-ui/" + assets.current.descriptor.generation + "/index.html?draft=1", "/index.html?" + String(repeating: "x", count: 2049)]
+        let denied = ["/unknown?draft=1", "/styles/theme.css?draft=1", "/status?draft=1#section", "/status#", "/status%2findex.html?draft=1", "//status?draft=1", "/status//?draft=1", "/status/../status?draft=1", "/status/./?draft=1", "/%2e/status?draft=1", "/status/%2e%2e/status?draft=1", "/topic/telemetry/extra.html?draft=1", "/.tachyon-native-ui/" + assets.current.descriptor.generation + "/index.html?draft=1", "/index.html?" + String(repeating: "x", count: 2049)]
         try denied.forEach { try documentRefused(selection, "tachyon-app://bundle" + $0) }
         try ["https://bundle/status?draft=1", "tachyon-app://other/status?draft=1", "tachyon-app://user@bundle/status?draft=1", "tachyon-app://bundle:80/status?draft=1"].forEach { try documentRefused(selection, $0) }
     }
@@ -34,7 +38,7 @@ import Foundation
     private static func routes(_ scheme: NativeUiStyleHostScheme, _ assets: NativeUiStyleAssets) throws {
         let routes = [
             ("/?draft=1", "index.html"), ("/status/?draft=1#section", "status/index.html"),
-            ("/topic/telemetry?draft=1", "topic/_slug/index.html"), ("/topic/telemetry/detail.txt", "topic/_slug/detail.txt"),
+            ("/topic/telemetry?draft=1", "topic/_slug/index.html"), ("/topic/telemetry/detail.txt", "topic/_slug/detail.txt"), ("/topic/telemetry/extra.html", "topic/_slug/extra.html"),
             ("/status", "status/index.html"), ("/styles/theme.css?version=1", "styles/theme.css"),
         ]
         try routes.forEach { try route(scheme, assets, $0) }
