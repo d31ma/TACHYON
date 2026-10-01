@@ -34,9 +34,12 @@ impl NativeUiCapture {
 
     fn visit(&mut self, root: &Dir, path: &Path, depth: usize) -> Result<(), Failure> {
         Self::depth(depth)?;
-        let mut entries = root.entries().map_err(NativeUiProblem::io)?;
+        let mut entries = root
+            .entries()
+            .map_err(|error| NativeUiProblem::io(&error))?;
         entries.try_for_each(|entry| {
-            self.entry(root, path, entry.map_err(NativeUiProblem::io)?, depth)
+            let entry = entry.map_err(|error| NativeUiProblem::io(&error))?;
+            self.entry(root, path, &entry, depth)
         })
     }
 
@@ -44,13 +47,15 @@ impl NativeUiCapture {
         &mut self,
         root: &Dir,
         path: &Path,
-        entry: DirEntry,
+        entry: &DirEntry,
         depth: usize,
     ) -> Result<(), Failure> {
         self.count_entry()?;
         let name = entry.file_name();
         let path = path.join(&name);
-        let metadata = root.symlink_metadata(&name).map_err(NativeUiProblem::io)?;
+        let metadata = root
+            .symlink_metadata(&name)
+            .map_err(|error| NativeUiProblem::io(&error))?;
         Self::regular(&metadata)?;
         self.found(root, &path, &metadata, depth)
     }
@@ -64,7 +69,9 @@ impl NativeUiCapture {
     ) -> Result<(), Failure> {
         let name = path.file_name().unwrap_or_default();
         if metadata.is_dir() {
-            let child = root.open_dir_nofollow(name).map_err(NativeUiProblem::io)?;
+            let child = root
+                .open_dir_nofollow(name)
+                .map_err(|error| NativeUiProblem::io(&error))?;
             return self.visit(&child, path, depth + 1);
         }
         self.file(root, name, path)
@@ -89,13 +96,15 @@ impl NativeUiCapture {
         options.read(true).follow(FollowSymlinks::No).nonblock(true);
         let file = root
             .open_with(name, &options)
-            .map_err(NativeUiProblem::io)?;
-        let metadata = file.metadata().map_err(NativeUiProblem::io)?;
+            .map_err(|error| NativeUiProblem::io(&error))?;
+        let metadata = file
+            .metadata()
+            .map_err(|error| NativeUiProblem::io(&error))?;
         Self::file_metadata(&metadata)?;
         let mut bytes = Vec::new();
         file.take(Self::MAX_ASSET_BYTES + 1)
             .read_to_end(&mut bytes)
-            .map_err(NativeUiProblem::io)?;
+            .map_err(|error| NativeUiProblem::io(&error))?;
         Self::asset_size(bytes.len() as u64)?;
         Ok(bytes)
     }

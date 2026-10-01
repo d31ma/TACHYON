@@ -10,6 +10,6 @@ pub(super) struct NativeUiAsset {
 
 impl NativeUiAsset {
     pub(super) fn is_stylesheet(&self) -> bool {
-        self.path.ends_with(".css")
+        std::path::Path::new(&self.path).extension() == Some(std::ffi::OsStr::new("css"))
     }
 }

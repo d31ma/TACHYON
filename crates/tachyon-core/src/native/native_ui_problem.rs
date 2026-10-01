@@ -18,7 +18,7 @@ impl NativeUiProblem {
         Failure::one(diagnostic(1605, message, None, None))
     }
 
-    pub(super) fn io(error: std::io::Error) -> Failure {
+    pub(super) fn io(error: &std::io::Error) -> Failure {
         Self::failure(&format!("Cannot capture native UI generation: {error}"))
     }
 }
