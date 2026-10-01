@@ -146,7 +146,7 @@ fn test_members(unit: &Unit, indent: &str) -> String {
          {indent}{indent}{indent}await self.startBehaviors()\n\
          {indent}{indent}{indent}BehaviorCalls.take()\n\
          {indent}{indent}{indent}try:\n\
-         {indent}{indent}{indent}{indent}await getattr(self, method)(*arguments)\n\
+         {indent}{indent}{indent}{indent}await _behavior_await(getattr(self, method)(*arguments), _BehaviorExecution(self.behaviors))\n\
          {indent}{indent}{indent}{indent}cases.append({{'name': name, 'passed': True, 'called': BehaviorCalls.take()}})\n\
          {indent}{indent}{indent}except Exception as error:\n\
          {indent}{indent}{indent}{indent}cases.append({{'name': name, 'passed': False, 'error': str(error), 'called': BehaviorCalls.take()}})\n\

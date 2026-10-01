@@ -25,6 +25,7 @@ pub struct TestReport {
 }
 
 mod fsharp_unit;
+mod python_unit;
 
 #[must_use]
 pub fn units(project: &Path, realm: &str) -> Vec<PathBuf> {
@@ -114,6 +115,12 @@ pub fn run_with(
         "swift" => swift(directory, &portable, &lowered, &name, &models),
         "kt" => kotlin(directory, &portable, &lowered, &name, &models),
         "java" => java(
+            directory,
+            &portable,
+            &models.add_to_program(&lowered),
+            &name,
+        ),
+        "py" => python_unit::PythonUnit::run(
             directory,
             &portable,
             &models.add_to_program(&lowered),
@@ -213,7 +220,7 @@ fn lower_unit(
 fn native_source(relative: &Path, extension: &str, assembled: String) -> Result<String, Failure> {
     if !matches!(
         extension,
-        "cs" | "rs" | "go" | "swift" | "kt" | "rb" | "java"
+        "cs" | "rs" | "go" | "swift" | "kt" | "rb" | "java" | "py"
     ) {
         return Ok(assembled);
     }
