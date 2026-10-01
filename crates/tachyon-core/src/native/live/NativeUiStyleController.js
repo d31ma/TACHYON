@@ -13,7 +13,7 @@ class NativeUiStyleController {
       rollback: () => this._rollback(ticket),
       finalize: () => this._finalize(ticket),
       status: () => this._status(ticket),
-      invalidate: () => this._invalidate(),
+      invalidate: () => this._invalidate(ticket),
     }
     return await this._action(actions, operation)()
   }
@@ -33,11 +33,16 @@ class NativeUiStyleController {
       this.phase = 'prepared'
       return this.phase
     } catch (error) {
-      this._restore()
-      this.phase = 'rolledback'
+      this._failedPrepare(ticket)
       throw error
     }
   }
+
+  _failedPrepare(ticket) {
+    if (this.ticket?.token === ticket.token && this.ticket.epoch === ticket.epoch) this._failedCurrent()
+  }
+
+  _failedCurrent() { this._restore(); this.phase = 'rolledback' }
 
   _commit(ticket) {
     this._same(ticket)
@@ -120,7 +125,7 @@ class NativeUiStyleController {
 
   _status(ticket) { this._same(ticket); return this.phase }
 
-  _invalidate() { this._restore(); this._clear(); return this.phase }
+  _invalidate(ticket) { this._token(ticket); this._restore(); this._clear(); return this.phase }
 
   _begin(ticket) {
     this._preparable()

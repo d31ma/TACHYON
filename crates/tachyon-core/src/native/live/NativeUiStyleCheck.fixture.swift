@@ -32,6 +32,7 @@ import WebKit
         try NativeUiCssProfile.validate(Data("main { content: 'escaped \\\" quote'; margin: 2px; }".utf8))
         let invalid = ["@import 'remote.css';", "\\75rl('x');", "main { background: url('x'); }", "main { background: image-set('x' 1x); }", "/*/", "main { content: 'first\n@import'; }"]
         try invalid.forEach { try refusedCss($0) }
+        try NativeUiRuntimeFailure.require(!NativeUiStylePhase.invalidating(nil).mayPrepare(), "New preparation was allowed during invalidation")
         print("native-ui-styles-css-profile-passed")
     }
 
@@ -64,10 +65,11 @@ import WebKit
         try NativeUiRuntimeFailure.require(try await scene.page("return String(document.querySelectorAll('link[rel=stylesheet]').length)") == "2", "Commit duplicated stylesheet nodes")
         try await scene.session.rollback(ticket)
         try NativeUiRuntimeFailure.require(try await scene.color() == "rgb(0, 0, 0)", "Rollback did not restore original CSS")
+        try await staleInvalidate(scene, candidate)
         try await failedCommit(scene, candidate)
         try await failedLoad(scene, candidate)
         try isolated(scene)
-        scene.session.invalidate()
+        await scene.session.invalidate()
         try NativeUiRuntimeFailure.require(LiveCounterService.starts == 1 && LiveCounterService.stops == 0, "CSS updated native lifecycle")
         _ = tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"6F9619FF-8B86-D011-B42D-00C04FC964FF\",\"op\":\"dispose\"}")
         try NativeUiRuntimeFailure.require(LiveCounterService.stops == 1, "Explicit final disposal must stop exactly once")
@@ -89,6 +91,22 @@ import WebKit
         let expected = try JSONSerialization.data(withJSONObject: [marker, "kept", "field", 1], options: [])
         try NativeUiRuntimeFailure.require(state == String(decoding: expected, as: UTF8.self), "Document/input/focus or event delivery changed")
         try NativeUiRuntimeFailure.require(try await scene.page("return typeof globalThis.__tachyonNativeStyles") == "undefined", "Private stylesheet world leaked to page")
+    }
+
+    @MainActor private static func staleInvalidate(_ scene: NativeUiStyleScene, _ candidate: NativeUiRuntimeGeneration) async throws {
+        let previous = try await scene.session.prepare(candidate)
+        await scene.session.invalidate()
+        let current = try await scene.session.prepare(candidate)
+        let failure = await invalidateFailure(scene, previous)
+        try NativeUiRuntimeFailure.require(failure != nil, "Delayed old invalidation was accepted")
+        try await scene.session.commit(current)
+        try NativeUiRuntimeFailure.require(try await scene.color() == "rgb(0, 0, 255)", "Old invalidation changed new stylesheet transaction")
+        try await scene.session.rollback(current)
+        try NativeUiRuntimeFailure.require(try await scene.color() == "rgb(0, 0, 0)", "New transaction rollback failed after stale invalidation")
+    }
+
+    @MainActor private static func invalidateFailure(_ scene: NativeUiStyleScene, _ ticket: NativeUiStyleTicket) async -> Error? {
+        do { _ = try await NativeUiStyleCall.run(scene.view, "invalidate", ticket); return nil } catch { return error }
     }
 
     @MainActor private static func failedCommit(_ scene: NativeUiStyleScene, _ candidate: NativeUiRuntimeGeneration) async throws {

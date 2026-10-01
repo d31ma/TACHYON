@@ -25,20 +25,14 @@ import WebKit
         try current(ticket)
         try NativeUiRuntimeFailure.require(phase.mayCommit(), "Stylesheets cannot commit in this native phase")
         phase = .committing(ticket)
-        let result = try await acknowledged("commit", ticket)
-        try NativeUiRuntimeFailure.require(result == "committed", "Stylesheet commit was not acknowledged")
-        try assets.promote(ticket.generation)
-        phase = .committed(ticket)
+        try await committed(ticket)
     }
 
     func rollback(_ ticket: NativeUiStyleTicket) async throws {
         try current(ticket)
         try NativeUiRuntimeFailure.require(phase.mayRollback(), "Stylesheet operation is still in flight")
         phase = .rollingBack(ticket)
-        let result = try await acknowledged("rollback", ticket)
-        try NativeUiRuntimeFailure.require(result == "rolledback", "Stylesheet rollback was not acknowledged")
-        try assets.rollback(ticket.generation)
-        phase = .idle
+        try await rolledBack(ticket)
     }
 
     func reconcile(_ ticket: NativeUiStyleTicket) async throws {
@@ -48,12 +42,13 @@ import WebKit
         try reconciled(result, ticket)
     }
 
-    func invalidate() {
+    func invalidate() async {
         epoch += 1
+        let invalidationEpoch = epoch
         let previous = phase.ticket()
-        phase = .idle
-        assets.discard()
-        Task { [weak self] in await self?.invalidated(previous) }
+        phase = .invalidating(previous)
+        await invalidated(previous)
+        completeInvalidation(invalidationEpoch)
     }
 
     private func nextTicket(_ candidate: NativeUiRuntimeGeneration) throws -> NativeUiStyleTicket {
@@ -73,7 +68,7 @@ import WebKit
     }
 
     private func staged(_ candidate: NativeUiRuntimeGeneration, _ ticket: NativeUiStyleTicket, _ arguments: [String: [String: String]]) async throws -> NativeUiStyleTicket {
-        try assets.stage(candidate)
+        try stage(candidate, ticket)
         do {
             let result = try await NativeUiStyleCall.run(view, "prepare", ticket, arguments)
             try current(ticket)
@@ -86,11 +81,56 @@ import WebKit
         }
     }
 
+    private func stage(_ candidate: NativeUiRuntimeGeneration, _ ticket: NativeUiStyleTicket) throws {
+        do { try assets.stage(candidate) } catch {
+            abandonStage(ticket)
+            throw error
+        }
+    }
+
+    private func abandonStage(_ ticket: NativeUiStyleTicket) {
+        if phase.ticket() == ticket && epoch == ticket.epoch {
+            assets.discard()
+            phase = .idle
+        }
+    }
+
+    private func completeInvalidation(_ invalidationEpoch: UInt64) {
+        if epoch == invalidationEpoch {
+            assets.discard()
+            phase = .idle
+        }
+    }
+
     private func acknowledged(_ operation: String, _ ticket: NativeUiStyleTicket) async throws -> String {
         do {
             let result = try await NativeUiStyleCall.run(view, operation, ticket)
             try current(ticket)
             return result
+        } catch {
+            uncertain(ticket)
+            throw error
+        }
+    }
+
+    private func committed(_ ticket: NativeUiStyleTicket) async throws {
+        do {
+            let result = try await acknowledged("commit", ticket)
+            try NativeUiRuntimeFailure.require(result == "committed", "Stylesheet commit was not acknowledged")
+            try assets.promote(ticket.generation)
+            phase = .committed(ticket)
+        } catch {
+            uncertain(ticket)
+            throw error
+        }
+    }
+
+    private func rolledBack(_ ticket: NativeUiStyleTicket) async throws {
+        do {
+            let result = try await acknowledged("rollback", ticket)
+            try NativeUiRuntimeFailure.require(result == "rolledback", "Stylesheet rollback was not acknowledged")
+            try assets.rollback(ticket.generation)
+            phase = .idle
         } catch {
             uncertain(ticket)
             throw error

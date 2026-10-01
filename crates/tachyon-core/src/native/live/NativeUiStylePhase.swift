@@ -1,5 +1,6 @@
 enum NativeUiStylePhase {
     case idle
+    case invalidating(NativeUiStyleTicket?)
     case preparing(NativeUiStyleTicket)
     case prepared(NativeUiStyleTicket)
     case committing(NativeUiStyleTicket)
@@ -16,6 +17,7 @@ enum NativeUiStylePhase {
     private func extract() -> NativeUiStyleTicket? {
         switch self {
         case .idle: return nil
+        case .invalidating(let value): return value
         case .preparing(let value), .prepared(let value), .committing(let value), .committed(let value), .rollingBack(let value), .uncertain(let value): return value
         }
     }
