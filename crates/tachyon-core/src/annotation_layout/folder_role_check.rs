@@ -132,7 +132,7 @@ impl FolderRoleCheck {
                 "'{portable}' declares concrete code in {realm}/{folder} without its required {expected} marker.{unsupported}"
             ),
             Some(format!(
-                "Mark the intended role explicitly with `{expected}` (ADR0091). Folder names do not register code. Move plain collaborators to a supported helpers, models, shared or utils folder; do not add a fake role annotation."
+                "Mark the intended role explicitly with `{expected}` (ADR0091). Folder names do not register code. Move plain collaborators to a supported models, shared or utils folder; do not add a fake role annotation."
             )),
             source_span(&portable, 0, 0),
         ))

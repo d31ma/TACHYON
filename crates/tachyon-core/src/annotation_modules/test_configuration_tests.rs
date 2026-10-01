@@ -172,37 +172,22 @@ fn test_configurations_share_the_annotation_source_budget() {
 }
 
 #[test]
-fn behavior_only_files_are_composed_without_managed_roles() {
-    let root = tempfile::tempdir().expect("project");
-    let entry = Path::new("server/controllers/MoneyController.java");
-    let source = "@RequestRoute(\"/money\")\n@Public\nclass MoneyController {\n    @GetRoute\n    Object get() { return null; }\n}\n";
-    write(
-        root.path(),
-        "server/controllers/MoneyController.java",
-        source,
-    );
-    write(
-        root.path(),
-        "server/helpers/Catalog.java",
-        "@CacheSettings({\"name\":\"catalog\",\"ttlMs\":1000,\"maxBytes\":1000,\"maxEntries\":10})\nclass Catalog {}\n",
-    );
-    write(root.path(), "server/helpers/Plain.java", "class Plain {}\n");
-    let output = assemble(root.path(), entry, source, "yon")
-        .expect("composition")
-        .expect("behavior module");
-    assert!(output.contains("class Catalog"));
-    assert!(!output.contains("@Helper"));
-    assert!(!output.contains("class Plain"));
-    write(
-        root.path(),
-        "server/helpers/Catalog.java",
-        "@CacheSettings({\"name\":\"catalog\",\"ttlMs\":1000,\"maxBytes\":1000,\"maxEntries\":10})\nclass Catalog {}\nclass Hidden {}\n",
-    );
-    assert_fails_with(
-        assemble(root.path(), entry, source, "yon"),
-        1310,
-        "found another class 'Hidden'",
-    );
+fn behavior_only_helpers_cannot_bypass_formal_role_registration() {
+    for source in [
+        "@CacheSettings({\"name\":\"catalog\",\"ttlMs\":1000,\"maxBytes\":1000,\"maxEntries\":10})\nclass CatalogHelper {}\n",
+        "class CatalogHelper {}\n",
+    ] {
+        let root = tempfile::tempdir().expect("project");
+        let entry = Path::new("server/controllers/MoneyController.java");
+        let controller = "@RequestRoute(\"/money\")\n@Public\nclass MoneyController {\n    @GetRoute\n    Object get() { return null; }\n}\n";
+        write(root.path(), entry.to_str().expect("path"), controller);
+        write(root.path(), "server/helpers/CatalogHelper.java", source);
+        assert_fails_with(
+            assemble(root.path(), entry, controller, "yon"),
+            1363,
+            "required @Helper marker",
+        );
+    }
 }
 
 #[test]
@@ -231,16 +216,18 @@ fn a_named_production_configuration_remains_supported() {
 
 #[test]
 fn a_production_configuration_fallback_cannot_name_another_kind_of_type() {
-    for (name, path, source) in [
+    for (name, path, source, code) in [
         (
             "ShellService",
             "client/services/ShellService.js",
             "@Service()\nclass ShellService {}\n",
+            1310,
         ),
         (
             "ShellTestSetup",
             "client/setups/ShellTestSetup.js",
             "@Lifetime(\"transient\")\nclass ShellTestSetup {}\n",
+            1363,
         ),
     ] {
         let root = project();
@@ -253,7 +240,7 @@ fn a_production_configuration_fallback_cannot_name_another_kind_of_type() {
             "tac",
         )
         .expect_err("not a production Setup");
-        assert_eq!(error.diagnostics()[0].code.number(), 1310, "{error}");
+        assert_eq!(error.diagnostics()[0].code.number(), code, "{error}");
     }
 }
 
