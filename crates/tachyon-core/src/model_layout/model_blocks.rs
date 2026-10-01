@@ -39,6 +39,7 @@ impl ModelBlocks {
 
     fn found(extension: &str, source: &str, code: &str) -> Vec<ModelBlock> {
         match extension {
+            "fs" => LineBlocks::fsharp(code),
             "py" => LineBlocks::python(code),
             "rb" => LineBlocks::ruby(code),
             "js" => JsDocBlocks::read(source),

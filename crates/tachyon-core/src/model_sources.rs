@@ -3,11 +3,14 @@ use crate::failure::{diagnostic, source_span};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+mod model_metadata;
+use model_metadata::ModelMetadata;
 
 struct ModelFile {
     inside: PathBuf,
     portable: String,
     source: String,
+    plain: String,
 }
 
 impl ModelFile {
@@ -16,9 +19,9 @@ impl ModelFile {
         let code = crate::annotation_layout::masked_source(Path::new(&self.portable), &self.source)
             .unwrap_or_default();
         if code.split_whitespace().next() == Some("package") {
-            return format!("{position}{}", self.source);
+            return format!("{position}{}", self.plain);
         }
-        format!("{position}package main; {}", self.source)
+        format!("{position}package main; {}", self.plain)
     }
 }
 
@@ -28,8 +31,8 @@ pub(crate) struct ModelSources {
 }
 
 impl ModelSources {
-    const DATA_LANGUAGES: [&str; 12] = [
-        "rs", "cs", "fs", "dart", "go", "kt", "swift", "java", "groovy", "py", "php", "lua",
+    const DATA_LANGUAGES: [&str; 13] = [
+        "rs", "cs", "fs", "dart", "go", "kt", "swift", "java", "groovy", "py", "php", "lua", "rb",
     ];
     const MAX_FILES: usize = 256;
     const MAX_DEPTH: usize = 8;
@@ -65,10 +68,20 @@ impl ModelSources {
         Ok(sources)
     }
 
+    pub(crate) fn metadata(&self) -> ModelMetadata {
+        ModelMetadata::new(
+            self.files
+                .iter()
+                .filter(|file| file.source != file.plain)
+                .map(|file| (PathBuf::from(&file.portable), file.source.clone()))
+                .collect(),
+        )
+    }
+
     pub(crate) fn changes_program_text(&self) -> bool {
         let inline = matches!(
             self.extension.as_str(),
-            "rs" | "cs" | "py" | "php" | "java" | "groovy" | "lua"
+            "rs" | "cs" | "py" | "php" | "java" | "groovy" | "lua" | "rb"
         );
         inline && !self.files.is_empty()
     }
@@ -84,7 +97,7 @@ impl ModelSources {
             "php" => self.php_program(program),
             "java" => self.java_program(program),
             "groovy" => self.groovy_program(program),
-            "lua" => format!("{}\n{program}", self.joined_sources()),
+            "lua" | "rb" => format!("{}\n{program}", self.joined_sources()),
             _ => program.to_owned(),
         }
     }
@@ -94,10 +107,10 @@ impl ModelSources {
         for (index, file) in self.files.iter().enumerate() {
             let path = Path::new("models").join(&file.inside);
             match self.extension.as_str() {
-                "kt" => staged.push((path, format!("package models\n\n{}", file.source))),
-                "dart" => staged.push((path, file.source.clone())),
+                "kt" => staged.push((path, format!("package models\n\n{}", file.plain))),
+                "dart" => staged.push((path, file.plain.clone())),
                 "go" => staged.push((PathBuf::from(format!("model_{index}.go")), file.go_source())),
-                "fs" => staged.push((PathBuf::from(&file.portable), file.source.clone())),
+                "fs" => staged.push((PathBuf::from(&file.portable), file.plain.clone())),
                 _ => {}
             }
         }
@@ -122,7 +135,7 @@ impl ModelSources {
             let _ = writeln!(
                 modules,
                 "#[doc = {:?}]\nmod model_{index} {{\n{}\n}}",
-                file.portable, file.source
+                file.portable, file.plain
             );
         }
         format!("#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{modules}}}\n")
@@ -131,7 +144,7 @@ impl ModelSources {
     pub(crate) fn csharp_namespaces(&self) -> String {
         let mut namespaces = String::new();
         for file in &self.files {
-            let _ = writeln!(namespaces, "namespace Models {{\n{}\n}}", file.source);
+            let _ = writeln!(namespaces, "namespace Models {{\n{}\n}}", file.plain);
         }
         namespaces
     }
@@ -139,7 +152,7 @@ impl ModelSources {
     pub(crate) fn joined_sources(&self) -> String {
         let mut joined = String::new();
         for file in &self.files {
-            joined.push_str(&file.source);
+            joined.push_str(&file.plain);
             joined.push('\n');
         }
         joined
@@ -149,7 +162,7 @@ impl ModelSources {
         let mut entries = String::new();
         for file in &self.files {
             let path = serde_json::to_string(&file.portable).unwrap_or_default();
-            let source = serde_json::to_string(&file.source).unwrap_or_default();
+            let source = serde_json::to_string(&file.plain).unwrap_or_default();
             let _ = writeln!(entries, "        ({path}, {source}),");
         }
         let loader = format!(
@@ -168,11 +181,7 @@ impl ModelSources {
         let (declare, body) = leading_php_declare(php_body(program));
         let mut output = format!("<?php\n{declare}");
         for file in &self.files {
-            let _ = writeln!(
-                output,
-                "namespace Models {{\n{}\n}}",
-                php_body(&file.source)
-            );
+            let _ = writeln!(output, "namespace Models {{\n{}\n}}", php_body(&file.plain));
         }
         let _ = writeln!(output, "namespace {{\n{body}\n}}");
         output
@@ -189,11 +198,21 @@ impl ModelSources {
         format!("{header}{program}")
     }
 
+    pub(crate) fn java_behavior_program(&self, program: &str) -> String {
+        let (header, program, bodies) = self.java_parts_written(program, true);
+        format!("{header}{program}\n{bodies}")
+    }
+
     fn java_parts(&self, program: &str) -> (String, String, String) {
+        self.java_parts_written(program, false)
+    }
+
+    fn java_parts_written(&self, program: &str, authored: bool) -> (String, String, String) {
         let mut imports = BTreeSet::new();
         let mut bodies = String::new();
         for file in &self.files {
-            let body = java_body_moving_imports(&file.source, &mut imports);
+            let source = if authored { &file.source } else { &file.plain };
+            let body = java_body_moving_imports(source, &mut imports);
             bodies.push_str(&body);
             bodies.push('\n');
         }
@@ -270,8 +289,10 @@ impl FolderReader<'_> {
             .map_err(|_| read_failure(relative, "a models file must be UTF-8"))?;
         let source = crate::without_bom(&source).to_owned();
         crate::annotation_layout::validate(relative, &source)?;
-        crate::model_layout::JavaModelSchema::require_realm(relative, &source)?;
         let source = crate::topics::Topics::blanked(&source);
+        let schema = crate::behavior::ModelSchema::plain(relative, &source)?;
+        crate::behavior::ModelSchema::require_realm(relative, &source, schema.is_some())?;
+        let plain = schema.unwrap_or_else(|| source.clone());
         let inside = relative
             .strip_prefix(self.folder)
             .unwrap_or(relative)
@@ -280,6 +301,7 @@ impl FolderReader<'_> {
             inside,
             portable: relative.to_string_lossy().replace('\\', "/"),
             source,
+            plain,
         });
         Ok(())
     }

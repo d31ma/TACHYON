@@ -20,6 +20,7 @@ mod piece;
 mod python;
 mod ruby;
 mod rust;
+mod schema_constructor;
 mod swift;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -236,9 +237,23 @@ impl<'a> ModelFile<'a> {
     }
 
     fn check_declarations(&self, language: Language) -> Result<(), Failure> {
-        let code = crate::annotation_layout::masked_source(self.path, self.source)?;
-        let start = self.source.len() - crate::without_bom(self.source).len();
-        let Some(at) = language.first_refused(Piece::new(start, &code[start..])) else {
+        let projection = if language == Language::Java {
+            None
+        } else {
+            crate::behavior::ModelSchema::plain(self.path, self.source)?
+        };
+        let source = projection.as_deref().unwrap_or(self.source);
+        let code = crate::annotation_layout::masked_source(self.path, source)?;
+        let start = source.len() - crate::without_bom(source).len();
+        let piece = Piece::new(start, &code[start..]);
+        let refused = match (language, projection.is_some()) {
+            (Language::Python, true) => python::PythonModel::schema_refused(piece),
+            (Language::CSharp, true) => {
+                schema_constructor::SchemaConstructor::first_refused(piece, source)
+            }
+            _ => language.first_refused(piece),
+        };
+        let Some(at) = refused else {
             return Ok(());
         };
         let realm = self.realm;

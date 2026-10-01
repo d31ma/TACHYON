@@ -91,7 +91,7 @@ fn refused_class(declaration: Piece<'_>, checked: bool) -> Option<usize> {
         let allowed: &[&str] = if checked {
             &JavaModelSchema::FIELDS
         } else {
-            &[]
+            &["Setting"]
         };
         if let Some(at) = JavaModelSchema::first_refused(member, allowed) {
             return Some(at);

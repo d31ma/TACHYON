@@ -41,7 +41,7 @@ impl JavaModels {
                 &format!("The Java model '{class}' conflicts with its service class"),
             )
         });
-        failure.map_or_else(|| Ok(self.authored.add_to_program(source)), Err)
+        failure.map_or_else(|| Ok(self.authored.java_behavior_program(source)), Err)
     }
 
     fn class_conflict(&self, class: &str) -> bool {

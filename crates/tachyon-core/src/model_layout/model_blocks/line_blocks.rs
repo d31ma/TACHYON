@@ -17,6 +17,14 @@ impl<'a> LineBlocks<'a> {
         blocks.read(Self::python_name)
     }
 
+    pub(super) fn fsharp(code: &'a str) -> Vec<ModelBlock> {
+        Self::new(code).read(Self::fsharp_name)
+    }
+
+    fn fsharp_name(line: Piece<'_>) -> Option<&str> {
+        Self::named(line.after_word("type")?.first_word())
+    }
+
     pub(super) fn ruby(code: &'a str) -> Vec<ModelBlock> {
         let blocks = Self::new(code);
         blocks.read(Self::ruby_name)

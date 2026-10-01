@@ -220,6 +220,34 @@ pub(crate) struct Module {
 }
 
 impl Module {
+    pub(crate) fn with_models(
+        entry: &Path,
+        source: &str,
+        files: Vec<(PathBuf, String)>,
+    ) -> Result<String, Failure> {
+        let extension = entry.extension().and_then(OsStr::to_str).unwrap_or("");
+        let mut names = BTreeSet::new();
+        register_names(entry, source, &mut names)?;
+        let modules = files
+            .into_iter()
+            .map(|(path, source)| {
+                register_names(&path, &source, &mut names)?;
+                Ok(Self { path, source })
+            })
+            .collect::<Result<Vec<_>, Failure>>()?;
+        (extension == "go")
+            .then(|| compose_go(entry, source, &modules))
+            .unwrap_or_else(|| {
+                compose(
+                    entry,
+                    source,
+                    modules.into_iter().map(|module| module.source).collect(),
+                    extension,
+                    "yon",
+                )
+            })
+    }
+
     pub(crate) fn native_units(
         snapshot_root: &Path,
         entry: &Path,

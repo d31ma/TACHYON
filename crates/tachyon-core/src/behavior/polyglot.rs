@@ -27,6 +27,8 @@ mod lua_behavior_plan;
 pub(crate) use kotlin_builtins::KotlinBuiltins;
 pub(crate) use lua_behavior_method::LuaBehaviorMethod;
 pub(crate) use lua_behavior_plan::LuaBehaviorPlan;
+mod model_schema;
+pub(crate) use model_schema::ModelSchema;
 mod native_storage;
 pub(crate) use native_storage::NativeStorage;
 #[cfg(test)]

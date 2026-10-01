@@ -502,10 +502,19 @@ impl HandlerSource {
         } else {
             None
         };
+        let receives_models = annotation_entry || middleware || go;
+        let models = server_models(source_root.path(), relative_source, receives_models)?;
+        let metadata = models.metadata();
         let has_modules = assembled.is_some();
         let bytes = assembled.map_or(bytes, String::into_bytes);
         let contents = std::str::from_utf8(&bytes)
             .map_err(|_| invalid_source(&portable, "Handler source must be valid UTF-8."))?;
+        let model_program = if annotation_entry {
+            metadata.assembled(relative_source, contents)?
+        } else {
+            contents.to_owned()
+        };
+        let contents = model_program.as_str();
         let (lowered, mut routes, topics) = if annotation_entry {
             lower_annotation_entry(
                 source_root.path(),
@@ -529,8 +538,9 @@ impl HandlerSource {
         } else {
             None
         };
-        let receives_models = annotation_entry || middleware || go;
-        let models = server_models(source_root.path(), relative_source, receives_models)?;
+        let lowered = lowered
+            .map(|source| metadata.without_declarations(relative_source, &source))
+            .transpose()?;
         let lowered = with_models(lowered, contents, &models);
         let runtime_bytes = match &lowered {
             Some(source) => source.as_bytes(),
@@ -589,8 +599,11 @@ impl HandlerSource {
                 "Gateway target has no role files to compose",
             )
         })?;
-        let lowered = crate::yon::lower_gateway_unit(unit, &assembled, target, methods)?;
         let models = server_models(source_root.path(), unit, true)?;
+        let metadata = models.metadata();
+        let assembled = metadata.assembled(unit, &assembled)?;
+        let lowered = crate::yon::lower_gateway_unit(unit, &assembled, target, methods)?;
+        let lowered = metadata.without_declarations(unit, &lowered)?;
         let lowered = with_models(Some(lowered), &assembled, &models).unwrap_or_default();
         let execution_relative_path =
             stage_annotated_source(source_root, unit, &lowered, &portable)?;

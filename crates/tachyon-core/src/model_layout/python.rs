@@ -12,14 +12,29 @@ struct Statement<'a> {
 }
 
 #[derive(Default)]
-struct PythonModel {
+pub(super) struct PythonModel {
     dataclass: bool,
+    schema: bool,
     unique: bool,
     class: Option<ClassKind>,
     body_indent: Option<usize>,
 }
 
 impl PythonModel {
+    pub(super) fn schema_refused(code: Piece<'_>) -> Option<usize> {
+        Self::scan(code, true)
+    }
+
+    fn scan(code: Piece<'_>, schema: bool) -> Option<usize> {
+        let mut model = Self {
+            schema,
+            ..Self::default()
+        };
+        statements(code)
+            .iter()
+            .find_map(|statement| model.read(statement))
+    }
+
     const DATACLASS_NAMES: [&'static str; 2] = ["dataclass", "dataclasses.dataclass"];
     const UNIQUE_NAMES: [&'static str; 2] = ["unique", "enum.unique"];
     const FIELD_BASES: [&'static str; 2] = ["TypedDict", "NamedTuple"];
@@ -80,7 +95,7 @@ impl PythonModel {
 
     fn class_kind(&self, header: Piece<'_>) -> Option<ClassKind> {
         let mut kind = None;
-        if self.dataclass {
+        if self.dataclass || self.schema {
             kind = Some(ClassKind::Fields);
         }
         let bases = header.from(header.first_word().len()).trim();
@@ -145,13 +160,7 @@ pub(super) fn first_refused(code: Piece<'_>) -> Option<usize> {
     if let Some(index) = code.text.find(';') {
         return Some(code.at + index);
     }
-    let mut model = PythonModel::default();
-    for statement in statements(code) {
-        if let Some(at) = model.read(&statement) {
-            return Some(at);
-        }
-    }
-    None
+    PythonModel::scan(code, false)
 }
 
 fn statements(code: Piece<'_>) -> Vec<Statement<'_>> {

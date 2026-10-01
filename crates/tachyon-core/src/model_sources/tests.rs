@@ -5,26 +5,48 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[test]
-fn java_yon_checked_models_refuse_the_missing_schema_adapter_at_the_marker() {
+fn java_yon_checked_models_preserve_metadata_before_sdk_projection() {
     let root = tempfile::tempdir().expect("project");
     let path = root.path().join("server/models/OrderInput.java");
     std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
     let source = "import java.util.List;\n\n@Checked\nclass OrderInput {\n    @Required\n    String name;\n}\n";
     std::fs::write(&path, source).expect("model");
-    let failure = super::ModelSources::read(root.path(), "server", "java")
+    let models = super::ModelSources::read(root.path(), "server", "java").expect("schema model");
+    let entry = Path::new("server/services/OrderService.java");
+    let authored = models.metadata().assembled(entry, "@Service\nclass OrderService {\n    Object accept(@Check(OrderInput) Object order) { return order; }\n}\n").expect("metadata projection");
+    let lowered = crate::behavior::lower(entry, &authored, "yon")
+        .expect("schema lowering")
+        .expect("annotated source");
+    assert!(lowered.contains("OrderInput") && lowered.contains("required"));
+    let role = models
+        .metadata()
+        .without_declarations(entry, &lowered)
+        .expect("data separated");
+    assert!(!role.contains("class OrderInput"));
+    let sdk = models.add_to_program(&role);
+    assert!(!sdk.contains("@Checked") && !sdk.contains("@Required"));
+    assert!(sdk.contains("class OrderInput") && sdk.contains("String name"));
+}
+
+#[test]
+fn client_models_without_metadata_adapters_refuse_schemas_at_the_marker() {
+    let root = tempfile::tempdir().expect("project");
+    let relative = "client/models/OrderInput.cs";
+    let path = root.path().join(relative);
+    std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
+    let source = "using System;\n\n[Checked]\npublic class OrderInput {\n    [Required]\n    public string name;\n}\n";
+    std::fs::write(&path, source).expect("schema model");
+    let failure = super::ModelSources::read(root.path(), "client", "cs")
         .err()
-        .expect("missing Yon schema adapter");
-    let diagnostic = &failure.diagnostics()[0];
-    assert_eq!(diagnostic.code.number(), 1310);
-    assert!(diagnostic.message.contains("Yon schema metadata adapter"));
-    assert_eq!(diagnostic.spans[0].file, "server/models/OrderInput.java");
+        .expect("explicit missing adapter");
+    assert_eq!(failure.diagnostics()[0].code.number(), 1310);
+    assert_eq!(failure.diagnostics()[0].spans[0].file, relative);
     assert_eq!(
-        diagnostic.spans[0].start,
-        u64::try_from(source.find("@Checked").expect("marker")).expect("offset")
+        failure.diagnostics()[0].spans[0].start,
+        u64::try_from(source.find("[Checked]").expect("marker")).expect("offset")
     );
-    std::fs::write(path, "class OrderInput { String name; }\n").expect("plain model");
-    super::ModelSources::read(root.path(), "server", "java")
-        .expect("plain Yon DTO remains supported");
+    std::fs::write(path, "public class OrderInput { public string name; }\n").expect("plain DTO");
+    super::ModelSources::read(root.path(), "client", "cs").expect("plain client models unchanged");
 }
 
 struct Sources;
@@ -309,9 +331,14 @@ async fn dart_browser_services_share_a_model() {
         ("ShelfService", shelf.as_path()),
     ];
     let instances = ["guide", "shelf"].map(String::from).into_iter().collect();
-    let published = crate::tac_dart::build_all(root.path(), &services, &instances, crate::BuildProfile::Release)
-        .await
-        .expect("the Dart services build with their models");
+    let published = crate::tac_dart::build_all(
+        root.path(),
+        &services,
+        &instances,
+        crate::BuildProfile::Release,
+    )
+    .await
+    .expect("the Dart services build with their models");
     publish(root.path(), published);
     let driver = format!("{}{}", Sources::FILE_FETCH, Sources::DART_DRIVER);
     let report = run_driver(root.path(), &driver);

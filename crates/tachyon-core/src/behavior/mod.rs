@@ -34,6 +34,7 @@ mod model_mapping;
 mod mutations;
 mod parameters;
 mod polyglot;
+pub(crate) use polyglot::ModelSchema;
 mod queries;
 mod query_frontend;
 mod renamed;

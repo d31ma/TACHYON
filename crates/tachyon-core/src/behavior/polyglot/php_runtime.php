@@ -622,9 +622,13 @@ final class Behaviors {
         switch($type){__BEHAVIOR_CONSTRUCTORS__}
         BehaviorBoundary::invalid('Unknown constructor.');
     }
-    public static function properties(string $type,array $values): array {return BehaviorProperties::bind(self::records()[$type]['configurationProperties']??null,$values);}
-    public static function values(string $type,array $application): array {return BehaviorProperties::values(self::records()[$type]['values']??null,$application);}
-    public static function validate(string $type,mixed $value): mixed {return BehaviorValidation::apply(self::records()[$type]['validated']??null,$value);}
+    private static function schema(string $type): array {
+        $name = str_starts_with($type, 'Models\\') ? substr($type, 7) : $type;
+        return self::records()[$name] ?? [];
+    }
+    public static function properties(string $type,array $values): array {return BehaviorProperties::bind(self::schema($type)['configurationProperties']??null,$values);}
+    public static function values(string $type,array $application): array {return BehaviorProperties::values(self::schema($type)['values']??null,$application);}
+    public static function validate(string $type,mixed $value): mixed {return BehaviorValidation::apply(self::schema($type)['validated']??null,$value);}
 }
 final class BehaviorCalls {
     private static array $keys = [];

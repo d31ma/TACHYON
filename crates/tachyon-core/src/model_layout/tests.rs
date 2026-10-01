@@ -1021,3 +1021,97 @@ fn a_byte_order_mark_does_not_indent_the_first_line() {
     let diagnostic = refusal("server/models/Guide.py", refused);
     assert!(refused[refused_at(&diagnostic)..].starts_with("def"));
 }
+
+#[test]
+fn declarative_model_metadata_keeps_configuration_and_validation_data() {
+    let cases = [
+        (
+            "rs",
+            "ProductInput",
+            include_str!(
+                "../../tests/fixtures/behavior/authored/rs/server/helpers/ProductInput.rs"
+            ),
+        ),
+        (
+            "cs",
+            "AnnotatedInput",
+            include_str!(
+                "../../tests/fixtures/behavior/authored/cs/server/helpers/AnnotatedInput.cs"
+            ),
+        ),
+        (
+            "java",
+            "Settings",
+            include_str!(
+                "../../tests/fixtures/behavior/authored/java/server/helpers/Settings.java"
+            ),
+        ),
+        (
+            "groovy",
+            "Input",
+            include_str!(
+                "../../tests/fixtures/behavior/authored/groovy/server/helpers/Input.groovy"
+            ),
+        ),
+        (
+            "kt",
+            "Settings",
+            include_str!("../../tests/fixtures/behavior/authored/kt/server/helpers/Settings.kt"),
+        ),
+        (
+            "go",
+            "ProductInput",
+            include_str!(
+                "../../tests/fixtures/behavior/authored/go/server/helpers/ProductInput.go"
+            ),
+        ),
+        (
+            "py",
+            "ApplicationValues",
+            include_str!(
+                "../../tests/fixtures/behavior/authored/py/server/helpers/ApplicationValues.py"
+            ),
+        ),
+        (
+            "php",
+            "ProductInput",
+            include_str!(
+                "../../tests/fixtures/behavior/authored/php/server/helpers/ProductInput.php"
+            ),
+        ),
+        (
+            "rb",
+            "Settings",
+            include_str!("../../tests/fixtures/behavior/authored/rb/server/helpers/Settings.rb"),
+        ),
+    ];
+    crate::annotation_layout::validate(Path::new("server/models/OrderInput.fs"), "[<Checked>]\ntype OrderInput() =\n    [<Required>]\n    member val name : string = \"\" with get, set\n").expect("F# schema data");
+    let failures: Vec<_> = cases
+        .into_iter()
+        .filter_map(|(extension, name, source)| {
+            let path = format!("server/models/{name}.{extension}");
+            crate::annotation_layout::validate(Path::new(&path), source)
+                .err()
+                .map(|error| format!("{path}: {error}"))
+        })
+        .collect();
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn schema_models_still_refuse_behavior_and_arbitrary_constructors() {
+    for source in [
+        "[Checked]\npublic class OrderInput { public string name; public OrderInput() {} }",
+        "[Checked]\npublic class OrderInput { public string name; private OrderInput() { name = \"x\"; } }",
+        "[Checked]\npublic class OrderInput { public string read() { return \"x\"; } }",
+        "[Checked]\npublic class OrderInput { private OrderInput() { throw new System.Exception($\"{Danger()}\"); } }",
+        "[Service]\n[Checked]\npublic class OrderInput { public string name; }",
+    ] {
+        assert!(
+            crate::annotation_layout::validate(Path::new("server/models/OrderInput.cs"), source)
+                .is_err(),
+            "{source}"
+        );
+    }
+    assert!(crate::annotation_layout::validate(Path::new("server/models/OrderInput.py"), "@checked\nclass OrderInput:\n    name: str = ''\n    def read(self):\n        return self.name\n").is_err());
+}

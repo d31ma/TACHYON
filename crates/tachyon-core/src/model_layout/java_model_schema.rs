@@ -5,8 +5,9 @@ use std::path::Path;
 pub(crate) struct JavaModelSchema;
 
 impl JavaModelSchema {
-    pub(super) const CLASS: [&'static str; 1] = ["Checked"];
-    pub(super) const FIELDS: [&'static str; 5] = ["Required", "NotEmpty", "Length", "Min", "Max"];
+    pub(super) const CLASS: [&'static str; 3] = ["Checked", "Settings", "Description"];
+    pub(super) const FIELDS: [&'static str; 6] =
+        ["Required", "NotEmpty", "Length", "Min", "Max", "Setting"];
 
     pub(super) fn first_refused(code: Piece<'_>, allowed: &[&str]) -> Option<usize> {
         code.text.match_indices('@').find_map(|(at, _)| {
@@ -21,38 +22,9 @@ impl JavaModelSchema {
 
     pub(super) fn checked(code: Piece<'_>) -> bool {
         let leading = code.slice(0, code.after_annotations().at - code.at);
-        leading
-            .text
-            .match_indices('@')
-            .any(|(at, _)| Piece::last_segment(leading.from(at + 1).path()) == Self::CLASS[0])
-    }
-
-    pub(crate) fn require_realm(path: &Path, source: &str) -> Result<(), Failure> {
-        let masked = crate::annotation_layout::masked_source(path, source)?;
-        let server_java = [
-            path.starts_with("server/models"),
-            path.extension()
-                .is_some_and(|extension| extension == "java"),
-        ] == [true, true];
-        Self::checked_marker(Piece::new(0, &masked))
-            .filter(|_| server_java)
-            .map_or(Ok(()), |at| Err(Self::server_failure(path, at)))
-    }
-
-    fn checked_marker(code: Piece<'_>) -> Option<usize> {
-        code.text.match_indices('@').find_map(|(at, _)| {
-            let name = Piece::last_segment(code.from(at + 1).path());
-            (name == Self::CLASS[0]).then_some(code.at + at)
+        leading.text.match_indices('@').any(|(at, _)| {
+            ["Checked", "Settings"].contains(&Piece::last_segment(leading.from(at + 1).path()))
         })
-    }
-
-    fn server_failure(path: &Path, at: usize) -> Failure {
-        let portable = path.to_string_lossy().replace('\\', "/");
-        crate::Failure::one(crate::failure::diagnostic(
-            1310, "Checked Java models in the server realm need the Yon schema metadata adapter",
-            Some("Plain Java DTOs remain supported in server/models. Java Checked DTO metadata is currently qualified only in Tac; see docs/queue/NEXT/JAVA-YON-CHECKED-MODELS.md.".to_owned()),
-            crate::failure::source_span(&portable, at, at + 1),
-        ))
     }
 
     pub(crate) fn blanked(path: &Path, source: &str) -> Result<String, Failure> {
