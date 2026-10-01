@@ -1,7 +1,7 @@
 import AppKit
 import WebKit
 
-fileprivate extension AppDelegate {
+extension AppDelegate {
     func fixtureView() -> WKWebView { webView! }
     func fixtureWindow() -> NSWindow { window! }
     func fixtureAssets() -> NativeUiStyleAssets { liveStyleHost.assets }

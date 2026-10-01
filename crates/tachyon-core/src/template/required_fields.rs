@@ -291,22 +291,38 @@ impl RequiredFields {
         };
         let mut fields = Vec::new();
         let mut pending_marker = false;
+        let mut pending_needs = false;
         for piece in Self::pieces(body, false) {
             let (declaration, marked) = Self::strip_markers(piece);
+            let prefix = &piece[..piece.len() - declaration.len()];
+            pending_needs |= Self::java_needs_marker(extension, prefix);
             if declaration.is_empty() {
                 pending_marker |= marked;
                 continue;
             }
-            if let Some(mut field) = Self::required_field(extension, declaration) {
+            if let Some(mut field) = Self::required_field(extension, declaration, pending_needs) {
                 field.marked = marked || pending_marker;
                 fields.push(field);
             }
             pending_marker = false;
+            pending_needs = false;
         }
         fields
     }
 
-    fn required_field(extension: &str, piece: &str) -> Option<DeclaredField> {
+    fn java_needs_marker(extension: &str, prefix: &str) -> bool {
+        extension == "java" && prefix.split('@').skip(1).any(Self::is_needs_marker)
+    }
+
+    fn is_needs_marker(marker: &str) -> bool {
+        let name = marker
+            .split(|character: char| !Self::is_word_character(character) && character != '.')
+            .next()
+            .unwrap_or_default();
+        name.rsplit('.').next() == Some("Needs")
+    }
+
+    fn required_field(extension: &str, piece: &str, needs: bool) -> Option<DeclaredField> {
         let assignment = Self::assignment(piece);
         let initialized = assignment.is_some() || piece.split_whitespace().any(|word| word == "by");
         let mut declaration = piece[..assignment.unwrap_or(piece.len())].trim();
@@ -355,7 +371,7 @@ impl RequiredFields {
             "dart" => !initialized && (has("final") || has("late")),
             "cs" => has("required") || (!initialized && has("readonly")),
             "kt" => !initialized && (has("val") || has("lateinit")),
-            "java" => !initialized && !has("private") && words.len() > 1,
+            "java" => !initialized && (needs || !has("private")) && words.len() > 1,
             "swift" => {
                 !initialized
                     && !has("lazy")
@@ -610,6 +626,21 @@ mod tests {
         assert_eq!(
             props("BadgeService.swift", swift, "BadgeService"),
             ["path", "label"]
+        );
+    }
+
+    #[test]
+    fn java_private_needs_fields_are_injected_while_other_private_fields_stay_hidden() {
+        let source = "@Service\n@NeedsAll\nclass ShelfService {\n @Needs\n private final TallyService tally;\n @tachyon.Needs private final TallyService second;\n @Deprecated\n private String hidden;\n private TallyService unmarked;\n @Needs private TallyService initialized = null;\n String title;\n}\n";
+        let path = Path::new("client/services/ShelfService.java");
+        let injectable = BTreeSet::from([String::from("TallyService")]);
+        assert_eq!(
+            RequiredFields::props(path, source, "ShelfService", &injectable),
+            ["title"]
+        );
+        assert_eq!(
+            RequiredFields::injected_fields(path, source, "ShelfService", &injectable),
+            ["tally", "second"]
         );
     }
 
