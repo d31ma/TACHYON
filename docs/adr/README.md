@@ -98,3 +98,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [89. Native capabilities are activation-owned service providers](0089-native-capabilities-are-activation-owned-service-providers.md)
 - [90. Compiled Dart HTTP clients await the browser host](0090-compiled-dart-http-clients-await-the-browser-host.md)
 - [91. Role folders allow nesting and require explicit registration](0091-role-folders-allow-nesting-and-require-explicit-registration.md)
+- [92. Settings and validation data live in models](0092-settings-and-validation-data-live-in-models.md)
