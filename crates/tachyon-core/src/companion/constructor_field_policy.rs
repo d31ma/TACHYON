@@ -2,13 +2,17 @@ pub(super) struct ConstructorFieldPolicy;
 
 impl ConstructorFieldPolicy {
     pub(super) fn accepts(path: &str, kind: &str, needs_all: bool) -> bool {
-        Self::selection((needs_all, path.ends_with(".kt"), kind))
+        Self::selection((
+            needs_all,
+            std::path::Path::new(path)
+                .extension()
+                .and_then(|name| name.to_str())
+                == Some("kt"),
+            kind,
+        ))
     }
 
     fn selection(selected: (bool, bool, &str)) -> bool {
-        match selected {
-            (true, _, _) | (false, true, "DocumentTitle") => true,
-            _ => false,
-        }
+        matches!(selected, (true, _, _) | (false, true, "DocumentTitle"))
     }
 }

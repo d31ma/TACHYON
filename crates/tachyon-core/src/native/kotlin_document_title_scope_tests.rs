@@ -65,7 +65,7 @@ fun main() {
     }
 
     fn execute(command: &mut Command) -> String {
-        let output = crate::external_command::run_sync(command, Duration::from_secs(120), 65_536)
+        let output = crate::external_command::run_sync(command, Duration::from_mins(2), 65_536)
             .expect("supervised SDK");
         assert!(
             output.status.success(),

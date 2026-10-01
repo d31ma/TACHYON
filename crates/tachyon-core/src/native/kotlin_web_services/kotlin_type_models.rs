@@ -186,7 +186,7 @@ impl KotlinTypeModels {
         match model {
             Model::Alias(Shape::Text) => format!("    type {name} = string;\n"),
             Model::Record(record) => Self::record_line(name, &record.fields),
-            _ => String::new(),
+            Model::Alias(_) => String::new(),
         }
     }
 

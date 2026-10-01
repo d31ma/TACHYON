@@ -7,7 +7,7 @@ struct DocumentTitleFixture;
 
 impl DocumentTitleFixture {
     const BEFORE: &'static str = "globalThis.document = {title: 'original'};\n";
-    const AFTER: &'static str = r#"
+    const AFTER: &'static str = r"
 const equal = (expected, actual) => { if (expected !== actual) throw new Error(`expected ${expected}, got ${actual}`) };
 const first = new AbortController();
 const retained = TacDocumentTitle.owned(first.signal);
@@ -46,7 +46,7 @@ TacDocumentTitle.host('host title');
 equal('host title', document.title);
 refuses(() => TacDocumentTitle.host('bad', 'extra'));
 console.log('document-title-owned-bounds-qualified');
-"#;
+";
 
     fn run() -> String {
         let root = tempfile::tempdir().expect("fixture");

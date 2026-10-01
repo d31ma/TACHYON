@@ -43,7 +43,8 @@ impl DocumentTitleBrowserFixture {
     }
 
     fn required_path(name: &str) -> PathBuf {
-        let value = std::env::var_os(name).expect("explicit DocumentTitle fixture environment");
+        let value = std::env::var_os(name)
+            .unwrap_or_else(|| panic!("explicit DocumentTitle fixture environment: {name}"));
         PathBuf::from(value)
     }
 
@@ -56,10 +57,14 @@ impl DocumentTitleBrowserFixture {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tac-document-title");
         for relative in Self::PATHS {
             let target = self.root.join(relative);
-            std::fs::create_dir_all(target.parent().expect("literal fixture parent"))
-                .expect("fixture directory creation");
+            std::fs::create_dir_all(
+                target
+                    .parent()
+                    .unwrap_or_else(|| panic!("literal fixture parent")),
+            )
+            .unwrap_or_else(|error| panic!("fixture directory creation: {error}"));
             std::fs::copy(source.join(relative), target)
-                .expect("retained DocumentTitle source copy");
+                .unwrap_or_else(|error| panic!("retained DocumentTitle source copy: {error}"));
         }
     }
 
@@ -86,7 +91,7 @@ impl DocumentTitleBrowserFixture {
     async fn execute(mut command: tokio::process::Command, deadline: Duration) {
         let captured = crate::external_command::run(&mut command, deadline, 262_144)
             .await
-            .expect("supervised DocumentTitle fixture command");
+            .unwrap_or_else(|error| panic!("supervised DocumentTitle fixture command: {error}"));
         let stdout = String::from_utf8_lossy(&captured.stdout);
         let stderr = String::from_utf8_lossy(&captured.stderr);
         assert!(

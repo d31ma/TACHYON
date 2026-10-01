@@ -33,17 +33,17 @@ impl KotlinHeader {
         Self::require_public_constructor(path, header)?;
         let primary = Self::primary(header);
         let secondary = Self::secondary(source, class);
-        let primary_default = primary.map(Self::defaults).unwrap_or(false);
+        let primary_default = primary.is_some_and(Self::defaults);
         let secondary_default = secondary
             .iter()
             .filter(|(accessible, _)| *accessible)
             .any(|(_, parameters)| Self::defaults(parameters));
-        let usable = Self::usable(
+        let usable = Self::usable([
             primary.is_some(),
             secondary.is_empty(),
             primary_default,
             secondary_default,
-        );
+        ]);
         Self::require_usable(path, usable)
     }
 
@@ -58,16 +58,11 @@ impl KotlinHeader {
         Ok(())
     }
 
-    fn usable(
-        primary: bool,
-        implicit: bool,
-        primary_default: bool,
-        secondary_default: bool,
-    ) -> bool {
-        match (primary_default, secondary_default, primary, implicit) {
-            (true, _, _, _) | (_, true, _, _) | (_, _, false, true) => true,
-            _ => false,
-        }
+    fn usable(constructors: [bool; 4]) -> bool {
+        matches!(
+            constructors,
+            [_, _, true, _] | [_, _, _, true] | [false, true, _, _]
+        )
     }
 
     fn require_usable(path: &Path, usable: bool) -> Result<(), Failure> {
