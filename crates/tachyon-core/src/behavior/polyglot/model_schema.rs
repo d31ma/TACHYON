@@ -5,17 +5,7 @@ use std::path::Path;
 pub(crate) struct ModelSchema;
 
 impl ModelSchema {
-    const NAMES: [&'static str; 9] = [
-        "Settings",
-        "Setting",
-        "Checked",
-        "Required",
-        "NotEmpty",
-        "Length",
-        "Min",
-        "Max",
-        "Description",
-    ];
+    const NAMES: [&'static str; 9] = crate::annotation_layout::SchemaMarkers::NAMES;
 
     pub(crate) fn plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
         crate::lua_source::LuaView::of(path, source)
@@ -63,6 +53,10 @@ impl ModelSchema {
                     format!("[{name}"),
                     format!("[<{name}"),
                     format!("@{}", name.to_lowercase()),
+                    format!("@yon::{name}"),
+                    format!("@tac::{name}"),
+                    format!("[yon::{name}"),
+                    format!("[tac::{name}"),
                 ]
             })
             .filter_map(|marker| code.find(&marker))
@@ -127,12 +121,19 @@ impl ModelSchema {
             source,
             code: super::super::visible_code(source, &mask.code),
         };
-        let markers = super::super::markers(&input)?;
+        crate::annotation_layout::SchemaMarkers::contains(path, source)?
+            .then(|| Self::script_marked(&input))
+            .transpose()?
+            .map_or(Ok(None), Ok)
+    }
+
+    fn script_marked(input: &Input<'_>) -> Result<Option<String>, Failure> {
+        let markers = super::super::markers(input)?;
         let schema = markers
             .iter()
             .any(|marker| Self::NAMES.contains(&marker.name.as_str()));
         schema
-            .then(|| Self::script_projection(&input, &markers))
+            .then(|| Self::script_projection(input, &markers))
             .transpose()
     }
 
@@ -156,13 +157,18 @@ impl ModelSchema {
             code: super::visible_code(source, mask.code),
         };
         let environment = ["yon", "tac"][usize::from(path.starts_with("client"))];
-        let markers = super::annotations(&input, language, environment)?;
-        let schema = markers
-            .iter()
-            .any(|marker| Self::NAMES.contains(&marker.name.as_str()));
-        schema
-            .then(|| Self::project(&input, &markers, environment))
+        crate::annotation_layout::SchemaMarkers::contains(path, source)?
+            .then(|| Self::polyglot_projection(&input, language, environment))
             .transpose()
+    }
+
+    fn polyglot_projection(
+        input: &Input<'_>,
+        language: &str,
+        environment: &str,
+    ) -> Result<String, Failure> {
+        let markers = super::annotations(input, language, environment)?;
+        Self::project(input, &markers, environment)
     }
 
     fn project(

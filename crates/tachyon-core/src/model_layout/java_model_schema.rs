@@ -20,7 +20,7 @@ impl JavaModelSchema {
         })
     }
 
-    pub(super) fn checked(code: Piece<'_>) -> bool {
+    pub(super) fn constrained(code: Piece<'_>) -> bool {
         let leading = code.slice(0, code.after_annotations().at - code.at);
         leading.text.match_indices('@').any(|(at, _)| {
             ["Checked", "Settings"].contains(&Piece::last_segment(leading.from(at + 1).path()))

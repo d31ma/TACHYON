@@ -694,6 +694,26 @@ fn java_checked_models_hold_only_constrained_data() {
 }
 
 #[test]
+fn java_field_only_settings_are_data_but_unchecked_constraints_are_refused() {
+    let source = include_str!(
+        "../../tests/fixtures/behavior/authored/java/server/helpers/ApplicationValues.java"
+    );
+    assert_accepted(&["server/models/ApplicationValues.java"], source);
+    let plain =
+        super::JavaModelSchema::blanked(Path::new("server/models/ApplicationValues.java"), source)
+            .expect("field settings stripped");
+    assert!(!plain.contains("@Setting"));
+    assert!(plain.contains("class ApplicationValues"));
+    for marker in ["Required", "Min(1)", "Max(9)", "NotEmpty", "Length(3)"] {
+        let source = format!("class Input {{ @{marker} String name; }}");
+        assert_eq!(
+            refusal("server/models/Input.java", &source).code.number(),
+            1310
+        );
+    }
+}
+
+#[test]
 fn java_model_schema_removal_preserves_literals_native_annotations_and_offsets() {
     let source = "@Checked\nclass OrderInput {\n    @Deprecated\n    @Length({\"min\":1,\"max\":80})\n    String name = \"@Required @Min(1)\";\n}\n";
     let compiled =

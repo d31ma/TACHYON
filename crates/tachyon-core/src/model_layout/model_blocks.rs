@@ -5,7 +5,7 @@ use leading_lines::LeadingLines;
 use line_blocks::LineBlocks;
 use std::ffi::OsStr;
 use std::path::Path;
-use string_fill::StringFill;
+pub(super) use string_fill::StringFill;
 
 mod braced_blocks;
 mod js_doc_blocks;
@@ -42,9 +42,16 @@ impl ModelBlocks {
             "fs" => LineBlocks::fsharp(code),
             "py" => LineBlocks::python(code),
             "rb" => LineBlocks::ruby(code),
-            "js" => JsDocBlocks::read(source),
+            "js" => Self::javascript(source, code),
             _ => BracedBlocks::read(extension, code),
         }
+    }
+
+    fn javascript(source: &str, code: &str) -> Vec<ModelBlock> {
+        let mut blocks = JsDocBlocks::read(source);
+        blocks.extend(BracedBlocks::read("js", code));
+        blocks.sort_by_key(|block| block.start);
+        blocks
     }
 
     fn widened(found: &[ModelBlock], lines: &LeadingLines<'_>) -> Vec<ModelBlock> {

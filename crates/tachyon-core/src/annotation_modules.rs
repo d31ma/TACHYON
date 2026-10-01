@@ -220,6 +220,10 @@ pub(crate) struct Module {
 }
 
 impl Module {
+    pub(crate) fn plain_model(path: &Path, source: &str) -> Result<String, Failure> {
+        erase_module_exports(path, source)
+    }
+
     pub(crate) fn with_models(
         entry: &Path,
         source: &str,
@@ -232,6 +236,7 @@ impl Module {
             .into_iter()
             .map(|(path, source)| {
                 register_names(&path, &source, &mut names)?;
+                let source = erase_exports(&path, source, extension)?;
                 Ok(Self { path, source })
             })
             .collect::<Result<Vec<_>, Failure>>()?;

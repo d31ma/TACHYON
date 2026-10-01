@@ -11,6 +11,7 @@ struct ModelFile {
     portable: String,
     source: String,
     plain: String,
+    schema: bool,
 }
 
 impl ModelFile {
@@ -73,7 +74,7 @@ impl ModelSources {
         ModelMetadata::new(
             self.files
                 .iter()
-                .filter(|file| file.source != file.plain)
+                .filter(|file| file.schema)
                 .map(|file| (PathBuf::from(&file.portable), file.source.clone()))
                 .collect(),
         )
@@ -293,7 +294,12 @@ impl FolderReader<'_> {
         let source = crate::topics::Topics::blanked(&source);
         let schema = crate::behavior::ModelSchema::plain(relative, &source)?;
         crate::behavior::ModelSchema::require_realm(relative, &source, schema.is_some())?;
+        let marked = schema.is_some();
         let plain = schema.unwrap_or_else(|| source.clone());
+        let script = ["js", "ts"].contains(&self.extension);
+        let plain = script
+            .then(|| crate::annotation_modules::Module::plain_model(relative, &plain))
+            .unwrap_or_else(|| Ok(plain.clone()))?;
         let inside = relative
             .strip_prefix(self.folder)
             .unwrap_or(relative)
@@ -303,6 +309,7 @@ impl FolderReader<'_> {
             portable: relative.to_string_lossy().replace('\\', "/"),
             source,
             plain,
+            schema: marked,
         });
         Ok(())
     }

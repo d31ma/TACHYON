@@ -1,10 +1,10 @@
-pub(super) struct StringFill;
+pub(crate) struct StringFill;
 
 impl StringFill {
     const QUOTES: &'static [u8] = b"\"'`";
     const FILL: u8 = b'_';
 
-    pub(super) fn apply(extension: &str, source: &str, masked: &str) -> String {
+    pub(crate) fn apply(extension: &str, source: &str, masked: &str) -> String {
         let mask = crate::lexical::code_mask(extension, source);
         let original = source.as_bytes();
         let mut bytes = masked.as_bytes().to_vec();

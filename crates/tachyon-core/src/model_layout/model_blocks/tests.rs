@@ -223,3 +223,16 @@ fn text_in_strings_does_not_join_or_hide_models() {
     let kotlin = "data class Label(val text: String = \"{ class Hidden\")\nenum class Kind { A }\n";
     assert_eq!(names("client/models/Label.kt", kotlin), ["Label", "Kind"]);
 }
+
+#[test]
+fn javascript_schema_classes_and_jsdoc_types_keep_their_owned_blocks() {
+    let source = "/** @typedef {object} Receipt */\n\n@Checked\nclass OrderInput {\n  @Required\n  name = 'class Fake {}';\n}\n\nconst decoy = \"class Other {}\";\n";
+    assert_eq!(
+        names("server/models/OrderInput.js", source),
+        ["Receipt", "OrderInput"]
+    );
+    let blocks = texts("server/models/OrderInput.js", source);
+    assert!(blocks[0].contains("@typedef") && !blocks[0].contains("class OrderInput"));
+    assert!(blocks[1].starts_with("@Checked") && blocks[1].contains("class OrderInput"));
+    assert!(!blocks[1].contains("const decoy"));
+}

@@ -42,7 +42,7 @@ fn refused_item(item: Piece<'_>) -> Option<usize> {
     if let Some(rest) = declaration.after_word("class") {
         let leading = item.slice(0, declaration.at - item.at);
         return JavaModelSchema::first_refused(leading, &JavaModelSchema::CLASS)
-            .or_else(|| refused_class(rest, JavaModelSchema::checked(item)));
+            .or_else(|| refused_class(rest, JavaModelSchema::constrained(item)));
     }
     JavaModelSchema::first_refused(item, &[]).or(Some(declaration.at))
 }
@@ -80,7 +80,7 @@ pub(super) fn refused_enum(declaration: Piece<'_>) -> Option<usize> {
     None
 }
 
-fn refused_class(declaration: Piece<'_>, checked: bool) -> Option<usize> {
+fn refused_class(declaration: Piece<'_>, constrained: bool) -> Option<usize> {
     let Some(body) = declaration.body() else {
         return Some(declaration.at);
     };
@@ -88,7 +88,7 @@ fn refused_class(declaration: Piece<'_>, checked: bool) -> Option<usize> {
         return Some(body.rest.at);
     }
     for member in body.inner.items() {
-        let allowed: &[&str] = if checked {
+        let allowed: &[&str] = if constrained {
             &JavaModelSchema::FIELDS
         } else {
             &["Setting"]

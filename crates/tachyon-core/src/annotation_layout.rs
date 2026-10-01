@@ -16,6 +16,7 @@ pub(crate) use file_name_check::FileNameCheck;
 pub(crate) use folder_role_check::FolderRoleCheck;
 pub(crate) use inline_model_check::InlineModelCheck;
 pub(crate) use one_model_check::OneModelCheck;
+pub(crate) use single_class::SchemaMarkers;
 pub(crate) use single_class::cohesion::CohesionCheck;
 pub(crate) use single_class::design_check::{
     DesignCheck, DesignSwitches, MissingType, UnusedMember,

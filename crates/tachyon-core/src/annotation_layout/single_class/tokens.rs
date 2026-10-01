@@ -262,7 +262,7 @@ impl<'a> Tokens<'a> {
         })
     }
 
-    fn has_marker(&self, matches: impl Fn(&str) -> bool) -> bool {
+    pub(super) fn has_marker(&self, matches: impl Fn(&str) -> bool) -> bool {
         for at in 0..self.items.len() {
             if !self.marker_start(at) {
                 continue;
