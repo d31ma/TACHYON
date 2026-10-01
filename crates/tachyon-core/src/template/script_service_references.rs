@@ -18,16 +18,16 @@ impl ScriptServiceReferences {
 
     pub(super) fn read(path: &Path, source: &str, known: &BTreeSet<String>) -> BTreeSet<String> {
         crate::annotation_layout::masked_source(path, source)
-            .map(|code| Self::references(&code, known))
-            .unwrap_or_else(|_| known.clone())
+            .map_or_else(|_| known.clone(), |code| Self::references(&code, known))
     }
 
     fn references(code: &str, known: &BTreeSet<String>) -> BTreeSet<String> {
         let names = Self::identifiers(code, known);
         let compact = Self::compact(code);
         let computed = Self::computed_write(&compact);
-        let reflective = Self::reflective_write(&compact) || Self::escaped_owner(code);
-        Self::selected(names, known, (computed, reflective))
+        let reflective = Self::reflective_write(&compact);
+        let escaped = Self::escaped_owner(code);
+        Self::selected(names, known, [computed, reflective, escaped])
     }
 
     fn identifiers(code: &str, known: &BTreeSet<String>) -> BTreeSet<String> {
@@ -67,26 +67,34 @@ impl ScriptServiceReferences {
     }
 
     fn escaped_owner(code: &str) -> bool {
-        code.match_indices("this").any(|(offset, _)| {
-            let before = code[..offset].chars().next_back();
-            let after = code[offset + 4..].chars().next();
-            let token = !before.is_some_and(Self::identifier_character)
-                && !after.is_some_and(Self::identifier_character);
-            token && !code[offset + 4..].trim_start().starts_with(['.', '['])
-        })
+        code.match_indices("this")
+            .map(|(offset, _)| Self::owner_evidence(code, offset))
+            .any(|evidence| evidence == (true, true))
+    }
+
+    fn owner_evidence(code: &str, offset: usize) -> (bool, bool) {
+        let before = code[..offset].chars().next_back();
+        let after = code[offset + 4..].chars().next();
+        let identifiers = [
+            before.is_some_and(Self::identifier_character),
+            after.is_some_and(Self::identifier_character),
+        ];
+        let token = !identifiers.contains(&true);
+        let escaped = !code[offset + 4..].trim_start().starts_with(['.', '[']);
+        (token, escaped)
     }
 
     fn identifier_character(character: char) -> bool {
-        character.is_alphanumeric() || matches!(character, '_' | '$')
+        character.is_alphanumeric() || ['_', '$'].contains(&character)
     }
 
     fn selected(
         names: BTreeSet<String>,
         known: &BTreeSet<String>,
-        writes: (bool, bool),
+        writes: [bool; 3],
     ) -> BTreeSet<String> {
         match writes {
-            (false, false) => names,
+            [false, false, false] => names,
             _ => known.clone(),
         }
     }

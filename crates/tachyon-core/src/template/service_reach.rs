@@ -53,9 +53,10 @@ impl ServiceReach {
         names: &BTreeSet<String>,
         path: &std::path::Path,
     ) -> BTreeSet<String> {
-        std::fs::read_to_string(path)
-            .map(|source| Self::declared_dependencies(definition, names, path, &source))
-            .unwrap_or_else(|_| names.clone())
+        std::fs::read_to_string(path).map_or_else(
+            |_| names.clone(),
+            |source| Self::declared_dependencies(definition, names, path, &source),
+        )
     }
 
     fn declared_dependencies(
