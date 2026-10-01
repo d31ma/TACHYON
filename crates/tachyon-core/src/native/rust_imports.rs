@@ -1,4 +1,7 @@
 use crate::Failure;
+
+#[cfg(test)]
+mod tests;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::Path;
@@ -10,6 +13,16 @@ pub(super) struct RustImports {
 }
 
 impl RustImports {
+    pub(super) fn scoped(path: &Path, source: &str, name: &str) -> Result<String, Failure> {
+        let mut imports = Self::default();
+        let body = imports.take(path, source)?;
+        let body = crate::annotation_layout::UtilityLayout::native_rust_exports(path, &body)?;
+        Ok(format!(
+            "mod __TachyonUtility_{name} {{\nuse super::*;\n{}\n{body}\n}}\nuse self::__TachyonUtility_{name}::{name};\n",
+            imports.source()
+        ))
+    }
+
     pub(super) fn take(&mut self, path: &Path, source: &str) -> Result<String, Failure> {
         let masked = crate::annotation_layout::masked_source(path, source)?;
         let ranges = Self::ranges(&masked);
@@ -185,7 +198,7 @@ impl RustImports {
         if existing.is_some_and(|existing| existing != qualified) {
             return Err(Self::failure(
                 path,
-                "Native Rust role imports bind the same name to different types; use distinct explicit aliases in the authored files.",
+                "Native Rust imports in this scope bind the same name to different types.",
             ));
         }
         Ok(())

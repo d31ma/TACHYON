@@ -1,6 +1,7 @@
 #![allow(clippy::needless_bitwise_bool)]
 
 use super::cohesion::UtilityShape;
+use super::rust_utility_exports::RustUtilityExports;
 use super::{Failure, Input, Parser, Tokens};
 use crate::annotation_layout::ClassFileName;
 use std::path::Path;
@@ -23,6 +24,10 @@ impl UtilityLayout {
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
         let checked = Self::is_utility(path).then(|| Self::check_utility(path, source));
         checked.unwrap_or(Ok(()))
+    }
+
+    pub(crate) fn native_rust_exports(path: &Path, source: &str) -> Result<String, Failure> {
+        RustUtilityExports::source(path, source)
     }
 
     fn check_utility(path: &Path, source: &str) -> Result<(), Failure> {

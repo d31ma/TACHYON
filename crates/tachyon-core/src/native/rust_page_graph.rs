@@ -87,22 +87,38 @@ impl RustPageGraph {
         source: &str,
         root: &std::path::Path,
     ) -> Result<(), Failure> {
-        let cleaned = if path.starts_with("client/services") {
+        let cleaned = self.unit_source(path, source, root)?;
+        crate::behavior::NativeStorage::refuse_builtins(path, &cleaned)?;
+        crate::annotation_layout::NativeWebApis::refuse(path, &cleaned)?;
+        self.utilities.extend(Self::utility_name(path, source));
+        let cleaned = self.unit_imports(path, &cleaned)?;
+        self.source.push_str(&cleaned);
+        self.source.push('\n');
+        Ok(())
+    }
+
+    fn unit_source(
+        &mut self,
+        path: &std::path::Path,
+        source: &str,
+        root: &std::path::Path,
+    ) -> Result<String, Failure> {
+        if path.starts_with("client/services") {
             let mut service = RustServicePlan::read(path, source)?;
             Self::describe(&mut service, root)?;
             let cleaned = service.source.clone();
             self.services.insert(service.name.clone(), service);
-            cleaned
+            Ok(cleaned)
         } else {
-            crate::behavior::ServiceRoles::without_roles(path, source)?
-        };
-        crate::behavior::NativeStorage::refuse_builtins(path, &cleaned)?;
-        crate::annotation_layout::NativeWebApis::refuse(path, &cleaned)?;
-        self.utilities.extend(Self::utility_name(path, source));
-        let cleaned = self.imports.take(path, &cleaned)?;
-        self.source.push_str(&cleaned);
-        self.source.push('\n');
-        Ok(())
+            crate::behavior::ServiceRoles::without_roles(path, source)
+        }
+    }
+
+    fn unit_imports(&mut self, path: &std::path::Path, source: &str) -> Result<String, Failure> {
+        match Self::utility_name(path, source) {
+            Some(name) => super::rust_imports::RustImports::scoped(path, source, &name),
+            None => self.imports.take(path, source),
+        }
     }
 
     fn utility_name(path: &std::path::Path, source: &str) -> Option<String> {

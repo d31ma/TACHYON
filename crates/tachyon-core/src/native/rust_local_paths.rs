@@ -37,7 +37,7 @@ impl RustLocalPaths {
         let mut rewritten = source.to_owned();
         self.references(&masked).into_iter().rev().for_each(|at| {
             let prefix = self.prefix(&masked, at);
-            rewritten.replace_range(at..at + prefix.len(), self.namespace(&masked, at));
+            rewritten.replace_range(at..at + prefix.len(), "crate::TachyonRustServices");
         });
         Ok(rewritten)
     }
@@ -69,17 +69,6 @@ impl RustLocalPaths {
             .take_while(|byte| Self::identifier_byte(*byte))
             .count();
         &masked[at + "crate::".len()..at + "crate::".len() + name]
-    }
-
-    fn namespace(&self, masked: &str, at: usize) -> &'static str {
-        match (
-            self.utility_name(&masked[at..]).is_some(),
-            self.models,
-            Self::reference_name(masked, at),
-        ) {
-            (true, _, _) | (false, true, "models") => "crate::TachyonRustServices",
-            _ => "self",
-        }
     }
 
     fn prefix(&self, masked: &str, at: usize) -> &'static str {

@@ -583,3 +583,73 @@ async fn native_rust_page_graph_joins_owned_workers_at_their_lifetime_boundary()
         NativePageGraphCheck::execute(&source, &caller).await;
     }
 }
+
+#[tokio::test]
+async fn native_rust_page_graph_scopes_utility_imports_and_keeps_canonical_calls() {
+    let root = tempfile::tempdir().expect("fixture");
+    let utilities = root.path().join("client/utils/nested");
+    let models = root.path().join("client/models");
+    std::fs::create_dir_all(&utilities).expect("utilities");
+    std::fs::create_dir_all(&models).expect("models");
+    std::fs::write(
+        models.join("Guide.rs"),
+        "pub struct Guide { pub title: String }\n",
+    )
+    .expect("model");
+    std::fs::write(
+        utilities.join("LabelUtils.rs"),
+        r#"
+use crate::models::Guide;
+struct LabelUtils;
+impl LabelUtils {
+    fn label() -> String { Guide { title: String::from("scoped") }.title }
+}
+"#,
+    )
+    .expect("model utility");
+    std::fs::write(
+        utilities.join("ComparisonUtils.rs"),
+        r#"
+use crate::utils::LabelUtils as Labels;
+use std::cmp::Ordering;
+struct ComparisonUtils;
+impl ComparisonUtils {
+    const TITLE: &'static str = "scoped";
+    fn compare(left: i64, right: i64) -> Ordering { left.cmp(&right) }
+    fn checked(value: i64) -> i64 {
+        let order: Ordering = Self::compare(value, value);
+        assert_eq!(order, Ordering::Equal);
+        assert_eq!(Labels::label(), Self::TITLE);
+        value
+    }
+}
+"#,
+    )
+    .expect("comparison utility");
+    let provider = "use std::sync::atomic::Ordering;\n".to_owned()
+        + &NativePageGraphCheck::PROVIDER
+            .replace("std::sync::atomic::Ordering::SeqCst", "Ordering::SeqCst")
+            .replace(
+                "self.count.load(Ordering::SeqCst)",
+                "ComparisonUtils::checked(self.count.load(Ordering::SeqCst))",
+            );
+    let source =
+        NativePageGraphCheck::stage(root.path(), &provider).expect("scoped utility staging");
+    let emitted = std::fs::read_to_string(&source).expect("emitted source");
+    assert!(emitted.contains("mod __TachyonUtility_ComparisonUtils"));
+    assert!(emitted.contains("use std::cmp::Ordering;"));
+    assert!(emitted.contains("use std::sync::atomic::Ordering;"));
+    NativePageGraphCheck::execute(&source, NativePageGraphCheck::CALLER).await;
+}
+
+#[test]
+fn native_rust_page_graph_rejects_duplicate_imports_inside_one_utility() {
+    let root = tempfile::tempdir().expect("fixture");
+    let utilities = root.path().join("client/utils");
+    std::fs::create_dir_all(&utilities).expect("utilities");
+    std::fs::write(utilities.join("ComparisonUtils.rs"), "use std::cmp::Ordering;\nuse std::sync::atomic::Ordering;\nstruct ComparisonUtils;\nimpl ComparisonUtils { fn equal() -> bool { true } }\n")
+        .expect("invalid imports");
+    let error = NativePageGraphCheck::stage(root.path(), NativePageGraphCheck::PROVIDER)
+        .expect_err("same-file conflicting imports remain invalid");
+    assert!(error.to_string().contains("TY1406"), "{error}");
+}

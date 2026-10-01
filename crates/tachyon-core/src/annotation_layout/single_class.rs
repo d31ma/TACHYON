@@ -8,6 +8,7 @@ mod load_time;
 mod shared_class;
 pub(super) use shared_class::SharedClass;
 mod ruby;
+mod rust_utility_exports;
 pub(super) mod rule_switch;
 mod schema_markers;
 pub(super) mod simpler_forms;
