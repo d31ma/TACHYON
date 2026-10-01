@@ -4,6 +4,29 @@ use crate::tac_web::WebLanguage;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[test]
+fn java_yon_checked_models_refuse_the_missing_schema_adapter_at_the_marker() {
+    let root = tempfile::tempdir().expect("project");
+    let path = root.path().join("server/models/OrderInput.java");
+    std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
+    let source = "import java.util.List;\n\n@Checked\nclass OrderInput {\n    @Required\n    String name;\n}\n";
+    std::fs::write(&path, source).expect("model");
+    let failure = super::ModelSources::read(root.path(), "server", "java")
+        .err()
+        .expect("missing Yon schema adapter");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1310);
+    assert!(diagnostic.message.contains("Yon schema metadata adapter"));
+    assert_eq!(diagnostic.spans[0].file, "server/models/OrderInput.java");
+    assert_eq!(
+        diagnostic.spans[0].start,
+        u64::try_from(source.find("@Checked").expect("marker")).expect("offset")
+    );
+    std::fs::write(path, "class OrderInput { String name; }\n").expect("plain model");
+    super::ModelSources::read(root.path(), "server", "java")
+        .expect("plain Yon DTO remains supported");
+}
+
 struct Sources;
 
 impl Sources {

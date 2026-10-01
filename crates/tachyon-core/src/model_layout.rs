@@ -10,6 +10,8 @@ mod dart;
 mod go;
 mod groovy_model;
 mod java;
+mod java_model_schema;
+pub(crate) use java_model_schema::JavaModelSchema;
 mod java_script_model;
 mod kotlin;
 mod model_blocks;

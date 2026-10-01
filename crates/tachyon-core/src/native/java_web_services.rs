@@ -146,7 +146,7 @@ impl JavaWebServices {
         let all_authored = authored.concat();
         let models = JavaModels::read(snapshot_root, &all_authored)?;
         let values = models.values();
-        let read = Self::services(snapshot_root, services, &authored, &values)?;
+        let read = Self::services(snapshot_root, services, &authored, &values, &models)?;
         let mut sources: Vec<(PathBuf, String)> = read
             .iter()
             .map(|service| (service.path.clone(), service.source.clone()))
@@ -174,6 +174,7 @@ impl JavaWebServices {
         services: &[(String, String, PathBuf)],
         texts: &[String],
         values: &JavaValueType,
+        models: &JavaModels,
     ) -> Result<Vec<JavaService>, Failure> {
         let mut read = Vec::new();
         for (index, ((instance, class, path), authored)) in services.iter().zip(texts).enumerate() {
@@ -187,7 +188,13 @@ impl JavaWebServices {
                 path: relative.to_path_buf(),
                 source: authored,
             };
-            read.push(Self::service(snapshot_root, service, index, values)?);
+            read.push(Self::service(
+                snapshot_root,
+                service,
+                index,
+                values,
+                models,
+            )?);
         }
         Ok(read)
     }
@@ -197,6 +204,7 @@ impl JavaWebServices {
         authored: JavaService,
         index: usize,
         values: &JavaValueType,
+        models: &JavaModels,
     ) -> Result<JavaService, Failure> {
         let relative = authored.path.as_path();
         let roles = crate::behavior::ServiceRoles::read(relative, &authored.source)?;
@@ -207,11 +215,11 @@ impl JavaWebServices {
         if let Some(module) = events.as_mut() {
             crate::events::describe(module, relative, snapshot_root, "client")?;
         }
-        let lowered = crate::behavior::lower(relative, source, "tac")?;
-        let source = lowered.map_or_else(
-            || source.to_owned(),
-            |text| JavaBrowserRuntime::adapt(&text),
-        );
+        let behavior_source = models.behavior_source(source, &authored.class)?;
+        let lowered = crate::behavior::lower(relative, &behavior_source, "tac")?;
+        let source =
+            lowered.map_or_else(|| behavior_source, |text| JavaBrowserRuntime::adapt(&text));
+        let source = models.without_declarations(relative, &source)?;
         let shown = relative.to_string_lossy();
         let reader = JavaClassReader::new(&shown, &source);
         let events_of_class = JavaEventMembers::new(relative, &authored.class, values);

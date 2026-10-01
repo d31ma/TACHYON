@@ -168,7 +168,11 @@ const order = new OrderService({})
 const accepted = order.accept({ name: 'Tea', level: 2 })
 let refused = ''
 try { order.accept({ name: '', level: 12 }) } catch (error) { refused = error.message }
-console.log(JSON.stringify({ submitted, waited, pauses: pauses.length, reported, title: settings.title, pageSize: settings.pageSize, accepted, refused }))
+const invalid = [{ name: '', level: 2 }, { name: 'x'.repeat(81), level: 2 }, { name: 'Tea' }, { name: 'Tea', level: 0 }, { name: 'Tea', level: 10 }]
+const checkedFailures = invalid.map((value) => {
+    try { order.accept(value); return '' } catch (error) { return error.message }
+})
+console.log(JSON.stringify({ submitted, waited, pauses: pauses.length, reported, title: settings.title, pageSize: settings.pageSize, accepted, refused, checkedFailures }))
 process.exit(0)
 ";
 }
@@ -235,6 +239,16 @@ async fn a_java_service_retries_after_a_host_clock_wait_and_binds_and_checks_val
         report["refused"]
             .as_str()
             .is_some_and(|text| !text.is_empty()),
+        "{report}"
+    );
+    let failures = report["checkedFailures"]
+        .as_array()
+        .expect("checked failures");
+    assert_eq!(failures.len(), 5, "{report}");
+    assert!(
+        failures
+            .iter()
+            .all(|failure| failure.as_str().is_some_and(|text| !text.is_empty())),
         "{report}"
     );
 }

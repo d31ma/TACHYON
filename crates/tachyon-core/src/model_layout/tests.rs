@@ -682,6 +682,51 @@ public final class Section {
 }
 
 #[test]
+fn java_checked_models_hold_only_constrained_data() {
+    let source = "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name;\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level;\n}\n";
+    assert_accepted(
+        &[
+            "client/models/OrderInput.java",
+            "server/models/OrderInput.java",
+        ],
+        source,
+    );
+}
+
+#[test]
+fn java_model_schema_removal_preserves_literals_native_annotations_and_offsets() {
+    let source = "@Checked\nclass OrderInput {\n    @Deprecated\n    @Length({\"min\":1,\"max\":80})\n    String name = \"@Required @Min(1)\";\n}\n";
+    let compiled =
+        super::JavaModelSchema::blanked(Path::new("client/models/OrderInput.java"), source)
+            .expect("schema stripped");
+    assert!(!compiled.contains("@Checked") && !compiled.contains("@Length"));
+    assert!(compiled.contains("@Deprecated") && compiled.contains("\"@Required @Min(1)\""));
+    assert_eq!(compiled.len(), source.len());
+    assert_eq!(compiled.lines().count(), source.lines().count());
+}
+
+#[test]
+fn java_checked_models_refuse_roles_behavior_and_misplaced_schema() {
+    for source in [
+        "@Service\n@Checked\nclass OrderInput { String name; }",
+        "@Checked\nclass OrderInput { @Cached String name; }",
+        "@Checked\nclass OrderInput { String read() { return name; } }",
+        "@Checked\nclass OrderInput { OrderInput() {} }",
+        "@Required\nclass OrderInput { String name; }",
+        "@Checked\nclass OrderInput { @Checked String name; }",
+        "@Checked\nrecord OrderInput(String name) {}",
+    ] {
+        assert_eq!(
+            refusal("client/models/OrderInput.java", source)
+                .code
+                .number(),
+            1310,
+            "{source}"
+        );
+    }
+}
+
+#[test]
 fn groovy_models_hold_data_types() {
     let source = r#"import java.time.LocalDate
 

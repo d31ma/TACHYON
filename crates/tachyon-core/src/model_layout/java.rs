@@ -1,3 +1,4 @@
+use super::JavaModelSchema;
 use super::piece::Piece;
 
 struct JavaModel;
@@ -17,9 +18,6 @@ impl JavaModel {
 }
 
 pub(super) fn first_refused(code: Piece<'_>) -> Option<usize> {
-    if let Some(at) = code.first_framework_annotation() {
-        return Some(at);
-    }
     for item in code.items() {
         if let Some(at) = refused_item(item) {
             return Some(at);
@@ -36,15 +34,17 @@ fn refused_item(item: Piece<'_>) -> Option<usize> {
         .after_annotations()
         .after_words(&JavaModel::TYPE_MODIFIERS);
     if let Some(rest) = declaration.after_word("record") {
-        return refused_record(rest);
+        return JavaModelSchema::first_refused(item, &[]).or_else(|| refused_record(rest));
     }
     if let Some(rest) = declaration.after_word("enum") {
-        return refused_enum(rest);
+        return JavaModelSchema::first_refused(item, &[]).or_else(|| refused_enum(rest));
     }
     if let Some(rest) = declaration.after_word("class") {
-        return refused_class(rest);
+        let leading = item.slice(0, declaration.at - item.at);
+        return JavaModelSchema::first_refused(leading, &JavaModelSchema::CLASS)
+            .or_else(|| refused_class(rest, JavaModelSchema::checked(item)));
     }
-    Some(declaration.at)
+    JavaModelSchema::first_refused(item, &[]).or(Some(declaration.at))
 }
 
 pub(super) fn refused_record(declaration: Piece<'_>) -> Option<usize> {
@@ -80,7 +80,7 @@ pub(super) fn refused_enum(declaration: Piece<'_>) -> Option<usize> {
     None
 }
 
-fn refused_class(declaration: Piece<'_>) -> Option<usize> {
+fn refused_class(declaration: Piece<'_>, checked: bool) -> Option<usize> {
     let Some(body) = declaration.body() else {
         return Some(declaration.at);
     };
@@ -88,6 +88,14 @@ fn refused_class(declaration: Piece<'_>) -> Option<usize> {
         return Some(body.rest.at);
     }
     for member in body.inner.items() {
+        let allowed: &[&str] = if checked {
+            &JavaModelSchema::FIELDS
+        } else {
+            &[]
+        };
+        if let Some(at) = JavaModelSchema::first_refused(member, allowed) {
+            return Some(at);
+        }
         if let Some(at) = refused_field(member) {
             return Some(at);
         }

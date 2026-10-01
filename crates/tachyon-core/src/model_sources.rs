@@ -270,6 +270,7 @@ impl FolderReader<'_> {
             .map_err(|_| read_failure(relative, "a models file must be UTF-8"))?;
         let source = crate::without_bom(&source).to_owned();
         crate::annotation_layout::validate(relative, &source)?;
+        crate::model_layout::JavaModelSchema::require_realm(relative, &source)?;
         let source = crate::topics::Topics::blanked(&source);
         let inside = relative
             .strip_prefix(self.folder)

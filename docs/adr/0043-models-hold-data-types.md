@@ -48,6 +48,15 @@ file.
   - Java: `record` declarations without a body, `enum` declarations with
     only constants, `class` declarations with only fields, their
     annotations, and the `import` declarations they need.
+    In Tac, a data-only class may use `@Checked` and its fields may use
+    `@Required`, `@NotEmpty`, `@Length`, `@Min` and `@Max`. The owning
+    Service uses `@Check` to enforce that schema. The compiler captures
+    schema metadata before lowering and removes the schema annotations
+    before javac, retaining one DTO declaration. Role annotations,
+    behavioral methods and constructors remain forbidden in models.
+    Checked Java models in Yon currently fail at their marker until the
+    [server metadata adapter](../queue/NEXT/JAVA-YON-CHECKED-MODELS.md)
+    is qualified; plain Java DTOs remain supported in both realms.
   - Python: classes that are `@dataclass`, `TypedDict`, `NamedTuple` or
     `Enum` classes, with only annotated fields, default values or members,
     and the `import` statements they need. Type aliases are not allowed,
