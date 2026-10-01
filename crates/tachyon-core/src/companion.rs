@@ -6,10 +6,12 @@ use std::fmt::Write as _;
 mod csharp_model_type;
 pub(crate) mod go;
 mod rust_collaborators;
+mod rust_construction;
 mod rust_model_type;
 
 pub(crate) use csharp_model_type::CsharpModelType;
 use rust_collaborators::RustCollaborators;
+use rust_construction::RustConstruction;
 use rust_model_type::RustModelType;
 
 pub(crate) fn owner_name(
@@ -73,7 +75,11 @@ fn missing_constructor(source_path: &str, name: &str) -> Failure {
 fn declared_service(source_path: &str) -> Option<String> {
     let path = source_path.replace('\\', "/");
     let (parent, file) = path.rsplit_once('/')?;
-    if !parent.ends_with("client/services") {
+    let role_parent = parent == "client/services"
+        || parent.starts_with("client/services/")
+        || parent.ends_with("/client/services")
+        || parent.contains("/client/services/");
+    if !role_parent {
         return None;
     }
     let stem = match file.rsplit_once('.') {
@@ -277,13 +283,9 @@ fn rust_owner_table(
         return Err(unnamed_service(source_path, wanted.as_deref(), "struct"));
     };
     let mut members = rust_struct_fields(body);
-    let fields = members
-        .iter()
-        .map(|member| member.name.clone())
-        .collect::<Vec<_>>();
+
     let collaborators = RustCollaborators::declared_beside(&name, source);
     members.retain(|member| !collaborators.holds(member.declared_type.as_deref()));
-    let mut constructs = false;
     let mut parameters = HashMap::new();
     for (header, impl_body) in blocks(source, "impl") {
         if header.trim() != name {
@@ -293,13 +295,8 @@ fn rust_owner_table(
             parameters.insert(member.name.clone(), declared);
             members.push(member);
         }
-        constructs |= impl_body.contains("fn new(") && impl_body.contains("-> Self");
     }
-    let instance = if !constructs && needs_all && !source.contains("Default") {
-        rust_filled_instance(&name, &fields)
-    } else {
-        rust_instance(&name, constructs, source, source_path)?
-    };
+    let instance = RustConstruction::instance(source, source_path, &name, needs_all)?;
     let mut output = format!(
         "pub fn tac_create() -> Vec<(&'static str, TacMember)> {{\nlet instance = std::rc::Rc::new(core::cell::RefCell::new({instance}));\nvec![\n"
     );
@@ -331,29 +328,6 @@ fn write_rust_members(
             write_rust_field(output, member);
         }
     }
-}
-
-fn rust_filled_instance(name: &str, fields: &[String]) -> String {
-    let filled = fields
-        .iter()
-        .map(|field| format!("{field}: ::core::default::Default::default()"))
-        .collect::<Vec<_>>();
-    format!("{name} {{ {} }}", filled.join(", "))
-}
-
-fn rust_instance(
-    name: &str,
-    constructs: bool,
-    source: &str,
-    source_path: &str,
-) -> Result<String, Failure> {
-    if constructs {
-        return Ok(format!("{name}::new()"));
-    }
-    if source.contains("Default") {
-        return Ok(format!("<{name} as Default>::default()"));
-    }
-    Err(missing_constructor(source_path, name))
 }
 
 fn write_rust_method(output: &mut String, member: &Member, parameters: &[String]) {
@@ -1425,12 +1399,12 @@ mod tests {
         const CSHARP_DISMISS_CALL: &str = "Instance.Dismiss(Convert.ToString((arguments.Length > 0 ? arguments[0] : null)), Convert.ToInt32((arguments.Length > 1 ? arguments[1] : null)))";
 
         const RUST_STRUCT_WITH_DEFAULT: &str = "pub struct CompanionService {\n    count: i32,\n    label: String,\n}\n\n\
-             impl Default for Companion {\n    fn default() -> Self {\n        \
+             impl Default for CompanionService {\n    fn default() -> Self {\n        \
              Self { count: 6, label: String::from(\"Rust\") }\n    }\n}\n\n\
              impl CompanionService {\n    fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}\n";
 
         const RUST_BORROWED_STRING: &str = "pub struct CompanionService {\n    pub runtime: &'static str,\n}\n\n\
-             impl Default for Companion {\n    fn default() -> Self {\n        \
+             impl Default for CompanionService {\n    fn default() -> Self {\n        \
              Self { runtime: \"Rust\" }\n    }\n}\n";
 
         const RUST_CONSTRUCTOR: &str = "pub struct CompanionService {\n    pub count: i32,\n}\n\n\
@@ -1889,7 +1863,7 @@ mod tests {
                     #[derive(Default)]\nstruct SettingsService { title: i64 }\n";
         let table = rust_member_table(rust, "client/services/SettingsService.rs").expect("named");
         assert!(
-            table.contains("<SettingsService as Default>::default()"),
+            table.contains("<SettingsService as ::core::default::Default>::default()"),
             "{table}"
         );
         assert!(table.contains("\"title\""), "{table}");

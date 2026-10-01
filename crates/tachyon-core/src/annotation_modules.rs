@@ -250,6 +250,7 @@ impl Module {
         );
         let (mut modules, total) =
             read_modules(&root, entry, source, &paths, environment, &mut converters)?;
+        Self::refuse_native_peer_lifetimes(&modules, native_services)?;
         test_configuration::include(
             &root,
             entry,
@@ -276,6 +277,21 @@ impl Module {
             return Err(invalid(entry, "Combined annotation source exceeds 1 MiB."));
         }
         Ok(Some(output))
+    }
+
+    fn refuse_native_peer_lifetimes(
+        modules: &[Module],
+        native_services: bool,
+    ) -> Result<(), Failure> {
+        modules
+            .iter()
+            .filter(|_| native_services)
+            .try_for_each(|module| {
+                crate::behavior::ServiceRoles::refuse_native_peer_lifetime(
+                    &module.path,
+                    &module.source,
+                )
+            })
     }
 
     const ROLE_FOLDERS: [&str; 9] = [
@@ -2062,7 +2078,6 @@ mod tests {
             ("swift", "@Helper\nfinal class MoneyHelper {}"),
             ("kt", "@Helper\nclass MoneyHelper {}"),
             ("cs", "[Helper]\nclass MoneyHelper {}"),
-            ("rs", "#[tac::helper]\nstruct MoneyHelper {}"),
         ] {
             let root = tempfile::tempdir().expect("project");
             let entry = format!("client/services/ShellService.{extension}");
@@ -2070,7 +2085,7 @@ mod tests {
             let helper = format!("client/helpers/MoneyHelper.{extension}");
             write(root.path(), &helper, role);
             let failure = assemble(root.path(), Path::new(&entry), "", "tac")
-                .expect_err("Helper is a browser role");
+                .expect_err("unsupported compiled Helper role");
             let diagnostic = &failure.diagnostics()[0];
             assert_eq!(diagnostic.code.to_string(), "TY1308", "{failure}");
             assert_eq!(diagnostic.spans[0].file, helper, "{failure}");

@@ -6,6 +6,7 @@ pub(crate) struct ServiceRoles {
     pub(crate) source: String,
     pub(crate) prototype: bool,
     pub(crate) required: Vec<String>,
+    explicit_prototype: Option<usize>,
 }
 
 impl ServiceRoles {
@@ -21,6 +22,24 @@ impl ServiceRoles {
 
     pub(crate) fn without_roles(path: &Path, source: &str) -> Result<String, Failure> {
         Ok(Self::scan(path, source, true)?.source)
+    }
+
+    pub(crate) fn refuse_native_peer_lifetime(path: &Path, source: &str) -> Result<(), Failure> {
+        Self::read(path, source)?.require_supported_peer_lifetime(path)
+    }
+
+    fn require_supported_peer_lifetime(&self, path: &Path) -> Result<(), Failure> {
+        if let Some(at) = self.explicit_prototype {
+            return Err(Failure::one(crate::failure::diagnostic(
+                1406,
+                "Explicit prototype lifetime on a native Rust dependency is not supported yet.",
+                Some(String::from(
+                    "The current typed native graph shares Arc providers within one owner. Prototype overrides need separate provider instances and lifecycle registration; remove the override only if owner-local sharing is the intended contract.",
+                )),
+                crate::failure::source_span(&path.to_string_lossy(), at, at + "Lifetime".len()),
+            )));
+        }
+        Ok(())
     }
 
     fn scan(path: &Path, source: &str, keeps_needs_all: bool) -> Result<Self, Failure> {
@@ -39,6 +58,7 @@ impl ServiceRoles {
             source: source.to_owned(),
             prototype: false,
             required: Vec::new(),
+            explicit_prototype: None,
         };
         let mut lifetime_is_prototype = None;
         let mut needs_all = false;
@@ -61,6 +81,7 @@ impl ServiceRoles {
                 "Lifetime" => {
                     let scope = super::scope(&input, &marker)?;
                     lifetime_is_prototype = Some(scope == "prototype");
+                    roles.explicit_prototype = (scope == "prototype").then_some(marker.span.start);
                 }
                 "NeedsAll" => {
                     needs_all = true;

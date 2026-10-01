@@ -274,7 +274,7 @@ impl AnnotationRules {
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const TAC_BEHAVIOR: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
-    const TAC_HELPER: &'static [&'static str] = &["js", "ts", "dart"];
+    const TAC_HELPER: &'static [&'static str] = &["js", "ts", "dart", "rs"];
     const TAC_NEEDS_ALL: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua",
     ];
@@ -341,7 +341,7 @@ impl AnnotationRules {
     ];
     const CACHE_CHANGES: &'static [&'static str] = &["Cached", "ClearCache", "UpdateCache"];
     const LIFECYCLE: &'static [&'static str] = &["OnStart", "OnStop", "OnEvent"];
-    const HELPER_ADVICE: &'static str = "In Tac, Helper is a browser role: a Rust, C#, Go, Swift, Kotlin or Ruby service cannot use a Helper. Keep the state in the service, or use a Store, Setup or Entity role file";
+    const HELPER_ADVICE: &'static str = "Tac Helper supports JavaScript, TypeScript, Dart and compiled Rust. Other compiled languages need a qualified same-language Helper constructor and ownership adapter; use a supported role rather than replacing Service with Helper";
     const RUBY_NEEDS_ADVICE: &'static str = "A Ruby NeedsAll class lists each field as `attr_reader :order_store` and writes no `initialize`; a Ruby class that needs default values writes a plain `initialize` and no NeedsAll";
 
     pub(crate) const ALL: &'static [Rule] = &[

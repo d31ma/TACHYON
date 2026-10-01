@@ -191,15 +191,10 @@ fn lowered_body(
         .strip_prefix(&item.snapshot_root)
         .unwrap_or(&identity);
     let native_rust = language == NativeCompanion::Rust && !item.web_assembly;
-    let assembled = match native_rust {
-        true => crate::annotation_modules::Module::native_source(
-            &item.snapshot_root,
-            relative,
-            authored,
-        )?,
-        false => {
-            crate::annotation_modules::assemble(&item.snapshot_root, relative, authored, "tac")?
-        }
+    let assembled = if native_rust {
+        crate::annotation_modules::Module::native_source(&item.snapshot_root, relative, authored)?
+    } else {
+        crate::annotation_modules::assemble(&item.snapshot_root, relative, authored, "tac")?
     };
     let authored = assembled.as_deref().unwrap_or(authored);
     let roles_consumed = native_rust

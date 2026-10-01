@@ -540,16 +540,18 @@ fn reject_http_verb(
 pub(crate) struct HelperRole;
 
 impl HelperRole {
-    fn refusal(path: &Path) -> String {
+    fn refusal(path: &Path) -> Option<String> {
         let language = path
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
         crate::annotation_rules::AnnotationRules::unavailable("Helper", language, "tac")
-            .unwrap_or_else(|| crate::annotation_rules::AnnotationRules::belongs("Helper"))
     }
 
     pub(crate) fn refuse_in_tac(path: &Path, source: &str) -> Result<(), Failure> {
+        let Some(message) = Self::refusal(path) else {
+            return Ok(());
+        };
         let language = path
             .extension()
             .and_then(|value| value.to_str())
@@ -563,7 +565,7 @@ impl HelperRole {
         };
         for marker in annotations(&input, language, "tac")? {
             if marker.name == "Helper" {
-                return Err(input.failure(marker.span.start, Self::refusal(path)));
+                return Err(input.failure(marker.span.start, message));
             }
         }
         Ok(())
@@ -2311,7 +2313,11 @@ fn type_policy(
             super::configuration::conditional(input, marker)?,
         ),
         "Helper" => {
-            return Err(input.failure(marker.span.start, HelperRole::refusal(input.path)));
+            require_no_arguments(input, marker)?;
+            HelperRole::refusal(input.path).map_or(Ok(()), |message| {
+                Err(input.failure(marker.span.start, message))
+            })?;
+            ("helper", Value::Bool(true))
         }
         _ => {
             return Err(input.failure(
