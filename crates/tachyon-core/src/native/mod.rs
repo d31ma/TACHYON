@@ -41,6 +41,9 @@ mod native_ui_contract;
 mod native_ui_descriptor;
 mod native_ui_generation;
 mod native_ui_problem;
+mod native_ui_profile;
+#[cfg(test)]
+mod native_ui_profile_tests;
 #[cfg(test)]
 mod native_ui_generation_tests;
 #[cfg(test)]

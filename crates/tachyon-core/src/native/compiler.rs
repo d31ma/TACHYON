@@ -152,12 +152,34 @@ impl NativeCompiler {
         project: &Project,
         options: &NativeBuildOptions,
     ) -> Result<NativeBuildResult, Failure> {
+        Self::build_project_in_mode(project, options, false).await
+    }
+
+    pub async fn build_ui_candidate_async(
+        project_root: impl AsRef<Path>,
+        options: &NativeBuildOptions,
+    ) -> Result<NativeBuildResult, Failure> {
+        super::native_ui_profile::NativeUiProfile::target(options.target)?;
+        let project = ProjectDiscovery::discover(project_root)?;
+        Self::build_project_in_mode(&project, options, true).await
+    }
+
+    async fn build_project_in_mode(
+        project: &Project,
+        options: &NativeBuildOptions,
+        ui_candidate: bool,
+    ) -> Result<NativeBuildResult, Failure> {
         let application =
             NativeApplication::discover_from_snapshot(project.snapshot_root(), project.root())?;
         let base_output = resolve_output_path(project.root(), &options.output_directory)?;
         ensure_entry_route_is_a_page(project, &application)?;
 
         let (temporary_web, companions) = build_web_bundle(project, options.target).await?;
+        super::native_ui_profile::NativeUiProfile::prepare(
+            ui_candidate,
+            temporary_web.path(),
+            options.target,
+        )?;
         let index =
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
 

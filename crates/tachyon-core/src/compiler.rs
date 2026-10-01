@@ -276,6 +276,10 @@ if ('serviceWorker' in navigator) {
 }
 
 impl WebCompiler {
+    pub(crate) fn native_worker_registration() -> &'static str {
+        Self::SERVICE_WORKER_REGISTRATION
+    }
+
     #[must_use]
     pub fn has_previous_build(output_directory: &Path) -> bool {
         BuildState::load(output_directory).is_some()
