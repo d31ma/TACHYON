@@ -34,7 +34,7 @@ impl ModelMetadata {
     fn without_types(&self, path: &Path, source: &str) -> Result<String, Failure> {
         let names = self.names()?;
         let mut bytes = source.as_bytes().to_vec();
-        crate::model_layout::ModelBlocks::read(path, source)?
+        crate::model_layout::ModelBlocks::schema_declarations(path, source)?
             .into_iter()
             .filter(|block| names.contains(&block.name))
             .for_each(|block| {

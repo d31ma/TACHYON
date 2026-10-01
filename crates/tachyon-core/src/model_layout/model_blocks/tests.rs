@@ -236,3 +236,17 @@ fn javascript_schema_classes_and_jsdoc_types_keep_their_owned_blocks() {
     assert!(blocks[1].starts_with("@Checked") && blocks[1].contains("class OrderInput"));
     assert!(!blocks[1].contains("const decoy"));
 }
+
+#[test]
+fn ordinary_javascript_service_classes_are_not_inline_models() {
+    let path = Path::new("client/services/InputService.js");
+    let source =
+        "@Service\nexport default class InputService { accept(value) { return value; } }\n";
+    assert!(
+        ModelBlocks::read(path, source)
+            .expect("ordinary source")
+            .is_empty()
+    );
+    crate::annotation_layout::InlineModelCheck::refuse_inline_models(path, source)
+        .expect("service stays a service");
+}

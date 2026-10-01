@@ -30,6 +30,25 @@ fn java_yon_checked_models_preserve_metadata_before_sdk_projection() {
 }
 
 #[test]
+fn javascript_metadata_removes_only_injected_schema_declarations() {
+    let path = Path::new("client/services/InputService.js");
+    let schema = "@Checked\nclass ProductInput {\n  @Required\n  name = '';\n}\n";
+    let service =
+        "@Service\nexport default class InputService { accept(value) { return value; } }\n";
+    let metadata = super::ModelMetadata::new(vec![(
+        PathBuf::from("client/models/ProductInput.js"),
+        schema.to_owned(),
+    )]);
+    let composed = format!("{schema}\n{service}");
+    let retained = metadata
+        .without_declarations(path, &composed)
+        .expect("schema separated");
+    assert!(!retained.contains("class ProductInput"));
+    assert!(retained.contains(service));
+    assert_eq!(retained.len(), composed.len());
+}
+
+#[test]
 fn client_models_without_metadata_adapters_refuse_schemas_at_the_marker() {
     let root = tempfile::tempdir().expect("project");
     let relative = "client/models/OrderInput.cs";

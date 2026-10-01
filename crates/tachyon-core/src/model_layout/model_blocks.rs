@@ -24,11 +24,30 @@ pub(crate) use model_block::ModelBlock;
 pub(crate) struct ModelBlocks;
 
 impl ModelBlocks {
+    const MODEL_FOLDERS: [&'static str; 2] = ["client/models", "server/models"];
+
     pub(crate) fn read(path: &Path, source: &str) -> Result<Vec<ModelBlock>, Failure> {
+        Self::captured(path, source, Self::model_path(path))
+    }
+
+    pub(crate) fn schema_declarations(
+        path: &Path,
+        source: &str,
+    ) -> Result<Vec<ModelBlock>, Failure> {
+        Self::captured(path, source, true)
+    }
+
+    fn model_path(path: &Path) -> bool {
+        Self::MODEL_FOLDERS
+            .iter()
+            .any(|folder| path.starts_with(folder))
+    }
+
+    fn captured(path: &Path, source: &str, classes: bool) -> Result<Vec<ModelBlock>, Failure> {
         let masked = crate::annotation_layout::masked_source(path, source)?;
         let extension = path.extension().and_then(OsStr::to_str).unwrap_or("");
         let code = StringFill::apply(extension, source, &masked);
-        let found = Self::found(extension, source, &code);
+        let found = Self::found(extension, source, &code, classes);
         Ok(Self::widened(&found, &LeadingLines::new(source, &code)))
     }
 
@@ -37,12 +56,13 @@ impl ModelBlocks {
         Ok(blocks.into_iter().map(|block| block.name).collect())
     }
 
-    fn found(extension: &str, source: &str, code: &str) -> Vec<ModelBlock> {
-        match extension {
-            "fs" => LineBlocks::fsharp(code),
-            "py" => LineBlocks::python(code),
-            "rb" => LineBlocks::ruby(code),
-            "js" => Self::javascript(source, code),
+    fn found(extension: &str, source: &str, code: &str, classes: bool) -> Vec<ModelBlock> {
+        match (extension, classes) {
+            ("fs", _) => LineBlocks::fsharp(code),
+            ("py", _) => LineBlocks::python(code),
+            ("rb", _) => LineBlocks::ruby(code),
+            ("js", false) => JsDocBlocks::read(source),
+            ("js", true) => Self::javascript(source, code),
             _ => BracedBlocks::read(extension, code),
         }
     }
