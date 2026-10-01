@@ -5,17 +5,44 @@ class TacPythonHost {
     const runtime = await loader.loadPyodide({ indexURL: root.href, lockFileURL: new URL('pyodide-lock.json', root).href, stdLibURL: new URL('python_stdlib.zip', root).href })
     runtime.runPython(program)
     const type = runtime.globals.get('_TacPythonRuntime')
-    const invoke = type.invoke
-    const shutdown = type.shutdown
-    type.destroy()
-    return new TacPythonHost(invoke, shutdown)
+    return TacPythonHost.retain(type)
+  }
+
+  static retain(type) {
+    try {
+      return TacPythonHost.copyMethods(type)
+    } finally {
+      type.destroy()
+    }
+  }
+
+  static copyMethods(type) {
+    let invoke
+    let shutdown
+    try {
+      invoke = type.invoke.copy()
+      shutdown = type.shutdown.copy()
+      return new TacPythonHost(invoke, shutdown)
+    } catch (error) {
+      TacPythonHost.destroyMethods(invoke, shutdown)
+      throw error
+    }
+  }
+
+  static destroyMethods(invoke, shutdown) {
+    try {
+      invoke?.destroy()
+    } finally {
+      shutdown?.destroy()
+    }
   }
 
   constructor(invoke, shutdown) {
     this.invoke = invoke
     this.shutdown = shutdown
     this.disposed = false
-    addEventListener('pagehide', (event) => this.pageHidden(event))
+    this.pageHide = (event) => this.pageHidden(event)
+    addEventListener('pagehide', this.pageHide)
   }
 
   exchange(text) {
@@ -36,16 +63,20 @@ class TacPythonHost {
   }
 
   dispose() {
-    this.release()
+    this.releaseOnce()
+  }
+
+  releaseOnce() {
+    if (!this.disposed) this.release()
   }
 
   release() {
     this.disposed = true
+    removeEventListener('pagehide', this.pageHide)
     try {
       this.shutdown()
     } finally {
-      this.invoke.destroy()
-      this.shutdown.destroy()
+      TacPythonHost.destroyMethods(this.invoke, this.shutdown)
     }
   }
 }
