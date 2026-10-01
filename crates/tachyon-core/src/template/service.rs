@@ -432,28 +432,17 @@ fn add_service_file(
     if matches!(extension, "js" | "ts" | "dart") {
         return add_browser_file(definition, path, relative, &class, extension, diagnostics);
     }
-    if extension == "go" {
-        definition.go = Some(path.to_path_buf());
-        return true;
-    }
-    if extension == "py" {
-        definition.python = Some(path.to_path_buf());
-        return true;
-    }
-    if extension == "rb" {
-        definition.ruby = Some(path.to_path_buf());
-        return true;
-    }
-    if extension == "java" {
-        definition.java = Some(path.to_path_buf());
-        return true;
-    }
-    if extension == crate::lua_source::LuaSource::EXTENSION {
-        definition.lua = Some(path.to_path_buf());
-        return true;
-    }
-    if extension == crate::fsharp_source::FsharpSource::EXTENSION {
-        definition.fsharp = Some(path.to_path_buf());
+    let source_file = match extension {
+        "go" => Some(&mut definition.go),
+        "py" => Some(&mut definition.python),
+        "rb" => Some(&mut definition.ruby),
+        "java" => Some(&mut definition.java),
+        crate::lua_source::LuaSource::EXTENSION => Some(&mut definition.lua),
+        crate::fsharp_source::FsharpSource::EXTENSION => Some(&mut definition.fsharp),
+        _ => None,
+    };
+    if let Some(file) = source_file {
+        *file = Some(path.to_path_buf());
         return true;
     }
     let Some(language) = native_language(extension) else {

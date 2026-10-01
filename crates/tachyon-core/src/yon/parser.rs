@@ -109,12 +109,10 @@ pub(crate) fn parse_test_prepared(
     let name = names
         .iter()
         .find(|name| crate::annotation_layout::ClassFileName::matches(path, name))
-        .map(String::as_str)
-        .unwrap_or_else(|| {
-            path.file_stem()
-                .and_then(|value| value.to_str())
-                .unwrap_or("")
-        });
+        .map_or_else(
+            || path.file_stem().and_then(|value| value.to_str()).unwrap_or(""),
+            String::as_str,
+        );
     let Some(mut parsed) = parse_with_root(path, source, Some(name), manual)? else {
         return Ok(None);
     };

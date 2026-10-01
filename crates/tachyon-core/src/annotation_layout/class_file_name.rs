@@ -63,9 +63,10 @@ impl ClassFileName {
 
     fn piece(bytes: &[u8], at: usize) -> String {
         let lower = char::from(bytes[at]).to_ascii_lowercase();
-        match Self::boundary(bytes, at) {
-            true => format!("_{lower}"),
-            false => lower.to_string(),
+        if Self::boundary(bytes, at) {
+            format!("_{lower}")
+        } else {
+            lower.to_string()
         }
     }
 
