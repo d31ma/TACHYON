@@ -118,7 +118,7 @@ impl ServiceRoles {
     fn marker(extension: &str, line: &str, start: usize) -> Option<Marker> {
         let text = Self::marker_text(extension, line)?;
         for name in Self::NAMES {
-            let Some(rest) = text.strip_prefix(name) else {
+            let Some(rest) = Self::role_rest(extension, text, name) else {
                 continue;
             };
             let arguments = if rest.is_empty() {
@@ -135,6 +135,17 @@ impl ServiceRoles {
             });
         }
         None
+    }
+
+    fn role_rest<'a>(extension: &str, text: &'a str, name: &str) -> Option<&'a str> {
+        if extension != "py" {
+            return text.strip_prefix(name);
+        }
+        let written = text.split('(').next().unwrap_or(text);
+        let normalized = written.replace('_', "");
+        normalized
+            .eq_ignore_ascii_case(name)
+            .then(|| &text[written.len()..])
     }
 
     fn marker_text<'a>(extension: &str, line: &'a str) -> Option<&'a str> {

@@ -23,7 +23,7 @@ pub(crate) use gateway::{
 };
 pub(crate) use polyglot::{
     DetachedCsharp, HelperRole, JavaBuiltins, KotlinBuiltins, LuaBehaviorMethod, LuaBehaviorPlan,
-    NativeStorage, PlannedMethod, PlannedType, SwiftPlatform, gateway_unit_runtime,
+    NativeStorage, PlannedMethod, PlannedType, PythonMembers, SwiftPlatform, gateway_unit_runtime,
 };
 #[cfg(test)]
 mod extensions_tests;

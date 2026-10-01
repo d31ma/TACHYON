@@ -11,18 +11,16 @@ impl RuntimeDoctor {
 
     pub(crate) fn for_project(root: &Path) -> Result<Option<Toolchain>, crate::Failure> {
         let profile = super::runtime_profile::RuntimeProfile::for_project(root)?;
-        Self::selected_project(root, profile)
+        let roots = super::runtime_roots::RuntimeRoots::present(root)?;
+        Ok(roots.then(|| Self::profile_row(profile)))
     }
 
-    fn selected_project(
-        root: &Path,
-        profile: Option<super::runtime_profile::RuntimeProfile>,
-    ) -> Result<Option<Toolchain>, crate::Failure> {
-        if profile.is_none() {
-            return Ok(None);
+    fn profile_row(profile: Option<super::RuntimeProfile>) -> Toolchain {
+        let root = RuntimeAssets::cached_root();
+        match profile {
+            Some(_) => Self::inspect(&root),
+            None => Self::row(&root, Err(super::RuntimeInventory::profile_missing())),
         }
-        Ok(super::runtime_roots::RuntimeRoots::present(root)?
-            .then(|| Self::inspect(&RuntimeAssets::cached_root())))
     }
 
     fn row(root: &Path, result: Result<Vec<(String, Vec<u8>)>, crate::Failure>) -> Toolchain {

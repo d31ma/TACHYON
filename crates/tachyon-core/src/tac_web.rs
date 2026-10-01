@@ -15,10 +15,11 @@ pub(crate) enum WebLanguage {
     Java,
     Ruby,
     Lua,
+    Python,
 }
 
 impl WebLanguage {
-    pub(crate) const PREFERENCE: [Self; 8] = [
+    pub(crate) const PREFERENCE: [Self; 9] = [
         Self::Rust,
         Self::Go,
         Self::CSharp,
@@ -27,6 +28,7 @@ impl WebLanguage {
         Self::Java,
         Self::Ruby,
         Self::Lua,
+        Self::Python,
     ];
 
     const fn shared_module(self) -> &'static str {
@@ -39,6 +41,7 @@ impl WebLanguage {
             Self::Java => "tachyon-java.js",
             Self::Ruby => "tachyon-ruby-services.js",
             Self::Lua => "tachyon-lua-services.js",
+            Self::Python => "tachyon-python-services.js",
         }
     }
 
@@ -52,6 +55,7 @@ impl WebLanguage {
             Self::Java => "java",
             Self::Ruby => "rb",
             Self::Lua => "lua",
+            Self::Python => "py",
         }
     }
 }
@@ -176,6 +180,12 @@ async fn build_language(
             published.extend(program);
             note = reason;
             String::from(WebEngine::JAVA_ENGINE)
+        }
+        WebLanguage::Python => {
+            let (engine, assets) =
+                crate::tac_python::PythonWebServices::build(snapshot_root, &chosen)?;
+            published.extend(assets);
+            engine
         }
         WebLanguage::Ruby => {
             published.extend(crate::tac_ruby::RubyWebServices::runtime_files().await?);

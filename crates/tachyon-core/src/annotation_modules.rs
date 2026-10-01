@@ -88,7 +88,7 @@ fn entry_extension<'a>(entry: &'a Path, environment: &str) -> Result<&'a str, Fa
         .unwrap_or("");
     let supported = Module::EXTENSIONS.contains(&extension)
         && !(environment == "yon" && extension == "swift")
-        && !(environment == "tac" && matches!(extension, "groovy" | "py" | "php"));
+        && !(environment == "tac" && matches!(extension, "groovy" | "php"));
     if !supported {
         return Err(invalid(
             entry,
@@ -289,6 +289,17 @@ impl Module {
             extension,
             "yon",
         )
+    }
+
+    pub(crate) fn captured_units(
+        snapshot_root: &Path,
+        entry: &Path,
+    ) -> Result<Vec<(PathBuf, String)>, Failure> {
+        let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
+        let extension = entry_extension(entry, "tac")?;
+        let root = open_entry_root(snapshot_root, entry, extension, "tac")?;
+        let captured = read_module_text(&root, entry, Self::MAX_SOURCE)?;
+        Self::native_units(snapshot_root, entry, &captured)
     }
 
     pub(crate) fn native_units(

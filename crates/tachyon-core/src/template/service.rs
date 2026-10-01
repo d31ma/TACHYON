@@ -25,6 +25,7 @@ pub(crate) struct ServiceDefinition {
     native: Vec<(NativeCompanion, PathBuf)>,
     go: Option<PathBuf>,
     ruby: Option<PathBuf>,
+    python: Option<PathBuf>,
     lua: Option<PathBuf>,
     java: Option<PathBuf>,
     fsharp: Option<PathBuf>,
@@ -43,6 +44,7 @@ impl ServiceDefinition {
             native: Vec::new(),
             go: None,
             ruby: None,
+            python: None,
             lua: None,
             java: None,
             fsharp: None,
@@ -151,6 +153,7 @@ impl ServiceDefinition {
         let native = match language {
             WebLanguage::Go => return self.go.as_deref(),
             WebLanguage::Ruby => return self.ruby.as_deref(),
+            WebLanguage::Python => return self.python.as_deref(),
             WebLanguage::Lua => return self.lua.as_deref(),
             WebLanguage::Java => return self.java.as_deref(),
             WebLanguage::Rust => NativeCompanion::Rust,
@@ -385,7 +388,7 @@ fn add_service_file(
     let Some((class, extension)) = service_file_name(path) else {
         diagnostics.push(service_diagnostic(
             relative,
-            "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go, rb or lua extension.",
+            "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go, rb, py or lua extension.",
             "Rename it, for example client/services/BasketService.js declaring class BasketService.",
         ));
         return false;
@@ -403,6 +406,10 @@ fn add_service_file(
     }
     if extension == "go" {
         definition.go = Some(path.to_path_buf());
+        return true;
+    }
+    if extension == "py" {
+        definition.python = Some(path.to_path_buf());
         return true;
     }
     if extension == "rb" {
@@ -539,6 +546,9 @@ fn marked_source(definition: &ServiceDefinition) -> Option<&Path> {
     if let Some(go) = &definition.go {
         return Some(go);
     }
+    if let Some(python) = &definition.python {
+        return Some(python);
+    }
     if let Some(ruby) = &definition.ruby {
         return Some(ruby);
     }
@@ -578,6 +588,7 @@ fn service_file_name(path: &Path) -> Option<(String, &'static str)> {
         "rs" => "rs",
         "go" => "go",
         "rb" => "rb",
+        "py" => "py",
         "lua" => "lua",
         _ => return None,
     };

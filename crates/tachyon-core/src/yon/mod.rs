@@ -3,6 +3,7 @@ pub(crate) mod dynamic;
 mod error_calls;
 pub(crate) mod go_container;
 mod manual_helpers;
+pub(crate) use manual_helpers::ManualHelpers;
 pub(crate) mod parser;
 pub(crate) mod plan;
 mod required_args;

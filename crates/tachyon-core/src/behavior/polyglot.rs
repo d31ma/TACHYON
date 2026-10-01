@@ -35,6 +35,8 @@ pub(crate) use native_storage::NativeStorage;
 mod parser_tests;
 mod php;
 mod python;
+mod python_members;
+pub(crate) use python_members::PythonMembers;
 mod query_frontend;
 mod ruby;
 mod ruby_syntax;

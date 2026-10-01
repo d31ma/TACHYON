@@ -28,7 +28,7 @@ impl ModelSchema {
             !path
                 .extension()
                 .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| ["java", "js", "ts"].contains(&extension)),
+                .is_some_and(|extension| ["java", "js", "ts", "py"].contains(&extension)),
         ]
         .contains(&false);
         unsupported

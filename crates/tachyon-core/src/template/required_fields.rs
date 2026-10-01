@@ -11,8 +11,8 @@ pub(crate) struct RequiredFields;
 
 impl RequiredFields {
     const PUBLISHER: &'static str = "ApplicationEventPublisher";
-    const LANGUAGES: [&'static str; 12] = [
-        "js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb", "lua", "java", "fs",
+    const LANGUAGES: [&'static str; 13] = [
+        "js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb", "lua", "java", "fs", "py",
     ];
     const NOT_FIELD_WORDS: [&'static str; 19] = [
         "static",
@@ -106,6 +106,7 @@ impl RequiredFields {
             return Vec::new();
         }
         match extension {
+            "py" => Self::python_fields(path, source, class),
             "rb" => Self::ruby_fields(&code),
             "lua" => Self::lua_fields(source, class),
             "go" => Self::go_fields(source, class),
@@ -113,6 +114,21 @@ impl RequiredFields {
             "fs" => Self::fsharp_fields(path, source, class),
             _ => Self::declared_fields(extension, &code, class),
         }
+    }
+
+    fn python_fields(path: &Path, source: &str, class: &str) -> Vec<DeclaredField> {
+        let members = crate::behavior::PythonMembers::read(path, source, class).unwrap_or_default();
+        members["fields"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|field| field["uninitialized"] == true)
+            .map(|field| DeclaredField {
+                name: field["page"].as_str().unwrap_or_default().to_owned(),
+                type_name: field["type"].as_str().unwrap_or_default().to_owned(),
+                marked: false,
+            })
+            .collect()
     }
 
     fn prop_names(extension: &str, fields: Vec<DeclaredField>) -> Vec<String> {
