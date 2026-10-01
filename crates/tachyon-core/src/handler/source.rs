@@ -541,7 +541,11 @@ impl HandlerSource {
         let lowered = lowered
             .map(|source| metadata.without_declarations(relative_source, &source))
             .transpose()?;
-        let lowered = with_models(lowered, contents, &models);
+        let codecs = !routes.is_empty()
+            || lowered
+                .as_deref()
+                .is_some_and(|program| program.contains("__YonEvents"));
+        let lowered = with_models(lowered, contents, &models, codecs);
         let runtime_bytes = match &lowered {
             Some(source) => source.as_bytes(),
             None => bytes.as_slice(),
@@ -604,7 +608,7 @@ impl HandlerSource {
         let assembled = metadata.assembled(unit, &assembled)?;
         let lowered = crate::yon::lower_gateway_unit(unit, &assembled, target, methods)?;
         let lowered = metadata.without_declarations(unit, &lowered)?;
-        let lowered = with_models(Some(lowered), &assembled, &models).unwrap_or_default();
+        let lowered = with_models(Some(lowered), &assembled, &models, false).unwrap_or_default();
         let execution_relative_path =
             stage_annotated_source(source_root, unit, &lowered, &portable)?;
         let (language, interpreter, prebuilt, prepared_workspace) = language(
@@ -782,12 +786,17 @@ fn server_models(
     ModelSources::read(source_root, "server", &extension)
 }
 
-fn with_models(lowered: Option<String>, contents: &str, models: &ModelSources) -> Option<String> {
+fn with_models(
+    lowered: Option<String>,
+    contents: &str,
+    models: &ModelSources,
+    codecs: bool,
+) -> Option<String> {
     if !models.changes_program_text() {
         return lowered;
     }
     let program = lowered.as_deref().unwrap_or(contents);
-    Some(models.add_to_program(program))
+    Some(models.add_to_yon_program(program, codecs))
 }
 
 type LoweredEntry = (

@@ -4,6 +4,93 @@ use crate::tac_web::WebLanguage;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[tokio::test]
+async fn rust_private_field_model_roundtrips_through_the_owned_handler() {
+    use crate::{HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions};
+    use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "server/models/PrivateInput.rs",
+        "pub struct PrivateInput { value: i64 }\n",
+    );
+    let entry = "server/controllers/InputController.rs";
+    write(
+        root.path(),
+        entry,
+        "use crate::models::PrivateInput;\n#[RequestRoute(\"/input\")]\n#[Public]\nstruct InputController {}\nimpl InputController {\n fn new() -> Self { Self {} }\n #[PostRoute]\n fn post_input(&self, #[FromBody] input: PrivateInput) -> PrivateInput { input }\n}\n",
+    );
+    let source = HandlerSource::discover(root.path(), entry).expect("owned compiler");
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let mut request = HandlerRequest::route("private-model", "/input", HttpMethod::Post);
+    request.arguments = Some(vec![serde_json::json!({"value": 7})]);
+    request.body = Some(HandlerBody {
+        encoding: HandlerBodyEncoding::Utf8,
+        data: "{\"value\":7}".into(),
+    });
+    let response = supervisor
+        .invoke(&source, &request, &HandlerCancellation::default())
+        .await
+        .expect("owned runtime");
+    assert!(response.error.is_none(), "{:?}", response.error);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response.body.expect("body").data)
+            .expect("JSON"),
+        serde_json::json!({"value": 7})
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.path().join("server/models/PrivateInput.rs"))
+            .expect("authored"),
+        "pub struct PrivateInput { value: i64 }\n"
+    );
+}
+
+#[test]
+fn rust_yon_codecs_are_owned_by_private_field_model_modules() {
+    let root = tempfile::tempdir().expect("project");
+    let path = root.path().join("server/models/PrivateInput.rs");
+    std::fs::create_dir_all(path.parent().expect("models")).expect("directory");
+    let source = "#[Checked]\npub struct PrivateInput {\n #[Min(1)]\n value: i64,\n}\n";
+    std::fs::write(&path, source).expect("model");
+    let models = super::ModelSources::read(root.path(), "server", "rs").expect("schema");
+    let program = models.add_to_yon_program("struct Handler;", true);
+    let module = program
+        .split("mod model_0 {")
+        .nth(1)
+        .expect("owning namespace");
+    assert!(module.contains("use crate::{Json, YonRead};"));
+    assert!(module.contains("impl YonRead for PrivateInput"));
+    assert!(module.contains("impl From<PrivateInput> for Json"));
+    assert!(module.contains("value.value"));
+    assert!(module.contains("value: i64"));
+    assert!(!module.contains("pub value"));
+    assert!(!program.contains("impl YonRead for crate::models::"));
+    assert!(
+        crate::route_types::Converters::program_text("rs", root.path())
+            .expect("server codecs")
+            .is_empty()
+    );
+    assert_eq!(std::fs::read_to_string(path).expect("authored"), source);
+}
+
+#[test]
+fn rust_plain_handler_and_native_models_keep_their_prior_projection() {
+    let root = tempfile::tempdir().expect("project");
+    let path = root.path().join("server/models/PrivateInput.rs");
+    std::fs::create_dir_all(path.parent().expect("models")).expect("directory");
+    std::fs::write(path, "pub struct PrivateInput { value: i64 }\n").expect("model");
+    let models = super::ModelSources::read(root.path(), "server", "rs").expect("plain model");
+    let plain = models.add_to_program("struct Handler;");
+    assert_eq!(models.add_to_yon_program("struct Handler;", false), plain);
+    assert!(!plain.contains("YonRead"));
+    assert!(!plain.contains("Json"));
+    assert_eq!(
+        models.rust_module(),
+        "#[allow(dead_code, unused_imports)]\npub mod models {\npub use self::model_0::*;\n#[doc = \"server/models/PrivateInput.rs\"]\nmod model_0 {\npub struct PrivateInput { value: i64 }\n\n}\n}\n"
+    );
+}
+
 #[test]
 fn java_yon_checked_models_preserve_metadata_before_sdk_projection() {
     let root = tempfile::tempdir().expect("project");

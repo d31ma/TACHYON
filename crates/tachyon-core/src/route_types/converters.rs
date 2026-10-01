@@ -10,7 +10,6 @@ impl Converters {
     pub(crate) fn program_text(extension: &str, root: &Path) -> Result<String, String> {
         let files = ModelFolder::read(root, extension)?;
         match extension {
-            "rs" => Ok(RustConverters::text(&files)),
             "dart" => Ok(DartConverters::text(&files)),
             "rb" => Ok(RubyConverters::text(&files)),
             "lua" => Ok(crate::lua_source::LuaModels::converters(&Self::records(
@@ -18,6 +17,10 @@ impl Converters {
             ))),
             _ => Ok(String::new()),
         }
+    }
+
+    pub(crate) fn rust_model_text(source: &str) -> String {
+        RustConverters::text(source)
     }
 
     fn records(files: &[(String, String)], extension: &str) -> Vec<(String, super::Record)> {
@@ -219,14 +222,12 @@ impl Declarations {
 struct RustConverters;
 
 impl RustConverters {
-    fn text(files: &[(String, String)]) -> String {
+    fn text(source: &str) -> String {
         let mut output = String::new();
-        for (_, source) in files {
-            for (name, model) in ModelParser::models("rs", source) {
-                match model {
-                    Model::Record(record) => Self::record(&mut output, &name, &record.fields),
-                    Model::Alias(_) => Self::enumeration(&mut output, source, &name),
-                }
+        for (name, model) in ModelParser::models("rs", source) {
+            match model {
+                Model::Record(record) => Self::record(&mut output, &name, &record.fields),
+                Model::Alias(_) => Self::enumeration(&mut output, source, &name),
             }
         }
         output
@@ -246,7 +247,7 @@ impl RustConverters {
         }
         let _ = write!(
             output,
-            "\nimpl YonRead for crate::models::{name} {{\n    fn read(value: &Json) -> Self {{\n        Self {{ {} }}\n    }}\n}}\nimpl From<crate::models::{name}> for Json {{\n    fn from(value: crate::models::{name}) -> Self {{\n        Json::Map(vec![{}])\n    }}\n}}\n",
+            "\nimpl YonRead for {name} {{\n    fn read(value: &Json) -> Self {{\n        Self {{ {} }}\n    }}\n}}\nimpl From<{name}> for Json {{\n    fn from(value: {name}) -> Self {{\n        Json::Map(vec![{}])\n    }}\n}}\n",
             reads.join(", "),
             writes.join(", ")
         );
@@ -263,14 +264,11 @@ impl RustConverters {
         let mut writes = String::new();
         for variant in &variants {
             let _ = write!(reads, "\"{variant}\" => Self::{variant}, ");
-            let _ = write!(
-                writes,
-                "crate::models::{name}::{variant} => Json::from(\"{variant}\"), "
-            );
+            let _ = write!(writes, "{name}::{variant} => Json::from(\"{variant}\"), ");
         }
         let _ = write!(
             output,
-            "\nimpl YonRead for crate::models::{name} {{\n    fn read(value: &Json) -> Self {{\n        match value.text().as_str() {{ {reads}_ => Self::{first} }}\n    }}\n}}\nimpl From<crate::models::{name}> for Json {{\n    fn from(value: crate::models::{name}) -> Self {{\n        match value {{ {writes}}}\n    }}\n}}\n"
+            "\nimpl YonRead for {name} {{\n    fn read(value: &Json) -> Self {{\n        match value.text().as_str() {{ {reads}_ => Self::{first} }}\n    }}\n}}\nimpl From<{name}> for Json {{\n    fn from(value: {name}) -> Self {{\n        match value {{ {writes}}}\n    }}\n}}\n"
         );
     }
 }

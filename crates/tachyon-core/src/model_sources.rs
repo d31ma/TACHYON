@@ -6,25 +6,8 @@ use std::path::{Path, PathBuf};
 mod model_metadata;
 use model_metadata::ModelMetadata;
 
-struct ModelFile {
-    inside: PathBuf,
-    portable: String,
-    source: String,
-    plain: String,
-    schema: bool,
-}
-
-impl ModelFile {
-    fn go_source(&self) -> String {
-        let position = format!("//line {}:1\n", self.portable);
-        let code = crate::annotation_layout::masked_source(Path::new(&self.portable), &self.source)
-            .unwrap_or_default();
-        if code.split_whitespace().next() == Some("package") {
-            return format!("{position}{}", self.plain);
-        }
-        format!("{position}package main; {}", self.plain)
-    }
-}
+mod model_file;
+use model_file::ModelFile;
 
 pub(crate) struct ModelSources {
     extension: String,
@@ -126,10 +109,29 @@ impl ModelSources {
             .collect()
     }
 
-    pub(crate) fn rust_module(&self) -> String {
-        if self.files.is_empty() {
-            return String::new();
+    pub(crate) fn add_to_yon_program(&self, program: &str, codecs: bool) -> String {
+        Self::yon_renderer(&self.extension, codecs)(self, program)
+    }
+
+    fn yon_renderer(extension: &str, codecs: bool) -> fn(&Self, &str) -> String {
+        match (extension, codecs) {
+            ("rs", true) => Self::rust_yon_program,
+            _ => Self::add_to_program,
         }
+    }
+
+    fn rust_yon_program(&self, program: &str) -> String {
+        format!(
+            "{program}\n{}",
+            self.rust_modules(ModelFile::rust_yon_source)
+        )
+    }
+
+    pub(crate) fn rust_module(&self) -> String {
+        self.rust_modules(ModelFile::plain_source)
+    }
+
+    fn rust_modules(&self, render: fn(&ModelFile) -> String) -> String {
         let mut exports = String::new();
         let mut modules = String::new();
         for (index, file) in self.files.iter().enumerate() {
@@ -137,10 +139,17 @@ impl ModelSources {
             let _ = writeln!(
                 modules,
                 "#[doc = {:?}]\nmod model_{index} {{\n{}\n}}",
-                file.portable, file.plain
+                file.portable,
+                render(file)
             );
         }
-        format!("#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{modules}}}\n")
+        (!self.files.is_empty())
+            .then(|| {
+                format!(
+                    "#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{modules}}}\n"
+                )
+            })
+            .unwrap_or_default()
     }
 
     pub(crate) fn csharp_namespaces(&self) -> String {
