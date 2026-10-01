@@ -82,11 +82,42 @@ class WebsiteLuaGate {
       await WebsiteLuaGate.#routes(page, origin, diagnostics)
       diagnostics.fsharpQuantity = await WebsiteLuaGate.#quantity(page, origin)
       diagnostics.javaInstall = await WebsiteLuaGate.#install(page, origin)
+      diagnostics.pythonLanguages = await WebsiteLuaGate.#languages(page)
       assert.deepEqual(diagnostics.errors, [], 'real website has no page or request errors')
     } finally {
       clearTimeout(deadline)
       await browser.close()
     }
+  }
+
+  static async #languages(page) {
+    const section = page.locator('#languages')
+    await section.getByRole('button', { name: 'Yon · server controllers', exact: true }).click()
+    await page.waitForFunction(() => globalThis.__tachyonTac?.service('languages'))
+    const actual = await page.evaluate(() => {
+      const service = globalThis.__tachyonTac.service('languages')
+      const expected = service.entries.flatMap(entry => Array.isArray(entry?.files) ? entry.files : [])
+      return { expected: expected.map(file => file.name), names: service.handlers().map(file => file.name),
+        hidden: [typeof service._files_of, typeof service._entry_files] }
+    })
+    assert.ok(actual.expected.length > 0, 'the real Yon catalogue has handler files')
+    assert.deepEqual(actual.names, actual.expected, 'required Python entries retain ordered structured files')
+    assert.deepEqual(actual.hidden, ['undefined', 'undefined'])
+    await page.locator('#yon-language-examples').waitFor({ state: 'visible' })
+    await page.waitForFunction(() => {
+      const files = globalThis.__tachyonTac.service('languages').handlers()
+      const rendered = [...document.querySelectorAll('#yon-language-examples .demo-code-col')]
+      return rendered.length > 0 && rendered.every(column => {
+        const name = column.querySelector('.demo-code-name')?.textContent.trim()
+        const file = files.find(candidate => candidate.name === name)
+        return file && column.querySelector('pre code')?.textContent === file.code
+      })
+    })
+    const renderedNames = await page.locator('#yon-language-examples .demo-code-name').allTextContents()
+    assert.ok(renderedNames.length > 0, 'actual Yon-layer code retains the files returned by Python')
+    await section.getByRole('button', { name: 'Tac · browser and native', exact: true }).click()
+    await page.locator('#yon-language-examples').waitFor({ state: 'hidden' })
+    return { ...actual, renderedNames }
   }
 
   static async #routes(page, origin, diagnostics) {
