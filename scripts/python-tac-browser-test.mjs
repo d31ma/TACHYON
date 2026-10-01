@@ -101,7 +101,9 @@ class PythonTacGate {
   }
 
   static summary(value) {
-    return String(value).replace(/\u001b\[[0-9;]*m/g, '').split('\n').map(line => line.trim()).filter(Boolean).at(-1)?.slice(0, 360) ?? 'unknown error'
+    const lines = String(value).replace(/\u001b\[[0-9;]*m/g, '').split('\n').map(line => line.trim()).filter(Boolean)
+    const excerpt = lines.length <= 8 ? lines : [...lines.slice(0, 4), '[traceback middle omitted]', ...lines.slice(-4)]
+    return excerpt.map(line => line.slice(0, 240)).join('\n').slice(0, 2_000) || 'unknown error'
   }
 
   static safePath(value) {
