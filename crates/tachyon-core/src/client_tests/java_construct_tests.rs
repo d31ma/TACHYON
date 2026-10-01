@@ -6,12 +6,8 @@ fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
     let root = tempfile::tempdir().expect("test project");
     let files = [
         (
-            "client/shared/native/java/ReadPort.java",
-            "interface ReadPort { String read(); }\n",
-        ),
-        (
             "client/services/ChoiceService.java",
-            "@Service\nclass ChoiceService {\n    @Needs\n    private final ReadPort port;\n    String answer() { return port.read(); }\n}\n",
+            "@Service\nclass ChoiceService {\n    @Needs\n    private final java.util.function.Supplier<String> port;\n    String answer() { return port.get(); }\n}\n",
         ),
         (
             "client/tests/ChoiceTestSetup.java",
@@ -22,7 +18,7 @@ fn native_java_tests_construct_with_typed_fakes_and_preserve_private_fields() {
             r#"@Test(ChoiceTestSetup)
 class ChoiceServiceTest {
     @Fake
-    ReadPort port;
+    java.util.function.Supplier<String> port;
 
     void testPerConstructionFakeIdentity() {
         port = () -> "first";
@@ -42,7 +38,7 @@ class ChoiceServiceTest {
     }
 
     void testUnsupportedTargetIsRefused() {
-        try { construct(ReadPort.class); throw new AssertionError("interface was instantiated"); }
+        try { construct(CharSequence.class); throw new AssertionError("interface was instantiated"); }
         catch (IllegalArgumentException refused) {
             Assert.equals("Test.construct needs a class with a declared Needs constructor.", refused.getMessage(), "unsupported target is explicit");
         }
