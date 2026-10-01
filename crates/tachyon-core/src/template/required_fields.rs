@@ -517,10 +517,15 @@ impl RequiredFields {
     }
 
     fn is_name(name: &str) -> bool {
-        name.chars()
-            .next()
-            .is_some_and(|first| first.is_alphabetic() || first == '_')
-            && name.chars().all(Self::is_word_character)
+        Self::starts_name(name) && name.chars().all(Self::is_word_character)
+    }
+
+    fn starts_name(name: &str) -> bool {
+        name.chars().next().is_some_and(Self::starts_name_character)
+    }
+
+    fn starts_name_character(character: char) -> bool {
+        character.is_alphabetic() || character == '_'
     }
 
     const fn is_word_character(character: char) -> bool {
@@ -564,6 +569,19 @@ mod tests {
             props("DrawerService.ts", typed, "DrawerService"),
             ["open", "title"]
         );
+    }
+
+    #[test]
+    fn required_prop_names_keep_the_existing_ascii_boundary_and_dependency_selection() {
+        let javascript = "@Service\n@NeedsAll\nexport default class NamesService {\n  _port\n  value7\n  port_name\n  tally\n  $cache\n  café\n  initialized = 0\n}\n";
+        let typescript = "@Service\n@NeedsAll\nexport default class NamesService {\n  _port: string\n  value7: number\n  port_name: string\n  tally: TallyService\n  $cache: string\n  café: string\n  initialized = 0\n}\n";
+        for (extension, source) in [("js", javascript), ("ts", typescript)] {
+            assert_eq!(
+                props(&format!("NamesService.{extension}"), source, "NamesService"),
+                ["_port", "value7", "port_name"],
+                "{extension}"
+            );
+        }
     }
 
     #[test]
