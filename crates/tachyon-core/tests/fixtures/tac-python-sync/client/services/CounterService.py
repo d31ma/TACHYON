@@ -1,5 +1,4 @@
-from __future__ import annotations
-from typing import Final, Optional
+import typing
 from models import Guide
 
 @service
@@ -8,8 +7,8 @@ class CounterService:
     counter: CounterHelper
     title: str
     count: int
-    fixed: Final[str]
-    current_guide: Optional[Guide] = None
+    fixed: typing.Final[str]
+    current_guide: typing.Optional[Guide] = None
     echo_count: int = 0
 
     @on_start
