@@ -21,15 +21,13 @@ impl LuaConverterModels {
     }
 
     fn applied(source: &str, view: &LuaView, edits: Vec<SourceEdit>) -> Option<String> {
-        if edits.is_empty() {
-            return None;
-        }
+        let changed = !edits.is_empty();
         let mut output = source.to_owned();
         for (range, replacement) in edits.into_iter().rev() {
             let (range, marker) = Self::lua_edit(source, view, range, &replacement);
             output.replace_range(range, &marker);
         }
-        Some(output)
+        changed.then_some(output)
     }
 
     fn lua_edit(
@@ -62,7 +60,7 @@ impl LuaConverterModels {
     fn marker(ruby: &str) -> String {
         let text = ruby.trim().strip_prefix("#[").unwrap_or(ruby.trim());
         let text = text.strip_suffix(']').unwrap_or(text);
-        let ending = if ruby.ends_with('\n') { "\n" } else { "" };
+        let ending = ruby.strip_suffix('\n').map_or("", |_| "\n");
         format!("-- @{text}{ending}")
     }
 }

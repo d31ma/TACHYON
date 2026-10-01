@@ -39,9 +39,13 @@ impl LuaConverterProviders {
     fn converter_fields(class: &str, source: &str, records: &Value) -> Vec<(String, String)> {
         LuaFields::without_values(source, class)
             .into_iter()
-            .filter(|(_, name, marked)| *marked && records[name]["mapper"] == true)
+            .filter(|(_, name, marked)| Self::is_converter(name, *marked, records))
             .map(|(field, name, _)| (field, name))
             .collect()
+    }
+
+    fn is_converter(name: &str, marked: bool, records: &Value) -> bool {
+        marked && records[name]["mapper"] == true
     }
 
     fn entries(fields: &[(String, String)]) -> String {
@@ -58,16 +62,24 @@ impl LuaConverterProviders {
             .map(|(field, _)| crate::companion::camel_case(field))
             .collect();
         for key in ["fields", "writable", "required"] {
-            if let Some(values) = metadata[key].as_array_mut() {
-                values.retain(|value| {
-                    value
-                        .as_str()
-                        .is_none_or(|value| !names.iter().any(|name| name == value))
-                });
-            }
+            Self::remove_array_fields(&mut metadata[key], &names);
         }
-        if let Some(values) = metadata["names"].as_object_mut() {
-            values.retain(|name, _| !names.contains(name));
+        Self::remove_named_fields(&mut metadata["names"], &names);
+    }
+
+    fn remove_array_fields(metadata: &mut Value, names: &[String]) {
+        if let Some(values) = metadata.as_array_mut() {
+            values.retain(|value| {
+                value
+                    .as_str()
+                    .is_none_or(|value| !names.iter().any(|name| name == value))
+            });
+        }
+    }
+
+    fn remove_named_fields(metadata: &mut Value, names: &[String]) {
+        if let Some(values) = metadata.as_object_mut() {
+            values.retain(|name, _| !names.iter().any(|field| field == name));
         }
     }
 }

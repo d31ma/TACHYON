@@ -180,19 +180,16 @@ impl RoleRename {
         let new_folder = Self::role_folder(to);
         if old_folder.ends_with("/clients/") {
             self.add_remote_paths(from, to);
-            return;
-        }
-        if old_folder != new_folder {
-            self.folder_paths.insert((old_folder, new_folder));
+        } else {
+            self.folder_paths
+                .extend((old_folder != new_folder).then_some((old_folder, new_folder)));
         }
     }
 
     fn add_remote_paths(&mut self, from: &str, to: &str) {
         self.folder_paths
             .insert((String::from(from), String::from(to)));
-        let Some((_, rest)) = from.split_once("/clients/") else {
-            return;
-        };
+        let rest = from.splitn(3, '/').nth(2).unwrap_or("");
         for prefix in ["", "./", "../"] {
             let old = format!("{prefix}clients/{rest}");
             let new = format!("{prefix}remotes/{rest}");

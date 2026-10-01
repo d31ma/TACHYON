@@ -114,10 +114,10 @@ const transport = (text) => lua.invoke(text)
         let plan =
             crate::behavior::LuaBehaviorPlan::read(joined.path(), &roles.source, Self::REALM)
                 .map_err(|failure| joined.failure(&failure))?;
-        if let Some(plan) = &plan {
-            LuaConverterProviders::hide_fields(&mut metadata, class, text, plan)
-                .map_err(|message| Self::failure(relative, text, &message))?;
-        }
+        plan.as_ref()
+            .map(|plan| LuaConverterProviders::hide_fields(&mut metadata, class, text, plan))
+            .transpose()
+            .map_err(|message| Self::failure(relative, text, &message))?;
         let lowered = Self::with_converters(relative, &assembled, plan.as_ref())?;
         let providers = plan
             .as_ref()
@@ -137,9 +137,16 @@ const transport = (text) => lua.invoke(text)
         assembled: &str,
         plan: Option<&crate::behavior::LuaBehaviorPlan>,
     ) -> Result<String, Failure> {
-        let Some(plan) = plan else {
-            return Ok(assembled.to_owned());
-        };
+        plan.map(|plan| Self::lower_converters(relative, assembled, plan))
+            .transpose()
+            .map(|lowered| lowered.unwrap_or_else(|| assembled.to_owned()))
+    }
+
+    fn lower_converters(
+        relative: &Path,
+        assembled: &str,
+        plan: &crate::behavior::LuaBehaviorPlan,
+    ) -> Result<String, Failure> {
         if plan.methods.iter().any(|method| method.mapping.is_none()) {
             return Err(Self::failure(relative, assembled, Self::BEHAVIORS));
         }

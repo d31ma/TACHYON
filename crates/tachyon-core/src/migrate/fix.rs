@@ -1050,19 +1050,18 @@ impl MigrationFixPlan {
         edits: &mut Vec<TextEdit>,
         notes: &mut Vec<String>,
     ) {
-        let mut changed = false;
+        let before = edits.len();
         for edit in roles.path_edits(source) {
-            if !Self::fits(edits, &edit) {
-                continue;
-            }
-            edits.push(edit);
-            changed = true;
+            Self::add_path_edit(edits, edit);
         }
-        if changed {
-            notes.push(String::from(
-                "Changed the paths of files that moved to a renamed role folder.",
-            ));
-        }
+        notes.extend((edits.len() > before).then(|| {
+            String::from("Changed the paths of files that moved to a renamed role folder.")
+        }));
+    }
+
+    fn add_path_edit(edits: &mut Vec<TextEdit>, edit: TextEdit) {
+        let accepted = Self::fits(edits, &edit).then_some(edit);
+        edits.extend(accepted);
     }
 
     fn fits(edits: &[TextEdit], edit: &TextEdit) -> bool {

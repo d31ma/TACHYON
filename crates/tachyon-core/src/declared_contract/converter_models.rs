@@ -30,16 +30,7 @@ impl<'a> ConverterModels<'a> {
         models: &'a Map<String, Value>,
         realm: &'a str,
     ) -> Result<Option<String>, String> {
-        let extension = path
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        if extension == "lua" {
-            return super::lua_converter_models::LuaConverterModels::written(
-                path, source, models, realm,
-            );
-        }
-        Self::for_extension(extension, source, models, realm)
+        Self::for_extension(path, source, models, realm)
     }
 
     pub(super) fn edits_in(
@@ -66,12 +57,19 @@ impl<'a> ConverterModels<'a> {
     }
 
     fn for_extension(
-        extension: &str,
+        path: &Path,
         source: &'a str,
         models: &'a Map<String, Value>,
         realm: &'a str,
     ) -> Result<Option<String>, String> {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
         match extension {
+            "lua" => super::lua_converter_models::LuaConverterModels::written(
+                path, source, models, realm,
+            ),
             "fs" => Self::fsharp(source, models, realm),
             _ => Self::standard(extension, source, models, realm),
         }

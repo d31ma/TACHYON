@@ -67,12 +67,13 @@ impl<'p> LuaBehaviorEdits<'p> {
             (close + 1, Self::opening(method)),
             (
                 end,
-                String::from(
-                    Self::INNER_ENDS
-                        [usize::from(method.validated.is_some() || method.mapping.is_some())],
-                ),
+                String::from(Self::INNER_ENDS[usize::from(Self::needs_inner_end(method))]),
             ),
         ])
+    }
+
+    fn needs_inner_end(method: &LuaBehaviorMethod) -> bool {
+        method.validated.is_some() || method.mapping.is_some()
     }
 
     fn line_start_of(masked: &str, signature: &str) -> Option<usize> {
