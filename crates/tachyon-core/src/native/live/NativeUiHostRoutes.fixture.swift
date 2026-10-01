@@ -5,7 +5,30 @@ import Foundation
         let scheme = NativeUiStyleHostScheme(assets, tachyonDocument)
         try routes(scheme, assets)
         try denied(scheme, assets)
+        try documents(assets)
         print("native-ui-host-route-controls-passed")
+    }
+
+    private static func documents(_ assets: NativeUiStyleAssets) throws {
+        let selection = NativeUiStyleDocumentSelection(assets, tachyonDocument)
+        let allowed = [("/?draft=1", "index.html"), ("/status/?draft=1", "status/index.html"), ("/topic/telemetry?draft=1", "topic/_slug/index.html"), ("/index.html?draft=1&label=%CE%BB", "index.html")]
+        try allowed.forEach { try document(selection, $0) }
+        let denied = ["/unknown?draft=1", "/styles/theme.css?draft=1", "/status?draft=1#section", "/status#", "/status%2findex.html?draft=1", "//status?draft=1", "/status//?draft=1", "/.tachyon-native-ui/" + assets.current.descriptor.generation + "/index.html?draft=1", "/index.html?" + String(repeating: "x", count: 2049)]
+        try denied.forEach { try documentRefused(selection, "tachyon-app://bundle" + $0) }
+        try ["https://bundle/status?draft=1", "tachyon-app://other/status?draft=1", "tachyon-app://user@bundle/status?draft=1", "tachyon-app://bundle:80/status?draft=1"].forEach { try documentRefused(selection, $0) }
+    }
+
+    private static func document(_ selection: NativeUiStyleDocumentSelection, _ expected: (String, String)) throws {
+        let observed = try selection.document(URL(string: "tachyon-app://bundle" + expected.0)!)
+        try NativeUiRuntimeFailure.require(observed == expected.1, "Queried document selected a different captured route")
+    }
+
+    private static func documentRefused(_ selection: NativeUiStyleDocumentSelection, _ source: String) throws {
+        try NativeUiRuntimeFailure.require(documentFailure(selection, source) != nil, "Untrusted queried document selected styles")
+    }
+
+    private static func documentFailure(_ selection: NativeUiStyleDocumentSelection, _ source: String) -> Error? {
+        do { _ = try selection.document(URL(string: source)!); return nil } catch { return error }
     }
 
     private static func routes(_ scheme: NativeUiStyleHostScheme, _ assets: NativeUiStyleAssets) throws {

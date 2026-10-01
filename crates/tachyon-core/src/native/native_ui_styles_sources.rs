@@ -1,7 +1,7 @@
 pub(super) struct NativeUiStylesSources;
 
 impl NativeUiStylesSources {
-    const STYLES: [&str; 12] = [
+    const STYLES: [&str; 14] = [
         include_str!("live/NativeUiCssMode.swift"),
         include_str!("live/NativeUiCssMask.swift"),
         include_str!("live/NativeUiCssProfile.swift"),
@@ -14,6 +14,8 @@ impl NativeUiStylesSources {
         include_str!("live/NativeUiStyleReply.swift"),
         include_str!("live/NativeUiStyleCall.swift"),
         include_str!("live/NativeUiStyleInvalidation.swift"),
+        include_str!("live/NativeUiStyleDocument.swift"),
+        include_str!("live/NativeUiStyleDocumentSelection.swift"),
     ];
     const SCRIPT: [&'static str; 5] = [
         include_str!("live/NativeUiStyleAttributes.js"),

@@ -2,12 +2,16 @@ import Foundation
 import WebKit
 
 @MainActor final class NativeUiStyleSession {
-    private let view: WKWebView
+    private let document: NativeUiStyleDocument
+    private var view: WKWebView { document.view }
     private let assets: NativeUiStyleAssets
     private var epoch: UInt64 = 0
     private var phase = NativeUiStylePhase.idle
 
-    init(_ view: WKWebView, _ assets: NativeUiStyleAssets) { self.view = view; self.assets = assets }
+    init(_ view: WKWebView, _ assets: NativeUiStyleAssets, _ selection: NativeUiStyleDocumentSelection? = nil) {
+        document = NativeUiStyleDocument(view, selection)
+        self.assets = assets
+    }
 
     func prepare(_ candidate: NativeUiRuntimeGeneration) async throws -> NativeUiStyleTicket {
         try assets.validate(candidate)
@@ -59,8 +63,7 @@ import WebKit
     }
 
     private func nextTicket(_ candidate: NativeUiRuntimeGeneration) throws -> NativeUiStyleTicket {
-        guard let url = view.url else { throw NativeUiRuntimeFailure(description: "No owned main-frame document") }
-        _ = try NativeUiStyleAddress.path(url)
+        let url = try document.url()
         return NativeUiStyleTicket(token: UUID().uuidString, epoch: epoch, url: url.absoluteString, generation: candidate.descriptor.generation)
     }
 

@@ -6,6 +6,7 @@ pub(super) struct NativeUiHostSources;
 impl NativeUiHostSources {
     const OWNER: &str = r"    private let liveStyleHost: NativeUiStyleHost
     private var fixtureLaunched = false
+    private let fixtureFrame = NativeUiHostFrameFixture()
 
     init(_ installed: NativeUiRuntimeGeneration) {
         liveStyleHost = NativeUiStyleHost(installed)
@@ -41,7 +42,7 @@ impl NativeUiHostSources {
         let routed = Self::replace(
             &gated,
             "        scene.window.close()",
-            "        try await scene.routes()\n        scene.window.close()",
+            "        try await scene.routes(candidate)\n        scene.window.close()",
         )?;
         Self::replace(
             &routed,
@@ -72,7 +73,7 @@ impl NativeUiHostSources {
         Self::replace(
             source,
             "        configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: \"tachyon-app\")",
-            "        liveStyleHost.configure(configuration, tachyonDocument)",
+            "        liveStyleHost.configure(configuration, tachyonDocument)\n        fixtureFrame.configure(configuration)",
         )
     }
 
@@ -122,6 +123,7 @@ impl NativeUiHostSources {
             include_str!("live/NativeUiHostAccess.fixture.swift"),
             include_str!("live/NativeUiHostReply.fixture.swift"),
             include_str!("live/NativeUiHostRoutes.fixture.swift"),
+            include_str!("live/NativeUiHostFrame.fixture.swift"),
             include_str!("live/NativeUiHostScene.fixture.swift"),
         ]
         .join("\n")

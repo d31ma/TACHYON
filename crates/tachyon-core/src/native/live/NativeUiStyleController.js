@@ -146,8 +146,14 @@ class NativeUiStyleController {
       throw new Error('Stale stylesheet transaction')
   }
 
-  _document(ticket) {
+  _document(ticket) { this._mainFrame(); this._sameDocument(ticket) }
+
+  _sameDocument(ticket) {
     if (document !== this.document || location.href !== ticket.url) throw new Error('Stylesheet document changed')
+  }
+
+  _mainFrame() {
+    if (window.top !== window) throw new Error('Stylesheet selection requires the owned main frame')
   }
 
   _unchanged() {

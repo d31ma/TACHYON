@@ -155,6 +155,7 @@ fn native_ui_host_fixture_preserves_default_generator_and_requires_exact_owned_s
     let injected = NativeUiHostSources::host(&original).expect("opt-in fixture");
     assert!(injected.contains("liveStyleHost.configure(configuration, tachyonDocument)"));
     assert!(injected.contains("liveStyleHost.invalidate()"));
+    assert!(injected.contains("fixtureFrame.configure(configuration)"));
     assert_eq!(
         injected
             .matches("guard !fixtureLaunched else { return }")
