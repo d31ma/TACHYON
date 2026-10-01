@@ -8,6 +8,7 @@ import { withServer } from './release/server-probe.mjs'
 
 class PythonTacGate {
   static timeoutMilliseconds = 45_000
+  static host = 'python-tac.test'
   static assets = ['pyodide.mjs', 'pyodide.asm.mjs', 'pyodide.asm.wasm', 'python_stdlib.zip', 'pyodide-lock.json']
 
   static async run() {
@@ -46,15 +47,17 @@ class PythonTacGate {
   static async serve(binary, fixture, diagnostics) {
     let result
     await withServer(binary, ['preview', fixture, '--static', '--out-dir', 'dist', '--host', '127.0.0.1', '--port', '0', '--no-self-restart'], async request => {
-      const origin = new URL((await request('/')).url).origin
-      result = await PythonTacGate.probe(origin, diagnostics)
+      const url = new URL((await request('/')).url)
+      url.hostname = PythonTacGate.host
+      diagnostics.testOrigin = { origin: url.origin, transport: 'HTTP loopback server', resolution: 'Chromium-only hostname mapping to 127.0.0.1', secureContext: 'Chromium-only exact-origin test allowlist; no HTTPS qualification' }
+      result = await PythonTacGate.probe(url.origin, diagnostics)
     })
     return result
   }
 
   static async probe(origin, diagnostics) {
     diagnostics.phase = 'launching-browser'
-    const browser = await chromium.launch({ timeout: 10_000 })
+    const browser = await chromium.launch({ timeout: 10_000, args: [`--host-resolver-rules=MAP ${PythonTacGate.host} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${origin}`, '--no-proxy-server'] })
     diagnostics.chromiumVersion = browser.version()
     try {
       const context = await browser.newContext({ serviceWorkers: 'allow' })
