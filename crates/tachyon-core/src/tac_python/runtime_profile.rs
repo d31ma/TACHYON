@@ -34,6 +34,7 @@ impl RuntimeProfile {
 
     fn manifest(root: &Path) -> Result<Value, Failure> {
         let path = root.join("client/manifest.json");
+        Self::manifest_kind(&path)?;
         let file = Self::manifest_file(&path)?;
         file.map(Self::manifest_value)
             .transpose()
@@ -41,7 +42,6 @@ impl RuntimeProfile {
     }
 
     fn manifest_file(path: &Path) -> Result<Option<std::fs::File>, Failure> {
-        Self::manifest_kind(path)?;
         match std::fs::File::open(path) {
             Ok(file) => Ok(Some(file)),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -53,17 +53,20 @@ impl RuntimeProfile {
     }
 
     fn manifest_kind(path: &Path) -> Result<(), Failure> {
-        let metadata = match std::fs::symlink_metadata(path) {
-            Ok(metadata) => Some(metadata),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Self::require_manifest_file(Self::manifest_metadata(path)?)
+    }
+
+    fn manifest_metadata(path: &Path) -> Result<Option<std::fs::Metadata>, Failure> {
+        match std::fs::symlink_metadata(path) {
+            Ok(metadata) => Ok(Some(metadata)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(error) => {
                 return Err(RuntimeAssets::failure(
                     "client/manifest.json",
                     &format!("cannot inspect manifest: {error}"),
                 ));
             }
-        };
-        Self::require_manifest_file(metadata)
+        }
     }
 
     fn require_manifest_file(metadata: Option<std::fs::Metadata>) -> Result<(), Failure> {

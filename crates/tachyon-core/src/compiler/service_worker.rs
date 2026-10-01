@@ -100,8 +100,8 @@ impl ServiceWorker {
             .unwrap_or(Self::MAX_ASSET_BYTES);
         if bytes.len() <= ceiling {
             Self::add_asset(&portable, bytes, assets);
-            Self::add_ceiling(&portable, ceiling, assets);
         }
+        Self::add_ceiling(&portable, ceiling, assets);
         Ok(())
     }
 
