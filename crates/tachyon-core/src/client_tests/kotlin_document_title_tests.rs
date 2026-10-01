@@ -8,8 +8,20 @@ fn kotlin_document_title_tests_capture_typed_fakes_per_construction() {
     let root = tempfile::tempdir().expect("project");
     let files = [
         (
+            "client/models/Guide.kt",
+            "data class Guide(val title: String, val pages: Int)\n",
+        ),
+        (
+            "client/services/PositionService.kt",
+            "import models.Guide\n\n@Service\nclass PositionService {\n fun label(guide: Guide): String = \"${guide.title}:${guide.pages}\"\n}\n",
+        ),
+        (
+            "client/tests/PositionServiceTest.kt",
+            "import models.Guide\n\n@Test(TitleTestSetup)\nclass PositionServiceTest {\n fun testImportedModelWithoutAnOwnedDocumentTitle() { Assert.equals(\"Native:2\", PositionService().label(Guide(\"Native\", 2))) }\n}\n",
+        ),
+        (
             "client/services/TitleService.kt",
-            "@Service\nclass TitleService {\n @Needs\n val documentTitle: DocumentTitle\n fun write(title: String) { documentTitle.set(title) }\n}\n",
+            "import models.Guide\n\n@Service\nclass TitleService {\n @Needs\n private val documentTitle: DocumentTitle\n fun write(title: String) { documentTitle.set(title) }\n fun writeModel(guide: Guide) { documentTitle.set(guide.title) }\n}\n",
         ),
         (
             "client/tests/TitleTestSetup.kt",
@@ -17,7 +29,9 @@ fn kotlin_document_title_tests_capture_typed_fakes_per_construction() {
         ),
         (
             "client/tests/TitleServiceTest.kt",
-            r#"@Test(TitleTestSetup)
+            r#"import models.Guide
+
+@Test(TitleTestSetup)
 class TitleServiceTest {
     @Fake
     var documentTitle: DocumentTitle? = null
@@ -33,6 +47,14 @@ class TitleServiceTest {
         second.write("")
         Assert.equals(listOf("first — title"), firstWrites, "original fake retained")
         Assert.equals(listOf(""), secondWrites, "second owns a distinct fake")
+    }
+
+    fun testImportedModelKeepsItsTypedConstructorFake() {
+        val writes = mutableListOf<String>()
+        documentTitle = object : DocumentTitle { override fun set(title: String) { writes.add(title) } }
+        val service = construct(TitleService::class)
+        service.writeModel(Guide("Imported — 雪", 3))
+        Assert.equals(listOf("Imported — 雪"), writes, "real separately compiled model reaches the assigned fake")
     }
 
     fun testMissingFakeRefused() {
@@ -53,8 +75,18 @@ class TitleServiceTest {
     }
     let report = super::run(root.path(), Path::new("client/tests/TitleServiceTest.kt"))
         .expect("actual Test report");
-    assert_eq!(report.cases.len(), 2);
+    assert_eq!(report.cases.len(), 3);
     for case in report.cases {
         assert!(case.passed, "{}: {:?}", case.name, case.error);
     }
+    let position = super::run(
+        root.path(),
+        Path::new("client/tests/PositionServiceTest.kt"),
+    )
+    .expect("actual model-only Test report with a sibling provider Service");
+    assert_eq!(position.cases.len(), 1);
+    assert!(
+        position.cases.iter().all(|case| case.passed),
+        "{position:?}"
+    );
 }

@@ -719,7 +719,7 @@ fn kotlin(
     std::fs::write(
         &path,
         format!(
-            "{}\n{lowered}\nfun main() {{ println({name}().POST()) }}\n",
+            "{lowered}\n{}\nfun main() {{ println({name}().POST()) }}\n",
             kotlin_provider_contracts(lowered)
         ),
     )
