@@ -1127,7 +1127,7 @@ mod tests {
         let expected = match extension {
             "swift" => "extension Pulse: Codable {}",
             "cs" => "[System.Text.Json.Serialization.JsonSerializable(typeof(Models.Pulse))]",
-            "rs" => "impl TacModel for crate::models::Pulse {",
+            "rs" => "impl TacModel for crate::TachyonRustServices::models::Pulse {",
             _ => "tacModel(models.Pulse::class, value) as models.Pulse",
         };
         assert!(unit.contains(expected), "{extension}: {unit}");
