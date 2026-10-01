@@ -122,6 +122,9 @@ class PythonTacGate {
     await page.locator('#python-ready').waitFor({ timeout: 15_000 })
     assert.equal(await page.locator('#python-ready').textContent(), 'Python ready')
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, { timeout: 10_000 })
+    await page.reload({ waitUntil: 'networkidle', timeout: 20_000 })
+    await page.locator('#python-ready').waitFor({ timeout: 15_000 })
+    assert.equal(await page.locator('#python-ready').textContent(), 'Python ready')
   }
 
   static async waitForPinnedCache(page) {
