@@ -45,13 +45,10 @@ impl ScriptSchema {
     }
 
     fn default_value(field: Piece<'_>, value: Piece<'_>, source: &str) -> bool {
-        field
-            .find_top(b"=")
-            .map(|_| {
-                let literal = source[value.at..value.at + value.text.len()].trim();
-                Self::literal(value, literal)
-            })
-            .unwrap_or(true)
+        field.find_top(b"=").map_or(true, |_| {
+            let literal = source[value.at..value.at + value.text.len()].trim();
+            Self::literal(value, literal)
+        })
     }
 
     fn field_head(head: Piece<'_>) -> bool {

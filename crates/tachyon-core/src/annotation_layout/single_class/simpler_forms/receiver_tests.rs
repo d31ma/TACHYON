@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use super::SimplerForms;
 use super::receiver_forms::ReceiverForms;
 use std::path::Path;
@@ -103,30 +105,31 @@ fn implicit_members_preserves_shadowing_closures_and_initializing_formals() {
 
 #[test]
 fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
-    let root = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(root.path().join("client/services")).unwrap();
+    let root = tempfile::tempdir().expect("receiver acceptance fixture");
+    std::fs::create_dir_all(root.path().join("client/services"))
+        .expect("receiver acceptance fixture");
     let relative = "client/services/CounterService.java";
     let source =
         "class CounterService {\n int count = 0;\n void increment() { this.count++; }\n}\n";
-    std::fs::write(root.path().join(relative), source).unwrap();
+    std::fs::write(root.path().join(relative), source).expect("receiver acceptance fixture");
     assert!(!SimplerForms::report(root.path()).contains("TY1362"));
     assert!(SimplerForms::edits(root.path(), relative, source).is_empty());
     std::fs::write(
         root.path().join("client/manifest.json"),
         r#"{"tac":{"implicitmembers":{"suggest":true}}}"#,
     )
-    .unwrap();
+    .expect("receiver acceptance fixture");
     assert!(SimplerForms::report(root.path()).contains("TY1362"));
     assert_eq!(SimplerForms::edits(root.path(), relative, source).len(), 1);
     assert!(
         SimplerForms::edits(root.path(), "server/services/CounterService.java", source).is_empty()
     );
-    std::fs::create_dir_all(root.path().join("server")).unwrap();
+    std::fs::create_dir_all(root.path().join("server")).expect("receiver acceptance fixture");
     std::fs::write(
         root.path().join("server/application.json"),
         r#"{"implicitmembers":{"suggest":true}}"#,
     )
-    .unwrap();
+    .expect("receiver acceptance fixture");
     assert_eq!(
         SimplerForms::edits(root.path(), "server/services/CounterService.java", source).len(),
         1
@@ -135,7 +138,7 @@ fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
         root.path().join("client/manifest.json"),
         r#"{"tac":{"implicitmembers":{"suggest":false}}}"#,
     )
-    .unwrap();
+    .expect("receiver acceptance fixture");
     assert!(SimplerForms::edits(root.path(), relative, source).is_empty());
     assert_eq!(
         SimplerForms::edits(root.path(), "server/services/CounterService.java", source).len(),
@@ -145,46 +148,57 @@ fn implicit_members_is_off_by_default_and_explicitly_enabled_per_realm() {
 
 #[test]
 fn implicit_members_opt_in_loads_as_framework_configuration() {
-    let root = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(root.path().join("client/services")).unwrap();
-    std::fs::create_dir_all(root.path().join("server")).unwrap();
+    let root = tempfile::tempdir().expect("receiver acceptance fixture");
+    std::fs::create_dir_all(root.path().join("client/services"))
+        .expect("receiver acceptance fixture");
+    std::fs::create_dir_all(root.path().join("server")).expect("receiver acceptance fixture");
     std::fs::write(
         root.path().join("client/services/CounterService.java"),
         "@Service\nclass CounterService {\n int count = 0;\n void increment() { this.count++; }\n}\n",
     )
-    .unwrap();
+    .expect("receiver acceptance fixture");
     std::fs::write(
         root.path().join("client/manifest.json"),
         r#"{"tac":{"implicitmembers":{"suggest":true},"catalog":{"label":"Basket"}}}"#,
     )
-    .unwrap();
+    .expect("receiver acceptance fixture");
     std::fs::write(
         root.path().join("server/application.json"),
         r#"{"implicitmembers":{"suggest":true}}"#,
     )
-    .unwrap();
-    let configuration = crate::ApplicationConfig::load_client(root.path()).unwrap();
-    let public: serde_json::Value =
-        serde_json::from_str(configuration.handler_json().unwrap()).unwrap();
-    assert_eq!(public.pointer("/tac/catalog/label").unwrap(), "Basket");
+    .expect("receiver acceptance fixture");
+    let configuration =
+        crate::ApplicationConfig::load_client(root.path()).expect("receiver acceptance fixture");
+    let public: serde_json::Value = serde_json::from_str(
+        configuration
+            .handler_json()
+            .expect("receiver acceptance fixture"),
+    )
+    .expect("receiver acceptance fixture");
+    assert_eq!(
+        public
+            .pointer("/tac/catalog/label")
+            .expect("receiver acceptance fixture"),
+        "Basket"
+    );
     assert!(public.pointer("/tac/implicitmembers").is_none());
     crate::ApplicationConfig::load_with_environment(
         root.path(),
         &std::collections::BTreeMap::new(),
     )
-    .unwrap();
+    .expect("receiver acceptance fixture");
     assert!(SimplerForms::report(root.path()).contains("TY1362"));
 }
 
 #[test]
 fn implicit_members_keeps_migration_edits_separate_and_bounded() {
-    let root = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(root.path().join("client")).unwrap();
+    let root = tempfile::tempdir().expect("receiver acceptance fixture");
+    std::fs::create_dir_all(root.path().join("client")).expect("receiver acceptance fixture");
     std::fs::write(
         root.path().join("client/manifest.json"),
         r#"{"tac":{"implicitmembers":{"suggest":true}}}"#,
     )
-    .unwrap();
+    .expect("receiver acceptance fixture");
     let relative = "client/services/CounterService.java";
     let source = "class CounterService {\n int count = 0;\n void increment() { this.count = this.count + 1; }\n}\n";
     let forms = SimplerForms::edits(root.path(), relative, source);
@@ -227,17 +241,18 @@ fn implicit_members_preserves_coverage_hooks_in_each_supported_language() {
             "@Service\nclass CounterService {\n var count = 0\n func increment() { count += 1 }\n}\n",
         ),
     ] {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir().expect("receiver acceptance fixture");
         let realm = if extension == "swift" {
             "client"
         } else {
             "server"
         };
         let relative = format!("{realm}/services/CounterService.{extension}");
-        std::fs::create_dir_all(root.path().join(format!("{realm}/services"))).unwrap();
-        std::fs::write(root.path().join(&relative), source).unwrap();
-        let hooked =
-            crate::method_coverage::CallHooks::insert(Path::new(&relative), source).unwrap();
+        std::fs::create_dir_all(root.path().join(format!("{realm}/services")))
+            .expect("receiver acceptance fixture");
+        std::fs::write(root.path().join(&relative), source).expect("receiver acceptance fixture");
+        let hooked = crate::method_coverage::CallHooks::insert(Path::new(&relative), source)
+            .expect("receiver acceptance fixture");
         assert!(
             hooked.contains("CounterService.increment"),
             "{extension}: {hooked}"
@@ -248,7 +263,8 @@ fn implicit_members_preserves_coverage_hooks_in_each_supported_language() {
             "CounterServiceTest.testIncrement",
             &[String::from("CounterService.increment")],
         );
-        let report = crate::method_coverage::CoverageReport::build(root.path(), calls).unwrap();
+        let report = crate::method_coverage::CoverageReport::build(root.path(), calls)
+            .expect("receiver acceptance fixture");
         assert_eq!(report.covered(), 1, "{extension}: {report:?}");
         assert!(report.uncovered().is_empty(), "{extension}: {report:?}");
     }
@@ -306,33 +322,35 @@ fn implicit_members_preserves_injection_and_native_view_contracts() {
             )
         );
         if let Some(language) = language {
-            let bare_table = owner_table(language, source, &relative, &injected, "", true).unwrap();
-            let explicit_table =
-                owner_table(language, &explicit, &relative, &injected, "", true).unwrap();
+            let bare_table = owner_table(language, source, &relative, &injected, "", true)
+                .expect("receiver acceptance fixture");
+            let explicit_table = owner_table(language, &explicit, &relative, &injected, "", true)
+                .expect("receiver acceptance fixture");
             assert_eq!(bare_table, explicit_table, "{extension}");
             assert!(bare_table.contains("count") && bare_table.contains("increment"));
         }
         let prepared = crate::behavior::ServiceRoles::read(Path::new(&relative), source)
-            .unwrap()
+            .expect("receiver acceptance fixture")
             .source;
         let lowered = crate::behavior::lower(Path::new(&relative), &prepared, "tac")
-            .unwrap()
+            .expect("receiver acceptance fixture")
             .unwrap_or(prepared);
         assert!(lowered.contains("count +="), "{extension}: {lowered}");
     }
     let relative = Path::new("server/services/CounterService.groovy");
     let source = "@Service\n@NeedsAll\nclass CounterService {\n LedgerStore ledgerStore\n int count = 0\n void increment() { count += ledgerStore.amount }\n}\n";
-    let roles = crate::behavior::ServiceRoles::read(relative, source).unwrap();
+    let roles =
+        crate::behavior::ServiceRoles::read(relative, source).expect("receiver acceptance fixture");
     assert!(roles.prototype);
     let prepared = roles.source;
     let lowered = crate::behavior::lower(relative, &prepared, "yon")
-        .unwrap()
+        .expect("receiver acceptance fixture")
         .unwrap_or(prepared);
     assert!(lowered.contains("count += ledgerStore.amount"), "{lowered}");
     let explicit = source.replace("count +=", "this.count +=");
     assert_eq!(
         crate::behavior::ServiceRoles::read(relative, &explicit)
-            .unwrap()
+            .expect("receiver acceptance fixture")
             .prototype,
         roles.prototype
     );

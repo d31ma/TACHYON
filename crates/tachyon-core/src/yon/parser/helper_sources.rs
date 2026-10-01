@@ -203,8 +203,8 @@ impl HelperSources {
             body,
             declaration,
             managed,
-            implementations,
             zero_argument,
+            implementations,
         })
     }
 

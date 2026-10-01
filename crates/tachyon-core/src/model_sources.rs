@@ -143,13 +143,11 @@ impl ModelSources {
                 render(file)
             );
         }
-        (!self.files.is_empty())
-            .then(|| {
-                format!(
-                    "#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{modules}}}\n"
-                )
-            })
-            .unwrap_or_default()
+        self.files.first().map_or_else(String::new, |_| {
+            format!(
+                "#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{modules}}}\n"
+            )
+        })
     }
 
     pub(crate) fn csharp_namespaces(&self) -> String {
