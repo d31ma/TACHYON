@@ -74,7 +74,7 @@ impl PreferenceStringsBrowserFixture {
             .arg(&self.root)
             .args(["--out-dir", "dist", "--no-incremental"])
             .current_dir(&self.repo);
-        Self::execute(&mut command, Duration::from_secs(360)).await;
+        Self::execute(&mut command, Duration::from_mins(6)).await;
     }
 
     async fn browser(&self) {
@@ -88,7 +88,7 @@ impl PreferenceStringsBrowserFixture {
             .env("TAC_PREFERENCE_FIXTURE_OUT", &self.root)
             .env("TAC_PREFERENCE_SOURCE_COMMIT", &self.source)
             .current_dir(&self.repo);
-        Self::execute(&mut command, Duration::from_secs(60)).await;
+        Self::execute(&mut command, Duration::from_mins(1)).await;
     }
 
     async fn execute(command: &mut tokio::process::Command, deadline: Duration) {

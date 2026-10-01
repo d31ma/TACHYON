@@ -16,7 +16,7 @@ impl PreferenceHostFixture {
         include_str!("../template/tac-web.js"),
         "\n"
     );
-    const BEFORE: &'static str = r#"let granted = false;
+    const BEFORE: &'static str = r"let granted = false;
 let denied = false;
 let calls = 0;
 const values = new Map();
@@ -25,8 +25,8 @@ globalThis.localStorage = {
   getItem(key) { calls++; if (denied) throw new Error('denied'); return values.get(key) ?? null; },
   setItem(key, value) { calls++; if (denied) throw new Error('denied'); values.set(key, value); },
 };
-"#;
-    const AFTER: &'static str = r#"const ask = (call, args) => JSON.parse(globalThis[Symbol.for('tachyon.tac.web')].host(JSON.stringify({ api: 'preferenceStrings', call, args }))).value;
+";
+    const AFTER: &'static str = r"const ask = (call, args) => JSON.parse(globalThis[Symbol.for('tachyon.tac.web')].host(JSON.stringify({ api: 'preferenceStrings', call, args }))).value;
 const report = {};
 report.ungrantedRead = ask('read', ['tachyon.platform']);
 report.ungrantedWrite = ask('write', ['tachyon.platform', 'macOS']);
@@ -63,7 +63,7 @@ report.disposedCalls = calls - before;
 report.secondWrite = second.port.write('tachyon.platform', 'Linux');
 report.secondRead = second.port.read('tachyon.platform');
 console.log(JSON.stringify(report));
-"#;
+";
 
     fn run() -> serde_json::Value {
         let root = tempfile::tempdir().expect("project");

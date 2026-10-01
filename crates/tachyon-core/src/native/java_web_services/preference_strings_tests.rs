@@ -120,7 +120,7 @@ impl PreferenceFixture {
     }
 
     fn execute(command: &mut Command) -> String {
-        let output = crate::external_command::run_sync(command, Duration::from_secs(60), 262_144)
+        let output = crate::external_command::run_sync(command, Duration::from_mins(1), 262_144)
             .expect("supervised JDK");
         assert!(
             output.status.success(),
