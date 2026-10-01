@@ -26,6 +26,95 @@ impl NativePageGraphCheck {
         super::rust::stage(&[input], root, "org.tachyon.root-properties")
             .map(|source| source.expect("native source"))
     }
+    const WORKER_PROVIDER: &str = r#"
+#[Service]
+struct CounterService {
+    count: std::sync::atomic::AtomicI64,
+    picker: FilePicker,
+    stop: std::sync::Mutex<Option<std::sync::mpsc::Sender<()>>>,
+    worker: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
+    completed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+impl CounterService {
+    fn new() -> Self {
+        Self {
+            count: std::sync::atomic::AtomicI64::new(0), picker: FilePicker::default(),
+            stop: std::sync::Mutex::new(None), worker: std::sync::Mutex::new(None),
+            completed: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        }
+    }
+    fn increment(&self) { self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+    fn read(&self) -> i64 { self.count.load(std::sync::atomic::Ordering::SeqCst) }
+    fn available(&self) -> bool { self.picker.available() }
+    #[OnStart]
+    fn started(&self) -> std::result::Result<(), String> {
+        let (stop, receiver) = std::sync::mpsc::channel();
+        let (ready, started) = std::sync::mpsc::channel();
+        let completed = self.completed.clone();
+        let worker = std::thread::spawn(move || {
+            ready.send(()).expect("worker ready");
+            receiver.recv().expect("explicit stop signal");
+            completed.store(true, std::sync::atomic::Ordering::Release);
+        });
+        *self.stop.lock().unwrap_or_else(|error| error.into_inner()) = Some(stop);
+        *self.worker.lock().unwrap_or_else(|error| error.into_inner()) = Some(worker);
+        started.recv_timeout(std::time::Duration::from_secs(2)).map_err(|_| String::from("worker startup failed"))?;
+        let _ = self.picker.scope.call("probe.worker.started", Vec::new());
+        Ok(())
+    }
+    #[OnStop]
+    fn stopped(&self) -> std::result::Result<(), String> {
+        let stop = self.stop.lock().unwrap_or_else(|error| error.into_inner()).take();
+        if let Some(stop) = stop { stop.send(()).map_err(|_| String::from("worker signal failed"))?; }
+        let worker = self.worker.lock().unwrap_or_else(|error| error.into_inner()).take();
+        if let Some(worker) = worker {
+            worker.join().map_err(|_| String::from("worker join failed"))?;
+            assert!(self.completed.load(std::sync::atomic::Ordering::Acquire));
+            let _ = self.picker.scope.call("probe.worker.joined", Vec::new());
+        }
+        Ok(())
+    }
+}
+"#;
+    const WORKER_CALLER: &str = r###"
+struct Probe;
+impl Probe {
+    fn tape() -> &'static std::thread::LocalKey<core::cell::RefCell<Vec<String>>> {
+        thread_local! { static VALUE: core::cell::RefCell<Vec<String>> = const { core::cell::RefCell::new(Vec::new()) }; }
+        &VALUE
+    }
+    fn count(event: &str) -> usize { Self::tape().with(|tape| tape.borrow().iter().filter(|value| value.as_str() == event).count()) }
+}
+fn request(service: &str, owner: &str, operation: &str) -> String {
+    tac_handle(&format!(r##"{{"route":"/","service":"{service}","owner":"{owner}","op":"{operation}"}}"##))
+}
+fn main() {
+    let prototype = PROTOTYPE;
+    NativeCapabilities::register(|operation, _| {
+        if operation.starts_with("probe.") { Probe::tape().with(|tape| tape.borrow_mut().push(operation.to_owned())); }
+        String::from("{\"status\":\"cancelled\"}")
+    });
+    let writer = "00000000-0000-4000-8000-000000000001";
+    let reader = "00000000-0000-4000-8000-000000000002";
+    for (service, owner) in [("writer", writer), ("reader", reader)] {
+        let answer = request(service, owner, "init");
+        assert!(!answer.contains("error"), "{answer}");
+    }
+    assert_eq!(Probe::count("probe.worker.started"), if prototype { 2 } else { 1 });
+    assert_eq!(Probe::count("probe.worker.joined"), 0);
+    let _ = request("writer", writer, "dispose");
+    assert_eq!(Probe::count("probe.worker.joined"), usize::from(prototype));
+    let _ = request("writer", writer, "dispose");
+    assert_eq!(Probe::count("probe.worker.joined"), usize::from(prototype), "owner disposal must not join twice");
+    let _ = request("reader", reader, "dispose");
+    assert_eq!(Probe::count("probe.worker.joined"), if prototype { 2 } else { 0 }, "singleton worker survives zero component owners");
+    let _ = tac_handle("{\"op\":\"host-dispose\"}");
+    let expected = if prototype { 2 } else { 1 };
+    assert_eq!(Probe::count("probe.worker.joined"), expected, "page disposal must signal and join the singleton");
+    let _ = tac_handle("{\"op\":\"host-dispose\"}");
+    assert_eq!(Probe::count("probe.worker.joined"), expected, "repeated page disposal must not join twice");
+}
+"###;
     const PROVIDER: &str = r"
 #[Service]
 struct CounterService {
@@ -473,4 +562,24 @@ fn main() {
 }
 "###;
     NativePageGraphCheck::execute(&source, caller).await;
+}
+
+#[tokio::test]
+async fn native_rust_page_graph_joins_owned_workers_at_their_lifetime_boundary() {
+    for prototype in [false, true] {
+        let root = tempfile::tempdir().expect("fixture");
+        let provider = NativePageGraphCheck::WORKER_PROVIDER.replacen(
+            "#[Service]",
+            if prototype {
+                "#[Service]\n#[Lifetime({\"value\":\"prototype\"})]"
+            } else {
+                "#[Service]"
+            },
+            1,
+        );
+        let source = NativePageGraphCheck::stage(root.path(), &provider).expect("worker staging");
+        let caller = NativePageGraphCheck::WORKER_CALLER
+            .replace("PROTOTYPE", if prototype { "true" } else { "false" });
+        NativePageGraphCheck::execute(&source, &caller).await;
+    }
 }
