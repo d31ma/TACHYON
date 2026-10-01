@@ -19,3 +19,7 @@ Abstract/interface/protocol/trait contracts, type aliases, export-only barrels a
 ## Qualification
 
 Initial recursive discovery24tests pass, including nested Tac DI paths, both-realm nested providers and nested imports. Final guard/language, real compilation/runtime, safety and combined compiler evidence will be recorded at the qualified checkpoint. No deployment or architecture refactor is implied.
+
+## Native Rust dependency qualification boundary
+
+Native Rust service composition includes same-language peer services in the dependent owner namespace, preserving required constructor metadata while consuming role markers internally. Authored captures are validated before that consumption. Ordinary script/browser sibling isolation remains unchanged. The exact monitor Arc dependency is the immediate construction test. Cross-root singleton identity and dependency lifecycle hooks require a shared native provider graph; local owner construction does not prove those semantics. Trait implementation selection and non-wire native internals need explicit typed bindings, not inferred implementations.

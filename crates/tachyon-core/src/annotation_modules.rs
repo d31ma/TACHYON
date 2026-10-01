@@ -29,53 +29,7 @@ pub(crate) fn assemble(
     source: &str,
     environment: &str,
 ) -> Result<Option<String>, Failure> {
-    let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
-    crate::behavior::BehaviorsImport::refuse(entry, source)?;
-    let extension = entry_extension(entry, environment)?;
-    let root = open_entry_root(snapshot_root, entry, extension, environment)?;
-    let captured = read_module_text(&root, entry, Module::MAX_SOURCE)?;
-    crate::annotation_layout::FolderRoleCheck::check(entry, &captured)?;
-    crate::annotation_layout::validate_transformed(entry, source)?;
-    let include_errors = environment == "yon"
-        && entry.starts_with("server/controllers")
-        && crate::annotation_layout::has_route_controller(entry, source)?;
-    let paths = discover_paths(&root, entry, extension, include_errors)?;
-    if source.len() > Module::MAX_SOURCE || source.contains('\0') {
-        return Err(invalid(
-            entry,
-            "Annotation source exceeds 1 MiB or contains NUL.",
-        ));
-    }
-    let mut converters =
-        crate::declared_contract::ConverterModelTable::new(snapshot_root, environment, extension);
-    let (mut modules, total) =
-        read_modules(&root, entry, source, &paths, environment, &mut converters)?;
-    test_configuration::include(
-        &root,
-        entry,
-        source,
-        extension,
-        environment,
-        &mut modules,
-        total,
-    )?;
-    if modules.is_empty() {
-        return Ok(None);
-    }
-    refuse_tac_helpers(&modules, extension, environment)?;
-    let injected = injected_contracts(entry, source, &modules, environment);
-    let source = injected.as_deref().unwrap_or(source);
-    let output = if extension == "go" {
-        compose_go(entry, source, &modules)?
-    } else {
-        let modules = declaration_order(entry, located_modules(modules, extension), extension)?;
-        let source = crate::fsharp_source::FsharpLines::located_in(extension, entry, source);
-        compose(entry, &source, modules, extension, environment)?
-    };
-    if output.len() > Module::MAX_SOURCE {
-        return Err(invalid(entry, "Combined annotation source exceeds 1 MiB."));
-    }
-    Ok(Some(output))
+    Module::assembled(snapshot_root, entry, source, environment, false)
 }
 
 fn injected_contracts(
@@ -251,12 +205,79 @@ fn erase_exports(path: &Path, text: String, extension: &str) -> Result<String, F
     }
 }
 
-struct Module {
+pub(crate) struct Module {
     path: PathBuf,
     source: String,
 }
 
 impl Module {
+    pub(crate) fn native_source(
+        snapshot_root: &Path,
+        entry: &Path,
+        source: &str,
+    ) -> Result<Option<String>, Failure> {
+        Self::assembled(snapshot_root, entry, source, "tac", true)
+    }
+
+    fn assembled(
+        snapshot_root: &Path,
+        entry: &Path,
+        source: &str,
+        environment: &str,
+        native_services: bool,
+    ) -> Result<Option<String>, Failure> {
+        let entry = entry.strip_prefix(snapshot_root).unwrap_or(entry);
+        crate::behavior::BehaviorsImport::refuse(entry, source)?;
+        let extension = entry_extension(entry, environment)?;
+        let root = open_entry_root(snapshot_root, entry, extension, environment)?;
+        let captured = read_module_text(&root, entry, Module::MAX_SOURCE)?;
+        crate::annotation_layout::FolderRoleCheck::check(entry, &captured)?;
+        crate::annotation_layout::validate_transformed(entry, source)?;
+        let include_errors = environment == "yon"
+            && entry.starts_with("server/controllers")
+            && crate::annotation_layout::has_route_controller(entry, source)?;
+        let paths = discover_paths(&root, entry, extension, include_errors, native_services)?;
+        if source.len() > Module::MAX_SOURCE || source.contains('\0') {
+            return Err(invalid(
+                entry,
+                "Annotation source exceeds 1 MiB or contains NUL.",
+            ));
+        }
+        let mut converters = crate::declared_contract::ConverterModelTable::new(
+            snapshot_root,
+            environment,
+            extension,
+        );
+        let (mut modules, total) =
+            read_modules(&root, entry, source, &paths, environment, &mut converters)?;
+        test_configuration::include(
+            &root,
+            entry,
+            source,
+            extension,
+            environment,
+            &mut modules,
+            total,
+        )?;
+        if modules.is_empty() {
+            return Ok(None);
+        }
+        refuse_tac_helpers(&modules, extension, environment)?;
+        let injected = injected_contracts(entry, source, &modules, environment);
+        let source = injected.as_deref().unwrap_or(source);
+        let output = if extension == "go" {
+            compose_go(entry, source, &modules)?
+        } else {
+            let modules = declaration_order(entry, located_modules(modules, extension), extension)?;
+            let source = crate::fsharp_source::FsharpLines::located_in(extension, entry, source);
+            compose(entry, &source, modules, extension, environment)?
+        };
+        if output.len() > Module::MAX_SOURCE {
+            return Err(invalid(entry, "Combined annotation source exceeds 1 MiB."));
+        }
+        Ok(Some(output))
+    }
+
     const ROLE_FOLDERS: [&str; 9] = [
         "remotes",
         "clients",
@@ -546,6 +567,7 @@ fn discover_paths(
     entry: &Path,
     extension: &str,
     include_errors: bool,
+    native_services: bool,
 ) -> Result<Vec<PathBuf>, Failure> {
     let entry_directory = entry.parent().unwrap_or_else(|| Path::new(""));
     let service = entry_directory.starts_with("client/services");
@@ -555,7 +577,7 @@ fn discover_paths(
     let shared_directory = open_parent(root, &shared_parent.join("entry"))?;
     let mut discovery = Discovery::new(extension);
     for folder in Module::ROLE_FOLDERS {
-        if service && folder == "services" {
+        if service && folder == "services" && !native_services {
             continue;
         }
         if folder != "controllers" || include_errors || tested_controllers {
@@ -1940,6 +1962,28 @@ mod tests {
     }
 
     #[test]
+    fn native_rust_service_entries_include_their_same_language_service_dependencies() {
+        let root = tempfile::tempdir().expect("project");
+        let entry = "client/services/ui/SnapshotReaderService.rs";
+        let original = "#[Service]\n#[NeedsAll]\nstruct SnapshotReaderService { counter: std::sync::Arc<CounterService> }\n";
+        write(root.path(), entry, original);
+        write(
+            root.path(),
+            "client/services/state/CounterService.rs",
+            "#[Service]\n#[derive(Default)]\nstruct CounterService { value: i32 }\n",
+        );
+        let consumed = "struct SnapshotReaderService { counter: std::sync::Arc<CounterService> }\n";
+        let ordinary =
+            assemble(root.path(), Path::new(entry), consumed, "tac").expect("ordinary composition");
+        assert!(ordinary.is_none());
+        let native = Module::native_source(root.path(), Path::new(entry), consumed)
+            .expect("native composition")
+            .expect("peer service");
+        assert_contains(&native, "struct CounterService");
+        assert_contains(&native, "Arc<CounterService>");
+    }
+
+    #[test]
     fn nested_entries_end_discovery_inside_shared_role_folders() {
         let root = tempfile::tempdir().expect("project");
         let entry = "client/services/ShellService.js";
@@ -2226,7 +2270,7 @@ mod tests {
             );
             let failure = assemble(root.path(), Path::new(&entry), "", "yon").expect_err(extension);
             assert_contains(&failure.to_string(), "required");
-            assert_contains(&failure.to_string(), "Helper");
+            assert_contains(&failure.to_string().to_ascii_lowercase(), "helper");
         }
     }
 

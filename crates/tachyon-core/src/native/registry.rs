@@ -190,9 +190,22 @@ fn lowered_body(
         .source
         .strip_prefix(&item.snapshot_root)
         .unwrap_or(&identity);
-    let assembled =
-        crate::annotation_modules::assemble(&item.snapshot_root, relative, authored, "tac")?;
+    let native_rust = language == NativeCompanion::Rust && !item.web_assembly;
+    let assembled = match native_rust {
+        true => crate::annotation_modules::Module::native_source(
+            &item.snapshot_root,
+            relative,
+            authored,
+        )?,
+        false => {
+            crate::annotation_modules::assemble(&item.snapshot_root, relative, authored, "tac")?
+        }
+    };
     let authored = assembled.as_deref().unwrap_or(authored);
+    let roles_consumed = native_rust
+        .then(|| crate::behavior::ServiceRoles::without_roles(relative, authored))
+        .transpose()?;
+    let authored = roles_consumed.as_deref().unwrap_or(authored);
     let mut events = crate::events::extract(&identity, authored, "tac")?;
     if let Some(module) = events.as_mut() {
         crate::events::describe(module, &identity, &item.snapshot_root, "client")?;
