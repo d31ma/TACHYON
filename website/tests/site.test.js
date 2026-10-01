@@ -59,6 +59,11 @@ function expectServiceShape(source, className, extension) {
     expect(source).toContain(`class ${className}:`)
     return
   }
+  if (extension === 'java') {
+    expect(source).toMatch(/^@Service$/m)
+    expect(source).toContain(`class ${className} {`)
+    return
+  }
   if (extension === 'go') {
     expect(source).toMatch(/^\/\/ @Service$/m)
     expect(source).toContain(`type ${className} struct`)
@@ -187,12 +192,12 @@ describe('published output', () => {
     const services = (await readdir(fileURLToPath(new URL('../client/services', import.meta.url))))
     expect(services.length).toBeGreaterThanOrEqual(15)
     const counts = countByExtension(services)
-    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'js', 'kt', 'lua', 'py', 'rb', 'rs', 'swift', 'ts'])
+    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'lua', 'py', 'rb', 'rs', 'swift', 'ts'])
     const serviceCounts = Object.values(counts)
     expect(Math.max(...serviceCounts) - Math.min(...serviceCounts), JSON.stringify(counts)).toBeLessThanOrEqual(1)
     const instances = new Set()
     for (const file of services) {
-      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|py|dart|rs|cs|fs|go|rb|kt|swift|lua)$/) ?? []
+      const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|py|dart|rs|cs|fs|go|rb|kt|swift|lua|java)$/) ?? []
       expect(className, file).toBeDefined()
       const source = await read(`client/services/${file}`)
       expectServiceShape(source, className, extension)
