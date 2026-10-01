@@ -8,8 +8,8 @@ use std::ops::Range;
 use std::path::Path;
 use wasm_program::WasmProgram;
 
-mod dart_model_shape;
 mod dart_http_scope;
+mod dart_model_shape;
 mod wasm_program;
 
 struct DartCompiler;

@@ -421,11 +421,11 @@ mod tests {
         )];
         let Err(failure) = web_go(root.path(), &services, crate::BuildProfile::Release).await
         else {
-            panic!("a Tac Helper is a browser role");
+            panic!("Go Tac Helper is unavailable");
         };
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.to_string(), "TY1308");
-        assert!(diagnostic.message.contains("browser role"), "{failure}");
+        assert!(diagnostic.message.contains("not available"), "{failure}");
         let span = &diagnostic.spans[0];
         assert_eq!(span.file, "client/helpers/StepHelper.go");
         let marker = files[1].1.find("@Helper").expect("marker");
