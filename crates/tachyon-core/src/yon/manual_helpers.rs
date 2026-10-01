@@ -75,9 +75,9 @@ impl ManualHelpers {
         let after = &code[at + helper.name.len()..];
         let before = &code[..at];
         let constructor = Self::constructor_call(extension, before, after);
-        let definition = extension == "dart" && helper.body.contains(&at);
+        let definition = [extension == "dart", helper.body.contains(&at)] == [true, true];
         let factory = Self::factory_call(before);
-        let declaration = helper.declaration <= at && at < helper.body.start;
+        let declaration = (helper.declaration..helper.body.start).contains(&at);
         [
             Self::name_boundary(before, after),
             ![declaration, definition].contains(&true),
