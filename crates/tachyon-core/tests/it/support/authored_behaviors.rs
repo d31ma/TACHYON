@@ -14,6 +14,7 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         source = ruby_converter_source(&relative, source, language);
         source = php_helper_source(&relative, source, language);
         source = csharp_helper_source(&relative, source, language);
+        let (relative, mut source) = tac_checks_copy(relative, source, realm, language);
         let relative = relative.replacen("server/clients/", "server/remotes/", 1);
         let relative = relative.replacen("server/", &format!("{realm}/"), 1);
         let relative = Path::new(&relative).with_extension(extension);
@@ -28,6 +29,36 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
             .expect("fixture directories");
         std::fs::write(target, source).expect("authored fixture");
     }
+}
+
+fn tac_checks_copy(
+    relative: String,
+    source: String,
+    realm: &str,
+    language: &str,
+) -> (String, String) {
+    if realm != "client" || language != "js" {
+        return (relative, source);
+    }
+    let names = BTreeMap::from([(
+        "BehaviorChecksHelper".to_owned(),
+        "BehaviorChecks".to_owned(),
+    )]);
+    let source = super::behavior_layout::rename(&source, &names)
+        .replace(
+            "@Helper()\nclass BehaviorChecks {",
+            "class BehaviorChecks {",
+        )
+        .replace(
+            "\nclass InputService {",
+            "\nexport default class InputService {",
+        );
+    let relative = relative.replacen(
+        "server/helpers/BehaviorChecksHelper.js",
+        "server/tests/BehaviorChecks.js",
+        1,
+    );
+    (relative, source)
 }
 
 fn csharp_helper_source(relative: &str, source: String, language: &str) -> String {
