@@ -103,6 +103,11 @@ impl RustPageGraph {
             name,
             names,
         )?;
+        super::native_application_capture::NativeApplicationCapture::dependencies(
+            service,
+            &self.services,
+            &dependencies,
+        )?;
         self.arcs.extend(dependencies.clone());
         pending.extend(dependencies);
         self.initializers.insert(name.to_owned(), initializer);
@@ -209,11 +214,6 @@ impl RustPageGraph {
             &self.source,
             &service.path.to_string_lossy(),
             &service.name,
-        )?;
-        super::native_application_capture::NativeApplicationCapture::dependencies(
-            service,
-            &self.services,
-            &dependencies,
         )?;
         let captures_prototype = dependencies
             .iter()
