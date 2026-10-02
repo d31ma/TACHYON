@@ -74,8 +74,8 @@ impl WindowsHostGenerator {
         "/ENTRY:wWinMainCRTStartup",
     ];
     const CSHARP_COMPANION_PRELUDE: &str = concat!(
-        include_str!("prelude.cs"),
-        include_str!("models/TacModels.cs")
+        include_str!("models/TacModels.cs"),
+        include_str!("prelude.cs")
     );
     const CSHARP_BROWSER_TASKS: &str = concat!(
         include_str!("browser/Tac.cs"),
@@ -1264,6 +1264,22 @@ mod tests {
     use super::{application_manifest, c_source, compiler_path, stage_companion, windows_compiler};
     use crate::native::config::NativeApplication;
     use std::path::Path;
+
+    #[test]
+    fn csharp_task_model_browser_source_retains_codec_without_native_host_tail() {
+        let browser = super::web_source("", "");
+        let native = super::companion_prelude();
+        for source in [browser.as_str(), native] {
+            assert!(source.contains("public static T ReadResult<T>"));
+            assert!(source.contains("public static bool Fits("));
+            assert!(source.contains("TacModelContext.Default.GetTypeInfo(typeof(T))"));
+            assert_eq!(source.matches("public static T ReadResult<T>").count(), 1);
+            assert_eq!(source.matches("public static bool Fits(").count(), 1);
+        }
+        assert!(!browser.contains("public static class TacNative"));
+        assert!(!browser.contains("[UnmanagedCallersOnly"));
+        assert!(native.contains("EntryPoint = \"tac_native_invoke\""));
+    }
 
     #[test]
     fn dotnet_browser_tasks_have_a_distinct_export_and_keep_the_synchronous_entry() {
