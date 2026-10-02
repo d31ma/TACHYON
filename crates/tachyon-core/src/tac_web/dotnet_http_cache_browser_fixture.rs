@@ -8,11 +8,23 @@ impl DotnetHttpCacheBrowserFixture {
         "TAC_BIN",
         "TAC_DOTNET_HTTP_SOURCE_COMMIT",
     ];
-    const FILES: [(&'static str, &'static str); 7] = [
+    const FILES: [(&'static str, &'static str); 9] = [
         (
             "client/remotes/CachedProbeClient.cs",
             include_str!(
                 "../../tests/fixtures/tac-dotnet-http-cache/client/remotes/CachedProbeClient.cs"
+            ),
+        ),
+        (
+            "client/remotes/WorkerProbeClient.cs",
+            include_str!(
+                "../../tests/fixtures/tac-dotnet-http-cache/client/remotes/WorkerProbeClient.cs"
+            ),
+        ),
+        (
+            "client/remotes/OfflineProbeClient.cs",
+            include_str!(
+                "../../tests/fixtures/tac-dotnet-http-cache/client/remotes/OfflineProbeClient.cs"
             ),
         ),
         (

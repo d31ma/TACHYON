@@ -2,6 +2,10 @@
   <p id="cached-answer">{cachedHttp.last}</p>
   <p id="cached-read-count">{cachedHttp.readCalls}</p>
   <p id="cached-save-count">{cachedHttp.saveCalls}</p>
+  <p id="worker-answer">{cachedHttp.workerLast}</p>
+  <p id="offline-answer">{cachedHttp.offlineLast}</p>
   <button id="cached-read" on:click="cachedHttp.read()">Read public Yon answer</button>
   <button id="cached-save" on:click="cachedHttp.save()">Save and invalidate the read</button>
+  <button id="worker-read" on:click="cachedHttp.workerRead()">Read through the service worker</button>
+  <button id="offline-read" on:click="cachedHttp.offlineRead()">Read the worker answer offline</button>
 </main>

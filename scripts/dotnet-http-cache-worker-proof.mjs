@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-/** @typedef {{read: () => Promise<{message: string}>, __tachyonDispose: () => void}} CachedOwner */
+/** @typedef {{workerRead: () => Promise<{message: string}>, offlineRead: () => Promise<{message: string}>, __tachyonDispose: () => void}} CachedOwner */
 /** @typedef {{default: new() => CachedOwner}} CachedOwnerModule */
 /** @typedef {{status: number, policy: string | null, vary: string | null, bytes: number, answer: {message: string}}} CachedWorkerEntry */
 
@@ -32,7 +32,8 @@ export class DotnetHttpCacheWorkerProof {
 
   /** @returns {Promise<void>} */
   async newOwner() {
-    assert.deepEqual(await this.#readOwner(), { message: 'actual public Yon answer' })
+    assert.deepEqual(await this.#readOwner('workerRead'), { message: 'actual public Yon answer' })
+    await this.#requireFetchCount(2)
     this.#requireNetwork(['GET'])
   }
 
@@ -105,15 +106,25 @@ export class DotnetHttpCacheWorkerProof {
     assert.deepEqual(this.#network.failures(), [])
   }
 
-  /** @returns {Promise<{message: string}>} */
-  #readOwner() {
-    return this.#page.evaluate(async () => {
+  /** @param {'workerRead' | 'offlineRead'} method @returns {Promise<{message: string}>} */
+  #readOwner(method) {
+    return this.#page.evaluate(async method => {
       const modulePath = '/.tachyon/services/CachedHttpService.js'
       /** @type {CachedOwnerModule} */
       const Service = await import(modulePath)
       const owner = new Service.default()
-      try { return await owner.read() } finally { owner.__tachyonDispose() }
+      try { return await owner[method]() } finally { owner.__tachyonDispose() }
+    }, method)
+  }
+
+  /** @param {number} expected @returns {Promise<void>} */
+  async #requireFetchCount(expected) {
+    const count = await this.#page.evaluate(() => {
+      /** @type {unknown[]} */
+      const requests = Reflect.get(globalThis, '__dotnetCacheRequests')
+      return requests.length
     })
+    assert.equal(count, expected, 'the distinct injected Client namespace must issue its real default fetch')
   }
 
   /** @returns {Promise<void>} */
@@ -130,7 +141,8 @@ export class DotnetHttpCacheWorkerProof {
     const context = this.#page.context()
     await context.setOffline(true)
     try {
-      assert.deepEqual(await this.#readOwner(), { message: 'actual public Yon answer' }, 'a fresh C# owner obtains the worker answer offline')
+      assert.deepEqual(await this.#readOwner('offlineRead'), { message: 'actual public Yon answer' }, 'a fresh C# owner obtains the worker answer offline')
+      await this.#requireFetchCount(6)
     } finally {
       await context.setOffline(false)
     }
