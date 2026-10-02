@@ -1,15 +1,29 @@
 use super::prepared::Prepared;
 use super::{Field, Module, Type};
+use crate::Failure;
 use crate::behavior::HttpClientSource;
 use std::collections::BTreeSet;
 use std::path::Path;
 
-pub(super) struct CsharpBrowserConstruction;
+pub(crate) struct CsharpBrowserConstruction;
 
 impl CsharpBrowserConstruction {
     const MAX_DEPENDENCIES: usize = 5;
 
-    pub(super) fn factory(
+    pub(crate) fn factory(
+        path: &Path,
+        source: &str,
+        class: &str,
+    ) -> Result<Option<String>, Failure> {
+        let rewritten =
+            HttpClientSource::rewrite(path, source)?.unwrap_or_else(|| source.to_owned());
+        let rewritten = crate::behavior::ServiceRoles::read(path, &rewritten)?.source;
+        let prepared = super::prepare(path, &rewritten, "tac")?;
+        Self::prepared(prepared.as_ref(), source, class, path)
+            .map_err(|message| super::module_failure(path, source, message))
+    }
+
+    fn prepared(
         prepared: Option<&Prepared>,
         source: &str,
         class: &str,
