@@ -155,6 +155,9 @@ pub(crate) fn plan_for_fuzzing(
 }
 
 mod csharp_browser_bindings;
+#[cfg(test)]
+mod csharp_browser_client_tests;
+mod csharp_browser_factory;
 
 #[cfg(test)]
 mod csharp_browser_bindings_tests;

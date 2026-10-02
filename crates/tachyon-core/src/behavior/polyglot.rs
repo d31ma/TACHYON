@@ -6,6 +6,8 @@ use std::ops::Range;
 use std::path::Path;
 
 mod csharp;
+mod csharp_browser_construction;
+use csharp_browser_construction::CsharpBrowserConstruction;
 mod csharp_helper_interfaces;
 mod csharp_tac_helpers;
 use csharp_helper_interfaces::CsharpHelperInterfaces;
@@ -258,6 +260,19 @@ pub(super) fn csharp_case_calls(
 ) -> Result<Vec<(String, String)>, Failure> {
     let prepared = prepare(path, source, environment)?;
     Ok(annotated_case_calls(prepared.as_ref()))
+}
+
+pub(super) fn csharp_browser_factory(
+    path: &Path,
+    source: &str,
+    class: &str,
+) -> Result<Option<String>, Failure> {
+    let rewritten =
+        super::HttpClientSource::rewrite(path, source)?.unwrap_or_else(|| source.to_owned());
+    let rewritten = super::ServiceRoles::read(path, &rewritten)?.source;
+    let prepared = prepare(path, &rewritten, "tac")?;
+    CsharpBrowserConstruction::factory(prepared.as_ref(), source, class, path)
+        .map_err(|message| module_failure(path, source, message))
 }
 
 fn annotated_case_calls(prepared: Option<&Prepared>) -> Vec<(String, String)> {

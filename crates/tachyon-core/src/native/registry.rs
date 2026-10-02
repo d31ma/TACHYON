@@ -1,3 +1,4 @@
+use super::csharp_browser_factory::CsharpBrowserFactory;
 use crate::Failure;
 use crate::project::NativeCompanion;
 use std::collections::BTreeSet;
@@ -241,6 +242,7 @@ fn lowered_body(
         )
     };
     let authored = native_source.as_str();
+    let csharp_factory = CsharpBrowserFactory::prepare(item, authored, relative)?;
     if !item.web_assembly {
         crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
         crate::annotation_layout::NativeWebApis::refuse(&identity, authored)?;
@@ -270,6 +272,8 @@ fn lowered_body(
         &prepared.entries,
         needs_all,
     )?;
+    let table =
+        CsharpBrowserFactory::table(&table, csharp_factory.as_deref(), &item.class, relative)?;
     let authored = crate::companion::with_required_constructor(
         super::events::companion_language(language),
         authored,
