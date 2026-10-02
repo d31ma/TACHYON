@@ -571,6 +571,10 @@ impl HelperRole {
         crate::annotation_rules::AnnotationRules::unavailable("Helper", language, "tac")
     }
 
+    pub(crate) fn require_callers(path: &Path, source: &str) -> Result<(), Failure> {
+        CsharpTacHelpers::callers(path, source)
+    }
+
     pub(crate) fn refuse_in_tac(path: &Path, source: &str) -> Result<(), Failure> {
         CsharpTacHelpers::source(path, source)?;
         let Some(message) = Self::refusal(path) else {

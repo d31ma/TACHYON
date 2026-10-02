@@ -472,7 +472,12 @@ mod tests {
         );
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.to_string(), "TY1308");
-        assert!(diagnostic.message.contains("not available"), "{failure}");
+        assert!(
+            diagnostic
+                .message
+                .contains("explicit caller-owned construction"),
+            "{failure}"
+        );
         assert_eq!(diagnostic.spans[0].file, "client/helpers/StepHelper.cs");
         assert_eq!(diagnostic.spans[0].start, 14);
     }

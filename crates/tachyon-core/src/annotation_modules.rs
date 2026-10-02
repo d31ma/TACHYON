@@ -10,6 +10,8 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 mod client_utilities;
+mod helper_callers;
+use helper_callers::HelperCallers;
 mod module_input;
 mod shared_imports;
 mod test_configuration;
@@ -18,6 +20,8 @@ use shared_imports::SharedImports;
 
 #[cfg(test)]
 mod error_tests;
+#[cfg(test)]
+mod helper_callers_tests;
 
 #[cfg(test)]
 mod test_configuration_tests;
@@ -403,6 +407,7 @@ impl Module {
             return Ok(utilities.changed().then_some(source));
         }
         refuse_tac_helpers(&modules, extension, environment)?;
+        HelperCallers::check(entry, &source, &modules, environment)?;
         let injected = injected_contracts(entry, &source, &modules, environment);
         let source = injected.as_deref().unwrap_or(&source);
         let output = if extension == "go" {

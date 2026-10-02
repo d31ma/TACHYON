@@ -42,6 +42,53 @@ impl CsharpTacHelpers {
             .map(|_| ())
     }
 
+    pub(super) fn callers(path: &Path, source: &str) -> Result<(), Failure> {
+        Self::client_path(path)
+            .then(|| Self::source_callers(path, source))
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn source_callers(path: &Path, source: &str) -> Result<(), Failure> {
+        let mask = crate::lexical::code_mask("cs", source);
+        let mut input = Input {
+            path,
+            source,
+            code: super::visible_code(source, mask.code),
+        };
+        let markers = super::annotations(&input, "cs", "tac")?;
+        super::mask_annotations(&mut input, &markers, "cs");
+        let types = super::declarations(&input, "cs")?;
+        let targets = Self::helper_targets(&markers);
+        Self::captured_helpers(&types, &targets)
+            .iter()
+            .try_for_each(|ty| Self::located_caller(&input, ty, &markers))
+    }
+
+    fn located_caller(input: &Input<'_>, ty: &Type, markers: &[Marker]) -> Result<(), Failure> {
+        let at = Self::caller_at(ty, markers);
+        Self::require_caller(input, ty)
+            .map_err(|failure| Self::caller_failure(input, at, &ty.name, failure))
+    }
+
+    fn caller_at(ty: &Type, markers: &[Marker]) -> usize {
+        markers
+            .iter()
+            .find(|marker| (marker.name.as_str(), marker.target) == ("Helper", ty.declaration))
+            .map_or(ty.declaration, |marker| marker.span.start)
+    }
+
+    fn caller_failure(input: &Input<'_>, at: usize, name: &str, failure: Failure) -> Failure {
+        if failure.diagnostics().iter().any(|diagnostic| {
+            diagnostic.message.starts_with(&format!(
+                "Tac C# Helper {name} requires explicit caller-owned construction"
+            ))
+        }) {
+            return Self::failure(input, at, name);
+        }
+        failure
+    }
+
     fn wanted(path: &Path, language: &str, environment: &str) -> bool {
         [
             language == "cs",
