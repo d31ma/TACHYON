@@ -28,11 +28,12 @@ export class DotnetHttpClientChildProof {
     try {
       const request = await requested
       assert.equal(request.method(), 'GET')
-      assert.equal((await request.allHeaders()).cookie ?? null, null)
+      const headers = request.allHeaders()
       const aborted = this.#page.waitForEvent('requestfailed', { predicate: request => new URL(request.url()).pathname === '/api/cached-probe/slow' }).catch(() => null)
       const capturedRefusal = await this.#dispose()
-      const [cancelled, failedRequest] = await Promise.all([pending, aborted])
-      assert.ok(failedRequest, 'disposing the Service must abort its real pending private Client GET')
+      const [cancelled, failedRequest, actualHeaders] = await Promise.all([pending, aborted, headers])
+      assert.equal(actualHeaders.cookie ?? null, null)
+      assert.ok(failedRequest, `disposing the Service must abort its real pending private Client GET: ${JSON.stringify({ cancelled, capturedRefusal })}`)
       assert.equal(cancelled.code, 'CANCELLED', 'disposing the Service cancels its actual private Client context')
       assert.equal(capturedRefusal.code, 'CANCELLED')
       const replacement = await this.#replacement()
