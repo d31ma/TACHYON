@@ -128,10 +128,17 @@ private struct MacOsMenuCheck {
     @MainActor
     private static func checkEdit(_ application: NSApplication, _ window: NSWindow) throws {
         let edit = try menu(application, "Edit")
-        try require(edit.items.filter { (item: NSMenuItem) -> Bool in !item.isSeparatorItem }
-                    .allSatisfy { (item: NSMenuItem) -> Bool in item.target == nil }, "Edit captures a component instead of the responder chain")
-        try require(edit.item(at: 0)?.keyEquivalent == "z", "Undo shortcut missing")
-        try require(edit.item(at: 1)?.keyEquivalentModifierMask == [.command, .shift], "Redo shortcut changed")
+        let actions: [Selector] = [NSSelectorFromString("undo:"), NSSelectorFromString("redo:"),
+                                   #selector(NSText.cut(_:)), #selector(NSText.copy(_:)),
+                                   #selector(NSText.paste(_:)), #selector(NSText.selectAll(_:))]
+        for action in actions {
+            let item = try editItem(edit, action)
+            try require(item.target == nil, "Authored Edit command bypasses the responder chain: " + editItemState(item))
+        }
+        let undo = try editItem(edit, NSSelectorFromString("undo:"))
+        let redo = try editItem(edit, NSSelectorFromString("redo:"))
+        try require(undo.keyEquivalent == "z", "Undo shortcut missing: " + editItemState(undo))
+        try require(redo.keyEquivalentModifierMask == [.command, .shift], "Redo shortcut changed: " + editItemState(redo))
         let text = NSTextView(frame: window.contentView!.bounds)
         text.string = "native responder text"
         window.contentView = text
@@ -141,10 +148,32 @@ private struct MacOsMenuCheck {
         progress("Waiting for owned native text responder")
         try waitForResponder(application, window, text)
         progress("Owned responder ready: " + responderState(application, window, text))
-        let select = edit.item(at: 6)!
+        let select = try editItem(edit, #selector(NSText.selectAll(_:)))
         try require(select.action == #selector(NSText.selectAll(_:)), "Select All action missing")
         try require(application.sendAction(select.action!, to: select.target, from: select), "Native responder declined Select All: " + responderState(application, window, text))
         try require(text.selectedRange() == NSRange(location: 0, length: text.string.utf16.count), "Select All did not reach native text responder: " + responderState(application, window, text))
+    }
+
+    private static func editItem(_ menu: NSMenu, _ action: Selector) throws -> NSMenuItem {
+        let matches = menu.items.filter { (item: NSMenuItem) -> Bool in item.action == action }
+        guard matches.count == 1 else {
+            throw NSError(domain: "Expected one authored Edit action \(NSStringFromSelector(action)); actual menu: " + editMenuState(menu), code: 1)
+        }
+        return matches[0]
+    }
+
+    private static func editMenuState(_ menu: NSMenu) -> String {
+        menu.items.prefix(16).map { (item: NSMenuItem) -> String in editItemState(item) }.joined(separator: " | ")
+    }
+
+    private static func editItemState(_ item: NSMenuItem) -> String {
+        let action = item.action.map { (action: Selector) -> String in NSStringFromSelector(action) } ?? "nil"
+        return "title=\(String(item.title.prefix(96)).debugDescription), action=\(String(action.prefix(96))), target=\(String(editTargetName(item).prefix(96)))"
+    }
+
+    private static func editTargetName(_ item: NSMenuItem) -> String {
+        guard let target = item.target else { return "nil" }
+        return String(describing: type(of: target))
     }
 
     private static func waitForResponder(_ application: NSApplication, _ window: NSWindow, _ text: NSTextView) throws {
