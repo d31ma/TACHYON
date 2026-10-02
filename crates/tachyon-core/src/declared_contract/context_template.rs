@@ -9,6 +9,12 @@ impl ContextTemplate {
     const JAVA_FIELD: &'static str = "Behaviors.Context behaviors;";
     const JAVA_START: &'static str = "@OnStart\nvoid startContext() {\n    behaviors = Behaviors.create(\"{setup}\", new Behaviors.Options(\"{partition}\", new Behaviors.Signal()));\n}";
     const KOTLIN_FIELD: &'static str = "lateinit var behaviors: Behaviors.Context";
+    const DART_TAC_HTTP: Self = Self::new(
+        "dart-tac",
+        "final BehaviorContext? _suppliedContext;\nlate final BehaviorContext behaviors = _suppliedContext ?? Behaviors.create({setup}, partition: '{partition}', signal: BehaviorSignal());",
+        "{owner}([this._suppliedContext]);",
+    );
+    const HTTP_CLIENT: &'static str = "HTTPClient";
     const TEMPLATES: [Self; 22] = [
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new(
@@ -135,5 +141,17 @@ impl ContextTemplate {
             .filter(|template| keys.contains(&template.key.to_owned()))
             .min_by_key(|template| keys.iter().position(|key| key == template.key))
             .unwrap_or(Self::EMPTY)
+    }
+
+    pub(crate) fn for_contract(contract: &str, keys: &[String]) -> Self {
+        Self::http_template(contract, keys).unwrap_or_else(|| Self::find(keys))
+    }
+
+    fn http_template(contract: &str, keys: &[String]) -> Option<Self> {
+        ([
+            contract == Self::HTTP_CLIENT,
+            keys.contains(&Self::DART_TAC_HTTP.key.to_owned()),
+        ] == [true, true])
+        .then_some(Self::DART_TAC_HTTP)
     }
 }

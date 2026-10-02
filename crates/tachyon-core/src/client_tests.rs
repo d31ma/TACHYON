@@ -24,13 +24,15 @@ pub struct TestReport {
     pub failure: Option<String>,
 }
 
+mod dart_test_models;
 mod fsharp_unit;
 mod python_unit;
 mod test_unit_error;
-mod dart_test_models;
 
 #[cfg(test)]
 mod dart_construct_tests;
+#[cfg(test)]
+mod dart_http_context_tests;
 #[cfg(test)]
 mod java_construct_tests;
 #[cfg(test)]

@@ -178,7 +178,7 @@ impl<'a> ConcreteContract<'a> {
             partition: &declaration.adapter(),
             indent: &indent,
         };
-        let (field, text) = context.parts();
+        let (field, text) = context.parts_for(declaration.role.marker);
         let crud = self.crud_members(declaration, &indent);
         let open = declaration.header.end + 1;
         let field_edit = (!field.is_empty()).then_some((open..open, field));

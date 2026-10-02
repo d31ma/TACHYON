@@ -356,7 +356,7 @@ fn tac_clients_create_their_context_when_they_are_built() {
         ),
         (
             "dart",
-            "late final BehaviorContext behaviors = Behaviors.create(CatalogSetup",
+            "late final BehaviorContext behaviors = _suppliedContext ?? Behaviors.create(CatalogSetup",
         ),
         (
             "swift",

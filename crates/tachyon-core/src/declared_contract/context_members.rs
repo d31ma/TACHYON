@@ -20,6 +20,15 @@ impl ContextMembers<'_> {
 
     pub(crate) fn parts(&self) -> (String, String) {
         let template = ContextTemplate::find(&self.keys());
+        self.template_parts(template)
+    }
+
+    pub(crate) fn parts_for(&self, contract: &str) -> (String, String) {
+        let template = ContextTemplate::for_contract(contract, &self.keys());
+        self.template_parts(template)
+    }
+
+    fn template_parts(&self, template: ContextTemplate) -> (String, String) {
         let field = self.filled(template.field);
         let members = self.filled(template.members);
         let field = Some(field)
