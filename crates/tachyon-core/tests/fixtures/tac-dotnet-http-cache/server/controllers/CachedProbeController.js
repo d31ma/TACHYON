@@ -1,15 +1,17 @@
 @RequestRoute("/api/cached-probe")
 @Public
 export default class CachedProbeController {
+  static CACHE_CONTROL = 'cache-control'
+
   /** @returns {Response} */
   @GetRoute
   getProbe() {
-    return Response.json({ message: 'actual public Yon answer' }, { headers: { 'cache-control': 'public, max-age=60' } })
+    return Response.json({ message: 'actual public Yon answer' }, { headers: { [CachedProbeController.CACHE_CONTROL]: 'public, max-age=60' } })
   }
 
   /** @returns {Response} */
   @PostRoute
-  saveProbe() {
-    return Response.json({ message: 'actual Yon write' }, { headers: { 'cache-control': 'no-store' } })
+  postProbe() {
+    return Response.json({ message: 'actual Yon write' }, { headers: { [CachedProbeController.CACHE_CONTROL]: 'no-store' } })
   }
 }

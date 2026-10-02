@@ -121,7 +121,7 @@ class DotnetHttpCacheBrowserGate {
       const Service = await import(modulePath)
       const owner = new Service.default()
       try {
-        return !Reflect.has(owner, 'cachedProbeClient')
+        return !Reflect.has(owner, 'cachedProbeClient') && !Reflect.has(owner, '_cachedProbeClient')
       } finally {
         owner.__tachyonDispose()
       }
