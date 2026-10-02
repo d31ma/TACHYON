@@ -72,7 +72,7 @@ fn refuse_tac_helpers(
     extension: &str,
     environment: &str,
 ) -> Result<(), Failure> {
-    let composed_after_entry = matches!(extension, "rs" | "cs" | "swift" | "kt" | "java");
+    let composed_after_entry = matches!(extension, "rs" | "cs" | "fs" | "swift" | "kt" | "java");
     if environment != "tac" || !composed_after_entry {
         return Ok(());
     }

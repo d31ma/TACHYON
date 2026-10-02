@@ -579,10 +579,12 @@ impl HelperRole {
     }
 
     pub(crate) fn require_callers(path: &Path, source: &str) -> Result<(), Failure> {
+        crate::fsharp_source::FsharpTacHelpers::callers(path, source)?;
         CsharpTacHelpers::callers(path, source)
     }
 
     pub(crate) fn refuse_in_tac(path: &Path, source: &str) -> Result<(), Failure> {
+        crate::fsharp_source::FsharpTacHelpers::source(path, source)?;
         CsharpTacHelpers::source(path, source)?;
         let Some(message) = Self::refusal(path) else {
             return Ok(());

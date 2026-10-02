@@ -21,10 +21,13 @@ impl HelperCallers {
     }
 
     fn wanted(entry: &Path, environment: &str) -> bool {
-        (
-            entry.extension().and_then(|value| value.to_str()),
-            environment,
-        ) == (Some("cs"), "tac")
+        matches!(
+            (
+                entry.extension().and_then(|value| value.to_str()),
+                environment
+            ),
+            (Some("cs" | "fs"), "tac")
+        )
     }
 
     fn read(entry: &Path, source: &str, modules: &[Module]) -> Self {

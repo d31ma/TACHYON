@@ -31,7 +31,18 @@ impl AttributeLine {
     const PRIMARY_CONSTRUCTOR_MARKERS: [&'static str; 2] = ["[NeedsAll]", "[NeedsAll()]"];
 
     pub(crate) fn read(trimmed: &str) -> Vec<Self> {
+        Self::written(trimmed)
+    }
+
+    pub(crate) fn raw(trimmed: &str) -> Vec<Self> {
         Self::groups(trimmed)
+    }
+
+    fn written(trimmed: &str) -> Vec<Self> {
+        Self::groups(trimmed)
+            .into_iter()
+            .filter(Self::is_written)
+            .collect()
     }
 
     fn groups(trimmed: &str) -> Vec<Self> {
@@ -55,7 +66,6 @@ impl AttributeLine {
             .into_iter()
             .filter(|written| !written.is_empty())
             .map(Self::attribute)
-            .filter(Self::is_written)
             .collect()
     }
 
@@ -100,6 +110,19 @@ mod tests {
             .into_iter()
             .map(|attribute| attribute.csharp)
             .collect()
+    }
+
+    #[test]
+    fn raw_ownership_reader_retains_needs_all_before_shadow_filtering() {
+        let attributes = AttributeLine::raw("[<Helper; NeedsAll>]");
+        assert_eq!(
+            attributes
+                .iter()
+                .map(|attribute| attribute.name.as_str())
+                .collect::<Vec<_>>(),
+            ["Helper", "NeedsAll"]
+        );
+        assert_eq!(written("[<Helper; NeedsAll>]"), ["[Helper]"]);
     }
 
     #[test]
