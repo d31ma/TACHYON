@@ -524,16 +524,19 @@ impl RequiredFields {
 
     fn assignment(code: &str) -> Option<usize> {
         let bytes = code.as_bytes();
-        for (at, byte) in bytes.iter().enumerate() {
-            if *byte != b'=' || matches!(bytes.get(at + 1), Some(b'>' | b'=')) {
-                continue;
-            }
-            let previous = at.checked_sub(1).and_then(|before| bytes.get(before));
-            if !matches!(previous, Some(b'=' | b'!' | b'<' | b'>')) {
-                return Some(at);
-            }
+        bytes
+            .iter()
+            .enumerate()
+            .find_map(|(at, _)| Self::assignment_at(bytes, at))
+    }
+
+    fn assignment_at(bytes: &[u8], at: usize) -> Option<usize> {
+        let previous = at.checked_sub(1).and_then(|before| bytes.get(before));
+        match (bytes[at], bytes.get(at + 1), previous) {
+            (b'=', Some(b'>' | b'='), _) | (b'=', _, Some(b'=' | b'!' | b'<' | b'>')) => None,
+            (b'=', _, _) => Some(at),
+            _ => None,
         }
-        None
     }
 
     fn is_name(name: &str) -> bool {
@@ -567,6 +570,54 @@ mod tests {
             class,
             &injectable,
         )
+    }
+
+    #[test]
+    fn assignment_keeps_operator_boundaries_and_first_initializer_offset() {
+        for source in ["", "plain", "==", "===", "!=", "<=", ">=", "=>"] {
+            assert_eq!(RequiredFields::assignment(source), None, "{source}");
+        }
+        for (source, at) in [("=", 0), ("value = 1", 6), ("=> = 1", 3), ("é = 1", 3)] {
+            assert_eq!(RequiredFields::assignment(source), Some(at), "{source}");
+        }
+        for operator in [
+            "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "??=", "&&=", "||=",
+        ] {
+            let source = format!("value {operator} 1");
+            assert_eq!(
+                RequiredFields::assignment(&source),
+                source.find('='),
+                "{source}"
+            );
+        }
+        for operator in ["=>", "==", "===", "!=", "<=", ">="] {
+            let source = format!("{operator} next = 1");
+            assert_eq!(
+                RequiredFields::assignment(&source),
+                Some(operator.len() + 6),
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn assignment_refactor_preserves_required_props_and_injected_fields() {
+        let javascript = "@Service\n@NeedsAll\nexport default class BoundaryService {\n route\n tally\n equal = left === right\n unequal = left != right\n lower = left <= right\n greater = left >= right\n arrow = value => value\n quoted = 'left = right => next'\n}\n";
+        let typescript = "@Service\n@NeedsAll\nexport default class BoundaryService {\n route: string\n tally: TallyService\n equal: boolean = left === right\n unequal: boolean = left != right\n lower: boolean = left <= right\n greater: boolean = left >= right\n arrow = value => value\n quoted: string = 'left = right => next'\n}\n";
+        let injectable = BTreeSet::from([String::from("TallyService"), String::from("tally")]);
+        for (extension, source) in [("js", javascript), ("ts", typescript)] {
+            let path = Path::new("client/services").join(format!("BoundaryService.{extension}"));
+            assert_eq!(
+                RequiredFields::props(&path, source, "BoundaryService", &injectable),
+                ["route"],
+                "{extension}"
+            );
+            assert_eq!(
+                RequiredFields::injected_fields(&path, source, "BoundaryService", &injectable),
+                ["tally"],
+                "{extension}"
+            );
+        }
     }
 
     #[test]
