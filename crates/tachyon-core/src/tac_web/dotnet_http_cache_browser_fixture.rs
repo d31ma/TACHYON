@@ -8,63 +8,23 @@ impl DotnetHttpCacheBrowserFixture {
         "TAC_BIN",
         "TAC_DOTNET_HTTP_SOURCE_COMMIT",
     ];
-    const FILES: [(&'static str, &'static str); 9] = [
-        (
-            "client/remotes/CachedProbeClient.cs",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http-cache/client/remotes/CachedProbeClient.cs"
-            ),
-        ),
-        (
-            "client/remotes/WorkerProbeClient.cs",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http-cache/client/remotes/WorkerProbeClient.cs"
-            ),
-        ),
-        (
-            "client/remotes/OfflineProbeClient.cs",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http-cache/client/remotes/OfflineProbeClient.cs"
-            ),
-        ),
-        (
-            "client/services/CachedHttpService.cs",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http-cache/client/services/CachedHttpService.cs"
-            ),
-        ),
-        (
-            "client/setups/CachedHttpSetup.cs",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http-cache/client/setups/CachedHttpSetup.cs"
-            ),
-        ),
-        (
-            "client/pages/tac.html",
-            include_str!("../../tests/fixtures/tac-dotnet-http-cache/client/pages/tac.html"),
-        ),
-        (
-            "client/components/cached/http/tac.html",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http-cache/client/components/cached/http/tac.html"
-            ),
-        ),
-        (
-            "client/manifest.json",
-            include_str!("../../tests/fixtures/tac-dotnet-http-cache/client/manifest.json"),
-        ),
-        (
-            "server/controllers/CachedProbeController.js",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http-cache/server/controllers/CachedProbeController.js"
-            ),
-        ),
+    const SOURCE: &'static str = "crates/tachyon-core/tests/fixtures/tac-dotnet-http-cache";
+    const FILES: [&'static str; 9] = [
+        "client/remotes/CachedProbeClient.cs",
+        "client/remotes/WorkerProbeClient.cs",
+        "client/remotes/OfflineProbeClient.cs",
+        "client/services/CachedHttpService.cs",
+        "client/setups/CachedHttpSetup.cs",
+        "client/pages/tac.html",
+        "client/components/cached/http/tac.html",
+        "client/manifest.json",
+        "server/controllers/CachedProbeController.js",
     ];
 
     async fn run() {
         let environment = OrdinaryBrowserFixture::read(Self::ENVIRONMENT);
         environment.validate();
-        environment.stage(Self::FILES);
+        environment.stage_repo_files(Self::SOURCE, &Self::FILES);
         environment.build().await;
         environment
             .browser(
@@ -99,9 +59,10 @@ async fn dotnet_cached_http_client_secure_origin_certificate_is_explicit() {
 
 #[test]
 fn csharp_cached_http_client_keeps_canonical_request_and_cache_lowering() {
-    let (name, source) = DotnetHttpCacheBrowserFixture::FILES[0];
+    let name = DotnetHttpCacheBrowserFixture::FILES[0];
+    let source = OrdinaryBrowserFixture::repo_source(DotnetHttpCacheBrowserFixture::SOURCE, name);
     let path = std::path::Path::new(name);
-    let concrete = crate::declared_contract::DeclaredContract::concrete(path, source, "tac")
+    let concrete = crate::declared_contract::DeclaredContract::concrete(path, &source, "tac")
         .unwrap_or_else(|| panic!("canonical C# HTTPClient requires concrete generation"));
     assert!(concrete.contains("typeof(CachedHttpSetup)"));
     let lowered = crate::behavior::lower(path, &concrete, "tac")
