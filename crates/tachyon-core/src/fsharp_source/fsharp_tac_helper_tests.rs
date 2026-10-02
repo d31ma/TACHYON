@@ -88,6 +88,7 @@ fn fsharp_tac_helper_raw_guards_survive_shadow_constructor_and_attribute_normali
         );
     }
     assert!(FsharpTacHelperTests::source("[<Helper>]\ntype LabelHelper = class end\n").is_err());
+    assert!(FsharpTacHelperTests::source("[<Helper>]\ntype LabelHelper(label: string) =\n    new() = LabelHelper(\"secondary\")\n").is_err());
 }
 
 #[test]

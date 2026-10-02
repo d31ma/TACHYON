@@ -115,6 +115,7 @@ impl<'a> FsharpHelperOwnership<'a> {
         let mut offset = range.start;
         for line in self.code[range.clone()].lines() {
             self.require_member_marker(line, offset)?;
+            self.require_primary_only(line, offset)?;
             offset += line.len() + 1;
         }
         Ok(())
@@ -128,6 +129,14 @@ impl<'a> FsharpHelperOwnership<'a> {
             return Err(self.failure(at + line.len() - line.trim_start().len()));
         }
         Ok(())
+    }
+
+    fn require_primary_only(&self, line: &str, at: usize) -> Result<(), Failure> {
+        let secondary = line
+            .trim_start()
+            .strip_prefix("new")
+            .is_some_and(|rest| rest.trim_start().starts_with('('));
+        secondary.then(|| self.failure(at)).map_or(Ok(()), Err)
     }
 
     fn marker_name(name: &str) -> &str {
