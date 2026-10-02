@@ -73,7 +73,10 @@ async fn dotnet_cached_http_client_uses_public_yon_and_revalidates_after_clear()
 fn csharp_cached_http_client_keeps_canonical_request_and_cache_lowering() {
     let (name, source) = DotnetHttpCacheBrowserFixture::FILES[0];
     let path = std::path::Path::new(name);
-    let lowered = crate::behavior::lower(path, source, "tac")
+    let concrete = crate::declared_contract::DeclaredContract::concrete(path, source, "tac")
+        .unwrap_or_else(|| panic!("canonical C# HTTPClient requires concrete generation"));
+    assert!(concrete.contains("typeof(CachedHttpSetup)"));
+    let lowered = crate::behavior::lower(path, &concrete, "tac")
         .unwrap_or_else(|error| panic!("canonical HTTPClient/cache lowering: {error}"))
         .unwrap_or_else(|| panic!("canonical HTTPClient requires behavior lowering"));
     assert!(lowered.contains("typeof(CachedHttpSetup)"));
