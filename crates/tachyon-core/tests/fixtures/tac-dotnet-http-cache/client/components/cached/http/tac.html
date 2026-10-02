@@ -1,0 +1,7 @@
+<main aria-label="Ordinary cached .NET HTTP fixture">
+  <p id="cached-answer">{cachedHttp.last}</p>
+  <p id="cached-read-count">{cachedHttp.readCalls}</p>
+  <p id="cached-save-count">{cachedHttp.saveCalls}</p>
+  <button id="cached-read" on:click="cachedHttp.read()">Read public Yon answer</button>
+  <button id="cached-save" on:click="cachedHttp.save()">Save and invalidate the read</button>
+</main>

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
@@ -16,11 +17,11 @@ import { withServer } from './release/server-probe.mjs'
 /** @typedef {{root: string, binary: string, diagnostics: HttpDiagnostics}} HttpFixture */
 /** @typedef {{ordinary: HttpAnswer, invalidPath: HttpRefusal, cancelled: HttpRefusal, capturedRefusal: HttpRefusal, replacement: HttpAnswer, retiredChanges: number}} HttpProof */
 
-class DotnetHttpBrowserGate {
-  /** @returns {Promise<void>} */
-  static async run() {
+export class DotnetHttpBrowserGate {
+  /** @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} [probe] @param {string} [scope] @returns {Promise<void>} */
+  static async run(probe = DotnetHttpBrowserGate.#probe, scope = 'ordinary C#/.NET Wasm default HTTP with genuine Yon, explicit Setup override and captured-owner refusal') {
     const fixture = await DotnetHttpBrowserGate.#read()
-    await DotnetHttpBrowserGate.#execute(fixture)
+    await DotnetHttpBrowserGate.#execute(fixture, probe, scope)
   }
 
   /** @param {string} name @returns {string} */
@@ -57,29 +58,29 @@ class DotnetHttpBrowserGate {
     return { root, binary, diagnostics: { phase: 'starting', sourceCommit, compilerSha256, browserEngine, receipt, errors: [], failedRequests: [], externalRequests: [], requests: [] } }
   }
 
-  /** @param {HttpFixture} fixture @returns {Promise<void>} */
-  static async #execute(fixture) {
+  /** @param {HttpFixture} fixture @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} probe @param {string} scope @returns {Promise<void>} */
+  static async #execute(fixture, probe, scope) {
     const started = performance.now()
     try {
       const proof = await withServer(fixture.binary, ['serve', fixture.root, '--host', '127.0.0.1', '--port', '0', '--out-dir', 'dist', '--no-watch', '--no-self-restart', '--no-bundle'], async request => {
         const origin = new URL((await request('/')).url).origin
-        return DotnetHttpBrowserGate.#probe(origin, fixture.diagnostics)
+        return DotnetHttpBrowserGate.#runBrowser(origin, fixture.diagnostics, probe)
       })
-      await DotnetHttpBrowserGate.#receipt(fixture, { status: 'pass', proof, elapsedMilliseconds: performance.now() - started })
+      await DotnetHttpBrowserGate.#receipt(fixture, { status: 'pass', proof, elapsedMilliseconds: performance.now() - started }, scope)
       console.log(JSON.stringify({ browserEngine: fixture.diagnostics.browserEngine, receipt: fixture.diagnostics.receipt, proof }))
     } catch (error) {
-      await DotnetHttpBrowserGate.#receipt(fixture, { status: 'fail', error: String(error).slice(0, 2_000), elapsedMilliseconds: performance.now() - started })
+      await DotnetHttpBrowserGate.#receipt(fixture, { status: 'fail', error: String(error).slice(0, 2_000), elapsedMilliseconds: performance.now() - started }, scope)
       throw error
     }
   }
 
-  /** @param {HttpFixture} fixture @param {Record<string, unknown>} result @returns {Promise<void>} */
-  static async #receipt(fixture, result) {
-    await writeFile(path.join(fixture.root, fixture.diagnostics.receipt), JSON.stringify({ ...fixture.diagnostics, ...result, scope: 'ordinary C#/.NET Wasm default HTTP with genuine Yon, explicit Setup override and captured-owner refusal', browserHostReplaced: false, cacheRevalidationQualified: false, taskDtoQualified: false, asyncLifecycleQualified: false }, null, 2) + '\n', { flag: 'wx' })
+  /** @param {HttpFixture} fixture @param {Record<string, unknown>} result @param {string} scope @returns {Promise<void>} */
+  static async #receipt(fixture, result, scope) {
+    await writeFile(path.join(fixture.root, fixture.diagnostics.receipt), JSON.stringify({ ...fixture.diagnostics, ...result, scope, browserHostReplaced: false, cacheRevalidationQualified: false, taskDtoQualified: false, asyncLifecycleQualified: false }, null, 2) + '\n', { flag: 'wx' })
   }
 
-  /** @param {string} origin @param {HttpDiagnostics} diagnostics @returns {Promise<HttpProof>} */
-  static async #probe(origin, diagnostics) {
+  /** @param {string} origin @param {HttpDiagnostics} diagnostics @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} probe @returns {Promise<unknown>} */
+  static async #runBrowser(origin, diagnostics, probe) {
     diagnostics.phase = 'browser-launch'
     const browser = await DotnetHttpBrowserGate.#browserType(diagnostics.browserEngine).launch({ timeout: 10_000 })
     const deadline = setTimeout(() => browser.close(), 45_000)
@@ -91,16 +92,21 @@ class DotnetHttpBrowserGate {
       const page = await context.newPage()
       page.setDefaultTimeout(10_000)
       DotnetHttpBrowserGate.#observe(page, origin, diagnostics)
-      await DotnetHttpBrowserGate.#view(page, origin, diagnostics)
-      diagnostics.phase = 'captured-owner-transport'
-      const proof = await DotnetHttpBrowserGate.#owners(page)
-      DotnetHttpBrowserGate.#check(proof, diagnostics)
-      diagnostics.phase = 'complete'
-      return proof
+      return await probe(page, origin, diagnostics)
     } finally {
       clearTimeout(deadline)
       await browser.close()
     }
+  }
+
+  /** @param {import('playwright').Page} page @param {string} origin @param {HttpDiagnostics} diagnostics @returns {Promise<HttpProof>} */
+  static async #probe(page, origin, diagnostics) {
+    await DotnetHttpBrowserGate.#view(page, origin, diagnostics)
+    diagnostics.phase = 'captured-owner-transport'
+    const proof = await DotnetHttpBrowserGate.#owners(page)
+    DotnetHttpBrowserGate.#check(proof, diagnostics)
+    diagnostics.phase = 'complete'
+    return proof
   }
 
   /** @param {import('playwright').Page} page @param {string} origin @param {HttpDiagnostics} diagnostics @returns {Promise<void>} */
@@ -186,4 +192,4 @@ class DotnetHttpBrowserGate {
   }
 }
 
-await DotnetHttpBrowserGate.run()
+if (process.argv[1] === fileURLToPath(import.meta.url)) await DotnetHttpBrowserGate.run()
