@@ -41,7 +41,7 @@ impl CollectorService {
     }
 }
 "#;
-    pub(super) const READER: &str = r#"
+    pub(super) const READER: &str = r"
 #[Service]
 #[NeedsAll]
 struct ReaderService { collector: std::sync::Arc<CollectorService>, picker: FilePicker }
@@ -50,7 +50,7 @@ impl ReaderService {
     fn increment(&self) { self.collector.increment(); }
     fn available(&self) -> bool { self.picker.available() }
 }
-"#;
+";
     pub(super) const PROBE: &str = r###"
 struct Probe;
 impl Probe {

@@ -48,7 +48,7 @@ impl NativeApplicationLifetime {
         path.components()
             .skip_while(|part| part.as_os_str() != "client")
             .nth(1)
-            .map(|part| part.as_os_str())
+            .map(std::path::Component::as_os_str)
     }
 
     fn message(value: &str) -> &'static str {

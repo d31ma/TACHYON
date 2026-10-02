@@ -424,19 +424,17 @@ impl MacOsHostGenerator {
     }
 
     fn application_start(call: &str) -> &'static str {
-        match call.contains("tacRustInvoke") {
-            true => {
-                "guard tacRustNativeApplicationStart() else { Telemetry.shared.record(\"application.start.failed\"); NSApplication.shared.terminate(nil); return }"
-            }
-            false => "",
+        if call.contains("tacRustInvoke") {
+            return "guard tacRustNativeApplicationStart() else { Telemetry.shared.record(\"application.start.failed\"); NSApplication.shared.terminate(nil); return }";
         }
+        ""
     }
 
     fn application_stop(call: &str) -> &'static str {
-        match call.contains("tacRustInvoke") {
-            true => "tacRustNativeApplicationShutdown()",
-            false => "",
+        if call.contains("tacRustInvoke") {
+            return "tacRustNativeApplicationShutdown()";
         }
+        ""
     }
 
     fn capability_models(call: &str) -> &'static str {
