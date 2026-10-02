@@ -231,10 +231,14 @@ mod tests {
         let (dropped, finished) = oneshot::channel();
         let reader = tokio::spawn(async move {
             let _owned = ReaderDropSignal(Some(dropped));
-            started.send(()).expect("reader holds its resource");
+            started
+                .send(())
+                .unwrap_or_else(|()| panic!("reader must hold its resource"));
             std::future::pending::<Result<(), crate::Failure>>().await
         });
-        ready.await.expect("reader started");
+        ready
+            .await
+            .unwrap_or_else(|error| panic!("reader must start: {error}"));
         (reader, finished)
     }
 
@@ -252,7 +256,8 @@ mod tests {
         assert!(read.is_none());
         assert_eq!(dropped.try_recv(), Ok(()));
         let failure = SocketProcess::reading_result(read, &cancellation)
-            .expect_err("cancellation must remain a failure");
+            .err()
+            .unwrap_or_else(|| panic!("cancellation must remain a failure"));
         assert!(
             failure
                 .to_string()
@@ -269,7 +274,8 @@ mod tests {
         assert_eq!(dropped.try_recv(), Ok(()));
         assert!(!cancellation.is_cancelled());
         let failure = SocketProcess::reading_result(read, &cancellation)
-            .expect_err("deadline must remain a failure");
+            .err()
+            .unwrap_or_else(|| panic!("deadline must remain a failure"));
         assert!(
             failure
                 .to_string()
