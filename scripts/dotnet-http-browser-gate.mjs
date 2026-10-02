@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { chromium } from 'playwright'
+import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {{message: string}} HttpAnswer */
@@ -11,7 +11,8 @@ import { withServer } from './release/server-probe.mjs'
 /** @typedef {{new(): HttpFacade}} HttpConstructor */
 /** @typedef {{message: string, code?: string}} HttpRefusal */
 /** @typedef {{path: string, error?: string}} FailedRequest */
-/** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, errors: string[], failedRequests: FailedRequest[], externalRequests: string[], requests: string[], chromiumVersion?: string}} HttpDiagnostics */
+/** @typedef {'chromium' | 'firefox' | 'webkit'} HttpBrowserEngine */
+/** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, browserEngine: HttpBrowserEngine, browserVersion?: string, receipt: string, errors: string[], failedRequests: FailedRequest[], externalRequests: string[], requests: string[], chromiumVersion?: string}} HttpDiagnostics */
 /** @typedef {{root: string, binary: string, diagnostics: HttpDiagnostics}} HttpFixture */
 /** @typedef {{ordinary: HttpAnswer, invalidPath: HttpRefusal, cancelled: HttpRefusal, capturedRefusal: HttpRefusal, replacement: HttpAnswer, retiredChanges: number}} HttpProof */
 
@@ -29,13 +30,31 @@ class DotnetHttpBrowserGate {
     return value
   }
 
+  /** @returns {HttpBrowserEngine} */
+  static #engine() {
+    const engine = process.env.TAC_DOTNET_HTTP_BROWSER ?? 'chromium'
+    assert.ok(engine === 'chromium' || engine === 'firefox' || engine === 'webkit', 'TAC_DOTNET_HTTP_BROWSER must be chromium, firefox or webkit')
+    return engine
+  }
+
+  /** @param {HttpBrowserEngine} engine @returns {import('playwright').BrowserType} */
+  static #browserType(engine) {
+    switch (engine) {
+      case 'chromium': return chromium
+      case 'firefox': return firefox
+      case 'webkit': return webkit
+    }
+  }
+
   /** @returns {Promise<HttpFixture>} */
   static async #read() {
+    const browserEngine = DotnetHttpBrowserGate.#engine()
     const root = path.resolve(DotnetHttpBrowserGate.#required('TAC_DOTNET_HTTP_FIXTURE_OUT'))
     const binary = path.resolve(DotnetHttpBrowserGate.#required('TAC_BIN'))
     const sourceCommit = DotnetHttpBrowserGate.#required('TAC_DOTNET_HTTP_SOURCE_COMMIT')
     const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
-    return { root, binary, diagnostics: { phase: 'starting', sourceCommit, compilerSha256, errors: [], failedRequests: [], externalRequests: [], requests: [] } }
+    const receipt = `dotnet-http-browser-${browserEngine}-${randomUUID()}.json`
+    return { root, binary, diagnostics: { phase: 'starting', sourceCommit, compilerSha256, browserEngine, receipt, errors: [], failedRequests: [], externalRequests: [], requests: [] } }
   }
 
   /** @param {HttpFixture} fixture @returns {Promise<void>} */
@@ -47,7 +66,7 @@ class DotnetHttpBrowserGate {
         return DotnetHttpBrowserGate.#probe(origin, fixture.diagnostics)
       })
       await DotnetHttpBrowserGate.#receipt(fixture, { status: 'pass', proof, elapsedMilliseconds: performance.now() - started })
-      console.log(JSON.stringify(proof))
+      console.log(JSON.stringify({ browserEngine: fixture.diagnostics.browserEngine, receipt: fixture.diagnostics.receipt, proof }))
     } catch (error) {
       await DotnetHttpBrowserGate.#receipt(fixture, { status: 'fail', error: String(error).slice(0, 2_000), elapsedMilliseconds: performance.now() - started })
       throw error
@@ -56,14 +75,16 @@ class DotnetHttpBrowserGate {
 
   /** @param {HttpFixture} fixture @param {Record<string, unknown>} result @returns {Promise<void>} */
   static async #receipt(fixture, result) {
-    await writeFile(path.join(fixture.root, 'dotnet-http-browser.json'), JSON.stringify({ ...fixture.diagnostics, ...result, scope: 'ordinary C#/.NET Wasm default HTTP with genuine Yon, explicit Setup override and captured-owner refusal', browserHostReplaced: false, cacheRevalidationQualified: false, taskDtoQualified: false, asyncLifecycleQualified: false }, null, 2) + '\n')
+    await writeFile(path.join(fixture.root, fixture.diagnostics.receipt), JSON.stringify({ ...fixture.diagnostics, ...result, scope: 'ordinary C#/.NET Wasm default HTTP with genuine Yon, explicit Setup override and captured-owner refusal', browserHostReplaced: false, cacheRevalidationQualified: false, taskDtoQualified: false, asyncLifecycleQualified: false }, null, 2) + '\n', { flag: 'wx' })
   }
 
   /** @param {string} origin @param {HttpDiagnostics} diagnostics @returns {Promise<HttpProof>} */
   static async #probe(origin, diagnostics) {
-    const browser = await chromium.launch({ timeout: 10_000 })
+    diagnostics.phase = 'browser-launch'
+    const browser = await DotnetHttpBrowserGate.#browserType(diagnostics.browserEngine).launch({ timeout: 10_000 })
     const deadline = setTimeout(() => browser.close(), 45_000)
-    diagnostics.chromiumVersion = browser.version()
+    diagnostics.browserVersion = browser.version()
+    if (diagnostics.browserEngine === 'chromium') diagnostics.chromiumVersion = browser.version()
     try {
       const context = await browser.newContext()
       await context.addCookies([{ name: 'private_session', value: 'must-not-travel', url: origin }])
