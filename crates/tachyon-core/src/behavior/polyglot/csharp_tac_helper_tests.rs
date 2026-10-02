@@ -167,12 +167,12 @@ fn csharp_tac_helper_generates_a_typed_constructor_only_for_explicit_callers() {
 #[test]
 fn csharp_tac_helper_ordinary_http_fixture_retains_context_owned_composition() {
     let root = tempfile::tempdir().expect("actual HTTP fixture");
-    let entry = Path::new("client/services/OverrideProbeService.cs");
+    let entry = Path::new("client/services/HttpProbeService.cs");
     let source = include_str!(
-        "../../../tests/fixtures/tac-dotnet-http/client/services/OverrideProbeService.cs"
+        "../../../tests/fixtures/tac-dotnet-http/client/services/HttpProbeService.cs"
     );
     for (relative, source) in [
-        ("client/services/OverrideProbeService.cs", source),
+        ("client/services/HttpProbeService.cs", source),
         (
             "client/helpers/CustomHttpHelper.cs",
             include_str!(
