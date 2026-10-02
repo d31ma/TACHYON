@@ -7,14 +7,16 @@ public sealed class CacheProbeService
 
     [Cached]
     [WebCall({"client":"probe","method":"GET","path":"/api/probe"})]
-    public System.Threading.Tasks.Task<BehaviorJSON> Read()
+    public async System.Threading.Tasks.Task<BehaviorJSON> Read()
     {
-        return System.Threading.Tasks.Task.FromResult(BehaviorJSON.Parse("{}"));
+        await System.Threading.Tasks.Task.CompletedTask;
+        return BehaviorJSON.Parse("{}");
     }
 
     [ClearCache({"method":"Read"})]
-    public System.Threading.Tasks.Task<BehaviorJSON> Clear()
+    public async System.Threading.Tasks.Task<BehaviorJSON> Clear()
     {
-        return System.Threading.Tasks.Task.FromResult(BehaviorJSON.From(null));
+        await System.Threading.Tasks.Task.CompletedTask;
+        return BehaviorJSON.From(null);
     }
 }
