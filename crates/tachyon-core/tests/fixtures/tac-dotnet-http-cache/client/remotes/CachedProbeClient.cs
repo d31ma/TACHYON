@@ -1,5 +1,5 @@
-[HTTPClient({"path":"/api/cached-probe","adapter":"cached-probe","setup":"CachedHttpSetup"})]
-[CacheSettings({"name":"dotnet-public-probe","ttlMs":60000,"maxBytes":65536,"maxEntries":16})]
+[HTTPClient({"path":"/api/cached-probe","adapter":"cachedProbe","setup":"CachedHttpSetup"})]
+[CacheSettings({"name":"dotnetPublicProbe","ttlMs":60000,"maxBytes":65536,"maxEntries":16})]
 public sealed class CachedProbeClient
 {
     [Cached]
