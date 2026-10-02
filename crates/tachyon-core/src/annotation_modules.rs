@@ -10,7 +10,9 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 mod client_utilities;
+mod csharp_test_helpers;
 mod helper_callers;
+mod selected_test_setups;
 use helper_callers::HelperCallers;
 mod module_input;
 mod shared_imports;
@@ -18,6 +20,8 @@ mod test_configuration;
 use module_input::ModuleInput;
 use shared_imports::SharedImports;
 
+#[cfg(test)]
+mod csharp_test_helpers_tests;
 #[cfg(test)]
 mod error_tests;
 #[cfg(test)]
@@ -407,6 +411,7 @@ impl Module {
             return Ok(utilities.changed().then_some(source));
         }
         refuse_tac_helpers(&modules, extension, environment)?;
+        csharp_test_helpers::CsharpTestHelpers::prune(&root, input, &mut modules, total)?;
         HelperCallers::check(entry, &source, &modules, environment)?;
         let injected = injected_contracts(entry, &source, &modules, environment);
         let source = injected.as_deref().unwrap_or(&source);

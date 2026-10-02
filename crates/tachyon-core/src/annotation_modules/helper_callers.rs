@@ -8,6 +8,14 @@ pub(super) struct HelperCallers {
 }
 
 impl HelperCallers {
+    pub(super) fn graph(
+        entry: &Path,
+        source: &str,
+        modules: &[Module],
+    ) -> Result<crate::behavior::CsharpHelperGraph, Failure> {
+        Self::read(entry, source, modules).ownership_graph()
+    }
+
     pub(super) fn check(
         entry: &Path,
         source: &str,
@@ -46,14 +54,24 @@ impl HelperCallers {
     }
 
     fn validate(&self) -> Result<(), Failure> {
-        let source = self
-            .units
+        let source = self.joined();
+        crate::behavior::HelperRole::require_callers(&self.entry, &source)
+            .map_err(|failure| self.located(&failure))
+    }
+
+    fn ownership_graph(&self) -> Result<crate::behavior::CsharpHelperGraph, Failure> {
+        let source = self.joined();
+        Module::require_source_bound(&self.entry, &source)?;
+        crate::behavior::CsharpHelperGraph::read(&self.entry, &source)
+            .map_err(|failure| self.located(&failure))
+    }
+
+    fn joined(&self) -> String {
+        self.units
             .iter()
             .map(|unit| unit.source.as_str())
             .collect::<Vec<_>>()
-            .join("\n");
-        crate::behavior::HelperRole::require_callers(&self.entry, &source)
-            .map_err(|failure| self.located(&failure))
+            .join("\n")
     }
 
     fn located(&self, failure: &Failure) -> Failure {

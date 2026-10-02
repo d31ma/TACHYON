@@ -5,6 +5,15 @@ use crate::Failure;
 pub(super) struct CsharpHelperInterfaces;
 
 impl CsharpHelperInterfaces {
+    pub(super) fn require(input: &Input<'_>, ty: &Type) -> Result<(), Failure> {
+        Self::implemented(input, ty)?.then_some(()).ok_or_else(|| {
+            input.failure(
+            ty.declaration,
+            "Tac C# Helpers may implement actual interfaces, but cannot inherit behavior classes.",
+        )
+        })
+    }
+
     const ADAPTERS: [&'static str; 3] = [
         "BehaviorHTTPAdapter",
         "BehaviorCacheAdapter",

@@ -325,7 +325,7 @@ impl CsharpTacHelpers {
             .ok_or_else(|| Self::failure(input, ty.declaration, &ty.name))
     }
 
-    fn external_new(code: &str, name: &str) -> bool {
+    pub(super) fn external_new(code: &str, name: &str) -> bool {
         code.match_indices(name)
             .any(|(at, _)| Self::new_call(code, name, at))
     }

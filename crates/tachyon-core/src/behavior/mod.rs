@@ -22,8 +22,9 @@ pub(crate) use gateway::{
     target_failure as gateway_target_failure, target_signature as gateway_target_signature,
 };
 pub(crate) use polyglot::{
-    DetachedCsharp, HelperRole, JavaBuiltins, KotlinBuiltins, LuaBehaviorMethod, LuaBehaviorPlan,
-    NativeStorage, PlannedMethod, PlannedType, PythonMembers, SwiftPlatform, gateway_unit_runtime,
+    CsharpHelperGraph, DetachedCsharp, HelperRole, JavaBuiltins, KotlinBuiltins, LuaBehaviorMethod,
+    LuaBehaviorPlan, NativeStorage, PlannedMethod, PlannedType, PythonMembers, SwiftPlatform,
+    gateway_unit_runtime,
 };
 #[cfg(test)]
 mod extensions_tests;
