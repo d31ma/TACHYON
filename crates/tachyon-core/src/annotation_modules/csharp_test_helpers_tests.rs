@@ -8,7 +8,7 @@ impl CsharpOwnershipProject {
         "[Service]\npublic class TallyService { public string Read() { return \"ready\"; } }\n";
     const HELPER: &'static str =
         "[Helper]\npublic class StepHelper { public string Read() { return \"owned\"; } }\n";
-    const TEST: &'static str = "[Test(typeof(OwnerTestSetup), {\"partition\":\"tests\"})]\npublic class TallyServiceTest { [Test] public void Ready() {} }\n";
+    const TEST: &'static str = "[Test(typeof(OwnerTestSetup), {\"partition\":\"tests\"})]\npublic class TallyServiceTest {\nvoid testReady() { Assert.equals(\"ready\", new TallyService().Read()); }\n}\n";
     const SETUP: &'static str = "[TestSetup]\npublic class OwnerTestSetup { public static BehaviorAdapters configure(BehaviorExecution execution) { var owned = new StepHelper(); return new BehaviorAdapters(); } }\n";
 
     fn write(root: &Path, path: &str, source: &str) {
@@ -186,7 +186,7 @@ fn csharp_selected_test_transitive_helpers_are_removed_together() {
 }
 
 #[test]
-fn csharp_distinct_selected_setup_files_keep_each_helper_witness() {
+fn csharp_distinct_selected_setup_types_keep_each_helper_witness() {
     let root = CsharpOwnershipProject::project();
     CsharpOwnershipProject::write(
         root.path(),
@@ -206,12 +206,16 @@ fn csharp_distinct_selected_setup_files_keep_each_helper_witness() {
     CsharpOwnershipProject::write(
         root.path(),
         "client/tests/second/OtherServiceTest.cs",
-        &CsharpOwnershipProject::TEST.replace("TallyServiceTest", "OtherServiceTest"),
+        &CsharpOwnershipProject::TEST
+            .replace("TallyServiceTest", "OtherServiceTest")
+            .replace("OwnerTestSetup", "SecondTestSetup"),
     );
     CsharpOwnershipProject::write(
         root.path(),
-        "client/tests/second/OwnerTestSetup.cs",
-        &CsharpOwnershipProject::SETUP.replace("StepHelper", "LeafHelper"),
+        "client/tests/second/SecondTestSetup.cs",
+        &CsharpOwnershipProject::SETUP
+            .replace("StepHelper", "LeafHelper")
+            .replace("OwnerTestSetup", "SecondTestSetup"),
     );
     let output = CsharpOwnershipProject::assembled(root.path())
         .unwrap_or_else(|failure| panic!("separate selected constructor witnesses: {failure}"));

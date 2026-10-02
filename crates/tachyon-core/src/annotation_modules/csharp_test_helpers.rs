@@ -9,6 +9,7 @@ pub(super) struct CsharpTestHelpers;
 
 impl CsharpTestHelpers {
     const ENVIRONMENT: &'static str = "tac";
+    const HELPER_FOLDER: &'static str = "client/helpers";
 
     pub(super) fn prune(
         root: &Dir,
@@ -48,7 +49,7 @@ impl CsharpTestHelpers {
     fn has_helpers(modules: &[Module]) -> bool {
         modules
             .iter()
-            .any(|module| module.path.starts_with("client/helpers"))
+            .any(|module| module.path.starts_with(Self::HELPER_FOLDER))
     }
 
     fn validated(
@@ -107,7 +108,7 @@ impl CsharpTestHelpers {
     }
 
     fn validate_helper(root: &Dir, module: &Module) -> Result<(), Failure> {
-        if module.path.starts_with("client/helpers") {
+        if module.path.starts_with(Self::HELPER_FOLDER) {
             let raw = super::read_module_text(root, &module.path, Module::MAX_SOURCE)?;
             crate::annotation_layout::validate(&module.path, &raw)?;
         }

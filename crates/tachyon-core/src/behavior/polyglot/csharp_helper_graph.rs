@@ -82,14 +82,8 @@ impl CsharpHelperGraph {
             .filter(|name| CsharpTacHelpers::external_new(body, name))
             .cloned()
             .collect();
-        self.references
-            .entry(ty.name.clone())
-            .or_default()
-            .extend(references);
-        self.constructors
-            .entry(ty.name.clone())
-            .or_default()
-            .extend(constructors);
+        self.references.insert(ty.name.clone(), references);
+        self.constructors.insert(ty.name.clone(), constructors);
     }
 
     fn mentions(body: &str, name: &str) -> bool {
