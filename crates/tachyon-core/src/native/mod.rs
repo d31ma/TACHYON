@@ -1,5 +1,7 @@
 mod android;
 mod browser_api_grants;
+#[cfg(test)]
+mod browser_task_tests;
 mod compiler;
 mod config;
 mod csharp_web_apis;

@@ -4,8 +4,12 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 
 mod constructor_field_policy;
+mod csharp_browser_members;
+#[cfg(test)]
+mod csharp_browser_members_tests;
 mod csharp_model_type;
 use constructor_field_policy::ConstructorFieldPolicy;
+use csharp_browser_members::CsharpBrowserMembers;
 mod kotlin_header;
 mod kotlin_member;
 mod kotlin_members;
@@ -147,7 +151,9 @@ pub(crate) fn with_required_constructor(
     let constructor = match language {
         CompanionLanguage::Swift => swift_constructor(&fields),
         CompanionLanguage::Kotlin => kotlin_constructor(&fields),
-        CompanionLanguage::CSharp | CompanionLanguage::Rust => return source.to_owned(),
+        CompanionLanguage::CSharp | CompanionLanguage::CSharpBrowser | CompanionLanguage::Rust => {
+            return source.to_owned();
+        }
     };
     let body_end = body.as_ptr() as usize - source.as_ptr() as usize + body.len();
     format!(
@@ -229,7 +235,10 @@ fn class_owner_table(
     if entries.trim().is_empty() {
         return Err(exposes_nothing(source_path, &name));
     }
-    let required = if language == CompanionLanguage::CSharp {
+    let required = if matches!(
+        language,
+        CompanionLanguage::CSharp | CompanionLanguage::CSharpBrowser
+    ) {
         csharp_required_members(body)
     } else {
         Vec::new()
@@ -275,7 +284,7 @@ fn class_table(
                 "\nfun tacCreate(tacProps: Map<String, Any?>?, tacPage: TacPageScope): Map<String, Any> {{\nval tacInstance = {name}({arguments})\nreturn linkedMapOf(\n{entries})\n}}\n"
             )
         }
-        CompanionLanguage::CSharp => {
+        CompanionLanguage::CSharp | CompanionLanguage::CSharpBrowser => {
             let filled = required
                 .iter()
                 .map(|member| format!("{member} = default!"))
@@ -401,7 +410,21 @@ pub(crate) enum CompanionLanguage {
     Swift,
     Kotlin,
     CSharp,
+    CSharpBrowser,
     Rust,
+}
+
+impl CompanionLanguage {
+    pub(crate) fn for_web(self, web: bool) -> Self {
+        self.browser_selection(web)
+    }
+
+    fn browser_selection(self, web: bool) -> Self {
+        match (self, web) {
+            (Self::CSharp, true) => Self::CSharpBrowser,
+            _ => self,
+        }
+    }
 }
 
 impl Member {
@@ -579,7 +602,7 @@ fn declares_table(language: CompanionLanguage, source: &str) -> bool {
     let prefixes: &[&str] = match language {
         CompanionLanguage::Swift => &["let tac", "var tac"],
         CompanionLanguage::Kotlin => &["val tac", "var tac"],
-        CompanionLanguage::CSharp => &["class TacBridge"],
+        CompanionLanguage::CSharp | CompanionLanguage::CSharpBrowser => &["class TacBridge"],
         CompanionLanguage::Rust => &["fn tac()"],
     };
     for line in source.lines() {
@@ -935,7 +958,7 @@ fn declaration(
             .map_or(Ok(None), |line| {
                 name_first(line, source_path, "var", "val", "fun", "tac.kt")
             }),
-        CompanionLanguage::CSharp => Ok(type_first(line)),
+        CompanionLanguage::CSharp | CompanionLanguage::CSharpBrowser => Ok(type_first(line)),
         CompanionLanguage::Rust => Ok(None),
     }
 }
@@ -1203,6 +1226,7 @@ fn entry(language: CompanionLanguage, member: &Member) -> String {
         CompanionLanguage::Swift => swift_entry(member),
         CompanionLanguage::Kotlin => kotlin_entry(member),
         CompanionLanguage::CSharp => csharp_entry(member),
+        CompanionLanguage::CSharpBrowser => CsharpBrowserMembers::entry(member),
         CompanionLanguage::Rust => String::new(),
     }
 }

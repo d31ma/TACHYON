@@ -46,6 +46,7 @@ public sealed class TacMember
     public Func<object> Read;
     public Action<object> Write;
     public Func<object[], object> Invoke;
+    public Func<object[], System.Threading.Tasks.Task<object>> InvokeAsync;
     public string[] Events;
     public bool Replay;
     public int Order;
@@ -62,6 +63,9 @@ public sealed class TacMember
 
     public static TacMember Method(Func<object[], object> invoke) =>
         new TacMember { Invoke = invoke };
+
+    public static TacMember TaskMethod(Func<object[], System.Threading.Tasks.Task<object>> invoke) =>
+        new TacMember { InvokeAsync = invoke };
 
     public static object Result(Func<object> call) => call();
 
@@ -236,6 +240,8 @@ public partial class Tac
         internal readonly string Owner = owner;
         internal readonly Dictionary<string, TacMember> Members = members;
         internal bool Disposed;
+        internal int PendingTasks;
+        internal readonly System.Threading.CancellationTokenSource Cancellation = new();
         internal readonly Queue<(string Name, string Json, bool Retain)> Queue = new();
         internal readonly Dictionary<string, string> Retained = new();
         internal readonly Queue<(TacMember Listener, string Json)> Deferred = new();
@@ -249,13 +255,20 @@ public partial class Tac
     private static readonly object OwnerLock = new();
     private static readonly Dictionary<string, Activation> Activations = new();
     private static Activation Executing;
+    private static readonly System.Threading.AsyncLocal<Activation> TaskOwner = new();
     private static bool Handling;
     private static int OwnerThread;
     private static void EventFailure() => Console.Error.WriteLine("Tachyon native event delivery failed.");
     internal static void EventPublish(string name, object value, bool retain)
     {
-        var owner = Executing;
-        if (Environment.CurrentManagedThreadId != OwnerThread || owner == null || !Activations.TryGetValue(owner.Owner, out var live) || live != owner || owner.Disposed || owner.Queue.Count >= 128) { EventFailure(); return; }
+        lock (OwnerLock) { PublishOwnedEvent(name, value, retain); }
+    }
+    private static Activation EventOwner() => Handling ? Executing : TaskOwner.Value ?? Executing;
+    private static bool EventThread() => TaskOwner.Value != null || Environment.CurrentManagedThreadId == OwnerThread;
+    private static void PublishOwnedEvent(string name, object value, bool retain)
+    {
+        var owner = EventOwner();
+        if (!EventThread() || owner == null || !Activations.TryGetValue(owner.Owner, out var live) || live != owner || owner.Disposed || owner.Queue.Count >= 128) { EventFailure(); return; }
         try {
             ValidateEvent(value, 0);
             var json = Encode(value);
@@ -477,6 +490,8 @@ public partial class Tac
     private static void DisposeActivation(Activation owner)
     {
         owner.Disposed = true;
+        owner.Cancellation.Cancel();
+        owner.Cancellation.Dispose();
         NativeCapabilities.Dispose(owner.Owner);
         owner.Queue.Clear(); owner.Retained.Clear(); owner.Deferred.Clear();
         foreach (var member in owner.Members.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => pair.Value)) {
@@ -499,6 +514,8 @@ public partial class Tac
     private const int MemberRequestLimit = 65536;
     private static string TooLarge(string subject, int size, int limit) =>
         "{\"error\":" + Encode($"The {subject} is {size} bytes. The limit is {limit} bytes. Pass less data to the service.") + "}";
+    private static string DescribeTaskMethods(List<string> methods) =>
+        methods.Count == 0 ? "" : ",\"asyncMethods\":" + Encode(methods);
     private static string Handle(string request)
     {
         try
@@ -547,14 +564,16 @@ public partial class Tac
                 var fields = new List<string>();
                 var methods = new List<string>();
                 var listeners = new List<string>();
+                var asynchronous = new List<string>();
                 foreach (var member in members)
                 {
                     if (member.Value.Read != null) fields.Add(member.Key);
                     else if (member.Value.Invoke != null) methods.Add(member.Key);
+                    else if (member.Value.InvokeAsync != null) { methods.Add(member.Key); asynchronous.Add(member.Key); }
                     else if (member.Value.Listen != null) listeners.Add(DescribeListener(member.Key, member.Value));
                 }
                 return "{\"value\":{\"fields\":" + Encode(fields) + ",\"methods\":"
-                    + Encode(methods) + ",\"listeners\":[" + string.Join(",", listeners) + "]}}";
+                    + Encode(methods) + DescribeTaskMethods(asynchronous) + ",\"listeners\":[" + string.Join(",", listeners) + "]}}";
             }
             var name = parsed?["name"]?.GetValue<string>();
             if (name == null || !members.TryGetValue(name, out var found))

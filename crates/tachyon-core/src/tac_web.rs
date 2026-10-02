@@ -428,6 +428,37 @@ runtime.setModuleImports('tachyon', {
 })
 const companion = (await runtime.getAssemblyExports(runtime.getConfig().mainAssemblyName)).TacWeb
 const transport = (text) => companion.Invoke(text)
+/** @param {string} text @returns {Promise<string>} */
+const transportAsync = (text) => companion.InvokeAsync(text)
+/** @param {Record<string, unknown>} request @returns {Promise<unknown>} */
+const invokeAsync = async (request) => {
+  /** @type {{value?: unknown, error?: string, code?: string} | undefined} */
+  let answer
+  try {
+    if (typeof transportAsync !== 'function') throw new Error('This web service has no asynchronous transport.')
+    answer = JSON.parse(await transportAsync(JSON.stringify(request)))
+  } finally {
+    deliver()
+  }
+  if (!answer || answer.error) throw Object.assign(new Error(`Web service ${request.service}: ${answer?.error ?? 'no answer'}`), { code: answer?.code })
+  return answer.value
+}
+
+/** @param {() => boolean} current @returns {void} */
+const requireTaskTarget = (current) => {
+  if (!current()) throw Object.assign(new Error('Web service task owner was disposed.'), { code: 'CANCELLED' })
+}
+/** @param {Record<string, unknown>} request @param {() => boolean} current @param {() => void} changed @returns {Promise<unknown>} */
+const taskChange = async (request, current, changed) => {
+  try {
+    const answer = await invokeAsync(request)
+    requireTaskTarget(current)
+    return answer
+  } finally {
+    changed()
+  }
+}
+
 ";
 
     const GO_MODULE: &str = "go/services.wasm";
@@ -585,7 +616,15 @@ export const activate = (target, service, properties, plan) => {
   const owner = ownerId()
   const early = []
   const self = new WeakRef(target)
+  /** @type {boolean} */
+  let disposed = false
+  /** @returns {boolean} */
+  const current = () => !disposed
+  /** @returns {void} */
+  const changed = () => { if (!disposed) self.deref()?.__tachyonStoredChanged?.() }
   const call = (request) => calling(self.deref() ?? null, () => invoke({ ...request, route: 'web', service, owner }))
+  /** @param {Record<string, unknown>} request @returns {Promise<unknown>} */
+  const changeAsync = (request) => taskChange({ ...request, route: 'web', service, owner }, current, changed)
   const change = (request) => {
     try { return call(request) } finally { self.deref()?.__tachyonStoredChanged?.() }
   }
@@ -602,6 +641,7 @@ export const activate = (target, service, properties, plan) => {
     for (const [name, value, retain] of early.splice(0)) target.__tachyonPublisher.publishEvent(name, value, retain)
   })
   hidden(target, '__tachyonDispose', () => {
+    disposed = true
     released?.unregister(target)
     publishers.delete(owner)
     invoke(dispose)
@@ -614,17 +654,20 @@ export const activate = (target, service, properties, plan) => {
       set: (value) => { call({ op: 'set', name, value }) },
     })
   }
+  const asynchronous = new Set(declared?.asyncMethods ?? [])
   for (const name of declared?.methods ?? []) {
     Object.defineProperty(target, name, {
       configurable: true,
       writable: true,
-      value: (...values) => change({ op: 'call', name, args: authored(values) }),
+      value: (...values) => (asynchronous.has(name) ? changeAsync : change)({ op: 'call', name, args: authored(values) }),
     })
   }
 }
 ";
 }
 
+#[cfg(test)]
+mod dotnet_task_tests;
 #[cfg(test)]
 mod reach_tests;
 

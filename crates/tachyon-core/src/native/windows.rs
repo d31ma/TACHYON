@@ -73,6 +73,11 @@ impl WindowsHostGenerator {
         "/ENTRY:wWinMainCRTStartup",
     ];
     const CSHARP_COMPANION_PRELUDE: &str = include_str!("prelude.cs");
+    const CSHARP_BROWSER_TASKS: &str = concat!(
+        include_str!("browser/Tac.cs"),
+        include_str!("browser/TacTaskAnswer.cs"),
+        include_str!("browser/TacTaskInvocation.cs")
+    );
     const CSHARP_COMPANION_USING: &str = "using System;\nusing System.Collections;\n\
                                       using System.Collections.Generic;\n\
                                       using System.Globalization;\nusing System.Linq;\n\
@@ -130,6 +135,7 @@ impl WindowsHostGenerator {
     const CSHARP_WEB_ENTRY: &str = "public static partial class TacWeb\n{\n    \
     [JSExport]\n    public static string Invoke(string request)\n    {\n        \
     Tac.WebEmit ??= Emit;\n        TacWebHost.Ask ??= Web;\n        return Tac.Invoke(request);\n    }\n\n    \
+    [JSExport]\n    public static System.Threading.Tasks.Task<string> InvokeAsync(string request) => Tac.InvokeAsync(request);\n\n    \
     [JSImport(\"emit\", \"tachyon\")]\n    internal static partial void Emit(string payload);\n\n    \
     [JSImport(\"storage\", \"tachyon\")]\n    internal static partial string Storage(string request);\n\n    \
     [JSImport(\"web\", \"tachyon\")]\n    internal static partial string Web(string request);\n\n    \
@@ -287,7 +293,8 @@ fn web_source(authored: &str, fsharp: &str) -> String {
     format!(
         "{using}using System.Runtime.InteropServices.JavaScript;\n\n\
          internal static class TacApplication {{ internal const string Id = \"web\"; }}\n\n\
-         {authored}\n{prelude}\n{}{entry}",
+         {authored}\n{prelude}\n{}\n{}{entry}",
+        WindowsHostGenerator::CSHARP_BROWSER_TASKS,
         CsharpWebApis::in_web_services(fsharp)
     )
 }
@@ -1244,6 +1251,21 @@ mod tests {
     use super::{application_manifest, c_source, compiler_path, stage_companion, windows_compiler};
     use crate::native::config::NativeApplication;
     use std::path::Path;
+
+    #[test]
+    fn dotnet_browser_tasks_have_a_distinct_export_and_keep_the_synchronous_entry() {
+        let source = super::web_source("", "");
+        assert!(source.contains("public static string Invoke(string request)"));
+        assert!(source.contains(
+            "public static System.Threading.Tasks.Task<string> InvokeAsync(string request)"
+        ));
+        assert!(source.contains("await Work.WaitAsync(Cancellation)"));
+        assert!(source.contains("active != owner"));
+        assert!(
+            !super::companion_prelude()
+                .contains("public static System.Threading.Tasks.Task<string> InvokeAsync(")
+        );
+    }
 
     #[test]
     fn every_csharp_web_namespace_with_the_behavior_runtime_gets_the_page_storage() {

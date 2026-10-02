@@ -261,7 +261,7 @@ fn lowered_body(
         );
     }
     let table = crate::companion::owner_table(
-        super::events::companion_language(language),
+        super::events::companion_language(language).for_web(item.web_assembly),
         authored,
         &portable,
         &excluded,
