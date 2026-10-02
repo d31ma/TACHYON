@@ -8,7 +8,7 @@ impl DotnetHttpBrowserFixture {
         "TAC_BIN",
         "TAC_DOTNET_HTTP_SOURCE_COMMIT",
     ];
-    const FILES: [(&'static str, &'static str); 9] = [
+    const FILES: [(&'static str, &'static str); 8] = [
         (
             "client/components/http/probe/tac.html",
             include_str!(
@@ -27,12 +27,6 @@ impl DotnetHttpBrowserFixture {
             "client/services/HttpProbeService.cs",
             include_str!(
                 "../../tests/fixtures/tac-dotnet-http/client/services/HttpProbeService.cs"
-            ),
-        ),
-        (
-            "client/services/OverrideProbeService.cs",
-            include_str!(
-                "../../tests/fixtures/tac-dotnet-http/client/services/OverrideProbeService.cs"
             ),
         ),
         (
