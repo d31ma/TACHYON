@@ -42,7 +42,7 @@ class DotnetHttpBrowserGate {
   static async #execute(fixture) {
     const started = performance.now()
     try {
-      const proof = await withServer(fixture.binary, ['serve', fixture.root, '--host', '127.0.0.1', '--port', '0', '--no-watch', '--no-self-restart', '--no-bundle'], async request => {
+      const proof = await withServer(fixture.binary, ['serve', fixture.root, '--host', '127.0.0.1', '--port', '0', '--out-dir', 'dist', '--no-watch', '--no-self-restart', '--no-bundle'], async request => {
         const origin = new URL((await request('/')).url).origin
         return DotnetHttpBrowserGate.#probe(origin, fixture.diagnostics)
       })
