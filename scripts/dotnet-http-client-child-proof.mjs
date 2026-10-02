@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 /** @typedef {import('./dotnet-http-browser-gate.mjs').HttpRefusal} HttpRefusal */
 /** @typedef {{read: () => Promise<HttpAnswer>, slow: () => Promise<HttpAnswer>, workerRead: () => Promise<HttpAnswer>, __tachyonDispose: () => void, __tachyonStoredChanged?: () => void}} ChildClientOwner */
 /** @typedef {{default: new() => ChildClientOwner}} ChildClientModule */
-/** @typedef {{owner: ChildClientOwner, captured: () => Promise<HttpAnswer>, changes: number}} ChildClientState */
+/** @typedef {{owner: ChildClientOwner, captured: () => Promise<HttpAnswer>, changes: number, disposalAttempted: boolean}} ChildClientState */
 /** @typedef {{cancelled: HttpRefusal, capturedRefusal: HttpRefusal, retiredChanges: number, replacement: HttpAnswer}} ChildClientProof */
 
 export class DotnetHttpClientChildProof {
@@ -52,7 +52,7 @@ export class DotnetHttpClientChildProof {
       /** @type {ChildClientModule} */
       const Service = await import(modulePath)
       const owner = new Service.default()
-      const state = { owner, captured: owner.read, changes: 0 }
+      const state = { owner, captured: owner.read, changes: 0, disposalAttempted: false }
       owner.__tachyonStoredChanged = () => { state.changes++ }
       Reflect.set(globalThis, '__dotnetChildOwner', state)
       try {
@@ -70,6 +70,7 @@ export class DotnetHttpClientChildProof {
     return this.#page.evaluate(async () => {
       /** @type {ChildClientState} */
       const state = Reflect.get(globalThis, '__dotnetChildOwner')
+      state.disposalAttempted = true
       state.owner.__tachyonDispose()
       try {
         await state.captured()
@@ -107,8 +108,14 @@ export class DotnetHttpClientChildProof {
     return this.#page.evaluate(() => {
       /** @type {ChildClientState | undefined} */
       const state = Reflect.get(globalThis, '__dotnetChildOwner')
-      state?.owner.__tachyonDispose()
-      Reflect.deleteProperty(globalThis, '__dotnetChildOwner')
+      try {
+        if (state && !state.disposalAttempted) {
+          state.disposalAttempted = true
+          state.owner.__tachyonDispose()
+        }
+      } finally {
+        Reflect.deleteProperty(globalThis, '__dotnetChildOwner')
+      }
     })
   }
 }

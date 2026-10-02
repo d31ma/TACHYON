@@ -42,6 +42,23 @@ async fn dotnet_cached_http_client_uses_public_yon_and_revalidates_after_clear()
 }
 
 #[tokio::test]
+#[ignore = "requires the explicit already-built cached HTTP fixture and installed browser; no staging or SDK rebuild"]
+async fn dotnet_cached_http_client_existing_build_uses_public_yon_and_child_cancellation() {
+    let environment = OrdinaryBrowserFixture::read(DotnetHttpCacheBrowserFixture::ENVIRONMENT);
+    environment.validate();
+    assert!(
+        environment.root.join("dist").is_dir(),
+        "built fixture required"
+    );
+    environment
+        .browser(
+            DotnetHttpCacheBrowserFixture::ENVIRONMENT,
+            "scripts/dotnet-http-cache-browser-gate.mjs",
+        )
+        .await;
+}
+
+#[tokio::test]
 #[ignore = "issues only a local test certificate for the explicit already-built cached HTTP fixture; no browser qualification"]
 async fn dotnet_cached_http_client_secure_origin_certificate_is_explicit() {
     let environment = OrdinaryBrowserFixture::read(DotnetHttpCacheBrowserFixture::ENVIRONMENT);
