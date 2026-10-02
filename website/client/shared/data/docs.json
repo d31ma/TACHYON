@@ -643,7 +643,7 @@
             },
             {
               "name": "client/tests/HelloTestSetup.dart",
-              "code": "@TestSetup\nclass HelloTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters(http: {\n      'greeting': BehaviorHttpAdapter(exchange: (request, running) async => {\n        'message': 'Hi',\n      }),\n    });\n  }\n}\n"
+              "code": "@TestSetup\nclass HelloTestSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters(http: {\n      'greeting': BehaviorHttpAdapter(exchange: _greeting),\n    });\n  }\n\n  static Future<Object?> _greeting(Object? request, BehaviorExecution running) async {\n    return <String, Object?>{'message': 'Hi'};\n  }\n}\n"
             },
             {
               "name": "client/tests/CounterServiceTest.dart",
