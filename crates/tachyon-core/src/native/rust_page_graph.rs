@@ -46,6 +46,7 @@ impl RustPageGraph {
         }
         let lowered = crate::behavior::lower(&input.source, &graph.source, "tac")?;
         graph.source = lowered.unwrap_or(graph.source);
+        graph.validate_application_constructors()?;
         graph.arcs.extend(
             graph
                 .services
@@ -55,6 +56,15 @@ impl RustPageGraph {
         );
         graph.reachable(inputs)?;
         Ok(graph)
+    }
+
+    fn validate_application_constructors(&self) -> Result<(), Failure> {
+        self.services.values().try_for_each(|service| {
+            super::native_application_capture::NativeApplicationCapture::constructor(
+                service,
+                &self.source,
+            )
+        })
     }
 
     fn reachable(&mut self, inputs: &[&NativeCompanionInput]) -> Result<(), Failure> {

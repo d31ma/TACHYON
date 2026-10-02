@@ -30,6 +30,14 @@ impl RustGraph {
         RustConstruction::graph_instance(source, path, name, services)
     }
 
+    pub(crate) fn constructor_inputs(
+        source: &str,
+        path: &str,
+        name: &str,
+    ) -> Result<Vec<String>, Failure> {
+        RustConstruction::constructor_inputs(source, path, name)
+    }
+
     pub(crate) fn dependencies(
         source: &str,
         path: &str,

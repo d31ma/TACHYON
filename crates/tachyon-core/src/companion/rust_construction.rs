@@ -41,6 +41,16 @@ impl RustConstruction {
         Ok((expression, construction.graph_dependencies.into_inner()))
     }
 
+    pub(super) fn constructor_inputs(
+        source: &str,
+        path: &str,
+        name: &str,
+    ) -> Result<Vec<String>, Failure> {
+        let mut construction = Self::prepared(source, path)?;
+        construction.read_constructors();
+        Ok(construction.constructors.remove(name).unwrap_or_default())
+    }
+
     pub(super) fn arc_dependencies(
         source: &str,
         path: &str,

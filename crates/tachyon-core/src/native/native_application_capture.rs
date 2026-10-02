@@ -21,6 +21,48 @@ impl NativeApplicationCapture {
         Self::compatible(service, shorter)
     }
 
+    pub(super) fn constructor(service: &RustServicePlan, source: &str) -> Result<(), Failure> {
+        let inputs = crate::companion::RustGraph::constructor_inputs(
+            source,
+            &service.path.to_string_lossy(),
+            &service.name,
+        )?;
+        Self::require_owned_inputs(service, &inputs)
+    }
+
+    fn require_owned_inputs(service: &RustServicePlan, inputs: &[String]) -> Result<(), Failure> {
+        let scalar = inputs.iter().any(|kind| Self::scalar_input(kind));
+        ([service.application, scalar] != [true; 2]).then_some(()).ok_or_else(|| service.failure(
+            "An application Service cannot consume scalar or view-prop constructor inputs: eager host startup has no page properties. Keep inputs in a fresh page Service or use an authored zero-argument constructor that owns its internal values."))
+    }
+
+    fn scalar_input(kind: &str) -> bool {
+        matches!(
+            kind.trim().trim_start_matches("::"),
+            "String"
+                | "std::string::String"
+                | "alloc::string::String"
+                | "str"
+                | "&str"
+                | "bool"
+                | "char"
+                | "i8"
+                | "i16"
+                | "i32"
+                | "i64"
+                | "i128"
+                | "isize"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "u128"
+                | "usize"
+                | "f32"
+                | "f64"
+        )
+    }
+
     fn validated(service: &RustServicePlan) -> Result<(), Failure> {
         service
             .application

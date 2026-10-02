@@ -126,10 +126,12 @@ fn native_application_lifetime_is_located_and_target_scoped() {
         let failure =
             crate::behavior::NativeApplicationLifetime::target(path, roles.application, target)
                 .expect_err("target refusal");
-        let text = format!("{failure:?}");
-        assert!(
-            text.contains("1406") && text.contains("CollectorService.rs"),
-            "{text}"
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.number(), 1406, "{failure}");
+        assert_eq!(diagnostic.spans[0].file, path.to_string_lossy());
+        assert_eq!(
+            diagnostic.spans[0].start,
+            roles.application.expect("authored marker")
         );
     }
     for path in [
@@ -170,9 +172,25 @@ fn native_application_lifetime_refuses_page_capture_and_direct_binding() {
         );
         let failure = ApplicationLifetimeTests::stage(root.path(), &collector, None)
             .expect_err("page port refusal");
+        let diagnostic = &failure.diagnostics()[0];
+        let expected = if provider == "DocumentTitle" {
+            1317
+        } else {
+            1406
+        };
+        assert_eq!(diagnostic.code.number(), expected, "{provider}: {failure}");
         assert!(
-            format!("{failure:?}").contains("application Service cannot"),
-            "{failure:?}"
+            diagnostic.spans[0].file.ends_with("CollectorService.rs"),
+            "{failure}"
+        );
+        let message = if provider == "DocumentTitle" {
+            "no supported provider for this linked native platform"
+        } else {
+            "application Service cannot"
+        };
+        assert!(
+            diagnostic.message.contains(message),
+            "{provider}: {failure}"
         );
     }
     let root = tempfile::tempdir().expect("fixture");
@@ -223,7 +241,19 @@ fn native_application_lifetime_refuses_shorter_managed_dependencies_and_props() 
     let collector = "#[Service]\n#[Lifetime({\"value\":\"application\"})]\n#[NeedsAll]\nstruct CollectorService { label: String }";
     let failure = ApplicationLifetimeTests::stage(root.path(), collector, None)
         .expect_err("view prop refusal");
-    assert!(format!("{failure:?}").contains("1406"), "{failure:?}");
+    assert_eq!(failure.diagnostics()[0].code.number(), 1406, "{failure}");
+    assert!(
+        failure.diagnostics()[0]
+            .message
+            .contains("no page properties"),
+        "{failure}"
+    );
+    assert!(
+        failure.diagnostics()[0].spans[0]
+            .file
+            .ends_with("CollectorService.rs"),
+        "{failure}"
+    );
 }
 
 #[tokio::test]
