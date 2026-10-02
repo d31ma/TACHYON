@@ -97,6 +97,7 @@ impl NativePageServices {
         Ok(NativeServiceScope {
             page,
             owner: owner.to_owned(),
+            application: false,
         })
     }
 

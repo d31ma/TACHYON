@@ -266,6 +266,7 @@ fn web_companion_inputs(
             service: service.clone(),
             class: class.clone(),
             web_assembly: true,
+            application_provider: false,
         });
     }
     companions
@@ -1369,6 +1370,7 @@ mod tests {
             service: String::from("ownedCard"),
             class: String::from("OwnedCardService"),
             web_assembly: false,
+            application_provider: false,
         }
     }
 
@@ -1486,6 +1488,7 @@ mod tests {
             service: String::from("leaky"),
             class: String::from("LeakyService"),
             web_assembly: false,
+            application_provider: false,
         }];
         let project = stage_companion(&companions, temporary_directory.path(), "dev.tachyon.leaky")
             .expect("stage")

@@ -12,6 +12,7 @@ pub(super) struct NativeCompanionInput {
     pub(super) service: String,
     pub(super) class: String,
     pub(super) web_assembly: bool,
+    pub(super) application_provider: bool,
 }
 
 impl NativeCompanionInput {
@@ -29,6 +30,7 @@ impl NativeCompanionInput {
                 service: service.clone(),
                 class: class.clone(),
                 web_assembly: true,
+                application_provider: false,
             })
             .collect()
     }

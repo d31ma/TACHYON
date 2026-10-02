@@ -52,6 +52,7 @@ impl NativeCapabilityCheck {
             service: String::from("import"),
             class: String::from("ImportService"),
             web_assembly: false,
+            application_provider: false,
         };
         super::macos::stage_swift_companion(&[input], root)
             .expect("stage")

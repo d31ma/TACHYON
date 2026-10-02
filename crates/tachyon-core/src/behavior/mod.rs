@@ -32,6 +32,8 @@ pub(crate) mod literal;
 mod mapper;
 mod model_mapping;
 mod mutations;
+mod native_application_lifetime;
+pub(crate) use native_application_lifetime::NativeApplicationLifetime;
 mod parameters;
 mod polyglot;
 pub(crate) use polyglot::ModelSchema;
@@ -1742,11 +1744,8 @@ fn scope(input: &Input<'_>, marker: &Marker) -> Result<Value, Failure> {
         .get("value")
         .and_then(Value::as_str)
         .ok_or_else(|| input.failure(marker.span.start, "Lifetime requires a literal value"))?;
-    if !["singleton", "prototype"].contains(&scope) {
-        return Err(input.failure(
-            marker.span.start,
-            "Lifetime.value must be singleton or prototype",
-        ));
+    if !NativeApplicationLifetime::supported(input.path, scope) {
+        return Err(input.failure(marker.span.start, NativeApplicationLifetime::advice(scope)));
     }
     Ok(Value::String(scope.to_owned()))
 }

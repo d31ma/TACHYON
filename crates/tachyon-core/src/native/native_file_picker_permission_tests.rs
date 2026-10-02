@@ -58,6 +58,7 @@ impl FilePickerPermissionCheck {
             service: String::from("import"),
             class: String::from("ImportService"),
             web_assembly: false,
+            application_provider: false,
         };
         super::macos::stage_swift_companion(&[input], &self.root)
             .expect("stage normal service")

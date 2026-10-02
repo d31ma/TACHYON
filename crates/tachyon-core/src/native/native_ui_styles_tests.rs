@@ -80,6 +80,7 @@ impl NativeUiStylesFixture {
             service: "liveCounter".to_owned(),
             class: "LiveCounterService".to_owned(),
             web_assembly: false,
+            application_provider: false,
         };
         super::macos::stage_swift_companion(&[input], self.root.path())
             .expect("actual staged native Service")

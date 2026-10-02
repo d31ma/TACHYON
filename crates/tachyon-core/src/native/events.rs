@@ -1106,6 +1106,7 @@ mod tests {
             service: "ownerProbe".into(),
             class: "OwnerProbeService".into(),
             web_assembly: false,
+            application_provider: false,
         };
         super::super::registry::source(&[companion], language)
             .expect("emit native event owner")

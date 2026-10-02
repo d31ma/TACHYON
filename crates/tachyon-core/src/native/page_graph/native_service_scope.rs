@@ -2,6 +2,7 @@
 struct NativeServiceScope {
     page: std::rc::Rc<core::cell::RefCell<NativeServicePage>>,
     owner: String,
+    application: bool,
 }
 
 impl NativeServiceScope {
@@ -20,6 +21,42 @@ impl NativeServiceScope {
     }
 
     fn lookup<T: Clone + 'static>(
+        &self,
+        definition: &NativeServiceDefinition<T>,
+        deferred: bool,
+    ) -> Result<T, String> {
+        let scope = self.node_scope(definition.application)?;
+        scope.local_lookup(definition, deferred)
+    }
+
+    fn node_scope(&self, application: bool) -> Result<Self, String> {
+        self.require_compatible(application)?;
+        let page = self.node_page(application)?;
+        Ok(Self {
+            page,
+            owner: self.owner.clone(),
+            application,
+        })
+    }
+
+    fn require_compatible(&self, application: bool) -> Result<(), String> {
+        [!self.application, application]
+            .contains(&true)
+            .then_some(())
+            .ok_or_else(|| String::from("An application provider cannot capture a page provider."))
+    }
+
+    fn node_page(
+        &self,
+        application: bool,
+    ) -> Result<std::rc::Rc<core::cell::RefCell<NativeServicePage>>, String> {
+        match application {
+            true => NativeApplicationServices::page(),
+            false => Ok(self.page.clone()),
+        }
+    }
+
+    fn local_lookup<T: Clone + 'static>(
         &self,
         definition: &NativeServiceDefinition<T>,
         deferred: bool,
@@ -47,16 +84,33 @@ impl NativeServiceScope {
         definition: &NativeServiceDefinition<T>,
         deferred: bool,
     ) -> Result<T, String> {
+        self.require_constructing()?;
         self.page.borrow_mut().begin(&key)?;
         let checkpoint = self.page.borrow().order.len();
         let identity = NativePageServices::provider_owner();
-        let (value, capabilities) =
-            NativeCapabilities::create(&identity, || (definition.create)(self));
+        let (value, capabilities) = self.create(&identity, definition);
         self.page.borrow_mut().end(&key);
         let result = value.and_then(|value| {
             self.remember(key, definition, (value, capabilities.clone(), deferred))
         });
         self.finish(result, capabilities, checkpoint)
+    }
+
+    fn require_constructing(&self) -> Result<(), String> {
+        self.application
+            .then(NativeApplicationServices::require_starting)
+            .unwrap_or(Ok(()))
+    }
+
+    fn create<T>(
+        &self,
+        identity: &str,
+        definition: &NativeServiceDefinition<T>,
+    ) -> (Result<T, String>, std::rc::Rc<NativeCapabilityScope>) {
+        match self.application {
+            true => NativeCapabilities::create_application(|| (definition.create)(self)),
+            false => NativeCapabilities::create(identity, || (definition.create)(self)),
+        }
     }
 
     fn remember<T: Clone + 'static>(

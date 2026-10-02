@@ -410,10 +410,18 @@ fn native_companions(
         .for_target(Some(target));
     let roots = super::native_service_roots::NativeServiceRoots::expand(&registry, roots);
     let mut compiled = Vec::new();
-    for (instance, service) in registry
-        .iter()
-        .filter(|(instance, _)| roots.contains(*instance))
-    {
+    for (instance, service) in registry.iter() {
+        let exposed = roots.contains(instance);
+        let application_provider =
+            super::native_application_inputs::NativeApplicationInputs::provider(
+                project.snapshot_root(),
+                service,
+                target,
+                exposed,
+            )?;
+        if ![exposed, application_provider].contains(&true) {
+            continue;
+        }
         let Some((language, source)) = chosen_companion(service, target) else {
             continue;
         };
@@ -432,6 +440,7 @@ fn native_companions(
             service: instance.clone(),
             class: String::from(service.class()),
             web_assembly: false,
+            application_provider,
         });
     }
     Ok(compiled)

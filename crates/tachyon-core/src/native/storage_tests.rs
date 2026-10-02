@@ -37,6 +37,7 @@ fn a_kotlin_cache_without_a_setup_adapter_stops_the_native_build() {
         service: String::from("catalog"),
         class: String::from("CatalogService"),
         web_assembly: false,
+        application_provider: false,
     }];
     let failure = super::registry::source(&inputs, NativeCompanion::Kotlin)
         .expect_err("a Kotlin cache needs its Setup adapter");

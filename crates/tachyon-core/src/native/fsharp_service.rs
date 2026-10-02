@@ -107,6 +107,7 @@ mod tests {
             service: String::from("signal"),
             class: String::from(class),
             web_assembly: true,
+            application_provider: false,
         };
         FsharpService::body(&item, authored).unwrap_or_else(|failure| panic!("{failure}"))
     }

@@ -71,6 +71,7 @@ fn main() {
             service: String::from("counter"),
             class: String::from("CounterService"),
             web_assembly: false,
+            application_provider: false,
         };
         super::rust::stage(&[input], root, "org.tachyon.helper")
             .map(|source| source.expect("staged source"))
@@ -159,6 +160,7 @@ async fn a_compiled_rust_arc_service_dependency_matches_the_monitor_repro() {
         service: String::from("reader"),
         class: String::from("SnapshotReaderService"),
         web_assembly: false,
+        application_provider: false,
     };
     let staged = super::rust::stage(&[input], root.path(), "org.tachyon.monitor.repro")
         .expect("staging")
@@ -218,6 +220,7 @@ async fn a_compiled_rust_arc_service_dependency_is_shared_within_its_owner() {
         service: String::from("reader"),
         class: String::from("ReaderService"),
         web_assembly: false,
+        application_provider: false,
     };
     let file = super::rust::stage(&[input], root.path(), "org.tachyon.shared.providers")
         .expect("staging")

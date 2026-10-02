@@ -6,6 +6,7 @@ pub(super) struct RustServicePlan {
     pub(super) name: String,
     pub(super) source: String,
     pub(super) prototype: bool,
+    pub(super) application: bool,
     pub(super) required: Vec<String>,
     pub(super) events: Option<EventModule>,
 }
@@ -35,6 +36,7 @@ impl RustServicePlan {
             name,
             source,
             prototype: roles.prototype,
+            application: roles.application.is_some(),
             required: roles.required,
             events,
         })

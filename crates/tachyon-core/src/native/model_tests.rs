@@ -74,6 +74,7 @@ fn companion(
         service: String::from("guide"),
         class: String::from("GuideService"),
         web_assembly: false,
+        application_provider: false,
     }
 }
 
@@ -244,6 +245,7 @@ fn required_companions(root: &Path, language: NativeCompanion) -> Vec<NativeComp
         service: String::from("every"),
         class: String::from("EveryService"),
         web_assembly: false,
+        application_provider: false,
     }]
 }
 
@@ -331,6 +333,7 @@ fn constructed_companion(root: &Path, language: NativeCompanion) -> Vec<NativeCo
         service: String::from("badge"),
         class: String::from("BadgeService"),
         web_assembly: false,
+        application_provider: false,
     }]
 }
 

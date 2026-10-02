@@ -79,6 +79,7 @@ fn main() {
             service: String::from("import"),
             class: String::from("ImportService"),
             web_assembly: false,
+            application_provider: false,
         };
         super::rust::stage(&[input], root, "native-capability-test")
             .expect("stage")

@@ -40,6 +40,12 @@ mod managed_native_capabilities;
 mod manifest_setting;
 #[cfg(test)]
 mod model_tests;
+mod native_application_capture;
+#[cfg(all(test, target_os = "macos"))]
+mod native_application_host_tests;
+mod native_application_inputs;
+#[cfg(test)]
+mod native_application_tests;
 mod native_capabilities;
 #[cfg(test)]
 mod native_capability_tests;

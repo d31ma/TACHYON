@@ -135,6 +135,7 @@ impl ManagedCapabilityCheck {
             service: String::from("import"),
             class: String::from("ImportService"),
             web_assembly: false,
+            application_provider: false,
         };
         super::registry::source(&[input], language)
             .expect("registry")
@@ -232,6 +233,7 @@ impl ManagedCapabilityCheck {
             service: String::from("import"),
             class: String::from("ImportService"),
             web_assembly: false,
+            application_provider: false,
         };
         let project = root.path().join("android");
         assert!(

@@ -10,10 +10,11 @@ impl ServiceChecks {
     pub(super) fn validate_all(
         snapshot_root: &Path,
         services: &ServiceRegistry,
+        target: Option<tachyon_contracts::NativeTarget>,
     ) -> Result<(), Failure> {
         services
             .iter()
-            .try_for_each(|(_, service)| Self::validate(snapshot_root, service))
+            .try_for_each(|(_, service)| Self::validate(snapshot_root, service, target))
     }
 
     pub(super) fn check_native_source(
@@ -32,31 +33,46 @@ impl ServiceChecks {
         Ok(())
     }
 
-    fn validate(snapshot_root: &Path, service: &ServiceDefinition) -> Result<(), Failure> {
-        Self::validate_native_companions(snapshot_root, service.native_companions())?;
+    fn validate(
+        snapshot_root: &Path,
+        service: &ServiceDefinition,
+        target: Option<tachyon_contracts::NativeTarget>,
+    ) -> Result<(), Failure> {
+        Self::validate_native_companions(snapshot_root, service.native_companions(), target)?;
         service.go_path().map_or(Ok(()), |path| {
-            Self::validate_source_file(snapshot_root, path)
+            Self::validate_source_file(snapshot_root, path, target)
         })
     }
 
     fn validate_native_companions(
         snapshot_root: &Path,
         companions: &[(NativeCompanion, PathBuf)],
+        target: Option<tachyon_contracts::NativeTarget>,
     ) -> Result<(), Failure> {
         companions
             .iter()
-            .try_for_each(|(_, path)| Self::validate_source_file(snapshot_root, path))
+            .try_for_each(|(_, path)| Self::validate_source_file(snapshot_root, path, target))
     }
 
-    fn validate_source_file(snapshot_root: &Path, path: &Path) -> Result<(), Failure> {
+    fn validate_source_file(
+        snapshot_root: &Path,
+        path: &Path,
+        target: Option<tachyon_contracts::NativeTarget>,
+    ) -> Result<(), Failure> {
         let relative = path.strip_prefix(snapshot_root).unwrap_or(path);
         fs::read_to_string(path).map_or(Ok(()), |source| {
-            Self::validate_source(snapshot_root, relative, &source)
+            Self::validate_source(snapshot_root, relative, &source, target)
         })
     }
 
-    fn validate_source(snapshot_root: &Path, relative: &Path, source: &str) -> Result<(), Failure> {
+    fn validate_source(
+        snapshot_root: &Path,
+        relative: &Path,
+        source: &str,
+        target: Option<tachyon_contracts::NativeTarget>,
+    ) -> Result<(), Failure> {
         let roles = crate::behavior::ServiceRoles::read(relative, source)?;
+        crate::behavior::NativeApplicationLifetime::target(relative, roles.application, target)?;
         Self::check_native_source(snapshot_root, relative, &roles.source)
     }
 

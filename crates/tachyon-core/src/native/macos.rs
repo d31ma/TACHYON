@@ -384,6 +384,14 @@ pub(super) fn swift_source(
             MacOsHostGenerator::capability_registration(companion_call),
         )
         .replace("__TACHYON_RUST_SHIM__", rust_shim)
+        .replace(
+            "__NATIVE_APPLICATION_START__",
+            MacOsHostGenerator::application_start(companion_call),
+        )
+        .replace(
+            "__NATIVE_APPLICATION_STOP__",
+            MacOsHostGenerator::application_stop(companion_call),
+        )
         .replace("__NATIVE_MENUS__", include_str!("menus/MacOsMenus.swift"))
         .replace(
             "__NATIVE_MENU_MODELS__",
@@ -415,6 +423,22 @@ impl MacOsHostGenerator {
         ""
     }
 
+    fn application_start(call: &str) -> &'static str {
+        match call.contains("tacRustInvoke") {
+            true => {
+                "guard tacRustNativeApplicationStart() else { Telemetry.shared.record(\"application.start.failed\"); NSApplication.shared.terminate(nil); return }"
+            }
+            false => "",
+        }
+    }
+
+    fn application_stop(call: &str) -> &'static str {
+        match call.contains("tacRustInvoke") {
+            true => "tacRustNativeApplicationShutdown()",
+            false => "",
+        }
+    }
+
     fn capability_models(call: &str) -> &'static str {
         if call.contains("tacNativeInvoke") {
             return "";
@@ -434,6 +458,12 @@ impl MacOsHostGenerator {
 
     pub(super) const RUST_SHIM: &str = r#"@_silgen_name("tac_native_invoke")
 private func tacRustNativeInvoke(_ request: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
+
+@_silgen_name("tac_native_application_start")
+private func tacRustNativeApplicationStart() -> Bool
+
+@_silgen_name("tac_native_application_shutdown")
+private func tacRustNativeApplicationShutdown()
 
 @_silgen_name("tac_native_free")
 private func tacRustNativeFree(_ answer: UnsafeMutablePointer<CChar>?)
@@ -727,6 +757,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
     func applicationDidFinishLaunching(_ notification: Notification) {
         MacOsFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
         __NATIVE_CAPABILITY_REGISTER__
+        __NATIVE_APPLICATION_START__
         Telemetry.shared.record("controller.created")
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: "tachyon-app")
@@ -801,6 +832,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
     func applicationWillTerminate(_ notification: Notification) {
         tachyonDisposeCompanions()
         MacOsFilePicker.shared.disposeAll()
+        __NATIVE_APPLICATION_STOP__
         Telemetry.shared.record("controller.destroyed")
     }
 }

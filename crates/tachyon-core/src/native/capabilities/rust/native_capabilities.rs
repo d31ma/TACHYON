@@ -54,8 +54,17 @@ impl NativeCapabilities {
 
     fn within<T>(scope: std::rc::Rc<NativeCapabilityScope>, work: impl FnOnce() -> T) -> T {
         let previous = Self::constructing().with(|value| value.replace(Some(scope)));
-        let result = work();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work));
         Self::constructing().with(|value| value.replace(previous));
-        result
+        result.unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+    }
+
+    fn create_application<T>(work: impl FnOnce() -> T) -> (T, std::rc::Rc<NativeCapabilityScope>) {
+        let scope = std::rc::Rc::new(NativeCapabilityScope::new(
+            "",
+            NativeCapabilityAdapter::Unsupported,
+        ));
+        let result = Self::within(scope.clone(), work);
+        (result, scope)
     }
 }

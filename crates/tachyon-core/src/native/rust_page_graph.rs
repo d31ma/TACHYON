@@ -46,6 +46,13 @@ impl RustPageGraph {
         }
         let lowered = crate::behavior::lower(&input.source, &graph.source, "tac")?;
         graph.source = lowered.unwrap_or(graph.source);
+        graph.arcs.extend(
+            graph
+                .services
+                .values()
+                .filter(|service| service.application)
+                .map(|service| service.name.clone()),
+        );
         graph.reachable(inputs)?;
         Ok(graph)
     }
@@ -56,6 +63,12 @@ impl RustPageGraph {
             .iter()
             .map(|input| input.class.clone())
             .collect::<BTreeSet<_>>();
+        pending.extend(
+            self.services
+                .values()
+                .filter(|service| service.application)
+                .map(|service| service.name.clone()),
+        );
         while let Some(name) = pending.pop_first() {
             self.add_reachable(&name, &names, &mut pending)?;
         }
@@ -110,6 +123,7 @@ impl RustPageGraph {
     ) -> Result<String, Failure> {
         if path.starts_with("client/services") {
             let mut service = RustServicePlan::read(path, source)?;
+            super::native_application_capture::NativeApplicationCapture::validate(&service)?;
             Self::describe(&mut service, root)?;
             let cleaned = service.source.clone();
             self.services.insert(service.name.clone(), service);
@@ -144,6 +158,7 @@ impl RustPageGraph {
     fn validate(&self, inputs: &[&NativeCompanionInput]) -> Result<(), Failure> {
         let roots = inputs
             .iter()
+            .filter(|input| !input.application_provider)
             .map(|input| input.class.as_str())
             .collect::<BTreeSet<_>>();
         self.initializers
@@ -160,6 +175,10 @@ impl RustPageGraph {
         service: &RustServicePlan,
         roots: &BTreeSet<&str>,
     ) -> Result<(), Failure> {
+        super::native_application_capture::NativeApplicationCapture::projection(
+            service,
+            roots.contains(service.name.as_str()),
+        )?;
         let arc = self.arcs.contains(&service.name);
         let safe = crate::companion::RustGraph::supports_arc(
             &self.source,
@@ -181,6 +200,11 @@ impl RustPageGraph {
             &service.path.to_string_lossy(),
             &service.name,
         )?;
+        super::native_application_capture::NativeApplicationCapture::dependencies(
+            service,
+            &self.services,
+            &dependencies,
+        )?;
         let captures_prototype = dependencies
             .iter()
             .filter_map(|name| self.services.get(name))
@@ -200,6 +224,7 @@ impl RustPageGraph {
             .join("\n");
         let tables = inputs
             .iter()
+            .filter(|input| !input.application_provider)
             .map(|input| self.table(input))
             .collect::<Result<Vec<_>, _>>()?
             .join("\n");
@@ -210,6 +235,7 @@ impl RustPageGraph {
             &mut imports,
         )?;
         let dispatch = self.dispatch(inputs)?;
+        let application = self.application_startup();
         let paths = super::rust_local_paths::RustLocalPaths::read(
             &inputs[0].source,
             &self.source,
@@ -220,7 +246,7 @@ impl RustPageGraph {
         let tables = paths.source(&tables)?;
         let models = paths.source(&models)?;
         Ok(format!(
-            "#[allow(non_snake_case)]\nmod TachyonRustServices {{\nuse super::*;\n{}\n{}\n{definitions}\n{tables}\n{models}\n}}\n{dispatch}",
+            "#[allow(non_snake_case)]\nmod TachyonRustServices {{\nuse super::*;\n{}\n{}\n{definitions}\n{tables}\n{models}\n{application}\n}}\n{dispatch}",
             self.imports
                 .source()
                 .lines()
@@ -240,8 +266,8 @@ impl RustPageGraph {
         let start = service.lifecycle(arc, false)?;
         let stop = service.lifecycle(arc, true)?;
         Ok(format!(
-            "fn tac_definition_{name}() -> NativeServiceDefinition<{storage}> {{ NativeServiceDefinition {{ name: {name:?}, prototype: {}, create: |scope| Ok({value}), start: |value| {start}, stop: |value| {stop} }} }}\n",
-            service.prototype
+            "fn tac_definition_{name}() -> NativeServiceDefinition<{storage}> {{ NativeServiceDefinition {{ name: {name:?}, prototype: {}, application: {}, create: |scope| Ok({value}), start: |value| {start}, stop: |value| {stop} }} }}\n",
+            service.prototype, service.application
         ))
     }
 
@@ -294,6 +320,7 @@ impl RustPageGraph {
         let mut required = String::new();
         let roots = inputs
             .iter()
+            .filter(|input| !input.application_provider)
             .map(|input| &input.class)
             .collect::<BTreeSet<_>>();
         self.initializers
@@ -301,7 +328,7 @@ impl RustPageGraph {
             .map(|name| &self.services[name])
             .filter(|service| !roots.contains(&service.name))
             .try_for_each(RustServicePlan::refuse_unowned_events)?;
-        for input in inputs {
+        for input in inputs.iter().filter(|input| !input.application_provider) {
             let service = &self.services[&input.class];
             let _ = writeln!(
                 entries,
@@ -317,7 +344,20 @@ impl RustPageGraph {
             let _ = writeln!(required, "{:?} => &[{fields}],", input.service);
         }
         Ok(format!(
-            "fn tac_service_members(service: &str) -> Option<Vec<(&'static str, TacMember)>> {{ let activation = NativePageServices::activation()?; let result = match service {{ {entries}_ => return None }}; match result {{ Ok(members) => Some(members), Err(failure) => {{ activation.fail(failure); None }} }} }}\nfn tac_service_required(service: &str) -> &'static [&'static str] {{ match service {{ {required}_ => &[] }} }}\n"
+            "fn tac_service_members(service: &str) -> Option<Vec<(&'static str, TacMember)>> {{ let activation = NativePageServices::activation()?; let result: Result<Vec<(&'static str, TacMember)>, String> = match service {{ {entries}_ => return None }}; match result {{ Ok(members) => Some(members), Err(failure) => {{ activation.fail(failure); None }} }} }}\nfn tac_service_required(service: &str) -> &'static [&'static str] {{ match service {{ {required}_ => &[] }} }}\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_application_start() -> bool {{ NativeApplicationServices::start(TachyonRustServices::tac_application_providers).is_ok() }}\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_application_shutdown() {{ NativeApplicationServices::host_shutdown(); }}\n"
         ))
+    }
+
+    fn application_startup(&self) -> String {
+        let providers = self
+            .services
+            .values()
+            .filter(|service| service.application)
+            .map(|service| format!("let _ = scope.obtain(&tac_definition_{}())?;", service.name))
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "pub(super) fn tac_application_providers(scope: &NativeServiceScope) -> Result<(), String> {{ {providers} Ok(()) }}"
+        )
     }
 }

@@ -5,6 +5,7 @@ use std::path::Path;
 pub(crate) struct ServiceRoles {
     pub(crate) source: String,
     pub(crate) prototype: bool,
+    pub(crate) application: Option<usize>,
     pub(crate) required: Vec<String>,
     explicit_prototype: Option<usize>,
 }
@@ -57,6 +58,7 @@ impl ServiceRoles {
         let mut roles = Self {
             source: source.to_owned(),
             prototype: false,
+            application: None,
             required: Vec::new(),
             explicit_prototype: None,
         };
@@ -82,6 +84,7 @@ impl ServiceRoles {
                     let scope = super::scope(&input, &marker)?;
                     lifetime_is_prototype = Some(scope == "prototype");
                     roles.explicit_prototype = (scope == "prototype").then_some(marker.span.start);
+                    roles.application = (scope == "application").then_some(marker.span.start);
                 }
                 "NeedsAll" => {
                     needs_all = true;

@@ -22,6 +22,7 @@ impl NativePageGraphCheck {
             service: String::from("root"),
             class: class.to_owned(),
             web_assembly: false,
+            application_provider: false,
         };
         super::rust::stage(&[input], root, "org.tachyon.root-properties")
             .map(|source| source.expect("native source"))
@@ -209,6 +210,7 @@ fn main() {
                     service: service.to_owned(),
                     class: class.to_owned(),
                     web_assembly: false,
+                    application_provider: false,
                 }
             })
             .collect::<Vec<_>>();
@@ -363,6 +365,7 @@ fn native_rust_page_graph_rejects_arc_aliases_that_would_lose_wire_setters() {
         service: service.to_owned(),
         class: class.to_owned(),
         web_assembly: false,
+        application_provider: false,
     })
     .collect::<Vec<_>>();
     let failure = super::rust::stage(&inputs, root.path(), "org.tachyon.mutable-arc")
@@ -512,7 +515,7 @@ const TAC_APPLICATION_ID: &str = "org.tachyon.runtime-properties";
 struct LabelService { label: String, observed: String }
 fn definition() -> NativeServiceDefinition<std::rc::Rc<core::cell::RefCell<LabelService>>> {
     NativeServiceDefinition {
-        name: "LabelService", prototype: false,
+        name: "LabelService", prototype: false, application: false,
         create: |_| Ok(std::rc::Rc::new(core::cell::RefCell::new(LabelService::default()))),
         start: |value| { let mut value = value.borrow_mut(); value.observed = value.label.clone(); Ok(()) },
         stop: |_| Ok(()),

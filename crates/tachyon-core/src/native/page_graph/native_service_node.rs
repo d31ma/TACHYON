@@ -44,9 +44,14 @@ impl NativeServiceNode {
     fn start(&self) -> Result<(), String> {
         let fresh = !self.started.replace(true);
         fresh
-            .then(|| NativeCapabilities::within(self.capabilities.clone(), || (self.start)()))
+            .then(|| NativeCapabilities::within(self.capabilities.clone(), || self.run_start()))
             .unwrap_or(Ok(()))
             .inspect_err(|_| self.dispose())
+    }
+
+    fn run_start(&self) -> Result<(), String> {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (self.start)()))
+            .unwrap_or_else(|_| Err(String::from("Native service startup panicked.")))
     }
 
     fn dispose(&self) {
@@ -55,8 +60,13 @@ impl NativeServiceNode {
         self.capabilities.dispose();
     }
 
+    fn run_stop(&self) -> Result<(), String> {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (self.stop)()))
+            .unwrap_or_else(|_| Err(String::from("Native service shutdown panicked.")))
+    }
+
     fn stop_started(&self) {
-        if self.started.get() && (self.stop)().is_err() {
+        if self.started.get() && self.run_stop().is_err() {
             tac_event_failure();
         }
     }

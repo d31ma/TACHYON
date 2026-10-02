@@ -17,6 +17,9 @@ impl RustCompanion {
             include_str!("page_graph/native_service_definition.rs"),
             include_str!("page_graph/native_service_node.rs"),
             include_str!("page_graph/native_service_page.rs"),
+            include_str!("page_graph/native_application_phase.rs"),
+            include_str!("page_graph/native_application_state.rs"),
+            include_str!("page_graph/native_application_services.rs"),
             include_str!("page_graph/native_service_scope.rs"),
             include_str!("page_graph/native_service_activation.rs"),
             include_str!("page_graph/native_page_services.rs"),
@@ -155,6 +158,7 @@ fn web_companion_inputs(
             service: service.clone(),
             class: class.clone(),
             web_assembly: true,
+            application_provider: false,
         });
     }
     companions
