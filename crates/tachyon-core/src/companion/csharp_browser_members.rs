@@ -19,7 +19,7 @@ impl CsharpBrowserMembers {
         let arguments = csharp_arguments(member.parameters.as_deref().unwrap_or_default());
         let call = format!("Instance.{}({arguments})", member.name);
         let result = Self::result(member.declared_type.as_deref(), &call);
-        format!("        [\"{key}\"] = TacMember.TaskMethod(async arguments => {{ {result} }}),\n",)
+        format!("        [\"{key}\"] = TacMember.TaskMethod(async arguments => {{ {result} }}),\n")
     }
 
     fn result(kind: Option<&str>, call: &str) -> String {
