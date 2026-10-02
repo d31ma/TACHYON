@@ -196,7 +196,7 @@ fn kotlin_constructor(fields: &[(String, String)]) -> String {
             "Int" | "Long" | "Double" | "Float" | "Boolean" | "String" => {
                 format!("{value}.let {{ {} }}", kotlin_value(kind, "it"))
             }
-            _ => format!("{value} as {kind}"),
+            _ => kotlin_value(kind, &value),
         };
         let _ = writeln!(constructor, "this.{name} = {converted}");
     }

@@ -1,6 +1,8 @@
 #![allow(clippy::expect_used)]
 
-use super::{CompanionLanguage, KotlinMembers, Member, members, owner_table};
+use super::{
+    CompanionLanguage, KotlinMembers, Member, members, owner_table, with_required_constructor,
+};
 use std::path::Path;
 
 struct Fixtures;
@@ -80,6 +82,29 @@ fn kotlin_lateinit_inputs_are_writable_and_private_fields_stay_hidden() {
     assert!(runtime.contains("tacInstance.route ="), "{runtime}");
     assert!(!runtime.contains("tacInstance.first"), "{runtime}");
     assert!(!runtime.contains("tacInstance.second"), "{runtime}");
+}
+
+#[test]
+fn kotlin_required_inputs_use_existing_closed_model_readers() {
+    let source = "@Service\n@NeedsAll\nclass PanelService {\n lateinit var guide: Guide\n val guides: List<Guide?>\n val optional: Guide?\n @Needs\n private val documentTitle: DocumentTitle\n}\n";
+    let generated =
+        with_required_constructor(CompanionLanguage::Kotlin, source, Fixtures::PATH, true);
+    for (field, kind) in [
+        ("guide", "Guide"),
+        ("guides", "List<Guide?>"),
+        ("optional", "Guide?"),
+    ] {
+        assert!(
+            generated.contains(&format!(
+                "this.{field} = tacRead<{kind}>(tacRequiredValue(tacProps, \"{field}\"))"
+            )),
+            "{generated}"
+        );
+    }
+    assert!(
+        generated.contains("this.documentTitle = tacPage.documentTitle"),
+        "{generated}"
+    );
 }
 
 #[test]
