@@ -26,6 +26,7 @@ impl<'a> DartTestConstruction<'a> {
         format!(
             "\n  T construct<T>(Type type) {{\n\
              \x20   if (behaviors == null) throw StateError('Test.construct needs an active test setup.');\n\
+             \x20   if (type != T) throw ArgumentError('Test.construct needs a target matching its type argument.');\n\
              {}\
              \x20   throw ArgumentError('Test.construct needs a class with a declared Needs constructor.');\n\
              \x20 }}\n\

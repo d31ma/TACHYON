@@ -44,3 +44,16 @@ fn construction_requires_active_setup_and_assigned_value() {
     assert!(source.contains("if (value == null) throw StateError(message)"));
     assert!(source.contains("Test.construct needs a class with a declared Needs constructor."));
 }
+
+#[test]
+fn a_type_argument_mismatch_is_refused_before_a_constructor_call() {
+    let source = lowered("@Fake\n String? value;");
+    let guard = source
+        .find("if (type != T) throw ArgumentError(")
+        .expect("type guard");
+    let factory = source
+        .find("return ChoiceService(")
+        .expect("typed constructor");
+    assert!(guard < factory);
+    assert!(source.contains("Test.construct needs a target matching its type argument."));
+}

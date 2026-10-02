@@ -7,7 +7,7 @@ struct DartConstructionProject;
 impl DartConstructionProject {
     const SETUP: &'static str = "@TestSetup\nclass ChoiceTestSetup {\n static BehaviorAdapters configure(BehaviorExecution execution) { return BehaviorAdapters(); }\n}\n";
     const SERVICE: &'static str = "@Service\nclass ChoiceService {\n @Needs\n final String value;\n String answer() { return value; }\n}\n";
-    const UNIT: &'static str = r#"@Test(ChoiceTestSetup)
+    const UNIT: &'static str = r"@Test(ChoiceTestSetup)
 class ChoiceServiceTest {
   @Fake
   String? value;
@@ -33,6 +33,13 @@ class ChoiceServiceTest {
     Assert.isTrue(error is ArgumentError);
   }
 
+  Future<void> testMismatchedTypeArgumentRefused() async {
+    value = 'assigned';
+    final error = await Assert.throws(() => construct<String>(ChoiceService));
+    Assert.isTrue(error is ArgumentError);
+    Assert.equals('Test.construct needs a target matching its type argument.', (error as ArgumentError).message);
+  }
+
   Future<void> testDisposedSetupRefused() async {
     value = 'closed';
     stopBehaviors();
@@ -40,7 +47,7 @@ class ChoiceServiceTest {
     Assert.equals('Test.construct needs an active test setup.', (error as StateError).message);
   }
 }
-"#;
+";
 
     fn write(root: &Path, relative: &str, source: &str) {
         let path = root.join(relative);
@@ -80,7 +87,7 @@ fn native_dart_tests_capture_typed_fakes_and_refuse_invalid_construction() {
     ] {
         DartConstructionProject::write(root.path(), relative, source);
     }
-    DartConstructionProject::passed(root.path(), "client/tests/ChoiceServiceTest.dart", 4);
+    DartConstructionProject::passed(root.path(), "client/tests/ChoiceServiceTest.dart", 5);
     DartConstructionProject::passed(root.path(), "client/tests/WrongFakeTest.dart", 1);
 }
 
