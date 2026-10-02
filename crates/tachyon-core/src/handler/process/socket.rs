@@ -250,7 +250,7 @@ mod tests {
         let read = SocketProcess::first_finish(
             reader,
             &cancellation,
-            Instant::now() + Duration::from_secs(60),
+            Instant::now() + Duration::from_mins(1),
         )
         .await;
         assert!(read.is_none());
