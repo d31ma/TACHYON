@@ -24,7 +24,7 @@ impl CsharpTaskMembers {
         context: (&ModelTable, &[String]),
     ) -> Result<String, Failure> {
         let wanted = declared_service(path, source);
-        let code = crate::lexical::code_mask("cs", source).code;
+        let code = crate::annotation_layout::masked_source(std::path::Path::new(path), source)?;
         let body = class_body_named(&code, wanted.as_deref()).map_or("", |(_, body)| body);
         let mut entries = String::new();
         let mut depth = 0_i32;
