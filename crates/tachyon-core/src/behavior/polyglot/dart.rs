@@ -37,7 +37,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         if let Some(unit) = polyglot_unit(type_declaration) {
             edits.push(Edit {
                 range: type_declaration.body.start..type_declaration.body.start,
-                replacement: test_members(&unit),
+                replacement: test_members(module, type_declaration, &unit),
             });
         }
         let methods = lower_methods(module, type_declaration, &mut edits)?;
@@ -364,7 +364,7 @@ fn quote(value: &str) -> String {
     StringLiteral::DART.of(value)
 }
 
-fn test_members(unit: &Unit) -> String {
+fn test_members(module: &Module, owner: &Type, unit: &Unit) -> String {
     let calls = super::super::ValueSource::calls(&unit.cases, &unit.inputs, &CallStyle::DART);
     let names = joined(&calls, |(name, _)| format!("{}, ", quote(name)));
     let dispatch = joined(&calls, |(name, call)| {
@@ -372,8 +372,10 @@ fn test_members(unit: &Unit) -> String {
     });
     let profiles = profile_list(unit);
     let properties = property_list(unit);
+    let construction =
+        super::dart_test_construction::DartTestConstruction::members(module, owner, unit);
     format!(
-        "\n  BehaviorContext? behaviors;\n\
+        "\n  BehaviorContext? behaviors;\n{construction}\
          \n  void startBehaviors() {{\n    stopBehaviors();\n    \
          behaviors = Behaviors.create({}, partition: {}, signal: BehaviorSignal(), profiles: [{profiles}], properties: {{{properties}}});\n  }}\n\
          \n  void stopBehaviors() {{\n    behaviors?.dispose();\n    behaviors = null;\n  }}\n\

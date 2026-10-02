@@ -9,6 +9,7 @@ mod csharp;
 #[cfg(test)]
 mod csharp_test_construction_tests;
 mod dart;
+mod dart_test_construction;
 mod detached_csharp;
 pub(crate) use detached_csharp::DetachedCsharp;
 mod planned_method;

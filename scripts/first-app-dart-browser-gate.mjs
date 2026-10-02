@@ -33,9 +33,19 @@ class FirstAppDartBrowserGate {
     const step3 = sections.find(section => section.heading.startsWith('Step 3:'))
     const clients = step4.files.filter(file => file.name.endsWith('.dart') || file.name.endsWith('.html'))
     const server = step3.files.filter(file => file.name === 'server/controllers/GreetingController.js' || file.name === 'server/models/Greeting.ts')
+    const tests = FirstAppDartBrowserGate.#tests(sections)
     assert.equal(clients.length, 6, 'the published Dart slice has exactly its four native role/model files and two views')
     assert.equal(server.length, 2, 'the exact preceding tutorial Yon endpoint/model is retained')
-    await FirstAppDartBrowserGate.#write(project, [...clients, ...server])
+    await FirstAppDartBrowserGate.#write(project, [...clients, ...server, ...tests])
+  }
+
+  static #tests(sections) {
+    if (!process.argv.includes('--with-tests')) return []
+    const step5 = sections.find(section => section.heading.startsWith('Step 5:'))
+    const names = ['client/tests/HelloTestSetup.dart', 'client/tests/CounterServiceTest.dart', 'server/tests/GreetingTestSetup.js', 'server/tests/GreetingControllerTest.js']
+    const tests = step5.files.filter(file => names.includes(file.name))
+    assert.equal(tests.length, 4, 'the cumulative project contains the actual published Dart and matching Yon tests')
+    return tests
   }
 
   static async #write(project, files) {

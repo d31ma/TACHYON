@@ -384,7 +384,7 @@ describe('language coverage', () => {
     expect(JSON.stringify(docs)).not.toMatch(/\.modules?\.json/)
   })
 
-  test('first-app restores only the qualified Dart server-call slice and retains the Fake prerequisite', async () => {
+  test('first-app Dart tests cumulatively construct the HTTP-enabled service with typed fakes', async () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     const sections = docs.topics['first-app'].sections
     const step4 = sections.find(section => section.heading.startsWith('Step 4:'))
@@ -403,8 +403,17 @@ describe('language coverage', () => {
     expect(step4.body).toContain('Credentials are omitted')
     expect(step4.body).toContain('same-origin only')
     const step5 = sections.find(section => section.heading.startsWith('Step 5:'))
-    expect(step5.files.some(file => file.name === 'client/tests/CounterServiceTest.dart')).toBe(false)
-    expect(step5.body).toContain('Test.construct/Fake')
+    const unit = step5.files.find(file => file.name === 'client/tests/CounterServiceTest.dart').code
+    expect(unit).toContain('@Fake')
+    expect(unit).toContain('GreetingClient? greetingClient;')
+    expect(unit).toContain('construct<CounterService>(CounterService)')
+    expect(unit).toContain('await counter.askServer();')
+    expect(unit).toContain('identical(firstClient, counter.greetingClient)')
+    expect(unit).not.toContain('CounterService();')
+    const setup = step5.files.find(file => file.name === 'client/tests/HelloTestSetup.dart').code
+    expect(setup).toContain("'greeting': BehaviorHttpAdapter(")
+    expect(setup).toContain("'message': 'Hi'")
+    expect(step5.body).toContain('without a network request')
     expect(step5.files.some(file => file.name === 'server/tests/GreetingControllerTest.dart')).toBe(true)
   })
 

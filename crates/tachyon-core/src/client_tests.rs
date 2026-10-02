@@ -29,6 +29,8 @@ mod python_unit;
 mod test_unit_error;
 
 #[cfg(test)]
+mod dart_construct_tests;
+#[cfg(test)]
 mod java_construct_tests;
 #[cfg(test)]
 mod java_preference_tests;
