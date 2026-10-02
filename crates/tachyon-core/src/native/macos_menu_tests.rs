@@ -7,6 +7,9 @@ struct MacOsMenuFixture;
 impl MacOsMenuFixture {
     #[cfg(target_os = "macos")]
     const CALLER: &str = include_str!("../../../../scripts/native/MacOsMenuCheck.swift");
+    #[cfg(target_os = "macos")]
+    const OWNERSHIP: &str =
+        include_str!("../../../../scripts/native/MacOsMenuOwnershipCheck.swift");
 
     #[cfg(target_os = "macos")]
     fn retained_root() -> std::path::PathBuf {
@@ -78,8 +81,15 @@ async fn macos_menus_compile_and_execute_native_roles_and_responder_actions() {
         .rsplit_once("\n@main\n")
         .expect("generated host entry point");
     let source = root.join("MenuCheck.swift");
-    std::fs::write(&source, format!("{body}\n{}", MacOsMenuFixture::CALLER))
-        .expect("unchanged host with owned test entry");
+    std::fs::write(
+        &source,
+        format!(
+            "{body}\n{}\n{}",
+            MacOsMenuFixture::OWNERSHIP,
+            MacOsMenuFixture::CALLER
+        ),
+    )
+    .expect("unchanged host with owned test entry");
     let executable = root.join("menu-check");
     super::host::run_tool(
         "/usr/bin/xcrun",

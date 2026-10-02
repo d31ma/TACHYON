@@ -393,6 +393,7 @@ pub(super) fn swift_source(
                 include_str!("menus/MacOsMenuShortcut.swift"),
                 include_str!("menus/MacOsMenuRoute.swift"),
                 include_str!("menus/MacOsMenuNavigation.swift"),
+                include_str!("menus/MacOsMenuWindow.swift"),
             ),
         )
         .replace(
@@ -765,7 +766,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
         self.window = window
         NativeBridge.shared.window = window
         let menus = MacOsMenus()
-        let menuNavigation = MacOsMenuNavigation(view, tachyonRouteDocuments, __NATIVE_MENU_ROUTES__)
+        let menuNavigation = MacOsMenuNavigation(view, window, tachyonRouteDocuments, __NATIVE_MENU_ROUTES__)
         menus.install(NSApplication.shared, window, "__APP_NAME__", menuNavigation)
         self.menus = menus
         NSApplication.shared.activate(ignoringOtherApps: true)

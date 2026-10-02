@@ -1,11 +1,13 @@
 @MainActor
 final class MacOsMenuNavigation: NSObject, NSMenuItemValidation {
     private weak var view: WKWebView?
+    private let window: MacOsMenuWindow
     private let documents: [String: String]
     private let routes: [MacOsMenuRoute]
 
-    init(_ view: WKWebView, _ documents: [String: String], _ routes: [MacOsMenuRoute]) {
+    init(_ view: WKWebView, _ window: NSWindow, _ documents: [String: String], _ routes: [MacOsMenuRoute]) {
         self.view = view
+        self.window = MacOsMenuWindow(window)
         self.documents = documents
         self.routes = routes
         super.init()
@@ -27,7 +29,8 @@ final class MacOsMenuNavigation: NSObject, NSMenuItemValidation {
     }
 
     private func destination(_ item: NSMenuItem) -> URL? {
-        guard view != nil, let entry = item.representedObject as? MacOsMenuRoute,
+        guard let view, window.owns(view), routes.count <= 64,
+              let entry = item.representedObject as? MacOsMenuRoute,
               routes.contains(where: { (route: MacOsMenuRoute) -> Bool in route.id == entry.id && route.destination.route == entry.destination.route }),
               documents[entry.destination.route] != nil else { return nil }
         return URL(string: "tachyon-app://bundle" + entry.destination.route)

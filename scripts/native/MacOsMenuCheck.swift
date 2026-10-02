@@ -11,6 +11,7 @@ private struct MacOsMenuCheck {
         try checkWindow(application, window)
         try checkEdit(application, window)
         try checkAbsentDocuments(application)
+        try MacOsMenuOwnershipCheck().run(application, window)
         window.close()
         print("PASS native macOS menu roles, actions, ownership and text responder")
     }

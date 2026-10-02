@@ -237,7 +237,7 @@ async fn native_menu_declarations_stage_real_compiled_routes_without_packaging()
         host.contains("MacOsMenuDestination(group: .file, route: \"/status\")"),
         "{host}"
     );
-    assert!(host.contains("MacOsMenuNavigation(view, tachyonRouteDocuments"));
+    assert!(host.contains("MacOsMenuNavigation(view, window, tachyonRouteDocuments"));
     assert!(host.contains("view?.load(URLRequest(url: url))"));
     assert!(!host.contains("__NATIVE_MENU_ROUTES__"));
 }
