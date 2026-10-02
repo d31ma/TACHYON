@@ -1,7 +1,7 @@
 [HTTPClient({"path":"/api/greeting","adapter":"greeting"})]
-public interface GreetingClient {
+public sealed class GreetingClient {
     [GetRequest]
-    System.Threading.Tasks.Task<BehaviorJSON> read();
+    public async System.Threading.Tasks.Task<BehaviorJSON> read() {}
 }
 
 [Service]
