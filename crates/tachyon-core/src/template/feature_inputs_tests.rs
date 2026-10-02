@@ -2,12 +2,20 @@ use super::{ClientViewRenderer, ComponentRegistry, Scope, ServiceRegistry, Templ
 use std::collections::BTreeSet;
 use std::path::Path;
 
-const SERVICE: &str = include_str!("../../../../website/client/services/FeatureService.kt");
+struct FeatureInputsTests;
+
+impl FeatureInputsTests {
+    const SERVICE: &'static str =
+        include_str!("../../../../website/client/services/FeatureService.kt");
+}
 
 fn project() -> tempfile::TempDir {
     let root = tempfile::tempdir().expect("feature project");
     for (relative, source) in [
-        ("client/services/FeatureService.kt", SERVICE),
+        (
+            "client/services/FeatureService.kt",
+            FeatureInputsTests::SERVICE,
+        ),
         (
             "client/components/docs/feature/tac.html",
             "<article>{feature.entry().title}</article>",
@@ -75,7 +83,8 @@ fn website_feature_inputs_refuse_missing_or_differently_spelled_bindings() {
 #[test]
 fn website_feature_construction_only_requires_the_captured_title_provider() {
     let path = Path::new("client/services/FeatureService.kt");
-    let roles = crate::behavior::ServiceRoles::read(path, SERVICE).expect("service role");
+    let roles = crate::behavior::ServiceRoles::read(path, FeatureInputsTests::SERVICE)
+        .expect("service role");
     let source = crate::behavior::lower(path, &roles.source, "tac")
         .expect("declared NeedsAll input syntax")
         .expect("lowered feature service");
