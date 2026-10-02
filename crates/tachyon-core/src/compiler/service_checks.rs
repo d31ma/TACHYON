@@ -17,10 +17,20 @@ impl ServiceChecks {
             .try_for_each(|(_, service)| Self::validate(snapshot_root, service, target))
     }
 
+    #[cfg(test)]
     pub(super) fn check_native_source(
         snapshot_root: &Path,
         path: &Path,
         source: &str,
+    ) -> Result<(), Failure> {
+        Self::check_source(snapshot_root, path, source, false)
+    }
+
+    pub(super) fn check_source(
+        snapshot_root: &Path,
+        path: &Path,
+        source: &str,
+        browser: bool,
     ) -> Result<(), Failure> {
         let assembled = crate::annotation_modules::assemble(snapshot_root, path, source, "tac")?;
         let assembled_source = assembled.as_deref().unwrap_or(source);
@@ -28,7 +38,7 @@ impl ServiceChecks {
         let lowered_source = events
             .as_ref()
             .map_or(assembled_source, |module| module.source.as_str());
-        crate::behavior::lower(path, lowered_source, "tac")
+        Self::lower(snapshot_root, path, lowered_source, browser)
             .map_err(|failure| Self::located_failure(path, failure, lowered_source))?;
         Ok(())
     }
@@ -73,7 +83,25 @@ impl ServiceChecks {
     ) -> Result<(), Failure> {
         let roles = crate::behavior::ServiceRoles::read(relative, source)?;
         crate::behavior::NativeApplicationLifetime::target(relative, roles.application, target)?;
-        Self::check_native_source(snapshot_root, relative, &roles.source)
+        Self::check_source(snapshot_root, relative, &roles.source, target.is_none())
+    }
+
+    fn lower(
+        snapshot_root: &Path,
+        path: &Path,
+        source: &str,
+        browser: bool,
+    ) -> Result<Option<String>, Failure> {
+        if browser {
+            super::captured_browser_behavior::CapturedBrowserBehavior::lower(
+                snapshot_root,
+                path,
+                source,
+                &std::collections::BTreeMap::new(),
+            )
+        } else {
+            crate::behavior::lower(path, source, "tac")
+        }
     }
 
     fn located_failure(path: &Path, failure: Failure, lowered_source: &str) -> Failure {

@@ -4,10 +4,13 @@ mod build_profile;
 mod build_result;
 mod build_stage;
 mod build_state;
+mod captured_browser_behavior;
 mod component_script;
 mod component_styles;
 mod content_digest;
 mod content_security_policy;
+#[cfg(test)]
+mod csharp_task_model_tests;
 mod element_declaration;
 mod element_events;
 mod exported_elements;

@@ -55,7 +55,12 @@ impl ComponentScript {
         let source = events
             .as_ref()
             .map_or(source, |events| events.source.as_str());
-        let lowered = crate::behavior::lower_with_resources(path, source, "tac", &resources)?;
+        let lowered = super::captured_browser_behavior::CapturedBrowserBehavior::lower(
+            snapshot_root,
+            path,
+            source,
+            &resources,
+        )?;
         let lowered = lowered
             .map(|text| metadata.without_declarations(path, &text))
             .transpose()?;
