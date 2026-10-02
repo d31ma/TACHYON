@@ -3,7 +3,9 @@ function checkComposedServices(): void {
   const label: string = clipboard.label('install');
   const choice: PlatformChoiceService = new PlatformChoiceService();
   const chosen: void = choice.choose('web');
-  const feature: FeatureService = new FeatureService();
+  const feature: FeatureService = new FeatureService({
+    route: '/docs/features/routing/', catalogue: {groups: [], features: []},
+  });
   const slug: string = feature.id;
   const featureSource: string = feature.source;
   const featureEntry: __TachyonKotlinModels.FeatureEntry = feature.entry();
@@ -19,6 +21,10 @@ function checkComposedServices(): void {
   feature.initialize();
   // @ts-expect-error The actual page path is a String input.
   feature.route = 42;
+  // @ts-expect-error Required component inputs cannot be omitted.
+  new FeatureService();
+  // @ts-expect-error The actual component also requires its typed catalogue.
+  new FeatureService({route: '/docs/features/routing/'});
   const topic: TopicService = new TopicService();
   const sections = topic.sections();
   const heading: string | undefined = sections[0]?.heading;
