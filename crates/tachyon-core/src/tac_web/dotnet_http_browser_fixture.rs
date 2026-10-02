@@ -8,7 +8,7 @@ impl DotnetHttpBrowserFixture {
         "TAC_BIN",
         "TAC_DOTNET_HTTP_SOURCE_COMMIT",
     ];
-    const FILES: [(&'static str, &'static str); 8] = [
+    const CLIENT_FILES: [(&'static str, &'static str); 6] = [
         (
             "client/components/http/probe/tac.html",
             include_str!(
@@ -37,6 +37,8 @@ impl DotnetHttpBrowserFixture {
             "client/setups/OverrideHttpSetup.cs",
             include_str!("../../tests/fixtures/tac-dotnet-http/client/setups/OverrideHttpSetup.cs"),
         ),
+    ];
+    const SERVER_FILES: [(&'static str, &'static str); 2] = [
         (
             "server/controllers/ProbeController.js",
             include_str!(
@@ -54,7 +56,7 @@ impl DotnetHttpBrowserFixture {
     async fn run() {
         let environment = OrdinaryBrowserFixture::read(Self::ENVIRONMENT);
         environment.validate();
-        environment.stage(Self::FILES);
+        environment.stage(Self::CLIENT_FILES.into_iter().chain(Self::SERVER_FILES));
         environment.build().await;
         environment
             .browser(Self::ENVIRONMENT, "scripts/dotnet-http-browser-gate.mjs")
