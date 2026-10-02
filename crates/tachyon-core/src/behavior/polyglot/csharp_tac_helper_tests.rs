@@ -282,9 +282,23 @@ fn csharp_tac_helper_allows_only_actual_interfaces_not_base_classes() {
         .expect("actual same-language interface")
         .expect("helper source");
     assert!(lowered.contains("class LabelHelper : LabelContract"));
-    let error = super::lower(Path::new("server/helpers/LabelHelper.cs"), &source, "yon")
-        .expect_err("Yon inheritance remains unchanged");
-    assert!(error.to_string().contains("cannot inherit"), "{error}");
+    let path = Path::new("server/helpers/LabelHelper.cs");
+    let input = super::super::Input {
+        path,
+        source: &source,
+        code: crate::annotation_layout::masked_source(path, &source).expect("authored source mask"),
+    };
+    let mut ty = super::declarations(&input, "cs")
+        .expect("real source declarations")
+        .into_iter()
+        .find(|ty| ty.name == "LabelHelper")
+        .expect("Helper declaration");
+    ty.policies
+        .insert("helper".to_owned(), serde_json::Value::Bool(true));
+    assert!(
+        !super::csharp_helper_interfaces::CsharpHelperInterfaces::allowed(&input, "cs", &ty)
+            .expect("Yon does not use the Tac interface allowance")
+    );
     for base in ["BaseClass", "MissingContract", "LabelContract, BaseClass"] {
         let helper = CsharpTacHelperTests::HELPER.replace(
             "class LabelHelper {",
