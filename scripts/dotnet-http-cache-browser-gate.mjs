@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { DotnetHttpBrowserGate } from './dotnet-http-browser-gate.mjs'
 import { DotnetHttpCacheTestOrigin } from './dotnet-http-cache-test-origin.mjs'
 import { DotnetHttpCacheWorkerProof } from './dotnet-http-cache-worker-proof.mjs'
+import { DotnetHttpClientChildProof } from './dotnet-http-client-child-proof.mjs'
 
 /** @typedef {import('./dotnet-http-browser-gate.mjs').HttpDiagnostics} HttpDiagnostics */
 /** @typedef {{path: string, method: string, cache: RequestCache, credentials: RequestCredentials, authorization: boolean}} CacheRequest */
@@ -104,12 +105,16 @@ class DotnetHttpCacheBrowserGate {
     DotnetHttpCacheBrowserGate.#checkRequests(requests)
     const privateProvider = await DotnetHttpCacheBrowserGate.#privateProvider(page)
     assert.equal(privateProvider, true, 'Needs-injected client is absent from the public facade')
+    diagnostics.phase = 'owned-child-context-cancellation'
+    const childLifetime = await new DotnetHttpClientChildProof(page).run()
+    DotnetHttpCacheBrowserGate.#checkAdditionalRequests(await DotnetHttpCacheBrowserGate.#requests(page))
     assert.deepEqual(diagnostics.errors, [])
-    assert.deepEqual(diagnostics.failedRequests, [])
+    assert.ok(diagnostics.failedRequests.length > 0, 'the deliberately cancelled Client HTTP request is observed')
+    assert.ok(diagnostics.failedRequests.every(request => request.path === '/api/cached-probe/slow'))
     assert.deepEqual(diagnostics.externalRequests, [])
-    assert.deepEqual(diagnostics.requests, ['/api/cached-probe', '/api/cached-probe', '/api/cached-probe'])
+    assert.deepEqual(diagnostics.requests, ['/api/cached-probe', '/api/cached-probe', '/api/cached-probe', '/api/cached-probe/slow', '/api/cached-probe'])
     diagnostics.phase = 'complete'
-    return { requests, responseHeaders: headers, privateProvider, requestRevalidationQualified: true, serviceWorkerQualified: false, responseEligibleForServiceWorker: !headers.vary && !/\b(?:private|no-store)\b/i.test(headers['cache-control'] ?? '') }
+    return { requests, childLifetime, responseHeaders: headers, privateProvider, requestRevalidationQualified: true, serviceWorkerQualified: false, responseEligibleForServiceWorker: !headers.vary && !/\b(?:private|no-store)\b/i.test(headers['cache-control'] ?? '') }
   }
 
   /** @param {import('playwright').Page} page @returns {Promise<void>} */
@@ -122,7 +127,7 @@ class DotnetHttpCacheBrowserGate {
       globalThis.fetch = (input, options) => {
         const source = input instanceof Request ? input : undefined
         const url = new URL(source?.url ?? String(input), location.href)
-        if (url.pathname === '/api/cached-probe' && requests.length < 8) {
+        if (['/api/cached-probe', '/api/cached-probe/slow'].includes(url.pathname) && requests.length < 8) {
           const headers = new Headers(options?.headers ?? source?.headers)
           requests.push({ path: url.pathname, method: options?.method ?? source?.method ?? 'GET', cache: options?.cache ?? source?.cache ?? 'default', credentials: options?.credentials ?? source?.credentials ?? 'same-origin', authorization: headers.has('authorization') })
         }
@@ -188,6 +193,14 @@ class DotnetHttpCacheBrowserGate {
       { path: '/api/cached-probe', method: 'GET', cache: 'default', credentials: 'omit', authorization: false },
       { path: '/api/cached-probe', method: 'POST', cache: 'no-store', credentials: 'omit', authorization: false },
       { path: '/api/cached-probe', method: 'GET', cache: 'no-cache', credentials: 'omit', authorization: false },
+    ])
+  }
+
+  /** @param {CacheRequest[]} requests @returns {void} */
+  static #checkAdditionalRequests(requests) {
+    assert.deepEqual(requests.slice(3), [
+      { path: '/api/cached-probe/slow', method: 'GET', cache: 'no-store', credentials: 'omit', authorization: false },
+      DotnetHttpCacheBrowserGate.#expectedRequest('GET', 'default'),
     ])
   }
 

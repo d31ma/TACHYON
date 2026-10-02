@@ -39,6 +39,13 @@ public sealed class CachedHttpService
         return answer;
     }
 
+    public async System.Threading.Tasks.Task<BehaviorJSON> slow()
+    {
+        var answer = await _cachedProbeClient.slow();
+        Last = answer.Get(MessageField).Text;
+        return answer;
+    }
+
     public async System.Threading.Tasks.Task<BehaviorJSON> offlineRead()
     {
         var answer = await _offlineProbeClient.read();

@@ -9,4 +9,7 @@ public interface CachedProbeClient
     [ClearCache({"method":"read"})]
     [PostRequest]
     System.Threading.Tasks.Task<BehaviorJSON> save();
+
+    [GetRequest("/slow")]
+    System.Threading.Tasks.Task<BehaviorJSON> slow();
 }
