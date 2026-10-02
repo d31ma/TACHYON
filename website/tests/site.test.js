@@ -384,6 +384,30 @@ describe('language coverage', () => {
     expect(JSON.stringify(docs)).not.toMatch(/\.modules?\.json/)
   })
 
+  test('first-app restores only the qualified Dart server-call slice and retains the Fake prerequisite', async () => {
+    const docs = JSON.parse(await read('client/shared/data/docs.json'))
+    const sections = docs.topics['first-app'].sections
+    const step4 = sections.find(section => section.heading.startsWith('Step 4:'))
+    expect(step4.axis).toBe('language')
+    const source = name => step4.files.find(file => file.name === name).code
+    for (const extension of ['js', 'ts', 'dart']) {
+      expect(source(`client/remotes/GreetingClient.${extension}`)).toContain('@GetRequest(')
+      expect(source(`client/services/CounterService.${extension}`)).toContain('@Needs')
+    }
+    expect(source('client/remotes/GreetingClient.dart')).toContain('Future<Greeting> getGreeting();')
+    expect(source('client/services/CounterService.dart')).toContain('Future<void> askServer() async')
+    expect(source('client/services/CounterService.dart')).toContain('await greetingClient.getGreeting()')
+    expect(source('client/services/CounterService.dart')).not.toContain('GreetingClient(')
+    expect(source('client/services/CounterService.dart')).not.toContain('fetch(')
+    expect(source('client/setups/GreetingSetup.dart')).toContain('return BehaviorAdapters();')
+    expect(step4.body).toContain('Credentials are omitted')
+    expect(step4.body).toContain('same-origin only')
+    const step5 = sections.find(section => section.heading.startsWith('Step 5:'))
+    expect(step5.files.some(file => file.name === 'client/tests/CounterServiceTest.dart')).toBe(false)
+    expect(step5.body).toContain('Test.construct/Fake')
+    expect(step5.files.some(file => file.name === 'server/tests/GreetingControllerTest.dart')).toBe(true)
+  })
+
   test('application HTTP recipes use an HTTPClient, and cached reads use Cached on the client', async () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     for (const section of [docs.topics.cookbook.sections[1], docs.topics['application-configuration'].sections.find(section => section.heading.startsWith('Public Tac output'))]) {
