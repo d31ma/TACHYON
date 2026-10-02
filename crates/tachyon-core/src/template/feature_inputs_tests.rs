@@ -81,12 +81,12 @@ fn website_feature_inputs_refuse_missing_or_differently_spelled_bindings() {
 }
 
 #[test]
-fn website_feature_construction_only_requires_the_captured_title_provider() {
+fn website_feature_test_construction_injects_title_before_explicit_component_inputs() {
     let path = Path::new("client/services/FeatureService.kt");
     let roles = crate::behavior::ServiceRoles::read(path, FeatureInputsTests::SERVICE)
         .expect("service role");
     let source = crate::behavior::lower(path, &roles.source, "tac")
-        .expect("declared NeedsAll input syntax")
+        .expect("canonical NeedsAll role and separate provider construction")
         .expect("lowered feature service");
     assert!(
         source.contains("constructor(documentTitle: DocumentTitle)"),

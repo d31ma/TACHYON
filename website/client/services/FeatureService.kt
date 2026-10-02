@@ -3,7 +3,7 @@ import models.FeatureEntry
 import models.SnippetFile
 
 @Service
-@NeedsAll("documentTitle")
+@NeedsAll
 class FeatureService {
     lateinit var route: String
     lateinit var catalogue: FeatureCatalogue

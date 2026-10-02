@@ -182,7 +182,7 @@ describe('published output', () => {
 
   test('the Kotlin feature page receives genuine catalogue props and an injected title provider', async () => {
     const source = await read('client/services/FeatureService.kt')
-    expect(source).toContain('@NeedsAll("documentTitle")')
+    expect(source).toMatch(/^@NeedsAll$/m)
     expect(source).toMatch(/@Needs\n\s*private val documentTitle: DocumentTitle/)
     expect(source).toContain('lateinit var route: String')
     expect(source).toContain('lateinit var catalogue: FeatureCatalogue')
