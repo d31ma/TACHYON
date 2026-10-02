@@ -25,10 +25,10 @@ impl FsharpTaskResults {
     }
 
     fn signature(view: &FsharpView, source: &str, line: &str) -> Result<(), Failure> {
-        for kind in Self::task_kind(line).into_iter() {
-            Self::result(view, source, line, kind)?;
-        }
-        Ok(())
+        Self::task_kind(line)
+            .map(|kind| Self::result(view, source, line, kind))
+            .transpose()
+            .map(|_| ())
     }
 
     fn task_kind(line: &str) -> Option<&str> {
