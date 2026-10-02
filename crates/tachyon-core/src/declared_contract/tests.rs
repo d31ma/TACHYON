@@ -352,7 +352,7 @@ fn tac_clients_create_their_context_when_they_are_built() {
         ("kt", "init {"),
         (
             "cs",
-            "public BehaviorContext behaviors = Behaviors.create(typeof(CatalogSetup)",
+            "public CatalogClient() : this(Behaviors.create(typeof(CatalogSetup)",
         ),
         (
             "dart",

@@ -37,6 +37,8 @@ mod converter_tests;
 #[allow(clippy::expect_used)]
 mod crud_tests;
 #[cfg(test)]
+mod csharp_tac_context_tests;
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod dart_tac_context_tests;
 #[cfg(test)]

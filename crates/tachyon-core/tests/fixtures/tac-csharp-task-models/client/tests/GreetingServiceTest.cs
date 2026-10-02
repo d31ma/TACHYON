@@ -6,6 +6,10 @@ public sealed class GreetingServiceTest
 
     void testTypedFakeKeepsModelAndIndependentOwners()
     {
+        var nullRefused = false;
+        try { new GreetingClient(null); }
+        catch (System.ArgumentNullException) { nullRefused = true; }
+        Assert.isTrue(nullRefused);
         using var signal = new BehaviorSignal();
         using var context = Behaviors.create(typeof(GreetingFakeSetup), "typed-fake", signal);
         _greetingClient = new GreetingClient(context);

@@ -14,6 +14,12 @@ impl ContextTemplate {
         "final BehaviorContext? _suppliedContext;\nlate final BehaviorContext behaviors = _suppliedContext ?? Behaviors.create({setup}, partition: '{partition}', signal: BehaviorSignal());",
         "{owner}([this._suppliedContext]);",
     );
+    const CSHARP_TAC_HTTP: Self = Self::new(
+        "cs-tac",
+        "private readonly BehaviorContext behaviors;",
+        "public {owner}() : this(Behaviors.create(typeof({setup}), \"{partition}\", new BehaviorSignal())) {}\npublic {owner}(BehaviorContext context) {\n    behaviors = context ?? throw new System.ArgumentNullException(nameof(context));\n}",
+    );
+    const HTTP_TEMPLATES: [Self; 2] = [Self::DART_TAC_HTTP, Self::CSHARP_TAC_HTTP];
     const HTTP_CLIENT: &'static str = "HTTPClient";
     const TEMPLATES: [Self; 22] = [
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),
@@ -148,10 +154,12 @@ impl ContextTemplate {
     }
 
     fn http_template(contract: &str, keys: &[String]) -> Option<Self> {
-        ([
-            contract == Self::HTTP_CLIENT,
-            keys.contains(&Self::DART_TAC_HTTP.key.to_owned()),
-        ] == [true, true])
-        .then_some(Self::DART_TAC_HTTP)
+        Self::http_template_for(keys).filter(|_| contract == Self::HTTP_CLIENT)
+    }
+
+    fn http_template_for(keys: &[String]) -> Option<Self> {
+        Self::HTTP_TEMPLATES
+            .into_iter()
+            .find(|template| keys.contains(&template.key.to_owned()))
     }
 }
