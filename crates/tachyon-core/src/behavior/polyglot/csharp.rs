@@ -24,7 +24,16 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         if let Some(unit) = polyglot_unit(type_declaration) {
             edits.push(Edit {
                 range: type_declaration.body.start..type_declaration.body.start,
-                replacement: test_members(&unit, &module.environment),
+                replacement: format!(
+                    "{}{}",
+                    test_members(&unit, &module.environment),
+                    super::typed_test_construction::TypedTestConstruction::members(
+                        module,
+                        type_declaration,
+                        &unit,
+                        "cs",
+                    ),
+                ),
             });
         }
         let methods = lower_methods(module, type_declaration, &mut edits)?;
