@@ -384,6 +384,7 @@ pub(super) fn swift_source(
             MacOsHostGenerator::capability_registration(companion_call),
         )
         .replace("__TACHYON_RUST_SHIM__", rust_shim)
+        .replace("__NATIVE_MENUS__", include_str!("menus/MacOsMenus.swift"))
 }
 
 #[cfg(test)]
@@ -474,6 +475,7 @@ __NATIVE_CAPABILITY_MODELS__
 __NATIVE_FILE_PICKER__
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
+__NATIVE_MENUS__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
@@ -704,6 +706,7 @@ private func tachyonRelayPublish(_ payload: String) {
 private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private var window: NSWindow?
     private var webView: WKWebView?
+    private var menus: MacOsMenus?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MacOsFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
@@ -742,9 +745,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
         window.contentView = view
         window.center()
         window.contentMinSize = NSSize(width: __WINDOW_MIN_WIDTH__, height: __WINDOW_MIN_HEIGHT__)
+        window.collectionBehavior.insert(.fullScreenPrimary)
         window.makeKeyAndOrderFront(nil)
         self.window = window
         NativeBridge.shared.window = window
+        let menus = MacOsMenus()
+        menus.install(NSApplication.shared, window, "__APP_NAME__")
+        self.menus = menus
         NSApplication.shared.activate(ignoringOtherApps: true)
 
         view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))

@@ -29,6 +29,8 @@ mod kotlin_document_title_scope_tests;
 mod linux;
 mod linux_window_controls;
 mod macos;
+#[cfg(all(test, target_os = "macos"))]
+mod macos_menu_tests;
 #[cfg(test)]
 mod managed_capability_tests;
 mod managed_native_capabilities;
