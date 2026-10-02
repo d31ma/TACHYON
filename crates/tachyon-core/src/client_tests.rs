@@ -26,6 +26,7 @@ pub struct TestReport {
 
 mod fsharp_unit;
 mod python_unit;
+mod test_unit_error;
 
 #[cfg(test)]
 mod java_construct_tests;
@@ -870,11 +871,7 @@ fn execute(command: &mut Command, portable: &str) -> Result<String, Failure> {
     if output.status.success() {
         return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
     }
-    let summary = String::from_utf8_lossy(&output.stderr)
-        .lines()
-        .take(6)
-        .collect::<Vec<_>>()
-        .join(" ");
+    let summary = test_unit_error::TestUnitError::summary(&output.stderr, &output.stdout);
     Err(fail(
         portable,
         format!("The test unit did not run: {summary}"),
