@@ -51,10 +51,14 @@ class TaskBridgeChecks {
     const old = target.load('obsolete')
     if (!(old instanceof Promise) || pending.length !== 1) throw new Error('Task was replayed or not a Promise')
     const oldOwner = pending[0].request.owner
+    const retained = target.load
     target.__tachyonDispose()
+    let refused = false
+    try { await retained('retired') } catch (error) { refused = error.code === 'CANCELLED' }
+    if (!refused || pending.length !== 1) throw new Error('retired method invoked the transport')
     activate(target, 'delay', {}, { listeners: [], topics: {} })
     pending.shift().resolve(JSON.stringify({ value: { message: 'obsolete' } }))
-    let refused = false
+    refused = false
     try { await old } catch (error) { refused = error.code === 'CANCELLED' }
     if (!refused || changes !== 0) throw new Error('retired Promise applied or notified a remounted target')
     const replacement = target.load('replacement')

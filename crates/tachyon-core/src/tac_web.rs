@@ -450,6 +450,7 @@ const requireTaskTarget = (current) => {
 }
 /** @param {Record<string, unknown>} request @param {() => boolean} current @param {() => void} changed @returns {Promise<unknown>} */
 const taskChange = async (request, current, changed) => {
+  requireTaskTarget(current)
   try {
     const answer = await invokeAsync(request)
     requireTaskTarget(current)
@@ -667,7 +668,11 @@ export const activate = (target, service, properties, plan) => {
 }
 
 #[cfg(test)]
+mod dotnet_task_browser_fixture;
+#[cfg(test)]
 mod dotnet_task_tests;
+#[cfg(test)]
+mod ordinary_browser_fixture;
 #[cfg(test)]
 mod reach_tests;
 
