@@ -62,8 +62,11 @@ public sealed class CallerOwnedHelperTest
         Assert.equals("first", (await first.restClient("probe").get("/probe").retrieve()).Get("message").Text);
         Assert.equals("second", (await second.restClient("probe").get("/probe").retrieve()).Get("message").Text);
         first.Dispose();
-        var error = await Assert.throws(async () => { await first.restClient("probe").get("/probe").retrieve(); });
-        Assert.equals("CANCELLED", ((BehaviorError)error).Code);
+        BehaviorError error = null;
+        try { await first.restClient("probe").get("/probe").retrieve(); }
+        catch (BehaviorError failure) { error = failure; }
+        Assert.isTrue(error != null);
+        Assert.equals("CANCELLED", error.Code);
         Assert.equals("second", (await second.restClient("probe").get("/probe").retrieve()).Get("message").Text);
     }
 
