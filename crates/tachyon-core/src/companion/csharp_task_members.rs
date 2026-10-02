@@ -30,7 +30,7 @@ impl CsharpTaskMembers {
         let mut depth = 0_i32;
         for line in body.lines() {
             let entering = depth;
-            depth += Self::brace_change(line);
+            depth = depth.saturating_add(Self::brace_change(line));
             Self::append(&mut entries, (entering, line), (&code, path), context)?;
         }
         Ok(entries)
@@ -41,7 +41,8 @@ impl CsharpTaskMembers {
     }
 
     fn brace_count(line: &str, brace: char) -> i32 {
-        line.chars().filter(|character| *character == brace).count() as i32
+        i32::try_from(line.chars().filter(|character| *character == brace).count())
+            .unwrap_or(i32::MAX)
     }
 
     fn append(
@@ -50,10 +51,11 @@ impl CsharpTaskMembers {
         origin: (&str, &str),
         context: (&ModelTable, &[String]),
     ) -> Result<(), Failure> {
-        for selected in (line.0 == 0).then_some(line.1).into_iter() {
-            Self::append_member(entries, selected, origin, context)?;
-        }
-        Ok(())
+        (line.0 == 0)
+            .then_some(line.1)
+            .map(|selected| Self::append_member(entries, selected, origin, context))
+            .transpose()
+            .map(|_| ())
     }
 
     fn append_member(
@@ -62,10 +64,10 @@ impl CsharpTaskMembers {
         origin: (&str, &str),
         context: (&ModelTable, &[String]),
     ) -> Result<(), Failure> {
-        for member in Self::member(line).into_iter() {
-            Self::append_result(entries, &member, (origin, line), context)?;
-        }
-        Ok(())
+        Self::member(line)
+            .map(|member| Self::append_result(entries, &member, (origin, line), context))
+            .transpose()
+            .map(|_| ())
     }
 
     fn append_result(

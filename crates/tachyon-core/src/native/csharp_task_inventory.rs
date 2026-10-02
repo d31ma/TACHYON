@@ -43,17 +43,23 @@ impl CsharpTaskInventory {
         origin: (&Path, &[String]),
         extra: &str,
     ) -> Result<String, Failure> {
-        let mut entries = extra.to_owned();
-        for selected in Self::selected(item).then_some(item).into_iter() {
-            let model_entries = crate::companion::CsharpTaskMembers::entries(
-                source,
-                &origin.0.to_string_lossy(),
-                &Self::models(selected, origin.0)?,
-                origin.1,
-            )?;
-            entries.insert_str(0, &model_entries);
-        }
-        Ok(entries)
+        let entries = Self::selected(item)
+            .then(|| Self::model_entries(item, source, origin))
+            .transpose()?;
+        Ok(format!("{}{extra}", entries.as_deref().unwrap_or("")))
+    }
+
+    fn model_entries(
+        item: &NativeCompanionInput,
+        source: &str,
+        origin: (&Path, &[String]),
+    ) -> Result<String, Failure> {
+        crate::companion::CsharpTaskMembers::entries(
+            source,
+            &origin.0.to_string_lossy(),
+            &Self::models(item, origin.0)?,
+            origin.1,
+        )
     }
 
     fn lowerer(

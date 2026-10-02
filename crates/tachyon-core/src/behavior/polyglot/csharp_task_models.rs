@@ -24,14 +24,12 @@ impl CsharpTaskModels {
         let rewritten = crate::behavior::HttpClientSource::rewrite(path, source)?
             .unwrap_or_else(|| source.to_owned());
         let roles = crate::behavior::ServiceRoles::read(path, &rewritten)?.source;
-        let mut result = None;
-        for prepared in super::prepare(path, &roles, "tac")?.into_iter() {
-            result = Some(
+        super::prepare(path, &roles, "tac")?
+            .map(|prepared| {
                 Self::lower_prepared(prepared, models)
-                    .map_err(|message| super::module_failure(path, source, message))?,
-            );
-        }
-        Ok(result)
+                    .map_err(|message| super::module_failure(path, source, message))
+            })
+            .transpose()
     }
 
     fn lower_prepared(prepared: Prepared, models: &ModelTable) -> Result<String, String> {
@@ -59,20 +57,26 @@ impl CsharpTaskModels {
     }
 
     fn describe_method(method: &mut Method, models: &ModelTable) -> Result<(), String> {
-        for selected in (!method.metadata.is_empty()).then_some(method).into_iter() {
-            Self::describe_result(selected, models)?;
-        }
-        Ok(())
+        (!method.metadata.is_empty())
+            .then_some(method)
+            .map(|selected| Self::describe_result(selected, models))
+            .transpose()
+            .map(|_| ())
     }
 
     fn describe_result(method: &mut Method, models: &ModelTable) -> Result<(), String> {
-        for name in CsharpTaskResult::model(&method.return_type, models)?.into_iter() {
-            Self::require_exchange(method)?;
-            method.metadata.insert(
-                "tacModelResult".to_owned(),
-                serde_json::json!({"name": name, "models": models.event_models(&name)?}),
-            );
-        }
+        CsharpTaskResult::model(&method.return_type, models)?
+            .map(|name| Self::describe_model(method, models, &name))
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn describe_model(method: &mut Method, models: &ModelTable, name: &str) -> Result<(), String> {
+        Self::require_exchange(method)?;
+        method.metadata.insert(
+            "tacModelResult".to_owned(),
+            serde_json::json!({"name": name, "models": models.event_models(name)?}),
+        );
         Ok(())
     }
 
