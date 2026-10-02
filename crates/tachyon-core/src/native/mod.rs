@@ -10,6 +10,7 @@ mod events;
 mod file_picker_sources;
 mod fsharp_behaviors_project;
 mod fsharp_service;
+mod fsharp_task_results;
 mod fsharp_service_events;
 mod fsharp_web_project;
 mod go;

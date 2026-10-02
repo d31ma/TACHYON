@@ -3,18 +3,35 @@ use std::fmt::Write as _;
 pub(super) struct CsharpBrowserBindings;
 
 impl CsharpBrowserBindings {
+    #[cfg(test)]
     pub(super) fn read(authored: &str) -> String {
-        Self::render(&Self::namespaces(authored))
+        Self::read_with_runtime(authored, "")
+    }
+
+    pub(super) fn read_with_runtime(authored: &str, runtime: &str) -> String {
+        let mut namespaces = Self::namespaces(authored);
+        namespaces.extend(Self::namespaces(runtime));
+        namespaces.sort_unstable();
+        namespaces.dedup();
+        Self::render(&namespaces)
     }
 
     fn namespaces(authored: &str) -> Vec<usize> {
         authored
             .split("namespace TachyonService")
             .skip(1)
-            .enumerate()
-            .filter(|(_, source)| source.contains("internal static class BehaviorBrowserHttp"))
-            .map(|(index, _)| index)
+            .filter(|source| source.contains("internal static class BehaviorBrowserHttp"))
+            .filter_map(Self::namespace_index)
             .collect()
+    }
+
+    fn namespace_index(source: &str) -> Option<usize> {
+        let end = source.find(|character: char| !character.is_ascii_digit())?;
+        source[end..]
+            .trim_start()
+            .starts_with('{')
+            .then(|| source[..end].parse().ok())
+            .flatten()
     }
 
     fn render(namespaces: &[usize]) -> String {

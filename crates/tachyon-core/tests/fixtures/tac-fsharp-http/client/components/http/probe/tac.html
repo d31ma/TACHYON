@@ -1,0 +1,8 @@
+<main aria-label="Ordinary .NET HTTP fixture">
+  <p id="http-answer">{httpProbe.last}</p>
+  <p id="http-override-answer">{httpProbe.overrideLast}</p>
+  <button id="http-read" on:click="httpProbe.read()">Ask Yon</button>
+  <button id="http-slow" on:click="httpProbe.slow()">Wait for Yon</button>
+  <button id="http-invalid" on:click="httpProbe.invalidPath()">Refuse unsafe path</button>
+  <button id="http-custom" on:click="httpProbe.custom()">Use explicit adapter</button>
+</main>

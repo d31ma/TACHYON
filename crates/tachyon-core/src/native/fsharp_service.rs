@@ -1,4 +1,5 @@
 use super::fsharp_service_events::FsharpServiceEvents;
+use super::fsharp_task_results::FsharpTaskResults;
 use super::registry::NativeCompanionInput;
 use crate::Failure;
 use crate::behavior::{DetachedCsharp, ServiceRoles};
@@ -36,11 +37,12 @@ impl FsharpService {
         let authored = assembled.as_deref().unwrap_or(authored);
         let view = FsharpView::tac(relative, authored);
         FsharpSource::refuse_unsupported(&view, relative, authored)?;
+        FsharpTaskResults::require(&view, item.web_assembly)?;
         let needs_all = crate::fsharp_source::FsharpConstructorProps::needs_all(authored);
         let events = FsharpServiceEvents::read(&view, &item.snapshot_root, &item.class, needs_all)?;
         let shadow_path = view.path().to_string_lossy().replace('\\', "/");
         let table = crate::companion::owner_table(
-            CompanionLanguage::CSharp,
+            CompanionLanguage::CSharp.for_web(item.web_assembly),
             view.text(),
             &shadow_path,
             &events.prepared.excluded,
@@ -130,5 +132,58 @@ mod tests {
             body.contains("new SignalService() { Publisher = new ApplicationEventPublisher() }"),
             "{body}"
         );
+    }
+
+    #[test]
+    fn fsharp_browser_tasks_use_existing_continuations_while_native_keeps_sync_calls() {
+        let source = "[<Service>]\ntype WaitingService() =\n    member this.Read() : Task<BehaviorJSON> =\n        Task.FromResult(BehaviorJSON.Parse(\"null\"))\n\n    member this.Pause() : Task =\n        Task.CompletedTask\n\n    member val Seen : int = 0 with get, set\n";
+        let browser = body_of("WaitingService", source);
+        assert!(browser.contains("TacMember.TaskMethod(async arguments =>"));
+        assert!(browser.contains("return Tac.PlainJson(await Instance.Read())"));
+        assert!(browser.contains("await Instance.Pause(); return null;"));
+        assert!(!browser.contains("Instance.Read().GetAwaiter().GetResult()"));
+        let root = tempfile::tempdir().expect("project");
+        let item = NativeCompanionInput {
+            snapshot_root: root.path().to_path_buf(),
+            language: NativeCompanion::CSharp,
+            source: root.path().join("client/services/WaitingService.fs"),
+            service: String::from("waiting"),
+            class: String::from("WaitingService"),
+            web_assembly: false,
+            application_provider: false,
+        };
+        let native = FsharpService::body(&item, source).expect("native table");
+        assert!(native.contains("Instance.Read().GetAwaiter().GetResult()"));
+        assert!(!native.contains("TacMember.TaskMethod("));
+    }
+
+    #[test]
+    fn fsharp_browser_unknown_record_container_and_value_task_results_are_located() {
+        for kind in [
+            "Task<Greeting>",
+            "Task<list<int>>",
+            "ValueTask<BehaviorJSON>",
+        ] {
+            let source = format!(
+                "[<Service>]\ntype WaitingService() =\n    member this.Read() : {kind} =\n        Unchecked.defaultof<{kind}>\n"
+            );
+            let root = tempfile::tempdir().expect("project");
+            let item = NativeCompanionInput {
+                snapshot_root: root.path().to_path_buf(),
+                language: NativeCompanion::CSharp,
+                source: root.path().join("client/services/WaitingService.fs"),
+                service: String::from("waiting"),
+                class: String::from("WaitingService"),
+                web_assembly: true,
+                application_provider: false,
+            };
+            let failure = FsharpService::body(&item, &source).expect_err("unsupported Task shape");
+            assert!(failure.to_string().contains("Task<BehaviorJSON>"));
+            assert!(failure.diagnostics().iter().any(|item| {
+                item.spans
+                    .iter()
+                    .any(|span| span.file.ends_with("WaitingService.fs"))
+            }));
+        }
     }
 }
