@@ -1,6 +1,7 @@
 use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::diagnostic;
+use dart_http_constructor::DartHttpConstructor;
 use dart_model_shape::DartModelShape;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -8,6 +9,9 @@ use std::ops::Range;
 use std::path::Path;
 use wasm_program::WasmProgram;
 
+mod dart_http_constructor;
+#[cfg(test)]
+mod dart_http_constructor_tests;
 mod dart_http_scope;
 mod dart_model_shape;
 mod wasm_program;
@@ -960,10 +964,13 @@ fn construct(
         .find(|class| class.name == name)
         .ok_or_else(|| format!("collaborator {name} is not a class in the service's unit"))?;
     visiting.push(name.to_owned());
-    let parameters = class.constructor.clone().unwrap_or_default();
-    let arguments = constructor_arguments(classes, class, &parameters, visiting, out)?;
+    let parameters = DartHttpConstructor::required(
+        class.constructor.as_deref().unwrap_or_default(),
+        &class.declared,
+    );
+    let arguments = constructor_arguments(classes, class, parameters, visiting, out)?;
     visiting.pop();
-    let publishers = publisher_assignments(class, &parameters);
+    let publishers = publisher_assignments(class, parameters);
     let _ = write!(
         out,
         "  static {name} make_{name}(Map<String, Object> graph, Map<String, Object?> properties, JSFunction? publish) =>\n\
