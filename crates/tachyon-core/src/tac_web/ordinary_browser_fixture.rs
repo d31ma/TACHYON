@@ -78,10 +78,13 @@ impl OrdinaryBrowserFixture {
             "fixture source path is too deep"
         );
         assert!(
-            path.components()
-                .all(|component| matches!(component, std::path::Component::Normal(_))),
+            path.components().all(Self::normal_source_component),
             "fixture source paths must be relative without dot segments"
         );
+    }
+
+    fn normal_source_component(component: std::path::Component<'_>) -> bool {
+        matches!(component, std::path::Component::Normal(_))
     }
 
     fn source_directory(source_root: &Path, relative: &Path) -> Dir {
@@ -151,9 +154,19 @@ impl OrdinaryBrowserFixture {
     }
 
     pub(super) async fn browser(&self, names: [&str; 3], script: &str) {
+        self.browser_with_arguments(names, script, &[]).await;
+    }
+
+    pub(super) async fn browser_with_arguments(
+        &self,
+        names: [&str; 3],
+        script: &str,
+        arguments: &[&str],
+    ) {
         let mut command = tokio::process::Command::new("node");
         command
             .arg(self.repo.join(script))
+            .args(arguments)
             .env(names[1], &self.binary)
             .env(names[0], &self.root)
             .env(names[2], &self.source)

@@ -57,6 +57,38 @@ async fn dotnet_cached_http_client_secure_origin_certificate_is_explicit() {
         .await;
 }
 
+#[tokio::test]
+#[ignore = "requires the explicit already-built cached HTTP fixture, its existing local test certificate and installed browser; no rebuild or certificate issuance"]
+async fn dotnet_cached_http_client_uses_real_service_worker_cache_and_revalidation() {
+    let environment = OrdinaryBrowserFixture::read(DotnetHttpCacheBrowserFixture::ENVIRONMENT);
+    environment.validate();
+    assert!(
+        environment.root.join("dist").is_dir(),
+        "built fixture required"
+    );
+    assert!(
+        environment
+            .root
+            .join("dotnet-http-cache-test-key.pem")
+            .is_file(),
+        "existing test key required"
+    );
+    assert!(
+        environment
+            .root
+            .join("dotnet-http-cache-test-cert.pem")
+            .is_file(),
+        "existing test certificate required"
+    );
+    environment
+        .browser_with_arguments(
+            DotnetHttpCacheBrowserFixture::ENVIRONMENT,
+            "scripts/dotnet-http-cache-browser-gate.mjs",
+            &["--service-worker"],
+        )
+        .await;
+}
+
 #[test]
 fn csharp_cached_http_client_keeps_canonical_request_and_cache_lowering() {
     let name = DotnetHttpCacheBrowserFixture::FILES[0];
