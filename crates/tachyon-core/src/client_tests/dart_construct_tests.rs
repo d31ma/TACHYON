@@ -115,6 +115,12 @@ fn first_app_dart_cumulative_service_test_uses_owned_fake_http() {
             ),
         ),
         (
+            "client/setups/GreetingSetup.dart",
+            include_str!(
+                "../../../../website/content/docs/first-app/call-the-server/client/setups/GreetingSetup.dart"
+            ),
+        ),
+        (
             "client/tests/HelloTestSetup.dart",
             include_str!(
                 "../../../../website/content/docs/first-app/add-tests/client/tests/HelloTestSetup.dart"

@@ -65,6 +65,11 @@ impl Converters {
             _ => Ok(String::new()),
         }
     }
+
+    pub(crate) fn dart_tac_test_text(root: &Path) -> Result<String, String> {
+        let files = ModelFolder::read_realm(root, "client", "dart")?;
+        Ok(DartConverters::text(&files))
+    }
 }
 
 struct TacRustConverters;

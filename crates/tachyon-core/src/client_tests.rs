@@ -27,6 +27,7 @@ pub struct TestReport {
 mod fsharp_unit;
 mod python_unit;
 mod test_unit_error;
+mod dart_test_models;
 
 #[cfg(test)]
 mod dart_construct_tests;
@@ -173,6 +174,7 @@ fn run_dart(
     let directory = stage_directory(portable)?;
     let models = ModelSources::read(project, "client", "dart")?;
     write_model_files(directory.path(), portable, &models)?;
+    let lowered = dart_test_models::DartTestModels::program(project, &models, &lowered, portable)?;
     let printed = dart(directory.path(), portable, &lowered, &name)?;
     checked(&printed, portable)
 }
