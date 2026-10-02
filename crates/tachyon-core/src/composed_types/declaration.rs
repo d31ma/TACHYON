@@ -1,3 +1,5 @@
+use super::browser_service_peers::BrowserServicePeers;
+
 pub(super) struct Declaration {
     path: String,
     member: String,
@@ -8,6 +10,29 @@ impl Declaration {
 
     pub(super) fn new(path: String, member: String) -> Self {
         Self { path, member }
+    }
+
+    pub(super) fn is_browser_service(&self, name: &str) -> bool {
+        self.browser_service(name)
+    }
+
+    fn browser_service(&self, name: &str) -> bool {
+        let path = std::path::Path::new(&self.path);
+        self.member == Self::DEFAULT_MEMBER
+            && path.starts_with("client/services")
+            && path.file_stem().and_then(|stem| stem.to_str()) == Some(name)
+    }
+
+    pub(super) fn is_selected_browser_service(
+        &self,
+        name: &str,
+        peers: &BrowserServicePeers,
+    ) -> bool {
+        self.selected_browser_service(name, peers)
+    }
+
+    fn selected_browser_service(&self, name: &str, peers: &BrowserServicePeers) -> bool {
+        self.member == Self::DEFAULT_MEMBER && peers.matches(name, &self.path)
     }
 
     pub(super) fn lines(&self, name: &str) -> String {

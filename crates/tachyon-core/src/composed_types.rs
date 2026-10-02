@@ -1,3 +1,4 @@
+mod browser_service_peers;
 mod composition_check;
 mod declaration;
 mod exported_class;
@@ -30,11 +31,11 @@ impl ComposedTypes {
             .map_err(|error| Self::write_failure(&error))?;
         Self::REALMS
             .iter()
-            .try_for_each(|realm| Self::write_realm_types(&project, realm))
+            .try_for_each(|realm| Self::write_realm_types(&project, realm, project_root))
     }
 
-    fn write_realm_types(project: &Dir, realm: &str) -> Result<(), Failure> {
-        let text = RealmTypes::render(project, realm)?;
+    fn write_realm_types(project: &Dir, realm: &str, root: &Path) -> Result<(), Failure> {
+        let text = RealmTypes::render(project, realm, root)?;
         Self::write_realm(project, realm, &text).map_err(|error| Self::write_failure(&error))
     }
 

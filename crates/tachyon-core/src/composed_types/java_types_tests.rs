@@ -179,9 +179,9 @@ fn invalid_java_members_and_provider_constructors_keep_located_errors() {
 }
 
 #[test]
-fn java_globals_refuse_script_and_nested_java_name_collisions() {
+fn java_globals_refuse_model_alias_and_nested_java_name_collisions() {
     for other in [
-        "client/services/ChoiceService.ts",
+        "client/models/ChoiceService.js",
         "client/services/nested/ChoiceService.java",
     ] {
         let root = tempfile::tempdir().expect("project");
@@ -190,8 +190,8 @@ fn java_globals_refuse_script_and_nested_java_name_collisions() {
             "client/services/ChoiceService.java",
             Fixtures::CHOICE,
         );
-        let source = if other.ends_with("ts") {
-            "@Service\nexport default class ChoiceService {}\n"
+        let source = if other.ends_with("js") {
+            "/** @typedef {{message: string}} ChoiceService */\n"
         } else {
             Fixtures::CHOICE
         };
@@ -295,4 +295,26 @@ fn java_composed_facades_typecheck_consumers_and_reject_wrong_arguments_and_priv
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn java_paired_default_script_keeps_the_selected_typescript_facade() {
+    let root = tempfile::tempdir().expect("project");
+    Fixtures::write(
+        root.path(),
+        "client/services/ChoiceService.ts",
+        "@Service\nexport default class ChoiceService { choose(id: string): void {} }\n",
+    );
+    let script = Fixtures::generated(root.path());
+    Fixtures::write(
+        root.path(),
+        "client/services/ChoiceService.java",
+        "@Service\nclass ChoiceService { void choose(String id) {} }\n",
+    );
+    let paired = Fixtures::generated(root.path());
+    assert_eq!(
+        paired, script,
+        "the runtime selects the actual script provider, including its import type"
+    );
+    assert!(!paired.contains("interface ChoiceService {"), "{paired}");
 }

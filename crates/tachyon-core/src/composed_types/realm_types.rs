@@ -1,3 +1,4 @@
+use super::browser_service_peers::BrowserServicePeers;
 use super::composition_check::CompositionCheck;
 use super::declaration::Declaration;
 use super::exported_class::ExportedClass;
@@ -12,6 +13,7 @@ use std::path::{Component, Path, PathBuf};
 pub(super) struct RealmTypes<'a> {
     project: &'a Dir,
     realm: &'a str,
+    root: &'a Path,
     entry_count: usize,
     declarations: BTreeMap<String, Declaration>,
     models: BTreeMap<String, ModelDeclaration>,
@@ -28,10 +30,15 @@ impl<'a> RealmTypes<'a> {
     const MODEL_FOLDER: &'static str = "models";
     const MODEL_EXTENSION: &'static str = "js";
 
-    pub(super) fn render(project: &'a Dir, realm: &'a str) -> Result<String, Failure> {
+    pub(super) fn render(
+        project: &'a Dir,
+        realm: &'a str,
+        root: &'a Path,
+    ) -> Result<String, Failure> {
         let mut types = Self {
             project,
             realm,
+            root,
             entry_count: 0,
             declarations: BTreeMap::new(),
             models: BTreeMap::new(),
@@ -259,11 +266,36 @@ impl<'a> RealmTypes<'a> {
             .chain(self.models.keys())
             .cloned()
             .collect::<Vec<_>>();
-        let java = self.java.lines(&names)?;
+        let peers = self.selected_browser_services()?;
+        let java = self.java.lines(&names, &peers)?;
         let mut kotlin_names = names;
-        kotlin_names.extend(self.java.names());
-        let kotlin = self.kotlin.lines(&kotlin_names)?;
+        kotlin_names.extend(self.java.names(&peers));
+        let kotlin = self.kotlin.lines(&kotlin_names, &peers)?;
         Ok(Self::global_lines(&format!("{script}{java}{kotlin}")))
+    }
+
+    fn selected_browser_services(&self) -> Result<std::collections::BTreeSet<String>, Failure> {
+        let peers = BrowserServicePeers::read(self.root, &self.peer_candidates())?;
+        Ok(self
+            .declarations
+            .iter()
+            .filter(|(name, declaration)| declaration.is_selected_browser_service(name, &peers))
+            .map(|(name, _)| name.clone())
+            .collect())
+    }
+
+    fn peer_candidates(&self) -> std::collections::BTreeSet<String> {
+        let none = std::collections::BTreeSet::new();
+        self.java
+            .names(&none)
+            .into_iter()
+            .chain(self.kotlin.names(&none))
+            .filter(|name| {
+                self.declarations
+                    .get(name)
+                    .is_some_and(|declaration| declaration.is_browser_service(name))
+            })
+            .collect()
     }
 
     fn global_lines(lines: &str) -> String {

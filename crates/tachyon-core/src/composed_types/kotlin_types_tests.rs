@@ -194,11 +194,11 @@ fn kotlin_model_metadata_refusals_are_located_and_duplicate_names_cannot_merge()
 }
 
 #[test]
-fn kotlin_service_globals_refuse_script_java_and_nested_kotlin_collisions() {
+fn kotlin_service_globals_refuse_model_alias_java_and_nested_kotlin_collisions() {
     for (path, source) in [
         (
-            "client/services/ChoiceService.ts",
-            "@Service\nexport default class ChoiceService {}\n",
+            "client/models/ChoiceService.js",
+            "/** @typedef {{message: string}} ChoiceService */\n",
         ),
         (
             "client/services/ChoiceService.java",
@@ -313,4 +313,90 @@ fn kotlin_composed_readonly_getters_retain_the_authored_field_contract() {
         assert!(text.contains(expected), "{expected}: {text}");
     }
     assert!(!text.contains("get()"), "{text}");
+}
+
+#[test]
+fn generated_kotlin_native_peer_keeps_the_actual_javascript_browser_facade() {
+    let root = tempfile::tempdir().expect("project");
+    Fixtures::write(
+        root.path(),
+        "client/services/KotlinGreetingService.js",
+        include_str!("../scaffold/templates/tac/kt/services/KotlinGreetingService.js.tmpl"),
+    );
+    let script = Fixtures::generated(root.path());
+    Fixtures::write(
+        root.path(),
+        "client/services/KotlinGreetingService.kt",
+        include_str!("../scaffold/templates/tac/kt/services/KotlinGreetingService.kt.tmpl"),
+    );
+    let paired = Fixtures::generated(root.path());
+    assert_eq!(
+        paired, script,
+        "the exact generated JS/native pair has one selected browser declaration"
+    );
+    assert!(
+        paired.contains("type KotlinGreetingService = import("),
+        "{paired}"
+    );
+    assert!(
+        !paired.contains("interface KotlinGreetingService {"),
+        "{paired}"
+    );
+}
+
+#[test]
+fn selected_script_peer_cannot_hide_a_duplicate_nested_kotlin_definition() {
+    let root = tempfile::tempdir().expect("project");
+    let script =
+        include_str!("../scaffold/templates/tac/kt/services/KotlinGreetingService.js.tmpl");
+    let native =
+        include_str!("../scaffold/templates/tac/kt/services/KotlinGreetingService.kt.tmpl");
+    Fixtures::write(
+        root.path(),
+        "client/services/KotlinGreetingService.js",
+        script,
+    );
+    Fixtures::write(
+        root.path(),
+        "client/services/KotlinGreetingService.kt",
+        native,
+    );
+    Fixtures::write(
+        root.path(),
+        "client/services/nested/KotlinGreetingService.kt",
+        native,
+    );
+    let text = ComposedTypes::write(root.path())
+        .expect_err("duplicate native definition before peer omission")
+        .to_string();
+    assert!(
+        text.contains("KotlinGreetingService") && text.contains("more than one kt file"),
+        "{text}"
+    );
+    assert!(
+        text.contains("client/services/nested/KotlinGreetingService.kt"),
+        "{text}"
+    );
+}
+
+#[test]
+fn unrelated_script_export_cannot_suppress_a_native_service_collision() {
+    let root = tempfile::tempdir().expect("project");
+    Fixtures::write(
+        root.path(),
+        "client/services/ChoiceService.kt",
+        "@Service\nclass ChoiceService {\n fun answer(): Int = 42\n}\n",
+    );
+    Fixtures::write(
+        root.path(),
+        "client/services/OtherService.ts",
+        "@Service\nexport default class ChoiceService {}\n",
+    );
+    let text = ComposedTypes::write(root.path())
+        .expect_err("different source identity is not a selected peer")
+        .to_string();
+    assert!(
+        text.contains("TY1410") && text.contains("ChoiceService.kt"),
+        "{text}"
+    );
 }

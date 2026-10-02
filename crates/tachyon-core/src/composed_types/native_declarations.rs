@@ -1,6 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub(super) struct NativeDeclarations {
@@ -29,9 +29,39 @@ impl NativeDeclarations {
         Self::add_present(destination, path, source);
     }
 
-    pub(super) fn lines(&self, script_names: &[String]) -> Result<String, Failure> {
-        self.require_distinct_names(script_names)?;
-        self.render(&Self::files(&self.services), &Self::files(&self.models))
+    pub(super) fn lines(
+        &self,
+        script_names: &[String],
+        peers: &BTreeSet<String>,
+    ) -> Result<String, Failure> {
+        self.require_unique_services()?;
+        let selected = self.selected(peers);
+        selected.require_distinct_names(script_names)?;
+        selected.render(
+            &Self::files(&selected.services),
+            &Self::files(&selected.models),
+        )
+    }
+
+    fn selected(&self, peers: &BTreeSet<String>) -> Self {
+        let services = self
+            .services
+            .iter()
+            .filter(|(path, _)| Self::is_selected(path, peers))
+            .map(|(path, source)| (path.clone(), source.clone()))
+            .collect();
+        Self {
+            language: self.language,
+            extension: self.extension,
+            services,
+            models: self.models.clone(),
+        }
+    }
+
+    fn is_selected(path: &Path, peers: &BTreeSet<String>) -> bool {
+        path.file_stem()
+            .and_then(|name| name.to_str())
+            .is_none_or(|name| !peers.contains(name))
     }
 
     fn accepts_file(&self, path: &Path) -> bool {
@@ -77,7 +107,6 @@ impl NativeDeclarations {
         self.services
             .keys()
             .try_for_each(|path| self.require_unique(path, script_names))?;
-        self.require_unique_services()?;
         self.require_model_namespace(script_names)
     }
 
@@ -123,13 +152,14 @@ impl NativeDeclarations {
         }
     }
 
-    pub(super) fn names(&self) -> Vec<String> {
-        self.service_names()
+    pub(super) fn names(&self, peers: &BTreeSet<String>) -> Vec<String> {
+        self.service_names(peers)
     }
 
-    fn service_names(&self) -> Vec<String> {
+    fn service_names(&self, peers: &BTreeSet<String>) -> Vec<String> {
         self.services
             .keys()
+            .filter(|path| Self::is_selected(path, peers))
             .filter_map(|path| path.file_stem()?.to_str().map(String::from))
             .collect()
     }
