@@ -43,7 +43,10 @@ impl MacOsMenuFixture {
             contract_version: 2,
             entry_route: "/".to_owned(),
             entry_document: "index.html".to_owned(),
-            routes: Vec::new(),
+            routes: vec![super::routes::NativeRouteIndexEntry {
+                route: "/".to_owned(),
+                document: "index.html".to_owned(),
+            }],
         };
         super::macos::swift_source(
             &application,
