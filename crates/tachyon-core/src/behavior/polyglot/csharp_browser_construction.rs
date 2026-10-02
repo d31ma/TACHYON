@@ -16,7 +16,7 @@ impl CsharpBrowserConstruction {
         path: &Path,
     ) -> Result<Option<String>, String> {
         let module = Self::module(prepared);
-        let target = Self::target(module, class)?;
+        let target = Self::target(module, class);
         target
             .map(|(module, target)| Self::creation(module, target, (source, path)))
             .transpose()
@@ -29,22 +29,14 @@ impl CsharpBrowserConstruction {
         }
     }
 
-    fn target<'a>(
-        module: Option<&'a Module>,
-        class: &str,
-    ) -> Result<Option<(&'a Module, &'a Type)>, String> {
-        module
-            .map(|module| {
-                module
-                    .types
-                    .iter()
-                    .find(|target| target.name == class)
-                    .map(|target| (module, target))
-                    .ok_or_else(|| {
-                        format!("C# browser constructor has no declared Service {class}.")
-                    })
-            })
-            .transpose()
+    fn target<'a>(module: Option<&'a Module>, class: &str) -> Option<(&'a Module, &'a Type)> {
+        module.and_then(|module| {
+            module
+                .types
+                .iter()
+                .find(|target| target.name == class)
+                .map(|target| (module, target))
+        })
     }
 
     fn creation(module: &Module, target: &Type, captured: (&str, &Path)) -> Result<String, String> {
