@@ -31,6 +31,7 @@ impl Services {
             service: String::from("place"),
             class: String::from("PlaceService"),
             web_assembly,
+            application_provider: false,
         };
         source(&[input], language)
             .map(|_| ())

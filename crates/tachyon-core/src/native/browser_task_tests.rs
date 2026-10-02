@@ -24,6 +24,7 @@ impl TaskOwnerFixture {
                 service: String::from("delay"),
                 class: String::from("DelayService"),
                 web_assembly: browser,
+                application_provider: false,
             }],
             NativeCompanion::CSharp,
         )
