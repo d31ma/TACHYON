@@ -6,9 +6,15 @@ import path from 'node:path'
 import { chromium } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
+/** @typedef {{name: string, code: string}} FeatureSnippet */
+/** @typedef {{name: string | undefined, code: string | null | undefined}} RenderedFeatureSnippet */
+/** @typedef {{id: string, path: string, source: string, title: string, summary: string, group: string, verify: string | null, groupAnchor: string, files: FeatureSnippet[], found: boolean, catalogueTitle: string | undefined, catalogueFiles: FeatureSnippet[], hidden: string[]}} FeaturePageProbe */
+/** @typedef {{id: string, path: string, source: string, title: string, groupAnchor: string, files: number, renderedNames: (string | undefined)[], hidden: string[]}} FeatureBrowserResult */
+
 class WebsiteLuaGate {
   static cases = [[0, 'About 1 minute to read'], [200, 'About 1 minute to read'], [201, 'About 2 minutes to read'], [1150, 'About 6 minutes to read']]
   static routes = ['/docs/annotations/', '/docs/types-in-every-language/']
+  /** @type {string[]} */
   static featureRoutes = ['routing', 'no-such-feature', 'companion-publish', 'routing']
   static quantityCases = [[1, 'feature', '1 feature'], [12, 'feature', '12 features'], [0, 'guide', '0 guides']]
 
@@ -122,12 +128,23 @@ class WebsiteLuaGate {
     return { ...actual, renderedNames }
   }
 
+  /**
+   * @param {import('playwright').Page} page
+   * @param {string} origin
+   * @returns {Promise<FeatureBrowserResult[]>}
+   */
   static async #features(page, origin) {
     const routes = []
     for (const slug of WebsiteLuaGate.featureRoutes) routes.push(await WebsiteLuaGate.#feature(page, origin, slug))
     return routes
   }
 
+  /**
+   * @param {import('playwright').Page} page
+   * @param {string} origin
+   * @param {string} slug
+   * @returns {Promise<FeatureBrowserResult>}
+   */
   static async #feature(page, origin, slug) {
     const response = await page.goto(`${origin}/docs/features/${slug}/`)
     assert.equal(response.status(), 200, 'the genuine dynamic feature route is served')
@@ -160,6 +177,11 @@ class WebsiteLuaGate {
       groupAnchor: actual.groupAnchor, files: actual.files.length, renderedNames: rendered.map(file => file.name), hidden: actual.hidden }
   }
 
+  /**
+   * @param {FeaturePageProbe} actual
+   * @param {string} slug
+   * @returns {void}
+   */
   static #featureContract(actual, slug) {
     assert.equal(actual.id, slug)
     assert.equal(actual.path, `/docs/features/${slug}`)
@@ -169,6 +191,11 @@ class WebsiteLuaGate {
     assert.deepEqual(actual.hidden, ['undefined', 'undefined', 'undefined'], 'provider, hook and private helper stay private')
   }
 
+  /**
+   * @param {FeatureSnippet[]} files
+   * @param {RenderedFeatureSnippet[]} rendered
+   * @returns {void}
+   */
   static #featureFiles(files, rendered) {
     assert.equal(rendered.length > 0, files.length > 0, 'known features render snippets; unknown features have none')
     for (const shown of rendered) assert.deepEqual(shown, files.find(file => file.name === shown.name), 'rendered code is the original catalogue text')
