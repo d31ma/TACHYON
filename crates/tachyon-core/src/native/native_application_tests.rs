@@ -131,7 +131,7 @@ fn native_application_lifetime_is_located_and_target_scoped() {
         assert_eq!(diagnostic.spans[0].file, path.to_string_lossy());
         assert_eq!(
             diagnostic.spans[0].start,
-            roles.application.expect("authored marker")
+            u64::try_from(roles.application.expect("authored marker")).expect("marker offset")
         );
     }
     for path in [
