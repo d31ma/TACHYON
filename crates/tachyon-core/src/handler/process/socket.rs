@@ -128,16 +128,28 @@ impl SocketProcess {
         cancellation: &HandlerCancellation,
         deadline: Instant,
     ) -> Option<Result<Result<(), Failure>, JoinError>> {
-        let read = tokio::select! {
-            read = &mut reader => Some(read),
+        let read = Self::read_until(&mut reader, cancellation, deadline).await;
+        Self::settle_reader(reader, read.is_none()).await;
+        read
+    }
+
+    async fn read_until(
+        reader: &mut JoinHandle<Result<(), Failure>>,
+        cancellation: &HandlerCancellation,
+        deadline: Instant,
+    ) -> Option<Result<Result<(), Failure>, JoinError>> {
+        tokio::select! {
+            read = reader => Some(read),
             () = cancellation.cancelled() => None,
             () = sleep_until(deadline) => None,
-        };
-        if read.is_none() {
+        }
+    }
+
+    async fn settle_reader(reader: JoinHandle<Result<(), Failure>>, interrupted: bool) {
+        if interrupted {
             reader.abort();
             let _reader = reader.await;
         }
-        read
     }
 
     fn reading_result(
@@ -197,8 +209,73 @@ mod tests {
     use std::time::Duration;
     use tachyon_contracts::{HandlerRequest, HttpMethod};
     use tokio::process::Command;
-    use tokio::sync::mpsc;
+    use tokio::sync::{mpsc, oneshot};
+    use tokio::task::JoinHandle;
     use tokio::time::Instant;
+
+    struct ReaderDropSignal(Option<oneshot::Sender<()>>);
+
+    impl Drop for ReaderDropSignal {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _sent = sender.send(());
+            }
+        }
+    }
+
+    async fn pending_reader() -> (
+        JoinHandle<Result<(), crate::Failure>>,
+        oneshot::Receiver<()>,
+    ) {
+        let (started, ready) = oneshot::channel();
+        let (dropped, finished) = oneshot::channel();
+        let reader = tokio::spawn(async move {
+            let _owned = ReaderDropSignal(Some(dropped));
+            started.send(()).expect("reader holds its resource");
+            std::future::pending::<Result<(), crate::Failure>>().await
+        });
+        ready.await.expect("reader started");
+        (reader, finished)
+    }
+
+    #[tokio::test]
+    async fn cancelled_socket_reader_releases_owned_resources_before_returning() {
+        let (reader, mut dropped) = pending_reader().await;
+        let cancellation = HandlerCancellation::default();
+        cancellation.cancel();
+        let read = SocketProcess::first_finish(
+            reader,
+            &cancellation,
+            Instant::now() + Duration::from_secs(60),
+        )
+        .await;
+        assert!(read.is_none());
+        assert_eq!(dropped.try_recv(), Ok(()));
+        let failure = SocketProcess::reading_result(read, &cancellation)
+            .expect_err("cancellation must remain a failure");
+        assert!(
+            failure
+                .to_string()
+                .contains("Handler invocation was cancelled.")
+        );
+    }
+
+    #[tokio::test]
+    async fn expired_socket_reader_releases_owned_resources_before_returning() {
+        let (reader, mut dropped) = pending_reader().await;
+        let cancellation = HandlerCancellation::default();
+        let read = SocketProcess::first_finish(reader, &cancellation, Instant::now()).await;
+        assert!(read.is_none());
+        assert_eq!(dropped.try_recv(), Ok(()));
+        assert!(!cancellation.is_cancelled());
+        let failure = SocketProcess::reading_result(read, &cancellation)
+            .expect_err("deadline must remain a failure");
+        assert!(
+            failure
+                .to_string()
+                .contains("Handler invocation exceeded its deadline.")
+        );
+    }
 
     #[tokio::test]
     async fn a_handler_that_stops_after_the_close_frame_ends_the_socket_cleanly() {
