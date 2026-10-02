@@ -62,13 +62,36 @@ impl OrdinaryBrowserFixture {
         Self::execute(&mut command, Duration::from_mins(1)).await;
     }
 
+    pub(super) async fn certificate(&self, host: &str, files: [&str; 2]) {
+        let mut command = tokio::process::Command::new("openssl");
+        command
+            .args([
+                "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+            ])
+            .args(["-subj", &format!("/CN={host}")])
+            .args(["-addext", &format!("subjectAltName=DNS:{host}")])
+            .arg("-keyout")
+            .arg(self.root.join(files[0]))
+            .arg("-out")
+            .arg(self.root.join(files[1]));
+        Self::execute_bounded(&mut command, Duration::from_secs(10), 64 * 1024).await;
+    }
+
     fn required(name: &str) -> std::ffi::OsString {
         std::env::var_os(name)
             .unwrap_or_else(|| panic!("{name} must identify this explicit opt-in fixture"))
     }
 
     async fn execute(command: &mut tokio::process::Command, deadline: Duration) {
-        let output = crate::external_command::run(command, deadline, 262_144)
+        Self::execute_bounded(command, deadline, 262_144).await;
+    }
+
+    async fn execute_bounded(
+        command: &mut tokio::process::Command,
+        deadline: Duration,
+        output_limit: usize,
+    ) {
+        let output = crate::external_command::run(command, deadline, output_limit)
             .await
             .unwrap_or_else(|error| panic!("supervised ordinary browser fixture: {error}"));
         assert!(

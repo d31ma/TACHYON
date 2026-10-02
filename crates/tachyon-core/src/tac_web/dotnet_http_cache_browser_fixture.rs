@@ -69,6 +69,22 @@ async fn dotnet_cached_http_client_uses_public_yon_and_revalidates_after_clear()
     DotnetHttpCacheBrowserFixture::run().await;
 }
 
+#[tokio::test]
+#[ignore = "issues only a local test certificate for the explicit already-built cached HTTP fixture; no browser qualification"]
+async fn dotnet_cached_http_client_secure_origin_certificate_is_explicit() {
+    let environment = OrdinaryBrowserFixture::read(DotnetHttpCacheBrowserFixture::ENVIRONMENT);
+    environment.validate();
+    environment
+        .certificate(
+            "tachyon.test",
+            [
+                "dotnet-http-cache-test-key.pem",
+                "dotnet-http-cache-test-cert.pem",
+            ],
+        )
+        .await;
+}
+
 #[test]
 fn csharp_cached_http_client_keeps_canonical_request_and_cache_lowering() {
     let (name, source) = DotnetHttpCacheBrowserFixture::FILES[0];

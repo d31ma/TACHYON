@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { DotnetHttpBrowserGate } from './dotnet-http-browser-gate.mjs'
+import { DotnetHttpCacheTestOrigin } from './dotnet-http-cache-test-origin.mjs'
+import { DotnetHttpCacheWorkerProof } from './dotnet-http-cache-worker-proof.mjs'
 
 /** @typedef {import('./dotnet-http-browser-gate.mjs').HttpDiagnostics} HttpDiagnostics */
 /** @typedef {{path: string, method: string, cache: RequestCache, credentials: RequestCredentials, authorization: boolean}} CacheRequest */
@@ -9,7 +11,83 @@ import { DotnetHttpBrowserGate } from './dotnet-http-browser-gate.mjs'
 class DotnetHttpCacheBrowserGate {
   /** @returns {Promise<void>} */
   static async run() {
+    await DotnetHttpCacheBrowserGate.#selected()
+  }
+
+  /** @returns {Promise<void>} */
+  static async #selected() {
+    if (process.argv.includes('--service-worker')) return DotnetHttpCacheBrowserGate.#secure()
     await DotnetHttpBrowserGate.run(DotnetHttpCacheBrowserGate.#probe, 'ordinary C# cached HTTPClient with real public Yon, per-context answer cache and real no-cache request options; service-worker CacheStorage unqualified')
+  }
+
+  /** @returns {Promise<void>} */
+  static async #secure() {
+    assert.equal(process.env.TAC_DOTNET_HTTP_BROWSER ?? 'chromium', 'chromium', 'the named secure-origin mapping is explicitly Chromium-only')
+    const network = new DotnetHttpCacheTestOrigin()
+    await DotnetHttpBrowserGate.run((page, origin, diagnostics) => DotnetHttpCacheBrowserGate.#secureProbe(page, origin, diagnostics, network), 'ordinary C# cached HTTPClient with real Yon and real controlling service-worker CacheStorage, POST eviction and no-cache override; Chromium local TLS test identity only', {
+      origin: (upstream, fixture, probe) => network.run(upstream, fixture, probe),
+      launch: { args: ['--host-resolver-rules=MAP tachyon.test 127.0.0.1', '--ignore-certificate-errors', '--no-proxy-server'] },
+      context: { ignoreHTTPSErrors: true },
+    })
+  }
+
+  /** @param {import('playwright').Page} page @param {string} origin @param {HttpDiagnostics} diagnostics @param {DotnetHttpCacheTestOrigin} network @returns {Promise<Record<string, unknown>>} */
+  static async #secureProbe(page, origin, diagnostics, network) {
+    const testOrigin = { origin, transport: 'Local TLS forwarding of genuine supervised tyserve responses', responseHeadersRewritten: false, systemTrustChanged: false, forwardedRequests: network.requests(), upstreamFailures: network.failures() }
+    diagnostics.testOrigin = testOrigin
+    try {
+      return await DotnetHttpCacheBrowserGate.#workerProbe(page, origin, diagnostics, network)
+    } finally {
+      testOrigin.forwardedRequests = network.requests()
+      testOrigin.upstreamFailures = network.failures()
+    }
+  }
+
+  /** @param {import('playwright').Page} page @param {string} origin @param {HttpDiagnostics} diagnostics @param {DotnetHttpCacheTestOrigin} network @returns {Promise<Record<string, unknown>>} */
+  static async #workerProbe(page, origin, diagnostics, network) {
+    await DotnetHttpCacheBrowserGate.#observeFetch(page)
+    diagnostics.phase = 'secure-worker-registration'
+    await page.goto(origin, { waitUntil: 'networkidle', timeout: 15_000 })
+    await page.waitForFunction(() => document.querySelector('#cached-answer')?.textContent === 'ready')
+    const worker = new DotnetHttpCacheWorkerProof(page, origin, network)
+    const registration = await worker.registered()
+    diagnostics.phase = 'secure-worker-cache'
+    const headers = await DotnetHttpCacheBrowserGate.#firstRead(page)
+    await worker.filled()
+    await DotnetHttpCacheBrowserGate.#readAgain(page)
+    await worker.newOwner()
+    await DotnetHttpCacheBrowserGate.#write(page)
+    await worker.evicted()
+    await worker.refill()
+    await DotnetHttpCacheBrowserGate.#readAfterWrite(page)
+    await worker.revalidated()
+    diagnostics.phase = 'secure-worker-offline'
+    await worker.offline()
+    const requests = await DotnetHttpCacheBrowserGate.#requests(page)
+    DotnetHttpCacheBrowserGate.#checkSecureRequests(requests)
+    assert.equal(await DotnetHttpCacheBrowserGate.#privateProvider(page), true)
+    assert.deepEqual(diagnostics.errors, [])
+    assert.deepEqual(diagnostics.failedRequests, [])
+    assert.deepEqual(diagnostics.externalRequests, [])
+    diagnostics.phase = 'complete'
+    return { registration, requests, forwardedRequests: network.requests(), responseHeaders: headers, secureWorkerCacheQualified: true, secureNoCacheOverrideQualified: true, freshOwnerOfflineQualified: true, otherBrowserWorkerQualified: false, wholeApplicationOfflineQualified: false }
+  }
+
+  /** @param {CacheRequest[]} requests @returns {void} */
+  static #checkSecureRequests(requests) {
+    assert.deepEqual(requests, [
+      DotnetHttpCacheBrowserGate.#expectedRequest('GET', 'default'),
+      DotnetHttpCacheBrowserGate.#expectedRequest('GET', 'default'),
+      DotnetHttpCacheBrowserGate.#expectedRequest('POST', 'no-store'),
+      DotnetHttpCacheBrowserGate.#expectedRequest('GET', 'default'),
+      DotnetHttpCacheBrowserGate.#expectedRequest('GET', 'no-cache'),
+      DotnetHttpCacheBrowserGate.#expectedRequest('GET', 'default'),
+    ])
+  }
+
+  /** @param {string} method @param {RequestCache} cache @returns {CacheRequest} */
+  static #expectedRequest(method, cache) {
+    return { path: '/api/cached-probe', method, cache, credentials: 'omit', authorization: false }
   }
 
   /** @param {import('playwright').Page} page @param {string} origin @param {HttpDiagnostics} diagnostics @returns {Promise<Record<string, unknown>>} */

@@ -13,15 +13,17 @@ import { withServer } from './release/server-probe.mjs'
 /** @typedef {{message: string, code?: string}} HttpRefusal */
 /** @typedef {{path: string, error?: string}} FailedRequest */
 /** @typedef {'chromium' | 'firefox' | 'webkit'} HttpBrowserEngine */
-/** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, browserEngine: HttpBrowserEngine, browserVersion?: string, receipt: string, errors: string[], failedRequests: FailedRequest[], externalRequests: string[], requests: string[], chromiumVersion?: string}} HttpDiagnostics */
+/** @typedef {{origin: string, transport: string, responseHeadersRewritten: boolean, systemTrustChanged: boolean, forwardedRequests: {method: string, path: string, cookie: boolean, authorization: boolean}[], upstreamFailures: string[]}} HttpTestOriginDiagnostics */
+/** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, browserEngine: HttpBrowserEngine, browserVersion?: string, receipt: string, errors: string[], failedRequests: FailedRequest[], externalRequests: string[], requests: string[], chromiumVersion?: string, testOrigin?: HttpTestOriginDiagnostics}} HttpDiagnostics */
 /** @typedef {{root: string, binary: string, diagnostics: HttpDiagnostics}} HttpFixture */
+/** @typedef {{origin: (upstream: string, fixture: string, probe: (origin: string) => Promise<unknown>) => Promise<unknown>, launch: import('playwright').LaunchOptions, context: import('playwright').BrowserContextOptions}} HttpBrowserProfile */
 /** @typedef {{ordinary: HttpAnswer, invalidPath: HttpRefusal, cancelled: HttpRefusal, capturedRefusal: HttpRefusal, replacement: HttpAnswer, retiredChanges: number}} HttpProof */
 
 export class DotnetHttpBrowserGate {
-  /** @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} [probe] @param {string} [scope] @returns {Promise<void>} */
-  static async run(probe = DotnetHttpBrowserGate.#probe, scope = 'ordinary C#/.NET Wasm default HTTP with genuine Yon, explicit Setup override and captured-owner refusal') {
+  /** @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} [probe] @param {string} [scope] @param {HttpBrowserProfile} [profile] @returns {Promise<void>} */
+  static async run(probe = DotnetHttpBrowserGate.#probe, scope = 'ordinary C#/.NET Wasm default HTTP with genuine Yon, explicit Setup override and captured-owner refusal', profile) {
     const fixture = await DotnetHttpBrowserGate.#read()
-    await DotnetHttpBrowserGate.#execute(fixture, probe, scope)
+    await DotnetHttpBrowserGate.#execute(fixture, probe, scope, profile)
   }
 
   /** @param {string} name @returns {string} */
@@ -58,13 +60,15 @@ export class DotnetHttpBrowserGate {
     return { root, binary, diagnostics: { phase: 'starting', sourceCommit, compilerSha256, browserEngine, receipt, errors: [], failedRequests: [], externalRequests: [], requests: [] } }
   }
 
-  /** @param {HttpFixture} fixture @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} probe @param {string} scope @returns {Promise<void>} */
-  static async #execute(fixture, probe, scope) {
+  /** @param {HttpFixture} fixture @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} probe @param {string} scope @param {HttpBrowserProfile | undefined} profile @returns {Promise<void>} */
+  static async #execute(fixture, probe, scope, profile) {
     const started = performance.now()
     try {
       const proof = await withServer(fixture.binary, ['serve', fixture.root, '--host', '127.0.0.1', '--port', '0', '--out-dir', 'dist', '--no-watch', '--no-self-restart', '--no-bundle'], async request => {
         const origin = new URL((await request('/')).url).origin
-        return DotnetHttpBrowserGate.#runBrowser(origin, fixture.diagnostics, probe)
+        /** @type {(selected: string) => Promise<unknown>} */
+        const run = selected => DotnetHttpBrowserGate.#runBrowser(selected, fixture.diagnostics, probe, profile)
+        return profile ? profile.origin(origin, fixture.root, run) : run(origin)
       })
       await DotnetHttpBrowserGate.#receipt(fixture, { status: 'pass', proof, elapsedMilliseconds: performance.now() - started }, scope)
       console.log(JSON.stringify({ browserEngine: fixture.diagnostics.browserEngine, receipt: fixture.diagnostics.receipt, proof }))
@@ -79,15 +83,15 @@ export class DotnetHttpBrowserGate {
     await writeFile(path.join(fixture.root, fixture.diagnostics.receipt), JSON.stringify({ ...fixture.diagnostics, ...result, scope, browserHostReplaced: false, cacheRevalidationQualified: false, taskDtoQualified: false, asyncLifecycleQualified: false }, null, 2) + '\n', { flag: 'wx' })
   }
 
-  /** @param {string} origin @param {HttpDiagnostics} diagnostics @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} probe @returns {Promise<unknown>} */
-  static async #runBrowser(origin, diagnostics, probe) {
+  /** @param {string} origin @param {HttpDiagnostics} diagnostics @param {(page: import('playwright').Page, origin: string, diagnostics: HttpDiagnostics) => Promise<unknown>} probe @param {HttpBrowserProfile | undefined} profile @returns {Promise<unknown>} */
+  static async #runBrowser(origin, diagnostics, probe, profile) {
     diagnostics.phase = 'browser-launch'
-    const browser = await DotnetHttpBrowserGate.#browserType(diagnostics.browserEngine).launch({ timeout: 10_000 })
+    const browser = await DotnetHttpBrowserGate.#browserType(diagnostics.browserEngine).launch({ ...profile?.launch, timeout: 10_000 })
     const deadline = setTimeout(() => browser.close(), 45_000)
     diagnostics.browserVersion = browser.version()
     if (diagnostics.browserEngine === 'chromium') diagnostics.chromiumVersion = browser.version()
     try {
-      const context = await browser.newContext()
+      const context = await browser.newContext(profile?.context)
       await context.addCookies([{ name: 'private_session', value: 'must-not-travel', url: origin }])
       const page = await context.newPage()
       page.setDefaultTimeout(10_000)
