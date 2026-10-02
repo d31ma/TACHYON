@@ -111,9 +111,16 @@ fn csharp_browser_clients_keep_initialized_publisher_out_of_constructor() {
 
 #[test]
 fn csharp_browser_clients_refuse_more_than_five_constructor_dependencies() {
-    let fields = (0..6)
-        .map(|index| format!(" [Needs]\n private readonly ProbeClient _client{index};\n"))
-        .collect::<String>();
+    use std::fmt::Write as _;
+
+    let mut fields = String::new();
+    for index in 0..6 {
+        write!(
+            fields,
+            " [Needs]\n private readonly ProbeClient _client{index};\n"
+        )
+        .expect("test constructor fields");
+    }
     let service = format!(
         "[Service]\npublic sealed class ProbeService {{\n{fields} public string read() {{ return \"ready\"; }}\n}}\n"
     );
