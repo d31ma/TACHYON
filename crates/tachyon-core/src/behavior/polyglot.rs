@@ -2750,10 +2750,10 @@ mod gateway_runtime_tests {
     #[test]
     fn the_gateway_runtime_text_is_unchanged() {
         let csharp = super::gateway_unit_runtime("cs", "").expect("C# runtime");
-        assert_eq!(csharp.len(), 69_742);
+        assert_eq!(csharp.len(), 75_365);
         assert_eq!(
             digest(&csharp),
-            "1d8b1798d261591d0945b580b0d09c1d7e247c85e72f244614d52fbd5af6ccf6"
+            "48a7f67b77b8f5781ad3a44a83774d8c44dc59661a53d7f4b44a7af42d45cddc"
         );
         let rust = super::gateway_unit_runtime("rs", "").expect("Rust runtime");
         assert_eq!(rust.len(), 87_198);
