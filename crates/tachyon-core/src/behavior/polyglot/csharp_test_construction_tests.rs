@@ -57,7 +57,35 @@ fn csharp_test_construct_requires_active_setup_and_assigned_fake() {
 #[tokio::test]
 async fn csharp_test_http_client_fakes_compile_and_execute_per_construction() {
     let path = Path::new("client/tests/GreetingServiceTest.cs");
-    let source = include_str!("../../../tests/fixtures/behavior/csharp-http-test-construction.cs");
+    let source = concat!(
+        include_str!("../../../tests/fixtures/behavior/csharp-http-construction/GreetingClient.cs"),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/GreetingService.cs"
+        ),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/GreetingTestSetup.cs"
+        ),
+        include_str!("../../../tests/fixtures/behavior/csharp-http-construction/GreetingSetup.cs"),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/FirstGreetingSetup.cs"
+        ),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/SecondGreetingSetup.cs"
+        ),
+        include_str!("../../../tests/fixtures/behavior/csharp-http-construction/GreetingAnswer.cs"),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/GreetingServiceTest.cs"
+        ),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/MissingGreetingServiceTest.cs"
+        ),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/IncompatibleGreetingServiceTest.cs"
+        ),
+        include_str!(
+            "../../../tests/fixtures/behavior/csharp-http-construction/EmittedBehaviorTests.cs"
+        )
+    );
     let emitted = crate::behavior::lower(path, source, "tac")
         .expect("authored HTTPClient and Test lowering")
         .expect("emitted C#");
