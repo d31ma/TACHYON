@@ -119,7 +119,7 @@ fn csharp_browser_clients_refuse_more_than_five_constructor_dependencies() {
             fields,
             " [Needs]\n private readonly ProbeClient _client{index};\n"
         )
-        .expect("test constructor fields");
+        .unwrap_or_else(|error| panic!("test constructor fields: {error}"));
     }
     let service = format!(
         "[Service]\npublic sealed class ProbeService {{\n{fields} public string read() {{ return \"ready\"; }}\n}}\n"
