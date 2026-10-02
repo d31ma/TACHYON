@@ -53,6 +53,25 @@ fn kotlin_facade_preserves_properties_unit_nullable_lists_and_owned_dtos() {
 }
 
 #[test]
+fn kotlin_lateinit_component_inputs_generate_required_closed_dto_properties() {
+    let root = tempfile::tempdir().expect("project");
+    Fixtures::write(root.path(), "client/models/Guide.kt", Fixtures::GUIDE);
+    Fixtures::write(
+        root.path(),
+        "client/services/PanelService.kt",
+        "import models.Guide\n@Service\n@NeedsAll\nclass PanelService {\n lateinit var route: String\n lateinit var guide: Guide\n @Needs\n private val documentTitle: DocumentTitle\n}\n",
+    );
+    let text = Fixtures::generated(root.path());
+    assert!(text.contains("\"route\": string;"), "{text}");
+    assert!(
+        text.contains("\"guide\": __TachyonKotlinModels.Guide;"),
+        "{text}"
+    );
+    assert!(text.contains("new (properties: { \"guide\": __TachyonKotlinModels.Guide; \"route\": string; }): PanelService"), "{text}");
+    assert!(!text.contains("documentTitle"), "{text}");
+}
+
+#[test]
 fn unchanged_counter_block_method_gets_its_language_defined_unit_type() {
     let root = tempfile::tempdir().expect("project");
     Fixtures::write(

@@ -931,7 +931,10 @@ fn declaration(
         CompanionLanguage::Swift => {
             name_first(line, source_path, "var", "let", "func", "tac.swift")
         }
-        CompanionLanguage::Kotlin => name_first(line, source_path, "var", "val", "fun", "tac.kt"),
+        CompanionLanguage::Kotlin => KotlinMembers::public_declaration(strip_attribute(line))
+            .map_or(Ok(None), |line| {
+                name_first(line, source_path, "var", "val", "fun", "tac.kt")
+            }),
         CompanionLanguage::CSharp => Ok(type_first(line)),
         CompanionLanguage::Rust => Ok(None),
     }

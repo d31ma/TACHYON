@@ -53,6 +53,36 @@ fn kotlin_typed_public_fields_retain_mutability_and_exclude_owned_resources() {
 }
 
 #[test]
+fn kotlin_lateinit_inputs_are_writable_and_private_fields_stay_hidden() {
+    let source = "@Service\nclass PanelService {\n lateinit var route: String\n public lateinit var catalogue: List<String>\n lateinit public var label: String\n private lateinit var first: String\n lateinit private var second: String\n}\n";
+    let found = Fixtures::kotlin(source);
+    assert_eq!(
+        found
+            .iter()
+            .map(|member| (member.name.as_str(), member.value_type.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("catalogue", "List<String>"),
+            ("label", "String"),
+            ("route", "String")
+        ]
+    );
+    assert!(found.iter().all(|member| member.mutable && !member.method));
+    let runtime = owner_table(
+        CompanionLanguage::Kotlin,
+        source,
+        Fixtures::PATH,
+        &[],
+        "",
+        false,
+    )
+    .expect("lateinit runtime fields");
+    assert!(runtime.contains("tacInstance.route ="), "{runtime}");
+    assert!(!runtime.contains("tacInstance.first"), "{runtime}");
+    assert!(!runtime.contains("tacInstance.second"), "{runtime}");
+}
+
+#[test]
 fn inferred_kotlin_members_remain_runtime_valid_but_new_metadata_refuses_them() {
     for declaration in ["val label = \"ready\"", "fun answer() = \"ready\""] {
         let source = format!("@Service\nclass PanelService {{\n  {declaration}\n}}\n");

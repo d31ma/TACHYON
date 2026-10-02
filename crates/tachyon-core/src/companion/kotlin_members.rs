@@ -11,6 +11,18 @@ use std::path::Path;
 pub(crate) struct KotlinMembers;
 
 impl KotlinMembers {
+    pub(crate) fn public_declaration(mut source: &str) -> Option<&str> {
+        loop {
+            match source.split_whitespace().next()? {
+                "private" | "protected" | "internal" => return None,
+                modifier @ ("public" | "lateinit") => {
+                    source = source[modifier.len()..].trim_start();
+                }
+                _ => return Some(source),
+            }
+        }
+    }
+
     pub(crate) fn read(path: &Path, source: &str) -> Result<Vec<KotlinMember>, Failure> {
         let events = crate::events::extract(path, source, "tac")?;
         let excluded = Self::excluded(path, source, events.as_ref());
