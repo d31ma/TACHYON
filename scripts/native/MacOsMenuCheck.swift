@@ -104,12 +104,21 @@ private struct MacOsMenuCheck {
         progress("Full-screen shortcut: " + shortcut)
         try require(fullscreen.target as? NSWindow === window, "View targets another window: " + shortcut)
         try require(fullscreen.action == #selector(NSWindow.toggleFullScreen(_:)), "Full screen action missing: " + shortcut)
-        try require(fullscreen.keyEquivalentModifierMask == [.command, .control], "Full screen shortcut changed: " + shortcut)
+        try require(fullscreen.keyEquivalent == "f", "Full screen key changed: " + shortcut)
+        try require(fullscreenEquivalent(fullscreen), "Unsupported full screen shortcut: " + shortcut)
         try require(application.windowsMenu === windows, "Window menu role not registered")
         try require(windows.item(at: 0)?.target as? NSWindow === window, "Minimize targets another window")
         try require(windows.item(at: 0)?.keyEquivalent == "m", "Minimize shortcut missing")
         try require(windows.item(at: 1)?.action == #selector(NSWindow.performZoom(_:)), "Zoom missing")
         try require(application.helpMenu === help, "Help search role not registered")
+    }
+
+    private static func fullscreenEquivalent(_ item: NSMenuItem) -> Bool {
+        let configured = item.keyEquivalentModifierMask == [.command, .control]
+        if #available(macOS 26.0, *) {
+            return configured || (item.keyEquivalentModifierMask == .function && item.userKeyEquivalent.isEmpty)
+        }
+        return configured
     }
 
     private static func shortcutState(_ item: NSMenuItem) -> String {

@@ -69,6 +69,8 @@ fn macos_menus_are_installed_after_the_owned_window_without_changing_bridge_life
     assert!(source.contains("applicationWillTerminate"));
     assert!(source.contains("tachyonDisposeCompanions()"));
     assert!(source.contains("MacOsFilePicker.shared.disposeAll()"));
+    assert!(source.contains("let fullscreen = item(\"Enter Full Screen\", #selector(NSWindow.toggleFullScreen(_:)), \"f\", window)"));
+    assert!(source.contains("fullscreen.keyEquivalentModifierMask = [.command, .control]"));
     assert!(!source.contains("__NATIVE_MENUS__"));
     assert!(!source.contains("nativeMenus"));
 }
