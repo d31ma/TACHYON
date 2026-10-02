@@ -367,7 +367,7 @@ impl RustPageGraph {
             .collect::<Vec<_>>()
             .join("\n");
         format!(
-            "pub(super) fn tac_application_providers(scope: &NativeServiceScope) -> Result<(), String> {{ {providers} Ok(()) }}"
+            "pub(super) fn tac_application_providers(scope: &NativeServiceScope) -> ::core::result::Result<(), ::std::string::String> {{ {providers} Ok(()) }}"
         )
     }
 }
