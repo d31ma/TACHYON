@@ -3,7 +3,7 @@ internal sealed class HttpProbeCache : BehaviorCacheAdapter
     private readonly System.Collections.Generic.Dictionary<string, BehaviorJSON> values = new();
 
     public System.Threading.Tasks.Task<BehaviorJSON> get(string key, BehaviorExecution execution) =>
-        System.Threading.Tasks.Task.FromResult(values.GetValueOrDefault(key, BehaviorJSON.Parse("{\"hit\":false}")));
+        System.Threading.Tasks.Task.FromResult(values.TryGetValue(key, out var value) ? value : BehaviorJSON.Parse("{\"hit\":false}"));
 
     public System.Threading.Tasks.Task set(string key, BehaviorJSON value, BehaviorJSON policy, long expiresAt, BehaviorExecution execution)
     {
