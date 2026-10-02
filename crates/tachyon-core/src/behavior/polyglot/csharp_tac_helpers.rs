@@ -14,13 +14,17 @@ impl CsharpTacHelpers {
         Self::source_if(path, source)
     }
 
+    pub(super) fn retains_marker(path: &Path) -> bool {
+        Self::client_path(path)
+    }
+
     pub(super) fn captured(
         input: &Input<'_>,
         language: &str,
         environment: &str,
         markers: &[Marker],
     ) -> Result<(), Failure> {
-        Self::wanted(language, environment)
+        Self::wanted(input.path, language, environment)
             .then(|| Self::captured_types(input, markers))
             .transpose()
             .map(|_| ())
@@ -32,18 +36,28 @@ impl CsharpTacHelpers {
         environment: &str,
         types: &[Type],
     ) -> Result<(), Failure> {
-        Self::wanted(language, environment)
+        Self::wanted(input.path, language, environment)
             .then(|| Self::constructed_types(input, types))
             .transpose()
             .map(|_| ())
     }
 
-    fn wanted(language: &str, environment: &str) -> bool {
-        (language, environment) == ("cs", "tac")
+    fn wanted(path: &Path, language: &str, environment: &str) -> bool {
+        [
+            language == "cs",
+            environment == "tac",
+            Self::client_path(path),
+        ] == [true, true, true]
+    }
+
+    fn client_path(path: &Path) -> bool {
+        let extension = path.extension().and_then(|value| value.to_str());
+        let realm = crate::annotation_rules::Realm::of(path);
+        (extension, realm) == (Some("cs"), Some(crate::annotation_rules::Realm::Tac))
     }
 
     fn source_if(path: &Path, source: &str) -> Result<(), Failure> {
-        if path.extension().and_then(|value| value.to_str()) != Some("cs") {
+        if !Self::client_path(path) {
             return Ok(());
         }
         let mask = crate::lexical::code_mask("cs", source);

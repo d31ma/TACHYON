@@ -100,7 +100,7 @@ impl ServiceRoles {
                         return Err(input.failure(marker.span.start, message));
                     }
                     super::flag_without_arguments(&input, &marker)?;
-                    if extension == "cs" {
+                    if super::HelperRole::keeps_tac_marker(path) {
                         super::HelperRole::refuse_in_tac(path, source)?;
                         continue;
                     }

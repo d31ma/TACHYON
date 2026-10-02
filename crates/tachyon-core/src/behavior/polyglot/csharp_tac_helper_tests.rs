@@ -215,3 +215,52 @@ fn csharp_tac_helper_keeps_bare_marker_argument_validation() {
             .is_err()
     );
 }
+
+#[test]
+fn csharp_tac_helper_keeps_yon_managed_roles_and_lowering() {
+    let path = Path::new("server/helpers/owned/OwnedHelper.cs");
+    let source = "[Helper]\n[NeedsAll]\npublic class OwnedHelper {\n private readonly BehaviorContext behaviors;\n public string Read() { return \"yon\"; }\n [OnStop]\n public void Close() { behaviors.Dispose(); }\n}\n";
+    let roles = crate::behavior::ServiceRoles::read(path, source).expect("Yon role consumption");
+    assert!(!roles.source.contains("[Helper]"));
+    assert!(!roles.source.contains("[NeedsAll]"));
+    assert!(roles.source.contains("[OnStop]"));
+    crate::behavior::HelperRole::refuse_in_tac(path, source)
+        .expect("Tac adapter does not restrict Yon source");
+    let events = crate::events::extract(path, source, "yon")
+        .expect("Yon lifecycle capture")
+        .expect("OnStop metadata");
+    let lowered = super::lower(path, &events.source, "yon")
+        .expect("existing managed Yon Helper")
+        .expect("lowered source");
+    assert!(
+        lowered.contains("public OwnedHelper(BehaviorContext behaviors)"),
+        "{lowered}"
+    );
+    assert!(lowered.contains("behaviors.Dispose();"));
+}
+
+#[test]
+fn csharp_tac_helper_retains_markers_only_in_the_client_realm() {
+    for path in [
+        "client/helpers/LabelHelper.cs",
+        "client/shared/native/LabelHelper.cs",
+        "/owned/project/client/helpers/nested/LabelHelper.cs",
+    ] {
+        assert!(
+            crate::behavior::HelperRole::keeps_tac_marker(Path::new(path)),
+            "{path}"
+        );
+    }
+    for path in [
+        "server/helpers/LabelHelper.cs",
+        "server/shared/LabelHelper.cs",
+        "server/client/LabelHelper.cs",
+        "LabelHelper.cs",
+        "client/helpers/LabelHelper.kt",
+    ] {
+        assert!(
+            !crate::behavior::HelperRole::keeps_tac_marker(Path::new(path)),
+            "{path}"
+        );
+    }
+}

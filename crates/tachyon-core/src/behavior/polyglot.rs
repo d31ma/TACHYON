@@ -557,6 +557,10 @@ fn reject_http_verb(
 pub(crate) struct HelperRole;
 
 impl HelperRole {
+    pub(crate) fn keeps_tac_marker(path: &Path) -> bool {
+        CsharpTacHelpers::retains_marker(path)
+    }
+
     fn refusal(path: &Path) -> Option<String> {
         let language = path
             .extension()
