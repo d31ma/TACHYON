@@ -32,7 +32,7 @@ impl NativeMenuEntry {
     }
 
     fn id_byte(byte: u8) -> bool {
-        byte.is_ascii_alphanumeric() || [b'.', b'_', b'-'].contains(&byte)
+        byte.is_ascii_alphanumeric() || b"._-".contains(&byte)
     }
 
     fn require_label(&self) -> Result<(), Failure> {

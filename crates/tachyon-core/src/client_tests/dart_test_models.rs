@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::model_sources::ModelSources;
+use std::fmt::Write as _;
 use std::path::Path;
 
 pub(super) struct DartTestModels;
@@ -21,13 +22,13 @@ impl DartTestModels {
         models
             .separate_files()
             .iter()
-            .map(|(relative, _)| {
+            .fold(String::new(), |mut imports, (relative, _)| {
                 let path = crate::compiler::portable_path(relative);
                 let quoted = serde_json::Value::String(path)
                     .to_string()
                     .replace('$', "\\$");
-                format!("import {quoted};\n")
+                let _ = writeln!(imports, "import {quoted};");
+                imports
             })
-            .collect()
     }
 }
