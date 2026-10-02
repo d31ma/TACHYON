@@ -588,6 +588,7 @@ public partial class Tac
     }
 }
 
+// __TACHYON_NATIVE_ABI__
 public static class TacNative
 {
     [UnmanagedCallersOnly(EntryPoint = "tac_native_invoke")]

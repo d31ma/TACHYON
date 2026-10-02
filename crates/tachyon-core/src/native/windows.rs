@@ -279,7 +279,7 @@ fn web_source(authored: &str, fsharp: &str) -> String {
     use std::fmt::Write as _;
     let full_prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
     let prelude = full_prelude
-        .split("// The host's view of the companion: two ordinary C functions")
+        .split("// __TACHYON_NATIVE_ABI__")
         .next()
         .unwrap_or(full_prelude);
     let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
@@ -1278,6 +1278,7 @@ mod tests {
         }
         assert!(!browser.contains("public static class TacNative"));
         assert!(!browser.contains("[UnmanagedCallersOnly"));
+        assert_eq!(native.matches("// __TACHYON_NATIVE_ABI__").count(), 1);
         assert!(native.contains("EntryPoint = \"tac_native_invoke\""));
     }
 
