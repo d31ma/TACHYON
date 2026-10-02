@@ -2696,6 +2696,35 @@
       ]
     },
     {
+      "id": "native-capabilities",
+      "title": "Inject an OS file picker into a service",
+      "summary": "A service asks for `filePicker` with `Needs`; platform calls stay in the adapter. `tac.nativeCapabilities` grants the capability separately from browser APIs. The macOS host uses NSOpenPanel and returns a selected file as an opaque activation-owned handle. `readText(handle)` reads at most 65,536 UTF-8 bytes and `release(handle)` ends access. Cancel, denied, unsupported, invalid and unavailable are typed results. A browser tab returns unsupported and opens no picker. Compiled native services request a typed FilePicker field through Needs or NeedsAll; the provider captures their activation and registered transport (ADR 0089). Other OS file pickers remain unsupported until an adapter is registered and qualified.",
+      "group": "Native",
+      "files": [
+        {
+          "name": "client/manifest.json",
+          "code": "{\n  \"name\": \"Native File Picker\",\n  \"start_url\": \"/\",\n  \"tac\": {\n    \"nativeCapabilities\": [\"filePicker\"],\n    \"application\": { \"id\": \"com.example.nativepicker\", \"version\": \"1.0.0\" }\n  }\n}\n"
+        },
+        {
+          "name": "client/services/PickerService.js",
+          "code": "@Service\nexport default class PickerService {\n  /** @type {TacFilePicker} */\n  @Needs\n  filePicker;\n\n  /** @type {string} */\n  status = 'Ready';\n\n  /** @returns {Promise<void>} */\n  async choose() {\n    const result = await this.filePicker.open({ multiple: false, types: ['text/plain'] });\n    this.status = result.status;\n    await this.#readSelected(result);\n  }\n\n  /** @param {TacFilePickerResult} result @returns {Promise<void>} */\n  async #readSelected(result) {\n    if (result.status !== 'selected') return;\n    const handle = String(result.handle);\n    const content = await this.filePicker.readText(handle);\n    this.status = content.status;\n    await this.filePicker.release(handle);\n  }\n}\n"
+        },
+        {
+          "name": "client/services/PickerService.ts",
+          "code": "@Service\nexport default class PickerService {\n  @Needs\n  filePicker: TacFilePicker;\n\n  status: string = 'Ready';\n\n  async choose(): Promise<void> {\n    const result = await this.filePicker.open({ multiple: false, types: ['text/plain'] });\n    this.status = result.status;\n    await this.readSelected(result);\n  }\n\n  private async readSelected(result: TacFilePickerResult): Promise<void> {\n    if (result.status !== 'selected') return;\n    const handle: string = String(result.handle);\n    const content: TacFilePickerResult = await this.filePicker.readText(handle);\n    this.status = content.status;\n    await this.filePicker.release(handle);\n  }\n}\n"
+        },
+        {
+          "name": "client/pages/tac.html",
+          "code": "<picker-panel hydrate=\"load\" />\n"
+        },
+        {
+          "name": "client/components/picker/panel/tac.html",
+          "code": "<main>\n  <h1>Choose a text file</h1>\n  <button type=\"button\" on:click=\"picker.choose()\">Choose file</button>\n  <p>{picker.status}</p>\n</main>\n"
+        }
+      ],
+      "verify": "tac"
+    },
+    {
       "id": "native-language-reach",
       "title": "What a service reaches",
       "group": "Native",

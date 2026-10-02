@@ -20,6 +20,7 @@ class FileTypes {
     js: FileTypes.allPlatforms,
     ts: FileTypes.allPlatforms,
     dart: FileTypes.allPlatforms,
+    py: ['web'],
     rs: FileTypes.allPlatforms,
     cs: FileTypes.allPlatforms,
     fs: FileTypes.allPlatforms,

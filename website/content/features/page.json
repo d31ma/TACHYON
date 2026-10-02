@@ -38,6 +38,7 @@
     { "include": "sockets/feature.json" },
     { "include": "application-modules/feature.json" },
     { "include": "native-targets/feature.json" },
+    { "include": "native-capabilities/feature.json" },
     { "include": "native-language-reach/feature.json" },
     { "include": "one-rendering/feature.json" },
     { "include": "companion-publish/feature.json" },

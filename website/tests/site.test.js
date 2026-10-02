@@ -890,10 +890,12 @@ describe('documentation structure', () => {
     expect(isCompanion('client/components/basket/tally/tac.css')).toBe(false)
     expect(isCompanion('client/services/TallyService.swift')).toBe(true)
 
-    const order = inReadingOrder(files).map((file) => file.name.split('/').pop())
+    const ordered = inReadingOrder(files)
+    expect(ordered.filter(file => file.name === 'client/manifest.json')).toHaveLength(1)
+    const order = ordered.filter(file => file.name !== 'client/manifest.json').map((file) => file.name.split('/').pop())
     expect(order.at(-2)).toBe('tac.html')
     expect(order.at(-1)).toBe('tac.css')
-    expect(isCompanion(order[0])).toBe(true)
+    expect(order.slice(0, -2).every(name => isCompanion(name))).toBe(true)
   })
 
   test('a platform strip only appears where the example actually differs', async () => {
@@ -908,6 +910,7 @@ describe('documentation structure', () => {
 
     const everyPlatform = ['web', 'macos', 'ios', 'android', 'windows', 'linux']
     expect(reachOf(service('dart'))).toEqual(everyPlatform)
+    expect(reachOf(service('py'))).toEqual(['web'])
     expect(reachOf(service('go'))).toEqual(everyPlatform)
     expect(reachOf(service('rb'))).toEqual(everyPlatform)
     expect(reachOf(service('lua'))).toEqual(everyPlatform)
@@ -942,7 +945,7 @@ describe('documentation structure', () => {
 
     const browser = ['JavaScript', 'TypeScript', 'Dart', 'Java']
     const everywhere = ['C#', 'F#', 'Rust', 'Go', 'Ruby', 'Lua']
-    expect(shownOn('web')).toEqual([...browser, ...everywhere])
+    expect(shownOn('web')).toEqual(['JavaScript', 'TypeScript', 'Dart', 'Python', 'Java', ...everywhere])
     expect(shownOn('macos')).toEqual([...browser, 'Swift', ...everywhere])
     expect(shownOn('ios')).toEqual([...browser, 'Swift', ...everywhere])
     expect(shownOn('android')).toEqual([...browser, 'Kotlin', ...everywhere])

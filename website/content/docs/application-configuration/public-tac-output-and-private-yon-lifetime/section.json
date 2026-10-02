@@ -32,12 +32,12 @@
       "code": { "file": "client/services/SettingsService.ts" }
     },
     {
-      "name": "client/helpers/PublicSettings.js",
-      "code": { "file": "client/helpers/PublicSettings.js" }
+      "name": "client/models/PublicSettings.js",
+      "code": { "file": "client/models/PublicSettings.js" }
     },
     {
-      "name": "client/helpers/PublicSettings.ts",
-      "code": { "file": "client/helpers/PublicSettings.ts" }
+      "name": "client/models/PublicSettings.ts",
+      "code": { "file": "client/models/PublicSettings.ts" }
     }
   ]
 }

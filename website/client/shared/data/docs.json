@@ -3943,11 +3943,11 @@
               "code": "@Service\nexport default class SettingsService {\n  @Needs\n  readonly applicationClient!: ApplicationClient;\n  api = '/api';\n  @OnStart\n  async initialize() {\n    const application = await this.applicationClient.load() as BehaviorJsonObject;\n    const settings = Behaviors.values(PublicSettings, application);\n    this.api = String(settings.api);\n  }\n}\n"
             },
             {
-              "name": "client/helpers/PublicSettings.js",
+              "name": "client/models/PublicSettings.js",
               "code": "export default class PublicSettings {\n  /** @type {string} */\n  @Setting(\"${tac.api.url:/api}\")\n  api;\n}\n"
             },
             {
-              "name": "client/helpers/PublicSettings.ts",
+              "name": "client/models/PublicSettings.ts",
               "code": "export default class PublicSettings {\n  @Setting(\"${tac.api.url:/api}\")\n  api!: string;\n}\n"
             }
           ]
