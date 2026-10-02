@@ -1,18 +1,37 @@
 @main
+@MainActor
 private struct MacOsMenuCheck {
-    @MainActor
+    private static var result: Result<Void, Error>?
+
     static func main() throws {
         let application = NSApplication.shared
+        try require(application.setActivationPolicy(.regular), "Test application could not use regular activation policy")
+        Task { @MainActor () -> Void in
+            do {
+                try await exercise(application)
+                result = .success(())
+            } catch {
+                result = .failure(error)
+            }
+            application.stop(nil)
+        }
+        application.run()
+        guard let result else { throw NSError(domain: "Menu application stopped before its checks completed", code: 1) }
+        try result.get()
+    }
+
+    private static func exercise(_ application: NSApplication) async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
         MacOsMenus().install(application, window, "Menu Check")
         try checkApplication(application)
         try checkWindow(application, window)
-        try checkEdit(application, window)
+        try await checkEdit(application, window)
         try checkAbsentDocuments(application)
         try MacOsMenuOwnershipCheck().run(application, window)
-        window.close()
         print("PASS native macOS menu roles, actions, ownership and text responder")
     }
 
@@ -53,7 +72,7 @@ private struct MacOsMenuCheck {
     }
 
     @MainActor
-    private static func checkEdit(_ application: NSApplication, _ window: NSWindow) throws {
+    private static func checkEdit(_ application: NSApplication, _ window: NSWindow) async throws {
         let edit = try menu(application, "Edit")
         try require(edit.items.filter { (item: NSMenuItem) -> Bool in !item.isSeparatorItem }
                     .allSatisfy { (item: NSMenuItem) -> Bool in item.target == nil }, "Edit captures a component instead of the responder chain")
@@ -64,10 +83,31 @@ private struct MacOsMenuCheck {
         window.contentView = text
         window.makeKeyAndOrderFront(nil)
         try require(window.makeFirstResponder(text), "Text responder not installed")
+        application.activate(ignoringOtherApps: true)
+        try await waitForResponder(application, window, text)
         let select = edit.item(at: 6)!
         try require(select.action == #selector(NSText.selectAll(_:)), "Select All action missing")
-        try require(application.sendAction(select.action!, to: select.target, from: select), "Native responder declined Select All")
-        try require(text.selectedRange() == NSRange(location: 0, length: text.string.utf16.count), "Select All did not reach native text responder")
+        try require(application.sendAction(select.action!, to: select.target, from: select), "Native responder declined Select All: " + responderState(application, window, text))
+        try require(text.selectedRange() == NSRange(location: 0, length: text.string.utf16.count), "Select All did not reach native text responder: " + responderState(application, window, text))
+    }
+
+    private static func waitForResponder(_ application: NSApplication, _ window: NSWindow, _ text: NSTextView) async throws {
+        let deadline = ProcessInfo.processInfo.systemUptime + 3
+        while !responderReady(application, window, text) {
+            guard ProcessInfo.processInfo.systemUptime < deadline else {
+                throw NSError(domain: "Native responder readiness timed out: " + responderState(application, window, text), code: 1)
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    private static func responderReady(_ application: NSApplication, _ window: NSWindow, _ text: NSTextView) -> Bool {
+        application.isActive && application.keyWindow === window && window.isKeyWindow && window.firstResponder === text
+    }
+
+    private static func responderState(_ application: NSApplication, _ window: NSWindow, _ text: NSTextView) -> String {
+        let target: Any? = application.target(forAction: #selector(NSText.selectAll(_:)))
+        return "active=\(application.isActive), key=\(application.keyWindow === window), windowKey=\(window.isKeyWindow), firstResponder=\(window.firstResponder === text), selectAllTarget=\(target as? NSTextView === text), visible=\(window.isVisible), selection=\(NSStringFromRange(text.selectedRange())), textLength=\(text.string.utf16.count)"
     }
 
     @MainActor
