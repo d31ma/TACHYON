@@ -190,7 +190,7 @@ describe('published output', () => {
     expect(source).not.toContain('document.title')
     expect(await read('client/pages/docs/features/_id/tac.html')).toContain(':route="page.path" :catalogue="data.features"')
     const manifest = JSON.parse(await read('client/manifest.json'))
-    expect(manifest.tac.browserApis).toContain('documentTitle')
+    expect(manifest.tac.browserApis).not.toContain('documentTitle')
     const testSource = await read('client/tests/FeatureServiceTest.kt')
     expect(testSource).toContain('@Fake')
     expect(testSource).toContain('construct(FeatureService::class)')
