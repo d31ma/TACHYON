@@ -54,7 +54,8 @@ private struct MacOsMenuCheck {
     @MainActor
     private static func checkEdit(_ application: NSApplication, _ window: NSWindow) throws {
         let edit = try menu(application, 1)
-        try require(edit.items.filter { !$0.isSeparatorItem }.allSatisfy { $0.target == nil }, "Edit captures a component instead of the responder chain")
+        try require(edit.items.filter { (item: NSMenuItem) -> Bool in !item.isSeparatorItem }
+                    .allSatisfy { (item: NSMenuItem) -> Bool in item.target == nil }, "Edit captures a component instead of the responder chain")
         try require(edit.item(at: 0)?.keyEquivalent == "z", "Undo shortcut missing")
         try require(edit.item(at: 1)?.keyEquivalentModifierMask == [.command, .shift], "Redo shortcut changed")
         let text = NSTextView(frame: window.contentView!.bounds)
@@ -70,8 +71,10 @@ private struct MacOsMenuCheck {
 
     @MainActor
     private static func checkAbsentDocuments(_ application: NSApplication) throws {
-        let groups = application.mainMenu!.items.compactMap { $0.submenu }
-        let actions = groups.flatMap { $0.items }.compactMap { $0.action }.map(NSStringFromSelector)
+        let groups = application.mainMenu!.items.compactMap { (item: NSMenuItem) -> NSMenu? in item.submenu }
+        let actions = groups.flatMap { (menu: NSMenu) -> [NSMenuItem] in menu.items }
+            .compactMap { (item: NSMenuItem) -> Selector? in item.action }
+            .map { (action: Selector) -> String in NSStringFromSelector(action) }
         try require(!actions.contains("newDocument:"), "Inapplicable New document action exists")
         try require(!actions.contains("openDocument:"), "Inapplicable Open document action exists")
         try require(!actions.contains("saveDocument:"), "Inapplicable Save document action exists")

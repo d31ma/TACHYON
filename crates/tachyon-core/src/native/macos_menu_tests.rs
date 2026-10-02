@@ -5,7 +5,27 @@ use std::path::Path;
 struct MacOsMenuFixture;
 
 impl MacOsMenuFixture {
+    #[cfg(target_os = "macos")]
     const CALLER: &str = include_str!("../../../../scripts/native/MacOsMenuCheck.swift");
+
+    #[cfg(target_os = "macos")]
+    fn retained_root() -> std::path::PathBuf {
+        let output = std::env::var_os("TAC_NATIVE_MENU_OUT")
+            .expect("Set TAC_NATIVE_MENU_OUT to an absolute retained evidence directory");
+        let output = std::path::PathBuf::from(output);
+        assert!(
+            output.is_absolute(),
+            "Menu evidence directory must be absolute"
+        );
+        std::fs::create_dir_all(&output).expect("menu evidence directory");
+        let root = tempfile::Builder::new()
+            .prefix("native-menu-")
+            .tempdir_in(output)
+            .expect("fresh owned menu evidence")
+            .keep();
+        println!("Retained native menu evidence: {}", root.display());
+        root
+    }
 
     fn host(root: &Path) -> String {
         std::fs::create_dir_all(root.join("client")).expect("client directory");
@@ -48,16 +68,19 @@ fn macos_menus_are_installed_after_the_owned_window_without_changing_bridge_life
 }
 
 #[tokio::test]
+#[cfg(target_os = "macos")]
+#[ignore = "Requires explicit AppKit window/focus permission and TAC_NATIVE_MENU_OUT evidence path"]
 async fn macos_menus_compile_and_execute_native_roles_and_responder_actions() {
-    let root = tempfile::tempdir().expect("menu SDK project");
-    let original = MacOsMenuFixture::host(root.path());
+    let root = MacOsMenuFixture::retained_root();
+    let original = MacOsMenuFixture::host(&root);
+    std::fs::write(root.join("GeneratedHost.swift"), &original).expect("retain ordinary host");
     let (body, _) = original
         .rsplit_once("\n@main\n")
         .expect("generated host entry point");
-    let source = root.path().join("MenuCheck.swift");
+    let source = root.join("MenuCheck.swift");
     std::fs::write(&source, format!("{body}\n{}", MacOsMenuFixture::CALLER))
         .expect("unchanged host with owned test entry");
-    let executable = root.path().join("menu-check");
+    let executable = root.join("menu-check");
     super::host::run_tool(
         "/usr/bin/xcrun",
         &[
