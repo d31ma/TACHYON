@@ -22,6 +22,13 @@ public sealed class GreetingTestSetup {
 }
 
 [Setup]
+public sealed class GreetingSetup {
+    public static BehaviorAdapters configure(BehaviorExecution execution) {
+        return new BehaviorAdapters();
+    }
+}
+
+[Setup]
 public sealed class FirstGreetingSetup {
     public static BehaviorAdapters configure(BehaviorExecution execution) {
         var adapters = new BehaviorAdapters();
