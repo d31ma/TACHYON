@@ -380,7 +380,7 @@ fn selected_script_peer_cannot_hide_a_duplicate_nested_kotlin_definition() {
 }
 
 #[test]
-fn unrelated_script_export_cannot_suppress_a_native_service_collision() {
+fn selected_script_peer_cannot_hide_an_invalid_service_definition() {
     let root = tempfile::tempdir().expect("project");
     Fixtures::write(
         root.path(),
@@ -389,14 +389,21 @@ fn unrelated_script_export_cannot_suppress_a_native_service_collision() {
     );
     Fixtures::write(
         root.path(),
+        "client/services/ChoiceService.ts",
+        "@Service\nexport default class ChoiceService {}\n",
+    );
+    Fixtures::write(
+        root.path(),
         "client/services/OtherService.ts",
         "@Service\nexport default class ChoiceService {}\n",
     );
     let text = ComposedTypes::write(root.path())
-        .expect_err("different source identity is not a selected peer")
+        .expect_err("selected peer discovery preserves malformed provider diagnostics")
         .to_string();
     assert!(
-        text.contains("TY1410") && text.contains("ChoiceService.kt"),
+        text.contains("TY1310")
+            && text.contains("OtherService.ts")
+            && text.contains("does not match its required role layout"),
         "{text}"
     );
 }
