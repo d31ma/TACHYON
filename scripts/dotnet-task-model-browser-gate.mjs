@@ -51,8 +51,8 @@ class DotnetTaskModelBrowserGate {
   }
 
   /** @param {import('playwright').Page} page @returns {Promise<void>} */
-  static #observe(page) {
-    return page.addInitScript(() => {
+  static async #observe(page) {
+    await page.addInitScript(() => {
       const original = globalThis.fetch.bind(globalThis)
       /** @type {ModelRequest[]} */
       const requests = []
