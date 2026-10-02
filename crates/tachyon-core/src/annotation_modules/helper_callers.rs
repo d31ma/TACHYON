@@ -50,10 +50,10 @@ impl HelperCallers {
             .collect::<Vec<_>>()
             .join("\n");
         crate::behavior::HelperRole::require_callers(&self.entry, &source)
-            .map_err(|failure| self.located(failure))
+            .map_err(|failure| self.located(&failure))
     }
 
-    fn located(&self, failure: Failure) -> Failure {
+    fn located(&self, failure: &Failure) -> Failure {
         let mut diagnostics = failure.diagnostics().to_vec();
         for diagnostic in &mut diagnostics {
             diagnostic.spans.iter_mut().for_each(|span| self.span(span));
