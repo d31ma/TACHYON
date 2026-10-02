@@ -6,7 +6,9 @@ use std::ops::Range;
 use std::path::Path;
 
 mod csharp;
+mod csharp_helper_interfaces;
 mod csharp_tac_helpers;
+use csharp_helper_interfaces::CsharpHelperInterfaces;
 use csharp_tac_helpers::CsharpTacHelpers;
 #[cfg(test)]
 mod csharp_tac_helper_tests;
@@ -2592,7 +2594,8 @@ fn method_parameters(
 
 fn validate_type(input: &Input<'_>, language: &str, ty: &Type) -> Result<(), Failure> {
     let header = &input.code[ty.declaration..ty.body.start];
-    if inherits_from_other_type(language, header) {
+    let interfaces = CsharpHelperInterfaces::allowed(input, language, ty)?;
+    if inherits_from_other_type(language, header) && !interfaces {
         return Err(input.failure(
             ty.declaration,
             "Behavior types cannot inherit from other types",

@@ -114,6 +114,11 @@ fn csharp_tac_helper_capture_refuses_class_ownership_and_hooks_at_authored_spans
             error.to_string().contains("lifecycle hooks"),
             "{marker}: {error}"
         );
+        assert_eq!(
+            error.diagnostics()[0].spans[0].start,
+            u64::try_from(source.find(&format!("[{marker}]")).expect("hook span"))
+                .expect("hook offset")
+        );
     }
 }
 
@@ -168,11 +173,16 @@ fn csharp_tac_helper_generates_a_typed_constructor_only_for_explicit_callers() {
 fn csharp_tac_helper_ordinary_http_fixture_retains_context_owned_composition() {
     let root = tempfile::tempdir().expect("actual HTTP fixture");
     let entry = Path::new("client/services/HttpProbeService.cs");
-    let source = include_str!(
-        "../../../tests/fixtures/tac-dotnet-http/client/services/HttpProbeService.cs"
-    );
+    let source =
+        include_str!("../../../tests/fixtures/tac-dotnet-http/client/services/HttpProbeService.cs");
     for (relative, source) in [
         ("client/services/HttpProbeService.cs", source),
+        (
+            "client/setups/BrowserHttpSetup.cs",
+            include_str!(
+                "../../../tests/fixtures/tac-dotnet-http/client/setups/BrowserHttpSetup.cs"
+            ),
+        ),
         (
             "client/helpers/CustomHttpHelper.cs",
             include_str!(
@@ -218,25 +228,21 @@ fn csharp_tac_helper_keeps_bare_marker_argument_validation() {
 
 #[test]
 fn csharp_tac_helper_keeps_yon_managed_roles_and_lowering() {
-    let path = Path::new("server/helpers/owned/OwnedHelper.cs");
-    let source = "[Helper]\n[NeedsAll]\npublic class OwnedHelper {\n private readonly BehaviorContext behaviors;\n public string Read() { return \"yon\"; }\n [OnStop]\n public void Close() { behaviors.Dispose(); }\n}\n";
+    let path = Path::new("server/controllers/LabelController.cs");
+    let source = "[Service]\npublic class LabelService {\n public string Read() { return \"yon\"; }\n}\n[Helper]\n[NeedsAll]\npublic class OwnedHelper {\n private readonly LabelService labelService;\n public string Read() { return labelService.Read(); }\n [OnStop]\n public void Close() { labelService.Read(); }\n}\n[RequestRoute(\"/label\")]\n[NeedsAll]\npublic class LabelController {\n private readonly OwnedHelper ownedHelper;\n [GetRoute]\n public BehaviorJSON getLabel() { return BehaviorJSON.From(ownedHelper.Read()); }\n}\n";
     let roles = crate::behavior::ServiceRoles::read(path, source).expect("Yon role consumption");
     assert!(!roles.source.contains("[Helper]"));
     assert!(!roles.source.contains("[NeedsAll]"));
     assert!(roles.source.contains("[OnStop]"));
     crate::behavior::HelperRole::refuse_in_tac(path, source)
         .expect("Tac adapter does not restrict Yon source");
-    let events = crate::events::extract(path, source, "yon")
-        .expect("Yon lifecycle capture")
-        .expect("OnStop metadata");
-    let lowered = super::lower(path, &events.source, "yon")
-        .expect("existing managed Yon Helper")
-        .expect("lowered source");
-    assert!(
-        lowered.contains("public OwnedHelper(BehaviorContext behaviors)"),
-        "{lowered}"
-    );
-    assert!(lowered.contains("behaviors.Dispose();"));
+    let lowered = crate::yon::lower_with_routes(path, source, None)
+        .expect("real Yon managed provider pipeline")
+        .expect("managed Helper emission");
+    assert!(lowered.source.contains("new OwnedHelper("));
+    assert!(lowered.source.contains("LabelService"));
+    assert!(lowered.source.contains("labelService.Read();"));
+    assert!(!lowered.source.contains("[NeedsAll]"));
 }
 
 #[test]
@@ -263,4 +269,44 @@ fn csharp_tac_helper_retains_markers_only_in_the_client_realm() {
             "{path}"
         );
     }
+}
+
+#[test]
+fn csharp_tac_helper_allows_only_actual_interfaces_not_base_classes() {
+    let caller = CsharpTacHelperTests::CALLER;
+    let interface = "public interface LabelContract { string Read(); }\n";
+    let helper = CsharpTacHelperTests::HELPER
+        .replace("class LabelHelper {", "class LabelHelper : LabelContract {");
+    let source = format!("{interface}{helper}{caller}");
+    let lowered = CsharpTacHelperTests::lower(&source)
+        .expect("actual same-language interface")
+        .expect("helper source");
+    assert!(lowered.contains("class LabelHelper : LabelContract"));
+    let error = super::lower(Path::new("server/helpers/LabelHelper.cs"), &source, "yon")
+        .expect_err("Yon inheritance remains unchanged");
+    assert!(error.to_string().contains("cannot inherit"), "{error}");
+    for base in ["BaseClass", "MissingContract", "LabelContract, BaseClass"] {
+        let helper = CsharpTacHelperTests::HELPER.replace(
+            "class LabelHelper {",
+            &format!("class LabelHelper : {base} {{"),
+        );
+        let source = format!("{interface}public class BaseClass {{}}\n{helper}{caller}");
+        let error =
+            CsharpTacHelperTests::lower(&source).expect_err("no concrete or unknown inheritance");
+        assert!(error.to_string().contains("cannot inherit"), "{error}");
+    }
+    let service = "[Service]\nclass LabelService : LabelContract { public string Read() { return \"service\"; } }\n";
+    let error = CsharpTacHelperTests::lower(&format!("{interface}{service}"))
+        .expect_err("Service inheritance unchanged");
+    assert!(error.to_string().contains("cannot inherit"), "{error}");
+}
+
+#[test]
+fn csharp_tac_helper_hook_capture_ignores_strings_comments_and_other_owners() {
+    let source = format!(
+        "{}// [OnStop]\nclass Note {{ string text = \"[OnStart]\"; }}\n[Service]\nclass ReaderService {{\n [OnStart]\n public void Start() {{}}\n}}\n",
+        CsharpTacHelperTests::HELPER
+    );
+    crate::behavior::HelperRole::refuse_in_tac(Path::new("client/helpers/LabelHelper.cs"), &source)
+        .expect("only Helper-owned real hooks are refused");
 }

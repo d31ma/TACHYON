@@ -194,10 +194,43 @@ impl CsharpTacHelpers {
     }
 
     fn captured_type(input: &Input<'_>, ty: &Type, markers: &[Marker]) -> Result<(), Failure> {
+        Self::captured_hooks(input, ty)?;
         markers
             .iter()
             .filter(|marker| Self::unsupported_marker(ty, marker))
             .try_for_each(|marker| Err(Self::failure(input, marker.span.start, &ty.name)))
+    }
+
+    fn captured_hooks(input: &Input<'_>, ty: &Type) -> Result<(), Failure> {
+        let mut offset = ty.body.start;
+        for line in input.code[ty.body.clone()].split_inclusive('\n') {
+            Self::require_hook(input, ty, line, offset)?;
+            offset += line.len();
+        }
+        Ok(())
+    }
+
+    fn require_hook(
+        input: &Input<'_>,
+        ty: &Type,
+        line: &str,
+        offset: usize,
+    ) -> Result<(), Failure> {
+        if Self::hook_name(line).is_some() {
+            return Err(Self::failure(
+                input,
+                offset + line.len() - line.trim_start().len(),
+                &ty.name,
+            ));
+        }
+        Ok(())
+    }
+
+    fn hook_name(line: &str) -> Option<&str> {
+        let written = line.trim_start().strip_prefix('[')?;
+        let qualified = written.split(['(', ']', ' ']).next()?;
+        let name = qualified.rsplit('.').next()?;
+        Self::HOOKS.contains(&name).then_some(name)
     }
 
     fn unsupported_marker(ty: &Type, marker: &Marker) -> bool {
