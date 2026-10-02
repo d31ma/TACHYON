@@ -3,10 +3,10 @@ import models.FeatureEntry
 import models.SnippetFile
 
 @Service
-@NeedsAll
+@NeedsAll("documentTitle")
 class FeatureService {
-    var routePath: String = ""
-    var catalogue: FeatureCatalogue = FeatureCatalogue(emptyList(), emptyList())
+    lateinit var route: String
+    lateinit var catalogue: FeatureCatalogue
 
     @Needs
     private val documentTitle: DocumentTitle
@@ -15,7 +15,7 @@ class FeatureService {
 
     val source: String get() = sourceOf(foundEntry(), id)
 
-    fun path(): String = normalizedPath(routePath)
+    fun path(): String = normalizedPath(route)
 
     fun entry(): FeatureEntry = entryOrFallback(foundEntry())
 

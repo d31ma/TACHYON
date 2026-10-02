@@ -5,6 +5,9 @@ mod component;
 mod component_slots;
 mod context;
 mod expression;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod feature_inputs_tests;
 mod frontend;
 mod model;
 pub(crate) mod required_fields;

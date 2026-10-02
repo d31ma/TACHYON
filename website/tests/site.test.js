@@ -182,13 +182,13 @@ describe('published output', () => {
 
   test('the Kotlin feature page receives genuine catalogue props and an injected title provider', async () => {
     const source = await read('client/services/FeatureService.kt')
-    expect(source).toContain('@NeedsAll')
+    expect(source).toContain('@NeedsAll("documentTitle")')
     expect(source).toMatch(/@Needs\n\s*private val documentTitle: DocumentTitle/)
-    expect(source).toContain('var routePath: String')
-    expect(source).toContain('var catalogue: FeatureCatalogue')
+    expect(source).toContain('lateinit var route: String')
+    expect(source).toContain('lateinit var catalogue: FeatureCatalogue')
     expect(source).not.toContain('/shared/scripts/navigation.js')
     expect(source).not.toContain('document.title')
-    expect(await read('client/pages/docs/features/_id/tac.html')).toContain(':route-path="page.path" :catalogue="data.features"')
+    expect(await read('client/pages/docs/features/_id/tac.html')).toContain(':route="page.path" :catalogue="data.features"')
     const manifest = JSON.parse(await read('client/manifest.json'))
     expect(manifest.tac.browserApis).toContain('documentTitle')
     const testSource = await read('client/tests/FeatureServiceTest.kt')

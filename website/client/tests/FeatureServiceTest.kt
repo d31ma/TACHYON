@@ -43,13 +43,13 @@ class FeatureServiceTest {
         val feature = featureAt("/docs/features/routing///", listOf(routing))
         Assert.equals("/docs/features/routing", feature.path())
         Assert.equals("routing", feature.id)
-        feature.routePath = "/docs/features/no-such-feature/"
+        feature.route = "/docs/features/no-such-feature/"
         Assert.equals("no-such-feature", feature.id)
         Assert.equals("website/content/features/page.json", feature.source)
-        feature.routePath = "/"
+        feature.route = "/"
         Assert.equals("/", feature.path())
         Assert.equals("", feature.id)
-        feature.routePath = "/docs/features/%72outing/"
+        feature.route = "/docs/features/%72outing/"
         Assert.equals("%72outing", feature.id, "path segments are not URL decoded")
         Assert.equals("Feature not found", feature.entry().title)
     }
@@ -72,12 +72,13 @@ class FeatureServiceTest {
         val firstWrites = mutableListOf<String>()
         documentTitle = object : DocumentTitle { override fun set(title: String) { firstWrites.add(title) } }
         val first = construct(FeatureService::class)
-        first.routePath = "/docs/features/routing"
+        first.route = "/docs/features/routing"
         first.catalogue = FeatureCatalogue(listOf("Routing"), listOf(routing))
         val secondWrites = mutableListOf<String>()
         documentTitle = object : DocumentTitle { override fun set(title: String) { secondWrites.add(title) } }
         val second = construct(FeatureService::class)
-        second.routePath = "/docs/features/missing"
+        second.route = "/docs/features/missing"
+        second.catalogue = FeatureCatalogue(emptyList(), emptyList())
         first.initialize()
         second.initialize()
         Assert.equals(listOf("Page and controller routing — Tachyon docs"), firstWrites)
@@ -87,7 +88,7 @@ class FeatureServiceTest {
     private fun featureAt(route: String, entries: List<FeatureEntry>): FeatureService {
         documentTitle = object : DocumentTitle { override fun set(title: String) { titleWrites.add(title) } }
         val feature = construct(FeatureService::class)
-        feature.routePath = route
+        feature.route = route
         feature.catalogue = FeatureCatalogue(listOf("Routing"), entries)
         return feature
     }
