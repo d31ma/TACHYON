@@ -148,9 +148,9 @@ class WebsiteLuaGate {
   static async #feature(page, origin, slug) {
     const response = await page.goto(`${origin}/docs/features/${slug}/`)
     assert.equal(response.status(), 200, 'the genuine dynamic feature route is served')
-    await page.waitForFunction(() => globalThis.__tachyonTac?.service('feature'))
+    await page.waitForFunction(() => [...(globalThis.__tachyonTac?.instances.values() ?? [])].some(owner => owner.feature))
     const actual = await page.evaluate(() => {
-      const service = globalThis.__tachyonTac.service('feature')
+      const service = [...globalThis.__tachyonTac.instances.values()].find(owner => owner.feature).feature
       const found = service.catalogue.features.find(entry => entry.id === service.id)
       const entry = service.entry()
       return { id: service.id, path: service.path(), source: service.source,
