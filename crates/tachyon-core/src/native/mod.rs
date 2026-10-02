@@ -28,6 +28,7 @@ mod kotlin_document_title_tests;
 mod kotlin_document_title_scope_tests;
 mod linux;
 mod linux_window_controls;
+mod mac_os_menu_source;
 mod macos;
 #[cfg(test)]
 mod macos_menu_tests;
@@ -44,6 +45,11 @@ mod native_capability_tests;
 mod native_file_picker_permission_tests;
 #[cfg(test)]
 mod native_helper_tests;
+mod native_menu_config;
+#[cfg(test)]
+mod native_menu_config_tests;
+mod native_menu_entry;
+mod native_menu_shortcut;
 #[cfg(test)]
 mod native_packaged_utility_tests;
 #[cfg(test)]

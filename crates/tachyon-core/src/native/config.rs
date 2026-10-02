@@ -17,6 +17,7 @@ pub(super) struct NativeApplication {
     pub(super) icons: Vec<(u32, String)>,
     pub(super) window: WindowConfiguration,
     pub(super) native_capabilities: Vec<String>,
+    pub(super) menus: super::native_menu_config::NativeMenuConfig,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -229,6 +230,7 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
 }
 
 fn validate_manifest_application(application: &ManifestApplication) -> Result<(), Failure> {
+    application.menus.validate()?;
     if let Some(id) = &application.id
         && !valid_application_id(id)
     {
@@ -423,6 +425,8 @@ struct ManifestApplication {
     version: Option<String>,
     #[serde(default)]
     window: Option<WindowConfiguration>,
+    #[serde(default)]
+    menus: super::native_menu_config::NativeMenuConfig,
 }
 
 impl NativeApplication {
@@ -469,6 +473,7 @@ impl NativeApplication {
     }
 
     fn apply_manifest_application(&mut self, application: &ManifestApplication) {
+        self.menus.clone_from(&application.menus);
         if let Some(id) = &application.id {
             self.application_id.clone_from(id);
         }
@@ -507,6 +512,7 @@ impl NativeApplication {
             icons: Vec::new(),
             window: WindowConfiguration::default(),
             native_capabilities: Vec::new(),
+            menus: super::native_menu_config::NativeMenuConfig::default(),
         }
     }
 }

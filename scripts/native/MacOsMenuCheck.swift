@@ -16,16 +16,16 @@ private struct MacOsMenuCheck {
     }
 
     @MainActor
-    private static func menu(_ application: NSApplication, _ index: Int) throws -> NSMenu {
-        guard let menu = application.mainMenu?.item(at: index)?.submenu else {
-            throw NSError(domain: "Missing native menu group \(index)", code: 1)
+    private static func menu(_ application: NSApplication, _ title: String) throws -> NSMenu {
+        guard let menu = application.mainMenu?.items.first(where: { (item: NSMenuItem) -> Bool in item.title == title })?.submenu else {
+            throw NSError(domain: "Missing native menu group \(title)", code: 1)
         }
         return menu
     }
 
     @MainActor
     private static func checkApplication(_ application: NSApplication) throws {
-        let app = try menu(application, 0)
+        let app = try menu(application, "Menu Check")
         try require(app.title == "Menu Check", "Application identity changed")
         try require(app.item(at: 0)?.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:)), "About is not standard AppKit")
         try require(app.item(at: 2)?.action == #selector(NSApplication.hide(_:)), "Hide action missing")
@@ -38,9 +38,9 @@ private struct MacOsMenuCheck {
 
     @MainActor
     private static func checkWindow(_ application: NSApplication, _ window: NSWindow) throws {
-        let view = try menu(application, 2)
-        let windows = try menu(application, 3)
-        let help = try menu(application, 4)
+        let view = try menu(application, "View")
+        let windows = try menu(application, "Window")
+        let help = try menu(application, "Help")
         try require(view.item(at: 0)?.target as? NSWindow === window, "View targets another window")
         try require(view.item(at: 0)?.action == #selector(NSWindow.toggleFullScreen(_:)), "Full screen action missing")
         try require(view.item(at: 0)?.keyEquivalentModifierMask == [.command, .control], "Full screen shortcut changed")
@@ -53,7 +53,7 @@ private struct MacOsMenuCheck {
 
     @MainActor
     private static func checkEdit(_ application: NSApplication, _ window: NSWindow) throws {
-        let edit = try menu(application, 1)
+        let edit = try menu(application, "Edit")
         try require(edit.items.filter { (item: NSMenuItem) -> Bool in !item.isSeparatorItem }
                     .allSatisfy { (item: NSMenuItem) -> Bool in item.target == nil }, "Edit captures a component instead of the responder chain")
         try require(edit.item(at: 0)?.keyEquivalent == "z", "Undo shortcut missing")

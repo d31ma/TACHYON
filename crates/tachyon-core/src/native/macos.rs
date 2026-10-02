@@ -385,6 +385,20 @@ pub(super) fn swift_source(
         )
         .replace("__TACHYON_RUST_SHIM__", rust_shim)
         .replace("__NATIVE_MENUS__", include_str!("menus/MacOsMenus.swift"))
+        .replace(
+            "__NATIVE_MENU_MODELS__",
+            concat!(
+                include_str!("menus/MacOsMenuGroup.swift"),
+                include_str!("menus/MacOsMenuDestination.swift"),
+                include_str!("menus/MacOsMenuShortcut.swift"),
+                include_str!("menus/MacOsMenuRoute.swift"),
+                include_str!("menus/MacOsMenuNavigation.swift"),
+            ),
+        )
+        .replace(
+            "__NATIVE_MENU_ROUTES__",
+            &super::mac_os_menu_source::MacOsMenuSource::declarations(&application.menus),
+        )
 }
 
 #[cfg(test)]
@@ -476,6 +490,7 @@ __NATIVE_FILE_PICKER__
 __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
 __NATIVE_MENUS__
+__NATIVE_MENU_MODELS__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
@@ -750,7 +765,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
         self.window = window
         NativeBridge.shared.window = window
         let menus = MacOsMenus()
-        menus.install(NSApplication.shared, window, "__APP_NAME__")
+        let menuNavigation = MacOsMenuNavigation(view, tachyonRouteDocuments, __NATIVE_MENU_ROUTES__)
+        menus.install(NSApplication.shared, window, "__APP_NAME__", menuNavigation)
         self.menus = menus
         NSApplication.shared.activate(ignoringOtherApps: true)
 
@@ -825,6 +841,7 @@ mod tests {
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
+            menus: crate::native::native_menu_config::NativeMenuConfig::default(),
         }
     }
 

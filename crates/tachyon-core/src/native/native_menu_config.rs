@@ -1,0 +1,103 @@
+use super::native_menu_entry::NativeMenuEntry;
+use super::routes::NativeRouteIndex;
+use crate::Failure;
+use serde::Deserialize;
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct NativeMenuConfig {
+    #[serde(default)]
+    pub(super) file: Vec<NativeMenuEntry>,
+    #[serde(default)]
+    pub(super) view: Vec<NativeMenuEntry>,
+    #[serde(default)]
+    pub(super) help: Vec<NativeMenuEntry>,
+}
+
+impl NativeMenuConfig {
+    const MAX_ITEMS: usize = 64;
+
+    pub(super) fn validate(&self) -> Result<(), Failure> {
+        self.require_count()?;
+        self.items().try_for_each(NativeMenuEntry::validate)?;
+        self.require_ids()?;
+        self.require_shortcuts()
+    }
+
+    pub(super) fn validate_for(
+        &self,
+        target: tachyon_contracts::NativeTarget,
+        index: &NativeRouteIndex,
+    ) -> Result<(), Failure> {
+        self.require_target(target)?;
+        self.items()
+            .try_for_each(|item| Self::require_document(item, index))
+    }
+
+    pub(super) fn is_empty(&self) -> bool {
+        self.items().next().is_none()
+    }
+
+    fn items(&self) -> impl Iterator<Item = &NativeMenuEntry> {
+        self.file.iter().chain(&self.view).chain(&self.help)
+    }
+
+    fn require_count(&self) -> Result<(), Failure> {
+        (self.items().count() <= Self::MAX_ITEMS)
+            .then_some(())
+            .ok_or_else(|| {
+                super::config::config_failure("Native menus may declare at most 64 items in total.")
+            })
+    }
+
+    fn require_ids(&self) -> Result<(), Failure> {
+        let ids = self
+            .items()
+            .map(|item| &item.id)
+            .collect::<std::collections::BTreeSet<_>>();
+        (ids.len() == self.items().count())
+            .then_some(())
+            .ok_or_else(|| {
+                super::config::config_failure(
+                    "Native menu ids must be unique across File, View and Help.",
+                )
+            })
+    }
+
+    fn require_shortcuts(&self) -> Result<(), Failure> {
+        let shortcuts = self
+            .items()
+            .filter_map(|item| item.shortcut.as_ref())
+            .map(super::native_menu_shortcut::NativeMenuShortcut::identity)
+            .collect::<Vec<_>>();
+        let unique = shortcuts.iter().collect::<std::collections::BTreeSet<_>>();
+        (unique.len() == shortcuts.len())
+            .then_some(())
+            .ok_or_else(|| {
+                super::config::config_failure(
+                    "Native menu shortcuts must be unique across File, View and Help.",
+                )
+            })
+    }
+
+    fn require_target(&self, target: tachyon_contracts::NativeTarget) -> Result<(), Failure> {
+        (self.is_empty() || target == tachyon_contracts::NativeTarget::Macos)
+            .then_some(())
+            .ok_or_else(|| {
+                super::config::config_failure(
+                    "Declared native menu navigation is currently supported only on macOS.",
+                )
+            })
+    }
+
+    fn require_document(item: &NativeMenuEntry, index: &NativeRouteIndex) -> Result<(), Failure> {
+        let valid = index.routes.iter().any(|entry| entry.route == item.route)
+            && !item
+                .route
+                .split('/')
+                .any(|segment| segment.starts_with('_'));
+        valid.then_some(()).ok_or_else(|| super::config::config_failure(&format!(
+            "Native menu '{}' destination '{}' must exactly identify a compiled static page route.", item.id, item.route,
+        )))
+    }
+}

@@ -586,6 +586,7 @@ mod tests {
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
             native_capabilities: Vec::new(),
+            menus: crate::native::native_menu_config::NativeMenuConfig::default(),
         }
     }
 

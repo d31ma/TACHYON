@@ -1,12 +1,18 @@
 @MainActor
 final class MacOsMenus {
-    func install(_ application: NSApplication, _ window: NSWindow, _ name: String) {
+    private var navigation: MacOsMenuNavigation?
+
+    func install(_ application: NSApplication, _ window: NSWindow, _ name: String, _ navigation: MacOsMenuNavigation? = nil) {
         let root = NSMenu()
+        let view = viewMenu(window)
+        let help = helpMenu(application)
         root.addItem(applicationMenu(application, name))
         root.addItem(editMenu())
-        root.addItem(viewMenu(window))
+        root.addItem(view)
         root.addItem(windowMenu(application, window))
-        root.addItem(helpMenu(application))
+        root.addItem(help)
+        self.navigation = navigation
+        navigation?.install(root, view.submenu!, help.submenu!)
         application.mainMenu = root
     }
 

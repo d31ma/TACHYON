@@ -56,7 +56,7 @@ fn macos_menus_are_installed_after_the_owned_window_without_changing_bridge_life
     let source = MacOsMenuFixture::host(root.path());
     let ownership = source.find("self.window = window").expect("owned window");
     let install = source
-        .find("menus.install(NSApplication.shared, window, \"Menu Check\")")
+        .find("menus.install(NSApplication.shared, window, \"Menu Check\", menuNavigation)")
         .expect("host-owned menu installation");
     assert!(ownership < install);
     assert!(source.contains("private var menus: MacOsMenus?"));

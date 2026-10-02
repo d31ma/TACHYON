@@ -173,6 +173,9 @@ impl NativeCompiler {
             NativeApplication::discover_from_snapshot(project.snapshot_root(), project.root())?;
         let base_output = resolve_output_path(project.root(), &options.output_directory)?;
         ensure_entry_route_is_a_page(project, &application)?;
+        let index =
+            NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
+        application.menus.validate_for(options.target, &index)?;
 
         let (temporary_web, companions) = build_web_bundle(project, options.target).await?;
         super::native_ui_profile::NativeUiProfile::prepare(
@@ -180,9 +183,6 @@ impl NativeCompiler {
             temporary_web.path(),
             options.target,
         )?;
-        let index =
-            NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
-
         let destination = base_output.join(native_target_directory(options.target));
         let stage = create_stage(&destination, project.root())?;
         write_host_descriptor(
