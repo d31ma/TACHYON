@@ -668,6 +668,8 @@ export const activate = (target, service, properties, plan) => {
 }
 
 #[cfg(test)]
+mod dotnet_http_browser_fixture;
+#[cfg(test)]
 mod dotnet_task_browser_fixture;
 #[cfg(test)]
 mod dotnet_task_tests;
