@@ -1,0 +1,91 @@
+use super::prepared::Prepared;
+use super::{Method, Module};
+use crate::Failure;
+use crate::companion::CsharpTaskResult;
+use crate::route_types::ModelTable;
+use std::path::Path;
+
+pub(crate) struct CsharpTaskModels;
+
+impl CsharpTaskModels {
+    pub(crate) fn lower(
+        path: &Path,
+        source: &str,
+        models: &ModelTable,
+    ) -> Result<Option<String>, Failure> {
+        Self::prepared(path, source, models)
+    }
+
+    pub(crate) fn codec() -> &'static str {
+        include_str!("../../native/models/TacModels.cs")
+    }
+
+    fn prepared(path: &Path, source: &str, models: &ModelTable) -> Result<Option<String>, Failure> {
+        let rewritten = crate::behavior::HttpClientSource::rewrite(path, source)?
+            .unwrap_or_else(|| source.to_owned());
+        let roles = crate::behavior::ServiceRoles::read(path, &rewritten)?.source;
+        let mut result = None;
+        for prepared in super::prepare(path, &roles, "tac")?.into_iter() {
+            result = Some(
+                Self::lower_prepared(prepared, models)
+                    .map_err(|message| super::module_failure(path, source, message))?,
+            );
+        }
+        Ok(result)
+    }
+
+    fn lower_prepared(prepared: Prepared, models: &ModelTable) -> Result<String, String> {
+        match prepared {
+            Prepared::Erased(erased) => Ok(erased),
+            Prepared::Annotated(mut module) => {
+                Self::describe(&mut module, models)?;
+                super::csharp::lower(&module)
+            }
+        }
+    }
+
+    fn describe(module: &mut Module, models: &ModelTable) -> Result<(), String> {
+        for declared in &mut module.types {
+            Self::describe_methods(&mut declared.methods, models)?;
+        }
+        Ok(())
+    }
+
+    fn describe_methods(methods: &mut [Method], models: &ModelTable) -> Result<(), String> {
+        for method in methods {
+            Self::describe_method(method, models)?;
+        }
+        Ok(())
+    }
+
+    fn describe_method(method: &mut Method, models: &ModelTable) -> Result<(), String> {
+        for selected in (!method.metadata.is_empty()).then_some(method).into_iter() {
+            Self::describe_result(selected, models)?;
+        }
+        Ok(())
+    }
+
+    fn describe_result(method: &mut Method, models: &ModelTable) -> Result<(), String> {
+        for name in CsharpTaskResult::model(&method.return_type, models)?.into_iter() {
+            Self::require_exchange(method)?;
+            method.metadata.insert(
+                "tacModelResult".to_owned(),
+                serde_json::json!({"name": name, "models": models.event_models(&name)?}),
+            );
+        }
+        Ok(())
+    }
+
+    fn require_exchange(method: &Method) -> Result<(), String> {
+        if !method.asynchronous
+            || method
+                .metadata
+                .get("httpExchange")
+                .and_then(|exchange| exchange.get("generated"))
+                .is_none()
+        {
+            return Err("C# annotated Task<model> currently requires a generated HTTPClient exchange; other DTO behaviors remain unsupported.".to_owned());
+        }
+        Ok(())
+    }
+}

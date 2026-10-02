@@ -158,7 +158,10 @@ impl ManagedCapabilityCheck {
         let registry = Self::registry(root.path(), NativeCompanion::CSharp, explicit);
         let program = format!(
             "using System;\nusing System.Collections.Generic;\nusing System.Collections;\nusing System.Globalization;\nusing System.Linq;\nusing System.Text.Json.Nodes;\nusing System.Runtime.InteropServices;\nusing System.Text.Json;\nusing System.Text;\ninternal static class TacApplication {{ internal const string Id = \"test.managed\"; }}\n{registry}\n{}\n{}\n{}",
-            include_str!("prelude.cs"),
+            concat!(
+                include_str!("prelude.cs"),
+                include_str!("models/TacModels.cs")
+            ),
             super::csharp_web_apis::CsharpWebApis::native(),
             Self::CSHARP_CALLER
         );

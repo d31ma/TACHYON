@@ -185,6 +185,11 @@ fn method_body(
     prefix: &str,
     body: &str,
 ) -> Result<String, String> {
+    if let Some(body) =
+        super::csharp_model_exchange::CsharpModelExchange::body(type_declaration, method, prefix)
+    {
+        return Ok(body);
+    }
     if is_validation_only(method) {
         return validation_only_body(method, prefix, body);
     }
@@ -384,7 +389,7 @@ fn query_body(method: &Method, query: &Value) -> Result<String, String> {
     ))
 }
 
-fn json_arguments(method: &Method) -> String {
+pub(super) fn json_arguments(method: &Method) -> String {
     let mut arguments = Vec::new();
     for parameter in &method.parameters {
         arguments.push(format!("BehaviorJSON.From({})", parameter.name));

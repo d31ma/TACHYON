@@ -53,7 +53,10 @@ impl TaskOwnerFixture {
         let program = format!(
             "using System;\nusing System.Collections;\nusing System.Collections.Generic;\nusing System.Globalization;\nusing System.Linq;\nusing System.Runtime.InteropServices;\nusing System.Text;\nusing System.Text.Json.Nodes;\ninternal static class TacApplication {{ internal const string Id = \"task-fixture\"; }}\n{registry}\n{}\n{}\n{}\n{}\n{}\n{}",
             Self::runtime(),
-            include_str!("prelude.cs"),
+            concat!(
+                include_str!("prelude.cs"),
+                include_str!("models/TacModels.cs")
+            ),
             concat!(
                 include_str!("browser/Tac.cs"),
                 include_str!("browser/TacTaskAnswer.cs"),

@@ -158,6 +158,7 @@ mod csharp_browser_bindings;
 #[cfg(test)]
 mod csharp_browser_client_tests;
 mod csharp_browser_factory;
+mod csharp_task_inventory;
 
 #[cfg(test)]
 mod csharp_browser_bindings_tests;

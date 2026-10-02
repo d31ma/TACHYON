@@ -73,7 +73,10 @@ impl WindowsHostGenerator {
         "/SUBSYSTEM:WINDOWS",
         "/ENTRY:wWinMainCRTStartup",
     ];
-    const CSHARP_COMPANION_PRELUDE: &str = include_str!("prelude.cs");
+    const CSHARP_COMPANION_PRELUDE: &str = concat!(
+        include_str!("prelude.cs"),
+        include_str!("models/TacModels.cs")
+    );
     const CSHARP_BROWSER_TASKS: &str = concat!(
         include_str!("browser/Tac.cs"),
         include_str!("browser/TacTaskAnswer.cs"),

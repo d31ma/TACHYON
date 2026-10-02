@@ -24,6 +24,9 @@ pub struct TestReport {
     pub failure: Option<String>,
 }
 
+#[cfg(test)]
+mod csharp_task_model_tests;
+mod csharp_test_models;
 mod dart_test_models;
 mod fsharp_unit;
 mod python_unit;
@@ -148,7 +151,10 @@ pub fn run_with(
         "cs" => csharp(
             directory,
             &portable,
-            &models.add_to_program(&lowered),
+            &csharp_test_models::CsharpTestModels::program(
+                project,
+                &models.add_to_program(&lowered),
+            )?,
             &name,
         ),
         "rs" => rust(
@@ -222,13 +228,14 @@ fn lower_unit(
     let assembled = events
         .as_ref()
         .map_or(assembled.as_str(), |events| events.source.as_str());
-    let lowered = crate::behavior::lower_with_resources(relative, assembled, "tac", &resources)
-        .map_err(|failure| {
-            if extension == "go" {
-                return crate::go_source::GoFile::locate(&failure, assembled);
-            }
-            failure
-        })?;
+    let lowered =
+        csharp_test_models::CsharpTestModels::lower(project, relative, assembled, &resources)
+            .map_err(|failure| {
+                if extension == "go" {
+                    return crate::go_source::GoFile::locate(&failure, assembled);
+                }
+                failure
+            })?;
     lowered.ok_or_else(|| {
         fail(
             portable,

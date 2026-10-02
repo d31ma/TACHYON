@@ -405,7 +405,7 @@ pub(crate) fn csharp_case_calls(
     polyglot::csharp_case_calls(path, &unit, environment)
 }
 
-pub(crate) use polyglot::CsharpBrowserConstruction;
+pub(crate) use polyglot::{CsharpBrowserConstruction, CsharpTaskModels};
 
 fn without_tac_roles(path: &Path, source: &str, environment: &str) -> Result<String, Failure> {
     if environment == "tac" {

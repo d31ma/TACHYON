@@ -8,8 +8,14 @@ mod csharp_browser_members;
 #[cfg(test)]
 mod csharp_browser_members_tests;
 mod csharp_model_type;
+mod csharp_task_members;
+#[cfg(test)]
+mod csharp_task_model_tests;
+mod csharp_task_result;
 use constructor_field_policy::ConstructorFieldPolicy;
 use csharp_browser_members::CsharpBrowserMembers;
+pub(crate) use csharp_task_members::CsharpTaskMembers;
+pub(crate) use csharp_task_result::CsharpTaskResult;
 mod kotlin_header;
 mod kotlin_member;
 mod kotlin_members;

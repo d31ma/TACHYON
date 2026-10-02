@@ -6,6 +6,11 @@ use std::ops::Range;
 use std::path::Path;
 
 mod csharp;
+mod csharp_model_exchange;
+#[cfg(test)]
+mod csharp_task_model_tests;
+mod csharp_task_models;
+pub(crate) use csharp_task_models::CsharpTaskModels;
 mod csharp_browser_construction;
 pub(crate) use csharp_browser_construction::CsharpBrowserConstruction;
 mod csharp_helper_interfaces;

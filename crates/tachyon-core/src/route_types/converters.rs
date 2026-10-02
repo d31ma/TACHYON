@@ -66,6 +66,11 @@ impl Converters {
         }
     }
 
+    pub(crate) fn csharp_tac_test_text(root: &Path) -> Result<String, String> {
+        let files = ModelFolder::read_realm(root, "client", "cs")?;
+        Ok(TacCSharpContext::test_text(&files))
+    }
+
     pub(crate) fn dart_tac_test_text(root: &Path) -> Result<String, String> {
         let files = ModelFolder::read_realm(root, "client", "dart")?;
         Ok(DartConverters::text(&files))
@@ -132,21 +137,36 @@ struct TacCSharpContext;
 
 impl TacCSharpContext {
     fn text(files: &[(String, String)]) -> String {
+        let mut output = Self::model_lines(files);
+        Self::web_events(&mut output);
+        Self::finish(output)
+    }
+
+    fn test_text(files: &[(String, String)]) -> String {
+        Self::finish(Self::model_lines(files))
+    }
+
+    fn model_lines(files: &[(String, String)]) -> String {
         let mut output = String::from(
             "[System.Text.Json.Serialization.JsonSourceGenerationOptions(PropertyNamingPolicy = System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true)]\n[System.Text.Json.Serialization.JsonSerializable(typeof(string))]\n",
         );
         for (_, source) in files {
-            for (name, _) in ModelParser::models("cs", source) {
-                let _ = writeln!(
-                    output,
-                    "[System.Text.Json.Serialization.JsonSerializable(typeof(Models.{name}))]"
-                );
-            }
+            Self::model_attributes(&mut output, source);
         }
-        Self::web_events(&mut output);
-        output.push_str(
-            "internal partial class TacModelContext : System.Text.Json.Serialization.JsonSerializerContext {}\n",
-        );
+        output
+    }
+
+    fn model_attributes(output: &mut String, source: &str) {
+        for (name, _) in ModelParser::models("cs", source) {
+            let _ = writeln!(
+                output,
+                "[System.Text.Json.Serialization.JsonSerializable(typeof(Models.{name}))]"
+            );
+        }
+    }
+
+    fn finish(mut output: String) -> String {
+        output.push_str("internal partial class TacModelContext : System.Text.Json.Serialization.JsonSerializerContext {}\n");
         output
     }
 

@@ -247,7 +247,8 @@ fn lowered_body(
         crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
         crate::annotation_layout::NativeWebApis::refuse(&identity, authored)?;
     }
-    let lowered = crate::behavior::lower(&identity, authored, "tac")?;
+    let lowered =
+        super::csharp_task_inventory::CsharpTaskInventory::lower(item, &identity, authored)?;
     let authored = lowered.as_deref().unwrap_or(authored);
     let portable = item.source.to_string_lossy();
     let mut excluded = prepared.excluded.clone();
@@ -264,12 +265,18 @@ fn lowered_body(
             .map(|(name, _)| name),
         );
     }
+    let entries = super::csharp_task_inventory::CsharpTaskInventory::entries(
+        item,
+        authored,
+        (relative, &excluded),
+        &prepared.entries,
+    )?;
     let table = crate::companion::owner_table(
         super::events::companion_language(language).for_web(item.web_assembly),
         authored,
         &portable,
         &excluded,
-        &prepared.entries,
+        &entries,
         needs_all,
     )?;
     let table =

@@ -92,7 +92,7 @@ public sealed class ApplicationEventPublisher
     public void publishEvent(object value, bool retain = false) => PublishEvent(value, retain);
 }
 
-public static class TacModels
+public static partial class TacModels
 {
     public static T Read<T>(object value)
     {
@@ -116,35 +116,7 @@ public static class TacModels
         return Tac.ParseValue(System.Text.Json.JsonSerializer.Serialize(value, model));
     }
 
-    public static bool Fits(JsonNode models, string shape, object value)
-    {
-        if (shape.StartsWith("?")) return value == null || Fits(models, shape.Substring(1), value);
-        if (shape.StartsWith("[]"))
-        {
-            if (value is not object[] items) return false;
-            return items.All(item => Fits(models, shape.Substring(2), item));
-        }
-        switch (shape)
-        {
-            case "any": return true;
-            case "string": return value is string;
-            case "integer": return value is int || value is long;
-            case "number": return value is int || value is long || value is double;
-            case "boolean": return value is bool;
-        }
-        if (models?[shape] is not JsonObject model || value is not IDictionary<string, object> map) return false;
-        if (model["fields"] is not JsonObject fields) return false;
-        bool open = model["open"] is JsonValue declared && declared.TryGetValue<bool>(out var flag) && flag;
-        if (!open && map.Keys.Any(key => !fields.ContainsKey(key))) return false;
-        foreach (var entry in fields)
-        {
-            var field = entry.Value?.GetValue<string>() ?? "";
-            bool required = field.StartsWith("!");
-            if (!map.TryGetValue(entry.Key, out var found)) { if (required) return false; continue; }
-            if (!Fits(models, required ? field.Substring(1) : field, found)) return false;
-        }
-        return true;
-    }
+
 }
 
 public partial class Tac
