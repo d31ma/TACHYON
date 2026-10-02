@@ -450,6 +450,8 @@ internal static class BehaviorOpenTransactions {
 public sealed class BehaviorContext : System.IDisposable {
     private readonly BehaviorAdapters adapters;
     private readonly string partition;
+    private readonly BehaviorHTTPAdapter browserHttp;
+    private readonly BehaviorHttpRevalidation httpRevalidation = new();
     private readonly BehaviorSignal owner;
     private readonly BehaviorSignal signal = new BehaviorSignal();
     private readonly int timeoutMs;
@@ -466,11 +468,13 @@ public sealed class BehaviorContext : System.IDisposable {
         this.adapters.authorizeEntity = adapters.authorizeEntity;
         this.partition = partition; this.owner = owner; this.timeoutMs = timeoutMs; this.setupKey = setupKey;
         cancellation = owner.Token.Register(() => signal.Abort());
+        browserHttp = BehaviorBrowserHttp.Adapter(dispose);
     }
     public void dispose() {
-        signal.Abort(); cancellation.Dispose();
+        signal.Abort(); cancellation.Dispose(); httpRevalidation.Clear(); ReleaseBrowserHttp();
         if (System.Threading.Interlocked.Exchange(ref released, 1) == 0) Behaviors.ReleaseSetup(setupKey);
     }
+    private void ReleaseBrowserHttp() => (browserHttp as System.IDisposable)?.Dispose();
     public void Dispose() => dispose();
     public T Paginate<T>(System.Func<T> body) {
         if (System.Threading.Interlocked.Increment(ref active) > 64) { System.Threading.Interlocked.Decrement(ref active); throw new BehaviorError("OPERATION_LIMIT"); }
@@ -485,6 +489,7 @@ public sealed class BehaviorContext : System.IDisposable {
     private async System.Threading.Tasks.Task<T> Adapter<T>(BehaviorExecution execution, System.Func<System.Threading.Tasks.Task<T>> action) {
         execution.Check(); T result; try { result = await action(); } catch (BehaviorError) { throw; } catch { execution.Check(); throw new BehaviorError("ADAPTER_FAILED"); } execution.Check(); if (result == null) throw new BehaviorError("ADAPTER_INVALID"); return result;
     }
+    private BehaviorHTTPAdapter HttpAdapter(string name) => adapters.http.TryGetValue(name, out var adapter) ? adapter : browserHttp ?? throw new BehaviorError("HTTP_MISSING");
     private BehaviorCacheAdapter CacheAdapter(string name) => adapters.caches.TryGetValue(name, out var cache) ? cache : BehaviorStorage.Cache(name) ?? throw new BehaviorError("CACHE_MISSING");
     private BehaviorEntityAdapter EntityAdapter(string name) => adapters.entities.TryGetValue(name, out var adapter) ? adapter : BehaviorStorage.Entities(name) ?? throw new BehaviorError("ENTITY_MISSING");
     private static BehaviorJSON Method(string type, string method) { var metadata = Behaviors.Registration(type).Get("methods").Get(method); if (metadata.IsNull) throw new BehaviorError("METHOD_UNKNOWN"); return metadata; }
@@ -515,7 +520,7 @@ public sealed class BehaviorContext : System.IDisposable {
         var cache = CacheAdapter(policy.Get("name").Text);
         var entry = await Adapter(execution, () => cache.get(key, execution)); entry.Bound(1048576); entry.Keys("hit", "value", "expiresAt");
         if (entry.Get("hit").Boolean) { var expiry = entry.Get("expiresAt").Integer; if (expiry > Behaviors.Now + policy.Get("ttlMs").Integer) throw new BehaviorError("CACHE_EXPIRY"); if (expiry > Behaviors.Now) { var hit = entry.Get("value"); if (!entry.Has("value")) throw new BehaviorError("CACHE_VALUE"); hit.Bound((int)policy.Get("maxBytes").Integer); return hit; } }
-        var result = await Resilient(type, method, metadata, body, execution); execution.Check(); result.Bound((int)policy.Get("maxBytes").Integer);
+        var result = await Resilient(type, method, httpRevalidation.With(key, metadata), body, execution); httpRevalidation.Forget(key); execution.Check(); result.Bound((int)policy.Get("maxBytes").Integer);
         await Adapter(execution, async () => { await cache.set(key, result, policy, Behaviors.Now + policy.Get("ttlMs").Integer, execution); return true; }); return result;
     });
     private static BehaviorJSON WithFilledPath(BehaviorJSON metadata, BehaviorJSON[] arguments) {
@@ -565,7 +570,7 @@ public sealed class BehaviorContext : System.IDisposable {
         var cache = CacheAdapter(policy.Get("name").Text);
         var result = await Resilient(type, target.Get("method").Text, metadata, body, execution); execution.Check(); result.Bound(put ? (int)policy.Get("maxBytes").Integer : 1048576);
         if (put) await Adapter(execution, async () => { await cache.set(key, result, policy, Behaviors.Now + policy.Get("ttlMs").Integer, execution); return true; });
-        else await Adapter(execution, async () => { await cache.delete(key, execution); return true; });
+        else await Adapter(execution, async () => { await cache.delete(key, execution); httpRevalidation.Mark(key); return true; });
         return result;
     }
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> slots = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>();
@@ -620,9 +625,17 @@ public sealed class BehaviorContext : System.IDisposable {
         if (!metadata.Has("httpExchange")) return result;
         result.Keys("query", "headers", "body"); var policy = metadata.Get("httpExchange");
         if ((policy.Get("method").Text == "GET" || policy.Get("method").Text == "HEAD") && result.Has("body")) throw new BehaviorError("HTTP_BODY");
-        if (!adapters.http.TryGetValue(policy.Get("client").Text, out var client)) throw new BehaviorError("HTTP_MISSING");
+        var client = HttpAdapter(policy.Get("client").Text);
         var request = result.Members; if (!request.ContainsKey("query")) request["query"] = BehaviorJSON.Parse("{}"); if (!request.ContainsKey("headers")) request["headers"] = BehaviorJSON.Parse("{}"); request["method"] = policy.Get("method"); request["path"] = policy.Get("path"); request["redirect"] = BehaviorJSON.From("error"); request["credentials"] = BehaviorJSON.From("omit"); request["deadline"] = BehaviorJSON.From(execution.Deadline); request["maxResponseBytes"] = BehaviorJSON.From(1048576);
-        ValidateHTTP(result); return await Adapter(execution, () => client.exchange(BehaviorJSON.Object(request), execution));
+        ValidateHTTP(result); BrowserCacheRequest(client, request, metadata); return await Adapter(execution, () => client.exchange(BehaviorJSON.Object(request), execution));
+    }
+    private void BrowserCacheRequest(BehaviorHTTPAdapter client, System.Collections.Generic.Dictionary<string, BehaviorJSON> request, BehaviorJSON metadata)
+    {
+        if (ReferenceEquals(client, browserHttp) && metadata.Has("cacheable") && request["method"].Text == "GET")
+        {
+            request["publicRead"] = BehaviorJSON.From(true);
+            request["revalidate"] = metadata.Get("_httpRevalidate");
+        }
     }
     private static void ValidateHTTP(BehaviorJSON descriptor) {
         if (descriptor.Has("headers")) foreach (var pair in descriptor.Get("headers").Members) {
@@ -637,14 +650,14 @@ public sealed class BehaviorContext : System.IDisposable {
         if (metadata.Has("pageable")) { var page = metadata.Get("pageable"); int index = (int)page.Get("argument").Integer; if (index >= arguments.Length) throw new BehaviorError("PAGE_ARGUMENT"); arguments = (BehaviorJSON[])arguments.Clone(); arguments[index] = BehaviorPage.Normalize(arguments[index], page); }
         var policy = Behaviors.Registration(type).Get("cache"); string key = await Authorize("cache:evict", type, method, policy, metadata, arguments, execution);
         var cache = CacheAdapter(policy.Get("name").Text);
-        await Adapter(execution, async () => { await cache.delete(key, execution); return true; }); return BehaviorJSON.From(null);
+        await Adapter(execution, async () => { await cache.delete(key, execution); httpRevalidation.Mark(key); return true; }); return BehaviorJSON.From(null);
     });
     public BehaviorRestClient restClient(string name) {
         if (string.IsNullOrEmpty(name) || name.Length > 128) throw new BehaviorError("HTTP_MISSING");
         return new BehaviorRestClient(this, name);
     }
     internal System.Threading.Tasks.Task<BehaviorJSON> RestExchange(string name, string method, string path, BehaviorJSON descriptor) => Operation(async execution => {
-        if (!adapters.http.TryGetValue(name, out var client)) throw new BehaviorError("HTTP_MISSING");
+        var client = HttpAdapter(name);
         descriptor.Keys("query", "headers", "body");
         if ((method == "GET" || method == "HEAD") && descriptor.Has("body")) throw new BehaviorError("HTTP_BODY");
         ValidateHTTP(descriptor);

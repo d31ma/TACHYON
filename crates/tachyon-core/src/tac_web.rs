@@ -419,12 +419,19 @@ exports._initialize()
 }
 ";
 
-    const CSHARP_ENGINE: &str = r"const { dotnet } = await import('./dotnet/_framework/dotnet.js')
+    const CSHARP_ENGINE: &str = concat!(
+        include_str!("native/browser/tac-dotnet-http.js"),
+        r"
+const { dotnet } = await import('./dotnet/_framework/dotnet.js')
 const runtime = await dotnet.create()
+const http = new TacDotnetHttp()
 runtime.setModuleImports('tachyon', {
   emit: (payload) => { published.push(payload) },
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
   web: (text) => webHost(text),
+  httpStart: (text) => http.start(text),
+  httpAnswer: (ticket) => http.answer(ticket),
+  httpCancel: (ticket) => http.cancel(ticket),
 })
 const companion = (await runtime.getAssemblyExports(runtime.getConfig().mainAssemblyName)).TacWeb
 const transport = (text) => companion.Invoke(text)
@@ -460,7 +467,8 @@ const taskChange = async (request, current, changed) => {
   }
 }
 
-";
+"
+    );
 
     const GO_MODULE: &str = "go/services.wasm";
     const GO_GLUE: &str = "go/wasm_exec.js";
@@ -1663,3 +1671,6 @@ mod tests {
 
 #[cfg(test)]
 mod document_title_tests;
+
+#[cfg(test)]
+mod dotnet_http_host_tests;

@@ -32,13 +32,18 @@ impl TaskOwnerFixture {
     }
 
     fn runtime() -> String {
-        include_str!("../behavior/polyglot/csharp_runtime.cs")
-            .replace("__TAC_BEHAVIOR_MODULE__", "\"task-fixture\"")
-            .replace("__TAC_BEHAVIOR_ENVIRONMENT__", "\"test\"")
-            .replace("__TAC_BEHAVIOR_REGISTRY__", "\"{}\"")
-            .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", "")
-            .replace("__TAC_BEHAVIOR_ENTITIES__", "")
-            .replace("__TAC_BEHAVIOR_TYPES__", "")
+        concat!(
+            include_str!("../behavior/polyglot/csharp_runtime.cs"),
+            include_str!("../behavior/polyglot/csharp_browser_http/BehaviorBrowserHttp.cs"),
+            include_str!("../behavior/polyglot/csharp_browser_http/BehaviorBrowserHttpAdapter.cs"),
+            include_str!("../behavior/polyglot/csharp_browser_http/BehaviorHttpRevalidation.cs")
+        )
+        .replace("__TAC_BEHAVIOR_MODULE__", "\"task-fixture\"")
+        .replace("__TAC_BEHAVIOR_ENVIRONMENT__", "\"test\"")
+        .replace("__TAC_BEHAVIOR_REGISTRY__", "\"{}\"")
+        .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", "")
+        .replace("__TAC_BEHAVIOR_ENTITIES__", "")
+        .replace("__TAC_BEHAVIOR_TYPES__", "")
     }
 
     fn run() -> String {
@@ -51,7 +56,9 @@ impl TaskOwnerFixture {
             concat!(
                 include_str!("browser/Tac.cs"),
                 include_str!("browser/TacTaskAnswer.cs"),
-                include_str!("browser/TacTaskInvocation.cs")
+                include_str!("browser/TacTaskInvocation.cs"),
+                include_str!("browser/TacHttpTransport.cs"),
+                include_str!("browser/TacHttpInvocation.cs")
             ),
             super::csharp_web_apis::CsharpWebApis::with_events(),
             include_str!("../../tests/fixtures/behavior/TaskSignals.cs"),

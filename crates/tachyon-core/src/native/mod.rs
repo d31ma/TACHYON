@@ -147,3 +147,8 @@ pub(crate) fn plan_for_fuzzing(
     )
     .map(|_| ())
 }
+
+mod csharp_browser_bindings;
+
+#[cfg(test)]
+mod csharp_browser_bindings_tests;

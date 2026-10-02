@@ -62,6 +62,38 @@ public partial class Tac
         finally { TaskOwner.Value = previous; }
     }
 
+    internal static (Func<string, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> Sender, IDisposable Watch) CaptureHttpTransport(Action dispose) => CaptureHttpSender(HttpLifetime(), dispose);
+
+    private static System.Threading.CancellationToken? HttpLifetime()
+    {
+        var owner = TaskOwner.Value ?? Executing;
+        return CreatingCancellation?.Token ?? owner?.HttpLifetime;
+    }
+
+    private static (Func<string, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> Sender, IDisposable Watch) CaptureHttpSender(System.Threading.CancellationToken? lifetime, Action dispose) =>
+        lifetime.HasValue ? ((request, signal) => SendHttp(lifetime.Value, request, signal), lifetime.Value.Register(dispose)) : default;
+
+    private static async System.Threading.Tasks.Task<string> SendHttp(System.Threading.CancellationToken lifetime, string request, System.Threading.CancellationToken signal)
+    {
+        RequireHttpOwner(lifetime);
+        var answer = await TacHttpInvocation.Run(request, signal, lifetime);
+        RequireHttpOwner(lifetime);
+        return answer;
+    }
+
+    private static void RequireHttpOwner(System.Threading.CancellationToken lifetime)
+    {
+        lock (OwnerLock) { ValidateHttpOwner(lifetime); }
+    }
+
+    private static void ValidateHttpOwner(System.Threading.CancellationToken lifetime)
+    {
+        var owner = TaskOwner.Value;
+        if (owner == null || owner.Disposed || !Activations.TryGetValue(owner.Owner, out var current) || current != owner
+            || lifetime.IsCancellationRequested || owner.Cancellation.Token != lifetime)
+            throw new System.OperationCanceledException("HTTP requires its live asynchronous service activation.");
+    }
+
     private static string FinishTask(Activation owner, object value)
     {
         lock (OwnerLock)

@@ -2775,3 +2775,6 @@ mod gateway_runtime_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod csharp_browser_http_tests;

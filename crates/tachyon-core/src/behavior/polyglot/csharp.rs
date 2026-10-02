@@ -66,13 +66,18 @@ pub(super) fn runtime(
     entities: &str,
     policies: &str,
 ) -> String {
-    include_str!("csharp_runtime.cs")
-        .replace("__TAC_BEHAVIOR_MODULE__", &quote(module_id))
-        .replace("__TAC_BEHAVIOR_ENVIRONMENT__", &quote(environment))
-        .replace("__TAC_BEHAVIOR_REGISTRY__", &quote(registry))
-        .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", configurations)
-        .replace("__TAC_BEHAVIOR_ENTITIES__", entities)
-        .replace("__TAC_BEHAVIOR_TYPES__", policies)
+    concat!(
+        include_str!("csharp_runtime.cs"),
+        include_str!("csharp_browser_http/BehaviorBrowserHttp.cs"),
+        include_str!("csharp_browser_http/BehaviorBrowserHttpAdapter.cs"),
+        include_str!("csharp_browser_http/BehaviorHttpRevalidation.cs")
+    )
+    .replace("__TAC_BEHAVIOR_MODULE__", &quote(module_id))
+    .replace("__TAC_BEHAVIOR_ENVIRONMENT__", &quote(environment))
+    .replace("__TAC_BEHAVIOR_REGISTRY__", &quote(registry))
+    .replace("__TAC_BEHAVIOR_CONFIGURATIONS__", configurations)
+    .replace("__TAC_BEHAVIOR_ENTITIES__", entities)
+    .replace("__TAC_BEHAVIOR_TYPES__", policies)
 }
 
 fn policy_line(type_declaration: &Type) -> String {

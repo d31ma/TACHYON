@@ -233,7 +233,7 @@ public partial class Tac
         }
     }
 
-    private sealed class Activation(string route, string service, string owner, Dictionary<string, TacMember> members)
+    private sealed class Activation(string route, string service, string owner, Dictionary<string, TacMember> members, System.Threading.CancellationTokenSource cancellation)
     {
         internal readonly string Route = route;
         internal readonly string Service = service;
@@ -241,7 +241,8 @@ public partial class Tac
         internal readonly Dictionary<string, TacMember> Members = members;
         internal bool Disposed;
         internal int PendingTasks;
-        internal readonly System.Threading.CancellationTokenSource Cancellation = new();
+        internal readonly System.Threading.CancellationTokenSource Cancellation = cancellation;
+        internal readonly System.Threading.CancellationToken HttpLifetime = cancellation.Token;
         internal readonly Queue<(string Name, string Json, bool Retain)> Queue = new();
         internal readonly Dictionary<string, string> Retained = new();
         internal readonly Queue<(TacMember Listener, string Json)> Deferred = new();
@@ -255,6 +256,7 @@ public partial class Tac
     private static readonly object OwnerLock = new();
     private static readonly Dictionary<string, Activation> Activations = new();
     private static Activation Executing;
+    private static System.Threading.CancellationTokenSource CreatingCancellation;
     private static readonly System.Threading.AsyncLocal<Activation> TaskOwner = new();
     private static bool Handling;
     private static int OwnerThread;
@@ -516,6 +518,16 @@ public partial class Tac
         "{\"error\":" + Encode($"The {subject} is {size} bytes. The limit is {limit} bytes. Pass less data to the service.") + "}";
     private static string DescribeTaskMethods(List<string> methods) =>
         methods.Count == 0 ? "" : ",\"asyncMethods\":" + Encode(methods);
+    private static Dictionary<string, TacMember> CreateMembers(string owner, string service, out System.Threading.CancellationTokenSource lifetime)
+    {
+        lifetime = new();
+        var previous = CreatingCancellation;
+        CreatingCancellation = lifetime;
+        try { return NativeCapabilities.Create(owner, () => TacServices.Members(service)); }
+        catch { lifetime.Cancel(); lifetime.Dispose(); throw; }
+        finally { CreatingCancellation = previous; CreatingProps = null; }
+    }
+
     private static string Handle(string request)
     {
         try
@@ -536,11 +548,10 @@ public partial class Tac
             if (operation == "init" && (existing == null || existing.Route != route || existing.Service != service)) {
                 if (existing != null) DisposeOwner(owner);
                 CreatingProps = parsed["props"] as JsonObject;
-                var table = NativeCapabilities.Create(owner, () => TacServices.Members(service));
-                CreatingProps = null;
-                if (table == null) { NativeCapabilities.Dispose(owner); return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"; }
-                if (Activations.Count >= 256) throw new ArgumentException("Too many native activations.");
-                var activation = new Activation(route, service, owner, table);
+                var table = CreateMembers(owner, service, out var lifetime);
+                if (table == null) { lifetime.Cancel(); lifetime.Dispose(); NativeCapabilities.Dispose(owner); return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"; }
+                if (Activations.Count >= 256) { lifetime.Cancel(); lifetime.Dispose(); NativeCapabilities.Dispose(owner); throw new ArgumentException("Too many native activations."); }
+                var activation = new Activation(route, service, owner, table, lifetime);
                 Activations[owner] = activation; Executing = activation;
                 try {
                     if (parsed["props"] is JsonObject props)

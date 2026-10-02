@@ -1,4 +1,5 @@
 use super::config::NativeApplication;
+use super::csharp_browser_bindings::CsharpBrowserBindings;
 use super::csharp_web_apis::CsharpWebApis;
 use super::dotnet_web_release::DotnetWebRelease;
 use super::host::{
@@ -76,7 +77,9 @@ impl WindowsHostGenerator {
     const CSHARP_BROWSER_TASKS: &str = concat!(
         include_str!("browser/Tac.cs"),
         include_str!("browser/TacTaskAnswer.cs"),
-        include_str!("browser/TacTaskInvocation.cs")
+        include_str!("browser/TacTaskInvocation.cs"),
+        include_str!("browser/TacHttpTransport.cs"),
+        include_str!("browser/TacHttpInvocation.cs")
     );
     const CSHARP_COMPANION_USING: &str = "using System;\nusing System.Collections;\n\
                                       using System.Collections.Generic;\n\
@@ -134,11 +137,14 @@ impl WindowsHostGenerator {
 
     const CSHARP_WEB_ENTRY: &str = "public static partial class TacWeb\n{\n    \
     [JSExport]\n    public static string Invoke(string request)\n    {\n        \
-    Tac.WebEmit ??= Emit;\n        TacWebHost.Ask ??= Web;\n        return Tac.Invoke(request);\n    }\n\n    \
+    Tac.WebEmit ??= Emit;\n        TacHttpTransport.Start ??= HttpStart;\n        TacHttpTransport.Answer ??= HttpAnswer;\n        TacHttpTransport.Cancel ??= HttpCancel;\n        TacWebHost.Ask ??= Web;\n        return Tac.Invoke(request);\n    }\n\n    \
     [JSExport]\n    public static System.Threading.Tasks.Task<string> InvokeAsync(string request) => Tac.InvokeAsync(request);\n\n    \
     [JSImport(\"emit\", \"tachyon\")]\n    internal static partial void Emit(string payload);\n\n    \
     [JSImport(\"storage\", \"tachyon\")]\n    internal static partial string Storage(string request);\n\n    \
     [JSImport(\"web\", \"tachyon\")]\n    internal static partial string Web(string request);\n\n    \
+    [JSImport(\"httpStart\", \"tachyon\")]\n    internal static partial string HttpStart(string request);\n\n    \
+    [JSImport(\"httpAnswer\", \"tachyon\")]\n    [return: JSMarshalAs<JSType.Promise<JSType.String>>]\n    internal static partial System.Threading.Tasks.Task<string> HttpAnswer(string ticket);\n\n    \
+    [JSImport(\"httpCancel\", \"tachyon\")]\n    internal static partial void HttpCancel(string ticket);\n\n    \
     public static void Main() { }\n}\n";
 }
 
@@ -288,7 +294,10 @@ fn web_source(authored: &str, fsharp: &str) -> String {
     }
     let entry = WindowsHostGenerator::CSHARP_WEB_ENTRY.replace(
         "Tac.WebEmit ??= Emit;",
-        &format!("Tac.WebEmit ??= Emit;{storage_hosts}"),
+        &format!(
+            "Tac.WebEmit ??= Emit;{storage_hosts}{}",
+            CsharpBrowserBindings::read(authored)
+        ),
     );
     format!(
         "{using}using System.Runtime.InteropServices.JavaScript;\n\n\
