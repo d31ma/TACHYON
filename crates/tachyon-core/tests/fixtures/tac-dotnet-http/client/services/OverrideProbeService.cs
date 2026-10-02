@@ -19,7 +19,7 @@ public sealed class OverrideProbeService
         return answer;
     }
 
-    [Stop]
+    [OnStop]
     public void Close()
     {
         context.Dispose();

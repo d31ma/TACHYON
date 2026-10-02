@@ -3,7 +3,7 @@
 export default class ProbeController {
   /** @returns {{message: string}} */
   @GetRoute
-  read() {
+  getProbe() {
     return { message: 'actual Yon answer' }
   }
 }

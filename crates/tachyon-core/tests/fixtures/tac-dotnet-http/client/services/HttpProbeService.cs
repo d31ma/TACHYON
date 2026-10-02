@@ -23,7 +23,7 @@ public sealed class HttpProbeService
 
     public System.Threading.Tasks.Task<BehaviorJSON> InvalidPath() => context.restClient("probe").get("//untrusted.example").retrieve();
 
-    [Stop]
+    [OnStop]
     public void Close()
     {
         context.Dispose();
