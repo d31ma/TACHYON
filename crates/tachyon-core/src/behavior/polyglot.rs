@@ -6,6 +6,10 @@ use std::ops::Range;
 use std::path::Path;
 
 mod csharp;
+mod csharp_tac_helpers;
+use csharp_tac_helpers::CsharpTacHelpers;
+#[cfg(test)]
+mod csharp_tac_helper_tests;
 #[cfg(test)]
 mod csharp_test_construction_tests;
 mod dart;
@@ -310,8 +314,10 @@ fn prepare(path: &Path, source: &str, environment: &str) -> Result<Option<Prepar
         return Ok(Some(Prepared::Erased(erase(source, &schedules))));
     }
     check_behavior_source(&input, mask.error, environment)?;
+    CsharpTacHelpers::captured(&input, language, environment, &markers)?;
     mask_annotations(&mut input, &markers, language);
     let types = behavior_types(&input, language, environment, &markers)?;
+    CsharpTacHelpers::constructed(&input, language, environment, &types)?;
     let edits = erasures(source, &markers, &schedules, &types, language, environment);
     let marked_parameters: Vec<Marker> = markers
         .iter()
@@ -560,6 +566,7 @@ impl HelperRole {
     }
 
     pub(crate) fn refuse_in_tac(path: &Path, source: &str) -> Result<(), Failure> {
+        CsharpTacHelpers::source(path, source)?;
         let Some(message) = Self::refusal(path) else {
             return Ok(());
         };

@@ -2268,7 +2268,6 @@ mod tests {
         for (extension, role) in [
             ("swift", "@Helper\nfinal class MoneyHelper {}"),
             ("kt", "@Helper\nclass MoneyHelper {}"),
-            ("cs", "[Helper]\nclass MoneyHelper {}"),
         ] {
             let root = tempfile::tempdir().expect("project");
             let entry = format!("client/services/ShellService.{extension}");

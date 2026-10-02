@@ -30,6 +30,8 @@ mod python_unit;
 mod test_unit_error;
 
 #[cfg(test)]
+mod csharp_helper_tests;
+#[cfg(test)]
 mod dart_construct_tests;
 #[cfg(test)]
 mod dart_http_context_tests;
