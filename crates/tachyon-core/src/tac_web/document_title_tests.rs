@@ -48,7 +48,7 @@ refuses(() => TacDocumentTitle.host('bad', 'extra'));
 console.log('document-title-owned-bounds-qualified');
 ";
 
-    const OWNER_AFTER: &'static str = r#"
+    const OWNER_AFTER: &'static str = r"
 const equal = (expected, actual) => { if (expected !== actual) throw new Error(`expected ${expected}, got ${actual}`) };
 const clientRequest = () => { throw new Error('unexpected request') };
 const events = new TacApplicationEvents({changed() {}, failed() { throw new Error('unexpected lifecycle failure') }});
@@ -101,7 +101,7 @@ refused = false;
 try { failedPort.set('failed-owner') } catch { refused = true }
 equal(true, refused);
 console.log('document-title-plain-owner-lifecycle-qualified');
-"#;
+";
 
     fn owners() -> String {
         let source = include_str!("../template/tac-client.js");
