@@ -102,10 +102,14 @@ class DotnetHttpBrowserGate {
   /** @param {import('playwright').Page} page @returns {Promise<HttpProof>} */
   static async #owners(page) {
     return page.evaluate(async () => {
+      const modulePath = '/.tachyon/services/HttpProbeService.js'
       /** @type {HttpConstructor} */
-      const Service = (await import('/.tachyon/services/HttpProbeService.js')).default
+      const Service = (await import(modulePath)).default
       /** @param {unknown} error @returns {HttpRefusal} */
-      const refusal = error => ({ message: String(error), ...(error?.code ? { code: error.code } : {}) })
+      const refusal = error => {
+        const code = error !== null && typeof error === 'object' ? Reflect.get(error, 'code') : undefined
+        return { message: String(error), ...(typeof code === 'string' ? { code } : {}) }
+      }
       const owner = new Service()
       const ordinary = await owner.read()
       const invalidPath = await owner.invalidPath().then(() => { throw new Error('Unsafe path succeeded.') }, refusal)

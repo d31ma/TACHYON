@@ -1,10 +1,13 @@
 import { spawn } from 'node:child_process';
 
+/** @typedef {(path: string, options?: RequestInit) => Promise<Response>} ProbeRequest */
+
 /**
- * @typedef {(path: string, options?: RequestInit) => Promise<Response>} ProbeRequest
+ * @template T
  * @param {string} binary
  * @param {string[]} args
- * @param {(request: ProbeRequest) => Promise<void>} probe
+ * @param {(request: ProbeRequest) => Promise<T>} probe
+ * @returns {Promise<T>}
  */
 export async function withServer(binary, args, probe) {
   const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
