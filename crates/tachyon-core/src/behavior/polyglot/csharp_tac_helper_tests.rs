@@ -309,7 +309,7 @@ fn csharp_tac_helper_allows_only_actual_interfaces_not_base_classes() {
             CsharpTacHelperTests::lower(&source).expect_err("no concrete or unknown inheritance");
         assert!(error.to_string().contains("cannot inherit"), "{error}");
     }
-    let service = "[Service]\nclass LabelService : LabelContract { public string Read() { return \"service\"; } }\n";
+    let service = "[Service]\n[CacheSettings({\"name\":\"probe\",\"ttlMs\":1000,\"maxBytes\":65536,\"maxEntries\":16})]\nclass LabelService : LabelContract { public string Read() { return \"service\"; } }\n";
     let error = CsharpTacHelperTests::lower(&format!("{interface}{service}"))
         .expect_err("Service inheritance unchanged");
     assert!(error.to_string().contains("cannot inherit"), "{error}");
