@@ -7,30 +7,52 @@ import { fileURLToPath } from 'node:url'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
+/**
+ * @typedef {{name: string, code: string}} FirstAppCodeFile
+ * @typedef {{heading: string, files: FirstAppCodeFile[]}} FirstAppSection
+ * @typedef {{topics: Record<string, {sections: FirstAppSection[]}>}} FirstAppDocs
+ * @typedef {{path: string, method: string, cookie: string | null}} FirstAppRequestReceipt
+ * @typedef {{name: string, errors: string[], requests: FirstAppRequestReceipt[], requestCount: number, rendered?: string[], status?: 'pass'}} FirstAppBrowserReceipt
+ * @typedef {{status: 'starting' | 'pass' | 'fail', sourceCommit: string, compilerSha256: string, browsers: FirstAppBrowserReceipt[], error?: string, elapsedMilliseconds?: number}} FirstAppReceipt
+ */
+
 class FirstAppDartBrowserGate {
+  /** @type {string} */
   static repository = fileURLToPath(new URL('../', import.meta.url))
+  /** @type {Record<string, import('playwright').BrowserType>} */
   static launchers = { chromium, firefox, webkit }
 
+  /** @returns {Promise<void>} */
   static async run() {
     await FirstAppDartBrowserGate.#dispatch()
   }
 
+  /**
+   * @param {string} name
+   * @returns {string}
+   */
   static #required(name) {
     assert.ok(process.env[name], `${name} must identify the actual staged Step 4 project/compiler`)
     return process.env[name]
   }
 
+  /** @returns {Promise<void>} */
   static async #dispatch() {
     const project = path.resolve(FirstAppDartBrowserGate.#required('TAC_FIRST_APP_DART_PROJECT'))
     if (process.argv.includes('--stage-only')) return FirstAppDartBrowserGate.stage(project)
     return FirstAppDartBrowserGate.probe(project)
   }
 
+  /**
+   * @param {string} project
+   * @returns {Promise<void>}
+   */
   static async stage(project) {
+    /** @type {FirstAppDocs} */
     const docs = JSON.parse(await readFile(path.join(FirstAppDartBrowserGate.repository, 'website/client/shared/data/docs.json'), 'utf8'))
     const sections = docs.topics['first-app'].sections
-    const step4 = sections.find(section => section.heading.startsWith('Step 4:'))
-    const step3 = sections.find(section => section.heading.startsWith('Step 3:'))
+    const step4 = /** @type {FirstAppSection} */ (sections.find(section => section.heading.startsWith('Step 4:')))
+    const step3 = /** @type {FirstAppSection} */ (sections.find(section => section.heading.startsWith('Step 3:')))
     const clients = step4.files.filter(file => file.name.endsWith('.dart') || file.name.endsWith('.html'))
     const server = step3.files.filter(file => file.name === 'server/controllers/GreetingController.js' || file.name === 'server/models/Greeting.ts')
     const tests = FirstAppDartBrowserGate.#tests(sections)
@@ -39,15 +61,24 @@ class FirstAppDartBrowserGate {
     await FirstAppDartBrowserGate.#write(project, [...clients, ...server, ...tests])
   }
 
+  /**
+   * @param {FirstAppSection[]} sections
+   * @returns {FirstAppCodeFile[]}
+   */
   static #tests(sections) {
     if (!process.argv.includes('--with-tests')) return []
-    const step5 = sections.find(section => section.heading.startsWith('Step 5:'))
+    const step5 = /** @type {FirstAppSection} */ (sections.find(section => section.heading.startsWith('Step 5:')))
     const names = ['client/tests/HelloTestSetup.dart', 'client/tests/CounterServiceTest.dart', 'server/tests/GreetingTestSetup.js', 'server/tests/GreetingControllerTest.js']
     const tests = step5.files.filter(file => names.includes(file.name))
     assert.equal(tests.length, 4, 'the cumulative project contains the actual published Dart and matching Yon tests')
     return tests
   }
 
+  /**
+   * @param {string} project
+   * @param {FirstAppCodeFile[]} files
+   * @returns {Promise<void>}
+   */
   static async #write(project, files) {
     for (const file of files) {
       const target = path.join(project, file.name)
@@ -56,10 +87,15 @@ class FirstAppDartBrowserGate {
     }
   }
 
+  /**
+   * @param {string} project
+   * @returns {Promise<void>}
+   */
   static async probe(project) {
     const binary = path.resolve(FirstAppDartBrowserGate.#required('TAC_BIN'))
     const sourceCommit = FirstAppDartBrowserGate.#required('TAC_FIRST_APP_DART_SOURCE_COMMIT')
     const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
+    /** @type {FirstAppReceipt} */
     const receipt = { status: 'starting', sourceCommit, compilerSha256, browsers: [] }
     const started = performance.now()
     try {
@@ -78,14 +114,26 @@ class FirstAppDartBrowserGate {
     }
   }
 
+  /**
+   * @param {string} origin
+   * @param {FirstAppReceipt} receipt
+   * @returns {Promise<void>}
+   */
   static async #browsers(origin, receipt) {
     for (const [name, launcher] of Object.entries(FirstAppDartBrowserGate.launchers)) {
+      /** @type {FirstAppBrowserReceipt} */
       const result = { name, errors: [], requests: [], requestCount: 0 }
       receipt.browsers.push(result)
       await FirstAppDartBrowserGate.check(launcher, origin, result)
     }
   }
 
+  /**
+   * @param {import('playwright').BrowserType} launcher
+   * @param {string} origin
+   * @param {FirstAppBrowserReceipt} result
+   * @returns {Promise<void>}
+   */
   static async check(launcher, origin, result) {
     const browser = await launcher.launch({ timeout: 10_000 })
     const deadline = setTimeout(() => browser.close(), 30_000)
@@ -120,6 +168,11 @@ class FirstAppDartBrowserGate {
     }
   }
 
+  /**
+   * @param {import('playwright').Page} page
+   * @param {FirstAppBrowserReceipt} result
+   * @returns {void}
+   */
   static #observe(page, result) {
     page.on('request', request => {
       if (new URL(request.url()).pathname === '/api/greeting') result.requestCount += 1
@@ -128,6 +181,11 @@ class FirstAppDartBrowserGate {
     page.on('requestfailed', request => FirstAppDartBrowserGate.#record(result.errors, `${new URL(request.url()).pathname}: ${request.failure()?.errorText}`))
   }
 
+  /**
+   * @param {string[]} errors
+   * @param {string} message
+   * @returns {void}
+   */
   static #record(errors, message) {
     if (errors.length < 12) errors.push(message.slice(0, 2000))
   }
