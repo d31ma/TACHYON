@@ -6,6 +6,7 @@ struct RustCapabilityCheck;
 
 impl RustCapabilityCheck {
     const SERVICE: &str = "#[Service]\n#[NeedsAll]\n#[derive(Default)]\nstruct ImportService {\n    file_picker: FilePicker,\n    window_controls: WindowControls,\n}\nimpl ImportService {\n    fn choose(&self) -> String { self.file_picker.open(&FilePickerOptions::default()).status.as_str().to_owned() }\n    fn allowed(&self) -> bool { self.window_controls.granted(\"minimize\").unwrap_or(false) }\n    fn minimize(&self) -> String { self.window_controls.minimize().err().unwrap_or_else(|| String::from(\"unexpected\")) }\n    fn customize(&self) -> String {\n        if self.window_controls.set_title(\"Tachyon owned native DI fixture\").is_err() || self.window_controls.resize(480, 320).is_err() { return String::from(\"failed\"); }\n        String::from(\"customized\")\n    }\n}\n";
+    #[cfg(target_os = "macos")]
     const WINDOW_CALLER: &str = r#"@main @MainActor private struct NativeWindowCheck {
     static func main() {
         let application = NSApplication.shared
@@ -109,6 +110,7 @@ fn main() {
             .expect("execute")
     }
 
+    #[cfg(target_os = "macos")]
     async fn host_links(exercise_window: bool) -> String {
         let root = tempfile::tempdir().expect("project");
         let staged = Self::stage(root.path());
