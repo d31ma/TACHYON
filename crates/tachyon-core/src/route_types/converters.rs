@@ -443,6 +443,10 @@ impl DartConverters {
     }
 
     fn record(output: &mut String, source: &str, name: &str, fields: &[ModelField]) {
+        if !Self::declares_constructor(source, name) {
+            Self::assigned_record(output, source, name, fields);
+            return;
+        }
         let (named, order) = Self::constructor(source, name, fields);
         let mut arguments = Vec::new();
         for field_name in &order {
@@ -461,6 +465,44 @@ impl DartConverters {
             "\n{name} __yon_read_{name}(Object? value) {{\n  final map = value is Map ? value : const <String, Object?>{{}};\n  return {name}({});\n}}\n",
             arguments.join(", ")
         );
+    }
+
+    fn assigned_record(output: &mut String, source: &str, name: &str, fields: &[ModelField]) {
+        let mut assignments = String::new();
+        for field in fields
+            .iter()
+            .filter(|field| !Self::is_final(source, &field.name))
+        {
+            let value = Self::read(&field.shape, &format!("map['{}']", field.name));
+            let _ = write!(assignments, "..{} = {value}", field.name);
+        }
+        let _ = write!(
+            output,
+            "\n{name} __yon_read_{name}(Object? value) {{\n  final map = value is Map ? value : const <String, Object?>{{}};\n  return {name}(){assignments};\n}}\n"
+        );
+    }
+
+    fn declares_constructor(source: &str, name: &str) -> bool {
+        [format!("{name}("), format!("{name}.")]
+            .iter()
+            .flat_map(|marker| source.match_indices(marker.as_str()))
+            .any(|(at, _)| Self::starts_a_word(source, at))
+    }
+
+    fn starts_a_word(source: &str, at: usize) -> bool {
+        !source[..at]
+            .chars()
+            .next_back()
+            .is_some_and(|character| character.is_ascii_alphanumeric() || character == '_')
+    }
+
+    fn is_final(source: &str, field: &str) -> bool {
+        source.lines().any(|line| {
+            let mut words = line
+                .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+                .filter(|word| !word.is_empty());
+            words.next() == Some("final") && words.any(|word| word == field)
+        })
     }
 
     fn tac_text(mut files: Vec<(String, String)>) -> String {

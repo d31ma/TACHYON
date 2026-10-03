@@ -626,3 +626,24 @@ fn go_types_from_other_packages_are_open_json_values() {
     assert_eq!(shape("go", "[]spec.Document"), list(Shape::Any));
     assert_eq!(shape("go", "*http.Request"), optional(model("Request")));
 }
+
+#[test]
+fn dart_models_without_a_constructor_are_read_by_assigning_their_fields() {
+    let root = tempfile::tempdir().expect("root");
+    let models = root.path().join("server/models");
+    std::fs::create_dir_all(&models).expect("models");
+    std::fs::write(
+        models.join("Endpoint.dart"),
+        "class Endpoint {\n  String profile = '';\n  final int version = 1;\n}\n",
+    )
+    .expect("write");
+    std::fs::write(
+        models.join("Settings.dart"),
+        "class Settings {\n  final String profile;\n  const Settings(this.profile);\n}\n",
+    )
+    .expect("write");
+    let text = super::Converters::program_text("dart", root.path()).expect("dart readers");
+    assert!(text.contains("return Endpoint()..profile = (map['profile'] as String);"));
+    assert!(!text.contains("..version"));
+    assert!(text.contains("return Settings((map['profile'] as String));"));
+}
