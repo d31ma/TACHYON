@@ -11,6 +11,14 @@ pub(crate) struct RequiredFields;
 
 impl RequiredFields {
     const PUBLISHER: &'static str = "ApplicationEventPublisher";
+    const FILLED_FIELD_MARKERS: [&'static str; 6] = [
+        "Needs",
+        "Named",
+        "Setting",
+        "LocalState",
+        "SessionState",
+        "Fake",
+    ];
     const LANGUAGES: [&'static str; 13] = [
         "js", "ts", "dart", "cs", "kt", "swift", "rs", "go", "rb", "lua", "java", "fs", "py",
     ];
@@ -482,16 +490,19 @@ impl RequiredFields {
                 let Some(close) = Self::closing(after, b'[', b']') else {
                     return (rest, marked);
                 };
+                marked |= Self::fills_field(&after[1..close]);
                 rest = after[close + 1..].trim_start();
             } else if rest.starts_with('[') {
                 let Some(close) = Self::closing(rest, b'[', b']') else {
                     return (rest, marked);
                 };
+                marked |= Self::fills_field(&rest[1..close]);
                 rest = rest[close + 1..].trim_start();
             } else if let Some(after) = rest.strip_prefix('@') {
                 let name_end = after
                     .find(|character: char| !Self::is_word_character(character) && character != '.')
                     .unwrap_or(after.len());
+                marked |= Self::fills_field(&after[..name_end]);
                 rest = &after[name_end..];
                 if rest.starts_with('(') {
                     let Some(close) = Self::closing(rest, b'(', b')') else {
@@ -503,8 +514,19 @@ impl RequiredFields {
             } else {
                 return (rest, marked);
             }
-            marked = true;
         }
+    }
+
+    fn fills_field(markers: &str) -> bool {
+        markers.split(',').any(|marker| {
+            let name = marker
+                .trim_start()
+                .split(Self::ends_java_marker)
+                .next()
+                .unwrap_or_default();
+            let last = name.rsplit('.').next().unwrap_or_default();
+            Self::FILLED_FIELD_MARKERS.contains(&last)
+        })
     }
 
     fn closing(text: &str, open: u8, close: u8) -> Option<usize> {
@@ -696,6 +718,33 @@ mod tests {
         assert_eq!(
             RequiredFields::injected_fields(path, source, "ShelfService", &injectable),
             ["tally", "second"]
+        );
+    }
+
+    #[test]
+    fn only_markers_that_fill_a_field_make_it_injected() {
+        let injectable = BTreeSet::new();
+        let java = "@Service\n@NeedsAll\nclass NoteService {\n    @JsonProperty(\"note\")\n    String note;\n    @Deprecated String title;\n    @Needs\n    String helper;\n    @tachyon.Named(\"main\") String named;\n}\n";
+        let path = Path::new("client/services/NoteService.java");
+        assert_eq!(
+            RequiredFields::props(path, java, "NoteService", &injectable),
+            ["note", "title"]
+        );
+        assert_eq!(
+            RequiredFields::injected_fields(path, java, "NoteService", &injectable),
+            ["helper", "named"]
+        );
+        let csharp = "[Service]\n[NeedsAll]\npublic class NoteService\n{\n    [JsonPropertyName(\"note\")]\n    public readonly string Note;\n    [Needs]\n    public readonly string Helper;\n}\n";
+        let path = Path::new("client/services/NoteService.cs");
+        assert_eq!(
+            RequiredFields::props(path, csharp, "NoteService", &injectable),
+            ["note"]
+        );
+        let swift = "@Service\n@NeedsAll\nclass NoteService {\n    @Published var note: String\n    @LocalState var count: Int\n}\n";
+        let path = Path::new("client/services/NoteService.swift");
+        assert_eq!(
+            RequiredFields::props(path, swift, "NoteService", &injectable),
+            ["note"]
         );
     }
 

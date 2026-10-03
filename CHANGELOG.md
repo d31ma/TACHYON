@@ -85,6 +85,11 @@ machine contracts have their own, independent major versions.
   response with a long `max-age` no longer hides a successful ClearCache.
   Cache-first service-worker rules also revalidate that read (ADR 0087).
 
+- In a NeedsAll Tac service, only a field marked Needs, Named, Setting,
+  LocalState, SessionState or Fake is filled by Tachyon. Any other field
+  annotation, such as `@JsonProperty` in Java or `@Published` in Swift, no
+  longer turns a required prop into an injected field that stayed empty.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
