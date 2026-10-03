@@ -8,6 +8,8 @@
   that a service's own type and its behavior live in the service's own file
 - Amended by: [ADR 0044](0044-an-annotated-file-holds-one-class.md), which
   moves every type without a role out of annotated files and into `models/`
+- Amended by: [ADR 0092](0092-settings-and-validation-data-live-in-models.md):
+  models may carry declarative settings and validation metadata
 
 ## Context
 

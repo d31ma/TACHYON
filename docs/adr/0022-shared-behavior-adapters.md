@@ -361,5 +361,5 @@ covers JavaScript and TypeScript browser execution and actual WebAssembly
 compilation and execution in Dart, Go, Java, Kotlin, C#, F#, Rust, Ruby and
 Swift. Ruby uses compiler-owned TacValues model metadata; F# uses generated
 record codecs. Native host deployment is outside this qualification. Lua
-converters remain unsupported under ADR 0085 and are explicitly deferred to
-the separate LUA-CONVERTER-PREREQUISITE queue item.
+converters came later, in both realms, with the 2026-09-30 amendment of
+ADR 0085.

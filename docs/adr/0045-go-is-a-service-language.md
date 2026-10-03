@@ -47,9 +47,9 @@ file.
   struct type (or another single type) with its methods and imports.
 - Go relay and Gateway calls follow ADR 0042, including the scrubbed
   environment and the remaining deadline.
-- The Go toolchain is Go 1.27 or newer. `ty doctor` checks it. The project's
-  build machine keeps it at `/Volumes/ANNEX/toolchains/go`, set up by the
-  toolchain `env.sh`.
+- The Go toolchain is Go 1.27 or newer. `ty doctor` checks it. The build
+  machine keeps it in an external toolchain folder that the toolchain setup
+  script puts on the `PATH`.
 
 ## Consequences
 

@@ -628,8 +628,7 @@ machine contracts have their own, independent major versions.
   five pinned runtime files in the Tachyon cache; `ty` checks their sizes and
   SHA-256, never downloads them, and `ty doctor` shows whether they are ready.
   Services are synchronous: fields, methods, typed models, `Needs`,
-  `NeedsAll`, `Named`, caller-owned Helpers, `@on_start` and `@on_stop`
-  work. `async def` methods, events, resources and streams stop the build
+  `NeedsAll`, `Named`, Python Helpers, `@on_start` and `@on_stop` work. `async def` methods, events, resources and streams stop the build
   with `TY1605`. Python Tac test units run with `ty test`.
 
 - macOS native apps have the standard menus: the app menu (About, Hide,

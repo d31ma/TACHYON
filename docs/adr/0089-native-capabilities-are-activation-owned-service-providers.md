@@ -1,6 +1,6 @@
-# ADR 0089: Native capabilities are activation-owned service providers
+# ADR 0089: Native Capabilities Are Activation-Owned Service Providers
 
-- Status: Accepted contract; macOS FilePicker and Swift/Rust/C#/Kotlin providers qualified; selected-handle grant-revocation evidence pending
+- Status: Accepted. The FilePicker works on macOS for JavaScript, TypeScript, Swift and Rust services. C# and Kotlin services receive the injected providers, but their FilePicker answers `unsupported`; Windows and Android have no picker.
 - Date: 2026-09-30
 - Relates to ADR 0025 (NeedsAll), ADR 0030 (native services), ADR 0065 (page APIs), ADR 0087 (WindowControls)
 

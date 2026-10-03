@@ -1,6 +1,6 @@
-# ADR 0090: Compiled Dart HTTP clients await the browser host
+# ADR 0090: Compiled Dart HTTP Clients Await the Browser Host
 
-- Status: Accepted Dart and bounded C#/F# browser contracts; other continuations pending
+- Status: Accepted
 - Date: 2026-10-01
 - Relates to ADR 0033 (Dart WebAssembly), ADR 0084 (page placement), ADR 0087 (injected HTTP and caching)
 

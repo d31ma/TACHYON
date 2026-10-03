@@ -13,6 +13,7 @@
   gateway, and the data-only rules of models files
 - Amended by: [ADR 0047](0047-annotation-names-are-plain-english.md): annotations and role folders have plain English names (for example `Needs`, `NeedsAll`, `Store`, `OnStart`, `stores/`); the old names are refused and `ty migrate fix --write` renames them
 - Amended by: [ADR 0048](0048-yon-routes-come-from-annotations.md): Yon routes come from annotations in `server/controllers/` (`RequestRoute`, `GetRoute`, ...), not from `server/routes/` folders; clients use `HTTPClient` and `GetRequest`, ...; `OPTIONS.schema.json` is replaced by schemas built from models
+- Amended by: [ADR 0091](0091-role-folders-allow-nesting-and-require-explicit-registration.md): every concrete class in a role folder needs its role marker (`TY1363`), so a Tac service in `services/` can no longer leave out `@Service`; settings and validation data move to `models/` ([ADR 0092](0092-settings-and-validation-data-live-in-models.md))
 
 ## Context
 
@@ -154,7 +155,10 @@ annotation.
   the entry's language, and composes it into the same unit as the code that
   names it. It does not become an injectable provider. Place it in
   `delegates/`, the folder for the objects that roles use. A Tac service in
-  `services/` may carry behavior annotations without `@Service`. Where
+  `services/` may carry behavior annotations without `@Service`. (Amended by
+  ADR 0091: a concrete class in a role folder now needs its role marker, so
+  a Tac service needs `@Service`, and settings and validation data live in
+  `models/` as ADR 0092 describes.) Where
   ADR 0021 and ADR 0022 say "the same source file" or "source-local", they
   now mean this composed unit. A behavior-only class outside the role
   folders, for example in `shared/`, is not discovered. There is no

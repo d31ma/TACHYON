@@ -1,8 +1,8 @@
-# ADR 0088: Remotes are the canonical outbound role folder
+# ADR 0088: Remotes Are the Canonical Outbound Role Folder
 
-- Status: Accepted by Samuel; scoped implementation and qualification complete
+- Status: Accepted
 - Date: 2026-09-30
-- Relates to ADR0031 (shared realm roles), ADR0047 (markers) and ADR0087 (injected HTTP)
+- Relates to ADR 0031 (shared realm roles), ADR 0047 (markers) and ADR 0087 (injected HTTP)
 
 ## Decision
 

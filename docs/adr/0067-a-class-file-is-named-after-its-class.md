@@ -128,8 +128,7 @@ visibility and native utility lowering use the actual Rust type rather than the
 filename stem. Migration does not rename already-valid legacy files. A mismatched
 single-type Rust file is offered the canonical snake_case filename.
 
-Prepared acceptance is `rust_snake_case` (filename conversion and mismatches,
-role/model/utility checks, marker/folder and duplicate negatives, cross-source
-visibility, and ordinary nested native collection with model/utility imports).
-At this source checkpoint these tests have not been executed; executable native
-acceptance must use a compiler built from the qualified source.
+The `rust_snake_case` tests cover the filename conversion and mismatches,
+the role, model and utility checks, marker, folder and duplicate refusals,
+visibility across files, and a nested native build with model and utility
+imports.

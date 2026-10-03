@@ -47,13 +47,14 @@ Tachyon runs its own copy-paste detection with SonarQube's semantics.
    hold utility classes. A file there is named `<Topic>Utils.<ext>` and holds
    one class of the same name (`TY1310`) with no Tachyon annotation. Rust
    accepts the exact snake_case filename (`text_utils.rs` for `TextUtils`)
-   alongside legacy `TextUtils.rs`, as amended in ADR0067. The class
+   alongside legacy `TextUtils.rs`, as amended in ADR 0067. The class
    holds only static methods and no state (`TY1316`): no field, no mutable
    storage, no constructor and no instance method. Rust utility impl blocks
    may hold immutable associated `const` items, including restricted visibility.
    These compile-time values are not instance fields or `static` storage. This
-   2026-10-01 amendment follows Samuel's canonical coding guide and preserves
-   the rejection of instance fields, `static`/`static mut`, and receiver methods.
+   2026-10-01 amendment follows the shared coding guide and still rejects
+   instance fields, `static` and `static mut` (also inside a method), and
+   receiver methods.
    Other languages' constant/field policies are unchanged. The methods follow the
    cohesion rule of ADR 0063. Tachyon composes every utility class of a
    realm into each program of that realm and language, with no import:
@@ -101,13 +102,13 @@ repository test keeps the number of duplicated blocks at or below
   Other languages retain the existing field restriction. No mutable utility
   state is allowed.
 
-## Native Rust utility paths — 2026-10-01
+## Amendment: Native Rust utility paths (2026-10-01)
 
 Native Rust utilities remain validated plain classes in `client/utils/`, with
 no Service or Helper marker. Canonical native assembly places them beside
 the realm's other definitions. The compiler maps authored
-`crate::utils::<KnownUtility>` imports and qualified references to that actual
-canonical type location, using names from captured validated utility units.
+`crate::utils::<KnownUtility>` imports and qualified references to that
+type location, using the names of the checked utility classes.
 It preserves grouped imports, aliases, and nested qualified calls without
 changing application files or exporting a new root module. Comments, literals,
 unknown names, module aliases and arbitrary external crate paths are unchanged.
@@ -117,7 +118,7 @@ directories, are not qualified by this per-type lowering. Nested code blocks
 using a known fully qualified type are covered; nested directory namespaces
 are a separate contract.
 
-## Rust declaration projection — 2026-10-01
+## Amendment: Rust declarations in the duplicate check (2026-10-01)
 
 Behavior-clone tokens exclude top-level unit-type and impl wrappers and
 associated constants initialized by a single literal value. Distinct label
@@ -128,7 +129,7 @@ declarations still count. Original source line positions and the existing
 100-token, ten-line thresholds remain unchanged. Utility state and instance
 method validation continues to inspect the complete authored source.
 
-## Canonical Tac shared utilities — 2026-10-03
+## Amendment: Tac utilities in client/shared/utils (2026-10-03)
 
 Tac's canonical utility root is `client/shared/utils`, including nested topic
 folders. `client/utils` remains a compatibility root. Yon keeps `server/utils`;
@@ -143,7 +144,6 @@ not also duplicated as inline class bindings. Named module publication and
 editor declarations use the already validated utility class name. `.mjs` cannot
 bypass the JavaScript/TypeScript utility shape checks.
 
-Source-shape support and actual language runtime qualification remain separate.
-The existing twelve utility shape adapters are reused; this root addition does
-not qualify new F#, Lua or Groovy utility adapters. Assets, model declarations,
-managed Services and formal Helpers retain their dedicated locations.
+The new folder reuses the existing utility shape checks; it adds no utility
+support for F#, Lua or Groovy. Assets, models, Services and Helpers keep their
+own folders.

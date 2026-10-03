@@ -12,7 +12,8 @@
 - Amended by: [ADR 0047](0047-annotation-names-are-plain-english.md): annotations and role folders have plain English names (for example `Needs`, `NeedsAll`, `Store`, `OnStart`, `stores/`); the old names are refused and `ty migrate fix --write` renames them
 - Amended by: [ADR 0048](0048-yon-routes-come-from-annotations.md): Yon routes come from annotations in `server/controllers/` (`RequestRoute`, `GetRoute`, ...), not from `server/routes/` folders; clients use `HTTPClient` and `GetRequest`, ...; `OPTIONS.schema.json` is replaced by schemas built from models
 
-- Amended by: [ADR0091](0091-role-folders-allow-nesting-and-require-explicit-registration.md): nested organization within realm role folders and explicit supported role registration.
+- Amended by: [ADR 0091](0091-role-folders-allow-nesting-and-require-explicit-registration.md): nested organization within realm role folders and explicit supported role registration.
+- Amended by: [ADR 0093](0093-python-is-a-tac-service-language.md): Python is also a Tac service language.
 
 ## Context
 
