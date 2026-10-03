@@ -103,7 +103,8 @@ type GoNoteConverter interface {
 \tToSummary(note BehaviorValue) (BehaviorValue, error)
 }
 `);
-  write(project, 'client/services/GoNotesService.go', `// @CacheSettings({"name":"gonotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
+  write(project, 'client/services/GoNotesService.go', `// @Service()
+// @CacheSettings({"name":"gonotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 type GoNotesService struct {
 \tbehaviors *BehaviorContext
 \t// @Needs
@@ -536,7 +537,7 @@ interface KtNoteConverter {
   write(project, 'client/services/KtNotesService.kt', `@Service
 @CacheSettings({"name":"ktnotes","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 class KtNotesService {
-    lateinit var behaviors: Behaviors.Context
+    private lateinit var behaviors: Behaviors.Context
     var reads: Long = 0
     @Needs
     val noteStore: KtNoteStore
