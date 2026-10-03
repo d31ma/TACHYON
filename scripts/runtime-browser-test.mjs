@@ -491,6 +491,7 @@ async function checkLuaService(browser) {
 
 function writeEventMeshFixtures(project, withCSharp) {
   write(project, 'client/pages/tac.html', '<event-mesh />');
+  write(project, 'client/manifest.json', JSON.stringify({ tac: { budgets: { check: false } } }));
   write(project, 'client/components/event/mesh/tac.html', `<main>
 <button id="send-large" on:click="signal.send(25)">Large</button><button id="send-small" on:click="signal.send(5)">Small</button>
 <p id="rust-records">{rustAudit.records}</p><p id="rust-settled">{rustAudit.settled}</p>

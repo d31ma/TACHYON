@@ -1,0 +1,5 @@
+<div class="viewport">
+  <loop :for="card of graph.cards">
+    <button :data-selected="card.id === graph.selected" on:click="graph.choose(card.id)">{card.label}</button>
+  </loop>
+</div>

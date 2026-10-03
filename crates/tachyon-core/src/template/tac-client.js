@@ -978,9 +978,9 @@ const preflightFocus = (chain, fragment, container) => {
   return distributions
 }
 
-const replaceAndRefocus = (container, fragment, active, replacement) => {
+const commitAndRefocus = (authored, active, replacement) => {
   const selection = [active.selectionStart, active.selectionEnd, active.selectionDirection]
-  container.replaceChildren(fragment)
+  authored.commit()
   replacement.focus({ preventScroll: true })
   if (selection[0] !== null && selection[0] !== undefined) {
     try { replacement.setSelectionRange(...selection) } catch {}
@@ -1092,9 +1092,10 @@ const focusedElement = () => {
 const commitRoot = (container, fragment, editingAtStart) => {
   const active = container.getRootNode().activeElement
   const chain = focusChain(active, fragment, container)
-  if (!chain.length) { container.replaceChildren(fragment); return }
+  const authored = new AuthoredRootUpdate(container, fragment, active, editingAtStart).prepare()
+  if (!chain.length || authored.retains(active)) { authored.commit(); return }
   const distributions = preflightFocus(chain, fragment, container)
-  if (!distributions) { replaceAndRefocus(container, fragment, active, chain.at(-1).fresh); return }
+  if (!distributions || authored.refuses(chain)) { commitAndRefocus(authored, active, chain.at(-1).fresh); return }
   const update = new FocusedRootUpdate(chain, distributions, active, editingAtStart)
   update.commit(container, fragment, 0)
   update.finalize()
@@ -1114,8 +1115,8 @@ const retainComponentRoots = () => {
     const editing = active && fresh.contains(active) ? active : null
     const selection = editing && typeof editing.selectionStart === 'number'
       ? [editing.selectionStart, editing.selectionEnd, editing.selectionDirection] : null
-    previous.replaceChildren(...fresh.childNodes)
-    Elements.records.set(previous, Elements.records.get(fresh))
+    new AuthoredRootUpdate(previous, fresh, active, null).prepare().commit()
+    Elements.records.set(previous, { ...Elements.records.get(fresh), children: [...previous.childNodes] })
     previous.tachyonComponent = fresh.tachyonComponent
     fresh.replaceWith(previous)
     if (editing && document.activeElement !== editing) {

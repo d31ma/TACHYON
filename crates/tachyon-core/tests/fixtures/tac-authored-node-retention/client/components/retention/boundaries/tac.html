@@ -1,0 +1,7 @@
+<main>
+  <button id="change-observed" on:click="retention.changeObserved()">Change observed attribute</button>
+  <button id="update" on:click="retention.update()">Update</button>
+  <output id="updates">{retention.updates}</output>
+  <unknown-wrap><input id="wrapped" aria-label="Wrapped" value="abcdef" /></unknown-wrap>
+  <observed-wrap :mode="retention.mode"><input id="observed-input" aria-label="Observed" value="abcdef" /></observed-wrap>
+</main>

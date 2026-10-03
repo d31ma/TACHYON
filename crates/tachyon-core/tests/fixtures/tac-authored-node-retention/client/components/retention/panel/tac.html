@@ -1,0 +1,24 @@
+<w-container fluid id="vendor-container">
+  <main id="native-parent">
+    <h1>Authored node retention</h1>
+    <button id="update" on:click="retention.update()">Update same owner</button>
+    <button id="replace-rows" on:click="retention.replaceRows()">Replace row object</button>
+    <button id="change-slot" on:click="retention.changeSlot()">Change named slot</button>
+    <button id="hide" on:click="retention.hide()">Hide conditional</button>
+    <output id="updates">{retention.updates}</output><output id="selections">{retention.selections}</output>
+    <label>Draft<input id="draft" :value="retention.draft" on:input="retention.draft = $event.target.value" /></label>
+    <w-card variant="outlined" id="vendor-card">
+      <div id="viewport" class="viewport" tabindex="0">
+        <svg id="graphic" width="640" height="480" viewBox="0 0 640 480">
+          <path id="connector" :d="retention.connector" />
+          <loop :for="card of retention.cards"><foreignObject :x="card.x" y="16" width="180" height="140"><button class="card" :id="card.id" on:click="retention.choose(card.id)" :data-selected="card.id === retention.selected">{retention.updates} · {card.label}</button></foreignObject></loop>
+        </svg>
+      </div>
+    </w-card>
+    <w-card variant="outlined" id="mutation-card"><span id="named" :slot="retention.slotName">Named authored child</span><p id="ordinary-slot-child">Default authored child</p></w-card>
+    <w-card variant="outlined" id="form-card"><input id="slotted-draft" aria-label="Slotted draft" value="abcdef" /></w-card>
+    <unknown-wrap id="opaque"><input id="wrapped" aria-label="Wrapped" value="abcdef" /></unknown-wrap>
+    <section id="rows"><loop :for="row of retention.rows"><button class="row" :data-id="row.id" on:click="retention.choose(row.id)">{row.label}</button></loop></section>
+    <logic :if="retention.visible"><section id="conditional">Conditional authored node</section></logic>
+  </main>
+</w-container>

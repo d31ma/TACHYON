@@ -313,6 +313,11 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Keep authored nodes across Tac updates in every browser
+        run: bun run test:authored-node-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
       - name: Verify shared Tac and Yon behavior adapters
         run: |
           bun run test:behavior-runtime

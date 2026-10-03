@@ -577,6 +577,7 @@ fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Erro
 
     for step in [
         "bun run test:cached-client-browser",
+        "bun run test:authored-node-browser",
         "node website/scripts/build-styles.mjs --check",
         "node website/scripts/check-responsive.mjs",
         "node scripts/ignored-browser-gates.mjs --groups=dotnet,kotlin,java",

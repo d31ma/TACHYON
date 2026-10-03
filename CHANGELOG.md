@@ -130,6 +130,12 @@ machine contracts have their own, independent major versions.
   follow the wall clock (at most about two seconds late, never early) while
   an adapter blocks; Tac Lua reads the page clock (ADR 0085).
 
+- Tac updates keep authored elements. An element at the same template place
+  with the same loop item keeps its DOM node, focus, caret and scroll position;
+  only changed attributes, text and children are written. A graph view no longer
+  replaces its cards or resets its pan offset when a card is selected. Custom
+  elements stay when their children and light-DOM slots are unchanged.
+
 - C# coverage includes public methods with next-line body braces or expression
   bodies and records the method actually called. Static Setup callbacks and
   generated bodyless client methods remain outside instance-method coverage.

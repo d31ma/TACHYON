@@ -1,0 +1,7 @@
+{
+  "heading": "What an update keeps",
+  "body": "When a service value changes, the browser renderer renders the view again. It keeps every element that is still at the same place in the template and has the same loop item. It changes only the attributes, text and children that are different. So the element keeps its DOM node, its focus, its caret and its scroll position. In the example, a click on a card changes `graph.selected`. The scrolling `div` and the three buttons stay the same nodes, so the view does not jump back to the start.\n\nA loop item that is a new object gets a new element, even when its values are the same. Keep the same objects in the list when their elements must stay. A custom element, for example one from a component library, stays only when its children and its light-DOM `slot` elements are as the renderer left them. If the library moved them, or an attribute that the element observes changes, the renderer creates the element again. When the focus was inside it, the new element gets the focus and the same selection.",
+  "code": {
+    "file": "example.html"
+  }
+}

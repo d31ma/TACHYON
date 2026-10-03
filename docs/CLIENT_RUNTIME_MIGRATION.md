@@ -455,6 +455,7 @@ discovery exists, use a field assignment or an explicit table.
 
 ```sh
 TAC_BIN=/absolute/path/to/ty node scripts/runtime-browser-test.mjs
+TAC_BIN=/absolute/path/to/ty node scripts/authored-node-browser-gate.mjs
 TAC_BIN=/absolute/path/to/ty node scripts/service-worker-browser-test.mjs
 TAC_BIN=/absolute/path/to/ty node scripts/storage-browser-test.mjs
 TAC_BIN=/absolute/path/to/ty node scripts/native/companion-test.mjs

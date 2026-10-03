@@ -21,6 +21,9 @@
       "include": "shared-data-and-the-page/section.json"
     },
     {
+      "include": "what-an-update-keeps/section.json"
+    },
+    {
       "include": "when-a-component-activates/section.json"
     },
     {
