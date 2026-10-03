@@ -346,10 +346,10 @@ A service's collaborators live in `client/remotes/`, `client/stores/`,
 A `@Needs` field named after a collaborator receives it, as it does for a
 Yon service (ADR 0038). Yon uses exactly the same folders: `server/services/`,
 `server/remotes/`, `server/stores/`, `server/setups/`,
-`server/entities/`, `server/helpers/`. Every route shares them (ADR 0031). The older `clients/` folder remains a
-compatibility alias in both realms. New apps use `remotes/` for outbound HTTP,
-socket and gateway contracts; role annotations and class names are unchanged.
-See [the migration guide](docs/REMOTES_MIGRATION.md).
+`server/entities/`, `server/helpers/`. Every route shares them (ADR 0031).
+The older `clients/` folder still works in both realms. New apps use `remotes/`
+for outbound HTTP, socket and gateway classes. Annotations and class names do
+not change. See [the migration guide](docs/REMOTES_MIGRATION.md).
 
 
 Data types without a role live in `client/models/` or `server/models/`: in

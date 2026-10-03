@@ -33,24 +33,25 @@ Application developers still write HTML. A component template may use:
 
 - escaped text interpolation: `{title}` or `{product.name}`;
 - dynamic attributes and component properties: `:aria-label="title"`;
-- canonical conditional controls:
+- conditional controls:
   `<logic :if="featured">`, `<logic :else-if="archived">`, and
   `<logic else>`;
-- conditional compatibility aliases:
+- older conditional names, still accepted:
   `<if :when="featured">` followed by `<else>`;
-- canonical iteration controls:
+- iteration controls:
   `<loop :for="product of products">`;
-- iteration compatibility aliases:
+- older iteration names, still accepted:
   `<for :each="product in products">`;
 - registered Tac components that use tags shaped like custom elements;
 - component `hydrate` policies: `load`, `idle`, `visible`, `interaction`, and
   `never`;
 - `<slot>` inside a component template.
 
-New examples use `logic` and `loop`. The `if`, `else` and `for` spellings remain
-accepted compatibility aliases. A fallback has a bare `else` flag; `:else` and
-`else="true"` are invalid. Each `logic` control has exactly one branch marker.
-Pages compose components and do not contain these controls directly.
+New examples use `logic` and `loop`. The older `if`, `else` and `for` names
+still work. The last branch is marked with a bare `else` attribute; `:else`
+and `else="true"` are errors. Each `logic` element has exactly one branch
+attribute. These controls go inside components. Pages place components and do
+not use the controls directly.
 
 ```html
 <logic :if="featured"><product-card /></logic>

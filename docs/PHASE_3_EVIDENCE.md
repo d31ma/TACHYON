@@ -22,8 +22,8 @@ The current `ty build` command does these things:
 
 The build discovers Yon handlers for the manifests, but it never executes them.
 
-The canonical `<logic>/<loop>` controls and the `<if>/<else>/<for>`
-compatibility aliases are compiler syntax. Neither set ever appears in the emitted HTML.
+The `<logic>` and `<loop>` controls, and their older names `<if>`, `<else>`
+and `<for>`, are compiler syntax. None of them appears in the built HTML.
 A failed build keeps the last complete output.
 
 ## Behavioral Evidence

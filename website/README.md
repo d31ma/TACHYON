@@ -121,13 +121,15 @@ the same class specificity, so the stylesheet orders them with layers:
 
 `tailwind.src.css` turns DuVay's design tokens into Tailwind utilities. So a
 template writes `text-sm` or `border-line` instead of an inline style, and both
-follow the light and dark themes. Tailwind is generated without Preflight, because DuVay owns the base layer.
+follow the light and dark themes. Tailwind is generated without Preflight, its
+base reset, because DuVay owns the base layer.
 
-`client/shared/styles/site.css` contains only document theme variables, body
-font/color defaults, contrast and reduced-motion resets. Its imported DuVay
-stylesheet is pinned by the manifest's `styleSources` entry. The two DuVay scripts
-are ordinary declared `tac.scripts`, with exact `scriptSources` hashes. The
-vendor directory retains the version, MIT license and asset provenance.
+`client/shared/styles/site.css` holds only the theme variables, the default
+font and color of the body, and the contrast and reduced-motion resets. It
+imports the DuVay stylesheet, and the manifest's `styleSources` entry pins that
+file. The two DuVay scripts are listed in `tac.scripts` like any other script,
+and `scriptSources` gives the hash of each one. The vendor folder records the
+DuVay version, its MIT license and where each file came from.
 
 `duvay-wc-site.min.js` holds only the DuVay components that the views use
 (`w-app-bar`, `w-btn`, `w-container`, `w-divider`, `w-expansion-panel` and
@@ -139,17 +141,18 @@ to use another DuVay component, add its module to `build.modules` and
 hashes, rebuilds the file and stops with the new hash when the output changed;
 put that hash in `PROVENANCE.json` and `tac.scriptSources`.
 
-Component layout and typography live beside the component HTML in `tac.css`.
-`bun run styles` reads each template independently through the existing pinned
-Tailwind scanner/compiler. It replaces only the tool-read generated region in
-that component's sheet and preserves authored rules outside the region. Tailwind
-custom-property registrations live in `tailwind-properties.css` because CSS
-`@property` registration is global; the generated selectors remain scoped by
-Tachyon. No shared generated utility sheet or style-generating script is loaded.
+Each component keeps its layout and text styles in `tac.css`, next to its HTML.
+`bun run styles` reads each template on its own with the pinned Tailwind
+scanner and compiler. In that component's `tac.css` it replaces only the
+generated region, and it keeps the rules you wrote outside that region.
+Tailwind's CSS `@property` registrations are global, so they live in
+`tailwind-properties.css`; Tachyon still scopes the generated selectors to
+their component. The site loads no shared utility stylesheet and no script that
+makes styles.
 
-On a machine with externally routed dependencies, set
-`TACHYON_WEBSITE_DEPENDENCIES` to the website's existing `node_modules` directory
-when running the generator; no dependency alias is needed inside synced source.
+If this machine keeps dependencies outside the source folder, set
+`TACHYON_WEBSITE_DEPENDENCIES` to the website's `node_modules` folder when you
+run the generator. You do not need a dependency link inside the synced source.
 
 The theme is dark until the visitor picks another one. `site.css` gives the
 page a dark background while the root has no `w-theme` attribute, so the first

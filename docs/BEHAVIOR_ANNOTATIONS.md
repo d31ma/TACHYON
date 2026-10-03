@@ -734,34 +734,37 @@ directly.
 
 ## Typed-model converter signatures
 
-A Converter may declare `map(source: Product): ProductSummary` with no
-`@Convert` marker or field plan. Both types must name models in the realm's
-`models/` folder. JavaScript uses JSDoc `@param` and `@returns` types; its model
-files may declare JSDoc `@typedef` models. TypeScript model files are also
-available to JavaScript roles.
+A Converter may declare `map(source: Product): ProductSummary` without an
+`@Convert` marker or a field plan. Both types must be models in the `models/`
+folder of the realm. JavaScript gives the types with JSDoc `@param` and
+`@returns`, and its model files may declare JSDoc `@typedef` models. JavaScript
+roles may also use TypeScript model files.
 
-The compiler copies exact, same-named target fields, widens integer values to
-numbers, and projects nested models and lists recursively. It drops source
-fields absent from the target. Nullable source fields cannot fill required
-target fields. Missing or incompatible target fields fail the build with a
-field-specific diagnostic; cyclic model projections are bounded. An explicit
-`@Convert({"fields":[...]})` supplies overrides for named target fields while
-the compiler infers the rest. JSON-value methods still require a complete
-explicit plan. Model and JSON-value signatures cannot be mixed.
+The compiler copies each target field from the source field with the same name.
+It turns integer values into numbers, and it maps nested models and lists the
+same way. Source fields that the target does not have are dropped. A source
+field that may be null cannot fill a required target field. A target field that
+is missing or has the wrong type fails the build, and the error names the field.
+Models may nest at most 8 levels deep; map deeper levels with their own method. An explicit
+`@Convert({"fields":[...]})` sets the named target fields, and the compiler
+fills in the rest. A method that takes and returns JSON values still needs a
+complete field plan. One method cannot mix model types and JSON values.
 
-Server runtime tests cover JavaScript, TypeScript, Python, Ruby, PHP, Dart, Go,
-Java, Groovy, Kotlin, C#, F#, Rust and Lua, including nested different models and
-lists. Tac runtime tests cover JavaScript and TypeScript in Chromium, Firefox
-and WebKit, plus actual WebAssembly compilation and execution for Dart, Go,
-Java, Kotlin, C#, F#, Rust, Ruby, Swift and Lua. Ruby reconstructs typed results
-through TacValues model metadata; F# uses generated record codecs. These
-checks qualify converter execution in web builds, not native host deployment.
-Lua uses LuaCATS model signatures and empty methods in a `-- @Converter`
-class table. A service or controller injects it through a typed `-- @Needs`
-field. Pure mappings execute in Yon and the Tac Lua WebAssembly runtime;
-other Tac behavior annotations and Lua resources remain unavailable under
+Server tests run these mappings in JavaScript, TypeScript, Python, Ruby, PHP,
+Dart, Go, Java, Groovy, Kotlin, C#, F#, Rust and Lua, with nested models and
+lists. Browser tests run them in JavaScript and TypeScript in Chromium, Firefox
+and WebKit. Dart, Go, Java, Kotlin, C#, F#, Rust, Ruby, Swift and Lua are
+compiled to WebAssembly and run. Ruby rebuilds typed results from the model
+information that Tac records, and F# uses generated record readers and writers.
+These tests cover web builds only, not native apps.
+
+In Lua, a Converter is a class table marked `-- @Converter`. Its methods are
+empty and use LuaCATS type comments for the models. A service or controller
+receives it through a typed `-- @Needs` field. Plain mappings run in Yon and in
+the Tac Lua WebAssembly runtime. Other Tac behavior annotations and Lua
+resources are not available yet; see
 [ADR 0085](adr/0085-lua-is-a-yon-language.md).
-Swift is a Tac language and has no Yon server probe.
+Swift is a Tac language only, so it has no server test.
 
 ## Adapter Contracts
 
