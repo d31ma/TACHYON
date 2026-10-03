@@ -671,8 +671,9 @@ successful cross-build is `buildable`. It is not `native-tested` or
 | `ty types [project]` | Write TypeScript globals for the composed JavaScript and TypeScript classes into `.tachyon/types/` (ADR 0053) |
 
 `ty cache` manages the installation and runtime cache that `TAC_CACHE_DIR`
-selects. It does **not** inspect or clear a project's compiled handler cache
-at `.tachyon/handlers`. For that cache, use the safe recovery procedure in
+selects, including the shared copies of compiled Kotlin, Rust, Dart, Go and
+Groovy handlers in `runtime/handlers-v1` (ADR 0095). It does **not** inspect
+or clear a project's compiled handler cache at `.tachyon/handlers`. For that cache, use the safe recovery procedure in
 [the engineering standards](docs/ENGINEERING_STANDARDS.md#handler-cache-operations).
 
 Useful options:

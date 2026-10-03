@@ -7025,7 +7025,7 @@
       "sections": [
         {
           "heading": "Build and deploy",
-          "body": "By default, ty bundle writes dist/web. To check a release, use --target all. Then preview or package the single target that you plan to release.",
+          "body": "By default, ty bundle writes dist/web. To check a release, use --target all. Then preview or package the single target that you plan to release.\n\nYon compiles each Kotlin, Rust, Dart, Go and Groovy handler once. The project keeps the result in `.tachyon/handlers`, and ty keeps a copy in `TAC_CACHE_DIR/runtime/handlers-v1`, so another project or a fresh checkout with the same handler, models and compiler reuses it instead of compiling again. `ty cache clean` removes these copies.",
           "code": "ty bundle --target all\nty preview --target web\nty preview --target macos"
         },
         {

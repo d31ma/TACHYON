@@ -218,6 +218,13 @@ Compiled and staged Yon artifacts live in the project-local
   content.
 - Pruning keeps the cache at no more than 256 entries and 512 MiB. The count
   includes nested entries.
+- A Kotlin, Rust, Dart, Go or Groovy artifact is also copied to
+  `runtime/handlers-v1` in the cache that `TAC_CACHE_DIR` selects, under the
+  same digest name. When the project cache has no valid artifact, Tachyon
+  restores a regular, non-empty shared copy instead of compiling again. It
+  never follows a symbolic link there. The shared folder keeps the newest 512
+  entries, and a shared-folder failure never fails a build
+  ([ADR 0095](adr/0095-compiled-handlers-are-shared-through-the-user-cache.md)).
 
 Tachyon normally recovers abandoned build locks automatically:
 
@@ -249,8 +256,9 @@ running. For manual recovery:
    any incident evidence you need.
 
 `ty cache status` and `ty cache clean` work on the installation/runtime cache
-that `TAC_CACHE_DIR` selects. They do not inspect, repair, or remove the
-project-local `.tachyon/handlers` cache.
+that `TAC_CACHE_DIR` selects. `ty cache clean` removes the shared handler
+copies in `runtime/handlers-v1`. Neither command inspects, repairs, or removes
+the project-local `.tachyon/handlers` cache.
 
 ## Naming
 
