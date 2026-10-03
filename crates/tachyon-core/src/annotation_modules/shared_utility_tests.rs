@@ -41,7 +41,9 @@ fn no_tac_language_composes_a_utility_from_the_removed_client_utils_folder() {
         let (paths, utility) = SharedUtilityDiscovery::composed("client/utils/nested", extension);
         assert!(!paths.contains(&utility), "{extension}: {paths:?}");
         assert!(
-            paths.iter().all(|path| !path.starts_with(Path::new("client/utils"))),
+            paths
+                .iter()
+                .all(|path| !path.starts_with(Path::new("client/utils"))),
             "{extension}: {paths:?}"
         );
     }

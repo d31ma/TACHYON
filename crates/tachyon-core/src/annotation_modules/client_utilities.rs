@@ -128,7 +128,9 @@ impl ClientUtilities {
         let specifier = specifier.split(['?', '#']).next()?;
         specifier
             .strip_prefix("/shared/utils/")
-            .map(|tail| PathBuf::from(crate::annotation_layout::UtilityLayout::CLIENT_ROOT).join(tail))
+            .map(|tail| {
+                PathBuf::from(crate::annotation_layout::UtilityLayout::CLIENT_ROOT).join(tail)
+            })
             .or_else(|| SharedImports::path(path, specifier))
     }
 }

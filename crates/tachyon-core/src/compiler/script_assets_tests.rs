@@ -287,7 +287,12 @@ async fn script_assets_publish_reachable_nested_transitive_utilities_with_cycles
                 .join("dist/shared/utils/nested/CycleUtils.js")
                 .is_file()
         );
-        assert!(!root.path().join("dist/shared/utils/UnusedUtils.js").exists());
+        assert!(
+            !root
+                .path()
+                .join("dist/shared/utils/UnusedUtils.js")
+                .exists()
+        );
         ScriptAssetFixture::invoke(root.path()).await;
     }
 }
@@ -323,12 +328,17 @@ async fn script_assets_compile_typed_utilities_imported_with_javascript_names() 
         "TypedUtils.text()",
         "TitleUtils.text().replace('Ready', TypedUtils.text())",
     );
-    let source = format!("import {{ TitleUtils }} from '/shared/utils/nested/TitleUtils.js';\n{source}");
+    let source =
+        format!("import {{ TitleUtils }} from '/shared/utils/nested/TitleUtils.js';\n{source}");
     std::fs::write(service, source).expect("typed import");
     WebCompiler::build_async(root.path(), &BuildOptions::default())
         .await
         .expect("typed build");
-    assert!(root.path().join("dist/shared/utils/TypedUtils.js").is_file());
+    assert!(
+        root.path()
+            .join("dist/shared/utils/TypedUtils.js")
+            .is_file()
+    );
     assert!(!root.path().join("dist/shared/utils/TypedUtils.ts").exists());
     ScriptAssetFixture::invoke(root.path()).await;
 }

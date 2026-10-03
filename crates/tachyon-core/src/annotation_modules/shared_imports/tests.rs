@@ -81,8 +81,7 @@ fn shared_imports_merge_uses_entry_base_after_nested_role_rebasing() {
         "js",
     )
     .expect("captured nested role import");
-    let authored =
-        "import { TitleUtils } from '././../shared/utils/nested/TitleUtils.js';\nclass LabelService {}";
+    let authored = "import { TitleUtils } from '././../shared/utils/nested/TitleUtils.js';\nclass LabelService {}";
     let output = merge_imports(entry, vec![nested, authored.to_owned()])
         .expect("entry and already rebased module use the same base");
     assert_eq!(

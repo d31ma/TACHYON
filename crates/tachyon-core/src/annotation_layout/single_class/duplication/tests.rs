@@ -119,8 +119,11 @@ fn rust_unrelated_immutable_labels_and_short_accessors_are_not_duplicate_behavio
         .is_empty()
     );
     for (name, source) in [("TitleUtils", title), ("MetricLabelsUtils", metrics)] {
-        crate::annotation_layout::validate(Path::new(&format!("client/shared/utils/{name}.rs")), source)
-            .expect("real stateless utility");
+        crate::annotation_layout::validate(
+            Path::new(&format!("client/shared/utils/{name}.rs")),
+            source,
+        )
+        .expect("real stateless utility");
     }
 }
 
@@ -295,7 +298,10 @@ fn migration_lists_duplicates_even_when_the_check_is_off() {
     assert_eq!(findings[0].feature, "duplication.block");
     assert_eq!(findings[0].source, "client/services/OrderService.ts");
     let action = findings[0].action.as_deref().unwrap_or("");
-    assert!(action.contains("client/shared/utils/SharedUtils.ts"), "{action}");
+    assert!(
+        action.contains("client/shared/utils/SharedUtils.ts"),
+        "{action}"
+    );
 }
 
 #[test]
