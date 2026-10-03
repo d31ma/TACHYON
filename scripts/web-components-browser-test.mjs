@@ -91,6 +91,7 @@ document.querySelector('shop-counter')?.addEventListener('count-changed', (event
     WebComponentsGate.write('client/models/TallyChanged.rs', 'pub struct TallyChanged {\n    pub count: i64,\n}\n')
     WebComponentsGate.write('client/services/TallyService.rs', `use crate::models::TallyChanged;
 
+#[Service]
 #[derive(Default)]
 struct TallyService {
     count: i64,
