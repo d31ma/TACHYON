@@ -102,6 +102,7 @@ pub struct DevServer {
     listener: Option<TcpListener>,
     application: Option<Router>,
     address: SocketAddr,
+    public_host: crate::ServerHost,
     build: Option<BuildResult>,
     runtime: ServerRuntime,
     tool_restart: Option<ToolRestart>,
@@ -135,7 +136,7 @@ impl DevServer {
     ) -> Result<Self, Failure> {
         let application = crate::ApplicationConfig::load_project_for_server(
             project,
-            Some(options.host),
+            Some(options.host.into()),
             Some(options.port),
         )?;
         Self::bind_project_with_application(project, options, application).await
@@ -168,6 +169,11 @@ impl DevServer {
     #[must_use]
     pub const fn address(&self) -> SocketAddr {
         self.address
+    }
+
+    #[must_use]
+    pub fn url(&self) -> String {
+        self.public_host.url(self.address)
     }
 
     #[must_use]
@@ -257,15 +263,28 @@ impl DevServer {
             supervisor.application().hosts(),
         );
         let application = dispatch_state.into_router(&page_hosts, guard);
+        let public_host = Self::public_host(options, supervisor.application());
         Ok(Self {
             listener: Some(listener),
             application: Some(application),
             address,
+            public_host,
             build,
             runtime,
             tool_restart,
             hot_updates,
         })
+    }
+
+    fn public_host(
+        options: &DevServerOptions,
+        application: &crate::ApplicationConfig,
+    ) -> crate::ServerHost {
+        application
+            .server_host()
+            .filter(|host| host.address() == options.host)
+            .cloned()
+            .unwrap_or_else(|| options.host.into())
     }
 
     fn rebuilds_first(options: &DevServerOptions, build: Option<&BuildResult>) -> bool {

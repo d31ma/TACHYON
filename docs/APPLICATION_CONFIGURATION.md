@@ -150,7 +150,8 @@ profile file has the same shape.
 
 | Path | Meaning |
 | --- | --- |
-| `server.host` | The address that `ty serve` and `ty start` bind. `127.0.0.1` unless set. An address that is not loopback also needs `--allow-non-loopback`. `--host` overrides it. |
+| `server.host` | The address that `ty serve` and `ty start` bind. `127.0.0.1` unless set. `localhost` or a name under `.localhost`, such as `shop.localhost`, binds `127.0.0.1` and the ready line prints the name (ADR 0094). An address that is not loopback also needs `--allow-non-loopback`. `--host` overrides it. |
+| `server.hosts` | Extra `Host` names a loopback server answers, such as `["preview.example.com", "*.tunnel.example"]`: names without scheme, port or path. Localhost names, IP addresses and the `tac.origin` host are always answered; other names get `403` with `TY1366`. With `--allow-non-loopback`, the `Host` check runs only when this list is set (ADR 0094). |
 | `server.port` | Port, 0 to 65535. `8080` unless set. 0 picks a free port. `--port` overrides it. |
 | `datasource.driver` | `postgresql`, `mysql`, `mariadb`, `sqlserver`, `sqlite` or `fylo`. |
 | `datasource.url` | The database location, without credentials: `postgresql://db:5432/catalog`, `sqlite:///var/lib/catalog.db`, `sqlite::memory:`, or an absolute FYLO root. |

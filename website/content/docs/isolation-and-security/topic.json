@@ -15,6 +15,9 @@
       "include": "../operations/security/section.json"
     },
     {
+      "include": "../operations/host-names-and-loopback/section.json"
+    },
+    {
       "include": "../companions/security-rules-for-browser-code/section.json"
     }
   ]

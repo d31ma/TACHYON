@@ -14,6 +14,7 @@ mod secret_assignment;
 mod secret_check;
 mod secret_match;
 mod secret_pattern;
+mod server_host;
 mod service_reach_check;
 
 #[cfg(test)]
@@ -27,6 +28,8 @@ mod local_host_name_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod secret_tests;
+#[cfg(test)]
+mod server_host_tests;
 #[cfg(test)]
 mod service_reach_tests;
 
@@ -46,4 +49,5 @@ use secret_assignment::SecretAssignment;
 pub(crate) use secret_check::SecretCheck;
 use secret_match::SecretMatch;
 use secret_pattern::SecretPattern;
+pub use server_host::ServerHost;
 pub(crate) use service_reach_check::ServiceReachCheck;

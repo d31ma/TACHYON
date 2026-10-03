@@ -135,7 +135,7 @@ impl ResilientServe {
         let host = crate::resolve_host(self.host.as_deref(), &[])?;
         let port = self.port.unwrap_or(self.default_port);
         let options = crate::dev_server_options(
-            host,
+            host.address(),
             port,
             self.allow_non_loopback,
             &self.output,
@@ -143,9 +143,9 @@ impl ResilientServe {
         );
         let page = ErrorPageServer::bind(&self.project, &options).await?;
         println!(
-            "{} at http://{}/",
+            "{} at {}",
             crate::ready_label(self.policy.command),
-            page.address()
+            host.url(page.address())
         );
         println!("Showing the project's problems until it builds; watching sources.");
         let _flush_result = std::io::stdout().flush();

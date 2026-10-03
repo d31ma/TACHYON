@@ -26,6 +26,8 @@ ty preview
   --target <target>                serve a built target's embedded web bundle
   --out-dir <dir>                  project-relative output directory
   --host, --port, --allow-non-loopback
+  --host <name>                    an IP address, localhost or a name under
+                                   .localhost (shop.localhost binds 127.0.0.1)
 
 ty test
   <project>                        project directory; the working directory by default

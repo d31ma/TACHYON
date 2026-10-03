@@ -10,6 +10,21 @@ machine contracts have their own, independent major versions.
 
 - Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
 
+### Security
+
+- Every loopback server (`ty serve`, `ty start`, `ty preview` and the error
+  page) answers only requests whose `Host` is a localhost name, an IP address,
+  the `tac.origin` host or a name in the new `server.hosts`; other names get
+  `403` with `TY1366`. This closes DNS rebinding against local servers. With
+  `--allow-non-loopback` the check runs when `server.hosts` is set (ADR 0094).
+- Handler processes no longer get `NO_PROXY=127.0.0.1` while the outgoing
+  guard runs, so proxy-honouring clients cannot reach other loopback ports
+  without the `outgoing.hosts` check, and Go's default client now uses the
+  guard (ADR 0094).
+- The outgoing guard resolves an allowed name once and refuses loopback,
+  private, link-local and shared addresses unless the entry is an IP address
+  or a localhost name (ADR 0094).
+
 ### Changed
 
 - The website release build fits its unchanged 320 KiB script budget on every
@@ -792,6 +807,12 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- `--host`, `--hostname` and `server.host` accept `localhost` names such as
+  `shop.localhost`. Tachyon binds `127.0.0.1` without asking the resolver and
+  prints `http://shop.localhost:PORT/`. The outgoing guard connects a listed
+  localhost name to `[::1]` and then `127.0.0.1`, on every operating system.
+  A Chromium, Firefox and WebKit gate checks the secure context, per-name
+  cookies and the `403` answer (ADR 0094).
 - Python is a Tac service language (ADR 0093). A `client/services/*.py`
   class marked `@service` runs in the browser on a pinned Pyodide runtime.
   The project selects it with `"python": {"runtime": "pyodide-314.0.7",

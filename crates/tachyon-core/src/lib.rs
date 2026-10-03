@@ -83,7 +83,7 @@ pub use project::{
     ViewKind,
 };
 pub use routing::{RouteMatch, match_route};
-pub use safety::LocalHostName;
+pub use safety::{LocalHostName, ServerHost};
 pub use scaffold::{
     AdditionResult, AppFeature, AppTarget, Choice, ChoiceAnswers, ChoiceList, ChoicePrompt,
     ProjectAddition, ProjectChoices, RealmChoice, Scaffold, ScaffoldResult, TacLanguage,

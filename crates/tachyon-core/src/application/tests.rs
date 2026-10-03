@@ -131,11 +131,26 @@ fn explicit_endpoint_overrides_supersede_invalid_file_endpoints() {
     let config = loaded(ApplicationConfig::load_with_endpoint_overrides(
         root.path(),
         &|_| Ok(None),
-        Some(std::net::Ipv4Addr::LOCALHOST.into()),
+        crate::ServerHost::parse("127.0.0.1"),
         Some(0),
     ));
     assert_eq!(config.port(), Some(0));
     assert_eq!(json(&config)["yon"]["server"]["host"], "127.0.0.1");
+}
+
+#[test]
+fn a_server_host_under_localhost_binds_loopback_and_keeps_its_name() {
+    let config = loaded(configured(r#"{"server":{"host":"Shop.localhost"}}"#, ""));
+    assert_eq!(config.host(), Some(std::net::Ipv4Addr::LOCALHOST.into()));
+    assert_eq!(json(&config)["yon"]["server"]["host"], "shop.localhost");
+    let root = temporary_directory();
+    let explicit = loaded(ApplicationConfig::load_with_endpoint_overrides(
+        root.path(),
+        &|_| Ok(None),
+        crate::ServerHost::parse("admin.localhost"),
+        None,
+    ));
+    assert_eq!(json(&explicit)["yon"]["server"]["host"], "admin.localhost");
 }
 
 #[test]

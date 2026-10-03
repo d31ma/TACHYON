@@ -26,8 +26,8 @@ use tachyon_core::{
     ApiBaselineCheck, ApplicationConfig, BuildOptions, ComposedTypes, DevServer, DevServerOptions,
     EnvironmentPolicy, Failure, HandlerCancellation, HandlerRuntimePrograms, HandlerSource,
     HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
-    NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, WebCompiler,
-    method_coverage::RecordedCalls, native_target_directory,
+    NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, ServerHost,
+    WebCompiler, method_coverage::RecordedCalls, native_target_directory,
 };
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, Severity};
 
@@ -913,7 +913,11 @@ fn application_for_server(
     let host = host
         .map(|value| resolve_host(Some(value), &[]))
         .transpose()?;
-    if !allow_non_loopback && host.is_some_and(|host| !host.is_loopback()) {
+    if !allow_non_loopback
+        && host
+            .as_ref()
+            .is_some_and(|host| !host.address().is_loopback())
+    {
         return Err(cli_failure(
             1301,
             "Refusing to expose the server without explicit permission.",
@@ -979,11 +983,7 @@ async fn serve_dev_server(
     policy: ServingPolicy,
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> Result<(), Failure> {
-    println!(
-        "{} at http://{}/",
-        ready_label(policy.command),
-        server.address()
-    );
+    println!("{} at {}", ready_label(policy.command), server.url());
     let mut stdout = std::io::stdout();
     if let Some(build) = server.build() {
         let _ = writeln!(stdout, "{}", build.timings_line());
@@ -1025,7 +1025,7 @@ async fn serve_dev_server(
 
 async fn execute_preview(
     project: &Path,
-    host: IpAddr,
+    host: ServerHost,
     port: u16,
     allow_non_loopback: bool,
     out_dir: &Path,
@@ -1044,7 +1044,7 @@ async fn execute_preview(
     let server = PreviewServer::bind(
         &root,
         &PreviewServerOptions {
-            host,
+            host: host.address(),
             port,
             allow_non_loopback,
             hosts: ApplicationConfig::load(project)
@@ -1061,8 +1061,8 @@ async fn execute_preview(
         .as_ref()
         .map(PreviewBundleWatcher::cancellation_handle);
     println!(
-        "Tachyon preview ready at http://{}/ ({})",
-        server.address(),
+        "Tachyon preview ready at {} ({})",
+        host.url(server.address()),
         server.root().display()
     );
     if watch {
@@ -1294,7 +1294,7 @@ fn reject_render_mode(explicit: Option<&str>) -> Result<(), Failure> {
     Ok(())
 }
 
-fn resolve_host(explicit: Option<&str>, environment_names: &[&str]) -> Result<IpAddr, Failure> {
+fn resolve_host(explicit: Option<&str>, environment_names: &[&str]) -> Result<ServerHost, Failure> {
     let value = explicit.map(String::from).or_else(|| {
         environment_names.iter().find_map(|name| {
             std::env::var(name)
@@ -1303,16 +1303,13 @@ fn resolve_host(explicit: Option<&str>, environment_names: &[&str]) -> Result<Ip
         })
     });
     let Some(value) = value else {
-        return Ok(IpAddr::from([127, 0, 0, 1]));
+        return Ok(ServerHost::from(IpAddr::from([127, 0, 0, 1])));
     };
-    if value.eq_ignore_ascii_case("localhost") {
-        return Ok(IpAddr::from([127, 0, 0, 1]));
-    }
-    value.parse().map_err(|_| {
+    ServerHost::parse(&value).ok_or_else(|| {
         cli_failure(
             1302,
             format!("Invalid host address '{value}'."),
-            "Use an IPv4 or IPv6 address, or localhost.",
+            "Use an IPv4 or IPv6 address, localhost, or a name under .localhost.",
         )
     })
 }

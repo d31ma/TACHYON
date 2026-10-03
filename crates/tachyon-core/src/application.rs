@@ -1,12 +1,13 @@
 use crate::Failure;
 use crate::failure::diagnostic;
+use crate::safety::ServerHost;
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt, OpenOptionsSyncExt};
 use cap_std::fs::{Dir, File, Metadata, OpenOptions};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{ErrorKind, Read};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 use std::path::Path;
 
 mod parser;
@@ -19,7 +20,7 @@ type Environment<'a> = dyn Fn(&str) -> Result<Option<String>, Failure> + 'a;
 
 #[derive(Clone, Default, Eq, PartialEq)]
 pub struct ApplicationConfig {
-    host: Option<IpAddr>,
+    host: Option<ServerHost>,
     port: Option<u16>,
     hosts: Vec<String>,
     handler_json: Option<String>,
@@ -41,6 +42,7 @@ impl ApplicationConfig {
     const APPLICATION: &str = "server/application.json";
     const MAX_RESOLVED_BYTES: usize = 16_384;
     const MAX_KEYS: usize = 128;
+    const HOSTS_MESSAGE: &str = "yon.server.hosts must be a list of host names without scheme, port or path, such as \"app.example.com\" or \"*.example.com\".";
     const TAC_CONFIG_MOVED: &str = "tac.config is no longer read; client/manifest.json is the Tac configuration (ADR 0052). Move application to tac.application (name and entryRoute become name and start_url), scripts, styles and cache to tac.scripts, tac.styles and tac.cache, metadata to tac.metadata.routes, and origin to tac.origin. postBundle is replaced by the built-in sitemap.xml and robots.txt; list dynamic route values in tac.sitemap. `ty migrate fix --write` moves plain values.";
 
     pub fn load(root: &Path) -> Result<Self, Failure> {
@@ -49,7 +51,7 @@ impl ApplicationConfig {
 
     pub fn load_for_server(
         root: &Path,
-        host: Option<IpAddr>,
+        host: Option<ServerHost>,
         port: Option<u16>,
     ) -> Result<Self, Failure> {
         Self::load_with_endpoint_overrides(root, &read_environment, host, port)
@@ -57,7 +59,7 @@ impl ApplicationConfig {
 
     pub fn load_project_for_server(
         project: &crate::Project,
-        host: Option<IpAddr>,
+        host: Option<ServerHost>,
         port: Option<u16>,
     ) -> Result<Self, Failure> {
         Self::load_directory_for_server(&project.capability(), host, port)
@@ -65,7 +67,7 @@ impl ApplicationConfig {
 
     pub(crate) fn load_directory_for_server(
         directory: &Dir,
-        host: Option<IpAddr>,
+        host: Option<ServerHost>,
         port: Option<u16>,
     ) -> Result<Self, Failure> {
         Self::load_opened(directory, &read_environment, host, port)
@@ -74,7 +76,7 @@ impl ApplicationConfig {
     fn load_with_endpoint_overrides(
         root: &Path,
         environment: &Environment<'_>,
-        host: Option<IpAddr>,
+        host: Option<ServerHost>,
         port: Option<u16>,
     ) -> Result<Self, Failure> {
         let directory = open_directory(root)?;
@@ -94,8 +96,13 @@ impl ApplicationConfig {
     }
 
     #[must_use]
-    pub const fn host(&self) -> Option<IpAddr> {
-        self.host
+    pub fn host(&self) -> Option<IpAddr> {
+        self.host.as_ref().map(ServerHost::address)
+    }
+
+    #[must_use]
+    pub const fn server_host(&self) -> Option<&ServerHost> {
+        self.host.as_ref()
     }
 
     #[must_use]
@@ -144,7 +151,7 @@ impl ApplicationConfig {
     fn load_opened(
         directory: &Dir,
         environment: &Environment<'_>,
-        host: Option<IpAddr>,
+        host: Option<ServerHost>,
         port: Option<u16>,
     ) -> Result<Self, Failure> {
         reject_legacy_locations(directory)?;
@@ -160,7 +167,7 @@ impl ApplicationConfig {
 
     fn from_document(
         mut document: Value,
-        explicit_host: Option<IpAddr>,
+        explicit_host: Option<ServerHost>,
         explicit_port: Option<u16>,
     ) -> Result<Self, Failure> {
         parser::validate_bounds(&document)?;
@@ -172,10 +179,10 @@ impl ApplicationConfig {
             Some(port) => Some(port),
             None => parse_port(document.pointer("/yon/server/port"))?,
         };
-        let hosts = parse_hosts(document.pointer("/yon/server/hosts"))?;
+        let hosts = Self::hosts_from(document.pointer("/yon/server/hosts"))?;
         let topics_directory =
             Self::topics_directory_from(document.pointer("/yon/topics/directory"))?;
-        normalize_endpoint(&mut document, host, port);
+        normalize_endpoint(&mut document, host.as_ref(), port);
         parser::validate_bounds(&document)?;
         let serialized = serde_json::to_string(&document)
             .map_err(|_| invalid("Cannot encode application configuration."))?;
@@ -192,6 +199,21 @@ impl ApplicationConfig {
             handler_json,
             topics_directory,
         })
+    }
+
+    fn hosts_from(value: Option<&Value>) -> Result<Vec<String>, Failure> {
+        let entries = value
+            .map_or(Some(&[][..]), |value| value.as_array().map(Vec::as_slice))
+            .ok_or_else(|| invalid(Self::HOSTS_MESSAGE))?;
+        entries.iter().map(Self::host_entry).collect()
+    }
+
+    fn host_entry(entry: &Value) -> Result<String, Failure> {
+        entry
+            .as_str()
+            .filter(|name| crate::safety::DeclaredHosts::is_name_entry(name))
+            .map(str::to_ascii_lowercase)
+            .ok_or_else(|| invalid(Self::HOSTS_MESSAGE))
     }
 
     fn topics_directory_from(value: Option<&Value>) -> Result<Option<String>, Failure> {
@@ -401,37 +423,15 @@ fn bounded_value(value: String) -> Result<String, Failure> {
     Ok(value)
 }
 
-fn parse_host(value: Option<&Value>) -> Result<Option<IpAddr>, Failure> {
+fn parse_host(value: Option<&Value>) -> Result<Option<ServerHost>, Failure> {
     let Some(value) = value else {
         return Ok(None);
     };
-    let value = value
-        .as_str()
-        .ok_or_else(|| invalid("yon.server.host must be localhost or an IP address."))?;
-    if value.eq_ignore_ascii_case("localhost") {
-        return Ok(Some(Ipv4Addr::LOCALHOST.into()));
-    }
-    value
-        .parse()
+    let message = "yon.server.host must be localhost, a name under .localhost or an IP address.";
+    let value = value.as_str().ok_or_else(|| invalid(message))?;
+    ServerHost::parse(value)
         .map(Some)
-        .map_err(|_| invalid("yon.server.host must be localhost or an IP address."))
-}
-
-fn parse_hosts(value: Option<&Value>) -> Result<Vec<String>, Failure> {
-    let Some(value) = value else {
-        return Ok(Vec::new());
-    };
-    let message = "yon.server.hosts must be a list of host names without scheme, port or path, such as \"app.example.com\" or \"*.example.com\".";
-    let entries = value.as_array().ok_or_else(|| invalid(message))?;
-    let mut hosts = Vec::new();
-    for entry in entries {
-        let name = entry.as_str().ok_or_else(|| invalid(message))?;
-        if !crate::safety::DeclaredHosts::is_name_entry(name) {
-            return Err(invalid(message));
-        }
-        hosts.push(name.to_ascii_lowercase());
-    }
-    Ok(hosts)
+        .ok_or_else(|| invalid(message))
 }
 
 fn parse_port(value: Option<&Value>) -> Result<Option<u16>, Failure> {
@@ -451,7 +451,7 @@ fn parse_port(value: Option<&Value>) -> Result<Option<u16>, Failure> {
         .ok_or_else(|| invalid("yon.server.port must be an integer from 0 through 65535."))
 }
 
-fn normalize_endpoint(document: &mut Value, host: Option<IpAddr>, port: Option<u16>) {
+fn normalize_endpoint(document: &mut Value, host: Option<&ServerHost>, port: Option<u16>) {
     if host.is_none() && port.is_none() {
         return;
     }
@@ -465,7 +465,7 @@ fn normalize_endpoint(document: &mut Value, host: Option<IpAddr>, port: Option<u
         return;
     };
     if let Some(host) = host {
-        server.insert("host".into(), Value::String(host.to_string()));
+        server.insert("host".into(), Value::String(host.setting()));
     }
     if let Some(port) = port {
         server.insert("port".into(), Value::from(port));

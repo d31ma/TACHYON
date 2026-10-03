@@ -9,6 +9,9 @@
       "include": "../yon/serve-modes/section.json"
     },
     {
+      "include": "names-under-localhost/section.json"
+    },
+    {
       "include": "when-the-project-has-a-problem/section.json"
     },
     {

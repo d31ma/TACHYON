@@ -1,5 +1,7 @@
 {
   "heading": "Serve a built app",
-  "body": "ty start serves a built bundle. It sends the Brotli or gzip copy of a file that ty bundle wrote when the browser accepts it (see Compressed files). Set the host and port with yon.server.host/port in server/application.json, or with the CLI options --host/--port. Environment values from the parent application no longer override these settings. YON_PROFILE selects a Yon profile. The .env file holds private secrets. YON_JAVASCRIPT_RUNTIME and YON_PYTHON_RUNTIME select the runtimes, and this choice is still deployment policy.",
-  "code": { "file": "example.sh" }
+  "body": "ty start serves a built bundle. It sends the Brotli or gzip copy of a file that ty bundle wrote when the browser accepts it (see Compressed files). Set the host and port with yon.server.host/port in server/application.json, or with the CLI options --host/--port. The host is an IP address, localhost or a name under .localhost, such as shop.localhost, which binds 127.0.0.1. A server on a loopback address answers only local names, IP addresses, the tac.origin host and the names in yon.server.hosts; behind a reverse proxy, list the names that it sends (TY1366). Environment values from the parent application no longer override these settings. YON_PROFILE selects a Yon profile. The .env file holds private secrets. YON_JAVASCRIPT_RUNTIME and YON_PYTHON_RUNTIME select the runtimes, and this choice is still deployment policy.",
+  "code": {
+    "file": "example.sh"
+  }
 }

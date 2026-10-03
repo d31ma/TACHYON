@@ -1,7 +1,14 @@
 server.host
   The address ty serve and ty start bind; 127.0.0.1 unless set.
-  Anything but loopback also needs --allow-non-loopback, and
-  --host overrides it.
+  localhost or a name under .localhost (shop.localhost) binds
+  127.0.0.1 and prints the name. Anything but loopback also needs
+  --allow-non-loopback, and --host overrides it.
+
+server.hosts
+  Extra names that a loopback server answers, such as
+  ["preview.example.com", "*.tunnel.example"]: names without
+  scheme, port or path. Localhost names, IP addresses and the
+  tac.origin host always work; other names get 403 (TY1366).
 
 server.port
   The port, 0 to 65535; 8080 unless set. 0 picks a free port, and

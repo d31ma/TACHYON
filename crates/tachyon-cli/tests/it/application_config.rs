@@ -161,3 +161,31 @@ fn configuration_cannot_enable_public_binding_or_leak_invalid_values() {
     assert!(!String::from_utf8_lossy(&output.stderr).contains("secret-canary"));
     assert!(!String::from_utf8_lossy(&output.stdout).contains("secret-canary"));
 }
+
+#[test]
+fn a_name_under_localhost_binds_loopback_and_prints_the_name() {
+    let project = fixture();
+    let mut explicit = command(project.path());
+    explicit.args(["--host", "shop.localhost", "--port", "0"]);
+    assert!(ready(explicit).contains("http://shop.localhost:"));
+
+    fs::write(
+        project.path().join("server/application-test.json"),
+        r#"{"server":{"host":"Admin.Localhost","port":0}}"#,
+    )
+    .expect("profile");
+    let mut profile = command(project.path());
+    profile.env("YON_PROFILE", "test");
+    assert!(ready(profile).contains("http://admin.localhost:"));
+
+    for host in ["example.com", "a..localhost", ".localhost"] {
+        let output = command(project.path())
+            .args(["--host", host, "--port", "0"])
+            .output()
+            .expect("host rejection");
+        assert!(!output.status.success(), "{host}");
+        let diagnostic = String::from_utf8_lossy(&output.stderr);
+        assert!(diagnostic.contains("TY1302"), "{host}: {diagnostic}");
+        assert!(diagnostic.contains("a name under .localhost"), "{diagnostic}");
+    }
+}
