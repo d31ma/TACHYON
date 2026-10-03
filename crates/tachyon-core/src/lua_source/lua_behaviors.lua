@@ -27,20 +27,49 @@ function BehaviorSignal:aborted()
   return self.cancelled
 end
 
-BehaviorClock = {}
+BehaviorClock = {
+  POSIX_SLEEP = "sleep %d.%03d",
+  WINDOWS_SLEEP = "powershell -NoProfile -NonInteractive -Command Start-Sleep -Milliseconds %d",
+  WINDOWS_SEPARATOR = "\\",
+  host = BehaviorHostClock,
+  started_seconds = os and os.time(),
+  slept_ms = 0,
+}
 
 function BehaviorClock.now_ms()
+  if BehaviorClock.host ~= nil then
+    return BehaviorClock.host.now_ms()
+  end
   return os.time() * 1000
 end
 
 function BehaviorClock.monotonic_ms()
-  return math.floor(os.clock() * 1000)
+  if BehaviorClock.host ~= nil then
+    return BehaviorClock.host.monotonic_ms()
+  end
+  local measured = math.floor(os.clock() * 1000) + BehaviorClock.slept_ms
+  local whole_seconds_passed = os.difftime(os.time(), BehaviorClock.started_seconds) - 1
+  return math.max(measured, math.floor(whole_seconds_passed * 1000))
 end
 
 function BehaviorClock.wait(milliseconds)
-  local until_seconds = os.clock() + milliseconds / 1000
-  while os.clock() < until_seconds do
+  if BehaviorClock.host ~= nil then
+    return BehaviorClock.host.wait(milliseconds)
   end
+  local whole = math.floor(milliseconds)
+  if whole <= 0 then
+    return
+  end
+  if os.execute(BehaviorClock.sleep_command(whole, package.config:sub(1, 1))) then
+    BehaviorClock.slept_ms = BehaviorClock.slept_ms + whole
+  end
+end
+
+function BehaviorClock.sleep_command(milliseconds, separator)
+  if separator == BehaviorClock.WINDOWS_SEPARATOR then
+    return string.format(BehaviorClock.WINDOWS_SLEEP, milliseconds)
+  end
+  return string.format(BehaviorClock.POSIX_SLEEP, milliseconds // 1000, milliseconds % 1000)
 end
 
 BehaviorCancellation = {}

@@ -1,5 +1,14 @@
-TacRuntimeContract = {}
+TacRuntimeContract = {
+  HOST_MONOTONIC_MS = 1234,
+}
 TacRuntimeContract.__index = TacRuntimeContract
+
+TachyonHost = {
+  emit = function() end,
+  ask = function()
+    return YonJson.encode({ value = TacRuntimeContract.HOST_MONOTONIC_MS })
+  end,
+}
 
 function TacRuntimeContract.new()
   return setmetatable({ failures = {} }, TacRuntimeContract)
@@ -26,9 +35,16 @@ function TacRuntimeContract:check_values()
   self:expect(YonJson.encode(TacValues.copy(YonJson.decode("{\"meta\":{}}"))) == "{\"meta\":{}}", "a copied empty object becomes an array")
 end
 
+function TacRuntimeContract:check_clock()
+  self:expect(BehaviorClock.monotonic_ms() == TacRuntimeContract.HOST_MONOTONIC_MS, "the behavior clock does not ask the page")
+  local ok, failure = pcall(BehaviorClock.wait, 10)
+  self:expect(not ok and failure == BehaviorHostClock.NO_WAIT, "a browser wait does not explain itself: " .. tostring(failure))
+end
+
 function TacRuntimeContract:run()
   self:check_arguments()
   self:check_values()
+  self:check_clock()
   if #self.failures > 0 then
     error(table.concat(self.failures, "\n"), 0)
   end

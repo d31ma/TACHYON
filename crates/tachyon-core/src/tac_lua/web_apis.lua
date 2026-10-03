@@ -48,6 +48,22 @@ function Clock:time_zone()
   return tostring(TacWebHost.call("clock", "timeZone"))
 end
 
+BehaviorHostClock = {
+  NO_WAIT = "Lua services in the browser cannot wait between attempts. Write this service in another Tac language, or leave Retry out.",
+}
+
+function BehaviorHostClock.now_ms()
+  return Clock:now_ms()
+end
+
+function BehaviorHostClock.monotonic_ms()
+  return Clock:monotonic_ms()
+end
+
+function BehaviorHostClock.wait()
+  error(BehaviorHostClock.NO_WAIT, 0)
+end
+
 SecureRandom = {}
 
 function SecureRandom:bytes(count)

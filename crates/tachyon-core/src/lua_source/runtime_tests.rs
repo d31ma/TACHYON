@@ -13,6 +13,21 @@ fn lua_json_keeps_nulls_and_empty_objects_and_refuses_invalid_input() {
 }
 
 #[test]
+fn lua_behavior_timeouts_use_wall_time_and_waits_do_not_spin() {
+    let Some(printed) = LuaProgram::printed(&[
+        include_str!("lua_json.lua"),
+        include_str!("lua_behaviors.lua"),
+        include_str!("../../tests/fixtures/behavior/lua_clock_contract.lua"),
+    ]) else {
+        return;
+    };
+    assert!(
+        printed.contains("Lua behavior clock contracts passed"),
+        "{printed}"
+    );
+}
+
+#[test]
 fn a_yon_lua_socket_reports_a_deep_message_and_keeps_a_null_message() {
     let Some(program) = LuaProgram::new() else {
         return;
