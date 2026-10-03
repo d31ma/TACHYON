@@ -9,9 +9,7 @@ impl CsharpMethodLines {
     const MIN_SIGNATURE_WORDS: usize = 3;
 
     pub(super) fn prepare<'a>(language: &str, source: &'a str) -> Cow<'a, str> {
-        (language == Self::LANGUAGE)
-            .then(|| Cow::Owned(Self::joined_headers(source)))
-            .unwrap_or(Cow::Borrowed(source))
+        Self::selected(language, source)
     }
 
     pub(super) fn hidden(line: &str) -> bool {
@@ -22,6 +20,13 @@ impl CsharpMethodLines {
 
     fn signature(line: &str) -> &str {
         line.split('(').next().unwrap_or_default()
+    }
+
+    fn selected<'a>(language: &str, source: &'a str) -> Cow<'a, str> {
+        if language == Self::LANGUAGE {
+            return Cow::Owned(Self::joined_headers(source));
+        }
+        Cow::Borrowed(source)
     }
 
     fn joined_headers(source: &str) -> String {

@@ -52,8 +52,14 @@ impl CsharpHelperGraph {
             constructors: BTreeMap::new(),
             references: BTreeMap::new(),
         };
-        types.iter().for_each(|ty| graph.add_type(&input, ty));
+        graph.add_types(&input, &types);
         Ok(graph)
+    }
+
+    fn add_types(&mut self, input: &Input<'_>, types: &[Type]) {
+        for ty in types {
+            self.add_type(input, ty);
+        }
     }
 
     fn helper_type(ty: &Type, markers: &[Marker]) -> bool {
