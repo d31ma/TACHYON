@@ -66,6 +66,13 @@ machine contracts have their own, independent major versions.
 
 - A Kotlin or Java Tac model marked Topic builds again. The model file check
   read the Topic marker as behavior and stopped the build with `TY1310`.
+- The docs no longer teach the removed `cacheManager` resource or the
+  removed `cache` option of `@HTTPClient`. The README, the application events
+  and client runtime migration guides, the parity ledger, ADR 0059 and ADR
+  0087 and the website now say `Cached`, `ClearCache` and `UpdateCache`
+  instead. A website test fails when a sentence names `cacheManager` without
+  saying that it was removed.
+
 - `scripts/native/apple-protocol-test.mjs` compiles again. The probe built
   its Swift companion prelude from a fixed file list that missed
   `TacAwaited.swift`, `TacOwnerThread.swift` and the native capability files.

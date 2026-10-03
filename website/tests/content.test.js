@@ -91,9 +91,27 @@ describe('the docs guide reads in order', () => {
   })
 })
 
+class RemovedResource {
+  static name = 'cacheManager'
+  static guides = ['README.md', 'docs/APPLICATION_EVENTS.md'].map(file => path.join(SiteContent.website, '..', file))
+
+  /** @returns {string[]} */
+  static sentencesThatStillTeachIt() {
+    const texts = [...ContentFiles.onDisk(), ...RemovedResource.guides].map(file => readFileSync(file, 'utf8'))
+    const sentences = texts.flatMap(text => text.split(/\.\s/))
+    return sentences.filter(sentence => sentence.includes(RemovedResource.name) && !/\b(removed|refused)\b/.test(sentence))
+  }
+}
+
 describe('the data a page passes to a service fits in one WebAssembly init request', () => {
   test('every data file that a template names is at most 1 MiB', () => {
     const oversized = PageData.namesInTemplates().filter(name => PageData.bytes(name) > PageData.serviceInitLimit)
     expect(oversized).toEqual([])
+  })
+})
+
+describe('the docs teach only the resources that Tachyon injects', () => {
+  test('a sentence that names cacheManager says that it was removed (ADR 0087)', () => {
+    expect(RemovedResource.sentencesThatStillTeachIt()).toEqual([])
   })
 })

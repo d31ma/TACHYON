@@ -166,7 +166,6 @@ The browser resources are:
 | --- | --- |
 | `view` | The component's element. |
 | `lifecycle` | An `AbortSignal` that aborts when the owner is disposed. |
-| `cacheManager` | The cache manager. |
 | `resourceLoader` | The resource loader. |
 | `taskScheduler` | The task scheduler. Its one task is a render. |
 | `applicationEventPublisher` | The event publisher. |
@@ -320,7 +319,7 @@ operation. Do not use events as transaction-commit notifications.
 | An `@EventPublisher` method's return value | The same `publishEvent` call; the annotation is removed |
 | `subscribe(name, callback)` | OnEvent on a one-parameter instance method |
 | `retained(name)` | OnEvent with explicit replay |
-| `invalidate(keys, prefixes)` | A `@Needs` `cacheManager`, then invalidate |
+| `invalidate(keys, prefixes)` | `@ClearCache` or `@UpdateCache` on the HTTPClient method that changes the data (ADR 0087) |
 | `precache(urls)` / `clearAssetCache()` | A `@Needs` `resourceLoader` |
 | `render()` | A `@Needs` `taskScheduler`; template handlers/listeners render automatically |
 | `fetch(...)` | HTTPClient and request method annotations |
@@ -328,8 +327,8 @@ operation. Do not use events as transaction-commit notifications.
 The `this.tac` object and the TacRuntime type are removed. They are not kept
 as deprecated aliases.
 
-The TypeScript interfaces are TacCacheManager, TacResourceLoader,
-TacTaskScheduler and ApplicationEventPublisher. These are Tachyon contracts,
+The TypeScript interfaces are TacResourceLoader, TacTaskScheduler and
+ApplicationEventPublisher. These are Tachyon contracts,
 not Spring's Java interfaces.
 
 NeedsAll leaves browser resource fields out of client

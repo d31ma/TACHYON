@@ -5,8 +5,8 @@ OnStop                          owned cleanup
 applicationEventPublisher       declared field; publishEvent(model[, retain])
 OnEvent({replay,condition,id})  listener for the model type of its parameter
 Order(n) / InBackground         listener order; detached delivery
-Needs <name>                    view, lifecycle, cacheManager, resourceLoader,
-                                taskScheduler, applicationEventPublisher
+Needs <name>                    view, lifecycle, resourceLoader, taskScheduler,
+                                applicationEventPublisher
 Needs / Named("Name")           injected field; named provider when it differs
 $field / $$field                per-tab / cross-session persisted state
 

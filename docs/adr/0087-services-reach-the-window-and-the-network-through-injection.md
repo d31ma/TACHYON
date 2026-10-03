@@ -1,8 +1,7 @@
 # ADR 0087: Services Reach the Window and the Network Through Injection
 
-- Status: Accepted (slices 1 to 5 are done; slice 6, the removal of the
-  `HTTPClient` cache option, and the native window controls of companions
-  are open)
+- Status: Accepted (slices 1 to 6 are done; the native window controls of
+  companions are open)
 - Date: 2026-09-30
 - Relates to: [ADR 0022](0022-shared-behavior-adapters.md) (behavior
   annotations), [ADR 0052](0052-the-manifest-is-the-tac-configuration.md)
@@ -226,3 +225,15 @@ removes its IndexedDB store.
 - A `Cached` read can be kept twice: in the page's behavior cache and in the
   worker. The page cache answers first. The worker answers only when the
   page cache has no live answer, for example after a reload while offline.
+
+## Amendment (2026-10-03): slice 6 landed, and `cacheManager` went with it
+
+The `cache` option of `@HTTPClient` is refused by name; the message names
+`CacheSettings`, `Cached` and `tac.cache`. `FetchCache` and its IndexedDB
+database (`tachyon-fetch-cache`) are gone from `tac-client.js`, and an
+`HTTPClient` read without `Cached` is always sent `no-store`. The
+`cacheManager` resource only cleared that database, so it is removed too: a
+`@Needs cacheManager` field is refused with a message that points to
+`ClearCache` and `UpdateCache`, like Spring's `@CacheEvict` and `@CachePut`.
+`ty migrate fix` drops the `cache` option when it turns an old `@Client` into
+`@HTTPClient`, and notes each client whose reads should be marked `Cached`.

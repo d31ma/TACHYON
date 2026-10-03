@@ -136,8 +136,9 @@ table, the TypeScript hover text and the other Tac languages did not know it.
   another process, so the synchronous page host does not reach them. The
   native build refuses such a service when its Setup does not name the
   adapter.
-- The HTTP response cache of `@HTTPClient` stays on its own IndexedDB
-  database (`tachyon-fetch-cache`).
+- The HTTP response cache of `@HTTPClient` stayed on its own IndexedDB
+  database (`tachyon-fetch-cache`) until ADR 0087 removed it: a client read
+  is now kept by `@Cached` in the behavior cache.
 - Browser storage is not a secret store. None of these keeps credentials.
 - Evidence: `scripts/storage-browser-test.mjs`, run in Chromium, Firefox and
   WebKit with a persistent profile (reload and tab behavior of

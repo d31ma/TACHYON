@@ -24,11 +24,14 @@ The example below shows two files:
   `<catalog-panel />`.
 
 ```javascript
-@HTTPClient({"cache":"network-first"})
+@HTTPClient
+@CacheSettings({"name":"catalog","ttlMs":60000,"maxBytes":65536,"maxEntries":16})
 class CatalogClient {
+  @Cached
   @GetRequest("/api/catalog")
   async list() {}
 
+  @ClearCache({"method":"list"})
   @PostRequest("/api/catalog")
   async save(@RequestBody item) {}
 }
@@ -37,8 +40,6 @@ class CatalogClient {
 export default class CatalogService {
   @Needs
   catalogClient;
-  @Needs
-  cacheManager;
   items = [];
 
   @OnStart
@@ -50,8 +51,6 @@ export default class CatalogService {
 
   async save(item) {
     await this.catalogClient.save(item);
-    const key = 'fetch:GET:' + new URL('/api/catalog', location.href).href;
-    await this.cacheManager.invalidate([key]);
   }
 }
 ```
@@ -93,7 +92,6 @@ decision record):
 | --- | --- |
 | `view` | the element of the owner |
 | `lifecycle` | the `AbortSignal` of the owner |
-| `cacheManager` | the cache manager |
 | `resourceLoader` | the resource loader |
 | `taskScheduler` | the task scheduler |
 | `applicationEventPublisher` | the application event publisher |
@@ -110,65 +108,29 @@ resource without the annotation.
 
 ## Declarative JSON response caching
 
-`@HTTPClient` is network-only by default. A browser client can choose a bounded,
-anonymous IndexedDB policy. It does this with a literal cache option:
+`@HTTPClient` reads are sent `no-store`, so they are always fresh. To keep a
+read, mark the client class `@CacheSettings` and the read `@Cached`, like
+Spring's `@Cacheable`. Mark the write that changes the data `@ClearCache` or
+`@UpdateCache`, as in the example above (ADR 0087).
 
-| Client cache | Behavior |
-| --- | --- |
-| no-store (default) | Never read or write persistence. Require the network. |
-| network-first | Request current JSON. Use persisted JSON only when the network fails. |
-| cache-first | Return a stored JSON response that has not expired, before using the network. |
-| reload | Require the network. Refresh an eligible stored JSON response. |
-
-Rules for these options:
-
-- The options exist only for browser JS/TS.
-- Native Swift, Kotlin, C# and Rust services keep explicit HTTP adapters that
-  you configure explicitly, and they keep their owned contexts.
-- Clients that share the same HTTPClient adapter name must use the same
-  policy. Use different names when their policies differ.
-
-What persistence stores and skips:
-
-- Persistence accepts only same-origin, anonymous GET and HEAD responses.
-- Requests with Authorization, Range or If-Range headers bypass persistence.
-- Tachyon does not store these responses: private, no-store or Vary responses;
-  partial responses (206 or Content-Range); non-JSON content; invalid JSON.
+- The former `cache` option of `@HTTPClient` (`cache-first`, `network-first`,
+  `reload`, `no-store`) and its IndexedDB store `tachyon-fetch-cache` are
+  removed. The build refuses `{"cache": ...}` and names `CacheSettings` and
+  `Cached`.
+- The `cacheManager` resource that cleared that store is removed too. A
+  `@Needs cacheManager` field is refused; use `@ClearCache` instead.
+- In JavaScript and TypeScript a `Cached` GET is also a public read, so the
+  service worker may answer it by the manifest's `tac.cache` rules. Add a rule
+  for a path whose reads must work offline.
 - Never cache secrets or data that belongs to one user.
-- There is no partitioning of the HTTP cache by authenticated user.
-- When the owner is aborted, the call rejects. It does not return stale data.
-- Tachyon does not replace an HTTP error with a stale successful response.
-
-Cache keys and invalidation:
-
-- The response store keeps its canonical keys, `fetch:<METHOD>:<absolute URL>`,
-  so that migrated code stays compatible.
-- Client no longer has the former options for custom keys or inline
-  invalidation.
-- After a successful mutation, invalidate canonical keys or prefixes
-  explicitly through the injected cacheManager, as in the example above.
-- A prefix must stay specific to the API resource that changed.
-
-Limits:
-
-- The cache holds at most 128 entries.
-- Each entry is at most 256 KiB.
-- Entries expire after 24 hours.
-- When the store is full, Tachyon clears it atomically before the next write.
-- IndexedDB operations and cache body reads each have a bounded two-second
-  window.
-- If storage is denied, corrupted or over quota, network operation still works.
-- Client parsing separately limits every response to 1 MiB. It also applies the
-  operation deadline of the behavior context.
-- Network requests bypass the browser HTTP cache and the service-worker HTTP
-  cache. Because of this, a second cache owner cannot silently override the
-  chosen policy.
+- Client parsing limits every response to 1 MiB. It also applies the operation
+  deadline of the behavior context.
 
 ## Separate service-worker assets and declared public reads
 
 The service worker follows the path rules in the manifest's `tac.cache` for eligible public
-reads. Its low-level transport is separate from the IndexedDB owner of Client
-on purpose.
+reads. It is a separate layer from the behavior cache that `Cached` uses, on
+purpose.
 
 - Examples written only for the worker policy can use the standard browser
   fetch internally to test those rules. Application HTTP examples should use

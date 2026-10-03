@@ -373,8 +373,8 @@ as another name for mount scheduling. It does not enable SSR.
 
 A service declares what it needs. It does not receive a runtime object:
 
-- A `@Needs` field named `view`, `lifecycle`, `taskScheduler`,
-  `cacheManager` or `resourceLoader` receives the owner's object of that kind.
+- A `@Needs` field named `view`, `lifecycle`, `taskScheduler` or
+  `resourceLoader` receives the owner's object of that kind.
   These are the names Spring uses.
 - `@OnStart` runs once the owner's DOM exists.
 - `@OnStop` runs on disposal.
