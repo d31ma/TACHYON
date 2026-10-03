@@ -29,6 +29,10 @@ impl FirstAppCsharpBrowserFixture {
         "client/tests/CounterServiceTest.cs",
         "client/tests/HelloTestSetup.cs",
     ];
+    const SERVER_TEST_FILES: [&'static str; 2] = [
+        "server/tests/GreetingControllerTest.js",
+        "server/tests/GreetingTestSetup.js",
+    ];
     const GATE: &'static str = "scripts/first-app-csharp-browser-gate.mjs";
 
     fn stage() -> OrdinaryBrowserFixture {
@@ -48,6 +52,7 @@ impl FirstAppCsharpBrowserFixture {
     fn stage_tests() -> OrdinaryBrowserFixture {
         let environment = Self::stage();
         environment.stage_repo_files(Self::STEP_FIVE, &Self::TEST_FILES);
+        environment.stage_repo_files(Self::STEP_FIVE, &Self::SERVER_TEST_FILES);
         environment
     }
 
