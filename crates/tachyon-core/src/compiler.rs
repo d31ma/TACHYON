@@ -362,7 +362,9 @@ impl WebCompiler {
         let manifest = project.route_graph().manifest();
         build.add_route_files(&programs, previous.as_ref(), &site)?;
         build.finish_phase("routes");
-        build.add_static_files(!programs.is_empty() || !site.elements.is_empty())?;
+        let needs_static_files =
+            Self::needs_static_files(!programs.is_empty(), !site.elements.is_empty());
+        build.add_static_files(needs_static_files)?;
         build.add_element_files(&site.elements)?;
         build.finish_phase("static files");
         build.add_service_files().await?;
@@ -372,6 +374,10 @@ impl WebCompiler {
         build.finish_phase("manifest and service worker");
         build.write_output()
     }
+    fn needs_static_files(has_routes: bool, has_elements: bool) -> bool {
+        has_routes || has_elements
+    }
+
     fn composed_types_root(
         project: &Project,
         native_target: Option<tachyon_contracts::NativeTarget>,
