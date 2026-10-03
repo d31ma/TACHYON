@@ -1,14 +1,15 @@
 use super::{BraceBody, MethodHeader, SourceEdit};
 
-pub(crate) struct DartBody;
+pub(crate) struct ArrowBody;
 
-impl DartBody {
+impl ArrowBody {
     const BODY_STARTS: [char; 2] = ['{', '='];
     const ARROW: u8 = b'=';
     const ARROW_LENGTH: usize = 2;
     const STATEMENT_END: u8 = b';';
     const NO_VALUE: &'static str = "void";
     const RETURN: &'static str = " return";
+    const THROW: &'static str = "throw ";
 
     pub(crate) fn edits(header: &MethodHeader<'_>) -> Vec<SourceEdit> {
         Self::body_start(header)
@@ -32,16 +33,22 @@ impl DartBody {
         let expression = arrow + Self::ARROW_LENGTH;
         let end = expression
             + MethodHeader::find_at_depth_zero(&header.masked[expression..], Self::STATEMENT_END)?;
-        let opening = format!("{{{}{}", header.hook, Self::return_word(header));
+        let opening = format!("{{{}{}", header.hook, Self::return_word(header, expression));
         Some(vec![
             SourceEdit::replace(arrow..expression, opening),
             SourceEdit::insert(end + 1, String::from(" }")),
         ])
     }
 
-    fn return_word(header: &MethodHeader<'_>) -> &'static str {
+    fn return_word(header: &MethodHeader<'_>, expression: usize) -> &'static str {
         let signature = &header.line()[..header.name_end().unwrap_or(header.start) - header.start];
-        if signature.contains(Self::NO_VALUE) {
+        let returns_void = signature
+            .split_whitespace()
+            .any(|word| word == Self::NO_VALUE);
+        let throws = header.masked[expression..]
+            .trim_start()
+            .starts_with(Self::THROW);
+        if [returns_void, throws].contains(&true) {
             return "";
         }
         Self::RETURN

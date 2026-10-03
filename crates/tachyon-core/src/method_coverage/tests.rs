@@ -9,7 +9,7 @@ fn write(root: &Path, relative: &str, source: &str) {
     std::fs::write(path, source).expect("source");
 }
 
-fn report_with(files: &[(&str, &str)], calls: RecordedCalls) -> CoverageReport {
+pub(super) fn report_with(files: &[(&str, &str)], calls: RecordedCalls) -> CoverageReport {
     let root = tempfile::tempdir().expect("project");
     for (relative, source) in files {
         write(root.path(), relative, source);
@@ -21,7 +21,7 @@ fn report_for(files: &[(&str, &str)]) -> CoverageReport {
     report_with(files, RecordedCalls::default())
 }
 
-fn uncovered_methods(report: &CoverageReport) -> Vec<String> {
+pub(super) fn uncovered_methods(report: &CoverageReport) -> Vec<String> {
     report
         .uncovered()
         .into_iter()

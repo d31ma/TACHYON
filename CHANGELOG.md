@@ -36,6 +36,10 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- C# coverage includes public methods with next-line body braces or expression
+  bodies and records the method actually called. Static Setup callbacks and
+  generated bodyless client methods remain outside instance-method coverage.
+
 - A genuine C# helper constructed only by a selected same-language TestSetup
   is validated before ordinary production composition omits it. Production
   and transitively used helpers remain included; orphan, misplaced and

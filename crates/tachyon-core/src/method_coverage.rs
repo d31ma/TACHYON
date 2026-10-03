@@ -1,3 +1,4 @@
+mod arrow_body;
 mod brace_body;
 mod call_hooks;
 mod class_coverage;
@@ -5,7 +6,7 @@ mod coverage_evidence;
 mod coverage_report;
 mod coverage_text;
 mod covered_method;
-mod dart_body;
+mod csharp_method_lines;
 mod fsharp_call_body;
 mod fsharp_members;
 mod hook_statement;
@@ -34,9 +35,10 @@ pub use method_state::MethodState;
 pub use recorded_calls::RecordedCalls;
 pub use uncovered::Uncovered;
 
+use arrow_body::ArrowBody;
 use brace_body::BraceBody;
 use coverage_evidence::CoverageEvidence;
-use dart_body::DartBody;
+use csharp_method_lines::CsharpMethodLines;
 use fsharp_call_body::FsharpCallBody;
 use fsharp_members::FsharpMembers;
 use hook_statement::HookStatement;
@@ -57,6 +59,7 @@ use unit_vocabularies::UnitVocabularies;
 pub(crate) struct PublicMethods;
 
 impl PublicMethods {
+    const ARROW_LANGUAGES: [&'static str; 2] = ["dart", "cs"];
     const RESERVED: &[&str] = &[
         "if",
         "for",
@@ -90,7 +93,8 @@ impl PublicMethods {
         }
         let mut found = Vec::new();
         let mut seen = BTreeSet::new();
-        for (line_index, line) in masked.lines().enumerate() {
+        let prepared = CsharpMethodLines::prepare(language, masked);
+        for (line_index, line) in prepared.lines().enumerate() {
             let Some(name) = Self::method_on_line(language, line) else {
                 continue;
             };
@@ -123,8 +127,11 @@ impl PublicMethods {
 }
 
 fn private(language: &str, line: &str) -> bool {
+    if language == "cs" {
+        return CsharpMethodLines::hidden(line);
+    }
     let hidden: &[&str] = match language {
-        "php" | "java" | "cs" | "swift" => &["private ", "protected ", "fileprivate ", "static "],
+        "php" | "java" | "swift" => &["private ", "protected ", "fileprivate ", "static "],
         "kt" => &["private ", "protected ", "internal "],
         "ts" => &["private ", "protected ", "static "],
         "js" | "dart" => &["static "],
@@ -186,8 +193,8 @@ fn braced_method_name(language: &str, line: &str) -> Option<String> {
     let rest = without_async_modifier(rest).trim_start();
     let has_typescript_return_type =
         language == "ts" && rest.starts_with(':') && line.trim_end().ends_with('{');
-    let is_dart_arrow = language == "dart" && rest.starts_with("=>");
-    let opens_body = rest.starts_with('{') || has_typescript_return_type || is_dart_arrow;
+    let is_arrow = PublicMethods::ARROW_LANGUAGES.contains(&language) && rest.starts_with("=>");
+    let opens_body = rest.starts_with('{') || has_typescript_return_type || is_arrow;
     if !opens_body {
         return None;
     }
@@ -248,5 +255,7 @@ fn ruby_definition_name(line: &str) -> Option<String> {
     Some(name.to_owned())
 }
 
+#[cfg(test)]
+mod csharp_layout_tests;
 #[cfg(test)]
 mod tests;
