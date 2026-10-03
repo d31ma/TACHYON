@@ -10,16 +10,20 @@ impl LuaProgram {
     const PROGRAM: &'static str = "program.lua";
 
     pub(crate) fn new() -> Option<Self> {
+        Self::available().then(|| Self {
+            folder: tempfile::tempdir().unwrap_or_else(|error| panic!("{error}")),
+        })
+    }
+
+    fn available() -> bool {
         let available = Command::new(super::LuaSource::RUNTIME)
             .arg("-v")
             .output()
             .is_ok_and(|output| output.status.success());
         if !available {
             eprintln!("skipping: lua is unavailable");
-            return None;
         }
-        let folder = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
-        Some(Self { folder })
+        available
     }
 
     pub(crate) fn printed(parts: &[&str]) -> Option<String> {
@@ -49,11 +53,14 @@ impl LuaProgram {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap_or_else(|error| panic!("{error}"));
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin
-                .write_all(input)
-                .unwrap_or_else(|error| panic!("{error}"));
-        }
+        let mut stdin = child
+            .stdin
+            .take()
+            .unwrap_or_else(|| panic!("the Lua input is piped"));
+        stdin
+            .write_all(input)
+            .unwrap_or_else(|error| panic!("{error}"));
+        drop(stdin);
         child
             .wait_with_output()
             .unwrap_or_else(|error| panic!("{error}"))
