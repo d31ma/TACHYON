@@ -43,8 +43,7 @@ impl RustKnownModelPaths {
     fn known(&self, source: &str, range: &Range<usize>) -> bool {
         let captured = self.models.contains(&source[range.clone()]);
         let qualified = Self::path_start(source, range.start)
-            .map(|start| Self::boundary(source, start))
-            .unwrap_or(false);
+            .is_some_and(|start| Self::boundary(source, start));
         captured && qualified
     }
 
@@ -57,8 +56,7 @@ impl RustKnownModelPaths {
         source[..start]
             .chars()
             .next_back()
-            .map(Self::separator)
-            .unwrap_or(true)
+            .is_none_or(Self::separator)
     }
 
     fn separator(character: char) -> bool {
