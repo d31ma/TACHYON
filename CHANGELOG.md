@@ -2672,6 +2672,23 @@ machine contracts have their own, independent major versions.
 
 - Kotlin Tac components keep the metadata of public `lateinit` members and
   read required component models with the existing model readers.
+- The website shows a docs section's `summary`. It was in 27 `section.json`
+  files, such as the annotation sections, but the docs page showed only the
+  `body`. The summary is now a lede paragraph under the section heading.
+  Search, the reading time and the language coverage audit read it too, so a
+  refusal stated only in a summary counts.
+
+- The docs no longer teach the removed `cacheManager` resource or the
+  removed `cache` option of `@HTTPClient`. The README, the application events
+  and client runtime migration guides, the parity ledger, ADR 0059 and ADR
+  0087 and the website now say `Cached`, `ClearCache` and `UpdateCache`
+  instead. A website test fails when a sentence names `cacheManager` without
+  saying that it was removed.
+
+- `scripts/native/apple-protocol-test.mjs` compiles again. The probe built
+  its Swift companion prelude from a fixed file list that missed
+  `TacAwaited.swift`, `TacOwnerThread.swift` and the native capability files.
+  It now reads the list from the macOS host, so the two cannot drift apart.
 
 - When a Rust model file does not compile, for example because it uses
   another model without `use crate::models::Item;`, the error names that
