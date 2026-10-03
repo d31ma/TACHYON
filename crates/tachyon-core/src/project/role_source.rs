@@ -21,7 +21,10 @@ impl RoleSource {
     }
 
     pub(super) fn validate_verified_vendor(file: &CapturedFile) -> Result<(), Failure> {
-        Self::validate_source(file, crate::annotation_layout::validate_verified_vendor)
+        Self::validate_source(
+            file,
+            crate::annotation_layout::AnnotationValidation::check_verified_vendor,
+        )
     }
 
     fn validate_source(

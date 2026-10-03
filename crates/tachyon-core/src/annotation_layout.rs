@@ -3,6 +3,7 @@ use crate::failure::{diagnostic, source_span};
 use crate::lua_source::LuaView;
 use std::path::Path;
 
+mod annotation_validation;
 mod authored_dom_guard;
 mod browser_interop;
 mod class_file_name;
@@ -13,6 +14,7 @@ mod one_model_check;
 mod single_class;
 mod typed_members;
 
+pub(crate) use annotation_validation::AnnotationValidation;
 pub(crate) use authored_dom_guard::AuthoredDomGuard;
 pub(crate) use browser_interop::{BrowserInteropCheck, NativeWebApis};
 pub(crate) use class_file_name::ClassFileName;
@@ -100,22 +102,7 @@ pub(crate) fn brace_depth_after(text: &str, mut depth: usize) -> usize {
 }
 
 pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
-    AuthoredDomGuard::check(path, source)?;
-    validate_layout(path, source)
-}
-
-pub(crate) fn validate_verified_vendor(path: &Path, source: &str) -> Result<(), Failure> {
-    validate_layout(path, source)
-}
-
-fn validate_layout(path: &Path, source: &str) -> Result<(), Failure> {
-    crate::fsharp_source::FsharpStyle::check(path, source)?;
-    crate::lua_source::LuaStyle::validate(path, source)?;
-    crate::lua_source::LuaStyle::check_rules(path, source)?;
-    LuaView::either(path, source, |path, source| {
-        FolderRoleCheck::check_source(path, source)?;
-        Input::validate_source(path, source)
-    })
+    AnnotationValidation::check(path, source)
 }
 
 pub(crate) fn validate_transformed(path: &Path, source: &str) -> Result<(), Failure> {

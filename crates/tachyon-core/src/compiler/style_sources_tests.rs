@@ -320,9 +320,12 @@ fn style_sources_site_style_does_not_change_yon_only_project() {
     write_file(
         root.path(),
         "server/controllers/PingController.js",
-        "@RequestRoute(\"/ping\")\n@Public\nclass PingController { @GetRoute getPing() { return 'pong' } }",
+        "@RequestRoute(\"/ping\")\n@Public\nclass PingController {\n  @GetRoute\n  getPing() { return 'pong' }\n}\n",
     );
-    assert!(build(root.path()).is_ok());
+    let built =
+        build(root.path()).expect("valid Yon-only project remains buildable without Tac styles");
+    assert_eq!(built.route_count(), 1);
+    assert_eq!(built.compiled_routes(), 0);
 }
 
 #[test]

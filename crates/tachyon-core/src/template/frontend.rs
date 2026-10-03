@@ -1623,6 +1623,14 @@ mod tests {
         compile(source, &BTreeSet::new())
     }
 
+    fn diagnostic_with_number(failure: &Failure, number: u16) -> &tachyon_diagnostics::Diagnostic {
+        failure
+            .diagnostics()
+            .iter()
+            .find(|diagnostic| diagnostic.code.number() == number)
+            .expect("expected diagnostic code")
+    }
+
     fn bind(event: &str, value: &str) -> Result<(String, EventBinding), &'static str> {
         let range = SourceRange { start: 0, end: 0 };
         event_binding(event, value, "client/pages/tac.html", range)
@@ -1705,9 +1713,19 @@ mod tests {
             compile_without_components("<loop :for=\"const item of items\"><p>{item}</p></loop>")
                 .expect("canonical iteration");
         let compatibility =
-            compile_without_components("<for :each=\"const item of items\"><p>{item}</p></for>")
+            compile_without_components("<for :each=\"const item in items\"><p>{item}</p></for>")
                 .expect("compatible iteration");
         assert_eq!(canonical.view_ir(), compatibility.view_ir());
+    }
+
+    #[test]
+    fn compatible_for_refuses_the_canonical_loop_separator() {
+        let failure =
+            compile_without_components("<for :each=\"const item of items\"><p>{item}</p></for>")
+                .expect_err("the for alias uses in");
+        let diagnostic = diagnostic_with_number(&failure, 1302);
+        assert_eq!(diagnostic.code.number(), 1302);
+        assert!(diagnostic.message.contains("Iteration must use"));
     }
 
     #[test]
@@ -1741,13 +1759,14 @@ mod tests {
 
     #[test]
     fn canonical_logic_refuses_dynamic_else_with_the_bare_else_hint() {
-        let failure = compile_without_components(
-            "<logic :if=\"ready\">ready</logic><logic :else=\"true\">invalid</logic>",
-        )
-        .expect_err("dynamic else");
-        let diagnostic = &failure.diagnostics()[0];
+        let source = "<logic :if=\"ready\">ready</logic><logic :else=\"true\">invalid</logic>";
+        let failure = compile_without_components(source).expect_err("dynamic else");
+        let diagnostic = diagnostic_with_number(&failure, 1304);
+        let fallback_start = source.find("<logic :else").expect("fallback tag") as u64;
         assert_eq!(diagnostic.code.number(), 1304);
         assert_eq!(diagnostic.spans[0].file, "client/pages/tac.html");
+        assert!(diagnostic.spans[0].start > fallback_start);
+        assert!(diagnostic.spans[0].end <= source.len() as u64);
         assert!(
             diagnostic
                 .help
