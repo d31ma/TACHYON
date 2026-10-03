@@ -21,6 +21,7 @@ struct BracedFields {
     depth: usize,
     parentheses: usize,
     brackets: usize,
+    angles: usize,
     method: bool,
 }
 
@@ -39,6 +40,10 @@ impl BracedFields {
             b')' if self.depth == 0 => self.parentheses = self.parentheses.saturating_sub(1),
             b'[' if self.depth == 0 => self.brackets += 1,
             b']' if self.depth == 0 => self.brackets = self.brackets.saturating_sub(1),
+            b'<' if self.depth == 0 => self.angles += 1,
+            b'>' if self.depth == 0 && !code[..offset].ends_with('-') => {
+                self.angles = self.angles.saturating_sub(1);
+            }
             _ => {}
         }
     }
@@ -58,6 +63,7 @@ impl BracedFields {
             && self.depth == 0
             && self.parentheses == 0
             && self.brackets == 0
+            && (extension != "rs" || self.angles == 0)
             && (byte != b',' || extension == "rs")
     }
 }
