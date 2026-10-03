@@ -83,6 +83,14 @@ machine contracts have their own, independent major versions.
   its Swift companion prelude from a fixed file list that missed
   `TacAwaited.swift`, `TacOwnerThread.swift` and the native capability files.
   It now reads the list from the macOS host, so the two cannot drift apart.
+- Lua JSON keeps `null` inside lists (as `YonNull`) and empty objects, so
+  `[1,null,2]` keeps three items and a Tac Lua call with `[null, 5]` puts 5
+  in the second parameter. It refuses hexadecimal, overflowing and zero-led
+  numbers, raw control characters and broken surrogates. A Yon Lua socket
+  message nested too deeply goes to OnError instead of ending the process.
+  Yon Lua behavior waits sleep without using the processor, and timeouts
+  follow the wall clock (at most about two seconds late, never early) while
+  an adapter blocks; Tac Lua reads the page clock (ADR 0085).
 
 - C# coverage includes public methods with next-line body braces or expression
   bodies and records the method actually called. Static Setup callbacks and

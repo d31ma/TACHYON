@@ -271,3 +271,29 @@ the build with `TY2015`, and the message names the resource and this ADR.
   Python Yon keeps Topic.
 - The Topic check of a model file asks the rule table, so the build and the
   website's language coverage read the same list.
+
+## Amendment 2026-10-03: Lua JSON values and the behavior clock
+
+- The shared Lua JSON code reads `null` inside a list as the `YonNull`
+  marker, so the other items keep their places, and writes it back as
+  `null`. A `null` object field still reads as `nil`. Tac member calls and
+  Lua test units turn a `YonNull` argument back into `nil` in its place, so
+  `[null, 5]` calls `method(self, nil, 5)`. An empty JSON object reads as a
+  table with the `YonJson.OBJECT` marker and is written back as `{}`.
+- The reader refuses input that is not JSON: hexadecimal, overflowing or
+  zero-led numbers, raw control characters in strings and broken surrogate
+  pairs.
+- A Yon Lua socket decodes each message with `pcall`. A message that is not
+  JSON or is nested more than 64 levels deep goes to `-- @OnError` with a
+  clear message, and the socket stays open. A `null` message reaches
+  `-- @OnMessage` as `nil`.
+- The behavior clock comes from the realm. Stock Lua has no clock finer
+  than one second and no sleep, so Yon Lua waits between Retry attempts with
+  the operating system's sleep command (`sleep` on macOS and Linux,
+  PowerShell `Start-Sleep` on Windows), built only from an integer number of
+  milliseconds. A wait does not use the processor. The Yon Lua deadline is
+  CPU time plus time slept, raised to the whole seconds that the wall clock
+  has passed, so a timeout fires at most about two seconds late and never
+  early, also while an adapter blocks on I/O. Tac Lua reads the page's
+  monotonic clock and refuses to wait with a clear message; Retry stays
+  unavailable in Tac Lua.
