@@ -34,7 +34,11 @@ mod shared_assets;
 mod site_build;
 mod speculation_rules;
 #[cfg(test)]
+mod tac_component_scope_tests;
+#[cfg(test)]
 mod tac_source_convention_tests;
+#[cfg(test)]
+mod tac_utility_import_tests;
 mod tool_build;
 mod typescript_cache;
 mod typescript_compiler;

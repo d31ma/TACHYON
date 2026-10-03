@@ -66,9 +66,15 @@ impl<'a> RealmTypes<'a> {
         folders.extend(self.error_folder());
         folders.extend(self.role_type_folder());
         folders.push(realm.join("utils"));
+        folders.extend(self.shared_utility_folder());
         folders.push(realm.join("tests"));
         folders.push(realm.join(Self::MODEL_FOLDER));
         folders
+    }
+
+    fn shared_utility_folder(&self) -> Option<PathBuf> {
+        (self.realm == "client")
+            .then(|| PathBuf::from(crate::annotation_layout::UtilityLayout::CLIENT_ROOTS[0]))
     }
 
     fn uses_role_folder(&self, folder: &str) -> bool {

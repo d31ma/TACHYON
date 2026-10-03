@@ -345,8 +345,8 @@ fn define_component(
 ) -> ComponentDefinition {
     if let Some(style) = &files.style {
         hash_file(hasher, project_root, style, diagnostics);
-        mark_scope_roots(&mut program.nodes, name);
     }
+    mark_scope_roots(&mut program.nodes, name);
     ComponentDefinition {
         program,
         style_path: files.style,

@@ -1,0 +1,10 @@
+:scope {
+  color: rgb(12, 34, 56);
+  font-family: monospace;
+  --owner-token: parent;
+}
+
+.probe {
+  background: rgb(240, 20, 20);
+  outline: 3px solid rgb(240, 20, 20);
+}

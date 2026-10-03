@@ -54,6 +54,10 @@ impl Discovered {
         match file.relative.file_name().and_then(OsStr::to_str) {
             None => self.diagnostics.push(Self::not_unicode()),
             Some(name) if name == ViewKind::TAC_FILE_NAME => self.add_view(context, file),
+            Some(name) if Self::is_stylesheet(&file.relative) => {
+                self.diagnostics
+                    .push(Self::companion_beside_page(&file.relative, name));
+            }
             Some(name) if CompanionKind::from_file_name(name).is_some() => {
                 self.diagnostics
                     .push(Self::companion_beside_page(&file.relative, name));
@@ -67,6 +71,12 @@ impl Discovered {
             }
             Some(_) => {}
         }
+    }
+
+    fn is_stylesheet(path: &Path) -> bool {
+        path.extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("css"))
     }
 
     fn add_view(&mut self, context: &SnapshotContext<'_>, file: &CapturedFile) {

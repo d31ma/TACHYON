@@ -12,6 +12,13 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Tac utilities have a canonical recursive `client/shared/utils` location,
+  retaining `client/utils` compatibility and the existing stateless class
+  contract. Client pages reject all authored CSS filenames recursively.
+  Component scopes stop at nested ownership boundaries, including unstyled
+  and slotted components. Global foundation and application migration work
+  remains a separate unfinished part of the source-conventions queue item.
+
 - The first-app C# steps now call the existing Yon greeting endpoint through
   an injected private client returning `Task<Models.Greeting>`. Their tests
   use a typed Fake and caller-owned context, including disposed-owner refusal.

@@ -9,8 +9,27 @@ pub(super) struct ExportedClass {
 impl ExportedClass {
     pub(super) fn find(path: &Path, source: &str) -> Vec<Self> {
         masked_source(path, source)
-            .map(|code| Self::find_in_code(&code))
+            .map(|code| Self::find_classes(path, source, &code))
             .unwrap_or_default()
+    }
+
+    fn find_classes(path: &Path, source: &str, code: &str) -> Vec<Self> {
+        crate::annotation_layout::UtilityLayout::is_utility(path)
+            .then(|| Self::utility_class(path, source))
+            .unwrap_or_else(|| Self::find_in_code(code))
+    }
+
+    fn utility_class(path: &Path, source: &str) -> Vec<Self> {
+        crate::annotation_layout::UtilityLayout::check(path, source)
+            .ok()
+            .and_then(|_| path.file_stem())
+            .and_then(|name| name.to_str())
+            .map(|name| Self {
+                name: name.to_owned(),
+                member: name.to_owned(),
+            })
+            .into_iter()
+            .collect()
     }
 
     fn find_in_code(code: &str) -> Vec<Self> {

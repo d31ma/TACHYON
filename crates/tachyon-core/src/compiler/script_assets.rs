@@ -118,7 +118,7 @@ impl<'a> ScriptAssets<'a> {
     }
 
     fn require_utility_language(path: &Path) -> Result<(), Failure> {
-        let utility = path.starts_with("client/utils");
+        let utility = crate::annotation_layout::UtilityLayout::is_client_utility(path);
         let module = path.extension().is_some_and(|extension| extension == "mjs");
         if [utility, module].into_iter().all(|holds| holds) {
             return Err(Self::failure(
@@ -131,7 +131,7 @@ impl<'a> ScriptAssets<'a> {
 
     fn allowed_path(path: &Path) -> bool {
         let folder = [
-            path.starts_with("client/utils"),
+            crate::annotation_layout::UtilityLayout::is_client_utility(path),
             path.starts_with("client/shared"),
         ]
         .contains(&true);

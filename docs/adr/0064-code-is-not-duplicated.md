@@ -127,3 +127,23 @@ Computed or block constant initializers, method bodies and function-local
 declarations still count. Original source line positions and the existing
 100-token, ten-line thresholds remain unchanged. Utility state and instance
 method validation continues to inspect the complete authored source.
+
+## Canonical Tac shared utilities — 2026-10-03
+
+Tac's canonical utility root is `client/shared/utils`, including nested topic
+folders. `client/utils` remains a compatibility root. Yon keeps `server/utils`;
+`server/shared/utils` is not a new implicit utility root. The same existing
+stateless class, filename, immutable constant and role-marker checks apply.
+There is no Utils marker and no utility exception for a Service or Helper.
+
+JavaScript and TypeScript utilities may use explicit canonical absolute or
+relative imports or the existing same-language implicit realm composition.
+Utilities using `import.meta` preserve their original module identity and are
+not also duplicated as inline class bindings. Named module publication and
+editor declarations use the already validated utility class name. `.mjs` cannot
+bypass the JavaScript/TypeScript utility shape checks.
+
+Source-shape support and actual language runtime qualification remain separate.
+The existing twelve utility shape adapters are reused; this root addition does
+not qualify new F#, Lua or Groovy utility adapters. Assets, model declarations,
+managed Services and formal Helpers retain their dedicated locations.

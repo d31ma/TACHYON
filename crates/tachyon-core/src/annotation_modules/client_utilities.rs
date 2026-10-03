@@ -68,7 +68,8 @@ impl ClientUtilities {
     }
 
     fn preserve_module(&mut self, root: &Dir, entry: &Path, path: &Path) -> Result<(), Failure> {
-        let candidate = path.starts_with("client/utils") && !self.imported.contains(path);
+        let candidate = crate::annotation_layout::UtilityLayout::is_client_utility(path)
+            && !self.imported.contains(path);
         candidate
             .then(|| self.project_module(root, entry, path))
             .transpose()
@@ -113,7 +114,7 @@ impl ClientUtilities {
         ScriptImports::read(source)
             .into_iter()
             .filter_map(|import| Self::target(path, &import.specifier))
-            .filter(|target| target.starts_with("client/utils"))
+            .filter(|target| crate::annotation_layout::UtilityLayout::is_client_utility(target))
             .for_each(|target| {
                 target
                     .extension()
@@ -126,8 +127,17 @@ impl ClientUtilities {
     fn target(path: &Path, specifier: &str) -> Option<PathBuf> {
         let specifier = specifier.split(['?', '#']).next()?;
         specifier
+            .strip_prefix("/shared/utils/")
+            .map(|tail| {
+                PathBuf::from(crate::annotation_layout::UtilityLayout::CLIENT_ROOTS[0]).join(tail)
+            })
+            .or_else(|| Self::legacy_target(specifier))
+            .or_else(|| SharedImports::path(path, specifier))
+    }
+
+    fn legacy_target(specifier: &str) -> Option<PathBuf> {
+        specifier
             .strip_prefix("/utils/")
             .map(|tail| PathBuf::from("client/utils").join(tail))
-            .or_else(|| SharedImports::path(path, specifier))
     }
 }

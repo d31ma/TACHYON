@@ -768,6 +768,7 @@ fn discover_paths(
         .map_or(Path::new(""), |part| Path::new(part.as_os_str()));
     let realm_directory = open_parent(root, &realm.join("entry"))?;
     discovery.search_role_folder(&realm_directory, &realm.join("utils"), "utils")?;
+    discovery.search_client_shared_utilities(&realm_directory, realm)?;
     if realm == Path::new("server") && !matches!(extension, "js" | "ts" | "go") {
         discovery.search_role_folder(&realm_directory, &realm.join("shared"), "shared")?;
     }
@@ -822,6 +823,36 @@ pub(crate) struct Discovery<'a> {
 }
 
 impl<'a> Discovery<'a> {
+    fn search_client_shared_utilities(
+        &mut self,
+        directory: &Dir,
+        realm: &Path,
+    ) -> Result<(), Failure> {
+        (realm == Path::new("client"))
+            .then(|| self.search_shared_utilities(directory))
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn search_shared_utilities(&mut self, directory: &Dir) -> Result<(), Failure> {
+        let path = Path::new(crate::annotation_layout::UtilityLayout::CLIENT_ROOTS[0]);
+        Self::open_shared_utilities(directory, path)?
+            .map(|shared| self.search_role_folder(&shared, path, "utils"))
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn open_shared_utilities(directory: &Dir, path: &Path) -> Result<Option<Dir>, Failure> {
+        match directory.open_dir_nofollow("shared") {
+            Ok(shared) => Ok(Some(shared)),
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+            Err(_) => Err(invalid(
+                path,
+                "Utility discovery requires a regular client/shared directory, not a symlink.",
+            )),
+        }
+    }
+
     pub(crate) fn role_paths(project: &Path, folder: &Path) -> Result<Vec<PathBuf>, Failure> {
         let root = open_root(project, folder)?;
         let realm = folder

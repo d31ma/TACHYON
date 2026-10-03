@@ -12,13 +12,27 @@ mod tests;
 pub(crate) struct UtilityLayout;
 
 impl UtilityLayout {
-    const FOLDERS: [&'static str; 2] = ["client/utils", "server/utils"];
+    pub(crate) const CLIENT_ROOTS: [&'static str; 2] = ["client/shared/utils", "client/utils"];
     const SUFFIX: &'static str = "Utils";
     const NAME_HELP: &'static str = "Name the file and its class <Topic>Utils, such as TextUtils, in its language filename style; Rust accepts text_utils.rs or legacy TextUtils.rs (ADR 0064).";
     const MARKER_HELP: &'static str = "Delete the annotation. Tachyon gives every utility class to the code of its realm without an annotation or an import (ADR 0064).";
 
     pub(crate) fn is_utility(path: &Path) -> bool {
-        Self::FOLDERS.iter().any(|folder| path.starts_with(folder))
+        Self::utility_folder(path)
+    }
+
+    pub(crate) fn is_client_utility(path: &Path) -> bool {
+        Self::client_folder(path)
+    }
+
+    fn utility_folder(path: &Path) -> bool {
+        [Self::client_folder(path), path.starts_with("server/utils")].contains(&true)
+    }
+
+    fn client_folder(path: &Path) -> bool {
+        Self::CLIENT_ROOTS
+            .iter()
+            .any(|folder| path.starts_with(folder))
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {

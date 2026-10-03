@@ -47,6 +47,7 @@ impl CohesionCheck {
         "server/services",
         "server/controllers",
         "client/utils",
+        "client/shared/utils",
         "server/utils",
     ];
     const FEATURE: &'static str = "cohesion.method";

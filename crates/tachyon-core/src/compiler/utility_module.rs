@@ -41,7 +41,7 @@ impl UtilityModule {
     }
 
     pub(crate) fn exported(path: &Path, source: &str) -> Result<Vec<u8>, Failure> {
-        path.starts_with("client/utils")
+        crate::annotation_layout::UtilityLayout::is_client_utility(path)
             .then_some(path)
             .map_or_else(
                 || Ok(source.as_bytes().to_vec()),

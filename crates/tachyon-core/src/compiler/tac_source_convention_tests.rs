@@ -191,6 +191,33 @@ fn tac_source_convention_nested_page_cannot_own_a_named_stylesheet() {
 }
 
 #[test]
+fn tac_source_convention_page_stylesheet_extension_is_portable_across_case_sensitive_filesystems() {
+    TacSourceConventionTests::no_page_css("client/pages/docs/deep/layout.CSS");
+}
+
+#[test]
+fn tac_source_convention_stylesheet_in_a_page_subfolder_without_a_view_is_refused() {
+    TacSourceConventionTests::no_page_css("client/pages/unused/styles/layout.css");
+}
+
+#[test]
+fn tac_source_convention_shared_utility_has_a_generated_realm_type_declaration() {
+    let root = TacSourceConventionTests::project();
+    TacSourceConventionTests::write(
+        root.path(),
+        "client/shared/utils/text/TitleUtils.js",
+        TacSourceConventionTests::JAVASCRIPT,
+    );
+    crate::ComposedTypes::write(root.path())
+        .unwrap_or_else(|failure| panic!("composed utility types: {failure}"));
+    let declarations =
+        std::fs::read_to_string(root.path().join(".tachyon/types/client/composed.d.ts"))
+            .unwrap_or_else(|failure| panic!("client declarations: {failure}"));
+    assert!(declarations.contains("TitleUtils"), "{declarations}");
+    assert!(declarations.contains("client/shared/utils/text/TitleUtils.js"));
+}
+
+#[test]
 fn tac_source_convention_nested_java_shared_utility_preserves_its_existing_source_contract() {
     TacSourceConventionTests::valid(
         "client/shared/utils/text/TitleUtils.java",
