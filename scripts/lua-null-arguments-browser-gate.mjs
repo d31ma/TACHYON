@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { cp, mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -24,6 +25,8 @@ class LuaNullArgumentsBrowserGate {
     const root = await mkdtemp(path.join(os.tmpdir(), 'tac-lua-null-arguments-'))
     try {
       await cp(LuaNullArgumentsBrowserGate.fixture, root, { recursive: true })
+      const bundle = spawnSync(path.resolve(binary), ['bundle', root, '--no-incremental'], { encoding: 'utf8' })
+      assert.equal(bundle.status, 0, `${bundle.stdout}${bundle.stderr}`)
       const proof = await withServer(path.resolve(binary), ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
         const origin = new URL((await request('/')).url).origin
         return LuaNullArgumentsBrowserGate.probe(origin)
