@@ -294,13 +294,13 @@ impl ServiceRegistry {
     ) -> Result<(), Failure> {
         let mut paths = Self::utility_paths(project_root, folder)?;
         paths.sort();
-        paths.iter().for_each(|path| {
+        for path in &paths {
             hash_file(
                 hasher,
                 &path.to_string_lossy().replace('\\', "/"),
                 &project_root.join(path),
             );
-        });
+        }
         Ok(())
     }
 

@@ -15,14 +15,17 @@ impl ExportedClass {
 
     fn find_classes(path: &Path, source: &str, code: &str) -> Vec<Self> {
         crate::annotation_layout::UtilityLayout::is_utility(path)
-            .then(|| Self::utility_class(path, source))
-            .unwrap_or_else(|| Self::find_in_code(code))
+            .then_some(path)
+            .map_or_else(
+                || Self::find_in_code(code),
+                |path| Self::utility_class(path, source),
+            )
     }
 
     fn utility_class(path: &Path, source: &str) -> Vec<Self> {
         crate::annotation_layout::UtilityLayout::check(path, source)
             .ok()
-            .and_then(|_| path.file_stem())
+            .and_then(|()| path.file_stem())
             .and_then(|name| name.to_str())
             .map(|name| Self {
                 name: name.to_owned(),
