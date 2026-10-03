@@ -6,6 +6,7 @@ YonLimits = {
   MISSING_METHOD = 405,
   MIDDLEWARE_PHASES = { ["middleware.before"] = "before", ["middleware.after"] = "after" },
   PASSED = { 204, {}, {} },
+  UNREADABLE_MESSAGE = "The socket message is not valid JSON, or it is nested more than %d levels deep: %s",
 }
 
 YonBase64 = {
@@ -302,12 +303,20 @@ end
 
 function SocketSession:take(frame)
   if frame.kind == "message" then
-    self.inbox[#self.inbox + 1] = YonJson.decode((frame.body or {}).data or "null")
+    self.inbox[#self.inbox + 1] = SocketSession.read_message((frame.body or {}).data or "null")
   elseif frame.kind == "sessions" then
     self.sessions = type(frame.sessions) == "table" and frame.sessions or {}
   else
     self.closed = true
   end
+end
+
+function SocketSession.read_message(data)
+  local ok, value = pcall(YonJson.decode, data)
+  if not ok then
+    return { failure = string.format(YonLimits.UNREADABLE_MESSAGE, YonJson.MAX_DEPTH, YonFailures.message(value)) }
+  end
+  return { value = value }
 end
 
 function SocketSession:write(frame)
@@ -323,10 +332,13 @@ function YonSocket.run(endpoint, request)
   YonSocket.attempt(endpoint, session, endpoint.open, session)
   while true do
     local message = session:next_message()
-    if message == nil and #session.inbox == 0 and session.closed then
+    if message == nil then
       break
+    elseif message.failure ~= nil then
+      YonSocket.report(endpoint, session, message.failure)
+    else
+      YonSocket.attempt(endpoint, session, endpoint.message, session, message.value)
     end
-    YonSocket.attempt(endpoint, session, endpoint.message, session, message)
   end
   pcall(endpoint.close, endpoint, session)
   os.exit(0)
@@ -334,9 +346,12 @@ end
 
 function YonSocket.attempt(endpoint, session, action, ...)
   local ok, failure = pcall(action, endpoint, ...)
-  if ok then
-    return
+  if not ok then
+    YonSocket.report(endpoint, session, failure)
   end
+end
+
+function YonSocket.report(endpoint, session, failure)
   io.stderr:write(YonJson.encode({ event = "handler.socket_failed", request_id = session.id, message = YonFailures.message(failure) }), "\n")
   pcall(endpoint.error, endpoint, session, failure)
 end
