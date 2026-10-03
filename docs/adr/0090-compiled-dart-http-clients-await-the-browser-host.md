@@ -47,9 +47,9 @@ Yon controllers. It checks all three required browser engines.
 host boundaries. Focused Rust tests also execute the actual Dart VM runtime.
 These checks passed in Chromium, Firefox and WebKit when this ADR was accepted.
 
-This is one qualified language slice of BROWSER-HTTP-TRANSPORT. Eight other
-compiled language continuations, TestSetup/Fake replacement, self-built-client
-diagnostics/migration and the deferred first-app tabs remain pending. The
+This decision covers Dart. The other compiled languages, TestSetup and Fake
+replacement, migration help for clients a service builds itself, and the
+remaining first-app tabs are not covered yet. The
 next step is staged async interop that keeps each runtime on the page. C# and
 F# Task interop come next; each other language needs its own decision.
 The existing sync Rust/Swift ABI cannot serialize a Promise into a response,

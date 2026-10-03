@@ -56,9 +56,8 @@ file.
     schema metadata before lowering and removes the schema annotations
     before javac, retaining one DTO declaration. Role annotations,
     behavioral methods and constructors remain forbidden in models.
-    Checked Java models in Yon currently fail at their marker until a
-    server metadata adapter exists; plain Java DTOs remain supported in
-    both realms.
+    Yon lowers checked Java models the same way (ADR 0092), and plain
+    Java DTOs remain supported in both realms.
   - Python: classes that are `@dataclass`, `TypedDict`, `NamedTuple` or
     `Enum` classes, with only annotated fields, default values or members,
     and the `import` statements they need. Type aliases are not allowed,
