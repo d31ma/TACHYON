@@ -35,11 +35,12 @@ class Rendering {
 class Elements {
   static records = new WeakMap()
   static listeners = new WeakMap()
-  static scopeProperty = '--_tac-owner'
+  static #scopeProperty = '--_tac-owner'
 
+  /** @param {HTMLElement} host @param {string} name @returns {void} */
   static markScope(host, name) {
     host.setAttribute('data-tac-scope', name)
-    host.style.setProperty(Elements.scopeProperty, name)
+    host.style.setProperty(Elements.#scopeProperty, name)
   }
 }
 
