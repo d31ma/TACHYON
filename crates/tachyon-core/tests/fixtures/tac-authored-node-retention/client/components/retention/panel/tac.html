@@ -1,0 +1,25 @@
+<w-container fluid id="vendor-container" :class="'panel-mode-' + retention.updates">
+  <main id="native-parent">
+    <h1>Authored node retention</h1>
+    <button id="update" on:click="retention.update()">Update same owner</button>
+    <button id="replace-rows" on:click="retention.replaceRows()">Replace row object</button>
+    <button id="change-observed" on:click="retention.changeObserved()">Change observed attribute</button>
+    <button id="change-slot" on:click="retention.changeSlot()">Change named slot</button>
+    <button id="hide" on:click="retention.hide()">Hide conditional</button>
+    <output id="updates">{retention.updates}</output><output id="selections">{retention.selections}</output>
+    <label>Draft<input id="draft" :value="retention.draft" on:input="retention.draft = $event.target.value" /></label>
+    <w-card variant="outlined" id="vendor-card" :class="'graph-mode-' + retention.updates">
+      <div id="viewport" class="viewport" tabindex="0">
+        <svg id="graphic" width="640" height="480" viewBox="0 0 640 480">
+          <path id="connector" :d="retention.connector" />
+          <foreignObject x="16" y="16" width="220" height="140"><button id="card" on:click="retention.choose()" :aria-pressed="retention.selected">{retention.updates} · Select card</button></foreignObject>
+        </svg>
+      </div>
+    </w-card>
+    <w-card variant="outlined" id="mutation-card"><span id="named" :slot="retention.slotName">Named authored child</span><p id="ordinary-slot-child">Default authored child</p></w-card>
+    <unknown-wrap id="opaque"><input id="wrapped" aria-label="Wrapped" value="abcdef" /></unknown-wrap>
+    <observed-wrap id="observed" :mode="retention.mode"><input id="observed-input" aria-label="Observed" value="abcdef" /></observed-wrap>
+    <section id="rows"><loop :for="row of retention.rows"><button class="row" :data-id="row.id" on:click="retention.choose()">{row.label}</button></loop></section>
+    <logic :if="retention.visible"><section id="conditional">Conditional authored node</section></logic>
+  </main>
+</w-container>

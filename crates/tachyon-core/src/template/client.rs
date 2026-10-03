@@ -49,6 +49,8 @@ impl<'a> ClientViewRenderer<'a> {
         "\n",
         include_str!("tac-native.js"),
         "\n",
+        include_str!("authored-root-update.js"),
+        "\n",
         include_str!("tac-client.js")
     );
 

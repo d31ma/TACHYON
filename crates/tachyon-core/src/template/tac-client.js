@@ -1089,33 +1089,39 @@ const focusedElement = () => {
   return active
 }
 
+/** @param {AuthoredParent} container @param {DocumentFragment} fragment @param {AuthoredEditingSnapshot | null | undefined} editingAtStart @returns {void} */
 const commitRoot = (container, fragment, editingAtStart) => {
   const active = container.getRootNode().activeElement
   const chain = focusChain(active, fragment, container)
-  if (!chain.length) { container.replaceChildren(fragment); return }
+  const authored = new AuthoredRootUpdate(container, fragment, active, editingAtStart).prepare()
+  if (!chain.length) { authored.commit(); return }
   const distributions = preflightFocus(chain, fragment, container)
-  if (!distributions) { replaceAndRefocus(container, fragment, active, chain.at(-1).fresh); return }
+  if (!distributions || authored.refuses(chain)) { replaceAndRefocus(container, fragment, active, chain.at(-1).fresh); return }
+  if (authored.retains(active)) { authored.commit(); return }
   const update = new FocusedRootUpdate(chain, distributions, active, editingAtStart)
   update.commit(container, fragment, 0)
   update.finalize()
 }
 
+/** @returns {void} */
 const retainComponentRoots = () => {
   const retained = new Map()
-  Rendering.mounts = Rendering.mounts.map(([fresh, owner, policy, key]) => {
+  const mounts = [...Rendering.mounts].reverse()
+  for (const [original, , , key] of mounts) {
+    const fresh = AuthoredRootUpdate.componentHost(original)
     const record = Components.records.get(key)
     const previous = record?.host
-    if (!record || !previous || previous === fresh) {
+    if (!record || !previous || previous === fresh || !AuthoredRootUpdate.componentPair(previous, fresh)) {
       if (record) record.host = fresh
-      return [fresh, owner, policy, key]
+      continue
     }
     syncAuthoredAttributes(previous, Elements.records.get(previous), Elements.records.get(fresh))
     const active = focusedElement()
     const editing = active && fresh.contains(active) ? active : null
     const selection = editing && typeof editing.selectionStart === 'number'
       ? [editing.selectionStart, editing.selectionEnd, editing.selectionDirection] : null
-    previous.replaceChildren(...fresh.childNodes)
-    Elements.records.set(previous, Elements.records.get(fresh))
+    new AuthoredRootUpdate(previous, fresh, active, null).prepare().commit()
+    Elements.records.set(previous, { ...Elements.records.get(fresh), children: [...previous.childNodes] })
     previous.tachyonComponent = fresh.tachyonComponent
     fresh.replaceWith(previous)
     if (editing && document.activeElement !== editing) {
@@ -1124,15 +1130,21 @@ const retainComponentRoots = () => {
         try { editing.setSelectionRange(selection[0], selection[1], selection[2] || 'none') } catch {}
       }
     }
+    record.host = previous
     retained.set(fresh, previous)
-    return [previous, owner, policy, key]
-  })
+  }
   for (const [path, fresh] of Rendering.elements) {
     const element = retained.get(fresh) || fresh
     Rendering.elements.set(path, element)
     const record = Elements.records.get(element)
     if (record) record.children = record.children.map(child => retained.get(child) || child)
   }
+  Rendering.mounts = Rendering.mounts.map(([host, owner, policy, key]) => {
+    const actual = AuthoredRootUpdate.componentHost(host)
+    const record = Components.records.get(key)
+    if (record) record.host = actual
+    return [actual, owner, policy, key]
+  })
 }
 
 const renderComponent = async (node, environment, path) => {

@@ -1,0 +1,23 @@
+{
+  "name": "Authored node retention regression",
+  "tac": {
+    "elements": [
+      "retention-panel"
+    ],
+    "scripts": [
+      "/shared/assets/duvay/duvay-wc.min.js"
+    ],
+    "scriptSources": {
+      "/shared/assets/duvay/duvay-wc.min.js": {
+        "package": "DuVay",
+        "version": "26.35.01",
+        "license": "MIT",
+        "sha256": "bd252fed5bb8a90f4c4f9eb1ac8d948e8b5c9dcf88e35ccfe30915ba9d2960de"
+      }
+    },
+    "budgets": {
+      "script": 1800,
+      "style": 1000
+    }
+  }
+}
