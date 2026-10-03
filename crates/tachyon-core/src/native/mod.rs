@@ -101,6 +101,7 @@ mod native_window_control_tests;
 mod native_window_controls;
 #[cfg(all(test, target_os = "macos"))]
 mod native_window_example_tests;
+mod placeholder_fill;
 mod registry;
 mod routes;
 mod rust;

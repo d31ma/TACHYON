@@ -334,35 +334,13 @@ pub(super) fn swift_source(
         "__TACHYON_JSON_REQUEST__",
         MacOsHostGenerator::APPLE_JSON_REQUEST,
     );
-    with_window_settings(&host, &application.window)
-        .replace(
-            "__ENTRY_DOCUMENT__",
-            &quoted_string_escape(&index.entry_document),
-        )
-        .replace("__ENTRY_ROUTE__", &quoted_string_escape(&index.entry_route))
-        .replace("__ROUTE_DOCUMENTS__", &super::routes::swift_routes(index))
+    let framed = with_window_settings(&host, &application.window)
         .replace(
             "__NATIVE_SHIM__",
             &super::host::native_shim(&application.window),
         )
-        .replace(
-            "__APP_TYPE__",
-            &format!("{}App", application.executable_name),
-        )
-        .replace("__APP_NAME__", &quoted_string_escape(&application.name))
-        .replace(
-            "__BUNDLE_ID__",
-            &quoted_string_escape(&application.application_id),
-        )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
         .replace("__TACHYON_COMPANION_EMIT__", companion_emit(companion_call))
-        .replace(
-            "__NATIVE_GRANTS__",
-            &quoted_string_escape(
-                &serde_json::to_string(&application.native_capabilities)
-                    .unwrap_or_else(|_| String::from("[]")),
-            ),
-        )
         .replace(
             "__NATIVE_CAPABILITY_MODELS__",
             MacOsHostGenerator::capability_models(companion_call),
@@ -403,11 +381,8 @@ pub(super) fn swift_source(
                 include_str!("menus/MacOsMenuNavigation.swift"),
                 include_str!("menus/MacOsMenuWindow.swift"),
             ),
-        )
-        .replace(
-            "__NATIVE_MENU_ROUTES__",
-            &super::mac_os_menu_source::MacOsMenuSource::declarations(&application.menus),
-        )
+        );
+    MacOsHostGenerator::authored_values(&framed, application, index)
 }
 
 #[cfg(test)]
@@ -416,6 +391,38 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl MacOsHostGenerator {
+    fn authored_values(
+        host: &str,
+        application: &NativeApplication,
+        index: &NativeRouteIndex,
+    ) -> String {
+        let entry_document = quoted_string_escape(&index.entry_document);
+        let entry_route = quoted_string_escape(&index.entry_route);
+        let route_documents = super::routes::swift_routes(index);
+        let app_type = format!("{}App", application.executable_name);
+        let app_name = quoted_string_escape(&application.name);
+        let bundle_id = quoted_string_escape(&application.application_id);
+        let grants = quoted_string_escape(
+            &serde_json::to_string(&application.native_capabilities)
+                .unwrap_or_else(|_| String::from("[]")),
+        );
+        let menu_routes =
+            super::mac_os_menu_source::MacOsMenuSource::declarations(&application.menus);
+        super::placeholder_fill::PlaceholderFill::once(
+            host,
+            &[
+                ("__ENTRY_DOCUMENT__", &entry_document),
+                ("__ENTRY_ROUTE__", &entry_route),
+                ("__ROUTE_DOCUMENTS__", &route_documents),
+                ("__APP_TYPE__", &app_type),
+                ("__APP_NAME__", &app_name),
+                ("__BUNDLE_ID__", &bundle_id),
+                ("__NATIVE_GRANTS__", &grants),
+                ("__NATIVE_MENU_ROUTES__", &menu_routes),
+            ],
+        )
+    }
+
     fn rust_shim(call: &str) -> &'static str {
         if call.contains("tacRustInvoke") {
             return Self::RUST_SHIM;
@@ -922,6 +929,18 @@ mod tests {
         assert!(call.contains("tacServiceKnown"));
         assert!(!call.contains("tacServiceMembers"));
         assert!(call.contains(r#"if request["op"] as? String == "host-dispose" { _ = tacNativeInvoke(payload); return tacRustInvoke(payload) }"#));
+    }
+
+    #[test]
+    fn an_application_name_that_looks_like_a_placeholder_stays_text() {
+        let mut named = application();
+        named.name = String::from("__NATIVE_FILE_PICKER_GRANTED__ __ROUTE_DOCUMENTS__");
+        let source = swift_source(&named, "tacNativeInvoke(payload)", &index());
+        assert!(
+            source
+                .contains(r#"window.title = "__NATIVE_FILE_PICKER_GRANTED__ __ROUTE_DOCUMENTS__""#)
+        );
+        assert!(!source.contains("window.title = \"false"));
     }
 
     #[test]

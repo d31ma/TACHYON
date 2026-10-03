@@ -113,6 +113,9 @@ machine contracts have their own, independent major versions.
   models, such as `Map<String, Product>`, fails the build instead of being
   converted as one model.
 
+- A macOS app name that looks like a host template placeholder, such as
+  `__ROUTE_DOCUMENTS__`, stays plain text in the generated Swift host.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
