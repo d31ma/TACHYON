@@ -141,7 +141,7 @@ export default class SignalPanelService {
 function writeNativeFixtures(project) {
   write(project, 'client/pages/native/tac.html', '<runtime-native />');
   write(project, 'client/components/runtime/native/tac.html', '<main><p id="native-value">{runtimeNative.value}</p><input aria-label="Native name" :value="runtimeNative.value" on:input="runtimeNative.value = $event.target.value"><button id="native-append" on:click="runtimeNative.value += &quot;!&quot;">Append</button><button id="native-argument" on:click="runtimeNative.act(7)">Call</button><input id="native-explicit-event" aria-label="Explicit event" on:input="runtimeNative.act($event.target.value)"></main>');
-  write(project, 'client/services/RuntimeNativeService.rs', '#[derive(Default)]\nstruct RuntimeNativeService { value: String, early: String }\nimpl RuntimeNativeService {\n    fn act(&self, value: String) -> String { value }\n}\n');
+  write(project, 'client/services/RuntimeNativeService.rs', '#[Service]\n#[derive(Default)]\nstruct RuntimeNativeService { value: String, early: String }\nimpl RuntimeNativeService {\n    fn act(&self, value: String) -> String { value }\n}\n');
   writeJavaScriptModels(project, RuntimeModels.native);
   write(project, 'client/services/RuntimeNativeService.js', `@Service()
 export default class RuntimeNativeService {
@@ -202,33 +202,7 @@ function writeFocusFixtures(project) {
 <textarea aria-label="Notes" on:input="runtimeFocus.notes = $event.target.value">{runtimeFocus.notes}</textarea>
 <logic :if="runtimeFocus.visible"><focus-shell><focus-editor /></focus-shell></logic>
 <button on:click="runtimeFocus.visible = false">Remove editor</button></main>`);
-  write(project, 'client/services/RuntimeFocusService.js', `@Service()
-export default class RuntimeFocusService {
-  constructor() {
-    this.#defineOnce('focus-shell', this.#focusShellClass());
-  }
-  customer = ''; identified = ''; notes = ''; visible = true;
-  #defineOnce(name, element) {
-    if (customElements.get(name)) return;
-    customElements.define(name, element);
-  }
-  #focusShellClass() {
-    return class extends HTMLElement {
-      connectedCallback() {
-        this.#wrapOnce();
-      }
-      #wrapOnce() {
-        const name = 'slot';
-        if (this.querySelector(name)) return;
-        const slot = document.createElement(name);
-        slot.append(...this.childNodes);
-        const wrapper = document.createElement('header');
-        wrapper.append(slot);
-        this.append(wrapper);
-      }
-    };
-  }
-}`);
+  write(project, 'client/services/RuntimeFocusService.js', "@Service()\nexport default class RuntimeFocusService { customer = ''; identified = ''; notes = ''; visible = true; }");
   write(project, 'client/components/focus/editor/tac.html', '<section><label>Component input<input aria-label="Component input" :value="focusEditor.value" on:input="focusEditor.value = $event.target.value"></label><output id="component-value">{focusEditor.value}</output></section>');
   write(project, 'client/services/FocusEditorService.js', "@Service()\nexport default class FocusEditorService { value = ''; }");
 }
@@ -987,6 +961,18 @@ async function checkHomePage(browser, origin, errors) {
 async function checkFocus(browser, origin, errors) {
   const focus = await browser.newPage();
   await focus.addInitScript(rootHelper);
+  await focus.addInitScript(() => {
+    customElements.define('focus-shell', class extends HTMLElement {
+      connectedCallback() {
+        if (this.querySelector('slot')) return;
+        const slot = document.createElement('slot');
+        slot.append(...this.childNodes);
+        const wrapper = document.createElement('header');
+        wrapper.append(slot);
+        this.append(wrapper);
+      }
+    });
+  });
   focus.setDefaultTimeout(10000);
   focus.on('pageerror', (error) => errors.push(error.message));
   await focus.goto(`${origin}/focus/`);
