@@ -100,6 +100,17 @@ fn nested_services_require_native_markers_in_each_supported_language() {
 }
 
 #[test]
+fn a_lua_service_without_its_marker_is_told_the_lua_spelling() {
+    let failure = FolderRoleCheck::check(
+        Path::new("client/services/BasketService.lua"),
+        "BasketService = {}\nfunction BasketService:Count()\n  return 1\nend\n",
+    )
+    .expect_err("an unmarked Lua service");
+    let message = &failure.diagnostics()[0].message;
+    assert!(message.contains("`-- @Service`"), "{message}");
+}
+
+#[test]
 fn actual_role_folders_and_the_legacy_remote_alias_require_their_own_markers() {
     for realm in ["client", "server"] {
         for (folder, marker, suffix) in [
