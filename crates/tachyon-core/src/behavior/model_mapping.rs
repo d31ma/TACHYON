@@ -12,6 +12,7 @@ impl<'a> ModelMapping<'a> {
     const NUMBER: &'static str = "number";
     const LIST: &'static str = "[]";
     const SCALARS: [&'static str; 5] = ["any", "string", "integer", "number", "boolean"];
+
     const LIST_WORDS: [&'static str; 9] = [
         "List",
         "list",
@@ -22,6 +23,30 @@ impl<'a> ModelMapping<'a> {
         "Set",
         "seq",
         "IEnumerable",
+    ];
+    const GROUP_WORDS: [&'static str; 22] = [
+        "Map",
+        "map",
+        "MutableMap",
+        "HashMap",
+        "BTreeMap",
+        "TreeMap",
+        "LinkedHashMap",
+        "SortedMap",
+        "Mapping",
+        "Dictionary",
+        "IDictionary",
+        "IReadOnlyDictionary",
+        "dict",
+        "Dict",
+        "Record",
+        "Hash",
+        "tuple",
+        "Tuple",
+        "ValueTuple",
+        "Pair",
+        "Triple",
+        "KeyValuePair",
     ];
 
     pub(super) fn new(models: &'a Map<String, Value>) -> Self {
@@ -41,9 +66,13 @@ impl<'a> ModelMapping<'a> {
             .split(Self::word_boundary)
             .filter(|word| !word.is_empty())
             .collect();
+        let models = words
+            .iter()
+            .filter(|word| self.models.contains_key(**word))
+            .count();
         let model = words.iter().find(|word| self.models.contains_key(**word));
         model
-            .map(|model| Self::one_model(type_text, &words, model))
+            .map(|model| Self::one_model(type_text, &words, model, models))
             .transpose()
     }
 
@@ -51,12 +80,23 @@ impl<'a> ModelMapping<'a> {
         !character.is_ascii_alphanumeric() && character != '_'
     }
 
-    fn one_model(type_text: &str, words: &[&str], model: &str) -> Result<String, String> {
-        if type_text.contains(Self::LIST)
-            || words.iter().any(|word| Self::LIST_WORDS.contains(word))
+    fn one_model(
+        type_text: &str,
+        words: &[&str],
+        model: &str,
+        models: usize,
+    ) -> Result<String, String> {
+        if models > 1
+            || type_text.contains(Self::LIST)
+            || words.iter().any(|word| {
+                Self::LIST_WORDS
+                    .iter()
+                    .chain(Self::GROUP_WORDS.iter())
+                    .any(|known| known == word)
+            })
         {
             return Err(format!(
-                "A mapping method converts one {model}, never a list: declare one model in and one model out, and map a list item by item"
+                "A mapping method converts one {model}, never a list, map or tuple: declare one model in and one model out, and map a group item by item"
             ));
         }
         Ok(model.to_owned())
@@ -399,6 +439,36 @@ mod tests {
         }
         for text in ["List<Product>", "[]Product", "Vec<Product>"] {
             assert!(mapping.model_in(text).is_err(), "accepted {text}");
+        }
+    }
+
+    #[test]
+    fn maps_tuples_and_two_models_are_never_one_model() {
+        let models = json!({"Product":{},"Summary":{}});
+        let mapping = ModelMapping::new(models.as_object().expect("models"));
+        for text in [
+            "Map<String, Product>",
+            "Dictionary<string, Product>",
+            "dict[str, Product]",
+            "Record<string, Product>",
+            "HashMap<String, Product>",
+            "tuple[Product, Product]",
+            "(Product, Summary)",
+            "Pair<Product, Product>",
+        ] {
+            assert!(mapping.model_in(text).is_err(), "accepted {text}");
+        }
+        for text in [
+            "Optional<Product>",
+            "Product?",
+            "Product | None",
+            "Task<Product>",
+        ] {
+            assert_eq!(
+                mapping.model_in(text).expect("one model"),
+                Some("Product".to_owned()),
+                "{text}"
+            );
         }
     }
 }

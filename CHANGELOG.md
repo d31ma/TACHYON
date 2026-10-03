@@ -109,6 +109,10 @@ machine contracts have their own, independent major versions.
 - F# Tac Helper checks report the right place in files with Windows (CRLF)
   line endings.
 
+- A Convert method whose parameter or result is a map, a tuple or two
+  models, such as `Map<String, Product>`, fails the build instead of being
+  converted as one model.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
