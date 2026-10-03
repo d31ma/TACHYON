@@ -20,6 +20,10 @@ mod shadow_writer;
 mod writer_mode;
 
 #[cfg(test)]
+mod lua_program;
+#[cfg(test)]
+mod runtime_tests;
+#[cfg(test)]
 mod tests;
 
 pub(crate) use lua_behavior_edits::LuaBehaviorEdits;
@@ -31,6 +35,8 @@ pub(crate) use lua_lexer::LuaLexer;
 use lua_line::LuaLine;
 use lua_lowering::LuaLowering;
 pub(crate) use lua_models::LuaModels;
+#[cfg(test)]
+pub(crate) use lua_program::LuaProgram;
 use lua_resources::LuaResources;
 pub(crate) use lua_shadow::LuaShadow;
 use lua_sockets::LuaSockets;

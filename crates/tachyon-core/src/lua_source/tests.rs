@@ -131,34 +131,16 @@ fn a_joined_program_holds_every_class() {
 
 #[test]
 fn the_lua_behavior_runtime_passes_its_boundary_contract() {
-    let lua = std::process::Command::new(super::LuaSource::RUNTIME)
-        .arg("-v")
-        .output()
-        .is_ok_and(|output| output.status.success());
-    if !lua {
-        eprintln!("skipping: lua is unavailable");
+    let Some(printed) = super::LuaProgram::printed(&[
+        include_str!("lua_json.lua"),
+        include_str!("lua_behaviors.lua"),
+        include_str!("../../tests/fixtures/behavior/lua_runtime_contract.lua"),
+    ]) else {
         return;
-    }
-    let folder = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
-    let program = folder.path().join("contract.lua");
-    std::fs::write(
-        &program,
-        concat!(
-            include_str!("lua_json.lua"),
-            include_str!("lua_behaviors.lua"),
-            include_str!("../../tests/fixtures/behavior/lua_runtime_contract.lua")
-        ),
-    )
-    .unwrap_or_else(|error| panic!("{error}"));
-    let output = std::process::Command::new(super::LuaSource::RUNTIME)
-        .arg(&program)
-        .output()
-        .unwrap_or_else(|error| panic!("{error}"));
-    let printed = String::from_utf8_lossy(&output.stdout);
+    };
     assert!(
         printed.contains("Lua behavior boundary contracts passed"),
-        "{printed}{}",
-        String::from_utf8_lossy(&output.stderr)
+        "{printed}"
     );
 }
 

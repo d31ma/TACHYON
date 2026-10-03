@@ -322,3 +322,18 @@ async fn lua_listeners_follow_their_conditions_and_order() {
         ])
     );
 }
+
+#[test]
+fn the_tac_lua_runtime_passes_its_contract() {
+    let Some(printed) = crate::lua_source::LuaProgram::printed(&[
+        LuaWebServices::PRELUDE,
+        include_str!("../lua_source/lua_behaviors.lua"),
+        include_str!("../../tests/fixtures/lua/tac_runtime_contract.lua"),
+    ]) else {
+        return;
+    };
+    assert!(
+        printed.contains("Tac Lua runtime contracts passed"),
+        "{printed}"
+    );
+}

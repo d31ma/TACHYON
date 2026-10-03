@@ -59,7 +59,7 @@ impl<'u> LuaTestUnit<'u> {
 
     fn runner(&self, unit: &str) -> String {
         format!(
-            "  local unit = {unit}\n  local results = {{}}\n  for _, row in ipairs(YonJson.decode({cases})) do\n{clear}{start}    BehaviorCalls.take()\n    local ok, failure = pcall(unit[row[2]], unit, table.unpack(row[3] or {{}}))\n{stop}    local result = {{ name = row[1], passed = ok, called = BehaviorCalls.take() }}\n    if not ok then\n      result.error = tostring(type(failure) == \"table\" and failure.message or failure)\n    end\n    results[#results + 1] = result\n  end\n  return {{ unit = {name}, cases = results }}\n",
+            "  local unit = {unit}\n  local results = {{}}\n  for _, row in ipairs(YonJson.decode({cases})) do\n{clear}{start}    BehaviorCalls.take()\n    local ok, failure = pcall(unit[row[2]], unit, YonJson.arguments(row[3] or {{}}))\n{stop}    local result = {{ name = row[1], passed = ok, called = BehaviorCalls.take() }}\n    if not ok then\n      result.error = tostring(type(failure) == \"table\" and failure.message or failure)\n    end\n    results[#results + 1] = result\n  end\n  return {{ unit = {name}, cases = results }}\n",
             cases = Self::quoted(&self.unit.cases.to_string()),
             clear = self.clear_fakes(),
             start = self.start(),

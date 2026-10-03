@@ -47,7 +47,7 @@ end
 TacValues = {}
 
 function TacValues.copy(value)
-  if type(value) ~= "table" then
+  if type(value) ~= "table" or value == YonNull then
     return value
   end
   local copied = {}
@@ -382,7 +382,7 @@ function TacServices.call(owner, lua_name, arguments)
     arguments = {}
   end
   local method = owner.instance[lua_name]
-  return TacAnswer.value(method(owner.instance, table.unpack(arguments, 1, #arguments)))
+  return TacAnswer.value(method(owner.instance, YonJson.arguments(arguments)))
 end
 
 function TacServices.publish(name, value, retain)
