@@ -70,11 +70,16 @@ impl SharedHandlerArtifacts {
 
     fn finished_entries(&self) -> Vec<(SystemTime, PathBuf)> {
         fs::read_dir(&self.folder)
-            .map(|listing| listing.flatten().filter_map(Self::finished_entry).collect())
+            .map(|listing| {
+                listing
+                    .flatten()
+                    .filter_map(|entry| Self::finished_entry(&entry))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
-    fn finished_entry(entry: DirEntry) -> Option<(SystemTime, PathBuf)> {
+    fn finished_entry(entry: &DirEntry) -> Option<(SystemTime, PathBuf)> {
         let metadata = entry.metadata().ok()?;
         let modified = metadata.modified().ok()?;
         let name = entry.file_name();
