@@ -103,6 +103,48 @@ async fn a_listed_name_that_resolves_to_a_loopback_address_is_refused() {
     assert!(tunnel.starts_with("HTTP/1.1 403"), "{tunnel}");
 }
 
+#[tokio::test]
+async fn a_listed_localhost_name_reaches_loopback_without_asking_the_resolver() {
+    let port = private_service().await;
+    let hosts = DeclaredHosts::listed(&["*.localhost"], "outgoing.hosts");
+    let proxy = EgressProxy::start(hosts).await.expect("proxy");
+    let plain = through_proxy(
+        &proxy,
+        &format!("GET http://api.localhost:{port}/ HTTP/1.1\r\nHost: api.localhost\r\n\r\n"),
+    )
+    .await;
+    assert!(plain.ends_with("reached"), "{plain}");
+    let tunnel = through_proxy(
+        &proxy,
+        &format!("CONNECT api.localhost:{port} HTTP/1.1\r\n\r\nGET / HTTP/1.1\r\n\r\n"),
+    )
+    .await;
+    assert!(tunnel.ends_with("reached"), "{tunnel}");
+    let candidates = EgressAddress::candidates("API.localhost.", port)
+        .await
+        .expect("candidates");
+    let expected: Vec<std::net::SocketAddr> =
+        [format!("[::1]:{port}"), format!("127.0.0.1:{port}")]
+            .iter()
+            .map(|address| address.parse().expect("address"))
+            .collect();
+    assert_eq!(candidates, expected);
+}
+
+#[tokio::test]
+async fn an_unlisted_localhost_name_is_refused() {
+    let port = private_service().await;
+    let hosts = DeclaredHosts::listed(&["web.localhost"], "outgoing.hosts");
+    let proxy = EgressProxy::start(hosts).await.expect("proxy");
+    let refused = through_proxy(
+        &proxy,
+        &format!("GET http://api.localhost:{port}/ HTTP/1.1\r\nHost: api.localhost\r\n\r\n"),
+    )
+    .await;
+    assert!(refused.starts_with("HTTP/1.1 403"), "{refused}");
+    assert!(!refused.contains("reached"), "{refused}");
+}
+
 #[test]
 fn only_public_addresses_count_as_public() {
     for address in [

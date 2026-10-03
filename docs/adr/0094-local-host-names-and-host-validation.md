@@ -59,7 +59,7 @@ systemd-resolved do not resolve names under `.localhost`.
    resolved. It drops loopback, private, unique local, link-local, shared
    (`100.64.0.0/10`) and unspecified addresses, and refuses a name that has
    no other address with `403`. An IP address listed in `outgoing.hosts`
-   connects as listed. A localhost name connects only to loopback.
+   connects as listed. A localhost name connects only to loopback (see 6).
 5. `--host` (alias `--hostname`) and `server.host` accept a localhost name.
    The server binds `127.0.0.1` without asking the operating system, counts
    as loopback (no `--allow-non-loopback`), and prints the name in its ready

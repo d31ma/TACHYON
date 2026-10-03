@@ -352,6 +352,8 @@ separate cybersecurity review for this reconciliation.
   `403`. So a wildcard such as `*.example.com` cannot be turned against an
   internal service by a name that points to one. Only an IP address listed in
   `outgoing.hosts`, or a localhost name, reaches those addresses (ADR 0094). A
+  listed localhost name is never resolved: the guard connects it to `[::1]`
+  and then `127.0.0.1`, so an `/etc/hosts` entry cannot point it elsewhere. A
   redirect is a new request through the guard, so its host is checked again.
 - **Gateways (ADR 0042).** A caller reaches another language only through its
   invocation's resource endpoint, with a key that the build declared and

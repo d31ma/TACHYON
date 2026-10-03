@@ -1,5 +1,5 @@
 use crate::safety::LocalHostName;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 pub(super) struct EgressAddress;
 
@@ -21,14 +21,18 @@ impl EgressAddress {
     }
 
     fn fixed(host: &str, port: u16) -> Option<Vec<SocketAddr>> {
-        host.parse::<IpAddr>()
+        let listed = host
+            .parse::<IpAddr>()
             .ok()
-            .map(|address| vec![SocketAddr::new(address, port)])
+            .map(|address| vec![SocketAddr::new(address, port)]);
+        listed.or_else(|| LocalHostName::is_local(host).then(|| Self::loopback(port)))
     }
 
-    fn allowed(host: &str, address: IpAddr) -> bool {
-        let local_loopback = [LocalHostName::is_local(host), address.is_loopback()] == [true, true];
-        [Self::is_public(address), local_loopback].contains(&true)
+    fn loopback(port: u16) -> Vec<SocketAddr> {
+        vec![
+            SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), port),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+        ]
     }
 
     async fn resolved_unless_fixed(
@@ -41,7 +45,7 @@ impl EgressAddress {
         }
         let resolved = tokio::net::lookup_host((host, port)).await?;
         Ok(resolved
-            .filter(|address| Self::allowed(host, address.ip()))
+            .filter(|address| Self::is_public(address.ip()))
             .collect())
     }
 
