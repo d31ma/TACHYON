@@ -7,5 +7,5 @@ type ReportController struct {
 
 // @GetRoute
 func (controller *ReportController) GetReport(request *http.Request) *http.Response {
-	return Relay([]string{"ruby", "server/helpers/ReportDelegate.rb"}, request)
+	return Relay([]string{"perl", "server/relays/report.pl"}, request)
 }

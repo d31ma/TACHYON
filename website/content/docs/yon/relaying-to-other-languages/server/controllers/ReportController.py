@@ -3,4 +3,4 @@
 class ReportController:
     @get_route
     def get_report(self, request: object) -> object:
-        return relay(("ruby", "server/helpers/ReportDelegate.rb"), request)
+        return relay(("perl", "server/relays/report.pl"), request)
