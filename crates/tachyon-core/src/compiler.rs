@@ -1785,7 +1785,7 @@ export default class Chat {
         let stylesheet =
             fs::read_to_string(dist.join(".tachyon/components.css")).expect("stylesheet");
         assert!(
-            stylesheet.contains(r#"@scope ([data-tac-scope="product-card"])"#),
+            stylesheet.contains(r#"@scope (tachyon-component[data-tac-scope="product-card"])"#),
             "{stylesheet}"
         );
         assert!(stylesheet.contains("color: rgb(0, 128, 0)"), "{stylesheet}");

@@ -35,7 +35,8 @@ impl ComponentStyles {
         let source = Self::read(name, style)?;
         let _ = writeln!(
             bundle,
-            "@scope ([{}=\"{name}\"]) to (:scope {}[{}]) {{\n{}\n}}",
+            "@scope ({}[{}=\"{name}\"]) to ({}[{}]) {{\n{}\n}}",
+            ComponentRegistry::CONTAINER_TAG,
             ComponentRegistry::SCOPE_ATTRIBUTE,
             ComponentRegistry::CONTAINER_TAG,
             ComponentRegistry::SCOPE_ATTRIBUTE,

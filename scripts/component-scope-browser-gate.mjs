@@ -7,7 +7,7 @@ import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} ScopeEngine */
-/** @typedef {{background: string, outline: string, color: string, font: string, token: string, owner: string | null}} ScopeStyle */
+/** @typedef {{background: string, outline: string, outlineStyle: string, color: string, font: string, token: string, owner: string | null}} ScopeStyle */
 /** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, engine: ScopeEngine, browserVersion?: string, errors: string[], failedRequests: string[], externalRequests: string[]}} ScopeDiagnostics */
 
 class ComponentScopeBrowserGate {
@@ -91,6 +91,8 @@ class ComponentScopeBrowserGate {
       assert.equal(delegated.background, ComponentScopeBrowserGate.#transparent)
       assert.equal(neighbor.owner, 'plain-child')
       assert.equal(delegated.owner, 'plain-child')
+      assert.equal(neighbor.token, '')
+      assert.notEqual(neighbor.color, ComponentScopeBrowserGate.#parentColor)
       diagnostics.phase = 'dispose-and-remount'
       await page.getByRole('button', { name: 'Hide parent', exact: true }).click()
       await page.locator('#first-parent [data-probe="parent"]').waitFor({ state: 'detached' })
@@ -128,15 +130,16 @@ class ComponentScopeBrowserGate {
     const slot = await ComponentScopeBrowserGate.#style(page, `${parent} [data-probe="slot"]`)
     assert.equal(owned.background, ComponentScopeBrowserGate.#parentBackground)
     assert.equal(owned.outline, '3px')
+    assert.equal(owned.outlineStyle, 'solid')
     assert.equal(styled.background, ComponentScopeBrowserGate.#childBackground)
-    assert.equal(styled.outline, '0px')
+    assert.equal(styled.outlineStyle, 'none')
     ComponentScopeBrowserGate.#inherited(styled, 'styled-child')
     ComponentScopeBrowserGate.#inherited(plain, 'plain-child')
     ComponentScopeBrowserGate.#inherited(slot, 'slot-child')
     assert.equal(plain.background, ComponentScopeBrowserGate.#transparent)
     assert.equal(slot.background, ComponentScopeBrowserGate.#transparent)
-    assert.equal(plain.outline, '0px')
-    assert.equal(slot.outline, '0px')
+    assert.equal(plain.outlineStyle, 'none')
+    assert.equal(slot.outlineStyle, 'none')
     return { owned, styled, plain, slot }
   }
 
@@ -152,7 +155,7 @@ class ComponentScopeBrowserGate {
   static #style(page, selector) {
     return page.locator(selector).evaluate(element => {
       const computed = getComputedStyle(element)
-      return { background: computed.backgroundColor, outline: computed.outlineWidth, color: computed.color, font: computed.fontFamily, token: computed.getPropertyValue('--owner-token').trim(), owner: element.closest('tachyon-component')?.getAttribute('data-tac-scope') ?? null }
+      return { background: computed.backgroundColor, outline: computed.outlineWidth, outlineStyle: computed.outlineStyle, color: computed.color, font: computed.fontFamily, token: computed.getPropertyValue('--owner-token').trim(), owner: element.closest('tachyon-component')?.getAttribute('data-tac-scope') ?? null }
     })
   }
 }
