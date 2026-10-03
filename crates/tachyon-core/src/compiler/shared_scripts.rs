@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct SharedScripts;
 
 impl SharedScripts {
-    const CODE: u16 = 1364;
+    pub(crate) const CODE: u16 = 1365;
 
     pub(super) fn prepare(
         root: &Path,

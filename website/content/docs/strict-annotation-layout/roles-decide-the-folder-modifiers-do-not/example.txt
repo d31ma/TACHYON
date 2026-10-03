@@ -1,10 +1,12 @@
 services/MoneyService.ts                @Service
+services/billing/InvoiceService.ts      @Service (a nested folder is fine)
 controllers/MoneyController.ts          @RequestRoute("/money") + @Public
 controllers/AppIdentityProvider.ts      @IdentityProvider
 roles/Admin.ts                          (a role type, no annotation)
-repositories/MoneyStore.ts        @Store
-clients/MoneyClient.ts                  @HTTPClient
-delegates/MoneyHelper.ts              @Helper
-mappers/MoneySummaryConverter.ts            @Converter
-configurations/MoneySetup.ts    @Setup
+stores/MoneyStore.ts                    @Store
+remotes/MoneyClient.ts                  @HTTPClient
+helpers/MoneyHelper.ts                  @Helper
+converters/MoneySummaryConverter.ts     @Converter
+setups/MoneySetup.ts                    @Setup
 entities/MoneyEntity.ts                 @Entity + @Table
+models/OrderInput.ts                    @Checked (data, no role)

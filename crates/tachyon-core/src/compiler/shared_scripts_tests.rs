@@ -98,14 +98,14 @@ fn authored_dom_guard_requires_vendor_hash_and_document_resource_declaration() {
     SharedScriptFixture::refuse(root.path(), "TY1403", "client/shared/vendor/widget.js");
     let digest = super::ContentDigest::sha256_bytes(SharedScriptFixture::VENDOR.as_bytes());
     SharedScriptFixture::manifest(root.path(), false, &digest);
-    SharedScriptFixture::refuse(root.path(), "TY1364", "client/shared/vendor/widget.js");
+    SharedScriptFixture::refuse(root.path(), "TY1365", "client/shared/vendor/widget.js");
 }
 
 #[test]
 fn authored_dom_guard_vendor_name_and_metadata_cannot_hide_missing_source() {
     let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
     SharedScriptFixture::manifest(root.path(), true, &"0".repeat(64));
-    SharedScriptFixture::refuse(root.path(), "TY1364", "client/shared/vendor/widget.js");
+    SharedScriptFixture::refuse(root.path(), "TY1365", "client/shared/vendor/widget.js");
 }
 
 #[test]
@@ -241,7 +241,7 @@ async fn authored_dom_guard_ordinary_build_refuses_unlisted_vendor_and_utility_e
         .await
         .err()
         .unwrap_or_else(|| panic!("accepted unlisted vendor"));
-    assert!(failure.to_string().contains("TY1364"), "{failure}");
+    assert!(failure.to_string().contains("TY1365"), "{failure}");
     let utility = "class MarkupUtils { static write() { document.write(markup); } }";
     SharedScriptFixture::write(root.path(), "client/shared/utils/MarkupUtils.js", utility);
     let manifest = serde_json::json!({"tac":{"scripts":["/shared/utils/MarkupUtils.js"],"scriptSources":{"/shared/utils/MarkupUtils.js":{"package":"test-widget","version":"1.0.0","license":"MIT","sha256":CapturedVendorFixture::digest(utility)}}}});

@@ -86,6 +86,6 @@ impl CaptureVendor {
 
     fn missing(path: &Path) -> Failure {
         let source = path.to_string_lossy().replace('\\', "/");
-        Failure::one(diagnostic(1364, "Declared script vendor is missing from captured shared resources.", Some("Declare only an exact captured third-party resource in tac.scripts and tac.scriptSources with its package, pinned version, license and SHA-256.".to_owned()), source_span(&source, 0, 0)))
+        Failure::one(diagnostic(SharedScripts::CODE, "Declared script vendor is missing from captured shared resources.", Some("Declare only an exact captured third-party resource in tac.scripts and tac.scriptSources with its package, pinned version, license and SHA-256.".to_owned()), source_span(&source, 0, 0)))
     }
 }
