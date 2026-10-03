@@ -181,16 +181,15 @@ impl MigrationAnalysis {
         present: bool,
         findings: &mut Vec<MigrationFinding>,
     ) {
-        if !present {
-            return;
-        }
-        findings.push(MigrationFinding::new(
-            relative,
-            "view.removed_controls",
-            MigrationStatus::Changed,
-            "The <if>, <else> and <for> elements were removed (TY1367). Conditionals use <logic :if>, <logic :else-if> and <logic else>; loops use <loop :for=\"item of items\">.",
-            Some("Run 'ty migrate fix --write' to rewrite them."),
-        ));
+        findings.extend(present.then(|| {
+            MigrationFinding::new(
+                relative,
+                "view.removed_controls",
+                MigrationStatus::Changed,
+                "The <if>, <else> and <for> elements were removed (TY1367). Conditionals use <logic :if>, <logic :else-if> and <logic else>; loops use <loop :for=\"item of items\">.",
+                Some("Run 'ty migrate fix --write' to rewrite them."),
+            )
+        }));
     }
 
     fn record_view_bindings(relative: &str, present: bool, findings: &mut Vec<MigrationFinding>) {
