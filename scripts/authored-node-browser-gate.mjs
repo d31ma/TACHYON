@@ -9,7 +9,8 @@ import { withServer } from './release/server-probe.mjs'
 /** @typedef {'chromium' | 'firefox' | 'webkit'} AuthoredBrowserEngine */
 /** @typedef {{root: string, binary: string, sourceCommit: string, compilerSha256: string, engine: AuthoredBrowserEngine, receipt: string}} AuthoredBrowserFixture */
 /** @typedef {AuthoredBrowserFixture & {phase: string, errors: string[], failedRequests: string[], externalRequests: string[], browserVersion?: string}} AuthoredBrowserDiagnostics */
-/** @typedef {{identities: boolean[], pan: [number, number], wrapperRetained: boolean, opaqueReplaced: boolean, count: string | null, svg: string | null, html: string | null, vendorHostClasses: boolean, authoredClasses: boolean}} AuthoredRetentionProof */
+/** @typedef {{identities: boolean[], pan: [number, number], wrapperRetained: boolean, opaqueReplaced: boolean, count: string | null, svg: string | null, html: string | null, vendorHostClasses: boolean, authoredClasses: boolean, textIdentities: boolean[], textValues: string[]}} AuthoredRetentionProof */
+/** @typedef {{mutatedReplaced: boolean, mutatedParentRetained: boolean, authoredValueRestored: boolean, insertedNotRetained: boolean, insertedParentReplaced: boolean, freshLoopTextReplaced: boolean, sameTextId: boolean}} AuthoredTextBoundaryProof */
 /** @typedef {{replaced: boolean, sameTextId: boolean, focused: boolean, label: string | null}} AuthoredLexicalProof */
 /** @typedef {{opaqueReplaced: boolean, graphRetained: boolean}} AuthoredInjectedSlotProof */
 /** @typedef {{replaced: boolean, graphRetained: boolean}} AuthoredSlotReplacementProof */
@@ -25,7 +26,7 @@ import { withServer } from './release/server-probe.mjs'
 /** @typedef {typeof globalThis & {connectedObservedChanges: number}} AuthoredObservedWindow */
 /** @typedef {typeof globalThis & {retentionIdleCallbacks: Map<number, IdleRequestCallback>, retentionIdleSequence: number}} AuthoredIdleWindow */
 /** @typedef {{retained: boolean, pan: [number, number], defaultSlot: boolean | undefined}} AuthoredStandaloneProof */
-/** @typedef {{ordinary: AuthoredRetentionProof, lexical: AuthoredLexicalProof, slots: AuthoredSlotProof, focus: AuthoredFocusProof, removed: boolean, exported: AuthoredStandaloneProof, genuinePinnedDuVay: boolean, freshSnapshotRowsRetained: boolean}} AuthoredBrowserProof */
+/** @typedef {{ordinary: AuthoredRetentionProof, text: AuthoredTextBoundaryProof, lexical: AuthoredLexicalProof, slots: AuthoredSlotProof, focus: AuthoredFocusProof, removed: boolean, exported: AuthoredStandaloneProof, genuinePinnedDuVay: boolean, freshSnapshotRowsRetained: boolean}} AuthoredBrowserProof */
 
 class AuthoredNodeBrowserGate {
   /** @type {number} */
@@ -102,6 +103,8 @@ class AuthoredNodeBrowserGate {
       await page.locator('#vendor-card .w-card__content slot').waitFor()
       diagnostics.phase = 'pinned-duvay-same-record-retention'
       const ordinary = await AuthoredNodeBrowserGate.#retention(page)
+      diagnostics.phase = 'authored-text-ownership-boundaries'
+      const text = await AuthoredNodeBrowserGate.#textBoundaries(page)
       diagnostics.phase = 'listener-and-loop-object-boundaries'
       const lexical = await AuthoredNodeBrowserGate.#lexical(page)
       diagnostics.phase = 'opaque-slot-subtree-sibling-retention'
@@ -133,7 +136,7 @@ class AuthoredNodeBrowserGate {
       assert.deepEqual(diagnostics.errors, [])
       assert.deepEqual(diagnostics.failedRequests, [])
       assert.deepEqual(diagnostics.externalRequests, [])
-      return { ordinary, lexical, slots, focus, removed, exported, genuinePinnedDuVay: true, freshSnapshotRowsRetained: false }
+      return { ordinary, text, lexical, slots, focus, removed, exported, genuinePinnedDuVay: true, freshSnapshotRowsRetained: false }
     } finally { await browser.close() }
   }
 
@@ -144,8 +147,8 @@ class AuthoredNodeBrowserGate {
     page.on('request', request => { if (new URL(request.url()).origin !== origin) diagnostics.externalRequests.push(request.url()) })
   }
 
-  /** @returns {void} */
-  static customHosts() {
+  /** @type {() => void} */
+  static customHosts = () => {
     const observed = /** @type {AuthoredObservedWindow} */ (globalThis)
     observed.connectedObservedChanges = 0
     customElements.define('unknown-wrap', class extends HTMLElement {
@@ -170,8 +173,8 @@ class AuthoredNodeBrowserGate {
     })
   }
 
-  /** @returns {void} */
-  static idleQueue() {
+  /** @type {() => void} */
+  static idleQueue = () => {
     const idle = /** @type {AuthoredIdleWindow} */ (globalThis)
     idle.retentionIdleCallbacks = new Map()
     idle.retentionIdleSequence = 0
@@ -195,6 +198,15 @@ class AuthoredNodeBrowserGate {
         return element
       }
       const nodes = ['vendor-container', 'native-parent', 'vendor-card', 'viewport', 'graphic', 'card'].map(id => query(document, `#${id}`, Element))
+      /** @param {Node} parent @returns {Text} */
+      const authoredText = parent => {
+        const text = parent.firstChild
+        if (!(text instanceof Text)) throw new Error('Missing authored Text in fixture')
+        return text
+      }
+      const textParents = [query(document, 'h1', HTMLHeadingElement), query(document, '#updates', HTMLOutputElement),
+        nodes[5], query(document, '#named', HTMLSpanElement), nodes[3]]
+      const texts = textParents.map(authoredText)
       const wrappers = query(nodes[2], '.w-card__content', Element)
       const opaque = query(document, '#opaque', Element)
       nodes[3].scrollLeft = 20; nodes[3].scrollTop = 40
@@ -209,7 +221,9 @@ class AuthoredNodeBrowserGate {
         wrapperRetained: wrappers === document.querySelector('#vendor-card .w-card__content'), opaqueReplaced: opaque !== document.getElementById('opaque'),
         count: query(document, '#updates', HTMLOutputElement).textContent, svg: nodes[4].namespaceURI, html: nodes[5].namespaceURI,
         vendorHostClasses: nodes[0].classList.contains('w-container') && nodes[0].classList.contains('w-container--fluid'),
-        authoredClasses: nodes[0].classList.contains('panel-mode-3') && !nodes[0].classList.contains('panel-mode-0') && nodes[2].classList.contains('graph-mode-3') }
+        authoredClasses: nodes[0].classList.contains('panel-mode-3') && !nodes[0].classList.contains('panel-mode-0') && nodes[2].classList.contains('graph-mode-3'),
+        textIdentities: texts.map((text, index) => text === textParents[index].firstChild && text.isConnected),
+        textValues: texts.slice(0, -1).map(text => text.data) }
       return proof
     })
     assert.deepEqual(result.identities, [true, true, true, true, true, true])
@@ -221,6 +235,53 @@ class AuthoredNodeBrowserGate {
     assert.equal(result.authoredClasses, true)
     assert.equal(result.svg, 'http://www.w3.org/2000/svg')
     assert.equal(result.html, 'http://www.w3.org/1999/xhtml')
+    assert.deepEqual(result.textIdentities, [true, true, true, true, true])
+    assert.deepEqual(result.textValues, ['Authored node retention', '3', '3 · Select card', 'Named authored child'])
+    return result
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<AuthoredTextBoundaryProof>} */
+  static async #textBoundaries(page) {
+    const result = await page.evaluate(async () => {
+      /** @template {Element} T @param {ParentNode} root @param {string} selector @param {new () => T} kind @returns {T} */
+      const query = (root, selector, kind) => {
+        const element = root.querySelector(selector)
+        if (!(element instanceof kind)) throw new Error(`Missing or invalid fixture element: ${selector}`)
+        return element
+      }
+      /** @param {Node} parent @returns {Text} */
+      const authoredText = parent => {
+        const text = parent.firstChild
+        if (!(text instanceof Text)) throw new Error('Missing authored Text in fixture')
+        return text
+      }
+      const heading = query(document, 'h1', HTMLHeadingElement)
+      const changed = authoredText(heading)
+      changed.data = 'External authored mutation'
+      query(document, '#update', HTMLButtonElement).click()
+      await new Promise(resolve => setTimeout(resolve, 80))
+      const repairedHeading = query(document, 'h1', HTMLHeadingElement)
+      const mutatedReplaced = changed !== repairedHeading.firstChild && !changed.isConnected
+      const mutatedParentRetained = heading === repairedHeading
+      const authoredValueRestored = authoredText(repairedHeading).data === 'Authored node retention'
+      const inserted = document.createTextNode('Externally inserted Text')
+      repairedHeading.append(inserted)
+      query(document, '#update', HTMLButtonElement).click()
+      await new Promise(resolve => setTimeout(resolve, 80))
+      const insertedNotRetained = !inserted.isConnected && !query(document, 'h1', HTMLHeadingElement).textContent?.includes(inserted.data)
+      const insertedParentReplaced = repairedHeading !== query(document, 'h1', HTMLHeadingElement)
+      const row = query(document, '.row', HTMLButtonElement)
+      const rowText = authoredText(row)
+      const id = row.getAttribute('data-id')
+      query(document, '#replace-rows', HTMLButtonElement).click()
+      await new Promise(resolve => setTimeout(resolve, 80))
+      const nextRow = query(document, '.row', HTMLButtonElement)
+      return { mutatedReplaced, mutatedParentRetained, authoredValueRestored, insertedNotRetained, insertedParentReplaced,
+        freshLoopTextReplaced: rowText !== nextRow.firstChild && !rowText.isConnected,
+        sameTextId: nextRow.getAttribute('data-id') === id }
+    })
+    assert.deepEqual(result, { mutatedReplaced: true, mutatedParentRetained: true, authoredValueRestored: true,
+      insertedNotRetained: true, insertedParentReplaced: true, freshLoopTextReplaced: true, sameTextId: true })
     return result
   }
 

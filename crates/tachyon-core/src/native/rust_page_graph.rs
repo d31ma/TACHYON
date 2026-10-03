@@ -123,7 +123,7 @@ impl RustPageGraph {
         crate::route_types::Converters::require_rust_mappings(root, path, source)?;
         let cleaned = self.unit_source(path, source, root)?;
         crate::behavior::NativeStorage::refuse_builtins(path, &cleaned)?;
-        crate::annotation_layout::NativeWebApis::refuse(path, &cleaned)?;
+        crate::annotation_layout::NativeWebApis::refuse_with_models(path, &cleaned, root)?;
         self.utilities.extend(Self::utility_name(path, source));
         let cleaned = self.unit_imports(path, &cleaned)?;
         self.source.push_str(&cleaned);

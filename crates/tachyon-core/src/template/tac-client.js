@@ -35,8 +35,12 @@ class Rendering {
 /** @typedef {{nodes: object[], named: Record<string, object[]>, environment: object}} RenderSlot */
 /** @typedef {{slot: RenderSlot | null, namespace: string}} RenderContext */
 
+/** @typedef {{owner: object, locals: Record<string, unknown>}} TextEnvironment */
+
 class Elements {
   static records = new WeakMap()
+  /** @type {WeakMap<ChildNode, AuthoredTextRecord>} */
+  static textRecords = new WeakMap()
   static listeners = new WeakMap()
   static #scopeProperty = '--_tac-owner'
   /** @type {string} */
@@ -98,6 +102,27 @@ class Elements {
     ['xmlns', Elements.#xmlnsNamespace],
     ['xmlns:xlink', Elements.#xmlnsNamespace],
   ].map(([name, namespace]) => /** @type {[string, string]} */ ([`${Elements.#svgNamespace}:${name}`, namespace])))
+
+  /** @param {Text} text @param {AuthoredPlanNode} node @param {TextEnvironment} environment @param {string} path @returns {Text} */
+  static recordText(text, node, environment, path) {
+    const record = Elements.#textRecord(text, node, environment, path)
+    Elements.textRecords.set(text, record)
+    return text
+  }
+
+  /** @param {Text} text @param {AuthoredPlanNode} node @param {TextEnvironment} environment @param {string} path @returns {AuthoredTextRecord} */
+  static #textRecord(text, node, environment, path) {
+    return { node, owner: environment.owner, path,
+      locals: Elements.#localBindings(environment.locals), value: text.data }
+  }
+
+  /** @param {Record<string, unknown>} values @returns {[string, unknown][]} */
+  static #localBindings(values) {
+    /** @type {[string, unknown][]} */
+    const locals = []
+    for (const name in values) locals.push([name, values[name]])
+    return locals
+  }
 
   /** @param {string} tag @param {string} namespace @returns {Element} */
   static create(tag, namespace) {
@@ -883,12 +908,13 @@ const mountComponent = (host, owner, policy, key) => {
   scheduleActivation(host, policy, pending, activate)
 }
 
-const renderText = async (parts, environment) => {
+/** @param {AuthoredPlanNode & {parts?: ({expression: object} | {value: string})[]}} node @param {TextEnvironment} environment @param {string} path @returns {Promise<Text>} */
+const renderText = async (node, environment, path) => {
   let value = ''
-  for (const part of parts || []) {
+  for (const part of node.parts || []) {
     value += 'expression' in part ? display(await evaluate(part.expression, environment)) : part.value
   }
-  return document.createTextNode(value)
+  return Elements.recordText(document.createTextNode(value), node, environment, path)
 }
 
 const recordElement = (element, node, environment, path) => {
@@ -1238,7 +1264,7 @@ const renderSwitch = async (node, environment, path, context) => {
 const renderNode = async (node, environment, path, context) => {
   Rendering.nodeCount += 1
   if (Rendering.nodeCount > 100000) throw new RangeError('Tac client view exceeds 100,000 nodes.')
-  if (node.k === 'text') return renderText(node.parts, environment)
+  if (node.k === 'text') return renderText(node, environment, path)
   if (node.k === 'comment') return document.createComment(node.value || '')
   if (node.k === 'slot') {
     const slot = context.slot

@@ -3,6 +3,9 @@
 /** @typedef {ChildNode & {getAttribute?: Element['getAttribute']}} AuthoredChild */
 /** @typedef {Element | DocumentFragment} AuthoredParent */
 /** @typedef {{node: AuthoredPlanNode, owner: object, path: string, locals: [string, unknown][], children: AuthoredChild[], attributes: Map<string, string>}} AuthoredRecord */
+/** @typedef {{node: AuthoredPlanNode, owner: object, path: string, locals: [string, unknown][], value: string}} AuthoredTextRecord */
+/** @typedef {{parent: AuthoredParent, old: AuthoredChild | undefined, fresh: AuthoredChild, previous: AuthoredTextRecord | undefined, next: AuthoredTextRecord | undefined}} AuthoredTextInputs */
+/** @typedef {{old: Text, fresh: Text, next: AuthoredTextRecord}} AuthoredTextPair */
 /** @typedef {{old: AuthoredElement, fresh: AuthoredElement, previous: AuthoredRecord}} AuthoredRetainedPair */
 /** @typedef {AuthoredRetainedPair & {distributed: boolean}} AuthoredPlannedPair */
 /** @typedef {{parent: AuthoredParent, previous: AuthoredChild[], desired: AuthoredChild[]}} AuthoredChildLayout */
@@ -32,7 +35,7 @@ class AuthoredRootUpdate {
   #active
   /** @type {AuthoredEditingSnapshot | null | undefined} */
   #editingAtStart
-  /** @type {Map<AuthoredChild, AuthoredElement>} */
+  /** @type {Map<AuthoredChild, AuthoredChild>} */
   #retained = new Map()
   /** @type {Set<Element>} */
   #existing = new Set()
@@ -40,6 +43,8 @@ class AuthoredRootUpdate {
   #refused = new Set()
   /** @type {AuthoredPlannedPair[]} */
   #pairs = []
+  /** @type {AuthoredTextPair[]} */
+  #textPairs = []
   /** @type {Map<AuthoredParent, AuthoredChild[]>} */
   #children = new Map()
 
@@ -72,6 +77,7 @@ class AuthoredRootUpdate {
   /** @returns {void} */
   commit() {
     this.#syncElements()
+    this.#syncTexts()
     this.#commitChildren()
     this.#finalize()
   }
@@ -116,7 +122,13 @@ class AuthoredRootUpdate {
 
   /** @param {AuthoredChild[]} children @returns {Map<string | undefined, AuthoredChild>} */
   #childIndex(children) {
-    return new Map(children.map(child => [Elements.records.get(child)?.path, child]))
+    return new Map(children.map(child => [this.#childPath(child), child]))
+  }
+
+  /** @param {AuthoredChild} child @returns {string | undefined} */
+  #childPath(child) {
+    const record = Elements.records.get(child) ?? Elements.textRecords.get(child)
+    return record?.path
   }
 
   /** @param {AuthoredParent} parent @param {AuthoredChild[]} children @param {Map<string | undefined, AuthoredChild>} index @returns {void} */
@@ -126,9 +138,37 @@ class AuthoredRootUpdate {
 
   /** @param {AuthoredParent} parent @param {AuthoredChild} fresh @param {Map<string | undefined, AuthoredChild>} index @returns {void} */
   #planNode(parent, fresh, index) {
-    const pair = retainedPair(index.get(Elements.records.get(fresh)?.path))
-    if (!pair) return
-    this.#preparePair(parent, fresh, pair)
+    const previous = index.get(this.#childPath(fresh))
+    const pair = retainedPair(previous)
+    this.#prepareElement(parent, fresh, pair)
+    this.#prepareText(parent, fresh, previous)
+  }
+
+  /** @param {AuthoredParent} parent @param {AuthoredChild} fresh @param {AuthoredRetainedPair | null} pair @returns {void} */
+  #prepareElement(parent, fresh, pair) {
+    if (pair) this.#preparePair(parent, fresh, pair)
+  }
+
+  /** @param {AuthoredParent} parent @param {AuthoredChild} fresh @param {AuthoredChild | undefined} previous @returns {void} */
+  #prepareText(parent, fresh, previous) {
+    const inputs = this.#textInputs(parent, fresh, previous)
+    this.#recordTextPair(inputs)
+  }
+
+  /** @param {AuthoredParent} parent @param {AuthoredChild} fresh @param {AuthoredChild | undefined} previous @returns {AuthoredTextInputs} */
+  #textInputs(parent, fresh, previous) {
+    return { parent, old: previous, fresh,
+      previous: Elements.textRecords.get(previous ?? fresh), next: Elements.textRecords.get(fresh) }
+  }
+
+  /** @param {AuthoredTextInputs} inputs @returns {void} */
+  #recordTextPair(inputs) {
+    const { old, fresh, previous, next, parent } = inputs
+    if (!(old instanceof Text) || !(fresh instanceof Text) || !previous || !next ||
+      old.parentNode !== parent || previous.node !== next.node || previous.owner !== next.owner ||
+      previous.path !== next.path || !sameLocals(previous.locals, next.locals) || old.data !== previous.value) return
+    this.#retained.set(fresh, old)
+    this.#textPairs.push({ old, fresh, next })
   }
 
   /** @param {AuthoredParent} parent @param {AuthoredChild} fresh @param {AuthoredRetainedPair} pair @returns {void} */
@@ -298,6 +338,16 @@ class AuthoredRootUpdate {
     for (const pair of this.#pairs) this.#syncElement(pair)
   }
 
+  /** @returns {void} */
+  #syncTexts() {
+    for (const pair of this.#textPairs) this.#syncText(pair)
+  }
+
+  /** @param {AuthoredTextPair} pair @returns {void} */
+  #syncText(pair) {
+    if (pair.old.data !== pair.fresh.data) pair.old.data = pair.fresh.data
+  }
+
   /** @param {AuthoredPlannedPair} pair @returns {void} */
   #syncElement(pair) {
     const next = Elements.records.get(pair.fresh)
@@ -396,6 +446,7 @@ class AuthoredRootUpdate {
   /** @returns {void} */
   #finalize() {
     this.#recordElements()
+    this.#recordTexts()
     this.#renderElements()
     Rendering.mounts = Rendering.mounts.map(([host, ...arguments_]) => [this.#resolve(host), ...arguments_])
   }
@@ -403,6 +454,11 @@ class AuthoredRootUpdate {
   /** @returns {void} */
   #recordElements() {
     for (const pair of this.#pairs) this.#recordElement(pair)
+  }
+
+  /** @returns {void} */
+  #recordTexts() {
+    for (const pair of this.#textPairs) Elements.textRecords.set(pair.old, pair.next)
   }
 
   /** @param {AuthoredPlannedPair} pair @returns {void} */
@@ -419,7 +475,7 @@ class AuthoredRootUpdate {
 
   /** @param {string} path @param {AuthoredElement} fresh @returns {void} */
   #renderElement(path, fresh) {
-    const element = this.#resolve(fresh)
+    const element = /** @type {AuthoredElement} */ (this.#resolve(fresh))
     const record = Elements.records.get(element)
     Rendering.elements.set(path, element)
     record.children = record.children.map(child => this.#resolve(child))
