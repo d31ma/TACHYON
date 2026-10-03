@@ -601,6 +601,44 @@ mod tests {
             .unwrap()
     }
 
+    #[test]
+    fn a_public_read_with_credentials_is_never_kept_in_the_browser_cache() {
+        let checks = "globalThis.location = new URL('http://127.0.0.1/')
+const seen = []
+const transport = async (url, init, options) => { seen.push([init.cache, options.publicRead, options.revalidate]); return new Response('{}', { headers: { 'content-type': 'application/json' } }) }
+const request = (extra) => ({ method: 'GET', path: '/products', query: {}, headers: {}, publicRead: true, maxResponseBytes: 64, ...extra })
+await __tachyon_client_exchange__(request({}), transport)
+await __tachyon_client_exchange__(request({ revalidate: true }), transport)
+await __tachyon_client_exchange__(request({ headers: { Authorization: 'Bearer secret' } }), transport)
+await __tachyon_client_exchange__(request({ method: 'POST' }), transport)
+console.log(JSON.stringify(seen))
+";
+        let directory = tempfile::tempdir().unwrap();
+        let script = directory.path().join("cache-mode.mjs");
+        std::fs::write(
+            &script,
+            format!("{}\n{checks}", include_str!("client_runtime.js")),
+        )
+        .unwrap();
+        let mut command = std::process::Command::new("node");
+        command.arg(script);
+        let output = crate::external_command::run_sync(
+            &mut command,
+            std::time::Duration::from_secs(20),
+            65_536,
+        )
+        .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            r#"[["default",true,false],["no-cache",true,true],["no-store",false,false],["no-store",false,false]]"#
+        );
+    }
+
     #[tokio::test]
     async fn browser_clients_execute_real_http_with_owned_cancellation() {
         for extension in ["js", "ts"] {

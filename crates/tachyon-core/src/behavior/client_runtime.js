@@ -11,14 +11,14 @@ class __tachyon_ClientConfiguration {
 }
 async function __tachyon_client_exchange__(request, transport) {
   const url = new URL(request.path, location.href)
-  const publicRead = request.publicRead === true && request.method === 'GET'
-  const revalidate = publicRead && request.revalidate === true
-  const publicCache = revalidate ? 'no-cache' : 'default'
   if (!['http:', 'https:'].includes(url.protocol) || url.origin !== location.origin || url.username || url.password) {
     throw new TypeError('Tac Client requires a same-origin HTTP endpoint.')
   }
   for (const [name, value] of Object.entries(request.query)) url.searchParams.set(name, String(value))
   const headers = new Headers(request.headers)
+  const publicRead = request.publicRead === true && request.method === 'GET' && !headers.has('authorization')
+  const revalidate = publicRead && request.revalidate === true
+  const publicCache = revalidate ? 'no-cache' : 'default'
   headers.set('accept', 'application/json')
   const body = Object.hasOwn(request, 'body') ? JSON.stringify(request.body) : undefined
   if (body !== undefined) headers.set('content-type', 'application/json')

@@ -96,6 +96,10 @@ machine contracts have their own, independent major versions.
   Kotlin `val clock: Clock` is injected instead of being required as a
   component prop that the browser then refused.
 
+- A JavaScript or TypeScript client GET that sends an Authorization header
+  is never kept in the browser HTTP cache, even as a public read, matching
+  the WebAssembly HTTP host.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
