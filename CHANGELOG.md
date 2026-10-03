@@ -26,6 +26,29 @@ machine contracts have their own, independent major versions.
   helper and the test-only `main[data-theme]` attribute are gone, and the
   header is sticky again (its component root is sticky, because the compiler
   scopes each component stylesheet).
+- Yon keeps a copy of each compiled Kotlin, Rust, Dart, Go and Groovy handler
+  in `TAC_CACHE_DIR/runtime/handlers-v1`, named by the same content digest, so
+  another project or a fresh checkout restores it instead of compiling again.
+  Only regular, non-empty files are restored, the folder keeps the newest 512
+  entries, and `ty cache clean` removes it (ADR 0037 amendment). A compiler's
+  version is asked once per process. A warm core test run on the development
+  Mac drops from 527 s to about 330 s.
+
+- Development builds optimize brotli, flate2, miniz_oxide, sha2 and their
+  helpers, so debug test binaries and the debug `ty` compress about twice as
+  fast (gzip five times).
+
+- `scripts/browser-gate.mjs` fails when an `--only` name has no script or no
+  script ran, and it runs the HTTP cache test (`cached-client`) by default.
+  `scripts/ignored-browser-gates.mjs` is the one list of `#[ignore]` browser
+  fixture tests (C#, F#, Kotlin DocumentTitle, Java PreferenceStrings); it
+  gives each fixture an isolated root and cache.
+
+- CI checks generated website styles, sweeps the responsive layout against a
+  static preview, runs the HTTP cache browser test, the Kotlin/Wasm web tests
+  (`TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS=1` turns a missing toolchain into a
+  failure), and the ignored browser fixture gates. A nextest `dotnet-web`
+  group runs at most two .NET browser builds at once.
 
 - Tac utilities have a canonical recursive `client/shared/utils` location,
   retaining `client/utils` compatibility and the existing stateless class
