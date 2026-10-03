@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	yonurl "net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -746,7 +747,24 @@ func yonSocketRun(endpoint yonSocketEndpoint) {
 	os.Exit(0)
 }
 
+func yonSendLoopbackThroughGuard() {
+	guard := os.Getenv("YON_OUTGOING_PROXY")
+	if guard == "" {
+		return
+	}
+	address, err := yonurl.Parse(guard)
+	if err != nil {
+		return
+	}
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return
+	}
+	transport.Proxy = http.ProxyURL(address)
+}
+
 func main() {
+	yonSendLoopbackThroughGuard()
 	raw := yoninvocation.Request()
 	request := &yonRequest{raw: raw}
 	if json.Unmarshal([]byte(raw), &request.fields) != nil {

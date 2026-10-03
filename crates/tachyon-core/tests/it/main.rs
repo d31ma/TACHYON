@@ -31,6 +31,7 @@ mod migrate_rename;
 mod models_client;
 mod models_yon;
 mod needs_fsharp;
+mod outgoing_loopback;
 mod relay_boundaries;
 mod requestless_methods;
 mod root_middleware;

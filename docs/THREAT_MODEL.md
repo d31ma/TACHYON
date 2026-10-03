@@ -335,7 +335,14 @@ separate cybersecurity review for this reconciliation.
   loopback endpoint and ignores `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY`,
   so the bearer token never reaches a proxy. As a second guard, the supervisor
   adds `127.0.0.1` to `NO_PROXY` and `no_proxy` for a handler that has an
-  endpoint.
+  endpoint. When the outgoing request guard is active (the servers started by
+  `ty serve`, `ty start` and `ty preview`), the supervisor removes `NO_PROXY`
+  and `no_proxy` instead, so a client cannot skip the guard to reach another
+  port on `127.0.0.1` or any other host; the runners still reach their
+  endpoint directly. Go's standard client never sends loopback addresses to a
+  proxy, so the Go prelude points `http.DefaultTransport` at the guard
+  (`YON_OUTGOING_PROXY`). A client that builds its own transport, and a raw
+  socket, still connect directly (ADR 0094).
 - **Gateways (ADR 0042).** A caller reaches another language only through its
   invocation's resource endpoint, with a key that the build declared and
   checked (`TY1312`). A class target runs as a generated unit under

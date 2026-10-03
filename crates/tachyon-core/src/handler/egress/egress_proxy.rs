@@ -18,7 +18,9 @@ impl EgressProxy {
         "https_proxy",
         "all_proxy",
     ];
+    const BYPASS_NAMES: [&'static str; 2] = ["NO_PROXY", "no_proxy"];
     const NODE_PROXY_SWITCH: &'static str = "NODE_USE_ENV_PROXY";
+    const GUARD_ADDRESS_NAME: &'static str = "YON_OUTGOING_PROXY";
 
     pub(crate) async fn start(hosts: DeclaredHosts) -> Result<String, Failure> {
         let listener = TcpListener::bind((Self::LOOPBACK, 0))
@@ -33,7 +35,15 @@ impl EgressProxy {
 
     pub(crate) fn apply(url: &str, command: &mut Command) {
         Self::set_proxy_names(url, command);
+        Self::remove_bypasses(command);
         command.env(Self::NODE_PROXY_SWITCH, "1");
+        command.env(Self::GUARD_ADDRESS_NAME, url);
+    }
+
+    fn remove_bypasses(command: &mut Command) {
+        for name in Self::BYPASS_NAMES {
+            command.env_remove(name);
+        }
     }
 
     fn set_proxy_names(url: &str, command: &mut Command) {

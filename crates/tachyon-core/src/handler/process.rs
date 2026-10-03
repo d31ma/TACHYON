@@ -480,13 +480,13 @@ impl HandlerSupervisor {
         let mut planned = self.command(source, &adapter);
         self.options.environment.apply(&mut planned.command);
         self.apply_application(&mut planned.command);
-        self.apply_egress(&mut planned.command);
         Self::mark_socket_frames(&mut planned.command, socket);
         let resource_access = self
             .resource_access_in_time(source, request, deadline, cancellation)
             .await?;
         let resource_access = Self::still_in_time(resource_access, deadline, cancellation).await?;
         Self::apply_resource_access(resource_access.as_ref(), &mut planned.command);
+        self.apply_egress(&mut planned.command);
         self.options
             .isolation
             .apply_backend_environment(&mut planned.command);
