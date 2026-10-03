@@ -3,8 +3,9 @@ use super::controller_dispatch::{
 };
 use super::socket_dispatch::{SocketHub, SocketSession};
 use super::{
-    DispatchRoute, HandlerEventBridge, HotUpdateHub, InvocationLog, Middleware, MiddlewareOutcome,
-    ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse, StaticFiles, TopicHub, TopicStream,
+    DispatchRoute, HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog, Middleware,
+    MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse, StaticFiles,
+    TopicHub, TopicStream,
 };
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerSource, HandlerSupervisor};
@@ -46,11 +47,13 @@ impl Dispatch {
     pub(in crate::server) const STREAM_EVENT_QUEUE: usize = 2;
     const PAGE_METHODS: [HttpMethod; 2] = [HttpMethod::Get, HttpMethod::Head];
 
-    pub(in crate::server) fn into_router(self, hosts: &crate::safety::DeclaredHosts) -> Router {
-        ServerResponse::defensive_headers(
-            Router::new().fallback(axum::routing::any(Self::handle).with_state(self)),
-            hosts,
-        )
+    pub(in crate::server) fn into_router(
+        self,
+        hosts: &crate::safety::DeclaredHosts,
+        guard: HostGuard,
+    ) -> Router {
+        let routes = Router::new().fallback(axum::routing::any(Self::handle).with_state(self));
+        ServerResponse::defensive_headers(guard.protect(routes), hosts)
     }
 
     pub(in crate::server) async fn invoke(

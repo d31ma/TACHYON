@@ -100,3 +100,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [91. Role Folders Allow Nesting and Require Explicit Registration](0091-role-folders-allow-nesting-and-require-explicit-registration.md)
 - [92. Settings and Validation Data Live in Models](0092-settings-and-validation-data-live-in-models.md)
 - [93. Python Is a Tac Service Language](0093-python-is-a-tac-service-language.md)
+- [94. Local Host Names and Host Validation](0094-local-host-names-and-host-validation.md)

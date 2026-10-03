@@ -1,3 +1,4 @@
+use super::HostLabel;
 use cap_std::fs::Dir;
 use serde_json::Value;
 
@@ -50,6 +51,22 @@ impl DeclaredHosts {
             Self::YON_POINTER,
             Self::YON_SETTING,
         )
+    }
+
+    pub(crate) fn named(hosts: &[String], setting: &'static str) -> Self {
+        Self {
+            hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
+            setting,
+        }
+    }
+
+    pub(crate) fn is_name_entry(entry: &str) -> bool {
+        let name = entry.strip_prefix(Self::ANY_SUBDOMAIN).unwrap_or(entry);
+        HostLabel::is_name(name)
+    }
+
+    pub(crate) const fn is_empty(&self) -> bool {
+        self.hosts.is_empty()
     }
 
     #[cfg(test)]

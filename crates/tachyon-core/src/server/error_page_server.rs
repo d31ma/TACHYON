@@ -1,6 +1,6 @@
 use super::{
-    DevServerOptions, ErrorPage, ErrorPageWait, HotUpdateHub, ProducerTasks, ServerListener,
-    WatchWait,
+    DevServerOptions, ErrorPage, ErrorPageWait, HostGuard, HotUpdateHub, ProducerTasks,
+    ServerListener, WatchWait,
 };
 use crate::hot_update::{SourceChanges, SourceWatcher};
 use crate::tool_restart::ToolUpdate;
@@ -60,7 +60,12 @@ impl ErrorPageServer {
             producers: producers.clone(),
             stopping: stopping.clone(),
         };
-        let serving = tokio::spawn(Self::serve(listener, page.into_router(), stopping.clone()));
+        let guard = Self::host_guard(project_root, options);
+        let serving = tokio::spawn(Self::serve(
+            listener,
+            page.into_router(guard),
+            stopping.clone(),
+        ));
         Ok(Self {
             address,
             project_root: project_root.to_path_buf(),
@@ -76,6 +81,19 @@ impl ErrorPageServer {
     #[must_use]
     pub const fn address(&self) -> SocketAddr {
         self.address
+    }
+
+    fn host_guard(project_root: &Path, options: &DevServerOptions) -> HostGuard {
+        let application = crate::ApplicationConfig::load_for_server(project_root, None, None);
+        let hosts = application
+            .map(|application| application.hosts().to_vec())
+            .unwrap_or_default();
+        let directory =
+            cap_std::fs::Dir::open_ambient_dir(project_root, cap_std::ambient_authority());
+        match directory {
+            Ok(directory) => HostGuard::for_project(options.host, &directory, &hosts),
+            Err(_) => HostGuard::new(options.host, &hosts, None),
+        }
     }
 
     pub fn show(&self, failure: &Failure) {

@@ -10,6 +10,10 @@ mod error_page_wait;
 mod event_stream;
 mod handler_event_bridge;
 mod header_names;
+mod host_guard;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod host_guard_tests;
 mod hot_update_hub;
 mod identity_answer;
 mod invocation_log;
@@ -61,6 +65,7 @@ use event_stream::EventStream;
 use futures_util::future::OptionFuture;
 use handler_event_bridge::HandlerEventBridge;
 use header_names::HeaderNames;
+use host_guard::HostGuard;
 use hot_update_hub::HotUpdateHub;
 use identity_answer::IdentityAnswer;
 use invocation_log::InvocationLog;
@@ -246,7 +251,12 @@ impl DevServer {
             producers: runtime.producers.clone(),
         };
         let page_hosts = crate::safety::DeclaredHosts::tac(&project.capability());
-        let application = dispatch_state.into_router(&page_hosts);
+        let guard = HostGuard::for_project(
+            options.host,
+            &project.capability(),
+            supervisor.application().hosts(),
+        );
+        let application = dispatch_state.into_router(&page_hosts, guard);
         Ok(Self {
             listener: Some(listener),
             application: Some(application),

@@ -1,4 +1,4 @@
-use super::{DiagnosticEntry, HotUpdateHub, ProducerTasks, ServerResponse};
+use super::{DiagnosticEntry, HostGuard, HotUpdateHub, ProducerTasks, ServerResponse};
 use crate::compiler::PageHead;
 use axum::Router;
 use axum::body::Body;
@@ -17,8 +17,8 @@ pub(in crate::server) struct ErrorPage {
 impl ErrorPage {
     const TITLE: &str = "Tachyon cannot start this project";
 
-    pub(in crate::server) fn into_router(self) -> Router {
-        ServerResponse::defensive_headers(
+    pub(in crate::server) fn into_router(self, guard: HostGuard) -> Router {
+        let routes =
             Router::new().fallback(
                 axum::routing::any(
                     |State(page): State<Self>, request: Request<Body>| async move {
@@ -26,7 +26,9 @@ impl ErrorPage {
                     },
                 )
                 .with_state(self),
-            ),
+            );
+        ServerResponse::defensive_headers(
+            guard.protect(routes),
             &crate::safety::DeclaredHosts::default(),
         )
     }

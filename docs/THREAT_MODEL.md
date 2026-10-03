@@ -254,9 +254,21 @@ separate cybersecurity review for this reconciliation.
 - **Development server defaults.** The development server builds before it
   binds a socket. It uses loopback by default and requires an explicit opt-in
   for other addresses. It serves only generated files. It sends CSP, frame,
-  MIME-sniffing, referrer and cache headers. Each watched rebuild runs a fresh
-  discovery and passes that Project to the compiler. Shutdown cancels the owned
-  watcher and waits for it to finish before returning.
+  MIME-sniffing, referrer and cache headers. A server bound to a loopback
+  address answers only a request whose `Host` name is a localhost name
+  (`localhost` or a name under `.localhost`), an IP address, the host of
+  `tac.origin`, or a name in `server.hosts`; any other name gets `403` with
+  `TY1366`, and a `Host` that cannot be read gets `400` (ADR 0094). This
+  closes DNS rebinding: a page on an attacker's name that re-points the name
+  to `127.0.0.1` sends its own name as `Host`, so it cannot read pages, call
+  Yon routes, open the hot-update stream or upgrade a WebSocket. The check
+  runs before routing in the development, production (`ty start`), preview
+  and error-page servers, and it does not depend on the browser. A server
+  opened to the network with `--allow-non-loopback` checks `Host` only when
+  `server.hosts` is set, so a reverse proxy keeps working. Each watched
+  rebuild runs a fresh discovery and passes that Project to the compiler.
+  Shutdown cancels the owned watcher and waits for it to finish before
+  returning.
 - **Capability probes.** Before the build (or the `--no-bundle` output check)
   and before binding the socket, the development server runs synthetic
   capability probes. The probes have a deadline and an output limit. They

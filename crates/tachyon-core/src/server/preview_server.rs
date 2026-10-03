@@ -1,4 +1,6 @@
-use super::{PreviewDispatch, PreviewServerOptions, ServerListener, ServerResponse, StaticFiles};
+use super::{
+    HostGuard, PreviewDispatch, PreviewServerOptions, ServerListener, ServerResponse, StaticFiles,
+};
 use crate::Failure;
 use crate::failure::diagnostic;
 use axum::Router;
@@ -35,10 +37,10 @@ impl PreviewServer {
             page_routes: Arc::new(StaticFiles::preview_route_patterns(&root)),
         };
         let page_hosts = crate::safety::DeclaredHosts::published(&root);
-        let application = ServerResponse::defensive_headers(
-            Router::new().fallback(axum::routing::any(PreviewDispatch::serve).with_state(state)),
-            &page_hosts,
-        );
+        let guard = HostGuard::for_bundle(options.host, &root, &options.hosts);
+        let routes =
+            Router::new().fallback(axum::routing::any(PreviewDispatch::serve).with_state(state));
+        let application = ServerResponse::defensive_headers(guard.protect(routes), &page_hosts);
         Ok(Self {
             listener,
             application,

@@ -1047,6 +1047,9 @@ async fn execute_preview(
             host,
             port,
             allow_non_loopback,
+            hosts: ApplicationConfig::load(project)
+                .map(|application| application.hosts().to_vec())
+                .unwrap_or_default(),
         },
     )
     .await?;

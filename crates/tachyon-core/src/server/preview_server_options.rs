@@ -5,6 +5,7 @@ pub struct PreviewServerOptions {
     pub host: IpAddr,
     pub port: u16,
     pub allow_non_loopback: bool,
+    pub hosts: Vec<String>,
 }
 
 impl Default for PreviewServerOptions {
@@ -13,6 +14,7 @@ impl Default for PreviewServerOptions {
             host: IpAddr::V4(Ipv4Addr::LOCALHOST),
             port: 3000,
             allow_non_loopback: false,
+            hosts: Vec::new(),
         }
     }
 }

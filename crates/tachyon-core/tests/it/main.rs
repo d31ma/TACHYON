@@ -22,6 +22,7 @@ mod gateway_classes;
 mod gateway_commands;
 mod go_markers;
 mod handler_process;
+mod host_names;
 mod implicit_mapping;
 mod local_events;
 mod managed_resources;

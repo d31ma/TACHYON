@@ -3,6 +3,8 @@ mod declared_hosts;
 mod eval_call;
 mod eval_check;
 mod host_check;
+mod host_label;
+mod local_host_name;
 mod outgoing_url;
 mod query_argument;
 mod query_check;
@@ -21,6 +23,8 @@ mod code_tests;
 #[allow(clippy::expect_used)]
 mod host_tests;
 #[cfg(test)]
+mod local_host_name_tests;
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod secret_tests;
 #[cfg(test)]
@@ -31,6 +35,8 @@ pub(crate) use declared_hosts::DeclaredHosts;
 use eval_call::EvalCall;
 pub(crate) use eval_check::EvalCheck;
 pub(crate) use host_check::HostCheck;
+use host_label::HostLabel;
+pub use local_host_name::LocalHostName;
 use outgoing_url::OutgoingUrl;
 use query_argument::QueryArgument;
 pub(crate) use query_check::QueryCheck;

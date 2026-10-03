@@ -21,6 +21,7 @@ type Environment<'a> = dyn Fn(&str) -> Result<Option<String>, Failure> + 'a;
 pub struct ApplicationConfig {
     host: Option<IpAddr>,
     port: Option<u16>,
+    hosts: Vec<String>,
     handler_json: Option<String>,
     topics_directory: Option<String>,
 }
@@ -103,6 +104,11 @@ impl ApplicationConfig {
     }
 
     #[must_use]
+    pub fn hosts(&self) -> &[String] {
+        &self.hosts
+    }
+
+    #[must_use]
     pub fn handler_json(&self) -> Option<&str> {
         self.handler_json.as_deref()
     }
@@ -166,6 +172,7 @@ impl ApplicationConfig {
             Some(port) => Some(port),
             None => parse_port(document.pointer("/yon/server/port"))?,
         };
+        let hosts = parse_hosts(document.pointer("/yon/server/hosts"))?;
         let topics_directory =
             Self::topics_directory_from(document.pointer("/yon/topics/directory"))?;
         normalize_endpoint(&mut document, host, port);
@@ -181,6 +188,7 @@ impl ApplicationConfig {
         Ok(Self {
             host,
             port,
+            hosts,
             handler_json,
             topics_directory,
         })
@@ -407,6 +415,23 @@ fn parse_host(value: Option<&Value>) -> Result<Option<IpAddr>, Failure> {
         .parse()
         .map(Some)
         .map_err(|_| invalid("yon.server.host must be localhost or an IP address."))
+}
+
+fn parse_hosts(value: Option<&Value>) -> Result<Vec<String>, Failure> {
+    let Some(value) = value else {
+        return Ok(Vec::new());
+    };
+    let message = "yon.server.hosts must be a list of host names without scheme, port or path, such as \"app.example.com\" or \"*.example.com\".";
+    let entries = value.as_array().ok_or_else(|| invalid(message))?;
+    let mut hosts = Vec::new();
+    for entry in entries {
+        let name = entry.as_str().ok_or_else(|| invalid(message))?;
+        if !crate::safety::DeclaredHosts::is_name_entry(name) {
+            return Err(invalid(message));
+        }
+        hosts.push(name.to_ascii_lowercase());
+    }
+    Ok(hosts)
 }
 
 fn parse_port(value: Option<&Value>) -> Result<Option<u16>, Failure> {
