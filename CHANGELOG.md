@@ -100,6 +100,12 @@ machine contracts have their own, independent major versions.
   is never kept in the browser HTTP cache, even as a public read, matching
   the WebAssembly HTTP host.
 
+- A precompression cache folder that cannot be written no longer fails
+  `ty build`: the compressed copies are still written. The cache keeps one
+  entry per content hash instead of 32 shared slots per encoding, and after
+  a build it trims itself to 256 MiB, removing the least recently used
+  entries first.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).

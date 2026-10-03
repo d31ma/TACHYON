@@ -62,7 +62,7 @@ fn corrupt_oversized_and_wrong_content_entries_are_replaced() {
 }
 
 #[test]
-fn different_content_and_encodings_keep_a_bounded_cache() {
+fn different_content_and_encodings_each_keep_their_own_entry() {
     let root = tempfile::tempdir().expect("cache root");
     let cache = CompressionCache::at(root.path().to_path_buf());
     for value in 0..100 {
@@ -77,5 +77,56 @@ fn different_content_and_encodings_keep_a_bounded_cache() {
         .encode(&bytes, ContentEncoding::BROTLI)
         .expect("brotli");
     assert!(ContentEncoding::BROTLI.matches(&brotli, &bytes));
-    assert!(fs::read_dir(root.path()).expect("entries").count() <= 64);
+    assert_eq!(fs::read_dir(root.path()).expect("entries").count(), 101);
+}
+
+#[test]
+fn trimming_removes_the_oldest_entries_until_the_cache_fits() {
+    let root = tempfile::tempdir().expect("cache root");
+    let cache = CompressionCache::at(root.path().to_path_buf());
+    let mut written: Vec<std::path::PathBuf> = Vec::new();
+    for age in 0..10_u64 {
+        let bytes = format!("const message = '{age}';\n")
+            .repeat(128)
+            .into_bytes();
+        cache.encode(&bytes, ContentEncoding::GZIP).expect("gzip");
+        let entry = fs::read_dir(root.path())
+            .expect("entries")
+            .map(|entry| entry.expect("entry").path())
+            .find(|path| !written.contains(path))
+            .expect("new entry");
+        let stamp = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000 + age);
+        fs::File::options()
+            .write(true)
+            .open(&entry)
+            .and_then(|file| file.set_modified(stamp))
+            .expect("entry age");
+        written.push(entry);
+    }
+    let total: u64 = written
+        .iter()
+        .map(|path| fs::metadata(path).expect("size").len())
+        .sum();
+    cache.trim_to(total / 2);
+    let kept: u64 = written
+        .iter()
+        .filter_map(|path| fs::metadata(path).ok())
+        .map(|metadata| metadata.len())
+        .sum();
+    assert!(kept <= total / 2, "{kept} > {}", total / 2);
+    assert!(!written[0].exists(), "the oldest entry goes first");
+    assert!(written[9].exists(), "the newest entry stays");
+}
+
+#[test]
+fn a_cache_that_cannot_be_written_still_returns_the_encoded_content() {
+    let parent = tempfile::tempdir().expect("cache parent");
+    let blocked = parent.path().join("not-a-directory");
+    fs::write(&blocked, "file").expect("file where the cache would go");
+    let cache = CompressionCache::at(blocked.join("cache"));
+    let bytes = b"const message = 'read-only cache';\n".repeat(128);
+    let encoded = cache
+        .encode(&bytes, ContentEncoding::GZIP)
+        .expect("compression succeeds without a cache");
+    assert!(ContentEncoding::GZIP.matches(&encoded, &bytes));
 }

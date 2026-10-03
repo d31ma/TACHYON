@@ -1,4 +1,7 @@
-use super::{CompressibleFile, CompressionTotals, ContentEncoding, EncodingJob, PreviousOutput};
+use super::{
+    CompressibleFile, CompressionCache, CompressionTotals, ContentEncoding, EncodingJob,
+    PreviousOutput,
+};
 use crate::Failure;
 use crate::compiler::{BuildStage, PortablePath};
 use std::collections::BTreeMap;
@@ -23,6 +26,7 @@ impl CompressedFiles {
         let jobs = Self::enabled_jobs(files, enabled);
         let previous = PreviousOutput::new(previous_output);
         let variants = BuildStage::output_io(Self::encode_all(&jobs, &previous), previous_output)?;
+        Self::trim_cache(&jobs);
         Ok(Self {
             variants: variants.into_iter().collect(),
         })
@@ -56,6 +60,12 @@ impl CompressedFiles {
                     sent_bytes: totals.sent_bytes + sent,
                 }
             })
+    }
+
+    fn trim_cache(jobs: &[EncodingJob<'_>]) {
+        if !jobs.is_empty() {
+            CompressionCache::global().trim();
+        }
     }
 
     fn enabled_jobs(files: &[(PathBuf, Vec<u8>)], enabled: bool) -> Vec<EncodingJob<'_>> {
