@@ -64,9 +64,6 @@ Keep `AGENTS.md` and `CLAUDE.md` substantively aligned when changing project
 instructions.
 Use `docs/PROJECT_PLAN.md` and the latest `docs/HANDOFF.md` continuation
 to identify current work, completed evidence, and remaining gates.
-In this isolated recovery copy, `docs/queue/NEXT/SCHEDULE.md` and its linked
-briefs are the active reconstructed queue. Consult `docs/queue/QUEUE-AUDIT.md`
-for the verified implementation status; preserve the historical schedule prefix.
 Later NEXT phases mentioned in a handoff remain pending until their work and
 required evidence are complete. Historical handoff sections may describe
 superseded contracts; read the latest applicable ADRs before implementing them.
