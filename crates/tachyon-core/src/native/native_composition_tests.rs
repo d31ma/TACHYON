@@ -64,7 +64,8 @@ fn main() {
 
     async fn inputs(root: &Path) -> (crate::Project, tempfile::TempDir, Vec<NativeCompanionInput>) {
         let project = ProjectDiscovery::discover(root).expect("project");
-        let (web, inputs) = super::build_web_bundle(&project, NativeTarget::Macos)
+        let output_root = root.join("native-output");
+        let (web, inputs) = super::build_web_bundle(&project, NativeTarget::Macos, &output_root)
             .await
             .expect("ordinary native collection");
         (project, web, inputs)

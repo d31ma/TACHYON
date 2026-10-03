@@ -348,7 +348,8 @@ impl WebCompiler {
         options: &BuildOptions,
         native_target: Option<tachyon_contracts::NativeTarget>,
     ) -> Result<BuildResult, Failure> {
-        crate::ComposedTypes::write(project.root())?;
+        let types_root = Self::composed_types_root(project, native_target);
+        crate::ComposedTypes::write(types_root)?;
         let mut build = SiteBuild::discover(project, options, native_target)?;
         let site = crate::native::SiteSettings::load(build.snapshot_root)?;
         let cache_rules = ServiceWorker::cache_rules_literal(&site.cache_rules)?;
@@ -371,6 +372,16 @@ impl WebCompiler {
         build.finish_phase("manifest and service worker");
         build.write_output()
     }
+    fn composed_types_root(
+        project: &Project,
+        native_target: Option<tachyon_contracts::NativeTarget>,
+    ) -> &Path {
+        if native_target.is_some() {
+            return project.snapshot_root();
+        }
+        project.root()
+    }
+
 }
 
 pub(crate) fn hex_digest(bytes: impl AsRef<[u8]>) -> String {

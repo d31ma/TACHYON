@@ -95,6 +95,7 @@ mod native_ui_styles_sources;
 mod native_ui_styles_tests;
 #[cfg(test)]
 mod native_web_api_tests;
+mod native_web_stage;
 #[cfg(test)]
 mod native_window_control_tests;
 mod native_window_controls;

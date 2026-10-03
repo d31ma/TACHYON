@@ -4,6 +4,7 @@ use super::host::GeneratedHost;
 use super::ios::IosHostGenerator;
 use super::linux::LinuxHostGenerator;
 use super::macos::MacOsHostGenerator;
+use super::native_web_stage::NativeWebStage;
 use super::routes::NativeRouteIndex;
 use super::windows::WindowsHostGenerator;
 use crate::compiler::{publish, resolve_output_path};
@@ -177,7 +178,8 @@ impl NativeCompiler {
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
         application.menus.validate_for(options.target, &index)?;
 
-        let (temporary_web, companions) = build_web_bundle(project, options.target).await?;
+        let (temporary_web, companions) =
+            build_web_bundle(project, options.target, &base_output).await?;
         super::native_ui_profile::NativeUiProfile::prepare(
             ui_candidate,
             temporary_web.path(),
@@ -363,6 +365,7 @@ async fn generate_host(
 async fn build_web_bundle(
     project: &crate::Project,
     target: NativeTarget,
+    output_root: &Path,
 ) -> Result<
     (
         tempfile::TempDir,
@@ -370,26 +373,11 @@ async fn build_web_bundle(
     ),
     Failure,
 > {
-    let temporary_web = tempfile::Builder::new()
-        .prefix(".tachyon-native-web-")
-        .tempdir_in(project.root())
-        .map_err(|error| native_io_failure(project.root(), &error))?;
-    let temporary_name = temporary_web
-        .path()
-        .file_name()
-        .map(PathBuf::from)
-        .ok_or_else(|| {
-            Failure::one(diagnostic(
-                1605,
-                "Native staging directory has no name.",
-                None,
-                None,
-            ))
-        })?;
+    let temporary_web = NativeWebStage::create(output_root)?;
     let web = WebCompiler::build_project_for_native(
         project,
         &BuildOptions {
-            output_directory: temporary_name,
+            output_directory: temporary_web.path().to_path_buf(),
             incremental: false,
             ..BuildOptions::default()
         },
@@ -1031,3 +1019,7 @@ mod tests {
 #[cfg(test)]
 #[path = "native_composition_tests.rs"]
 mod composition_tests;
+
+#[cfg(test)]
+#[path = "native_external_output_tests.rs"]
+mod external_output_tests;
