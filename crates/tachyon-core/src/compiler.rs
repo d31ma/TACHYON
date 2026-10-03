@@ -381,7 +381,6 @@ impl WebCompiler {
         }
         project.root()
     }
-
 }
 
 pub(crate) fn hex_digest(bytes: impl AsRef<[u8]>) -> String {
