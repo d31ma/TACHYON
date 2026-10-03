@@ -190,6 +190,23 @@ async fn native_cli_collection_still_refuses_view_bound_automatic_trait_injectio
 }
 
 #[tokio::test]
+async fn tac_utility_canonical_nested_rust_module_executes_in_native_composition() {
+    let root = tempfile::tempdir().expect("fixture");
+    NativeCompositionCheck::project(root.path(), "<p>{snapshotReader.read()}</p>");
+    NativeCompositionCheck::write(
+        root.path(),
+        "client/shared/utils/text/TitleUtils.rs",
+        "pub struct TitleUtils;\nimpl TitleUtils { pub fn text() -> String { String::from(\"Ready\") } }\n",
+    );
+    NativeCompositionCheck::write(
+        root.path(),
+        "client/services/SnapshotReaderService.rs",
+        "use crate::utils::{TitleUtils, TitleUtils as Label};\n#[Service]\n#[derive(Default)]\nstruct SnapshotReaderService;\nimpl SnapshotReaderService { fn read(&self) -> String { mod nested { pub fn value() -> String { crate::utils::TitleUtils::text() } } format!(\"{}:{}:{}\", TitleUtils::text(), Label::text(), nested::value()) } }\n",
+    );
+    NativeCompositionCheck::execute(root.path(), "{\\\"value\\\":\\\"Ready:Ready:Ready\\\"}").await;
+}
+
+#[tokio::test]
 async fn native_cli_collection_follows_script_instance_dependencies_transitively() {
     let root = tempfile::tempdir().expect("fixture");
     NativeCompositionCheck::project(root.path(), "<p>{observatory.read()}</p>");

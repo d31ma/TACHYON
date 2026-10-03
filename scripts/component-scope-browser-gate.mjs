@@ -7,7 +7,7 @@ import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} ScopeEngine */
-/** @typedef {{background: string, outline: string, outlineStyle: string, color: string, font: string, token: string, owner: string | null}} ScopeStyle */
+/** @typedef {{background: string, outline: string, outlineStyle: string, color: string, font: string, token: string, scopeToken: string, owner: string | null}} ScopeStyle */
 /** @typedef {{phase: string, sourceCommit: string, compilerSha256: string, engine: ScopeEngine, browserVersion?: string, errors: string[], failedRequests: string[], externalRequests: string[]}} ScopeDiagnostics */
 
 class ComponentScopeBrowserGate {
@@ -93,6 +93,8 @@ class ComponentScopeBrowserGate {
       assert.equal(delegated.owner, 'plain-child')
       assert.equal(neighbor.token, '')
       assert.notEqual(neighbor.color, ComponentScopeBrowserGate.#parentColor)
+      assert.equal(neighbor.scopeToken, 'plain-child')
+      assert.equal(delegated.scopeToken, 'plain-child')
       diagnostics.phase = 'dispose-and-remount'
       await page.getByRole('button', { name: 'Hide parent', exact: true }).click()
       await page.locator('#first-parent [data-probe="parent"]').waitFor({ state: 'detached' })
@@ -131,6 +133,7 @@ class ComponentScopeBrowserGate {
     assert.equal(owned.background, ComponentScopeBrowserGate.#parentBackground)
     assert.equal(owned.outline, '3px')
     assert.equal(owned.outlineStyle, 'solid')
+    assert.equal(owned.scopeToken, 'parent-panel')
     assert.equal(styled.background, ComponentScopeBrowserGate.#childBackground)
     assert.equal(styled.outlineStyle, 'none')
     ComponentScopeBrowserGate.#inherited(styled, 'styled-child')
@@ -149,13 +152,14 @@ class ComponentScopeBrowserGate {
     assert.ok(style.font.includes('monospace'))
     assert.equal(style.token, 'parent')
     assert.equal(style.owner, owner)
+    assert.equal(style.scopeToken, owner)
   }
 
   /** @param {import('playwright').Page} page @param {string} selector @returns {Promise<ScopeStyle>} */
   static #style(page, selector) {
     return page.locator(selector).evaluate(element => {
       const computed = getComputedStyle(element)
-      return { background: computed.backgroundColor, outline: computed.outlineWidth, outlineStyle: computed.outlineStyle, color: computed.color, font: computed.fontFamily, token: computed.getPropertyValue('--owner-token').trim(), owner: element.closest('tachyon-component')?.getAttribute('data-tac-scope') ?? null }
+      return { background: computed.backgroundColor, outline: computed.outlineWidth, outlineStyle: computed.outlineStyle, color: computed.color, font: computed.fontFamily, token: computed.getPropertyValue('--owner-token').trim(), scopeToken: computed.getPropertyValue('--_tac-owner').trim(), owner: element.closest('tachyon-component')?.getAttribute('data-tac-scope') ?? null }
     })
   }
 }

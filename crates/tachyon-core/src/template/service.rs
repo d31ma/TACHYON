@@ -222,7 +222,6 @@ impl ServiceDefinition {
 
 impl ServiceRegistry {
     const SERVICE_ROOT: &'static str = "client/services";
-    const UTILITY_ROOT: &'static str = "client/utils";
     const MAX_SERVICES: usize = 256;
     const MAX_SERVICE_BYTES: u64 = 1_048_576;
     const PROVIDER_FOLDERS: [&'static str; 9] = [
@@ -260,7 +259,7 @@ impl ServiceRegistry {
                 hash_file(&mut hasher, &relative, &path);
             }
         }
-        Self::hash_utilities(project_root, &mut hasher);
+        Self::hash_utilities(project_root, &mut hasher)?;
         set_native_service_scopes(&mut services);
         set_required_fields(&mut services, Self::provider_names(project_root)?);
         set_stored_fields(&mut services);
@@ -280,22 +279,42 @@ impl ServiceRegistry {
         })
     }
 
-    fn hash_utilities(project_root: &Path, hasher: &mut Sha256) {
-        let mut paths: Vec<PathBuf> = fs::read_dir(project_root.join(Self::UTILITY_ROOT))
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|entry| entry.path())
-            .collect();
+    fn hash_utilities(project_root: &Path, hasher: &mut Sha256) -> Result<(), Failure> {
+        crate::annotation_layout::UtilityLayout::CLIENT_ROOTS
+            .iter()
+            .try_for_each(|folder| {
+                Self::hash_utility_folder(project_root, Path::new(folder), hasher)
+            })
+    }
+
+    fn hash_utility_folder(
+        project_root: &Path,
+        folder: &Path,
+        hasher: &mut Sha256,
+    ) -> Result<(), Failure> {
+        let mut paths = Self::utility_paths(project_root, folder)?;
         paths.sort();
-        for path in paths {
-            let file_name = path.file_name().and_then(OsStr::to_str).unwrap_or("");
+        paths.iter().for_each(|path| {
             hash_file(
                 hasher,
-                &format!("{}/{file_name}", Self::UTILITY_ROOT),
-                &path,
+                &path.to_string_lossy().replace('\\', "/"),
+                &project_root.join(path),
             );
-        }
+        });
+        Ok(())
+    }
+
+    fn utility_paths(project_root: &Path, folder: &Path) -> Result<Vec<PathBuf>, Failure> {
+        Self::utility_parent_present(project_root, folder)
+            .then(|| crate::annotation_modules::Discovery::role_paths(project_root, folder))
+            .transpose()
+            .map(Option::unwrap_or_default)
+    }
+
+    fn utility_parent_present(project_root: &Path, folder: &Path) -> bool {
+        let parent = folder.parent().unwrap_or(folder);
+        !fs::symlink_metadata(project_root.join(parent))
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
     }
 
     fn provider_names(project_root: &Path) -> Result<BTreeSet<String>, Failure> {
@@ -793,6 +812,38 @@ mod tests {
     fn discover_error(files: &[(&str, &str)], reason: &str) -> Failure {
         let root = project(files);
         ServiceRegistry::discover(root.path()).expect_err(reason)
+    }
+
+    #[test]
+    fn tac_utility_canonical_nested_changes_invalidate_service_digest() {
+        let root = project(&[(
+            "client/shared/utils/text/TitleUtils.js",
+            "class TitleUtils { static text() { return 'Ready'; } }",
+        )]);
+        let before = ServiceRegistry::discover(root.path()).expect("registry");
+        fs::write(
+            root.path().join("client/shared/utils/text/TitleUtils.js"),
+            "class TitleUtils { static text() { return 'Done'; } }",
+        )
+        .expect("changed utility");
+        let after = ServiceRegistry::discover(root.path()).expect("registry");
+        assert_ne!(before.digest(), after.digest());
+    }
+
+    #[test]
+    fn tac_utility_legacy_nested_changes_invalidate_service_digest() {
+        let root = project(&[(
+            "client/utils/text/TitleUtils.js",
+            "class TitleUtils { static text() { return 'Ready'; } }",
+        )]);
+        let before = ServiceRegistry::discover(root.path()).expect("registry");
+        fs::write(
+            root.path().join("client/utils/text/TitleUtils.js"),
+            "class TitleUtils { static text() { return 'Done'; } }",
+        )
+        .expect("changed utility");
+        let after = ServiceRegistry::discover(root.path()).expect("registry");
+        assert_ne!(before.digest(), after.digest());
     }
 
     #[test]

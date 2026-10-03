@@ -35,6 +35,12 @@ class Rendering {
 class Elements {
   static records = new WeakMap()
   static listeners = new WeakMap()
+  static scopeProperty = '--_tac-owner'
+
+  static markScope(host, name) {
+    host.setAttribute('data-tac-scope', name)
+    host.style.setProperty(Elements.scopeProperty, name)
+  }
 }
 
 class NativeState {
@@ -1004,7 +1010,7 @@ const renderComponent = async (node, environment, path) => {
   const host = document.createElement('tachyon-component')
   host.dataset.tachyonComponent = node.name
   host.dataset.tachyonMount = node.mount || 'none'
-  if (node.scope) host.setAttribute('data-tac-scope', node.name)
+  if (node.scope) Elements.markScope(host, node.name)
   host.append(await renderNodes(node.template || [], ownedEnvironment(owner), `${path}.template`, {
     nodes: node.slot || [],
     named: node.slots || {},
