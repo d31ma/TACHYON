@@ -153,11 +153,34 @@ fn tac_source_convention_shared_utility_module_publishes_its_validated_named_cla
 }
 
 #[test]
-fn tac_source_convention_legacy_client_utils_remain_supported() {
-    TacSourceConventionTests::valid(
-        "client/utils/text/TitleUtils.js",
-        TacSourceConventionTests::JAVASCRIPT,
-    );
+fn tac_source_convention_client_utils_folder_is_refused_with_the_shared_utils_path() {
+    for (path, source) in [
+        (
+            "client/utils/text/TitleUtils.js",
+            TacSourceConventionTests::JAVASCRIPT,
+        ),
+        ("client/utils/text/title_utils.rs", TacSourceConventionTests::RUST),
+        ("client/utils/titles.json", "{}"),
+    ] {
+        assert!(!UtilityLayout::is_utility(Path::new(path)));
+        let root = TacSourceConventionTests::project();
+        TacSourceConventionTests::write(root.path(), path, source);
+        let failure = ProjectDiscovery::discover(root.path())
+            .err()
+            .unwrap_or_else(|| panic!("client/utils must be refused: {path}"));
+        let found = failure
+            .diagnostics()
+            .iter()
+            .find(|found| found.spans.iter().any(|span| span.file == path))
+            .unwrap_or_else(|| panic!("the refusal names {path}: {failure}"));
+        let wanted = path.replace("client/utils", "client/shared/utils");
+        assert_eq!(found.code.number(), 1310, "{failure}");
+        assert!(found.message.contains("client/shared/utils"), "{failure}");
+        assert!(
+            found.help.as_deref().unwrap_or("").contains(&wanted),
+            "{failure}"
+        );
+    }
 }
 
 #[test]

@@ -274,11 +274,8 @@ impl ServiceRegistry {
     }
 
     fn hash_utilities(project_root: &Path, hasher: &mut Sha256) -> Result<(), Failure> {
-        crate::annotation_layout::UtilityLayout::CLIENT_ROOTS
-            .iter()
-            .try_for_each(|folder| {
-                Self::hash_utility_folder(project_root, Path::new(folder), hasher)
-            })
+        let folder = Path::new(crate::annotation_layout::UtilityLayout::CLIENT_ROOT);
+        Self::hash_utility_folder(project_root, folder, hasher)
     }
 
     fn hash_utility_folder(
@@ -825,22 +822,6 @@ mod tests {
         assert_ne!(before.digest(), after.digest());
     }
 
-    #[test]
-    fn tac_utility_legacy_nested_changes_invalidate_service_digest() {
-        let root = project(&[(
-            "client/utils/text/TitleUtils.js",
-            "class TitleUtils { static text() { return 'Ready'; } }",
-        )]);
-        let before = ServiceRegistry::discover(root.path()).expect("registry");
-        fs::write(
-            root.path().join("client/utils/text/TitleUtils.js"),
-            "class TitleUtils { static text() { return 'Done'; } }",
-        )
-        .expect("changed utility");
-        let after = ServiceRegistry::discover(root.path()).expect("registry");
-        assert_ne!(before.digest(), after.digest());
-    }
-
     #[cfg(unix)]
     #[test]
     fn tac_utility_digest_refuses_a_symlinked_shared_parent() {
@@ -859,12 +840,15 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn tac_utility_digest_refuses_a_nested_legacy_source_symlink() {
-        let root = project(&[("client/utils/text/TitleUtils.js", "class TitleUtils {}")]);
+    fn tac_utility_digest_refuses_a_nested_source_symlink() {
+        let root = project(&[(
+            "client/shared/utils/text/TitleUtils.js",
+            "class TitleUtils {}",
+        )]);
         let outside = project(&[("OutsideUtils.js", "class OutsideUtils {}")]);
         std::os::unix::fs::symlink(
             outside.path().join("OutsideUtils.js"),
-            root.path().join("client/utils/text/OutsideUtils.js"),
+            root.path().join("client/shared/utils/text/OutsideUtils.js"),
         )
         .expect("nested utility symlink");
         let failure =
@@ -872,7 +856,7 @@ mod tests {
         assert!(
             failure
                 .to_string()
-                .contains("client/utils/text/OutsideUtils.js"),
+                .contains("client/shared/utils/text/OutsideUtils.js"),
             "{failure}"
         );
         assert!(failure.to_string().contains("symlinks"), "{failure}");

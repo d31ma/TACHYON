@@ -30,7 +30,7 @@ fn messages(path: &str, source: &str) -> Vec<String> {
 
 const VALID: [(&str, &str); 12] = [
     (
-        "client/utils/TextUtils.js",
+        "client/shared/utils/TextUtils.js",
         "export default class TextUtils {\n  static slug(value) {\n    return TextUtils.#lower(value)\n  }\n\n  static #lower(value) {\n    return value.toLowerCase()\n  }\n}\n",
     ),
     (
@@ -70,11 +70,11 @@ const VALID: [(&str, &str); 12] = [
         "pub struct TextUtils;\n\nimpl TextUtils {\n    pub fn slug(value: &str) -> String {\n        value.to_lowercase()\n    }\n}\n",
     ),
     (
-        "client/utils/TextUtils.dart",
+        "client/shared/utils/TextUtils.dart",
         "class TextUtils {\n  static String slug(String value) => value.toLowerCase();\n}\n",
     ),
     (
-        "client/utils/TextUtils.swift",
+        "client/shared/utils/TextUtils.swift",
         "struct TextUtils {\n    static func slug(_ value: String) -> String {\n        value.lowercased()\n    }\n}\n",
     ),
 ];
@@ -90,7 +90,7 @@ fn a_static_utility_class_is_valid_in_every_language() {
 fn an_expression_body_that_goes_on_to_the_next_lines_belongs_to_its_method() {
     let cases = [
         (
-            "client/utils/TextUtils.dart",
+            "client/shared/utils/TextUtils.dart",
             "class TextUtils {\n  static String slug(String value) => value\n      .toLowerCase()\n      .trim();\n\n  static String plain() => 'plain';\n}\n",
         ),
         (
@@ -107,7 +107,7 @@ fn an_expression_body_that_goes_on_to_the_next_lines_belongs_to_its_method() {
 fn an_instance_method_is_refused() {
     let cases = [
         (
-            "client/utils/TextUtils.js",
+            "client/shared/utils/TextUtils.js",
             "export default class TextUtils {\n  slug(value) {\n    return value\n  }\n}\n",
             "Add `static` to `slug`.",
         ),
@@ -155,7 +155,7 @@ fn an_instance_method_is_refused() {
 fn a_field_or_stored_value_is_refused() {
     let cases = [
         (
-            "client/utils/TextUtils.js",
+            "client/shared/utils/TextUtils.js",
             "export default class TextUtils {\n  static cache = new Map()\n\n  static slug(value) {\n    return value\n  }\n}\n",
         ),
         (
@@ -200,12 +200,12 @@ fn script_utilities_refuse_same_line_state_before_or_between_methods() {
     ];
     for source in cases {
         assert_eq!(
-            codes("client/utils/TextUtils.ts", source),
+            codes("client/shared/utils/TextUtils.ts", source),
             vec![1316],
             "{source}"
         );
     }
-    assert_eq!(codes("client/utils/TextUtils.js", cases[0]), vec![1316]);
+    assert_eq!(codes("client/shared/utils/TextUtils.js", cases[0]), vec![1316]);
 }
 
 #[test]
@@ -217,25 +217,25 @@ fn script_utility_prefixes_preserve_multiple_methods_without_hiding_instance_met
         "class TextUtils {\n static\n async text() { return 'Ready'; }\n static more() { return 'Ready'; }\n}",
     ] {
         assert_eq!(
-            codes("client/utils/TextUtils.js", source),
+            codes("client/shared/utils/TextUtils.js", source),
             Vec::<u16>::new(),
             "{source}"
         );
     }
     let source =
         "class TextUtils { static text() { return 'Ready'; } plain() { return 'Ready'; } }";
-    let found = messages("client/utils/TextUtils.js", source);
-    assert_eq!(codes("client/utils/TextUtils.js", source), vec![1316]);
+    let found = messages("client/shared/utils/TextUtils.js", source);
+    assert_eq!(codes("client/shared/utils/TextUtils.js", source), vec![1316]);
     assert!(found[0].contains("Method `plain`"));
     let typed = "class TextUtils { public static text(): string { return TextUtils.lower(); } private static lower(): string { return 'Ready'; } }";
-    assert_eq!(codes("client/utils/TextUtils.ts", typed), Vec::<u16>::new());
+    assert_eq!(codes("client/shared/utils/TextUtils.ts", typed), Vec::<u16>::new());
 }
 
 #[test]
 fn rust_utility_boundary_accepts_immutable_associated_constants() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    const TITLE: &'static str = \"Ready\";\n    pub(crate) const WIDTH: usize = { 2 + 3 };\n    pub fn text() -> String { Self::TITLE.to_owned() }\n}\n";
     assert_eq!(
-        messages("client/utils/TitleUtils.rs", source),
+        messages("client/shared/utils/TitleUtils.rs", source),
         Vec::<String>::new()
     );
 }
@@ -250,7 +250,7 @@ fn rust_utility_boundary_still_refuses_instance_and_mutable_state() {
     ];
     for source in cases {
         assert_eq!(
-            codes("client/utils/TitleUtils.rs", source),
+            codes("client/shared/utils/TitleUtils.rs", source),
             vec![1316],
             "{source}"
         );
@@ -260,23 +260,23 @@ fn rust_utility_boundary_still_refuses_instance_and_mutable_state() {
 #[test]
 fn rust_utility_boundary_does_not_allow_top_level_stored_values() {
     let source = "static COUNT: usize = 0;\npub struct TitleUtils;\nimpl TitleUtils { pub fn text() -> String { String::new() } }\n";
-    assert!(!codes("client/utils/TitleUtils.rs", source).is_empty());
+    assert!(!codes("client/shared/utils/TitleUtils.rs", source).is_empty());
 }
 
 #[test]
 fn rust_utility_boundary_refuses_function_local_persistent_state() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);\n        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)\n    }\n}\n";
-    assert_eq!(codes("client/utils/TitleUtils.rs", source), vec![1316]);
+    assert_eq!(codes("client/shared/utils/TitleUtils.rs", source), vec![1316]);
     let mutable = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        static mut COUNT: usize = 0;\n        0\n    }\n}\n";
-    assert_eq!(codes("client/utils/TitleUtils.rs", mutable), vec![1316]);
+    assert_eq!(codes("client/shared/utils/TitleUtils.rs", mutable), vec![1316]);
     let local = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        let count = 1;\n        count + 1\n    }\n}\n";
     assert_eq!(
-        codes("client/utils/TitleUtils.rs", local),
+        codes("client/shared/utils/TitleUtils.rs", local),
         Vec::<u16>::new()
     );
     let literal = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn title() -> &'static str {\n        // static COUNT: usize = 1;\n        let text = \"static COUNT: usize = 1;\";\n        text\n    }\n}\n";
     assert_eq!(
-        codes("client/utils/TitleUtils.rs", literal),
+        codes("client/shared/utils/TitleUtils.rs", literal),
         Vec::<u16>::new()
     );
 }
@@ -286,7 +286,7 @@ fn rust_utility_multiline_generics_are_method_headers_not_stored_state() {
     let source =
         include_str!("../../../../tests/fixtures/rust-utility-multiline/NativeCounterUtils.rs");
     for path in [
-        "client/utils/NativeCounterUtils.rs",
+        "client/shared/utils/NativeCounterUtils.rs",
         "server/utils/NativeCounterUtils.rs",
     ] {
         assert_eq!(messages(path, source), Vec::<String>::new(), "{path}");
@@ -297,7 +297,7 @@ fn rust_utility_multiline_generics_are_method_headers_not_stored_state() {
 fn rust_utility_multiline_where_constraints_are_method_headers() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count<T>(\n        value: T,\n    ) -> usize\n    where\n        T: Iterator<Item = u8>,\n    {\n        Self::read(value)\n    }\n\n    fn read<T>(\n        value: T,\n    ) -> usize\n    where\n        T: Iterator<Item = u8>,\n    {\n        value.count()\n    }\n}\n";
     assert_eq!(
-        messages("client/utils/TitleUtils.rs", source),
+        messages("client/shared/utils/TitleUtils.rs", source),
         Vec::<String>::new()
     );
 }
@@ -318,9 +318,9 @@ fn rust_utility_multiline_generics_still_reject_real_persistent_state() {
     );
     for invalid in [field, local] {
         assert!(
-            codes("client/utils/NativeCounterUtils.rs", &invalid).contains(&1316),
+            codes("client/shared/utils/NativeCounterUtils.rs", &invalid).contains(&1316),
             "{:?}",
-            messages("client/utils/NativeCounterUtils.rs", &invalid)
+            messages("client/shared/utils/NativeCounterUtils.rs", &invalid)
         );
     }
 }
@@ -329,7 +329,7 @@ fn rust_utility_multiline_generics_still_reject_real_persistent_state() {
 fn rust_utility_multiline_generic_bodies_still_receive_cohesion_checks() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn delta<T: Copy + PartialOrd + std::ops::Sub<Output = T>>(\n        current: T,\n        previous: T,\n    ) -> T {\n        if current >= previous { current - previous } else { previous - current }\n    }\n}\n";
     let found = crate::annotation_layout::CohesionCheck::problems(
-        Path::new("client/utils/TitleUtils.rs"),
+        Path::new("client/shared/utils/TitleUtils.rs"),
         source,
     )
     .expect("readable generic method")
@@ -344,7 +344,7 @@ fn the_folder_the_name_and_the_single_class_are_checked() {
     let class =
         "export default class TextUtils {\n  static slug(value) {\n    return value\n  }\n}\n";
     assert_eq!(
-        codes("client/utils/text/TextUtils.js", class),
+        codes("client/shared/utils/text/TextUtils.js", class),
         Vec::<u16>::new()
     );
     assert_eq!(
@@ -352,23 +352,23 @@ fn the_folder_the_name_and_the_single_class_are_checked() {
         Vec::<u16>::new()
     );
     assert_eq!(
-        codes("client/utils/Text.js", &class.replace("TextUtils", "Text")),
+        codes("client/shared/utils/Text.js", &class.replace("TextUtils", "Text")),
         vec![1310]
     );
-    assert_eq!(codes("client/utils/StringUtils.js", class), vec![1310]);
+    assert_eq!(codes("client/shared/utils/StringUtils.js", class), vec![1310]);
     assert_eq!(
-        codes("client/utils/TextUtils.js", &format!("@Service\n{class}")),
+        codes("client/shared/utils/TextUtils.js", &format!("@Service\n{class}")),
         vec![1310]
     );
     let second = format!("{class}\nclass OtherUtils {{}}\n");
-    assert_eq!(codes("client/utils/TextUtils.js", &second), vec![1310]);
+    assert_eq!(codes("client/shared/utils/TextUtils.js", &second), vec![1310]);
 }
 
 #[test]
 fn utility_methods_follow_the_cohesion_rule() {
     let source = "export default class TextUtils {\n  static slug(value) {\n    return value || ''\n  }\n}\n";
     let problems = crate::annotation_layout::CohesionCheck::problems(
-        Path::new("client/utils/TextUtils.js"),
+        Path::new("client/shared/utils/TextUtils.js"),
         source,
     )
     .expect("scan");
@@ -393,7 +393,7 @@ fn every_program_of_the_realm_gets_its_utility_classes_without_an_import() {
     let root = tempfile::tempdir().expect("project");
     write(
         root.path(),
-        "client/utils/TextUtils.js",
+        "client/shared/utils/TextUtils.js",
         "export default class TextUtils {\n  static clientSlug(value) {\n    return value\n  }\n}\n",
     );
     write(
@@ -433,7 +433,7 @@ fn coverage_counts_the_public_static_methods_of_a_utility_class() {
     let root = tempfile::tempdir().expect("project");
     write(
         root.path(),
-        "client/utils/PriceUtils.js",
+        "client/shared/utils/PriceUtils.js",
         "export default class PriceUtils {\n  static label(cents) {\n    return PriceUtils.#dollars(cents)\n  }\n\n  static rounded(cents) {\n    return cents\n  }\n\n  static #dollars(cents) {\n    return cents / 100\n  }\n}\n",
     );
     write(
@@ -467,7 +467,7 @@ fn coverage_counts_the_public_static_methods_of_a_utility_class() {
 fn rust_snake_case_utilities_preserve_suffix_identity_and_statelessness() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils { const TITLE: &'static str = \"Ready\"; pub fn text() -> String { Self::TITLE.to_owned() } }\n";
     for path in [
-        "client/utils/title_utils.rs",
+        "client/shared/utils/title_utils.rs",
         "server/utils/nested/TitleUtils.rs",
     ] {
         assert!(
@@ -477,29 +477,29 @@ fn rust_snake_case_utilities_preserve_suffix_identity_and_statelessness() {
         );
     }
     for path in [
-        "client/utils/titleutils.rs",
-        "client/utils/text_utils.rs",
-        "client/utils/title__utils.rs",
+        "client/shared/utils/titleutils.rs",
+        "client/shared/utils/text_utils.rs",
+        "client/shared/utils/title__utils.rs",
     ] {
         assert_eq!(codes(path, source), [1310], "{path}");
     }
     assert_eq!(
         codes(
-            "client/utils/title_utils.rs",
+            "client/shared/utils/title_utils.rs",
             "#[Service]\nstruct TitleUtils;"
         ),
         [1310]
     );
     assert_eq!(
         codes(
-            "client/utils/title_utils.rs",
+            "client/shared/utils/title_utils.rs",
             "struct TitleUtils { count: u64 }"
         ),
         [1316]
     );
     assert_eq!(
         codes(
-            "client/utils/title_utils.rs",
+            "client/shared/utils/title_utils.rs",
             "struct TitleUtils;\nimpl TitleUtils { pub fn text(&self) {} }"
         ),
         [1316]

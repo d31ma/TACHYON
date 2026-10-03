@@ -5,7 +5,7 @@ pub(crate) struct RoleFiles;
 
 impl RoleFiles {
     const REALMS: [&'static str; 2] = ["client", "server"];
-    const UTILITY_FOLDER: &'static str = "utils";
+    const SERVER_UTILITY_FOLDER: &'static str = "server/utils";
     const TEST_FOLDER: &'static str = "tests";
     const SOURCE_EXTENSIONS: [&'static str; 15] = [
         "js", "ts", "py", "php", "java", "kt", "cs", "fs", "rs", "swift", "dart", "go", "rb",
@@ -67,12 +67,16 @@ impl RoleFiles {
     }
 
     fn folders() -> Vec<PathBuf> {
-        let mut names = crate::annotation_modules::role_folders().to_vec();
-        names.push(Self::UTILITY_FOLDER);
-        Self::REALMS
+        let names = crate::annotation_modules::role_folders();
+        let mut folders: Vec<PathBuf> = Self::REALMS
             .iter()
             .flat_map(|realm| names.iter().map(move |name| Path::new(realm).join(name)))
-            .collect()
+            .collect();
+        folders.push(PathBuf::from(Self::SERVER_UTILITY_FOLDER));
+        folders.push(PathBuf::from(
+            crate::annotation_layout::UtilityLayout::CLIENT_ROOT,
+        ));
+        folders
     }
 
     fn collect(project: &Path, relative: &Path, found: &mut Vec<PathBuf>) {

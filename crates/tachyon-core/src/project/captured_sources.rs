@@ -35,7 +35,7 @@ impl CapturedSources {
         "client/entities",
         "client/models",
         "client/errors",
-        "client/utils",
+        crate::annotation_layout::UtilityLayout::REMOVED_CLIENT_ROOT,
     ];
     const CONFIG_FILES: [&str; 3] = ["package.json", "client/manifest.json", ".tachyonrc"];
     const COMPONENT_ROOT: &str = "client/components";

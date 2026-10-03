@@ -307,7 +307,7 @@ impl<'a> ScriptAssets<'a> {
             1201,
             format!("Cannot publish client script dependency: {detail}."),
             Some(String::from(
-                "Use existing bounded JavaScript or TypeScript modules under client/utils or client/shared.",
+                "Use existing bounded JavaScript or TypeScript modules under client/shared.",
             )),
             source_span(&PortablePath::of(path), 0, 0),
         ))

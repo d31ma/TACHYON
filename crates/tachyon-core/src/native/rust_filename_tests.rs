@@ -43,7 +43,7 @@ fn main() {
         );
         Self::write(
             root.path(),
-            &format!("client/utils/feature/{}.rs", names[1]),
+            &format!("client/shared/utils/feature/{}.rs", names[1]),
             Self::UTILITY,
         );
         Self::write(

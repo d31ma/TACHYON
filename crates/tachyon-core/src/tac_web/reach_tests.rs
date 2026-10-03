@@ -83,6 +83,38 @@ impl Reach {
     const RUBY_SHOUT: &str =
         "#[Service]\nclass ReachService\n  def shout\n    TextUtils.shout(\"reach\")\n  end\nend\n";
 
+    const SWIFT_UTILITY: &str = "struct TextUtils {\n    static func shout(_ text: String) -> String {\n        \
+         text.uppercased() + \"!\"\n    }\n}\n";
+
+    const SWIFT_SHOUT: &str = "@Service\nfinal class ReachService {\n    \
+         func shout() -> String {\n        TextUtils.shout(\"reach\")\n    }\n}\n";
+
+    const KOTLIN_UTILITY: &str =
+        "object TextUtils {\n    fun shout(text: String): String = text.uppercase() + \"!\"\n}\n";
+
+    const KOTLIN_SHOUT: &str =
+        "@Service\nclass ReachService {\n    fun shout(): String = TextUtils.shout(\"reach\")\n}\n";
+
+    const JAVA_UTILITY: &str = "final class TextUtils {\n    static String shout(String text) {\n        \
+         return text.toUpperCase() + \"!\";\n    }\n}\n";
+
+    const JAVA_SHOUT: &str = "@Service\npublic class ReachService {\n    public String shout() {\n        \
+         return TextUtils.shout(\"reach\");\n    }\n}\n";
+
+    const FSHARP_UTILITY: &str = "type TextUtils =\n    static member Shout(text: string) : string =\n        \
+         text.ToUpper() + \"!\"\n";
+
+    const FSHARP_SHOUT: &str = "[<Service>]\ntype ReachService() =\n    \
+         member this.Shout() : string = TextUtils.Shout(\"reach\")\n";
+
+    const LUA_UTILITY: &str = "---@class TextUtils\nTextUtils = {}\n\n---@param text string\n---@return string\n\
+         function TextUtils.shout(text)\n  return string.upper(text) .. \"!\"\nend\n";
+
+    const LUA_SHOUT: &str = "-- @Service\n---@class ReachService\nReachService = {}\n\n---@return string\n\
+         function ReachService:shout()\n  return TextUtils.shout(\"reach\")\nend\n";
+
+    const UTILITY_FOLDER: &str = "client/shared/utils/nested";
+
     const SHOUTED: &str = "REACH!";
 
     fn available(program: &str, argument: &str) -> bool {
@@ -156,7 +188,7 @@ impl Reach {
         prefix: &str,
     ) -> serde_json::Value {
         let root = tempfile::tempdir().expect("project");
-        let utility_path = format!("client/utils/TextUtils.{extension}");
+        let utility_path = format!("{}/TextUtils.{extension}", Self::UTILITY_FOLDER);
         let _ = Self::write(root.path(), &utility_path, utility);
         let profile = crate::BuildProfile::Development;
         Self::publish_with(root.path(), language, (service, extension), profile).await;
@@ -374,5 +406,62 @@ async fn a_ruby_web_service_calls_a_utility_class_without_an_import() {
     }
     let sources = (Reach::RUBY_SHOUT, Reach::RUBY_UTILITY, "rb");
     let report = Reach::shout_through_utility(WebLanguage::Ruby, sources, Reach::FILE_FETCH).await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn a_swift_web_service_calls_a_nested_shared_utility_without_an_import() {
+    if !super::swift_tests::swift_web_ready() {
+        eprintln!("skipping: the Swift SDK for WebAssembly, swiftc or node is unavailable");
+        return;
+    }
+    let sources = (Reach::SWIFT_SHOUT, Reach::SWIFT_UTILITY, "swift");
+    let report = Reach::shout_through_utility(WebLanguage::Swift, sources, Reach::FILE_FETCH).await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn a_kotlin_web_service_calls_a_nested_shared_utility_without_an_import() {
+    if !super::kotlin_tests::kotlin_web_ready() {
+        eprintln!("skipping: kotlinc-js, TAC_KOTLIN_WASM_STDLIB or node is unavailable");
+        return;
+    }
+    let sources = (Reach::KOTLIN_SHOUT, Reach::KOTLIN_UTILITY, "kt");
+    let report =
+        Reach::shout_through_utility(WebLanguage::Kotlin, sources, Reach::FILE_FETCH).await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn a_java_web_service_calls_a_nested_shared_utility_without_an_import() {
+    if !super::java_tests::java_web_ready() {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    let sources = (Reach::JAVA_SHOUT, Reach::JAVA_UTILITY, "java");
+    let report = Reach::shout_through_utility(WebLanguage::Java, sources, Reach::FILE_FETCH).await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn an_fsharp_web_service_calls_a_nested_shared_utility_without_an_import() {
+    if !super::fsharp_tests::fsharp_web_ready() {
+        eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
+        return;
+    }
+    let sources = (Reach::FSHARP_SHOUT, Reach::FSHARP_UTILITY, "fs");
+    let report = Reach::shout_through_utility(WebLanguage::CSharp, sources, "").await;
+    assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
+}
+
+#[tokio::test]
+async fn a_lua_web_service_calls_a_nested_shared_utility_without_an_import() {
+    let unavailable = crate::tac_lua::LuaRuntimeBuild::unavailable_reason();
+    if !Reach::available("node", "--version") || unavailable.is_some() {
+        eprintln!("skipping: node or the Lua runtime is unavailable: {unavailable:?}");
+        return;
+    }
+    let sources = (Reach::LUA_SHOUT, Reach::LUA_UTILITY, "lua");
+    let report = Reach::shout_through_utility(WebLanguage::Lua, sources, Reach::FILE_FETCH).await;
     assert_eq!(report["shout"]["value"], Reach::SHOUTED, "{report}");
 }

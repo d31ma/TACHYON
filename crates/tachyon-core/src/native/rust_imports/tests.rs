@@ -17,7 +17,7 @@ impl TitleUtils {
 impl Default for TitleUtils { fn default() -> Self { Self } }
 "#;
     let scoped = RustImports::scoped(
-        Path::new("client/utils/TitleUtils.rs"),
+        Path::new("client/shared/utils/TitleUtils.rs"),
         source,
         "TitleUtils",
     )
@@ -37,7 +37,7 @@ impl Default for TitleUtils { fn default() -> Self { Self } }
 fn rust_utility_import_scopes_reject_conflicting_bindings_within_one_file() {
     let source = "use std::cmp::Ordering;\nuse std::sync::atomic::Ordering;\nstruct TitleUtils;\n";
     let error = RustImports::scoped(
-        Path::new("client/utils/TitleUtils.rs"),
+        Path::new("client/shared/utils/TitleUtils.rs"),
         source,
         "TitleUtils",
     )
@@ -49,7 +49,7 @@ fn rust_utility_import_scopes_reject_conflicting_bindings_within_one_file() {
 async fn rust_utility_import_scopes_preserve_public_fixture_reexports() {
     let root = tempfile::tempdir().expect("fixture");
     let scoped = RustImports::scoped(
-        Path::new("client/utils/TitleUtils.rs"),
+        Path::new("client/shared/utils/TitleUtils.rs"),
         r#"
 use std::cmp::Ordering;
 pub struct TitleUtils;

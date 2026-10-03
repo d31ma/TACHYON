@@ -590,7 +590,7 @@ async fn native_rust_page_graph_joins_owned_workers_at_their_lifetime_boundary()
 #[tokio::test]
 async fn native_rust_page_graph_scopes_utility_imports_and_keeps_canonical_calls() {
     let root = tempfile::tempdir().expect("fixture");
-    let utilities = root.path().join("client/utils/nested");
+    let utilities = root.path().join("client/shared/utils/nested");
     let models = root.path().join("client/models");
     std::fs::create_dir_all(&utilities).expect("utilities");
     std::fs::create_dir_all(&models).expect("models");
@@ -648,7 +648,7 @@ impl ComparisonUtils {
 #[test]
 fn native_rust_page_graph_rejects_duplicate_imports_inside_one_utility() {
     let root = tempfile::tempdir().expect("fixture");
-    let utilities = root.path().join("client/utils");
+    let utilities = root.path().join("client/shared/utils");
     std::fs::create_dir_all(&utilities).expect("utilities");
     std::fs::write(utilities.join("ComparisonUtils.rs"), "use std::cmp::Ordering;\nuse std::sync::atomic::Ordering;\nstruct ComparisonUtils;\nimpl ComparisonUtils { fn equal() -> bool { true } }\n")
         .expect("invalid imports");

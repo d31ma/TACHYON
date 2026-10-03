@@ -299,14 +299,14 @@ fn utility_classes_are_declared_in_their_own_realm() {
     let root = tempfile::tempdir().expect("project");
     write(
         root.path(),
-        "client/utils/PriceUtils.js",
+        "client/shared/utils/PriceUtils.js",
         "export default class PriceUtils {\n  static label(cents) { return String(cents) }\n}\n",
     );
     let client = generated(root.path(), "client");
     assert!(declares(
         &client,
         "PriceUtils",
-        "client/utils/PriceUtils.js",
+        "client/shared/utils/PriceUtils.js",
         "default"
     ));
     let server = generated(root.path(), "server");

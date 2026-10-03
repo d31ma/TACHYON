@@ -162,7 +162,7 @@ fn contracts_assets_and_barrels_are_not_fake_providers() {
     for path in [
         "client/models/Money.rs",
         "server/shared/Money.rs",
-        "client/utils/MoneyUtils.rs",
+        "client/shared/utils/MoneyUtils.rs",
         ".tachyon/services/MoneyService.js",
         "corpus/client/services/MoneyService.js",
     ] {

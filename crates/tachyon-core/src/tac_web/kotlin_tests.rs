@@ -171,7 +171,7 @@ impl KotlinFixtures {
          process.exit(0)\n";
 }
 
-fn kotlin_web_ready() -> bool {
+pub(super) fn kotlin_web_ready() -> bool {
     let library = std::env::var_os("TAC_KOTLIN_WASM_STDLIB").map(PathBuf::from);
     let has_library = library.is_some_and(|path| path.is_file());
     let runs = |program: &str, flag: &str| {

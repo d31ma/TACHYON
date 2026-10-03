@@ -37,7 +37,6 @@ impl SharedImports {
         let allowed_folder = [
             resolved.starts_with("server/shared"),
             resolved.starts_with("client/shared"),
-            resolved.starts_with("client/utils"),
         ]
         .contains(&true);
         let allowed = [same_realm, allowed_folder].into_iter().all(|holds| holds);

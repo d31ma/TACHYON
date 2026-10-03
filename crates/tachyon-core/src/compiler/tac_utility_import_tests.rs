@@ -87,6 +87,26 @@ async fn tac_utility_import_implicit_realm_utility_keeps_real_module_identity() 
 }
 
 #[tokio::test]
+async fn tac_utility_import_implicit_typescript_utility_runs_from_a_typescript_service() {
+    let root = TacUtilityImportTests::project("", TacUtilityImportTests::SOURCE);
+    std::fs::remove_file(root.path().join("client/shared/utils/text/TitleUtils.js"))
+        .unwrap_or_else(|failure| panic!("javascript utility: {failure}"));
+    std::fs::remove_file(root.path().join("client/services/nested/LabelService.js"))
+        .unwrap_or_else(|failure| panic!("javascript service: {failure}"));
+    TacUtilityImportTests::write(
+        root.path(),
+        "client/shared/utils/text/TitleUtils.ts",
+        "class TitleUtils { static title(): string { return 'Ready'; } static location(): string { return import.meta.url; } }",
+    );
+    TacUtilityImportTests::write(
+        root.path(),
+        "client/services/nested/LabelService.ts",
+        "@Service\nexport default class LabelService { text: string = TitleUtils.title(); location: string = TitleUtils.location(); }",
+    );
+    TacUtilityImportTests::build_and_call(root.path()).await;
+}
+
+#[tokio::test]
 async fn tac_utility_import_mjs_cannot_skip_the_shared_utility_shape_guard() {
     let root = TacUtilityImportTests::project(
         "import { TitleUtils } from '/shared/utils/text/UncheckedUtils.mjs';",

@@ -91,27 +91,27 @@ impl ScriptAssetFixture {
         );
         Self::write(
             root,
-            "client/utils/nested/TitleUtils.js",
-            "import { TextSource } from '../../shared/scripts/text.js';\nimport './CycleUtils.js';\nexport class TitleUtils { static text() { return TextSource.text(); } }",
+            "client/shared/utils/nested/TitleUtils.js",
+            "import { TextSource } from '../../scripts/text.js';\nimport './CycleUtils.js';\nexport class TitleUtils { static text() { return TextSource.text(); } }",
         );
         Self::write(
             root,
-            "client/utils/nested/CycleUtils.js",
+            "client/shared/utils/nested/CycleUtils.js",
             "import { TitleUtils } from './TitleUtils.js';\nexport class CycleUtils {}",
         );
         Self::write(
             root,
             "client/shared/scripts/text.js",
-            "import '../site.css';\nimport { EndingUtils } from '/utils/EndingUtils.js';\nexport class TextSource { static text() { return EndingUtils.text(); } }",
+            "import '../site.css';\nimport { EndingUtils } from '/shared/utils/EndingUtils.js';\nexport class TextSource { static text() { return EndingUtils.text(); } }",
         );
         Self::write(
             root,
-            "client/utils/EndingUtils.js",
+            "client/shared/utils/EndingUtils.js",
             "export class EndingUtils { static text() { return 'Ready'; } }",
         );
         Self::write(
             root,
-            "client/utils/UnusedUtils.js",
+            "client/shared/utils/UnusedUtils.js",
             "export class UnusedUtils { static _text() { return 'unused'; } }",
         );
     }
@@ -154,11 +154,11 @@ impl ScriptAssetFixture {
     }
 
     fn managed_utility(root: &Path, declaration: &str, unused: bool) {
-        Self::project(root, "../../utils/nested/TitleUtils.js");
+        Self::project(root, "../../shared/utils/nested/TitleUtils.js");
         Self::write(
             root,
             "client/services/nested/LabelService.js",
-            "import { TitleUtils as LabelUtils } from '../../utils/nested/TitleUtils.js';\n@Service\nexport default class LabelService {\n @Needs\n snapshot;\n text = LabelUtils.text();\n}\n",
+            "import { TitleUtils as LabelUtils } from '../../shared/utils/nested/TitleUtils.js';\n@Service\nexport default class LabelService {\n @Needs\n snapshot;\n text = LabelUtils.text();\n}\n",
         );
         Self::write(
             root,
@@ -167,9 +167,9 @@ impl ScriptAssetFixture {
         );
         Self::write(
             root,
-            "client/utils/nested/TitleUtils.js",
+            "client/shared/utils/nested/TitleUtils.js",
             &format!(
-                "{declaration} TitleUtils {{ static text() {{ return 'Ready'; }} static location() {{ return new URL('../../shared/assets/item.txt', import.meta.url).href; }} }}\n"
+                "{declaration} TitleUtils {{ static text() {{ return 'Ready'; }} static location() {{ return new URL('../../assets/item.txt', import.meta.url).href; }} }}\n"
             ),
         );
         Self::write(
@@ -185,7 +185,7 @@ impl ScriptAssetFixture {
             Self::write(
                 root,
                 "client/services/UnusedService.js",
-                "import { TitleUtils } from '././../utils/nested/TitleUtils.js';\n@Service\nexport default class UnusedService { text() { return TitleUtils.text(); } }\n",
+                "import { TitleUtils } from '././../shared/utils/nested/TitleUtils.js';\n@Service\nexport default class UnusedService { text() { return TitleUtils.text(); } }\n",
             );
         }
     }
@@ -194,7 +194,7 @@ impl ScriptAssetFixture {
         Self::write(root, "dist/package.json", "{\"type\":\"module\"}");
         let mut command = tokio::process::Command::new("node");
         let probe = format!(
-            "const {{ default: LabelService }} = await import('./.tachyon/services/LabelService.js'); const {{ default: SnapshotService }} = await import('./.tachyon/services/SnapshotService.js'); const utility = await import('./utils/nested/TitleUtils.js'); const actual = new SnapshotService().read(); const expected = new URL('./shared/assets/item.txt', import.meta.url).href; if (actual !== expected || new LabelService().text !== 'Ready') throw new Error('utility module base or ambient definition changed'); if ({default_export} && utility.default !== utility.TitleUtils) throw new Error('default export changed'); console.log('Ready; utility URL base preserved');"
+            "const {{ default: LabelService }} = await import('./.tachyon/services/LabelService.js'); const {{ default: SnapshotService }} = await import('./.tachyon/services/SnapshotService.js'); const utility = await import('./shared/utils/nested/TitleUtils.js'); const actual = new SnapshotService().read(); const expected = new URL('./shared/assets/item.txt', import.meta.url).href; if (actual !== expected || new LabelService().text !== 'Ready') throw new Error('utility module base or ambient definition changed'); if ({default_export} && utility.default !== utility.TitleUtils) throw new Error('default export changed'); console.log('Ready; utility URL base preserved');"
         );
         command
             .args(["--input-type=module", "--eval", &probe])
@@ -228,7 +228,7 @@ async fn script_assets_managed_javascript_graph_preserves_module_and_ambient_uti
                 .await
                 .expect("managed graph build");
             let emitted =
-                std::fs::read_to_string(root.path().join("dist/utils/nested/TitleUtils.js"))
+                std::fs::read_to_string(root.path().join("dist/shared/utils/nested/TitleUtils.js"))
                     .expect("module");
             assert!(emitted.contains("import.meta.url"));
             ScriptAssetFixture::invoke_managed_utility(
@@ -268,9 +268,9 @@ async fn script_assets_completed_native_bundle_executes_authored_utility() {
 #[tokio::test]
 async fn script_assets_publish_reachable_nested_transitive_utilities_with_cycles() {
     for import in [
-        "../../utils/nested/TitleUtils.js",
-        "/utils/nested/TitleUtils.js",
-        "../../utils/nested/TitleUtils.js?v=1#loaded",
+        "../../shared/utils/nested/TitleUtils.js",
+        "/shared/utils/nested/TitleUtils.js",
+        "../../shared/utils/nested/TitleUtils.js?v=1#loaded",
     ] {
         let root = tempfile::tempdir().expect("project");
         ScriptAssetFixture::project(root.path(), import);
@@ -279,15 +279,15 @@ async fn script_assets_publish_reachable_nested_transitive_utilities_with_cycles
             .expect("build");
         assert!(
             root.path()
-                .join("dist/utils/nested/TitleUtils.js")
+                .join("dist/shared/utils/nested/TitleUtils.js")
                 .is_file()
         );
         assert!(
             root.path()
-                .join("dist/utils/nested/CycleUtils.js")
+                .join("dist/shared/utils/nested/CycleUtils.js")
                 .is_file()
         );
-        assert!(!root.path().join("dist/utils/UnusedUtils.js").exists());
+        assert!(!root.path().join("dist/shared/utils/UnusedUtils.js").exists());
         ScriptAssetFixture::invoke(root.path()).await;
     }
 }
@@ -295,14 +295,14 @@ async fn script_assets_publish_reachable_nested_transitive_utilities_with_cycles
 #[tokio::test]
 async fn script_assets_refuse_missing_dependencies_before_publication() {
     let root = tempfile::tempdir().expect("project");
-    ScriptAssetFixture::project(root.path(), "/utils/MissingUtils.js");
+    ScriptAssetFixture::project(root.path(), "/shared/utils/MissingUtils.js");
     let failure = WebCompiler::build_async(root.path(), &BuildOptions::default())
         .await
         .expect_err("missing utility")
         .to_string();
     assert!(failure.contains("TY1201"), "{failure}");
     assert!(
-        failure.contains("client/utils/MissingUtils.js"),
+        failure.contains("client/shared/utils/MissingUtils.js"),
         "{failure}"
     );
     assert!(!root.path().join("dist/index.html").exists());
@@ -311,10 +311,10 @@ async fn script_assets_refuse_missing_dependencies_before_publication() {
 #[tokio::test]
 async fn script_assets_compile_typed_utilities_imported_with_javascript_names() {
     let root = tempfile::tempdir().expect("project");
-    ScriptAssetFixture::project(root.path(), "/utils/TypedUtils.js");
+    ScriptAssetFixture::project(root.path(), "/shared/utils/TypedUtils.js");
     ScriptAssetFixture::write(
         root.path(),
-        "client/utils/TypedUtils.ts",
+        "client/shared/utils/TypedUtils.ts",
         "export class TypedUtils { static text(): string { return 'Ready'; } }",
     );
     let service = root.path().join("client/services/nested/LabelService.js");
@@ -323,13 +323,13 @@ async fn script_assets_compile_typed_utilities_imported_with_javascript_names() 
         "TypedUtils.text()",
         "TitleUtils.text().replace('Ready', TypedUtils.text())",
     );
-    let source = format!("import {{ TitleUtils }} from '/utils/nested/TitleUtils.js';\n{source}");
+    let source = format!("import {{ TitleUtils }} from '/shared/utils/nested/TitleUtils.js';\n{source}");
     std::fs::write(service, source).expect("typed import");
     WebCompiler::build_async(root.path(), &BuildOptions::default())
         .await
         .expect("typed build");
-    assert!(root.path().join("dist/utils/TypedUtils.js").is_file());
-    assert!(!root.path().join("dist/utils/TypedUtils.ts").exists());
+    assert!(root.path().join("dist/shared/utils/TypedUtils.js").is_file());
+    assert!(!root.path().join("dist/shared/utils/TypedUtils.ts").exists());
     ScriptAssetFixture::invoke(root.path()).await;
 }
 
@@ -338,7 +338,7 @@ fn script_assets_refuse_unchecked_mjs_utilities() {
     let root = tempfile::tempdir().expect("project");
     ScriptAssetFixture::write(
         root.path(),
-        "client/utils/TitleUtils.mjs",
+        "client/shared/utils/TitleUtils.mjs",
         "export class TitleUtils {}",
     );
     let mut assets = super::script_assets::ScriptAssets::new(root.path(), root.path());
@@ -346,7 +346,7 @@ fn script_assets_refuse_unchecked_mjs_utilities() {
         .rewrite(
             Path::new("client/services/LabelService.js"),
             Path::new(".tachyon/services/LabelService.js"),
-            b"import { TitleUtils } from '../utils/TitleUtils.mjs';".to_vec(),
+            b"import { TitleUtils } from '../shared/utils/TitleUtils.mjs';".to_vec(),
         )
         .expect_err("mjs bypass refused")
         .to_string();

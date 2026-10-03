@@ -46,7 +46,6 @@ impl CohesionCheck {
         "client/services",
         "server/services",
         "server/controllers",
-        "client/utils",
         "client/shared/utils",
         "server/utils",
     ];

@@ -54,9 +54,11 @@ impl<'d> DuplicateReport<'d> {
         let name = UtilityName::suggest(&self.duplicate.first.path, &self.duplicate.second.path);
         let realm = self.source.map_or("server", ProjectSource::realm);
         let extension = self.source.map_or("", ProjectSource::extension);
-        let opt_out = [Self::YON_OPT_OUT, Self::TAC_OPT_OUT][usize::from(realm == "client")];
+        let client = usize::from(realm == "client");
+        let opt_out = [Self::YON_OPT_OUT, Self::TAC_OPT_OUT][client];
+        let folder = ["server/utils", crate::annotation_layout::UtilityLayout::CLIENT_ROOT][client];
         format!(
-            "Move the repeated code into a utility: create {realm}/utils/{name}Utils.{extension} with a static method, and call it from both places. While you migrate, you can set {opt_out} to false (ADR 0064)."
+            "Move the repeated code into a utility: create {folder}/{name}Utils.{extension} with a static method, and call it from both places. While you migrate, you can set {opt_out} to false (ADR 0064)."
         )
     }
 

@@ -128,16 +128,7 @@ impl ClientUtilities {
         let specifier = specifier.split(['?', '#']).next()?;
         specifier
             .strip_prefix("/shared/utils/")
-            .map(|tail| {
-                PathBuf::from(crate::annotation_layout::UtilityLayout::CLIENT_ROOTS[0]).join(tail)
-            })
-            .or_else(|| Self::legacy_target(specifier))
+            .map(|tail| PathBuf::from(crate::annotation_layout::UtilityLayout::CLIENT_ROOT).join(tail))
             .or_else(|| SharedImports::path(path, specifier))
-    }
-
-    fn legacy_target(specifier: &str) -> Option<PathBuf> {
-        specifier
-            .strip_prefix("/utils/")
-            .map(|tail| PathBuf::from("client/utils").join(tail))
     }
 }

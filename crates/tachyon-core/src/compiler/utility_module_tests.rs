@@ -6,7 +6,7 @@ use std::path::Path;
 struct UtilityModuleFixture;
 
 impl UtilityModuleFixture {
-    const PATH: &'static str = "client/utils/TitleUtils.js";
+    const PATH: &'static str = "client/shared/utils/TitleUtils.js";
     const BODY: &'static str = "class TitleUtils { static location() { return new URL('../shared/assets/item.txt', import.meta.url).href; } }";
 }
 
@@ -75,7 +75,7 @@ fn utility_module_keeps_postfix_authored_exports_unsupported() {
 
 #[test]
 fn utility_module_preserves_abstract_named_exports_with_masked_spacing() {
-    let path = Path::new("client/utils/TitleUtils.ts");
+    let path = Path::new("client/shared/utils/TitleUtils.ts");
     for prefix in [
         "export abstract class",
         "export abstract   class",

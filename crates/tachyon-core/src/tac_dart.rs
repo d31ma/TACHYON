@@ -2056,7 +2056,7 @@ class CounterService {
         let greeting = "client/services/GreetingService.dart";
         write_file(
             root.path(),
-            "client/utils/TextUtils.dart",
+            "client/shared/utils/nested/TextUtils.dart",
             "class TextUtils {\n  static String shout(String text) => '${text.toUpperCase()}!';\n}\n",
         );
         write_file(

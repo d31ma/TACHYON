@@ -307,7 +307,7 @@ fn a_test_build_records_each_public_method_as_it_starts() {
 #[test]
 fn a_utility_records_its_static_methods() {
     let output = hooked(
-        "client/utils/PriceUtils.js",
+        "client/shared/utils/PriceUtils.js",
         "export default class PriceUtils {\n  static label(cents) {\n    return cents / 100\n  }\n}\n",
     );
     assert!(
@@ -628,7 +628,7 @@ fn an_fsharp_member_records_its_call_and_keeps_its_line_numbers() {
 #[test]
 fn rust_snake_case_utility_coverage_names_the_actual_class() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils { pub fn text() -> String { String::from(\"Ready\") } }\n";
-    let class = RoleClass::read(Path::new("client/utils/nested/title_utils.rs"), source)
+    let class = RoleClass::read(Path::new("client/shared/utils/nested/title_utils.rs"), source)
         .expect("coverage class")
         .expect("utility");
     assert_eq!(class.type_name, "TitleUtils");

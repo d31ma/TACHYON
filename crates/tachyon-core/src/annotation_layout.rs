@@ -264,6 +264,7 @@ impl RetiredRoutes {
 pub(crate) fn reject_reserved_folder(path: &Path) -> Result<(), Failure> {
     RetiredRoutes::reject(path)?;
     RenamedFolder::reject(path)?;
+    UtilityLayout::reject_removed_root(path)?;
     if !is_in_reserved_folder(path) {
         return Ok(());
     }

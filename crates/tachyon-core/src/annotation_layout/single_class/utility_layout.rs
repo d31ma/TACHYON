@@ -12,7 +12,9 @@ mod tests;
 pub(crate) struct UtilityLayout;
 
 impl UtilityLayout {
-    pub(crate) const CLIENT_ROOTS: [&'static str; 2] = ["client/shared/utils", "client/utils"];
+    pub(crate) const CLIENT_ROOT: &'static str = "client/shared/utils";
+    pub(crate) const REMOVED_CLIENT_ROOT: &'static str = "client/utils";
+    const FOLDER_CODE: u16 = 1310;
     const SUFFIX: &'static str = "Utils";
     const NAME_HELP: &'static str = "Name the file and its class <Topic>Utils, such as TextUtils, in its language filename style; Rust accepts text_utils.rs or legacy TextUtils.rs (ADR 0064).";
     const MARKER_HELP: &'static str = "Delete the annotation. Tachyon gives every utility class to the code of its realm without an annotation or an import (ADR 0064).";
@@ -30,9 +32,28 @@ impl UtilityLayout {
     }
 
     fn client_folder(path: &Path) -> bool {
-        Self::CLIENT_ROOTS
-            .iter()
-            .any(|folder| path.starts_with(folder))
+        path.starts_with(Self::CLIENT_ROOT)
+    }
+
+    pub(crate) fn reject_removed_root(path: &Path) -> Result<(), Failure> {
+        let Ok(tail) = path.strip_prefix(Self::REMOVED_CLIENT_ROOT) else {
+            return Ok(());
+        };
+        let portable = path.to_string_lossy().replace('\\', "/");
+        let target = Path::new(Self::CLIENT_ROOT)
+            .join(tail)
+            .to_string_lossy()
+            .replace('\\', "/");
+        Err(Failure::one(crate::failure::diagnostic(
+            Self::FOLDER_CODE,
+            format!(
+                "'{portable}' is inside client/utils; Tac utility classes live only in client/shared/utils"
+            ),
+            Some(format!(
+                "Move the file to {target}; nested folders are allowed, and Yon keeps server/utils (ADR 0064). `ty migrate fix --write` moves every file in client/utils and changes the paths that import them."
+            )),
+            crate::failure::source_span(&portable, 0, 0),
+        )))
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {

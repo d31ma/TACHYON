@@ -26,6 +26,8 @@ mod csharp_test_helpers_tests;
 mod error_tests;
 #[cfg(test)]
 mod helper_callers_tests;
+#[cfg(test)]
+mod shared_utility_tests;
 
 #[cfg(test)]
 mod test_configuration_tests;
@@ -767,7 +769,9 @@ fn discover_paths(
         .next()
         .map_or(Path::new(""), |part| Path::new(part.as_os_str()));
     let realm_directory = open_parent(root, &realm.join("entry"))?;
-    discovery.search_role_folder(&realm_directory, &realm.join("utils"), "utils")?;
+    if realm != Path::new("client") {
+        discovery.search_role_folder(&realm_directory, &realm.join("utils"), "utils")?;
+    }
     discovery.search_client_shared_utilities(&realm_directory, realm)?;
     if realm == Path::new("server") && !matches!(extension, "js" | "ts" | "go") {
         discovery.search_role_folder(&realm_directory, &realm.join("shared"), "shared")?;
@@ -835,7 +839,7 @@ impl<'a> Discovery<'a> {
     }
 
     fn search_shared_utilities(&mut self, directory: &Dir) -> Result<(), Failure> {
-        let path = Path::new(crate::annotation_layout::UtilityLayout::CLIENT_ROOTS[0]);
+        let path = Path::new(crate::annotation_layout::UtilityLayout::CLIENT_ROOT);
         Self::open_shared_utilities(directory, path)?
             .map(|shared| self.search_role_folder(&shared, path, "utils"))
             .transpose()

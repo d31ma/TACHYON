@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn script_imports_capture_static_exports_and_literal_dynamic_imports() {
-        let source = "import {\n text\n} from '../utils/TextUtils.js';\nimport './side.js';\nexport { more } from '/shared/more.mjs';\nconst module = import('./lazy.js');";
+        let source = "import {\n text\n} from '../shared/utils/TextUtils.js';\nimport './side.js';\nexport { more } from '/shared/more.mjs';\nconst module = import('./lazy.js');";
         let found: Vec<_> = ScriptImports::read(source)
             .into_iter()
             .map(|import| source[import.range].to_owned())
@@ -79,7 +79,7 @@ mod tests {
         assert_eq!(
             found,
             [
-                "../utils/TextUtils.js",
+                "../shared/utils/TextUtils.js",
                 "./side.js",
                 "/shared/more.mjs",
                 "./lazy.js"

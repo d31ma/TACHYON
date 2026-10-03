@@ -166,7 +166,7 @@ async fn native_cli_collection_preserves_rust_utility_boundary_imports() {
     for utility in utilities {
         let root = tempfile::tempdir().expect("fixture");
         NativeCompositionCheck::project(root.path(), "<p>{snapshotReader.read()}</p>");
-        NativeCompositionCheck::write(root.path(), "client/utils/TitleUtils.rs", utility);
+        NativeCompositionCheck::write(root.path(), "client/shared/utils/TitleUtils.rs", utility);
         NativeCompositionCheck::write(
             root.path(),
             "client/services/SnapshotReaderService.rs",

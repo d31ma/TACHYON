@@ -113,13 +113,13 @@ fn rust_unrelated_immutable_labels_and_short_accessors_are_not_duplicate_behavio
         include_str!("../../../../tests/fixtures/rust-constant-duplication/MetricLabelsUtils.rs");
     assert!(
         found(&[
-            ("client/utils/TitleUtils.rs", title),
-            ("client/utils/MetricLabelsUtils.rs", metrics)
+            ("client/shared/utils/TitleUtils.rs", title),
+            ("client/shared/utils/MetricLabelsUtils.rs", metrics)
         ])
         .is_empty()
     );
     for (name, source) in [("TitleUtils", title), ("MetricLabelsUtils", metrics)] {
-        crate::annotation_layout::validate(Path::new(&format!("client/utils/{name}.rs")), source)
+        crate::annotation_layout::validate(Path::new(&format!("client/shared/utils/{name}.rs")), source)
             .expect("real stateless utility");
     }
 }
@@ -227,8 +227,8 @@ fn rust_substantive_repeated_methods_still_exceed_the_unchanged_threshold() {
     );
     let second = first.replace("FirstUtils", "SecondUtils");
     let diagnostics = found(&[
-        ("client/utils/FirstUtils.rs", &first),
-        ("client/utils/SecondUtils.rs", &second),
+        ("client/shared/utils/FirstUtils.rs", &first),
+        ("client/shared/utils/SecondUtils.rs", &second),
     ]);
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
     assert_eq!(diagnostics[0].code.number(), 1315);
@@ -245,8 +245,8 @@ fn rust_computed_constant_bodies_still_count_as_behavior() {
     );
     let second = first.replace("FirstUtils", "SecondUtils");
     let diagnostics = found(&[
-        ("client/utils/FirstUtils.rs", &first),
-        ("client/utils/SecondUtils.rs", &second),
+        ("client/shared/utils/FirstUtils.rs", &first),
+        ("client/shared/utils/SecondUtils.rs", &second),
     ]);
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
     assert_eq!(diagnostics[0].code.number(), 1315);
@@ -295,7 +295,7 @@ fn migration_lists_duplicates_even_when_the_check_is_off() {
     assert_eq!(findings[0].feature, "duplication.block");
     assert_eq!(findings[0].source, "client/services/OrderService.ts");
     let action = findings[0].action.as_deref().unwrap_or("");
-    assert!(action.contains("client/utils/SharedUtils.ts"), "{action}");
+    assert!(action.contains("client/shared/utils/SharedUtils.ts"), "{action}");
 }
 
 #[test]

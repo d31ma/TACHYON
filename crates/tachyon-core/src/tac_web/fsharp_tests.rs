@@ -44,7 +44,7 @@ impl FsharpSignal {
          process.exit(0)\n";
 }
 
-fn fsharp_web_ready() -> bool {
+pub(super) fn fsharp_web_ready() -> bool {
     let workloads = Command::new("dotnet").args(["workload", "list"]).output();
     let has_workload = workloads
         .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("wasm-tools"));
