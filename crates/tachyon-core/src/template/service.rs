@@ -846,6 +846,43 @@ mod tests {
         assert_ne!(before.digest(), after.digest());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn tac_utility_digest_refuses_a_symlinked_shared_parent() {
+        let root = project(&[("client/pages/tac.html", "<probe-panel />")]);
+        let outside = project(&[("utils/TitleUtils.js", "class TitleUtils {}")]);
+        std::os::unix::fs::symlink(outside.path(), root.path().join("client/shared"))
+            .expect("shared parent symlink");
+        let failure =
+            ServiceRegistry::discover(root.path()).expect_err("captured utility boundary");
+        assert!(
+            failure.to_string().contains("client/shared/utils"),
+            "{failure}"
+        );
+        assert!(failure.to_string().contains("symlinks"), "{failure}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tac_utility_digest_refuses_a_nested_legacy_source_symlink() {
+        let root = project(&[("client/utils/text/TitleUtils.js", "class TitleUtils {}")]);
+        let outside = project(&[("OutsideUtils.js", "class OutsideUtils {}")]);
+        std::os::unix::fs::symlink(
+            outside.path().join("OutsideUtils.js"),
+            root.path().join("client/utils/text/OutsideUtils.js"),
+        )
+        .expect("nested utility symlink");
+        let failure =
+            ServiceRegistry::discover(root.path()).expect_err("captured utility boundary");
+        assert!(
+            failure
+                .to_string()
+                .contains("client/utils/text/OutsideUtils.js"),
+            "{failure}"
+        );
+        assert!(failure.to_string().contains("symlinks"), "{failure}");
+    }
+
     #[test]
     fn instance_names_drop_the_suffix_and_lower_the_first_letter() {
         assert_eq!(instance_name("BasketService"), "basket");
