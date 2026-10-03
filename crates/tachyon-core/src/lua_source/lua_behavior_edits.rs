@@ -10,7 +10,8 @@ pub(crate) struct LuaBehaviorEdits<'p> {
 impl<'p> LuaBehaviorEdits<'p> {
     const RUNTIME: &'static str = include_str!("lua_behaviors.lua");
     const RESOURCE: &'static str = "Lua classes do not support {} yet (ADR 0085): it is a resource, like DataSource, RedisTemplate and relay. Write this class in another Yon language";
-    const METHOD_END: &'static str = "\nend";
+    const BLOCK_OPENERS: [&'static str; 3] = ["function", "if", "do"];
+    const BLOCK_END: &'static str = "end";
     const INNER_ENDS: [&'static str; 2] = ["end) ", "end "];
 
     pub(crate) fn new(plan: &'p LuaBehaviorPlan) -> Self {
@@ -59,10 +60,7 @@ impl<'p> LuaBehaviorEdits<'p> {
         let start = Self::line_start_of(masked, &signature).ok_or_else(missing)?;
         let open = start + signature.len() - 1;
         let close = Self::closing(masked, open).ok_or_else(missing)?;
-        let end = masked[close..]
-            .find(Self::METHOD_END)
-            .map(|found| close + found + 1)
-            .ok_or_else(missing)?;
+        let end = Self::function_end(masked, close).ok_or_else(missing)?;
         Ok([
             (close + 1, Self::opening(method)),
             (
@@ -96,6 +94,37 @@ impl<'p> LuaBehaviorEdits<'p> {
             })
             .position(|depth| depth == 0)
             .map(|offset| open + offset)
+    }
+
+    fn function_end(masked: &str, after: usize) -> Option<usize> {
+        Self::words(masked, after)
+            .scan(1_i64, |depth, (at, word)| {
+                *depth += Self::block_change(word);
+                Some((at, *depth))
+            })
+            .find(|(_, depth)| *depth == 0)
+            .map(|(at, _)| at)
+    }
+
+    fn block_change(word: &str) -> i64 {
+        i64::from(Self::BLOCK_OPENERS.contains(&word)) - i64::from(word == Self::BLOCK_END)
+    }
+
+    fn words(masked: &str, after: usize) -> impl Iterator<Item = (usize, &str)> {
+        masked[after..]
+            .split_inclusive(|character: char| !Self::is_word_character(character))
+            .scan(after, |at, piece| {
+                let start = *at;
+                *at += piece.len();
+                Some((
+                    start,
+                    piece.trim_end_matches(|character: char| !Self::is_word_character(character)),
+                ))
+            })
+    }
+
+    const fn is_word_character(character: char) -> bool {
+        character.is_ascii_alphanumeric() || character == '_'
     }
 
     fn depth_change(byte: u8) -> i64 {
@@ -161,5 +190,40 @@ impl<'p> LuaBehaviorEdits<'p> {
             LuaSource::long_string(&self.plan.records),
             self.plan.module_id
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LuaBehaviorEdits;
+    use crate::behavior::LuaBehaviorMethod;
+
+    fn method_end(source: &str) -> usize {
+        let method = LuaBehaviorMethod {
+            owner: String::from("Catalog"),
+            name: String::from("list"),
+            parameters: vec![String::from("limit")],
+            mapping: None,
+            validated: None,
+            resource: None,
+        };
+        LuaBehaviorEdits::method_edits(source, &method)
+            .unwrap_or_else(|message| panic!("{message}"))[1]
+            .0
+    }
+
+    #[test]
+    fn the_method_ends_at_the_end_that_closes_its_own_function() {
+        for source in [
+            "function Catalog:list(limit)\nendpoint = limit\n  return endpoint\nend\n",
+            "function Catalog:list(limit)\n  if limit then\n    return limit\nend\n  return 0\nend\n",
+            "function Catalog:list(limit)\n  for index = 1, limit do\n    local read = function() return index end\n  end\n  while false do end\n  repeat limit = limit - 1 until limit < 0\n  return limit\nend\n",
+        ] {
+            assert_eq!(
+                method_end(source),
+                source.rfind("end").unwrap_or(0),
+                "{source}"
+            );
+        }
     }
 }

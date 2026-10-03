@@ -123,6 +123,10 @@ machine contracts have their own, independent major versions.
   comment after the closing bracket no longer hides the options from the
   model metadata.
 
+- A Lua behavior method ends at the `end` that closes its own function, so
+  a column-0 `end` of an inner block or a line that starts with `endpoint`
+  no longer moves the generated wrapper.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
