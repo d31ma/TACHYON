@@ -79,6 +79,7 @@ impl JavaTypeModels {
     }
 
     fn read_file(path: &Path, source: &str) -> Result<Vec<JavaModel>, Failure> {
+        let source = &crate::topics::Topics::blanked(source);
         crate::model_layout::validate(path, source)?;
         let plain = crate::model_layout::JavaModelSchema::blanked(path, source)?;
         let compiled = JavaEnclosure::model_source(&plain);
@@ -194,5 +195,21 @@ impl JavaTypeModels {
             )));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::JavaTypeModels;
+    use std::path::PathBuf;
+
+    #[test]
+    fn a_topic_model_is_read_as_a_plain_record() {
+        let files = [(
+            PathBuf::from("client/models/InventoryRecord.java"),
+            String::from("@Topic\nrecord InventoryRecord(String sku, long level) {}\n"),
+        )];
+        JavaTypeModels::read(&files).expect("a Topic record is a model");
     }
 }

@@ -39,6 +39,7 @@ impl KotlinTypeModels {
     }
 
     fn add_file(&mut self, path: &Path, source: &str) -> Result<(), Failure> {
+        let source = &crate::topics::Topics::blanked(source);
         crate::model_layout::validate(path, source)?;
         let schema = crate::behavior::ModelSchema::plain(path, source)?;
         crate::behavior::ModelSchema::require_realm(path, source, schema.is_some())?;
@@ -220,5 +221,21 @@ impl KotlinTypeModels {
             None,
             source_span(&path.to_string_lossy(), 0, 1),
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::KotlinTypeModels;
+    use std::path::PathBuf;
+
+    #[test]
+    fn a_topic_model_is_read_as_a_plain_data_class() {
+        let files = [(
+            PathBuf::from("client/models/InventoryRecord.kt"),
+            String::from("@Topic\ndata class InventoryRecord(val sku: String, val level: Long)\n"),
+        )];
+        KotlinTypeModels::read(&files).expect("a Topic data class is a model");
     }
 }

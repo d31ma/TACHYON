@@ -64,6 +64,9 @@ machine contracts have their own, independent major versions.
   `TY2104`, and a Tac Lua listener never received the events. Lua gets topics
   in a later step (ADR 0085).
 
+- A Kotlin or Java Tac model marked Topic builds again. The model file check
+  read the Topic marker as behavior and stopped the build with `TY1310`.
+
 - C# coverage includes public methods with next-line body braces or expression
   bodies and records the method actually called. Static Setup callbacks and
   generated bodyless client methods remain outside instance-method coverage.
