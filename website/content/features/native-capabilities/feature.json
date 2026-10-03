@@ -1,7 +1,7 @@
 {
   "id": "native-capabilities",
   "title": "Inject an OS file picker into a service",
-  "summary": "A service asks for `filePicker` with `Needs`; platform calls stay in the adapter. `tac.nativeCapabilities` grants the capability separately from browser APIs. The macOS host uses NSOpenPanel and returns a selected file as an opaque activation-owned handle. `readText(handle)` reads at most 65,536 UTF-8 bytes and `release(handle)` ends access. Cancel, denied, unsupported, invalid and unavailable are typed results. A browser tab returns unsupported and opens no picker. Compiled native services request a typed FilePicker field through Needs or NeedsAll; the provider captures their activation and registered transport (ADR 0089). Other OS file pickers remain unsupported until an adapter is registered and qualified.",
+  "summary": "A service asks for `filePicker` with `Needs`; platform calls stay in the adapter. `tac.nativeCapabilities` grants the capability separately from browser APIs. The macOS host uses NSOpenPanel and returns the chosen file as a handle. The handle belongs to the service that asked for it. It ends after 300 seconds, or sooner when that service goes away. `readText(handle)` reads at most 65,536 UTF-8 bytes and `release(handle)` ends access. Cancel, denied, unsupported, invalid and unavailable are typed results. A browser tab returns unsupported and opens no picker. Compiled native services request a typed FilePicker field through Needs or NeedsAll; Tachyon gives each service its own picker (ADR 0089). On other operating systems, the picker answers unsupported.",
   "group": "Native",
   "files": [
     { "name": "client/manifest.json", "code": { "file": "client/manifest.json" } },
