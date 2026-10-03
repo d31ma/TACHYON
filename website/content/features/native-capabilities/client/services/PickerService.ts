@@ -1,7 +1,7 @@
 @Service
 export default class PickerService {
   @Needs
-  filePicker: TacFilePicker;
+  filePicker!: TacFilePicker;
 
   status: string = 'Ready';
 

@@ -1,6 +1,6 @@
 @Service
 class CatalogService {
-    lateinit var behaviors: Behaviors.Context
+    private lateinit var behaviors: Behaviors.Context
     var offset: Long = 0
 
     fun page(@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]}) input: Map<String, Any?>): Any? {
