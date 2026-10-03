@@ -415,7 +415,12 @@ fn fetching_driver() -> String {
 
 fn kotlin_web_ready() -> bool {
     let library = std::env::var_os("TAC_KOTLIN_WASM_STDLIB").map(PathBuf::from);
-    library.is_some_and(|path| path.is_file()) && available("kotlinc-js", "-version")
+    let ready = library.is_some_and(|path| path.is_file()) && available("kotlinc-js", "-version");
+    assert!(
+        ready || std::env::var_os("TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS").is_none(),
+        "kotlinc-js and TAC_KOTLIN_WASM_STDLIB are required on this runner"
+    );
+    ready
 }
 
 #[tokio::test]

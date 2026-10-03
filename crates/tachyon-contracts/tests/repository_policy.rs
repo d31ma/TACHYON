@@ -571,6 +571,24 @@ fn exact_toolchain_is_consistent_across_repository_controls()
 }
 
 #[test]
+fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+
+    for step in [
+        "bun run test:cached-client-browser",
+        "node website/scripts/build-styles.mjs --check",
+        "node website/scripts/check-responsive.mjs",
+        "node scripts/ignored-browser-gates.mjs --groups=dotnet",
+        "node scripts/ignored-browser-gates.mjs --groups=kotlin,java",
+        "TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS: \"1\"",
+    ] {
+        assert!(workflow.contains(step), "CI does not run `{step}`");
+    }
+    Ok(())
+}
+
+#[test]
 fn completed_phase_acceptance_is_enforced_by_ci_and_documentation()
 -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();

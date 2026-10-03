@@ -203,7 +203,7 @@ jobs:
   browser:
     name: Phase 3 Chromium component and service behavior
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 70
 
     steps:
       - name: Check out source
@@ -261,6 +261,9 @@ jobs:
 
       - name: Check the website data generated from website/content
         run: node website/scripts/build-content.mjs --check
+
+      - name: Check the generated website styles
+        run: node website/scripts/build-styles.mjs --check
 
       - name: Build the Phase 3 CLI
         run: cargo build --locked --bin ty
@@ -323,13 +326,35 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Check the website layout at every responsive width
+        run: |
+          set -euo pipefail
+          site="${RUNNER_TEMP}/tachyon-responsive-site"
+          ./target/release/ty build website --out-dir "${site}"
+          ./target/release/ty preview website --static --out-dir "${site}" --port 4700 \
+            > "${RUNNER_TEMP}/responsive-preview.log" 2>&1 &
+          preview=$!
+          trap 'kill "${preview}"' EXIT
+          for _ in $(seq 1 60); do
+            if curl --silent --fail --output /dev/null http://127.0.0.1:4700/; then
+              break
+            fi
+            sleep 1
+          done
+          node website/scripts/check-responsive.mjs
+
+      - name: Run the C# and F# browser fixture gates that tests mark as ignored
+        run: node scripts/ignored-browser-gates.mjs --groups=dotnet
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/debug/ty
+
       - name: Verify every claim in the parity ledger
         run: bash scripts/compat/verify-ledger.sh
 
   macos-native:
     name: Phase 4 macOS native and mobile-web parity
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Check out source
@@ -511,6 +536,21 @@ jobs:
             tac_web::java_tests:: tac_web::java_behavior_tests:: a_java_web_service_ \
             --test-threads=1
 
+      - name: Execute Kotlin web services on Kotlin/Wasm
+        run: |
+          cargo test --locked -p tachyon-core --lib -- \
+            tac_web::kotlin_tests:: model_sources::tests::a_kotlin_web_assembly_service_uses_a_model \
+            --test-threads=1
+        env:
+          TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS: "1"
+
+      - name: Run the Kotlin and Java browser fixture gates that tests mark as ignored
+        run: |
+          export PATH="${JAVA_HOME_21_arm64}/bin:${PATH}"
+          node scripts/ignored-browser-gates.mjs --groups=kotlin,java
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/debug/ty
+
       - name: Verify managed repository resources in every Yon language
         run: |
           cargo test --locked -p tachyon-core --test it -- managed_resources:: --test-threads=1
@@ -557,6 +597,13 @@ jobs:
 
       - name: Verify website typing through custom elements on desktop and mobile
         run: bun run test:website-browser
+
+      - name: Verify cached HTTP clients in every Tac language and browser
+        run: |
+          export PATH="${JAVA_HOME_21_arm64}/bin:${PATH}"
+          bun run test:cached-client-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/debug/ty
 
       - name: Run native launch, accessibility, lifecycle, and visual parity gate
         run: bun run test:phase4-macos
