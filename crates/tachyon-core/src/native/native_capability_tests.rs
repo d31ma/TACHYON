@@ -1,6 +1,8 @@
 #![allow(clippy::expect_used)]
 
+#[cfg(target_os = "macos")]
 use super::registry::NativeCompanionInput;
+#[cfg(target_os = "macos")]
 use crate::project::NativeCompanion;
 
 struct NativeCapabilityCheck;
