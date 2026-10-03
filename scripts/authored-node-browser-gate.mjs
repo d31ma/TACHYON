@@ -9,7 +9,7 @@ import { withServer } from './release/server-probe.mjs'
 /** @typedef {'chromium' | 'firefox' | 'webkit'} AuthoredBrowserEngine */
 /** @typedef {{root: string, binary: string, sourceCommit: string, compilerSha256: string, engine: AuthoredBrowserEngine, receipt: string}} AuthoredBrowserFixture */
 /** @typedef {AuthoredBrowserFixture & {phase: string, errors: string[], failedRequests: string[], externalRequests: string[], browserVersion?: string}} AuthoredBrowserDiagnostics */
-/** @typedef {{identities: boolean[], pan: [number, number], wrapperRetained: boolean, opaqueReplaced: boolean, count: string | null, svg: string | null, html: string | null, vendorHostClasses: boolean, authoredClasses: boolean, textIdentities: boolean[], textValues: string[]}} AuthoredRetentionProof */
+/** @typedef {{identities: boolean[], pan: [number, number], baselinePan: [number, number], wrapperRetained: boolean, opaqueReplaced: boolean, count: string | null, svg: string | null, html: string | null, vendorHostClasses: boolean, authoredClasses: boolean, textIdentities: boolean[], textValues: string[]}} AuthoredRetentionProof */
 /** @typedef {{mutatedReplaced: boolean, mutatedParentRetained: boolean, authoredValueRestored: boolean, insertedNotRetained: boolean, insertedParentReplaced: boolean, freshLoopTextReplaced: boolean, sameTextId: boolean}} AuthoredTextBoundaryProof */
 /** @typedef {{replaced: boolean, sameTextId: boolean, focused: boolean, label: string | null}} AuthoredLexicalProof */
 /** @typedef {{opaqueReplaced: boolean, graphRetained: boolean}} AuthoredInjectedSlotProof */
@@ -31,6 +31,8 @@ import { withServer } from './release/server-probe.mjs'
 class AuthoredNodeBrowserGate {
   /** @type {number} */
   static #timeout = 15000
+  /** @type {[number, number]} */
+  static #expectedPan = [20, 40]
   /** @type {string} */
   static #duvayHash = 'bd252fed5bb8a90f4c4f9eb1ac8d948e8b5c9dcf88e35ccfe30915ba9d2960de'
   /** @type {string} */
@@ -190,7 +192,7 @@ class AuthoredNodeBrowserGate {
 
   /** @param {import('playwright').Page} page @returns {Promise<AuthoredRetentionProof>} */
   static async #retention(page) {
-    const result = await page.evaluate(async () => {
+    const result = await page.evaluate(/** @param {[number, number]} expectedPan @returns {Promise<AuthoredRetentionProof>} */ async expectedPan => {
       /** @template {Element} T @param {ParentNode} root @param {string} selector @param {new () => T} kind @returns {T} */
       const query = (root, selector, kind) => {
         const element = root.querySelector(selector)
@@ -212,12 +214,18 @@ class AuthoredNodeBrowserGate {
       nodes[3].scrollLeft = 20; nodes[3].scrollTop = 40
       const active = document.activeElement
       if (active instanceof HTMLElement || active instanceof SVGElement) active.blur()
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))))
+      /** @type {[number, number]} */
+      const baselinePan = [nodes[3].scrollLeft, nodes[3].scrollTop]
+      if (baselinePan[0] !== expectedPan[0] || baselinePan[1] !== expectedPan[1]) {
+        throw new Error(`Assigned scroll baseline ${baselinePan.join(',')} differs from ${expectedPan.join(',')}`)
+      }
       for (let index = 0; index < 3; index += 1) {
         query(document, '#update', HTMLButtonElement).click()
         await new Promise(resolve => setTimeout(resolve, 80))
       }
       /** @type {AuthoredRetentionProof} */
-      const proof = { identities: nodes.map(node => node === document.getElementById(node.id)), pan: [nodes[3].scrollLeft, nodes[3].scrollTop],
+      const proof = { identities: nodes.map(node => node === document.getElementById(node.id)), pan: [nodes[3].scrollLeft, nodes[3].scrollTop], baselinePan,
         wrapperRetained: wrappers === document.querySelector('#vendor-card .w-card__content'), opaqueReplaced: opaque !== document.getElementById('opaque'),
         count: query(document, '#updates', HTMLOutputElement).textContent, svg: nodes[4].namespaceURI, html: nodes[5].namespaceURI,
         vendorHostClasses: nodes[0].classList.contains('w-container') && nodes[0].classList.contains('w-container--fluid'),
@@ -225,7 +233,8 @@ class AuthoredNodeBrowserGate {
         textIdentities: texts.map((text, index) => text === textParents[index].firstChild && text.isConnected),
         textValues: texts.slice(0, -1).map(text => text.data) }
       return proof
-    })
+    }, AuthoredNodeBrowserGate.#expectedPan)
+    assert.deepEqual(result.baselinePan, AuthoredNodeBrowserGate.#expectedPan)
     assert.deepEqual(result.identities, [true, true, true, true, true, true])
     assert.deepEqual(result.pan, [20, 40])
     assert.equal(result.wrapperRetained, true)
@@ -520,7 +529,7 @@ class AuthoredNodeBrowserGate {
 
   /** @param {import('playwright').Page} page @returns {Promise<AuthoredStandaloneProof>} */
   static async #standalone(page) {
-    const result = await page.locator('retention-panel').evaluate(async host => {
+    const result = await page.locator('retention-panel').evaluate(/** @param {SVGElement | HTMLElement} host @param {[number, number]} expectedPan @returns {Promise<AuthoredStandaloneProof>} */ async (host, expectedPan) => {
       /** @template {Element} T @param {ParentNode} root @param {string} selector @param {new () => T} kind @returns {T} */
       const query = (root, selector, kind) => {
         const element = root.querySelector(selector)
@@ -532,13 +541,19 @@ class AuthoredNodeBrowserGate {
       const card = query(root, '#card', HTMLButtonElement)
       const viewport = query(root, '#viewport', HTMLDivElement)
       viewport.scrollLeft = 20; viewport.scrollTop = 40
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))))
+      /** @type {[number, number]} */
+      const baselinePan = [viewport.scrollLeft, viewport.scrollTop]
+      if (baselinePan[0] !== expectedPan[0] || baselinePan[1] !== expectedPan[1]) {
+        throw new Error(`Assigned standalone scroll baseline ${baselinePan.join(',')} differs from ${expectedPan.join(',')}`)
+      }
       query(root, '#update', HTMLButtonElement).click()
       await new Promise(resolve => setTimeout(resolve, 80))
       /** @type {AuthoredStandaloneProof} */
       const proof = { retained: card === root.querySelector('#card'), pan: [viewport.scrollLeft, viewport.scrollTop],
         defaultSlot: root.querySelector('#vendor-card slot:not([name])')?.contains(viewport) }
       return proof
-    })
+    }, AuthoredNodeBrowserGate.#expectedPan)
     assert.deepEqual(result, { retained: true, pan: [20, 40], defaultSlot: true })
     return result
   }
