@@ -80,7 +80,7 @@ impl PreferenceStringsBrowserFixture {
         "client/models/LanguageChoice.ts",
         "client/models/PlatformChoice.ts",
         "client/models/TaskScheduler.ts",
-        "client/shared/scripts/platforms.js",
+        "client/shared/utils/PlatformUtils.js",
         "client/components/docs/snippet/tac.html",
     ];
 
