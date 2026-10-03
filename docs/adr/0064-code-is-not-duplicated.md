@@ -169,4 +169,5 @@ unchanged. The utility contract itself is unchanged.
 
 As `client/utils` was, `client/shared/utils` is not copied as a raw shared
 asset: the build publishes a utility module only when a script reaches it.
-The design checks (visibility, layers, names) treat its files as utilities.
+The design checks (visibility, layers, names) do not read `client/shared/utils`
+yet; turning them on there is a separate follow-up.

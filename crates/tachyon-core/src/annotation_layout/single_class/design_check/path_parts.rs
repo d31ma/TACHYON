@@ -34,12 +34,11 @@ impl<'a> PathParts<'a> {
     const GENERATED_MARKS: [&'static str; 5] =
         [".d.ts", ".min.", ".generated.", "_generated.", ".g."];
     const SEPARATOR: char = '/';
-    const UTILITY_FOLDER: &'static str = "utils";
 
     pub(super) fn of(path: &'a str) -> Option<Self> {
         let mut segments = path.split(Self::SEPARATOR);
         let realm = segments.next()?;
-        let folder = Self::utility_folder(path).unwrap_or(segments.next()?);
+        let folder = segments.next()?;
         let file = path.rsplit(Self::SEPARATOR).next()?;
         let (name, extension) = file.split_once('.')?;
         let parts = Self {
@@ -49,12 +48,6 @@ impl<'a> PathParts<'a> {
             extension,
         };
         parts.in_scope(file).then_some(parts)
-    }
-
-    fn utility_folder(path: &str) -> Option<&'static str> {
-        path.strip_prefix(crate::annotation_layout::UtilityLayout::CLIENT_ROOT)?
-            .strip_prefix(Self::SEPARATOR)?;
-        Some(Self::UTILITY_FOLDER)
     }
 
     fn in_scope(&self, file: &str) -> bool {
