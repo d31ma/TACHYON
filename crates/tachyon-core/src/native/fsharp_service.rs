@@ -98,6 +98,14 @@ mod tests {
     const UNTYPED: &str = "[<Service>]\ntype ResetService() =\n    member val Seen : int = 0 with get, set\n\n    member this.Reset() =\n        this.Seen <- 0\n";
 
     fn body_of(class: &str, authored: &str) -> String {
+        table_for(class, authored, true).unwrap_or_else(|failure| panic!("{failure}"))
+    }
+
+    fn table_for(
+        class: &str,
+        authored: &str,
+        web_assembly: bool,
+    ) -> Result<String, crate::Failure> {
         let root = tempfile::tempdir().expect("project");
         let source = root.path().join(format!("client/services/{class}.fs"));
         std::fs::create_dir_all(source.parent().expect("parent")).expect("folders");
@@ -108,10 +116,27 @@ mod tests {
             source,
             service: String::from("signal"),
             class: String::from(class),
-            web_assembly: true,
+            web_assembly,
             application_provider: false,
         };
-        FsharpService::body(&item, authored).unwrap_or_else(|failure| panic!("{failure}"))
+        FsharpService::body(&item, authored)
+    }
+
+    fn unsupported_result(kind: &str) {
+        let source = format!(
+            "[<Service>]\ntype WaitingService() =\n    member this.Read() : {kind} =\n        Unchecked.defaultof<{kind}>\n"
+        );
+        let failure =
+            table_for("WaitingService", &source, true).expect_err("unsupported Task shape");
+        assert!(
+            failure.to_string().contains("Task<BehaviorJSON>"),
+            "{failure}"
+        );
+        assert!(failure.diagnostics().iter().any(|item| {
+            item.spans
+                .iter()
+                .any(|span| span.file.ends_with("WaitingService.fs"))
+        }));
     }
 
     #[test]
@@ -142,48 +167,23 @@ mod tests {
         assert!(browser.contains("return Tac.PlainJson(await Instance.Read())"));
         assert!(browser.contains("await Instance.Pause(); return null;"));
         assert!(!browser.contains("Instance.Read().GetAwaiter().GetResult()"));
-        let root = tempfile::tempdir().expect("project");
-        let item = NativeCompanionInput {
-            snapshot_root: root.path().to_path_buf(),
-            language: NativeCompanion::CSharp,
-            source: root.path().join("client/services/WaitingService.fs"),
-            service: String::from("waiting"),
-            class: String::from("WaitingService"),
-            web_assembly: false,
-            application_provider: false,
-        };
-        let native = FsharpService::body(&item, source).expect("native table");
+        let native = table_for("WaitingService", source, false).expect("native table");
         assert!(native.contains("Instance.Read().GetAwaiter().GetResult()"));
         assert!(!native.contains("TacMember.TaskMethod("));
     }
 
     #[test]
-    fn fsharp_browser_unknown_record_container_and_value_task_results_are_located() {
-        for kind in [
-            "Task<Greeting>",
-            "Task<list<int>>",
-            "ValueTask<BehaviorJSON>",
-        ] {
-            let source = format!(
-                "[<Service>]\ntype WaitingService() =\n    member this.Read() : {kind} =\n        Unchecked.defaultof<{kind}>\n"
-            );
-            let root = tempfile::tempdir().expect("project");
-            let item = NativeCompanionInput {
-                snapshot_root: root.path().to_path_buf(),
-                language: NativeCompanion::CSharp,
-                source: root.path().join("client/services/WaitingService.fs"),
-                service: String::from("waiting"),
-                class: String::from("WaitingService"),
-                web_assembly: true,
-                application_provider: false,
-            };
-            let failure = FsharpService::body(&item, &source).expect_err("unsupported Task shape");
-            assert!(failure.to_string().contains("Task<BehaviorJSON>"));
-            assert!(failure.diagnostics().iter().any(|item| {
-                item.spans
-                    .iter()
-                    .any(|span| span.file.ends_with("WaitingService.fs"))
-            }));
-        }
+    fn fsharp_browser_unknown_record_result_is_located() {
+        unsupported_result("Task<Greeting>");
+    }
+
+    #[test]
+    fn fsharp_browser_container_result_is_located() {
+        unsupported_result("Task<list<int>>");
+    }
+
+    #[test]
+    fn fsharp_browser_value_task_result_is_located() {
+        unsupported_result("ValueTask<BehaviorJSON>");
     }
 }
