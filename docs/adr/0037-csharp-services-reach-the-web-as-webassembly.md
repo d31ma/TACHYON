@@ -106,3 +106,35 @@ page and import one method back.
   (`TacModels.Plain`) and reads it back with `TacModels.Read` and
   `TacModels.ReadList`, so an `object` field is no longer needed to pass a
   list or an object. A `Task<T>` member still stays inside C#.
+
+## Amendment (2026-10-03): compiled Yon handlers share the user cache
+
+The cached web builds (C# here, and the Kotlin, Swift, Rust, Go, Dart and Java
+web builds) already live in the cache that `TAC_CACHE_DIR` selects, keyed by
+their inputs. Compiled Yon handlers now use the same cache.
+
+- After Yon builds a Kotlin, Rust, Dart, Go or Groovy handler into the
+  project's `.tachyon/handlers` cache, it also writes a copy to
+  `runtime/handlers-v1` in the user cache. The copy has the artifact's name: a
+  digest of the authored source, the model files, the generated protocol code,
+  the compiler identity, the processor architecture and the operating system.
+- When the project cache has no valid artifact, Yon restores a shared copy
+  with that name while it holds the project's build lock. It restores only a
+  regular, non-empty file and never follows a symbolic link. The file goes
+  into the project cache through the same confined publication as a compiler
+  output, and execution still copies it into a private runtime workspace.
+- The shared folder keeps the newest 512 entries. A shared-folder failure
+  never fails a build. `ty cache clean` removes the shared copies. C# and F#
+  handlers keep their own multi-file .NET caches.
+- Yon asks a compiler for its version once per process for the same `PATH`
+  and `JAVA_HOME`.
+
+Security note: the user cache is now an input to the handlers that Yon runs,
+as it already is to the web builds that the browser runs. Anyone who can write
+to that folder can change them, so it must stay private to the developer
+account. A shared copy is trusted by its name; `ty cache clean` repairs a
+damaged one.
+
+Measured effect: a warm core test run on the development Mac went from 527 s
+to 334 s, because each Kotlin compile (about 8.5 s) now happens once per
+machine instead of once per test project.

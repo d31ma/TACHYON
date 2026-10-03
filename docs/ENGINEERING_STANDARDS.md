@@ -224,7 +224,7 @@ Compiled and staged Yon artifacts live in the project-local
   restores a regular, non-empty shared copy instead of compiling again. It
   never follows a symbolic link there. The shared folder keeps the newest 512
   entries, and a shared-folder failure never fails a build
-  ([ADR 0095](adr/0095-compiled-handlers-are-shared-through-the-user-cache.md)).
+  ([ADR 0037 amendment](adr/0037-csharp-services-reach-the-web-as-webassembly.md)).
 
 Tachyon normally recovers abandoned build locks automatically:
 

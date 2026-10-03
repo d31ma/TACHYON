@@ -672,7 +672,7 @@ successful cross-build is `buildable`. It is not `native-tested` or
 
 `ty cache` manages the installation and runtime cache that `TAC_CACHE_DIR`
 selects, including the shared copies of compiled Kotlin, Rust, Dart, Go and
-Groovy handlers in `runtime/handlers-v1` (ADR 0095). It does **not** inspect
+Groovy handlers in `runtime/handlers-v1` (ADR 0037 amendment). It does **not** inspect
 or clear a project's compiled handler cache at `.tachyon/handlers`. For that cache, use the safe recovery procedure in
 [the engineering standards](docs/ENGINEERING_STANDARDS.md#handler-cache-operations).
 
