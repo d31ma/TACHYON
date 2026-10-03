@@ -8,60 +8,44 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
-- Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
-
-### Changed
-
-- Tac utilities have a canonical recursive `client/shared/utils` location,
-  retaining `client/utils` compatibility and the existing stateless class
-  contract. Client pages reject all authored CSS filenames recursively.
-  Component scopes stop at nested ownership boundaries, including unstyled
-  and slotted components. Global foundation and application migration work
-  remains a separate unfinished part of the source-conventions queue item.
-
-- The first-app C# steps now call the existing Yon greeting endpoint through
-  an injected private client returning `Task<Models.Greeting>`. Their tests
-  use a typed Fake and caller-owned context, including disposed-owner refusal.
-  Other unsupported compiled-language tutorial tabs remain pending.
-
-- Browser F# services can return `Task` or `Task<BehaviorJSON>` through the
-  existing .NET asynchronous host. Default same-origin HTTP, custom adapters
-  and captured-owner cancellation are supported in this bounded slice;
-  F# DTO/container results and native asynchronous results remain unsupported.
-
-- Compiled browser Dart HTTPClients use an asynchronous same-origin transport
-  when Setup has no matching custom HTTP adapter. Injected clients return typed
-  model answers, omit credentials, preserve cache revalidation and cancel
-  requests when their owner is disposed. Other compiled language continuations
-  remain pending (ADR 0090).
-
-- New outbound role folders are `client/remotes/` and `server/remotes/`.
-  `clients/` remains a compatibility alias. Scaffolds and examples use the new
-  folder, while the existing opt-in migration preserves class/annotation names,
-  rewrites paths for moved files and refuses destination collisions.
-
-
-### Fixed
-
-- C# coverage includes public methods with next-line body braces or expression
-  bodies and records the method actually called. Static Setup callbacks and
-  generated bodyless client methods remain outside instance-method coverage.
-
-- A genuine C# helper constructed only by a selected same-language TestSetup
-  is validated before ordinary production composition omits it. Production
-  and transitively used helpers remain included; orphan, misplaced and
-  unsupported managed helpers retain their existing diagnostics.
-
-- Yon controllers and services can call plain classes in `server/shared/` in
-  every Yon language. Shared source uses the captured project snapshot, and
-  the application-modules verifier builds and calls each language example.
-
-- After a Cached HTTPClient read is cleared or updated, its next uncached
-  JavaScript or TypeScript GET revalidates the browser HTTP cache. A public
-  response with a long `max-age` no longer hides a successful ClearCache.
-  Cache-first service-worker rules also revalidate that read (ADR 0087).
-
 ### Breaking
+
+- Every concrete class in a role folder needs its role marker (ADR 0091).
+  A class in `services/`, `stores/`, `remotes/` (or `clients/`), `setups/`,
+  `entities/`, `helpers/` or `converters/` without `@Service`, `@Store`,
+  `@HTTPClient`, `@Setup`, `@Entity`, `@Helper` or `@Converter` stops the
+  build with `TY1363`. A class in `server/controllers/` needs `@RequestRoute`,
+  `@SocketRoute`, `@ErrorHandler` or `@IdentityProvider`. Before, a Tac
+  service with only behavior annotations could leave out `@Service`
+  (ADR 0044); it now fails too. Abstract classes, interfaces, protocols and
+  traits are not affected. `ty migrate check` lists each missing marker but
+  does not add it. Move a plain collaborator to `models/`, `shared/` or
+  `shared/utils/` instead of giving it a role it does not have.
+
+- Client JavaScript and TypeScript cannot build component markup or write
+  component styles (`TY1364`). The build refuses `innerHTML`-style writes,
+  `document.write`, `insertAdjacentHTML`, `document.createElement`, inserting
+  nodes (`append`, `appendChild`, `insertBefore`, ...), `element.style`
+  writes and style sheet edits. This covers services, component scripts and
+  every script in `client/shared/`. Put markup in the component's
+  `tac.html` and styles in its `tac.css`; scripts change text, classes and
+  service state.
+
+- A third-party script that needs to build markup must be declared as a
+  vendor: list it in `tac.scripts` and in `tac.scriptSources` with its
+  package, exact version, license and SHA-256, and keep it in `client/shared/`
+  outside the utility folders. A wrong declaration stops the build with
+  `TY1365`, and a file whose bytes do not match the pinned SHA-256 with
+  `TY1403`. Tachyon publishes a declared vendor file unchanged.
+
+- Global stylesheets listed in `tac.styles` must hold foundation CSS only:
+  colors, fonts, custom properties and resets. Layout and animation belong in
+  the component's `tac.css`. A third-party stylesheet is declared in
+  `tac.styleSources` with its package, exact version, license and SHA-256.
+  Other global CSS stops the build with `TY1403`.
+
+- A Rust utility method cannot declare a `static` value. A utility class
+  holds no state, and a function-level `static` was a way around that rule.
 
 - Plain `server/shared/` files hold one class and its imports. Move file-level
   variables into class members and helper functions into methods; Tachyon
@@ -637,6 +621,76 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Python is a Tac service language (ADR 0093). A `client/services/*.py`
+  class marked `@service` runs in the browser on a pinned Pyodide runtime.
+  The project selects it with `"python": {"runtime": "pyodide-314.0.7",
+  "profile": "offline"}` under `tac` in `client/manifest.json`. You supply the
+  five pinned runtime files in the Tachyon cache; `ty` checks their sizes and
+  SHA-256, never downloads them, and `ty doctor` shows whether they are ready.
+  Services are synchronous: fields, methods, typed models, `Needs`,
+  `NeedsAll`, `Named`, caller-owned Helpers, `@on_start` and `@on_stop`
+  work. `async def` methods, events, resources and streams stop the build
+  with `TY1605`. Python Tac test units run with `ty test`.
+
+- macOS native apps have the standard menus: the app menu (About, Hide,
+  Hide Others, Show All, Quit), Edit, View and Window, with the usual
+  shortcuts. `tac.application.menus` in `client/manifest.json` adds items to
+  the File, View and Help menus. Each item has an `id`, a `label`, a `route`
+  that must be a static page of the app, and an optional `shortcut`; there
+  are at most 64 items. Other native targets refuse declared menus.
+
+- Native services can pick a file with the injected `FilePicker`
+  (ADR 0089). Grant it with `"nativeCapabilities": ["filePicker"]` under `tac`
+  in `client/manifest.json`. `open` lets the user pick one file,
+  `readText` reads up to 64 KiB of UTF-8 text, and `release` ends access.
+  A missing grant answers `denied` before any panel opens. The picker works
+  on macOS for JavaScript, TypeScript, Swift and Rust services. A browser tab
+  and the other native targets answer `unsupported`; C# and Kotlin services
+  get the same typed `unsupported` answer.
+
+- A Rust service in a native macOS build can have
+  `#[Lifetime({"value":"application"})]`. One instance lives as long as
+  the app and survives page navigation; page services get it through
+  `Arc<...>` injection. Such a service cannot take page properties or
+  page-owned providers (`ApplicationEventPublisher`, `FilePicker`,
+  `WindowControls`). Other languages and targets refuse this lifetime.
+
+- Linux native apps run `WindowControls` on the GTK window for the controls
+  that `tac.application.window.controls` grants.
+
+- Rust role files, utilities, models, error types and test units may use
+  snake_case file names, as Rust code usually does (ADR 0067 amendment):
+  `http_reader_service.rs` holds `HTTPReaderService`. The type name inside
+  the file still decides the class name; PascalCase file names keep working.
+
+- Role folders may hold nested folders, such as
+  `client/services/billing/InvoiceService.ts` (ADR 0091). Nested classes
+  find their collaborators across the whole realm; a folder does not create
+  a new injection namespace.
+
+- Two new injected browser APIs: `PreferenceStrings` reads and writes plain
+  string preferences (Java browser services, JavaScript and TypeScript), and
+  `DocumentTitle` sets the page title (Kotlin browser services, JavaScript
+  and TypeScript). Other languages and linked native services are refused.
+
+- Browser C# services can `await` HTTP work. A method can return `Task` or
+  `Task<BehaviorJSON>`, and an injected HTTPClient in `client/remotes/` can
+  return `Task<Model>` with a model from `client/models`. Requests use the
+  same-origin browser transport unless the Setup has a matching HTTP adapter,
+  and they are cancelled when their owner is disposed.
+
+- C# and F# Tac Helpers work when the caller creates them with `new`. The
+  caller owns the Helper and its context. Injected Helpers, Helper lifetimes
+  and Helper lifecycle hooks are refused in these two languages.
+
+- Optional `TY1362` suggestions point out unnecessary member receivers, such
+  as `this.total` where `total` is enough, in Java, Kotlin, C#, Groovy, Swift
+  and Dart. Turn them on with `tac.implicitmembers.suggest` or
+  `implicitmembers.suggest`. A receiver that a local name or a nested scope
+  needs is kept.
+
+- `ty test --coverage` includes Groovy Yon services.
+
 - Converter signatures between declared models infer same-named fields,
   recursively project nested models and lists, and allow explicit field
   overrides. Model methods may omit Convert; JSON methods still need a plan.
@@ -699,10 +753,11 @@ machine contracts have their own, independent major versions.
   time while enough memory is free, with one log per script (on WSL: 456 s in
   sequence, 155 s three at a time).
 
-- `.config/nextest.toml`: no retries except for the load-sensitive runtime
-  tests, which run one at a time in a `serial` group; the slowest toolchain
-  tests run in a `heavy` group with a 15 minute limit; every other test stops
-  after 5 minutes.
+- `.config/nextest.toml` sets no retries by default. The four
+  load-sensitive runtime tests run one at a time in a `serial` group and may
+  retry twice. The slowest toolchain tests run in a `heavy` group, two at a
+  time, with a 15 minute limit, and two of them may retry once. Every other
+  test stops after 5 minutes.
 
 - F# takes a role through a Needs property as well as through its primary
   constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
@@ -1891,6 +1946,42 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- Tac utilities live in `client/shared/utils/`, with nested folders allowed.
+  `client/utils/` keeps working, and a utility is still a stateless class.
+  Client pages may not hold CSS files in any folder. A component's styles
+  stop at nested components, including unstyled and slotted ones.
+
+- The first-app C# steps call the Yon greeting endpoint through an injected
+  private client that returns `Task<Models.Greeting>`. Their tests use a
+  typed Fake and a context that the caller owns, and a disposed owner is
+  refused. The other compiled-language tabs of the tutorial are not done yet.
+
+- Browser F# services can return `Task` or `Task<BehaviorJSON>`. They use
+  the same-origin browser transport by default, accept custom adapters, and
+  cancel requests when their owner is disposed. F# models and containers as
+  results, and asynchronous results in native apps, are not supported yet.
+
+- Compiled browser Dart HTTPClients use an asynchronous same-origin transport
+  when the Setup has no matching custom HTTP adapter (ADR 0090). Injected
+  clients return typed models, omit credentials, keep cache revalidation and
+  cancel requests when their owner is disposed.
+
+- New outbound role folders are `client/remotes/` and `server/remotes/`
+  (ADR 0088). `clients/` keeps working. Scaffolds and examples use the new
+  folder. The opt-in migration moves the files, keeps class and annotation
+  names, rewrites paths and refuses to overwrite a file that already exists.
+
+- Settings and validation data holders belong in `models/`, not
+  `helpers/` (ADR 0092). A model may carry `Settings`, field `Setting`,
+  `Checked` and the field constraints `Required`, `NotEmpty`, `Length`, `Min`
+  and `Max`, plus `Description`. Such a model gets no Helper or Service role.
+  In Tac, JavaScript, TypeScript and Java read these schemas; other Tac
+  languages report `TY1310` instead of dropping the checks.
+
+- A Yon Helper that its caller creates with `new` stays owned by that
+  caller: Tachyon does not inject it or build it a second time. Lifecycle and
+  event hooks on such a Helper need a `Needs` or `NeedsAll` provider instead.
+
 - The storage browser gate allows 330 KB of script on its route instead of
   320 KB: the fixture already loads 326 KB after the browser-injection and
   converter-injection changes, and the shared-Setup runtime adds about 2 KB
@@ -2387,6 +2478,52 @@ machine contracts have their own, independent major versions.
   not bring back its runtime shims.
 
 ### Fixed
+
+- C# coverage counts public methods whose opening brace is on the next line
+  and expression-bodied methods, and records the method that was really
+  called. Static Setup callbacks and generated client methods without a body
+  are still outside instance-method coverage.
+
+- A C# helper that only a TestSetup of the same language creates is now
+  checked before the production build leaves it out. Production helpers and
+  helpers that they use stay in the build, and orphan, misplaced and
+  unsupported helpers keep their error messages.
+
+- Yon controllers and services can call plain classes in `server/shared/` in
+  every Yon language. Shared source comes from the captured project snapshot,
+  and the application-modules check builds and calls the example of each
+  language.
+
+- After a Cached HTTPClient read is cleared or updated, its next uncached
+  JavaScript or TypeScript GET revalidates the browser HTTP cache. A public
+  response with a long `max-age` no longer hides a successful ClearCache.
+  Cache-first service-worker rules also revalidate that read (ADR 0087).
+
+- Tac renders SVG correctly. SVG elements and their children are created
+  in the SVG namespace, with the right case for names such as `viewBox`, and
+  `xlink:`, `xml:` and `xmlns` attributes keep their namespaces. HTML inside
+  `foreignObject` is HTML again. Before, an SVG icon could show as an empty
+  box.
+
+- A native build no longer writes its temporary `.tachyon-native-web-*`
+  folder or its type declarations into the project source. Both go to the
+  build output and the captured snapshot.
+
+- The application-lifetime check of a native Rust service now covers every
+  service that it builds, not only its direct dependencies.
+
+- A client utility that a service imports is published with the build.
+
+- Native Rust builds keep the imports and constants of utility classes.
+
+- The macOS host escapes capability grant names when it writes them into the
+  generated Swift source.
+
+- The duplicate-code check (`TY1315`) no longer counts named constant tables
+  and literal declarations, in Rust and in scripts, as copied code.
+
+- Kotlin Tac components keep the metadata of public `lateinit` members and
+  read required component models with the existing model readers.
 
 - When a Rust model file does not compile, for example because it uses
   another model without `use crate::models::Item;`, the error names that
