@@ -6,6 +6,7 @@ slow-timeout = { period = "60s", terminate-after = 5 }
 [test-groups]
 serial = { max-threads = 1 }
 heavy = { max-threads = 2 }
+dotnet-web = { max-threads = 2 }
 
 [[profile.default.overrides]]
 filter = 'test(/reads_the_clock_and_secure_random_from_the_page$/) | test(simultaneous_gateway_and_endpoint_deadlines_reap_processes) | test(go_handler_code_cannot_reach_its_relay_deadline) | test(inheriting_descendants_are_bounded_and_reaped_for_every_outcome)'
@@ -22,3 +23,7 @@ slow-timeout = { period = "60s", terminate-after = 15 }
 filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_builds) | test(a_method_a_case_only_names_fails_coverage_and_a_called_method_passes)'
 test-group = 'heavy'
 slow-timeout = { period = "60s", terminate-after = 15 }
+
+[[profile.default.overrides]]
+filter = 'test(/tac_web::.*(csharp|fsharp|dotnet)|tac_web::fsharp_tests::|model_sources::tests::a_csharp_web|tac_implicit_mapping_(cs|fs)_|tac_model_binding::(a_csharp|an_fsharp)/)'
+test-group = 'dotnet-web'
