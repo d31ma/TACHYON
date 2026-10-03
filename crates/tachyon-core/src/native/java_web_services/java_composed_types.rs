@@ -58,7 +58,7 @@ impl JavaComposedTypes {
             path,
             source,
             class,
-            &Self::providers(),
+            &crate::web_api_clients::WebApiClients::browser_resources(),
         );
         let members = JavaClassReader::new(&shown, &plain)
             .members_without_fields(class, &values, &injected)?;
@@ -73,15 +73,11 @@ impl JavaComposedTypes {
         if !needed {
             return Vec::new();
         }
-        crate::template::RequiredFields::props(path, source, class, &Self::providers())
-    }
-
-    fn providers() -> std::collections::BTreeSet<String> {
-        [
-            String::from("PreferenceStrings"),
-            String::from("ApplicationEventPublisher"),
-        ]
-        .into_iter()
-        .collect()
+        crate::template::RequiredFields::props(
+            path,
+            source,
+            class,
+            &crate::web_api_clients::WebApiClients::browser_resources(),
+        )
     }
 }

@@ -15,6 +15,19 @@ impl WebApiClients {
     ];
 
     const PRIVATE_CLIENTS: [&'static str; 3] = ["FilePicker", "PreferenceStrings", "DocumentTitle"];
+    const OWNER_RESOURCES: [&'static str; 3] = [
+        "PreferenceStrings",
+        "DocumentTitle",
+        "ApplicationEventPublisher",
+    ];
+
+    pub(crate) fn browser_resources() -> std::collections::BTreeSet<String> {
+        Self::TYPE_NAMES
+            .iter()
+            .chain(Self::OWNER_RESOURCES.iter())
+            .map(|name| String::from(*name))
+            .collect()
+    }
 
     pub(crate) fn is_client_type(declared: &str) -> bool {
         Self::client_type(declared)

@@ -90,6 +90,12 @@ machine contracts have their own, independent major versions.
   annotation, such as `@JsonProperty` in Java or `@Published` in Swift, no
   longer turns a required prop into an injected field that stayed empty.
 
+- Tac services share one set of browser resources (Clock, PreferenceStrings,
+  DocumentTitle and the other web API types) in every language except
+  JavaScript and TypeScript, which still mark these fields with Needs. A
+  Kotlin `val clock: Clock` is injected instead of being required as a
+  component prop that the browser then refused.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).

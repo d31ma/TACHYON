@@ -66,14 +66,7 @@ impl KotlinComposedTypes {
         if !needed {
             return Vec::new();
         }
-        let mut providers = crate::web_api_clients::WebApiClients::TYPE_NAMES
-            .iter()
-            .map(|name| String::from(*name))
-            .collect::<std::collections::BTreeSet<_>>();
-        providers.extend([
-            String::from("ApplicationEventPublisher"),
-            String::from("DocumentTitle"),
-        ]);
+        let providers = crate::web_api_clients::WebApiClients::browser_resources();
         crate::template::RequiredFields::props(path, source, class, &providers)
     }
 }

@@ -37,6 +37,8 @@ pub(crate) struct ServiceDefinition {
 }
 
 impl ServiceDefinition {
+    const NEEDS_MARKED_RESOURCES: [&'static str; 2] = ["js", "ts"];
+
     const fn new(class: String) -> Self {
         Self {
             class,
@@ -106,23 +108,15 @@ impl ServiceDefinition {
         &self.injected
     }
 
-    fn browser_provider_types(&self, injectable: &BTreeSet<String>) -> BTreeSet<String> {
-        let mut providers = injectable.clone();
-        providers.extend(self.browser_provider());
-        providers
-    }
-
-    fn browser_provider(&self) -> Option<String> {
-        let extension = marked_source(self)?.extension()?.to_str()?;
-        Self::browser_provider_for(extension)
-    }
-
-    fn browser_provider_for(extension: &str) -> Option<String> {
-        match extension {
-            "java" => Some(String::from("PreferenceStrings")),
-            "kt" => Some(String::from("DocumentTitle")),
-            _ => None,
+    fn unmarked_resources(path: &Path) -> BTreeSet<String> {
+        let script = path
+            .extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|extension| Self::NEEDS_MARKED_RESOURCES.contains(&extension));
+        if script {
+            return BTreeSet::new();
         }
+        crate::web_api_clients::WebApiClients::browser_resources()
     }
 
     fn inject_native_capabilities(&mut self) {
@@ -569,7 +563,8 @@ fn set_required_fields(
             || FsharpConstructorProps::takes_props(path, &source);
         if needs_all {
             let class = &definition.class;
-            let providers = definition.browser_provider_types(&injectable);
+            let mut providers = injectable.clone();
+            providers.extend(ServiceDefinition::unmarked_resources(path));
             let props = RequiredFields::props(path, &source, class, &providers);
             let injected = RequiredFields::injected_fields(path, &source, class, &providers);
             definition.required = props;
@@ -1178,6 +1173,31 @@ mod tests {
     }
 
     #[test]
+    fn every_language_injects_the_same_browser_resources() {
+        let variants = [
+            (
+                "client/services/TitleService.kt",
+                "@Service\n@NeedsAll\nclass TitleService {\n private val clock: Clock\n private val preferences: PreferenceStrings\n val label: String\n}\n",
+            ),
+            (
+                "client/services/TitleService.java",
+                "@Service\n@NeedsAll\nclass TitleService {\n Clock clock;\n DocumentTitle preferences;\n String label;\n}\n",
+            ),
+            (
+                "client/services/TitleService.dart",
+                "@Service\n@NeedsAll\nclass TitleService {\n  final Clock clock;\n  final PreferenceStrings preferences;\n  final String label;\n}\n",
+            ),
+        ];
+        for (path, source) in variants {
+            let root = project(&[(path, source)]);
+            let registry = ServiceRegistry::discover(root.path()).expect("service");
+            let service = registry.get("title").expect("title");
+            assert_eq!(service.required(), ["label"], "{path}");
+            assert_eq!(service.injected(), ["clock", "preferences"], "{path}");
+        }
+    }
+
+    #[test]
     fn a_native_capability_is_injected_instead_of_a_component_prop() {
         use tachyon_contracts::NativeTarget;
         let variants = [
@@ -1202,7 +1222,7 @@ mod tests {
             let registry = ServiceRegistry::discover(root.path()).expect("service");
             assert_eq!(
                 registry.get("picker").expect("web").required(),
-                ["filePicker", "windowControls", "title"],
+                ["filePicker", "title"],
                 "{path}"
             );
             let native = registry.for_target(Some(target));
@@ -1210,7 +1230,7 @@ mod tests {
             assert_eq!(service.required(), ["title"], "{path}");
             assert_eq!(
                 service.injected(),
-                ["filePicker", "windowControls"],
+                ["windowControls", "filePicker"],
                 "{path}"
             );
         }
