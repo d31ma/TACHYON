@@ -20,6 +20,7 @@ impl ComponentRegistry {
     const COMPONENT_ROOT: &'static str = "client/components";
     const MAX_COMPONENTS: usize = 1_024;
     pub(crate) const SCOPE_ATTRIBUTE: &'static str = "data-tac-scope";
+    pub(crate) const CONTAINER_TAG: &'static str = "tachyon-component";
 
     pub(crate) fn discover(project_root: &Path) -> Result<Self, Failure> {
         let Some(root) = regular_component_root(project_root)? else {
