@@ -55,7 +55,7 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `bun run styles` | Refreshes each component's generated Tailwind region. Run it after you change a template. |
 | `bun run styles:check` | Checks generated component regions and shared variable registrations without writing files. |
 | `bun run check:responsive` | Checks the layout at many screen widths. |
-| `node scripts/check-migration.mjs` | Runs the supplemental browser migration gate against an explicit retained build; see `docs/queue/NEXT/TAC-WEBSITE-MIGRATION-PROGRESS.md` at the repository root for required inputs. |
+| `node scripts/check-migration.mjs` | Runs an extra browser check on a website build you made before with `ty bundle website --out-dir <dir>`. Set these environment variables first: `TAC_BIN` (the `ty` that made the build), `TAC_WEBSITE_OUTPUT` (the build folder), `TAC_WEBSITE_SOURCE_COMMIT` (the commit you built), `TAC_WEBSITE_ACCEPTANCE_RECEIPT` (where to write the JSON result) and `TAC_BROWSER_DEPENDENCIES` (a `node_modules` folder with Playwright). |
 
 `verify:snippets` runs before the site is published. An example that does not
 build is worse than no example.

@@ -311,8 +311,14 @@ impl PythonProviderSource {
     }
 
     pub(super) fn failure(path: &Path, message: &str) -> Failure {
-        Failure::one(crate::failure::diagnostic(1605, format!("Cannot compile Python Tac service: {message}"),
-            Some("Keep the synchronous Python Tac ownership and typed JSON contracts; remaining adapters are tracked in PYTHON-TAC.".to_owned()),
-            crate::failure::source_span(&path.to_string_lossy(), 0, 1)))
+        Failure::one(crate::failure::diagnostic(
+            1605,
+            format!("Cannot compile Python Tac service: {message}"),
+            Some(
+                "Keep Python Tac service methods synchronous and pass only typed JSON values."
+                    .to_owned(),
+            ),
+            crate::failure::source_span(&path.to_string_lossy(), 0, 1),
+        ))
     }
 }

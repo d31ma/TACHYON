@@ -49,7 +49,7 @@ write `sitemap.xml` and `robots.txt`.
     declares `{ "kind": "vendor", "package", "version", "license", "sha256" }`
     and the build verifies captured source bytes. CSS imports retain file/byte/
     depth/path/encoding/no-symlink bounds and cannot hide undeclared application
-    layout. See the [bounded source grammar](../queue/NEXT/TAC-FOUNDATION-CSS-PROGRESS.md).
+    layout. The build error names the limit or rule that a stylesheet breaks.
   - `scriptSources`: optional exact local shared vendor-script declarations with
     `package`, `version`, `license` and `sha256`. Only byte-verified declared vendors
     receive the authored-script exception; folder and filename do not grant it.

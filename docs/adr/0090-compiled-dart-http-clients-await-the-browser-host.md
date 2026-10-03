@@ -45,13 +45,13 @@ The executable website example is
 Yon controllers. It checks all three required browser engines.
 `scripts/browser-http-runtime-test.mjs` directly tests the production async
 host boundaries. Focused Rust tests also execute the actual Dart VM runtime.
-See `docs/evidence/BROWSER-HTTP-DART.md` for results and limitations.
+These checks passed in Chromium, Firefox and WebKit when this ADR was accepted.
 
 This is one qualified language slice of BROWSER-HTTP-TRANSPORT. Eight other
 compiled language continuations, TestSetup/Fake replacement, self-built-client
 diagnostics/migration and the deferred first-app tabs remain pending. The
-bounded design is `docs/rfc/browser-http-async-continuations.md`; the remaining
-contract decision is recorded in `docs/queue/NEXT/BROWSER-HTTP-ASYNC-CONTRACT.md`.
+next step is staged async interop that keeps each runtime on the page. C# and
+F# Task interop come next; each other language needs its own decision.
 The existing sync Rust/Swift ABI cannot serialize a Promise into a response,
 and Binaryen 133 Asyncify rejects references live across the import. This ADR
 does not choose a global worker architecture or change authored async contracts

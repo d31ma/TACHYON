@@ -33,6 +33,5 @@ review; migration does not invent paths or change marker names.
 The scoped implementation is qualified at source checkpoint389b5319, including
 both-realm alias/duplicate checks, safe migration/collision tests, scaffolds,
 published HTTP/gateway requests and focused JS/TS HTTP/socket browser probes.
-See [the queue brief](../queue/NEXT/REMOTES-FOLDER.md) for retained evidence.
 That qualification does not certify all language/platform combinations or
 complete the separate browser transport and native page-program workstreams.

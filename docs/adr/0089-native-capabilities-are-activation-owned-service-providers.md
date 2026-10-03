@@ -96,12 +96,11 @@ read; framework implementation remains subject to the repository unsafe ban.
 | Rust WebAssembly | existing page WindowControls, unsupported native FilePicker | generated wasm32 compilation |
 | Native C# / Kotlin | Needs/NeedsAll captured providers, typed unsupported FilePicker, Windows/Android WindowControls registration | actual compiled activation/fake/disposal tests, Windows stub-host dispatch execution and complete Android API35 typecheck |
 
-Retained [managed qualification](../evidence/NATIVE-CAPABILITY-DI-MANAGED.md)
-and [four native example checks](../evidence/NATIVE-WINDOW-CONTROLS-EXAMPLES.md)
-supersede the earlier pending C#/Kotlin registration status. Windows desktop
-and Android device interaction remain unqualified. The original permission-change
-acceptance still needs real selected-handle revoke/regrant execution as recorded
-in the [queue brief](../queue/NEXT/NATIVE-CAPABILITY-DI.md).
+Later C# and Kotlin registration tests and four native example checks passed.
+They replace the earlier pending C# and Kotlin registration status. Windows
+desktop and Android device interaction are still not tested. On macOS, a test
+selects a file, revokes access, grants it again, and checks that the old file
+handle is refused.
 
 The platform matrix is not expanded merely because the macOS source compiles.
 An OS interaction claim requires the actual native picker, selection, bounded

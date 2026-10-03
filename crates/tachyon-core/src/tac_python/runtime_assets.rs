@@ -13,6 +13,7 @@ impl RuntimeAssets {
     pub(crate) const RUNTIME: &'static str = "pyodide-314.0.7";
     pub(crate) const OUTPUT: &'static str = ".tachyon/services/python/314.0.7";
     pub(crate) const WASM: &'static str = "pyodide.asm.wasm";
+    pub(crate) const ARCHIVE: &'static str = "pyodide-core-314.0.7.tar.bz2";
     const ASSETS: [RuntimeAsset; 5] = [
         RuntimeAsset {
             name: "pyodide.mjs",
@@ -66,8 +67,9 @@ impl RuntimeAssets {
             1605,
             format!("Cannot use the pinned Python browser runtime: {message}"),
             Some(format!(
-                "Supply verified Pyodide {} core assets under '{}'. Use the pinned hashes in docs/queue/NEXT/PYTHON-TAC.md; ty never installs or fetches Python packages automatically.",
+                "Copy the five core files from the official Pyodide {} release archive {} into '{}'. ty checks the size and SHA-256 hash of each file. It never downloads Python or Python packages.",
                 Self::VERSION,
+                Self::ARCHIVE,
                 Self::cached_root().display()
             )),
             source_span(path, 0, path.len()),

@@ -33,7 +33,8 @@ impl RuntimeDoctor {
             command: String::from("pyodide.asm.wasm"),
             state: Self::state(root, result),
             install: format!(
-                "Provide the five pinned core assets at '{}'; automatic runtime/package installation is disabled. Check the exact inventory in docs/queue/NEXT/PYTHON-TAC.md.",
+                "Copy the five core files from the official Pyodide release archive {} into '{}'. ty does not install the runtime or Python packages.",
+                RuntimeAssets::ARCHIVE,
                 root.display()
             ),
             required: true,
