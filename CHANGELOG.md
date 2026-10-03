@@ -66,6 +66,10 @@ machine contracts have their own, independent major versions.
 
 - A Kotlin or Java Tac model marked Topic builds again. The model file check
   read the Topic marker as behavior and stopped the build with `TY1310`.
+- `scripts/native/apple-protocol-test.mjs` compiles again. The probe built
+  its Swift companion prelude from a fixed file list that missed
+  `TacAwaited.swift`, `TacOwnerThread.swift` and the native capability files.
+  It now reads the list from the macOS host, so the two cannot drift apart.
 
 - C# coverage includes public methods with next-line body braces or expression
   bodies and records the method actually called. Static Setup callbacks and

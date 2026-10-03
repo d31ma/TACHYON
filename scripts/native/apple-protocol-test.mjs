@@ -154,12 +154,21 @@ print("PASS: " + CommandLine.arguments.last!)
 `;
 }
 
+/** @returns {string} */
+function companionPrelude() {
+  const host = readFileSync(path.join(AppleProtocolTest.native, 'macos.rs'), 'utf8');
+  const begin = host.indexOf('SWIFT_COMPANION_PRELUDE');
+  const end = host.indexOf(');', begin);
+  assert.ok(begin >= 0 && end > begin, 'the macOS host must keep its Swift companion prelude list');
+  const files = [...host.slice(begin, end).matchAll(/include_str!\("([^"]+)"\)/g)].map(match => match[1]);
+  assert.ok(files.length > 0, 'the Swift companion prelude list must name its files');
+  return files.map(file => readFileSync(path.join(AppleProtocolTest.native, file), 'utf8')).join('\n');
+}
+
 /** @param {string} temporary */
 function compileProbe(temporary) {
   const helper = path.join(AppleProtocolTest.native, 'apple_json.swift');
-  const preludes = readFileSync(helper, 'utf8') + '\n' +
-    readFileSync(path.join(AppleProtocolTest.native, 'prelude.swift'), 'utf8') +
-    readFileSync(path.join(AppleProtocolTest.native, 'prelude_apple.swift'), 'utf8');
+  const preludes = readFileSync(helper, 'utf8') + '\n' + companionPrelude();
   const source = path.join(temporary, 'main.swift');
   const binary = path.join(temporary, 'probe');
   writeFileSync(source, preludes + companionFixture() + hostBridge('macos') + hostBridge('ios') + protocolProbes());
