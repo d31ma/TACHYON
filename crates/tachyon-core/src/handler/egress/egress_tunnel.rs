@@ -1,4 +1,4 @@
-use super::EgressTarget;
+use super::{EgressAddress, EgressTarget};
 use crate::safety::DeclaredHosts;
 use std::sync::Arc;
 use std::time::Duration;
@@ -63,7 +63,7 @@ impl EgressTunnel {
         hosts: &DeclaredHosts,
     ) -> std::io::Result<()> {
         match Self::decision(target, hosts) {
-            Ok((target, rest)) => Self::connect(client, &target, &rest).await,
+            Ok((target, rest)) => Self::connect(client, &target, &rest, hosts).await,
             Err(answer) => client.write_all(answer.as_bytes()).await,
         }
     }
@@ -87,20 +87,37 @@ impl EgressTunnel {
         Err(Self::refusal(&target, hosts))
     }
 
-    async fn connect(client: TcpStream, target: &EgressTarget, rest: &[u8]) -> std::io::Result<()> {
-        let upstream = TcpStream::connect((target.host.as_str(), target.port)).await;
+    async fn connect(
+        client: TcpStream,
+        target: &EgressTarget,
+        rest: &[u8],
+        hosts: &DeclaredHosts,
+    ) -> std::io::Result<()> {
+        let upstream = Self::open(target, hosts).await;
         Self::bridge(client, upstream, target, rest).await
+    }
+
+    async fn open(target: &EgressTarget, hosts: &DeclaredHosts) -> Result<TcpStream, String> {
+        let addresses = EgressAddress::candidates(&target.host, target.port)
+            .await
+            .map_err(|_| String::from(Self::UNREACHABLE))?;
+        let addresses = Some(addresses)
+            .filter(|addresses| !addresses.is_empty())
+            .ok_or_else(|| Self::private_refusal(target, hosts))?;
+        TcpStream::connect(addresses.as_slice())
+            .await
+            .map_err(|_| String::from(Self::UNREACHABLE))
     }
 
     async fn bridge(
         mut client: TcpStream,
-        upstream: std::io::Result<TcpStream>,
+        upstream: Result<TcpStream, String>,
         target: &EgressTarget,
         rest: &[u8],
     ) -> std::io::Result<()> {
         match upstream {
             Ok(mut upstream) => Self::pipe(&mut client, &mut upstream, target, rest).await,
-            Err(_) => client.write_all(Self::UNREACHABLE.as_bytes()).await,
+            Err(answer) => client.write_all(answer.as_bytes()).await,
         }
     }
 
@@ -137,6 +154,19 @@ impl EgressTunnel {
             target.host,
             hosts.setting()
         );
+        Self::forbidden(&message)
+    }
+
+    fn private_refusal(target: &EgressTarget, hosts: &DeclaredHosts) -> String {
+        let message = format!(
+            "Tachyon refused a request to {}: the name resolves only to loopback, private or link-local addresses. To reach a local or private service, list its IP address or a localhost name in {} (ADR 0094).",
+            target.host,
+            hosts.setting()
+        );
+        Self::forbidden(&message)
+    }
+
+    fn forbidden(message: &str) -> String {
         format!(
             "HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{message}",
             message.len()

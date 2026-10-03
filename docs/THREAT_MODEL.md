@@ -343,6 +343,16 @@ separate cybersecurity review for this reconciliation.
   proxy, so the Go prelude points `http.DefaultTransport` at the guard
   (`YON_OUTGOING_PROXY`). A client that builds its own transport, and a raw
   socket, still connect directly (ADR 0094).
+- **Outgoing request guard.** The guard (ADR 0068) checks the target name
+  against `outgoing.hosts`, resolves it once and connects to the address it
+  resolved, so a second DNS answer cannot change the target. It drops
+  loopback, private (RFC 1918 and unique local), link-local (including the
+  cloud metadata address `169.254.169.254`), shared (`100.64.0.0/10`) and
+  unspecified addresses from the answer, and a name left with no address gets
+  `403`. So a wildcard such as `*.example.com` cannot be turned against an
+  internal service by a name that points to one. Only an IP address listed in
+  `outgoing.hosts`, or a localhost name, reaches those addresses (ADR 0094). A
+  redirect is a new request through the guard, so its host is checked again.
 - **Gateways (ADR 0042).** A caller reaches another language only through its
   invocation's resource endpoint, with a key that the build declared and
   checked (`TY1312`). A class target runs as a generated unit under
