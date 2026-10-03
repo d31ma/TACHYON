@@ -66,6 +66,49 @@ impl Converters {
         }
     }
 
+    pub(crate) fn require_rust_program(
+        language: crate::project::NativeCompanion,
+        root: &Path,
+        unit: (&Path, &str),
+        events: Option<&crate::events::EventModule>,
+    ) -> Result<(), crate::Failure> {
+        Self::rust_program(language, root, unit, events)
+    }
+
+    fn rust_program(
+        language: crate::project::NativeCompanion,
+        root: &Path,
+        unit: (&Path, &str),
+        events: Option<&crate::events::EventModule>,
+    ) -> Result<(), crate::Failure> {
+        if language != crate::project::NativeCompanion::Rust {
+            return Ok(());
+        }
+        Self::require_rust_events(root, unit.0, events)?;
+        Self::require_rust_mappings(root, unit.0, unit.1)
+    }
+
+    pub(crate) fn require_rust_selected_owner(
+        language: crate::project::NativeCompanion,
+        root: &Path,
+        unit: (&Path, &str),
+        excluded: &[String],
+    ) -> Result<(), crate::Failure> {
+        Self::rust_selected_owner(language, root, unit, excluded)
+    }
+
+    fn rust_selected_owner(
+        language: crate::project::NativeCompanion,
+        root: &Path,
+        unit: (&Path, &str),
+        excluded: &[String],
+    ) -> Result<(), crate::Failure> {
+        if language != crate::project::NativeCompanion::Rust {
+            return Ok(());
+        }
+        Self::require_rust_owner(root, unit.1, unit.0, excluded)
+    }
+
     pub(crate) fn require_rust_owner(
         root: &Path,
         source: &str,

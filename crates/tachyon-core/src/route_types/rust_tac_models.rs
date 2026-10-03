@@ -116,17 +116,28 @@ impl RustTacModels {
 
     fn check_type(&self, kind: &str, seen: &mut BTreeSet<String>) -> Result<(), Failure> {
         let compact = Self::compact_type(kind)?;
-        Self::scalar(&compact)
-            .then_some(Ok(()))
-            .unwrap_or_else(|| self.check_container(&compact, seen))
+        self.check_compact(&compact, seen)
+    }
+
+    fn check_compact(&self, kind: &str, seen: &mut BTreeSet<String>) -> Result<(), Failure> {
+        if Self::scalar(kind) {
+            return Ok(());
+        }
+        self.check_container(kind, seen)
     }
 
     fn scalar(kind: &str) -> bool {
-        Self::SCALARS.contains(&kind)
-            || Self::PRIMITIVE_PREFIXES
-                .iter()
-                .filter_map(|prefix| kind.strip_prefix(prefix))
-                .any(|primitive| Self::PRIMITIVES.contains(&primitive))
+        Self::SCALARS
+            .iter()
+            .copied()
+            .find(|supported| *supported == kind)
+            .or_else(|| {
+                Self::PRIMITIVE_PREFIXES
+                    .iter()
+                    .find_map(|prefix| kind.strip_prefix(prefix))
+                    .filter(|primitive| Self::PRIMITIVES.contains(primitive))
+            })
+            .is_some()
     }
 
     fn compact_type(kind: &str) -> Result<String, Failure> {
@@ -140,10 +151,10 @@ impl RustTacModels {
     }
 
     fn check_container(&self, kind: &str, seen: &mut BTreeSet<String>) -> Result<(), Failure> {
-        match Self::item(kind) {
-            Some(item) => self.check_type(item, seen),
-            None => self.check_named(kind, seen),
-        }
+        let checked = Self::item(kind)
+            .map(|item| self.check_type(item, seen))
+            .transpose()?;
+        checked.map_or_else(|| self.check_named(kind, seen), |()| Ok(()))
     }
 
     fn item(kind: &str) -> Option<&str> {
@@ -157,19 +168,24 @@ impl RustTacModels {
             .iter()
             .find_map(|prefix| kind.strip_prefix(prefix))
             .unwrap_or(kind);
-        self.provided(name)
-            .then_some(Ok(()))
-            .unwrap_or_else(|| self.check_alias_or_record(name, seen))
+        if self.provided(name) {
+            return Ok(());
+        }
+        self.check_alias_or_record(name, seen)
     }
 
     fn provided(&self, name: &str) -> bool {
         WebEventModels::names()
             .iter()
-            .any(|provided| provided == name)
-            || self
-                .files
-                .iter()
-                .any(|(_, source)| Self::variants(source, name).is_some())
+            .find(|provided| *provided == name)
+            .map(|_| ())
+            .or_else(|| {
+                self.files
+                    .iter()
+                    .find_map(|(_, source)| Self::variants(source, name))
+                    .map(|_| ())
+            })
+            .is_some()
     }
 
     fn check_alias_or_record(
@@ -181,10 +197,10 @@ impl RustTacModels {
             .files
             .iter()
             .find_map(|(_, source)| Self::alias(source, name));
-        match target {
-            Some(target) => self.check_alias(name, &target, seen),
-            None => self.check_record(name, seen),
-        }
+        let checked = target
+            .map(|target| self.check_alias(name, &target, seen))
+            .transpose()?;
+        checked.map_or_else(|| self.check_record(name, seen), |()| Ok(()))
     }
 
     fn check_alias(

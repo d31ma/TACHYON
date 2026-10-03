@@ -36,12 +36,12 @@ impl PlannedMethod {
                 .types
                 .into_iter()
                 .flat_map(|kind| kind.methods)
-                .flat_map(Self::method_mapping_types)
+                .flat_map(|method| Self::method_mapping_types(&method))
                 .collect(),
         }
     }
 
-    fn method_mapping_types(method: super::Method) -> Vec<String> {
+    fn method_mapping_types(method: &super::Method) -> Vec<String> {
         method
             .metadata
             .get("mapping")

@@ -116,9 +116,7 @@ impl<'a> RustFields<'a> {
     fn with_fields(model: (String, Model), fields: &[(String, Vec<RustField>)]) -> (String, Model) {
         let (name, model) = model;
         let record = fields.iter().find(|(written, _)| written == &name);
-        let model = record
-            .map(|(_, fields)| Model::Record(Self::record(fields)))
-            .unwrap_or(model);
+        let model = record.map_or(model, |(_, fields)| Model::Record(Self::record(fields)));
         (name, model)
     }
 

@@ -30,7 +30,7 @@ impl RustFieldsTests {
 
 #[test]
 fn rust_tuple_key_fields_are_not_discarded_as_methods() {
-    let source = r#"use std::collections::{BTreeMap, BTreeSet};
+    let source = r"use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Default)]
 pub struct NativeSessionProcessClaims {
@@ -38,7 +38,7 @@ pub struct NativeSessionProcessClaims {
     pub descendants: BTreeMap<(i32, String), BTreeSet<String>>,
     pub births: BTreeMap<i32, BTreeSet<String>>,
 }
-"#;
+";
     let record = RustFieldsTests::record("rs", source);
     assert_eq!(
         RustFieldsTests::names(&record),
@@ -83,7 +83,7 @@ fn rust_fields_respect_tuple_generic_and_attribute_boundaries() {
 
 #[test]
 fn rust_field_visibility_parentheses_do_not_hide_names() {
-    let source = r#"pub struct Claims {
+    let source = r"pub struct Claims {
     pub(crate) roots: BTreeMap<(i32, String), BTreeSet<String>>,
     pub(super) descendants: Vec<String>,
     pub(self) births: i32,
@@ -92,7 +92,7 @@ fn rust_field_visibility_parentheses_do_not_hide_names() {
     public_count: i64,
     pub_count: i64,
 }
-"#;
+";
     let record = RustFieldsTests::record("rs", source);
     assert_eq!(
         RustFieldsTests::names(&record),
@@ -188,7 +188,7 @@ fn other_braced_languages_keep_fields_and_exclude_methods() {
 
 #[test]
 fn rust_raw_model_field_spans_reference_original_source_bytes() {
-    let source = r#"// Claims may contain tuple keys.
+    let source = r"// Claims may contain tuple keys.
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Default)]
@@ -198,7 +198,7 @@ pub struct Claims {
     // A second field keeps the original offset after comment masking.
     pub labels: Vec</* annotation */ String>,
 }
-"#;
+";
     let models = ModelTable::rust_model_fields(source);
     assert_eq!(models.len(), 1);
     assert_eq!(models[0].0, "Claims");
