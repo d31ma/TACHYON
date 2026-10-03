@@ -35,7 +35,7 @@ fn released_aliases_environment_and_removed_render_mode_are_compatible() {
     assert!(
         fs::read_to_string(by_alias.join("client/services/ShellService.js"))
             .expect("generated service")
-            .contains("document.title = \"Alias Name\"")
+            .contains("this.documentTitle.set(\"Alias Name\")")
     );
     assert!(!by_alias.join("client/components/app/shell/tac.js").exists());
 
@@ -448,7 +448,7 @@ fn generated_project_builds_deterministically_with_the_real_binary() {
     assert!(html.starts_with("<!doctype html>"));
     let script =
         fs::read_to_string(project.join("client/services/ShellService.js")).expect("service");
-    assert!(script.contains("document.title = \"Hello <Tachyon>\""));
+    assert!(script.contains("this.documentTitle.set(\"Hello <Tachyon>\")"));
     assert!(
         project
             .join("dist/.tachyon/services/ShellService.js")
