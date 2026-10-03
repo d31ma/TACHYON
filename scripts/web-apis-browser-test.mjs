@@ -28,12 +28,15 @@ class WebApiGate {
 
   static files = {
     'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js","fs"]},"visibility":{"check":false}}}\n',
-    'client/pages/tac.html': '<stamp-page />\n',
-    'client/components/stamp/page/tac.html': `<main>${WebApiGate.languages.map((language) => `<p id="${language}">{${language}Stamp.label}</p>
+    'client/pages/tac.html': '<main><h1>Browser APIs</h1></main>\n',
+    ...Object.fromEntries(WebApiGate.languages.flatMap((language) => [
+      [`client/pages/${language}/tac.html`, `<stamp-${language} />\n`],
+      [`client/components/stamp/${language}/tac.html`, `<main><p id="${language}">{${language}Stamp.label}</p>
 <button id="${language}-copy" on:click="${language}Stamp.copy('from ${language}')">Copy</button>
 <button id="${language}-paste" on:click="${language}Stamp.paste()">Paste</button>
 <button id="${language}-ask" on:click="${language}Stamp.ask()">Ask</button>
-<button id="${language}-tell" on:click="${language}Stamp.tell()">Share</button>`).join('\n')}</main>\n`,
+<button id="${language}-tell" on:click="${language}Stamp.tell()">Share</button></main>\n`],
+    ])),
     'client/services/JsStampService.js': `@Service
 export default class JsStampService {
   @Needs
@@ -745,14 +748,16 @@ class JavaStampService {
     WebApiGate.expect(report.count, 16, `${label}: SecureRandom gives the bytes it was asked for`)
   }
 
-  static refusals(page) {
-    return page.evaluate(([languages, lifespan]) => new Promise((resolve) => {
+  static refusals(page, language) {
+    return page.evaluate(([name, lifespan]) => new Promise((resolve) => {
       setTimeout(() => {
-        const answers = { active: navigator.userActivation.isActive }
-        for (const name of languages) answers[name] = __tachyonTac.service(`${name}Stamp`).attempt()
-        resolve(answers)
+        resolve({ active: navigator.userActivation.isActive, answer: __tachyonTac.service(`${name}Stamp`).attempt() })
       }, lifespan)
-    }), [WebApiGate.languages, WebApiGate.activationLifespan])
+    }), [language, WebApiGate.activationLifespan])
+  }
+
+  static async open(page, origin, language) {
+    await page.goto(`${origin}/${language}/`, { waitUntil: 'networkidle' })
   }
 
   static read(page, language, member) {
@@ -811,6 +816,11 @@ class JavaStampService {
     WebApiGate.expect(await WebApiGate.settled(page, language, 'pasted', ''), '', `${label}: a method that returns nothing still runs`)
   }
 
+  static async checkOwnLanguage(page, language) {
+    await WebApiGate.checkUnitMethod(page, language)
+    await WebApiGate.checkOwnRuntime(page, language)
+  }
+
   static async checkOwnRuntime(page, language) {
     const report = await page.evaluate((name) => {
       const service = __tachyonTac.service(`${name}Stamp`)
@@ -833,9 +843,9 @@ class JavaStampService {
     try {
       const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce' })
       const page = await context.newPage()
-      await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
       for (const language of WebApiGate.everyEngineLanguages) {
         const label = `${browserType.name()} ${language}`
+        await WebApiGate.open(page, origin, language)
         await WebApiGate.check(page, language, label)
         WebApiGate.expect(await WebApiGate.read(page, language, 'motion'), 'reduce', `${label}: Preferences gives the motion setting`)
         WebApiGate.expect(await WebApiGate.settled(page, language, 'scheme', 'dark'), 'dark', `${label}: a replay listener hears the current color scheme`)
@@ -866,20 +876,15 @@ class JavaStampService {
       await context.grantPermissions(WebApiGate.permissions, { origin })
       const page = await context.newPage()
       page.on('console', (message) => WebApiGate.consoleLines.push(message.text()))
-      await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
-      const refusals = await WebApiGate.refusals(page)
-      WebApiGate.expect(refusals.active, false, 'the page has no user action after the activation lifespan')
       for (const language of WebApiGate.languages) {
-        WebApiGate.expect(refusals[language], 'The clipboard browser API needs a user action. Call it from a click or key handler.', `${language}: Clipboard refuses a call without a user action`)
-      }
-      for (const language of WebApiGate.languages) {
+        await WebApiGate.open(page, origin, language)
+        const refusals = await WebApiGate.refusals(page, language)
+        WebApiGate.expect(refusals.active, false, `${language}: the page has no user action after the activation lifespan`)
+        WebApiGate.expect(refusals.answer, 'The clipboard browser API needs a user action. Call it from a click or key handler.', `${language}: Clipboard refuses a call without a user action`)
         await WebApiGate.check(page, language)
         await WebApiGate.checkPreferences(page, context, language)
         await WebApiGate.checkPrompts(page, language)
-      }
-      for (const language of WebApiGate.everyEngineLanguages) {
-        await WebApiGate.checkUnitMethod(page, language)
-        await WebApiGate.checkOwnRuntime(page, language)
+        if (WebApiGate.everyEngineLanguages.includes(language)) await WebApiGate.checkOwnLanguage(page, language)
       }
       for (const browserType of WebApiGate.otherEngines) {
         if (WebApiGate.everyEngineLanguages.length > 0) await WebApiGate.checkEngine(browserType, origin)
