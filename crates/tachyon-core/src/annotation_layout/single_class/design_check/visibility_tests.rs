@@ -263,7 +263,10 @@ fn rust_snake_case_visibility_keeps_actual_service_and_utility_names() {
         ("server/services/nested/label_service.rs", service),
         ("server/utils/nested/title_utils.rs", utility),
     ];
-    assert_eq!(VisibilityProject::names(&files), ["read", "unused", "spare"]);
+    assert_eq!(
+        VisibilityProject::names(&files),
+        ["read", "unused", "spare"]
+    );
     let messages = VisibilityProject::messages(&files);
     assert!(messages[0].contains("in LabelService"));
     assert!(messages[2].contains("in TitleUtils"));
