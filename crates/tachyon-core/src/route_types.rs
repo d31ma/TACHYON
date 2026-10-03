@@ -8,6 +8,10 @@ mod converters;
 mod language_kinds;
 mod mapping_models;
 mod model_files;
+mod rust_tac_models;
+#[cfg(test)]
+mod rust_tac_models_tests;
+use rust_tac_models::RustTacModels;
 mod php_doc;
 mod type_text;
 mod web_event_models;
@@ -27,6 +31,7 @@ mod declared_name_tests;
 
 pub(crate) use converters::{Converters, DartValues};
 pub(crate) use mapping_models::MappingModels;
+pub(crate) use model_files::RustField;
 pub(crate) use php_doc::PhpDoc;
 pub(crate) use type_text::TypeText;
 pub(crate) use web_event_models::WebEventModels;
@@ -193,6 +198,10 @@ impl ModelTable {
     pub(crate) fn declared_models(extension: &str, source: &str) -> Vec<(String, Model)> {
         let blanked = crate::topics::Topics::blanked(source);
         model_files::ModelParser::models(extension, &blanked)
+    }
+
+    pub(crate) fn rust_model_fields(source: &str) -> Vec<(String, Vec<RustField>)> {
+        model_files::ModelParser::rust_model_fields(source)
     }
 
     pub(crate) fn topic_names(&self) -> Vec<String> {

@@ -223,6 +223,18 @@ fn lowered_body(
     if let Some(module) = events.as_mut() {
         crate::events::describe(module, &identity, &item.snapshot_root, "client")?;
     }
+    if language == NativeCompanion::Rust {
+        crate::route_types::Converters::require_rust_events(
+            &item.snapshot_root,
+            relative,
+            events.as_ref(),
+        )?;
+        crate::route_types::Converters::require_rust_mappings(
+            &item.snapshot_root,
+            relative,
+            authored,
+        )?;
+    }
     let prepared = super::events::prepare(language, authored, events.as_ref(), &identity)?;
     let (native_source, native_fields) = if language == NativeCompanion::Swift && !item.web_assembly
     {
@@ -271,6 +283,14 @@ fn lowered_body(
         (relative, &excluded),
         &prepared.entries,
     )?;
+    if language == NativeCompanion::Rust {
+        crate::route_types::Converters::require_rust_owner(
+            &item.snapshot_root,
+            authored,
+            relative,
+            &excluded,
+        )?;
+    }
     let table = crate::companion::owner_table(
         super::events::companion_language(language).for_web(item.web_assembly),
         authored,

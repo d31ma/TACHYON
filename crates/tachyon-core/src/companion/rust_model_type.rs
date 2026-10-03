@@ -10,6 +10,40 @@ impl RustModelType {
         "u8", "u16", "u32", "u64", "usize",
     ];
 
+    pub(crate) fn owner_types(
+        source: &str,
+        path: &std::path::Path,
+        excluded: &[String],
+    ) -> Result<Vec<String>, crate::Failure> {
+        Self::selected_types(source, &path.to_string_lossy(), excluded)
+    }
+
+    fn selected_types(
+        source: &str,
+        path: &str,
+        excluded: &[String],
+    ) -> Result<Vec<String>, crate::Failure> {
+        let wanted = super::declared_service(path, source);
+        let (name, body) = super::block_named(source, "struct", wanted.as_deref())
+            .ok_or_else(|| super::unnamed_service(path, wanted.as_deref(), "struct"))?;
+        let collaborators = super::RustCollaborators::declared_beside(&name, source);
+        let fields = super::rust_struct_fields(body)
+            .into_iter()
+            .filter(|member| !collaborators.holds(member.declared_type.as_deref()))
+            .filter(|member| !excluded.contains(&member.name))
+            .filter_map(|member| member.declared_type);
+        let methods = super::blocks(source, "impl")
+            .into_iter()
+            .filter(|(header, _)| header.trim() == name)
+            .flat_map(|(_, body)| super::rust_methods(body))
+            .filter(|(member, _)| !excluded.contains(&member.name))
+            .flat_map(|(member, parameters)| parameters.into_iter().chain(member.declared_type));
+        Ok(fields
+            .chain(methods)
+            .filter(|kind| Self::is_model(kind))
+            .collect())
+    }
+
     pub(crate) fn is_model(kind: &str) -> bool {
         let kind = kind.trim();
         Self::container_item(kind).map_or_else(|| Self::is_named(kind), Self::is_model_item)

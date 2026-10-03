@@ -3,6 +3,13 @@ use std::path::{Path, PathBuf};
 
 mod alias_models;
 mod ruby;
+mod rust_field;
+mod rust_fields;
+
+pub(crate) use rust_field::RustField;
+
+#[cfg(test)]
+mod rust_fields_tests;
 
 pub(super) struct ModelFolder;
 
@@ -123,13 +130,23 @@ impl ModelParser {
             "rb" => ruby::RubyModels::read(source),
             "py" => PythonModels::read(&code),
             "go" => GoModels::read(&code),
-            "java" | "kt" | "cs" | "rs" | "dart" | "php" | "swift" => [
+            "rs" => [
+                rust_fields::RustFields::models(&code, BracedModels::read(extension, &code)),
+                alias_models::AliasModels::read(extension, &code),
+            ]
+            .concat(),
+            "java" | "kt" | "cs" | "dart" | "php" | "swift" => [
                 BracedModels::read(extension, &code),
                 alias_models::AliasModels::read(extension, &code),
             ]
             .concat(),
             _ => Vec::new(),
         }
+    }
+
+    pub(super) fn rust_model_fields(source: &str) -> Vec<(String, Vec<RustField>)> {
+        let code = Self::without_comments("rs", source);
+        rust_fields::RustFields::read_models(&code)
     }
 
     pub(super) fn jsdoc_models(source: &str) -> Vec<(String, Model)> {

@@ -120,6 +120,7 @@ impl RustPageGraph {
         source: &str,
         root: &std::path::Path,
     ) -> Result<(), Failure> {
+        crate::route_types::Converters::require_rust_mappings(root, path, source)?;
         let cleaned = self.unit_source(path, source, root)?;
         crate::behavior::NativeStorage::refuse_builtins(path, &cleaned)?;
         crate::annotation_layout::NativeWebApis::refuse(path, &cleaned)?;
@@ -302,6 +303,11 @@ impl RustPageGraph {
                 "Native exposed Rust root has no validated Service definition.",
             )
         })?;
+        crate::route_types::Converters::require_rust_events(
+            &input.snapshot_root,
+            &service.path,
+            service.events.as_ref(),
+        )?;
         let mut events = service.prepared_events()?;
         let _ = writeln!(
             events.entries,
@@ -310,6 +316,12 @@ impl RustPageGraph {
         );
         let obtained = format!("scope.obtain_root(&tac_definition_{}())?", service.name);
         let instance = Self::root_instance(&obtained, self.arcs.contains(&service.name));
+        crate::route_types::Converters::require_rust_owner(
+            &input.snapshot_root,
+            &self.source,
+            &service.path,
+            &events.excluded,
+        )?;
         crate::companion::RustGraph::table(
             &self.source,
             &service.path.to_string_lossy(),

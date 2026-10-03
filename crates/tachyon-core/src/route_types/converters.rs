@@ -55,7 +55,7 @@ impl Converters {
     pub(crate) fn tac_text(extension: &str, root: &Path) -> Result<String, String> {
         let files = ModelFolder::read_realm(root, "client", extension)?;
         match extension {
-            "rs" => Ok(TacRustConverters::text(&files)),
+            "rs" => Ok(super::RustTacModels::of(&files).text()),
             "cs" => Ok(TacCSharpContext::text(&files)),
             "swift" => Ok(SwiftCodable::text(&files)),
             "dart" => Ok(DartConverters::tac_text(files)),
@@ -66,6 +66,60 @@ impl Converters {
         }
     }
 
+    pub(crate) fn require_rust_owner(
+        root: &Path,
+        source: &str,
+        path: &Path,
+        excluded: &[String],
+    ) -> Result<(), crate::Failure> {
+        let kinds = crate::companion::RustModelType::owner_types(source, path, excluded)?;
+        Self::require_rust_types(root, &kinds, path)
+    }
+
+    pub(crate) fn require_rust_types(
+        root: &Path,
+        kinds: &[String],
+        path: &Path,
+    ) -> Result<(), crate::Failure> {
+        let files = ModelFolder::read_realm(root, "client", "rs").map_err(|message| {
+            crate::Failure::one(crate::failure::diagnostic(
+                1405,
+                message,
+                None,
+                crate::failure::source_span(&path.to_string_lossy(), 0, 1),
+            ))
+        })?;
+        super::RustTacModels::of(&files).require(kinds, path)
+    }
+
+    pub(crate) fn require_rust_mappings(
+        root: &Path,
+        path: &Path,
+        source: &str,
+    ) -> Result<(), crate::Failure> {
+        let kinds = crate::behavior::PlannedMethod::rust_mapping_types(path, source)?;
+        Self::require_rust_types(root, &kinds, path)
+    }
+
+    pub(crate) fn require_rust_events(
+        root: &Path,
+        path: &Path,
+        module: Option<&crate::events::EventModule>,
+    ) -> Result<(), crate::Failure> {
+        let kinds = module
+            .into_iter()
+            .flat_map(|module| module.types.iter())
+            .flat_map(|kind| {
+                kind.listeners
+                    .iter()
+                    .flat_map(|listener| listener.events.iter().chain(listener.returns.iter()))
+                    .chain(kind.streams.iter().map(|stream| &stream.event))
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        Self::require_rust_types(root, &kinds, path)
+    }
+
     pub(crate) fn csharp_tac_test_text(root: &Path) -> Result<String, String> {
         let files = ModelFolder::read_realm(root, "client", "cs")?;
         Ok(TacCSharpContext::test_text(&files))
@@ -74,62 +128,6 @@ impl Converters {
     pub(crate) fn dart_tac_test_text(root: &Path) -> Result<String, String> {
         let files = ModelFolder::read_realm(root, "client", "dart")?;
         Ok(DartConverters::text(&files))
-    }
-}
-
-struct TacRustConverters;
-
-impl TacRustConverters {
-    fn text(files: &[(String, String)]) -> String {
-        let mut output = String::new();
-        for (_, source) in files {
-            for (name, model) in ModelParser::models("rs", source) {
-                match model {
-                    Model::Record(record) => Self::record(&mut output, &name, &record.fields),
-                    Model::Alias(_) => Self::enumeration(&mut output, source, &name),
-                }
-            }
-        }
-        output
-    }
-
-    fn record(output: &mut String, name: &str, fields: &[ModelField]) {
-        let mut reads = Vec::new();
-        let mut writes = Vec::new();
-        for field in fields {
-            let field_name = &field.name;
-            reads.push(format!(
-                "{field_name}: tac_read_field(value, \"{field_name}\")"
-            ));
-            writes.push(format!(
-                "(String::from(\"{field_name}\"), TacModel::write(self.{field_name}))"
-            ));
-        }
-        let _ = write!(
-            output,
-            "\nimpl TacModel for crate::models::{name} {{\n    fn read(value: &TacValue) -> Self {{\n        Self {{ {} }}\n    }}\n    fn write(self) -> TacValue {{\n        TacValue::Object(vec![{}])\n    }}\n}}\n",
-            reads.join(", "),
-            writes.join(", ")
-        );
-    }
-
-    fn enumeration(output: &mut String, source: &str, name: &str) {
-        let Some(variants) = Declarations::enum_variants(source, name) else {
-            return;
-        };
-        let Some(first) = variants.first() else {
-            return;
-        };
-        let mut reads = String::new();
-        let mut writes = String::new();
-        for variant in &variants {
-            let _ = write!(reads, "\"{variant}\" => Self::{variant}, ");
-            let _ = write!(writes, "Self::{variant} => \"{variant}\", ");
-        }
-        let _ = write!(
-            output,
-            "\nimpl TacModel for crate::models::{name} {{\n    fn read(value: &TacValue) -> Self {{\n        match value.as_text().as_str() {{ {reads}_ => Self::{first} }}\n    }}\n    fn write(self) -> TacValue {{\n        TacValue::Text(String::from(match self {{ {writes}}}))\n    }}\n}}\n"
-        );
     }
 }
 
@@ -218,9 +216,13 @@ impl SwiftCodable {
     }
 }
 
-struct Declarations;
+pub(super) struct Declarations;
 
 impl Declarations {
+    pub(super) fn variants(source: &str, name: &str) -> Option<Vec<String>> {
+        Self::enum_variants(source, name)
+    }
+
     fn enum_variants(source: &str, name: &str) -> Option<Vec<String>> {
         let header = format!("enum {name}");
         let at = source.find(&header)?;

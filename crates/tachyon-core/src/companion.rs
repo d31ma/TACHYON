@@ -35,7 +35,7 @@ use rust_collaborators::RustCollaborators;
 mod rust_graph;
 use rust_construction::RustConstruction;
 pub(crate) use rust_graph::RustGraph;
-use rust_model_type::RustModelType;
+pub(crate) use rust_model_type::RustModelType;
 
 pub(crate) fn owner_name(
     language: CompanionLanguage,
