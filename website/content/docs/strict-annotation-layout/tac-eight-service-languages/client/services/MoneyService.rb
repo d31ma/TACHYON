@@ -1,3 +1,4 @@
+#[Service]
 class MoneyService
   # @return [Integer]
   attr_reader :amount
