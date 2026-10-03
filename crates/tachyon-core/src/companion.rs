@@ -8,6 +8,7 @@ mod csharp_browser_members;
 #[cfg(test)]
 mod csharp_browser_members_tests;
 mod csharp_model_type;
+mod csharp_parameter_list;
 mod csharp_task_members;
 #[cfg(test)]
 mod csharp_task_model_tests;
@@ -15,6 +16,7 @@ mod csharp_task_result;
 mod csharp_task_shape;
 use constructor_field_policy::ConstructorFieldPolicy;
 use csharp_browser_members::CsharpBrowserMembers;
+use csharp_parameter_list::CsharpParameterList;
 pub(crate) use csharp_task_members::CsharpTaskMembers;
 pub(crate) use csharp_task_result::CsharpTaskResult;
 mod kotlin_header;
@@ -1411,14 +1413,8 @@ fn csharp_converter(kind: &str) -> &'static str {
 }
 
 fn csharp_parameters(after_name: &str) -> Option<Vec<String>> {
-    let inside = after_name.strip_prefix('(')?;
-    let inside = &inside[..inside.find(')')?];
     let mut kinds = Vec::new();
-    for parameter in inside.split(',') {
-        let parameter = parameter.trim();
-        if parameter.is_empty() {
-            continue;
-        }
+    for parameter in CsharpParameterList::parameters(after_name)? {
         let kind = parameter.split_whitespace().next()?;
         let readable_model =
             CsharpModelType::is_model(kind) && CsharpModelType::read(kind, kind).is_some();
