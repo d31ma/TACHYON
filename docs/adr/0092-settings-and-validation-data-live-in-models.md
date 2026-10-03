@@ -57,11 +57,12 @@ without the consumed schema annotations, and keeps imports, namespaces and
 native type declarations. Rust, C#, Kotlin, Python and PHP code reaches models
 through explicit imports in their model namespaces. Java and Groovy stay in
 their flattened compilation unit, Go stays in package `main`, and Ruby models
-are ordinary inline constants.
+are ordinary inline constants. Lua schema models are refused with `TY1310`;
+plain Lua models and Lua converters stay supported.
 
 ### Tac
 
-In Tac, JavaScript, TypeScript and Java read these schemas. JavaScript and
+In Tac, JavaScript, TypeScript, Java and Python read these schemas. JavaScript and
 TypeScript schema classes hold data fields and literal defaults; constructors,
 methods, getters, inheritance and computed defaults are refused. JavaScript
 refers to them with JSDoc types, and TypeScript with type-only imports of the

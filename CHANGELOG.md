@@ -1974,8 +1974,9 @@ machine contracts have their own, independent major versions.
   `helpers/` (ADR 0092). A model may carry `Settings`, field `Setting`,
   `Checked` and the field constraints `Required`, `NotEmpty`, `Length`, `Min`
   and `Max`, plus `Description`. Such a model gets no Helper or Service role.
-  In Tac, JavaScript, TypeScript and Java read these schemas; other Tac
-  languages report `TY1310` instead of dropping the checks.
+  In Tac, JavaScript, TypeScript, Java and Python read these schemas; other
+  Tac languages, and Lua in both realms, report `TY1310` instead of dropping
+  the checks.
 
 - A Yon Helper that its caller creates with `new` stays owned by that
   caller: Tachyon does not inject it or build it a second time. Lifecycle and
