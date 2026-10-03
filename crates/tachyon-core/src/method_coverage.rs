@@ -127,10 +127,8 @@ impl PublicMethods {
 }
 
 fn private(language: &str, line: &str) -> bool {
-    if language == "cs" {
-        return CsharpMethodLines::hidden(line);
-    }
     let hidden: &[&str] = match language {
+        "cs" => return CsharpMethodLines::hidden(line),
         "php" | "java" | "swift" => &["private ", "protected ", "fileprivate ", "static "],
         "kt" => &["private ", "protected ", "internal "],
         "ts" => &["private ", "protected ", "static "],
