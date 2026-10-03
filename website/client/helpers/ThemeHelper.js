@@ -1,9 +1,9 @@
 @Helper
 export default class ThemeHelper {
   /** @type {string} */
-  static KEY = 'w-theme'
+  static _KEY = 'w-theme'
   /** @type {string} */
-  static DEFAULT = 'dark'
+  static _DEFAULT = 'dark'
 
   /** @returns {string} */
   restore() {
@@ -16,7 +16,7 @@ export default class ThemeHelper {
   /** @returns {string | null} */
   #storedTheme() {
     try {
-      return localStorage.getItem(ThemeHelper.KEY)
+      return localStorage.getItem(ThemeHelper._KEY)
     } catch {
       return null
     }
@@ -24,19 +24,19 @@ export default class ThemeHelper {
 
   /** @param {string | null} stored @returns {string} */
   #defaultTheme(stored) {
-    return stored ?? ThemeHelper.DEFAULT
+    return stored ?? ThemeHelper._DEFAULT
   }
 
   /** @param {string} theme @returns {void} */
   #remember(theme) {
     try {
-      localStorage.setItem(ThemeHelper.KEY, theme)
+      localStorage.setItem(ThemeHelper._KEY, theme)
     } catch {
     }
   }
 
   /** @param {string} theme @returns {void} */
   #apply(theme) {
-    document.documentElement.setAttribute(ThemeHelper.KEY, theme)
+    document.documentElement.setAttribute(ThemeHelper._KEY, theme)
   }
 }

@@ -694,7 +694,7 @@ describe('house style', () => {
 
   test('a first visit lands on the dark theme', async () => {
     const theme = await read('client/helpers/ThemeHelper.js')
-    expect(theme).toContain("static DEFAULT = 'dark'")
+    expect(theme).toContain("static _DEFAULT = 'dark'")
     expect(theme).toContain('@Helper')
     expect(await read('client/services/SearchService.js')).toContain('this.theme = this.themeHelper.restore()')
     expect(await read('client/components/site/layout/tac.html')).toContain(':data-theme="search.theme"')
