@@ -1,7 +1,7 @@
 use super::file_picker_sources::FilePickerSources;
 use crate::route_types::WebEventSources;
 
-pub(super) struct CsharpWebApis;
+pub(crate) struct CsharpWebApis;
 
 impl CsharpWebApis {
     const BROWSER: &'static str = concat!(
@@ -19,6 +19,7 @@ impl CsharpWebApis {
     );
 
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";
+    const BROWSER_FAKES: &'static str = include_str!("web_apis/BrowserFakes.cs");
 
     pub(super) fn with_events() -> String {
         format!(
@@ -54,6 +55,10 @@ impl CsharpWebApis {
             FilePickerSources::csharp()
         )
     }
+
+    pub(crate) fn test_unit_library() -> String {
+        format!("{}{}", Self::library(), Self::BROWSER_FAKES)
+    }
 }
 
 #[cfg(test)]
@@ -76,5 +81,12 @@ mod tests {
         assert!(library.contains("public sealed class Geolocation"));
         assert!(library.contains("public sealed class WindowControls"));
         assert!(!library.contains("ConnectivityChanged"));
+    }
+
+    #[test]
+    fn a_test_unit_library_answers_with_browser_fakes() {
+        let library = CsharpWebApis::test_unit_library();
+        assert!(library.contains("public sealed class Clock"));
+        assert!(library.contains("public static class BrowserFakes"));
     }
 }

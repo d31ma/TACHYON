@@ -129,6 +129,7 @@ pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,
 };
 pub(crate) use config::{TacMember, WebAppManifest};
+pub(crate) use csharp_web_apis::CsharpWebApis;
 pub(crate) use go::{
     in_package as go_in_package, module_file as go_module_file,
     publisher_alias as go_publisher_alias, runtime_files as go_runtime_files, web_go,

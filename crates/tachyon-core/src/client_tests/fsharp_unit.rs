@@ -9,7 +9,7 @@ pub(super) struct FsharpUnit;
 
 impl FsharpUnit {
     const UNIT: &'static str = "unit";
-    const MAIN: &'static str = "\nstatic class TachyonTestMain\n{\n    static void Main() => Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(Handler.POST()));\n}\n";
+    const MAIN: &'static str = "\nstatic class TachyonTestMain\n{\n    static void Main()\n    {\n        TacWebHost.Ask = BrowserFakes.Reply;\n        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(Handler.POST()));\n    }\n}\n";
     const NO_UNIT: &'static str =
         "A test unit declares Test on one class; this source declares none.";
 
@@ -60,6 +60,14 @@ impl FsharpUnit {
                 FsharpProject::behaviors_library(&framework),
             ),
             (
+                behaviors.join(FsharpProject::WEB_APIS_FILE),
+                crate::native::CsharpWebApis::test_unit_library(),
+            ),
+            (
+                library.join(FsharpProject::WEB_EVENTS_FILE),
+                crate::route_types::WebEventSources::fsharp(),
+            ),
+            (
                 library.join(FsharpProject::MODELS_FILE),
                 FsharpSource::models_file(&models.separate_files()),
             ),
@@ -69,7 +77,7 @@ impl FsharpUnit {
             ),
             (
                 library.join("service.fsproj"),
-                FsharpProject::library(
+                FsharpProject::test_unit_library(
                     &framework,
                     &FsharpProject::reference(&format!("../{behaviors_project}")),
                 ),

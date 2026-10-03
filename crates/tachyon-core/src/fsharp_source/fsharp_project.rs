@@ -3,6 +3,8 @@ pub(crate) struct FsharpProject;
 impl FsharpProject {
     pub(crate) const MODELS_FILE: &'static str = "Models.fs";
     pub(crate) const PROGRAM_FILE: &'static str = "Program.fs";
+    pub(crate) const WEB_EVENTS_FILE: &'static str = "WebEvents.fs";
+    pub(crate) const WEB_APIS_FILE: &'static str = "WebApis.cs";
     pub(crate) const LIBRARY_FOLDER: &'static str = "service";
     pub(crate) const BEHAVIORS_FOLDER: &'static str = "behaviors";
     const PROGRAM_NAMESPACE: &'static str = "namespace rec global\n";
@@ -21,6 +23,24 @@ impl FsharpProject {
     }
 
     pub(crate) fn library(framework: &str, references: &str) -> String {
+        Self::library_of(
+            framework,
+            &[Self::MODELS_FILE, Self::PROGRAM_FILE],
+            references,
+        )
+    }
+
+    pub(crate) fn test_unit_library(framework: &str, references: &str) -> String {
+        let files = [Self::WEB_EVENTS_FILE, Self::MODELS_FILE, Self::PROGRAM_FILE];
+        Self::library_of(framework, &files, references)
+    }
+
+    fn library_of(framework: &str, files: &[&str], references: &str) -> String {
+        let compiled = files
+            .iter()
+            .map(|file| format!("<Compile Include=\"{file}\" />"))
+            .collect::<Vec<_>>()
+            .concat();
         format!(
             "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    \
              <OutputType>Library</OutputType>\n    \
@@ -28,11 +48,8 @@ impl FsharpProject {
              <AssemblyName>{}</AssemblyName>\n    \
              <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    \
              <SatelliteResourceLanguages>en</SatelliteResourceLanguages>\n  \
-             </PropertyGroup>\n  <ItemGroup><Compile Include=\"{}\" />\
-             <Compile Include=\"{}\" /></ItemGroup>\n{references}</Project>\n",
+             </PropertyGroup>\n  <ItemGroup>{compiled}</ItemGroup>\n{references}</Project>\n",
             Self::LIBRARY_FOLDER,
-            Self::MODELS_FILE,
-            Self::PROGRAM_FILE,
         )
     }
 
@@ -50,9 +67,10 @@ impl FsharpProject {
              <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    \
              <ImplicitUsings>enable</ImplicitUsings>\n    \
              <SatelliteResourceLanguages>en</SatelliteResourceLanguages>\n  \
-             </PropertyGroup>\n  <ItemGroup><Compile Include=\"{}.cs\" /></ItemGroup>\n</Project>\n",
+             </PropertyGroup>\n  <ItemGroup><Compile Include=\"{}.cs\" /><Compile Include=\"{}\" /></ItemGroup>\n</Project>\n",
             Self::BEHAVIORS_FOLDER,
             Self::BEHAVIORS_FOLDER,
+            Self::WEB_APIS_FILE,
         )
     }
 
@@ -96,5 +114,16 @@ mod tests {
             FsharpProject::executable("net9.0", "unit", "")
                 .contains("<Compile Include=\"unit.cs\" />")
         );
+    }
+
+    #[test]
+    fn a_test_unit_library_compiles_the_browser_event_models_first() {
+        let unit = FsharpProject::test_unit_library("net9.0", "");
+        let events = unit
+            .find("WebEvents.fs")
+            .unwrap_or_else(|| panic!("events"));
+        assert!(events < unit.find("Models.fs").unwrap_or_else(|| panic!("models")));
+        assert!(!FsharpProject::library("net9.0", "").contains("WebEvents.fs"));
+        assert!(FsharpProject::behaviors_library("net9.0").contains("WebApis.cs"));
     }
 }

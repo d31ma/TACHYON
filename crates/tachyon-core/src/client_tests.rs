@@ -794,7 +794,16 @@ fn csharp(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result
         directory.join("unit.cs"),
         format!(
             "{lowered}\nstatic class TachyonTestMain {{\n\
-             static void Main() {{ System.Console.WriteLine(new {name}().POST()); }}\n}}\n"
+             static void Main() {{ TacWebHost.Ask = BrowserFakes.Reply; System.Console.WriteLine(new {name}().POST()); }}\n}}\n"
+        ),
+    )
+    .map_err(|error| stage_failure(portable, &error))?;
+    std::fs::write(
+        directory.join("browser.cs"),
+        format!(
+            "{}{}",
+            crate::native::CsharpWebApis::test_unit_library(),
+            crate::route_types::WebEventSources::csharp()
         ),
     )
     .map_err(|error| stage_failure(portable, &error))?;
@@ -850,7 +859,7 @@ fn csharp_project(framework: &str) -> String {
          <Nullable>disable</Nullable>\n    \
          <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n    \
          <ImplicitUsings>enable</ImplicitUsings>\n  </PropertyGroup>\n  \
-         <ItemGroup><Compile Include=\"unit.cs\" /></ItemGroup>\n</Project>\n"
+         <ItemGroup><Compile Include=\"unit.cs\" /><Compile Include=\"browser.cs\" /></ItemGroup>\n</Project>\n"
     )
 }
 

@@ -828,6 +828,13 @@ machine contracts have their own, independent major versions.
   needs is kept.
 
 - `ty test --coverage` includes Groovy Yon services.
+- C# and F# Tac test units can call Tachyon's browser APIs and answer them
+  with `BrowserFakes.Answer("clock", "now", 1000)`, like Go, Ruby, Lua and
+  Swift units. The unit sees the same `Clock`, `Connectivity`,
+  `WindowControls` and other API classes as the page, and the built-in event
+  models (`new ConnectivityChanged(true)` in C#, `{ Online = true }` in F#).
+  A call without an answer fails with a message that names
+  `BrowserFakes.Answer`.
 
 - Converter signatures between declared models infer same-named fields,
   recursively project nested models and lists, and allow explicit field
