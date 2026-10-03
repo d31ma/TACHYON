@@ -1,0 +1,302 @@
+use super::dom_bindings::DomBindings;
+use super::dom_expression::DomExpression;
+use super::dom_kind::DomKind;
+use super::dom_statement::DomStatement;
+use crate::Failure;
+use crate::annotation_layout::single_class::Tokens;
+use std::ops::Range;
+use std::path::Path;
+
+pub(super) struct DomScan<'s> {
+    tokens: Tokens<'s>,
+    bindings: DomBindings,
+}
+
+impl<'s> DomScan<'s> {
+    const HTML_WRITES: [&'static str; 2] = ["innerHTML", "outerHTML"];
+    const STYLE_WRITES: [&'static str; 2] = ["cssText", "adoptedStyleSheets"];
+    const INSERTIONS: [&'static str; 9] = [
+        "append",
+        "appendChild",
+        "prepend",
+        "before",
+        "after",
+        "replaceChildren",
+        "replaceChild",
+        "insertBefore",
+        "insertAdjacentElement",
+    ];
+    const DECLARATIONS: [&'static str; 3] = ["const", "let", "var"];
+    const ASSIGNMENT_PREFIX: [&'static str; 9] = ["+", "-", "*", "/", "%", "&", "|", "?", "^"];
+
+    pub(super) fn new(path: &'s Path, source: &'s str) -> Result<Self, Failure> {
+        let tokens = Tokens::read_script_source(path, source)?;
+        Ok(Self {
+            tokens,
+            bindings: DomBindings::new(),
+        })
+    }
+
+    pub(super) fn first_sink(&mut self) -> Option<Range<usize>> {
+        self.scan()
+    }
+
+    fn scan(&mut self) -> Option<Range<usize>> {
+        (0..self.tokens.items.len()).find_map(|at| {
+            self.update_bindings(at);
+            self.sink(at)
+        })
+    }
+
+    fn text(&self, at: usize) -> &str {
+        self.tokens.items.get(at).map_or("", |token| token.text)
+    }
+
+    fn update_bindings(&mut self, at: usize) {
+        let text = self.text_owned(at);
+        Self::update_scope(&mut self.bindings, &text);
+        self.assignment(at)
+            .into_iter()
+            .for_each(|(name, start, declaration)| {
+                let reader = DomExpression::new(&self.tokens.items, &self.bindings);
+                let end = DomStatement::value_end(&self.tokens, start);
+                let kind = reader.kind(start, end);
+                self.bindings.assign(name, kind, declaration);
+            });
+    }
+
+    fn text_owned(&self, at: usize) -> String {
+        self.text(at).to_owned()
+    }
+
+    fn update_scope(bindings: &mut DomBindings, text: &str) {
+        match text {
+            "{" => bindings.enter(),
+            "}" => bindings.leave(),
+            _ => {}
+        }
+    }
+
+    fn assignment(&self, at: usize) -> Option<(String, usize, bool)> {
+        Self::plain_assignment(&self.tokens, at).then_some(())?;
+        let name_at = self.assignment_name_at(at)?;
+        let token = self.tokens.items.get(name_at)?;
+        (!token.literal).then_some(())?;
+        let name = Self::binding_name(&self.tokens, name_at)?;
+        let declaration = name_at
+            .checked_sub(1)
+            .is_some_and(|before| Self::DECLARATIONS.contains(&self.text(before)));
+        Some((name, at + 1, declaration))
+    }
+
+    fn assignment_name_at(&self, at: usize) -> Option<usize> {
+        let previous = at.checked_sub(1)?;
+        let start = DomStatement::assignment_start(&self.tokens, at);
+        let typed = (start..at)
+            .find(|before| self.text(*before) == ":")
+            .and_then(|colon| colon.checked_sub(1));
+        Some(typed.unwrap_or(previous))
+    }
+
+    fn binding_name(tokens: &Tokens<'_>, at: usize) -> Option<String> {
+        let name = tokens.items.get(at)?.text;
+        Self::identifier(name).then_some(())?;
+        let this = at
+            .checked_sub(2)
+            .is_some_and(|before| tokens.items[before].text == "this");
+        let dot = at
+            .checked_sub(1)
+            .is_some_and(|before| tokens.items[before].text == ".");
+        [this, dot]
+            .contains(&false)
+            .then_some(name.to_owned())
+            .or_else(|| Some(format!("this.{name}")))
+    }
+
+    fn identifier(name: &str) -> bool {
+        name.as_bytes().first().is_some_and(|byte| {
+            [byte.is_ascii_alphabetic(), *byte == b'_', *byte == b'$'].contains(&true)
+        })
+    }
+
+    fn plain_assignment(tokens: &Tokens<'_>, at: usize) -> bool {
+        let text = |at| tokens.items.get(at).map_or("", |token| token.text);
+        [
+            text(at) == "=",
+            !["=", ">"].contains(&text(at + 1)),
+            !["=", "!", "<", ">"].contains(&at.checked_sub(1).map_or("", text)),
+        ]
+        .into_iter()
+        .all(|holds| holds)
+    }
+
+    fn sink(&self, at: usize) -> Option<Range<usize>> {
+        self.member_sink(at).or_else(|| self.function_sink(at))
+    }
+
+    fn function_sink(&self, at: usize) -> Option<Range<usize>> {
+        (self.text(at + 1) == "(").then_some(())?;
+        let kind = self.bindings.kind(self.text(at));
+        let reader = DomExpression::new(&self.tokens.items, &self.bindings);
+        Self::alias_call(&reader, kind, at + 1)
+            .then(|| self.tokens.items[at].start..self.tokens.items[at].end)
+    }
+
+    fn member_sink(&self, at: usize) -> Option<Range<usize>> {
+        let reader = DomExpression::new(&self.tokens.items, &self.bindings);
+        let (property, after) = reader.property(at)?;
+        let receiver = reader.receiver(at);
+        let call = self.text(after) == "(";
+        let alias = [call, property != "bind"]
+            .into_iter()
+            .all(|holds| holds)
+            .then(|| Self::alias_call(&reader, reader.member_reference(at), after))
+            .unwrap_or(false);
+        [alias, self.forbidden(&reader, receiver, property, after)]
+            .contains(&true)
+            .then(|| Self::range(&self.tokens, at, after))
+    }
+
+    fn alias_call(reader: &DomExpression<'_, '_>, kind: DomKind, after: usize) -> bool {
+        let sink = [DomKind::MarkupCall, DomKind::StyleCall].contains(&kind);
+        let insertion = (kind == DomKind::NodeInsertion)
+            .then(|| reader.arguments_create_nodes(after))
+            .unwrap_or(false);
+        [sink, insertion].contains(&true)
+    }
+
+    fn range(tokens: &Tokens<'_>, at: usize, after: usize) -> Range<usize> {
+        tokens.items[at].start..tokens.items[after - 1].end
+    }
+
+    fn forbidden(
+        &self,
+        reader: &DomExpression<'_, '_>,
+        receiver: DomKind,
+        property: &str,
+        after: usize,
+    ) -> bool {
+        let write = Self::writes(&self.tokens, after);
+        let call = self
+            .tokens
+            .items
+            .get(after)
+            .is_some_and(|token| token.text == "(");
+        [
+            Self::markup_write(receiver, property, write),
+            Self::style_write(receiver, property, write),
+            Self::markup_call(receiver, property, call),
+            call.then(|| Self::style_call(reader, receiver, property, after))
+                .unwrap_or(false),
+            call.then(|| Self::inserts_created(reader, receiver, property, after))
+                .unwrap_or(false),
+        ]
+        .contains(&true)
+    }
+
+    fn writes(tokens: &Tokens<'_>, after: usize) -> bool {
+        let at = Self::assignment_at(tokens, after);
+        Self::plain_assignment(tokens, at)
+    }
+
+    fn assignment_at(tokens: &Tokens<'_>, after: usize) -> usize {
+        tokens
+            .items
+            .get(after)
+            .is_some_and(|token| Self::ASSIGNMENT_PREFIX.contains(&token.text))
+            .then_some(after + 1)
+            .unwrap_or(after)
+    }
+
+    fn markup_write(receiver: DomKind, property: &str, write: bool) -> bool {
+        [
+            receiver != DomKind::Data,
+            Self::HTML_WRITES.contains(&property),
+            write,
+        ]
+        .into_iter()
+        .all(|holds| holds)
+    }
+
+    fn style_write(receiver: DomKind, property: &str, write: bool) -> bool {
+        let style = [
+            receiver == DomKind::Style,
+            Self::STYLE_WRITES.contains(&property),
+        ]
+        .contains(&true);
+        [receiver != DomKind::Data, style, write]
+            .into_iter()
+            .all(|holds| holds)
+    }
+
+    fn markup_call(receiver: DomKind, property: &str, call: bool) -> bool {
+        let document_write = [
+            receiver == DomKind::Document,
+            ["write", "writeln"].contains(&property),
+        ]
+        .into_iter()
+        .all(|holds| holds);
+        let html = [receiver != DomKind::Data, property == "insertAdjacentHTML"]
+            .into_iter()
+            .all(|holds| holds);
+        [call, [document_write, html].contains(&true)]
+            .into_iter()
+            .all(|holds| holds)
+    }
+
+    fn style_call(
+        reader: &DomExpression<'_, '_>,
+        receiver: DomKind,
+        property: &str,
+        after: usize,
+    ) -> bool {
+        let rule = [
+            receiver != DomKind::Data,
+            [
+                "insertRule",
+                "deleteRule",
+                "replaceSync",
+                "addRule",
+                "removeRule",
+            ]
+            .contains(&property),
+        ]
+        .into_iter()
+        .all(|holds| holds);
+        let replace = [receiver == DomKind::Sheet, property == "replace"]
+            .into_iter()
+            .all(|holds| holds);
+        let sheet = [rule, replace].contains(&true);
+        let style = [
+            receiver == DomKind::Style,
+            ["setProperty", "removeProperty"].contains(&property),
+        ]
+        .into_iter()
+        .all(|holds| holds);
+        let attribute = [
+            receiver != DomKind::Data,
+            property == "setAttribute",
+            reader.literal_argument(after) == Some("style"),
+        ]
+        .into_iter()
+        .all(|holds| holds);
+        [sheet, style, attribute].contains(&true)
+    }
+
+    fn inserts_created(
+        reader: &DomExpression<'_, '_>,
+        receiver: DomKind,
+        property: &str,
+        after: usize,
+    ) -> bool {
+        let insertion = [
+            receiver != DomKind::Data,
+            Self::INSERTIONS.contains(&property),
+        ]
+        .into_iter()
+        .all(|holds| holds);
+        insertion
+            .then(|| reader.arguments_create_nodes(after))
+            .unwrap_or(false)
+    }
+}

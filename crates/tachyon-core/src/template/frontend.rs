@@ -458,7 +458,7 @@ impl<'a> Parser<'a> {
                 1304,
                 range,
                 "Dynamic attribute name is invalid.",
-                "Place ':' before a valid HTML attribute or component property name.",
+                "Use a valid dynamic attribute name; write a conditional fallback as <logic else>.",
             ));
         }
         let is_control = matches!((tag, dynamic_name), ("loop", "for") | ("for", "each"));
@@ -861,7 +861,7 @@ fn direct_if(
             range.start,
             range.end,
             "<if> requires the Phase 3 :when=\"expression\" contract.",
-            "Replace legacy condition attributes with :when.",
+            "Use <logic :if=\"expression\"> in new templates; the <if> compatibility alias requires :when.",
         )));
     };
     reject_attributes(attributes, source_path, range, "if")?;
@@ -1216,7 +1216,7 @@ fn validate_conditionals(nodes: &[TemplateNode], diagnostics: &mut Vec<Diagnosti
                 node.range.start,
                 node.range.end,
                 "Conditional else branch has no preceding if branch.",
-                "Place else-if or else immediately after an if branch.",
+                "Place <logic :else-if=\"expression\"> or <logic else> directly after a conditional branch.",
             )),
             _ if is_trivia(node) => {}
             _ => after_if_branch = false,
@@ -1368,7 +1368,7 @@ fn control_failure(source_path: &str, range: SourceRange, message: &str) -> Fail
         range.start,
         range.end,
         message,
-        "Use the control syntax documented in PHASE_3_SPEC.md.",
+        "Use <logic :if=\"expression\">, <logic :else-if=\"expression\">, <logic else>, or <loop :for=\"item of items\">.",
     ))
 }
 
@@ -1651,6 +1651,145 @@ mod tests {
         assert!(text.contains("\"kind\":\"conditional\""));
         assert!(text.contains("\"kind\":\"component\""));
         assert!(!text.contains("\"tag\":\"logic\""));
+    }
+
+    #[test]
+    fn canonical_logic_chain_accepts_trivia_and_preserves_else_if() {
+        let program = compile_without_components(
+            "<logic :if=\"ready\"><p>ready</p></logic>\n<!-- branch separator -->\n<logic :else-if=\"waiting\"><p>waiting</p></logic>\n<logic else><p>fallback</p></logic>",
+        )
+        .expect("canonical conditional chain");
+        let json = serde_json::to_value(program.view_ir()).expect("view IR");
+        assert_eq!(json["root"]["kind"], "conditional");
+        assert_eq!(json["root"]["else"][0]["kind"], "conditional");
+        assert_eq!(
+            json["root"]["else"][0]["else"][0]["children"][0]["value"],
+            "fallback"
+        );
+    }
+
+    #[test]
+    fn nested_canonical_logic_chains_keep_their_own_fallback() {
+        let program = compile_without_components(
+            "<logic :if=\"outer\"><logic :if=\"inner\"><p>nested</p></logic><logic else><p>inner fallback</p></logic></logic><logic else><p>outer fallback</p></logic>",
+        )
+        .expect("nested canonical conditional chains");
+        let json = serde_json::to_value(program.view_ir()).expect("view IR");
+        assert_eq!(json["root"]["then"][0]["kind"], "conditional");
+        assert_eq!(
+            json["root"]["then"][0]["else"][0]["children"][0]["value"],
+            "inner fallback"
+        );
+        assert_eq!(
+            json["root"]["else"][0]["children"][0]["value"],
+            "outer fallback"
+        );
+    }
+
+    #[test]
+    fn canonical_logic_preserves_the_if_else_compatibility_plan() {
+        let canonical = compile_without_components(
+            "<logic :if=\"ready\"><p>ready</p></logic><logic else><p>fallback</p></logic>",
+        )
+        .expect("canonical conditional");
+        let compatibility = compile_without_components(
+            "<if :when=\"ready\"><p>ready</p></if><else><p>fallback</p></else>",
+        )
+        .expect("compatible conditional");
+        assert_eq!(canonical.view_ir(), compatibility.view_ir());
+    }
+
+    #[test]
+    fn canonical_loop_preserves_the_for_compatibility_plan() {
+        let canonical =
+            compile_without_components("<loop :for=\"const item of items\"><p>{item}</p></loop>")
+                .expect("canonical iteration");
+        let compatibility =
+            compile_without_components("<for :each=\"const item of items\"><p>{item}</p></for>")
+                .expect("compatible iteration");
+        assert_eq!(canonical.view_ir(), compatibility.view_ir());
+    }
+
+    #[test]
+    fn canonical_logic_requires_one_branch_marker_with_source_location() {
+        let failure = compile_without_components("<logic><p>missing</p></logic>")
+            .expect_err("missing branch marker");
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.number(), 1302);
+        assert_eq!(diagnostic.spans[0].file, "client/pages/tac.html");
+        assert!(diagnostic.message.contains("exactly one"));
+        assert!(
+            diagnostic
+                .help
+                .as_deref()
+                .expect("canonical help")
+                .contains("<logic else>")
+        );
+    }
+
+    #[test]
+    fn canonical_logic_refuses_multiple_branch_markers() {
+        let failure = compile_without_components("<logic :if=\"ready\" else>invalid</logic>")
+            .expect_err("multiple branch markers");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1302);
+        assert!(
+            failure.diagnostics()[0]
+                .message
+                .contains("unsupported attributes")
+        );
+    }
+
+    #[test]
+    fn canonical_logic_refuses_dynamic_else_with_the_bare_else_hint() {
+        let failure = compile_without_components(
+            "<logic :if=\"ready\">ready</logic><logic :else=\"true\">invalid</logic>",
+        )
+        .expect_err("dynamic else");
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.number(), 1304);
+        assert_eq!(diagnostic.spans[0].file, "client/pages/tac.html");
+        assert!(
+            diagnostic
+                .help
+                .as_deref()
+                .expect("bare else help")
+                .contains("<logic else>")
+        );
+    }
+
+    #[test]
+    fn canonical_logic_refuses_a_valued_else_flag() {
+        let failure = compile_without_components(
+            "<logic :if=\"ready\">ready</logic><logic else=\"true\">invalid</logic>",
+        )
+        .expect_err("valued else");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1302);
+    }
+
+    #[test]
+    fn canonical_logic_refuses_an_orphan_else_if() {
+        let failure = compile_without_components("<logic :else-if=\"ready\">orphan</logic>")
+            .expect_err("orphan else-if");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1302);
+        assert!(
+            failure.diagnostics()[0]
+                .message
+                .contains("no preceding if branch")
+        );
+    }
+
+    #[test]
+    fn canonical_logic_refuses_an_else_after_nontrivia() {
+        let failure = compile_without_components(
+            "<logic :if=\"ready\">ready</logic><p>separate</p><logic else>orphan</logic>",
+        )
+        .expect_err("separated else");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1302);
+        assert!(
+            failure.diagnostics()[0]
+                .message
+                .contains("no preceding if branch")
+        );
     }
 
     #[test]

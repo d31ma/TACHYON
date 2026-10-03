@@ -17,6 +17,7 @@ impl ComponentScript {
     ) -> Result<Vec<u8>, Failure> {
         let source = std::str::from_utf8(&bytes)
             .map_err(|_| Self::retired_decorator_failure(source_path))?;
+        crate::annotation_layout::AuthoredDomGuard::check(Path::new(source_path), source)?;
         let assembled = crate::annotation_modules::assemble(
             snapshot_root,
             Path::new(source_path),

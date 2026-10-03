@@ -22,7 +22,7 @@ pub struct HtmlFrontend;
 
 impl HtmlFrontend {
     const MAX_HTML_BYTES: u64 = 1_048_576;
-    const CONTROL_TAGS: &[&str] = &["else", "for", "if", "loop"];
+    const CONTROL_TAGS: &[&str] = &["logic", "loop", "if", "else", "for"];
     const EVENT_HANDLER_ATTRIBUTES: &[&str] = &[
         "onabort",
         "onbeforeinput",
@@ -457,6 +457,25 @@ mod tests {
         let document = parse("<html><head><title>X</title></head><body>X</body></html>")
             .expect("valid document");
         assert!(document.content().starts_with("<!doctype html>\n<html>"));
+    }
+
+    #[test]
+    fn canonical_logic_is_deferred_by_the_static_html_frontend() {
+        let failure = parse("<logic :if=\"ready\"><p>ready</p></logic>")
+            .expect_err("logic requires Tac compilation");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1103);
+        assert!(failure.diagnostics()[0].message.contains("<logic>"));
+        assert_eq!(
+            failure.diagnostics()[0].spans[0].file,
+            "client/pages/tac.html"
+        );
+    }
+
+    #[test]
+    fn canonical_loop_remains_deferred_by_the_static_html_frontend() {
+        let failure = parse("<loop :for=\"const item of items\"><p>{item}</p></loop>")
+            .expect_err("loop requires Tac compilation");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1103);
     }
 
     #[test]

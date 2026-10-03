@@ -8,6 +8,8 @@ use std::path::Path;
 pub(crate) struct SiteSettings {
     pub(crate) scripts: Vec<String>,
     pub(crate) styles: Vec<String>,
+    pub(crate) style_sources: BTreeMap<String, super::style_source::StyleSource>,
+    pub(crate) script_sources: BTreeMap<String, super::vendor_provenance::VendorProvenance>,
     pub(crate) cache_rules: Vec<CacheRule>,
     pub(crate) metadata: SiteMetadata,
     pub(crate) manifest_head: String,
@@ -21,24 +23,32 @@ impl SiteSettings {
     const MAX_ORIGIN_LENGTH: usize = 256;
 
     pub(crate) fn load(project_root: &Path) -> Result<Self, Failure> {
-        let Some(manifest) = read_manifest(project_root)? else {
-            return Ok(Self::default());
-        };
+        let manifest = read_manifest(project_root)?;
+        manifest.map_or(Ok(Self::default()), Self::from_manifest)
+    }
+
+    pub(crate) fn from_captured_manifest(bytes: Option<&[u8]>) -> Result<Self, Failure> {
+        let manifest = super::config::WebAppManifest::from_captured(bytes)?;
+        manifest.map_or(Ok(Self::default()), Self::from_manifest)
+    }
+
+    fn from_manifest(manifest: super::config::WebAppManifest) -> Result<Self, Failure> {
         let manifest_head = manifest_head(&manifest);
         let tac = manifest.into_tac();
         Self::validate_origin(tac.origin.as_deref())?;
         validate_document_paths("scripts", &tac.scripts)?;
         validate_document_paths("styles", &tac.styles)?;
+        Self::validate_source_paths(tac.style_sources.keys())?;
+        Self::validate_source_paths(tac.script_sources.keys())?;
         let cache_rules = compile_cache_rules(tac.cache)?;
         let browser_apis = super::browser_api_grants::BrowserApiGrants::checked(tac.browser_apis)?;
         validate_sitemap(tac.origin.as_deref(), &tac.sitemap)?;
-        let mut metadata = tac.metadata;
-        if let Some(origin) = &tac.origin {
-            metadata.resolve_against(origin);
-        }
+        let metadata = Self::resolved_metadata(tac.metadata, tac.origin.as_deref());
         Ok(Self {
             scripts: tac.scripts,
             styles: tac.styles,
+            style_sources: tac.style_sources,
+            script_sources: tac.script_sources,
             cache_rules,
             metadata,
             manifest_head,
@@ -49,11 +59,23 @@ impl SiteSettings {
         })
     }
 
+    fn resolved_metadata(mut metadata: SiteMetadata, origin: Option<&str>) -> SiteMetadata {
+        let _ = origin.inspect(|origin| metadata.resolve_against(origin));
+        metadata
+    }
+
     pub(crate) fn exports_elements(project_root: &Path) -> bool {
         read_manifest(project_root)
             .ok()
             .flatten()
             .is_some_and(|manifest| !manifest.into_tac().elements.is_empty())
+    }
+
+    fn validate_source_paths<'a>(
+        mut paths: impl Iterator<Item = &'a String>,
+    ) -> Result<(), Failure> {
+        paths
+            .try_for_each(|path| crate::compiler::StylePath::validate(path).map_err(config_failure))
     }
 
     fn validate_origin(origin: Option<&str>) -> Result<(), Failure> {

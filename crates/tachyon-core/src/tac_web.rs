@@ -682,6 +682,8 @@ mod dotnet_http_cache_browser_fixture;
 #[cfg(test)]
 mod dotnet_task_browser_fixture;
 #[cfg(test)]
+mod dotnet_task_collection_browser_fixture;
+#[cfg(test)]
 mod dotnet_task_model_browser_fixture;
 #[cfg(test)]
 mod dotnet_task_tests;

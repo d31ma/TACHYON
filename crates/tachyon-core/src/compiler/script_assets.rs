@@ -89,6 +89,7 @@ impl<'a> ScriptAssets<'a> {
 
     async fn publish(&mut self, path: &Path) -> Result<(), Failure> {
         let authored = self.read(path)?;
+        super::shared_scripts::SharedScripts::check_file(self.snapshot_root, path, &authored)?;
         let bytes = self.compile(path, &authored).await?;
         let output = Self::output_path(path);
         self.require_new_output(path, &output)?;

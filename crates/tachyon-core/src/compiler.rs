@@ -6,14 +6,32 @@ mod build_stage;
 mod build_state;
 mod captured_browser_behavior;
 mod component_script;
+mod component_style_boundary;
+#[cfg(test)]
+mod component_style_boundary_tests;
 mod component_styles;
 mod content_digest;
 mod content_security_policy;
 #[cfg(test)]
 mod csharp_task_model_tests;
+mod css_escape;
+mod css_imports;
+mod css_problem;
+mod css_rule;
+mod css_rules;
+mod css_token;
+mod css_tokens;
+mod css_url;
 mod element_declaration;
 mod element_events;
 mod exported_elements;
+mod foundation_colors;
+mod foundation_declarations;
+mod foundation_priority;
+mod foundation_properties;
+mod foundation_rules;
+mod foundation_selectors;
+mod foundation_values;
 mod output_path;
 mod page_composition;
 mod page_head;
@@ -31,8 +49,16 @@ mod service_checks;
 mod service_script;
 mod service_worker;
 mod shared_assets;
+pub(crate) mod shared_scripts;
+#[cfg(test)]
+mod shared_scripts_tests;
 mod site_build;
 mod speculation_rules;
+mod style_file;
+mod style_path;
+mod style_sources;
+#[cfg(test)]
+mod style_sources_tests;
 #[cfg(test)]
 mod tac_component_scope_tests;
 #[cfg(test)]
@@ -69,6 +95,8 @@ use site_build::SiteBuild;
 pub(crate) use speculation_rules::SpeculationRules;
 use std::io;
 use std::path::{Path, PathBuf};
+pub(crate) use style_path::StylePath;
+use style_sources::StyleSources;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WebCompiler;
@@ -352,6 +380,7 @@ impl WebCompiler {
         crate::ComposedTypes::write(types_root)?;
         let mut build = SiteBuild::discover(project, options, native_target)?;
         let site = crate::native::SiteSettings::load(build.snapshot_root)?;
+        StyleSources::validate(build.snapshot_root, &site)?;
         let cache_rules = ServiceWorker::cache_rules_literal(&site.cache_rules)?;
         let programs = build.compile_route_programs()?;
         let previous = options
@@ -374,6 +403,7 @@ impl WebCompiler {
         build.finish_phase("manifest and service worker");
         build.write_output()
     }
+
     fn needs_static_files(has_routes: bool, has_elements: bool) -> bool {
         has_routes || has_elements
     }
@@ -1644,6 +1674,11 @@ export default class Chat {
                     "routes":{"/":{"title":"Home & Shop","canonical":"/"}}
                 }
             }}"#,
+        );
+        write_file(
+            root.path(),
+            "client/shared/site.css",
+            "body { color: #123456; margin: 0; }",
         );
         let built = build_default(root.path()).expect("build");
         let output = built.output_directory();

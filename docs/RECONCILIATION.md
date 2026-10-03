@@ -45,7 +45,9 @@ ADR means architecture decision record (see `docs/adr/`).
 - Keep `serve`, `dev`, `native-bundle`, legacy `<if>/<else>/<for>` and bare
   iteration bindings as compatibility spellings. The new capabilities do not
   require removing a working spelling. New examples use preview/start,
-  bundle --native, logic, and declared loop bindings.
+  bundle --native, `<logic :if>`, `<logic :else-if>`, `<logic else>`, and
+  `<loop :for>` with declared loop bindings. The fallback `else` is a bare
+  flag. These controls belong inside components; pages compose components.
 - `preview --static` still lets you inspect static artifacts without running
   Yon or rebuilding. Plain preview is the development command.
 - Keep these released safeguards:

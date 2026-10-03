@@ -1,0 +1,16 @@
+<main>
+  <p id="collection-answer">{collection.first}</p>
+  <logic :if="collection.first">
+    <p id="collection-published">Decoded collection published</p>
+  </logic>
+  <button id="collection-ask" on:click="collection.ask()">Read ordered collection</button>
+  <button id="collection-empty" on:click="collection.empty()">Read empty list</button>
+  <button id="collection-nullable" on:click="collection.nullable()">Read nullable elements</button>
+  <button id="collection-missing" on:click="collection.missing()">Reject missing list</button>
+  <button id="collection-wrong-array" on:click="collection.wrongArray()">Reject non-list</button>
+  <button id="collection-missing-member" on:click="collection.missingMember()">Reject missing member</button>
+  <button id="collection-wrong-member" on:click="collection.wrongMember()">Reject wrong member</button>
+  <button id="collection-extra-member" on:click="collection.extraMember()">Reject undeclared member</button>
+  <button id="collection-null-member" on:click="collection.nullMember()">Reject null member</button>
+  <button id="collection-slow" on:click="collection.slow()">Read delayed collection</button>
+</main>

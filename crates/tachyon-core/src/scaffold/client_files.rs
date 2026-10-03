@@ -9,7 +9,7 @@ impl ClientFiles {
 
     pub(crate) fn for_choices(app_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let javascript_name = AppName::javascript_literal(app_name);
-        let mut files = Self::fixed_files(&javascript_name, choices.client_uses_typescript());
+        let mut files = Self::fixed_files(&javascript_name, choices);
         files.push((
             String::from(Self::SHELL_VIEW),
             Self::shell_view(&choices.tac),
@@ -33,7 +33,7 @@ impl ClientFiles {
     ) -> Vec<(String, String)> {
         let mut files = Self::template_files(language);
         files.extend(Self::javascript_files(language, javascript_name));
-        files.extend(Self::greeting_view(language));
+        files.extend(Self::greeting_files(language));
         files
     }
 
@@ -71,16 +71,22 @@ impl ClientFiles {
         Self::shell_service_files(javascript_name)
     }
 
-    fn greeting_view(language: TacLanguage) -> Option<(String, String)> {
+    fn greeting_files(language: TacLanguage) -> Vec<(String, String)> {
         let instance = language.instance();
         let label = language.label();
-        Self::greeting_tag(language).map(|_| {
-            (
-                format!("client/components/greeting/{}/tac.html", language.slug()),
-                format!(
-                    "<section class=\"greeting\">\n  <p>{{{instance}.message}}</p>\n  <button on:click=\"{instance}.greet()\">Say hello in {label}</button>\n</section>\n"
+        Self::greeting_tag(language).map_or_else(Vec::new, |_| {
+            vec![
+                (
+                    format!("client/components/greeting/{}/tac.html", language.slug()),
+                    format!(
+                        "<section class=\"greeting\">\n  <p>{{{instance}.message}}</p>\n  <button on:click=\"{instance}.greet()\">Say hello in {label}</button>\n</section>\n"
+                    ),
                 ),
-            )
+                (
+                    format!("client/components/greeting/{}/tac.css", language.slug()),
+                    String::from(".greeting { margin-top: 1.5rem; }\n"),
+                ),
+            ]
         })
     }
 
@@ -98,26 +104,20 @@ impl ClientFiles {
         Self::PLAIN_BRAND
     }
 
-    fn fixed_files(javascript_name: &str, typescript_only: bool) -> Vec<(String, String)> {
+    fn fixed_files(javascript_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let files = [
             (
                 "client/manifest.json",
-                format!(
-                    "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n    \"scripts\": [\"/shared/scripts/imports.js\"],\n    \"styles\": [\"/shared/styles/app.css\"]\n  }}\n}}\n"
-                ),
+                Self::manifest(javascript_name, choices),
             ),
             (
                 "client/jsconfig.json",
-                BaseFiles::jsconfig("client", typescript_only),
-            ),
-            (
-                "client/shared/scripts/imports.js",
-                String::from("document.documentElement.setAttribute('data-theme', 'light')\n"),
+                BaseFiles::jsconfig("client", choices.client_uses_typescript()),
             ),
             (
                 "client/shared/styles/app.css",
                 String::from(
-                    ":root {\n  color-scheme: dark;\n}\nbody { margin: 0; font-family: \"IBM Plex Sans\", ui-sans-serif, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }\n.greeting { margin-top: 1.5rem; }\n",
+                    ":root {\n  color-scheme: dark;\n}\nbody { margin: 0; font-family: \"IBM Plex Sans\", ui-sans-serif, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }\n",
                 ),
             ),
             ("client/shared/assets/.gitkeep", String::new()),
@@ -147,12 +147,26 @@ impl ClientFiles {
             .collect()
     }
 
+    fn manifest(javascript_name: &str, choices: &ProjectChoices) -> String {
+        let browser_apis = Self::browser_apis(choices.tac.contains(&TacLanguage::JavaScript));
+        format!(
+            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n{browser_apis}    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}\n  }}\n}}\n"
+        )
+    }
+
+    fn browser_apis(has_shell_service: bool) -> &'static str {
+        if has_shell_service {
+            return "    \"browserApis\": [\"documentTitle\"],\n";
+        }
+        ""
+    }
+
     fn shell_service_files(javascript_name: &str) -> Vec<(String, String)> {
         vec![
             (
                 String::from("client/services/ShellService.js"),
                 format!(
-                    "@Service\nexport default class ShellService {{\n  brand = 'Tachyon'\n\n  @OnStart\n  initialize() {{\n    document.title = {javascript_name}\n  }}\n}}\n"
+                    "@Service\nexport default class ShellService {{\n  brand = 'Tachyon'\n\n  /** @type {{DocumentTitle}} */\n  @Needs\n  documentTitle\n\n  @OnStart\n  initialize() {{\n    this.documentTitle.set({javascript_name})\n  }}\n}}\n"
                 ),
             ),
             (
@@ -164,7 +178,7 @@ impl ClientFiles {
             (
                 String::from("client/tests/ShellServiceTest.js"),
                 format!(
-                    "@Test(ShellTestSetup, {{\"partition\":\"tests\"}})\nexport default class ShellServiceTest {{\n  async testInitializeNamesTheDocument() {{\n    globalThis.document ??= /** @type {{Document}} */ ({{ title: '' }})\n    new ShellService().initialize()\n    Assert.equals({javascript_name}, document.title)\n  }}\n}}\n",
+                    "@Test(ShellTestSetup, {{\"partition\":\"tests\"}})\nexport default class ShellServiceTest {{\n  /** @type {{DocumentTitle}} */\n  @Fake\n  documentTitle\n\n  async testInitializeNamesTheDocument() {{\n    let title = ''\n    this.documentTitle = {{ set: (value) => {{ title = value }} }}\n    this.construct(ShellService).initialize()\n    Assert.equals({javascript_name}, title)\n  }}\n}}\n",
                 ),
             ),
         ]

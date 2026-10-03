@@ -1,8 +1,6 @@
-use super::{CaptureProblem, CapturedFile, ProjectDiscovery, RoleSource, SourceWalk};
+use super::{CaptureProblem, CaptureVendor, CapturedFile, ProjectDiscovery, SourceWalk};
 use crate::Failure;
-use crate::annotation_layout::{
-    BrowserInteropCheck, CohesionCheck, DesignCheck, DesignSwitches, DuplicationCheck, RuleSwitch,
-};
+use crate::annotation_layout::{DesignCheck, DesignSwitches, DuplicationCheck, RuleSwitch};
 use crate::handler::OwnedSourceRoot;
 use cap_std::fs::{Dir, DirEntry};
 use std::path::Path;
@@ -82,6 +80,7 @@ impl CapturedSources {
         cohesion: RuleSwitch,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
+        let vendor = Self::vendor_context(&self.configs, &self.shared, diagnostics);
         self.pages
             .iter()
             .chain(&self.components)
@@ -90,7 +89,10 @@ impl CapturedSources {
             .chain(&self.configs)
             .chain(&self.middleware)
             .chain(&self.server)
-            .for_each(|file| Self::stage_file(file, source_root, cohesion, diagnostics));
+            .for_each(|file| {
+                let checked = vendor.check_file(file, cohesion);
+                Self::stage_file(file, source_root, checked, diagnostics);
+            });
     }
 
     pub(super) fn check_duplication(&self, switch: RuleSwitch, diagnostics: &mut Vec<Diagnostic>) {
@@ -169,15 +171,23 @@ impl CapturedSources {
         diagnostics.extend(crate::safety::HostCheck::new(&tac, &yon).diagnostics(code()));
     }
 
+    fn vendor_context(
+        configs: &[CapturedFile],
+        shared: &[CapturedFile],
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> CaptureVendor {
+        CaptureVendor::from_files(configs, shared).unwrap_or_else(|failure| {
+            diagnostics.extend_from_slice(failure.diagnostics());
+            CaptureVendor::default()
+        })
+    }
+
     fn stage_file(
         file: &CapturedFile,
         source_root: &OwnedSourceRoot,
-        cohesion: RuleSwitch,
+        checked: Result<(), Failure>,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
-        let checked = RoleSource::validate(file)
-            .and_then(|()| BrowserInteropCheck::check_file(&file.relative, &file.bytes))
-            .and_then(|()| CohesionCheck::check_file(&file.relative, &file.bytes, cohesion));
         let staged = source_root.stage(&file.relative, &file.bytes, &file.portable());
         [checked, staged]
             .into_iter()

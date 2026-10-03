@@ -43,6 +43,16 @@ write `sitemap.xml` and `robots.txt`.
     Without them, the id comes from the folder name, the version is 1.0.0 and
     the window is 1024 by 768.
   - `scripts` and `styles`: up to 8 local paths each, linked into every page.
+  - `styleSources`: optional declarations keyed by exact local `/shared/` stylesheet
+    URL. `{ "kind": "foundation" }` receives the narrow colors/fonts/reset audit;
+    an undeclared legacy `styles` string receives the same audit. A pinned vendor
+    declares `{ "kind": "vendor", "package", "version", "license", "sha256" }`
+    and the build verifies captured source bytes. CSS imports retain file/byte/
+    depth/path/encoding/no-symlink bounds and cannot hide undeclared application
+    layout. See the [bounded source grammar](../queue/NEXT/TAC-FOUNDATION-CSS-PROGRESS.md).
+  - `scriptSources`: optional exact local shared vendor-script declarations with
+    `package`, `version`, `license` and `sha256`. Only byte-verified declared vendors
+    receive the authored-script exception; folder and filename do not grant it.
   - `cache`: up to 64 service-worker read rules, `{ "path", "policy" }`.
   - `metadata`: `defaults` and `routes` (keyed by route, such as
     `/docs/_topic`) with `title`, `description`, `canonical`, `image`,

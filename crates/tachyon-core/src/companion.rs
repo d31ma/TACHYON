@@ -12,6 +12,7 @@ mod csharp_task_members;
 #[cfg(test)]
 mod csharp_task_model_tests;
 mod csharp_task_result;
+mod csharp_task_shape;
 use constructor_field_policy::ConstructorFieldPolicy;
 use csharp_browser_members::CsharpBrowserMembers;
 pub(crate) use csharp_task_members::CsharpTaskMembers;

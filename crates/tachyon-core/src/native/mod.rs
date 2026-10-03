@@ -117,7 +117,9 @@ mod site_map;
 mod site_tests;
 #[cfg(test)]
 mod storage_tests;
+mod style_source;
 mod swift_web_services;
+mod vendor_provenance;
 mod web_program_build;
 mod windows;
 
@@ -140,7 +142,9 @@ pub(crate) use rust::companion_prelude;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
 pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
 pub(crate) use site_map::SiteMap;
+pub(crate) use style_source::StyleSource;
 pub(crate) use swift_web_services::SwiftWebServices;
+pub(crate) use vendor_provenance::VendorProvenance;
 pub(crate) use windows::web_dotnet;
 
 #[cfg(feature = "fuzzing")]

@@ -82,6 +82,9 @@ impl BaseFiles {
              `ty serve` finds out whether the app has `client/`, `server/`, or both, and serves the frontend, the backend, or both.\n\n\
              ## Application configuration\n\n\
              - `client/manifest.json` is the web app manifest. Its `tac` member is Tac's public configuration, and everything in it is sent to the browser.\n\
+             - `client/shared/styles/app.css` is declared as foundation CSS in `tac.styleSources`. Keep document colours, fonts and resets there; put component layout and selectors in the component's own `tac.css` beside `tac.html`. Pages compose components and do not have CSS.\n\
+             - Put startup behavior in a registered Service's `OnStart` method. The JavaScript ShellService receives `DocumentTitle` by injection and its test supplies a `Fake`; shared scripts do not run application startup.\n\
+             - Stateless shared utilities belong in `client/shared/utils/TopicUtils.<ext>`, one matching class with static methods. Registered Services own state and lifecycle behavior.\n\
              - `server/application.json` belongs to Yon only. Its members are Yon's configuration without secrets, read as `yon.*` paths.\n\
              - The server's host and port come from the CLI arguments first, then from `server/application-<profile>.json` (chosen with `YON_PROFILE`), then from `server/application.json`.\n\
              - Datasource and Redis settings configure adapters that the application owns. They do not open connections by themselves.\n\

@@ -1,10 +1,10 @@
 use super::{Failure, Input};
 
-pub(super) struct Token<'a> {
-    pub(super) text: &'a str,
-    pub(super) start: usize,
-    end: usize,
-    pub(super) literal: bool,
+pub(crate) struct Token<'a> {
+    pub(crate) text: &'a str,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) literal: bool,
 }
 
 impl Token<'_> {
@@ -18,8 +18,8 @@ impl Token<'_> {
     }
 }
 
-pub(super) struct Tokens<'a> {
-    pub(super) items: Vec<Token<'a>>,
+pub(crate) struct Tokens<'a> {
+    pub(crate) items: Vec<Token<'a>>,
     source: &'a str,
     extension: &'a str,
     error: Option<&'static str>,
@@ -27,6 +27,20 @@ pub(super) struct Tokens<'a> {
 
 impl<'a> Tokens<'a> {
     const MAX_TOKENS: usize = 262_144;
+
+    pub(crate) fn read_script_source(
+        path: &'a std::path::Path,
+        source: &'a str,
+    ) -> Result<Self, Failure> {
+        let input = Input {
+            path,
+            source,
+            extension: "js",
+        };
+        let tokens = Self::read(&input)?;
+        tokens.check_complete(&input)?;
+        Ok(tokens)
+    }
 
     pub(super) fn read(input: &Input<'a>) -> Result<Self, Failure> {
         let masked = input.masked_code()?;
@@ -329,7 +343,7 @@ impl<'a> Tokens<'a> {
         )
     }
 
-    pub(super) fn new_line_before(&self, at: usize) -> bool {
+    pub(crate) fn new_line_before(&self, at: usize) -> bool {
         let Some(previous) = at.checked_sub(1).and_then(|index| self.items.get(index)) else {
             return true;
         };

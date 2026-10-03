@@ -3,6 +3,9 @@ mod braced_attribute;
 mod client;
 mod component;
 mod component_slots;
+mod component_style_ownership;
+#[cfg(test)]
+mod component_style_ownership_tests;
 mod context;
 mod expression;
 #[cfg(test)]

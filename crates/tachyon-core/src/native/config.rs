@@ -147,10 +147,7 @@ pub(super) fn read_manifest(project_root: &Path) -> Result<Option<WebAppManifest
     }
     let source = fs::read_to_string(&path)
         .map_err(|error| config_failure(&format!("Cannot read {manifest_name}: {error}")))?;
-    let manifest: WebAppManifest = serde_json::from_str(crate::without_bom(&source))
-        .map_err(|error| config_failure(&format!("{manifest_name} is invalid: {error}")))?;
-    validate_manifest(&manifest)?;
-    Ok(Some(manifest))
+    WebAppManifest::from_source(&source).map(Some)
 }
 
 fn valid_manifest_name(name: &str) -> bool {
@@ -334,6 +331,30 @@ pub(super) struct ManifestIcon {
 }
 
 impl WebAppManifest {
+    pub(super) fn from_captured(bytes: Option<&[u8]>) -> Result<Option<WebAppManifest>, Failure> {
+        bytes.map(Self::read_captured).transpose()
+    }
+
+    fn read_captured(bytes: &[u8]) -> Result<WebAppManifest, Failure> {
+        if bytes.len() > WebAppManifest::MAX_BYTES as usize {
+            return Err(config_failure(
+                "client/manifest.json exceeds the 1 MiB limit.",
+            ));
+        }
+        let source = std::str::from_utf8(bytes).map_err(|error| {
+            config_failure(&format!("Cannot read client/manifest.json: {error}"))
+        })?;
+        Self::from_source(source)
+    }
+
+    fn from_source(source: &str) -> Result<WebAppManifest, Failure> {
+        let manifest_name = WebAppManifest::SOURCE_PATH;
+        let manifest: WebAppManifest = serde_json::from_str(crate::without_bom(source))
+            .map_err(|error| config_failure(&format!("{manifest_name} is invalid: {error}")))?;
+        validate_manifest(&manifest)?;
+        Ok(manifest)
+    }
+
     const LEGACY_NAME: &str = "manifest.json";
     const MAX_BYTES: u64 = 1_024 * 1_024;
     pub(crate) const SOURCE_PATH: &str = "client/manifest.json";
@@ -383,6 +404,10 @@ pub(crate) struct TacMember {
     pub(super) scripts: Vec<String>,
     #[serde(default)]
     pub(super) styles: Vec<String>,
+    #[serde(default, rename = "styleSources")]
+    pub(super) style_sources: BTreeMap<String, super::style_source::StyleSource>,
+    #[serde(default, rename = "scriptSources")]
+    pub(super) script_sources: BTreeMap<String, super::vendor_provenance::VendorProvenance>,
     #[serde(default)]
     pub(super) cache: Vec<RawCacheRule>,
     #[serde(default)]
@@ -396,11 +421,13 @@ pub(crate) struct TacMember {
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 18] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 20] = [
         "origin",
         "application",
         "scripts",
         "styles",
+        "styleSources",
+        "scriptSources",
         "cache",
         "metadata",
         "sitemap",

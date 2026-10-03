@@ -15,7 +15,7 @@ pub(super) mod simpler_forms;
 pub(crate) use schema_markers::SchemaMarkers;
 mod tokens;
 pub(super) mod utility_layout;
-use tokens::Tokens;
+pub(crate) use tokens::{Token, Tokens};
 
 pub(super) fn has_framework_annotation(path: &Path, source: &str) -> Result<bool, Failure> {
     let input = Input::new(path, source);

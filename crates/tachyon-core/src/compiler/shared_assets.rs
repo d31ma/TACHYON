@@ -16,7 +16,8 @@ impl SharedAssets {
 
     pub(super) fn collect(project_root: &Path) -> Result<Vec<(PathBuf, Vec<u8>)>, Failure> {
         let root = project_root.join("client/shared");
-        let mut assets = Self::walk_when_present(&root)?;
+        let assets = Self::walk_when_present(&root)?;
+        let mut assets = super::shared_scripts::SharedScripts::prepare(project_root, assets)?;
         assets.sort_by_key(|asset| PortablePath::of(&asset.0));
         Ok(assets)
     }
@@ -146,7 +147,6 @@ impl SharedAssets {
             .strip_prefix(root)
             .map_err(|error| Self::error(path, &error))?;
         let bytes = fs::read(path).map_err(|error| Self::error(path, &error))?;
-        let bytes = Self::strip_css_imports(path, bytes);
         assets.push((PathBuf::from("shared").join(relative), bytes));
         Ok(())
     }

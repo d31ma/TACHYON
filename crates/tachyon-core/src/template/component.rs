@@ -1,5 +1,6 @@
+use super::component_style_ownership::ComponentStyleOwnership;
 use super::model::{AttributeValue, TemplateAttribute};
-use super::{TemplateFrontend, TemplateNode, TemplateNodeKind, TemplateProgram};
+use super::{TemplateNode, TemplateNodeKind, TemplateProgram};
 use crate::Failure;
 use crate::compiler::{hex_digest, portable_path};
 use crate::failure::{diagnostic, source_span};
@@ -303,7 +304,8 @@ fn define_components(
         };
         let relative_template =
             portable_path(template.strip_prefix(project_root).unwrap_or(&template));
-        let program = match TemplateFrontend::compile_file(&template, &relative_template, &names) {
+        let program = match ComponentStyleOwnership::compile(&template, &relative_template, &names)
+        {
             Ok(program) => program,
             Err(failure) => {
                 diagnostics.extend_from_slice(failure.diagnostics());

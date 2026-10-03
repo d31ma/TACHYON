@@ -2,6 +2,7 @@ use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use crate::project::{CompanionKind, NativeCompanion};
 use crate::template::{ComponentRegistry, TemplateFrontend};
+use html5gum::{Token, Tokenizer};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -129,6 +130,7 @@ impl MigrationAnalysis {
     const MAX_SOURCE_BYTES: u64 = 4 * 1_024 * 1_024;
     const MAX_PUBLISHER_SCAN_BYTES: usize = 1024 * 1024;
     const MAX_FINDINGS: usize = 10_000;
+    const CONTROL_TAGS: [&'static str; 5] = ["logic", "loop", "if", "else", "for"];
     const IGNORED_DIRECTORIES: [&str; 7] = [
         ".git",
         ".tachyon",
@@ -139,6 +141,73 @@ impl MigrationAnalysis {
         "__pycache__",
     ];
     const PROJECT_FOLDERS: [&str; 2] = ["client", "server"];
+
+    fn has_view_bindings(source: &str) -> bool {
+        source.contains('{') && source.contains('}')
+    }
+
+    fn record_view_controls(relative: &str, present: bool, findings: &mut Vec<MigrationFinding>) {
+        if !present {
+            return;
+        }
+        findings.push(MigrationFinding::new(
+            relative,
+            "view.control_tags",
+            MigrationStatus::Supported,
+            "Canonical <logic> conditionals and <loop> iteration are validated by the compiler and rendered exclusively by the Tac client. The <if>/<else>/<for> aliases remain supported for compatibility. Yon is REST-only and never renders a view.",
+            None,
+        ));
+    }
+
+    fn record_view_bindings(relative: &str, present: bool, findings: &mut Vec<MigrationFinding>) {
+        if !present {
+            return;
+        }
+        findings.push(MigrationFinding::new(
+            relative,
+            "view.bindings",
+            MigrationStatus::Supported,
+            "Bounded binding expressions are evaluated with contextual escaping.",
+            None,
+        ));
+    }
+
+    fn record_view_legacy_events(
+        relative: &str,
+        present: bool,
+        findings: &mut Vec<MigrationFinding>,
+    ) {
+        if !present {
+            return;
+        }
+        findings.push(MigrationFinding::new(
+            relative,
+            "view.legacy_events",
+            MigrationStatus::Changed,
+            "Generated data-tac-on-* markers are replaced by on:<event> bindings in the Tac client render plan.",
+            Some("Author an on:<event> binding and let the Tac renderer own dispatch."),
+        ));
+    }
+
+    fn record_view_islands(relative: &str, present: bool, findings: &mut Vec<MigrationFinding>) {
+        if !present {
+            return;
+        }
+        findings.push(MigrationFinding::new(
+            relative,
+            "view.islands",
+            MigrationStatus::Changed,
+            "Tac has no SSR islands; components are created and mounted entirely in the browser.",
+            Some("Use a registered Tac component tag; hydrate= is accepted only as a mount schedule."),
+        ));
+    }
+
+    fn is_control_token(token: Token) -> bool {
+        let Token::StartTag(tag) = token else {
+            return false;
+        };
+        Self::CONTROL_TAGS.contains(&String::from_utf8_lossy(&tag.name).as_ref())
+    }
 
     pub fn check(project_root: impl AsRef<Path>) -> Result<MigrationReport, Failure> {
         let root = project_root.as_ref();
@@ -1047,51 +1116,18 @@ fn classify_view(relative: &str, source: &str, findings: &mut Vec<MigrationFindi
 }
 
 fn classify_view_rendering(relative: &str, source: &str, findings: &mut Vec<MigrationFinding>) {
-    if has_control_tag(source) {
-        findings.push(MigrationFinding::new(
-            relative,
-            "view.control_tags",
-            MigrationStatus::Supported,
-            "Control tags are validated by the compiler and rendered exclusively by the Tac client. Yon is REST-only and never renders a view.",
-            None,
-        ));
-    }
-    if source.contains('{') && source.contains('}') {
-        findings.push(MigrationFinding::new(
-            relative,
-            "view.bindings",
-            MigrationStatus::Supported,
-            "Bounded binding expressions are evaluated with contextual escaping.",
-            None,
-        ));
-    }
-    if source.contains("data-tac-on-") {
-        findings.push(MigrationFinding::new(
-            relative,
-            "view.legacy_events",
-            MigrationStatus::Changed,
-            "Generated data-tac-on-* markers are replaced by on:<event> bindings in the Tac client render plan.",
-            Some("Author an on:<event> binding and let the Tac renderer own dispatch."),
-        ));
-    }
-    if source.contains("tachyon-island") || source.contains("data-tachyon-island") {
-        findings.push(MigrationFinding::new(
-            relative,
-            "view.islands",
-            MigrationStatus::Changed,
-            "Tac has no SSR islands; components are created and mounted entirely in the browser.",
-            Some("Use a registered Tac component tag; hydrate= is accepted only as a mount schedule."),
-        ));
-    }
+    let controls = has_control_tag(source);
+    let bindings = MigrationAnalysis::has_view_bindings(source);
+    let legacy_events = source.contains("data-tac-on-");
+    let islands = source.contains("tachyon-island");
+    MigrationAnalysis::record_view_controls(relative, controls, findings);
+    MigrationAnalysis::record_view_bindings(relative, bindings, findings);
+    MigrationAnalysis::record_view_legacy_events(relative, legacy_events, findings);
+    MigrationAnalysis::record_view_islands(relative, islands, findings);
 }
 
 fn has_control_tag(source: &str) -> bool {
-    for tag in ["if", "else", "for", "loop"] {
-        if source.contains(&format!("<{tag}")) {
-            return true;
-        }
-    }
-    false
+    Tokenizer::new(source).any(|token| token.is_ok_and(MigrationAnalysis::is_control_token))
 }
 
 fn classify_view_embedded_content(
@@ -1794,13 +1830,85 @@ mod tests {
         }
     }
 
+    fn control_report(source: &str) -> MigrationReport {
+        let root = project();
+        write(root.path(), "client/pages/tac.html", source);
+        check(root.path())
+    }
+
+    #[test]
+    fn canonical_logic_controls_are_reported_as_supported() {
+        let report = control_report(
+            "<logic :if=\"ready\"><p>ready</p></logic><logic :else-if=\"waiting\"><p>waiting</p></logic><logic else><p>fallback</p></logic>",
+        );
+        let finding = with_feature(&report, "view.control_tags");
+        assert_eq!(finding.status, MigrationStatus::Supported);
+        assert!(finding.detail.contains("Canonical <logic>"));
+        assert!(finding.detail.contains("compatibility"));
+        assert_eq!(finding.source, "client/pages/tac.html");
+    }
+
+    #[test]
+    fn canonical_loop_controls_are_reported_as_supported() {
+        let report = control_report("<loop :for=\"const item of items\"><p>{item}</p></loop>");
+        assert_eq!(
+            with_feature(&report, "view.control_tags").status,
+            MigrationStatus::Supported
+        );
+    }
+
+    #[test]
+    fn compatible_conditional_aliases_remain_reported_as_supported() {
+        let report =
+            control_report("<if :when=\"ready\"><p>ready</p></if><else><p>fallback</p></else>");
+        assert_eq!(
+            with_feature(&report, "view.control_tags").status,
+            MigrationStatus::Supported
+        );
+    }
+
+    #[test]
+    fn compatible_iteration_alias_remains_reported_as_supported() {
+        let report = control_report("<for :each=\"const item of items\"><p>{item}</p></for>");
+        assert_eq!(
+            with_feature(&report, "view.control_tags").status,
+            MigrationStatus::Supported
+        );
+    }
+
+    #[test]
+    fn logic_named_custom_elements_are_not_control_tags() {
+        let report = control_report("<logic-panel></logic-panel>");
+        assert!(!has_feature(&report, "view.control_tags"));
+    }
+
+    #[test]
+    fn conditional_text_inside_a_comment_is_not_a_control_tag() {
+        let report = control_report("<main><!-- <logic else>literal</logic> --><p>text</p></main>");
+        assert!(!has_feature(&report, "view.control_tags"));
+    }
+
+    #[test]
+    fn escaped_conditional_text_is_not_a_control_tag() {
+        let report = control_report("<main>&lt;logic else&gt;literal&lt;/logic&gt;</main>");
+        assert!(!has_feature(&report, "view.control_tags"));
+    }
+
+    #[test]
+    fn iframe_is_not_the_conditional_alias() {
+        let report =
+            control_report("<iframe src=\"https://example.test\" title=\"External\"></iframe>");
+        assert!(!has_feature(&report, "view.control_tags"));
+        assert!(has_feature(&report, "view.remote_frame"));
+    }
+
     #[test]
     fn view_constructs_are_classified_from_source() {
         let root = project();
         write(
             root.path(),
             "client/pages/tac.html",
-            r#"<main><if condition="ok"><p>{title}</p></if>
+            r#"<main><logic :if="ok"><p>{title}</p></logic>
                <button data-tac-on-click="go">Go</button>
                <script>alert(1)</script>
                <iframe src="https://example.test"></iframe></main>"#,
@@ -1823,7 +1931,7 @@ mod tests {
         write(
             root.path(),
             "client/pages/tac.html",
-            "<main><if :if=\"true\">Ready</if><iframe src=\"https://example.test\" title=\"External\"></iframe></main>",
+            "<main><logic :if=\"true\">Ready</logic><iframe src=\"https://example.test\" title=\"External\"></iframe></main>",
         );
         let report = check(root.path());
         let controls = with_feature(&report, "view.control_tags");

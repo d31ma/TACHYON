@@ -1,3 +1,4 @@
+use super::csharp_task_shape::CsharpTaskShape;
 use crate::route_types::ModelTable;
 
 pub(crate) struct CsharpTaskResult;
@@ -51,36 +52,6 @@ impl CsharpTaskResult {
             .transpose()
     }
 
-    fn scalar_fields(models: &serde_json::Value) -> Result<(), String> {
-        for model in models
-            .as_object()
-            .into_iter()
-            .flat_map(|models| models.values())
-        {
-            Self::fields(model)?;
-        }
-        Ok(())
-    }
-
-    fn fields(model: &serde_json::Value) -> Result<(), String> {
-        for field in model["fields"]
-            .as_object()
-            .into_iter()
-            .flat_map(|fields| fields.values())
-        {
-            Self::field(field)?;
-        }
-        Ok(())
-    }
-
-    fn field(field: &serde_json::Value) -> Result<(), String> {
-        let scalar = field.as_str().unwrap_or("").trim_start_matches(['!', '?']);
-        if !["string", "integer", "number", "boolean"].contains(&scalar) {
-            return Err("C# browser Task model results currently support scalar-field records only; nested, list and arbitrary fields remain unsupported.".to_owned());
-        }
-        Ok(())
-    }
-
     fn record(item: &str, models: &ModelTable) -> Result<String, String> {
         let name = item.strip_prefix("Models.").unwrap_or(item);
         if !models.is_record(name) {
@@ -89,7 +60,7 @@ impl CsharpTaskResult {
             ));
         }
         models.check_all()?;
-        Self::scalar_fields(&models.event_models(name)?)?;
+        CsharpTaskShape::validate(name, &models.event_models(name)?)?;
         Ok(name.to_owned())
     }
 }

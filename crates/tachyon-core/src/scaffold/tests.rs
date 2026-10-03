@@ -16,7 +16,7 @@ fn scaffold_serializes_the_app_name_and_is_complete() {
     let script =
         fs::read_to_string(target.join("client/services/ShellService.js")).expect("script");
     let environment = fs::read_to_string(target.join(".env.example")).expect("environment");
-    assert!(script.contains("document.title = \"A & <B>\""));
+    assert!(script.contains("this.documentTitle.set(\"A & <B>\")"));
     assert_eq!(environment, Scaffold::DEFAULT_ENV);
     assert!(!target.join("db").exists());
     assert!(
@@ -58,6 +58,30 @@ fn scaffold_serializes_the_app_name_and_is_complete() {
     assert!(shell.contains("{shell.brand}"));
     assert_eq!(result.app_name(), "A & <B>");
     assert_eq!(result.root(), fs::canonicalize(target).expect("canonical"));
+}
+
+#[test]
+fn generated_shell_startup_uses_its_injected_document_title_provider() {
+    let (_root, app) = generated(&ProjectChoices::defaults());
+    let relative = Path::new("client/tests/ShellServiceTest.js");
+    let report = crate::client_tests::run(&app, relative).expect("generated shell test runs");
+    assert_eq!(report.cases.len(), 1);
+    assert!(report.failure.is_none(), "{:?}", report.failure);
+    let case = &report.cases[0];
+    assert!(case.passed, "{}: {:?}", case.name, case.error);
+    let service =
+        fs::read_to_string(app.join("client/services/ShellService.js")).expect("shell service");
+    assert!(service.contains("@Needs\n  documentTitle"), "{service}");
+    assert!(!service.contains("document.title"), "{service}");
+    let test = fs::read_to_string(app.join(relative)).expect("shell test");
+    assert!(test.contains("@Fake\n  documentTitle"), "{test}");
+    assert!(!test.contains("globalThis"), "{test}");
+    let manifest = fs::read_to_string(app.join("client/manifest.json")).expect("manifest");
+    let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("JSON manifest");
+    assert_eq!(
+        manifest["tac"]["browserApis"],
+        serde_json::json!(["documentTitle"])
+    );
 }
 
 #[test]
@@ -308,6 +332,167 @@ fn only_the_chosen_realms_languages_and_features_are_generated() {
     let application = fs::read_to_string(app.join("server/application.json")).expect("application");
     let application: serde_json::Value = serde_json::from_str(&application).expect("JSON");
     assert_eq!(application["datasource"]["driver"], "sqlite");
+}
+
+struct ClientStyleFixture;
+
+impl ClientStyleFixture {
+    fn language(language: TacLanguage) {
+        let choices = ProjectChoices {
+            realm: RealmChoice::Both,
+            tac: vec![language],
+            yon: vec![YonLanguage::JavaScript],
+            targets: vec![AppTarget::Web],
+            features: AppFeature::ALL.to_vec(),
+        };
+        let (_root, app) = generated(&choices);
+        let manifest = fs::read_to_string(app.join("client/manifest.json")).expect("manifest");
+        let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("JSON manifest");
+        Self::foundation(&app, &manifest, language);
+        Self::provider(&manifest, language);
+        Self::greeting(&app, language);
+        Self::features(&app, language);
+    }
+
+    fn foundation(app: &Path, manifest: &serde_json::Value, language: TacLanguage) {
+        assert_eq!(
+            manifest["tac"]["styles"],
+            serde_json::json!(["/shared/styles/app.css"]),
+            "{language:?}"
+        );
+        assert_eq!(
+            manifest["tac"]["styleSources"]["/shared/styles/app.css"]["kind"], "foundation",
+            "{language:?}"
+        );
+        assert!(manifest["tac"]["scripts"].is_null(), "{language:?}");
+        assert!(!app.join("client/shared/scripts/imports.js").exists());
+        let foundation = fs::read_to_string(app.join("client/shared/styles/app.css"))
+            .expect("foundation styles");
+        assert!(foundation.contains("color-scheme: dark"), "{foundation}");
+        assert!(foundation.contains("background: #0f172a"), "{foundation}");
+        assert!(foundation.contains("color: #e2e8f0"), "{foundation}");
+        assert!(!foundation.contains(".greeting"), "{foundation}");
+        assert!(!foundation.contains("data-theme"), "{foundation}");
+        assert!(!app.join("client/pages/tac.css").exists());
+    }
+
+    fn provider(manifest: &serde_json::Value, language: TacLanguage) {
+        if language == TacLanguage::JavaScript {
+            assert_eq!(
+                manifest["tac"]["browserApis"],
+                serde_json::json!(["documentTitle"])
+            );
+            return;
+        }
+        assert!(manifest["tac"]["browserApis"].is_null(), "{language:?}");
+    }
+
+    fn greeting(app: &Path, language: TacLanguage) {
+        if language == TacLanguage::JavaScript {
+            return;
+        }
+        let component = app.join(format!("client/components/greeting/{}", language.slug()));
+        let styles = fs::read_to_string(component.join("tac.css")).expect("greeting styles");
+        assert_eq!(
+            styles, ".greeting { margin-top: 1.5rem; }\n",
+            "{language:?}"
+        );
+        let view = fs::read_to_string(component.join("tac.html")).expect("greeting view");
+        assert!(view.contains("class=\"greeting\""), "{language:?}: {view}");
+        assert!(!app.join("client/services/ShellService.js").exists());
+    }
+
+    fn features(app: &Path, language: TacLanguage) {
+        let page = fs::read_to_string(app.join(PageFile::PATH)).expect("page");
+        let tags = AppFeature::ALL
+            .iter()
+            .copied()
+            .filter_map(super::ClientFiles::feature_tag);
+        for tag in tags {
+            assert!(page.contains(&tag), "{language:?}: {tag}");
+        }
+    }
+}
+
+#[test]
+fn javascript_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::JavaScript);
+}
+
+#[test]
+fn typescript_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::TypeScript);
+}
+
+#[test]
+fn dart_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Dart);
+}
+
+#[test]
+fn rust_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Rust);
+}
+
+#[test]
+fn csharp_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::CSharp);
+}
+
+#[test]
+fn fsharp_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::FSharp);
+}
+
+#[test]
+fn go_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Go);
+}
+
+#[test]
+fn ruby_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Ruby);
+}
+
+#[test]
+fn lua_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Lua);
+}
+
+#[test]
+fn swift_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Swift);
+}
+
+#[test]
+fn kotlin_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Kotlin);
+}
+
+#[test]
+fn java_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Java);
+}
+
+#[test]
+fn adding_a_greeting_language_preserves_existing_foundation_styles() {
+    let (_root, app) = generated(&ProjectChoices::defaults());
+    let foundation_path = app.join("client/shared/styles/app.css");
+    let foundation = ":root { color-scheme: light; --brand-color: #112233; }\n";
+    fs::write(&foundation_path, foundation).expect("authored foundation");
+    let added = ProjectAddition::language(&app, RealmChoice::Client, "go").expect("Go");
+    assert!(
+        added
+            .written
+            .contains(&String::from("client/components/greeting/go/tac.css"))
+    );
+    assert_eq!(
+        fs::read_to_string(foundation_path).expect("foundation"),
+        foundation
+    );
+    let styles = fs::read_to_string(app.join("client/components/greeting/go/tac.css"))
+        .expect("greeting styles");
+    assert_eq!(styles, ".greeting { margin-top: 1.5rem; }\n");
 }
 
 #[test]

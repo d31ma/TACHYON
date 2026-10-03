@@ -17,13 +17,22 @@ impl RoleSource {
     }
 
     pub(super) fn validate(file: &CapturedFile) -> Result<(), Failure> {
+        Self::validate_source(file, crate::annotation_layout::validate)
+    }
+
+    pub(super) fn validate_verified_vendor(file: &CapturedFile) -> Result<(), Failure> {
+        Self::validate_source(file, crate::annotation_layout::validate_verified_vendor)
+    }
+
+    fn validate_source(
+        file: &CapturedFile,
+        check: impl FnOnce(&std::path::Path, &str) -> Result<(), Failure>,
+    ) -> Result<(), Failure> {
         crate::annotation_layout::reject_reserved_folder(&file.relative)?;
         let name = file.relative.file_name().and_then(OsStr::to_str);
         Self::reject_server_view(file, name)?;
         Self::reject_module_manifest(file, name)?;
-        Self::annotated_text(file).map_or(Ok(()), |source| {
-            crate::annotation_layout::validate(&file.relative, source)
-        })
+        Self::annotated_text(file).map_or(Ok(()), |source| check(&file.relative, source))
     }
 
     fn reject_server_view(file: &CapturedFile, name: Option<&str>) -> Result<(), Failure> {

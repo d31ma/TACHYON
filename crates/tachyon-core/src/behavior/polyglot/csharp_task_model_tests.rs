@@ -98,3 +98,36 @@ fn csharp_existing_task_json_lowering_keeps_its_bytes() -> Result<(), String> {
     assert_eq!(candidate, previous);
     Ok(())
 }
+
+#[test]
+fn csharp_registered_typed_collection_exchange_uses_captured_required_closed_shapes()
+-> Result<(), String> {
+    let (root, _) = CsharpTypedExchangeFixture::models()?;
+    std::fs::write(
+        root.path().join("client/models/Greeting.cs"),
+        "public record Greeting(System.Collections.Generic.List<GreetingItem> Items);",
+    )
+    .map_err(|error| error.to_string())?;
+    std::fs::write(
+        root.path().join("client/models/GreetingItem.cs"),
+        "public record GreetingItem(string Message);",
+    )
+    .map_err(|error| error.to_string())?;
+    let models = ModelTable::read_realm(root.path(), "client", "cs")?;
+    let path = Path::new(CsharpTypedExchangeFixture::PATH);
+    let concrete = crate::declared_contract::DeclaredContract::concrete(
+        path,
+        CsharpTypedExchangeFixture::SOURCE,
+        "tac",
+    )
+    .unwrap_or_else(|| CsharpTypedExchangeFixture::SOURCE.to_owned());
+    let lowered = CsharpTaskModels::lower(path, &concrete, &models)
+        .map_err(|error| error.to_string())?
+        .unwrap_or_default();
+    assert!(lowered.contains("TacModels.ReadResult<Models.Greeting>"));
+    assert!(lowered.contains("![]GreetingItem"));
+    assert!(lowered.contains("!string"));
+    assert!(lowered.contains("GreetingItem"));
+    assert!(lowered.contains("HTTP_RESPONSE"));
+    Ok(())
+}

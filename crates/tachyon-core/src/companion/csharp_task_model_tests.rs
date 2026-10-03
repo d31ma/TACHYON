@@ -19,6 +19,28 @@ impl CsharpTaskModelFixture {
         let table = ModelTable::read_realm(root.path(), "client", "cs")?;
         Ok((root, table))
     }
+    fn collection(record: &str, leaf: &str) -> Result<(tempfile::TempDir, ModelTable), String> {
+        let (root, _) = Self::models()?;
+        let folder = root.path().join("client/models");
+        std::fs::write(folder.join("Greeting.cs"), record).map_err(|error| error.to_string())?;
+        std::fs::write(folder.join("GreetingItem.cs"), leaf).map_err(|error| error.to_string())?;
+        let models = ModelTable::read_realm(root.path(), "client", "cs")?;
+        Ok((root, models))
+    }
+
+    fn entries(models: &ModelTable) -> Result<String, crate::Failure> {
+        CsharpTaskMembers::entries(Self::SOURCE, Self::PATH, models, &[])
+    }
+
+    fn refused_collection(record: &str, leaf: &str) -> Result<(), String> {
+        let (_, models) = Self::collection(record, leaf)?;
+        let failure = Self::entries(&models)
+            .err()
+            .ok_or_else(|| "unsupported collection accepted".to_owned())?;
+        assert_eq!(failure.diagnostics()[0].spans[0].file, Self::PATH);
+        assert_eq!(failure.diagnostics()[0].code.number(), 1405);
+        Ok(())
+    }
 }
 
 #[test]
@@ -108,4 +130,72 @@ fn csharp_nested_task_model_graph_is_explicitly_pending() -> Result<(), String> 
         .is_err()
     );
     Ok(())
+}
+
+#[test]
+fn csharp_registered_task_collection_field_uses_existing_browser_codec() -> Result<(), String> {
+    let (_, models) = CsharpTaskModelFixture::collection(
+        "public record Greeting(System.Collections.Generic.List<GreetingItem> Items);",
+        "public record GreetingItem(string Message);",
+    )?;
+    let entries = CsharpTaskModelFixture::entries(&models).map_err(|error| error.to_string())?;
+    assert!(entries.contains("TacModels.Plain(await Instance.Read("));
+    let schema = models.event_models("Greeting")?;
+    assert_eq!(schema["Greeting"]["fields"]["items"], "![]GreetingItem");
+    assert_eq!(schema["GreetingItem"]["fields"]["message"], "!string");
+    Ok(())
+}
+
+#[test]
+fn csharp_registered_task_nullable_collection_preserves_existing_optional_metadata()
+-> Result<(), String> {
+    let (_, models) = CsharpTaskModelFixture::collection(
+        "public record Greeting(System.Collections.Generic.List<GreetingItem?>? Items);",
+        "public record GreetingItem(string? Message);",
+    )?;
+    CsharpTaskModelFixture::entries(&models).map_err(|error| error.to_string())?;
+    let schema = models.event_models("Greeting")?;
+    assert_eq!(schema["Greeting"]["fields"]["items"], "?[]?GreetingItem");
+    assert_eq!(schema["GreetingItem"]["fields"]["message"], "?string");
+    Ok(())
+}
+
+#[test]
+fn csharp_task_collection_cannot_hide_an_unregistered_leaf() -> Result<(), String> {
+    CsharpTaskModelFixture::refused_collection(
+        "public record Greeting(System.Collections.Generic.List<UnknownItem> Items);",
+        "public record GreetingItem(string Message);",
+    )
+}
+
+#[test]
+fn csharp_task_collection_cannot_hide_a_recursive_record_graph() -> Result<(), String> {
+    CsharpTaskModelFixture::refused_collection(
+        "public record Greeting(System.Collections.Generic.List<GreetingItem> Items);",
+        "public record GreetingItem(Greeting Parent);",
+    )
+}
+
+#[test]
+fn csharp_task_collection_cannot_hide_a_nested_collection() -> Result<(), String> {
+    CsharpTaskModelFixture::refused_collection(
+        "public record Greeting(System.Collections.Generic.List<System.Collections.Generic.List<GreetingItem>> Items);",
+        "public record GreetingItem(string Message);",
+    )
+}
+
+#[test]
+fn csharp_task_collection_cannot_hide_an_arbitrary_leaf_field() -> Result<(), String> {
+    CsharpTaskModelFixture::refused_collection(
+        "public record Greeting(System.Collections.Generic.List<GreetingItem> Items);",
+        "public record GreetingItem(object Message);",
+    )
+}
+
+#[test]
+fn csharp_task_collection_cannot_hide_a_map_field() -> Result<(), String> {
+    CsharpTaskModelFixture::refused_collection(
+        "public record Greeting(System.Collections.Generic.Dictionary<string, GreetingItem> Items);",
+        "public record GreetingItem(string Message);",
+    )
 }
