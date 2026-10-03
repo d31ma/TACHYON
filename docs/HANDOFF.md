@@ -578,13 +578,13 @@ ANNEX tool follow-up, which the user explicitly asked for:
 - Installed Node24.21.0 LTS (macOS arm64) and the pinned Kotlin JVM
   compiler2.1.10 from official distributions. Both match the published SHA-256
   checksums.
-- Added the opt-in `/Volumes/ANNEX/toolchains/tachyon-env.sh`. It sources the
+- Added an opt-in `tachyon-env.sh` in the external toolchain folder. It sources the
   existing ANNEX settings and selects the new Node/Kotlin plus the existing
   ANNEX JDK17.
 - Found the existing .NET9.0.317, Android SDK and Swift toolchains. Rust1.97.1
   stays managed by rustup.
-- The installation record is in
-  `/Volumes/ANNEX/toolchains/TACHYON-INSTALLATION.md`.
+- The installation record is kept in the external toolchain folder, outside
+  the repository.
 - Xcode27 and the iPhoneSimulator27.0 SDK already exist in
   `/Applications/Xcode.app`. The user explicitly chose to keep that
   installation. Apple's license is not accepted, and this blocks `xcrun`. The
@@ -749,7 +749,7 @@ repair was done, and no host security setting was changed.
 
 The complete canonical gate and the strict website snippet suite were started
 again against the pinned toolchain and a freshly built
-`/Volumes/ANNEX/build/cargo-target/debug/ty`.
+`<cargo-target>/debug/ty`.
 
 **Scheduler-sensitive JavaScript test.** The resumed run reproduced a
 JavaScript regression test that depended on the scheduler.
@@ -919,8 +919,8 @@ runtimes.
 - Run the complete workspace and full snippet suites again on a responsive
   host before making any release-qualification claim.
 
-At the final environment check, `/Volumes/ANNEX/toolchains` and
-`/Volumes/ANNEX/build/cargo-target` were not available. Bring back the external
+At the final environment check, the external toolchain folder and the
+external Cargo target folder were not available. Bring back the external
 toolchain/build volume before retrying those commands. This review did not
 mount anything and did not change any host security setting.
 
@@ -981,7 +981,7 @@ tests across 26 suites** (zero failed or ignored), rustdoc with warnings denied
 and all four cargo-deny checks. The existing duplicate-version warnings remain.
 
 - Website tests passed **38 tests / 698 assertions** with
-  `TAC_BIN=/Volumes/ANNEX/build/cargo-target/debug/ty`. The repository-local
+  `TAC_BIN=<cargo-target>/debug/ty`. The repository-local
   `target/debug/ty` is not a usable executable on this machine.
 - Both changed CI workflows passed `actionlint`.
 - The new fuzz target passed locked compilation. No local instrumented fuzz
@@ -1021,7 +1021,7 @@ across 24 suites**, rustdoc with warnings denied, and all four cargo-deny
 checks. Cargo-deny kept the existing duplicate-version warnings. It reported no
 failing advisory, ban, license or source check. On this machine, use the
 pinned Rust 1.97.1 toolchain and
-`CARGO_TARGET_DIR=/Volumes/ANNEX/build/cargo-target`.
+an external `CARGO_TARGET_DIR`.
 
 Other gates that ran and passed:
 

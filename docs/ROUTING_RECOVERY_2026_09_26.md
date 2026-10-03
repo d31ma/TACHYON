@@ -42,12 +42,10 @@ prefix validation or restore Go's filtered configuration workaround.
 
 ## Executed website checks
 
-All commands source `/Volumes/ANNEX/toolchains/env.sh`. They use the rebuilt
-checkout binary `/Volumes/ANNEX/build/simplify-target/debug/ty`, not an installed
-release. Snippet probes use concurrency 1 and require all selected toolchains.
+All commands source the shared toolchain environment script. They use the
+rebuilt checkout binary `<cargo-target>/debug/ty`, not an installed release. Snippet probes use concurrency 1 and require all selected toolchains.
 
-Logs are in
-`/Volumes/ANNEX/build/simplify/scratch/CODEX-RECOVERY-2026-09-26/site/`.
+The logs are kept outside the repository.
 
 | Check | Result | Log |
 | --- | --- | --- |
@@ -130,8 +128,7 @@ exclusion, nested undeclared-field rejection, open Any fields and the published
 schema. After rebuilding the CLI, the complete ten-language "Checking values
 and method arguments" guide passed again with required toolchains enabled:
 20 HTTP probes, zero skips and zero failures. This includes OPTIONS and POST
-for every language, not only PHP. Final follow-up log:
-`/Volumes/ANNEX/build/simplify/scratch/CODEX-RECOVERY-2026-09-26/site/validation-strict-records-qualified.log`.
+for every language, not only PHP. The final follow-up log is kept outside the repository.
 
 ## Combined qualification
 
@@ -144,8 +141,7 @@ The coordinator and independent core reviewer reported these additional checks:
   qualified workspace test run covers the same tests).
 - Migration peer review: independent recheck passed.
 - Parity ledger: 65 of 65 passed, recorded at 01:20, before the strict-record
-  follow-up, in
-  `/Volumes/ANNEX/build/simplify/scratch/CODEX-RECOVERY-2026-09-26/ledger.log`.
+  follow-up.
 - Client, storage, service-worker and behavior browser gates: reported as
   passed; no log for them is in the recovery directory.
 - Behavior runtime checks: 36 checks plus 9 additional checks reported as
@@ -178,8 +174,7 @@ fields, open records, PHP constructor rules and field splitting).
 
 The older Windows Dropbox checkout was left untouched. A hash-verified source
 snapshot was copied into isolated Windows Temp and WSL directories; no secrets
-or installed toolchains were copied or changed. Logs and source hashes are in
-`/Volumes/ANNEX/build/simplify/scratch/CODEX-RECOVERY-2026-09-26/wsl/EVIDENCE.md`.
+or installed toolchains were copied or changed. Logs and source hashes are kept outside the repository.
 
 Linux ARM64 under WSL passed workspace formatting, all-target/all-feature
 check and Clippy, and warning-denied rustdoc. The final two-file PHP parser

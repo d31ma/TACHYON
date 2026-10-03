@@ -2,18 +2,16 @@
 
 ## Recovered work
 
-The latest Tachyon Claude session is
-`51b938e2-3ade-41fd-9545-23174ab55a1a`. After the September 24 cleanup, it
+The latest Tachyon working session ran after the September 24 cleanup. It
 implemented models across the service languages (ADR 0043), website fixes,
 and all six Gateway slices (ADR 0042). It stopped during independent review.
-Its detailed implementation record remains in
-`/Volumes/ANNEX/build/simplify/gateway/PROGRESS.md`.
+Its detailed implementation record is kept outside the repository.
 
 The old gate wrapper returned success even though its snippet step failed.
 The preserved summary lists three Rust snippet readiness failures and skipped
 Redis verification. Those results are not an all-green qualification. The
 wrapper now propagates a failing step, and this continuation uses separate
-logs under `/Volumes/ANNEX/build/tachyon-recovery-20260925.YiQvgp/`.
+logs, which are kept outside the repository.
 
 ## Confirmed defects repaired
 

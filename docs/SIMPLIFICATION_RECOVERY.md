@@ -2,10 +2,9 @@
 
 ## Source of this work
 
-The latest Tachyon Claude session is
-`51b938e2-3ade-41fd-9545-23174ab55a1a`. It stopped at its usage limit during
-the simplification pass. Its working plan and compatibility captures are in
-`/Volumes/ANNEX/build/simplify/`. The repository contains substantial
+The latest Tachyon working session stopped at its usage limit during
+the simplification pass. Its working plan and compatibility captures are kept
+outside the repository. The repository contains substantial
 uncommitted work from that session; this recovery preserves it.
 
 The recovery and continuation records below distinguish completed cleanup
@@ -50,8 +49,8 @@ R5 simplification has been completed.
 
 ## Verification
 
-Commands use `/Volumes/ANNEX/toolchains/env.sh` and
-`CARGO_TARGET_DIR=/Volumes/ANNEX/build/simplify-target`.
+Commands use the shared toolchain environment script and an external
+`CARGO_TARGET_DIR`.
 
 - Locked workspace check, all targets and features: passed.
 - Locked workspace Clippy, all targets and features, warnings denied:
@@ -103,8 +102,8 @@ The remaining cleanup is implemented and reviewed:
 - Yon parsing, constructor inference, and lowering now use smaller helpers.
   Constructor tests retain their original assertions and add two exact-source
   checks. Lowering passed 456,720 exact before/after result comparisons across
-  nine language variants and invalid plans. Evidence is in
-  `/Volumes/ANNEX/build/simplify/scratch/R5/lowering-check/RESULTS.md`.
+  nine language variants and invalid plans. The evidence is kept
+  outside the repository.
 - Removed the unreachable Tac companion-discovery branch. Moved the shared
   role-folder list into its owning type without changing discovery order.
 - CLI execution separates command setup, test execution, case reporting,
@@ -137,8 +136,8 @@ Fresh continuation verification:
 - Canonical formatting, locked workspace check, Clippy, rustdoc, and
   dependency policy: passed. Duplicate-dependency warnings remain.
 - Full locked workspace tests: 824 passed, zero failed, two ignored because
-  they require dedicated Redis and TLS SQL instances. Log:
-  `/Volumes/ANNEX/build/simplify/scratch/R6/workspace-tests.log`.
+  they require dedicated Redis and TLS SQL instances. The log is kept
+  outside the repository.
 - Website tests: 43 passed with 1,323 assertions. Framework units: 34 passed,
   with all 41 public methods named by tests.
 - Compatibility ledger: 62 confirmed, zero wrong.
@@ -150,7 +149,7 @@ Fresh continuation verification:
 - Full strict-toolchain snippet rerun with real Redis: 137 bundles,
   207 HTTP probes, 16 test units, 13 syntax checks, six JSON checks, and zero
   failures. The 193 explicitly unexecuted entries are reported individually
-  in `/Volumes/ANNEX/build/simplify/scratch/R6/snippets-final.log`; these include
+  in the snippet log, which is kept outside the repository; these include
   descriptive commands and incomplete excerpts. Native source staging is
   labeled separately and is not device execution.
 - The dedicated Redis storage test then passed separately. The TLS SQL test
@@ -159,7 +158,7 @@ Fresh continuation verification:
 - Runtime size limits remain unchanged: 58,558 bytes for `tac-client.js`
   and 10,551 bytes for `application-events.js`.
 
-Use `TAC_BIN=/Volumes/ANNEX/build/simplify-target/debug/ty` explicitly for
+Use `TAC_BIN=<cargo-target>/debug/ty` explicitly for
 website checks. The old repository-local `target/debug/ty` is a Linux ELF
 artifact and cannot execute on this macOS host. It was not overwritten.
 
@@ -211,7 +210,7 @@ script match the saved versions. They also found problems, now fixed:
 Implement the accepted [Gateway decision](adr/0042-a-gateway-method-calls-another-language.md)
 as a separate behavior-changing feature. Start with relay environment and
 remaining-deadline fixes, then follow the language slices in
-`/Volumes/ANNEX/build/simplify/gateway-plan.md`. The annotation is not yet
+the Gateway plan, which is kept outside the repository. The annotation is not yet
 implemented. The supervisor currently encodes the request before admission;
 the relay fix must account for queue and startup time as well as elapsed
 time inside the language runner. A runner-only timeout change is insufficient.

@@ -55,8 +55,7 @@ without its workload reports that skip explicitly.
 
 ## Verification
 
-Logs live in
-`/Volumes/ANNEX/build/tachyon-wasm-events-20260925.jx1MdQ/`.
+The logs are kept outside the repository.
 
 - `browser-negative.log`: disabling the new listener registration in a
   temporary local build reproduced the missing cross-service delivery.

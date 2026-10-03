@@ -72,8 +72,7 @@ on the current host, not a new platform-support tier or release promotion.
 Graphify refresh covers the changed source boundary, fixtures, website examples
 and documentation; unrelated historical graph context is preserved.
 
-Logs are retained in
-`/Volumes/ANNEX/build/tachyon-single-class-20260925.UNgQYF/`.
+The logs are kept outside the repository.
 
 No commits, publication or native platform support promotion are part of this
 continuation. Existing unrelated changes are preserved.
