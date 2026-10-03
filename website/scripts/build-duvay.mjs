@@ -20,10 +20,12 @@ class DuvayBuild {
   static run() {
     const source = process.env.DUVAY_SOURCE
     if (!source) throw new Error('Set DUVAY_SOURCE to a DuVay checkout at the commit named in PROVENANCE.json.')
-    const provenance = /** @type {Provenance} */ (JSON.parse(readFileSync(DuvayBuild._provenance, 'utf8')))
+    const provenancePath = path.resolve(process.argv[2] ?? DuvayBuild._provenance)
+    const client = path.resolve(path.dirname(provenancePath), '../../..')
+    const provenance = /** @type {Provenance} */ (JSON.parse(readFileSync(provenancePath, 'utf8')))
     const build = provenance.build
     DuvayBuild._verifyInputs(source, build.inputs)
-    const output = path.join(DuvayBuild._website, 'client', build.output)
+    const output = path.join(client, build.output)
     DuvayBuild._bundle(source, build, output)
     const actual = DuvayBuild._sha(readFileSync(output))
     const expected = provenance.assets['/' + build.output].sha256
