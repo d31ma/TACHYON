@@ -23,12 +23,16 @@ mod fsharp_program;
 mod go;
 mod groovy_build;
 mod groovy_handler;
+mod compiler_identities;
 mod rust_error_place;
+mod shared_handler_artifacts;
 mod test_unit_asserts;
+use compiler_identities::CompilerIdentities;
 use fsharp_handler::FsharpHandler;
 use go::{GoHandler, GoSharedCode};
 use groovy_handler::GroovyHandler;
 use rust_error_place::RustErrorPlace;
+use shared_handler_artifacts::SharedHandlerArtifacts;
 use test_unit_asserts::TestUnitAsserts;
 
 #[derive(Debug)]
@@ -1412,7 +1416,11 @@ fn build_once_under_lock(
     )?;
     if !cache.is_valid_file(artefact) {
         remove_incomplete_artifact(cache, artefact, portable)?;
-        build()?;
+        let shared = SharedHandlerArtifacts::in_user_cache();
+        if !shared.restore(cache, artefact) {
+            build()?;
+            shared.publish(cache, artefact);
+        }
     }
     drop(digest_lock);
     Ok(())
@@ -1830,6 +1838,10 @@ fn valid_dotnet_build(output: &Path, files: &[&str]) -> bool {
 }
 
 fn compiler_identity(program: &str) -> String {
+    CompilerIdentities::remembered(program, || probe_compiler_identity(program))
+}
+
+fn probe_compiler_identity(program: &str) -> String {
     let argument = if program.contains("kotlinc") {
         "-version"
     } else {
