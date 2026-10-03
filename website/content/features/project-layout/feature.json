@@ -1,7 +1,7 @@
 {
   "id": "project-layout",
   "title": "What a project looks like",
-  "summary": "A project has two directories: `client` and `server`. HTTPClient routes contain a `tac.html` file. Server controllers live in `server/controllers`, and their annotations give the routes. HTTPClient behavior is in service classes under `client/services`. Application helpers are ordinary code in their language. Role types for `Allow`, such as `Admin`, are empty classes in `server/roles`, and the one `IdentityProvider` class lives in `server/controllers`.",
+  "summary": "A project has two directories: `client` and `server`. Each page route is a folder under `client/pages` that holds a `tac.html` file. Server controllers live in `server/controllers`, and their annotations give the routes. Page behavior is in service classes under `client/services`. Application helpers are ordinary code in their language. Role types for `Allow`, such as `Admin`, are empty classes in `server/roles`, and the one `IdentityProvider` class lives in `server/controllers`.",
   "group": "Tooling",
   "files": [
     {

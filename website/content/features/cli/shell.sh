@@ -11,6 +11,6 @@ ty bundle --native --target macos
 ty doctor
 ty test
 ty test --coverage
-ty handler invoke server/routes/items/yon.py --method GET
+ty handler invoke server/controllers/ItemsController.py --route /items --method GET
 ty migrate check
 ty cache status | clean
