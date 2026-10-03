@@ -25,13 +25,13 @@ describe('stateless platform utilities', () => {
   })
 
   test('language and platform filtering preserve server and native reach', () => {
-    const files = [{ name: 'client/services/ViewService.swift', code: '' }, { name: 'client/services/ViewService.js', code: '' }, { name: 'server/controllers/ViewController.js', code: '' }]
-    expect(PlatformUtils.filesFor(files, 'web').map(file => file.name)).toEqual(['client/services/ViewService.js', 'server/controllers/ViewController.js'])
+    const files = [{ name: 'client/services/ViewService.py', code: '' }, { name: 'client/services/ViewService.js', code: '' }, { name: 'server/controllers/ViewController.js', code: '' }]
+    expect(PlatformUtils.filesFor(files, 'ios').map(file => file.name)).toEqual(['client/services/ViewService.js', 'server/controllers/ViewController.js'])
     expect(PlatformUtils.reachOf(files[2].name)).toBeNull()
     expect(PlatformUtils.spansPlatforms(files)).toBe(true)
     expect(PlatformUtils.isCompanion('tac.html')).toBe(false)
     expect(PlatformUtils.isCompanion('client/services/ViewService.swift')).toBe(true)
-    expect(PlatformUtils.languageOf(files[0].name)).toBe('Swift')
+    expect(PlatformUtils.languageOf(files[0].name)).toBe('Python')
     expect(PlatformUtils.languageLabel('unknown')).toBe('')
   })
 

@@ -987,11 +987,11 @@ describe('documentation structure', () => {
       .map((file) => languageOf(file.name))
 
     const browser = ['JavaScript', 'TypeScript', 'Dart', 'Java']
-    const everywhere = ['C#', 'F#', 'Rust', 'Go', 'Ruby', 'Lua']
+    const everywhere = ['Swift', 'Kotlin', 'C#', 'F#', 'Rust', 'Go', 'Ruby', 'Lua']
     expect(shownOn('web')).toEqual(['JavaScript', 'TypeScript', 'Dart', 'Python', 'Java', ...everywhere])
-    expect(shownOn('macos')).toEqual([...browser, 'Swift', ...everywhere])
-    expect(shownOn('ios')).toEqual([...browser, 'Swift', ...everywhere])
-    expect(shownOn('android')).toEqual([...browser, 'Kotlin', ...everywhere])
+    expect(shownOn('macos')).toEqual([...browser, ...everywhere])
+    expect(shownOn('ios')).toEqual([...browser, ...everywhere])
+    expect(shownOn('android')).toEqual([...browser, ...everywhere])
     expect(shownOn('windows')).toEqual([...browser, ...everywhere])
     expect(shownOn('linux')).toEqual([...browser, ...everywhere])
   })
