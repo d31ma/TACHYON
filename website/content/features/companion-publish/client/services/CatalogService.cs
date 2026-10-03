@@ -1,5 +1,6 @@
 using Models;
 
+[Service]
 public class CatalogService {
     public int Count = 0;
     private readonly ApplicationEventPublisher applicationEventPublisher;

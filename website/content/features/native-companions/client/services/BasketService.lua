@@ -1,3 +1,4 @@
+-- @Service
 ---@class BasketService
 BasketService = {
   ---@type integer

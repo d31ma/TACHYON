@@ -1,3 +1,4 @@
+#[Service]
 class CatalogService
   # @return [Integer]
   attr_reader :count

@@ -1,3 +1,4 @@
+-- @Service
 ---@class CatalogService
 CatalogService = {
   ---@type integer

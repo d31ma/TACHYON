@@ -1,3 +1,4 @@
+@Service
 class CatalogService {
     var count: Int = 0
     let applicationEventPublisher: ApplicationEventPublisher

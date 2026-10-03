@@ -1,3 +1,4 @@
+// @Service
 type BasketService struct {
 	Count int
 	Label string

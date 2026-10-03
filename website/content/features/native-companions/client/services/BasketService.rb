@@ -1,3 +1,4 @@
+#[Service]
 class BasketService
   # @return [Integer]
   attr_reader :count

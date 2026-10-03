@@ -1,3 +1,4 @@
+#[Service]
 pub struct BasketService {
     count: i32,
     label: String,
