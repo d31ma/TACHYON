@@ -3,6 +3,7 @@
 use super::{BuildOptions, WebCompiler};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
@@ -21,12 +22,9 @@ fn project(css: &str, declarations: Value) -> tempfile::TempDir {
         "<main>Foundation</main>",
     );
     write_file(root.path(), "client/shared/styles/site.css", css);
-    write_file(
-        root.path(),
-        "client/manifest.json",
-        &json!({"tac":{"styles":["/shared/styles/site.css"],"styleSources":declarations}})
-            .to_string(),
-    );
+    let mut manifest = json!({"tac":{"styles":["/shared/styles/site.css"]}});
+    manifest["tac"]["styleSources"] = declarations;
+    write_file(root.path(), "client/manifest.json", &manifest.to_string());
     root
 }
 
@@ -348,9 +346,10 @@ fn style_sources_vendor_version_cannot_be_a_floating_latest_tag() {
 }
 
 fn imported_files(root: &Path, count: usize, bytes: usize) {
-    let imports: String = (0..count)
-        .map(|index| format!("@import './file-{index}.css';\n"))
-        .collect();
+    let mut imports = String::new();
+    for index in 0..count {
+        writeln!(&mut imports, "@import './file-{index}.css';").expect("write CSS import");
+    }
     write_file(root, "client/shared/styles/site.css", &imports);
     let css = format!("body{{color:navy}}{}", " ".repeat(bytes));
     for index in 0..count {

@@ -147,22 +147,32 @@ impl<'s> DomScan<'s> {
         let (property, after) = reader.property(at)?;
         let receiver = reader.receiver(at);
         let call = self.text(after) == "(";
-        let alias = [call, property != "bind"]
-            .into_iter()
-            .all(|holds| holds)
-            .then(|| Self::alias_call(&reader, reader.member_reference(at), after))
-            .unwrap_or(false);
+        let reference = reader.member_reference(at);
+        let active = Self::active_alias(reference, call, property);
+        let alias = Self::alias_call(&reader, active, after);
         [alias, self.forbidden(&reader, receiver, property, after)]
             .contains(&true)
             .then(|| Self::range(&self.tokens, at, after))
     }
 
+    fn active_alias(reference: DomKind, call: bool, property: &str) -> DomKind {
+        if [call, property != "bind"].contains(&false) {
+            return DomKind::Unknown;
+        }
+        reference
+    }
+
     fn alias_call(reader: &DomExpression<'_, '_>, kind: DomKind, after: usize) -> bool {
         let sink = [DomKind::MarkupCall, DomKind::StyleCall].contains(&kind);
-        let insertion = (kind == DomKind::NodeInsertion)
-            .then(|| reader.arguments_create_nodes(after))
-            .unwrap_or(false);
+        let insertion = Self::alias_insertion(reader, kind, after);
         [sink, insertion].contains(&true)
+    }
+
+    fn alias_insertion(reader: &DomExpression<'_, '_>, kind: DomKind, after: usize) -> bool {
+        if kind == DomKind::NodeInsertion {
+            return reader.arguments_create_nodes(after);
+        }
+        false
     }
 
     fn range(tokens: &Tokens<'_>, at: usize, after: usize) -> Range<usize> {
@@ -182,16 +192,22 @@ impl<'s> DomScan<'s> {
             .items
             .get(after)
             .is_some_and(|token| token.text == "(");
+        let called_receiver = Self::called_receiver(receiver, call);
         [
             Self::markup_write(receiver, property, write),
             Self::style_write(receiver, property, write),
             Self::markup_call(receiver, property, call),
-            call.then(|| Self::style_call(reader, receiver, property, after))
-                .unwrap_or(false),
-            call.then(|| Self::inserts_created(reader, receiver, property, after))
-                .unwrap_or(false),
+            Self::style_call(reader, called_receiver, property, after),
+            Self::inserts_created(reader, called_receiver, property, after),
         ]
         .contains(&true)
+    }
+
+    fn called_receiver(receiver: DomKind, call: bool) -> DomKind {
+        if !call {
+            return DomKind::Data;
+        }
+        receiver
     }
 
     fn writes(tokens: &Tokens<'_>, after: usize) -> bool {
@@ -200,12 +216,14 @@ impl<'s> DomScan<'s> {
     }
 
     fn assignment_at(tokens: &Tokens<'_>, after: usize) -> usize {
-        tokens
+        if tokens
             .items
             .get(after)
             .is_some_and(|token| Self::ASSIGNMENT_PREFIX.contains(&token.text))
-            .then_some(after + 1)
-            .unwrap_or(after)
+        {
+            return after + 1;
+        }
+        after
     }
 
     fn markup_write(receiver: DomKind, property: &str, write: bool) -> bool {
@@ -295,8 +313,9 @@ impl<'s> DomScan<'s> {
         ]
         .into_iter()
         .all(|holds| holds);
-        insertion
-            .then(|| reader.arguments_create_nodes(after))
-            .unwrap_or(false)
+        if insertion {
+            return reader.arguments_create_nodes(after);
+        }
+        false
     }
 }

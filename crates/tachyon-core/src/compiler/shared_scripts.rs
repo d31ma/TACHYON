@@ -119,7 +119,7 @@ impl SharedScripts {
     fn check_authored(vendor: bool, path: &Path, bytes: &[u8]) -> Result<(), Failure> {
         (!vendor)
             .then_some(())
-            .map_or(Ok(()), |_| AuthoredDomGuard::check_bytes(path, bytes))
+            .map_or(Ok(()), |()| AuthoredDomGuard::check_bytes(path, bytes))
     }
 
     fn published_bytes(vendor: bool, path: &Path, bytes: Vec<u8>) -> Vec<u8> {

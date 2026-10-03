@@ -71,14 +71,15 @@ impl ComponentStyleOwnership {
     }
 
     fn relation(rel: &TemplateAttribute, attributes: &BTreeMap<String, TemplateAttribute>) -> bool {
-        Self::literal_attribute(rel).map_or(true, |value| Self::static_relation(&value, attributes))
+        Self::literal_attribute(rel).is_none_or(|value| Self::static_relation(&value, attributes))
     }
 
     fn static_relation(value: &str, attributes: &BTreeMap<String, TemplateAttribute>) -> bool {
         let stylesheet = Self::has_relation(value, Self::STYLESHEET);
         let preload = Self::has_relation(value, Self::PRELOAD);
         let style = attributes.get(Self::AS).is_some_and(Self::style_resource);
-        stylesheet | (preload & style)
+        let style_preload = [preload, style].into_iter().all(|holds| holds);
+        [stylesheet, style_preload].into_iter().any(|holds| holds)
     }
 
     fn has_relation(value: &str, expected: &str) -> bool {
@@ -89,7 +90,7 @@ impl ComponentStyleOwnership {
 
     fn style_resource(attribute: &TemplateAttribute) -> bool {
         Self::literal_attribute(attribute)
-            .map_or(true, |value| value.trim().eq_ignore_ascii_case(Self::STYLE))
+            .is_none_or(|value| value.trim().eq_ignore_ascii_case(Self::STYLE))
     }
 
     fn literal_attribute(attribute: &TemplateAttribute) -> Option<String> {

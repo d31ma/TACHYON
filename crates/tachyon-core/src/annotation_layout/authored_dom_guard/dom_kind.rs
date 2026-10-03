@@ -50,8 +50,8 @@ impl DomKind {
 
     fn named_member(receiver: Self, name: &str) -> Self {
         match (receiver, name) {
-            (Self::Document, "write" | "writeln") => Self::MarkupCall,
-            (Self::Unknown | Self::Node | Self::CreatedNode, "insertAdjacentHTML") => {
+            (Self::Document, "write" | "writeln")
+            | (Self::Unknown | Self::Node | Self::CreatedNode, "insertAdjacentHTML") => {
                 Self::MarkupCall
             }
             (Self::Document, "createElement" | "createElementNS" | "createDocumentFragment") => {
@@ -60,9 +60,9 @@ impl DomKind {
             (
                 Self::Unknown | Self::Sheet,
                 "insertRule" | "deleteRule" | "replaceSync" | "addRule" | "removeRule",
-            ) => Self::StyleCall,
-            (Self::Sheet, "replace") => Self::StyleCall,
-            (Self::Style, "setProperty" | "removeProperty") => Self::StyleCall,
+            )
+            | (Self::Sheet, "replace")
+            | (Self::Style, "setProperty" | "removeProperty") => Self::StyleCall,
             (
                 Self::Unknown | Self::Node | Self::CreatedNode,
                 "append"
@@ -77,8 +77,8 @@ impl DomKind {
             ) => Self::NodeInsertion,
             (Self::Window, "document") => Self::Document,
             (Self::Document, "body" | "head" | "documentElement") => Self::Node,
-            (Self::Document, "styleSheets" | "adoptedStyleSheets") => Self::Sheet,
-            (Self::Node | Self::CreatedNode, "sheet") => Self::Sheet,
+            (Self::Document, "styleSheets" | "adoptedStyleSheets")
+            | (Self::Node | Self::CreatedNode, "sheet") => Self::Sheet,
             (Self::Node | Self::CreatedNode | Self::Unknown, "style") => Self::Style,
             (Self::Data, _) => Self::Data,
             _ => Self::Unknown,

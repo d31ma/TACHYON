@@ -32,7 +32,11 @@ impl FoundationColors {
             .to_ascii_lowercase();
         let named = Self::NAMES.split_whitespace().any(|name| name == value);
         let hex = Self::hex(&value);
-        (tokens.len() == 1) & (named | hex)
+        Self::single_atomic_token(tokens.len(), named | hex)
+    }
+
+    fn single_atomic_token(length: usize, recognized: bool) -> bool {
+        length == 1 && recognized
     }
 
     fn hex(value: &str) -> bool {
@@ -54,7 +58,11 @@ impl FoundationColors {
         while Self::next_token(tokens, position, &mut depth) {
             position += 1;
         }
-        (position == tokens.len()) & (depth == 0) & (position > 1)
+        Self::complete_function(position, tokens.len(), depth)
+    }
+
+    fn complete_function(position: usize, length: usize, depth: usize) -> bool {
+        position == length && depth == 0 && position > 1
     }
 
     fn next_token(tokens: &[CssToken<'_>], position: usize, depth: &mut usize) -> bool {
@@ -72,8 +80,7 @@ impl FoundationColors {
                 *depth -= 1;
                 true
             }
-            (_, 0, _) => false,
-            (_, _, None) | (_, _, Some("(")) => false,
+            (_, 0, _) | (_, _, None | Some("(")) => false,
             _ => true,
         }
     }

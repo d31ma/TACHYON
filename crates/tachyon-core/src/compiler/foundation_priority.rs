@@ -25,9 +25,10 @@ impl FoundationPriority {
         let marker = tokens
             .get(tokens.len().saturating_sub(2))
             .is_some_and(|token| token.text == "!");
-        match important & marker {
-            true => tokens.len() - 2,
-            false => tokens.len(),
+        if important && marker {
+            tokens.len() - 2
+        } else {
+            tokens.len()
         }
     }
 
@@ -38,8 +39,12 @@ impl FoundationPriority {
         tokens: &[CssToken<'_>],
     ) -> Result<(), &'static str> {
         let value = Self::motion_value(property, tokens);
-        let valid = !priority | (allowed & value);
+        let valid = Self::permitted_priority(priority, allowed & value);
         valid.then_some(()).ok_or("Foundation !important priority is limited to exact universal reduced-motion duration, iteration-count and scroll resets inside @media (prefers-reduced-motion: reduce).")
+    }
+
+    fn permitted_priority(priority: bool, permitted: bool) -> bool {
+        !priority || permitted
     }
 
     fn motion_value(property: &str, tokens: &[CssToken<'_>]) -> bool {

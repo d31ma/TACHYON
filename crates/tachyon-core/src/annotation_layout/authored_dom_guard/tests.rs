@@ -17,7 +17,10 @@ impl DomGuardFixture {
         assert_eq!(diagnostic.code.to_string(), "TY1364");
         let span = &diagnostic.spans[0];
         assert_eq!(span.file, path);
-        let found = &source[span.start as usize..span.end as usize];
+        let start =
+            usize::try_from(span.start).unwrap_or_else(|error| panic!("span start: {error}"));
+        let end = usize::try_from(span.end).unwrap_or_else(|error| panic!("span end: {error}"));
+        let found = &source[start..end];
         assert!(found.contains(needle), "{span:?}: {found}");
         assert!(
             diagnostic

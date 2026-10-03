@@ -51,14 +51,15 @@ impl StylePath {
     }
 
     fn joined(parent: &str, source: &str) -> String {
-        match source.starts_with('/') {
-            true => String::from(source),
-            false => format!(
+        if source.starts_with('/') {
+            String::from(source)
+        } else {
+            format!(
                 "{}/{source}",
                 parent
                     .rsplit_once('/')
                     .map_or("", |(directory, _)| directory)
-            ),
+            )
         }
     }
 

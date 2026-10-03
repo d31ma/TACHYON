@@ -4,6 +4,7 @@ pub(super) struct FoundationValues;
 
 impl FoundationValues {
     const URL_PREFIX: &'static str = "url(";
+    const BLOCK_DELIMITERS: [&'static str; 2] = ["{", "}"];
     const FUNCTIONS: [&'static str; 2] = ["url", "expression"];
 
     pub(super) fn validate(tokens: &[CssToken<'_>]) -> Result<(), &'static str> {
@@ -19,21 +20,23 @@ impl FoundationValues {
     }
 
     fn unsafe_token(token: &CssToken<'_>) -> bool {
-        match Self::literal(token) {
-            true => false,
-            false => Self::unquoted_token(token),
-        }
+        let literal = Self::literal(token);
+        let unsafe_value = Self::unquoted_token(token);
+        Self::unsafe_nonliteral(literal, unsafe_value)
     }
 
     fn unquoted_token(token: &CssToken<'_>) -> bool {
-        (token.text == "{")
-            | (token.text == "}")
-            | token
+        Self::BLOCK_DELIMITERS.contains(&token.text)
+            || token
                 .text
                 .to_ascii_lowercase()
                 .starts_with(Self::URL_PREFIX)
-            | token.text.starts_with('@')
-            | token.text.contains('\\')
+            || token.text.starts_with('@')
+            || token.text.contains('\\')
+    }
+
+    fn unsafe_nonliteral(literal: bool, unsafe_value: bool) -> bool {
+        !literal && unsafe_value
     }
 
     fn literal(token: &CssToken<'_>) -> bool {
@@ -42,6 +45,6 @@ impl FoundationValues {
 
     fn unsafe_function(tokens: &[CssToken<'_>]) -> bool {
         let name = tokens[0].text.to_ascii_lowercase();
-        Self::FUNCTIONS.contains(&name.as_str()) & (tokens[1].text == "(")
+        Self::FUNCTIONS.contains(&name.as_str()) && tokens[1].text == "("
     }
 }

@@ -48,7 +48,9 @@ fn authored_dom_guard_checks_raw_unreachable_shared_scripts_before_rewrite() {
     let failure =
         SharedScriptFixture::refuse(root.path(), "TY1364", "client/shared/assets/renamed.mjs");
     let span = &failure.diagnostics()[0].spans[0];
-    assert!(source[span.start as usize..span.end as usize].contains("append"));
+    let start = usize::try_from(span.start).unwrap_or_else(|error| panic!("span start: {error}"));
+    let end = usize::try_from(span.end).unwrap_or_else(|error| panic!("span end: {error}"));
+    assert!(source[start..end].contains("append"));
 }
 
 #[test]

@@ -61,7 +61,16 @@ impl CssUrl {
     }
 
     fn name_character(value: char) -> bool {
-        value.is_alphanumeric() | (value == '_') | (value == '-') | !value.is_ascii()
+        let ascii_character = Self::ascii_name_character(value);
+        Self::allowed_name_character(value.is_ascii(), ascii_character)
+    }
+
+    fn ascii_name_character(value: char) -> bool {
+        value.is_alphanumeric() || value == '_' || value == '-'
+    }
+
+    fn allowed_name_character(ascii: bool, ascii_character: bool) -> bool {
+        !ascii || ascii_character
     }
 
     fn name(source: &str, start: usize, end: usize) -> String {
@@ -76,18 +85,17 @@ impl CssUrl {
     }
 
     fn name_step(source: &str, position: usize) -> (char, usize) {
-        match source.as_bytes()[position] {
-            b'\\' => (
+        if source.as_bytes()[position] == b'\\' {
+            (
                 CssEscape::value(source, position),
                 CssEscape::end(source, position),
-            ),
-            _ => {
-                let value = source[position..]
-                    .chars()
-                    .next()
-                    .unwrap_or(Self::REPLACEMENT);
-                (value, position + value.len_utf8())
-            }
+            )
+        } else {
+            let value = source[position..]
+                .chars()
+                .next()
+                .unwrap_or(Self::REPLACEMENT);
+            (value, position + value.len_utf8())
         }
     }
 

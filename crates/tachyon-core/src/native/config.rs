@@ -336,7 +336,10 @@ impl WebAppManifest {
     }
 
     fn read_captured(bytes: &[u8]) -> Result<WebAppManifest, Failure> {
-        if bytes.len() > WebAppManifest::MAX_BYTES as usize {
+        let length = u64::try_from(bytes.len()).map_err(|error| {
+            config_failure(&format!("Cannot measure client/manifest.json: {error}"))
+        })?;
+        if length > WebAppManifest::MAX_BYTES {
             return Err(config_failure(
                 "client/manifest.json exceeds the 1 MiB limit.",
             ));

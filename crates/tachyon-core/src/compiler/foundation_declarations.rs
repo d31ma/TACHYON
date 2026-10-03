@@ -108,17 +108,23 @@ impl FoundationDeclarations {
     }
 
     fn reset_value(property: &str, value: &str, tokens: &[CssToken<'_>]) -> bool {
+        let duration = Self::duration_reset(value);
+        Self::reset_rule(property, value, tokens, duration)
+    }
+
+    fn duration_reset(value: &str) -> bool {
+        Self::ZERO.contains(&value) || value == "0.01ms"
+    }
+
+    fn reset_rule(property: &str, value: &str, tokens: &[CssToken<'_>], duration: bool) -> bool {
         match property {
             "box-sizing" => value == "border-box",
             "background" => FoundationColors::background(tokens),
             "border-style" => Self::BORDER_STYLES.contains(&value),
             "border-color" => Self::BORDER_COLORS.contains(&value),
-            "list-style" => value == "none",
-            "appearance" | "-webkit-appearance" => value == "none",
+            "list-style" | "appearance" | "-webkit-appearance" => value == "none",
             "vertical-align" => value == "baseline",
-            "animation-duration" | "transition-duration" => {
-                Self::ZERO.contains(&value) | (value == "0.01ms")
-            }
+            "animation-duration" | "transition-duration" => duration,
             "animation-iteration-count" => value == "1",
             "scroll-behavior" => value == "auto",
             _ => Self::RESET.contains(&property) & Self::ZERO.contains(&value),

@@ -29,12 +29,12 @@ impl<'a> CssTokens<'a> {
     }
 
     fn add_next(&mut self, tokens: &mut Vec<CssToken<'a>>) -> Result<(), &'static str> {
-        self.check_count(tokens.len())?;
+        Self::check_count(tokens.len())?;
         tokens.extend(self.next()?);
         Ok(())
     }
 
-    fn check_count(&self, count: usize) -> Result<(), &'static str> {
+    fn check_count(count: usize) -> Result<(), &'static str> {
         if count >= Self::MAX_TOKENS {
             return Err("Stylesheet exceeds the bounded token limit.");
         }
@@ -128,10 +128,10 @@ impl<'a> CssTokens<'a> {
             self.source.as_bytes().get(position).copied(),
             self.source.as_bytes().get(position + 1).copied(),
         ) {
-            (None, _) => None,
-            (Some(b'\\'), Some(b'\n' | b'\r' | b'\x0c')) => None,
+            (None, _) | (Some(b'\\'), Some(b'\n' | b'\r' | b'\x0c')) | (Some(b'/'), Some(b'*')) => {
+                None
+            }
             (Some(b'\\'), Some(_)) => Some(CssEscape::end(self.source, position)),
-            (Some(b'/'), Some(b'*')) => None,
             (Some(byte), _) if byte.is_ascii_whitespace() || Self::PUNCTUATION.contains(&byte) => {
                 None
             }

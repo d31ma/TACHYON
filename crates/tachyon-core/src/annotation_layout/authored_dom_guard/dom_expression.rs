@@ -71,7 +71,7 @@ impl<'a, 's> DomExpression<'a, 's> {
                         .and_then(|token| Self::literal(token.text))
                         .map(|name| (name, at + 3))
                 },
-                |_| None,
+                |()| None,
             )
     }
 
@@ -127,13 +127,15 @@ impl<'a, 's> DomExpression<'a, 's> {
     }
 
     fn without_prefix(&self, start: usize, end: usize) -> usize {
-        [
+        if [
             start + 1 < end,
             ["new", "await", "("].contains(&self.text(start)),
         ]
         .contains(&false)
-        .then_some(start)
-        .unwrap_or(start + 1)
+        {
+            return start;
+        }
+        start + 1
     }
 
     fn initial(&self, start: usize) -> DomKind {
@@ -159,38 +161,51 @@ impl<'a, 's> DomExpression<'a, 's> {
     ) -> (DomKind, usize, String) {
         let name = format!("{name}.{member}");
         let bound = self.bindings.kind(&name);
-        let kind = (bound != DomKind::Unknown)
-            .then_some(bound)
-            .unwrap_or_else(|| self.member_kind(receiver, member, after));
-        let end = (self.text(after) == "(")
-            .then(|| self.group_end(after))
-            .unwrap_or(after);
+        let inferred = self.member_kind(receiver, member, after);
+        let kind = Self::bound_kind(bound, inferred);
+        let end = self.member_end(after);
         (kind, end, name)
     }
 
+    fn bound_kind(bound: DomKind, inferred: DomKind) -> DomKind {
+        if bound != DomKind::Unknown {
+            return bound;
+        }
+        inferred
+    }
+
+    fn member_end(&self, after: usize) -> usize {
+        if self.text(after) == "(" {
+            return self.group_end(after);
+        }
+        after
+    }
+
     fn member_kind(&self, receiver: DomKind, member: &str, after: usize) -> DomKind {
-        (self.text(after) == "(")
-            .then(|| receiver.called(member))
-            .unwrap_or_else(|| receiver.member(member))
+        if self.text(after) == "(" {
+            return receiver.called(member);
+        }
+        receiver.member(member)
     }
 
     fn nonmember(&self, kind: DomKind, at: usize, name: &str) -> (DomKind, usize, String) {
-        ["(", "["]
-            .contains(&self.text(at))
-            .then(|| {
-                (
-                    self.group_kind(kind, at),
-                    self.group_end(at),
-                    name.to_owned(),
-                )
-            })
-            .unwrap_or_else(|| (kind, at + 1, name.to_owned()))
+        let kind = self.group_kind(kind, at);
+        let end = self.nonmember_end(at);
+        (kind, end, name.to_owned())
+    }
+
+    fn nonmember_end(&self, at: usize) -> usize {
+        if ["(", "["].contains(&self.text(at)) {
+            return self.group_end(at);
+        }
+        at + 1
     }
 
     fn group_kind(&self, kind: DomKind, at: usize) -> DomKind {
-        (self.text(at) == "(")
-            .then(|| kind.invoked())
-            .unwrap_or(kind)
+        if self.text(at) == "(" {
+            return kind.invoked();
+        }
+        kind
     }
 
     fn group_end(&self, start: usize) -> usize {

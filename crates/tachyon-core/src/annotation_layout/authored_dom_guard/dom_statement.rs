@@ -29,12 +29,14 @@ impl DomStatement {
                 ]
                 .contains(&true)
             })
-            .map_or(0, |before| {
-                Self::END
-                    .contains(&tokens.items[before].text)
-                    .then_some(before + 1)
-                    .unwrap_or(before)
-            })
+            .map_or(0, |before| Self::start_after_boundary(tokens, before))
+    }
+
+    fn start_after_boundary(tokens: &Tokens<'_>, before: usize) -> usize {
+        if Self::END.contains(&tokens.items[before].text) {
+            return before + 1;
+        }
+        before
     }
 
     fn find_end(tokens: &Tokens<'_>, start: usize) -> usize {
