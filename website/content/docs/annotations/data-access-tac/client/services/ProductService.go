@@ -1,3 +1,4 @@
+// @Service
 type ProductService struct {
 	Summary string
 }

@@ -1,6 +1,7 @@
 open System
 open System.Threading.Tasks
 
+[<Service>]
 type OrdersService() =
     let firstWorkingAttempt = 3
 

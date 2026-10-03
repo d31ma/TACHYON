@@ -1,3 +1,4 @@
+[Service]
 public sealed class OrdersService {
     public BehaviorContext behaviors;
     private const int FirstWorkingAttempt = 3;

@@ -1,3 +1,4 @@
+[Service]
 [CacheSettings({"name":"catalog","ttlMs":30000,"maxBytes":65536,"maxEntries":256})]
 public sealed class CatalogService {
     public BehaviorContext behaviors;

@@ -1,3 +1,4 @@
+@Service
 class OrdersService {
     lateinit var behaviors: Behaviors.Context
     var attempts: Int = 0

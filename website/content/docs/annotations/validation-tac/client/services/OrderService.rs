@@ -1,3 +1,4 @@
+#[Service]
 struct OrderService { status: String }
 impl OrderService {
     fn new() -> Self { Self { status: String::from("ready") } }

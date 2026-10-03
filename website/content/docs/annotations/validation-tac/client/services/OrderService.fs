@@ -1,3 +1,4 @@
+[<Service>]
 type OrderService() =
     member val status : string = "ready" with get, set
 

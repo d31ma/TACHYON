@@ -1,3 +1,4 @@
+// @Service
 type MoneyService struct {
 	Amount int64
 }

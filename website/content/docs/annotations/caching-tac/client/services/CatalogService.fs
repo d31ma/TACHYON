@@ -1,5 +1,6 @@
 open System.Threading.Tasks
 
+[<Service>]
 [<CacheSettings({"name":"catalog","ttlMs":30000,"maxBytes":65536,"maxEntries":256})>]
 type CatalogService() =
     let skuField = "sku"

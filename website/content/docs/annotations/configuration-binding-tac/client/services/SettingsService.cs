@@ -1,3 +1,4 @@
+[Service]
 public class SettingsService {
     public string title = "Catalog";
     public long pageSize = 20;

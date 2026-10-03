@@ -1,3 +1,4 @@
+// @Service
 type OrderService struct {
 	Status string
 }

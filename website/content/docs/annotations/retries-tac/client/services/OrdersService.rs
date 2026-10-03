@@ -1,3 +1,4 @@
+#[Service]
 struct OrdersService {
     behaviors: BehaviorContext,
     tries: std::cell::Cell<f64>,

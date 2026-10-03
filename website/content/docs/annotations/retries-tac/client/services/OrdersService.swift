@@ -1,3 +1,4 @@
+@Service
 final class OrdersService {
     struct GatewayUnavailable: Error {}
 

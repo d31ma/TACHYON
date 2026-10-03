@@ -1,3 +1,4 @@
+[<Service>]
 type SettingsService() =
     let published = BehaviorJSON.Parse("{\"tac\":{\"catalog\":{\"title\":\"Catalog\",\"page\":{\"size\":20},\"cache\":{\"enabled\":true}}}}")
     let catalog = Behaviors.properties(typeof<CatalogSetup>, published)

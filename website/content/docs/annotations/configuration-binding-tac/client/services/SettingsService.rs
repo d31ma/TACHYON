@@ -1,3 +1,4 @@
+#[Service]
 #[allow(non_snake_case)]
 struct SettingsService {
     title: String,

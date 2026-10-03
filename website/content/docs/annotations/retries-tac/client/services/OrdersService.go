@@ -1,3 +1,4 @@
+// @Service
 type OrdersService struct {
 	behaviors *BehaviorContext
 	Attempts  int

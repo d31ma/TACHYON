@@ -1,3 +1,4 @@
+// @Service
 type BillingService struct {
 	Total int
 }

@@ -1,5 +1,6 @@
 import "errors"
 
+// @Service
 type SettingsService struct {
 	Title    string
 	PageSize int64
