@@ -67,7 +67,8 @@ fn tac_component_scope_parent_selectors_stop_at_nested_component_boundaries() {
     let stylesheet = std::fs::read_to_string(output.join(".tachyon/components.css"))
         .unwrap_or_else(|failure| panic!("component stylesheet: {failure}"));
     assert!(
-        stylesheet.contains("@scope ([data-tac-scope=\"parent-panel\"]) to ([data-tac-scope])"),
+        stylesheet
+            .contains("@scope ([data-tac-scope=\"parent-panel\"]) to (:scope [data-tac-scope])"),
         "{stylesheet}"
     );
 }
