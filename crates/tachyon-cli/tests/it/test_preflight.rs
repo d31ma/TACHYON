@@ -9,7 +9,7 @@ impl GatewayProject {
     const FILES: [(&str, &str); 5] = [
         ("server/helpers/report.py", "print(1)\n"),
         (
-            "server/clients/ReportClient.js",
+            "server/remotes/ReportClient.js",
             "@HTTPClient\nclass ReportClient {\n  @Gateway({\"command\":[\"tachyon-missing-gateway-program\",\"server/helpers/report.py\"]})\n  async summarize(period) {}\n}\n",
         ),
         (

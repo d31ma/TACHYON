@@ -279,7 +279,7 @@ mod tests {
             "client/pages/tac.rs",
             "client/stores/BasketStore.js",
             "client/helpers/PricingHelper.js",
-            "client/clients/ProductsClient.js",
+            "client/remotes/ProductsClient.js",
             "client/entities/ProductEntity.js",
             "client/setups/ApiSetup.js",
             "server/services/OrdersService.js",

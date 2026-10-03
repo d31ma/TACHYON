@@ -401,7 +401,7 @@ fn project(extension: &str, client: &str, controller: &str) -> Project {
     );
     write(
         root.path(),
-        &format!("server/clients/ReportClient.{extension}"),
+        &format!("server/remotes/ReportClient.{extension}"),
         client,
     );
     let entry = format!("server/controllers/ReportController.{extension}");
@@ -791,7 +791,7 @@ fn command_files_must_be_captured_helpers() {
             "@HTTPClient\nclass ReportClient {{\n  @Gateway({{\"command\":{command}}})\n  async summarize() {{}}\n}}\n"
         );
         let root = tempfile::tempdir().expect("project");
-        write(root.path(), "server/clients/ReportClient.js", &client);
+        write(root.path(), "server/remotes/ReportClient.js", &client);
         write(
             root.path(),
             "server/controllers/ReportController.js",

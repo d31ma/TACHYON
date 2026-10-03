@@ -1157,7 +1157,7 @@ fn main() {{
     }
 
     fn lower_client(source: &str) -> String {
-        super::super::lower(Path::new("server/clients/ReportClient.rs"), source, "yon")
+        super::super::lower(Path::new("server/remotes/ReportClient.rs"), source, "yon")
             .expect("Rust gateway lowering")
             .expect("lowered source")
     }
@@ -1188,7 +1188,7 @@ fn main() {{
     #[test]
     fn a_gateway_parameter_must_be_a_behavior_value() {
         let failure = super::super::lower(
-            Path::new("server/clients/ReportClient.rs"),
+            Path::new("server/remotes/ReportClient.rs"),
             "struct ReportClient;\nimpl ReportClient {\n    #[Gateway({\"command\":[\"python3\"]})]\n    fn ping(&self, mode: String) -> BehaviorResult<BehaviorValue> {}\n}\n",
             "yon",
         )

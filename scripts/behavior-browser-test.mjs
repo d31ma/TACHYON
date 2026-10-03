@@ -122,7 +122,7 @@ class SlowAdaptersSetup {
   }
 }
 `);
-  write(project, 'client/clients/SlowClient.js', `
+  write(project, 'client/remotes/SlowClient.js', `
 @HTTPClient({"adapter":"slow"})
 class SlowClient {
   @GetRequest("/slow")

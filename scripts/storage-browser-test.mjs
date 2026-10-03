@@ -745,12 +745,12 @@ function writeFixture(project) {
   <storage-rs />
 ${StorageGate.withCSharp ? '  <storage-cs />\n  <storage-journal />\n' : ''}${StorageGate.withKotlin ? '  <storage-kt />\n' : ''}${StorageGate.withSwift ? '  <storage-swift />\n' : ''}${StorageGate.withJava ? '  <storage-java />\n' : ''}</main>
 `);
-  write(project, 'client/clients/FreshClient.js', `@HTTPClient
+  write(project, 'client/remotes/FreshClient.js', `@HTTPClient
 class FreshClient {
   @GetRequest("/api/counter")
   async counter() {}
 }`);
-  write(project, 'client/clients/CachedClient.js', `@HTTPClient
+  write(project, 'client/remotes/CachedClient.js', `@HTTPClient
 @CacheSettings({"name":"counters","ttlMs":60000,"maxBytes":4096,"maxEntries":8})
 class CachedClient {
   /** @returns {Promise<BehaviorJsonValue>} */

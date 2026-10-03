@@ -15,7 +15,6 @@ pub fn write(root: &Path, language: &str, realm: &str, extension: &str) {
         source = php_helper_source(&relative, source, language);
         source = csharp_helper_source(&relative, source, language);
         let (relative, mut source) = tac_checks_copy(relative, source, realm, language);
-        let relative = relative.replacen("server/clients/", "server/remotes/", 1);
         let relative = relative.replacen("server/", &format!("{realm}/"), 1);
         let relative = Path::new(&relative).with_extension(extension);
         if language == "js" && realm == "server" {
@@ -383,8 +382,8 @@ impl AuthoredFixtures {
             ),
         ),
         (
-            "server/clients/CatalogClient.js",
-            include_str!("../../fixtures/behavior/authored/js/server/clients/CatalogClient.js"),
+            "server/remotes/CatalogClient.js",
+            include_str!("../../fixtures/behavior/authored/js/server/remotes/CatalogClient.js"),
         ),
         (
             "server/setups/CatalogSetup.js",
@@ -427,8 +426,8 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/py/server/helpers/Backend.py"),
         ),
         (
-            "server/clients/CatalogClient.py",
-            include_str!("../../fixtures/behavior/authored/py/server/clients/CatalogClient.py"),
+            "server/remotes/CatalogClient.py",
+            include_str!("../../fixtures/behavior/authored/py/server/remotes/CatalogClient.py"),
         ),
         (
             "server/setups/CatalogSetup.py",
@@ -493,8 +492,8 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/php/server/helpers/Backend.php"),
         ),
         (
-            "server/clients/CatalogClient.php",
-            include_str!("../../fixtures/behavior/authored/php/server/clients/CatalogClient.php"),
+            "server/remotes/CatalogClient.php",
+            include_str!("../../fixtures/behavior/authored/php/server/remotes/CatalogClient.php"),
         ),
         (
             "server/setups/CatalogSetup.php",
@@ -585,8 +584,8 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/rb/server/helpers/ValidationService.rb"),
         ),
         (
-            "server/clients/CatalogClient.rb",
-            include_str!("../../fixtures/behavior/authored/rb/server/clients/CatalogClient.rb"),
+            "server/remotes/CatalogClient.rb",
+            include_str!("../../fixtures/behavior/authored/rb/server/remotes/CatalogClient.rb"),
         ),
         (
             "server/setups/CatalogSetup.rb",
@@ -632,8 +631,8 @@ impl AuthoredFixtures {
             ),
         ),
         (
-            "server/clients/CatalogClient.java",
-            include_str!("../../fixtures/behavior/authored/java/server/clients/CatalogClient.java"),
+            "server/remotes/CatalogClient.java",
+            include_str!("../../fixtures/behavior/authored/java/server/remotes/CatalogClient.java"),
         ),
         (
             "server/services/CatalogService.java",
@@ -708,9 +707,9 @@ impl AuthoredFixtures {
             ),
         ),
         (
-            "server/clients/CatalogClient.groovy",
+            "server/remotes/CatalogClient.groovy",
             include_str!(
-                "../../fixtures/behavior/authored/groovy/server/clients/CatalogClient.groovy"
+                "../../fixtures/behavior/authored/groovy/server/remotes/CatalogClient.groovy"
             ),
         ),
         (
@@ -784,8 +783,8 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/kt/server/helpers/ApplicationValues.kt"),
         ),
         (
-            "server/clients/CatalogClient.kt",
-            include_str!("../../fixtures/behavior/authored/kt/server/clients/CatalogClient.kt"),
+            "server/remotes/CatalogClient.kt",
+            include_str!("../../fixtures/behavior/authored/kt/server/remotes/CatalogClient.kt"),
         ),
         (
             "server/services/CatalogService.kt",
@@ -854,8 +853,8 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/rs/server/helpers/CatalogChecks.rs"),
         ),
         (
-            "server/clients/CatalogClient.rs",
-            include_str!("../../fixtures/behavior/authored/rs/server/clients/CatalogClient.rs"),
+            "server/remotes/CatalogClient.rs",
+            include_str!("../../fixtures/behavior/authored/rs/server/remotes/CatalogClient.rs"),
         ),
         (
             "server/services/CatalogService.rs",
@@ -922,9 +921,9 @@ impl AuthoredFixtures {
             ),
         ),
         (
-            "server/clients/AnnotatedCatalogClient.cs",
+            "server/remotes/AnnotatedCatalogClient.cs",
             include_str!(
-                "../../fixtures/behavior/authored/cs/server/clients/AnnotatedCatalogClient.cs"
+                "../../fixtures/behavior/authored/cs/server/remotes/AnnotatedCatalogClient.cs"
             ),
         ),
         (
@@ -960,9 +959,9 @@ impl AuthoredFixtures {
             ),
         ),
         (
-            "server/clients/AnnotatedValidatedCacheClient.cs",
+            "server/remotes/AnnotatedValidatedCacheClient.cs",
             include_str!(
-                "../../fixtures/behavior/authored/cs/server/clients/AnnotatedValidatedCacheClient.cs"
+                "../../fixtures/behavior/authored/cs/server/remotes/AnnotatedValidatedCacheClient.cs"
             ),
         ),
         (
@@ -1062,8 +1061,8 @@ impl AuthoredFixtures {
             include_str!("../../fixtures/behavior/authored/go/server/helpers/CatalogChecks.go"),
         ),
         (
-            "server/clients/CatalogClient.go",
-            include_str!("../../fixtures/behavior/authored/go/server/clients/CatalogClient.go"),
+            "server/remotes/CatalogClient.go",
+            include_str!("../../fixtures/behavior/authored/go/server/remotes/CatalogClient.go"),
         ),
         (
             "server/services/CatalogService.go",

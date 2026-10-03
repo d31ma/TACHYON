@@ -2052,7 +2052,7 @@ mod tests {
                     "@Store()\nclass BasketStore {}\n",
                 ),
                 (
-                    "client/clients/ProductsClient.js",
+                    "client/remotes/ProductsClient.js",
                     "@HTTPClient()\nclass ProductsClient {}\n",
                 ),
                 (
@@ -2338,7 +2338,7 @@ mod tests {
             let root = tempfile::tempdir().expect("project");
             let entry = "client/services/TicksService.java";
             write(root.path(), entry, "@Service\nclass TicksService {\n}\n");
-            let client = "client/clients/TicksClient.java";
+            let client = "client/remotes/TicksClient.java";
             let source = format!(
                 "import models.Tick;\n\n@HTTPClient(\"/ticks\")\ninterface TicksClient {{\n    {marker}\n    void receive(Tick tick);\n}}\n"
             );
@@ -2583,7 +2583,7 @@ mod tests {
 
     #[test]
     fn a_tachyon_behaviors_import_is_refused_in_role_files_and_entries() {
-        let path = Path::new("client/clients/UsersClient.ts");
+        let path = Path::new("client/remotes/UsersClient.ts");
         for source in [
             "import type { BehaviorJsonValue } from 'tachyon:behaviors';",
             "import { CacheSettings, Behaviors } from \"tachyon:behaviors\"\nclass MoneyService {}",
@@ -2594,7 +2594,7 @@ mod tests {
             assert_contains(&failure, "TY1308");
             assert_contains(
                 &failure,
-                "client/clients/UsersClient.ts:1: Tachyon annotations and types are global; delete this import",
+                "client/remotes/UsersClient.ts:1: Tachyon annotations and types are global; delete this import",
             );
         }
         let root = project();
@@ -2603,7 +2603,7 @@ mod tests {
         write(root.path(), entry, service);
         write(
             root.path(),
-            "client/clients/UsersClient.ts",
+            "client/remotes/UsersClient.ts",
             "\nimport type { BehaviorJsonValue } from 'tachyon:behaviors';\n@HTTPClient()\nclass UsersClient { value: BehaviorJsonValue = null; }\n",
         );
         let failure = assemble(root.path(), Path::new(entry), service, "tac")
@@ -2611,7 +2611,7 @@ mod tests {
             .to_string();
         assert_contains(
             &failure,
-            "client/clients/UsersClient.ts:2: Tachyon annotations",
+            "client/remotes/UsersClient.ts:2: Tachyon annotations",
         );
         let imported = format!("import {{ Service }} from 'tachyon:behaviors';\n{service}");
         let failure = assemble(root.path(), Path::new(entry), &imported, "tac")
@@ -2631,7 +2631,7 @@ mod tests {
         write(root.path(), entry, service);
         write(
             root.path(),
-            "client/clients/UsersClient.ts",
+            "client/remotes/UsersClient.ts",
             "@HTTPClient()\nclass UsersClient { value: BehaviorJsonValue = null; }\n",
         );
         let source = composed_entry(root.path(), entry, service, "tac");

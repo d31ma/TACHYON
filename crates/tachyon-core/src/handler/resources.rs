@@ -363,7 +363,7 @@ mod tests {
             fn with_client(root: tempfile::TempDir, target: &str) -> Self {
                 write(
                     root.path(),
-                    "server/clients/WaitClient.js",
+                    "server/remotes/WaitClient.js",
                     &format!(
                         "@HTTPClient\nclass WaitClient {{\n@Gateway({target})\nasync wait(value) {{}}\n}}\n"
                     ),

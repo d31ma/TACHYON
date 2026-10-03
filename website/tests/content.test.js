@@ -91,15 +91,18 @@ describe('the docs guide reads in order', () => {
   })
 })
 
-class RemovedResource {
-  static name = 'cacheManager'
+class RetiredName {
   static guides = ['README.md', 'docs/APPLICATION_EVENTS.md'].map(file => path.join(SiteContent.website, '..', file))
 
-  /** @returns {string[]} */
-  static sentencesThatStillTeachIt() {
-    const texts = [...ContentFiles.onDisk(), ...RemovedResource.guides].map(file => readFileSync(file, 'utf8'))
+  /**
+   * @param {RegExp} name
+   * @param {RegExp} explanation
+   * @returns {string[]}
+   */
+  static sentencesThatStillTeach(name, explanation) {
+    const texts = [...ContentFiles.onDisk(), ...RetiredName.guides].map(file => readFileSync(file, 'utf8'))
     const sentences = texts.flatMap(text => text.split(/\.\s/))
-    return sentences.filter(sentence => sentence.includes(RemovedResource.name) && !/\b(removed|refused)\b/.test(sentence))
+    return sentences.filter(sentence => name.test(sentence) && !explanation.test(sentence))
   }
 }
 
@@ -110,8 +113,12 @@ describe('the data a page passes to a service fits in one WebAssembly init reque
   })
 })
 
-describe('the docs teach only the resources that Tachyon injects', () => {
+describe('the docs do not teach retired names', () => {
   test('a sentence that names cacheManager says that it was removed (ADR 0087)', () => {
-    expect(RemovedResource.sentencesThatStillTeachIt()).toEqual([])
+    expect(RetiredName.sentencesThatStillTeach(/cacheManager/, /\b(removed|refused)\b/)).toEqual([])
+  })
+
+  test('a sentence that names the clients folder says that remotes replaced it (ADR 0088)', () => {
+    expect(RetiredName.sentencesThatStillTeach(/\b(client|server)\/clients\b/, /\b(alias|remotes)\b/)).toEqual([])
   })
 })

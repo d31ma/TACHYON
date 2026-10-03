@@ -2679,6 +2679,12 @@ machine contracts have their own, independent major versions.
 
 - Kotlin Tac components keep the metadata of public `lateinit` members and
   read required component models with the existing model readers.
+- The website, the browser gates and the Rust tests name `client/remotes`
+  and `server/remotes` for outbound clients (ADR 0088). `clients/` stays a
+  compatibility alias, and only the alias code, the migration and its tests
+  still name it; a repository policy test and a website test keep it that
+  way.
+
 - `TY1317` covers F# like C#. A Tac F# file that uses
   `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` or
   `JSHost` is refused; before, F# files were not checked. The native build

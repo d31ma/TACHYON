@@ -36,12 +36,12 @@ function writeFixture() {
   write('client/pages/tac.html', '<offline-page />\n');
   write('client/components/offline/page/tac.html', '<main aria-label="Offline"><h1 id="title">{workerPage.title}</h1></main>\n');
   write('client/components/offline/page/tac.css', '#title { color: rgb(0, 128, 0) }\n');
-  write('client/clients/RuntimeClient.js', `@HTTPClient
+  write('client/remotes/RuntimeClient.js', `@HTTPClient
 class RuntimeClient {
   @GetRequest("/api/runtime")
   async read() {}
 }`);
-  write('client/clients/ListedClient.js', `@HTTPClient
+  write('client/remotes/ListedClient.js', `@HTTPClient
 @CacheSettings({"name":"listed","ttlMs":60000,"maxBytes":65536,"maxEntries":64})
 class ListedClient {
   @Cached

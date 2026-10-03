@@ -251,7 +251,7 @@ impl Samples {
     ];
 
     fn path(extension: &str) -> String {
-        format!("server/clients/CatalogClient.{extension}")
+        format!("server/remotes/CatalogClient.{extension}")
     }
 
     fn refusal(extension: &str, source: &str) -> String {
@@ -379,7 +379,7 @@ fn tac_clients_create_their_context_when_they_are_built() {
 fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
     let gateway = "#[HTTPClient]\ntrait ReportClient {\n    #[Gateway({\"command\":[\"python3\"]})]\n    fn ping(&self) -> BehaviorResult<BehaviorValue>;\n}\n";
     let lowered =
-        DeclaredContract::concrete(Path::new("server/clients/ReportClient.rs"), gateway, "yon")
+        DeclaredContract::concrete(Path::new("server/remotes/ReportClient.rs"), gateway, "yon")
             .expect("lowered");
     assert!(
         lowered.contains("struct ReportClient;\nimpl ReportClient {"),
@@ -388,7 +388,7 @@ fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
     assert!(lowered.contains("fn new() -> Self { Self }"), "{lowered}");
     let named = "@HTTPClient({\"adapter\":\"api\",\"setup\":\"RuntimeAdaptersSetup\"})\ninterface CatalogClient {\n    @GetRequest(\"/products\")\n    Object all();\n}\n";
     let lowered =
-        DeclaredContract::concrete(Path::new("server/clients/CatalogClient.java"), named, "yon")
+        DeclaredContract::concrete(Path::new("server/remotes/CatalogClient.java"), named, "yon")
             .expect("lowered");
     assert!(
         lowered
@@ -401,7 +401,7 @@ fn a_gateway_only_client_gets_no_context_and_a_named_setup_is_used() {
 fn tac_browser_clients_stay_as_written() {
     let source = Samples::CONTRACTS[10].1;
     assert!(
-        DeclaredContract::concrete(Path::new("client/clients/CatalogClient.js"), source, "tac")
+        DeclaredContract::concrete(Path::new("client/remotes/CatalogClient.js"), source, "tac")
             .is_none()
     );
 }
@@ -457,7 +457,7 @@ impl Migrations {
     ];
 
     fn rewritten(extension: &str, source: &str) -> String {
-        let path = format!("server/clients/CatalogClient.{extension}");
+        let path = format!("server/remotes/CatalogClient.{extension}");
         let mut edits = DeclaredContract::rewrite(Path::new(&path), source)
             .unwrap_or_else(|problem| panic!("{extension}: {problem}"));
         assert!(!edits.is_empty(), "{extension} was not rewritten");
@@ -474,7 +474,7 @@ impl Migrations {
 fn the_fix_turns_every_class_client_into_a_contract_that_passes_the_check() {
     for (extension, source) in Migrations::CLASS_CLIENTS {
         let rewritten = Migrations::rewritten(extension, source);
-        let path = format!("server/clients/CatalogClient.{extension}");
+        let path = format!("server/remotes/CatalogClient.{extension}");
         let checked = DeclaredContract::check(Path::new(&path), &rewritten);
         assert!(checked.is_ok(), "{extension}: {checked:?}\n{rewritten}");
         assert!(
@@ -491,7 +491,7 @@ fn the_fix_turns_every_class_client_into_a_contract_that_passes_the_check() {
 #[test]
 fn the_fix_leaves_a_client_with_logic_to_the_author() {
     let source = "@HTTPClient\nclass BillingClient {\n  int surcharge() { return 2; }\n}\n";
-    let problem = DeclaredContract::rewrite(Path::new("server/clients/BillingClient.java"), source)
+    let problem = DeclaredContract::rewrite(Path::new("server/remotes/BillingClient.java"), source)
         .expect_err("logic stays manual");
     assert!(
         problem.contains("Move the logic into a service"),
@@ -505,7 +505,7 @@ impl FsharpSamples {
     const CONTRACT: &'static str = "open System.Threading.Tasks\n\n[<HTTPClient({\"adapter\":\"api\"})>]\ntype CatalogClient =\n    [<GetRequest(\"/products\")>]\n    abstract All: [<RequestParam(\"page\")>] page: BehaviorJSON -> Task<BehaviorJSON>\n";
     const GATEWAY: &'static str = "[<HTTPClient>]\ntype ReportClient =\n    [<Gateway({\"command\":[\"python3\"]})>]\n    abstract Forecast: months: BehaviorJSON -> BehaviorJSON\n";
     const CLASS_FORM: &'static str = "open System.Threading.Tasks\n\n[<HTTPClient>]\ntype CatalogClient() =\n    member val behaviors : BehaviorContext = Behaviors.create(typeof<CatalogSetup>, \"catalog\", new BehaviorSignal())\n\n    [<GetRequest(\"/products\")>]\n    abstract All: page: BehaviorJSON -> Task<BehaviorJSON>\n";
-    const PATH: &'static str = "server/clients/CatalogClient.fs";
+    const PATH: &'static str = "server/remotes/CatalogClient.fs";
 }
 
 #[test]
@@ -532,7 +532,7 @@ fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
         "{lowered}"
     );
     let gateway = DeclaredContract::concrete(
-        Path::new("server/clients/ReportClient.fs"),
+        Path::new("server/remotes/ReportClient.fs"),
         FsharpSamples::GATEWAY,
         "yon",
     )
@@ -552,7 +552,7 @@ fn an_fsharp_contract_lowers_into_a_class_that_owns_its_context() {
 
 #[test]
 fn an_object_type_in_a_typescript_signature_is_not_a_body() {
-    let path = Path::new("client/clients/CatalogClient.ts");
+    let path = Path::new("client/remotes/CatalogClient.ts");
     let typed = "@HTTPClient\nexport default class CatalogClient {\n  @GetRequest(\"/api/products\")\n  async all(): Promise<{ items: string[] } | void> {}\n}\n";
     let checked = DeclaredContract::check(path, typed);
     assert!(checked.is_ok(), "{checked:?}");

@@ -758,7 +758,7 @@ mod tests {
     fn a_typescript_declare_field_is_only_a_type() {
         let body = "class ChatClient {\n  declare send: SocketSend<ChatMessage>;\n  chatStore!: ChatStore;\n}\n";
         let inside = body.find('{').unwrap_or_default() + 1..body.rfind('}').unwrap_or_default();
-        let fields = required_fields(Path::new("client/clients/ChatClient.ts"), body, inside)
+        let fields = required_fields(Path::new("client/remotes/ChatClient.ts"), body, inside)
             .unwrap_or_default();
         let names: Vec<&str> = fields.iter().map(|(name, _)| name.as_str()).collect();
         assert_eq!(names, ["chatStore"]);

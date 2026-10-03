@@ -966,7 +966,7 @@ mod tests {
     use std::path::Path;
 
     fn lower_client(source: &str) -> String {
-        super::super::lower(Path::new("server/clients/ReportClient.go"), source, "yon")
+        super::super::lower(Path::new("server/remotes/ReportClient.go"), source, "yon")
             .expect("Go gateway lowering")
             .expect("lowered source")
     }
@@ -1012,7 +1012,7 @@ mod tests {
     #[test]
     fn a_gateway_parameter_must_be_a_behavior_value() {
         let failure = super::super::lower(
-            Path::new("server/clients/ReportClient.go"),
+            Path::new("server/remotes/ReportClient.go"),
             "type ReportClient struct{}\n\n// @Gateway({\"command\":[\"python3\"]})\nfunc (client *ReportClient) Ping(mode string) (BehaviorValue, error) {}\n",
             "yon",
         )

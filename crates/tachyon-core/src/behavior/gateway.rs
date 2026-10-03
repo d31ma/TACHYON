@@ -462,7 +462,7 @@ mod tests {
             r#"@Gateway({"command":["ruby","server/helpers/report.rb"]})"#,
             "async summarize(period, currency) {}",
         );
-        let found = declarations(Path::new("server/clients/ReportClient.js"), &source)
+        let found = declarations(Path::new("server/remotes/ReportClient.js"), &source)
             .expect("declarations");
         assert_eq!(
             found,
@@ -484,7 +484,7 @@ mod tests {
             r#"@gateway({"class":"server/services/ReportService.java"})"#,
             "def summarize(self, period): ...",
         );
-        let found = declarations(Path::new("server/clients/ReportClient.py"), &source)
+        let found = declarations(Path::new("server/remotes/ReportClient.py"), &source)
             .expect("declarations");
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].arity, 1);
@@ -554,7 +554,7 @@ mod tests {
         ];
         for (annotation, method, expected) in cases {
             let rendered = lower_error(
-                "server/clients/ReportClient.js",
+                "server/remotes/ReportClient.js",
                 &javascript(annotation, method),
                 "yon",
             );
@@ -569,7 +569,7 @@ mod tests {
             "@Gateway({\"command\":[\"ruby\"]})\n  @Retry({\"maxRetries\":1})",
             "async summarize() {}",
         );
-        let rendered = lower_error("server/clients/ReportClient.js", &combined, "yon");
+        let rendered = lower_error("server/remotes/ReportClient.js", &combined, "yon");
         assert!(rendered.contains("combined"), "{rendered}");
         let tac = lower_error(
             "client/services/ReportService.js",
@@ -588,14 +588,14 @@ mod tests {
             r#"@Gateway({"command":["ruby"]})"#,
             "async summarize(period: number): Promise<BehaviorJsonValue> {}",
         );
-        let rendered = lower_error("server/clients/ReportClient.ts", &typed, "yon");
+        let rendered = lower_error("server/remotes/ReportClient.ts", &typed, "yon");
         assert!(rendered.contains("TY1312"), "{rendered}");
         let untyped = javascript(
             r#"@Gateway({"command":["ruby"]})"#,
             "async summarize(period: BehaviorJsonValue): Promise<BehaviorJsonValue> {}",
         );
         assert!(
-            crate::behavior::lower(Path::new("server/clients/ReportClient.ts"), &untyped, "yon")
+            crate::behavior::lower(Path::new("server/remotes/ReportClient.ts"), &untyped, "yon")
                 .is_ok()
         );
         let empty_answer = javascript(
@@ -604,7 +604,7 @@ mod tests {
         );
         assert!(
             crate::behavior::lower(
-                Path::new("server/clients/ReportClient.ts"),
+                Path::new("server/remotes/ReportClient.ts"),
                 &empty_answer,
                 "yon"
             )
@@ -619,7 +619,7 @@ mod tests {
             "def summarize(self, period): ...",
         );
         let lowered =
-            crate::behavior::lower(Path::new("server/clients/ReportClient.py"), &source, "yon")
+            crate::behavior::lower(Path::new("server/remotes/ReportClient.py"), &source, "yon")
                 .expect("lowered")
                 .expect("changed");
         assert!(lowered.contains("ReportClient.summarize"), "{lowered}");

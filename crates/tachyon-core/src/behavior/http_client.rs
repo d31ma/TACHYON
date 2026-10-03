@@ -877,7 +877,7 @@ mod tests {
         ];
 
         fn rewritten(extension: &str, source: &str) -> String {
-            let path = format!("client/clients/OrdersClient.{extension}");
+            let path = format!("client/remotes/OrdersClient.{extension}");
             HttpClientSource::rewrite(Path::new(&path), source)
                 .unwrap_or_else(|failure| panic!("{extension}: {failure}"))
                 .expect("rewritten")
@@ -942,7 +942,7 @@ mod tests {
     fn the_cache_option_is_refused_with_cached_as_its_replacement() {
         let source = "@HTTPClient({\"path\": \"/api\", \"cache\": \"cache-first\"})\nexport default class OrdersClient {\n  @GetRequest(\"/orders\")\n  async getOrders() {}\n}\n";
         let failure =
-            HttpClientSource::rewrite(Path::new("client/clients/OrdersClient.js"), source)
+            HttpClientSource::rewrite(Path::new("client/remotes/OrdersClient.js"), source)
                 .expect_err("cache option")
                 .to_string();
         for named in ["\"cache\"", "@CacheSettings", "@Cached", "tac.cache"] {

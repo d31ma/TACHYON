@@ -374,7 +374,7 @@ impl Callers {
     fn javascript(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.js"),
+                String::from("server/remotes/ReportClient.js"),
                 format!(
                     "@HTTPClient\nclass ReportClient {{\n  @Gateway({{\"class\":\"{target}\",\"method\":\"summarize\"}})\n  async summarize(mode, detail) {{}}\n}}\n"
                 ),
@@ -391,7 +391,7 @@ impl Callers {
     fn typescript(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.ts"),
+                String::from("server/remotes/ReportClient.ts"),
                 format!(
                     "@HTTPClient\nclass ReportClient {{\n  @Gateway({{\"class\":\"{target}\"}})\n  async summarize(mode: BehaviorJsonValue, detail: BehaviorJsonValue): Promise<BehaviorJsonValue> {{}}\n}}\n"
                 ),
@@ -408,7 +408,7 @@ impl Callers {
     fn php(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.php"),
+                String::from("server/remotes/ReportClient.php"),
                 format!(
                     "<?php\n#[HTTPClient]\ninterface ReportClient {{\n    #[Gateway({{\"class\":\"{target}\"}})]\n    public function summarize($mode, $detail);\n}}\n"
                 ),
@@ -425,7 +425,7 @@ impl Callers {
     fn ruby(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.rb"),
+                String::from("server/remotes/ReportClient.rb"),
                 format!(
                     "#[HTTPClient]\nclass ReportClient\n  #[Gateway({{\"class\":\"{target}\"}})]\n  def summarize(mode, detail)\n  end\nend\n"
                 ),
@@ -442,7 +442,7 @@ impl Callers {
     fn java(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.java"),
+                String::from("server/remotes/ReportClient.java"),
                 format!(
                     "@HTTPClient\ninterface ReportClient {{\n    @Gateway({{\"class\":\"{target}\"}})\n    Object summarize(Object mode, Object detail);\n}}\n"
                 ),
@@ -459,7 +459,7 @@ impl Callers {
     fn kotlin(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.kt"),
+                String::from("server/remotes/ReportClient.kt"),
                 format!(
                     "@HTTPClient\ninterface ReportClient {{\n    @Gateway({{\"class\":\"{target}\"}})\n    fun summarize(mode: Any?, detail: Any?): Any?\n}}\n"
                 ),
@@ -476,7 +476,7 @@ impl Callers {
     fn csharp(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.cs"),
+                String::from("server/remotes/ReportClient.cs"),
                 format!(
                     "[HTTPClient]\ninterface ReportClient {{\n    [Gateway({{\"class\":\"{target}\"}})]\n    BehaviorJSON summarize(BehaviorJSON mode, BehaviorJSON detail);\n}}\n"
                 ),
@@ -493,7 +493,7 @@ impl Callers {
     fn rust(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.rs"),
+                String::from("server/remotes/ReportClient.rs"),
                 format!(
                     "#[HTTPClient]\ntrait ReportClient {{\n    #[Gateway({{\"class\":\"{target}\"}})]\n    fn summarize(&self, mode: BehaviorValue, detail: BehaviorValue) -> BehaviorResult<BehaviorValue>;\n}}\n"
                 ),
@@ -510,7 +510,7 @@ impl Callers {
     fn dart(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.dart"),
+                String::from("server/remotes/ReportClient.dart"),
                 format!(
                     "@HTTPClient\nabstract interface class ReportClient {{\n  @Gateway({{\"class\":\"{target}\"}})\n  Future<Object?> summarize(Object? mode, Object? detail);\n}}\n"
                 ),
@@ -527,7 +527,7 @@ impl Callers {
     fn go(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.go"),
+                String::from("server/remotes/ReportClient.go"),
                 format!(
                     "// @HTTPClient\ntype ReportClient interface {{\n\t// @Gateway({{\"class\":\"{target}\",\"method\":\"summarize\"}})\n\tSummarize(mode BehaviorValue, detail BehaviorValue) (BehaviorValue, error)\n}}\n"
                 ),
@@ -558,7 +558,7 @@ impl Callers {
     fn python(target: &str) -> [(String, String); 2] {
         [
             (
-                String::from("server/clients/ReportClient.py"),
+                String::from("server/remotes/ReportClient.py"),
                 format!(
                     "@http_client\nclass ReportClient(Protocol):\n    @gateway({{\"class\":\"{target}\"}})\n    def summarize(self, mode, detail): ...\n"
                 ),

@@ -434,6 +434,49 @@ fn legacy_framework_tree_cannot_return() -> Result<(), Box<dyn std::error::Error
 }
 
 #[test]
+fn the_clients_folder_is_named_only_where_it_stays_an_alias()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let allowed = [
+        "crates/tachyon-core/src/annotation_layout.rs",
+        "crates/tachyon-core/src/migrate.rs",
+        "crates/tachyon-core/src/migrate/fix/rename_tests.rs",
+        "crates/tachyon-core/src/migrate/fix/route_tests.rs",
+        "crates/tachyon-core/src/project.rs",
+        "crates/tachyon-core/src/project/captured_sources.rs",
+        "crates/tachyon-core/src/template/service.rs",
+    ];
+    let mut files = Vec::new();
+    for folder in [
+        "crates/tachyon-core/src",
+        "crates/tachyon-core/tests/it",
+        "crates/tachyon-cli/src",
+        "crates/tachyon-cli/tests",
+    ] {
+        files.extend(collect_files(&root.join(folder), "rs")?);
+    }
+    files.extend(collect_files(&root.join("scripts"), "mjs")?);
+    let mut stale = Vec::new();
+    for file in files {
+        let relative = file
+            .strip_prefix(&root)?
+            .to_string_lossy()
+            .replace('\\', "/");
+        let contents = fs::read_to_string(&file)?;
+        let names_old_folder =
+            contents.contains("client/clients") || contents.contains("server/clients");
+        if names_old_folder && !allowed.contains(&relative.as_str()) {
+            stale.push(relative);
+        }
+    }
+    assert!(
+        stale.is_empty(),
+        "outbound clients live in client/remotes or server/remotes (ADR 0088); clients/ stays only as an alias: {stale:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn stable_release_is_tag_gated_and_fail_closed() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
     let workflow = fs::read_to_string(root.join(".github/workflows/publish.yml"))?;

@@ -546,7 +546,7 @@ mod tests {
 
     fn lower_client(source: &str) -> String {
         super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.cs"),
+            std::path::Path::new("server/remotes/ReportClient.cs"),
             source,
             "yon",
         )
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn a_gateway_parameter_must_be_behavior_json() {
         let failure = super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.cs"),
+            std::path::Path::new("server/remotes/ReportClient.cs"),
             "class ReportClient {\n    [Gateway({\"command\":[\"python3\"]})]\n    BehaviorJSON Ping(string mode) {}\n}\n",
             "yon",
         )

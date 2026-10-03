@@ -494,7 +494,7 @@ mod tests {
 
     fn lower_client(source: &str) -> String {
         super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.dart"),
+            std::path::Path::new("server/remotes/ReportClient.dart"),
             source,
             "yon",
         )
@@ -610,7 +610,7 @@ Future<void> main() async {
     #[test]
     fn a_gateway_result_must_be_a_future_object() {
         let failure = super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.dart"),
+            std::path::Path::new("server/remotes/ReportClient.dart"),
             "class ReportClient {\n  @Gateway({\"command\":[\"python3\"]})\n  Future<String> ping(Object? mode) async {}\n}\n",
             "yon",
         )

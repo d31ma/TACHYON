@@ -212,7 +212,7 @@ fn a_gateway_in_every_jvm_language_keeps_the_method_it_calls_public() {
     let client = "@HTTPClient\nclass ReportClient {\n    @Gateway({\"class\":\"server/services/ReportService.py\"})\n    Object summarize(Object period) {}\n}\n";
     let controller = "@RequestRoute(\"/report\")\nclass ReportController {\n    @Needs\n    final ReportClient reportClient\n\n    @GetRoute\n    Report getReport() {\n        return new Report(reportClient.summarize(\"2026-Q3\"))\n    }\n}\n";
     for extension in ["java", "groovy"] {
-        let client_path = format!("server/clients/ReportClient.{extension}");
+        let client_path = format!("server/remotes/ReportClient.{extension}");
         let controller_path = format!("server/controllers/ReportController.{extension}");
         let files = [
             ("server/services/ReportService.py", service),
@@ -234,7 +234,7 @@ fn a_gateway_that_names_another_method_keeps_that_method_public() {
     let controller = "@request_route(\"/forecast\")\n@needs_all()\nclass ForecastController:\n    forecast_client: ForecastClient\n\n    @get_route\n    def get_forecast(self) -> str:\n        return self.forecast_client.summary(\"2026-Q4\")\n";
     let files = [
         ("server/services/ReportService.java", service),
-        ("server/clients/ForecastClient.py", client),
+        ("server/remotes/ForecastClient.py", client),
         ("server/controllers/ForecastController.py", controller),
     ];
     assert_eq!(

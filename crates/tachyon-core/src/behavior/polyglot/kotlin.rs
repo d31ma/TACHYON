@@ -1129,7 +1129,7 @@ fn property_entries(unit: &Unit) -> String {
 mod tests {
     fn lower_client(source: &str) -> String {
         super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.kt"),
+            std::path::Path::new("server/remotes/ReportClient.kt"),
             source,
             "yon",
         )
@@ -1163,7 +1163,7 @@ mod tests {
     #[test]
     fn a_gateway_parameter_must_be_nullable_any() {
         let failure = super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.kt"),
+            std::path::Path::new("server/remotes/ReportClient.kt"),
             "class ReportClient {\n    @Gateway({\"command\":[\"python3\"]})\n    fun ping(mode: Any): Any? {}\n}\n",
             "yon",
         )

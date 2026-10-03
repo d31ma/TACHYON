@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn a_refusal_on_the_shadow_speaks_fsharp() {
-        let path = Path::new("client/clients/ChatClient.fs");
+        let path = Path::new("client/remotes/ChatClient.fs");
         let source = "[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: Tick -> unit\n";
         let view = FsharpView::of(path, source).unwrap_or_else(|| panic!("fsharp"));
         let failure = crate::annotation_rules::AnnotationRules::check(view.path(), view.text())
@@ -214,7 +214,7 @@ mod tests {
             "{message}"
         );
         assert!(
-            message.contains("client/clients/ChatClient.fs"),
+            message.contains("client/remotes/ChatClient.fs"),
             "{message}"
         );
     }

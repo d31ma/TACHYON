@@ -1096,7 +1096,7 @@ fn property_entries(unit: &Unit) -> String {
 mod tests {
     fn lower_client(source: &str) -> String {
         super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.java"),
+            std::path::Path::new("server/remotes/ReportClient.java"),
             source,
             "yon",
         )
@@ -1130,7 +1130,7 @@ mod tests {
     #[test]
     fn a_gateway_parameter_must_be_object() {
         let failure = super::super::lower(
-            std::path::Path::new("server/clients/ReportClient.java"),
+            std::path::Path::new("server/remotes/ReportClient.java"),
             "class ReportClient {\n    @Gateway({\"command\":[\"python3\"]})\n    Object ping(String mode) {}\n}\n",
             "yon",
         )

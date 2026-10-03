@@ -688,7 +688,7 @@ mod tests {
         assert!(is_helper_file(snapshot.path(), "server/helpers/report.rb"));
         for drive_relative in ["C:report.rb", "c:server/helpers/report.rb"] {
             let arguments = [String::from("ruby"), String::from(drive_relative)];
-            let refused = check_command_files(snapshot.path(), "server/clients/A.js", &arguments);
+            let refused = check_command_files(snapshot.path(), "server/remotes/A.js", &arguments);
             assert!(refused.is_err(), "{drive_relative}");
         }
         for refused in [
@@ -710,7 +710,7 @@ mod tests {
             path: "server/services/ReportService.go",
             method: "summarize",
         };
-        let checked = check_class_method("server/clients/ReportClient.py", &target, &text, 2);
+        let checked = check_class_method("server/remotes/ReportClient.py", &target, &text, 2);
         checked.err().map(|failure| failure.to_string())
     }
 
