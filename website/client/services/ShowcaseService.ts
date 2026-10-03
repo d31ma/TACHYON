@@ -5,7 +5,7 @@ export default class ShowcaseService {
 
   layer = 'tac'
 
-  pickLayer(value: string): void {
+  pickLayer(_event: unknown, value: string): void {
     this.layer = value
   }
 

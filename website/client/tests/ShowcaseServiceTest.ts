@@ -9,7 +9,7 @@ export default class ShowcaseServiceTest {
   async testPickLayerChangesTheLayerAndItsSummary() {
     const showcase = new ShowcaseService()
     const tac = showcase.summary()
-    showcase.pickLayer('yon')
+    showcase.pickLayer(null, 'yon')
     Assert.equals('yon', showcase.layer, 'pickLayer selects a layer')
     Assert.isTrue(showcase.summary() !== tac, 'each layer has its own summary')
   }
