@@ -116,6 +116,9 @@ machine contracts have their own, independent major versions.
 - A macOS app name that looks like a host template placeholder, such as
   `__ROUTE_DOCUMENTS__`, stays plain text in the generated Swift host.
 
+- A C# companion field of type `decimal` compiles: its setter converts the
+  value with `Convert.ToDecimal`.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).

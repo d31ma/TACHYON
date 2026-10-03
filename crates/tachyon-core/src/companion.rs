@@ -1388,6 +1388,7 @@ fn csharp_converter(kind: &str) -> &'static str {
         "int" => "Convert.ToInt32(value)",
         "long" => "Convert.ToInt64(value)",
         "double" | "float" => "Convert.ToDouble(value)",
+        "decimal" => "Convert.ToDecimal(value)",
         "bool" => "Convert.ToBoolean(value)",
         "object" => "value",
         _ => "Convert.ToString(value)",
@@ -2134,6 +2135,20 @@ mod tests {
         .expect("a table");
         assert!(csharp.contains("[\"count\"]"), "{csharp}");
         assert!(csharp.contains("Convert.ToInt32(value)"), "{csharp}");
+    }
+
+    #[test]
+    fn a_csharp_decimal_field_is_written_as_a_decimal() {
+        let csharp = member_table(
+            CompanionLanguage::CSharp,
+            "public class Companion\n{\n    public decimal Price = 6m;\n}\n",
+            "x/tac.cs",
+        )
+        .expect("a table");
+        assert!(
+            csharp.contains("Instance.Price = Convert.ToDecimal(value)"),
+            "{csharp}"
+        );
     }
 
     #[test]
