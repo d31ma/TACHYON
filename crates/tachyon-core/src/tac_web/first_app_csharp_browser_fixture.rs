@@ -23,7 +23,7 @@ impl FirstAppCsharpBrowserFixture {
         "server/controllers/GreetingController.js",
         "server/models/Greeting.ts",
     ];
-    const STEP_FIVE: &'static str = "website/content/docs/first-app/add-tests/csharp-candidate";
+    const STEP_FIVE: &'static str = "website/content/docs/first-app/add-tests";
     const TEST_FILES: [&'static str; 3] = [
         "client/helpers/GreetingFakeHelper.cs",
         "client/tests/CounterServiceTest.cs",
@@ -72,7 +72,7 @@ impl FirstAppCsharpBrowserFixture {
 }
 
 #[tokio::test]
-#[ignore = "requires matching registered-record compiler, isolated cache/root, .NET wasm-tools and installed browser; unlisted C# tutorial candidate"]
+#[ignore = "requires matching registered-record compiler, isolated cache/root, .NET wasm-tools and installed browser; canonical C# tutorial"]
 async fn first_app_csharp_cumulative_step_four_uses_published_yon() {
     FirstAppCsharpBrowserFixture::browser().await;
 }
@@ -95,13 +95,13 @@ async fn first_app_csharp_existing_build_uses_published_yon() {
 }
 
 #[test]
-#[ignore = "requires .NET SDK and explicit separate isolated Test root/cache; executes unlisted C# Step5 typed Fake with caller-owned Context"]
+#[ignore = "requires .NET SDK and explicit separate isolated Test root/cache; executes canonical C# Step5 typed Fake with caller-owned Context"]
 fn first_app_csharp_cumulative_step_five_uses_owned_typed_fake() -> Result<(), String> {
     FirstAppCsharpBrowserFixture::tests()
 }
 
 #[tokio::test]
-#[ignore = "requires separate staged Step5 candidate root and matching compiler; qualifies ordinary post-Test browser integration without replacing published sources"]
+#[ignore = "requires separate staged canonical Step5 root and matching compiler; qualifies ordinary post-Test browser integration"]
 async fn first_app_csharp_post_step_five_browser_uses_published_yon() {
     FirstAppCsharpBrowserFixture::after_tests_browser().await;
 }

@@ -58,9 +58,9 @@ impl CsharpOwnershipProject {
             "call-the-server/client/remotes/GreetingClient.cs",
             "call-the-server/client/models/Greeting.cs",
             "call-the-server/client/setups/GreetingSetup.cs",
-            "add-tests/csharp-candidate/client/helpers/GreetingFakeHelper.cs",
-            "add-tests/csharp-candidate/client/tests/CounterServiceTest.cs",
-            "add-tests/csharp-candidate/client/tests/HelloTestSetup.cs",
+            "add-tests/client/helpers/GreetingFakeHelper.cs",
+            "add-tests/client/tests/CounterServiceTest.cs",
+            "add-tests/client/tests/HelloTestSetup.cs",
         ] {
             let source = std::fs::read_to_string(
                 repo.join(format!("website/content/docs/first-app/{relative}")),

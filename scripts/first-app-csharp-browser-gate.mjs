@@ -9,7 +9,7 @@ import { DotnetHttpBrowserGate } from './dotnet-http-browser-gate.mjs'
 class FirstAppCsharpBrowserGate {
   /** @returns {Promise<void>} */
   static async run() {
-    await DotnetHttpBrowserGate.run(FirstAppCsharpBrowserGate.#probe, 'unlisted cumulative first-app C# Step4 candidate: exact published preceding JavaScript Yon endpoint, registered scalar Task<Models.Greeting>, private Needs client, real count/ask/message UI; Step5 SDK proof is separate; arbitrary Task DTO and service-worker cache unqualified')
+    await DotnetHttpBrowserGate.run(FirstAppCsharpBrowserGate.#probe, 'cumulative first-app C# Step4: exact published preceding JavaScript Yon endpoint, registered scalar Task<Models.Greeting>, private Needs client, real count/ask/message UI; Step5 SDK proof is separate; arbitrary Task DTO and service-worker cache unqualified')
   }
 
   /** @param {import('playwright').Page} page @param {string} origin @param {TutorialDiagnostics} diagnostics @returns {Promise<Record<string, unknown>>} */

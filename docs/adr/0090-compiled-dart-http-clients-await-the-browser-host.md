@@ -1,6 +1,6 @@
 # ADR 0090: Compiled Dart HTTP clients await the browser host
 
-- Status: Accepted Dart contract; other compiled language continuations pending
+- Status: Accepted Dart and bounded C#/F# browser contracts; other continuations pending
 - Date: 2026-10-01
 - Relates to ADR 0033 (Dart WebAssembly), ADR 0084 (page placement), ADR 0087 (injected HTTP and caching)
 
@@ -56,3 +56,37 @@ The existing sync Rust/Swift ABI cannot serialize a Promise into a response,
 and Binaryen 133 Asyncify rejects references live across the import. This ADR
 does not choose a global worker architecture or change authored async contracts
 for the other languages.
+
+
+## Bounded .NET browser extension — 2026-10-03
+
+C# Task ownership, default HTTP and captured registered scalar record results
+are qualified in compiler27. Native result restrictions remain unchanged.
+The cumulative C# first-app candidate now passes three actual authored SDK
+cases and an ordinary post-Test .NET Wasm build with the existing Yon endpoint
+in Chromium, Firefox and WebKit. Canonical tutorial files are identical to
+those actual staged sources. A selected genuine TestSetup may construct its
+stateless helper adapter; production intake validates that ownership, then
+omits helpers reachable only from the test. This adds no managed helper
+lifetime or injection contract.
+
+F# uses the same .NET host for browser `Task` and `Task<BehaviorJSON>` results.
+Its genuine ordinary Wasm/Yon proof passes all three browser engines: default
+HTTP, explicit custom adapter precedence, unsafe-path refusal, disposal of a
+pending request, captured stale-owner refusal, a working replacement and zero
+late changes. Raw helper markers are validated before F# annotation lowering;
+helpers remain explicitly constructed and caller-owned.
+
+The actual debug compiler source is
+`5d3d4a728f8cb361bc7e6e9fd486563608e38f05`; its production changes are rooted
+in `2a4aeac3cb5dfe62eac3f3fc26bb3e55255ddd51`. The F# fixture constants are
+saved separately in `8445c01943758b6475fbbb843f85f1d1706320b8`. External workspace
+receipts are `FIRST-APP-CSHARP-QUALIFICATION.json`,
+`FIRST-APP-CSHARP-CANONICAL-SOURCE.json`, `FSHARP-HTTP-QUALIFICATION.json` and
+`QUEUE28-SOURCE-CONTROLS.json`. Canonical CLI coverage and coherent optimized
+compiler28/final aggregate/website validation remain pending. Compiler27 is
+still the latest complete qualified handoff.
+
+This extension does not qualify F# DTO/list/ValueTask results, native async,
+async lifecycle adapters, shared compiled page providers or F# cache behavior.
+It adds no new browser worker placement or whole transport-matrix acceptance.

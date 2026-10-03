@@ -12,6 +12,16 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The first-app C# steps now call the existing Yon greeting endpoint through
+  an injected private client returning `Task<Models.Greeting>`. Their tests
+  use a typed Fake and caller-owned context, including disposed-owner refusal.
+  Other unsupported compiled-language tutorial tabs remain pending.
+
+- Browser F# services can return `Task` or `Task<BehaviorJSON>` through the
+  existing .NET asynchronous host. Default same-origin HTTP, custom adapters
+  and captured-owner cancellation are supported in this bounded slice;
+  F# DTO/container results and native asynchronous results remain unsupported.
+
 - Compiled browser Dart HTTPClients use an asynchronous same-origin transport
   when Setup has no matching custom HTTP adapter. Injected clients return typed
   model answers, omit credentials, preserve cache revalidation and cancel
@@ -25,6 +35,11 @@ machine contracts have their own, independent major versions.
 
 
 ### Fixed
+
+- A genuine C# helper constructed only by a selected same-language TestSetup
+  is validated before ordinary production composition omits it. Production
+  and transitively used helpers remain included; orphan, misplaced and
+  unsupported managed helpers retain their existing diagnostics.
 
 - Yon controllers and services can call plain classes in `server/shared/` in
   every Yon language. Shared source uses the captured project snapshot, and
