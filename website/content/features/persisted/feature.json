@@ -1,7 +1,7 @@
 {
   "id": "persisted",
   "title": "Saved service fields",
-  "summary": "Tachyon restores a service field marked `@SessionState` from `sessionStorage`. This works only for the current tab. It restores a field marked `@LocalState` from `localStorage`, so the value is shared across tabs. The value in the declaration is the default.",
+  "summary": "Tachyon restores a service field marked `@SessionState` from `sessionStorage`. This works only for the current tab. It restores a field marked `@LocalState` from `localStorage`, so the value is shared across tabs. The value in the declaration is the default. Lua has no tab here, because the build refuses `@SessionState` and `@LocalState` in Lua Tac code with `TY1308`.",
   "group": "Browser storage",
   "files": [
     {

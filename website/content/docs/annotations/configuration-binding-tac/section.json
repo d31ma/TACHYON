@@ -2,6 +2,7 @@
   "heading": "Configuration binding: Tac",
   "axis": "language",
   "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
+  "body": "Python and Lua have no tab here, because a browser service loads the manifest through an HTTPClient, and the build refuses HTTPClient in Python and Lua Tac code with TY1308.",
   "files": [
     {
       "name": "client/pages/tac.html",
