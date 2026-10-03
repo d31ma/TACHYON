@@ -1,7 +1,7 @@
 import json
 import os
 
-from models import Settings
+from models import Endpoint, Settings
 
 
 @request_route("/settings")

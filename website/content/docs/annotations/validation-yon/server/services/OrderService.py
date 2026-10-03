@@ -1,4 +1,5 @@
 from typing import Annotated
+from models import OrderInput
 
 @service
 class OrderService:

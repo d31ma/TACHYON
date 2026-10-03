@@ -89,20 +89,20 @@
       "code": { "file": "client/services/SettingsService.rs" }
     },
     {
-      "name": "client/helpers/PublicValues.js",
-      "code": { "file": "client/helpers/PublicValues.js" }
+      "name": "client/models/PublicValues.js",
+      "code": { "file": "client/models/PublicValues.js" }
     },
     {
-      "name": "client/helpers/PublicValues.ts",
-      "code": { "file": "client/helpers/PublicValues.ts" }
+      "name": "client/models/PublicValues.ts",
+      "code": { "file": "client/models/PublicValues.ts" }
     },
     {
       "name": "client/helpers/PublicValues.swift",
       "code": { "file": "client/helpers/PublicValues.swift" }
     },
     {
-      "name": "client/helpers/PublicValues.java",
-      "code": { "file": "client/helpers/PublicValues.java" }
+      "name": "client/models/PublicValues.java",
+      "code": { "file": "client/models/PublicValues.java" }
     },
     {
       "name": "client/helpers/PublicValues.kt",

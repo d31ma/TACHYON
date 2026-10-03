@@ -49,20 +49,20 @@
       "code": { "file": "client/services/OrderService.dart" }
     },
     {
-      "name": "client/helpers/OrderInput.js",
-      "code": { "file": "client/helpers/OrderInput.js" }
+      "name": "client/models/OrderInput.js",
+      "code": { "file": "client/models/OrderInput.js" }
     },
     {
-      "name": "client/helpers/OrderInput.ts",
-      "code": { "file": "client/helpers/OrderInput.ts" }
+      "name": "client/models/OrderInput.ts",
+      "code": { "file": "client/models/OrderInput.ts" }
     },
     {
       "name": "client/helpers/OrderInput.swift",
       "code": { "file": "client/helpers/OrderInput.swift" }
     },
     {
-      "name": "client/helpers/OrderInput.java",
-      "code": { "file": "client/helpers/OrderInput.java" }
+      "name": "client/models/OrderInput.java",
+      "code": { "file": "client/models/OrderInput.java" }
     },
     {
       "name": "client/helpers/OrderInput.kt",
