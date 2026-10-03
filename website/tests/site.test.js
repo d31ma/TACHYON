@@ -949,7 +949,8 @@ describe('documentation structure', () => {
     const names = (files) => files.map((file) => file.name)
     expect(spansPlatforms([{ name: service('js') }])).toBe(false)
     expect(spansPlatforms([{ name: service('js') }, { name: service('go') }])).toBe(false)
-    expect(spansPlatforms([{ name: service('js') }, { name: service('swift') }])).toBe(true)
+    expect(spansPlatforms([{ name: service('js') }, { name: service('swift') }])).toBe(false)
+    expect(spansPlatforms([{ name: service('js') }, { name: service('py') }])).toBe(true)
 
     const everyPlatform = ['web', 'macos', 'ios', 'android', 'windows', 'linux']
     expect(reachOf(service('dart'))).toEqual(everyPlatform)
@@ -959,14 +960,13 @@ describe('documentation structure', () => {
     expect(reachOf(service('lua'))).toEqual(everyPlatform)
     expect(reachOf(service('rs'))).toEqual(everyPlatform)
     expect(reachOf(service('cs'))).toEqual(everyPlatform)
-    expect(reachOf(service('swift'))).toEqual(['macos', 'ios'])
-    expect(reachOf(service('kt'))).toEqual(['android'])
+    expect(reachOf(service('swift'))).toEqual(everyPlatform)
+    expect(reachOf(service('kt'))).toEqual(everyPlatform)
     expect(reachOf('client/components/basket/tally/tac.html')).toContain('android')
 
-    const native = [{ name: service('swift') }, { name: service('kt') }, { name: service('js') }]
-    expect(names(filesFor(native, 'android'))).toEqual([service('kt'), service('js')])
-    expect(names(filesFor(native, 'ios'))).toEqual([service('swift'), service('js')])
-    expect(names(filesFor(native, 'web'))).toEqual([service('js')])
+    const mixed = [{ name: service('py') }, { name: service('swift') }, { name: service('kt') }, { name: service('js') }]
+    expect(names(filesFor(mixed, 'android'))).toEqual([service('swift'), service('kt'), service('js')])
+    expect(names(filesFor(mixed, 'web'))).toEqual([service('py'), service('swift'), service('kt'), service('js')])
 
     const view = 'client/components/basket/tally/tac.html'
     const webAssembly = [{ name: service('rs') }, { name: service('go') }, { name: service('cs') }, { name: view }]
@@ -975,7 +975,7 @@ describe('documentation structure', () => {
     expect(names(filesFor(webAssembly, 'linux'))).toEqual([service('rs'), service('go'), service('cs'), view])
     expect(names(filesFor(webAssembly, 'ios'))).toEqual([service('rs'), service('go'), service('cs'), view])
     expect(names(filesFor([{ name: service('cs') }], 'android'))).toEqual([service('cs')])
-    expect(filesFor([{ name: service('kt') }], 'ios')).toEqual([])
+    expect(filesFor([{ name: service('py') }], 'ios')).toEqual([])
   })
 
   test('each home page platform tab shows every service language that can run there', async () => {

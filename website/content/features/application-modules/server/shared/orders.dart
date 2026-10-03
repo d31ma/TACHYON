@@ -1,3 +1,3 @@
 class OrderService {
-  static Map<String, String> place(String item) => {'placed': item};
+  static String place(String item) => item;
 }

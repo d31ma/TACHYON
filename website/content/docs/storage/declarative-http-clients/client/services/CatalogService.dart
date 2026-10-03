@@ -1,6 +1,7 @@
 @Service
 class CatalogService {
-  final CatalogClient catalog = CatalogClient();
+  @Needs
+  final CatalogClient catalog;
   List<String> products = [];
   String error = '';
 

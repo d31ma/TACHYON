@@ -90,8 +90,8 @@ export class PlatformUtils {
     java: PlatformUtils.#allPlatforms(),
     html: PlatformUtils.#allPlatforms(),
     css: PlatformUtils.#allPlatforms(),
-    swift: ['macos', 'ios'],
-    kt: ['android'],
+    swift: PlatformUtils.#allPlatforms(),
+    kt: PlatformUtils.#allPlatforms(),
   }
 
   }

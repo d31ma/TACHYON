@@ -4,7 +4,7 @@
 export default class ClearController {
   /** @returns {Greeting} */
   @PostRoute
-  postGreeting() {
+  postClear() {
     return { message: 'Cleared' };
   }
 }

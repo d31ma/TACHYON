@@ -1,5 +1,5 @@
 export class OrderService {
-  static place(item: string): { placed: string } {
-    return { placed: item }
+  static place(item: string): string {
+    return item
   }
 }

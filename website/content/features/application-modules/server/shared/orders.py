@@ -1,4 +1,4 @@
 class OrderService:
     @staticmethod
-    def place(item):
-        return {"placed": item}
+    def place(item: str) -> str:
+        return item

@@ -1,5 +1,7 @@
 class OrderService
+  # @param item [String]
+  # @return [String]
   def self.place(item)
-    { "placed" => item }
+    item
   end
 end

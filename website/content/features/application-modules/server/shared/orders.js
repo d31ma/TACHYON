@@ -1,9 +1,9 @@
 export class OrderService {
   /**
    * @param {string} item
-   * @returns {{ placed: string }}
+   * @returns {string}
    */
   static place(item) {
-    return { placed: item }
+    return item
   }
 }

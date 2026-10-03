@@ -6,7 +6,7 @@ export default class SnippetServiceTest {
     return [
       { name: 'client/services/BasketService.swift', code: 'final class BasketService {}' },
       { name: 'client/services/BasketService.js', code: 'export default class BasketService {}' },
-      { name: 'client/services/BasketService.kt', code: 'class BasketService' },
+      { name: 'client/services/BasketService.py', code: 'class BasketService:\n    pass' },
       { name: 'client/pages/tac.html', code: '<basket-tally />' },
     ]
   }
@@ -21,7 +21,7 @@ export default class SnippetServiceTest {
 
   async testSpansAndPlatformsFollowReach() {
     const snippet = new SnippetService(this.files())
-    Assert.isTrue(Boolean(snippet.spans()), 'Swift, JavaScript and Kotlin reach different platforms')
+    Assert.isTrue(Boolean(snippet.spans()), 'Python reaches only the web, so the files reach different platforms')
     Assert.isTrue(!new SnippetService(this.files(), 'language').spans(), 'a language axis never spans')
     snippet.platformChanged({ platform: 'android' })
     const current = snippet.platforms().filter((platform) => platform.current).map((platform) => platform.id)
@@ -31,10 +31,10 @@ export default class SnippetServiceTest {
   async testCompanionsAndPickChooseALanguage() {
     const snippet = new SnippetService(this.files(), 'language')
     const names = snippet.companions().map((entry) => entry.name)
-    Assert.equals('JavaScript,Swift,Kotlin', names.join())
-    snippet.pick(null, 'Kotlin')
+    Assert.equals('JavaScript,Python,Swift', names.join())
+    snippet.pick(null, 'Python')
     const shown = snippet.shown().map((file) => file.language)
-    Assert.isTrue(shown.includes('Kotlin') && !shown.includes('Swift'), shown.join())
+    Assert.isTrue(shown.includes('Python') && !shown.includes('Swift'), shown.join())
   }
 
   async testPlatformChangedAppliesAndResetsTheLanguage() {

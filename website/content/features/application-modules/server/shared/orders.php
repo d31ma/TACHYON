@@ -1,8 +1,8 @@
 <?php
 class OrderService
 {
-    public static function place(string $item): array
+    public static function place(string $item): string
     {
-        return ['placed' => $item];
+        return $item;
     }
 }
