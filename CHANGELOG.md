@@ -119,6 +119,10 @@ machine contracts have their own, independent major versions.
 - A C# companion field of type `decimal` compiles: its setter converts the
   value with `Convert.ToDecimal`.
 
+- Convert options that are not one strict JSON object fail the build, and a
+  comment after the closing bracket no longer hides the options from the
+  model metadata.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).

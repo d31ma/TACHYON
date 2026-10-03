@@ -296,30 +296,55 @@ impl<'a> ConverterModels<'a> {
             .to_ascii_lowercase()
             .find(&Self::MARKER.to_ascii_lowercase())
             .map_or(0, |at| at + Self::MARKER.len());
-        let open = text[name_end..].starts_with('(').then_some(name_end);
-        let close = open
-            .and_then(|_| text.rfind(')'))
-            .filter(|close| *close > name_end);
-        let bounds = open.zip(close);
+        let bounds = Self::argument_bounds(text, name_end)?;
         let written = bounds.map_or("", |(open, close)| text[open + 1..close].trim());
         let replaced = bounds.map_or(
             line.start + name_end..line.start + name_end,
             |(open, close)| line.start + open..line.start + close + 1,
         );
-        Self::marker_options(written)
-            .map(|options| {
-                self.qualified_arguments(options)
-                    .map(|arguments| (replaced, arguments))
-            })
-            .transpose()
+        let options = Self::marker_options(written)?;
+        self.qualified_arguments(options)
+            .map(|arguments| Some((replaced, arguments)))
     }
 
-    fn marker_options(written: &str) -> Option<Map<String, Value>> {
-        written.is_empty().then(Map::new).or_else(|| {
-            crate::behavior::literal::parse(written)
-                .ok()
-                .and_then(|value| value.as_object().cloned())
-        })
+    fn argument_bounds(text: &str, name_end: usize) -> Result<Option<(usize, usize)>, String> {
+        let opened = text[name_end..].starts_with('(');
+        match (opened, Self::closing_parenthesis(text, name_end)) {
+            (false, _) => Ok(None),
+            (true, Some(close)) => Ok(Some((name_end, close))),
+            (true, None) => Err(Self::broken_options()),
+        }
+    }
+
+    fn closing_parenthesis(text: &str, open: usize) -> Option<usize> {
+        let inside = text.get(open + 1..)?;
+        let mut values = serde_json::Deserializer::from_str(inside).into_iter::<Value>();
+        let parsed = values
+            .next()
+            .and_then(Result::ok)
+            .map_or(0, |_| values.byte_offset());
+        let after = &inside[parsed..];
+        let spaces = after.len() - after.trim_start().len();
+        after[spaces..]
+            .starts_with(')')
+            .then_some(open + 1 + parsed + spaces)
+    }
+
+    fn broken_options() -> String {
+        format!(
+            "{} takes a strict JSON object with a \"fields\" list",
+            Self::MARKER
+        )
+    }
+
+    fn marker_options(written: &str) -> Result<Map<String, Value>, String> {
+        if written.is_empty() {
+            return Ok(Map::new());
+        }
+        crate::behavior::literal::parse(written)
+            .ok()
+            .and_then(|value| value.as_object().cloned())
+            .ok_or_else(Self::broken_options)
     }
 
     fn qualified_arguments(&self, options: Map<String, Value>) -> Result<String, String> {
@@ -519,6 +544,31 @@ mod tests {
                 .is_err()
         );
     }
+    #[test]
+    fn a_trailing_note_keeps_the_options_and_broken_options_are_refused() {
+        let models = json!({"Product":{},"Summary":{}});
+        let models = models.as_object().expect("models");
+        let path = Path::new("server/converters/ProductConverter.ts");
+        let source = "@Converter\nclass ProductConverter {\n@Convert({\"fields\":[{\"target\":\"name\",\"constant\":\"(fixed)\"}]}) // see (notes)\nasync map(product: Product): Promise<Summary> {}\n}\n";
+        let rewritten = ConverterModels::written(path, source, models, "yon")
+            .expect("rewrite")
+            .expect("metadata");
+        assert!(rewritten.contains("\"models\""), "{rewritten}");
+        assert!(
+            rewritten.contains("\"constant\":\"(fixed)\""),
+            "{rewritten}"
+        );
+        assert!(rewritten.contains("// see (notes)"), "{rewritten}");
+        for broken in ["@Convert({fields: [}])", "@Convert([1, 2])"] {
+            let authored = source.replace(
+                "@Convert({\"fields\":[{\"target\":\"name\",\"constant\":\"(fixed)\"}]}) // see (notes)",
+                broken,
+            );
+            let error = ConverterModels::written(path, &authored, models, "yon").expect_err(broken);
+            assert!(error.contains("strict JSON object"), "{broken}: {error}");
+        }
+    }
+
     #[test]
     fn ruby_tac_typed_models_use_the_native_reader_with_compiler_owned_shapes() {
         let models = json!({"Product":{"name":"string"},"Summary":{"name":"string"}});
