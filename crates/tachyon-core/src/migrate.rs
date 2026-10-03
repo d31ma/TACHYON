@@ -146,7 +146,8 @@ impl MigrationAnalysis {
     const MAX_SOURCE_BYTES: u64 = 4 * 1_024 * 1_024;
     const MAX_PUBLISHER_SCAN_BYTES: usize = 1024 * 1024;
     const MAX_FINDINGS: usize = 10_000;
-    const CONTROL_TAGS: [&'static str; 5] = ["logic", "loop", "if", "else", "for"];
+    const CONTROL_TAGS: [&'static str; 2] = ["logic", "loop"];
+    const REMOVED_CONTROL_TAGS: [&'static str; 3] = ["if", "else", "for"];
     const IGNORED_DIRECTORIES: [&str; 7] = [
         ".git",
         ".tachyon",
@@ -170,8 +171,25 @@ impl MigrationAnalysis {
             relative,
             "view.control_tags",
             MigrationStatus::Supported,
-            "Canonical <logic> conditionals and <loop> iteration are validated by the compiler and rendered exclusively by the Tac client. The <if>/<else>/<for> aliases remain supported for compatibility. Yon is REST-only and never renders a view.",
+            "<logic> conditionals and <loop> iteration are validated by the compiler and rendered exclusively by the Tac client. Yon is REST-only and never renders a view.",
             None,
+        ));
+    }
+
+    fn record_removed_controls(
+        relative: &str,
+        present: bool,
+        findings: &mut Vec<MigrationFinding>,
+    ) {
+        if !present {
+            return;
+        }
+        findings.push(MigrationFinding::new(
+            relative,
+            "view.removed_controls",
+            MigrationStatus::Changed,
+            "The <if>, <else> and <for> elements were removed (TY1367). Conditionals use <logic :if>, <logic :else-if> and <logic else>; loops use <loop :for=\"item of items\">.",
+            Some("Run 'ty migrate fix --write' to rewrite them."),
         ));
     }
 
@@ -218,11 +236,11 @@ impl MigrationAnalysis {
         ));
     }
 
-    fn is_control_token(token: Token) -> bool {
+    fn is_tag_token(token: Token, tags: &[&str]) -> bool {
         let Token::StartTag(tag) = token else {
             return false;
         };
-        Self::CONTROL_TAGS.contains(&String::from_utf8_lossy(&tag.name).as_ref())
+        tags.contains(&String::from_utf8_lossy(&tag.name).as_ref())
     }
 
     pub fn check(project_root: impl AsRef<Path>) -> Result<MigrationReport, Failure> {
@@ -1134,18 +1152,21 @@ fn classify_view(relative: &str, source: &str, findings: &mut Vec<MigrationFindi
 }
 
 fn classify_view_rendering(relative: &str, source: &str, findings: &mut Vec<MigrationFinding>) {
-    let controls = has_control_tag(source);
+    let controls = has_tag(source, &MigrationAnalysis::CONTROL_TAGS);
+    let removed_controls = has_tag(source, &MigrationAnalysis::REMOVED_CONTROL_TAGS);
     let bindings = MigrationAnalysis::has_view_bindings(source);
     let legacy_events = source.contains("data-tac-on-");
     let islands = source.contains("tachyon-island");
     MigrationAnalysis::record_view_controls(relative, controls, findings);
+    MigrationAnalysis::record_removed_controls(relative, removed_controls, findings);
     MigrationAnalysis::record_view_bindings(relative, bindings, findings);
     MigrationAnalysis::record_view_legacy_events(relative, legacy_events, findings);
     MigrationAnalysis::record_view_islands(relative, islands, findings);
 }
 
-fn has_control_tag(source: &str) -> bool {
-    Tokenizer::new(source).any(|token| token.is_ok_and(MigrationAnalysis::is_control_token))
+fn has_tag(source: &str, tags: &[&str]) -> bool {
+    Tokenizer::new(source)
+        .any(|token| token.is_ok_and(|token| MigrationAnalysis::is_tag_token(token, tags)))
 }
 
 fn classify_view_embedded_content(
@@ -1880,8 +1901,7 @@ mod tests {
         );
         let finding = with_feature(&report, "view.control_tags");
         assert_eq!(finding.status, MigrationStatus::Supported);
-        assert!(finding.detail.contains("Canonical <logic>"));
-        assert!(finding.detail.contains("compatibility"));
+        assert!(finding.detail.starts_with("<logic> conditionals"));
         assert_eq!(finding.source, "client/pages/tac.html");
     }
 
@@ -1895,21 +1915,22 @@ mod tests {
     }
 
     #[test]
-    fn compatible_conditional_aliases_remain_reported_as_supported() {
+    fn removed_conditional_elements_are_reported_as_changed() {
         let report =
             control_report("<if :when=\"ready\"><p>ready</p></if><else><p>fallback</p></else>");
-        assert_eq!(
-            with_feature(&report, "view.control_tags").status,
-            MigrationStatus::Supported
-        );
+        assert!(!has_feature(&report, "view.control_tags"));
+        let finding = with_feature(&report, "view.removed_controls");
+        assert_eq!(finding.status, MigrationStatus::Changed);
+        assert!(action_contains(finding, "ty migrate fix --write"));
     }
 
     #[test]
-    fn compatible_iteration_alias_remains_reported_as_supported() {
-        let report = control_report("<for :each=\"const item of items\"><p>{item}</p></for>");
+    fn removed_iteration_element_is_reported_as_changed() {
+        let report = control_report("<for :each=\"item in items\"><p>{item}</p></for>");
+        assert!(!has_feature(&report, "view.control_tags"));
         assert_eq!(
-            with_feature(&report, "view.control_tags").status,
-            MigrationStatus::Supported
+            with_feature(&report, "view.removed_controls").status,
+            MigrationStatus::Changed
         );
     }
 

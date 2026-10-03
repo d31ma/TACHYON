@@ -5,7 +5,7 @@
   <button id="preference-choose-denied" on:click="choice.choose('windows')">Choose Windows</button>
   <button id="preference-show-late" on:click="choice.showLate = true">Show late listener</button>
   <button id="preference-hide-late" on:click="choice.showLate = false">Hide late listener</button>
-  <if :when="choice.showLate">
+  <logic :if="choice.showLate">
     <preference-late />
-  </if>
+  </logic>
 </main>

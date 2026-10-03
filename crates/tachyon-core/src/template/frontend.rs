@@ -122,6 +122,14 @@ impl<'a> Parser<'a> {
         "track", "wbr",
     ];
     const DOCUMENT_CODE: u16 = 1307;
+    const REMOVED_CONTROL_CODE: u16 = 1367;
+    const REMOVED_CONTROLS: &'static [(&'static str, &'static str)] = &[
+        ("if", "<logic :if=\"expression\">"),
+        ("else", "<logic else>"),
+        ("for", "<loop :for=\"item of items\">"),
+    ];
+    const REMOVED_CONTROL_HELP: &'static str =
+        "Run ty migrate fix --write to rewrite <if>, <else> and <for> into <logic> and <loop>.";
     const DOCUMENT_TAGS: &'static [&'static str] = &["html", "head", "body"];
     const DOCUMENT_HELP: &'static str = "Remove the doctype, <html>, <head> and <body>. Tachyon writes the document around every view. Put the page title and other page metadata in client/manifest.json, under tac.metadata.";
 
@@ -461,7 +469,7 @@ impl<'a> Parser<'a> {
                 "Use a valid dynamic attribute name; write a conditional fallback as <logic else>.",
             ));
         }
-        let is_control = matches!((tag, dynamic_name), ("loop", "for") | ("for", "each"));
+        let is_control = tag == "loop" && dynamic_name == "for";
         let value = if is_control {
             AttributeValue::Control(value)
         } else {
@@ -480,14 +488,19 @@ impl<'a> Parser<'a> {
         range: SourceRange,
     ) -> Result<TemplateNodeKind, Failure> {
         let source_path = self.source_path;
+        if let Some((_, canonical)) = Self::REMOVED_CONTROLS.iter().find(|(old, _)| *old == name) {
+            return Err(self.failure(
+                Self::REMOVED_CONTROL_CODE,
+                range,
+                &format!("The <{name}> element was removed. Write {canonical} instead."),
+                Self::REMOVED_CONTROL_HELP,
+            ));
+        }
         match name {
             "logic" => conditional_logic(&mut attributes, source_path, range),
-            "if" => direct_if(&mut attributes, source_path, range),
-            "else" => direct_else(&attributes, source_path, range),
             "switch" => switch_value(&mut attributes, source_path, range),
             "case" => switch_case(&mut attributes, source_path, range),
-            "loop" => iteration(&mut attributes, "for", source_path, range),
-            "for" => iteration(&mut attributes, "each", source_path, range),
+            "loop" => iteration(&mut attributes, source_path, range),
             "script" => Err(self.failure(
                 1306,
                 range,
@@ -849,58 +862,16 @@ fn logic_branch(
     })
 }
 
-fn direct_if(
-    attributes: &mut BTreeMap<String, TemplateAttribute>,
-    source_path: &str,
-    range: SourceRange,
-) -> Result<TemplateNodeKind, Failure> {
-    let Some(condition) = take_dynamic(attributes, "when") else {
-        return Err(Failure::one(template_diagnostic(
-            1103,
-            source_path,
-            range.start,
-            range.end,
-            "<if> requires the Phase 3 :when=\"expression\" contract.",
-            "Use <logic :if=\"expression\"> in new templates; the <if> compatibility alias requires :when.",
-        )));
-    };
-    reject_attributes(attributes, source_path, range, "if")?;
-    Ok(TemplateNodeKind::Conditional {
-        condition: Some(condition),
-        branch: ConditionalBranch::If,
-        children: Vec::new(),
-    })
-}
-
-fn direct_else(
-    attributes: &BTreeMap<String, TemplateAttribute>,
-    source_path: &str,
-    range: SourceRange,
-) -> Result<TemplateNodeKind, Failure> {
-    reject_attributes(attributes, source_path, range, "else")?;
-    Ok(TemplateNodeKind::Conditional {
-        condition: None,
-        branch: ConditionalBranch::Else,
-        children: Vec::new(),
-    })
-}
-
 fn iteration(
     attributes: &mut BTreeMap<String, TemplateAttribute>,
-    attribute_name: &str,
     source_path: &str,
     range: SourceRange,
 ) -> Result<TemplateNodeKind, Failure> {
-    let Some(attribute) = attributes.remove(attribute_name) else {
-        let element = if attribute_name == "for" {
-            "loop"
-        } else {
-            "for"
-        };
+    let Some(attribute) = attributes.remove("for") else {
         return Err(control_failure(
             source_path,
             range,
-            &format!("<{element}> requires :{attribute_name}=\"item of values\"."),
+            "<loop> requires :for=\"item of values\".",
         ));
     };
     let AttributeValue::Control(declaration) = attribute.value else {
@@ -919,14 +890,8 @@ fn iteration(
             attributes,
         );
     }
-    let separator = if attribute_name == "for" {
-        " of "
-    } else {
-        " in "
-    };
     list_iteration(
         &declaration,
-        separator,
         attribute.range.start,
         source_path,
         range,
@@ -936,17 +901,16 @@ fn iteration(
 
 fn list_iteration(
     declaration: &str,
-    separator: &str,
     start: usize,
     source_path: &str,
     range: SourceRange,
     attributes: &BTreeMap<String, TemplateAttribute>,
 ) -> Result<TemplateNodeKind, Failure> {
-    let Some((binding, iterable)) = declaration.split_once(separator) else {
+    let Some((binding, iterable)) = declaration.split_once(" of ") else {
         return Err(control_failure(
             source_path,
             range,
-            "Iteration must use 'binding of expression' or 'binding in expression'.",
+            "Iteration must use 'binding of expression'.",
         ));
     };
     let binding = without_declaration_keyword(binding);
@@ -1694,37 +1658,43 @@ mod tests {
         );
     }
 
-    #[test]
-    fn canonical_logic_preserves_the_if_else_compatibility_plan() {
-        let canonical = compile_without_components(
-            "<logic :if=\"ready\"><p>ready</p></logic><logic else><p>fallback</p></logic>",
-        )
-        .expect("canonical conditional");
-        let compatibility = compile_without_components(
-            "<if :when=\"ready\"><p>ready</p></if><else><p>fallback</p></else>",
-        )
-        .expect("compatible conditional");
-        assert_eq!(canonical.view_ir(), compatibility.view_ir());
+    fn removed_control_message(source: &str) -> String {
+        let failure = compile_without_components(source).expect_err("removed control element");
+        String::from(&diagnostic_with_number(&failure, 1367).message)
     }
 
     #[test]
-    fn canonical_loop_preserves_the_for_compatibility_plan() {
-        let canonical =
-            compile_without_components("<loop :for=\"const item of items\"><p>{item}</p></loop>")
-                .expect("canonical iteration");
-        let compatibility =
-            compile_without_components("<for :each=\"const item in items\"><p>{item}</p></for>")
-                .expect("compatible iteration");
-        assert_eq!(canonical.view_ir(), compatibility.view_ir());
+    fn removed_if_element_names_the_logic_form() {
+        assert_eq!(
+            removed_control_message("<if :when=\"ready\"><p>ready</p></if>"),
+            "The <if> element was removed. Write <logic :if=\"expression\"> instead."
+        );
     }
 
     #[test]
-    fn compatible_for_refuses_the_canonical_loop_separator() {
+    fn removed_else_element_names_the_logic_form() {
+        assert_eq!(
+            removed_control_message(
+                "<logic :if=\"ready\"><p>ready</p></logic><else><p>fallback</p></else>"
+            ),
+            "The <else> element was removed. Write <logic else> instead."
+        );
+    }
+
+    #[test]
+    fn removed_for_element_names_the_loop_form() {
+        assert_eq!(
+            removed_control_message("<for :each=\"item in items\"><p>{item}</p></for>"),
+            "The <for> element was removed. Write <loop :for=\"item of items\"> instead."
+        );
+    }
+
+    #[test]
+    fn loop_refuses_the_in_separator() {
         let failure =
-            compile_without_components("<for :each=\"const item of items\"><p>{item}</p></for>")
-                .expect_err("the for alias uses in");
+            compile_without_components("<loop :for=\"const item in items\"><p>{item}</p></loop>")
+                .expect_err("loop uses of");
         let diagnostic = diagnostic_with_number(&failure, 1302);
-        assert_eq!(diagnostic.code.number(), 1302);
         assert!(diagnostic.message.contains("Iteration must use"));
     }
 
@@ -1875,10 +1845,7 @@ mod tests {
 <logic :if="false">a</logic>
 <logic :else-if="true">b</logic>
 <logic else>c</logic>
-<if :when="false">d</if>
-<else>e</else>
 <loop :for="item of items">{item}</loop>
-<for :each="item in items">{item}</for>
 <demo-card hydrate="idle"></demo-card>
 <demo-card hydrate="visible"></demo-card>
 <demo-card hydrate="interaction"></demo-card>

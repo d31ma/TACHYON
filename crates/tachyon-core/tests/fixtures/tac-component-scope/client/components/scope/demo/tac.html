@@ -2,9 +2,9 @@
   <button id="hide-parent" on:click="scopeDemo.visible = false">Hide parent</button>
   <button id="show-parent" on:click="scopeDemo.visible = true">Show parent</button>
   <div id="first-parent">
-    <if :when="scopeDemo.visible">
+    <logic :if="scopeDemo.visible">
       <parent-panel><slot-child /></parent-panel>
-    </if>
+    </logic>
   </div>
   <div id="second-parent"><parent-panel><slot-child /></parent-panel></div>
   <div id="neighbor"><plain-child /></div>

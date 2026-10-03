@@ -8,9 +8,9 @@
     <defs><linearGradient id="gradient" gradientUnits="userSpaceOnUse" gradientTransform="rotate(20)"></linearGradient></defs>
     <path id="moon" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
     <use id="reference" tabindex="0" :xlink:href="svgNamespace.reference" :xml:lang="svgNamespace.language" xml:space="preserve"></use>
-    <if :when="svgNamespace.visible"><path id="conditional-path" d="M0 0 L4 4"></path></if>
+    <logic :if="svgNamespace.visible"><path id="conditional-path" d="M0 0 L4 4"></path></logic>
     <loop :for="point of svgNamespace.points"><circle data-probe="listed" :cx="point" cy="4" r="2"></circle></loop>
-    <for :each="let number = 0; number &lt; 2; number++"><rect data-probe="counted" :x="number" y="1" width="1" height="1"></rect></for>
+    <loop :for="let number = 0; number &lt; 2; number++"><rect data-probe="counted" :x="number" y="1" width="1" height="1"></rect></loop>
     <switch :value="svgNamespace.mode"><case :when="'first'"><g id="switched"><path d="M1 1 L2 2"></path></g></case><case default><g id="fallback"></g></case></switch>
     <foreignObject id="foreign" x="0" y="0" width="16" height="16">
       <div id="html-child"><label for="draft">Draft</label><input id="draft" :value="svgNamespace.label" on:input="svgNamespace.edit()"/><svg id="nested-svg" width="4" height="4" viewBox="0 0 4 4"><circle cx="2" cy="2" r="1"></circle></svg></div>

@@ -326,8 +326,10 @@ At runtime:
   includes nested empty loops that emit no nodes.
 - Nested loops can see the lexical locals of outer loops.
 
-The `if`/`else`/`for` aliases are still accepted. Iterable bindings without a
-declaration are still accepted. This reconciliation does not remove them.
+The `<if>`, `<else>` and `<for>` elements were removed (TY1367). Write
+`<logic :if>`, `<logic :else-if>`, `<logic else>` and `<loop :for>`;
+`ty migrate fix --write` rewrites the old elements. Iterable bindings without a
+declaration are still accepted.
 
 ## Browser Wasm to target-native services
 

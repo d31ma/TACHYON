@@ -262,21 +262,21 @@ Structural control tags are compiler syntax. The compiler resolves them before
 output. A browser or native renderer never receives them as unknown elements.
 
 ```html
-<if :when="products.length > 0">
+<logic :if="products.length > 0">
   <ul>
-    <for :each="product in products">
+    <loop :for="product of products">
       <li>{product.name}</li>
-    </for>
+    </loop>
   </ul>
-</if>
-<else>
+</logic>
+<logic else>
   <p>No products yet.</p>
-</else>
+</logic>
 ```
 
-`logic` and `loop` are the canonical conditional and iteration tags. The
-`if`/`else`/`for` names shown above are still accepted. Counted loops also
-work: `<loop :for="let i = 0; i < 3; i++">{i}</loop>`. The compiler validates
+`logic` and `loop` are the only conditional and iteration tags. The old
+`<if>`, `<else>` and `<for>` elements were removed (TY1367); run
+`ty migrate fix --write` to rewrite them. Counted loops also work: `<loop :for="let i = 0; i < 3; i++">{i}</loop>`. The compiler validates
 comparisons, step direction, and iteration limits. See
 [the client runtime migration guide](docs/CLIENT_RUNTIME_MIGRATION.md).
 

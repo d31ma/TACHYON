@@ -633,7 +633,7 @@ fn diagnostics_are_stable_in_human_and_json_formats() {
     let report: serde_json::Value =
         serde_json::from_slice(&json.stderr).expect("diagnostic output should be JSON");
     assert_eq!(report["contract_version"], 1);
-    assert_eq!(report["diagnostics"][0]["code"], "TY1103");
+    assert_eq!(report["diagnostics"][0]["code"], "TY1367");
     assert_eq!(
         report["diagnostics"][0]["spans"][0]["file"],
         "client/components/test/view5/tac.html"

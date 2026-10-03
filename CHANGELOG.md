@@ -247,6 +247,14 @@ machine contracts have their own, independent major versions.
 - A Rust utility method cannot declare a `static` value. A utility class
   holds no state, and a function-level `static` was a way around that rule.
 
+- A Tac view writes a conditional only with `<logic :if>`, `<logic :else-if>`
+  and `<logic else>`, and a loop only with `<loop :for="item of items">`. The
+  `<if :when>`, `<else>` and `<for :each>` elements were removed (ADR 0015
+  amendment); the build refuses them with `TY1367`, which names the canonical
+  form. `ty migrate check` reports them, and `ty migrate fix --write` rewrites
+  them (`<for :each="item in items">` becomes `<loop :for="item of items">`).
+  `<switch>` and `<case>` are unchanged.
+
 - Plain `server/shared/` files hold one class and its imports. Move file-level
   variables into class members and helper functions into methods; Tachyon
   refuses annotations and extra declarations in shared files.

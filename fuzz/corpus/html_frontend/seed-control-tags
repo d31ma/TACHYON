@@ -1,1 +1,1 @@
-<main><if condition="products.length"><for each="product in products"><p>{{ product.name }}</p></for><else><p>Empty</p></else></if></main>
+<main><logic :if="products.length"><loop :for="product of products"><p>{{ product.name }}</p></loop></logic><logic else><p>Empty</p></logic></main>

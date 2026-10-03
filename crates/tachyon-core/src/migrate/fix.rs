@@ -12,6 +12,7 @@ use manifest::ManifestMigration;
 use middleware::{MiddlewareConversion, MiddlewarePlan};
 use model_split_fix::ModelSplitFix;
 use one_class::OneClassReport;
+use removed_controls::RemovedControlEdits;
 use renames::{AnnotationRename, FileMove, HiddenAnnotation, RoleRename};
 use routes::RouteMigration;
 use std::fmt::Write as _;
@@ -49,6 +50,7 @@ mod private_members;
 mod private_rename;
 mod python_parameters;
 mod realm_models;
+mod removed_controls;
 mod renames;
 mod routes;
 mod scan;
@@ -877,6 +879,17 @@ impl MigrationFixPlan {
         }
     }
 
+    fn add_removed_controls(edits: &mut Vec<TextEdit>, notes: &mut Vec<String>, source: &str) {
+        let planned = RemovedControlEdits::plan_view(source).edits;
+        let fits = Self::all_fit(edits, &planned);
+        if [fits, planned.is_empty()] == [true, false] {
+            edits.extend(planned);
+            notes.push(String::from(
+                "The removed <if>, <else> and <for> elements become <logic :if>, <logic else> and <loop :for> (TY1367).",
+            ));
+        }
+    }
+
     fn all_fit(edits: &[TextEdit], planned: &[TextEdit]) -> bool {
         planned.iter().all(|edit| Self::fits(edits, edit))
     }
@@ -908,6 +921,7 @@ impl MigrationFixPlan {
                     let relative = portable_path(path.strip_prefix(root).unwrap_or(&path));
                     let bound = field_rename::FieldRename::view_edits(&source, &bindings);
                     Self::add_view_bindings(&mut edits, &mut notes, bound);
+                    Self::add_removed_controls(&mut edits, &mut notes, &source);
                     let braced = BracedAttributeEdits::plan_view(&source);
                     for (problem, action) in braced.steps {
                         self.manual_steps

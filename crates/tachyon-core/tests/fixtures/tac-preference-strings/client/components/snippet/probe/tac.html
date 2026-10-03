@@ -6,9 +6,9 @@
   </div>
   <button id="snippet-late-show" on:click="snippetProbe.visible = true">Mount website snippet</button>
   <button id="snippet-late-hide" on:click="snippetProbe.visible = false">Unmount website snippet</button>
-  <if :when="snippetProbe.visible">
+  <logic :if="snippetProbe.visible">
     <div id="snippet-late">
       <docs-snippet :files="snippetProbe.files" :axis="'platform'" />
     </div>
-  </if>
+  </logic>
 </section>

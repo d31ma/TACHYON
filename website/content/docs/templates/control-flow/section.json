@@ -1,5 +1,5 @@
 {
   "heading": "Control flow",
-  "body": "Loops, conditionals and switches are elements. So you can see the structure in the markup. A loop's binding (the name of the current item) exists only inside the loop. In <loop :for=\"topic of documentation.topics()\">, the binding topic has the name of a service. Inside the loop, topic reads the item. It does not load TopicService.",
+  "body": "Loops, conditionals and switches are elements. So you can see the structure in the markup. A conditional is always `<logic>`: `<logic :if>`, then `<logic :else-if>`, then `<logic else>`. A loop is always `<loop :for>`. There is no `<if>`, `<else>` or `<for>` element: the build stops with `TY1367`, and `ty migrate fix --write` rewrites them. A loop's binding (the name of the current item) exists only inside the loop. In <loop :for=\"topic of documentation.topics()\">, the binding topic has the name of a service. Inside the loop, topic reads the item. It does not load TopicService.",
   "code": { "file": "example.html" }
 }

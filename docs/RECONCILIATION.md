@@ -42,9 +42,11 @@ ADR means architecture decision record (see `docs/adr/`).
 
 ## Explicit compatibility decisions
 
-- Keep `serve`, `dev`, `native-bundle`, legacy `<if>/<else>/<for>` and bare
-  iteration bindings as compatibility spellings. The new capabilities do not
-  require removing a working spelling. New examples use preview/start,
+- Keep `serve`, `dev`, `native-bundle` and bare iteration bindings as
+  compatibility spellings. The new capabilities do not require removing a
+  working spelling. Amendment 2026-10-03: by user decision, the legacy
+  `<if>/<else>/<for>` elements are no longer kept. The compiler refuses them
+  with TY1367, and `ty migrate fix --write` rewrites them. New examples use preview/start,
   bundle --native, `<logic :if>`, `<logic :else-if>`, `<logic else>`, and
   `<loop :for>` with declared loop bindings. The fallback `else` is a bare
   flag. These controls belong inside components; pages compose components.

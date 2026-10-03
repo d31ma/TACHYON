@@ -123,7 +123,7 @@ async fn native_cli_collection_tracks_nested_conditionals_and_exported_elements(
     let root = tempfile::tempdir().expect("fixture");
     NativeCompositionCheck::project(
         root.path(),
-        "<section><if :when=\"true\"><nested-reader /></if></section>",
+        "<section><logic :if=\"true\"><nested-reader /></logic></section>",
     );
     NativeCompositionCheck::write(
         root.path(),

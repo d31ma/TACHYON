@@ -22,8 +22,9 @@ The current `ty build` command does these things:
 
 The build discovers Yon handlers for the manifests, but it never executes them.
 
-The `<logic>` and `<loop>` controls, and their older names `<if>`, `<else>`
-and `<for>`, are compiler syntax. None of them appears in the built HTML.
+The `<logic>/<loop>` controls are compiler syntax and never appear in the
+emitted HTML. The `<if>/<else>/<for>` aliases this record once covered were
+removed on 2026-10-03 (TY1367).
 A failed build keeps the last complete output.
 
 ## Behavioral Evidence

@@ -22,7 +22,7 @@ pub struct HtmlFrontend;
 
 impl HtmlFrontend {
     const MAX_HTML_BYTES: u64 = 1_048_576;
-    const CONTROL_TAGS: &[&str] = &["logic", "loop", "if", "else", "for"];
+    const CONTROL_TAGS: &[&str] = &["logic", "loop"];
     const EVENT_HANDLER_ATTRIBUTES: &[&str] = &[
         "onabort",
         "onbeforeinput",
@@ -481,7 +481,10 @@ mod tests {
     #[test]
     fn dynamic_and_unknown_tags_are_rejected() {
         for (source, code) in [
-            ("<if>Later</if>", "TY1103"),
+            ("<logic :if=\"ready\">Later</logic>", "TY1103"),
+            ("<if>Later</if>", "TY1106"),
+            ("<else>Later</else>", "TY1106"),
+            ("<for>Later</for>", "TY1106"),
             ("<script>bad()</script>", "TY1105"),
             ("<hero>Later</hero>", "TY1106"),
         ] {

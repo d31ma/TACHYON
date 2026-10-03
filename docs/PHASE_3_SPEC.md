@@ -36,22 +36,21 @@ Application developers still write HTML. A component template may use:
 - conditional controls:
   `<logic :if="featured">`, `<logic :else-if="archived">`, and
   `<logic else>`;
-- older conditional names, still accepted:
-  `<if :when="featured">` followed by `<else>`;
-- iteration controls:
+- canonical iteration controls:
   `<loop :for="product of products">`;
-- older iteration names, still accepted:
-  `<for :each="product in products">`;
 - registered Tac components that use tags shaped like custom elements;
 - component `hydrate` policies: `load`, `idle`, `visible`, `interaction`, and
   `never`;
 - `<slot>` inside a component template.
 
-New examples use `logic` and `loop`. The older `if`, `else` and `for` names
-still work. The last branch is marked with a bare `else` attribute; `:else`
-and `else="true"` are errors. Each `logic` element has exactly one branch
-attribute. These controls go inside components. Pages place components and do
-not use the controls directly.
+`logic` and `loop` are the only control spellings. The former `<if :when>`,
+`<else>` and `<for :each>` elements were removed on 2026-10-03 by user
+decision, which overrides the compatibility requirement in RECONCILIATION.md.
+The compiler refuses them with TY1367 and names the canonical form;
+`ty migrate fix --write` rewrites them (`<for :each="item in items">` becomes
+`<loop :for="item of items">`). A fallback has a bare `else` flag; `:else` and
+`else="true"` are invalid. Each `logic` control has exactly one branch marker.
+Pages compose components and do not contain these controls directly.
 
 ```html
 <logic :if="featured"><product-card /></logic>

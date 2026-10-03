@@ -35,10 +35,10 @@ function writeFixture() {
   <p id="chained">{panelStatus.report.rows.length}</p>
   <p id="awaited">{await panelStatus.note()}</p>
   <p id="live">{panelStatus.count}</p>
-  <if :when="panelStatus.count > 0">
-    <ul id="rows"><for :each="row in panelStatus.report.rows"><li>{row}</li></for></ul>
-  </if>
-  <else><p id="empty">empty</p></else>
+  <logic :if="panelStatus.count > 0">
+    <ul id="rows"><loop :for="row of panelStatus.report.rows"><li>{row}</li></loop></ul>
+  </logic>
+  <logic else><p id="empty">empty</p></logic>
   <button id="bump" on:click="panelStatus.count += 1">bump</button>
   <button id="reset" on:click="panelStatus.reset()">reset</button>
   <input id="typed" aria-label="Label" on:input="panelStatus.label = $event.target.value">
@@ -48,9 +48,9 @@ function writeFixture() {
       <p class="outer-before">{account.domain}</p>
       <loop :for="role of panelStatus.roles">
         <p class="two-level" :data-pair="panelStatus.value(account, role)">{panelStatus.value(account, role)}</p>
-        <if :when="panelStatus.value(account, role) === 'example.com:inbox'">
+        <logic :if="panelStatus.value(account, role) === 'example.com:inbox'">
           <p class="matched-pair">{panelStatus.value(account, role)}</p>
-        </if>
+        </logic>
         <scope-probe :label="panelStatus.value(account, role)" />
         <button class="select-pair" on:click="panelStatus.select(account.domain, role.id)">select</button>
         <loop :for="folder of panelStatus.foldersFor(account, role)">

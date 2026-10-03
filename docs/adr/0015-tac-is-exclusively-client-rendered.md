@@ -37,7 +37,7 @@ The browser renderer creates the initial DOM and performs every later
 rerender. It evaluates:
 
 - interpolations and dynamic attributes;
-- `if`/`else` and `for`/`loop`;
+- `<logic>` conditionals and `<loop>` iteration;
 - switches, slots, and components;
 - event bindings.
 
@@ -112,3 +112,22 @@ behavior under ADR 0019.
 - Repository docs describe Tac as client-only and Yon as REST-only.
 - These gates pass: canonical format, check, clippy, test, documentation,
   dependency policy, and browser.
+
+## Amendment (2026-10-03): `logic` and `loop` are the only control elements
+
+By user decision, a Tac view writes a conditional only with `<logic :if>`,
+`<logic :else-if>` and `<logic else>`, and a loop only with `<loop :for>`.
+The `<if :when>`, `<else>` and `<for :each>` elements are removed. This
+overrides the compatibility requirement in `docs/RECONCILIATION.md`, which
+kept them as legacy spellings. `<switch>` and `<case>` stay unchanged.
+
+- The template compiler refuses `<if>`, `<else>` and `<for>` with TY1367. The
+  message names the canonical form.
+- The static HTML frontend no longer treats them as controls. They are unknown
+  elements there (TY1106).
+- `ty migrate check` reports them as `view.removed_controls`, and
+  `ty migrate fix --write` rewrites them in every `client/**/tac.html`.
+  `<for :each="item in items">` becomes `<loop :for="item of items">`; a
+  counted loop keeps its declaration.
+- Text inside a Yon response body is data, not a Tac view, so a response that
+  contains `<if>` text is unchanged.

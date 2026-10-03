@@ -50,7 +50,7 @@ fn buttons_and_links_need_an_accessible_name() {
     assert_clean(r#"<a href="/" aria-labelledby="home-title"></a>"#);
     assert_clean(r#"<a href="/"><img src="/logo.svg" alt="Home"></a>"#);
     assert_clean(r#"<a href="/"><span><strong>Home</strong></span></a>"#);
-    assert_clean(r#"<button><if :when="open">Close</if></button>"#);
+    assert_clean(r#"<button><logic :if="open">Close</logic></button>"#);
     assert_clean("<a>Not a link without href</a>");
 }
 

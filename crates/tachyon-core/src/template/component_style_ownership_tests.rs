@@ -148,7 +148,7 @@ fn component_style_ownership_literal_dynamic_stylesheet_is_refused() {
 #[test]
 fn component_style_ownership_false_control_does_not_exempt_style_source() {
     assert!(
-        refused("<if :when=\"false\"><style>.probe{display:grid}</style></if><p>Card</p>")
+        refused("<logic :if=\"false\"><style>.probe{display:grid}</style></logic><p>Card</p>")
             .contains("style element")
     );
 }
@@ -156,7 +156,7 @@ fn component_style_ownership_false_control_does_not_exempt_style_source() {
 #[test]
 fn component_style_ownership_loop_content_is_checked_recursively() {
     assert!(
-        refused("<for :each=\"item in items\"><link rel=\"stylesheet\" :href=\"item.url\"></for>")
+        refused("<loop :for=\"item of items\"><link rel=\"stylesheet\" :href=\"item.url\"></loop>")
             .contains("stylesheet")
     );
 }

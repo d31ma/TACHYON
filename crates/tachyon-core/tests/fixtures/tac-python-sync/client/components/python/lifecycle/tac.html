@@ -1,6 +1,6 @@
 <section aria-label="Managed Python component lifecycle">
   <button id="view-hide" on:click="audit.hide()">Hide counter view</button>
-  <if :when="audit.visible">
+  <logic :if="audit.visible">
     <python-probe :title="'view'" :count="0" :fixed="'view-fixed'" />
-  </if>
+  </logic>
 </section>

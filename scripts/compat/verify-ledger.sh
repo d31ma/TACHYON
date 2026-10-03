@@ -386,12 +386,22 @@ EOF
 }
 
 check_template_syntax() {
-  check "conditional <if :when>/<else>" "ok" <<EOF
+  check "conditional <logic :if>/<logic else>" "ok" <<EOF
 client/pages/tac.html	${PAGE}
-client/components/test/view/tac.html	<main><if :when="on"><p>y</p></if><else><p>n</p></else></main>
+client/components/test/view/tac.html	<main><logic :if="on"><p>y</p></logic><logic else><p>n</p></logic></main>
 EOF
 
-  check "iteration <for :each>" "ok" <<EOF
+  check "iteration <loop :for>" "ok" <<EOF
+client/pages/tac.html	${PAGE}
+client/components/test/view/tac.html	<main><loop :for="i of items"><p>{i}</p></loop></main>
+EOF
+
+  check_message "removed <if> element" "TY1367" "Write <logic :if" <<EOF
+client/pages/tac.html	${PAGE}
+client/components/test/view/tac.html	<main><if :when="on"><p>y</p></if></main>
+EOF
+
+  check_message "removed <for> element" "TY1367" "Write <loop :for" <<EOF
 client/pages/tac.html	${PAGE}
 client/components/test/view/tac.html	<main><for :each="i in items"><p>{i}</p></for></main>
 EOF

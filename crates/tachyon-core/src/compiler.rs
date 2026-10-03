@@ -1296,7 +1296,7 @@ export default class Chat {
             root.path(),
             "",
             "view",
-            "<if :when=\"view.show\"><p>Tac true</p></if><else><p>Tac false</p></else>",
+            "<logic :if=\"view.show\"><p>Tac true</p></logic><logic else><p>Tac false</p></logic>",
         );
         hydrate_page_view(root.path());
         service(root.path(), "ViewService", "{ show = false }");
