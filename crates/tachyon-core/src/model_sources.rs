@@ -22,6 +22,8 @@ impl ModelSources {
     const MAX_FILES: usize = 256;
     const MAX_DEPTH: usize = 8;
     const MAX_TOTAL_BYTES: usize = 1024 * 1024;
+    const RUST_CODEC_NAMES: &str =
+        "mod yon_codec_names {\npub(super) use crate::{Json, YonRead};\n}\n";
 
     pub(crate) fn none() -> Self {
         Self {
@@ -139,15 +141,15 @@ impl ModelSources {
     fn rust_yon_program(&self, program: &str) -> String {
         format!(
             "{program}\n{}",
-            self.rust_modules(ModelFile::rust_yon_source)
+            self.rust_modules(ModelFile::rust_yon_source, Self::RUST_CODEC_NAMES)
         )
     }
 
     pub(crate) fn rust_module(&self) -> String {
-        self.rust_modules(ModelFile::plain_source)
+        self.rust_modules(ModelFile::plain_source, "")
     }
 
-    fn rust_modules(&self, render: fn(&ModelFile) -> String) -> String {
+    fn rust_modules(&self, render: fn(&ModelFile) -> String, shared: &str) -> String {
         let mut exports = String::new();
         let mut modules = String::new();
         for (index, file) in self.files.iter().enumerate() {
@@ -161,7 +163,7 @@ impl ModelSources {
         }
         self.files.first().map_or_else(String::new, |_| {
             format!(
-                "#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{modules}}}\n"
+                "#[allow(dead_code, unused_imports)]\npub mod models {{\n{exports}{shared}{modules}}}\n"
             )
         })
     }

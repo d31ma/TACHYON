@@ -28,6 +28,6 @@ impl ModelFile {
 
     pub(super) fn rust_yon_source(&self) -> String {
         let codecs = crate::route_types::Converters::rust_model_text(&self.plain);
-        format!("use crate::{{Json, YonRead}};\n{}\n{codecs}", self.plain)
+        format!("use super::yon_codec_names::*;\n{}\n{codecs}", self.plain)
     }
 }

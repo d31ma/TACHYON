@@ -46,6 +46,38 @@ async fn rust_private_field_model_roundtrips_through_the_owned_handler() {
     );
 }
 
+#[tokio::test]
+async fn rust_model_that_imports_json_itself_compiles_with_yon_codecs() {
+    use crate::{HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions};
+    use tachyon_contracts::{HandlerRequest, HttpMethod};
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "server/models/Summary.rs",
+        "use crate::Json;\n\npub struct Summary {\n    pub summary: Json,\n}\n",
+    );
+    let entry = "server/controllers/SummaryController.rs";
+    write(
+        root.path(),
+        entry,
+        "use crate::models::Summary;\n#[RequestRoute(\"/summary\")]\n#[Public]\nstruct SummaryController {}\nimpl SummaryController {\n fn new() -> Self { Self {} }\n #[GetRoute]\n fn get_summary(&self) -> Summary { Summary { summary: Json::parse(\"{\\\"id\\\":7}\").expect(\"parse\") } }\n}\n",
+    );
+    let source = HandlerSource::discover(root.path(), entry).expect("owned compiler");
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let request = HandlerRequest::route("json-import", "/summary", HttpMethod::Get);
+    let response = supervisor
+        .invoke(&source, &request, &HandlerCancellation::default())
+        .await
+        .expect("owned runtime");
+    assert!(response.error.is_none(), "{:?}", response.error);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response.body.expect("body").data)
+            .expect("JSON"),
+        serde_json::json!({"summary": {"id": 7}})
+    );
+}
+
 #[test]
 fn rust_yon_codecs_are_owned_by_private_field_model_modules() {
     let root = tempfile::tempdir().expect("project");
@@ -59,7 +91,8 @@ fn rust_yon_codecs_are_owned_by_private_field_model_modules() {
         .split("mod model_0 {")
         .nth(1)
         .expect("owning namespace");
-    assert!(module.contains("use crate::{Json, YonRead};"));
+    assert!(module.contains("use super::yon_codec_names::*;"));
+    assert!(program.contains("pub(super) use crate::{Json, YonRead};"));
     assert!(module.contains("impl YonRead for PrivateInput"));
     assert!(module.contains("impl From<PrivateInput> for Json"));
     assert!(module.contains("value.value"));
