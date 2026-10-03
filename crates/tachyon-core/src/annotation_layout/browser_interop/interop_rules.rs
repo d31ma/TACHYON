@@ -10,7 +10,7 @@ pub(super) struct InteropRules {
 impl InteropRules {
     const CLIENT: &'static str = "client";
 
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self {
             extension: "rs",
             language: "Rust",
@@ -26,6 +26,17 @@ impl InteropRules {
         Self {
             extension: "cs",
             language: "C#",
+            words: &[
+                "InteropServices.JavaScript",
+                "JSImport",
+                "JSExport",
+                "JSHost",
+            ],
+            imports: &[],
+        },
+        Self {
+            extension: "fs",
+            language: "F#",
             words: &[
                 "InteropServices.JavaScript",
                 "JSImport",

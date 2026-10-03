@@ -2672,6 +2672,13 @@ machine contracts have their own, independent major versions.
 
 - Kotlin Tac components keep the metadata of public `lateinit` members and
   read required component models with the existing model readers.
+- `TY1317` covers F# like C#. A Tac F# file that uses
+  `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` or
+  `JSHost` is refused; before, F# files were not checked. The native build
+  also refuses Tachyon's browser APIs and built-in event models, such as
+  `Clipboard` or `ConnectivityChanged`, in an F# service that is linked into
+  the app, as it does for C#.
+
 - The website shows a docs section's `summary`. It was in 27 `section.json`
   files, such as the annotation sections, but the docs page showed only the
   `body`. The summary is now a lede paragraph under the section heading.

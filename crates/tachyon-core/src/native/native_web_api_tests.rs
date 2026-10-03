@@ -10,6 +10,8 @@ struct Services;
 impl Services {
     const RUST_CLIPBOARD: &str = "#[Service]\n#[derive(Default)]\nstruct PlaceService {\n    clipboard: Clipboard,\n}\n\nimpl PlaceService {\n    fn copy(&self) {\n        let _ = self.clipboard.write_text(\"place\");\n    }\n}\n";
 
+    const FSHARP_CLIPBOARD: &str = "[<Service>]\ntype PlaceService() =\n    let clipboard = Clipboard()\n    member this.Copy() : unit = clipboard.WriteText(\"place\")\n";
+
     const CSHARP_LISTENER: &str = "[Service]\npublic class PlaceService\n{\n    public bool Online = false;\n\n    [OnEvent]\n    public void Hear(ConnectivityChanged changed)\n    {\n        Online = changed.Online;\n    }\n}\n";
 
     fn built(
@@ -114,4 +116,22 @@ fn preference_strings_linked_source_fails_before_native_provider_generation() {
         );
         assert!(error.contains(&location), "{error}");
     }
+}
+
+#[test]
+fn a_linked_fsharp_service_cannot_use_a_browser_api() {
+    let error = Services::built(
+        NativeCompanion::CSharp,
+        "fs",
+        Services::FSHARP_CLIPBOARD,
+        false,
+    )
+    .expect_err("refused");
+    assert!(error.contains("TY1317"), "{error}");
+    assert!(
+        error.contains(
+            "F# services that are linked into the app cannot use `Clipboard`: it belongs to the page."
+        ),
+        "{error}"
+    );
 }

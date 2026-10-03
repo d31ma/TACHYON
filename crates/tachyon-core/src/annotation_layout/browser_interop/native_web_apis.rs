@@ -9,13 +9,14 @@ use tachyon_diagnostics::Diagnostic;
 pub(crate) struct NativeWebApis;
 
 impl NativeWebApis {
-    const LANGUAGES: [(&'static str, &'static str); 4] = [
+    const LANGUAGES: [(&'static str, &'static str); 5] = [
         ("rs", "Rust"),
         ("cs", "C#"),
+        ("fs", "F#"),
         ("swift", "Swift"),
         ("kt", "Kotlin"),
     ];
-    const PRELUDE_CLIENTS: [&'static str; 2] = ["rs", "cs"];
+    const PRELUDE_CLIENTS: [&'static str; 3] = ["rs", "cs", "fs"];
     const HELP: &'static str = "Browser APIs need the page. Use this API in a JavaScript, TypeScript or WebAssembly service, and send the result to this service with an event. See /docs/native-services";
 
     pub(crate) fn refuse(path: &Path, source: &str) -> Result<(), Failure> {

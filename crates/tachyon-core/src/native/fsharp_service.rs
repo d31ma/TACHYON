@@ -35,6 +35,9 @@ impl FsharpService {
             Self::TAC,
         )?;
         let authored = assembled.as_deref().unwrap_or(authored);
+        if !item.web_assembly {
+            crate::annotation_layout::NativeWebApis::refuse(relative, authored)?;
+        }
         let view = FsharpView::tac(relative, authored);
         FsharpSource::refuse_unsupported(&view, relative, authored)?;
         FsharpTaskResults::require(&view, item.web_assembly)?;

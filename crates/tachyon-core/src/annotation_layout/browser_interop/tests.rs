@@ -99,6 +99,17 @@ fn a_csharp_service_may_not_use_javascript_interop() {
 }
 
 #[test]
+fn an_fsharp_service_may_not_use_javascript_interop() {
+    let source = "open System.Runtime.InteropServices.JavaScript\n\n[<Service>]\ntype PlaceService() =\n    [<JSImport(\"navigator.geolocation\", \"main.js\")>]\n    static member Where() : string = \"\"\n    // JSExport stays in a comment\n";
+    let problems = refused("client/services/PlaceService.fs", source);
+    assert_eq!(problems.len(), 2, "{problems:?}");
+    assert!(
+        problems[0].starts_with("TY1317 F# services cannot call browser APIs."),
+        "{problems:?}"
+    );
+}
+
+#[test]
 fn a_rust_service_may_not_use_browser_crates_or_import_from_the_page() {
     let source = "use wasm_bindgen::prelude::*;\n\n#[link(wasm_import_module = \"env\")]\nunsafe extern \"C\" {\n    fn where_am_i() -> f64;\n}\n\nfn window() {\n    let _ = web_sys::window();\n}\n";
     let found = found_text("client/services/PlaceService.rs", source);
