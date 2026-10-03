@@ -28,7 +28,8 @@ class WebApiGate {
 
   static files = {
     'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js","fs"]},"visibility":{"check":false}}}\n',
-    'client/pages/tac.html': '<main><h1>Browser APIs</h1></main>\n',
+    'client/pages/tac.html': '<stamp-index />\n',
+    'client/components/stamp/index/tac.html': '<main><h1>Browser APIs</h1></main>\n',
     ...Object.fromEntries(WebApiGate.languages.flatMap((language) => [
       [`client/pages/${language}/tac.html`, `<stamp-${language} />\n`],
       [`client/components/stamp/${language}/tac.html`, `<main><p id="${language}">{${language}Stamp.label}</p>
