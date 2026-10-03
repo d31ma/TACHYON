@@ -204,7 +204,12 @@ machine contracts have their own, independent major versions.
   (relative paths, `/utils/` web paths and `client/utils/` paths). Native Rust
   `crate::utils::<Utility>` paths keep working unchanged. Yon keeps
   `server/utils/`. The website, its examples and the duplicate-code help use
-  the new folder.
+  the new folder. Like `client/utils/` before, a utility in
+  `client/shared/utils/` is published only when a script imports it (no raw
+  copy of its source), gets the design checks of a utility, and counts for
+  `ty test --coverage`; a JavaScript or TypeScript utility that is imported by
+  its path or uses `import.meta` is left out of the coverage report, because
+  its calls cannot be recorded yet (ADR 0070).
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
   A class in `services/`, `stores/`, `remotes/` (or `clients/`), `setups/`,
