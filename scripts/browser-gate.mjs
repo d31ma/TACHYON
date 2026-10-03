@@ -7,10 +7,11 @@ import { fileURLToPath } from 'node:url'
 
 /** @typedef {{name:string,file:string}} BrowserScript */
 /** @typedef {{name:string,passed:boolean,seconds:number,log:string}} ScriptResult */
+/** @typedef {{found:BrowserScript[],missing:string[]}} ScriptChoice */
 
 class BrowserGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-  static names = ['website', 'runtime', 'storage', 'web-apis', 'tac-client', 'behavior', 'events', 'web-components']
+  static names = ['website', 'runtime', 'storage', 'cached-client', 'web-apis', 'tac-client', 'behavior', 'events', 'web-components']
   static mostAtOnce = 4
   static leastFreePercent = 25
   static freePercentPerScript = 12
@@ -18,14 +19,18 @@ class BrowserGate {
   static millisecondsPerSecond = 1000
   static macFreeLine = /free percentage:\s*(\d+)%/
 
-  /** @returns {BrowserScript[]} */
+  /** @returns {ScriptChoice} */
   static scripts() {
-    const chosen = BrowserGate.option('--only=')?.split(',') ?? BrowserGate.names
-    return chosen.flatMap(name => {
+    const chosen = BrowserGate.option('--only=')?.split(',').filter(name => name !== '') ?? BrowserGate.names
+    /** @type {ScriptChoice} */
+    const choice = { found: [], missing: [] }
+    for (const name of chosen) {
       const candidates = [`scripts/${name}-browser-test.mjs`, `scripts/${name}-test.mjs`]
       const file = candidates.find(candidate => existsSync(path.join(BrowserGate.repo, candidate)))
-      return file ? [{ name, file }] : []
-    })
+      if (file) choice.found.push({ name, file })
+      else choice.missing.push(name)
+    }
+    return choice
   }
 
   /**
@@ -120,14 +125,19 @@ class BrowserGate {
   static async main() {
     const logFolder = BrowserGate.option('--logs=') ?? path.join(tmpdir(), 'tachyon-browser-gate')
     mkdirSync(logFolder, { recursive: true })
-    const scripts = BrowserGate.scripts()
+    const { found, missing } = BrowserGate.scripts()
+    if (missing.length > 0 || found.length === 0) {
+      console.error(`browser tests: no script for ${missing.join(' ') || 'any name'}; nothing was run`)
+      process.exitCode = 1
+      return
+    }
     const started = Date.now()
-    const results = await BrowserGate.runAll(scripts, logFolder)
+    const results = await BrowserGate.runAll(found, logFolder)
     const failed = results.filter(result => !result.passed).map(result => result.name)
     const wall = Math.round((Date.now() - started) / BrowserGate.millisecondsPerSecond)
     const sum = results.reduce((total, result) => total + result.seconds, 0)
     console.log(`browser tests: ${results.length - failed.length} passed, ${failed.length} failed (${failed.join(' ') || 'none'}); ${wall}s wall, ${sum}s summed, at most ${BrowserGate.mostAtOnceSetting()} at once`)
-    process.exitCode = failed.length > 0 ? 1 : 0
+    process.exitCode = failed.length > 0 || results.length === 0 ? 1 : 0
   }
 }
 
