@@ -579,8 +579,7 @@ fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Erro
         "bun run test:cached-client-browser",
         "node website/scripts/build-styles.mjs --check",
         "node website/scripts/check-responsive.mjs",
-        "node scripts/ignored-browser-gates.mjs --groups=dotnet",
-        "node scripts/ignored-browser-gates.mjs --groups=kotlin,java",
+        "node scripts/ignored-browser-gates.mjs --groups=dotnet,kotlin,java",
         "TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS: \"1\"",
     ] {
         assert!(workflow.contains(step), "CI does not run `{step}`");

@@ -203,7 +203,7 @@ jobs:
   browser:
     name: Phase 3 Chromium component and service behavior
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 55
 
     steps:
       - name: Check out source
@@ -343,18 +343,13 @@ jobs:
           done
           node website/scripts/check-responsive.mjs
 
-      - name: Run the C# and F# browser fixture gates that tests mark as ignored
-        run: node scripts/ignored-browser-gates.mjs --groups=dotnet
-        env:
-          TAC_BIN: ${{ github.workspace }}/target/debug/ty
-
       - name: Verify every claim in the parity ledger
         run: bash scripts/compat/verify-ledger.sh
 
   macos-native:
     name: Phase 4 macOS native and mobile-web parity
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 100
 
     steps:
       - name: Check out source
@@ -544,10 +539,10 @@ jobs:
         env:
           TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS: "1"
 
-      - name: Run the Kotlin and Java browser fixture gates that tests mark as ignored
+      - name: Run the C#, F#, Kotlin and Java browser fixture gates that tests mark as ignored
         run: |
           export PATH="${JAVA_HOME_21_arm64}/bin:${PATH}"
-          node scripts/ignored-browser-gates.mjs --groups=kotlin,java
+          node scripts/ignored-browser-gates.mjs --groups=dotnet,kotlin,java
         env:
           TAC_BIN: ${{ github.workspace }}/target/debug/ty
 

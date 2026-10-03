@@ -32,7 +32,7 @@ machine contracts have their own, independent major versions.
   Only regular, non-empty files are restored, the folder keeps the newest 512
   entries, and `ty cache clean` removes it (ADR 0037 amendment). A compiler's
   version is asked once per process. A warm core test run on the development
-  Mac drops from 527 s to about 330 s.
+  Mac drops from 527 s to about 300 s.
 
 - Development builds optimize brotli, flate2, miniz_oxide, sha2 and their
   helpers, so debug test binaries and the debug `ty` compress about twice as
@@ -47,8 +47,9 @@ machine contracts have their own, independent major versions.
 - CI checks generated website styles, sweeps the responsive layout against a
   static preview, runs the HTTP cache browser test, the Kotlin/Wasm web tests
   (`TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS=1` turns a missing toolchain into a
-  failure), and the ignored browser fixture gates. A nextest `dotnet-web`
-  group runs at most two .NET browser builds at once.
+  failure), and the ignored browser fixture gates on macOS (on Linux under
+  WSL the C# and F# pages time out at their first click). A nextest
+  `dotnet-web` group runs at most two .NET browser builds at once.
 
 - Tac utilities have a canonical recursive `client/shared/utils` location,
   retaining `client/utils` compatibility and the existing stateless class
