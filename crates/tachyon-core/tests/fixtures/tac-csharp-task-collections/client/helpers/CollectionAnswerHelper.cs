@@ -13,6 +13,9 @@ public sealed class CollectionAnswerHelper : BehaviorHTTPAdapter
         {
             "/api/collections/empty" => "{\"items\":[]}",
             "/api/collections/nullable" => "{\"items\":[],\"optionalItems\":[null,{\"message\":\"nullable item\"}]}",
+            "/api/collections/null-list" => "{\"items\":[],\"optionalItems\":null}",
+            "/api/collections/nullable-leaf" => "{\"items\":[{\"message\":\"absent note\"},{\"message\":\"null note\",\"note\":null},{\"message\":\"text note\",\"note\":\"present\"}]}",
+            "/api/collections/wrong-nullable-leaf" => "{\"items\":[{\"message\":\"valid message\",\"note\":false}]}",
             "/api/collections/missing" => "{}",
             "/api/collections/wrong-array" => "{\"items\":{}}",
             "/api/collections/missing-member" => "{\"items\":[{}]}",

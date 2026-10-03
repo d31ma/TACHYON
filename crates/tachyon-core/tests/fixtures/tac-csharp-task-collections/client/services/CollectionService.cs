@@ -21,6 +21,21 @@ public sealed class CollectionService
         return _collectionClient.nullable();
     }
 
+    public System.Threading.Tasks.Task<Models.MessagePage> nullList()
+    {
+        return _collectionClient.nullList();
+    }
+
+    public System.Threading.Tasks.Task<Models.MessagePage> wrongNullableLeaf()
+    {
+        return _accept(_collectionClient.wrongNullableLeaf());
+    }
+
+    public System.Threading.Tasks.Task<Models.MessagePage> nullableLeaf()
+    {
+        return _collectionClient.nullableLeaf();
+    }
+
     public System.Threading.Tasks.Task<Models.MessagePage> missing()
     {
         return _accept(_collectionClient.missing());

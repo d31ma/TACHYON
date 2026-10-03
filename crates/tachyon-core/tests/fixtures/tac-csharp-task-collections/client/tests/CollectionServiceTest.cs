@@ -41,6 +41,28 @@ public sealed class CollectionServiceTest
         Assert.equals("nullable item", answer.OptionalItems[1].Message);
     }
 
+    void testPresentNullOptionalListIsValid()
+    {
+        using var signal = new BehaviorSignal();
+        using var context = Behaviors.create(typeof(CollectionFakeSetup), "null-list", signal);
+        var answer = new CollectionClient(context).nullList().GetAwaiter().GetResult();
+        Assert.equals(0, answer.Items.Count);
+        Assert.equals(null, answer.OptionalItems);
+    }
+
+    void testNullableLeafScalarPreservesAbsentNullAndTextButRefusesWrongType()
+    {
+        using var signal = new BehaviorSignal();
+        using var context = Behaviors.create(typeof(CollectionFakeSetup), "nullable-leaf", signal);
+        var client = new CollectionClient(context);
+        var answer = client.nullableLeaf().GetAwaiter().GetResult();
+        Assert.equals(3, answer.Items.Count);
+        Assert.equals(null, answer.Items[0].Note);
+        Assert.equals(null, answer.Items[1].Note);
+        Assert.equals("present", answer.Items[2].Note);
+        Assert.isTrue(_refused(client.wrongNullableLeaf));
+    }
+
     void testMissingRequiredListIsRefused()
     {
         using var signal = new BehaviorSignal();

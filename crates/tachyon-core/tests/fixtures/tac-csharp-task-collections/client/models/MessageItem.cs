@@ -1,1 +1,1 @@
-public record MessageItem(string Message);
+public record MessageItem(string Message, string? Note);

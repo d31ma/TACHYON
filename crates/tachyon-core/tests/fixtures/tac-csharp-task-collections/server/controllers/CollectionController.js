@@ -29,6 +29,24 @@ export default class CollectionController {
   }
 
   /** @returns {Response} */
+  @GetRoute('/null-list')
+  getNullList() {
+    return CollectionController._response({ items: [], optionalItems: null })
+  }
+
+  /** @returns {Response} */
+  @GetRoute('/nullable-leaf')
+  getNullableLeaf() {
+    return CollectionController._response({ items: [{ message: 'absent note' }, { message: 'null note', note: null }, { message: 'text note', note: 'present' }] })
+  }
+
+  /** @returns {Response} */
+  @GetRoute('/wrong-nullable-leaf')
+  getWrongNullableLeaf() {
+    return CollectionController._response({ items: [{ message: 'valid message', note: false }] })
+  }
+
+  /** @returns {Response} */
   @GetRoute('/missing')
   getMissing() {
     return CollectionController._response({})
