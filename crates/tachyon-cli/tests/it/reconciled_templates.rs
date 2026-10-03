@@ -118,10 +118,14 @@ fn html_entities_decode_once_without_becoming_template_code_or_markup() {
         String::from_utf8_lossy(&output.stderr)
     );
     let plan = client_plan(&project);
-    assert_eq!(
-        plan["nodes"][0]["template"][0]["attributes"][0]["value"],
-        "a &lt; b"
-    );
+    let attributes = plan["nodes"][0]["template"][0]["attributes"]
+        .as_array()
+        .expect("attributes");
+    let title = attributes
+        .iter()
+        .find(|attribute| attribute["name"] == "title")
+        .expect("title attribute");
+    assert_eq!(title["value"], "a &lt; b");
     assert_eq!(
         plan["nodes"][0]["template"][0]["children"][0]["parts"][0]["value"],
         "&lt; {missing} <script>"

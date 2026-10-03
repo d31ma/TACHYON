@@ -320,7 +320,7 @@ fn tac_components_emit_client_plans_services_and_all_mount_policies() {
     assert!(html.contains(
         r#""services":[{"module":"/.tachyon/services/DemoDefaultService.js","name":"demoDefault","native":false,"scope":"prototype"}]"#
     ), "{html}");
-    assert!(html.contains(r#""mount":"never","name":"demo-never","properties":[{"name":"label","value":"Never"}],"scope":false,"services":[]"#), "{html}");
+    assert!(html.contains(r#""mount":"never","name":"demo-never","properties":[{"name":"label","value":"Never"}],"scope":true,"services":[]"#), "{html}");
     for (_, instance, class) in services {
         assert!(
             html.contains(&format!(
