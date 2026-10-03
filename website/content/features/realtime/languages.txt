@@ -9,6 +9,8 @@ Which languages a stream is written in
   .fs        a seq or IAsyncEnumerable, framed by the prelude
   .dart      an async* Stream, framed by the prelude
   .rb        a method that yields, framed by the runner
+  .lua       a method that calls coroutine.yield, framed by
+             the runner
 
 Every Yon language with a generator streams. A stream is a route method that answers more
 than once, and native generator syntax produces it.

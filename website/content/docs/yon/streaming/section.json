@@ -1,6 +1,6 @@
 {
   "heading": "Streaming",
-  "body": "StreamRoute marks a controller method that answers GET requests with a stream. The method yields values from a private generator that holds the loop. Each value becomes one limited server-sent event, a message that the server pushes over an open HTTP response. When the method finishes, the server sends an end event, so the browser does not reconnect. The method name starts with stream. A generator under GetRoute is refused, so one marker says that a route streams. JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart and Ruby support this. Java, Groovy, Rust and Go have no generator, so they refuse StreamRoute with TY2015 and return once.",
+  "body": "StreamRoute marks a controller method that answers GET requests with a stream. The method yields values from a private generator that holds the loop. Each value becomes one limited server-sent event, a message that the server pushes over an open HTTP response. When the method finishes, the server sends an end event, so the browser does not reconnect. The method name starts with stream. A generator under GetRoute is refused, so one marker says that a route streams. JavaScript, TypeScript, Python, PHP, Kotlin, C#, F#, Dart, Ruby and Lua support this. Lua sends each value with `coroutine.yield`, because Tachyon runs the route in a coroutine. Java, Groovy, Rust and Go have no generator, so they refuse StreamRoute with TY2015 and return once.",
   "axis": "language",
   "files": [
     {
@@ -103,6 +103,18 @@
       "name": "server/controllers/TicksController.rb",
       "code": {
         "file": "server/controllers/TicksController.rb"
+      }
+    },
+    {
+      "name": "server/models/Tick.lua",
+      "code": {
+        "file": "server/models/Tick.lua"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.lua",
+      "code": {
+        "file": "server/controllers/TicksController.lua"
       }
     }
   ]
