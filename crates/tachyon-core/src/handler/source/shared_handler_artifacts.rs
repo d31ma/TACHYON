@@ -1,5 +1,6 @@
 use super::CacheDirectory;
-use std::fs;
+use std::ffi::OsStr;
+use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -21,63 +22,68 @@ impl SharedHandlerArtifacts {
     }
 
     pub(super) fn restore(&self, cache: &CacheDirectory, artefact: &Path) -> bool {
-        let Some(name) = artefact.file_name() else {
-            return false;
-        };
-        let shared = self.folder.join(name);
-        let regular = fs::symlink_metadata(&shared)
-            .is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0);
-        regular && cache.publish_file(&shared, artefact).is_ok()
+        let shared = self.shared_regular_file(artefact);
+        shared.is_some_and(|path| cache.publish_file(&path, artefact).is_ok())
     }
 
     pub(super) fn publish(&self, cache: &CacheDirectory, artefact: &Path) {
-        let Some(name) = artefact.file_name().and_then(|name| name.to_str()) else {
-            return;
-        };
-        if fs::create_dir_all(&self.folder).is_err() {
-            return;
-        }
-        let pending = self.folder.join(format!(
-            "{}{name}.{}",
-            Self::PENDING_PREFIX,
-            std::process::id()
-        ));
-        let copied = cache.copy_file_out(artefact, &pending).is_ok();
-        if !copied || fs::rename(&pending, self.folder.join(name)).is_err() {
-            let _ = fs::remove_file(&pending);
-            return;
-        }
+        let _ = self.copy_out(cache, artefact);
         self.keep_newest();
     }
 
+    fn shared_regular_file(&self, artefact: &Path) -> Option<PathBuf> {
+        let path = self.folder.join(artefact.file_name()?);
+        let metadata = fs::symlink_metadata(&path).ok()?;
+        (metadata.is_file() && metadata.len() > 0).then_some(path)
+    }
+
+    fn copy_out(&self, cache: &CacheDirectory, artefact: &Path) -> std::io::Result<()> {
+        let name = artefact
+            .file_name()
+            .ok_or_else(|| std::io::Error::other("the handler artifact has no name"))?;
+        let pending = self.pending_path(name);
+        fs::create_dir_all(&self.folder)?;
+        let copied = cache
+            .copy_file_out(artefact, &pending)
+            .and_then(|()| fs::rename(&pending, self.folder.join(name)));
+        copied.inspect_err(|_| Self::forget(&pending))
+    }
+
+    fn pending_path(&self, name: &OsStr) -> PathBuf {
+        let pending = format!(
+            "{}{}.{}",
+            Self::PENDING_PREFIX,
+            name.to_string_lossy(),
+            std::process::id()
+        );
+        self.folder.join(pending)
+    }
+
     fn keep_newest(&self) {
-        let Ok(listing) = fs::read_dir(&self.folder) else {
-            return;
-        };
-        let mut entries: Vec<(SystemTime, PathBuf)> = Vec::new();
-        for entry in listing.flatten() {
-            let pending = entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with(Self::PENDING_PREFIX);
-            let Ok(metadata) = entry.metadata() else {
-                continue;
-            };
-            let Ok(modified) = metadata.modified() else {
-                continue;
-            };
-            if !pending && metadata.is_file() {
-                entries.push((modified, entry.path()));
-            }
-        }
-        if entries.len() <= Self::MAX_ENTRIES {
-            return;
-        }
+        let mut entries = self.finished_entries();
         entries.sort();
-        let extra = entries.len() - Self::MAX_ENTRIES;
+        let extra = entries.len().saturating_sub(Self::MAX_ENTRIES);
         for (_, path) in entries.into_iter().take(extra) {
-            let _ = fs::remove_file(path);
+            Self::forget(&path);
         }
+    }
+
+    fn finished_entries(&self) -> Vec<(SystemTime, PathBuf)> {
+        fs::read_dir(&self.folder)
+            .map(|listing| listing.flatten().filter_map(Self::finished_entry).collect())
+            .unwrap_or_default()
+    }
+
+    fn finished_entry(entry: DirEntry) -> Option<(SystemTime, PathBuf)> {
+        let metadata = entry.metadata().ok()?;
+        let modified = metadata.modified().ok()?;
+        let name = entry.file_name();
+        let pending = name.to_string_lossy().starts_with(Self::PENDING_PREFIX);
+        (metadata.is_file() && !pending).then_some((modified, entry.path()))
+    }
+
+    fn forget(path: &Path) {
+        let _ = fs::remove_file(path);
     }
 }
 

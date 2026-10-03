@@ -8,18 +8,8 @@ impl CompilerIdentities {
 
     pub(super) fn remembered(program: &str, probe: impl FnOnce() -> String) -> String {
         let key = Self::key(program);
-        if let Some(known) = Self::known()
-            .lock()
-            .ok()
-            .and_then(|map| map.get(&key).cloned())
-        {
-            return known;
-        }
-        let identity = probe();
-        if let Ok(mut map) = Self::known().lock() {
-            map.insert(key, identity.clone());
-        }
-        identity
+        let known = Self::known_identity(&key);
+        known.unwrap_or_else(|| Self::remember(key, probe()))
     }
 
     fn key(program: &str) -> String {
@@ -33,6 +23,17 @@ impl CompilerIdentities {
             );
         }
         key
+    }
+
+    fn known_identity(key: &str) -> Option<String> {
+        Self::known().lock().ok()?.get(key).cloned()
+    }
+
+    fn remember(key: String, identity: String) -> String {
+        if let Ok(mut map) = Self::known().lock() {
+            map.insert(key, identity.clone());
+        }
+        identity
     }
 
     fn known() -> &'static Mutex<HashMap<String, String>> {
