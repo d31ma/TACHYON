@@ -2627,31 +2627,31 @@
       "files": [
         {
           "name": "server/shared/orders.js",
-          "code": "export class OrderService {\n  /**\n   * @param {string} item\n   * @returns {{ placed: string }}\n   */\n  static place(item) {\n    return { placed: item }\n  }\n}\n"
+          "code": "export class OrderService {\n  /**\n   * @param {string} item\n   * @returns {string}\n   */\n  static place(item) {\n    return item\n  }\n}\n"
         },
         {
           "name": "server/shared/orders.ts",
-          "code": "export class OrderService {\n  static place(item: string): { placed: string } {\n    return { placed: item }\n  }\n}\n"
+          "code": "export class OrderService {\n  static place(item: string): string {\n    return item\n  }\n}\n"
         },
         {
           "name": "server/shared/orders.py",
-          "code": "class OrderService:\n    @staticmethod\n    def place(item):\n        return {\"placed\": item}\n"
+          "code": "class OrderService:\n    @staticmethod\n    def place(item: str) -> str:\n        return item\n"
         },
         {
           "name": "server/shared/orders.php",
-          "code": "<?php\nclass OrderService\n{\n    public static function place(string $item): array\n    {\n        return ['placed' => $item];\n    }\n}\n"
+          "code": "<?php\nclass OrderService\n{\n    public static function place(string $item): string\n    {\n        return $item;\n    }\n}\n"
         },
         {
           "name": "server/shared/orders.java",
-          "code": "public class OrderService {\n  static java.util.Map<String, String> place(String item) {\n    return java.util.Map.of(\"placed\", item);\n  }\n}\n"
+          "code": "public class OrderService {\n  static String place(String item) {\n    return item;\n  }\n}\n"
         },
         {
           "name": "server/shared/orders.groovy",
-          "code": "public class OrderService {\n  static java.util.Map<String, String> place(String item) {\n    return java.util.Map.of(\"placed\", item)\n  }\n}\n"
+          "code": "public class OrderService {\n  static String place(String item) {\n    return item\n  }\n}\n"
         },
         {
           "name": "server/shared/orders.kt",
-          "code": "object OrderService {\n    fun place(item: String): Map<String, String> = mapOf(\"placed\" to item)\n}\n"
+          "code": "object OrderService {\n    fun place(item: String): String = item\n}\n"
         },
         {
           "name": "server/shared/orders.cs",
@@ -2663,11 +2663,11 @@
         },
         {
           "name": "server/shared/orders.go",
-          "code": "package main\n\ntype OrderService struct{}\n\nfunc (OrderService) Place(item string) map[string]string {\n\treturn map[string]string{\"placed\": item}\n}\n"
+          "code": "package main\n\ntype OrderService struct{}\n\nfunc (OrderService) Place(item string) string {\n\treturn item\n}\n"
         },
         {
           "name": "server/shared/orders.dart",
-          "code": "class OrderService {\n  static Map<String, String> place(String item) => {'placed': item};\n}\n"
+          "code": "class OrderService {\n  static String place(String item) => item;\n}\n"
         },
         {
           "name": "refused",
@@ -2679,7 +2679,7 @@
         },
         {
           "name": "server/shared/orders.rb",
-          "code": "class OrderService\n  def self.place(item)\n    { \"placed\" => item }\n  end\nend\n"
+          "code": "class OrderService\n  # @param item [String]\n  # @return [String]\n  def self.place(item)\n    item\n  end\nend\n"
         },
         {
           "name": "server/shared/orders.fs",
@@ -2706,7 +2706,7 @@
     {
       "id": "native-capabilities",
       "title": "Inject an OS file picker into a service",
-      "summary": "A service asks for `filePicker` with `Needs`; platform calls stay in the adapter. `tac.nativeCapabilities` grants the capability separately from browser APIs. The macOS host uses NSOpenPanel and returns a selected file as an opaque activation-owned handle. `readText(handle)` reads at most 65,536 UTF-8 bytes and `release(handle)` ends access. Cancel, denied, unsupported, invalid and unavailable are typed results. A browser tab returns unsupported and opens no picker. Compiled native services request a typed FilePicker field through Needs or NeedsAll; the provider captures their activation and registered transport (ADR 0089). Other OS file pickers remain unsupported until an adapter is registered and qualified.",
+      "summary": "A service asks for `filePicker` with `Needs`; platform calls stay in the adapter. `tac.nativeCapabilities` grants the capability separately from browser APIs. The macOS host uses NSOpenPanel and returns the chosen file as a handle. The handle belongs to the service that asked for it. It ends after 300 seconds, or sooner when that service goes away. `readText(handle)` reads at most 65,536 UTF-8 bytes and `release(handle)` ends access. Cancel, denied, unsupported, invalid and unavailable are typed results. A browser tab returns unsupported and opens no picker. Compiled native services request a typed FilePicker field through Needs or NeedsAll; Tachyon gives each service its own picker (ADR 0089). On other operating systems, the picker answers unsupported.",
       "group": "Native",
       "files": [
         {
@@ -2874,7 +2874,7 @@
       "files": [
         {
           "name": "shell",
-          "code": "ty init my-app --name \"My App\"\nty init my-app --realm both --tac ts --yon py --target web,ios --features sockets --yes\nty add language server go\nty add target android\nty add feature topics\nty preview\nty start\nty bundle\nty bundle --target macos,ios\nty bundle --native --target macos\nty doctor\nty test\nty test --coverage\nty handler invoke server/routes/items/yon.py --method GET\nty migrate check\nty cache status | clean\n"
+          "code": "ty init my-app --name \"My App\"\nty init my-app --realm both --tac ts --yon py --target web,ios --features sockets --yes\nty add language server go\nty add target android\nty add feature topics\nty preview\nty start\nty bundle\nty bundle --target macos,ios\nty bundle --native --target macos\nty doctor\nty test\nty test --coverage\nty handler invoke server/controllers/ItemsController.py --route /items --method GET\nty migrate check\nty cache status | clean\n"
         },
         {
           "name": "options",
@@ -2897,7 +2897,7 @@
     {
       "id": "doctor",
       "title": "Toolchain checks",
-      "summary": "`ty doctor` checks whether this machine can build and run the project. It reports only the toolchains (compilers and build tools) and controller runtimes that the project uses. `--json` prints the same report in a format for other programs. A Rust, Go or C# service with no browser script also needs a WebAssembly check: `wasm32-unknown-unknown` for Rust, Go 1.27 for Go, or the .NET `wasm-tools` workload for C#. A Ruby service needs the tools that build Tachyon's Ruby WebAssembly runtime once: Ruby, Emscripten 6.0.10 or newer (`emcc`) and a C compiler. When the runtime is already in the Tachyon cache, the report shows it as ready instead. A Lua service needs Emscripten 6.0.10 or newer (`emcc`) for Tachyon's Lua WebAssembly runtime, or the cached runtime, and the `lua` program for its test units, in rows named \"Lua services on the web\". A Java web service needs `javac` from a JDK 21 or newer and TeaVM 0.15.0. `ty doctor --install` offers to install each missing tool that Tachyon can install, the way `ty init` does (`--yes` installs them without asking). For TeaVM it downloads the five jars from Maven Central, checks each one against the SHA-256 that Tachyon pins, and keeps them in the Tachyon cache, never in the project. `TAC_TEAVM_HOME` still points at a folder of your own. Each check has its own time limit: 10 seconds, and 60 seconds for the C# check, because it builds a small project. So a busy machine does not report a working toolchain as broken. The development server and `ty test` run the same checks before they start.",
+      "summary": "`ty doctor` checks whether this machine can build and run the project. It reports only the toolchains (compilers and build tools) and controller runtimes that the project uses. `--json` prints the same report in a format for other programs. A Rust, Go or C# service with no browser script also needs a WebAssembly check: `wasm32-unknown-unknown` for Rust, Go 1.27 for Go, or the .NET `wasm-tools` workload for C#. A Ruby service needs the tools that build Tachyon's Ruby WebAssembly runtime once: Ruby, Emscripten 6.0.10 or newer (`emcc`) and a C compiler. When the runtime is already in the Tachyon cache, the report shows it as ready instead. A Lua service needs Tachyon's Lua WebAssembly runtime: the cached runtime, or Emscripten 6.0.10 or newer (`emcc`) to build it. Its test units need the `lua` program. The rows for both are named \"Lua services on the web\". A Java web service needs `javac` from a JDK 21 or newer and TeaVM 0.15.0. `ty doctor --install` offers to install each missing tool that Tachyon can install, the way `ty init` does (`--yes` installs them without asking). For TeaVM it downloads the five jars from Maven Central, checks each one against the SHA-256 that Tachyon pins, and keeps them in the Tachyon cache, never in the project. `TAC_TEAVM_HOME` still points at a folder of your own. Each check has its own time limit: 10 seconds, and 60 seconds for the C# check, because it builds a small project. So a busy machine does not report a working toolchain as broken. The development server and `ty test` run the same checks before they start.",
       "group": "Tooling",
       "files": [
         {
@@ -2914,7 +2914,7 @@
       "files": [
         {
           "name": "shell",
-          "code": "error[TY1306]: Retired Tac lifecycle and signal decorators are no longer supported.\n  --> client/services/CatalogService.js:0..0\n  help: Use @OnStart/@OnStop for lifecycle, an injected applicationEventPublisher with OnEvent for local events, and @Needs fields named after the owner-bound browser resources.\n\nerror[TY2015]: 'server/routes/orders/yon.py' does not declare a Yon Handler.\n  help: Declare a plain class, object, or struct named Handler with HTTP methods, or use an annotated Controller with HTTP verb-named instance methods (docs/YON_ANNOTATIONS.md).\n\nerror[TY2112]: Required Yon JavaScript runtime 'node' was not found.\n  help: Install Node.js or configure YON_JAVASCRIPT_RUNTIME.\n"
+          "code": "error[TY1306]: Retired Tac lifecycle and signal decorators are no longer supported.\n  --> client/services/CatalogService.js:0..0\n  help: Use @OnStart/@OnStop for lifecycle, an injected applicationEventPublisher with OnEvent for local events, and @Needs fields named after the owner-bound browser resources.\n\nerror[TY1310]: 'server/routes/orders/yon.py' is inside server/routes, which Tachyon no longer reads\n  --> server/routes/orders/yon.py:0..0\n  help: Routes now come from annotations (ADR 0048): put each controller in server/controllers/ and mark it with @RequestRoute(\"/path\"), which gives the path its routes start with. `ty migrate fix --write` moves route files there.\n\nerror[TY2112]: Required Yon JavaScript runtime 'node' was not found.\n  help: Install Node.js or configure YON_JAVASCRIPT_RUNTIME.\n"
         }
       ]
     },
@@ -3235,7 +3235,7 @@
     {
       "id": "window-controls",
       "title": "What a page may do to its window",
-      "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service may use, under `tac.application.window.controls`. By default, no control is granted. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in every language that runs in the page. The calls are `granted(control)`, `minimize()`, `maximize()`, `fullscreen()`, `close()`, `resize(width, height)` and `setTitle(text)`, written in each language's case (`set_title` in Ruby, `SetTitle` in Go). A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab, `granted` answers `false` and every call fails, because the page has no native window. The host (the native app that shows the page) checks each grant again before it acts. The page has no `globalThis.tachyonWindow` global any more, and a service that reads `globalThis` fails to build with `TY1360`. Compiled Swift services in a macOS app can also request an uninitialized `WindowControls` field through `Needs` or `NeedsAll`; the activation provider calls the host directly with the same grants (ADR 0089). Rust native services use activation-owned providers too; the macOS adapter targets the app’s own window and is qualified through actual title/resize changes. The native Rust/C#/Swift/Kotlin alternatives below use Service and NeedsAll with an uninitialized typed WindowControls field. Rust targets desktop hosts, C# targets Windows, Swift targets Apple platforms and Kotlin targets Android. C#/Kotlin provider and host-registration ABI/SDK checks are recorded in ADR 0089; Windows/Android operating-system interaction has not been run on this Mac. Browser and native sources are shown as separate target alternatives; native/ is a documentation folder, and the selected native file belongs in the application’s client/services/. Native service code belongs to the application. It runs as normal operating-system code, and this window-control policy does not sandbox (limit) it.",
+      "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service may use, under `tac.application.window.controls`. By default, no control is granted. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in every language that runs in the page. The calls are `granted(control)`, `minimize()`, `maximize()`, `fullscreen()`, `close()`, `resize(width, height)` and `setTitle(text)`, written in each language's case (`set_title` in Ruby, `SetTitle` in Go). A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab, `granted` answers `false` and every call fails, because the page has no native window. The host (the native app that shows the page) checks each grant again before it acts. The page has no `globalThis.tachyonWindow` global any more, and a service that reads `globalThis` fails to build with `TY1360`. Compiled Swift services in a macOS app can also request an uninitialized `WindowControls` field through `Needs` or `NeedsAll`; Tachyon then calls the host directly, with the same grants (ADR 0089). Rust native services on macOS get the controls the same way, and they act on the app’s own window. The native Rust/C#/Swift/Kotlin alternatives below use Service and NeedsAll with an uninitialized typed WindowControls field. Rust targets desktop hosts, C# targets Windows, Swift targets Apple platforms and Kotlin targets Android. Browser and native sources are shown as separate target alternatives; native/ is a documentation folder, and the selected native file belongs in the application’s client/services/. Native service code belongs to the application. It runs as normal operating-system code, and this window-control policy does not sandbox (limit) it.",
       "group": "Native",
       "files": [
         {
@@ -3340,12 +3340,12 @@
     {
       "id": "project-layout",
       "title": "What a project looks like",
-      "summary": "A project has two directories: `client` and `server`. HTTPClient routes contain a `tac.html` file. Server controllers live in `server/controllers`, and their annotations give the routes. HTTPClient behavior is in service classes under `client/services`. Application helpers are ordinary code in their language. Role types for `Allow`, such as `Admin`, are empty classes in `server/roles`, and the one `IdentityProvider` class lives in `server/controllers`.",
+      "summary": "A project has two directories: `client` and `server`. Each page route is a folder under `client/pages` that holds a `tac.html` file. Server controllers live in `server/controllers`, and their annotations give the routes. Page behavior is in service classes under `client/services`. Application helpers are ordinary code in their language. Role types for `Allow`, such as `Admin`, are empty classes in `server/roles`, and the one `IdentityProvider` class lives in `server/controllers`.",
       "group": "Tooling",
       "files": [
         {
           "name": "layout",
-          "code": "What `ty init` lays out\n\n  client/\n    pages/        one directory per route, holding a tac.html\n    components/   a two-level path, <product-card>: a view and its styles\n    services/     one <Name>Service class per file, addressed as {name.field}\n    clients/      collaborators a service injects; also stores/,\n                  setups/, entities/, helpers/ and converters/\n    models/       data types in TypeScript, Rust, C#, Dart, Kotlin or Swift,\n                  never shipped on their own\n    tests/        <Name>Test files run by ty test\n    shared/       published as-is, imported by both halves\n\n  server/\n    routes/       yon.* files exposing the fixed Handler type\n    services/     optional ordinary application modules\n    stores/       optional ordinary application modules\n    clients/      optional ordinary application modules\n    helpers/      optional helper classes, and programs reached with\n                  relay(...) or a @Gateway command\n    models/       data types in TypeScript, Rust, C#, Dart, Kotlin, Java,\n                  Python or PHP\n    tests/        <Name>Test files run by ty test\n    vendor/       third-party code, checked in\n    config/       configuration a handler reads\n    data/         files a handler reads or writes\n    gateways/     reserved: Tachyon generates @Gateway units here, never\n                  author files in it\n\n  client/manifest.json   name, icons, start_url, and in tac: the\n                        application identity and window, metadata,\n                        shared assets, cache rules and the sitemap\n\ntac.html, client/services and yon.* Handler entry points are framework\ncontracts, and so are the plural role folders: a role-annotated type is\ndiscovered by the folder it sits in and the filename matching its type\n(ADR 0031). models/ holds data types only (ADR 0041, ADR 0043), and\ntests/ is where ty test looks. The remaining names are starter\nconventions and can be changed or omitted.\n"
+          "code": "What `ty init` lays out\n\n  client/\n    pages/          one folder per route, holding a tac.html\n    components/     a two-level path, <product-card>: a view and its styles\n    services/       one <Name>Service class per file, addressed as {name.field}\n    tests/          <Name>Test files run by ty test\n    shared/         published as-is: assets/, data/, styles/ and scripts/;\n                    utility classes go in shared/utils/\n    manifest.json   name, icons, start_url, and in tac: the\n                    application identity and window, metadata,\n                    shared assets, cache rules and the sitemap\n\n  server/\n    controllers/    <Name>Controller classes; their annotations give the routes\n    tests/          <Name>Test files run by ty test\n    data/           files a controller reads or writes\n    deps/           starts empty\n    application.json  Yon configuration without secrets\n\n  Folders you add when you need them, in client/ and server/:\n    models/         data types\n    remotes/        HTTPClient contracts that send requests\n    stores/  setups/  entities/  helpers/  converters/  services/\n\n  Only in server/:\n    roles/          empty role classes that @Allow names\n    gateways/       reserved: Tachyon generates @Gateway units here, never\n                    write files in it\n\ntac.html, client/services and the role folders are framework contracts:\na role-annotated type is found by the folder it sits in and the file name\nthat matches its type (ADR 0031). models/ holds data types only\n(ADR 0041, ADR 0043), and tests/ is where ty test looks. Tachyon no\nlonger reads server/routes/ (TY1310).\n"
         }
       ]
     }
