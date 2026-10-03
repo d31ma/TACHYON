@@ -1,6 +1,7 @@
 use super::ManualStep;
 use super::edits::TextEdit;
 use super::scan::SourceText;
+use super::shared_utils::SharedUtilsMove;
 use crate::behavior::{RenamedAnnotation, RoutingRename};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -106,6 +107,7 @@ pub(super) struct RoleRename {
     pub(super) type_names: Vec<(String, String)>,
     pub(super) folder_paths: BTreeSet<(String, String)>,
     pub(super) manual_steps: Vec<ManualStep>,
+    moves_utilities: bool,
 }
 
 impl RoleRename {
@@ -146,7 +148,9 @@ impl RoleRename {
         let mut parts = relative.split('/');
         let realm = parts.next().unwrap_or("");
         let folder = parts.next().unwrap_or("");
-        Self::REALMS.contains(&realm) && Self::FOLDERS.iter().any(|(old, ..)| *old == folder)
+        let renamed =
+            Self::REALMS.contains(&realm) && Self::FOLDERS.iter().any(|(old, ..)| *old == folder);
+        renamed || SharedUtilsMove::moves_folder(relative)
     }
 
     pub(super) fn type_edits(&self, source: &str) -> Vec<TextEdit> {
@@ -161,11 +165,16 @@ impl RoleRename {
         edits
     }
 
-    pub(super) fn path_edits(&self, source: &str) -> Vec<TextEdit> {
-        self.folder_paths
+    pub(super) fn path_edits(&self, relative: &str, source: &str) -> Vec<TextEdit> {
+        let mut edits: Vec<TextEdit> = self
+            .folder_paths
             .iter()
             .flat_map(|(old, new)| Self::replacements(source, old, new))
-            .collect()
+            .collect();
+        if self.moves_utilities {
+            edits.extend(SharedUtilsMove::path_edits(relative, source));
+        }
+        edits
     }
 
     fn replacements(source: &str, old: &str, new: &str) -> Vec<TextEdit> {
@@ -176,6 +185,10 @@ impl RoleRename {
     }
 
     fn add_folder_path(&mut self, from: &str, to: &str) {
+        if SharedUtilsMove::moves_folder(from) {
+            self.moves_utilities = true;
+            return;
+        }
         let old_folder = Self::role_folder(from);
         let new_folder = Self::role_folder(to);
         if old_folder.ends_with("/clients/") {
@@ -237,6 +250,9 @@ impl RoleRename {
     }
 
     fn folder_target(relative: &str) -> Option<String> {
+        if let Some(target) = SharedUtilsMove::target(relative) {
+            return Some(target);
+        }
         let mut parts = relative.splitn(3, '/');
         let realm = parts.next()?;
         let folder = parts.next()?;

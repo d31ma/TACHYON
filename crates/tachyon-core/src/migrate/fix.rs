@@ -52,6 +52,7 @@ mod realm_models;
 mod renames;
 mod routes;
 mod scan;
+mod shared_utils;
 mod simpler_forms_fix;
 mod stored_fields;
 mod streams;
@@ -69,6 +70,10 @@ mod rename_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod route_tests;
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod shared_utils_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -1041,17 +1046,18 @@ impl MigrationFixPlan {
                 "Renamed the role types that moved to their new names (ADR 0047).",
             ));
         }
-        Self::add_path_renames(source, roles, edits, notes);
+        Self::add_path_renames(relative, source, roles, edits, notes);
     }
 
     fn add_path_renames(
+        relative: &str,
         source: &str,
         roles: &RoleRename,
         edits: &mut Vec<TextEdit>,
         notes: &mut Vec<String>,
     ) {
         let before = edits.len();
-        for edit in roles.path_edits(source) {
+        for edit in roles.path_edits(relative, source) {
             Self::add_path_edit(edits, edit);
         }
         notes.extend((edits.len() > before).then(|| {

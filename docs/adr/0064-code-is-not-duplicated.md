@@ -147,3 +147,22 @@ bypass the JavaScript/TypeScript utility shape checks.
 The new folder reuses the existing utility shape checks; it adds no utility
 support for F#, Lua or Groovy. Assets, models, Services and Helpers keep their
 own folders.
+
+## Amendment: client/utils is removed (2026-10-03)
+
+This amendment replaces the compatibility root of the previous amendment. Tac
+utility classes live only in `client/shared/utils`, and nested topic folders
+are allowed. Discovery, composition, coverage and the service digest no longer
+read `client/utils`. A file in `client/utils` fails with `TY1310`; the message
+names `client/shared/utils`, and the help names the file's new path. The
+duplicate-code help now names `client/shared/utils/<Name>Utils.<ext>` for Tac
+and `server/utils/<Name>Utils.<ext>` for Yon.
+
+`ty migrate fix --write` moves every file in `client/utils` to the same path
+under `client/shared/utils`, in every language. It changes quoted import paths
+that point at a moved file: relative paths, the absolute `/utils/` web path and
+literal `client/utils/` paths. A relative path inside a moved file is computed
+again from its new folder. A taken destination is a manual step. Native Rust
+`crate::utils::<Utility>` paths need no change, because the compiler maps them
+by the utility class name, not by its folder. Yon keeps `server/utils`
+unchanged. The utility contract itself is unchanged.

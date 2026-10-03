@@ -175,6 +175,13 @@ The role folders mirror each other:
 | client/entities | server/entities |
 | client/helpers | server/helpers |
 | client/converters | server/converters |
+| client/shared/utils | server/utils |
+
+Utility classes are the one place where the folders differ. A Tac utility
+class lives in `client/shared/utils/`, and nested topic folders such as
+`client/shared/utils/text/` are allowed. A Yon utility class lives in
+`server/utils/`. A file in `client/utils/` fails with TY1310, and
+`ty migrate fix --write` moves it to `client/shared/utils/` (ADR 0064).
 
 Every Yon entry composes the shared roles of its language and its own
 controllers. A shared service is one class. Each invocation still owns its

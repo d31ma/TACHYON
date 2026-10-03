@@ -204,7 +204,7 @@ the optional style.
   that holds at most one of them (ADR 0063).
 - A block of code that repeats (100 tokens over 10 lines, even with other
   names) fails with `TY1315`. It moves into a static method of a utility
-  class in `client/utils/` or `server/utils/` (ADR 0064).
+  class in `client/shared/utils/` (Tac) or `server/utils/` (Yon) (ADR 0064).
 - Dependencies point down: a loop of classes that need each other, a store
   that needs a service, or any class that needs a controller fails with
   `TY1327` (ADR 0069).

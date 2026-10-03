@@ -645,6 +645,31 @@ impl ComparisonUtils {
     NativePageGraphCheck::execute(&source, NativePageGraphCheck::CALLER).await;
 }
 
+#[tokio::test]
+async fn native_rust_service_reaches_a_nested_shared_utility_through_the_crate_utils_path() {
+    let root = tempfile::tempdir().expect("fixture");
+    let utilities = root.path().join("client/shared/utils/nested");
+    std::fs::create_dir_all(&utilities).expect("utilities");
+    std::fs::write(
+        utilities.join("CountUtils.rs"),
+        "struct CountUtils;\nimpl CountUtils {\n    fn checked(value: i64) -> i64 { value }\n}\n",
+    )
+    .expect("utility");
+    let provider = "use crate::utils::CountUtils;\n".to_owned()
+        + &NativePageGraphCheck::PROVIDER.replace(
+            "self.count.load(std::sync::atomic::Ordering::SeqCst)",
+            "crate::utils::CountUtils::checked(CountUtils::checked(self.count.load(std::sync::atomic::Ordering::SeqCst)))",
+        );
+    let source =
+        NativePageGraphCheck::stage(root.path(), &provider).expect("nested utility staging");
+    let emitted = std::fs::read_to_string(&source).expect("emitted source");
+    assert!(
+        emitted.contains("mod __TachyonUtility_CountUtils"),
+        "{emitted}"
+    );
+    NativePageGraphCheck::execute(&source, NativePageGraphCheck::CALLER).await;
+}
+
 #[test]
 fn native_rust_page_graph_rejects_duplicate_imports_inside_one_utility() {
     let root = tempfile::tempdir().expect("fixture");

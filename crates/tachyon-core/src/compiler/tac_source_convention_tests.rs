@@ -159,8 +159,22 @@ fn tac_source_convention_client_utils_folder_is_refused_with_the_shared_utils_pa
             "client/utils/text/TitleUtils.js",
             TacSourceConventionTests::JAVASCRIPT,
         ),
-        ("client/utils/text/title_utils.rs", TacSourceConventionTests::RUST),
+        (
+            "client/utils/text/title_utils.rs",
+            TacSourceConventionTests::RUST,
+        ),
         ("client/utils/titles.json", "{}"),
+        ("client/utils/text/TitleUtils.ts", ""),
+        ("client/utils/text/TitleUtils.dart", ""),
+        ("client/utils/text/TitleUtils.go", ""),
+        ("client/utils/text/TitleUtils.rb", ""),
+        ("client/utils/text/TitleUtils.swift", ""),
+        ("client/utils/text/TitleUtils.kt", ""),
+        ("client/utils/text/TitleUtils.java", ""),
+        ("client/utils/text/TitleUtils.cs", ""),
+        ("client/utils/text/TitleUtils.fs", ""),
+        ("client/utils/text/TitleUtils.lua", ""),
+        ("client/utils/text/TitleUtils.py", ""),
     ] {
         assert!(!UtilityLayout::is_utility(Path::new(path)));
         let root = TacSourceConventionTests::project();

@@ -66,9 +66,8 @@ machine contracts have their own, independent major versions.
   WSL the C# and F# pages time out at their first click). A nextest
   `dotnet-web` group runs at most two .NET browser builds at once.
 
-- Tac utilities have a canonical recursive `client/shared/utils` location,
-  retaining `client/utils` compatibility and the existing stateless class
-  contract. Client pages reject all authored CSS filenames recursively.
+- Tac utilities have a canonical recursive `client/shared/utils` location
+  and keep the existing stateless class contract. Client pages reject all authored CSS filenames recursively.
   Component scopes stop at nested ownership boundaries, including unstyled
   and slotted components. Global foundation and application migration work
   remains a separate unfinished part of the source-conventions queue item.
@@ -195,6 +194,17 @@ machine contracts have their own, independent major versions.
   unsupported finding and checks the rest of the project instead of stopping.
 
 ### Breaking
+
+- Tac utility classes live only in `client/shared/utils/` (ADR 0064).
+  Nested topic folders such as `client/shared/utils/text/` are allowed. A file
+  in `client/utils/` stops the build with `TY1310`, which names its new path
+  under `client/shared/utils/`; the folder is no longer discovered, composed
+  or counted for coverage. `ty migrate fix --write` moves every file there, in
+  every language, and changes the quoted import paths that point at it
+  (relative paths, `/utils/` web paths and `client/utils/` paths). Native Rust
+  `crate::utils::<Utility>` paths keep working unchanged. Yon keeps
+  `server/utils/`. The website, its examples and the duplicate-code help use
+  the new folder.
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
   A class in `services/`, `stores/`, `remotes/` (or `clients/`), `setups/`,
