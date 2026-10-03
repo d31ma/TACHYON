@@ -81,6 +81,7 @@ impl RemovedControlEdits {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::RemovedControlEdits;
     use crate::migrate::fix::MigrationFix;
