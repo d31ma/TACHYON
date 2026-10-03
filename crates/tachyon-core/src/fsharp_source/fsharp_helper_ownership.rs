@@ -43,9 +43,14 @@ impl<'a> FsharpHelperOwnership<'a> {
     fn classes(code: &str) -> Vec<(String, Range<usize>)> {
         let mut offset = 0;
         let mut classes: Vec<(String, Range<usize>)> = Vec::new();
-        for line in code.lines() {
-            Self::record_class(&mut classes, line, offset, code.len());
-            offset += line.len() + 1;
+        for line in code.split_inclusive('\n') {
+            Self::record_class(
+                &mut classes,
+                line.trim_end_matches(['\r', '\n']),
+                offset,
+                code.len(),
+            );
+            offset += line.len();
         }
         classes
     }
@@ -113,10 +118,11 @@ impl<'a> FsharpHelperOwnership<'a> {
 
     fn require_member_markers(&self, range: &Range<usize>) -> Result<(), Failure> {
         let mut offset = range.start;
-        for line in self.code[range.clone()].lines() {
-            self.require_member_marker(line, offset)?;
-            self.require_primary_only(line, offset)?;
-            offset += line.len() + 1;
+        for line in self.code[range.clone()].split_inclusive('\n') {
+            let text = line.trim_end_matches(['\r', '\n']);
+            self.require_member_marker(text, offset)?;
+            self.require_primary_only(text, offset)?;
+            offset += line.len();
         }
         Ok(())
     }

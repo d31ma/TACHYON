@@ -106,6 +106,9 @@ machine contracts have their own, independent major versions.
   a build it trims itself to 256 MiB, removing the least recently used
   entries first.
 
+- F# Tac Helper checks report the right place in files with Windows (CRLF)
+  line endings.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).

@@ -216,3 +216,16 @@ fn fsharp_tac_helper_genuine_nested_helper_preserves_folder_and_filename_rules()
     )
     .unwrap_or_else(|error| panic!("genuine nested Helper: {error}"));
 }
+
+#[test]
+fn fsharp_tac_helper_member_marker_span_is_exact_in_a_crlf_file() {
+    let source = "[<Helper>]\r\ntype LabelHelper() =\r\n    member this.Read() : string = \"read\"\r\n    [<Needs>]\r\n    member val Dependency: BehaviorContext = Unchecked.defaultof<BehaviorContext> with get, set\r\n";
+    let error = FsharpTacHelperTests::source(source)
+        .err()
+        .unwrap_or_else(|| panic!("property refused"));
+    assert_eq!(
+        usize::try_from(error.diagnostics()[0].spans[0].start)
+            .unwrap_or_else(|error| panic!("span: {error}")),
+        source.find("    [<").unwrap_or(0) + 4
+    );
+}
