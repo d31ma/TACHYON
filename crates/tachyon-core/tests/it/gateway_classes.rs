@@ -948,10 +948,7 @@ fn class_targets_are_checked_when_the_caller_is_built() {
             "not in the captured server snapshot",
         ),
         ("server/services/ReportService.js", "caller's own language"),
-        (
-            "server/services/Report.sh",
-            "not written in a Yon language",
-        ),
+        ("server/services/Report.sh", "not written in a Yon language"),
         ("server/controllers/ReportController.py", "not a role file"),
         (
             "server/services/../services/ReportService.py",

@@ -177,10 +177,7 @@ mod tests {
             "{program}"
         );
         assert!(program.contains("type CatalogService with\n    member this.find(sku: BehaviorJSON) : Task<BehaviorJSON> = this.behaviors.Invoke(\"CatalogService\", \"find\", [| BehaviorJSON.From(sku) |], fun () -> this.__tachyon_find(sku))"), "{program}");
-        assert!(
-            program.contains("type ProductConverter() ="),
-            "{program}"
-        );
+        assert!(program.contains("type ProductConverter() ="), "{program}");
         assert!(program.contains("    member this.toSummary(product: BehaviorJSON) : BehaviorJSON = BehaviorContext.MapValue(BehaviorJSON.Parse("), "{program}");
         assert!(
             detached
