@@ -43,7 +43,7 @@ fn rejected(css: &str) -> String {
 }
 
 fn vendor(css: &str) -> Value {
-    json!({"kind":"vendor","package":"fixture-styles","version":"1.2.3","license":"MIT","sha256":format!("{:x}", Sha256::digest(css.as_bytes()))})
+    json!({"kind":"vendor","package":"fixture-styles","version":"1.2.3","license":"MIT","sha256":super::hex_digest(Sha256::digest(css.as_bytes()))})
 }
 
 #[test]

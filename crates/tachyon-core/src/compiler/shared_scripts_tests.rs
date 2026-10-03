@@ -1,6 +1,5 @@
 use super::shared_assets::SharedAssets;
 use crate::Failure;
-use sha2::{Digest, Sha256};
 use std::path::Path;
 
 struct SharedScriptFixture;
@@ -71,10 +70,7 @@ fn authored_dom_guard_preserves_exact_verified_declared_vendor_bytes() {
         "client/shared/vendor/widget.js",
         SharedScriptFixture::VENDOR,
     );
-    let digest = format!(
-        "{:x}",
-        Sha256::digest(SharedScriptFixture::VENDOR.as_bytes())
-    );
+    let digest = super::ContentDigest::sha256_bytes(SharedScriptFixture::VENDOR.as_bytes());
     SharedScriptFixture::manifest(root.path(), true, &digest);
     let assets = SharedAssets::collect(root.path())
         .unwrap_or_else(|failure| panic!("verified vendor: {failure}"));
@@ -98,10 +94,7 @@ fn authored_dom_guard_requires_vendor_hash_and_document_resource_declaration() {
     );
     SharedScriptFixture::manifest(root.path(), true, &"0".repeat(64));
     SharedScriptFixture::refuse(root.path(), "TY1403", "client/shared/vendor/widget.js");
-    let digest = format!(
-        "{:x}",
-        Sha256::digest(SharedScriptFixture::VENDOR.as_bytes())
-    );
+    let digest = super::ContentDigest::sha256_bytes(SharedScriptFixture::VENDOR.as_bytes());
     SharedScriptFixture::manifest(root.path(), false, &digest);
     SharedScriptFixture::refuse(root.path(), "TY1364", "client/shared/vendor/widget.js");
 }
@@ -190,7 +183,7 @@ impl CapturedVendorFixture {
     }
 
     fn digest(source: &str) -> String {
-        format!("{:x}", Sha256::digest(source.as_bytes()))
+        super::ContentDigest::sha256_bytes(source.as_bytes())
     }
 }
 

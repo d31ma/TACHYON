@@ -144,7 +144,6 @@ pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
 pub(crate) use site_map::SiteMap;
 pub(crate) use style_source::StyleSource;
 pub(crate) use swift_web_services::SwiftWebServices;
-pub(crate) use vendor_provenance::VendorProvenance;
 pub(crate) use windows::web_dotnet;
 
 #[cfg(feature = "fuzzing")]

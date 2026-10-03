@@ -120,7 +120,7 @@ impl<'s> DomScan<'s> {
     }
 
     fn plain_assignment(tokens: &Tokens<'_>, at: usize) -> bool {
-        let text = |at| tokens.items.get(at).map_or("", |token| token.text);
+        let text = |at: usize| tokens.items.get(at).map_or("", |token| token.text);
         [
             text(at) == "=",
             !["=", ">"].contains(&text(at + 1)),

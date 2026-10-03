@@ -71,7 +71,7 @@ impl VendorProvenance {
     }
 
     fn compare_hash(&self, path: &str, bytes: &[u8]) -> Result<(), Failure> {
-        let actual = format!("{:x}", Sha256::digest(bytes));
+        let actual = crate::compiler::hex_digest(Sha256::digest(bytes));
         Self::require(
             actual == self.sha256,
             path,
