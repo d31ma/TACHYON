@@ -9,6 +9,8 @@
   --tachyon-gradient: linear-gradient(120deg, var(--tachyon-from), var(--tachyon-to));
   --tachyon-line: color-mix(in srgb, var(--tachyon-from) 18%, transparent);
   --tachyon-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --tachyon-night: #07090d;
+  --page-background: var(--tachyon-night);
 
   --step-xs: clamp(.75rem, .72rem + .12vw, .8125rem);
   --step-sm: clamp(.8125rem, .76rem + .15vw, .875rem);
@@ -28,10 +30,8 @@
   --section-space: clamp(2.75rem, 1.4rem + 6.6vw, 7rem);
 }
 
-:root:not([w-theme]),
 :root[w-theme="dark"] {
-color-scheme: dark;
-  --w-surface: #07090d;
+--w-surface: var(--tachyon-night);
   --w-surface-container-low: #0a0e13;
   --w-surface-container: #0d121a;
   --w-surface-container-high: #10161f;
@@ -52,6 +52,12 @@ color-scheme: dark;
   --w-hover: #22d3ee14;
 }
 
+:root[w-theme="dark"],
+:root[w-theme="light"],
+:root[w-theme="auto"] {
+--page-background: var(--w-surface);
+}
+
 :root[w-theme="light"] {
 --w-primary: #0e7490;
   --w-border: color-mix(in srgb, #0e7490 20%, transparent);
@@ -61,7 +67,7 @@ color-scheme: dark;
 }
 
 body {
-background: var(--w-surface);
+background: var(--page-background);
   color: var(--w-text);
   font-family: var(--w-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: var(--step-base);

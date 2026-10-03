@@ -148,7 +148,7 @@ On a machine with externally routed dependencies, set
 when running the generator; no dependency alias is needed inside synced source.
 
 The theme is dark until the visitor picks another one. `site.css` gives the
-page the dark colors while the root has no `w-theme` attribute, so the first
+page a dark background while the root has no `w-theme` attribute, so the first
 paint is dark. `shared/scripts/ThemeDefault.js` runs before DuVay's behaviour
 script and saves `dark` when nothing is saved, because that script falls back
 to `light`. DuVay's script then applies the saved theme, and its

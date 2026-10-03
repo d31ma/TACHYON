@@ -695,8 +695,9 @@ describe('house style', () => {
     const scripts = manifest.tac.scripts
     expect(scripts.indexOf('/shared/scripts/ThemeDefault.js')).toBeLessThan(scripts.indexOf('/shared/assets/duvay/duvay.min.js'))
     const css = await read('client/shared/styles/site.css')
-    expect(css).toContain(':root:not([w-theme]),\n:root[w-theme="dark"] {')
-    expect(css).toContain(':root[w-theme="light"]')
+    expect(css).toContain('--page-background: var(--tachyon-night);')
+    expect(css).toContain('background: var(--page-background);')
+    expect(css).toContain(':root[w-theme="dark"],\n:root[w-theme="light"],\n:root[w-theme="auto"] {\n--page-background: var(--w-surface);')
   })
 
   test('no page restates a number the data already carries', async () => {

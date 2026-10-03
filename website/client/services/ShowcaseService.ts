@@ -10,7 +10,11 @@ export default class ShowcaseService {
   }
 
   summary(): string {
-    if (this.layer === 'tac') return ShowcaseService.TAC_SUMMARY
+    return this.summaryFor(this.layer)
+  }
+
+  private summaryFor(layer: string): string {
+    if (layer === 'tac') return ShowcaseService.TAC_SUMMARY
     return ShowcaseService.YON_SUMMARY
   }
 }
