@@ -10,6 +10,10 @@ mod csharp_method_lines;
 mod fsharp_call_body;
 mod fsharp_members;
 mod hook_statement;
+mod imported_utilities;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod imported_utilities_tests;
 mod kotlin_body;
 mod lua_body;
 mod method_body;
@@ -42,6 +46,7 @@ use csharp_method_lines::CsharpMethodLines;
 use fsharp_call_body::FsharpCallBody;
 use fsharp_members::FsharpMembers;
 use hook_statement::HookStatement;
+use imported_utilities::ImportedUtilities;
 use kotlin_body::KotlinBody;
 use lua_body::LuaBody;
 use method_body::MethodBody;

@@ -52,7 +52,7 @@ mod realm_models;
 mod renames;
 mod routes;
 mod scan;
-mod shared_utils;
+mod shared_utils_move;
 mod simpler_forms_fix;
 mod stored_fields;
 mod streams;
@@ -73,7 +73,7 @@ mod route_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
-mod shared_utils_tests;
+mod shared_utils_move_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]

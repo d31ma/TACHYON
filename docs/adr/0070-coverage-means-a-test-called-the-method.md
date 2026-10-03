@@ -79,3 +79,14 @@ explicit `return`.
 - A method called only by a background task after its case ended may be
   reported with the next case. The first case is a hint for the reader, not
   part of the rule.
+
+## Amendment: Imported Tac script utilities (2026-10-03)
+
+A Tac JavaScript or TypeScript utility in `client/shared/utils` that another
+client script imports by an absolute or relative path, or that uses
+`import.meta`, loads as its own module in a test unit. The test build does
+not add the recording line to such a module, so its calls cannot be recorded.
+The coverage report leaves these utilities out (`ImportedUtilities` in
+`method_coverage`) instead of reporting them as untested. Utilities that are
+composed into the program are still recorded and required. Recording calls of
+imported utilities is a separate follow-up.

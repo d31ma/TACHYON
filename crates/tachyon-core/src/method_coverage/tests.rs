@@ -628,9 +628,12 @@ fn an_fsharp_member_records_its_call_and_keeps_its_line_numbers() {
 #[test]
 fn rust_snake_case_utility_coverage_names_the_actual_class() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils { pub fn text() -> String { String::from(\"Ready\") } }\n";
-    let class = RoleClass::read(Path::new("client/shared/utils/nested/title_utils.rs"), source)
-        .expect("coverage class")
-        .expect("utility");
+    let class = RoleClass::read(
+        Path::new("client/shared/utils/nested/title_utils.rs"),
+        source,
+    )
+    .expect("coverage class")
+    .expect("utility");
     assert_eq!(class.type_name, "TitleUtils");
     assert_eq!(class.key("text"), "TitleUtils.text");
 }

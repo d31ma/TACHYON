@@ -205,7 +205,10 @@ fn script_utilities_refuse_same_line_state_before_or_between_methods() {
             "{source}"
         );
     }
-    assert_eq!(codes("client/shared/utils/TextUtils.js", cases[0]), vec![1316]);
+    assert_eq!(
+        codes("client/shared/utils/TextUtils.js", cases[0]),
+        vec![1316]
+    );
 }
 
 #[test]
@@ -225,10 +228,16 @@ fn script_utility_prefixes_preserve_multiple_methods_without_hiding_instance_met
     let source =
         "class TextUtils { static text() { return 'Ready'; } plain() { return 'Ready'; } }";
     let found = messages("client/shared/utils/TextUtils.js", source);
-    assert_eq!(codes("client/shared/utils/TextUtils.js", source), vec![1316]);
+    assert_eq!(
+        codes("client/shared/utils/TextUtils.js", source),
+        vec![1316]
+    );
     assert!(found[0].contains("Method `plain`"));
     let typed = "class TextUtils { public static text(): string { return TextUtils.lower(); } private static lower(): string { return 'Ready'; } }";
-    assert_eq!(codes("client/shared/utils/TextUtils.ts", typed), Vec::<u16>::new());
+    assert_eq!(
+        codes("client/shared/utils/TextUtils.ts", typed),
+        Vec::<u16>::new()
+    );
 }
 
 #[test]
@@ -266,9 +275,15 @@ fn rust_utility_boundary_does_not_allow_top_level_stored_values() {
 #[test]
 fn rust_utility_boundary_refuses_function_local_persistent_state() {
     let source = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);\n        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)\n    }\n}\n";
-    assert_eq!(codes("client/shared/utils/TitleUtils.rs", source), vec![1316]);
+    assert_eq!(
+        codes("client/shared/utils/TitleUtils.rs", source),
+        vec![1316]
+    );
     let mutable = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        static mut COUNT: usize = 0;\n        0\n    }\n}\n";
-    assert_eq!(codes("client/shared/utils/TitleUtils.rs", mutable), vec![1316]);
+    assert_eq!(
+        codes("client/shared/utils/TitleUtils.rs", mutable),
+        vec![1316]
+    );
     let local = "pub struct TitleUtils;\nimpl TitleUtils {\n    pub fn count() -> usize {\n        let count = 1;\n        count + 1\n    }\n}\n";
     assert_eq!(
         codes("client/shared/utils/TitleUtils.rs", local),
@@ -352,16 +367,28 @@ fn the_folder_the_name_and_the_single_class_are_checked() {
         Vec::<u16>::new()
     );
     assert_eq!(
-        codes("client/shared/utils/Text.js", &class.replace("TextUtils", "Text")),
+        codes(
+            "client/shared/utils/Text.js",
+            &class.replace("TextUtils", "Text")
+        ),
         vec![1310]
     );
-    assert_eq!(codes("client/shared/utils/StringUtils.js", class), vec![1310]);
     assert_eq!(
-        codes("client/shared/utils/TextUtils.js", &format!("@Service\n{class}")),
+        codes("client/shared/utils/StringUtils.js", class),
+        vec![1310]
+    );
+    assert_eq!(
+        codes(
+            "client/shared/utils/TextUtils.js",
+            &format!("@Service\n{class}")
+        ),
         vec![1310]
     );
     let second = format!("{class}\nclass OtherUtils {{}}\n");
-    assert_eq!(codes("client/shared/utils/TextUtils.js", &second), vec![1310]);
+    assert_eq!(
+        codes("client/shared/utils/TextUtils.js", &second),
+        vec![1310]
+    );
 }
 
 #[test]

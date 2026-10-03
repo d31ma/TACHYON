@@ -13,8 +13,10 @@ impl RoleFiles {
     ];
 
     pub(crate) fn sources(project: &Path) -> Vec<(PathBuf, String)> {
+        let unrecorded = super::ImportedUtilities::unrecorded(project);
         Self::paths(project)
             .into_iter()
+            .filter(|relative| !unrecorded.contains(relative))
             .filter_map(|relative| Self::read(project, relative))
             .collect()
     }

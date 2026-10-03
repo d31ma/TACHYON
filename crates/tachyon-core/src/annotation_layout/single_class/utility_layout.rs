@@ -36,15 +36,17 @@ impl UtilityLayout {
     }
 
     pub(crate) fn reject_removed_root(path: &Path) -> Result<(), Failure> {
-        let Ok(tail) = path.strip_prefix(Self::REMOVED_CLIENT_ROOT) else {
-            return Ok(());
-        };
+        let tail = path.strip_prefix(Self::REMOVED_CLIENT_ROOT).ok();
+        tail.map_or(Ok(()), |tail| Err(Self::removed_root_failure(path, tail)))
+    }
+
+    fn removed_root_failure(path: &Path, tail: &Path) -> Failure {
         let portable = path.to_string_lossy().replace('\\', "/");
         let target = Path::new(Self::CLIENT_ROOT)
             .join(tail)
             .to_string_lossy()
             .replace('\\', "/");
-        Err(Failure::one(crate::failure::diagnostic(
+        Failure::one(crate::failure::diagnostic(
             Self::FOLDER_CODE,
             format!(
                 "'{portable}' is inside client/utils; Tac utility classes live only in client/shared/utils"
@@ -53,7 +55,7 @@ impl UtilityLayout {
                 "Move the file to {target}; nested folders are allowed, and Yon keeps server/utils (ADR 0064). `ty migrate fix --write` moves every file in client/utils and changes the paths that import them."
             )),
             crate::failure::source_span(&portable, 0, 0),
-        )))
+        ))
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {

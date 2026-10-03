@@ -1,7 +1,7 @@
 use super::ManualStep;
 use super::edits::TextEdit;
 use super::scan::SourceText;
-use super::shared_utils::SharedUtilsMove;
+use super::shared_utils_move::SharedUtilsMove;
 use crate::behavior::{RenamedAnnotation, RoutingRename};
 use std::collections::BTreeSet;
 use std::path::Path;
