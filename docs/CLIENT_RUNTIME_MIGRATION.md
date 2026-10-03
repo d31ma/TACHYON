@@ -10,14 +10,15 @@ Application HTTP calls use `@HTTPClient` together with request method annotation
 
 - Client is a Tachyon role marker. It is not a Spring annotation.
 - The class name and the filename of a client end in Client.
-- Clients live in `client/clients/`. This folder sits beside
-  `client/services/`, which holds the services that use the clients.
+- Clients live in `client/remotes/`. This folder sits beside
+  `client/services/`, which holds the services that use the clients. The
+  older `client/clients/` folder still compiles; see `REMOTES_MIGRATION.md`.
 - `@Needs` injects a concrete client by the name of the field. You do not
   write a constructor or a `Needs` list by hand.
 
 The example below shows two files:
 
-- `client/clients/CatalogClient.js` defines the client.
+- `client/remotes/CatalogClient.js` defines the client.
 - `client/services/CatalogService.js` defines the service. The component
   `client/components/catalog/panel/tac.html` addresses this service as
   `catalog`. The page `client/pages/catalog/tac.html` places that component as

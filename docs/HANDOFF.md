@@ -1,6 +1,51 @@
 # Handoff — Tachyon Rust Rewrite
 
-## Current continuation — 2026-09-26
+## Current continuation — 2026-10-03
+
+From 30 September to 3 October 2026, a Codex session worked on this branch and
+made about 500 commits. This section lists what it delivered and what is still
+open. Its detailed run notes are kept outside the repository.
+
+Delivered, in the code and with tests:
+
+- Outbound classes live in `remotes/` in both realms (ADR 0088). `ty migrate fix`
+  moves old `clients/` files. The old folder still compiles.
+- Role folders may be nested. Every concrete class in a role folder needs its
+  role marker (ADR 0091, error TY1363). This is a breaking change.
+- Settings and validation data classes live in `models/` (ADR 0092).
+- Python is a Tac service language for synchronous services. It runs on a
+  pinned Pyodide 314.0.7 interpreter that the project selects in its manifest.
+  `ty` never downloads it.
+- Lua gained Yon stream and socket routes, behavior annotations, browser APIs
+  for Tac services, and pure model converters.
+- Native services can use a file picker, granted with `tac.nativeCapabilities`
+  (ADR 0089). It runs on macOS. Windows and Android only type-check.
+- Native macOS apps have standard menus and menu items that open local routes.
+- Compiled Dart HTTP clients in Tac call the server from the browser
+  (ADR 0090). C# does the same for simple values.
+- Client code may not write markup or styles directly, and a vendor script must
+  be declared with its version and hash (error TY1364).
+- Rust file names use snake_case. SVG elements render in the right namespace.
+
+Still open:
+
+- The website release build is over its 320 KiB script limit on two routes, so
+  the website check fails.
+- `cargo fmt --check` reports five files. The core test suite runs longer than
+  its time limit. The last full workspace test run is older than this work.
+- Compiled Tac HTTP clients in Rust, Go, Ruby, Swift, Kotlin, Java, Lua and
+  Python. The F# client needs finishing.
+- One shared runtime for all services of one language on a page.
+- Python async methods, events, streams and test parity.
+- Many website sections still miss language tabs. Run
+  `bun run coverage:languages` in `website/` for the current list.
+- Windows and Android runtime proof for window controls and the file picker.
+- Decisions for the maintainer: who is trusted to approve a native live update,
+  which service receives a custom menu command, how to build a Linux `ty`, and
+  whether compiled browser languages get async support one at a time or through
+  a worker.
+
+## Previous continuation — 2026-09-26
 
 [Routing recovery](ROUTING_RECOVERY_2026_09_26.md) records the continuation of
 Claude's interrupted coordinated routing wave. ADR 0048 replaces Yon folder

@@ -22,7 +22,7 @@ live in `client/models/` or `server/models/` (see
 | `RequestRoute` | `MoneyController` | `server/controllers/MoneyController.<ext>` |
 | `Service` | `MoneyService` | `client/services/` or `server/services/MoneyService.<ext>` |
 | `Store` | `MoneyStore` | `client/stores/` or `server/stores/MoneyStore.<ext>` |
-| `HTTPClient` | `MoneyClient` | `client/clients/` or `server/clients/MoneyClient.<ext>` |
+| `HTTPClient` | `MoneyClient` | `client/remotes/` or `server/remotes/MoneyClient.<ext>` |
 | `Helper` | `MoneyHelper` | `client/helpers/` or `server/helpers/MoneyHelper.<ext>` |
 | `Converter` | `MoneySummaryConverter` | `client/converters/` or `server/converters/MoneySummaryConverter.<ext>` |
 | `Setup` | `MoneySetup` | `client/setups/` or `server/setups/MoneySetup.<ext>` |
@@ -180,7 +180,7 @@ Every Yon entry composes the shared roles of its language and its own
 controllers. A shared service is one class. Each invocation still owns its
 graph of instances.
 
-Plain helper classes live in `server/shared/`, without annotations, required
+Plain shared classes live in `server/shared/`, without annotations, required
 role suffixes or file-level variables. JavaScript and TypeScript import them
 normally from controllers or providers; provider imports are rebased into the
 captured controller scope. Go compiles them as files of package main. Every

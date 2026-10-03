@@ -128,6 +128,7 @@ Never put a secret in it, including in `tac.application`.
 | `tac.application.id` | Bundle identifier in reverse-DNS form, such as `com.example.catalog`. Without it, the id is derived from the project folder. | native |
 | `tac.application.version` | Portable version string, such as `1.4.0` (1.0.0 unless set). | native |
 | `tac.application.window` | `width`/`height`: 1024 by 768 unless set, each from 64 to 16384. `minWidth`/`minHeight`. `controls`: the window controls that a page may use (`close`, `fullscreen`, `maximize`, `minimize`, `resize`, `title`). A page may use none unless they are listed. | native |
+| `tac.nativeCapabilities` | The operating system features that native services may use, such as `["filePicker"]`. Each name may appear once; `filePicker` is the only name today. Without the grant, the file picker answers `denied` before any dialog opens. The grant does not replace the user's consent or the platform's signing entitlements (ADR 0089). | build, native |
 | `tac.origin` | The site's public address, such as `https://example.com`, without a path. It turns on the built-in `sitemap.xml` and `robots.txt`, and a `canonical` or `image` that starts with `/` is joined to it. | build |
 | `tac.scripts`, `tac.styles` | Up to 8 local paths each, such as `/shared/app.js`, linked into every page. | build |
 | `tac.cache` | Up to 64 `{ "path", "policy" }` rules for the service worker; `policy` is `cache-first`, `network-first` or `no-store`, and `*` in `path` matches the rest of a path. | build |
@@ -272,7 +273,7 @@ manifest. `ty migrate` also reports it.
 ### Loading public settings in a browser service
 
 A browser service can load public JSON through a declarative client and then
-bind it explicitly. Put this role in `client/clients/SettingsClient.js`:
+bind it explicitly. Put this role in `client/remotes/SettingsClient.js`:
 
 ```javascript
 @HTTPClient
