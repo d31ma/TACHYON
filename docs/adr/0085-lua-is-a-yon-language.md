@@ -258,3 +258,16 @@ the build with `TY2015`, and the message names the resource and this ADR.
   runtime. Other Tac behavior annotations remain unavailable. Resources,
   HTTPClient, Gateway, topics and unrelated adapters gain no additional
   support from this converter slice.
+
+## Amendment 2026-10-03: Topic stops the build in Lua
+
+- A Lua model marked `-- @Topic` used to build. In Yon each request that
+  published it then failed with a handler crash (`TY2104`), and in Tac the
+  page never opened the topic stream. Now the rule table leaves Lua out of
+  Topic in both realms, so the build stops at the model file with `TY1308`
+  and the message says that Lua gets it in a later step.
+- Python Tac services have no event adapter yet (`TY1605`), so a Python
+  model marked `@topic` under `client/` stops the build in the same way.
+  Python Yon keeps Topic.
+- The Topic check of a model file asks the rule table, so the build and the
+  website's language coverage read the same list.

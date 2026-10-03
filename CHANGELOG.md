@@ -58,6 +58,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- A Lua model marked Topic, in either realm, and a Python model marked Topic
+  in a Tac service now stop the build with `TY1308`. Before, the build passed:
+  a Yon Lua route that published the event failed on every request with
+  `TY2104`, and a Tac Lua listener never received the events. Lua gets topics
+  in a later step (ADR 0085).
+
 - C# coverage includes public methods with next-line body braces or expression
   bodies and records the method actually called. Static Setup callbacks and
   generated bodyless client methods remain outside instance-method coverage.
@@ -997,11 +1003,13 @@ machine contracts have their own, independent major versions.
   and F#, and its Yon section also in F# and Ruby. verify-snippets checks that
   every Yon language answers with the ProbeReady it heard. The signal-driven
   UI recipe saves with a button, so no service needs the submit event.
-- The docs sections "Streaming" and "Topics" show every language that runs
-  them: the stream controller in each streaming Yon language, the Topic
+- The docs sections "Streaming" and "Topics" and the streaming controllers
+  feature show every language that runs them: the stream controller in each
+  streaming Yon language (Lua too, with `coroutine.yield`), the Topic
   publisher in the Yon languages and the Topic listener in the Tac languages.
   The streaming and socket pages name the languages that refuse `StreamRoute`
-  (`TY2015`) and the browser's `StreamRequest` and `SocketRequest` (`TY1308`).
+  (`TY2015`) and the browser's `StreamRequest` and `SocketRequest` (`TY1308`),
+  and the streaming and InBackground language lists match the compiler.
   The coverage audit counts an annotation that only browser JavaScript holds
   as refused in Java and F# too.
 

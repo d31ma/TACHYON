@@ -20,6 +20,7 @@ impl Topics {
     const COMMENT_LEADERS: [&'static str; 5] = ["/**", "///", "//", "# ", "*"];
     const MAX_SLUG_BYTES: usize = 64;
     const CODE: u16 = 1308;
+    const ANNOTATION: &'static str = "Topic";
     const HELP: &'static str = "Write @Topic on its own line above a model in a models folder, for example 'server/models/OrderPlaced.py'. JavaScript writes it inside the model's @typedef block (ADR 0061).";
 
     pub(crate) fn markers(source: &str) -> Vec<Range<usize>> {
@@ -120,6 +121,9 @@ impl Topics {
         let Some(first) = markers.first() else {
             return Ok(());
         };
+        if let Some(refusal) = Self::refusal(path) {
+            return Err(Self::refused(path, source, first.start, &refusal));
+        }
         let is_javascript = path.extension().is_some_and(|extension| extension == "js");
         if !is_javascript && !Self::in_models_folder(path) {
             return Err(Self::failure(
@@ -158,6 +162,22 @@ impl Topics {
             matches!(realm, Some(Component::Normal(name)) if name == "server" || name == "client");
         let is_models = matches!(folder, Some(Component::Normal(name)) if name == "models");
         is_realm && is_models
+    }
+
+    fn refusal(path: &Path) -> Option<String> {
+        let language = path.extension()?.to_str()?;
+        let realm = crate::annotation_rules::Realm::of(path)?;
+        crate::annotation_rules::AnnotationRules::checked_refusal(Self::ANNOTATION, language, realm)
+    }
+
+    fn refused(path: &Path, source: &str, at: usize, refusal: &str) -> Failure {
+        let portable = path.to_string_lossy().replace('\\', "/");
+        Failure::one(diagnostic(
+            Self::CODE,
+            format!("{refusal} ({portable})"),
+            None,
+            source_span(&portable, at, (at + 1).min(source.len())),
+        ))
     }
 
     fn failure(path: &Path, source: &str, at: usize, message: &str) -> Failure {

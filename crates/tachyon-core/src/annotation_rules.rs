@@ -280,6 +280,11 @@ impl AnnotationRules {
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
     const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py"];
+    const YON_TOPIC: &'static [&'static str] = &[
+        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
+    ];
+    const TAC_TOPIC: &'static [&'static str] =
+        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const YON_STREAM: &'static [&'static str] =
         &["js", "ts", "py", "php", "kt", "cs", "dart", "rb", "lua"];
     const TAC_STREAM: &'static [&'static str] = &["js", "ts"];
@@ -574,7 +579,8 @@ impl AnnotationRules {
             "sends each published event of this model to the listeners in every Yon language and in open pages",
         )
         .bare()
-        .reach(Self::TAC, Self::YON),
+        .reach(Self::TAC_TOPIC, Self::YON_TOPIC)
+        .advice("Lua, and Python in Tac, get topics in a later step. Until then, publish and listen to the topic in another language of the same realm."),
         Rule::new(
             "Table",
             Self::TYPE,
@@ -1101,6 +1107,13 @@ impl AnnotationRules {
             ),
             _ => format!("{name} is not written here"),
         }
+    }
+
+    pub(crate) fn checked_refusal(name: &str, language: &str, realm: Realm) -> Option<String> {
+        let rule = Self::find(name)?;
+        let checked = realm.languages().contains(&language);
+        (checked && !rule.allows(language, realm))
+            .then(|| scan::Messages::unavailable(rule, language, realm))
     }
 
     pub(crate) fn unavailable(name: &str, language: &str, environment: &str) -> Option<String> {
