@@ -1,5 +1,6 @@
-import { searchDocs } from '/shared/scripts/navigation.js'
+import { DocumentationUtils } from '/shared/utils/DocumentationUtils.js'
 
+/** @import { ThemeHelper } from '/helpers/ThemeHelper.js' */
 /** @import { SearchResult } from '/models/SearchResult.ts' */
 /** @import { TaskScheduler } from '/models/TaskScheduler.ts' */
 @Service
@@ -14,6 +15,11 @@ export default class SearchService {
   /** @type {AbortSignal} */
   @Needs
   lifecycle
+  /** @type {ThemeHelper} */
+  @Needs
+  themeHelper
+  /** @type {string} */
+  theme = 'dark'
   showing = false
   /** @type {SearchResult[]} */
   results = []
@@ -63,6 +69,7 @@ export default class SearchService {
 
   @OnStart
   initialize() {
+    this.theme = this.themeHelper.restore()
     addEventListener('keydown', (event) => this.#onKeyDown(event), { signal: this.lifecycle })
   }
 
@@ -137,7 +144,7 @@ export default class SearchService {
   /** @param {string} query */
   async #showResults(query) {
     if (this.lifecycle.aborted) return
-    this.results = searchDocs(query)
+    this.results = DocumentationUtils.searchDocs(query)
     this._searching = false
     await this.taskScheduler.render()
   }

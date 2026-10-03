@@ -1,4 +1,5 @@
-import { chromium } from 'playwright'
+import { createRequire } from 'node:module'
+import path from 'node:path'
 import process from 'node:process'
 
 class Sweep {
@@ -11,6 +12,40 @@ class Sweep {
 
   static widths = [320, 360, 375, 414, 480, 540, 600, 700, 768, 820, 900, 1024,
     1180, 1280, 1440, 1600, 1920, 2560]
+
+  /** @returns {string[]} */
+  static selectedPaths() {
+    const selected = process.env.SITE_PATHS?.split(',') ?? Sweep.paths
+    if (!selected.length || selected.some(route => !Sweep.paths.includes(route))) {
+      throw new Error('SITE_PATHS must be a comma-separated selection of the existing responsive routes')
+    }
+    return [...new Set(selected)]
+  }
+
+  /** @returns {number[]} */
+  static selectedWidths() {
+    const selected = process.env.SITE_WIDTHS?.split(',').map(Number) ?? Sweep.widths
+    if (!selected.length || selected.some(width => !Number.isInteger(width) || width < 320 || width > 2560)) {
+      throw new Error('SITE_WIDTHS must contain integer viewport widths from 320 through 2560')
+    }
+    return [...new Set(selected)].sort((left, right) => left - right)
+  }
+
+  /** @returns {string[]} */
+  static selectedThemes() {
+    const selected = process.env.SITE_THEMES?.split(',') ?? ['dark', 'light']
+    if (!selected.length || selected.some(theme => !['dark', 'light'].includes(theme))) {
+      throw new Error('SITE_THEMES must select dark, light, or both')
+    }
+    return [...new Set(selected)]
+  }
+
+  /** @returns {import('playwright').BrowserType} */
+  static browser() {
+    const dependencies = process.env.TAC_BROWSER_DEPENDENCIES
+    const load = createRequire(import.meta.url)
+    return load(dependencies ? path.resolve(dependencies, 'playwright') : 'playwright').chromium
+  }
 }
 
 function probe() {
@@ -33,6 +68,7 @@ function probe() {
     }
   }
 
+  /** @param {string} selector @returns {{count: number, ragged: number}} */
   const cardHeights = (selector) => {
     let count = 0
     let ragged = 0
@@ -64,6 +100,7 @@ function probe() {
   }
 }
 
+/** @param {ReturnType<typeof probe>} report @param {boolean} coarse @returns {string[]} */
 function problemsIn(report, coarse) {
   const problems = []
   if (report.scrollWidth > report.viewport + 1) {
@@ -81,6 +118,13 @@ function problemsIn(report, coarse) {
   return problems
 }
 
+/**
+ * @param {import('playwright').Browser} browser
+ * @param {string} theme
+ * @param {number} width
+ * @param {{checks: number, failures: string[]}} summary
+ * @returns {Promise<void>}
+ */
 async function sweepWidth(browser, theme, width, summary) {
   const coarse = width <= 820
   const context = await browser.newContext({
@@ -89,10 +133,10 @@ async function sweepWidth(browser, theme, width, summary) {
     isMobile: coarse,
     deviceScaleFactor: 1,
   })
-  await context.addInitScript((value) => localStorage.setItem('w-theme', value), theme)
+  await context.addInitScript((/** @type {string} */ value) => localStorage.setItem('w-theme', value), theme)
   const page = await context.newPage()
 
-  for (const path of Sweep.paths) {
+  for (const path of Sweep.selectedPaths()) {
     await page.goto(`${Sweep.origin}${path}`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(400)
     const report = await page.evaluate(probe)
@@ -108,21 +152,24 @@ async function sweepWidth(browser, theme, width, summary) {
 }
 
 async function main() {
-  const browser = await chromium.launch()
+  const widths = Sweep.selectedWidths()
+  const paths = Sweep.selectedPaths()
+  const themes = Sweep.selectedThemes()
+  const browser = await Sweep.browser().launch()
   const summary = { checks: 0, failures: [] }
 
-  for (const theme of ['dark', 'light']) {
-    for (const width of Sweep.widths) await sweepWidth(browser, theme, width, summary)
-    console.log(`  swept ${Sweep.widths.length} widths x ${Sweep.paths.length} routes in ${theme}`)
+  for (const theme of themes) {
+    for (const width of widths) await sweepWidth(browser, theme, width, summary)
+    console.log(`  swept ${widths.length} widths x ${paths.length} routes in ${theme}`)
   }
 
   await browser.close()
-  console.log(`\n${summary.checks} checks across ${Sweep.widths[0]}–${Sweep.widths.at(-1)}px`)
+  console.log(`\n${summary.checks} checks across ${widths[0]}–${widths.at(-1)}px`)
   if (summary.failures.length) {
     console.error(`responsive gate failed: ${summary.failures.length} of ${summary.checks}`)
     process.exit(1)
   }
-  console.log('PASS: every route holds at every width, in both themes')
+  console.log('PASS: selected routes hold at selected widths and themes')
 }
 
 await main()

@@ -2,17 +2,24 @@
 import { CargoArtifacts } from './cargo-artifacts.mjs'
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
 import { withServer } from './release/server-probe.mjs';
 
 class WebsiteTest {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   static website = path.join(WebsiteTest.repo, 'website');
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty');
+
+  /** @returns {import('playwright').BrowserType} */
+  static browser() {
+    const dependencies = process.env.TAC_BROWSER_DEPENDENCIES;
+    const load = createRequire(import.meta.url);
+    return load(dependencies ? path.resolve(dependencies, 'playwright') : 'playwright').chromium;
+  }
 
   /** @param {import('playwright').Page} page */
   static async checkShowcase(page) {
@@ -143,13 +150,17 @@ async function checkViewport(activeBrowser, origin, width) {
 }
 
 async function main() {
-  const output = mkdtempSync(path.join(tmpdir(), 'tachyon-website-input-'));
+  const retained = process.env.TAC_WEBSITE_OUTPUT;
+  const output = retained ? realpathSync(path.resolve(retained)) : mkdtempSync(path.join(tmpdir(), 'tachyon-website-input-'));
+  assert.ok(statSync(output).isDirectory(), 'Website output is a real directory');
   /** @type {import('playwright').Browser | undefined} */
   let browser;
   try {
-    const build = spawnSync(WebsiteTest.binary, ['build', WebsiteTest.website, '--out-dir', output], { encoding: 'utf8', timeout: 120000 });
-    assert.equal(build.status, 0, build.stderr || build.stdout);
-    const activeBrowser = await chromium.launch();
+    if (!retained) {
+      const build = spawnSync(WebsiteTest.binary, ['build', WebsiteTest.website, '--out-dir', output], { encoding: 'utf8', timeout: 120000 });
+      assert.equal(build.status, 0, build.stderr || build.stdout);
+    }
+    const activeBrowser = await WebsiteTest.browser().launch();
     browser = activeBrowser;
     await withServer(WebsiteTest.binary, ['preview', WebsiteTest.website, '--static', '--out-dir', output, '--port', '0'], async request => {
       const origin = new URL((await request('/')).url).origin;
@@ -158,7 +169,7 @@ async function main() {
     console.log('Website browser input gate passed: desktop/mobile, home/docs (guides and features render)/features, continuous typing, custom slots, middle caret, spaces, rapid input, Escape.');
   } finally {
     if (browser) await browser.close();
-    rmSync(output, { recursive: true, force: true });
+    if (!retained) rmSync(output, { recursive: true, force: true });
   }
 }
 

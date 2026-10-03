@@ -1,3 +1,20 @@
+@layer brand {
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+
+nav a,
+  footer a {
+display: inline-flex;
+    align-items: center;
+}
+}
+}
+
 .docs-pager {
   display: flex;
   flex-wrap: wrap;
@@ -40,3 +57,8 @@
   font-weight: 600;
   text-wrap: balance;
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities;
+/* @tachyon-generated-tailwind:end */

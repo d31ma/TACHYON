@@ -1,6 +1,6 @@
 import { AnnotationReach } from './annotation-reach.mjs'
 import { SiteContent } from './site-content.mjs'
-import { languageOf } from '../client/shared/scripts/platforms.js'
+import { PlatformUtils } from '../client/shared/utils/PlatformUtils.js'
 
 /** @typedef {import('./rule-table-parser.mjs').Realm} Realm */
 /** @typedef {import('./snippet-units.mjs').SnippetUnit} SnippetUnit */
@@ -73,7 +73,7 @@ export class CoverageAudit {
    * @returns {string}
    */
   static languageName(language) {
-    return languageOf(`file.${language}`) ?? language
+    return PlatformUtils.languageOf(`file.${language}`) ?? language
   }
 
   /**

@@ -1,4 +1,4 @@
-import { currentPath, currentSlug, guide, redirect, slugify } from '/shared/scripts/navigation.js'
+import { DocumentationUtils } from '/shared/utils/DocumentationUtils.js'
 import type { Guide } from '/models/Guide.ts'
 import type { Section } from '/models/Section.ts'
 import type { SectionBlock } from '/models/SectionBlock.ts'
@@ -18,7 +18,7 @@ export default class TopicService {
   private static SEPARATOR: Record<string, string> = { true: '.', false: ', ' }
 
   private static anchorFor(heading: string): string {
-    return `#${slugify(heading)}`
+    return `#${DocumentationUtils.slugify(heading)}`
   }
 
   private static blocks(body: string = ''): SectionBlock[] {
@@ -26,19 +26,19 @@ export default class TopicService {
   }
 
   get slug(): string {
-    return currentSlug()
+    return TopicService.slugOf(TopicService.currentPath())
   }
 
   path(): string {
-    return currentPath()
+    return TopicService.currentPath()
   }
 
   get source(): string {
-    return this.sourceOf(guide(this.slug))
+    return this.sourceOf(DocumentationUtils.guide(this.slug))
   }
 
   entry(): Guide {
-    return this.orNotFound(guide(this.slug))
+    return this.orNotFound(DocumentationUtils.guide(this.slug))
   }
 
   sections(): ShownSection[] {
@@ -97,7 +97,7 @@ export default class TopicService {
     return {
       ...section,
       axis: TopicService.axisOf(section),
-      anchor: slugify(section.heading),
+      anchor: DocumentationUtils.slugify(section.heading),
       blocks: TopicService.blocks(section.body),
       single: TopicService.singleOf(section.code, TopicService.languageOf(section)),
     }
@@ -117,12 +117,12 @@ export default class TopicService {
   }
 
   private static knownGuides(slugs: string[]): string[] {
-    return slugs.filter(guide)
+    return slugs.filter(DocumentationUtils.guide)
   }
 
   private static linksTo(slugs: string[]): BeforeLink[] {
     return slugs.map((slug, index) => ({
-      title: guide(slug).title,
+      title: TopicService.titleOf(slug),
       path: `/docs/${slug}`,
       separator: TopicService.SEPARATOR[String(index === slugs.length - 1)],
     }))
@@ -158,11 +158,23 @@ export default class TopicService {
   }
 
   private redirectTarget(): string | undefined {
-    if (guide(this.slug)) return undefined
-    return redirect(this.slug, location.hash)
+    if (DocumentationUtils.guide(this.slug)) return undefined
+    return DocumentationUtils.redirect(this.slug, location.hash)
   }
 
   private followRedirect(target: string | undefined): void {
     if (target) location.replace(target)
+  }
+
+  private static currentPath(): string {
+    return location.pathname.replace(/(.)\/+$/, '$1')
+  }
+
+  private static slugOf(path: string): string {
+    return path.split('/').filter(Boolean).pop() ?? ''
+  }
+
+  private static titleOf(slug: string): string {
+    return DocumentationUtils.guide(slug)?.title ?? slug
   }
 }

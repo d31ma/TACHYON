@@ -1,3 +1,42 @@
+@layer brand {
+.w-btn {
+font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+w-container {
+max-width: min(94vw, 84rem);
+  padding-inline: var(--gutter);
+}
+
+w-app-bar {
+position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+w-app-bar {
+background: color-mix(in srgb, var(--w-surface) 82%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--w-border);
+}
+
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+
+nav a,
+  footer a {
+display: inline-flex;
+    align-items: center;
+}
+}
+}
+
 .site-bar {
   flex-wrap: nowrap;
 }
@@ -31,3 +70,44 @@
     display: inline;
   }
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer utilities {
+  .sticky {
+    position: sticky;
+  }
+  .mr-auto {
+    margin-right: auto;
+  }
+  .block {
+    display: block;
+  }
+  .px-0 {
+    padding-inline: 0px;
+  }
+  .text-sm {
+    font-size: var(--text-sm, var(--step-sm));
+    line-height: var(--tw-leading, var(--text-sm--line-height, 1.5));
+  }
+  .font-bold {
+    --tw-font-weight: var(--font-weight-bold, 700);
+    font-weight: var(--font-weight-bold, 700);
+  }
+  .tracking-widest {
+    --tw-tracking: var(--tracking-widest, 0.1em);
+    letter-spacing: var(--tracking-widest, 0.1em);
+  }
+}
+
+
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
+    *, ::before, ::after, ::backdrop {
+      --tw-font-weight: initial;
+      --tw-tracking: initial;
+    }
+  }
+}
+/* @tachyon-generated-tailwind:end */

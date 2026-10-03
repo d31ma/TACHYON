@@ -1,3 +1,28 @@
+@layer brand {
+.w-btn {
+font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+[id] {
+scroll-margin-top: 5rem;
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+}
+}
+
 .search-scrim {
   position: fixed;
   inset: 0;
@@ -67,3 +92,32 @@
     display: inline-flex;
   }
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities {
+  .ml-2 {
+    margin-left: calc(var(--spacing, 0.25rem) * 2);
+  }
+  .px-4 {
+    padding-inline: calc(var(--spacing, 0.25rem) * 4);
+  }
+  .py-2 {
+    padding-block: calc(var(--spacing, 0.25rem) * 2);
+  }
+  .text-sm {
+    font-size: var(--text-sm, var(--step-sm));
+    line-height: var(--tw-leading, var(--text-sm--line-height, 1.5));
+  }
+  .text-xs {
+    font-size: var(--text-xs, var(--step-xs));
+    line-height: var(--tw-leading, var(--text-xs--line-height, 1.5));
+  }
+  .opacity-60 {
+    opacity: 60%;
+  }
+  .opacity-70 {
+    opacity: 70%;
+  }
+}
+/* @tachyon-generated-tailwind:end */

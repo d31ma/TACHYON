@@ -110,7 +110,9 @@ describe('published output', () => {
     for (const route of ['dist/web/index.html', 'dist/web/docs/index.html', 'dist/web/docs/_topic/index.html']) {
       const html = await read(route)
       expect(html).toContain('/shared/styles/site.css')
-      expect(html).toContain('/shared/scripts/imports.js')
+      expect(html).toContain('/shared/assets/duvay/duvay-wc.min.js')
+      expect(html).toContain('/shared/assets/duvay/duvay.min.js')
+      expect(html).not.toContain('/shared/scripts/imports.js')
       expect(html).toContain('/.tachyon/tac-client.js')
       expect(html).not.toContain('"module":"/client.js"')
     }
@@ -678,10 +680,11 @@ describe('feature catalogue', () => {
 
 describe('house style', () => {
   test('every page section uses the shared eyebrow, title and lede', async () => {
-    const css = await read('client/shared/styles/site.css')
+    const sheets = await Promise.all(['home/hero', 'home/pillars', 'home/quickstart'].map(owner => read(`client/components/${owner}/tac.css`)))
     for (const rule of ['.eyebrow', '.section-title', '.section-lede', '.panel', '.command', '.stat-value']) {
-      expect(css).toContain(rule)
+      expect(sheets.join('\n')).toContain(rule)
     }
+    expect(await read('client/shared/styles/site.css')).not.toContain('.section-title')
 
     for (const component of ['home/hero', 'home/pillars', 'home/quickstart', 'home/faq']) {
       const html = await read(`client/components/${component}/tac.html`)
@@ -690,8 +693,11 @@ describe('house style', () => {
   })
 
   test('a first visit lands on the dark theme', async () => {
-    const imports = await read('client/shared/scripts/imports.js')
-    expect(imports).toContain("localStorage.getItem('w-theme') ?? 'dark'")
+    const theme = await read('client/helpers/ThemeHelper.js')
+    expect(theme).toContain("static DEFAULT = 'dark'")
+    expect(theme).toContain('@Helper')
+    expect(await read('client/services/SearchService.js')).toContain('this.theme = this.themeHelper.restore()')
+    expect(await read('client/components/site/layout/tac.html')).toContain(':data-theme="search.theme"')
 
     const css = await read('client/shared/styles/site.css')
     expect(css).toContain(':root[w-theme="dark"]')
@@ -708,7 +714,8 @@ describe('house style', () => {
 
 describe('responsive system', () => {
   test('layout is driven by space, not by a breakpoint list', async () => {
-    const css = await read('client/shared/styles/site.css')
+    const sheets = await Promise.all(['site/footer', 'docs/catalog', 'docs/layout'].map(owner => read(`client/components/${owner}/tac.css`)))
+    const css = sheets.join('\n')
     expect(css).toContain('repeat(auto-fit, minmax(min(100%, var(--col')
     expect(css).toContain('grid-auto-rows: 1fr')
     expect(css).toContain('container-type: inline-size')
@@ -722,12 +729,12 @@ describe('responsive system', () => {
       expect(html).not.toMatch(/\b(sm|md|lg|xl):grid-cols-/)
       expect(html).toContain('grid-auto')
     }
-    for (const stylesheet of ['client/shared/styles/site.css',
+    for (const stylesheet of ['client/components/site/footer/tac.css',
                               'client/components/home/pillars/tac.css']) {
       const css = await read(stylesheet)
       expect(css).toContain('auto-fit')
     }
-    expect(await read('client/shared/styles/site.css')).toContain('.catalogue__card')
+    expect(await read('client/components/docs/catalog/tac.css')).toContain('.catalogue__card')
   })
 
   test('the type scale interpolates rather than stepping', async () => {
@@ -755,11 +762,11 @@ describe('responsive system', () => {
 
   test('the site answers to more than viewport width', async () => {
     const css = await read('client/shared/styles/site.css')
-    expect(css).toContain('@media (pointer: coarse)')
+    expect(await read('client/components/site/header/tac.css')).toContain('@media (pointer: coarse)')
     expect(css).toContain('@media (prefers-contrast: more)')
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
 
-    const shell = await read('client/shared/styles/site.css')
+    const shell = await read('client/components/docs/layout/tac.css')
     expect(shell).toContain('.docs-frame')
     expect(shell).toContain('@container (min-width: 52rem)')
     expect(shell).toContain('@container (min-width: 68rem)')
@@ -793,11 +800,11 @@ describe('documentation structure', () => {
   })
 
   test('the sidebar reaches every page, and the pager passes through all of them', async () => {
-    const navigation = await read('client/shared/scripts/navigation.js')
+    const navigation = await read('client/shared/utils/DocumentationUtils.js')
     const docs = await readJson('client/shared/data/docs.json')
     const catalogue = await readJson('client/shared/data/features.json')
 
-    expect(navigation).toContain('catalogue.groups')
+    expect(navigation).toContain('#catalogue().features')
     const groups = [...new Set(catalogue.features.map((feature) => feature.group))]
     for (const group of groups) expect(catalogue.groups).toContain(group)
 
@@ -806,14 +813,14 @@ describe('documentation structure', () => {
   })
 
   test('the search index covers features, not only guides', async () => {
-    const navigation = await read('client/shared/scripts/navigation.js')
+    const navigation = await read('client/shared/utils/DocumentationUtils.js')
     const search = await read('client/services/SearchService.js')
     const searchTemplate = await read('client/components/site/search/tac.html')
     expect(navigation).toContain('/docs/features/')
-    expect(navigation).toContain('export const searchDocs')
+    expect(navigation).toContain('static searchDocs')
     expect(navigation).toContain("kind: 'section'")
     expect(navigation).toContain("kind: 'feature'")
-    expect(search).toContain('this.results = searchDocs(query)')
+    expect(search).toContain('this.results = DocumentationUtils.searchDocs(query)')
     expect(searchTemplate).toContain('on:input="search.find($event.target.value)"')
     expect(search).toContain('keydown')
     expect(search).toContain('this.taskScheduler.render()')
@@ -888,7 +895,7 @@ describe('documentation structure', () => {
   })
 
   test('an example reads behaviour, then structure, then presentation', async () => {
-    const { inReadingOrder, rank } = await import('../client/shared/scripts/platforms.js')
+    const { PlatformUtils: { inReadingOrder, rank } } = await import('../client/shared/utils/PlatformUtils.js')
 
     expect(rank('client/services/TallyService.js')).toBeLessThan(rank('tac.html'))
     expect(rank('tac.html')).toBeLessThan(rank('tac.css'))
@@ -912,7 +919,7 @@ describe('documentation structure', () => {
   })
 
   test('the view and the styles are shown once, whatever the service language', async () => {
-    const { inReadingOrder, isCompanion } = await import('../client/shared/scripts/platforms.js')
+    const { PlatformUtils: { inReadingOrder, isCompanion } } = await import('../client/shared/utils/PlatformUtils.js')
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const files = languages.tac.files
 
@@ -932,8 +939,8 @@ describe('documentation structure', () => {
   })
 
   test('a platform strip only appears where the example actually differs', async () => {
-    const { spansPlatforms, filesFor, reachOf } =
-      await import('../client/shared/scripts/platforms.js')
+    const { PlatformUtils: { spansPlatforms, filesFor, reachOf } } =
+      await import('../client/shared/utils/PlatformUtils.js')
 
     const service = (extension) => `client/services/TallyService.${extension}`
     const names = (files) => files.map((file) => file.name)
@@ -969,8 +976,8 @@ describe('documentation structure', () => {
   })
 
   test('each home page platform tab shows every service language that can run there', async () => {
-    const { filesFor, inReadingOrder, isCompanion, languageOf } =
-      await import('../client/shared/scripts/platforms.js')
+    const { PlatformUtils: { filesFor, inReadingOrder, isCompanion, languageOf } } =
+      await import('../client/shared/utils/PlatformUtils.js')
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const shownOn = (platform) => inReadingOrder(filesFor(languages.tac.files, platform))
       .filter((file) => isCompanion(file.name))

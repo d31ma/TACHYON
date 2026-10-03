@@ -8,26 +8,52 @@
   "background_color": "#07090d",
   "theme_color": "#22d3ee",
   "icons": [
-    { "src": "/shared/assets/logo-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/shared/assets/logo-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/shared/assets/logo-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" },
-    { "src": "/shared/assets/logo.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "/shared/assets/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/shared/assets/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/shared/assets/logo-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/shared/assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
   ],
   "tac": {
-    "browserApis": ["preferenceStrings"],
+    "browserApis": [
+      "preferenceStrings"
+    ],
     "origin": "https://tachyon.del.ma",
     "python": {
       "runtime": "pyodide-314.0.7",
       "profile": "offline"
     },
-    "names": { "words": ["toc"] },
-    "budgets": { "script": 320 },
+    "names": {
+      "words": [
+        "toc"
+      ]
+    },
+    "budgets": {
+      "script": 320
+    },
     "application": {
       "id": "ma.del.tachyon.website",
       "version": "26.36.01"
     },
     "scripts": [
-      "/shared/scripts/imports.js"
+      "/shared/assets/duvay/duvay-wc.min.js",
+      "/shared/assets/duvay/duvay.min.js"
     ],
     "styles": [
       "/shared/styles/site.css"
@@ -76,6 +102,32 @@
         "data": "/shared/data/features.json",
         "values": "/features",
         "field": "id"
+      }
+    },
+    "scriptSources": {
+      "/shared/assets/duvay/duvay-wc.min.js": {
+        "package": "duvay",
+        "version": "26.35.01",
+        "license": "MIT",
+        "sha256": "bd252fed5bb8a90f4c4f9eb1ac8d948e8b5c9dcf88e35ccfe30915ba9d2960de"
+      },
+      "/shared/assets/duvay/duvay.min.js": {
+        "package": "duvay",
+        "version": "26.35.01",
+        "license": "MIT",
+        "sha256": "50ca0fd49f2232e3520f9e3d1fe8efa1fec1948a69e1076d43ed649a09b80d5b"
+      }
+    },
+    "styleSources": {
+      "/shared/styles/site.css": {
+        "kind": "foundation"
+      },
+      "/shared/assets/duvay/duvay.min.css": {
+        "kind": "vendor",
+        "package": "duvay",
+        "version": "26.35.01",
+        "license": "MIT",
+        "sha256": "dd0b9a6841313bc3b4bf30da476dc1aa88821a58220d662b679f83873b92c768"
       }
     }
   }

@@ -1,0 +1,71 @@
+.w-expand-header {
+  font-size: var(--step-md);
+  line-height: 1.35;
+}
+
+@layer brand {
+[id] {
+scroll-margin-top: 5rem;
+}
+
+.section {
+padding-block: var(--section-space);
+}
+
+.eyebrow {
+display: block;
+  font-size: var(--step-xs);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--w-primary);
+}
+
+.section-title {
+margin: .75rem 0 0;
+  font-size: var(--step-2xl);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+.inline-code {
+padding: .05em .35em;
+  border: 1px solid var(--w-border);
+  border-radius: 6px;
+  background: var(--w-surface-container-low);
+  font-family: var(--tachyon-mono);
+  font-size: var(--inline-code-size);
+  overflow-wrap: anywhere;
+}
+}
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities {
+  .mx-auto {
+    margin-inline: auto;
+  }
+  .mt-10 {
+    margin-top: calc(var(--spacing, 0.25rem) * 10);
+  }
+  .max-w-\[52rem\] {
+    max-width: 52rem;
+  }
+  .text-center {
+    text-align: center;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .opacity-85 {
+    opacity: 85%;
+  }
+}
+/* @tachyon-generated-tailwind:end */

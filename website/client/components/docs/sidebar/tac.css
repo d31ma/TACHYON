@@ -1,3 +1,29 @@
+@layer brand {
+[id] {
+scroll-margin-top: 5rem;
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+
+nav a,
+  footer a {
+display: inline-flex;
+    align-items: center;
+}
+}
+}
+
 .docs-nav {
   display: flex;
   flex-direction: column;
@@ -140,3 +166,18 @@
 .docs-nav__heading:empty {
   display: none;
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities {
+  .m-0 {
+    margin: 0px;
+  }
+  .list-none {
+    list-style-type: none;
+  }
+  .p-0 {
+    padding: 0px;
+  }
+}
+/* @tachyon-generated-tailwind:end */

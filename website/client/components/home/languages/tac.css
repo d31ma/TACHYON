@@ -1,0 +1,108 @@
+@layer brand {
+.w-btn {
+font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+[id] {
+scroll-margin-top: 5rem;
+}
+
+.section {
+padding-block: var(--section-space);
+}
+
+.eyebrow {
+display: block;
+  font-size: var(--step-xs);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--w-primary);
+}
+
+.section-title {
+margin: .75rem 0 0;
+  font-size: var(--step-2xl);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+
+.section-lede {
+margin: 1rem auto 0;
+  max-width: 62ch;
+  font-size: var(--step-md);
+  line-height: 1.6;
+  color: var(--w-text-subtle);
+  text-wrap: pretty;
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+.inline-code {
+padding: .05em .35em;
+  border: 1px solid var(--w-border);
+  border-radius: 6px;
+  background: var(--w-surface-container-low);
+  font-family: var(--tachyon-mono);
+  font-size: var(--inline-code-size);
+  overflow-wrap: anywhere;
+}
+
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+}
+
+@media (prefers-contrast: more) {
+.section-lede {
+color: var(--w-text);
+}
+}
+}
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities {
+  .mx-auto {
+    margin-inline: auto;
+  }
+  .mt-4 {
+    margin-top: calc(var(--spacing, 0.25rem) * 4);
+  }
+  .mt-8 {
+    margin-top: calc(var(--spacing, 0.25rem) * 8);
+  }
+  .max-w-\[72ch\] {
+    max-width: 72ch;
+  }
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+  .justify-center {
+    justify-content: center;
+  }
+  .text-center {
+    text-align: center;
+  }
+  .text-sm {
+    font-size: var(--text-sm, var(--step-sm));
+    line-height: var(--tw-leading, var(--text-sm--line-height, 1.5));
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .opacity-70 {
+    opacity: 70%;
+  }
+}
+/* @tachyon-generated-tailwind:end */

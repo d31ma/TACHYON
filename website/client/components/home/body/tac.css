@@ -1,0 +1,11 @@
+@layer brand {
+w-container {
+max-width: min(94vw, 84rem);
+  padding-inline: var(--gutter);
+}
+}
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities;
+/* @tachyon-generated-tailwind:end */

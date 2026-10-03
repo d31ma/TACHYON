@@ -6,13 +6,23 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "paths": {
-      "/models/*": ["./website/client/models/*"],
-      "/shared/*": ["./website/client/shared/*"]
+      "/models/*": [
+        "./website/client/models/*"
+      ],
+      "/shared/*": [
+        "./website/client/shared/*"
+      ],
+      "/helpers/*": [
+        "./website/client/helpers/*"
+      ]
     },
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["bun-types", "@types/node"],
+    "types": [
+      "bun-types",
+      "@types/node"
+    ],
     "isolatedModules": true,
     "allowJs": true,
     "checkJs": true,
@@ -28,5 +38,12 @@
     "website/**/*.js",
     "website/**/*.ts"
   ],
-  "exclude": ["**/*.as.ts", "website/content", "website/dist", "website/dist-debug", "website/node_modules*", "website/client/shared/assets/duvay/**/*.js"]
+  "exclude": [
+    "**/*.as.ts",
+    "website/content",
+    "website/dist",
+    "website/dist-debug",
+    "website/node_modules*",
+    "website/client/shared/assets/duvay/**/*.js"
+  ]
 }

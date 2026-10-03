@@ -52,9 +52,10 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `bun run verify:snippets --section="<heading>"` | Checks one docs section, such as `--section="Security"`. It runs only the guides suite. Add `--suite=` to choose another suite, for example `--suite=tsc`. |
 | `bun run verify:snippets --no-cache` | Builds every example again, even one that passed before with the same inputs. Use it for a scheduled full run. |
 | `bun run coverage:languages` | Lists, for each docs section and feature, which Tac and Yon languages have a tab and why each other language has none: a missing example, a build error that refuses it (with its `TY` code), or not applicable. A section or feature marks a language as not applicable with `"notApplicable": ["js", "ts"]`, and it counts only when its text names the language and says why. Add `--json` for a report that tools read, or `--strict` to fail on a gap that has no example and no stated reason. |
-| `bun run styles` | Creates `tailwind.css` again. Run it after you change a template. |
-| `bun run styles:check` | Fails when the committed `tailwind.css` is out of date. |
+| `bun run styles` | Refreshes each component's generated Tailwind region. Run it after you change a template. |
+| `bun run styles:check` | Checks generated component regions and shared variable registrations without writing files. |
 | `bun run check:responsive` | Checks the layout at many screen widths. |
+| `node scripts/check-migration.mjs` | Runs the supplemental browser migration gate against an explicit retained build; see `docs/queue/NEXT/TAC-WEBSITE-MIGRATION-PROGRESS.md` at the repository root for required inputs. |
 
 `verify:snippets` runs before the site is published. An example that does not
 build is worse than no example.
@@ -116,8 +117,33 @@ the same class specificity, so the stylesheet orders them with layers:
 
 `tailwind.src.css` turns DuVay's design tokens into Tailwind utilities. So a
 template writes `text-sm` or `border-line` instead of an inline style, and both
-follow the light and dark themes. Tailwind is imported without Preflight,
-because DuVay owns the base layer.
+follow the light and dark themes. Tailwind is generated without Preflight, because DuVay owns the base layer.
+
+`client/shared/styles/site.css` contains only document theme variables, body
+font/color defaults, contrast and reduced-motion resets. Its imported DuVay
+stylesheet is pinned by the manifest's `styleSources` entry. The two DuVay scripts
+are ordinary declared `tac.scripts`, with exact `scriptSources` hashes. The
+vendor directory retains the version, MIT license and asset provenance.
+
+Component layout and typography live beside the component HTML in `tac.css`.
+`bun run styles` reads each template independently through the existing pinned
+Tailwind scanner/compiler. It replaces only the tool-read generated region in
+that component's sheet and preserves authored rules outside the region. Tailwind
+custom-property registrations live in `tailwind-properties.css` because CSS
+`@property` registration is global; the generated selectors remain scoped by
+Tachyon. No shared generated utility sheet or style-generating script is loaded.
+
+On a machine with externally routed dependencies, set
+`TACHYON_WEBSITE_DEPENDENCIES` to the website's existing `node_modules` directory
+when running the generator; no dependency alias is needed inside synced source.
+
+`SearchService` owns theme startup and injects the annotated `ThemeHelper`, which restores the saved `w-theme` value during the service's registered startup lifecycle. `site-layout` references
+`search.theme`, so every route activates that owner even before search opens.
+The helper owns only storage/root attribute operations and has no lifecycle
+annotations or stored theme state. This reuses the existing browser owner and
+keeps the website's service languages balanced.
+Preference access stays in services. `DocumentationUtils` and `PlatformUtils`
+contain only stateless static methods at the canonical shared utility root.
 
 ## Sitemap and robots
 

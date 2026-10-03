@@ -1,3 +1,61 @@
+@layer brand {
+[id] {
+scroll-margin-top: 5rem;
+}
+
+.section {
+padding-block: var(--section-space);
+}
+
+.eyebrow {
+display: block;
+  font-size: var(--step-xs);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--w-primary);
+}
+
+.section-title {
+margin: .75rem 0 0;
+  font-size: var(--step-2xl);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+
+.section-lede {
+margin: 1rem auto 0;
+  max-width: 62ch;
+  font-size: var(--step-md);
+  line-height: 1.6;
+  color: var(--w-text-subtle);
+  text-wrap: pretty;
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+.inline-code {
+padding: .05em .35em;
+  border: 1px solid var(--w-border);
+  border-radius: 6px;
+  background: var(--w-surface-container-low);
+  font-family: var(--tachyon-mono);
+  font-size: var(--inline-code-size);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-contrast: more) {
+.section-lede {
+color: var(--w-text);
+}
+}
+}
+
 .pillars {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(max(17rem, (100% - 2rem) / 3), 1fr));
@@ -25,3 +83,15 @@
   opacity: .75;
   text-wrap: pretty;
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities {
+  .mt-10 {
+    margin-top: calc(var(--spacing, 0.25rem) * 10);
+  }
+  .text-center {
+    text-align: center;
+  }
+}
+/* @tachyon-generated-tailwind:end */

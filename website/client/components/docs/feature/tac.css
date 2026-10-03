@@ -1,3 +1,51 @@
+@layer brand {
+.docs-shell__nav,
+.docs-toc {
+padding-block: var(--gutter);
+}
+
+.docs-toc {
+display: none;
+}
+
+@container (min-width: 52rem) {
+.docs-shell__nav,
+  .docs-toc {
+position: sticky;
+    top: 4rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+}
+
+@container (min-width: 68rem) {
+.docs-toc {
+display: block;
+}
+}
+
+.docs-article {
+min-width: 0;
+  padding-block: var(--gutter);
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+.inline-code {
+padding: .05em .35em;
+  border: 1px solid var(--w-border);
+  border-radius: 6px;
+  background: var(--w-surface-container-low);
+  font-family: var(--tachyon-mono);
+  font-size: var(--inline-code-size);
+  overflow-wrap: anywhere;
+}
+}
+
 .feature-group {
   font-size: var(--step-xs);
   text-transform: uppercase;
@@ -14,3 +62,55 @@
 .feature-group a:hover {
   text-decoration: underline;
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer utilities {
+  .mt-3 {
+    margin-top: calc(var(--spacing, 0.25rem) * 3);
+  }
+  .mt-4 {
+    margin-top: calc(var(--spacing, 0.25rem) * 4);
+  }
+  .mt-6 {
+    margin-top: calc(var(--spacing, 0.25rem) * 6);
+  }
+  .text-lede {
+    font-size: var(--text-lede, var(--step-md));
+    line-height: var(--tw-leading, var(--text-lede--line-height, 1.6));
+  }
+  .text-sm {
+    font-size: var(--text-sm, var(--step-sm));
+    line-height: var(--tw-leading, var(--text-sm--line-height, 1.5));
+  }
+  .text-title {
+    font-size: var(--text-title, var(--step-3xl));
+    line-height: var(--tw-leading, var(--text-title--line-height, 1.2));
+  }
+  .font-semibold {
+    --tw-font-weight: var(--font-weight-semibold, 600);
+    font-weight: var(--font-weight-semibold, 600);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .opacity-60 {
+    opacity: 60%;
+  }
+  .opacity-80 {
+    opacity: 80%;
+  }
+}
+
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
+    *, ::before, ::after, ::backdrop {
+      --tw-font-weight: initial;
+    }
+  }
+}
+/* @tachyon-generated-tailwind:end */

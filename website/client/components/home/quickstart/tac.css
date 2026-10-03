@@ -1,3 +1,119 @@
+@layer brand {
+[id] {
+scroll-margin-top: 5rem;
+}
+
+.section {
+padding-block: var(--section-space);
+}
+
+.eyebrow {
+display: block;
+  font-size: var(--step-xs);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--w-primary);
+}
+
+.section-title {
+margin: .75rem 0 0;
+  font-size: var(--step-2xl);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+
+.section-lede {
+margin: 1rem auto 0;
+  max-width: 62ch;
+  font-size: var(--step-md);
+  line-height: 1.6;
+  color: var(--w-text-subtle);
+  text-wrap: pretty;
+}
+
+.grid-auto {
+display: grid;
+  gap: var(--grid-gap, 1rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--col, 18rem)), 1fr));
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+.inline-code {
+padding: .05em .35em;
+  border: 1px solid var(--w-border);
+  border-radius: 6px;
+  background: var(--w-surface-container-low);
+  font-family: var(--tachyon-mono);
+  font-size: var(--inline-code-size);
+  overflow-wrap: anywhere;
+}
+
+.demo-code .code-block {
+margin: .5rem 1rem 1rem;
+}
+
+.code-copy {
+position: absolute;
+  top: .5rem;
+  right: .5rem;
+  padding: .25rem .5rem;
+  border: 1px solid var(--w-border, currentColor);
+  border-radius: var(--w-radius-md, 8px);
+  background: var(--w-surface, canvas);
+  color: inherit;
+  font: inherit;
+  font-size: var(--step-sm);
+  line-height: 1.5;
+  opacity: .45;
+  cursor: pointer;
+}
+
+.code-block:hover .code-copy,
+.code-copy:focus-visible {
+opacity: 1;
+}
+
+.panel,
+.code-block {
+background: var(--w-surface-container-low);
+  border: 1px solid var(--w-border);
+  border-radius: var(--w-radius-lg, 12px);
+}
+
+.code-block {
+position: relative;
+  max-width: 100%;
+  margin: 0;
+  padding: 1rem 4.5rem 1rem 1rem;
+  overflow-x: auto;
+  font-size: var(--step-sm);
+  line-height: 1.6;
+}
+
+.code-block code {
+font-family: var(--tachyon-mono);
+}
+
+.stat-value {
+font-family: var(--tachyon-mono);
+  font-weight: 700;
+  color: var(--w-primary);
+}
+
+@media (prefers-contrast: more) {
+.section-lede {
+color: var(--w-text);
+}
+}
+}
+
 .quickstart-step {
   min-width: 0;
 }
@@ -10,3 +126,48 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer utilities {
+  .mt-3 {
+    margin-top: calc(var(--spacing, 0.25rem) * 3);
+  }
+  .mt-10 {
+    margin-top: calc(var(--spacing, 0.25rem) * 10);
+  }
+  .p-gutter {
+    padding: var(--spacing-gutter, clamp(1rem, 0.5rem + 2vw, 2.5rem));
+  }
+  .text-center {
+    text-align: center;
+  }
+  .text-2xl {
+    font-size: var(--text-2xl, 1.5rem);
+    line-height: var(--tw-leading, var(--text-2xl--line-height, calc(2 / 1.5)));
+  }
+  .text-card-title {
+    font-size: var(--text-card-title, var(--step-md));
+    line-height: var(--tw-leading, var(--text-card-title--line-height, 1.35));
+  }
+  .font-semibold {
+    --tw-font-weight: var(--font-weight-semibold, 600);
+    font-weight: var(--font-weight-semibold, 600);
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .opacity-70 {
+    opacity: 70%;
+  }
+}
+
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
+    *, ::before, ::after, ::backdrop {
+      --tw-font-weight: initial;
+    }
+  }
+}
+/* @tachyon-generated-tailwind:end */

@@ -1,3 +1,53 @@
+@layer brand {
+w-container {
+max-width: min(94vw, 84rem);
+  padding-inline: var(--gutter);
+}
+
+.docs-frame {
+container-type: inline-size;
+}
+
+.docs-shell {
+display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gutter);
+  align-items: start;
+  min-height: calc(100vh - 4rem);
+}
+
+.docs-shell__nav,
+.docs-toc {
+padding-block: var(--gutter);
+}
+
+@container (min-width: 52rem) {
+.docs-shell {
+grid-template-columns: 15rem minmax(0, 1fr);
+}
+
+.docs-shell__nav,
+  .docs-toc {
+position: sticky;
+    top: 4rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+}
+
+@container (min-width: 68rem) {
+.docs-shell {
+grid-template-columns: 15rem minmax(0, 1fr) 13rem;
+}
+}
+}
+
 .docs-shell > [data-tachyon-component] {
   display: contents;
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities;
+/* @tachyon-generated-tailwind:end */

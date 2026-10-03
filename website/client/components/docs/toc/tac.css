@@ -1,3 +1,10 @@
+@layer brand {
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+}
+
 .docs-toc__heading {
   font-size: var(--step-xs);
   font-weight: 700;
@@ -29,3 +36,18 @@
   border-left-color: currentColor;
   opacity: 1;
 }
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities {
+  .m-0 {
+    margin: 0px;
+  }
+  .list-none {
+    list-style-type: none;
+  }
+  .p-0 {
+    padding: 0px;
+  }
+}
+/* @tachyon-generated-tailwind:end */

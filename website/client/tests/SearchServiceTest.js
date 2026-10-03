@@ -7,6 +7,7 @@ export default class SearchServiceTest {
   }
 
   mounted(service) {
+    service.themeHelper = new ThemeHelper()
     service.renders = 0
     service.taskScheduler = { render: async () => { service.renders += 1 } }
     const lifetime = new AbortController()
