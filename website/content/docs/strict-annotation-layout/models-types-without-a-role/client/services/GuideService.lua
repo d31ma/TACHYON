@@ -1,3 +1,4 @@
+-- @Service
 ---@class GuideService
 GuideService = {
   ---@type string

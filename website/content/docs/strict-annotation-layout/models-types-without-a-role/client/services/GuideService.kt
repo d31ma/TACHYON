@@ -1,5 +1,6 @@
 import models.Guide
 
+@Service
 class GuideService {
     var title: String = ""
     var pages: Int = 0

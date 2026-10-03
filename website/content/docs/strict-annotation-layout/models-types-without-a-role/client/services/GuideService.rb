@@ -1,3 +1,4 @@
+#[Service]
 class GuideService
   # @return [String]
   attr_reader :title

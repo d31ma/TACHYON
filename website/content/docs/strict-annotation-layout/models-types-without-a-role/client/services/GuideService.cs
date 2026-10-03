@@ -1,5 +1,6 @@
 using Models;
 
+[Service]
 public class GuideService {
     public string title;
     public int pages;

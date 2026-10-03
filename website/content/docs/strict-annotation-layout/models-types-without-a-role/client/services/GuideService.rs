@@ -1,5 +1,6 @@
 use crate::models::Guide;
 
+#[Service]
 struct GuideService {
     title: String,
     pages: i64,

@@ -1,3 +1,4 @@
+@Service
 final class GuideService {
     var title: String
     var pages: Int

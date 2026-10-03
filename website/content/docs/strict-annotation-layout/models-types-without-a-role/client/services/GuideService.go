@@ -1,3 +1,4 @@
+// @Service
 type GuideService struct {
 	Title string
 	Pages int64

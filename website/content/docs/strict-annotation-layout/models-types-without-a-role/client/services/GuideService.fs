@@ -1,5 +1,6 @@
 open Models
 
+[<Service>]
 type GuideService() =
     let guide = { Title = "Models hold types"; Pages = 3 }
 
