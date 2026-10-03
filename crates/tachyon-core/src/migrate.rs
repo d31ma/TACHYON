@@ -46,6 +46,22 @@ pub struct MigrationFinding {
 }
 
 impl MigrationFinding {
+    fn unreadable(relative: &str, failure: &Failure) -> Self {
+        let detail = failure.diagnostics().first().map_or_else(
+            || failure.to_string(),
+            |diagnostic| diagnostic.message.clone(),
+        );
+        Self::new(
+            relative,
+            "source.unreadable",
+            MigrationStatus::Unsupported,
+            &detail,
+            Some(
+                "Save the file as UTF-8 text, or move it out of the project folders, then run ty migrate check again.",
+            ),
+        )
+    }
+
     fn new(
         source: &str,
         feature: &str,
@@ -270,7 +286,9 @@ fn scan_project(
                 continue;
             }
             let relative = portable_path(path.strip_prefix(root).unwrap_or(&path));
-            classify_file(root, &relative, &name, signals, findings)?;
+            if let Err(unreadable) = classify_file(root, &relative, &name, signals, findings) {
+                findings.push(MigrationFinding::unreadable(&relative, &unreadable));
+            }
             if findings.len() > MigrationAnalysis::MAX_FINDINGS {
                 return Err(migration_failure(
                     "Project exceeds the limit of 10,000 migration findings.",
@@ -1278,6 +1296,25 @@ mod tests {
         let finding = with_source(&report, ".tachyon/topics");
         assert_eq!(finding.status, MigrationStatus::Changed);
         assert!(finding.detail.contains("data/topics"));
+    }
+
+    #[test]
+    fn a_file_that_is_not_utf8_text_is_reported_and_the_check_goes_on() {
+        let root = project();
+        let broken = root.path().join("client/services/BrokenService.js");
+        fs::create_dir_all(broken.parent().expect("parent")).expect("directory");
+        fs::write(&broken, [0xff, 0xfe, 0x00]).expect("bytes");
+        write(root.path(), "client/pages/tac.html", "<p>kept</p>\n");
+        let report = check(root.path());
+        let finding = with_feature(&report, "source.unreadable");
+        assert_eq!(finding.source, "client/services/BrokenService.js");
+        assert_eq!(finding.status, MigrationStatus::Unsupported);
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|finding| finding.source == "client/pages/tac.html")
+        );
     }
 
     fn with_source<'a>(report: &'a MigrationReport, source: &str) -> &'a MigrationFinding {

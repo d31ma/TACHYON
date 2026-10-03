@@ -127,6 +127,9 @@ machine contracts have their own, independent major versions.
   a column-0 `end` of an inner block or a line that starts with `endpoint`
   no longer moves the generated wrapper.
 
+- `ty migrate check` reports a source file that is not UTF-8 text as an
+  unsupported finding and checks the rest of the project instead of stopping.
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
