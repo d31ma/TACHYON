@@ -13,11 +13,13 @@ impl SharedAssets {
     const MAX_ASSET_BYTES: u64 = 16 * 1_048_576;
     const MAX_ASSETS: usize = 4_096;
     const MAX_TOTAL_BYTES: u64 = 64 * 1_048_576;
+    const UTILITY_ASSETS: &'static str = "shared/utils";
 
     pub(super) fn collect(project_root: &Path) -> Result<Vec<(PathBuf, Vec<u8>)>, Failure> {
         let root = project_root.join("client/shared");
         let assets = Self::walk_when_present(&root)?;
         let mut assets = super::shared_scripts::SharedScripts::prepare(project_root, assets)?;
+        assets.retain(|(path, _)| !path.starts_with(Self::UTILITY_ASSETS));
         assets.sort_by_key(|asset| PortablePath::of(&asset.0));
         Ok(assets)
     }
