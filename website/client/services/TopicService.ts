@@ -136,12 +136,12 @@ export default class TopicService {
   }
 
   private static wordsIn(entry: Guide): number {
-    const texts = [entry.summary, ...entry.sections.map(TopicService.bodyOf)]
+    const texts = [entry.summary, ...entry.sections.map(TopicService.proseOf)]
     return texts.join(' ').split(/\s+/).filter(Boolean).length
   }
 
-  private static bodyOf(section: Section): string {
-    return section.body ?? ''
+  private static proseOf(section: Section): string {
+    return `${section.summary ?? ''} ${section.body ?? ''}`
   }
 
   private sourceOf(found: Guide | undefined): string {

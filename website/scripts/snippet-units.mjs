@@ -6,7 +6,7 @@ import { SiteContent } from './site-content.mjs'
 /** @typedef {{ name: string, extension: string, code: string, named: boolean }} UnitFile */
 /** @typedef {{ page: string, id: string, title: string, text: string, files: UnitFile[], notApplicable?: string[] }} SnippetUnit */
 /** @typedef {{ name: string, code: CodeFile | string }} ContentFile */
-/** @typedef {{ heading: string, body?: string, code?: CodeFile | string, files?: ContentFile[], notApplicable?: string[] }} ContentSection */
+/** @typedef {{ heading: string, summary?: string, body?: string, code?: CodeFile | string, files?: ContentFile[], notApplicable?: string[] }} ContentSection */
 /** @typedef {{ id: string, title: string, summary?: string, files?: ContentFile[], notApplicable?: string[] }} ContentFeature */
 
 export class SnippetUnits {
@@ -58,7 +58,7 @@ export class SnippetUnits {
       page: SnippetUnits.docs,
       id: slug,
       title: section.heading,
-      text: SnippetUnits.textOf(section.body ?? ''),
+      text: [section.summary ?? '', SnippetUnits.textOf(section.body ?? '')].join('\n\n'),
       files: [...SnippetUnits.namedFiles(section.files ?? []), ...SnippetUnits.unnamedFiles(section.code)],
       notApplicable: section.notApplicable,
     }

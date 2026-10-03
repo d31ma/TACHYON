@@ -87,6 +87,10 @@ shows, and `code` names the file:
 `{ "include": "streaming/section.json" }` reads another JSON file. Paths are
 relative to the JSON file and stay inside `content/`.
 
+A docs section has a `heading` and may have a `summary` and a `body`. The site
+shows the `summary` as a lede paragraph under the heading, then the `body`.
+Search, the reading time and the language coverage audit read both.
+
 A section folder is laid out like a small Tachyon project: each example sits
 at the path its tab shows. Three names differ so that git treats them as
 examples: `example.env`, `example.gitignore` and `example.tachyonrc` show as

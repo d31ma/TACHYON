@@ -51,6 +51,15 @@ export default class TopicServiceTest {
     Assert.equals(10, new TopicService().words(), 'the not-found page counts only its summary')
   }
 
+  async testWordsCountEverySectionSummary() {
+    history.pushState({}, '', '/docs/annotations')
+    const topic = new TopicService()
+    const entry = topic.entry()
+    const withoutSummaries = [entry.summary, ...entry.sections.map((section: { body?: string }) => section.body ?? '')]
+    const count = withoutSummaries.join(' ').split(/\s+/).filter(Boolean).length
+    Assert.isTrue(topic.words() > count, 'the section summaries of the annotations guide count as words')
+  }
+
   async testInitializeTitlesTheDocumentAfterTheGuide() {
     history.pushState({}, '', '/docs/nowhere')
     const topic = new TopicService()

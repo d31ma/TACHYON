@@ -66,6 +66,12 @@ machine contracts have their own, independent major versions.
 
 - A Kotlin or Java Tac model marked Topic builds again. The model file check
   read the Topic marker as behavior and stopped the build with `TY1310`.
+- The website shows a docs section's `summary`. It was in 27 `section.json`
+  files, such as the annotation sections, but the docs page showed only the
+  `body`. The summary is now a lede paragraph under the section heading.
+  Search, the reading time and the language coverage audit read it too, so a
+  refusal stated only in a summary counts.
+
 - The docs no longer teach the removed `cacheManager` resource or the
   removed `cache` option of `@HTTPClient`. The README, the application events
   and client runtime migration guides, the parity ledger, ADR 0059 and ADR

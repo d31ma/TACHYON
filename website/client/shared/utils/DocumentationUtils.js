@@ -150,7 +150,7 @@ export class DocumentationUtils {
       title: `${entry.title} · ${section.heading}`,
       path: `${entry.path}#${anchor}`,
       kind: 'section',
-      text: DocumentationUtils.#joinText([section.body, section.code, ...code]),
+      text: DocumentationUtils.#joinText([section.summary, section.body, section.code, ...code]),
     }
   }
 

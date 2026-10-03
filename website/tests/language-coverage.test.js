@@ -119,6 +119,12 @@ describe('the annotation rule table parser', () => {
 })
 
 describe('the language coverage audit', () => {
+  test('a section states its refusals in its summary or its body', () => {
+    const unit = SnippetUnits.sectionUnit('streams', { heading: 'Streaming: Yon', summary: 'Java stays single-response.', body: 'Stream many messages.' })
+    expect(unit.text).toContain('Java stays single-response.')
+    expect(unit.text).toContain('Stream many messages.')
+  })
+
   test('an explicit Python runtime manifest is configuration rather than a programming language', () => {
     const page = { tac: { files: [
       { name: 'client/manifest.json' },

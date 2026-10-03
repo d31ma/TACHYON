@@ -342,6 +342,13 @@ describe('language coverage', () => {
     expect(topicTemplate).toContain(':axis="section.axis')
   })
 
+  test('a docs section shows its summary as a lede before its body', async () => {
+    const topicTemplate = await read('client/components/docs/topic/tac.html')
+    const lede = topicTemplate.indexOf('inlineCode.parts(section.summary)')
+    expect(lede).toBeGreaterThan(-1)
+    expect(lede).toBeLessThan(topicTemplate.indexOf('block of section.blocks'))
+  })
+
   test('storage documents managed resources in every Yon language and browser Client discovery', async () => {
     const docs = JSON.parse(await read('client/shared/data/docs.json'))
     const repositories = docs.topics['server-data'].sections.find(section => section.heading === 'DataSource in a service, in every Yon language')

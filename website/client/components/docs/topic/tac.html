@@ -11,6 +11,9 @@
   <loop :for="section of topic.sections()">
     <section class="mt-10">
       <h2 :id="section.anchor" class="text-heading font-semibold text-balance">{section.heading}</h2>
+      <logic :if="section.summary">
+        <p class="mt-2 font-medium opacity-90 text-pretty"><loop :for="part of inlineCode.parts(section.summary)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></p>
+      </logic>
       <loop :for="block of section.blocks">
         <logic :if="block.text">
           <p class="mt-2 opacity-85 text-pretty"><loop :for="part of inlineCode.parts(block.text)"><logic :if="part.code"><code class="inline-code">{part.text}</code></logic><logic :if="!part.code">{part.text}</logic></loop></p>

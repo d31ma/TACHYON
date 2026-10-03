@@ -66,4 +66,10 @@ describe('actual documentation source with local JSON imports', () => {
     expect(DocumentationUtils.searchDocs('browser', 100).some(entry => entry.kind === 'section')).toBe(true)
     expect(DocumentationUtils.features().every(entry => entry.path === `/docs/features/${entry.id}`)).toBe(true)
   })
+
+  test('search reads a section summary', async () => {
+    const { DocumentationUtils } = await import('../client/shared/utils/DocumentationUtils.js')
+    const hits = DocumentationUtils.searchDocs('Tachyon passes one when it creates the service', 100)
+    expect(hits.map(entry => entry.path)).toContain('/docs/annotations#lifecycle-and-events-tac')
+  })
 })
