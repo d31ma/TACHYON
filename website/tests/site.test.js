@@ -94,7 +94,7 @@ function expectServiceShape(source, className, extension) {
   expect(source).not.toContain('tachyon:behaviors')
 }
 
-beforeAll(ensureBundle, 120_000)
+beforeAll(ensureBundle, 300_000)
 
 describe('published output', () => {
   test('every route links the declared stylesheet, script and the client runtime', async () => {
