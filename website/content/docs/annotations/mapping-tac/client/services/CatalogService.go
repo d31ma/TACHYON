@@ -1,5 +1,6 @@
 import "fmt"
 
+// @Service
 type CatalogService struct {
 	Title string
 	// @Needs
