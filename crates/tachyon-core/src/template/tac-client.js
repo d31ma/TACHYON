@@ -32,10 +32,150 @@ class Rendering {
   static mounts = []
 }
 
+/** @typedef {{nodes: object[], named: Record<string, object[]>, environment: object}} RenderSlot */
+/** @typedef {{slot: RenderSlot | null, namespace: string}} RenderContext */
+
 class Elements {
   static records = new WeakMap()
   static listeners = new WeakMap()
   static #scopeProperty = '--_tac-owner'
+  /** @type {string} */
+  static #htmlNamespace = 'http://www.w3.org/1999/xhtml'
+  /** @type {string} */
+  static #svgNamespace = 'http://www.w3.org/2000/svg'
+  /** @type {string} */
+  static #svgTag = 'svg'
+  /** @type {string} */
+  static #foreignObjectTag = 'foreignObject'
+  /** @type {string} */
+  static #xlinkNamespace = 'http://www.w3.org/1999/xlink'
+  /** @type {string} */
+  static #xmlNamespace = 'http://www.w3.org/XML/1998/namespace'
+  /** @type {string} */
+  static #xmlnsNamespace = 'http://www.w3.org/2000/xmlns/'
+  /** @type {RenderContext} */
+  static rootContext = { slot: null, namespace: Elements.#htmlNamespace }
+  /** @type {string[]} */
+  static #htmlIntegrationPoints = [Elements.#foreignObjectTag, 'desc', 'title']
+  /** @type {Map<string, string>} */
+  static #svgTags = new Map([
+    'altGlyph', 'altGlyphDef', 'altGlyphItem', 'animateColor', 'animateMotion',
+    'animateTransform', 'clipPath', 'feBlend', 'feColorMatrix', 'feComponentTransfer',
+    'feComposite', 'feConvolveMatrix', 'feDiffuseLighting', 'feDisplacementMap',
+    'feDistantLight', 'feDropShadow', 'feFlood', 'feFuncA', 'feFuncB', 'feFuncG',
+    'feFuncR', 'feGaussianBlur', 'feImage', 'feMerge', 'feMergeNode', 'feMorphology',
+    'feOffset', 'fePointLight', 'feSpecularLighting', 'feSpotLight', 'feTile',
+    'feTurbulence', Elements.#foreignObjectTag, 'glyphRef', 'linearGradient', 'radialGradient',
+    'textPath',
+  ].map(name => /** @type {[string, string]} */ ([name.toLowerCase(), name])))
+  /** @type {Map<string, string>} */
+  static #svgAttributes = new Map([
+    'attributeName', 'attributeType', 'baseFrequency', 'baseProfile', 'calcMode',
+    'clipPathUnits', 'diffuseConstant', 'edgeMode', 'filterUnits', 'glyphRef',
+    'gradientTransform', 'gradientUnits', 'kernelMatrix', 'kernelUnitLength',
+    'keyPoints', 'keySplines', 'keyTimes', 'lengthAdjust', 'limitingConeAngle',
+    'markerHeight', 'markerUnits', 'markerWidth', 'maskContentUnits', 'maskUnits',
+    'numOctaves', 'pathLength', 'patternContentUnits', 'patternTransform',
+    'patternUnits', 'pointsAtX', 'pointsAtY', 'pointsAtZ', 'preserveAlpha',
+    'preserveAspectRatio', 'primitiveUnits', 'refX', 'refY', 'repeatCount',
+    'repeatDur', 'requiredExtensions', 'requiredFeatures', 'specularConstant',
+    'specularExponent', 'spreadMethod', 'startOffset', 'stdDeviation', 'stitchTiles',
+    'surfaceScale', 'systemLanguage', 'tableValues', 'targetX', 'targetY',
+    'textLength', 'viewBox', 'viewTarget', 'xChannelSelector', 'yChannelSelector',
+    'zoomAndPan',
+  ].map(name => /** @type {[string, string]} */ ([`${Elements.#svgNamespace}:${name.toLowerCase()}`, name])))
+  /** @type {Map<string, string>} */
+  static #foreignAttributes = new Map([
+    ['xlink:actuate', Elements.#xlinkNamespace],
+    ['xlink:arcrole', Elements.#xlinkNamespace],
+    ['xlink:href', Elements.#xlinkNamespace],
+    ['xlink:role', Elements.#xlinkNamespace],
+    ['xlink:show', Elements.#xlinkNamespace],
+    ['xlink:title', Elements.#xlinkNamespace],
+    ['xlink:type', Elements.#xlinkNamespace],
+    ['xml:lang', Elements.#xmlNamespace],
+    ['xml:space', Elements.#xmlNamespace],
+    ['xmlns', Elements.#xmlnsNamespace],
+    ['xmlns:xlink', Elements.#xmlnsNamespace],
+  ].map(([name, namespace]) => /** @type {[string, string]} */ ([`${Elements.#svgNamespace}:${name}`, namespace])))
+
+  /** @param {string} tag @param {string} namespace @returns {Element} */
+  static create(tag, namespace) {
+    const svg = Elements.#usesSvg(tag, namespace)
+    const adjusted = Elements.#adjustedTag(tag)
+    return Elements.#createElement(tag, adjusted, svg)
+  }
+
+  /** @param {Element} element @param {RenderContext} context @returns {RenderContext} */
+  static childContext(element, context) {
+    const namespace = Elements.#childNamespace(element)
+    return { slot: context.slot, namespace }
+  }
+
+  /** @param {Element} element @param {string} name @param {string} value @returns {void} */
+  static setAttribute(element, name, value) {
+    const namespace = Elements.#attributeNamespace(element, name)
+    const adjusted = Elements.#adjustedAttribute(element, name)
+    Elements.#writeAttribute(element, namespace, adjusted, value)
+  }
+
+  /** @param {Element} element @param {string} name @returns {void} */
+  static removeAttribute(element, name) {
+    const namespace = Elements.#attributeNamespace(element, name)
+    const adjusted = Elements.#adjustedAttribute(element, name)
+    const local = name.slice(name.indexOf(':') + 1)
+    Elements.#deleteAttribute(element, namespace, adjusted, local)
+  }
+
+  /** @param {string} tag @param {string} namespace @returns {boolean} */
+  static #usesSvg(tag, namespace) {
+    return namespace === Elements.#svgNamespace || tag === Elements.#svgTag
+  }
+
+  /** @param {string} tag @returns {string} */
+  static #adjustedTag(tag) {
+    return Elements.#svgTags.get(tag) ?? tag
+  }
+
+  /** @param {string} tag @param {string} adjusted @param {boolean} svg @returns {Element} */
+  static #createElement(tag, adjusted, svg) {
+    if (svg) return document.createElementNS(Elements.#svgNamespace, adjusted)
+    return document.createElement(tag)
+  }
+
+  /** @param {Element} element @returns {string} */
+  static #childNamespace(element) {
+    if (element.namespaceURI === Elements.#svgNamespace && !Elements.#htmlIntegrationPoints.includes(element.localName)) return Elements.#svgNamespace
+    return Elements.#htmlNamespace
+  }
+
+  /** @param {Element} element @param {string} name @returns {string | null} */
+  static #attributeNamespace(element, name) {
+    return Elements.#foreignAttributes.get(`${element.namespaceURI}:${name}`) ?? null
+  }
+
+  /** @param {Element} element @param {string} name @returns {string} */
+  static #adjustedAttribute(element, name) {
+    return Elements.#svgAttributes.get(`${element.namespaceURI}:${name}`) ?? name
+  }
+
+  /** @param {Element} element @param {string | null} namespace @param {string} name @param {string} value @returns {void} */
+  static #writeAttribute(element, namespace, name, value) {
+    if (namespace) {
+      element.setAttributeNS(namespace, name, value)
+      return
+    }
+    element.setAttribute(name, value)
+  }
+
+  /** @param {Element} element @param {string | null} namespace @param {string} name @param {string} local @returns {void} */
+  static #deleteAttribute(element, namespace, name, local) {
+    if (namespace) {
+      element.removeAttributeNS(namespace, local)
+      return
+    }
+    element.removeAttribute(name)
+  }
 
   /** @param {HTMLElement} host @param {string} name @returns {void} */
   static markScope(host, name) {
@@ -216,11 +356,11 @@ const applyAttributes = async (element, attributes, environment) => {
       ? await evaluate(attribute.expression, environment)
       : attribute.value
     if (value === false || value === null || value === undefined) {
-      element.removeAttribute(attribute.name)
+      Elements.removeAttribute(element, attribute.name)
       continue
     }
     const rendered = value === true ? '' : display(value)
-    element.setAttribute(attribute.name, rendered)
+    Elements.setAttribute(element, attribute.name, rendered)
     if (['checked', 'disabled', 'selected'].includes(attribute.name)) element[attribute.name] = Boolean(value)
     else if (attribute.name === 'value' && 'value' in element) {
       try { element.value = rendered } catch {}
@@ -769,7 +909,7 @@ const retainedPair = (old, freshChild) => {
   const fresh = previous && Rendering.elements.get(previous.path)
   const next = fresh && Elements.records.get(fresh)
   if (!next || previous.node !== next.node || previous.owner !== next.owner) return null
-  if (old.tagName !== fresh.tagName || !sameLocals(previous.locals, next.locals)) return null
+  if (old.tagName !== fresh.tagName || old.namespaceURI !== fresh.namespaceURI || !sameLocals(previous.locals, next.locals)) return null
   if (freshChild && freshChild.parentNode !== fresh) return null
   return { old, fresh, previous }
 }
@@ -849,10 +989,10 @@ const replaceAndRefocus = (container, fragment, active, replacement) => {
 
 const syncAuthoredAttributes = (element, previous, next) => {
   for (const [name] of previous.attributes) {
-    if (!next.attributes.has(name)) element.removeAttribute(name)
+    if (!next.attributes.has(name)) Elements.removeAttribute(element, name)
   }
   for (const [name, value] of next.attributes) {
-    if (previous.attributes.get(name) !== value) element.setAttribute(name, value)
+    if (previous.attributes.get(name) !== value) Elements.setAttribute(element, name, value)
   }
 }
 
@@ -1013,9 +1153,8 @@ const renderComponent = async (node, environment, path) => {
   host.dataset.tachyonMount = node.mount || 'none'
   if (node.scope) Elements.markScope(host, node.name)
   host.append(await renderNodes(node.template || [], ownedEnvironment(owner), `${path}.template`, {
-    nodes: node.slot || [],
-    named: node.slots || {},
-    environment,
+    namespace: Elements.rootContext.namespace,
+    slot: { nodes: node.slot || [], named: node.slots || {}, environment },
   }))
   host.tachyonComponent = { instance: owner, refresh: render }
   Rendering.mounts.push([host, owner, node.mount, componentKey])
@@ -1026,7 +1165,8 @@ const countIteration = () => {
   if (++Rendering.iterationCount > 100000) throw new RangeError('Tac client view exceeds 100,000 iterations.')
 }
 
-const renderIteration = async (node, environment, path, slot) => {
+/** @param {RenderContext} context */
+const renderIteration = async (node, environment, path, context) => {
   const fragment = document.createDocumentFragment()
   const values = await evaluate(node.iterable, environment)
   if (!Array.isArray(values)) return fragment
@@ -1034,7 +1174,7 @@ const renderIteration = async (node, environment, path, slot) => {
   for (let index = 0; index < values.length; index += 1) {
     countIteration()
     const local = childEnvironment(environment, { [node.binding]: values[index], $index: index })
-    fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, slot))
+    fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, context))
   }
   return fragment
 }
@@ -1046,7 +1186,8 @@ const countedLoopContinues = (comparison, counter, to) => {
   return counter >= to
 }
 
-const renderCounted = async (node, environment, path, slot) => {
+/** @param {RenderContext} context */
+const renderCounted = async (node, environment, path, context) => {
   const fragment = document.createDocumentFragment()
   const from = Number(await evaluate(node.from, environment))
   const to = Number(await evaluate(node.to, environment))
@@ -1059,48 +1200,56 @@ const renderCounted = async (node, environment, path, slot) => {
     countIteration()
     if (index >= 10000) throw new RangeError('Tac iteration exceeds 10,000 items.')
     const local = childEnvironment(environment, { [node.binding]: counter, $index: index })
-    fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, slot))
+    fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, context))
     index += 1
     if (counter + step === counter) throw new RangeError('Tac iteration step makes no progress.')
   }
   return fragment
 }
 
-const renderSwitch = async (node, environment, path, slot) => {
+/** @param {RenderContext} context */
+const renderSwitch = async (node, environment, path, context) => {
   const value = await evaluate(node.value, environment)
   let fallback
   for (const candidate of node.children || []) {
     if (candidate.k !== 'case') continue
     if (!candidate.when) fallback = candidate
     else if (value === await evaluate(candidate.when, environment)) {
-      return renderNodes(candidate.children || [], environment, `${path}.case`, slot)
+      return renderNodes(candidate.children || [], environment, `${path}.case`, context)
     }
   }
   if (!fallback) return document.createDocumentFragment()
-  return renderNodes(fallback.children || [], environment, `${path}.default`, slot)
+  return renderNodes(fallback.children || [], environment, `${path}.default`, context)
 }
 
-const renderNode = async (node, environment, path, slot) => {
+/** @param {RenderContext} context */
+const renderNode = async (node, environment, path, context) => {
   Rendering.nodeCount += 1
   if (Rendering.nodeCount > 100000) throw new RangeError('Tac client view exceeds 100,000 nodes.')
   if (node.k === 'text') return renderText(node.parts, environment)
   if (node.k === 'comment') return document.createComment(node.value || '')
   if (node.k === 'slot') {
+    const slot = context.slot
     const nodes = node.name ? slot?.named[node.name] : slot?.nodes
-    return nodes ? renderNodes(nodes, slot.environment, `${path}.slot`, null) : document.createDocumentFragment()
+    return nodes ? renderNodes(nodes, slot.environment, `${path}.slot`, { slot: null, namespace: context.namespace }) : document.createDocumentFragment()
   }
-  if (node.k === 'iteration') return renderIteration(node, environment, path, slot)
-  if (node.k === 'counted') return renderCounted(node, environment, path, slot)
-  if (node.k === 'switch') return renderSwitch(node, environment, path, slot)
+  if (node.k === 'iteration') return renderIteration(node, environment, path, context)
+  if (node.k === 'counted') return renderCounted(node, environment, path, context)
+  if (node.k === 'switch') return renderSwitch(node, environment, path, context)
   if (node.k === 'component') return renderComponent(node, environment, path)
   if (node.k !== 'element') return document.createDocumentFragment()
-  const element = document.createElement(node.tag)
+  const element = Elements.create(node.tag, context.namespace)
   await applyAttributes(element, node.attributes, environment)
-  if (!node.void) element.append(await renderNodes(node.children || [], environment, `${path}.children`, slot))
+  if (!node.void) {
+    const children = node.children || []
+    const childContext = Elements.childContext(element, context)
+    element.append(await renderNodes(children, environment, `${path}.children`, childContext))
+  }
   return recordElement(element, node, environment, path)
 }
 
-const renderNodes = async (nodes, environment, path, slot) => {
+/** @param {RenderContext} [context] @returns {Promise<DocumentFragment>} */
+const renderNodes = async (nodes, environment, path, context = Elements.rootContext) => {
   const fragment = document.createDocumentFragment()
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index]
@@ -1123,11 +1272,11 @@ const renderNodes = async (nodes, environment, path, slot) => {
         }
         cursor += 1
       }
-      if (selected) fragment.append(await renderNodes(selected.children || [], environment, `${path}.${index}.branch`, slot))
+      if (selected) fragment.append(await renderNodes(selected.children || [], environment, `${path}.${index}.branch`, context))
       index = cursor - 1
       continue
     }
-    fragment.append(await renderNode(node, environment, `${path}.${index}`, slot))
+    fragment.append(await renderNode(node, environment, `${path}.${index}`, context))
   }
   return fragment
 }
@@ -1208,7 +1357,7 @@ class TacElements {
     try {
       const root = element.shadowRoot
       if (element._tacDefinition.styles && !root.adoptedStyleSheets.length) root.adoptedStyleSheets = [await TacElements.loadStylesheet()]
-      commitRoot(root, await renderNodes([element._tacNode], environment, element._tacPath, null), editingAtStart)
+      commitRoot(root, await renderNodes([element._tacNode], environment, element._tacPath), editingAtStart)
       delete element.dataset.tachyonRenderError
     } catch (error) {
       element.dataset.tachyonRenderError = 'render_failed'
@@ -1232,7 +1381,7 @@ const renderDocument = async (environment) => {
   Rendering.mounts = []
   const focused = focusedElement()
   const editingAtStart = { element: focused, value: focused?.value }
-  if (ClientView.page) commitRoot(document.body, await renderNodes(ClientView.plan.nodes || [], environment, 'body', null), editingAtStart)
+  if (ClientView.page) commitRoot(document.body, await renderNodes(ClientView.plan.nodes || [], environment, 'body'), editingAtStart)
   for (const element of TacElements.connected) await TacElements.renderInto(element, environment, editingAtStart)
   retainComponentRoots()
   for (const arguments_ of Rendering.mounts) mountComponent(...arguments_)
