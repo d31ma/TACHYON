@@ -14,17 +14,17 @@ class BehaviorGate {
   static frameworkPrefix = 'TAC_';
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty');
   static fixtureFiles = [
-    'setups/ApplicationAdaptersSetup.js',
-    'helpers/ApplicationSettings.js',
-    'helpers/ApplicationValues.js',
-    'helpers/BehaviorChecksHelper.js',
-    'clients/CatalogClient.js',
-    'helpers/CatalogHelper.js',
-    'setups/CatalogSetup.js',
-    'helpers/InputService.js',
-    'helpers/ProductInput.js',
-    'entities/ProductEntity.js',
-    'stores/ProductQueriesStore.js',
+    { source: 'setups/ApplicationAdaptersSetup.js', target: 'setups/ApplicationAdaptersSetup.js' },
+    { source: 'helpers/ApplicationSettings.js', target: 'models/ApplicationSettings.js' },
+    { source: 'helpers/ApplicationValues.js', target: 'models/ApplicationValues.js' },
+    { source: 'helpers/BehaviorChecksHelper.js', target: 'helpers/BehaviorChecksHelper.js', replacements: [['new InputService()', 'new InputHelper()']] },
+    { source: 'remotes/CatalogClient.js', target: 'remotes/CatalogClient.js' },
+    { source: 'helpers/CatalogHelper.js', target: 'helpers/CatalogHelper.js' },
+    { source: 'setups/CatalogSetup.js', target: 'setups/CatalogSetup.js' },
+    { source: 'helpers/InputService.js', target: 'helpers/InputHelper.js', replacements: [['class InputService', '@Helper()\nclass InputHelper']] },
+    { source: 'helpers/ProductInput.js', target: 'models/ProductInput.js' },
+    { source: 'entities/ProductEntity.js', target: 'entities/ProductEntity.js' },
+    { source: 'stores/ProductQueriesStore.js', target: 'stores/ProductQueriesStore.js' },
   ];
   static clientPrefix = 'client/';
   static otherServiceLanguages = new Set(['ts', 'dart', 'rs', 'go', 'rb', 'swift', 'kt', 'java', 'cs', 'fs', 'lua', 'py', 'php', 'groovy']);
@@ -43,10 +43,11 @@ function write(project, name, contents) {
 
 function writeBehaviorProviders(project, extension) {
   const directory = path.join(BehaviorGate.repo, 'crates/tachyon-core/tests/fixtures/behavior/authored/js/server');
-  for (const relative of BehaviorGate.fixtureFiles) {
-    const source = readFileSync(path.join(directory, relative), 'utf8')
+  for (const file of BehaviorGate.fixtureFiles) {
+    const authored = readFileSync(path.join(directory, file.source), 'utf8')
       .replaceAll('TAC_', BehaviorGate.frameworkPrefix);
-    write(project, `client/${relative.replace(/\.js$/, `.${extension}`)}`, withPrivateMembers(source, extension));
+    const source = (file.replacements ?? []).reduce((text, [from, to]) => text.replaceAll(from, to), authored);
+    write(project, `client/${file.target.replace(/\.js$/, `.${extension}`)}`, withPrivateMembers(source, extension));
   }
 }
 
