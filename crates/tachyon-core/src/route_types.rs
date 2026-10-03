@@ -8,6 +8,7 @@ mod converters;
 mod language_kinds;
 mod mapping_models;
 mod model_files;
+mod rust_model_traversal;
 mod rust_tac_models;
 #[cfg(test)]
 mod rust_tac_models_tests;

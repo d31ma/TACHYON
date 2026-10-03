@@ -400,3 +400,246 @@ fn qualified_existing_rust_primitive_traits_keep_wire_eligibility() {
             .contains("label: tac_read_field(value, \"label\")")
     );
 }
+
+#[test]
+fn recursive_vec_alias_roots_share_the_supported_record_closure() {
+    let catalog = RustTacModels::of(&[
+        (
+            "client/models/Nodes.rs".to_owned(),
+            "pub type Nodes = Vec<Node>;\n".to_owned(),
+        ),
+        (
+            "client/models/Node.rs".to_owned(),
+            "pub struct Node {\n    pub children: Nodes,\n}\n".to_owned(),
+        ),
+    ]);
+    for kind in ["Node", "Nodes", "Vec<Option<Nodes>>"] {
+        RustTacModelsTests::require(&catalog, kind)
+            .unwrap_or_else(|failure| panic!("recursive alias root {kind}: {failure}"));
+    }
+    let codecs = catalog.text();
+    assert!(codecs.contains("impl TacModel for crate::models::Node {"));
+    assert!(!codecs.contains("impl TacModel for crate::models::Nodes {"));
+}
+
+#[test]
+fn pure_rust_alias_cycles_remain_bounded_refusals() {
+    let catalog = RustTacModels::of(&[
+        (
+            "client/models/First.rs".to_owned(),
+            "pub type First = Second;\n".to_owned(),
+        ),
+        (
+            "client/models/Second.rs".to_owned(),
+            "pub type Second = First;\n".to_owned(),
+        ),
+    ]);
+    for kind in ["First", "Second", "Vec<First>"] {
+        let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, kind));
+        assert_eq!(failure.diagnostics()[0].code.number(), 1405);
+    }
+    assert!(!catalog.text().contains("impl TacModel"));
+}
+
+#[test]
+fn captured_scalar_or_supplied_event_names_do_not_bypass_unsupported_fields() {
+    let field_type = "std::collections::BTreeMap<i32, bool>";
+    for name in ["String", "ConnectivityChanged"] {
+        let path = format!("client/models/{name}.rs");
+        let source = format!("pub struct {name} {{\n    pub claims: {field_type},\n}}\n");
+        let catalog = RustTacModels::of(&[(path.clone(), source.clone())]);
+        for kind in [
+            name.to_owned(),
+            format!("crate::models::{name}"),
+            format!("::crate::models::{name}"),
+        ] {
+            let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, &kind));
+            RustTacModelsTests::located(&failure, &path, &source, field_type);
+        }
+        assert!(
+            !catalog
+                .text()
+                .contains(&format!("impl TacModel for crate::models::{name} {{"))
+        );
+    }
+}
+
+#[test]
+fn qualified_real_primitives_do_not_resolve_to_a_captured_string_record() {
+    let source = "pub struct String {\n    pub claims: std::collections::BTreeMap<i32, bool>,\n}\n";
+    let catalog = RustTacModels::of(&[("client/models/String.rs".to_owned(), source.to_owned())]);
+    for kind in [
+        "std::string::String",
+        "::std::string::String",
+        "std::primitive::i64",
+        "::core::primitive::bool",
+        "Vec<Option<std::string::String>>",
+    ] {
+        RustTacModelsTests::require(&catalog, kind)
+            .unwrap_or_else(|failure| panic!("actual qualified primitive {kind}: {failure}"));
+    }
+    assert!(
+        !catalog
+            .text()
+            .contains("impl TacModel for crate::models::String {")
+    );
+}
+
+#[test]
+fn crate_root_supplied_events_keep_their_actual_namespace_when_shadowed() {
+    let source = "pub struct ConnectivityChanged {\n    pub claims: std::collections::BTreeMap<i32, bool>,\n}\n";
+    let catalog = RustTacModels::of(&[(
+        "client/models/ConnectivityChanged.rs".to_owned(),
+        source.to_owned(),
+    )]);
+    for kind in [
+        "crate::ConnectivityChanged",
+        "::crate::ConnectivityChanged",
+        "Vec<Option<crate::ConnectivityChanged>>",
+    ] {
+        RustTacModelsTests::require(&catalog, kind)
+            .unwrap_or_else(|failure| panic!("actual supplied event {kind}: {failure}"));
+    }
+    for kind in [
+        "other::ConnectivityChanged",
+        "std::ConnectivityChanged",
+        "crate::models::Missing",
+    ] {
+        let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, kind));
+        assert_eq!(failure.diagnostics()[0].code.number(), 1405);
+    }
+    let unshadowed = RustTacModels::of(&[]);
+    RustTacModelsTests::require(&unshadowed, "ConnectivityChanged")
+        .unwrap_or_else(|failure| panic!("unshadowed supplied event: {failure}"));
+}
+
+#[test]
+fn multiline_supported_aliases_keep_complete_vec_option_targets() {
+    let catalog = RustTacModels::of(&[
+        ("client/models/Names.rs".to_owned(), "pub type Names =\n    Vec<Option<std::string::String>>;\n".to_owned()),
+        ("client/models/Labels.rs".to_owned(), "pub type Labels\n    = Vec<\n        Option<\n            String\n        >\n    >;\n".to_owned()),
+        ("client/models/Annotated.rs".to_owned(), "pub type Annotated =\n    Vec</* actual item */ Option<String>>;\n".to_owned()),
+        ("client/models/Totals.rs".to_owned(), "pub struct Totals {\n    pub names: Names,\n    pub labels: Labels,\n    pub annotated: Annotated,\n}\n".to_owned()),
+    ]);
+    for kind in ["Names", "Labels", "Annotated", "Totals"] {
+        RustTacModelsTests::require(&catalog, kind)
+            .unwrap_or_else(|failure| panic!("multiline alias {kind}: {failure}"));
+    }
+    let codecs = catalog.text();
+    assert!(codecs.contains("impl TacModel for crate::models::Totals {"));
+    assert!(codecs.contains("names: tac_read_field(value, \"names\")"));
+    assert!(codecs.contains("labels: tac_read_field(value, \"labels\")"));
+    assert!(codecs.contains("annotated: tac_read_field(value, \"annotated\")"));
+}
+
+#[test]
+fn multiline_aliases_do_not_make_unsupported_map_targets_wire_eligible() {
+    let source = "pub struct Claims {\n    pub index: ClaimIndex,\n}\n";
+    let catalog = RustTacModels::of(&[
+        (
+            "client/models/ClaimIndex.rs".to_owned(),
+            "pub type ClaimIndex =\n    std::collections::BTreeMap<i32, bool>;\n".to_owned(),
+        ),
+        (RustTacModelsTests::MODEL_PATH.to_owned(), source.to_owned()),
+    ]);
+    let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, "Claims"));
+    RustTacModelsTests::located(
+        &failure,
+        RustTacModelsTests::MODEL_PATH,
+        source,
+        "ClaimIndex",
+    );
+    assert!(!catalog.text().contains("impl TacModel"));
+}
+
+#[test]
+fn empty_enums_are_refused_without_partial_wire_codecs() {
+    let path = "client/models/Never.rs";
+    let source = "pub enum Never {}\n";
+    let catalog = RustTacModels::of(&[(path.to_owned(), source.to_owned())]);
+    for kind in ["Never", "Vec<Never>", "Option<Never>"] {
+        let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, kind));
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.number(), 1405);
+        assert_eq!(diagnostic.spans[0].file, path);
+        assert_eq!(diagnostic.spans[0].start, 9);
+        assert_eq!(diagnostic.spans[0].end, 14);
+    }
+    assert!(!catalog.text().contains("impl TacModel"));
+}
+
+#[test]
+fn nonempty_plain_enums_remain_supported_alongside_internal_empty_enums() {
+    let catalog = RustTacModels::of(&[
+        (
+            "client/models/Never.rs".to_owned(),
+            "pub enum Never {}\n".to_owned(),
+        ),
+        (
+            "client/models/Phase.rs".to_owned(),
+            "pub enum Phase { Waiting, Ready }\n".to_owned(),
+        ),
+    ]);
+    RustTacModelsTests::require(&catalog, "Vec<Option<Phase>>")
+        .unwrap_or_else(|failure| panic!("nonempty plain enum: {failure}"));
+    let codecs = catalog.text();
+    assert!(codecs.contains("impl TacModel for crate::models::Phase {"));
+    assert!(!codecs.contains("impl TacModel for crate::models::Never {"));
+}
+
+#[test]
+fn a_recursive_alias_cannot_hide_an_unsupported_field_in_its_captured_record() {
+    let source = "pub struct Node {\n    pub children: Nodes,\n    pub claims: std::collections::BTreeMap<i32, bool>,\n}\n";
+    let catalog = RustTacModels::of(&[
+        (
+            "client/models/Nodes.rs".to_owned(),
+            "pub type Nodes = Vec<Node>;\n".to_owned(),
+        ),
+        ("client/models/Node.rs".to_owned(), source.to_owned()),
+    ]);
+    let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, "Nodes"));
+    RustTacModelsTests::located(
+        &failure,
+        "client/models/Node.rs",
+        source,
+        "std::collections::BTreeMap<i32, bool>",
+    );
+    assert!(!catalog.text().contains("impl TacModel"));
+}
+
+#[test]
+fn crossing_a_captured_record_does_not_reset_the_alias_declaration_budget() {
+    let mut files = Vec::new();
+    for index in 0..128 {
+        let next = match index {
+            127 => "Node".to_owned(),
+            _ => format!("First{}", index + 1),
+        };
+        files.push((
+            format!("client/models/First{index}.rs"),
+            format!("pub type First{index} = {next};\n"),
+        ));
+    }
+    files.push((
+        "client/models/Node.rs".to_owned(),
+        "pub struct Node {\n    pub value: Second0,\n}\n".to_owned(),
+    ));
+    for index in 0..128 {
+        let next = match index {
+            127 => "String".to_owned(),
+            _ => format!("Second{}", index + 1),
+        };
+        files.push((
+            format!("client/models/Second{index}.rs"),
+            format!("pub type Second{index} = {next};\n"),
+        ));
+    }
+    let catalog = RustTacModels::of(&files);
+    let failure = RustTacModelsTests::refusal(RustTacModelsTests::require(&catalog, "First0"));
+    assert_eq!(failure.diagnostics()[0].code.number(), 1405);
+    assert!(
+        failure
+            .to_string()
+            .contains("model closure exceeds 256 declarations")
+    );
+}
