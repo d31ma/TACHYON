@@ -3,17 +3,17 @@
   "license_source": "https://raw.githubusercontent.com/d31ma/DUVAY/refs/tags/v26.35.01/LICENSE",
   "license_sha256": "5018934d79ea0bf37c34065635d6cbdbe96701c0e7b59e39f40d47641a7da6b7",
   "assets": {
+    "/shared/assets/duvay/duvay-wc-site.min.js": {
+      "package": "duvay",
+      "version": "26.35.01",
+      "license": "MIT",
+      "sha256": "abb7402843ce907785053827fa74290c91c7758cb9209a29ec69bcf62635452c"
+    },
     "/shared/assets/duvay/duvay.min.css": {
       "package": "duvay",
       "version": "26.35.01",
       "license": "MIT",
       "sha256": "dd0b9a6841313bc3b4bf30da476dc1aa88821a58220d662b679f83873b92c768"
-    },
-    "/shared/assets/duvay/duvay-wc.min.js": {
-      "package": "duvay",
-      "version": "26.35.01",
-      "license": "MIT",
-      "sha256": "bd252fed5bb8a90f4c4f9eb1ac8d948e8b5c9dcf88e35ccfe30915ba9d2960de"
     },
     "/shared/assets/duvay/duvay.min.js": {
       "package": "duvay",
@@ -21,5 +21,38 @@
       "license": "MIT",
       "sha256": "50ca0fd49f2232e3520f9e3d1fe8efa1fec1948a69e1076d43ed649a09b80d5b"
     }
+  },
+  "build": {
+    "commit": "17aba01d5da9f4ceeb9b6373ebb99157a06ed44f",
+    "bundler": "bun 1.3.14",
+    "flags": [
+      "--target=browser",
+      "--format=esm",
+      "--minify"
+    ],
+    "modules": [
+      "src/components/base.js",
+      "src/components/duvay-motion.js",
+      "src/icons.js",
+      "src/components/btn.js",
+      "src/components/container.js",
+      "src/components/app-bar.js",
+      "src/components/divider.js",
+      "src/components/expansion-panel.js",
+      "src/components/expansion-panels.js"
+    ],
+    "inputs": {
+      "src/components/app-bar.js": "3b19aa6253738234f4b216308b605bcca2271b5c78e3419d669557cb2dc06353",
+      "src/components/base.js": "028bc2647236d983adbe038c071ef3f2bb2b417ec6aa0f991d0fdd3a765f6dca",
+      "src/components/btn.js": "5ca50c6d9f0fb77070fd9e0dd1b767ccc71dba77760f071bbe74262b45e2d1d6",
+      "src/components/container.js": "2d180dc78561a2ca27ca3b97ca078bf141cba98e29fd529cd6bf9cc634cb7956",
+      "src/components/divider.js": "5ba0f1696b9c187c93f9a27c65763800a3ac791452322ef9a0dc67677e3db1c4",
+      "src/components/duvay-motion.js": "0bb423af2a03dff92cebf17419382bc6474f248b6d4599ff5787e1ce357e7fe5",
+      "src/components/expansion-panel.js": "c0e7a72b7e58006ab012811db7cc475e2dabb5159f43b6c4bfb122a6942e22fa",
+      "src/components/expansion-panels.js": "72bf65127add10933083bc9a8af87e4fa3f4800da3cd22e6bb294bad07c785a9",
+      "src/components/utils.js": "552bf9561e46110d55a02b119026b047e9829e2cc632548278f8ef32eb861f83",
+      "src/icons.js": "52586403c00ca8638639d0412a278a61fb061988579996545b60634de2fd3be2"
+    },
+    "output": "shared/assets/duvay/duvay-wc-site.min.js"
   }
 }

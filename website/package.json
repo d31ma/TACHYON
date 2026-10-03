@@ -10,6 +10,7 @@
     "dev": "bun run content && bun ../scripts/run-site.mjs preview",
     "styles": "node scripts/build-styles.mjs",
     "styles:check": "node scripts/build-styles.mjs --check",
+    "duvay": "node scripts/build-duvay.mjs",
     "test": "bun test",
     "verify:snippets": "node scripts/verify-snippets.mjs",
     "coverage:languages": "node scripts/language-coverage.mjs",

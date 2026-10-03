@@ -9,8 +9,9 @@ max-width: min(94vw, 84rem);
   padding-inline: var(--gutter);
 }
 
-w-app-bar {
-position: sticky;
+:scope {
+display: block;
+  position: sticky;
   top: 0;
   z-index: 40;
 }

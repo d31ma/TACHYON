@@ -35,10 +35,6 @@
       "preferenceStrings"
     ],
     "origin": "https://tachyon.del.ma",
-    "python": {
-      "runtime": "pyodide-314.0.7",
-      "profile": "offline"
-    },
     "names": {
       "words": [
         "toc"
@@ -52,7 +48,8 @@
       "version": "26.36.01"
     },
     "scripts": [
-      "/shared/assets/duvay/duvay-wc.min.js",
+      "/shared/scripts/ThemeDefault.js",
+      "/shared/assets/duvay/duvay-wc-site.min.js",
       "/shared/assets/duvay/duvay.min.js"
     ],
     "styles": [
@@ -105,11 +102,11 @@
       }
     },
     "scriptSources": {
-      "/shared/assets/duvay/duvay-wc.min.js": {
+      "/shared/assets/duvay/duvay-wc-site.min.js": {
         "package": "duvay",
         "version": "26.35.01",
         "license": "MIT",
-        "sha256": "bd252fed5bb8a90f4c4f9eb1ac8d948e8b5c9dcf88e35ccfe30915ba9d2960de"
+        "sha256": "abb7402843ce907785053827fa74290c91c7758cb9209a29ec69bcf62635452c"
       },
       "/shared/assets/duvay/duvay.min.js": {
         "package": "duvay",

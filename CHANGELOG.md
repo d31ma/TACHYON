@@ -8,6 +8,74 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+- Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
+
+### Changed
+
+- The website release build fits its unchanged 320 KiB script budget on every
+  route again. It loads only the six DuVay components its views use, rebuilt
+  from the pinned DuVay source (`bun run duvay`), instead of the full component
+  bundle (134 KiB as sent). The home page no longer runs Python: its showcase
+  and language catalogue services are TypeScript, so the page no longer
+  downloads Pyodide. Python examples stay in the documentation. The website
+  service test checks that every service is real and used by a view; it no
+  longer requires one service per language.
+- The website paints dark on a first visit: the stylesheet is dark until a
+  theme is set, and a small first-party script saves the dark default before
+  DuVay's behaviour script, which otherwise falls back to light. The theme
+  helper and the test-only `main[data-theme]` attribute are gone, and the
+  header is sticky again (its component root is sticky, because the compiler
+  scopes each component stylesheet).
+
+- Tac utilities have a canonical recursive `client/shared/utils` location,
+  retaining `client/utils` compatibility and the existing stateless class
+  contract. Client pages reject all authored CSS filenames recursively.
+  Component scopes stop at nested ownership boundaries, including unstyled
+  and slotted components. Global foundation and application migration work
+  remains a separate unfinished part of the source-conventions queue item.
+
+- The first-app C# steps now call the existing Yon greeting endpoint through
+  an injected private client returning `Task<Models.Greeting>`. Their tests
+  use a typed Fake and caller-owned context, including disposed-owner refusal.
+  Other unsupported compiled-language tutorial tabs remain pending.
+
+- Browser F# services can return `Task` or `Task<BehaviorJSON>` through the
+  existing .NET asynchronous host. Default same-origin HTTP, custom adapters
+  and captured-owner cancellation are supported in this bounded slice;
+  F# DTO/container results and native asynchronous results remain unsupported.
+
+- Compiled browser Dart HTTPClients use an asynchronous same-origin transport
+  when Setup has no matching custom HTTP adapter. Injected clients return typed
+  model answers, omit credentials, preserve cache revalidation and cancel
+  requests when their owner is disposed. Other compiled language continuations
+  remain pending (ADR 0090).
+
+- New outbound role folders are `client/remotes/` and `server/remotes/`.
+  `clients/` remains a compatibility alias. Scaffolds and examples use the new
+  folder, while the existing opt-in migration preserves class/annotation names,
+  rewrites paths for moved files and refuses destination collisions.
+
+
+### Fixed
+
+- C# coverage includes public methods with next-line body braces or expression
+  bodies and records the method actually called. Static Setup callbacks and
+  generated bodyless client methods remain outside instance-method coverage.
+
+- A genuine C# helper constructed only by a selected same-language TestSetup
+  is validated before ordinary production composition omits it. Production
+  and transitively used helpers remain included; orphan, misplaced and
+  unsupported managed helpers retain their existing diagnostics.
+
+- Yon controllers and services can call plain classes in `server/shared/` in
+  every Yon language. Shared source uses the captured project snapshot, and
+  the application-modules verifier builds and calls each language example.
+
+- After a Cached HTTPClient read is cleared or updated, its next uncached
+  JavaScript or TypeScript GET revalidates the browser HTTP cache. A public
+  response with a long `max-age` no longer hides a successful ClearCache.
+  Cache-first service-worker rules also revalidate that read (ADR 0087).
+
 ### Breaking
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).

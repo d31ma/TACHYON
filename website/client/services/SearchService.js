@@ -1,6 +1,5 @@
 import { DocumentationUtils } from '/shared/utils/DocumentationUtils.js'
 
-/** @import { ThemeHelper } from '/helpers/ThemeHelper.js' */
 /** @import { SearchResult } from '/models/SearchResult.ts' */
 /** @import { TaskScheduler } from '/models/TaskScheduler.ts' */
 @Service
@@ -15,18 +14,13 @@ export default class SearchService {
   /** @type {AbortSignal} */
   @Needs
   lifecycle
-  /** @type {ThemeHelper} */
-  @Needs
-  themeHelper
-  /** @type {string} */
-  theme = 'dark'
   showing = false
   /** @type {SearchResult[]} */
   results = []
   term = ''
   _searching = false
   /** @type {ReturnType<typeof setTimeout> | undefined} */
-  timer = undefined
+  _timer = undefined
 
   open() {
     this.showing = true
@@ -34,7 +28,7 @@ export default class SearchService {
   }
 
   close() {
-    clearTimeout(this.timer)
+    clearTimeout(this._timer)
     this.showing = false
     this.results = []
     this.term = ''
@@ -61,21 +55,20 @@ export default class SearchService {
    */
   find(_event, value) {
     this.term = this.#textOf(value)
-    clearTimeout(this.timer)
+    clearTimeout(this._timer)
     this._searching = this.term.length >= SearchService._SHORTEST_TERM
     const query = this.term
-    this.timer = setTimeout(() => this.#showResults(query), 120)
+    this._timer = setTimeout(() => this.#showResults(query), 120)
   }
 
   @OnStart
   initialize() {
-    this.theme = this.themeHelper.restore()
     addEventListener('keydown', (event) => this.#onKeyDown(event), { signal: this.lifecycle })
   }
 
   @OnStop
   dispose() {
-    clearTimeout(this.timer)
+    clearTimeout(this._timer)
   }
 
   #focusSearchInput() {

@@ -10,7 +10,7 @@ import { withServer } from '../../scripts/release/server-probe.mjs'
 
 /** @typedef {{time: number, theme: string | null, background: string}} ThemeFrame */
 /** @typedef {{frames: ThemeFrame[], changes: {time: number, theme: string | null}[], paints: {name: string, time: number}[]}} ThemeTrace */
-/** @typedef {{service(name: string): {theme: string, themeHelper?: {restore(): string, constructor: {name: string}}} | undefined}} WebsiteRuntime */
+/** @typedef {{service(name: string): object | undefined}} WebsiteRuntime */
 /** @typedef {{__tachyonTac?: WebsiteRuntime, __websiteAcceptanceTrace?: ThemeTrace, WTheme?: {get(): string}}} WebsiteGlobals */
 /** @typedef {{package: string, version: string, license: string, sha256: string}} VendorMetadata */
 /** @typedef {{tac: {budgets: {script: number, check?: boolean}, scripts: string[], styles: string[], scriptSources: Record<string, VendorMetadata>, styleSources: Record<string, {kind: string} & Partial<VendorMetadata>>}}} WebsiteManifest */
@@ -19,6 +19,7 @@ import { withServer } from '../../scripts/release/server-probe.mjs'
 class WebsiteMigrationAcceptance {
   static #timeout = 45_000
   static #scriptBudget = 320
+  static #cssDefault = 'dark'
   static #website = fileURLToPath(new URL('..', import.meta.url))
 
   /** @returns {Promise<void>} */
@@ -106,7 +107,7 @@ class WebsiteMigrationAcceptance {
 
   /** @param {import('../../scripts/release/server-probe.mjs').ProbeRequest} request @param {WebsiteManifest} manifest @returns {Promise<Record<string, unknown>>} */
   static async #vendors(request, manifest) {
-    const declared = [...manifest.tac.scripts, ...Object.keys(manifest.tac.styleSources).filter(resource => manifest.tac.styleSources[resource].kind === 'vendor')]
+    const declared = [...manifest.tac.scripts.filter(resource => manifest.tac.scriptSources[resource]), ...Object.keys(manifest.tac.styleSources).filter(resource => manifest.tac.styleSources[resource].kind === 'vendor')]
     const assets = []
     for (const resource of declared) {
       const metadata = manifest.tac.scriptSources[resource] ?? manifest.tac.styleSources[resource]
@@ -197,35 +198,32 @@ class WebsiteMigrationAcceptance {
     assert.equal(response?.status(), 200, route)
     await page.waitForFunction(() => {
       const runtime = /** @type {typeof globalThis & WebsiteGlobals} */ (globalThis).__tachyonTac
-      return runtime?.service('search')?.themeHelper && document.querySelector('#main')?.getAttribute('data-theme')
+      return runtime?.service('search') && customElements.get('w-app-bar') && document.documentElement.hasAttribute('w-theme')
     })
   }
 
   /** @param {import('playwright').Page} page @param {string} expected @returns {Promise<Record<string, unknown>>} */
   static async #theme(page, expected) {
-    const proof = await page.evaluate(WebsiteMigrationAcceptance.#themeState)
-    assert.equal(proof.helperClass, 'ThemeHelper', 'The generated SearchService owns the real injected Helper')
-    assert.equal(proof.helperRestore, 'function')
-    for (const value of [proof.root, proof.saved, proof.main, proof.service, proof.vendorTheme]) assert.equal(value, expected)
+    const proof = await page.evaluate(WebsiteMigrationAcceptance.themeState)
+    for (const value of [proof.root, proof.saved, proof.vendorTheme]) assert.equal(value, expected)
     assert.ok(proof.customElements.every(element => element.defined), 'Declared DuVay custom elements are registered')
-    assert.deepEqual(proof.scripts, [{ src: '/shared/assets/duvay/duvay-wc.min.js', type: 'module' }, { src: '/shared/assets/duvay/duvay.min.js', type: 'module' }])
+    assert.deepEqual(proof.scripts, [
+      { src: '/shared/scripts/ThemeDefault.js', type: 'module' },
+      { src: '/shared/assets/duvay/duvay-wc-site.min.js', type: 'module' },
+      { src: '/shared/assets/duvay/duvay.min.js', type: 'module' },
+    ])
     assert.ok(proof.trace, 'Observational first-paint trace exists')
     WebsiteMigrationAcceptance.#paint(proof.trace, expected)
     return { expected, ...proof }
   }
 
-  static #themeState() {
+  static themeState = () => {
     const globals = /** @type {typeof globalThis & WebsiteGlobals} */ (globalThis)
-    const search = globals.__tachyonTac?.service('search')
     const elements = ['w-btn', 'w-container', 'w-app-bar', 'w-expansion-panel']
-    const scripts = [...document.querySelectorAll('script[src*="/shared/assets/duvay/"]')]
+    const scripts = [...document.querySelectorAll('script[src*="/shared/"]')]
     return {
       root: document.documentElement.getAttribute('w-theme'),
       saved: localStorage.getItem('w-theme'),
-      main: document.querySelector('#main')?.getAttribute('data-theme'),
-      service: search?.theme,
-      helperClass: search?.themeHelper?.constructor.name,
-      helperRestore: typeof search?.themeHelper?.restore,
       vendorTheme: globals.WTheme?.get(),
       customElements: elements.map(name => ({ name, defined: Boolean(customElements.get(name)) })),
       scripts: scripts.map(script => ({
@@ -243,7 +241,8 @@ class WebsiteMigrationAcceptance {
       assert.ok(paint, `${name} was observed`)
       const change = trace.changes.filter(entry => entry.time <= paint.time).at(-1)
       const frame = trace.frames.filter(entry => entry.time <= paint.time).at(-1)
-      assert.equal(change?.theme ?? frame?.theme, expected, `${expected} root preference was applied before ${name}`)
+      const theme = change?.theme ?? frame?.theme ?? WebsiteMigrationAcceptance.#cssDefault
+      assert.equal(theme, expected, `${expected} theme was shown at ${name}`)
     }
   }
 
@@ -253,9 +252,9 @@ class WebsiteMigrationAcceptance {
     const activated = []
     for (const route of routes) {
       if (route !== '/') await WebsiteMigrationAcceptance.#open(page, origin, route)
-      const helper = await page.evaluate(() => /** @type {typeof globalThis & WebsiteGlobals} */ (globalThis).__tachyonTac?.service('search')?.themeHelper?.constructor.name)
-      assert.equal(helper, 'ThemeHelper', `${route} activates the actual owner without opening search`)
-      activated.push({ route, helper })
+      const theme = await page.evaluate(() => document.documentElement.getAttribute('w-theme'))
+      assert.equal(theme, 'dark', `${route} keeps the saved dark theme`)
+      activated.push({ route, theme })
     }
     return { activated }
   }
@@ -313,10 +312,15 @@ class WebsiteMigrationAcceptance {
         const computed = getComputedStyle(element)
         return { display: computed.display, position: computed.position, scope: element.closest('tachyon-component')?.getAttribute('data-tac-scope'), token: computed.getPropertyValue('--_tac-owner').trim() }
       }
-      return { viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, header: style('w-app-bar'), quickstart: style('[aria-labelledby="quickstart-heading"] .grid-auto'), footer: style('footer .grid-auto'), search: style('.site-search__trigger') }
+      const header = /** @type {HTMLElement} */ (document.querySelector('tachyon-component[data-tac-scope="site-header"]'))
+      scrollTo(0, 1500)
+      const stuck = header.getBoundingClientRect().top
+      scrollTo(0, 0)
+      return { viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, stuck, header: style('tachyon-component[data-tac-scope="site-header"]'), quickstart: style('[aria-labelledby="quickstart-heading"] .grid-auto'), footer: style('footer .grid-auto'), search: style('.site-search__trigger') }
     })
     assert.ok(report.scroll <= report.viewport + 1, 'Owned component CSS preserves horizontal fit')
     assert.equal(report.header.position, 'sticky')
+    assert.equal(report.stuck, 0, 'The header stays at the top of the viewport after scrolling')
     assert.equal(report.quickstart.display, 'grid')
     assert.equal(report.footer.display, 'grid')
     assert.equal(report.search.display, coarse ? 'none' : 'inline-flex')

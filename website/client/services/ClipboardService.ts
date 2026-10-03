@@ -7,7 +7,7 @@ export default class ClipboardService {
   taskScheduler!: TaskScheduler
   @Needs
   lifecycle!: AbortSignal
-  timer?: ReturnType<typeof setTimeout>
+  private timer?: ReturnType<typeof setTimeout>
   copied = ''
   private copiedLabel = 'Copied'
 

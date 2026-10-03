@@ -25,7 +25,7 @@ class WebsiteTest {
   static async checkShowcase(page) {
     await WebsiteTest.assertLayer(page, 'tac', 'One component runs on every target.');
     await page.getByRole('button', { name: 'Yon · server controllers', exact: true }).click();
-    await WebsiteTest.assertLayer(page, 'yon', 'In all eleven languages, a controller uses the same route annotations.');
+    await WebsiteTest.assertLayer(page, 'yon', 'In every Yon language, a controller uses the same route annotations.');
     await page.getByRole('button', { name: 'Tac · browser and native', exact: true }).click();
     await WebsiteTest.assertLayer(page, 'tac', 'One component runs on every target.');
   }

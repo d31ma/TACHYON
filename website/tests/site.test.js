@@ -38,15 +38,6 @@ function instanceNameOf(className) {
   return stem[0].toLowerCase() + stem.slice(1)
 }
 
-function countByExtension(files) {
-  const counts = {}
-  for (const file of files) {
-    const extension = file.split('.').pop()
-    counts[extension] = (counts[extension] ?? 0) + 1
-  }
-  return counts
-}
-
 function expectServiceShape(source, className, extension) {
   if (extension === 'lua') {
     expect(source).toMatch(/^-- @Service$/m)
@@ -110,8 +101,10 @@ describe('published output', () => {
     for (const route of ['dist/web/index.html', 'dist/web/docs/index.html', 'dist/web/docs/_topic/index.html']) {
       const html = await read(route)
       expect(html).toContain('/shared/styles/site.css')
-      expect(html).toContain('/shared/assets/duvay/duvay-wc.min.js')
-      expect(html).toContain('/shared/assets/duvay/duvay.min.js')
+      expect(html).toContain('/shared/assets/duvay/duvay-wc-site.min.js')
+      expect(html).not.toContain('/shared/assets/duvay/duvay-wc.min.js')
+      expect(html.indexOf('/shared/scripts/ThemeDefault.js')).toBeGreaterThan(-1)
+      expect(html.indexOf('/shared/scripts/ThemeDefault.js')).toBeLessThan(html.indexOf('/shared/assets/duvay/duvay.min.js'))
       expect(html).not.toContain('/shared/scripts/imports.js')
       expect(html).toContain('/.tachyon/tac-client.js')
       expect(html).not.toContain('"module":"/client.js"')
@@ -212,10 +205,6 @@ describe('published output', () => {
 
     const services = (await readdir(fileURLToPath(new URL('../client/services', import.meta.url))))
     expect(services.length).toBeGreaterThanOrEqual(15)
-    const counts = countByExtension(services)
-    expect(Object.keys(counts).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'lua', 'py', 'rb', 'rs', 'swift', 'ts'])
-    const serviceCounts = Object.values(counts)
-    expect(Math.max(...serviceCounts) - Math.min(...serviceCounts), JSON.stringify(counts)).toBeLessThanOrEqual(1)
     const instances = new Set()
     for (const file of services) {
       const [, className, extension] = file.match(/^([A-Z]\w*Service)\.(js|ts|py|dart|rs|cs|fs|go|rb|kt|swift|lua|java)$/) ?? []
@@ -563,14 +552,10 @@ describe('language coverage', () => {
     }
   })
 
-  test('the real Python website service and published example explicitly select the pinned offline profile', async () => {
-    const website = JSON.parse(await read('client/manifest.json'))
+  test('the published Python example selects the pinned offline profile', async () => {
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const published = JSON.parse(languages.tac.files.find(file => file.name === 'client/manifest.json').code)
-    const profile = { runtime: 'pyodide-314.0.7', profile: 'offline' }
-    expect(website.tac.python).toEqual(profile)
-    expect(published.tac.python).toEqual(profile)
-    expect(await read('client/services/ShowcaseService.py')).toContain('@on_start')
+    expect(published.tac.python).toEqual({ runtime: 'pyodide-314.0.7', profile: 'offline' })
   })
 
   test('the published data is what the browser will fetch', async () => {
@@ -692,15 +677,25 @@ describe('house style', () => {
     }
   })
 
-  test('a first visit lands on the dark theme', async () => {
-    const theme = await read('client/helpers/ThemeHelper.js')
-    expect(theme).toContain("static _DEFAULT = 'dark'")
-    expect(theme).toContain('@Helper')
-    expect(await read('client/services/SearchService.js')).toContain('this.theme = this.themeHelper.restore()')
-    expect(await read('client/components/site/layout/tac.html')).toContain(':data-theme="search.theme"')
+  test('a first visit lands on the dark theme, and a saved theme stays', async () => {
+    const source = await read('client/shared/scripts/ThemeDefault.js')
+    const run = (saved) => {
+      const values = new Map(saved === null ? [] : [['w-theme', saved]])
+      const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }
+      new Function('localStorage', source)(storage)
+      return values.get('w-theme')
+    }
+    expect(run(null)).toBe('dark')
+    expect(run('light')).toBe('light')
+    expect(run('auto')).toBe('auto')
+    const blocked = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('denied') } }
+    expect(() => new Function('localStorage', source)(blocked)).not.toThrow()
 
+    const manifest = await readJson('client/manifest.json')
+    const scripts = manifest.tac.scripts
+    expect(scripts.indexOf('/shared/scripts/ThemeDefault.js')).toBeLessThan(scripts.indexOf('/shared/assets/duvay/duvay.min.js'))
     const css = await read('client/shared/styles/site.css')
-    expect(css).toContain(':root[w-theme="dark"]')
+    expect(css).toContain(':root:not([w-theme]),\n:root[w-theme="dark"] {')
     expect(css).toContain(':root[w-theme="light"]')
   })
 

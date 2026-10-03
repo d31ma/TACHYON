@@ -125,6 +125,16 @@ stylesheet is pinned by the manifest's `styleSources` entry. The two DuVay scrip
 are ordinary declared `tac.scripts`, with exact `scriptSources` hashes. The
 vendor directory retains the version, MIT license and asset provenance.
 
+`duvay-wc-site.min.js` holds only the DuVay components that the views use
+(`w-app-bar`, `w-btn`, `w-container`, `w-divider`, `w-expansion-panel` and
+`w-expansion-panels`). The full component bundle is about 134 KiB as sent and
+put every route over the script budget. `PROVENANCE.json` names the DuVay
+commit, the source files and their hashes, and the bundler. When a view starts
+to use another DuVay component, add its module to `build.modules` and
+`build.inputs`, then run `DUVAY_SOURCE=<DuVay checkout> bun run duvay`. It checks the source
+hashes, rebuilds the file and stops with the new hash when the output changed;
+put that hash in `PROVENANCE.json` and `tac.scriptSources`.
+
 Component layout and typography live beside the component HTML in `tac.css`.
 `bun run styles` reads each template independently through the existing pinned
 Tailwind scanner/compiler. It replaces only the tool-read generated region in
@@ -137,11 +147,12 @@ On a machine with externally routed dependencies, set
 `TACHYON_WEBSITE_DEPENDENCIES` to the website's existing `node_modules` directory
 when running the generator; no dependency alias is needed inside synced source.
 
-`SearchService` owns theme startup and injects the annotated `ThemeHelper`, which restores the saved `w-theme` value during the service's registered startup lifecycle. `site-layout` references
-`search.theme`, so every route activates that owner even before search opens.
-The helper owns only storage/root attribute operations and has no lifecycle
-annotations or stored theme state. This reuses the existing browser owner and
-keeps the website's service languages balanced.
+The theme is dark until the visitor picks another one. `site.css` gives the
+page the dark colors while the root has no `w-theme` attribute, so the first
+paint is dark. `shared/scripts/ThemeDefault.js` runs before DuVay's behaviour
+script and saves `dark` when nothing is saved, because that script falls back
+to `light`. DuVay's script then applies the saved theme, and its
+`w-theme-toggle` button changes and saves it.
 Preference access stays in services. `DocumentationUtils` and `PlatformUtils`
 contain only stateless static methods at the canonical shared utility root.
 
