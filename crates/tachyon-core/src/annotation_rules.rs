@@ -254,9 +254,9 @@ impl Rule {
 pub(crate) struct AnnotationRules;
 
 impl AnnotationRules {
-    pub(crate) const LANGUAGES: [&'static str; 14] = [
+    pub(crate) const LANGUAGES: [&'static str; 15] = [
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "swift", "rb",
-        "lua",
+        "lua", "fs",
     ];
     pub(crate) const YON: &'static [&'static str] = &[
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb", "lua",
@@ -982,6 +982,10 @@ impl AnnotationRules {
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {
+        crate::fsharp_source::FsharpView::either(path, source, Self::check_direct)
+    }
+
+    fn check_direct(path: &Path, source: &str) -> Result<(), Failure> {
         let extension = path
             .extension()
             .and_then(|value| value.to_str())

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 struct Sample;
 
 impl Sample {
+    const FSHARP_HELPER_PATH: &'static str = "client/helpers/ValueHelper.fs";
     const REALMS: [Realm; 2] = [Realm::Tac, Realm::Yon];
     const TARGETS: [Target; 4] = [
         Target::Type,
@@ -114,6 +115,13 @@ impl Sample {
         };
         let inline: String = markers.iter().map(|marker| format!("{marker} ")).collect();
         match (language, target) {
+            ("fs", Target::Type) => format!(
+                "{all}\ntype SampleService() =\n    member this.Load(value: string) : string = value\n"
+            ),
+            ("fs", Target::Method) => format!(
+                "{class}\ntype SampleService() =\n{}    member this.Load(value: string) : string = value\n",
+                lines("    ")
+            ),
             ("js", Target::Type) => format!("{all}\nclass SampleService {{\n}}\n"),
             ("js", Target::Field) => format!(
                 "{class}\nclass SampleService {{\n{}  value;\n}}\n",
@@ -331,6 +339,30 @@ fn every_language_has_rules_in_some_realm() {
         });
         assert!(used, "no annotation reaches {language}");
     }
+}
+
+#[test]
+fn fsharp_helper_attribute_is_checked_through_its_existing_analysis_view() {
+    let path = std::path::Path::new(Sample::FSHARP_HELPER_PATH);
+    let source = "[<Helper>]\ntype ValueHelper() =\n    member this.Value() : int = 1\n";
+    let result = AnnotationRules::check(path, source);
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
+fn fsharp_helper_on_a_member_reports_its_authored_spelling_and_path() {
+    let path = std::path::Path::new(Sample::FSHARP_HELPER_PATH);
+    let source = "type ValueHelper() =\n    [<Helper>]\n    member this.Value() : int = 1\n";
+    let failure =
+        AnnotationRules::check(path, source).expect_err("FSharp member Helper must be refused");
+    let message = &failure.diagnostics()[0].message;
+    assert!(message.contains("[<Helper>]"), "{message}");
+    assert!(message.contains("belongs on a class"), "{message}");
+    assert!(message.contains(Sample::FSHARP_HELPER_PATH), "{message}");
+    assert_eq!(
+        failure.diagnostics()[0].spans[0].file,
+        Sample::FSHARP_HELPER_PATH
+    );
 }
 
 #[test]

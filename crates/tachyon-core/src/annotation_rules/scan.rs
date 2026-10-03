@@ -986,6 +986,7 @@ impl Messages {
             "py" => format!("@{}", Self::snake_case(name)),
             "rs" | "php" | "rb" => format!("#[{name}]"),
             "cs" => format!("[{name}]"),
+            "fs" => format!("[<{name}>]"),
             "go" => format!("// @{name}"),
             "lua" => format!("-- @{name}"),
             _ => format!("@{name}"),
