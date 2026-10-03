@@ -6,7 +6,9 @@ use crate::project::NativeCompanion;
 struct NativeCapabilityCheck;
 
 impl NativeCapabilityCheck {
+    #[cfg(target_os = "macos")]
     const SERVICE: &str = "@Service\n@NeedsAll\nfinal class ImportService {\n    private let filePicker: FilePicker\n    private let windowControls: WindowControls\n    func choose() -> String { filePicker.open().status.rawValue }\n    func allowed() -> Bool { windowControls.granted(\"minimize\") }\n}\n";
+    #[cfg(target_os = "macos")]
     const CALLER: &str = r#"import Foundation
 @main struct Caller {
     static func main() {
@@ -41,6 +43,7 @@ impl NativeCapabilityCheck {
 }
 "#;
 
+    #[cfg(target_os = "macos")]
     fn stage(root: &std::path::Path) -> std::path::PathBuf {
         let source = root.join("client/services/ImportService.swift");
         std::fs::create_dir_all(source.parent().expect("parent")).expect("directory");
@@ -59,6 +62,7 @@ impl NativeCapabilityCheck {
             .expect("companion")
     }
 
+    #[cfg(target_os = "macos")]
     async fn run() -> String {
         let root = tempfile::tempdir().expect("project");
         let staged = Self::stage(root.path());
@@ -105,6 +109,7 @@ impl NativeCapabilityCheck {
         report.cases.len() == 1 && report.cases[0].passed
     }
 
+    #[cfg(target_os = "macos")]
     async fn host_compiles() -> String {
         let root = tempfile::tempdir().expect("project");
         std::fs::create_dir_all(root.path().join("client")).expect("client directory");
