@@ -7,11 +7,17 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
+/** @typedef {{rendered: string | undefined, direct: string[], browserVersion: string}} NullArgumentsProof */
+
 class LuaNullArgumentsBrowserGate {
+  /** @type {string} */
   static fixture = fileURLToPath(new URL('../crates/tachyon-core/tests/fixtures/tac-lua-null-arguments', import.meta.url))
+  /** @type {number} */
   static timeout = 15_000
+  /** @type {string} */
   static expected = 'nil 5'
 
+  /** @returns {Promise<void>} */
   static async run() {
     const binary = process.env.TAC_BIN
     assert.ok(binary, 'TAC_BIN names the ty binary to check')
@@ -28,10 +34,12 @@ class LuaNullArgumentsBrowserGate {
     }
   }
 
+  /** @param {string} origin @returns {Promise<NullArgumentsProof>} */
   static async probe(origin) {
     const browser = await chromium.launch({ timeout: LuaNullArgumentsBrowserGate.timeout })
     try {
       const page = await browser.newPage()
+      /** @type {string[]} */
       const errors = []
       page.on('pageerror', error => errors.push(String(error)))
       await page.goto(origin, { waitUntil: 'networkidle', timeout: LuaNullArgumentsBrowserGate.timeout })
