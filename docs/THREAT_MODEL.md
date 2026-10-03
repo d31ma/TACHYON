@@ -381,8 +381,9 @@ separate cybersecurity review for this reconciliation.
   a capability-confined `.tachyon/handlers` cache. Tachyon counts the size of
   inactive entries recursively and prunes them to 256 entries and 512 MiB.
   Kotlin, Rust, Dart, Go and Groovy artifacts are also shared by digest name
-  through `runtime/handlers-v1` in the user cache (ADR 0037 amendment, 2026-10-03). Only regular,
-  non-empty files are restored, without following symbolic links, so the user
+  through `runtime/handlers-v1` in the user cache (ADR 0037 amendment,
+  2026-10-03). Only regular, non-empty files are restored, without following
+  symbolic links, so the user
   cache must stay private to the developer account, as it already must for
   the cached web builds.
   Before execution, Tachyon copies a cache hit into a private runtime
