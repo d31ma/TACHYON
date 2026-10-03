@@ -166,3 +166,7 @@ again from its new folder. A taken destination is a manual step. Native Rust
 `crate::utils::<Utility>` paths need no change, because the compiler maps them
 by the utility class name, not by its folder. Yon keeps `server/utils`
 unchanged. The utility contract itself is unchanged.
+
+As `client/utils` was, `client/shared/utils` is not copied as a raw shared
+asset: the build publishes a utility module only when a script reaches it.
+The design checks (visibility, layers, names) treat its files as utilities.
