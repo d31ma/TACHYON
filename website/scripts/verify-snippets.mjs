@@ -706,7 +706,8 @@ function filesForTacLanguage(clientFiles, extension) {
  * @param {Snippet[]} files
  */
 async function bundleProject(label, files, withPlaceholders = false, webOnly = false) {
-  const clientFiles = files.filter(file => !file.name.startsWith('server/'))
+  const clientFiles = files.filter(file => !file.name.startsWith('server/') && !isNativeAlternative(file))
+  await bundleNativeAlternatives(label, clientFiles, files.filter(isNativeAlternative))
   for (const extension of extensionsToBundle(clientFiles)) {
     const nativeTarget = await nativeTargetWithoutWebToolchain(extension, webOnly)
     const languageTag = extension ? ` [${extension.slice(1)}]` : ''
@@ -719,6 +720,31 @@ async function bundleProject(label, files, withPlaceholders = false, webOnly = f
       const cached = await unlessPassedBefore(label, root, bundleArguments, () => runCommand(Settings.binary, bundleArguments))
       const note = nativeTarget ? ' (native source staging only: no web toolchain)' : ''
       pass(`${label}${languageTag}${note}${cached}`, 'bundle')
+    })
+  }
+}
+
+/** @param {Snippet} file */
+function isNativeAlternative(file) {
+  return file.name.startsWith('native/') && path.extname(file.name) in Languages.nativeTargets
+}
+
+/**
+ * @param {string} label
+ * @param {Snippet[]} clientFiles
+ * @param {Snippet[]} nativeFiles
+ */
+async function bundleNativeAlternatives(label, clientFiles, nativeFiles) {
+  for (const native of nativeFiles) {
+    const extension = path.extname(native.name)
+    if (Settings.onlyLanguage && extension !== `.${Settings.onlyLanguage}`) continue
+    const placed = { name: native.name.replace(/^native\//, 'client/'), code: native.code }
+    const others = filesForTacLanguage(clientFiles, extension).filter(file => file.name !== placed.name)
+    await inStagingDirectory(`${label} [${extension.slice(1)} native]`, async root => {
+      for (const file of [...others, placed]) writeSnippetFile(root, file.name, file.code)
+      const bundleArguments = ['bundle', root, '--target', Languages.nativeTargets[extension], '--native']
+      const cached = await unlessPassedBefore(label, root, bundleArguments, () => runCommand(Settings.binary, bundleArguments))
+      pass(`${label} [${extension.slice(1)} native] (native source staging)${cached}`, 'bundle')
     })
   }
 }
