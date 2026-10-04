@@ -266,7 +266,7 @@ fn a_tac_app_with_nested_native_rust_services_and_shared_utilities_passes_unchan
 }
 
 #[test]
-fn a_go_yon_backend_for_frontend_with_nested_roles_passes_unchanged() {
+fn a_go_yon_backend_for_frontend_with_nested_roles_and_native_packages_passes_unchanged() {
     let (_workspace, root) = scaffolded(&choices(RealmChoice::Server, &[], &[YonLanguage::Go]));
     for (path, source) in [
         (
@@ -284,6 +284,18 @@ fn a_go_yon_backend_for_frontend_with_nested_roles_passes_unchanged() {
         (
             "server/utils/diff/DiffUtils.go",
             "type DiffUtils struct{}\n\nfunc (DiffUtils) Changed(before int, after int) bool {\n\treturn before != after\n}\n",
+        ),
+        (
+            "server/packages/go.mod",
+            "module example.com/heimdall/packages\n\ngo 1.27\n",
+        ),
+        (
+            "server/packages/helpers/git/repository.go",
+            "package git\n\ntype Repository struct{ Path string }\n\nfunc (repository *Repository) Head() string {\n\treturn repository.Path\n}\n",
+        ),
+        (
+            "server/packages/services/diff/report_builder.go",
+            "package diff\n\ntype ReportBuilder struct{}\n\ntype Report struct{ Lines int }\n\nfunc (ReportBuilder) Build() Report {\n\treturn Report{}\n}\n",
         ),
         (
             "server/models/proxy/ProxySettings.go",
