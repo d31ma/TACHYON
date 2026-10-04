@@ -60,6 +60,8 @@ mod parser_tests;
 mod php;
 mod python;
 mod python_members;
+#[cfg(test)]
+mod python_members_tests;
 pub(crate) use python_members::PythonMembers;
 mod query_frontend;
 mod ruby;

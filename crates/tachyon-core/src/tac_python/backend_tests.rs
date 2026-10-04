@@ -415,3 +415,35 @@ fn python_listener_options_and_a_retained_start_event_reach_the_page() {
         ])
     );
 }
+
+#[test]
+fn python_program_lists_fields_whose_default_is_a_model_call() {
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    Project::write(
+        root.path(),
+        "client/models/Product.py",
+        "from dataclasses import dataclass\n\n@dataclass\nclass Product:\n    name: str\n    price: str\n",
+    );
+    let relative = "client/services/ShopService.py";
+    Project::write(
+        root.path(),
+        relative,
+        "from models import Product\n\n@service\nclass ShopService:\n    count: int = 6\n    label: str = str(5)\n    product: Product = Product(name=\"A\", price=\"1\")\n",
+    );
+    let program = PythonWebServices::program(
+        root.path(),
+        &[(
+            "shop".to_owned(),
+            "ShopService".to_owned(),
+            root.path().join(relative),
+        )],
+    )
+    .unwrap_or_else(|error| panic!("compiled source: {error:?}"));
+    for name in ["count", "label", "product"] {
+        assert!(
+            program.contains(&format!("\\\"name\\\":\\\"{name}\\\"")),
+            "{name} is missing from the service fields"
+        );
+    }
+    assert!(program.contains("\\\"model\\\":\\\"Product\\\""));
+}
