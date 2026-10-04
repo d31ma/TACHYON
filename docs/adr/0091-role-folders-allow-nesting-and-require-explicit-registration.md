@@ -103,8 +103,8 @@ The check covers, per role folder and language:
    `impl` blocks (`TY1310`);
 5. dependencies that point down and never reach a controller (`TY1327`). A
    utility class in `client/shared/utils` or `server/utils` names no role class:
-   every class of its realm may call it, so it cannot depend on one. Of the
-   other design rules, `client/shared/utils` is not yet in scope;
+   every class of its realm may call it, so it cannot depend on one. The
+   other design rules check `client/shared/utils` too (ADR 0069 amendment);
 6. realm boundaries: a JavaScript, TypeScript or Dart file never imports a file
    of the other realm with a relative path (`TY1369`). Client code reaches the
    server through an HTTPClient; server code never imports client code.
