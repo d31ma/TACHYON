@@ -9,9 +9,8 @@ pub(crate) struct CppWebServices;
 impl CppWebServices {
     pub(crate) const INSTANCE: &'static str = concat!(
         include_str!("browser/tac-task-answers.js"),
-        include_str!("browser/tac-rust-tasks.js"),
-        r"const cppTasks = new TacRustTasks()
-const cppRead = (pointer, length) => decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length))
+        include_str!("browser/tac-wasm-tasks.js"),
+        r"const wasmTasks = new TacWasmTasks()
 const cppResponse = await fetch(new URL('./cpp/services.wasm', import.meta.url))
 const cppModule = await WebAssembly.compile(await cppResponse.arrayBuffer())
 const cppNotSupported = 52
@@ -28,7 +27,7 @@ const cppSystem = {
     for (let index = 0; index < count; index += 1) {
       const pointer = view.getUint32(vectors + index * 8, true)
       const length = view.getUint32(vectors + index * 8 + 4, true)
-      cppPrint(descriptor, cppRead(pointer, length))
+      cppPrint(descriptor, wasmRead(pointer, length))
       total += length
     }
     view.setUint32(written, total, true)
@@ -39,13 +38,11 @@ const cppSystem = {
 for (const { module, name, kind } of WebAssembly.Module.imports(cppModule)) {
   if (module === 'wasi_snapshot_preview1' && kind === 'function') cppSystem[name] ??= () => cppNotSupported
 }
-const cppImports = { tachyon: { ...tachyonImports, ...cppTasks.imports(cppRead) }, wasi_snapshot_preview1: cppSystem, env: { emscripten_notify_memory_growth: () => {} } }
+const cppImports = { tachyon: { ...tachyonImports, ...wasmTasks.imports(wasmRead) }, wasi_snapshot_preview1: cppSystem, env: { emscripten_notify_memory_growth: () => {} } }
 const cppInstance = await WebAssembly.instantiate(cppModule, cppImports)
 const exports = cppInstance.exports
 exports._initialize?.()
-cppTasks.attach(exports)
-/** @param {string} text @returns {Promise<string>} */
-const transportAsync = (text) => cppTasks.answers.answer(transport(text))
+wasmTasks.attach(exports)
 "
     );
 
