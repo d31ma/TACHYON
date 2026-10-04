@@ -46,6 +46,26 @@ class Sweep {
     const load = createRequire(import.meta.url)
     return load(dependencies ? path.resolve(dependencies, 'playwright') : 'playwright').chromium
   }
+
+  /** @param {import('playwright').Page} page @param {string} url @returns {Promise<void>} */
+  static async open(page, url) {
+    const pending = new Set()
+    const start = (/** @type {import('playwright').Request} */ request) => pending.add(request)
+    const settle = (/** @type {import('playwright').Request} */ request) => pending.delete(request)
+    page.on('request', start)
+    page.on('requestfinished', settle)
+    page.on('requestfailed', settle)
+    try {
+      await page.goto(url, { waitUntil: 'networkidle' })
+    } catch (error) {
+      const open = [...pending].map(request => `${request.method()} ${request.url()}`)
+      throw new Error(`${url} never reached network idle; open requests: ${open.join(', ') || 'none'}`, { cause: error })
+    } finally {
+      page.off('request', start)
+      page.off('requestfinished', settle)
+      page.off('requestfailed', settle)
+    }
+  }
 }
 
 function probe() {
@@ -137,7 +157,7 @@ async function sweepWidth(browser, theme, width, summary) {
   const page = await context.newPage()
 
   for (const path of Sweep.selectedPaths()) {
-    await page.goto(`${Sweep.origin}${path}`, { waitUntil: 'networkidle' })
+    await Sweep.open(page, `${Sweep.origin}${path}`)
     await page.waitForTimeout(400)
     const report = await page.evaluate(probe)
     summary.checks += 1
