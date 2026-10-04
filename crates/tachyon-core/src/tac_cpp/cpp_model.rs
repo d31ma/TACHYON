@@ -10,24 +10,32 @@ pub(crate) struct CppModel {
 }
 
 impl CppModel {
+    const NAMED: &'static str = "A C++ model is named after its file";
+    const CLIENT: &'static str = "client";
+    const CLIENT_ONLY: &'static str = "C++ is a Tac language only for now: a C++ model goes in client/models. Yon C++ comes later (ADR 0099)";
+
     pub(crate) fn read(relative: &Path, source: &str) -> Result<Self, Failure> {
         let file = CppFile::read(relative, source)?;
         let named = relative
             .file_stem()
             .is_some_and(|stem| stem == file.class.name.as_str());
-        if !named {
-            return Err(CppFailure::unreadable(
-                relative,
-                file.class.name_at,
-                "A C++ model is named after its file",
-            ));
-        }
+        named
+            .then_some(())
+            .ok_or_else(|| CppFailure::unreadable(relative, file.class.name_at, Self::NAMED))?;
+        relative
+            .starts_with(Self::CLIENT)
+            .then_some(())
+            .ok_or_else(|| CppFailure::pending(relative, 0, Self::CLIENT_ONLY))?;
         CppMarkerCheck::check(relative, &file.class)?;
         Ok(Self {
             file,
             path: relative.to_path_buf(),
             source: source.to_owned(),
         })
+    }
+
+    pub(crate) fn check(relative: &Path, source: &str) -> Result<(), Failure> {
+        Self::read(relative, source).map(drop)
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -45,22 +53,28 @@ impl CppModel {
             .collect()
     }
 
+    pub(crate) fn codec(&self) -> String {
+        self.codec_text()
+    }
+
     fn fields(&self) -> Vec<(String, String)> {
         self.file
             .class
             .members
             .iter()
-            .filter(|member| {
-                member.kind == CppMemberKind::Field && member.public && !member.is_static
-            })
+            .filter(|member| member.is_public_instance(CppMemberKind::Field))
             .map(|member| (member.name.clone(), member.type_text.clone()))
             .collect()
     }
 
-    pub(crate) fn codec(&self) -> String {
+    fn codec_text(&self) -> String {
         if self.file.class.is_enum {
             return self.enum_codec();
         }
+        self.struct_codec()
+    }
+
+    fn struct_codec(&self) -> String {
         let name = self.name();
         let mut writes = String::new();
         let mut reads = String::new();

@@ -371,6 +371,9 @@ pub(crate) fn validate(path: &Path, source: &str) -> Result<(), Failure> {
     let Some(model) = ModelFile::find(path, source) else {
         return Ok(());
     };
+    if crate::tac_cpp::CppSource::is_cpp(path) {
+        return crate::tac_cpp::CppModel::check(path, source);
+    }
     let language = model.check_language()?;
     if language == Language::TypeScript
         && crate::behavior::ModelSchema::plain(path, source)?.is_none()

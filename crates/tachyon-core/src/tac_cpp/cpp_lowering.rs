@@ -1,4 +1,4 @@
-use super::{CppAttribute, CppFile, CppMarkerCheck, CppService};
+use super::{CppAttribute, CppClass, CppFile, CppMarkerCheck, CppRemote, CppService};
 use std::ops::Range;
 
 pub(crate) struct CppLowering {
@@ -11,60 +11,78 @@ impl CppLowering {
         ["pragma once", "include \"", "include <tachyon/"];
 
     pub(crate) fn model(file: &CppFile, source: &str) -> String {
-        let lowering = Self::blanked(file, source);
-        lowering.finished()
+        Self::blanked(file, source).finished()
     }
 
     pub(crate) fn service(service: &CppService) -> String {
         let mut lowering = Self::blanked(&service.file, &service.source);
         let class = service.class();
-        lowering.insertions.push((
-            class.body.start + 1,
-            format!(" friend class {};", service.binding_name()),
-        ));
+        let friend = format!(" friend class {};", service.binding_name());
+        lowering.insertions.push((class.body.start + 1, friend));
+        lowering.fill_needs(class);
+        let remote = Self::remote_definitions(service);
+        format!("{}{remote}", lowering.finished())
+    }
+
+    fn remote_definitions(service: &CppService) -> String {
+        if !service.is_remote() {
+            return String::new();
+        }
+        format!("\n{}", CppRemote::definitions(service.class()))
+    }
+
+    fn fill_needs(&mut self, class: &CppClass) {
         for member in class.members.iter().filter(|member| member.marked("Needs")) {
             let provided = format!(" = ::tachyon::TacNeeds::of<{}>()", member.plain_type());
-            lowering.insertions.push((member.terminator, provided));
+            self.insertions.push((member.terminator, provided));
         }
-        lowering.finished()
     }
 
     fn blanked(file: &CppFile, source: &str) -> Self {
         let mut text = source.to_owned();
-        for range in &file.directives {
-            let directive = Self::squeezed(&source[range.clone()]);
-            if Self::REMOVED_DIRECTIVES
-                .iter()
-                .any(|removed| directive.contains(removed))
-            {
-                Self::blank(&mut text, range);
-            }
-        }
-        let class = &file.class;
-        let markers = class
-            .every_marker()
-            .into_iter()
-            .filter(|marker| Self::is_tachyon(marker));
-        for marker in markers {
-            Self::blank(&mut text, &marker.specifier);
-        }
+        Self::blank_directives(&mut text, file, source);
+        Self::blank_markers(&mut text, &file.class);
         Self {
             text,
             insertions: Vec::new(),
         }
     }
 
-    fn is_tachyon(marker: &CppAttribute) -> bool {
-        let standard = CppMarkerCheck::is_standard(&marker.name);
-        !standard && crate::annotation_rules::AnnotationRules::find(&marker.name).is_some()
+    fn blank_directives(text: &mut String, file: &CppFile, source: &str) {
+        let removed = file
+            .directives
+            .iter()
+            .filter(|range| Self::is_removed(&source[(*range).clone()]));
+        for range in removed {
+            Self::blank(text, range);
+        }
     }
 
-    fn squeezed(directive: &str) -> String {
-        directive
+    fn blank_markers(text: &mut String, class: &CppClass) {
+        let markers = class
+            .every_marker()
+            .into_iter()
+            .filter(|marker| Self::is_tachyon(marker));
+        for marker in markers {
+            Self::blank(text, &marker.specifier);
+        }
+    }
+
+    fn is_removed(directive: &str) -> bool {
+        let squeezed = directive
             .trim_start_matches('#')
             .split_whitespace()
             .collect::<Vec<_>>()
-            .join(" ")
+            .join(" ");
+        Self::REMOVED_DIRECTIVES
+            .iter()
+            .any(|removed| squeezed.contains(removed))
+    }
+
+    fn is_tachyon(marker: &CppAttribute) -> bool {
+        let standard = CppMarkerCheck::is_standard(&marker.name);
+        let known = crate::annotation_rules::AnnotationRules::find(&marker.name).is_some();
+        [standard, known] == [false, true]
     }
 
     fn blank(text: &mut String, range: &Range<usize>) {

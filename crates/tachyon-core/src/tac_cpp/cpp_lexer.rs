@@ -52,7 +52,9 @@ impl<'a> CppLexer<'a> {
     fn word_length(&self) -> usize {
         self.code[self.at..]
             .iter()
-            .take_while(|byte| byte.is_ascii_alphanumeric() || **byte == b'_' || **byte == b'.')
+            .take_while(|byte| {
+                [byte.is_ascii_alphanumeric(), **byte == b'_', **byte == b'.'].contains(&true)
+            })
             .count()
     }
 

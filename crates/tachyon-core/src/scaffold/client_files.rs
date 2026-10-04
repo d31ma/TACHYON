@@ -34,6 +34,7 @@ impl ClientFiles {
         let mut files = Self::template_files(language);
         files.extend(Self::javascript_files(language, javascript_name));
         files.extend(Self::greeting_files(language));
+        files.extend(language.editor_files());
         files
     }
 

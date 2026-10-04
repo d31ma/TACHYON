@@ -23,6 +23,23 @@ machine contracts have their own, independent major versions.
   setting. The window keeps its accessible title; an empty title from the page
   keeps the app name. Windows, Linux, iOS and Android keep the standard title
   bar and the build prints a note (ADR 0098).
+- C++ is a Tac WebAssembly service language (ADR 0099). A service, a model
+  or a test unit is a header-only `.hpp` file with one class, named after the
+  file: `class [[Service]] OrderService { ... };`. Markers are bare PascalCase
+  standard attributes checked by the shared rule table (`[[Needs]]`,
+  `[[OnEvent]]`, `[[OnStart]]`, `[[OnStop]]`, `[[Order]]`, `[[InBackground]]`,
+  `[[Test]]`, `[[TestSetup]]`, `[[HTTPClient]]` and the request markers);
+  lowercase, namespaced and unknown spellings fail with `TY1371`, a
+  `[[Needs]]` type that is no C++ service or client fails with `TY1372`, and
+  Emscripten interop fails with `TY1317`. Tachyon ships header-only
+  `tachyon::json` (shaped like System.Text.Json.Nodes), `tachyon::http`
+  (shaped like System.Net.Http) and a C++20 coroutine `Task<T>`, generates a
+  JSON codec for every model in `client/models`, and builds one em++ module
+  per page program on the linear-memory bridge of Rust and Swift. Page
+  methods that return `Task<T>` are asynchronous, `[[HTTPClient]]` classes in
+  `client/remotes` get their methods written, C++ test units run with
+  clang++, `ty doctor` lists em++ and clang++, and `ty init --tac cpp` writes
+  a C++ greeting service, its test and `client/.clangd`.
 - `server.environment` in `server/application.json` passes chosen variables
   of `ty`'s environment to handler processes in every Yon language, such as
   `["HOME", "AWS_*", "HD_*"]`: exact names and prefix patterns ending in `*`.

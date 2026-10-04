@@ -48,6 +48,8 @@ export class ToolchainFingerprint {
       ['ruby', ['--version']],
       ['lua', ['-v']],
       ['luac', ['-v']],
+      ['em++', ['--version']],
+      ['clang++', ['--version']],
       ['tsc', ['--version']],
     ]
   }

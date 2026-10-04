@@ -28,6 +28,9 @@
       "include": "browser-http-fsharp/section.json"
     },
     {
+      "include": "browser-http-cpp/section.json"
+    },
+    {
       "include": "what-the-browser-transport-allows/section.json"
     }
   ]

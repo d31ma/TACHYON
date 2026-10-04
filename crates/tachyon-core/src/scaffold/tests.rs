@@ -220,7 +220,7 @@ fn unknown_and_conflicting_answers_are_refused_with_ty1408() {
         "{unknown}"
     );
     assert!(
-        unknown.contains("js, ts, dart, rs, cs, fs, go, rb, lua, swift, kt, java"),
+        unknown.contains("js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java"),
         "{unknown}"
     );
     let python_page = error_text(&answers(None, Some("py"), None));
@@ -447,6 +447,26 @@ fn ruby_scaffold_keeps_foundation_and_component_styles_separate() {
 #[test]
 fn lua_scaffold_keeps_foundation_and_component_styles_separate() {
     ClientStyleFixture::language(TacLanguage::Lua);
+}
+
+#[test]
+fn cpp_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Cpp);
+}
+
+#[test]
+fn a_cpp_scaffold_quiets_the_editor_about_tachyon_attributes() {
+    let files = super::ClientFiles::language_files(TacLanguage::Cpp, "ShellService");
+    let clangd = files
+        .iter()
+        .find(|(path, _)| path == "client/.clangd")
+        .expect("clangd");
+    assert!(clangd.1.contains("-Wno-unknown-attributes"), "{}", clangd.1);
+    assert!(
+        files
+            .iter()
+            .any(|(path, _)| path == "client/services/CppGreetingService.hpp")
+    );
 }
 
 #[test]

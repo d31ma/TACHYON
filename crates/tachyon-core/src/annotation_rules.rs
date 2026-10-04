@@ -280,6 +280,8 @@ impl AnnotationRules {
     ];
     pub(crate) const TAC_RESOURCE: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
+    const TAC_REMOTE: &'static [&'static str] =
+        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "hpp"];
     const TAC_BEHAVIOR: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "py",
     ];
@@ -836,7 +838,7 @@ impl AnnotationRules {
             Self::TYPE,
             "marks a class that sends HTTP requests and gives the path they start with",
         )
-        .reach(Self::TAC_RESOURCE, Self::YON_RESOURCE),
+        .reach(Self::TAC_REMOTE, Self::YON_RESOURCE),
         Rule::new(
             "GetRequest",
             Self::METHOD,
@@ -1174,7 +1176,7 @@ impl Rule {
 
     const fn request(self) -> Self {
         Self {
-            tac: AnnotationRules::TAC_RESOURCE,
+            tac: AnnotationRules::TAC_REMOTE,
             yon: AnnotationRules::YON_RESOURCE,
             clashes: AnnotationRules::HTTP_METHODS,
             class_needs: &["HTTPClient"],
@@ -1195,7 +1197,7 @@ impl Rule {
 
     const fn request_part(self) -> Self {
         Self {
-            tac: AnnotationRules::TAC_RESOURCE,
+            tac: AnnotationRules::TAC_REMOTE,
             yon: AnnotationRules::YON_RESOURCE,
             clashes: AnnotationRules::REQUEST_PARTS,
             class_needs: &["HTTPClient"],

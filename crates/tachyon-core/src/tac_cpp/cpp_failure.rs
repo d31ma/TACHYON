@@ -7,7 +7,7 @@ pub(crate) struct CppFailure;
 impl CppFailure {
     pub(crate) const UNREADABLE: u16 = 1371;
     pub(crate) const PENDING: u16 = 1372;
-    const HELP: &'static str = "C++ Tac files are header-only .hpp files with one class each (ADR 0098). Tachyon markers are PascalCase standard attributes such as `class [[Service]] OrderService` and `[[Needs]] OrderStore& orders;`.";
+    const HELP: &'static str = "C++ Tac files are header-only .hpp files with one class each (ADR 0099). Tachyon markers are PascalCase standard attributes such as `class [[Service]] OrderService` and `[[Needs]] OrderStore& orders;`.";
 
     pub(crate) fn unreadable(path: &Path, at: usize, message: &str) -> Failure {
         Self::coded(Self::UNREADABLE, path, at, message)

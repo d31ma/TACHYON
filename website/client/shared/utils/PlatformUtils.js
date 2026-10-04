@@ -124,13 +124,14 @@ export class PlatformUtils {
       rs: 'Rust',
       rb: 'Ruby',
       lua: 'Lua',
+      hpp: 'C++',
       go: 'Go',
     }
   }
 
   /** @returns {string[]} */
   static _companionExtensions() {
-    return ['js', 'ts', 'dart', 'py', 'java', 'groovy', 'php', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua']
+    return ['js', 'ts', 'dart', 'py', 'java', 'groovy', 'php', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua', 'hpp']
   }
 
   /** @returns {string[]} */

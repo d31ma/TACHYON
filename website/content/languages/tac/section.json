@@ -76,6 +76,13 @@
       }
     },
     {
+      "name": "client/services/TallyService.hpp",
+      "note": "em++ (Emscripten) compiles C++ services to WebAssembly (ADR 0099). A C++ service is one header-only class whose markers are standard attributes, such as `class [[Service]] TallyService`. Public fields and methods reach the page. Tachyon ships its own JSON types (`tachyon::json`) and writes the JSON code of every model, because C++ has no reflection. No host links C++, so it runs as WebAssembly on every target.",
+      "code": {
+        "file": "client/services/TallyService.hpp"
+      }
+    },
+    {
       "name": "client/services/TallyService.swift",
       "code": {
         "file": "client/services/TallyService.swift"

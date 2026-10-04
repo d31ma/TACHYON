@@ -52,10 +52,19 @@ impl CppWasmProgram {
         let level = Self::level(profile);
         let key = Self::cache_key(&version, level, program);
         let cached = crate::cache::root().join(Self::CACHE_FOLDER).join(key);
-        if let Ok(binary) = std::fs::read(cached.join(Self::BINARY)) {
-            return Ok(Self { binary });
+        Self::cached_or_built(&compiler, level, program, &cached).await
+    }
+
+    async fn cached_or_built(
+        compiler: &OsStr,
+        level: &str,
+        program: &str,
+        cached: &Path,
+    ) -> Result<Self, Failure> {
+        match std::fs::read(cached.join(Self::BINARY)) {
+            Ok(binary) => Ok(Self { binary }),
+            Err(_) => Self::built(compiler, level, program, cached).await,
         }
-        Self::built(&compiler, level, program, &cached).await
     }
 
     pub(super) fn note(profile: crate::BuildProfile) -> Option<String> {

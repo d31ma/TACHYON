@@ -1,0 +1,11 @@
+#pragma once
+#include "../services/CppGreetingService.hpp"
+
+class [[Test(CppGreetingTestSetup)]] CppGreetingServiceTest {
+public:
+    void testGreetChangesTheMessage() {
+        CppGreetingService greeting;
+        greeting.greet();
+        Assert::equals("C++ says hello again.", greeting.message);
+    }
+};

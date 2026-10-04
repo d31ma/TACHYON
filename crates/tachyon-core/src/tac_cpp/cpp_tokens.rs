@@ -38,6 +38,17 @@ impl CppTokens {
         self.partners.get(index).copied().flatten()
     }
 
+    pub(crate) fn skipped(&self, index: usize) -> usize {
+        self.partner(index)
+            .filter(|partner| *partner > index)
+            .map_or(index, |partner| partner)
+            + 1
+    }
+
+    pub(crate) fn is_word(&self, index: usize) -> bool {
+        self.list.get(index).is_some_and(CppToken::is_word)
+    }
+
     pub(crate) fn opens_attribute(&self, index: usize) -> bool {
         let second = self.list.get(index + 1);
         let touching = second.is_some_and(|next| self.list[index].touches(next));

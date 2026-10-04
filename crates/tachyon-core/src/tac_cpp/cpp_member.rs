@@ -1,23 +1,6 @@
-use super::CppAttribute;
+use super::{CppAttribute, CppMemberKind, CppParameter, CppTypeText};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum CppMemberKind {
-    Field,
-    Method,
-    Constructor,
-    Destructor,
-    Operator,
-    NestedType,
-    Other,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct CppParameter {
-    pub(crate) name: String,
-    pub(crate) type_text: String,
-    pub(crate) markers: Vec<CppAttribute>,
-}
-
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct CppMember {
     pub(crate) kind: CppMemberKind,
@@ -31,6 +14,7 @@ pub(crate) struct CppMember {
     pub(crate) declarators: usize,
     pub(crate) markers: Vec<CppAttribute>,
     pub(crate) terminator: usize,
+    pub(crate) is_const: bool,
 }
 
 impl CppMember {
@@ -43,24 +27,23 @@ impl CppMember {
     }
 
     pub(crate) fn is_reference(&self) -> bool {
-        self.type_text.contains('&') || self.type_text.contains('*')
+        [self.type_text.contains('&'), self.type_text.contains('*')].contains(&true)
     }
-}
 
-pub(crate) struct CppTypeText;
+    pub(crate) fn is_instance(&self, kind: CppMemberKind) -> bool {
+        [self.kind == kind, !self.is_static] == [true, true]
+    }
 
-impl CppTypeText {
-    const QUALIFIERS: [&'static str; 3] = ["const", "volatile", "typename"];
+    pub(crate) fn is_task(&self) -> bool {
+        let plain = self.plain_type();
+        [
+            plain.starts_with("Task<"),
+            plain.starts_with("tachyon::Task<"),
+        ]
+        .contains(&true)
+    }
 
-    pub(crate) fn plain(type_text: &str) -> String {
-        let words: Vec<&str> = type_text
-            .split_whitespace()
-            .filter(|word| !Self::QUALIFIERS.contains(word))
-            .collect();
-        words
-            .join(" ")
-            .trim_end_matches(['&', '*', ' '])
-            .trim()
-            .to_owned()
+    pub(crate) fn is_public_instance(&self, kind: CppMemberKind) -> bool {
+        [self.is_instance(kind), self.public] == [true, true]
     }
 }

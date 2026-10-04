@@ -980,7 +980,7 @@ pub(crate) struct Messages;
 
 impl Messages {
     const LUA_LATER: &'static str = " Lua gets it in a later step (ADR 0085).";
-    const CPP_LATER: &'static str = " C++ gets it in a later step (ADR 0098).";
+    const CPP_LATER: &'static str = " C++ gets it in a later step (ADR 0099).";
     const NOTHING_LATER: &'static str = "";
     pub(crate) fn spelled(language: &str, name: &str) -> String {
         match language {

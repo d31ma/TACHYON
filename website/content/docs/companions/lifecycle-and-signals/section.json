@@ -88,6 +88,12 @@
       }
     },
     {
+      "name": "client/services/ReleaseService.hpp",
+      "code": {
+        "file": "client/services/ReleaseService.hpp"
+      }
+    },
+    {
       "name": "client/models/ReleaseChanged.js",
       "code": {
         "file": "client/models/ReleaseChanged.js"
@@ -157,6 +163,12 @@
       "name": "client/models/ReleaseChanged.lua",
       "code": {
         "file": "client/models/ReleaseChanged.lua"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.hpp",
+      "code": {
+        "file": "client/models/ReleaseChanged.hpp"
       }
     }
   ],

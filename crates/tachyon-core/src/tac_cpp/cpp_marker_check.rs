@@ -1,4 +1,6 @@
-use super::{CppAttribute, CppClass, CppFailure, CppFile, CppMemberKind, CppSource};
+use super::{
+    CppAttribute, CppClass, CppFailure, CppFile, CppMember, CppMemberKind, CppSource, CppSpelling,
+};
 use crate::Failure;
 use crate::annotation_rules::{AnnotationRules, PlacedMarker, Realm, Target};
 use std::path::Path;
@@ -10,19 +12,6 @@ pub(crate) struct CppMarkerCheck<'a> {
 }
 
 impl<'a> CppMarkerCheck<'a> {
-    const STANDARD: [&'static str; 10] = [
-        "noreturn",
-        "carries_dependency",
-        "deprecated",
-        "fallthrough",
-        "nodiscard",
-        "maybe_unused",
-        "likely",
-        "unlikely",
-        "no_unique_address",
-        "assume",
-    ];
-    const OWN_NAMESPACES: [&'static str; 3] = ["tachyon", "tac", "yon"];
     const NEAR_MISS: usize = 2;
 
     pub(crate) fn check_source(path: &'a Path, source: &str) -> Result<(), Failure> {
@@ -40,18 +29,27 @@ impl<'a> CppMarkerCheck<'a> {
                 .map(|marker| marker.name.clone())
                 .collect(),
         };
-        check.declaration(&class.markers, Target::Type)?;
+        check.check_class(class)
+    }
+
+    pub(crate) fn is_standard(name: &str) -> bool {
+        CppSpelling::is_standard(name)
+    }
+
+    fn check_class(&self, class: &CppClass) -> Result<(), Failure> {
+        self.declaration(&class.markers, Target::Type)?;
         for member in &class.members {
-            check.declaration(&member.markers, Self::member_target(member.kind))?;
-            for parameter in &member.parameters {
-                check.declaration(&parameter.markers, Target::Parameter)?;
-            }
+            self.check_member(member)?;
         }
         Ok(())
     }
 
-    pub(crate) fn is_standard(name: &str) -> bool {
-        Self::STANDARD.contains(&name)
+    fn check_member(&self, member: &CppMember) -> Result<(), Failure> {
+        self.declaration(&member.markers, Self::member_target(member.kind))?;
+        for parameter in &member.parameters {
+            self.declaration(&parameter.markers, Target::Parameter)?;
+        }
+        Ok(())
     }
 
     fn member_target(kind: CppMemberKind) -> Target {
@@ -62,68 +60,62 @@ impl<'a> CppMarkerCheck<'a> {
     }
 
     fn declaration(&self, markers: &[CppAttribute], target: Target) -> Result<(), Failure> {
-        for (index, marker) in markers.iter().enumerate() {
-            if !self.is_tachyon_marker(marker)? {
-                continue;
-            }
-            let neighbours: Vec<String> = markers
-                .iter()
-                .enumerate()
-                .filter(|(other, _)| *other != index)
-                .map(|(_, other)| other.name.clone())
-                .collect();
-            let placed = PlacedMarker {
-                name: &marker.name,
-                target,
-                has_arguments: marker.has_arguments(),
-                neighbours: &neighbours,
-                class_markers: &self.class_markers,
-            };
-            if let Some((code, message)) = placed.problem(CppSource::EXTENSION, self.realm) {
-                return Err(CppFailure::coded(code, self.path, marker.at, &message));
-            }
+        for index in 0..markers.len() {
+            self.one_marker(markers, index, target)?;
         }
         Ok(())
     }
 
-    fn is_tachyon_marker(&self, marker: &CppAttribute) -> Result<bool, Failure> {
-        if let Some((namespace, plain)) = marker.name.rsplit_once("::") {
-            return self.namespaced(marker, namespace, plain);
-        }
-        if Self::is_standard(&marker.name) {
-            return Ok(false);
-        }
-        let Some(rule) = AnnotationRules::find(&marker.name) else {
-            return Err(self.unknown(marker));
+    fn one_marker(
+        &self,
+        markers: &[CppAttribute],
+        index: usize,
+        target: Target,
+    ) -> Result<(), Failure> {
+        let marker = &markers[index];
+        let tachyon = self.is_tachyon_marker(marker)?;
+        let neighbours: Vec<String> = markers
+            .iter()
+            .enumerate()
+            .filter(|(other, _)| *other != index)
+            .map(|(_, other)| other.name.clone())
+            .collect();
+        let placed = PlacedMarker {
+            name: &marker.name,
+            target,
+            has_arguments: marker.has_arguments(),
+            neighbours: &neighbours,
+            class_markers: &self.class_markers,
         };
-        if rule.name != marker.name {
-            return Err(self.refused(
-                marker,
-                &format!(
-                    "C++ markers are PascalCase standard attributes: write [[{}]], not [[{}]]",
-                    rule.name, marker.name
-                ),
-            ));
-        }
-        Ok(true)
+        let problem = tachyon
+            .then(|| placed.problem(CppSource::EXTENSION, self.realm))
+            .flatten();
+        problem.map_or(Ok(()), |(code, message)| {
+            Err(CppFailure::coded(code, self.path, marker.at, &message))
+        })
     }
 
-    fn namespaced(
-        &self,
-        marker: &CppAttribute,
-        namespace: &str,
-        plain: &str,
-    ) -> Result<bool, Failure> {
-        if !Self::OWN_NAMESPACES.contains(&namespace) {
-            return Ok(false);
+    fn is_tachyon_marker(&self, marker: &CppAttribute) -> Result<bool, Failure> {
+        match CppSpelling::of(&marker.name) {
+            CppSpelling::Exact => Ok(true),
+            CppSpelling::Vendor | CppSpelling::Standard => Ok(false),
+            CppSpelling::Unknown => Err(self.unknown(marker)),
+            CppSpelling::OwnNamespace => Err(self.refused(
+                marker,
+                &format!(
+                    "Tachyon markers have no namespace in C++: write [[{}]], not [[{}]]",
+                    marker.name.rsplit("::").next().unwrap_or_default(),
+                    marker.name
+                ),
+            )),
+            CppSpelling::Cased(rule) => Err(self.refused(
+                marker,
+                &format!(
+                    "C++ markers are PascalCase standard attributes: write [[{rule}]], not [[{}]]",
+                    marker.name
+                ),
+            )),
         }
-        Err(self.refused(
-            marker,
-            &format!(
-                "Tachyon markers have no namespace in C++: write [[{plain}]], not [[{}]]",
-                marker.name
-            ),
-        ))
     }
 
     fn refused(&self, marker: &CppAttribute, message: &str) -> Failure {
@@ -135,16 +127,14 @@ impl<'a> CppMarkerCheck<'a> {
             .filter(|rule| !rule.is_retired())
             .map(|rule| (Self::distance(rule.name, &marker.name), rule.name))
             .min();
-        let message = match closest {
-            Some((distance, name)) if distance <= Self::NEAR_MISS => format!(
-                "[[{}]] is not a Tachyon annotation; did you mean [[{name}]]?",
-                marker.name
-            ),
-            _ => format!(
-                "[[{}]] is not a Tachyon annotation or a standard C++ attribute",
-                marker.name
-            ),
-        };
+        let suggestion = closest
+            .filter(|(distance, _)| *distance <= Self::NEAR_MISS)
+            .map(|(_, name)| format!("; did you mean [[{name}]]?"))
+            .unwrap_or_default();
+        let message = format!(
+            "[[{}]] is not a Tachyon annotation or a standard C++ attribute{suggestion}",
+            marker.name
+        );
         self.refused(marker, &message)
     }
 
@@ -152,16 +142,25 @@ impl<'a> CppMarkerCheck<'a> {
         let right: Vec<char> = right.chars().collect();
         let mut previous: Vec<usize> = (0..=right.len()).collect();
         for (row, left_character) in left.chars().enumerate() {
-            let mut current = vec![row + 1];
-            for (column, right_character) in right.iter().enumerate() {
-                let replaced = previous[column] + usize::from(left_character != *right_character);
-                let best = replaced
-                    .min(previous[column + 1] + 1)
-                    .min(current[column] + 1);
-                current.push(best);
-            }
-            previous = current;
+            previous = Self::next_row(&previous, row, left_character, &right);
         }
         previous[right.len()]
+    }
+
+    fn next_row(
+        previous: &[usize],
+        row: usize,
+        left_character: char,
+        right: &[char],
+    ) -> Vec<usize> {
+        let mut current = vec![row + 1];
+        for (column, right_character) in right.iter().enumerate() {
+            let replaced = previous[column] + usize::from(left_character != *right_character);
+            let best = replaced
+                .min(previous[column + 1] + 1)
+                .min(current[column] + 1);
+            current.push(best);
+        }
+        current
     }
 }

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
-/** @typedef {{engine: string, version: string, count: string, heard: string, direct: unknown[]}} EngineProof */
+/** @typedef {{engine: string, version: string, count: string, heard: string, message: string, direct: unknown[], remote: unknown[]}} EngineProof */
 
 class CppServicesBrowserGate {
   /** @type {string} */
@@ -28,7 +28,8 @@ class CppServicesBrowserGate {
       const bundle = spawnSync(path.resolve(binary), ['bundle', root, '--no-incremental'], { encoding: 'utf8' })
       assert.equal(bundle.status, 0, `${bundle.stdout}${bundle.stderr}`)
       const wasm = await readFile(path.join(root, 'dist', 'web', '.tachyon', 'services', 'cpp', 'services.wasm'))
-      const proofs = await withServer(path.resolve(binary), ['preview', root, '--static', '--out-dir', 'dist', '--port', '0'], async request => {
+      const serve = ['serve', root, '--host', '127.0.0.1', '--port', '0', '--out-dir', 'dist/web', '--no-watch', '--no-self-restart', '--no-bundle']
+      const proofs = await withServer(path.resolve(binary), serve, async request => {
         const origin = new URL((await request('/')).url).origin
         /** @type {EngineProof[]} */
         const found = []
@@ -70,6 +71,21 @@ class CppServicesBrowserGate {
       await page.click('#place')
       const heard = await CppServicesBrowserGate.text(page, '#heard', '21')
       await CppServicesBrowserGate.text(page, '#status', 'paid')
+      await page.click('#ask')
+      const message = await CppServicesBrowserGate.text(page, '#message', 'Hello from Yon')
+      await CppServicesBrowserGate.text(page, '#loads', '1')
+      const remote = await page.evaluate(async () => {
+        const Service = await import('/.tachyon/services/GreetingService.js')
+        const owner = new Service.default()
+        try {
+          const shouted = await owner.shout('hey')
+          const lost = await owner.lost().then(() => 'answered', (error) => String(error.code))
+          return [shouted, lost]
+        } finally {
+          owner.__tachyonDispose()
+        }
+      })
+      assert.deepEqual(remote, ['hey #7!', 'HTTP_STATUS'])
       const direct = await page.evaluate(async () => {
         const Service = await import('/.tachyon/services/TallyService.js')
         const owner = new Service.default()
@@ -83,7 +99,7 @@ class CppServicesBrowserGate {
       assert.deepEqual(direct.slice(0, 4), [101, 102, { status: 'open', total: 6, notes: ['a'] }, 2])
       assert.match(String(direct[4]), /not a number/)
       assert.deepEqual(errors, [])
-      return { engine: name, version: browser.version(), count, heard, direct }
+      return { engine: name, version: browser.version(), count, heard, message, direct, remote }
     } finally {
       await browser.close()
     }

@@ -1,6 +1,5 @@
-use super::{CppFailure, CppFolder, CppLowering, CppModel, CppPrelude, CppService};
+use super::{CppFolder, CppLowering, CppModel, CppPrelude, CppService, CppServiceGraph};
 use crate::Failure;
-use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -12,25 +11,57 @@ pub(crate) struct CppProgram {
 
 impl CppProgram {
     const MODELS: &'static str = "client/models";
-    const SERVICES: &'static str = "client/services";
     const GENERATED: &'static str = "#line 1 \"tachyon-generated.cpp\"\n";
-    const CIRCLE: &'static str =
-        "C++ services need each other in a circle; break the circle with an event";
 
     pub(crate) fn read(root: &Path, chosen: &[(String, String, PathBuf)]) -> Result<Self, Failure> {
-        let models = Self::models(root)?;
-        let available = Self::available_services(root)?;
-        let mut program = Self {
-            models,
-            services: Vec::new(),
+        let mut graph = CppServiceGraph::new(root)?;
+        let registered = Self::register(&mut graph, chosen)?;
+        Ok(Self {
+            models: Self::models(root)?,
+            services: graph.finish(),
+            registered,
+        })
+    }
+
+    pub(crate) fn every_service(root: &Path) -> Result<Self, Failure> {
+        let mut graph = CppServiceGraph::new(root)?;
+        graph.add_every()?;
+        Ok(Self {
+            models: Self::models(root)?,
+            services: graph.finish(),
             registered: Vec::new(),
-        };
-        let mut visiting = BTreeSet::new();
+        })
+    }
+
+    pub(crate) fn web_source(&self) -> String {
+        format!(
+            "{}{}{}{}{}",
+            CppPrelude::web(),
+            self.authored(),
+            self.bindings(),
+            self.registration(),
+            CppPrelude::EXPORTS
+        )
+    }
+
+    pub(crate) fn test_source(&self, units: &str) -> String {
+        format!("{}{}{units}", CppPrelude::test(), self.authored())
+    }
+
+    pub(crate) fn located(path: &Path, lowered: &str) -> String {
+        format!("#line 1 \"{}\"\n{lowered}\n", Self::portable(path))
+    }
+
+    fn register(
+        graph: &mut CppServiceGraph<'_>,
+        chosen: &[(String, String, PathBuf)],
+    ) -> Result<Vec<(String, String)>, Failure> {
+        let mut registered = Vec::new();
         for (instance, class, path) in chosen {
-            program.registered.push((instance.clone(), class.clone()));
-            program.add_service(root, path, &available, &mut visiting)?;
+            registered.push((instance.clone(), class.clone()));
+            graph.add(path)?;
         }
-        Ok(program)
+        Ok(registered)
     }
 
     fn models(root: &Path) -> Result<Vec<CppModel>, Failure> {
@@ -61,117 +92,43 @@ impl CppProgram {
     fn mentions_any(model: &CppModel, names: &[String]) -> bool {
         let types = model.field_types().join(" ");
         let words: Vec<&str> = types
-            .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+            .split(|character: char| {
+                [character.is_ascii_alphanumeric(), character == '_'] == [false, false]
+            })
             .collect();
         names
             .iter()
-            .any(|name| name != model.name() && words.contains(&name.as_str()))
-    }
-
-    fn available_services(root: &Path) -> Result<BTreeMap<String, PathBuf>, Failure> {
-        let mut available = BTreeMap::new();
-        for path in CppFolder::files(root, Self::SERVICES)? {
-            let stem = path
-                .file_stem()
-                .map(|stem| stem.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            available.insert(stem, path);
-        }
-        Ok(available)
-    }
-
-    fn add_service(
-        &mut self,
-        root: &Path,
-        path: &Path,
-        available: &BTreeMap<String, PathBuf>,
-        visiting: &mut BTreeSet<PathBuf>,
-    ) -> Result<(), Failure> {
-        let added = self
-            .services
-            .iter()
-            .any(|service| root.join(&service.path) == path);
-        if added {
-            return Ok(());
-        }
-        let (relative, source) = CppFolder::read(root, path)?;
-        if !visiting.insert(relative.clone()) {
-            return Err(CppFailure::unreadable(&relative, 0, Self::CIRCLE));
-        }
-        let service = CppService::read(&relative, &source)?;
-        for (field, needed) in service.needs() {
-            let Some(needed_path) = available.get(&needed) else {
-                let at = service
-                    .class()
-                    .members
-                    .iter()
-                    .find(|member| member.name == field)
-                    .map_or(0, |member| member.name_at);
-                return Err(CppFailure::pending(
-                    &relative,
-                    at,
-                    &format!(
-                        "A C++ [[Needs]] field names another C++ service in client/services; there is no client/services/{needed}.hpp. Other C++ roles come later (ADR 0098)"
-                    ),
-                ));
-            };
-            self.add_service(root, needed_path, available, visiting)?;
-        }
-        self.services.push(service);
-        Ok(())
-    }
-
-    pub(crate) fn every_service(root: &Path) -> Result<Self, Failure> {
-        let available = Self::available_services(root)?;
-        let mut program = Self {
-            models: Self::models(root)?,
-            services: Vec::new(),
-            registered: Vec::new(),
-        };
-        let mut visiting = BTreeSet::new();
-        for path in available.values() {
-            program.add_service(root, path, &available, &mut visiting)?;
-        }
-        Ok(program)
-    }
-
-    pub(crate) fn web_source(&self) -> String {
-        format!(
-            "{}{}{}{}{}{}{}{}",
-            CppPrelude::CORE,
-            CppPrelude::WEB_HOST,
-            CppPrelude::PAGE,
-            CppPrelude::SERVICES,
-            self.authored(),
-            self.bindings(),
-            self.registration(),
-            CppPrelude::WEB_EXPORTS
-        )
-    }
-
-    pub(crate) fn test_source(&self, units: &str) -> String {
-        format!(
-            "{}{}{}{}{units}",
-            CppPrelude::CORE,
-            CppPrelude::TEST,
-            CppPrelude::SERVICES,
-            self.authored(),
-        )
-    }
-
-    pub(crate) fn located(path: &Path, lowered: &str) -> String {
-        format!("#line 1 \"{}\"\n{lowered}\n", Self::portable(path))
+            .any(|name| [name != model.name(), words.contains(&name.as_str())] == [true, true])
     }
 
     fn authored(&self) -> String {
+        format!(
+            "{}{}{}{}",
+            self.located_models(),
+            Self::GENERATED,
+            self.codecs(),
+            self.located_services()
+        )
+    }
+
+    fn located_models(&self) -> String {
         let mut text = String::new();
         for model in &self.models {
             text.push_str(&Self::located(&model.path, &model.lowered()));
         }
-        text.push_str(Self::GENERATED);
+        text
+    }
+
+    fn codecs(&self) -> String {
+        let mut text = String::new();
         for model in &self.models {
             text.push_str(&model.codec());
         }
+        text
+    }
+
+    fn located_services(&self) -> String {
+        let mut text = String::new();
         for service in &self.services {
             text.push_str(&Self::located(
                 &service.path,

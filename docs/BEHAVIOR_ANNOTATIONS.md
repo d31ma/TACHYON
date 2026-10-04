@@ -1649,6 +1649,22 @@ Go markers; the command leaves other languages' attributes alone.
 
 Complete example: [Go](../crates/tachyon-core/tests/fixtures/behavior/authored/go/server).
 
+### C++
+
+C++ markers are bare PascalCase standard attributes
+([ADR 0099](adr/0099-cpp-is-a-tac-webassembly-service-language.md)). A
+class marker goes after the class key, `class [[Service]] OrderService`,
+because an attribute before `class` belongs to no entity. A member or
+parameter marker leads its declaration: `[[Needs]] OrderStore& orders;`,
+`[[OnEvent]] void placed(const PlacedOrder& order)`,
+`Task<Order> find([[RequestParam]] int page);`. Several markers may share
+one `[[A, B(1)]]`. Lowercase spellings such as `[[service]]`, a namespace
+such as `[[tachyon::Service]]` and unknown PascalCase names fail with
+`TY1371`; standard attributes such as `[[nodiscard]]` and vendor attributes
+such as `[[gnu::cold]]` pass through. Tachyon removes its markers before
+`em++` compiles, so no line number changes. C++ is a Tac language only for
+now; the rule table lists where each marker works in C++.
+
 ## Verification surfaces
 
 | Test | What it covers |

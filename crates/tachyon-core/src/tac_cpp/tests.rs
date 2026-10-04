@@ -204,7 +204,7 @@ fn markers_follow_the_shared_rule_table() {
         "class [[Lifetime({\"value\":\"prototype\"})]] TallyService {};\n",
     );
     assert!(
-        pending.contains("C++ gets it in a later step (ADR 0098)"),
+        pending.contains("C++ gets it in a later step (ADR 0099)"),
         "{pending}"
     );
     let partner = Sources::refusal(
@@ -319,4 +319,75 @@ fn a_cpp_test_unit_names_its_setup() {
         refused.to_string().contains("[[TestSetup]] TallyTestSetup"),
         "{refused}"
     );
+}
+
+#[test]
+fn an_http_client_gets_its_request_methods_written() {
+    let source = "class [[HTTPClient(\"/api\")]] OrderClient {\npublic:\n    [[GetRequest(\"/orders/{id}\")]]\n    Task<Order> find(int id, [[RequestParam]] int page) const;\n\n    [[PostRequest(\"/orders\")]]\n    Task<void> save([[RequestBody]] const Order& order, [[RequestHeader(\"X-Trace\")]] std::string trace);\n};\n";
+    let service =
+        CppService::read(Path::new("client/remotes/OrderClient.hpp"), source).expect("remote");
+    assert!(service.is_remote());
+    assert_eq!(service.binding(), "");
+    let lowered = super::CppLowering::service(&service);
+    assert!(
+        lowered.contains("inline Task<Order> OrderClient::find(int id, int page) const {"),
+        "{lowered}"
+    );
+    assert!(lowered.contains("tachyon::http::HttpMethod::Get, std::string() + \"/api/orders/\" + tachyon::http::TacBrowserRequest::segment(id) + \"\""), "{lowered}");
+    assert!(
+        lowered.contains("tachyon::http::TacBrowserRequest::addQuery(request, \"page\", page);"),
+        "{lowered}"
+    );
+    assert!(
+        lowered.contains(
+            "co_return co_await tachyon::http::TacRemoteCall::answer<Order>(std::move(request));"
+        ),
+        "{lowered}"
+    );
+    assert!(
+        lowered.contains("request.content = tachyon::http::JsonContent::create(order);"),
+        "{lowered}"
+    );
+    assert!(
+        lowered.contains(
+            "request.headers.add(\"X-Trace\", tachyon::http::TacBrowserRequest::text(trace));"
+        ),
+        "{lowered}"
+    );
+    assert!(lowered.contains("answer<void>"), "{lowered}");
+}
+
+#[test]
+fn an_http_client_method_needs_one_request_marker_and_a_task() {
+    let refused = Sources::refusal(
+        "client/remotes/OrderClient.hpp",
+        "class [[HTTPClient(\"/api\")]] OrderClient {\npublic:\n    Task<int> count();\n};\n",
+    );
+    assert!(refused.contains("has one request marker"), "{refused}");
+    let plain = Sources::refusal(
+        "client/remotes/OrderClient.hpp",
+        "class [[HTTPClient(\"/api\")]] OrderClient {\npublic:\n    [[GetRequest(\"/count\")]]\n    int count();\n};\n",
+    );
+    assert!(plain.contains("returns Task<Answer>"), "{plain}");
+}
+
+#[test]
+fn task_methods_are_asynchronous_on_the_page() {
+    let service = Sources::service(
+        "class [[Service]] TallyService {\npublic:\n    Task<void> load() { co_return; }\n    int count() { return 1; }\n};\n",
+    );
+    assert_eq!(
+        service.metadata()["page"]["asyncMethods"],
+        serde_json::json!(["load"])
+    );
+}
+
+#[test]
+fn a_cpp_model_lives_in_client_models() {
+    let source = "#pragma once\n#include <string>\n\nstruct Order {\n    std::string status;\n};\n";
+    crate::model_layout::validate(Path::new("client/models/Order.hpp"), source)
+        .expect("client model");
+    let refused = crate::model_layout::validate(Path::new("server/models/Order.hpp"), source)
+        .expect_err("server model");
+    assert!(refused.to_string().contains("TY1372"), "{refused}");
 }

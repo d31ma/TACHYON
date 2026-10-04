@@ -1,11 +1,11 @@
 use super::{
-    CppFailure, CppFile, CppFolder, CppLowering, CppMarkerCheck, CppMemberKind, CppProgram,
-    CppTools,
+    CppAttribute, CppFailure, CppFile, CppFolder, CppLowering, CppMarkerCheck, CppMemberKind,
+    CppProgram, CppTools,
 };
 use crate::Failure;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 
 pub(crate) struct CppClientUnit {
     name: String,
@@ -21,6 +21,7 @@ impl CppClientUnit {
     const SOURCE: &'static str = "unit.cpp";
     const BINARY: &'static str = "unit";
     const FLAGS: [&'static str; 3] = ["-std=c++20", "-O0", "-fno-color-diagnostics"];
+    const FAILED: u16 = 2021;
     const NO_TEST: &'static str =
         "A C++ test unit declares one class marked [[Test(<Name>TestSetup)]]";
     const NO_SETUP: &'static str = "[[Test]] names its TestSetup class first, for example [[Test(TallyTestSetup)]], and client/tests/TallyTestSetup.hpp declares class [[TestSetup]] TallyTestSetup";
@@ -29,13 +30,9 @@ impl CppClientUnit {
         let unit = Self::read(relative, source)?;
         let setup = Self::setup(project, &unit)?;
         let program = CppProgram::every_service(project)?;
-        let units = format!(
-            "{setup}{}{}",
-            CppProgram::located(&unit.path, &unit.lowered),
-            unit.main()
-        );
-        let text = program.test_source(&units);
-        Self::compiled_and_run(relative, &text)
+        let located = CppProgram::located(&unit.path, &unit.lowered);
+        let units = format!("{setup}{located}{}", unit.main());
+        Self::compiled_and_run(relative, &program.test_source(&units))
     }
 
     fn read(relative: &Path, source: &str) -> Result<Self, Failure> {
@@ -47,23 +44,17 @@ impl CppClientUnit {
             .iter()
             .find(|marker| marker.name == "Test")
             .ok_or_else(|| CppFailure::unreadable(relative, file.class.name_at, Self::NO_TEST))?;
-        let setup = marker
-            .arguments
-            .split(',')
-            .next()
-            .map(str::trim)
-            .filter(|name| !name.is_empty() && !name.starts_with('{'))
-            .ok_or_else(|| CppFailure::unreadable(relative, marker.at, Self::NO_SETUP))?
-            .to_owned();
+        let setup = Self::setup_name(relative, marker)?;
         let cases = file
             .class
             .members
             .iter()
+            .filter(|member| member.is_public_instance(CppMemberKind::Method))
             .filter(|member| {
-                member.kind == CppMemberKind::Method && member.public && !member.is_static
-            })
-            .filter(|member| {
-                member.name.starts_with(Self::CASE_PREFIX) && member.parameters.is_empty()
+                [
+                    member.name.starts_with(Self::CASE_PREFIX),
+                    member.parameters.is_empty(),
+                ] == [true, true]
             })
             .map(|member| member.name.clone())
             .collect();
@@ -74,6 +65,17 @@ impl CppClientUnit {
             lowered: CppLowering::model(&file, source),
             path: relative.to_path_buf(),
         })
+    }
+
+    fn setup_name(relative: &Path, marker: &CppAttribute) -> Result<String, Failure> {
+        marker
+            .arguments
+            .split(',')
+            .next()
+            .map(str::trim)
+            .filter(|name| [name.is_empty(), name.starts_with('{')] == [false, false])
+            .map(str::to_owned)
+            .ok_or_else(|| CppFailure::unreadable(relative, marker.at, Self::NO_SETUP))
     }
 
     fn setup(project: &Path, unit: &Self) -> Result<String, Failure> {
@@ -89,17 +91,12 @@ impl CppClientUnit {
             .markers
             .iter()
             .any(|marker| marker.name == "TestSetup");
-        if !marked || file.class.name != unit.setup {
-            return Err(CppFailure::unreadable(
-                &relative,
-                file.class.name_at,
-                Self::NO_SETUP,
-            ));
-        }
-        Ok(CppProgram::located(
-            &relative,
-            &CppLowering::model(&file, &source),
-        ))
+        let valid = [marked, file.class.name == unit.setup] == [true, true];
+        valid
+            .then_some(())
+            .ok_or_else(|| CppFailure::unreadable(&relative, file.class.name_at, Self::NO_SETUP))?;
+        let lowered = CppLowering::model(&file, &source);
+        Ok(CppProgram::located(&relative, &lowered))
     }
 
     fn main(&self) -> String {
@@ -135,31 +132,25 @@ impl CppClientUnit {
                     &format!("cannot start the C++ compiler: {error}. Run ty doctor"),
                 )
             })?;
-        if !compiled.status.success() {
-            return Err(Self::failure(
-                relative,
-                &String::from_utf8_lossy(&compiled.stderr),
-            ));
-        }
+        Self::succeeded(relative, &compiled)?;
         let ran = Command::new(staged.path().join(Self::BINARY))
             .env("TAC_TEST_UNIT", "1")
             .output()
             .map_err(|error| Self::failure(relative, &error.to_string()))?;
-        if !ran.status.success() {
-            return Err(Self::failure(
-                relative,
-                &String::from_utf8_lossy(&ran.stderr),
-            ));
-        }
+        Self::succeeded(relative, &ran)?;
         Ok(String::from_utf8_lossy(&ran.stdout).into_owned())
     }
 
+    fn succeeded(relative: &Path, output: &Output) -> Result<(), Failure> {
+        output
+            .status
+            .success()
+            .then_some(())
+            .ok_or_else(|| Self::failure(relative, &String::from_utf8_lossy(&output.stderr)))
+    }
+
     fn failure(relative: &Path, detail: &str) -> Failure {
-        CppFailure::coded(
-            2021,
-            relative,
-            0,
-            &format!("The C++ test unit did not run: {}", detail.trim()),
-        )
+        let message = format!("The C++ test unit did not run: {}", detail.trim());
+        CppFailure::coded(Self::FAILED, relative, 0, &message)
     }
 }

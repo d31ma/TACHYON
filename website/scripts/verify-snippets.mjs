@@ -96,11 +96,11 @@ class Patterns {
 }
 
 class Languages {
-  static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb', '.lua'])
+  static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb', '.lua', '.hpp'])
   /** @type {Record<string,string>} */
   static nativeTargets = { '.swift': 'macos', '.kt': 'android', '.cs': 'windows', '.rs': 'linux' }
   static hostTargets = new Set(['macos'])
-  static tacSourceExtensions = new Set(['.js', '.ts', '.py', '.dart', '.go', '.rb', '.lua', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
+  static tacSourceExtensions = new Set(['.js', '.ts', '.py', '.dart', '.go', '.rb', '.lua', '.fs', '.java', '.hpp', ...Object.keys(Languages.nativeTargets)])
 }
 
 class Toolchains {
@@ -120,6 +120,7 @@ class Toolchains {
     '.go': ['go'],
     '.rb': ['ruby'],
     '.lua': ['lua'],
+    '.hpp': ['em++', 'clang++'],
   }
   /** @type {Map<string,Promise<boolean>>} */
   static checks = new Map()
@@ -1155,7 +1156,7 @@ function syntaxCheckCommand(extension, file) {
 async function checkSyntax(label, name, code) {
   if (!await canRun(label, name)) return
   const extension = path.extname(name)
-  if (['.java', '.groovy', '.kt', '.cs', '.fs', '.rs'].includes(extension)) {
+  if (['.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.hpp'].includes(extension)) {
     skip(label, 'standalone layer fragment; full published language suites are compiled and executed separately')
     return
   }

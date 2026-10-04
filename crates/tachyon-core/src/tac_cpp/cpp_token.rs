@@ -14,8 +14,9 @@ impl CppToken {
     }
 
     pub(crate) fn is_word(&self) -> bool {
-        self.text
-            .starts_with(|character: char| character.is_ascii_alphabetic() || character == '_')
+        self.text.starts_with(|character: char| {
+            [character.is_ascii_alphabetic(), character == '_'].contains(&true)
+        })
     }
 
     pub(crate) fn touches(&self, next: &Self) -> bool {

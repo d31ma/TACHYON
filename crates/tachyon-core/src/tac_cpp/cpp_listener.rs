@@ -1,4 +1,4 @@
-use super::{CppFailure, CppMember, CppTypeText};
+use super::{CppAttribute, CppFailure, CppMember, CppParameter, CppTypeText};
 use crate::Failure;
 use serde_json::{Map, Value, json};
 use std::path::Path;
@@ -16,10 +16,13 @@ pub(crate) struct CppListener {
 
 impl CppListener {
     const OPTIONS: [&'static str; 3] = ["replay", "condition", "id"];
+    const NOTHING: [&'static str; 2] = ["", "void"];
+    const NO_OPTIONS: &'static str = "{}";
     const VECTOR: &'static str = "std::vector<";
     const ONE_PARAMETER: &'static str = "An [[OnEvent]] method takes one parameter: the event model, for example `void placed(const PlacedOrder& order)`";
     const OPTIONS_FORM: &'static str = "[[OnEvent]] takes no arguments or one JSON object with replay, condition and id, for example [[OnEvent({\"replay\":true})]]";
     const ORDER_FORM: &'static str = "[[Order]] takes one whole number, for example [[Order(10)]]";
+    const CONDITION_FORM: &'static str = "OnEvent.condition must be a string";
 
     pub(crate) fn read(path: &Path, member: &CppMember) -> Result<Self, Failure> {
         let marker = member
@@ -27,14 +30,9 @@ impl CppListener {
             .iter()
             .find(|marker| marker.name == "OnEvent");
         let at = marker.map_or(member.name_at, |marker| marker.at);
-        let [parameter] = member.parameters.as_slice() else {
-            return Err(CppFailure::unreadable(path, at, Self::ONE_PARAMETER));
-        };
-        let options = Self::options(
-            path,
-            at,
-            marker.map_or("", |marker| marker.arguments.as_str()),
-        )?;
+        let parameter = Self::only_parameter(path, at, &member.parameters)?;
+        let arguments = marker.map_or("", |marker| marker.arguments.as_str());
+        let options = Self::options(path, at, arguments)?;
         Ok(Self {
             method: member.name.clone(),
             event: CppTypeText::plain(&parameter.type_text),
@@ -71,40 +69,51 @@ impl CppListener {
         })
     }
 
+    fn only_parameter<'p>(
+        path: &Path,
+        at: usize,
+        parameters: &'p [CppParameter],
+    ) -> Result<&'p CppParameter, Failure> {
+        match parameters {
+            [parameter] => Ok(parameter),
+            _ => Err(CppFailure::unreadable(path, at, Self::ONE_PARAMETER)),
+        }
+    }
+
     fn options(path: &Path, at: usize, arguments: &str) -> Result<Map<String, Value>, Failure> {
-        if arguments.trim().is_empty() {
-            return Ok(Map::new());
-        }
-        let parsed: Value = serde_json::from_str(arguments)
-            .map_err(|_| CppFailure::unreadable(path, at, Self::OPTIONS_FORM))?;
-        let Value::Object(object) = parsed else {
-            return Err(CppFailure::unreadable(path, at, Self::OPTIONS_FORM));
-        };
-        if object
+        let trimmed = arguments.trim();
+        let written = [trimmed, Self::NO_OPTIONS][usize::from(trimmed.is_empty())];
+        let refused = || CppFailure::unreadable(path, at, Self::OPTIONS_FORM);
+        let parsed: Value = serde_json::from_str(written).map_err(|_| refused())?;
+        let object = parsed.as_object().cloned().ok_or_else(refused)?;
+        let known = object
             .keys()
-            .any(|key| !Self::OPTIONS.contains(&key.as_str()))
-        {
-            return Err(CppFailure::unreadable(path, at, Self::OPTIONS_FORM));
-        }
-        Ok(object)
+            .all(|key| Self::OPTIONS.contains(&key.as_str()));
+        known.then_some(object).ok_or_else(refused)
     }
 
     fn condition(path: &Path, at: usize, written: Option<&Value>) -> Result<Value, Failure> {
-        let Some(written) = written else {
-            return Ok(Value::Null);
-        };
-        let source = written.as_str().ok_or_else(|| {
-            CppFailure::unreadable(path, at, "OnEvent.condition must be a string")
-        })?;
+        written.map_or(Ok(Value::Null), |written| Self::compiled(path, at, written))
+    }
+
+    fn compiled(path: &Path, at: usize, written: &Value) -> Result<Value, Failure> {
+        let source = written
+            .as_str()
+            .ok_or_else(|| CppFailure::unreadable(path, at, Self::CONDITION_FORM))?;
         crate::events::condition::compile(source).map_err(|message| {
             CppFailure::unreadable(path, at, &format!("OnEvent.condition: {message}"))
         })
     }
 
     fn order(path: &Path, member: &CppMember) -> Result<i64, Failure> {
-        let Some(marker) = member.markers.iter().find(|marker| marker.name == "Order") else {
-            return Ok(0);
-        };
+        member
+            .markers
+            .iter()
+            .find(|marker| marker.name == "Order")
+            .map_or(Ok(0), |marker| Self::written_order(path, marker))
+    }
+
+    fn written_order(path: &Path, marker: &CppAttribute) -> Result<i64, Failure> {
         marker
             .arguments
             .trim()
@@ -119,9 +128,8 @@ impl CppListener {
             .and_then(|rest| rest.strip_suffix('>'))
             .unwrap_or(&plain)
             .trim();
-        if item.is_empty() || item == "void" {
-            return Value::Null;
-        }
-        Value::String(item.to_owned())
+        Some(item)
+            .filter(|item| !Self::NOTHING.contains(item))
+            .map_or(Value::Null, |item| Value::String(item.to_owned()))
     }
 }

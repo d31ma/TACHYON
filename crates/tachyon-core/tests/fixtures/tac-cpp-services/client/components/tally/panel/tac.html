@@ -3,6 +3,9 @@
   <p id="label">{tally.label}</p>
   <p id="heard">{audit.heard}</p>
   <p id="status">{audit.lastStatus}</p>
+  <p id="message">{greeting.message}</p>
+  <p id="loads">{greeting.loads}</p>
   <button id="add" on:click="tally.add(2)">Add</button>
   <button id="place" on:click="tally.place(21)">Place</button>
+  <button id="ask" on:click="greeting.ask()">Ask Yon</button>
 </section>

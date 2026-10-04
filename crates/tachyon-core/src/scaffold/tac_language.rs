@@ -13,6 +13,7 @@ pub enum TacLanguage {
     Go,
     Ruby,
     Lua,
+    Cpp,
     Swift,
     Kotlin,
     Java,
@@ -20,7 +21,10 @@ pub enum TacLanguage {
 
 impl TacLanguage {
     const OUTPUT: &'static str = "client/";
-    const ROWS: [LanguageRow; 12] = [
+    const CLANGD_PATH: &'static str = "client/.clangd";
+    const CLANGD: &'static str =
+        "CompileFlags:\n  Add: [-xc++, -std=c++20, -Wno-unknown-attributes]\n";
+    const ROWS: [LanguageRow; 13] = [
         ("js,javascript", "JavaScript", "shell", ""),
         ("ts,typescript", "TypeScript", "typeScriptGreeting", ""),
         ("dart", "Dart", "dartGreeting", ""),
@@ -30,6 +34,12 @@ impl TacLanguage {
         ("go", "Go", "goGreeting", ""),
         ("rb,ruby", "Ruby", "rubyGreeting", ""),
         ("lua", "Lua", "luaGreeting", ""),
+        (
+            "cpp",
+            "C++",
+            "cppGreeting",
+            "C++ services compile to WebAssembly with Emscripten (em++ 6.0.10 or newer); C++ test units compile with clang++. client/.clangd turns off the unknown-attribute warning for the Tachyon markers.",
+        ),
         (
             "swift",
             "Swift",
@@ -67,6 +77,13 @@ impl TacLanguage {
         TemplateFiles::under(&format!("tac/{}", self.flag_name()), Self::OUTPUT)
     }
 
+    pub(crate) fn editor_files(self) -> Vec<(String, String)> {
+        if self != Self::Cpp {
+            return Vec::new();
+        }
+        vec![(String::from(Self::CLANGD_PATH), String::from(Self::CLANGD))]
+    }
+
     fn row(self) -> LanguageRow {
         Self::ROWS[self as usize]
     }
@@ -83,6 +100,7 @@ impl Choice for TacLanguage {
         Self::Go,
         Self::Ruby,
         Self::Lua,
+        Self::Cpp,
         Self::Swift,
         Self::Kotlin,
         Self::Java,

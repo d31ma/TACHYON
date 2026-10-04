@@ -1,39 +1,45 @@
 pub(crate) struct CppPrelude;
 
 impl CppPrelude {
-    pub(crate) const CORE: &'static str = concat!(
-        include_str!("Includes.hpp"),
-        include_str!("json/JsonValueKind.hpp"),
-        include_str!("json/JsonException.hpp"),
-        include_str!("json/JsonNode.hpp"),
-        include_str!("json/JsonObject.hpp"),
-        include_str!("json/JsonArray.hpp"),
-        include_str!("json/JsonValue.hpp"),
-        include_str!("json/JsonWriter.hpp"),
-        include_str!("json/JsonReader.hpp"),
-        include_str!("json/JsonCodec.hpp"),
-        include_str!("json/JsonModelFields.hpp"),
-        include_str!("json/JsonSerializer.hpp"),
-    );
-    pub(crate) const WEB_HOST: &'static str = include_str!("web/TacHost.hpp");
-    pub(crate) const PAGE: &'static str = concat!(
-        include_str!("page/TacServiceType.hpp"),
-        include_str!("page/TacBind.hpp"),
-        include_str!("page/TacOwner.hpp"),
-        include_str!("page/TacPage.hpp"),
-        include_str!("web/TacEventSink.hpp"),
-    );
-    pub(crate) const SERVICES: &'static str = concat!(
-        include_str!("page/ApplicationEventPublisher.hpp"),
-        include_str!("page/TacNeeds.hpp"),
-        include_str!("Globals.hpp"),
-    );
-    pub(crate) const TEST: &'static str = concat!(
-        include_str!("test/TacHost.hpp"),
-        include_str!("test/TacEventSink.hpp"),
-        include_str!("test/Assert.hpp"),
-        include_str!("test/TacTestRunner.hpp"),
-        include_str!("test/TestGlobals.hpp"),
-    );
-    pub(crate) const WEB_EXPORTS: &'static str = include_str!("web/TacExports.hpp");
+    const INCLUDES: &'static str = include_str!("tachyon/includes.hpp");
+    const JSON: &'static str = include_str!("tachyon/json.hpp");
+    const TASK: &'static str = include_str!("tachyon/task.hpp");
+    const PAGE: &'static str = include_str!("tachyon/page.hpp");
+    const TICKETS: &'static str = include_str!("tachyon/tickets.hpp");
+    const PAGE_TASKS: &'static str = include_str!("tachyon/page_tasks.hpp");
+    const TEST_HOST: &'static str = include_str!("tachyon/test_host.hpp");
+    const TEST_EVENTS: &'static str = include_str!("tachyon/test_events.hpp");
+    const HTTP: &'static str = include_str!("tachyon/http.hpp");
+    const SERVICES: &'static str = include_str!("tachyon/services.hpp");
+    const TEST: &'static str = include_str!("tachyon/test.hpp");
+    pub(crate) const EXPORTS: &'static str = include_str!("tachyon/exports.hpp");
+
+    pub(crate) fn web() -> String {
+        [
+            Self::INCLUDES,
+            Self::JSON,
+            Self::TASK,
+            Self::PAGE,
+            Self::TICKETS,
+            Self::PAGE_TASKS,
+            Self::HTTP,
+            Self::SERVICES,
+        ]
+        .concat()
+    }
+
+    pub(crate) fn test() -> String {
+        [
+            Self::INCLUDES,
+            Self::JSON,
+            Self::TASK,
+            Self::TEST_HOST,
+            Self::TICKETS,
+            Self::TEST_EVENTS,
+            Self::HTTP,
+            Self::SERVICES,
+            Self::TEST,
+        ]
+        .concat()
+    }
 }
