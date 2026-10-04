@@ -69,7 +69,7 @@ impl WorkerSchedules {
             .starts_with(Self::WORKER_ROOT)
             .then_some(file.bytes.as_slice())?;
         let source = std::str::from_utf8(worker_bytes).ok()?;
-        let schedule = crate::schedule::declared(&portable, source)
+        let schedule = Schedule::declared(&portable, source)
             .map_err(|failure| diagnostics.extend_from_slice(failure.diagnostics()))
             .ok()
             .flatten()?;

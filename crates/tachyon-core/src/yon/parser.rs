@@ -76,6 +76,24 @@ struct ManagedType {
     declaration: usize,
 }
 
+impl ManagedType {
+    fn injected_field_at(&self, input: &Input<'_>, field: &str) -> usize {
+        let body = &input.code[self.body.clone()];
+        let is_name = |byte: Option<&u8>| {
+            byte.is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+        };
+        body.match_indices(field)
+            .find(|(at, _)| {
+                let before = at
+                    .checked_sub(1)
+                    .and_then(|before| body.as_bytes().get(before));
+                let after = body.as_bytes().get(at + field.len());
+                !is_name(before) && !is_name(after)
+            })
+            .map_or(self.declaration, |(at, _)| self.body.start + at)
+    }
+}
+
 pub(crate) fn parse(path: &Path, source: &str) -> Result<Option<Parsed>, Failure> {
     let manual = super::manual_helpers::ManualHelpers::read(path, source)?;
     parse_prepared(path, source, None, &manual)
@@ -1715,21 +1733,6 @@ fn kotlin_constructor(input: &Input<'_>, managed: &ManagedType) -> Result<Option
     ))
 }
 
-fn injected_field_at(input: &Input<'_>, managed: &ManagedType, field: &str) -> usize {
-    let body = &input.code[managed.body.clone()];
-    let is_name =
-        |byte: Option<&u8>| byte.is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_');
-    body.match_indices(field)
-        .find(|(at, _)| {
-            let before = at
-                .checked_sub(1)
-                .and_then(|before| body.as_bytes().get(before));
-            let after = body.as_bytes().get(at + field.len());
-            !is_name(before) && !is_name(after)
-        })
-        .map_or(managed.declaration, |(at, _)| managed.body.start + at)
-}
-
 fn validate_graph(
     input: &Input<'_>,
     types: &[ManagedType],
@@ -1752,7 +1755,7 @@ fn validate_graph(
                     );
                 }
                 let at = injection.map_or(managed.declaration, |injection| {
-                    injected_field_at(input, managed, &injection.field)
+                    managed.injected_field_at(input, &injection.field)
                 });
                 return Err(input.failure(at, format!("Unresolved dependency {dependency}: {} needs {needed}, but no provider {dependency} is declared; annotate and explicitly select its provider in this compilation unit", managed.provider.name)));
             }
