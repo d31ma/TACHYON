@@ -241,6 +241,36 @@ fn a_behavior_annotation_on_a_lua_service_names_the_later_step() {
     assert!(text.contains("PriceService.lua"), "{text}");
 }
 
+#[test]
+fn a_lua_service_refuses_a_native_capability_field_instead_of_leaving_it_nil() {
+    for capability in ["WindowControls", "FilePicker"] {
+        let root = tempfile::tempdir().expect("project");
+        let service = Page::write(
+            root.path(),
+            "client/services/ReportService.lua",
+            &format!(
+                "-- @Service\n---@class ReportService\nReportService = {{\n  -- @Needs\n  ---@type {capability}\n  provider = nil,\n}}\n"
+            ),
+        );
+        let failure = LuaWebServices::program(
+            root.path(),
+            &[(
+                String::from("report"),
+                String::from("ReportService"),
+                service,
+            )],
+        )
+        .expect_err("a Lua service refuses a native capability field");
+        let text = failure.to_string();
+        assert!(text.contains("TY2015"), "{text}");
+        assert!(
+            text.contains(&format!("do not support {capability}")),
+            "{text}"
+        );
+        assert!(text.contains("ReportService.lua"), "{text}");
+    }
+}
+
 #[tokio::test]
 async fn a_lua_service_answers_the_page_from_the_lua_runtime() {
     if let Some(reason) = Page::skip_reason() {

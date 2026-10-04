@@ -94,6 +94,7 @@ read; framework implementation remains subject to the repository unsafe ban.
 | FilePicker on iOS / Android / Linux / Windows | typed unsupported; no platform picker rollout | no OS picker interaction claim |
 | macOS compiled Rust | NeedsAll default providers, captured registration and native WindowControls | compiled fake/unsupported/disposal, static-library host link and actual owned-window title/resize/grant test |
 | Rust WebAssembly | existing page WindowControls, unsupported native FilePicker | generated wasm32 compilation |
+| Swift / C# / Kotlin WebAssembly | injected FilePicker that answers unsupported; existing page WindowControls | `ty bundle` web and non-linking native targets |
 | Native C# / Kotlin | Needs/NeedsAll captured providers, typed unsupported FilePicker, Windows/Android WindowControls registration | actual compiled activation/fake/disposal tests, Windows stub-host dispatch execution and complete Android API35 typecheck |
 
 Later C# and Kotlin registration tests and four native example checks passed.
@@ -106,3 +107,22 @@ The platform matrix is not expanded merely because the macOS source compiles.
 An OS interaction claim requires the actual native picker, selection, bounded
 read and cancellation checks on that OS. UI automation permissions are recorded
 as blockers if the host does not permit that check.
+
+## Amendment (2026-10-04): the page answers `unsupported` through the same field
+
+A Swift, C#, Kotlin or Rust service that runs as WebAssembly in the page
+receives its `FilePicker` field the same way a linked service does. The build
+gives the field the typed provider, and every call answers `unsupported`
+(`available()` is false; options that break the contract still answer
+`invalid`). It is no longer a property that the page must pass, so a
+`NeedsAll` service with a `FilePicker` field builds for the web and for every
+target where the language is not linked: Swift on Linux, Windows and Android,
+C# off Windows, Kotlin off Android. `WindowControls` in the page keeps its
+page-host transport. The Kotlin component types read the same provider list,
+so a Kotlin `FilePicker` field also builds for `--target android --native`.
+
+A Lua service has no provider for either capability. A `---@type FilePicker`
+or `---@type WindowControls` annotation in a Lua service fails the build with
+`TY2015`, like the other Lua resource refusals, instead of leaving the field
+nil at run time. Go, Java, Ruby, Python and F# page services still have no
+FilePicker provider; their `NeedsAll` field remains a page property.

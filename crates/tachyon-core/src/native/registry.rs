@@ -153,29 +153,12 @@ fn compiled_service_body(
         .strip_prefix(&item.snapshot_root)
         .unwrap_or(&identity);
     let mut roles = crate::behavior::ServiceRoles::read(relative, captured)?;
-    let (_, swift_fields) = super::native_capabilities::NativeCapabilities::swift_service(
-        captured,
-        &identity,
-        &item.class,
-    );
-    let (_, mut fields) = super::managed_native_capabilities::ManagedNativeCapabilities::service(
-        language,
-        &identity,
-        captured,
-        &item.class,
-    );
-    fields.extend(
-        swift_fields
-            .into_iter()
-            .filter(|_| language == NativeCompanion::Swift),
-    );
-    let native_fields = fields
-        .into_iter()
-        .map(|field| crate::companion::lower_first(&field))
+    let (_, native_fields) = native_service(language, item, captured, &identity);
+    let native_fields = native_fields
+        .iter()
+        .map(|field| crate::companion::lower_first(field))
         .collect::<Vec<_>>();
-    roles
-        .required
-        .retain(|name| [!item.web_assembly, native_fields.contains(name)] != [true, true]);
+    roles.required.retain(|name| !native_fields.contains(name));
     let mut body = lowered_body(
         language,
         item,
@@ -296,17 +279,22 @@ fn native_service(
     source: &str,
     identity: &Path,
 ) -> (String, Vec<String>) {
-    if language == NativeCompanion::Swift && !item.web_assembly {
-        super::native_capabilities::NativeCapabilities::swift_service(source, identity, &item.class)
-    } else if item.web_assembly {
-        (source.to_owned(), Vec::new())
-    } else {
-        super::managed_native_capabilities::ManagedNativeCapabilities::service(
-            language,
-            identity,
-            source,
-            &item.class,
-        )
+    let class = &item.class;
+    match (language, item.web_assembly) {
+        (NativeCompanion::Swift, false) => {
+            super::native_capabilities::NativeCapabilities::swift_service(source, identity, class)
+        }
+        (NativeCompanion::Swift, true) => {
+            super::native_capabilities::NativeCapabilities::swift_page_service(
+                source, identity, class,
+            )
+        }
+        (_, false) => super::managed_native_capabilities::ManagedNativeCapabilities::service(
+            language, identity, source, class,
+        ),
+        (_, true) => super::managed_native_capabilities::ManagedNativeCapabilities::page_service(
+            language, identity, source, class,
+        ),
     }
 }
 

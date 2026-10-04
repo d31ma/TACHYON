@@ -72,7 +72,7 @@ impl KotlinComposedTypes {
         if !needed {
             return Vec::new();
         }
-        let providers = crate::web_api_clients::WebApiClients::browser_resources();
+        let providers = crate::web_api_clients::WebApiClients::companion_resources();
         crate::template::RequiredFields::props(path, source, class, &providers)
     }
 }

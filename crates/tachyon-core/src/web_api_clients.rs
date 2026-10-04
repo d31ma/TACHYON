@@ -14,6 +14,8 @@ impl WebApiClients {
         "WindowControls",
     ];
 
+    pub(crate) const NATIVE_CAPABILITIES: [&'static str; 2] = ["FilePicker", "WindowControls"];
+
     const PRIVATE_CLIENTS: [&'static str; 3] = ["FilePicker", "PreferenceStrings", "DocumentTitle"];
     const OWNER_RESOURCES: [&'static str; 3] = [
         "PreferenceStrings",
@@ -27,6 +29,16 @@ impl WebApiClients {
             .chain(Self::OWNER_RESOURCES.iter())
             .map(|name| String::from(*name))
             .collect()
+    }
+
+    pub(crate) fn companion_resources() -> std::collections::BTreeSet<String> {
+        let mut resources = Self::browser_resources();
+        resources.extend(Self::NATIVE_CAPABILITIES.map(String::from));
+        resources
+    }
+
+    pub(crate) fn native_capabilities() -> std::collections::BTreeSet<String> {
+        Self::NATIVE_CAPABILITIES.map(String::from).into()
     }
 
     pub(crate) fn is_client_type(declared: &str) -> bool {

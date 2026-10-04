@@ -288,3 +288,55 @@ fn managed_native_kotlin_needs_and_needs_all_capture_providers() {
     }
     ManagedCapabilityCheck::android_companion();
 }
+
+#[test]
+fn a_page_companion_gets_the_unsupported_file_picker_instead_of_a_property() {
+    let variants = [
+        (
+            NativeCompanion::CSharp,
+            "[Service]\n[NeedsAll]\npublic class PickerService\n{\n    private readonly FilePicker filePicker;\n    public string Title = \"\";\n}\n",
+            "private readonly FilePicker filePicker = new FilePicker(NativeCapabilities.Provider());",
+        ),
+        (
+            NativeCompanion::Kotlin,
+            "@Service\n@NeedsAll\nclass PickerService {\n    private val filePicker: FilePicker\n    var title: String = \"\"\n}\n",
+            "private val filePicker: FilePicker = FilePicker(NativeCapabilities.provider())",
+        ),
+        (
+            NativeCompanion::Swift,
+            "@Service\n@NeedsAll\nfinal class PickerService {\n    private let filePicker: FilePicker\n    var title: String = \"\"\n}\n",
+            "private let filePicker: FilePicker = FilePicker()",
+        ),
+    ];
+    for (language, source, provided) in variants {
+        let root = tempfile::tempdir().expect("project");
+        let extension = match language {
+            NativeCompanion::CSharp => "cs",
+            NativeCompanion::Kotlin => "kt",
+            _ => "swift",
+        };
+        let file = root
+            .path()
+            .join(format!("client/services/PickerService.{extension}"));
+        std::fs::create_dir_all(file.parent().expect("parent")).expect("directory");
+        std::fs::write(&file, source).expect("source");
+        let input = NativeCompanionInput {
+            snapshot_root: root.path().to_path_buf(),
+            language,
+            source: file,
+            service: String::from("picker"),
+            class: String::from("PickerService"),
+            web_assembly: true,
+            application_provider: false,
+        };
+        let generated = super::registry::source(&[input], language)
+            .expect("registry")
+            .expect("source");
+        assert!(generated.contains(provided), "{extension}: {generated}");
+        let required = generated
+            .lines()
+            .find(|line| line.contains("Required =") || line.contains("equired: "))
+            .expect("required declaration");
+        assert!(!required.contains("filePicker"), "{extension}: {required}");
+    }
+}

@@ -21,13 +21,35 @@ impl ManagedNativeCapabilities {
     #[cfg(test)]
     pub(super) const KOTLIN_WINDOWS: &'static str = include_str!("capabilities/WindowControls.kt");
 
+    const PAGE_KINDS: [&'static str; 1] = ["FilePicker"];
+
     pub(super) fn service(
         language: NativeCompanion,
         path: &Path,
         source: &str,
         class: &str,
     ) -> (String, Vec<String>) {
-        let fields = Self::fields(language, path, source, class);
+        let kinds = crate::web_api_clients::WebApiClients::NATIVE_CAPABILITIES;
+        Self::rewritten(language, path, source, class, &kinds)
+    }
+
+    pub(super) fn page_service(
+        language: NativeCompanion,
+        path: &Path,
+        source: &str,
+        class: &str,
+    ) -> (String, Vec<String>) {
+        Self::rewritten(language, path, source, class, &Self::PAGE_KINDS)
+    }
+
+    fn rewritten(
+        language: NativeCompanion,
+        path: &Path,
+        source: &str,
+        class: &str,
+        kinds: &[&str],
+    ) -> (String, Vec<String>) {
+        let fields = Self::fields(language, path, source, class, kinds);
         Self::rewrite(language, source, fields)
     }
 
@@ -36,11 +58,12 @@ impl ManagedNativeCapabilities {
         path: &Path,
         source: &str,
         class: &str,
+        kinds: &[&str],
     ) -> Vec<(String, String)> {
         let fields = Self::constructed(language, path, source, class);
         fields
             .into_iter()
-            .filter(|(_, declared)| Self::kind(declared).is_some())
+            .filter_map(|(name, declared)| Self::kind(&declared, kinds).map(|kind| (name, kind)))
             .collect()
     }
 
@@ -56,11 +79,9 @@ impl ManagedNativeCapabilities {
         crate::template::required_fields::RequiredFields::constructed(path, source, class)
     }
 
-    fn kind(declared: &str) -> Option<&str> {
+    fn kind(declared: &str, kinds: &[&str]) -> Option<String> {
         let kind = declared.split_whitespace().last().unwrap_or_default();
-        ["FilePicker", "WindowControls"]
-            .contains(&kind)
-            .then_some(kind)
+        kinds.contains(&kind).then(|| kind.to_owned())
     }
 
     fn rewrite(
@@ -70,25 +91,14 @@ impl ManagedNativeCapabilities {
     ) -> (String, Vec<String>) {
         let mut output = source.to_owned();
         let mut excluded = Vec::new();
-        for (name, declared) in fields {
-            Self::apply(language, &mut output, &mut excluded, name, &declared);
+        for (name, kind) in fields {
+            let (rewritten, changed) = Self::field(language, &output, &name, &kind);
+            if changed {
+                output = rewritten;
+                excluded.push(name);
+            }
         }
         (output, excluded)
-    }
-
-    fn apply(
-        language: NativeCompanion,
-        output: &mut String,
-        excluded: &mut Vec<String>,
-        name: String,
-        declared: &str,
-    ) {
-        let kind = Self::kind(declared).unwrap_or_default();
-        let (rewritten, changed) = Self::field(language, output, &name, kind);
-        if changed {
-            *output = rewritten;
-            excluded.push(name);
-        }
     }
 
     fn field(language: NativeCompanion, source: &str, name: &str, kind: &str) -> (String, bool) {

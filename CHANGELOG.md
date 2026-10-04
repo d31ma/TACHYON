@@ -236,6 +236,15 @@ machine contracts have their own, independent major versions.
   `private` or `Vary`). Before, the unread body was cancelled by the
   five-second precache deadline and the browser reported a failed
   `net::ERR_ABORTED` request.
+- A `NeedsAll` service with a `FilePicker` field builds wherever it runs. In
+  Kotlin, `ty bundle --target android --native` no longer stops with `TY1405`
+  ("needs a public explicitly typed field"). A Swift, C# or Kotlin service
+  that runs as WebAssembly (the web, and targets that do not link the
+  language) no longer stops with `TY1407` asking the page to pass
+  `:filePicker`: the build gives the field the typed provider, which answers
+  `unsupported`, as ADR 0089 describes. A Lua service with a
+  `---@type WindowControls` or `---@type FilePicker` annotation now fails the
+  build with `TY2015` instead of getting nil at run time.
 - The JavaScript `NoteServiceTest` that `ty init --features storage` writes
   type-checks again: its fake `DataSource` is cast through `unknown`, as the
   TypeScript one already was, now that `DataSource` declares the FYLO methods.

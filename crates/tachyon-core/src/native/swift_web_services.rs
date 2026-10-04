@@ -34,7 +34,7 @@ impl SwiftWebServices {
         include_str!("swift_web_services/TacWebHost.swift"),
         include_str!("swift_web_services/TacBrowserError.swift")
     );
-    const WEB_APIS: [(&'static str, &'static str); 10] = [
+    const WEB_APIS: [(&'static str, &'static str); 11] = [
         ("Clock", include_str!("web_apis/Clock.swift")),
         ("SecureRandom", include_str!("web_apis/SecureRandom.swift")),
         ("Connectivity", include_str!("web_apis/Connectivity.swift")),
@@ -53,6 +53,15 @@ impl SwiftWebServices {
         (
             "WindowControls",
             include_str!("web_apis/WindowControls.swift"),
+        ),
+        (
+            "FilePicker",
+            concat!(
+                include_str!("capabilities/FilePickerStatus.swift"),
+                include_str!("capabilities/FilePickerResult.swift"),
+                include_str!("capabilities/FilePickerOptions.swift"),
+                include_str!("web_apis/FilePicker.swift")
+            ),
         ),
     ];
     const BEHAVIOR_PLATFORM: &'static str = concat!(

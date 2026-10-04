@@ -6,6 +6,7 @@ mod handler_environment;
 mod init_features;
 mod init_wizard;
 mod lua_yon_cli;
+mod native_capability_cli;
 mod phase1_cli;
 mod phase2_cli;
 mod phase3_cli;

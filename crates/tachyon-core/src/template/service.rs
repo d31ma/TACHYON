@@ -142,7 +142,7 @@ impl ServiceDefinition {
     }
 
     fn classify_native_capabilities(&self, path: &Path, source: &str) -> Vec<String> {
-        let types = BTreeSet::from([String::from("FilePicker"), String::from("WindowControls")]);
+        let types = crate::web_api_clients::WebApiClients::native_capabilities();
         let fields = RequiredFields::injected_fields(path, source, &self.class, &types);
         self.required
             .iter()
@@ -160,6 +160,15 @@ impl ServiceDefinition {
             path.extension()
                 .is_some_and(|extension| extension == "dart")
         })
+    }
+
+    fn receives_native_capabilities(&self) -> bool {
+        self.script.is_none() && (self.linked() || self.runs_companion_in_page())
+    }
+
+    fn runs_companion_in_page(&self) -> bool {
+        self.web_assembly()
+            .is_some_and(|(_, path)| self.native.iter().any(|(_, native)| native == path))
     }
 
     pub(crate) fn linked(&self) -> bool {
@@ -351,7 +360,7 @@ impl ServiceRegistry {
             .for_each(|service| service.target = target);
         self.services
             .values_mut()
-            .filter(|service| service.script.is_none() && service.linked())
+            .filter(|service| service.receives_native_capabilities())
             .for_each(ServiceDefinition::inject_native_capabilities);
         self
     }
@@ -1215,6 +1224,14 @@ mod tests {
             assert_eq!(
                 registry.get("picker").expect("web").required(),
                 ["filePicker", "title"],
+                "{path}"
+            );
+            let page = registry.clone().for_target(None);
+            let service = page.get("picker").expect("page");
+            assert_eq!(service.required(), ["title"], "{path}");
+            assert_eq!(
+                service.injected(),
+                ["windowControls", "filePicker"],
                 "{path}"
             );
             let native = registry.for_target(Some(target));

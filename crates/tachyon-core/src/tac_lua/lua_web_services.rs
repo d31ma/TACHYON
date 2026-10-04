@@ -36,6 +36,8 @@ const transport = (text) => lua.invoke(text)
     const CLIENT: &'static str = "client";
     const PRIVATE: char = '_';
     const PUBLISHER: &'static str = "application_event_publisher";
+    const TYPE_ANNOTATION: &'static str = "---@type";
+    const CAPABILITY: &'static str = "Lua services do not support {} yet (ADR 0085): the page gives Lua no {} provider, so the field would stay nil. Write the service that needs it in another Tac language, such as JavaScript, TypeScript, Rust, Swift, C# or Kotlin";
     const BEHAVIORS: &'static str = "Lua services do not support behavior annotations (for example Cached, Retry or AllOrNothing) yet (ADR 0085). Write this service in another Tac language, or leave the annotation out.";
 
     pub(crate) async fn runtime_files() -> Result<Vec<(String, Vec<u8>)>, Failure> {
@@ -103,6 +105,7 @@ const transport = (text) => lua.invoke(text)
         let text = crate::without_bom(&text);
         let identity = PathBuf::from(format!("client/services/{class}.lua"));
         let relative = source.strip_prefix(snapshot_root).unwrap_or(&identity);
+        Self::refuse_capabilities(relative, text)?;
         let view = LuaView::joined(relative, text);
         let mut metadata = Self::metadata(snapshot_root, relative, &view)?;
         let assembled =
@@ -174,6 +177,23 @@ const transport = (text) => lua.invoke(text)
         let mut metadata = RubyWebServices::metadata(&members, events.as_ref(), &roles.required);
         metadata["writable"] = metadata["fields"].clone();
         Ok(metadata)
+    }
+
+    fn refuse_capabilities(relative: &Path, text: &str) -> Result<(), Failure> {
+        let capability = text
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix(Self::TYPE_ANNOTATION))
+            .map(|declared| declared.trim().trim_end_matches('?'))
+            .find(|declared| {
+                crate::web_api_clients::WebApiClients::NATIVE_CAPABILITIES.contains(declared)
+            });
+        capability.map_or(Ok(()), |name| {
+            Err(Self::failure(
+                relative,
+                text,
+                &Self::CAPABILITY.replace("{}", name),
+            ))
+        })
     }
 
     fn refuse_behaviors(relative: &Path, view: &LuaView, evented: &str) -> Result<(), Failure> {
