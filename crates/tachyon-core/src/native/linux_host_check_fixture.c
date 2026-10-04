@@ -8,9 +8,34 @@ static gboolean g_fixture_waiting = FALSE;
 static gchar *g_fixture_reply = NULL;
 static const char *g_fixture_owner = "00000000-0000-4000-8000-000000000021";
 
+static gboolean g_fixture_watching = FALSE;
+
 static void tachyon_fixture_fail(const char *message) {
-  fprintf(stderr, "linux host fixture failed at step %d: %s\n", g_fixture_step, message);
+  const char *uri = g_view != NULL ? webkit_web_view_get_uri(g_view) : NULL;
+  fprintf(stderr, "linux host fixture failed at step %d: %s (view %s, uri %s, loading %d)\n", g_fixture_step, message,
+          g_view != NULL ? "present" : "missing", uri != NULL ? uri : "none", g_view != NULL && webkit_web_view_is_loading(g_view));
   exit(1);
+}
+
+static void tachyon_fixture_terminated(WebKitWebView *view, WebKitWebProcessTerminationReason reason, gpointer data) {
+  (void)view;
+  (void)data;
+  fprintf(stderr, "web process terminated: %d\n", (int)reason);
+}
+
+static gboolean tachyon_fixture_load_failed(WebKitWebView *view, WebKitLoadEvent event, gchar *uri, GError *error, gpointer data) {
+  (void)view;
+  (void)event;
+  (void)data;
+  fprintf(stderr, "load failed for %s: %s\n", uri, error != NULL ? error->message : "unknown");
+  return FALSE;
+}
+
+static void tachyon_fixture_watch(void) {
+  if (g_fixture_watching || g_view == NULL) return;
+  g_fixture_watching = TRUE;
+  g_signal_connect(g_view, "web-process-terminated", G_CALLBACK(tachyon_fixture_terminated), NULL);
+  g_signal_connect(g_view, "load-failed", G_CALLBACK(tachyon_fixture_load_failed), NULL);
 }
 
 static void tachyon_fixture_require(gboolean valid, const char *message) {
@@ -133,6 +158,7 @@ static void tachyon_fixture_on_return(void) {
 
 static gboolean tachyon_fixture_tick(gpointer data) {
   (void)data;
+  tachyon_fixture_watch();
   if (g_fixture_waiting) return G_SOURCE_CONTINUE;
   switch (g_fixture_step) {
     case 0: if (!tachyon_fixture_loaded("tachyon://app/")) return G_SOURCE_CONTINUE; tachyon_fixture_home(); break;
