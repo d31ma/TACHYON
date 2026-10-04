@@ -16,6 +16,39 @@ class TopicsGate {
   static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
   static streams = [];
   static requests = [];
+  static auditServices = {
+    javascript: {
+      'client/services/AuditService.js': `@Service()
+export default class AuditService {
+  seen = 0
+  /** @param {OrderPlaced} order */
+  @OnEvent
+  count(order) { this.seen += 1 }
+}
+`,
+    },
+    lua: {
+      'client/models/OrderPlaced.lua': `-- @Topic
+---@class OrderPlaced
+---@field id string
+OrderPlaced = {}
+`,
+      'client/services/AuditService.lua': `-- @Service
+---@class AuditService
+AuditService = {
+  ---@type integer
+  seen = 0,
+}
+
+---@param order OrderPlaced
+---@return nil
+-- @OnEvent
+function AuditService:count(order)
+  self.seen = self.seen + 1
+end
+`,
+    },
+  };
 }
 
 function write(relative, contents) {
@@ -24,7 +57,7 @@ function write(relative, contents) {
   writeFileSync(file, contents);
 }
 
-function writeFixture() {
+function writeFixture(language) {
   rmSync(TopicsGate.project, { recursive: true, force: true });
   write('client/pages/tac.html', '<orders-page />\n');
   write('client/components/orders/page/tac.html', `<main aria-label="Orders">
@@ -48,14 +81,7 @@ export default class OrdersService {
   #withId(id) { return this.placed === '-' ? id : this.placed + ',' + id }
 }
 `);
-  write('client/services/AuditService.js', `@Service()
-export default class AuditService {
-  seen = 0
-  /** @param {OrderPlaced} order */
-  @OnEvent
-  count(order) { this.seen += 1 }
-}
-`);
+  for (const [relative, contents] of Object.entries(TopicsGate.auditServices[language])) write(relative, contents);
 }
 
 function buildFixture() {
@@ -97,7 +123,7 @@ function expect(actual, wanted, label) {
 
 async function checkTopics(page, origin, errors) {
   await page.goto(`${origin}/`, { waitUntil: 'load' });
-  await page.waitForFunction(() => document.querySelector('#placed') !== null);
+  await page.waitForSelector('#placed');
   for (let attempt = 0; attempt < 50 && TopicsGate.streams.length === 0; attempt += 1) await page.waitForTimeout(100);
   expect(TopicsGate.requests.length, 1, 'two listeners of one topic open one stream');
   expect(TopicsGate.requests[0], TopicsGate.topicPath, 'the page opens the topic stream by itself');
@@ -106,7 +132,7 @@ async function checkTopics(page, origin, errors) {
     stream.write('id: 1\ndata: {"id":"A-2"}\n\n');
     stream.write('id: 2\ndata: {"id":7}\n\n');
   }
-  await page.waitForFunction(() => document.querySelector('#placed')?.textContent === 'A-1,A-2', null, { timeout: 5000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector('#placed')?.textContent === 'A-1,A-2', null, { timeout: 5000, polling: 100 }).catch(() => {});
   expect(await page.textContent('#placed'), 'A-1,A-2', 'each record that fits the model reaches the listener');
   expect(await page.textContent('#audited'), '2', 'a second listener hears the same records once');
   const unexpected = errors.filter((error) => !error.includes('EventSource'));
@@ -114,8 +140,11 @@ async function checkTopics(page, origin, errors) {
   else console.log('    ok   no console errors');
 }
 
-async function main() {
-  writeFixture();
+async function checkLanguage(language) {
+  console.log(`  ${language} AuditService`);
+  TopicsGate.streams = [];
+  TopicsGate.requests = [];
+  writeFixture(language);
   buildFixture();
   const server = serve();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -132,6 +161,10 @@ async function main() {
     for (const stream of TopicsGate.streams) stream.end();
     server.close();
   }
+}
+
+async function main() {
+  for (const language of Object.keys(TopicsGate.auditServices)) await checkLanguage(language);
   console.log(process.exitCode ? 'FAIL: Tac topic event gate' : 'PASS: Tac topic event gate');
 }
 

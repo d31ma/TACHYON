@@ -17,6 +17,7 @@ import { SnippetCache } from './snippet-cache.mjs'
 import { SnippetRequest } from './snippet-request.mjs'
 import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
+import { PythonWebRuntime } from './python-web-runtime.mjs'
 import { ToolchainFingerprint } from './toolchain-fingerprint.mjs'
 import { TypeCheckProjects } from './type-check-projects.mjs'
 
@@ -716,8 +717,12 @@ async function bundleProject(label, files, withPlaceholders = false, webOnly = f
   for (const extension of extensionsToBundle(clientFiles)) {
     const nativeTarget = hostTarget ?? await nativeTargetWithoutWebToolchain(extension, webOnly)
     const languageTag = extension ? ` [${extension.slice(1)}]` : ''
+    if (PythonWebRuntime.isMissing(extension)) {
+      reportMissingPythonRuntime(`${label}${languageTag}`)
+      continue
+    }
     await inStagingDirectory(`${label}${languageTag}`, async root => {
-      const selectedFiles = filesForTacLanguage(clientFiles, extension)
+      const selectedFiles = PythonWebRuntime.withOptIn(filesForTacLanguage(clientFiles, extension), extension)
       for (const file of selectedFiles) writeSnippetFile(root, file.name, file.code)
       if (withPlaceholders) addPlaceholderComponents(root, selectedFiles)
       const bundleArguments = ['bundle', root]
@@ -752,6 +757,13 @@ async function bundleNativeAlternatives(label, clientFiles, nativeFiles) {
       pass(`${label} [${extension.slice(1)} native] (native source staging)${cached}`, 'bundle')
     })
   }
+}
+
+/** @param {string} label */
+function reportMissingPythonRuntime(label) {
+  const reason = `the pinned Python web runtime (Pyodide ${PythonWebRuntime.version}) is not in the Tachyon cache; ty doctor shows where it goes`
+  if (Settings.requireToolchains) fail(label, new Error(reason))
+  else skip(label, reason)
 }
 
 /**
