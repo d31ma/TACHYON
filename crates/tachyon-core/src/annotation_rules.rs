@@ -276,7 +276,7 @@ impl AnnotationRules {
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py",
     ];
     const TAC_ROLE: &'static [&'static str] = &[
-        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs",
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "java", "fs", "hpp",
     ];
     pub(crate) const TAC_RESOURCE: &'static [&'static str] =
         &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
@@ -586,7 +586,7 @@ impl AnnotationRules {
             "sends each published event of this model to the listeners in every Yon language and in open pages",
         )
         .bare()
-        .reach(Self::TAC, Self::YON),
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON),
         Rule::new(
             "Table",
             Self::TYPE,
