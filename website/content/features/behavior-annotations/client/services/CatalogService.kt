@@ -3,8 +3,8 @@ class CatalogService {
     private lateinit var behaviors: Behaviors.Context
     var offset: Long = 0
 
-    fun page(@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]}) input: Map<String, Any?>): Any? {
-        return input["offset"]
+    fun page(@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id"]}) input: Any?): Any? {
+        return (input as Map<*, *>)["offset"]
     }
 
     @OnStart
