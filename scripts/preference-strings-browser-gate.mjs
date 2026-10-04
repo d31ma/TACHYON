@@ -101,31 +101,31 @@ class PreferenceStringsBrowserGate {
   static async websiteSnippet(page) {
     const primary = page.locator('#snippet-primary')
     await primary.getByRole('tab', { name: 'macOS', exact: true }).click()
-    await PreferenceStringsBrowserGate.selectedSnippet(primary, 'macOS', 'SwiftExample.swift')
+    await PreferenceStringsBrowserGate.selectedSnippet(primary, 'macOS', 'KotlinExample.kt')
     const originalSetter = await page.evaluateHandle(() => {
       const original = Storage.prototype.setItem
       Storage.prototype.setItem = () => { throw new DOMException('Fixture storage denied', 'SecurityError') }
       return original
     })
     try {
-      await primary.getByRole('tab', { name: 'Android', exact: true }).click()
-      await PreferenceStringsBrowserGate.selectedSnippet(primary, 'Android', 'KotlinExample.kt')
+      await primary.getByRole('tab', { name: 'Web', exact: true }).click()
+      await PreferenceStringsBrowserGate.selectedSnippet(primary, 'Web', 'PythonExample.py')
     } finally {
       await originalSetter.evaluate(original => { Storage.prototype.setItem = original })
       await originalSetter.dispose()
     }
     const storedWhileDenied = await page.evaluate(() => localStorage.getItem('tachyon.platform'))
-    assert.equal(storedWhileDenied, 'macos', 'denial preserves raw storage while the live snippet receives Android')
+    assert.equal(storedWhileDenied, 'macos', 'denial preserves raw storage while the live snippet receives Web')
     await page.locator('#snippet-late-show').click()
     const late = page.locator('#snippet-late')
-    await PreferenceStringsBrowserGate.selectedSnippet(late, 'Android', 'KotlinExample.kt')
+    await PreferenceStringsBrowserGate.selectedSnippet(late, 'Web', 'PythonExample.py')
     await page.locator('#snippet-late-hide').click()
     await late.waitFor({ state: 'detached', timeout: 5_000 })
     await page.locator('#snippet-late-show').click()
-    await PreferenceStringsBrowserGate.selectedSnippet(late, 'Android', 'KotlinExample.kt')
+    await PreferenceStringsBrowserGate.selectedSnippet(late, 'Web', 'PythonExample.py')
     await page.reload({ waitUntil: 'networkidle', timeout: 15_000 })
-    await PreferenceStringsBrowserGate.selectedSnippet(page.locator('#snippet-primary'), 'macOS', 'SwiftExample.swift')
-    return { storedWhileDenied, liveSelection: 'Android', lateSelection: 'Android', remountSelection: 'Android', reloadSelection: 'macOS', source: 'unmodified actual SnippetService, platforms module and docs/snippet component copied from website' }
+    await PreferenceStringsBrowserGate.selectedSnippet(page.locator('#snippet-primary'), 'macOS', 'KotlinExample.kt')
+    return { storedWhileDenied, liveSelection: 'Web', lateSelection: 'Web', remountSelection: 'Web', reloadSelection: 'macOS', source: 'unmodified actual SnippetService, platforms module and docs/snippet component copied from website' }
   }
 
   static async selectedSnippet(snippet, platform, companion) {
