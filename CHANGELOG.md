@@ -12,6 +12,17 @@ machine contracts have their own, independent major versions.
 
 ### Security
 
+- `ty` no longer passes `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host`,
+  `X-Forwarded-Proto`, `X-Forwarded-Port`, `X-Forwarded-Prefix` or
+  `X-Real-IP` from the browser to Yon handlers. From a peer that is not in
+  the new `server.proxies` list (empty by default, loopback included) it
+  removes them and writes the real client address; from a listed proxy it
+  appends its own hop and sets `X-Real-IP` to the nearest address that is not
+  a listed proxy. Handlers in every Yon language read the client from
+  `X-Real-IP`, and Go `RemoteAddr`, Java and Kotlin
+  `HttpExchange.getRemoteAddress()` and PHP `REMOTE_ADDR` now hold it instead
+  of nothing or `127.0.0.1` (ADR 0096).
+
 - Every loopback server (`ty serve`, `ty start`, `ty preview` and the error
   page) answers only requests whose `Host` is a localhost name, an IP address,
   the `tac.origin` host or a name in the new `server.hosts`; other names get

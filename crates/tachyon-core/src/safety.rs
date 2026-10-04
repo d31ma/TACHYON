@@ -16,6 +16,7 @@ mod secret_match;
 mod secret_pattern;
 mod server_host;
 mod service_reach_check;
+mod trusted_proxies;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -32,6 +33,8 @@ mod secret_tests;
 mod server_host_tests;
 #[cfg(test)]
 mod service_reach_tests;
+#[cfg(test)]
+mod trusted_proxies_tests;
 
 use code_text::CodeText;
 pub(crate) use declared_hosts::DeclaredHosts;
@@ -51,3 +54,4 @@ use secret_match::SecretMatch;
 use secret_pattern::SecretPattern;
 pub use server_host::ServerHost;
 pub(crate) use service_reach_check::ServiceReachCheck;
+pub(crate) use trusted_proxies::TrustedProxies;

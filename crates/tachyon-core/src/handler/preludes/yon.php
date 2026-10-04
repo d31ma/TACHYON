@@ -271,6 +271,8 @@ final class YonNativeHttp
             $value = implode(', ', (array) $values);
             $_SERVER[in_array($key, ['CONTENT_TYPE', 'CONTENT_LENGTH'], true) ? $key : 'HTTP_' . $key] = $value;
         }
+        $headers = array_change_key_case(self::$requestHeaders);
+        $_SERVER['REMOTE_ADDR'] = implode(', ', (array) ($headers['x-real-ip'] ?? []));
         parse_str($query, $_GET);
         $_POST = [];
         if (str_starts_with((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 'application/x-www-form-urlencoded')) {

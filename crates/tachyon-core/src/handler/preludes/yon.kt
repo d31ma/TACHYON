@@ -333,7 +333,10 @@ class YonExchange(frame: __YonFrame) : com.sun.net.httpserver.HttpExchange() {
     override fun sendResponseHeaders(code: Int, length: Long) {
         responseCode = code
     }
-    override fun getRemoteAddress(): java.net.InetSocketAddress = java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0)
+    override fun getRemoteAddress(): java.net.InetSocketAddress = java.net.InetSocketAddress(clientAddress(), 0)
+    private fun clientAddress(): java.net.InetAddress =
+        requestHeaders.getFirst("X-Real-IP")?.let { runCatching { java.net.InetAddress.getByName(it) }.getOrNull() }
+            ?: java.net.InetAddress.getLoopbackAddress()
     override fun getResponseCode(): Int = responseCode
     override fun getLocalAddress(): java.net.InetSocketAddress = java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0)
     override fun getProtocol(): String = "HTTP/1.1"

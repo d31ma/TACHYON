@@ -695,7 +695,12 @@ final class YonExchange extends com.sun.net.httpserver.HttpExchange {
     @Override public java.io.InputStream getRequestBody() { return new java.io.ByteArrayInputStream(body); }
     @Override public java.io.OutputStream getResponseBody() { return written; }
     @Override public void sendResponseHeaders(int code, long length) { responseCode = code; }
-    @Override public java.net.InetSocketAddress getRemoteAddress() { return new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0); }
+    @Override public java.net.InetSocketAddress getRemoteAddress() { return new java.net.InetSocketAddress(clientAddress(), 0); }
+    private java.net.InetAddress clientAddress() {
+        String address = requestHeaders.getFirst("X-Real-IP");
+        if (address == null) return java.net.InetAddress.getLoopbackAddress();
+        try { return java.net.InetAddress.getByName(address); } catch (java.net.UnknownHostException error) { return java.net.InetAddress.getLoopbackAddress(); }
+    }
     @Override public int getResponseCode() { return responseCode; }
     @Override public java.net.InetSocketAddress getLocalAddress() { return new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0); }
     @Override public String getProtocol() { return "HTTP/1.1"; }

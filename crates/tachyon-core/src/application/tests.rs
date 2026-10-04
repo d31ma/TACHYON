@@ -499,3 +499,35 @@ fn the_topic_log_folder_is_read_as_text() {
     assert_eq!(set.topics_directory(), Some("storage/events"));
     assert!(configured(r#"{"topics":{"directory":7}}"#, "").is_err());
 }
+
+#[test]
+fn trusted_proxies_accept_addresses_and_ranges() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"proxies":["127.0.0.1","10.0.0.0/8"]}}"#,
+    );
+
+    let config = loaded(load(root.path()));
+
+    assert!(config.trusted_proxies().contains([10, 1, 2, 3].into()));
+    assert!(!config.trusted_proxies().contains([192, 0, 2, 1].into()));
+}
+
+#[test]
+fn trusted_proxies_refuse_host_names() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"proxies":["proxy.example"]}}"#,
+    );
+
+    let failure = load(root.path()).err().map(|failure| failure.to_string());
+
+    assert!(
+        failure.is_some_and(|message| message.contains("proxies")),
+        "a host name is not a proxy address"
+    );
+}

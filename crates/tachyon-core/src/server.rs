@@ -8,6 +8,10 @@ mod error_page;
 mod error_page_server;
 mod error_page_wait;
 mod event_stream;
+mod forwarded_headers;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod forwarded_headers_tests;
 mod handler_event_bridge;
 mod header_names;
 mod host_guard;
@@ -62,6 +66,7 @@ use dispatch::Dispatch;
 use dispatch_route::DispatchRoute;
 use error_page::ErrorPage;
 use event_stream::EventStream;
+use forwarded_headers::ForwardedHeaders;
 use futures_util::future::OptionFuture;
 use handler_event_bridge::HandlerEventBridge;
 use header_names::HeaderNames;
@@ -262,7 +267,8 @@ impl DevServer {
             &project.capability(),
             supervisor.application().hosts(),
         );
-        let application = dispatch_state.into_router(&page_hosts, guard);
+        let edge = ForwardedHeaders::new(supervisor.application().trusted_proxies().clone());
+        let application = dispatch_state.into_router(&page_hosts, guard, edge);
         let public_host = Self::public_host(options, supervisor.application());
         Ok(Self {
             listener: Some(listener),
@@ -413,11 +419,14 @@ impl DevServer {
         F: Future<Output = ()>,
     {
         let graceful_cancellation = cancellation.clone();
-        let served = axum::serve(listener, application)
-            .with_graceful_shutdown(async move {
-                graceful_cancellation.cancelled().await;
-            })
-            .into_future();
+        let served = axum::serve(
+            listener,
+            application.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .with_graceful_shutdown(async move {
+            graceful_cancellation.cancelled().await;
+        })
+        .into_future();
         tokio::pin!(served);
         tokio::pin!(shutdown);
         tokio::select! {

@@ -49,6 +49,7 @@ fn supervisor(options: HandlerSupervisorOptions) -> HandlerSupervisor {
 fn available(program: &str) -> bool {
     let version = match program {
         "kotlinc" => "-version",
+        "php-cgi" => "-v",
         "go" => "version",
         _ => "--version",
     };
@@ -743,6 +744,61 @@ async fn a_go_worker_imports_a_native_package_from_server_packages() {
         .await
         .expect("GET after the native package changed");
     assert_eq!(body_json(&answered)["price"], 120);
+}
+
+struct NativePeer;
+
+impl NativePeer {
+    const HANDLERS: [(&str, &str, &str); 4] = [
+        (
+            "php",
+            "php-cgi",
+            "<?php\nfinal class Handler\n{\n    public static function GET(): void\n    {\n        echo $_SERVER['REMOTE_ADDR'];\n    }\n}\n",
+        ),
+        (
+            "go",
+            "go",
+            "import \"net/http\"\n\ntype Handler struct{}\n\nfunc (Handler) GET(request *http.Request) any {\n\treturn request.RemoteAddr\n}\n",
+        ),
+        (
+            "java",
+            "javac",
+            "\nclass Handler {\n    static void GET(com.sun.net.httpserver.HttpExchange exchange) throws java.io.IOException {\n        byte[] body = exchange.getRemoteAddress().getAddress().getHostAddress().getBytes();\n        exchange.sendResponseHeaders(200, body.length);\n        exchange.getResponseBody().write(body);\n    }\n}\n",
+        ),
+        (
+            "kt",
+            "kotlinc",
+            "\nobject Handler {\n    @JvmStatic fun GET(exchange: com.sun.net.httpserver.HttpExchange) {\n        val body = exchange.remoteAddress.address.hostAddress.toByteArray()\n        exchange.sendResponseHeaders(200, body.size.toLong())\n        exchange.responseBody.write(body)\n    }\n}\n",
+        ),
+    ];
+    const CLIENT: &str = "203.0.113.9";
+}
+
+#[tokio::test]
+async fn native_requests_report_the_client_address_that_ty_resolved() {
+    let supervisor = supervisor(HandlerSupervisorOptions {
+        default_timeout: Duration::from_mins(2),
+        ..HandlerSupervisorOptions::default()
+    });
+    for (extension, tool, contents) in NativePeer::HANDLERS {
+        if !available(tool) {
+            eprintln!("skipping {extension}: {tool} is unavailable");
+            continue;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let handler = source(&root, extension, contents);
+        let mut get = request("native_peer", HttpMethod::Get, None);
+        get.headers.insert(
+            String::from("x-real-ip"),
+            vec![String::from(NativePeer::CLIENT)],
+        );
+        let answered = supervisor
+            .invoke(&handler, &get, &HandlerCancellation::default())
+            .await
+            .expect("GET");
+        let body = answered.body.expect("peer body").data;
+        assert!(body.contains(NativePeer::CLIENT), "{extension}: {body}");
+    }
 }
 
 #[tokio::test]

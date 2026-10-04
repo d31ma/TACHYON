@@ -171,6 +171,9 @@ func yonNativeRequest(request *yonRequest) *http.Request {
 		}
 	}
 	native.Host = host
+	if address := request.Header("x-real-ip"); address != "" {
+		native.RemoteAddr = net.JoinHostPort(address, "0")
+	}
 	return native
 }
 

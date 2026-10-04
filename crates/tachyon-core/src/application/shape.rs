@@ -23,14 +23,16 @@ pub(super) fn validate(document: &Value) -> Result<(), Failure> {
 }
 
 fn validate_server(server: &Value) -> Result<(), Failure> {
-    let server = server
-        .as_object()
-        .ok_or_else(|| invalid("yon.server must be an object containing host, port or hosts."))?;
+    let server = server.as_object().ok_or_else(|| {
+        invalid("yon.server must be an object containing host, port, hosts or proxies.")
+    })?;
     let has_other_key = server
         .keys()
-        .any(|key| !matches!(key.as_str(), "host" | "port" | "hosts"));
+        .any(|key| !matches!(key.as_str(), "host" | "port" | "hosts" | "proxies"));
     if has_other_key {
-        return Err(invalid("yon.server supports only host, port and hosts."));
+        return Err(invalid(
+            "yon.server supports only host, port, hosts and proxies.",
+        ));
     }
     let host_is_invalid = server.get("host").is_some_and(|value| !value.is_string());
     let port_is_invalid = server

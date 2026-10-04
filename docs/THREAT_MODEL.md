@@ -128,6 +128,7 @@ operator-owned Firecracker driver qualify as production isolation.
 | False Firecracker assurance | control-program path must be absolute, a regular file, not a symlink, and not writable by group or others; bounded policy arguments; hardware-isolation claims require separate driver and host evidence |
 | Environment secret disclosure | allowlisted environment, redacted diagnostics, secret-canary tests; relay programs and Gateway commands never receive `YON_APPLICATION_JSON` or `YON_RESOURCE_*`. This scrubbing stops accidental inheritance only. It is not a sandbox: a program that runs as the same operating-system user can still read its parent's environment (for example `/proc/<parent>/environ` on Linux) and the project's files |
 | Cross-language call confusion (`@Gateway`) | build-declared keys only, per-invocation bearer capability on a loopback endpoint, bounded JSON (1 MiB, depth 32, 10,000 values, 32 arguments), 64 calls and 4 concurrent calls per invocation, separate process pool, one hop, fixed error kinds with no target messages, refusal under Firecracker |
+| Client address spoofing through forwarding headers | `ty` is the first proxy: it removes `Forwarded`, `X-Forwarded-*` and `X-Real-IP` from any peer that is not in `server.proxies` (empty by default, loopback included) and writes the peer address itself; from a trusted proxy it appends its own hop and resolves `X-Real-IP` to the nearest untrusted address; native peer fields (Go `RemoteAddr`, `HttpExchange.getRemoteAddress()`, PHP `REMOTE_ADDR`) come from that value (ADR 0096) |
 | SSRF and unrestricted egress | deny-by-default network capability, normalized origin allowlists, DNS/redirect revalidation, response limits |
 | Native bridge escalation | declared capabilities; bounded per-route registry; operation/member/payload checks; trusted main-frame local origin only |
 | Native origin confusion | canonical bundle resource mapping; frame and navigation guards; no remote bridge; no arbitrary file URLs |
@@ -265,7 +266,16 @@ separate cybersecurity review for this reconciliation.
   runs before routing in the development, production (`ty start`), preview
   and error-page servers, and it does not depend on the browser. A server
   opened to the network with `--allow-non-loopback` checks `Host` only when
-  `server.hosts` is set, so a reverse proxy keeps working. Each watched
+  `server.hosts` is set, so a reverse proxy keeps working. The same edge
+  treats forwarding headers as untrusted: from a peer that is not listed in
+  `server.proxies`, `ty` removes `Forwarded`, `X-Forwarded-For`,
+  `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Port`,
+  `X-Forwarded-Prefix` and `X-Real-IP` and writes the TCP peer address, so a
+  browser cannot make a handler, or a back end for front end that relays the
+  headers, believe a false client address. A listed proxy keeps its headers,
+  `ty` appends its own hop, and `X-Real-IP` names the nearest address that is
+  not a listed proxy. Tests send spoofed headers over a real connection and
+  check what JavaScript and Go handlers receive (ADR 0096). Each watched
   rebuild runs a fresh discovery and passes that Project to the compiler.
   Shutdown cancels the owned watcher and waits for it to finish before
   returning.
