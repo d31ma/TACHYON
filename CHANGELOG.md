@@ -225,6 +225,13 @@ machine contracts have their own, independent major versions.
 - A macOS app name that looks like a host template placeholder, such as
   `__ROUTE_DOCUMENTS__`, stays plain text in the generated Swift host.
 
+- Fast navigation between Tac pages no longer logs
+  `AbortError: Transition was skipped`. Every page now carries a one-line
+  inline guard that handles a skipped page-change animation quietly, on the
+  page that leaves (`pageswap`) and on the page that arrives (`pagereveal`).
+  The content security policy of the server and of the Windows and Linux
+  hosts allows the guard by the SHA-256 hash of its text.
+
 - The duplicated code check (`TY1315`) skips JavaScript and TypeScript
   private constants with one literal value, such as `static _GAP = 24` or
   `private static readonly _GAP: number = 24`. Before, it skipped only names

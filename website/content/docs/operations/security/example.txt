@@ -5,5 +5,6 @@ x-content-type-options: nosniff
 content-security-policy: default-src 'self'; connect-src 'self' <tac.outgoing.hosts>;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'
-  'sha256-ceXDNKX1eA4/ZmjUnT2JKnlHG4WruVHbkdRcBqOjQUg='; object-src 'none'; base-uri 'none';
+  'sha256-ceXDNKX1eA4/ZmjUnT2JKnlHG4WruVHbkdRcBqOjQUg='
+  'sha256-7+yCl4hDKFCp1+c1tZ0wiAGnEVlf1T2gsw4G3IxmsQg='; object-src 'none'; base-uri 'none';
   frame-ancestors 'none'

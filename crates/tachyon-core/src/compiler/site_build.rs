@@ -548,6 +548,7 @@ impl<'a> SiteBuild<'a> {
 
     fn add_runtime_links(&self, html: &str) -> String {
         let mut html = PageHead::inject_before(html, "</head>", WebCompiler::NAVIGATION_LINK);
+        html = PageHead::inject_before(&html, "</head>", &super::ViewTransitionGuard::tag());
         if !self.component_styles.is_empty() {
             html = PageHead::inject_before(&html, "</head>", WebCompiler::COMPONENT_STYLE_LINK);
         }

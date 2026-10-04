@@ -1,4 +1,4 @@
-use super::SpeculationRules;
+use super::{SpeculationRules, ViewTransitionGuard};
 
 pub(crate) struct ContentSecurityPolicy;
 
@@ -25,9 +25,10 @@ impl ContentSecurityPolicy {
 
     fn script_sources() -> String {
         format!(
-            "{} {}",
+            "{} {} {}",
             Self::SCRIPT_SOURCES,
-            SpeculationRules::script_source()
+            SpeculationRules::script_source(),
+            ViewTransitionGuard::script_source()
         )
     }
 }
@@ -35,13 +36,14 @@ impl ContentSecurityPolicy {
 #[cfg(test)]
 mod tests {
     use super::ContentSecurityPolicy;
-    use crate::compiler::SpeculationRules;
+    use crate::compiler::{SpeculationRules, ViewTransitionGuard};
 
     #[test]
     fn the_server_and_the_native_hosts_allow_the_same_scripts() {
         let scripts = format!(
-            "script-src 'self' 'wasm-unsafe-eval' {};",
-            SpeculationRules::script_source()
+            "script-src 'self' 'wasm-unsafe-eval' {} {};",
+            SpeculationRules::script_source(),
+            ViewTransitionGuard::script_source()
         );
         let server = ContentSecurityPolicy::server("https://api.example.com");
         let native = ContentSecurityPolicy::native_host();

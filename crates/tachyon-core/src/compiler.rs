@@ -72,6 +72,7 @@ mod typescript_field_type;
 pub(crate) mod utility_module;
 #[cfg(test)]
 mod utility_module_tests;
+mod view_transition_guard;
 
 pub use build_options::BuildOptions;
 pub use build_profile::BuildProfile;
@@ -97,6 +98,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 pub(crate) use style_path::StylePath;
 use style_sources::StyleSources;
+pub(crate) use view_transition_guard::ViewTransitionGuard;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WebCompiler;
@@ -1988,6 +1990,10 @@ export default class Chat {
                 "{route}: {document}"
             );
             assert!(document.contains(r#""prefetch""#), "{route}");
+            assert!(
+                document.contains(&super::ViewTransitionGuard::tag()),
+                "{route}: {document}"
+            );
         }
     }
 

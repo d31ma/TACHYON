@@ -1469,9 +1469,13 @@ mod tests {
     }
 
     #[test]
-    fn the_host_policy_allows_the_speculation_rules_by_their_hash() {
+    fn the_host_policy_allows_the_framework_inline_scripts_by_their_hash() {
         let source = catalog_host_source();
-        let hash = crate::compiler::SpeculationRules::script_source();
+        let hash = format!(
+            "{} {}",
+            crate::compiler::SpeculationRules::script_source(),
+            crate::compiler::ViewTransitionGuard::script_source()
+        );
         assert!(
             source.contains(&format!("script-src 'self' 'wasm-unsafe-eval' {hash};")),
             "{source}"
