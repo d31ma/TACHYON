@@ -24,8 +24,9 @@ server.environment
   are refused (TY2010).
 
 server.port
-  The port, 0 to 65535; 8080 unless set. 0 picks a free port, and
-  --port overrides it.
+  The port, 0 to 65535. ty serve and ty start use 8080 unless
+  set, ty preview uses 3000, and ty preview --static ignores it.
+  0 picks a free port, and --port overrides it.
 
 datasource.driver
   postgresql, mysql, mariadb, sqlserver, sqlite or fylo.
@@ -33,7 +34,9 @@ datasource.driver
 datasource.url
   Where the database is, without credentials:
   postgresql://db:5432/catalog, sqlite:///var/lib/catalog.db,
-  sqlite::memory:, or the absolute root of a FYLO store.
+  sqlite::memory:, or fylo:///absolute/root for a FYLO store
+  whose root folder already exists (a page reads at most the
+  first 10,000 matching documents).
 
 datasource.username
   The database user, usually YON_DATASOURCE_USERNAME in .env beside
@@ -59,6 +62,8 @@ anything else
   The application's own settings. catalog.page.size is
   yon.catalog.page.size, and YON_CATALOG_PAGE_SIZE names it in
   Settings.
+
+With any other member of server, the server does not start.
 
 Limits: keys are lowercase letters and digits; at most 128 keys,
 16 levels deep and 64 KiB per file. A tac section or a yon root key

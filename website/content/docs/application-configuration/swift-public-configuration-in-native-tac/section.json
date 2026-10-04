@@ -1,26 +1,36 @@
 {
   "heading": "Swift: public configuration in native Tac",
-  "body": "Swift is native Tac on macOS and iOS. It is not a Yon endpoint language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. Browser and native web surfaces can fetch it. Native services use a loader that they own, or public input. This short Swift service binds a public snapshot. The Settings and Setting classes are structs in `client/models/` (ADR 0092), and the service carries Service. It does not touch the private Yon configuration or .env. Tachyon does not assign fields automatically, and there is no Tac dependency container.",
+  "body": "Swift runs as native Tac on macOS and iOS, and as WebAssembly in the browser. It is not a Yon language. Only the public tac configuration may enter client code. The build publishes client/manifest.json, including its tac member, at /manifest.webmanifest. In the browser, a Swift service loads it through an HTTPClient (see Public Tac output and private Yon lifetime). A native service uses a loader that it owns, or public input. This short Swift service binds a public snapshot that it gets as input. The Settings and Setting classes are structs in `client/models/` (ADR 0092), and the service carries Service. It does not touch the private Yon configuration or .env. Nothing is injected here: the service binds the snapshot in its init.",
   "files": [
     {
       "name": "client/services/SettingsService.swift",
-      "code": { "file": "client/services/SettingsService.swift" }
+      "code": {
+        "file": "client/services/SettingsService.swift"
+      }
     },
     {
       "name": "client/pages/tac.html",
-      "code": { "file": "client/pages/tac.html" }
+      "code": {
+        "file": "client/pages/tac.html"
+      }
     },
     {
       "name": "client/components/catalog/settings/tac.html",
-      "code": { "file": "client/components/catalog/settings/tac.html" }
+      "code": {
+        "file": "client/components/catalog/settings/tac.html"
+      }
     },
     {
       "name": "client/models/CatalogSettings.swift",
-      "code": { "file": "client/models/CatalogSettings.swift" }
+      "code": {
+        "file": "client/models/CatalogSettings.swift"
+      }
     },
     {
       "name": "client/models/PublicValues.swift",
-      "code": { "file": "client/models/PublicValues.swift" }
+      "code": {
+        "file": "client/models/PublicValues.swift"
+      }
     }
   ],
   "axis": "language"

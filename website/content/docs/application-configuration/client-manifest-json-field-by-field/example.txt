@@ -35,14 +35,51 @@ tac.application.window                                 native
   each 64 to 16384), minWidth and minHeight, and controls: which
   window controls a service may use through WindowControls (close,
   fullscreen, maximize, minimize, resize, title). None are granted
-  unless listed.
+  unless listed. titleBar "integrated" lets a macOS page reach the
+  top edge under the real window buttons ("standard" unless set;
+  other targets keep the standard bar and the build prints a
+  note), and titleBarButtonInset { "leading", "top" }, 0 to 200
+  points each, moves those buttons (see Window controls).
+
+tac.application.menus                           native desktop
+  Your items in the File, View and Help menus of a macOS, Linux
+  or Windows app: { "help": [{ "id": "guide", "label": "Guide",
+  "route": "/guide", "shortcut": { "key": "g", "modifiers":
+  ["command"] } }] }. Each item has a route (a static page) or an
+  action { "service", "method", "event" } on a Rust application
+  service. At most 64 items; iOS and Android refuse them (see
+  Native menus).
+
+tac.nativeCapabilities                                 native
+  ["filePicker"]: native capabilities a native service may use.
+  The only name today; without it the picker answers denied.
 
 tac.origin                                              build
   The public address, such as https://example.com, without a path.
   It turns on the built-in sitemap.xml and robots.txt.
 
 tac.scripts, tac.styles                                 build
-  Up to 8 local paths each, linked into every page.
+  Up to 8 local paths each, linked into every page. A style is
+  foundation CSS (colors, fonts, resets) unless styleSources says
+  it is a pinned vendor file (TY1403).
+
+tac.styleSources, tac.scriptSources                     build
+  Where each listed file comes from, keyed by its path:
+  { "kind": "foundation" } for your own style, or a pinned vendor
+  file with package, version, license and sha256 (styleSources
+  adds "kind": "vendor"). A vendor script must also be in
+  tac.scripts (TY1365). Tachyon publishes vendor files unchanged.
+
+tac.outgoing.hosts                                      build
+  Other hosts that page code may send requests to, such as
+  ["api.example.com", "*.cdn.example"]. The page's connect-src
+  allows only these; any other request host stops the build
+  (TY1326).
+
+tac.python                                              build
+  Exactly { "runtime": "pyodide-314.0.7", "profile": "offline" }
+  to run Python services; other values are refused. The build
+  copies the pinned Pyodide files from the Tachyon cache.
 
 tac.elements                                            build
   Components to export as custom elements, such as
