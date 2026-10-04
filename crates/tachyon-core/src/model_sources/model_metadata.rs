@@ -22,6 +22,18 @@ impl ModelMetadata {
         crate::annotation_modules::Module::with_models(path, source, self.files.clone())
     }
 
+    pub(crate) fn lowered(
+        &self,
+        entry: &Path,
+        source: &str,
+        lower: impl FnOnce(&str) -> Result<Option<String>, Failure>,
+    ) -> Result<Option<String>, Failure> {
+        let assembled = self.assembled(entry, source)?;
+        lower(&assembled)?
+            .map(|lowered| self.without_declarations(entry, &lowered))
+            .transpose()
+    }
+
     pub(crate) fn without_declarations(
         &self,
         path: &Path,

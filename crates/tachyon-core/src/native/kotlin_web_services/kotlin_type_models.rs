@@ -43,7 +43,10 @@ impl KotlinTypeModels {
         crate::model_layout::validate(path, source)?;
         let schema = crate::behavior::ModelSchema::plain(path, source)?;
         crate::behavior::ModelSchema::require_realm(path, source, schema.is_some())?;
-        ModelTable::declared_models("kt", schema.as_deref().unwrap_or(source))
+        if schema.is_some() {
+            return Ok(());
+        }
+        ModelTable::declared_models("kt", source)
             .into_iter()
             .try_for_each(|(name, model)| self.insert(path, name, model))
     }
@@ -70,6 +73,9 @@ impl KotlinTypeModels {
     }
 
     fn check_declared_fields(&self, path: &Path, source: &str) -> Result<(), Failure> {
+        if crate::annotation_layout::SchemaMarkers::contains(path, source)? {
+            return Ok(());
+        }
         let values = self.values();
         ModelTable::declared_models("kt", source)
             .iter()

@@ -219,6 +219,7 @@ fn lowered_body(
         .then(|| crate::behavior::ServiceRoles::without_roles(relative, authored))
         .transpose()?;
     let authored = roles_consumed.as_deref().unwrap_or(authored);
+    let models = client_models(item, language)?;
     let mut events = crate::events::extract(&identity, authored, "tac")?;
     if let Some(module) = events.as_mut() {
         crate::events::describe(module, &identity, &item.snapshot_root, "client")?;
@@ -226,35 +227,20 @@ fn lowered_body(
     crate::route_types::Converters::require_rust_program(
         language,
         &item.snapshot_root,
-        (relative, authored),
+        (relative, &models.assembled(relative, authored)?),
         events.as_ref(),
     )?;
     let prepared = super::events::prepare(language, authored, events.as_ref(), &identity)?;
-    let (native_source, native_fields) = if language == NativeCompanion::Swift && !item.web_assembly
-    {
-        super::native_capabilities::NativeCapabilities::swift_service(
-            &prepared.source,
-            &identity,
-            &item.class,
-        )
-    } else if item.web_assembly {
-        (prepared.source.clone(), Vec::new())
-    } else {
-        super::managed_native_capabilities::ManagedNativeCapabilities::service(
-            language,
-            &identity,
-            &prepared.source,
-            &item.class,
-        )
-    };
+    let (native_source, native_fields) =
+        native_service(language, item, &prepared.source, &identity);
     let authored = native_source.as_str();
-    let csharp_factory = CsharpBrowserFactory::prepare(item, authored, relative)?;
+    let csharp_factory =
+        CsharpBrowserFactory::prepare(item, &models.assembled(relative, authored)?, relative)?;
     if !item.web_assembly {
         crate::behavior::NativeStorage::refuse_builtins(&identity, authored)?;
         crate::annotation_layout::NativeWebApis::refuse(&identity, authored)?;
     }
-    let lowered =
-        super::csharp_task_inventory::CsharpTaskInventory::lower(item, &identity, authored)?;
+    let lowered = task_lowered(item, &models, &identity, authored)?;
     let authored = lowered.as_deref().unwrap_or(authored);
     let portable = item.source.to_string_lossy();
     let mut excluded = prepared.excluded.clone();
@@ -302,6 +288,47 @@ fn lowered_body(
     let mut body = body_without_imports(language, &authored, imports);
     body.push_str(&table);
     Ok(body)
+}
+
+fn native_service(
+    language: NativeCompanion,
+    item: &NativeCompanionInput,
+    source: &str,
+    identity: &Path,
+) -> (String, Vec<String>) {
+    if language == NativeCompanion::Swift && !item.web_assembly {
+        super::native_capabilities::NativeCapabilities::swift_service(source, identity, &item.class)
+    } else if item.web_assembly {
+        (source.to_owned(), Vec::new())
+    } else {
+        super::managed_native_capabilities::ManagedNativeCapabilities::service(
+            language,
+            identity,
+            source,
+            &item.class,
+        )
+    }
+}
+
+fn client_models(
+    item: &NativeCompanionInput,
+    language: NativeCompanion,
+) -> Result<crate::model_sources::ModelMetadata, Failure> {
+    crate::model_sources::ModelSources::client_metadata(
+        &item.snapshot_root,
+        language_extension(language),
+    )
+}
+
+fn task_lowered(
+    item: &NativeCompanionInput,
+    models: &crate::model_sources::ModelMetadata,
+    identity: &Path,
+    authored: &str,
+) -> Result<Option<String>, Failure> {
+    models.lowered(identity, authored, |text| {
+        super::csharp_task_inventory::CsharpTaskInventory::lower(item, identity, text)
+    })
 }
 
 fn service_identity(language: NativeCompanion, class: &str) -> PathBuf {

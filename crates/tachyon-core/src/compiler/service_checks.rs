@@ -38,8 +38,18 @@ impl ServiceChecks {
         let lowered_source = events
             .as_ref()
             .map_or(assembled_source, |module| module.source.as_str());
-        Self::lower(snapshot_root, path, lowered_source, browser)
-            .map_err(|failure| Self::located_failure(path, failure, lowered_source))?;
+        let extension = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or_default();
+        crate::model_sources::ModelSources::client_metadata(snapshot_root, extension)?.lowered(
+            path,
+            lowered_source,
+            |text| {
+                Self::lower(snapshot_root, path, text, browser)
+                    .map_err(|failure| Self::located_failure(path, failure, text))
+            },
+        )?;
         Ok(())
     }
 

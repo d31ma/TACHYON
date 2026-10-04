@@ -473,6 +473,22 @@ mod tests {
     }
 
     #[test]
+    fn browser_service_checks_read_a_rust_schema_model() {
+        let root = tempfile::tempdir().expect("project");
+        let service = "#[Service]\nstruct OrderService { status: String }\nimpl OrderService {\n    fn new() -> Self { Self { status: String::from(\"ready\") } }\n    fn accept(&self, #[Check(OrderInput)] order: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(order) }\n}\n";
+        write_file(root.path(), "client/services/OrderService.rs", service);
+        write_file(
+            root.path(),
+            "client/models/OrderInput.rs",
+            "#[Checked]\npub struct OrderInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    pub name: String,\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    pub level: f64,\n}\n",
+        );
+        let path = Path::new("client/services/OrderService.rs");
+        let roles = crate::behavior::ServiceRoles::read(path, service).expect("owner role");
+        ServiceChecks::check_source(root.path(), path, &roles.source, true)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+    }
+
+    #[test]
     fn a_go_helper_failure_names_the_helper_file() {
         let root = tempfile::tempdir().expect("project");
         let service = "// @Service\ntype TallyService struct{}\n";

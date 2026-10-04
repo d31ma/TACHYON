@@ -154,24 +154,24 @@ fn javascript_metadata_removes_only_injected_schema_declarations() {
 }
 
 #[test]
-fn client_models_without_metadata_adapters_refuse_schemas_at_the_marker() {
+fn lua_client_schema_models_are_refused_at_the_marker() {
     let root = tempfile::tempdir().expect("project");
-    let relative = "client/models/OrderInput.cs";
+    let relative = "client/models/OrderInput.lua";
     let path = root.path().join(relative);
     std::fs::create_dir_all(path.parent().expect("parent")).expect("models");
-    let source = "using System;\n\n[Checked]\npublic class OrderInput {\n    [Required]\n    public string name;\n}\n";
+    let source = "-- @Checked\n---@class OrderInput\n---@field name string\nOrderInput = {}\n";
     std::fs::write(&path, source).expect("schema model");
-    let failure = super::ModelSources::read(root.path(), "client", "cs")
+    let failure = super::ModelSources::read(root.path(), "client", "lua")
         .err()
-        .expect("explicit missing adapter");
-    assert_eq!(failure.diagnostics()[0].code.number(), 1310);
+        .expect("Lua schema models stay refused");
+    assert_eq!(failure.diagnostics()[0].code.number(), 1308);
     assert_eq!(failure.diagnostics()[0].spans[0].file, relative);
-    assert_eq!(
-        failure.diagnostics()[0].spans[0].start,
-        u64::try_from(source.find("[Checked]").expect("marker")).expect("offset")
-    );
-    std::fs::write(path, "public class OrderInput { public string name; }\n").expect("plain DTO");
-    super::ModelSources::read(root.path(), "client", "cs").expect("plain client models unchanged");
+    std::fs::write(
+        path,
+        "---@class OrderInput\n---@field name string\nOrderInput = {}\n",
+    )
+    .expect("plain DTO");
+    super::ModelSources::read(root.path(), "client", "lua").expect("plain client models unchanged");
 }
 
 struct Sources;

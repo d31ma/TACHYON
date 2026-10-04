@@ -100,9 +100,16 @@ impl KotlinWebServices {
             Self::MODEL_EXTENSION,
         )?;
         let model_files: Vec<(PathBuf, String)> = models.separate_files();
+        let schemas = models
+            .project_files()
+            .iter()
+            .map(|(path, source)| crate::annotation_layout::SchemaMarkers::contains(path, source))
+            .collect::<Result<Vec<bool>, Failure>>()?;
         let texts: Vec<(String, String)> = model_files
             .iter()
-            .map(|(path, text)| (path.to_string_lossy().into_owned(), text.clone()))
+            .zip(schemas)
+            .filter(|(_, schema)| !schema)
+            .map(|((path, text), _)| (path.to_string_lossy().into_owned(), text.clone()))
             .collect();
         let authored = crate::behavior::KotlinBuiltins::in_browser(authored, Self::STORAGE);
         let program = format!(

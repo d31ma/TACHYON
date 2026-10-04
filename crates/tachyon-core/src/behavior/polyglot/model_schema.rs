@@ -6,6 +6,9 @@ pub(crate) struct ModelSchema;
 
 impl ModelSchema {
     const NAMES: [&'static str; 9] = crate::annotation_layout::SchemaMarkers::NAMES;
+    const CLIENT_LANGUAGES: [&'static str; 12] = [
+        "java", "js", "ts", "py", "cs", "fs", "rs", "swift", "kt", "go", "dart", "rb",
+    ];
 
     pub(crate) fn plain(path: &Path, source: &str) -> Result<Option<String>, Failure> {
         crate::lua_source::LuaView::of(path, source).map_or_else(
@@ -28,7 +31,7 @@ impl ModelSchema {
             !path
                 .extension()
                 .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| ["java", "js", "ts", "py"].contains(&extension)),
+                .is_some_and(|extension| Self::CLIENT_LANGUAGES.contains(&extension)),
         ]
         .contains(&false);
         unsupported
@@ -40,7 +43,7 @@ impl ModelSchema {
         let at = Self::marker_offset(path, source).unwrap_or(0);
         Failure::one(crate::failure::diagnostic(
             1310, "This client model schema needs its Tac metadata adapter",
-            Some("Plain client models remain supported. Java Checked model metadata is qualified; other client schema adapters remain pending under ADR0092.".to_owned()),
+            Some("Plain client models remain supported. Tac reads schema models in JavaScript, TypeScript, Python, Java, C#, F#, Rust, Swift, Kotlin, Go, Dart and Ruby (ADR0092).".to_owned()),
             crate::failure::source_span(&path.to_string_lossy(), at, at + 1),
         ))
     }

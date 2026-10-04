@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub(super) struct KotlinComposedTypes {
     models: KotlinTypeModels,
+    files: Vec<(PathBuf, String)>,
 }
 
 impl KotlinComposedTypes {
@@ -22,6 +23,7 @@ impl KotlinComposedTypes {
         }
         Ok(Some(Self {
             models: KotlinTypeModels::read(files)?,
+            files: files.to_vec(),
         }))
     }
 
@@ -36,7 +38,7 @@ impl KotlinComposedTypes {
     fn service(&self, path: &Path, source: &str) -> Result<String, Failure> {
         let class = self.service_class(path, source)?;
         let roles = crate::behavior::ServiceRoles::read(path, source)?;
-        Self::validate_annotations(path, &roles.source)?;
+        self.validate_annotations(path, &roles.source)?;
         let members = crate::companion::KotlinMembers::read(path, source)?;
         let required = Self::required_properties(path, source, &class, !roles.required.is_empty());
         let values = self.models.values();
@@ -58,8 +60,12 @@ impl KotlinComposedTypes {
         Ok(class.to_owned())
     }
 
-    fn validate_annotations(path: &Path, source: &str) -> Result<(), Failure> {
-        crate::behavior::lower(path, source, "tac").map(|_| ())
+    fn validate_annotations(&self, path: &Path, source: &str) -> Result<(), Failure> {
+        crate::model_sources::ModelSources::schema_metadata(&self.files)
+            .lowered(path, source, |text| {
+                crate::behavior::lower(path, text, "tac")
+            })
+            .map(|_| ())
     }
 
     fn required_properties(path: &Path, source: &str, class: &str, needed: bool) -> Vec<String> {

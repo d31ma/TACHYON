@@ -182,7 +182,11 @@ pub(crate) fn prepare(
         relative,
         rewritten.as_deref().unwrap_or(events_source),
     )?;
-    let lowered = crate::behavior::lower(relative, &events_source, "tac")?.unwrap_or(events_source);
+    let lowered = crate::model_sources::ModelSources::client_metadata(snapshot_root, "dart")?
+        .lowered(relative, &events_source, |text| {
+            crate::behavior::lower(relative, text, "tac")
+        })?
+        .unwrap_or(events_source);
     Ok(Unit {
         source: lowered,
         plan,

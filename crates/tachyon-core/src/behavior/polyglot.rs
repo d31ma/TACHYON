@@ -1793,7 +1793,11 @@ fn declarations_with_runtime(
 }
 
 fn is_type_keyword(language: &str, word: &str) -> bool {
-    word == "class" || word == concrete(language) || word == abstract_keyword(language)
+    let swift_struct = language == "swift" && word == "struct";
+    word == "class"
+        || word == concrete(language)
+        || word == abstract_keyword(language)
+        || swift_struct
 }
 
 fn is_type_modifier(word: &str) -> bool {

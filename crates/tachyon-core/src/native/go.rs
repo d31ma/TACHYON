@@ -214,8 +214,11 @@ fn service_files(input: &ServiceInput<'_>) -> Result<ServiceFiles, Failure> {
         None => authored,
     };
     let prepared = super::go_events::entries(events.as_ref(), input.class, &identity)?;
-    let lowered = crate::behavior::lower(&identity, &authored, "tac")
-        .map_err(|failure| GoFile::locate(&failure, &authored))?;
+    let lowered = crate::model_sources::ModelSources::client_metadata(input.snapshot_root, "go")?
+        .lowered(&identity, &authored, |text| {
+        crate::behavior::lower(&identity, text, "tac")
+            .map_err(|failure| GoFile::locate(&failure, text))
+    })?;
     let program = crate::companion::go::without_markers(&lowered.unwrap_or(authored), &portable)?;
     let mut parts = GoFile::split(&program);
     let entry = parts.remove(0);

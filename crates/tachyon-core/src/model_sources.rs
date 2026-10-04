@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 mod model_metadata;
-use model_metadata::ModelMetadata;
+pub(crate) use model_metadata::ModelMetadata;
 
 mod model_file;
 use model_file::ModelFile;
@@ -51,6 +51,22 @@ impl ModelSources {
             sources.files = python_dependency_order(sources.files);
         }
         Ok(sources)
+    }
+
+    pub(crate) fn schema_metadata(files: &[(PathBuf, String)]) -> ModelMetadata {
+        ModelMetadata::new(
+            files
+                .iter()
+                .filter(|(path, source)| {
+                    crate::annotation_layout::SchemaMarkers::contains(path, source).unwrap_or(false)
+                })
+                .cloned()
+                .collect(),
+        )
+    }
+
+    pub(crate) fn client_metadata(root: &Path, extension: &str) -> Result<ModelMetadata, Failure> {
+        Ok(Self::read(root, "client", extension)?.metadata())
     }
 
     pub(crate) fn metadata(&self) -> ModelMetadata {
@@ -510,3 +526,6 @@ fn java_body_moving_imports(source: &str, imports: &mut BTreeSet<String>) -> Str
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod client_schema_tests;

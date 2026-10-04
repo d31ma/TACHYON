@@ -122,7 +122,10 @@ impl RubyWebServices {
         let evented = events
             .as_ref()
             .map_or(assembled.as_str(), |module| module.source.as_str());
-        let lowered = crate::behavior::lower(&identity, evented, "tac")?
+        let lowered = crate::model_sources::ModelSources::client_metadata(snapshot_root, "rb")?
+            .lowered(&identity, evented, |text| {
+                crate::behavior::lower(&identity, text, "tac")
+            })?
             .unwrap_or_else(|| evented.to_owned());
         let code = crate::annotation_layout::masked_source(&identity, &roles.source)?;
         let members = RubyMembers::read(&code);

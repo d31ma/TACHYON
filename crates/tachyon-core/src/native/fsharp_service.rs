@@ -5,6 +5,7 @@ use crate::Failure;
 use crate::behavior::{DetachedCsharp, ServiceRoles};
 use crate::companion::CompanionLanguage;
 use crate::fsharp_source::{FieldNeeds, FsharpBehaviors, FsharpMarkers, FsharpSource, FsharpView};
+use crate::model_sources::ModelSources;
 use std::path::Path;
 
 pub(super) struct FsharpService;
@@ -35,6 +36,9 @@ impl FsharpService {
             Self::TAC,
         )?;
         let authored = assembled.as_deref().unwrap_or(authored);
+        let models = ModelSources::client_metadata(&item.snapshot_root, FsharpSource::EXTENSION)?;
+        let with_models = models.assembled(relative, authored)?;
+        let authored = with_models.as_str();
         if !item.web_assembly {
             crate::annotation_layout::NativeWebApis::refuse(relative, authored)?;
         }
@@ -55,7 +59,7 @@ impl FsharpService {
         .map_err(|failure| view.failure(&failure))?;
         let table = FieldNeeds::constructed(authored, &events.table(&table, &item.class));
         let detached = Self::detached(&view)?;
-        let stripped = FsharpMarkers::strip(authored);
+        let stripped = models.without_declarations(relative, &FsharpMarkers::strip(authored))?;
         let Some(detached) = detached else {
             let csharp = format!("{table}{}", Self::NO_REQUIRED);
             return Ok(FsharpSource::web_body(
