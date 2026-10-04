@@ -454,7 +454,7 @@ pub(crate) struct TacMember {
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 20] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 29] = [
         "origin",
         "application",
         "scripts",
@@ -475,6 +475,15 @@ impl TacMember {
         "elements",
         "implicitmembers",
         "python",
+        "visibility",
+        "types",
+        "tests",
+        "accessibility",
+        "simplify",
+        "budgets",
+        "outgoing",
+        "go",
+        "dotnet",
     ];
 }
 

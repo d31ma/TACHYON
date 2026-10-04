@@ -464,6 +464,18 @@ fn tachyon_settings_in_the_tac_member_are_not_service_configuration() {
     assert!(ApplicationConfig::load_client(root.path()).is_err());
 }
 
+#[test]
+fn build_settings_in_the_tac_member_cannot_be_bound_by_services() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "client/manifest.json",
+        r#"{"tac":{"api":{"url":"/api"},"outgoing":{"hosts":["api.example.com"]},"budgets":{"default":{"javascript":"80 KiB"}},"visibility":{"check":false},"types":{"check":false},"tests":{"check":false},"accessibility":{"check":false},"simplify":{"suggest":false},"go":{"compiler":"tinygo"},"dotnet":{"aot":true}}}"#,
+    );
+    let config = loaded(ApplicationConfig::load_client(root.path()));
+    assert_eq!(json(&config), json!({"tac":{"api":{"url":"/api"}}}));
+}
+
 #[cfg(unix)]
 #[test]
 fn symlinks_sockets_and_directories_are_rejected_for_both_private_files() {
