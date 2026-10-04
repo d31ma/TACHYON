@@ -82,8 +82,6 @@ pub(crate) use unused_member::UnusedMember;
 pub(crate) struct DesignCheck;
 
 impl DesignCheck {
-    const SHARED_UTILITIES: &'static str = "client/shared/utils/";
-
     pub(crate) fn diagnostics<'p>(
         files: impl Iterator<Item = (&'p Path, &'p [u8])>,
         switches: &DesignSwitches,
@@ -121,9 +119,6 @@ impl DesignCheck {
         let sources = ProjectFiles::read(root);
         let classes: Vec<ClassFile> = sources.iter().filter_map(ClassFile::read).collect();
         VisibilityRule::unused_members(&classes, &sources)
-            .into_iter()
-            .filter(|member| Self::in_scope(DesignRule::Visibility, &member.path))
-            .collect()
     }
 
     pub(crate) fn missing_types(root: &Path) -> Vec<MissingType> {
@@ -133,7 +128,6 @@ impl DesignCheck {
         TypeRule::missing_types(&classes, &sources)
             .into_iter()
             .filter(|missing| Self::covered(switches.as_ref(), DesignRule::Types, &missing.path))
-            .filter(|missing| Self::in_scope(DesignRule::Types, &missing.path))
             .collect()
     }
 
@@ -148,11 +142,6 @@ impl DesignCheck {
         switches.is_some_and(|found| found.covers_path(rule, path))
     }
 
-    fn in_scope(rule: DesignRule, path: &str) -> bool {
-        let dependencies = rule == DesignRule::Dependencies;
-        [dependencies, !path.starts_with(Self::SHARED_UTILITIES)].contains(&true)
-    }
-
     fn problems(sources: &[ProjectSource], words: &ProjectWords) -> Vec<DesignProblem> {
         let classes: Vec<ClassFile> = sources.iter().filter_map(ClassFile::read).collect();
         let graph = DependencyGraph::read(&classes);
@@ -163,7 +152,6 @@ impl DesignCheck {
         problems.extend(VisibilityRule::problems(&classes, sources));
         problems.extend(TypeRule::problems(&classes, sources));
         problems.extend(TestRule::problems(sources));
-        problems.retain(|problem| Self::in_scope(problem.rule, &problem.path));
         problems
     }
 }
