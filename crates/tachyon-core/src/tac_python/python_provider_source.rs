@@ -1,3 +1,4 @@
+use super::python_events::PythonEvents;
 use crate::Failure;
 use crate::behavior::{PythonMembers, ServiceRoles};
 use crate::route_types::{ModelTable, TypeText};
@@ -12,11 +13,12 @@ pub(super) struct PythonProviderSource {
     members: Value,
     roles: ServiceRoles,
     helper: bool,
-    starts: Vec<String>,
-    stops: Vec<String>,
+    events: PythonEvents,
 }
 
 impl PythonProviderSource {
+    const PUBLISHER_TYPE: &'static str = "ApplicationEventPublisher";
+
     pub(super) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
         let class = path
             .file_stem()
@@ -26,11 +28,10 @@ impl PythonProviderSource {
         let roles = ServiceRoles::read(path, source)?;
         let plain = ServiceRoles::without_roles(path, source)?;
         let members = PythonMembers::read(path, &plain, &class)?;
-        let events = crate::events::extract(path, &plain, "tac")?;
+        let module = crate::events::extract(path, &plain, "tac")?;
         Self::require_sync(path, &members)?;
-        Self::require_owned_events(path, events.as_ref())?;
-        let (starts, stops) = Self::lifecycle(events.as_ref(), &class);
-        let source = events.map_or(plain, |events| events.source);
+        let events = PythonEvents::read(path, module, &class)?;
+        let source = events.source().map_or(plain, str::to_owned);
         Ok(Self {
             path: path.to_path_buf(),
             class,
@@ -38,8 +39,7 @@ impl PythonProviderSource {
             members,
             roles,
             helper: path.starts_with("client/helpers"),
-            starts,
-            stops,
+            events,
         })
     }
 
@@ -63,6 +63,10 @@ impl PythonProviderSource {
         let constructor = self.constructor(providers, models)?;
         let fields = self.fields(&constructor, models)?;
         let methods = self.methods(models)?;
+        let listeners = self
+            .events
+            .listeners(self.declared_methods(), models)
+            .map_err(|message| Self::failure(&self.path, &message))?;
         let writable = fields
             .iter()
             .filter(|(_, field)| field["immutable"] != true)
@@ -71,7 +75,8 @@ impl PythonProviderSource {
         Ok(
             json!({ "prototype": self.roles.prototype, "constructor": constructor,
                    "fields": fields, "writable": writable, "methods": methods,
-                   "starts": self.starts, "stops": self.stops }),
+                   "starts": self.events.starts(), "stops": self.events.stops(),
+                   "listeners": listeners, "publishers": self.publishers() }),
         )
     }
 
@@ -96,7 +101,26 @@ impl PythonProviderSource {
             .as_array()
             .into_iter()
             .flatten()
-            .map(|name| self.binding(name.as_str().unwrap_or_default(), providers, models))
+            .filter_map(Value::as_str)
+            .filter(|name| !self.publishers().iter().any(|publisher| publisher == name))
+            .map(|name| self.binding(name, providers, models))
+            .collect()
+    }
+
+    fn declared_methods(&self) -> &[Value] {
+        self.members["methods"]
+            .as_array()
+            .map_or(&[], Vec::as_slice)
+    }
+
+    fn publishers(&self) -> Vec<String> {
+        self.members["fields"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|field| field["type"] == Self::PUBLISHER_TYPE)
+            .filter_map(|field| field["name"].as_str())
+            .map(str::to_owned)
             .collect()
     }
 
@@ -184,6 +208,7 @@ impl PythonProviderSource {
             .into_iter()
             .flatten()
             .filter(|field| !injected.contains(field["name"].as_str().unwrap_or_default()))
+            .filter(|field| field["type"] != Self::PUBLISHER_TYPE)
             .map(|field| self.field(field, models))
             .collect()
     }
@@ -204,7 +229,11 @@ impl PythonProviderSource {
             .as_array()
             .into_iter()
             .flatten()
-            .filter(|method| !self.lifecycle_method(method))
+            .filter(|method| {
+                !self
+                    .events
+                    .handles(method["name"].as_str().unwrap_or_default())
+            })
             .map(|method| self.method(method, models))
             .collect()
     }
@@ -245,14 +274,6 @@ impl PythonProviderSource {
             .map_err(|message| Self::failure(&self.path, &message))
     }
 
-    fn lifecycle_method(&self, method: &Value) -> bool {
-        let name = method["name"].as_str().unwrap_or_default();
-        self.starts
-            .iter()
-            .chain(&self.stops)
-            .any(|hook| hook == name)
-    }
-
     fn require_sync(path: &Path, members: &Value) -> Result<(), Failure> {
         let asynchronous = members["methods"]
             .as_array()
@@ -266,48 +287,6 @@ impl PythonProviderSource {
             ));
         }
         Ok(())
-    }
-
-    fn require_owned_events(
-        path: &Path,
-        events: Option<&crate::events::EventModule>,
-    ) -> Result<(), Failure> {
-        let unsupported = events.into_iter().any(Self::pending_module);
-        if unsupported {
-            return Err(Self::failure(
-                path,
-                "Python Tac event/resource/stream adapters remain pending; synchronous OnStart and OnStop are supported by this slice.",
-            ));
-        }
-        Ok(())
-    }
-
-    fn pending_module(module: &crate::events::EventModule) -> bool {
-        module.types.iter().any(Self::pending_event)
-            || module.methods.iter().any(|method| method.asynchronous)
-    }
-
-    fn pending_event(ty: &crate::events::EventType) -> bool {
-        !ty.listeners.is_empty() || !ty.resources.is_empty() || !ty.streams.is_empty()
-    }
-
-    fn lifecycle(
-        events: Option<&crate::events::EventModule>,
-        class: &str,
-    ) -> (Vec<String>, Vec<String>) {
-        let ty = events
-            .into_iter()
-            .flat_map(|module| &module.types)
-            .find(|ty| ty.name == class);
-        let starts = ty
-            .and_then(|ty| ty.post_construct.clone())
-            .into_iter()
-            .collect();
-        let stops = ty
-            .and_then(|ty| ty.pre_destroy.clone())
-            .into_iter()
-            .collect();
-        (starts, stops)
     }
 
     pub(super) fn failure(path: &Path, message: &str) -> Failure {

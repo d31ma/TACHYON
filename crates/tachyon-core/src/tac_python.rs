@@ -1,4 +1,5 @@
 mod python_build;
+mod python_events;
 mod python_graph_guard;
 mod python_provider_source;
 mod python_web_services;

@@ -6,11 +6,16 @@ class _TacPythonRuntime:
     MAX_OWNERS = 256
     MAX_REQUEST = 1048576
     MAX_MEMBER_REQUEST = 65536
+    MAX_RETURNED_EVENTS = 32
     instance = None
 
     @classmethod
     def configure(cls, types, metadata, models):
         cls.instance = cls(types, metadata, models)
+
+    @classmethod
+    def connect(cls, emit):
+        cls.instance.emit = emit
 
     @classmethod
     def invoke(cls, text):
@@ -39,9 +44,10 @@ class _TacPythonRuntime:
     def __init__(self, types, metadata, models):
         self.metadata = metadata
         self.codec = _TacPythonCodec(models, metadata['models'])
-        self.graph = _TacPythonGraph(types, metadata['providers'], self.codec)
+        self.graph = _TacPythonGraph(types, metadata['providers'], self.codec, self._publisher)
         self.owners = {}
         self.busy = False
+        self.emit = None
 
     def exchange(self, text):
         return self._exchange(text)
@@ -95,7 +101,7 @@ class _TacPythonRuntime:
     def _dispatch(self, request):
         handlers = {'init': self._initialize, 'dispose': self._dispose,
                     'get': self._get, 'set': self._set, 'call': self._call,
-                    'takeEvents': self._take_events}
+                    'event': self._event, 'takeEvents': self._take_events}
         return handlers[request['op']](request)
 
     def _initialize(self, request):
@@ -127,8 +133,13 @@ class _TacPythonRuntime:
 
     def _describe(self, owner):
         metadata = self._metadata(owner)
+        listeners = [self._listener_description(listener) for listener in metadata['listeners'].values()]
         return {'fields': list(metadata['fields']), 'writable': metadata['writable'],
-                'methods': list(metadata['methods']), 'listeners': []}
+                'methods': list(metadata['methods']), 'listeners': listeners}
+
+    def _listener_description(self, listener):
+        names = ['key', 'events', 'replay', 'order', 'asynchronous', 'condition', 'models']
+        return {name: listener[name] for name in names}
 
     def _metadata(self, owner):
         name = self.metadata['services'][owner.service]
@@ -181,6 +192,38 @@ class _TacPythonRuntime:
         if _tac_inspect.isawaitable(value):
             self.graph.require_synchronous([value])
             raise ValueError('Python Tac async methods need their continuation adapter.')
+
+    def _event(self, request):
+        owner = self._owner(request)
+        listener = self._metadata(owner)['listeners'][request['name']]
+        arguments = self._event_arguments(listener, request.get('value'))
+        result = getattr(owner.root, listener['key'])(*arguments)
+        self._synchronous(result)
+        if not listener['asynchronous']:
+            self._republish(owner, listener['returns'], result)
+        return None
+
+    def _event_arguments(self, listener, value):
+        if listener['argument'] is None:
+            return []
+        return [self.codec.read(listener['argument'], value)]
+
+    def _republish(self, owner, returns, result):
+        if returns is None or result is None:
+            return
+        items = result if type(result) is list else [result]
+        for item in items[:self.MAX_RETURNED_EVENTS]:
+            self.publish(owner, returns, item, False)
+
+    def _publisher(self, owner):
+        return _TacPythonPublisher(self, owner)
+
+    def publish(self, owner, name, value, retain):
+        if owner.disposed or self.emit is None:
+            raise ValueError('Python Tac events need a live owner on the page.')
+        signal = {'route': owner.route, 'service': owner.service, 'owner': owner.id,
+                  'name': name, 'value': self.codec.result({'model': name}, value), 'retain': retain}
+        self.emit(_tac_json.dumps(signal, allow_nan=False))
 
     def _take_events(self, request):
         self._owner(request)

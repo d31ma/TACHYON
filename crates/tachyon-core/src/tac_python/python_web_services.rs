@@ -20,6 +20,8 @@ impl PythonWebServices {
         "\n",
         include_str!("python_owner.py"),
         "\n",
+        include_str!("python_publisher.py"),
+        "\n",
         include_str!("python_graph.py"),
         "\n",
         include_str!("python_runtime.py"),

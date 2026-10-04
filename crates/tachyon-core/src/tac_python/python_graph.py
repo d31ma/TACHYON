@@ -4,10 +4,11 @@ class _TacPythonGraph:
     MAX_INSTANCES = 4096
     MAX_DEPTH = 32
 
-    def __init__(self, types, providers, codec):
+    def __init__(self, types, providers, codec, publisher):
         self.types = types
         self.providers = providers
         self.codec = codec
+        self.publisher = publisher
         self.shared = {}
 
     def acquire(self, name, owner):
@@ -84,7 +85,10 @@ class _TacPythonGraph:
 
     def _construct(self, name, metadata, owner):
         arguments = [self._argument(binding, owner) for binding in metadata['constructor']]
-        return self.types[name](*arguments)
+        value = self.types[name](*arguments)
+        for field in metadata['publishers']:
+            setattr(value, field, self.publisher(owner))
+        return value
 
     def _argument(self, binding, owner):
         if 'provider' in binding:

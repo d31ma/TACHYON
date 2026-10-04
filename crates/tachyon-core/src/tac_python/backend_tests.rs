@@ -246,3 +246,172 @@ fn python_missing_opt_in_profile_is_reported_by_doctor_without_installing() {
         .is_err()
     );
 }
+
+struct PythonPage;
+
+impl PythonPage {
+    const OWNERS: [(&'static str, &'static str); 3] = [
+        ("shelf", "00000000-0000-4000-8000-000000000001"),
+        ("checkout", "00000000-0000-4000-8000-000000000002"),
+        ("audit", "00000000-0000-4000-8000-000000000003"),
+    ];
+    const SHELF: [(&'static str, &'static str); 3] = [
+        (
+            "client/models/ShelfChanged.py",
+            "from dataclasses import dataclass\n\n\n@topic\n@dataclass\nclass ShelfChanged:\n    count: int\n",
+        ),
+        (
+            "client/models/ShelfCounted.py",
+            "from dataclasses import dataclass\n\n\n@dataclass\nclass ShelfCounted:\n    total: int\n",
+        ),
+        (
+            "client/services/ShelfService.py",
+            "from models import ShelfChanged, ShelfCounted\n\n\n@service\nclass ShelfService:\n    total: int = 0\n    application_event_publisher: ApplicationEventPublisher\n\n    @on_event\n    def changed(self, changed: ShelfChanged) -> ShelfCounted:\n        self.total += changed.count\n        return ShelfCounted(self.total)\n\n    def announce(self) -> int:\n        self.application_event_publisher.publish_event(ShelfCounted(self.total))\n        return self.total\n",
+        ),
+    ];
+    const SHELF_DRIVER: &'static str = "_report = {'init': _ask('shelf', {'op': 'init', 'props': {}}), 'heard': _ask('shelf', {'op': 'event', 'name': 'changed', 'value': {'count': 3}}),\n\
+         \x20   'total': _ask('shelf', {'op': 'get', 'name': 'total'}), 'announced': _ask('shelf', {'op': 'call', 'name': 'announce', 'args': []})}\n";
+    const CHECKOUT: [(&'static str, &'static str); 4] = [
+        (
+            "client/models/PlacedOrder.py",
+            "from dataclasses import dataclass\n\n\n@dataclass\nclass PlacedOrder:\n    status: str\n    total: int\n",
+        ),
+        (
+            "client/models/SettledOrder.py",
+            "from dataclasses import dataclass\n\n\n@dataclass\nclass SettledOrder:\n    total: int\n",
+        ),
+        (
+            "client/services/CheckoutService.py",
+            "from models import PlacedOrder\n\n\n@service\nclass CheckoutService:\n    placed: int = 0\n    application_event_publisher: ApplicationEventPublisher\n\n    @on_start\n    def _start(self) -> None:\n        self.place()\n\n    def place(self) -> None:\n        self.placed += 1\n        self.application_event_publisher.publish_event(PlacedOrder(\"paid\", 25), True)\n",
+        ),
+        (
+            "client/services/AuditService.py",
+            "from models import PlacedOrder, SettledOrder\n\n\n@service\nclass AuditService:\n    settled: int = 0\n\n    @on_event({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @order(10)\n    def settle(self, order: PlacedOrder) -> SettledOrder:\n        return SettledOrder(order.total)\n\n    @on_event\n    @InBackground\n    def audit(self, order: SettledOrder) -> SettledOrder:\n        self.settled = order.total\n        return order\n",
+        ),
+    ];
+    const CHECKOUT_DRIVER: &'static str = "_report = {'checkout': _ask('checkout', {'op': 'init', 'props': {}}), 'audit': _ask('audit', {'op': 'init', 'props': {}}),\n\
+         \x20   'settled': _ask('audit', {'op': 'event', 'name': 'settle', 'value': {'status': 'paid', 'total': 25}}),\n\
+         \x20   'audited': _ask('audit', {'op': 'event', 'name': 'audit', 'value': {'total': 25}})}\n";
+    const DRIVER_HEAD: &'static str = "import json\n_emitted = []\n_TacPythonRuntime.connect(_emitted.append)\n_owners = {}\n\
+         def _ask(service, request):\n    request.update({'route': 'web', 'service': service, 'owner': _owners[service]})\n    return json.loads(_TacPythonRuntime.invoke(json.dumps(request)))\n";
+    const DRIVER_TAIL: &'static str = "_report['emitted'] = [json.loads(item) for item in _emitted]\nprint(json.dumps(_report))\n";
+
+    fn has_python() -> bool {
+        let found = std::process::Command::new("python3")
+            .arg("--version")
+            .output()
+            .is_ok_and(|output| output.status.success());
+        if !found {
+            eprintln!("skipping: python3 is unavailable");
+        }
+        found
+    }
+
+    fn run(files: &[(&str, &str)], services: &[&str], driver: &str) -> serde_json::Value {
+        let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+        for (relative, source) in files {
+            Project::write(root.path(), relative, source);
+        }
+        let chosen: Vec<(String, String, PathBuf)> = services
+            .iter()
+            .map(|instance| Self::service(root.path(), instance))
+            .collect();
+        let program = PythonWebServices::program(root.path(), &chosen)
+            .unwrap_or_else(|error| panic!("compiled source: {error:?}"));
+        let script = root.path().join("drive.py");
+        let owners = serde_json::to_string(&Self::OWNERS).unwrap_or_default();
+        let text = format!(
+            "{program}\n{}_owners.update(dict(json.loads({owners:?})))\n{driver}{}",
+            Self::DRIVER_HEAD,
+            Self::DRIVER_TAIL
+        );
+        std::fs::write(&script, text).unwrap_or_else(|error| panic!("driver: {error}"));
+        let output = std::process::Command::new("python3")
+            .arg(&script)
+            .output()
+            .unwrap_or_else(|error| panic!("python3: {error}"));
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice(&output.stdout).unwrap_or_else(|error| panic!("report: {error}"))
+    }
+
+    fn service(root: &Path, instance: &str) -> (String, String, PathBuf) {
+        let class = format!("{}{}Service", instance[..1].to_uppercase(), &instance[1..]);
+        let path = root.join(format!("client/services/{class}.py"));
+        (instance.to_owned(), class, path)
+    }
+
+    fn signal(
+        service: &str,
+        name: &str,
+        value: &serde_json::Value,
+        retain: bool,
+    ) -> serde_json::Value {
+        let owner = Self::OWNERS
+            .iter()
+            .find(|(name, _)| *name == service)
+            .map(|(_, owner)| *owner);
+        json!({"route": "web", "service": service, "owner": owner,
+               "name": name, "value": value, "retain": retain})
+    }
+}
+
+#[test]
+fn a_python_listener_hears_its_topic_and_publishes_to_the_page() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(&PythonPage::SHELF, &["shelf"], PythonPage::SHELF_DRIVER);
+    let declared = &report["init"]["value"];
+    assert_eq!(declared["fields"], json!(["total"]), "{report}");
+    assert_eq!(declared["methods"], json!(["announce"]), "{report}");
+    assert_eq!(declared["listeners"][0]["key"], "changed", "{report}");
+    assert_eq!(declared["listeners"][0]["events"], json!(["ShelfChanged"]));
+    assert_eq!(report["heard"], json!({"value": null}), "{report}");
+    assert_eq!(report["total"], json!({"value": 3}), "{report}");
+    assert_eq!(report["announced"], json!({"value": 3}), "{report}");
+    let counted = PythonPage::signal("shelf", "ShelfCounted", &json!({"total": 3}), false);
+    assert_eq!(report["emitted"], json!([counted, counted]));
+}
+
+#[test]
+fn python_listener_options_and_a_retained_start_event_reach_the_page() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &PythonPage::CHECKOUT,
+        &["checkout", "audit"],
+        PythonPage::CHECKOUT_DRIVER,
+    );
+    let listeners = report["audit"]["value"]["listeners"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let listener = |key: &str| {
+        listeners
+            .iter()
+            .find(|listener| listener["key"] == key)
+            .cloned()
+            .unwrap_or_else(|| panic!("{key}: {report}"))
+    };
+    assert_eq!(listener("settle")["order"], 10, "{report}");
+    assert!(listener("settle")["condition"].is_object(), "{report}");
+    assert_eq!(listener("audit")["asynchronous"], true, "{report}");
+    assert_eq!(report["audited"], json!({"value": null}), "{report}");
+    assert_eq!(
+        report["emitted"],
+        json!([
+            PythonPage::signal(
+                "checkout",
+                "PlacedOrder",
+                &json!({"status": "paid", "total": 25}),
+                true
+            ),
+            PythonPage::signal("audit", "SettledOrder", &json!({"total": 25}), false),
+        ])
+    );
+}

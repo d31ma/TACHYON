@@ -41,6 +41,7 @@ class PythonHostOwnershipGate {
       },
     })
     const type = {
+      connect: (emit) => { state.emit = emit },
       invoke: borrowed('invoke'),
       shutdown: borrowed('shutdown'),
       destroy: () => {
@@ -53,7 +54,9 @@ class PythonHostOwnershipGate {
 
   static ownedMethodsSurviveParentAndReleaseOnce() {
     const { state, type, Host } = PythonHostOwnershipGate.fixture()
-    const host = Host.retain(type)
+    const emit = () => {}
+    const host = Host.retain(type, emit)
+    assert.equal(state.emit, emit)
     assert.equal(state.parentDestroyed, true)
     assert.equal(host.exchange('request'), 'answer:request')
     state.listener({ persisted: true })
