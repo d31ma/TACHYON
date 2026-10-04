@@ -1,5 +1,5 @@
-$ ty build
-Build took 41.2s: ...
+$ ty bundle
+Built 4 routes to dist (3f9c…) compiled=4 reused=0
 Rust: rustc tuned for size (opt-level z, LTO, one codegen unit), then Binaryen wasm-opt -Oz
 Go: TinyGo (the smallest download), then Binaryen wasm-opt
 C#: the trimmed .NET interpreter (IL trimming, invariant globalization, Emscripten -Oz) for the smallest download; set tac.dotnet.aot to true in client/manifest.json when a service does heavy computing
