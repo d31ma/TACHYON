@@ -1,0 +1,1 @@
+record CountChanged(int count) {}

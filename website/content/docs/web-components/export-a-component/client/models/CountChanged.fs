@@ -1,0 +1,1 @@
+type CountChanged = { Count: int }
