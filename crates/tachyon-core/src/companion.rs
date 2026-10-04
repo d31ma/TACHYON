@@ -8,17 +8,17 @@ mod csharp_browser_members;
 #[cfg(test)]
 mod csharp_browser_members_tests;
 mod csharp_model_type;
-mod csharp_parameter_list;
 mod csharp_task_members;
 #[cfg(test)]
 mod csharp_task_model_tests;
 mod csharp_task_result;
 mod csharp_task_shape;
+mod parameter_text;
 use constructor_field_policy::ConstructorFieldPolicy;
 use csharp_browser_members::CsharpBrowserMembers;
-use csharp_parameter_list::CsharpParameterList;
 pub(crate) use csharp_task_members::CsharpTaskMembers;
 pub(crate) use csharp_task_result::CsharpTaskResult;
+use parameter_text::ParameterText;
 mod kotlin_header;
 mod kotlin_member;
 mod kotlin_members;
@@ -1072,36 +1072,9 @@ fn typed_parameters(list: &str) -> Vec<String> {
 }
 
 fn typed_parameter(parameter: &str) -> Option<String> {
-    let (names, declared) = without_annotations(parameter).split_once(':')?;
+    let (names, declared) = ParameterText::without_annotations(parameter).split_once(':')?;
     let kind = declared.split('=').next().unwrap_or_default().trim();
     (!kind.is_empty()).then(|| format!("{}: {kind}", names.trim()))
-}
-
-fn without_annotations(parameter: &str) -> &str {
-    let mut rest = parameter.trim_start();
-    while let Some(annotation) = rest.strip_prefix('@') {
-        let name = identifier(annotation);
-        rest = annotation[name.len()..].trim_start();
-        if rest.starts_with('(') {
-            rest = rest[balanced_end(rest)..].trim_start();
-        }
-    }
-    rest
-}
-
-fn balanced_end(text: &str) -> usize {
-    let mut depth = 0_i32;
-    for (at, character) in text.char_indices() {
-        depth += match character {
-            '(' | '[' | '{' => 1,
-            ')' | ']' | '}' => -1,
-            _ => 0,
-        };
-        if depth == 0 {
-            return at + character.len_utf8();
-        }
-    }
-    text.len()
 }
 
 fn parameter_type(declaration: &str) -> &str {
@@ -1441,7 +1414,7 @@ fn csharp_converter(kind: &str) -> &'static str {
 
 fn csharp_parameters(after_name: &str) -> Option<Vec<String>> {
     let mut kinds = Vec::new();
-    for parameter in CsharpParameterList::parameters(after_name)? {
+    for parameter in ParameterText::csharp_parameters(after_name)? {
         let kind = parameter.split_whitespace().next()?;
         let readable_model =
             CsharpModelType::is_model(kind) && CsharpModelType::read(kind, kind).is_some();

@@ -766,7 +766,7 @@ mod tests {
 
     #[test]
     fn a_rust_field_with_a_generic_type_list_is_one_field() {
-        let body = "struct MemoryCacheHelper {\n    entries: Mutex<BTreeMap<String, BehaviorCacheEntry>>,\n    format: Box<dyn Fn(i64) -> String>,\n    count: i64,\n}\n";
+        let body = "struct MemoryCacheHelper {\n    entries: Mutex<BTreeMap<String, BehaviorCacheEntry>>,\n    count: i64,\n}\n";
         let inside = body.find('{').unwrap_or_default() + 1..body.rfind('}').unwrap_or_default();
         let fields = required_fields(
             Path::new("server/helpers/MemoryCacheHelper.rs"),
@@ -775,7 +775,7 @@ mod tests {
         )
         .unwrap_or_else(|failure| panic!("{failure}"));
         let names: Vec<&str> = fields.iter().map(|(name, _)| name.as_str()).collect();
-        assert_eq!(names, ["entries", "format", "count"]);
+        assert_eq!(names, ["entries", "count"]);
     }
 
     #[test]

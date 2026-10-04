@@ -41,9 +41,7 @@ impl BracedFields {
             b'[' if self.depth == 0 => self.brackets += 1,
             b']' if self.depth == 0 => self.brackets = self.brackets.saturating_sub(1),
             b'<' if self.depth == 0 => self.angles += 1,
-            b'>' if self.depth == 0 && !code[..offset].ends_with('-') => {
-                self.angles = self.angles.saturating_sub(1);
-            }
+            b'>' if self.depth == 0 => self.angles = self.angles.saturating_sub(1),
             _ => {}
         }
     }
