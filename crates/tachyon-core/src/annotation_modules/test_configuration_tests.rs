@@ -185,7 +185,7 @@ fn behavior_only_helpers_cannot_bypass_formal_role_registration() {
         assert_fails_with(
             assemble(root.path(), entry, controller, "yon"),
             1363,
-            "required @Helper marker",
+            "required `@Helper` marker",
         );
     }
 }
