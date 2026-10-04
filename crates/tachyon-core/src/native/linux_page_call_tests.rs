@@ -81,9 +81,9 @@ results.push(String(huge.error || '').includes('pages of at most 24 KiB') ? 'lar
 let oversized = 'accepted';
 try { await post('x'.repeat(70000)); } catch (error) { oversized = String(error.message || error).includes('exceeds its bounds') ? 'request-refused' : 'other:' + error; }
 results.push(oversized);
-const place = (await call('call', 'thread_place', [])).value;
-const [pid, link] = String(place).split(' ');
-results.push(link === pid + '/task/' + pid ? 'main-thread' : 'thread:' + place);
+const answer = await call('call', 'thread_place', []);
+const [pid, link] = String(answer.value).split(' ');
+results.push(link === pid + '/task/' + pid ? 'main-thread' : 'thread:' + JSON.stringify(answer));
 return results.join(',');"#;
     const EXPECTED: &'static str = "ok,ok,ok,large-refused,request-refused,main-thread";
 

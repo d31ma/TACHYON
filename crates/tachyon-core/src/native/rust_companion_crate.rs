@@ -116,9 +116,8 @@ impl RustCompanionCrate {
             .iter()
             .map(|(name, dependency)| format!("{name} = {}\n", dependency.toml()))
             .collect::<String>();
-        (!lines.is_empty())
-            .then(|| format!("\n[{header}]\n{lines}"))
-            .unwrap_or_default()
+        let table: Option<String> = (!lines.is_empty()).then(|| format!("\n[{header}]\n{lines}"));
+        table.unwrap_or_default()
     }
 
     fn dependency_problem(
@@ -150,7 +149,7 @@ impl RustCompanionCrate {
     }
 
     fn crate_name_problem(place: &str, name: &str) -> Option<String> {
-        let refused = !RustDependency::valid_name(name) | (name == Self::PACKAGE);
+        let refused = [!RustDependency::valid_name(name), name == Self::PACKAGE].contains(&true);
         refused.then(|| {
             format!("tac.application.rust.{place} names \"{name}\", which is not a crate name.")
         })
@@ -217,11 +216,16 @@ impl RustCompanionCrate {
         let bounded = name.len() <= Self::MAX_EXECUTABLE_NAME;
         let starts_with_letter = name.starts_with(|first: char| first.is_ascii_lowercase());
         let plain = name.chars().all(Self::executable_character);
-        bounded & starts_with_letter & plain & (name != Self::PACKAGE)
+        [bounded, starts_with_letter, plain, name != Self::PACKAGE] == [true; 4]
     }
 
     fn executable_character(character: char) -> bool {
-        character.is_ascii_lowercase() | character.is_ascii_digit() | (character == Self::NAME_MARK)
+        [
+            character.is_ascii_lowercase(),
+            character.is_ascii_digit(),
+            character == Self::NAME_MARK,
+        ]
+        .contains(&true)
     }
 
     fn valid_entry(entry: &str) -> bool {
@@ -234,6 +238,10 @@ impl RustCompanionCrate {
     }
 
     fn plain_part(part: &str) -> bool {
-        !part.is_empty() & (part != Self::CURRENT_FOLDER) & (part != Self::PARENT_FOLDER)
+        [
+            !part.is_empty(),
+            part != Self::CURRENT_FOLDER,
+            part != Self::PARENT_FOLDER,
+        ] == [true; 3]
     }
 }

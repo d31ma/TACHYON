@@ -179,17 +179,15 @@ impl RustCrateBuild<'_> {
     fn vendor_arguments(&self) -> Vec<String> {
         let source = Self::VENDOR_SOURCE;
         let directory = RustCompanionCrate::toml_path(self.vendor);
-        self.declaration
-            .has_dependencies()
-            .then(|| {
-                vec![
-                    String::from("--config"),
-                    format!("source.crates-io.replace-with=\"{source}\""),
-                    String::from("--config"),
-                    format!("source.{source}.directory={directory}"),
-                ]
-            })
-            .unwrap_or_default()
+        let arguments: Option<Vec<String>> = self.declaration.has_dependencies().then(|| {
+            vec![
+                String::from("--config"),
+                format!("source.crates-io.replace-with=\"{source}\""),
+                String::from("--config"),
+                format!("source.{source}.directory={directory}"),
+            ]
+        });
+        arguments.unwrap_or_default()
     }
 
     fn text(path: &Path) -> Result<String, Failure> {
