@@ -1,3 +1,3 @@
-export interface UserSaved {
+export type UserSaved = {
   name: string
 }

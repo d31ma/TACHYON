@@ -9172,7 +9172,7 @@
             },
             {
               "name": "client/models/UserSaved.ts",
-              "code": "export interface UserSaved {\n  name: string\n}\n"
+              "code": "export type UserSaved = {\n  name: string\n}\n"
             },
             {
               "name": "client/remotes/UsersClient.dart",
