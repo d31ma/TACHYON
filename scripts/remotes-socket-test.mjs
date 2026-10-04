@@ -25,7 +25,7 @@ class RemotesSocketTest {
       const selected = file.name.endsWith('.js') || file.name.endsWith('.html') || file.name.includes('/models/') && file.name.endsWith('.ts')
       if (selected) this.write(file.name, readFileSync(path.join(source, file.name), 'utf8'))
     }
-    this.write('client/manifest.json', JSON.stringify({ tac: { visibility: { check: false }, budgets: { check: false } } }))
+    this.write('client/manifest.json', JSON.stringify({ tac: { visibility: { check: false } } }))
   }
 
   static async run() {
