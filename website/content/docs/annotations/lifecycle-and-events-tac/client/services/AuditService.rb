@@ -1,3 +1,4 @@
+#[Service]
 class AuditService
   # @return [Integer]
   attr_reader :settled

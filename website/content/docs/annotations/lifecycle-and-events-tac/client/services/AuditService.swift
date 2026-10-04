@@ -1,3 +1,4 @@
+@Service
 final class AuditService {
     private var records: Int = 0
     var settled: Int = 0

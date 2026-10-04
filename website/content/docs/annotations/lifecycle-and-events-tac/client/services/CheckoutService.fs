@@ -1,5 +1,6 @@
 open Models
 
+[<Service>]
 type CheckoutService(applicationEventPublisher: ApplicationEventPublisher) =
     member val Placed = 0 with get, set
 

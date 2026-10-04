@@ -1,3 +1,4 @@
+@Service
 final class CheckoutService {
     var placed: Int = 0
     let applicationEventPublisher: ApplicationEventPublisher

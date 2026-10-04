@@ -1,5 +1,6 @@
 open Models
 
+[<Service>]
 type AuditService() =
     let mutable records = 0
     let mutable audited = 0L

@@ -1,6 +1,7 @@
 use crate::models::PlacedOrder;
 
 #[derive(Default)]
+#[Service]
 struct CheckoutService {
     placed: i64,
     application_event_publisher: ApplicationEventPublisher,

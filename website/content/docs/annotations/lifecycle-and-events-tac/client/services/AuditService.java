@@ -1,6 +1,7 @@
 import models.PlacedOrder;
 import models.SettledOrder;
 
+@Service
 class AuditService {
     private int records = 0;
     long settled = 0;

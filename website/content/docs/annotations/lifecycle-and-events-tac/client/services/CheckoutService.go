@@ -1,3 +1,4 @@
+// @Service
 type CheckoutService struct {
 	Placed                    int64
 	applicationEventPublisher ApplicationEventPublisher

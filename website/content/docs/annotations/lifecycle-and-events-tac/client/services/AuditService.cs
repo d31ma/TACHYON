@@ -1,5 +1,6 @@
 using Models;
 
+[Service]
 public class AuditService {
     private int Records = 0;
     public long Settled = 0;

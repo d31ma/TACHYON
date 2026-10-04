@@ -1,3 +1,4 @@
+#[Service]
 class CheckoutService
   # @return [Integer]
   attr_reader :placed

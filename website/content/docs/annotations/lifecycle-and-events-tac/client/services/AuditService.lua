@@ -1,3 +1,4 @@
+-- @Service
 ---@class AuditService
 AuditService = {
   ---@type integer

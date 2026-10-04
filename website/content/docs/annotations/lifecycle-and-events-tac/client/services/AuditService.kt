@@ -1,6 +1,7 @@
 import models.PlacedOrder
 import models.SettledOrder
 
+@Service
 class AuditService {
     private var records: Int = 0
     var settled: Long = 0

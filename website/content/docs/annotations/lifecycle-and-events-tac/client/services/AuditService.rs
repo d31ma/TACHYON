@@ -1,6 +1,7 @@
 use crate::models::{PlacedOrder, SettledOrder};
 
 #[derive(Default)]
+#[Service]
 struct AuditService {
     records: i64,
     settled: i64,

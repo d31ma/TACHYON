@@ -1,5 +1,6 @@
 import models.PlacedOrder;
 
+@Service
 class CheckoutService {
     int placed = 0;
     ApplicationEventPublisher applicationEventPublisher;

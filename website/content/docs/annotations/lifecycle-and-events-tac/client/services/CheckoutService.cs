@@ -1,5 +1,6 @@
 using Models;
 
+[Service]
 public class CheckoutService {
     public int Placed = 0;
     private readonly ApplicationEventPublisher applicationEventPublisher;

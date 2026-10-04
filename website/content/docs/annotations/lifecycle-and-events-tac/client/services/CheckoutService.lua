@@ -1,3 +1,4 @@
+-- @Service
 ---@class CheckoutService
 CheckoutService = {
   ---@type integer

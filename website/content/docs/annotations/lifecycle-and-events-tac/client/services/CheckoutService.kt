@@ -1,5 +1,6 @@
 import models.PlacedOrder
 
+@Service
 class CheckoutService {
     var placed: Int = 0
     val applicationEventPublisher: ApplicationEventPublisher

@@ -1,3 +1,4 @@
+// @Service
 type AuditService struct {
 	Records int64
 	Settled int64
