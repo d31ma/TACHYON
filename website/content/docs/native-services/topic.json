@@ -1,6 +1,6 @@
 {
   "title": "Rust, Go and C# in the browser",
-  "summary": "A service written in Rust, Go or C# can run in the browser as WebAssembly, a compiled format that browsers run. In a desktop or mobile app, some of these services run as native code instead.",
+  "summary": "A service written in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby can run in the browser as WebAssembly, a compiled format that browsers run. Lua and Python services run there too, on runtimes that Tachyon ships, with limits. In a desktop or mobile app, Swift, Kotlin, C# and Rust services can run as native code instead.",
   "before": [
     "service-languages"
   ],

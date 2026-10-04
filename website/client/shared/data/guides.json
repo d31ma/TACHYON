@@ -350,7 +350,7 @@
     },
     "native-services": {
       "title": "Rust, Go and C# in the browser",
-      "summary": "A service written in Rust, Go or C# can run in the browser as WebAssembly, a compiled format that browsers run. In a desktop or mobile app, some of these services run as native code instead.",
+      "summary": "A service written in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby can run in the browser as WebAssembly, a compiled format that browsers run. Lua and Python services run there too, on runtimes that Tachyon ships, with limits. In a desktop or mobile app, Swift, Kotlin, C# and Rust services can run as native code instead.",
       "before": [
         "service-languages"
       ]
@@ -378,14 +378,14 @@
     },
     "window-controls": {
       "title": "Window controls",
-      "summary": "In a desktop or mobile app, `client/manifest.json` describes the window that the app opens. It also lists the window controls that a page may ask for. By default, a page may ask for none.",
+      "summary": "In a desktop or mobile app, `client/manifest.json` describes the window that the app opens. It lists the window controls that a page may ask for; by default, a page may ask for none. On macOS, it can also let the page reach the top edge of the window, with an integrated title bar.",
       "before": [
         "native-hosts"
       ]
     },
     "native-menus": {
       "title": "Native menus",
-      "summary": "A macOS app that Tachyon builds has the standard menu bar. `tac.application.menus` in `client/manifest.json` adds your own items to the File, View and Help menus. An item opens a page of the app, or it runs a menu action: a method of a service that lives as long as the app.",
+      "summary": "A macOS, Linux or Windows app that Tachyon builds has a menu bar. `tac.application.menus` in `client/manifest.json` adds your own items to the File, View and Help menus. An item opens a page of the app, or it runs a menu action: a method of a service that lives as long as the app.",
       "before": [
         "window-controls"
       ]
