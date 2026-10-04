@@ -493,3 +493,30 @@ fn the_fix_turns_an_fsharp_class_store_into_a_contract() {
         "{problem}"
     );
 }
+
+#[test]
+fn a_lua_yon_store_becomes_a_provider_that_opens_its_own_context() {
+    let contract = StoreSamples::filled(
+        "-- @Store(ProductEntity, OPTIONS)\n---@class ProductStore\nProductStore = {}\n\n---@param status string\n---@return table[]\nfunction ProductStore:find_by_status(status)\nend\n",
+    );
+    let path = Path::new("server/stores/ProductStore.lua");
+    let lowered = DeclaredContract::concrete(path, &contract, "yon").expect("lowered");
+    assert!(
+        lowered.starts_with("-- @Store\n-- @Store(ProductEntity, "),
+        "{lowered}"
+    );
+    assert!(
+        lowered.ends_with("end\n\n---@return nil\n-- @OnStart\nfunction ProductStore:start_context()\n  self.behaviors = Behaviors.create(ProductSetup, { partition = \"product\", signal = BehaviorSignal.new() })\nend\n"),
+        "{lowered}"
+    );
+    assert_eq!(DeclaredContract::concrete(path, &contract, "tac"), None);
+    let service = "-- @Service\n---@class ProductService\nProductService = {}\n";
+    assert_eq!(
+        DeclaredContract::concrete(
+            Path::new("server/services/ProductService.lua"),
+            service,
+            "yon"
+        ),
+        None
+    );
+}

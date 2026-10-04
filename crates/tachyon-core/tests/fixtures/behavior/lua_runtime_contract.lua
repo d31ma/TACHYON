@@ -169,6 +169,11 @@ function RuntimeContract:check_mapping()
     { target = "detail", source = "detail", fields = {} },
   } }, { { detail = setmetatable({}, YonJson.OBJECT) } })
   self:expect(YonJson.encode(object.detail) == "{}", "mapping loses an empty object")
+  local missing = BehaviorBoundary.map_value({ argument = 0, fields = {
+    { target = "absent", source = "missing.deep" },
+    { target = "title", source = "name" },
+  } }, { { name = "Anvil" } })
+  self:expect(YonJson.encode(missing) == "{\"absent\":null,\"title\":\"Anvil\"}", "mapping drops a missing source instead of writing null")
 end
 
 function RuntimeContract:check_retries(context, orders)

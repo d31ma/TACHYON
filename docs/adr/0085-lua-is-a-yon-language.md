@@ -1,6 +1,7 @@
 # ADR 0085: Lua Is a Yon Language
 
-- Status: Accepted; amended 2026-09-29 (Tac Lua services)
+- Status: Accepted; amended 2026-09-29 (Tac Lua services), 2026-10-04 (Lua
+  stores, Schedule and converter nulls)
 - Date: 2026-09-29
 - Builds on: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes),
   [ADR 0050](0050-go-annotations-are-comments.md) (comment markers),
@@ -319,3 +320,34 @@ This amendment replaces "Topic stops the build in Lua" above.
   runs only the listeners the delivery names, as in Ruby.
 - A Tac Lua `-- @OnEvent` method on a Topic model opens the topic stream in
   the page, like every service that runs as WebAssembly.
+
+## Amendment 2026-10-04: Lua stores, Schedule and converter nulls
+
+- A Yon Lua Store is a provider. A store file is a class table marked
+  `-- @Store(ProductEntity, {...})` whose methods have empty bodies. Each
+  method is a derived query such as `find_by_status` or `count_by_status`, or
+  a `-- @Query` method, and `-- @PageDefaults` marks a page parameter. Like the other languages, Tachyon
+  adds the provider role (`-- @Store` on its own line) and an `-- @OnStart`
+  method, `start_context`, that opens the store's behavior context from its
+  Setup (`CatalogSetup` with `{"setup":"CatalogSetup"}`, or the store name with
+  `Setup` instead of `Store`). A controller or service asks for the store with
+  a typed `-- @Needs` field. A store call inside a service method with
+  `-- @AllOrNothing` joins the open transaction of the same entity adapter.
+  Lua has no base classes, so a Lua Store does not extend `Repository`: it
+  declares `find_by_id` and the other queries that it needs.
+- The entity adapter of a Lua Setup is a table with an `execute` method,
+  which the runtime calls as `adapter:execute(command, execution)`;
+  `authorizeEntity` is a function that takes `(command, execution)`.
+- `-- @Schedule({"fixedDelaySeconds":300})` on a Lua worker in
+  `server/workers/` sets its cadence, as in the other languages. Tachyon read
+  the marker through the Lua lexer, which hides comments, so the marker was
+  ignored and the worker never ran. Now it reads the marker from the Ruby
+  shadow, the same way as the other Lua markers, and a bad marker fails with
+  `TY1502` at the Lua line.
+- A Lua Converter writes `null` for a target field whose source is missing,
+  like every other language and MapStruct. Lua tables cannot hold `nil`, so
+  the mapped table holds `YonNull`, and the JSON answer writes it as `null`.
+  Lua code that reads the mapped table directly sees `YonNull`, not `nil`.
+- An unresolved `-- @Needs` dependency (`TY2015`) points at the field that
+  needs it in every Yon language, not at the class. In Lua the span covers
+  the field's whole line instead of an empty span at the class table.

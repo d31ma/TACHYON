@@ -15,6 +15,14 @@ impl Schedule {
 }
 
 pub(crate) fn declared(relative: &str, source: &str) -> Result<Option<Schedule>, Failure> {
+    let Some(view) = crate::lua_source::LuaView::of(std::path::Path::new(relative), source) else {
+        return declared_in(relative, source);
+    };
+    let shadow = view.path().to_string_lossy().replace('\\', "/");
+    declared_in(&shadow, view.text()).map_err(|failure| view.failure(&failure))
+}
+
+fn declared_in(relative: &str, source: &str) -> Result<Option<Schedule>, Failure> {
     let language = relative.rsplit_once('.').map_or("", |(_, value)| value);
     let mask = crate::lexical::code_mask(language, source);
     if let Some(error) = mask.error {
@@ -204,6 +212,10 @@ mod tests {
                 "server/workers/beat.go",
                 "// @Schedule({\"fixedDelaySeconds\":30})\ntype Handler struct{}",
             ),
+            (
+                "server/workers/beat.lua",
+                "-- @Schedule({\"fixedDelaySeconds\":30})\n---@class Handler\nHandler = {}\n\n---@return nil\nfunction Handler.POST()\nend\n",
+            ),
         ];
         for (relative, source) in cases {
             let schedule = declared(relative, source)
@@ -299,5 +311,15 @@ mod tests {
             None,
             "a commented marker schedules nothing"
         );
+    }
+
+    #[test]
+    fn a_bad_lua_marker_fails_at_its_lua_line() {
+        let unbounded =
+            "-- @Schedule({\"fixedDelaySeconds\":0})\n---@class Handler\nHandler = {}\n";
+        let failure = declared("server/workers/beat.lua", unbounded).expect_err("refused");
+        let span = &failure.diagnostics()[0].spans[0];
+        assert_eq!(span.file, "server/workers/beat.lua", "{failure}");
+        assert_eq!(span.start, 0, "{failure}");
     }
 }

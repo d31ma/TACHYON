@@ -42,7 +42,7 @@ impl ContextTemplate {
         Self::KOTLIN_TAC_HTTP,
     ];
     const HTTP_CLIENT: &'static str = "HTTPClient";
-    const TEMPLATES: [Self; 22] = [
+    const TEMPLATES: [Self; 23] = [
         Self::new("java", Self::JAVA_FIELD, Self::JAVA_START),
         Self::new(
             "java-tac",
@@ -133,6 +133,11 @@ impl ContextTemplate {
             "fn new() -> Self {\n    let options = BehaviorOptions::new(\"{partition}\", BehaviorSignal::new());\n    Self { behaviors: Behaviors::create::<{setup}>(options).expect(\"{setup} creates the {partition} context\") }\n}",
         ),
         Self::new("rs-bare", "", "fn new() -> Self { Self }"),
+        Self::new(
+            "lua",
+            "",
+            "---@return nil\n-- @OnStart\nfunction {owner}:start_context()\n  self.behaviors = Behaviors.create({setup}, { partition = \"{partition}\", signal = BehaviorSignal.new() })\nend",
+        ),
     ];
     const GO_TEMPLATES: [Self; 3] = [
         Self::new(

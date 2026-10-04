@@ -9,6 +9,7 @@ pub(crate) struct LuaView {
     source_name: String,
     shadow: LuaShadow,
     line_starts: Vec<usize>,
+    source_length: usize,
 }
 
 impl LuaView {
@@ -40,6 +41,7 @@ impl LuaView {
             shadow_path,
             shadow: LuaShadow::joined(source),
             line_starts: Self::line_starts(source),
+            source_length: source.len(),
         }
     }
 
@@ -135,10 +137,11 @@ impl LuaView {
             return span.clone();
         }
         let start = self.mapped(span.start);
+        let last = span.end.saturating_sub(1).max(span.start);
         SourceSpan {
             file: self.source_name.clone(),
             start,
-            end: self.mapped(span.end).max(start),
+            end: self.mapped_line_end(last).max(start),
         }
     }
 
@@ -147,10 +150,23 @@ impl LuaView {
         u64::try_from(self.source_offset(offset)).unwrap_or(u64::MAX)
     }
 
+    fn mapped_line_end(&self, offset: u64) -> u64 {
+        let offset = usize::try_from(offset).unwrap_or(usize::MAX);
+        let next_line = self.source_line(offset) + 1;
+        let end = self
+            .line_starts
+            .get(next_line)
+            .map_or(self.source_length, |next| next - 1);
+        u64::try_from(end).unwrap_or(u64::MAX)
+    }
+
     pub(crate) fn source_offset(&self, shadow_offset: usize) -> usize {
+        self.line_start(self.source_line(shadow_offset))
+    }
+
+    fn source_line(&self, shadow_offset: usize) -> usize {
         let shadow_offset = shadow_offset.min(self.text().len());
         let shadow_line = self.text()[..shadow_offset].matches('\n').count();
-        let source_line = self.shadow.source_line(shadow_line).unwrap_or_default();
-        self.line_start(source_line)
+        self.shadow.source_line(shadow_line).unwrap_or_default()
     }
 }

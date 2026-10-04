@@ -323,6 +323,14 @@ function BehaviorBoundary.map_value(policy, arguments)
 end
 
 function BehaviorBoundary.mapped_field(field, value)
+  local mapped = BehaviorBoundary.field_value(field, value)
+  if mapped == nil then
+    return YonNull
+  end
+  return mapped
+end
+
+function BehaviorBoundary.field_value(field, value)
   if field.source == nil then
     return field.constant
   end

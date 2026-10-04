@@ -908,6 +908,12 @@ instead of `Store`. The partition is the store name in lowerCamel case without
   the reader runs. An F# service takes the store as a primary constructor
   parameter, `type ProductService(products: ProductStore) =`, and Tachyon
   turns it into `let products = ProductStore()`.
+- A Yon Lua store is a class table marked `-- @Store(ProductEntity, {...})`
+  whose methods have empty bodies. Tachyon adds the provider role and an
+  `-- @OnStart` method that opens its context, so a typed `-- @Needs` field
+  receives it. The Setup's entity adapter is a table with an `execute` method.
+  Lua has no base classes, so a Lua store declares `find_by_id` and its other
+  queries instead of extending `Repository` (ADR 0085).
 - A Store without an Entity fails with `TY1308`. Code that only runs SQL
   belongs in a service that asks for a `DataSource`.
 - Do not put the Service role and the Store role on one type.

@@ -23,6 +23,7 @@ mod indented_members;
 mod indented_syntax;
 mod injected_contract;
 mod injected_field;
+mod lua_contract;
 mod lua_converter_models;
 mod marker_line;
 mod member_indent;
@@ -61,6 +62,7 @@ use fsharp_contract::FsharpContract;
 use fsharp_contract_rewrite::FsharpContractRewrite;
 use fsharp_injected_contract::FsharpInjectedContract;
 use injected_contract::InjectedContract;
+use lua_contract::LuaContract;
 use std::path::Path;
 
 pub(crate) struct DeclaredContract;
@@ -89,6 +91,7 @@ impl DeclaredContract {
 
     pub(crate) fn concrete(path: &Path, source: &str, environment: &str) -> Option<String> {
         FsharpContract::lower(path, source, environment)
+            .or_else(|| LuaContract::lower(path, source, environment))
             .or_else(|| ConcreteContract::lower(path, source, environment))
     }
 }

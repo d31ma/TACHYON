@@ -1715,6 +1715,21 @@ fn kotlin_constructor(input: &Input<'_>, managed: &ManagedType) -> Result<Option
     ))
 }
 
+fn injected_field_at(input: &Input<'_>, managed: &ManagedType, field: &str) -> usize {
+    let body = &input.code[managed.body.clone()];
+    let is_name =
+        |byte: Option<&u8>| byte.is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_');
+    body.match_indices(field)
+        .find(|(at, _)| {
+            let before = at
+                .checked_sub(1)
+                .and_then(|before| body.as_bytes().get(before));
+            let after = body.as_bytes().get(at + field.len());
+            !is_name(before) && !is_name(after)
+        })
+        .map_or(managed.declaration, |(at, _)| managed.body.start + at)
+}
+
 fn validate_graph(
     input: &Input<'_>,
     types: &[ManagedType],
@@ -1726,7 +1741,8 @@ fn validate_graph(
                 .iter()
                 .any(|candidate| candidate.provider.name == *dependency)
             {
-                let needed = managed.provider.injections.get(position).map_or_else(
+                let injection = managed.provider.injections.get(position);
+                let needed = injection.map_or_else(
                     || dependency.clone(),
                     |injection| format!("field '{}' of type {dependency}", injection.field),
                 );
@@ -1735,7 +1751,10 @@ fn validate_graph(
                         input.failure(managed.declaration, input.missing_provider(dependency))
                     );
                 }
-                return Err(input.failure(managed.declaration, format!("Unresolved dependency {dependency}: {} needs {needed}, but no provider {dependency} is declared; annotate and explicitly select its provider in this compilation unit", managed.provider.name)));
+                let at = injection.map_or(managed.declaration, |injection| {
+                    injected_field_at(input, managed, &injection.field)
+                });
+                return Err(input.failure(at, format!("Unresolved dependency {dependency}: {} needs {needed}, but no provider {dependency} is declared; annotate and explicitly select its provider in this compilation unit", managed.provider.name)));
             }
         }
     }

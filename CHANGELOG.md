@@ -241,6 +241,21 @@ machine contracts have their own, independent major versions.
   native service can gate platform imports. Before, the one-class check read the
   attribute as a top-level item and refused the file with `TY1310`. A `cfg`
   line above any other top-level item still fails.
+- Yon Lua stores are providers now. A `-- @Store(ProductEntity, {...})` class
+  table with empty query methods used to stop every class that asked for it
+  with `TY2015` "Unresolved dependency". Tachyon now gives it the provider
+  role and an `-- @OnStart` method that opens its behavior context from its
+  Setup, so `-- @Needs` fields receive it, derived queries and `-- @Query`
+  methods run on the Setup's entity adapter, and a call inside
+  `-- @AllOrNothing` joins the open transaction (ADR 0085 amendment).
+- A Lua worker's `-- @Schedule({"fixedDelaySeconds":...})` marker sets its
+  cadence. The marker was read through the Lua lexer, which hides comments,
+  so it was ignored and the worker never ran (ADR 0085 amendment).
+- A Lua Converter writes `null` for a target field whose source is missing,
+  like every other language, instead of leaving the field out.
+- An unresolved `@Needs` dependency (`TY2015`) points at the field that needs
+  it instead of the class. In Lua the span covers the field's line instead of
+  an empty span at the class table.
 - Method coverage records a JavaScript or TypeScript utility in
   `client/shared/utils` that a file imports by its path (`/shared/utils/...`
   or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript
