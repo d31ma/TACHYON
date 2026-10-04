@@ -7,7 +7,8 @@ Options every command understands
 ty init [directory]                 asks questions in a terminal; each one is also an option
   --name <name>                    the app name (alias --app-name; TAC_APP_NAME also works)
   --realm client|server|both       the parts to create (both)
-  --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java (js)
+  --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java,
+                                   py (js)
   --yon <l>[,<l>]                  js, ts, py, go, java, groovy, kt, cs, fs, php, rb, lua,
                                    rs, dart (js)
   --target <t>[,<t>]               web, macos, windows, linux, ios, android (web)
@@ -70,7 +71,7 @@ ty api freeze [project]             save the API in server/api-baseline.json
 ty doctor [project]                 the toolchains this project needs
   --json                           machine-readable report
   --install                        offer to install each missing tool (-y/--yes: all)
-ty cache status | clean             where the cache is, or remove its runtime entries
+ty cache status | clean             where the cache is, or remove its runtime and build entries
 
 ty migrate check [project]          every construct that ty does not support
   --json                           machine-readable report

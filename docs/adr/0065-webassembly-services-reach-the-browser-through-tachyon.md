@@ -36,7 +36,8 @@ unit), and a native target has no browser at all.
    - `@StreamRequest` and `@SocketRequest`: JavaScript and TypeScript only.
      Their messages reach the other languages as typed events.
    - `@HTTPClient` (amended 2026-10-04): JavaScript, TypeScript, Dart, Rust,
-     Go, C# and F# reach the browser HTTP host directly (ADR 0090). Swift,
+     Go, C#, F# and C++ (ADR 0099) reach the browser HTTP host directly
+     (ADR 0090). Swift,
      Kotlin, Java and Ruby send requests through a Setup's synchronous HTTP
      adapter (ADR 0087). Python and Lua are refused (TY1308).
    - The standard library in the page (`tac_web::reach_tests`, run in node

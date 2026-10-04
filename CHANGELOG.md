@@ -49,7 +49,7 @@ machine contracts have their own, independent major versions.
   without `YON_JAVASCRIPT_RUNTIME`. Node.js stays the first choice.
 - `ty cache status` lists the per-language build caches (`dotnet-web`,
   `go-wasm`, `swift-wasm`, `kotlin-wasm`, `java-wasm`, `rust-wasm`,
-  `dart-wasm`, `ruby-web`, `lua-web`, `typescript`), and `ty cache clean`
+  `dart-wasm`, `ruby-web`, `lua-web`, `cpp-wasm`, `typescript`), and `ty cache clean`
   removes them with the runtime cache. Installed tools in the cache (the
   Pyodide files and TeaVM) stay.
 

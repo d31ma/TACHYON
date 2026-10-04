@@ -470,7 +470,7 @@ fn build_settings_in_the_tac_member_cannot_be_bound_by_services() {
     write(
         root.path(),
         "client/manifest.json",
-        r#"{"tac":{"api":{"url":"/api"},"outgoing":{"hosts":["api.example.com"]},"budgets":{"default":{"javascript":"80 KiB"}},"visibility":{"check":false},"types":{"check":false},"tests":{"check":false},"accessibility":{"check":false},"simplify":{"suggest":false},"go":{"compiler":"tinygo"},"dotnet":{"aot":true}}}"#,
+        r#"{"tac":{"api":{"url":"/api"},"outgoing":{"hosts":["api.example.com"]},"budgets":{"default":{"javascript":"80 KiB"}},"visibility":{"check":false},"types":{"check":false},"tests":{"check":false},"accessibility":{"check":false},"simplify":{"suggest":false},"go":{"compiler":"tinygo"},"dotnet":{"aot":true},"application":{"window":{"titleBar":"integrated","titleBarButtonInset":{"leading":12,"top":8}}},"nativeCapabilities":["filePicker"]}}"#,
     );
     let config = loaded(ApplicationConfig::load_client(root.path()));
     assert_eq!(json(&config), json!({"tac":{"api":{"url":"/api"}}}));

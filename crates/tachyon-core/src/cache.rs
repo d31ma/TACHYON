@@ -13,7 +13,7 @@ pub struct CacheStatus {
 
 impl CacheStatus {
     pub const RUNTIME_FOLDER: &'static str = "runtime";
-    pub const BUILD_FOLDERS: [&'static str; 10] = [
+    pub const BUILD_FOLDERS: [&'static str; 11] = [
         "dotnet-web",
         "go-wasm",
         "swift-wasm",
@@ -23,6 +23,7 @@ impl CacheStatus {
         "dart-wasm",
         "ruby-web",
         "lua-web",
+        "cpp-wasm",
         "typescript",
     ];
 

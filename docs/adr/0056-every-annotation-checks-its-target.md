@@ -105,10 +105,12 @@ accepted, and `@Order` without `@OnEvent` was accepted in some languages.
 
 ## Amendment 2026-10-04: Python Tac reach, F# streams and Java
 
-- Python Tac services have no behavior, storage or listener adapter (ADR
-  0093). The table's Tac lists for those annotations (`TAC_BEHAVIOR_ADAPTER`
-  and `TAC_LISTENER`) leave Python out, so the table refuses them once with
-  its usual message, and tools that read the table see the refusal.
+- Python Tac services have no behavior or storage adapter (ADR 0093). The
+  table's Tac list for those annotations (`TAC_BEHAVIOR_ADAPTER`) leaves
+  Python out, so the table refuses them once with its usual message, and
+  tools that read the table see the refusal. `OnEvent`, `Order` and
+  `InBackground` keep the full Tac list: Python listeners work (ADR 0093
+  amendment "events and topics").
 - `StreamRoute` lists F# in Yon. F# stream members return `seq<'T>` or
   `IAsyncEnumerable<'T>`, and the parser message already named F#.
 - Java Tac services stay outside the table's Tac language list for now.

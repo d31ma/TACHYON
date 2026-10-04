@@ -83,15 +83,16 @@ These fail at build time with `TY1605`, which names the file:
   JavaScript, TypeScript or compiled service and pass the value to the Python
   service as an argument.
 
-(Amended 2026-10-04) The Python runtime has no behavior, storage or listener
-adapter. The annotation rule table (ADR 0056) therefore leaves Python out of
+(Amended 2026-10-04) The Python runtime has no behavior or storage adapter.
+The annotation rule table (ADR 0056) therefore leaves Python out of
 `LocalState`, `SessionState`, `CacheSettings`, `Cached`, `CacheKey`,
-`ClearCache`, `UpdateCache`, `PageDefaults`, `Retry`, `MaxAtOnce`,
-`AllOrNothing`, `OnEvent`, `Order` and `InBackground` in Tac. A Python Tac
-service with one of them fails once, with `TY1308` "... is not available in
-Python Tac code; it works in ...". Before, a saved field built and was never
-saved, and a synchronous `@retry` method failed with "must use async def"
-while an `async def` failed with `TY1605`.
+`ClearCache`, `UpdateCache`, `PageDefaults`, `Retry`, `MaxAtOnce` and
+`AllOrNothing` in Tac. A Python Tac service with one of them fails once, with
+`TY1308` "... is not available in Python Tac code; it works in ...". Before, a
+saved field built and was never saved, and a synchronous `@retry` method
+failed with "must use async def" while an `async def` failed with `TY1605`.
+`OnEvent`, `Order` and `InBackground` stay available: see the events and
+topics amendment below.
 
 At run time a request or answer over 1 MiB, a member request over 64 KiB,
 more than 256 live owners, or a call on a busy owner is refused. Python runs
