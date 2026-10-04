@@ -2,16 +2,19 @@ Options every command understands
 
   --diagnostic-format human|json   machine-readable diagnostics on stderr
   -v, --version                    the product version
+  ty <command> --help              the options of one command
 
 ty init [directory]                 asks questions in a terminal; each one is also an option
-  --name <name>                    the app name (TAC_APP_NAME also works)
+  --name <name>                    the app name (alias --app-name; TAC_APP_NAME also works)
   --realm client|server|both       the parts to create (both)
   --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, lua, swift, kt, java (js)
-  --yon <l>[,<l>]                  js, ts, py, go, java, kt, cs, fs, php, rb, lua, rs, dart (js)
+  --yon <l>[,<l>]                  js, ts, py, go, java, groovy, kt, cs, fs, php, rb, lua,
+                                   rs, dart (js)
   --target <t>[,<t>]               web, macos, windows, linux, ios, android (web)
+                                   (alias --targets)
   --features <f>[,<f>]             storage, sockets, topics, streams, http-client,
-                                   error-handlers
-  -y, --yes                        install every missing tool without asking
+                                   error-handlers (alias --feature)
+  -y, --yes                        use the defaults and install every missing tool
   --interactive                    ask even when the input is not a terminal
   --skip-tools                     do not check or install tools
 
@@ -20,47 +23,84 @@ ty add target <t>                  add a build target and check its tools
 ty add feature <f>                 add an example with its tests
   --project <dir>, -y/--yes, --skip-tools
 
-ty preview
+ty preview [project]                development server for Tac and Yon (port 3000)
   --static                         serve existing files; no build, no Yon
   --watch                          rebuild the selected target on change
+                                   (alias --bundle-watch)
   --target <target>                serve a built target's embedded web bundle
   --out-dir <dir>                  project-relative output directory
-  --host, --port, --allow-non-loopback
   --host <name>                    an IP address, localhost or a name under
-                                   .localhost (shop.localhost binds 127.0.0.1)
+                                   .localhost (alias --hostname; shop.localhost
+                                   binds 127.0.0.1)
+  --port <port>                    0 picks a free port
+  --allow-non-loopback             allow an address outside this machine
+  --no-self-restart                keep the old ty running when the ty file changes
 
-ty test
-  <project>                        project directory; the working directory by default
-  --coverage                       fail when no test* case called a public method
-                                   of an annotated class (ty preview refuses to
-                                   start on the same condition; TAC_ALLOW_UNTESTED=1
-                                   releases one run)
-
-ty bundle
-  --target <t>[,<t>]|all           web, macos, ios, android, linux, windows
-  --native                         stage one native host, skip the packager
-  --no-incremental                 disable verified incremental route reuse
-  --watch                          rebuild when sources change
-  --out-dir <dir>                  defaults to dist/web, or dist for native
-
-ty serve                            compatibility development server
+ty serve [project]                  compatibility development server (alias ty dev;
+                                   port 8080)
   --no-watch                       do not rebuild on change
   --no-bundle                      serve the existing bundle as is
+  --no-self-restart                keep the old ty running when the ty file changes
+  --host, --port, --allow-non-loopback, --out-dir (dist/web)
 
-ty start                            --host, --port, --allow-non-loopback, --out-dir
-ty doctor [project] --json          machine-readable toolchain report
-ty doctor [project] --install       offer to install each missing tool (-y/--yes: all)
-ty migrate check [project]          every construct not yet supported
-ty cache status | clean             where the runtime cache is, or remove it
+ty start [project]                  serve a built bundle; never builds (port 8080)
+  --host, --port, --allow-non-loopback, --out-dir (dist/web)
 
-ty handler invoke <yon.js|yon.py>
-  --route / --method / --body / --header name=value
+ty bundle [project]                 the release build
+  --target <t>[,<t>]|all           web, macos, ios, android, linux, windows
+                                   (alias --targets)
+  --native                         stage one native host, skip the packager
+  --no-incremental                 disable verified incremental route reuse
+  --watch                          rebuild when sources change (alias --bundle-watch)
+  --out-dir <dir>                  defaults to dist/web, or dist for native
+ty native-bundle --target <t>       the same as ty bundle --native --target <t>
+
+Target names also accept browser (web), mac, darwin, osx (macos),
+and win, win32 (windows).
+
+ty test [project]                   run every Test unit in client/tests and server/tests
+  --coverage                       fail when no test* case called a public method
+                                   of an annotated class (ty preview reports the
+                                   same condition in its error box;
+                                   TAC_ALLOW_UNTESTED=1 releases one run)
+
+ty types [project]                  write .tachyon/types/client/composed.d.ts and
+                                   .tachyon/types/server/composed.d.ts
+ty api freeze [project]             save the API in server/api-baseline.json
+ty doctor [project]                 the toolchains this project needs
+  --json                           machine-readable report
+  --install                        offer to install each missing tool (-y/--yes: all)
+ty cache status | clean             where the cache is, or remove its runtime entries
+
+ty migrate check [project]          every construct that ty does not support
+  --json                           machine-readable report
+  --allow-unsupported              exit 0 even when something is found
+ty migrate fix [project]            print the automatic fixes and the manual steps
+  --write                          write the printed fixes
+
+ty handler invoke <source>          run one controller or worker file, no server
+  --project <dir>                  the project root (.)
+  --route <route> (/), --method <METHOD> (GET), --request-id <id>
+  --body <text>, --header name=value (repeat for more headers)
   --timeout-ms <ms>                complete invocation deadline (30000)
   --allow-env <NAME>               one inherited environment variable
-  --javascript-runtime, --python-runtime
+  --javascript-runtime (node), --python-runtime, --ruby-runtime
 
-Automation may set TAC_BUNDLE_TARGET, TAC_PREVIEW_TARGET, TAC_TARGET
-and TAC_DIST_PATH instead of flags; YON_SKIP_BUNDLE serves without
-building. TAC_JAVASCRIPT_RUNTIME selects the executable that compiles
-TypeScript services (Node by default, Bun as fallback). Nothing here
-selects a rendering mode: --render-mode and TAC_RENDER_MODE are rejected.
+ty --help lists the everyday commands. doctor, migrate and handler are
+left out of that list, but ty doctor --help and the others still work.
+
+Environment variables
+  TAC_BUNDLE_TARGET, TAC_PREVIEW_TARGET  the target when there is no --target;
+                                   TAC_TARGET is the fallback for both
+  TAC_DIST_PATH                    the output directory when there is no --out-dir
+  YON_SKIP_BUNDLE=1 (or true)      ty serve serves without building
+  NODE_ENV=production              ty serve neither builds nor watches
+  TAC_BUILD_JOBS                   how many service languages build at the same time
+                                   (default: CPU cores / 3, from 1 to 4)
+  TAC_JAVASCRIPT_RUNTIME           the program that runs JavaScript and TypeScript
+                                   test units (default: node, then bun, then deno)
+  TAC_ALLOW_UNTESTED=1             ty preview skips the coverage check once
+  TAC_CACHE_DIR                    the Tachyon cache folder
+
+Nothing here selects a rendering mode: --render-mode and TAC_RENDER_MODE
+are rejected.

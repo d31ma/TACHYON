@@ -22,6 +22,7 @@ allow: GET, HEAD, OPTIONS, PATCH
   "models": {
     "Item": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
         "level": { "type": "number" }

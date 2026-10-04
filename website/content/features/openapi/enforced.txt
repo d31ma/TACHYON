@@ -1,5 +1,5 @@
 $ curl http://127.0.0.1:8080/items/42
-200  {"level":42,"name":"anvil"}
+200  {"name":"anvil","level":42}
 
 $ curl http://127.0.0.1:8080/items/abc
 400  {"error":"The path value 'id' must be a number.","field":"id","part":"path"}
@@ -9,6 +9,9 @@ $ curl -X PATCH -d '{"level":1}' http://127.0.0.1:8080/items/42
 
 $ curl -X PATCH -d '{"name":7,"level":1}' http://127.0.0.1:8080/items/42
 400  {"error":"The request body does not fit: 'body.name' must be text.","field":"","part":"body"}
+
+$ curl -X PATCH -d '{"name":"anvil","level":1,"color":"red"}' http://127.0.0.1:8080/items/42
+400  {"error":"The request body does not fit: 'body' contains a field not declared in Item.","field":"","part":"body"}
 
 $ curl -X DELETE http://127.0.0.1:8080/items/42
 405  {"allow":"GET, HEAD, OPTIONS, PATCH","error":"This path does not answer this HTTP method."}

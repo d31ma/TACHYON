@@ -4,6 +4,7 @@ dist/web/api-docs/index.html  a page that shows the routes and models
 $ curl http://127.0.0.1:8080/api.json
 {
   "contract_version": 1,
+  "version": "26.36.01",
   "routes": [
     {
       "route": "/items/_id",

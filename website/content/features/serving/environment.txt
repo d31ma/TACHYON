@@ -8,8 +8,9 @@ Serving a built bundle
   YON_APPLICATION_JSON         reserved private output to Yon children
   /manifest.webmanifest        the published manifest, tac member included
   TAC_DIST_PATH                existing bundle location
-  YON_JAVASCRIPT_RUNTIME       JavaScript runtime selection
-  YON_PYTHON_RUNTIME           Python runtime selection
+  YON_JAVASCRIPT_RUNTIME       JavaScript runtime (node)
+  YON_PYTHON_RUNTIME           Python runtime (python3; python on Windows)
+  YON_RUBY_RUNTIME             Ruby runtime (ruby, 3.3 or newer)
   TAC_CACHE_DIR                standalone runtime cache location
 
 CLI host/port > profile > base file > command defaults.

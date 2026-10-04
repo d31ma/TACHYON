@@ -1,14 +1,22 @@
 $ ty doctor
-ready     TypeScript services                      node_modules/.bin/tsc  Version 6.0.3
-ready     Rust services for macos, windows, linux  rustc                  rustc 1.97.1
-ready     Rust services on the web                 rustc --target wasm32-unknown-unknown  wasm32-unknown-unknown
-ready     C# services on the web                   dotnet workload wasm-tools             wasm-tools
-ready     Java services on the web                 javac                  javac 21.0.12
-ready     Java services on the web                 teavm                  TeaVM 0.15.0 in ~/Library/Caches/Tachyon/teavm-0.15.0
-ready     Ruby services on the web                 tachyon-ruby.wasm      built in ~/Library/Caches/Tachyon/ruby-web/60610a41…/tachyon-ruby.wasm
-ready     Lua services on the web                  tachyon-lua.wasm       built in ~/Library/Caches/Tachyon/lua-web/aaeadbda…/tachyon-lua.wasm
-ready     Lua services on the web                  lua                    Lua 5.4.9  Copyright (C) 1994-2026 Lua.org, PUC-Rio
-missing   Yon JavaScript runtime 'node'            node                   not on PATH
+ready     TypeScript services            node_modules/.bin/tsc                  Version 6.0.3
+ready     Rust services on the web       rustc --target wasm32-unknown-unknown  wasm32-unknown-unknown
+ready     C# services on the web         dotnet workload wasm-tools             wasm-tools
+ready     Go services on the web         go                                     go version go1.27.1 darwin/arm64
+ready     Kotlin services on the web     kotlinc-js + TAC_KOTLIN_WASM_STDLIB    info: kotlinc-js 2.1.10 (JRE 21.0.12.1+1-LTS)
+ready     Java services on the web       javac                                  javac 21.0.12.1
+ready     Java services on the web       teavm                                  TeaVM 0.15.0 in ~/Library/Caches/Tachyon/teavm-0.15.0
+info      small Go services on the web   tinygo                                 not on PATH
+        Install TinyGo 0.42 or newer from https://tinygo.org/getting-started/install/. Release builds compile Go services with TinyGo (several times smaller) and use the standard Go compiler when TinyGo is missing or cannot build them.
+ready     smaller release WebAssembly    wasm-opt                               wasm-opt
+ready     Swift services on the web      swiftc + TAC_SWIFT_WASM_SDK            Apple Swift version 6.3.3 (swift-6.3.3-RELEASE)
+ready     Ruby services on the web       tachyon-ruby.wasm                      built in ~/Library/Caches/Tachyon/ruby-web/60610a41…/tachyon-ruby.wasm
+ready     Lua services on the web        tachyon-lua.wasm                       built in ~/Library/Caches/Tachyon/lua-web/aaeadbda…/tachyon-lua.wasm
+ready     Lua services on the web        lua                                    Lua 5.4.9  Copyright (C) 1994-2026 Lua.org, PUC-Rio
+ready     Dart browser services          dart                                   Dart SDK version: 3.13.1 (stable) on "macos_arm64"
+missing   Yon JavaScript runtime 'node'  node                                   not on PATH
         Install Node.js or correct YON_JAVASCRIPT_RUNTIME.
 
-7 of 8 ready
+13 of 15 ready
+$ echo $?
+1
