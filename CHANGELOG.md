@@ -174,6 +174,9 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The JavaScript `NoteServiceTest` that `ty init --features storage` writes
+  type-checks again: its fake `DataSource` is cast through `unknown`, as the
+  TypeScript one already was, now that `DataSource` declares the FYLO methods.
 - Method coverage records a JavaScript or TypeScript utility in
   `client/shared/utils` that a file imports by its path (`/shared/utils/...`
   or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript

@@ -7,11 +7,8 @@ export default class NoteServiceTest {
   async testCountNotesRunsOneQuery() {
     /** @type {string[]} */
     const queries = []
-    this.dataSource = {
-      query: async (sql) => { queries.push(sql); return [] },
-      execute: async () => ({ affectedRows: 0 }),
-      command: async () => null,
-    }
+    const fake = { query: async (/** @type {string} */ sql) => { queries.push(sql); return [] } }
+    this.dataSource = /** @type {DataSource} */ (/** @type {unknown} */ (fake))
     await this.construct(NoteService).countNotes()
     Assert.equals(1, queries.length)
   }

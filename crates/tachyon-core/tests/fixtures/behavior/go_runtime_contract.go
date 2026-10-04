@@ -18,6 +18,10 @@ func behaviorStorageHost() func(string) string {
 	return nil
 }
 
+func behaviorBrowserHost() func(string) string {
+	return nil
+}
+
 type Memory struct {
 	lock           sync.Mutex
 	entries        map[string]BehaviorCacheEntry

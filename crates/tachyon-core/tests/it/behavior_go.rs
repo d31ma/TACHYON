@@ -28,8 +28,18 @@ struct GoContract;
 impl GoContract {
     const RUNTIME: &str = include_str!("../../src/behavior/polyglot/go_runtime.go");
     const STORAGE: &str = include_str!("../../src/behavior/polyglot/go_storage.go");
+    const BROWSER_HTTP: &str = include_str!("../../src/behavior/polyglot/go_browser_http.go");
     const PROGRAM: &str = include_str!("../fixtures/behavior/go_runtime_contract.go");
     const MODULE: &str = "module contract\n\ngo 1.27\n";
+    const PACKAGE: &str = "package main\n";
+
+    fn runtime() -> String {
+        let mut text = String::from(Self::RUNTIME);
+        for part in [Self::STORAGE, Self::BROWSER_HTTP] {
+            text.push_str(part.strip_prefix(Self::PACKAGE).unwrap_or(part));
+        }
+        text
+    }
 }
 
 #[test]
@@ -39,8 +49,7 @@ fn go_behavior_runtime_contracts_execute_with_owned_processes() {
     }
     let root = tempfile::tempdir().expect("contract directory");
     std::fs::write(root.path().join("go.mod"), GoContract::MODULE).expect("module file");
-    std::fs::write(root.path().join("runtime.go"), GoContract::RUNTIME).expect("runtime file");
-    std::fs::write(root.path().join("storage.go"), GoContract::STORAGE).expect("storage file");
+    std::fs::write(root.path().join("runtime.go"), GoContract::runtime()).expect("runtime file");
     std::fs::write(root.path().join("contract.go"), GoContract::PROGRAM).expect("contract file");
     let output = std::process::Command::new("go")
         .args(["run", "."])
