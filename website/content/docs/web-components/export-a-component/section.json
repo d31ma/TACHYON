@@ -1,10 +1,7 @@
 {
   "heading": "Export a component",
   "axis": "language",
-  "notApplicable": [
-    "py"
-  ],
-  "body": "List the component in `tac.elements` in `client/manifest.json`. Write its tag, as a page writes it: the folder `client/components/shop/counter` is `shop-counter`. `ty bundle` and `ty preview` then write `.tachyon/elements/shop-counter.js`, beside the runtime and the services that a Tac page already loads. `ty bundle` puts it in `dist/web/.tachyon/elements/`. A custom element is a tag that JavaScript defines, and the HTML standard says that its name must contain a hyphen. So a component in a folder with one part, such as `client/components/counter`, cannot be exported: the build stops with `TY1358`. `TY1358` also stops a name that is not a component (ADR 0086).\n\nThe element accepts a prop (a value that it receives) for each name that the template reads, except service names, loop names, `data` and `page`. Here the prop is `label`. It also accepts each field that a service fills with `NeedsAll` (see One per page, or one per component). When a service publishes an event, the element also sends it to the page as a DOM event. The event name is the model name in kebab case (words in small letters, joined by hyphens): `CountChanged` becomes `count-changed`. The component still works on your own Tac pages, such as `/shop` here.\n\nThe service can be written in any Tac service language. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby or Lua runs as WebAssembly inside the element, in the same way as on a Tac page. Python has no tab here: Python services cannot use events yet, and the build stops with `TY1605` (ADR 0093). Choose a language above the code.\n\nA project does not need a page to export elements. When `tac.elements` lists a component, `ty bundle` and `ty preview` work without `client/pages` and without a controller, so a project can hold only the components that it gives to other apps. The build stops with `TY1002` only when it finds no page, no controller and no exported element.",
+  "body": "List the component in `tac.elements` in `client/manifest.json`. Write its tag, as a page writes it: the folder `client/components/shop/counter` is `shop-counter`. `ty bundle` and `ty preview` then write `.tachyon/elements/shop-counter.js`, beside the runtime and the services that a Tac page already loads. `ty bundle` puts it in `dist/web/.tachyon/elements/`. A custom element is a tag that JavaScript defines, and the HTML standard says that its name must contain a hyphen. So a component in a folder with one part, such as `client/components/counter`, cannot be exported: the build stops with `TY1358`. `TY1358` also stops a name that is not a component (ADR 0086).\n\nThe element accepts a prop (a value that it receives) for each name that the template reads, except service names, loop names, `data` and `page`. Here the prop is `label`. It also accepts each field that a service fills with `NeedsAll` (see One per page, or one per component). When a service publishes an event, the element also sends it to the page as a DOM event. The event name is the model name in kebab case (words in small letters, joined by hyphens): `CountChanged` becomes `count-changed`. The component still works on your own Tac pages, such as `/shop` here.\n\nThe service can be written in any Tac service language. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua, Python or C++ runs as WebAssembly inside the element, in the same way as on a Tac page. A Python service also needs the pinned Python runtime in `tac.python`, as the manifest shows; the other languages ignore that member (ADR 0093). Choose a language above the code.\n\nA project does not need a page to export elements. When `tac.elements` lists a component, `ty bundle` and `ty preview` work without `client/pages` and without a controller, so a project can hold only the components that it gives to other apps. The build stops with `TY1002` only when it finds no page, no controller and no exported element.",
   "files": [
     {
       "name": "client/manifest.json",
@@ -166,6 +163,30 @@
       "name": "client/models/CountChanged.lua",
       "code": {
         "file": "client/models/CountChanged.lua"
+      }
+    },
+    {
+      "name": "client/services/CounterService.py",
+      "code": {
+        "file": "client/services/CounterService.py"
+      }
+    },
+    {
+      "name": "client/services/CounterService.hpp",
+      "code": {
+        "file": "client/services/CounterService.hpp"
+      }
+    },
+    {
+      "name": "client/models/CountChanged.py",
+      "code": {
+        "file": "client/models/CountChanged.py"
+      }
+    },
+    {
+      "name": "client/models/CountChanged.hpp",
+      "code": {
+        "file": "client/models/CountChanged.hpp"
       }
     }
   ]

@@ -1,6 +1,7 @@
 {
   "name": "Shop",
   "tac": {
-    "elements": ["shop-counter"]
+    "elements": ["shop-counter"],
+    "python": { "runtime": "pyodide-314.0.7", "profile": "offline" }
   }
 }

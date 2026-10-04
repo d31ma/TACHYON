@@ -1,20 +1,8 @@
 {
   "heading": "What the page knows about its host",
   "axis": "language",
-  "notApplicable": [
-    "rs",
-    "go",
-    "cs",
-    "fs",
-    "swift",
-    "kt",
-    "java",
-    "dart",
-    "rb",
-    "py",
-    "lua"
-  ],
-  "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a JavaScript or TypeScript service injects view. This works only in the browser. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Python or Lua has no DOM (the tree of page elements), so it cannot read this mark, and this section has no tab for those languages. The application itself is responsible for native capabilities.",
+  "notApplicable": ["rs", "go", "cs", "fs", "swift", "kt", "java", "dart", "rb", "py", "lua", "hpp"],
+  "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a JavaScript or TypeScript service injects view. This works only in the browser. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Python, Lua or C++ has no DOM (the tree of page elements), so it cannot read this mark, and this section has no tab for those languages. The application itself is responsible for native capabilities.",
   "files": [
     {
       "name": "client/pages/tac.html",
