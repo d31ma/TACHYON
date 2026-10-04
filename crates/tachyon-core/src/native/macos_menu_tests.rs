@@ -62,14 +62,17 @@ fn macos_menus_are_installed_after_the_owned_window_without_changing_bridge_life
     let source = MacOsMenuFixture::host(root.path());
     let ownership = source.find("self.window = window").expect("owned window");
     let install = source
-        .find("menus.install(NSApplication.shared, window, \"Menu Check\", menuNavigation)")
+        .find("installMenus(view, window)")
         .expect("host-owned menu installation");
     assert!(ownership < install);
+    assert!(source.contains(
+        "menus.install(NSApplication.shared, window, \"Menu Check\", menuNavigation, menuActions)"
+    ));
     assert!(source.contains("private var menus: MacOsMenus?"));
     assert!(source.contains("applicationWillTerminate"));
     assert!(source.contains("tachyonDisposeCompanions()"));
     assert!(source.contains("MacOsFilePicker.shared.disposeAll()"));
-    assert!(source.contains("let fullscreen = item(\"Enter Full Screen\", #selector(NSWindow.toggleFullScreen(_:)), \"f\", window)"));
+    assert!(source.contains("let fullscreen = windowItem(\"Enter Full Screen\", #selector(NSWindow.toggleFullScreen(_:)), \"f\", window)"));
     assert!(source.contains("fullscreen.keyEquivalentModifierMask = [.command, .control]"));
     assert!(!source.contains("__NATIVE_MENUS__"));
     assert!(!source.contains("nativeMenus"));

@@ -13,6 +13,8 @@ pub(super) struct RustPageGraph {
 }
 
 impl RustPageGraph {
+    pub(super) const MODULE_START: &'static str = "mod TachyonRustServices {\nuse super::*;\n";
+
     pub(super) fn source(inputs: &[&NativeCompanionInput]) -> Result<String, Failure> {
         let graph = Self::read(inputs)?;
         graph.validate(inputs)?;
@@ -257,7 +259,8 @@ impl RustPageGraph {
         let tables = paths.source(&tables)?;
         let models = paths.source(&models)?;
         Ok(format!(
-            "#[allow(non_snake_case)]\nmod TachyonRustServices {{\nuse super::*;\n{}\n{}\n{definitions}\n{tables}\n{models}\n{application}\n}}\n{dispatch}",
+            "#[allow(non_snake_case)]\n{}{}\n{}\n{definitions}\n{tables}\n{models}\n{application}\n}}\n{dispatch}",
+            Self::MODULE_START,
             self.imports
                 .source()
                 .lines()
@@ -378,8 +381,25 @@ impl RustPageGraph {
             .map(|service| format!("let _ = scope.obtain(&tac_definition_{}())?;", service.name))
             .collect::<Vec<_>>()
             .join("\n");
+        let callers = self
+            .services
+            .values()
+            .filter(|service| service.application)
+            .map(|service| self.application_caller(&service.name))
+            .collect::<String>();
         format!(
-            "pub(super) fn tac_application_providers(scope: &NativeServiceScope) -> ::core::result::Result<(), ::std::string::String> {{ {providers} Ok(()) }}"
+            "pub(super) fn tac_application_providers(scope: &NativeServiceScope) -> ::core::result::Result<(), ::std::string::String> {{ {providers} Ok(()) }}\n{callers}"
+        )
+    }
+
+    fn application_caller(&self, name: &str) -> String {
+        let borrowed = if self.arcs.contains(name) {
+            "&*value"
+        } else {
+            "&*value.borrow()"
+        };
+        format!(
+            "pub(super) fn tac_with_application_{name}(work: impl FnOnce(&{name})) -> ::core::result::Result<(), ::std::string::String> {{ NativeApplicationServices::obtain(&tac_definition_{name}()).map(|value| work({borrowed})) }}\n"
         )
     }
 }

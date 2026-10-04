@@ -28,6 +28,7 @@
     "native-hosts",
     "platform-apis",
     "window-controls",
+    "native-menus",
     "dependency-injection",
     "behavior-annotations",
     "middleware",
@@ -116,7 +117,8 @@
         "devices",
         "native-hosts",
         "platform-apis",
-        "window-controls"
+        "window-controls",
+        "native-menus"
       ]
     },
     {

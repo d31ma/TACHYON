@@ -180,6 +180,10 @@ impl NativeCompiler {
 
         let (temporary_web, companions) =
             build_web_bundle(project, options.target, &base_output).await?;
+        super::native_menu_action_check::NativeMenuActionCheck::validate(
+            &application.menus,
+            &companions,
+        )?;
         super::native_ui_profile::NativeUiProfile::prepare(
             ui_candidate,
             temporary_web.path(),

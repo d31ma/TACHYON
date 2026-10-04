@@ -1,0 +1,7 @@
+{
+  "heading": "Close Window and reopening",
+  "body": "File > Close Window (Command-W) closes the app's own window, like the red close button. The services of that page stop, as when the page changes. The app keeps running, as Mail and Notes do on a Mac: application services keep their state and their work, such as a collector that reads data in the background. With no window open, the window commands and the page actions are disabled, and the actions that belong to the app still work.\n\nClick the app in the Dock to open the window again. The new window shows the start page with fresh page services and new menu items, so nothing from the closed window can receive an action. Quit stops the application services once, whether a window is open or not.",
+  "code": {
+    "file": "example.txt"
+  }
+}

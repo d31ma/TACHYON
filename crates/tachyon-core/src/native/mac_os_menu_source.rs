@@ -5,25 +5,48 @@ pub(super) struct MacOsMenuSource;
 
 impl MacOsMenuSource {
     pub(super) fn declarations(config: &NativeMenuConfig) -> String {
-        let items = [
-            ("file", &config.file),
-            ("view", &config.view),
-            ("help", &config.help),
-        ];
-        let entries = items
+        Self::listed(config, |group, entry| {
+            entry
+                .route
+                .as_deref()
+                .map(|route| Self::route(group, entry, route))
+        })
+    }
+
+    pub(super) fn actions(config: &NativeMenuConfig) -> String {
+        Self::listed(config, |group, entry| {
+            entry.action.as_ref().map(|action| {
+                format!(
+                    "MacOsMenuAction(id: \"{}\", label: \"{}\", group: .{group}, event: \"{}\", shortcut: {})",
+                    super::host::quoted_string_escape(&entry.id),
+                    super::host::quoted_string_escape(&entry.label),
+                    action.event.as_deref().unwrap_or_default(),
+                    Self::shortcut(entry)
+                )
+            })
+        })
+    }
+
+    fn listed(
+        config: &NativeMenuConfig,
+        declaration: impl Fn(&str, &NativeMenuEntry) -> Option<String>,
+    ) -> String {
+        let entries = config
+            .groups()
             .into_iter()
-            .flat_map(|(group, entries)| entries.iter().map(move |entry| Self::entry(group, entry)))
+            .flat_map(|(group, entries)| entries.iter().map(move |entry| (group, entry)))
+            .filter_map(|(group, entry)| declaration(group, entry))
             .collect::<Vec<_>>();
         format!("[{}]", entries.join(",\n"))
     }
 
-    fn entry(group: &str, entry: &NativeMenuEntry) -> String {
-        let shortcut = Self::shortcut(entry);
+    fn route(group: &str, entry: &NativeMenuEntry, route: &str) -> String {
         format!(
-            "MacOsMenuRoute(id: \"{}\", label: \"{}\", destination: MacOsMenuDestination(group: .{group}, route: \"{}\"), shortcut: {shortcut})",
+            "MacOsMenuRoute(id: \"{}\", label: \"{}\", destination: MacOsMenuDestination(group: .{group}, route: \"{}\"), shortcut: {})",
             super::host::quoted_string_escape(&entry.id),
             super::host::quoted_string_escape(&entry.label),
-            super::host::quoted_string_escape(&entry.route)
+            super::host::quoted_string_escape(route),
+            Self::shortcut(entry)
         )
     }
 

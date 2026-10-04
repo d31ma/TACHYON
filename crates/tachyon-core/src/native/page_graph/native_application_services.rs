@@ -52,6 +52,12 @@ impl NativeApplicationServices {
         Self::state().with(|state| state.borrow().page())
     }
 
+    fn obtain<T: Clone + 'static>(definition: &NativeServiceDefinition<T>) -> Result<T, String> {
+        Self::require_thread()?;
+        let scope = Self::state().with(|state| state.borrow().ready_scope())?;
+        scope.obtain(definition)
+    }
+
     fn require_starting() -> Result<(), String> {
         Self::require_thread()?;
         Self::state().with(|state| state.borrow().require_starting())

@@ -107,6 +107,15 @@ impl NativePageServices {
         format!("{}{:012x}", Self::OWNER_PREFIX, identity)
     }
 
+    fn prototype_root(route: &str, owner: &str) -> bool {
+        Self::pages().with(|pages| {
+            pages
+                .borrow()
+                .get(route)
+                .is_some_and(|page| page.borrow().order.iter().any(|key| key.1 == owner))
+        })
+    }
+
     fn dispose_owner(owner: &str) {
         let pages =
             Self::pages().with(|pages| pages.borrow().values().cloned().collect::<Vec<_>>());

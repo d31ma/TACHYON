@@ -25,11 +25,14 @@ impl RustCompanion {
             include_str!("page_graph/native_service_scope.rs"),
             include_str!("page_graph/native_service_activation.rs"),
             include_str!("page_graph/native_page_services.rs"),
+            include_str!("page_graph/native_page_events.rs"),
+            include_str!("page_graph/native_menu_actions.rs"),
             include_str!("capabilities/rust/file_picker_status.rs"),
             include_str!("capabilities/rust/file_picker_result.rs"),
             include_str!("capabilities/rust/file_picker_options.rs"),
             include_str!("capabilities/rust/file_picker.rs"),
             include_str!("capabilities/rust/window_controls.rs"),
+            include_str!("capabilities/rust/current_page_events.rs"),
             include_str!("web_apis/tac_web_host.rs")
         ),
         concat!(

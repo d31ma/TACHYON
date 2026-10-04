@@ -30,6 +30,12 @@ impl NativeApplicationState {
         })
     }
 
+    fn ready_scope(&self) -> Result<NativeServiceScope, String> {
+        (self.phase == NativeApplicationPhase::Ready)
+            .then(|| self.scope())
+            .unwrap_or_else(|| Err(String::from("Native application is not running.")))
+    }
+
     fn page(&self) -> Result<std::rc::Rc<core::cell::RefCell<NativeServicePage>>, String> {
         [
             NativeApplicationPhase::Starting,

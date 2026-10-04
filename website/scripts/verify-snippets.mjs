@@ -97,6 +97,7 @@ class Languages {
   static sourceExtensions = new Set(['.js', '.ts', '.py', '.php', '.java', '.groovy', '.kt', '.cs', '.fs', '.rs', '.swift', '.dart', '.go', '.rb', '.lua'])
   /** @type {Record<string,string>} */
   static nativeTargets = { '.swift': 'macos', '.kt': 'android', '.cs': 'windows', '.rs': 'linux' }
+  static hostTargets = new Set(['macos'])
   static tacSourceExtensions = new Set(['.js', '.ts', '.py', '.dart', '.go', '.rb', '.lua', '.fs', '.java', ...Object.keys(Languages.nativeTargets)])
 }
 
@@ -704,12 +705,15 @@ function filesForTacLanguage(clientFiles, extension) {
 /**
  * @param {string} label
  * @param {Snippet[]} files
+ * @param {boolean} [withPlaceholders]
+ * @param {boolean} [webOnly]
+ * @param {string} [hostTarget]
  */
-async function bundleProject(label, files, withPlaceholders = false, webOnly = false) {
+async function bundleProject(label, files, withPlaceholders = false, webOnly = false, hostTarget = undefined) {
   const clientFiles = files.filter(file => !file.name.startsWith('server/') && !isNativeAlternative(file))
   await bundleNativeAlternatives(label, clientFiles, files.filter(isNativeAlternative))
   for (const extension of extensionsToBundle(clientFiles)) {
-    const nativeTarget = await nativeTargetWithoutWebToolchain(extension, webOnly)
+    const nativeTarget = hostTarget ?? await nativeTargetWithoutWebToolchain(extension, webOnly)
     const languageTag = extension ? ` [${extension.slice(1)}]` : ''
     await inStagingDirectory(`${label}${languageTag}`, async root => {
       const selectedFiles = filesForTacLanguage(clientFiles, extension)
@@ -1369,7 +1373,7 @@ async function verifyGuideSection(slug, section, earlierSteps) {
   }
   const hasTestUnits = files.some(file => isTestUnit(file.name))
   if (hasTestUnits) await runTestUnits(label, files, earlierSteps)
-  else if (files.some(isPageFile)) await bundleProject(label, files, false, section.target === 'web')
+  else if (files.some(isPageFile)) await bundleProject(label, files, false, section.target === 'web', Languages.hostTargets.has(section.target ?? '') ? section.target : undefined)
   else if (files.some(file => isService(file.name))) await bundleServices(label, files, section.target === 'web')
   if (!hasTestUnits) await verifyGuideFiles(slug, section, files)
   await verifyGuideCode(slug, section)

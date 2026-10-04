@@ -10,8 +10,9 @@ pub(super) struct NativeMenuShortcut {
 
 impl NativeMenuShortcut {
     const MODIFIERS: [&'static str; 4] = ["command", "control", "option", "shift"];
-    const RESERVED: [&'static str; 11] = [
+    const RESERVED: [&'static str; 12] = [
         "command:q",
+        "command:w",
         "command:h",
         "command+option:h",
         "command:z",
@@ -67,6 +68,6 @@ impl NativeMenuShortcut {
 
     fn require_available(&self) -> Result<(), Failure> {
         (!Self::RESERVED.contains(&self.identity().as_str())).then_some(())
-            .ok_or_else(|| super::config::config_failure("Native menu shortcut conflicts with a standard application, Edit or Window command."))
+            .ok_or_else(|| super::config::config_failure("Native menu shortcut conflicts with a standard application, File, Edit or Window command."))
     }
 }

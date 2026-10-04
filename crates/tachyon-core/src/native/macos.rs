@@ -52,6 +52,10 @@ impl MacOsHostGenerator {
 
         let companion = stage_swift_companion(companions, stage)?;
         let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
+        super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
+            rust_companion.as_deref(),
+            &application.menus,
+        )?;
         let swift_path = stage.join("project").join("TachyonHost.swift");
         let call = companion_call(companion.as_deref(), rust_companion.as_deref());
         write_host_source(&swift_path, &swift_source(application, call, index))?;
@@ -380,6 +384,15 @@ pub(super) fn swift_source(
                 include_str!("menus/MacOsMenuRoute.swift"),
                 include_str!("menus/MacOsMenuNavigation.swift"),
                 include_str!("menus/MacOsMenuWindow.swift"),
+                include_str!("menus/MacOsMenuAction.swift"),
+                include_str!("menus/MacOsMenuActions.swift"),
+            ),
+        )
+        .replace(
+            "__NATIVE_MENU_CALLS__",
+            super::mac_os_menu_action_source::MacOsMenuActionSource::swift_calls(
+                &application.menus,
+                companion_call.contains("tacRustInvoke"),
             ),
         );
     MacOsHostGenerator::authored_values(&framed, application, index)
@@ -403,6 +416,7 @@ impl MacOsHostGenerator {
         );
         let menu_routes =
             super::mac_os_menu_source::MacOsMenuSource::declarations(&application.menus);
+        let menu_actions = super::mac_os_menu_source::MacOsMenuSource::actions(&application.menus);
         Self::apple_authored_values(
             host,
             application,
@@ -411,6 +425,7 @@ impl MacOsHostGenerator {
                 ("__APP_NAME__", &app_name),
                 ("__NATIVE_GRANTS__", &grants),
                 ("__NATIVE_MENU_ROUTES__", &menu_routes),
+                ("__NATIVE_MENU_ACTIONS__", &menu_actions),
             ],
         )
     }
@@ -541,6 +556,7 @@ __TACHYON_RUST_SHIM__
 __TACHYON_JSON_REQUEST__
 __NATIVE_MENUS__
 __NATIVE_MENU_MODELS__
+__NATIVE_MENU_CALLS__
 
 private let tachyonEntryDocument = "__ENTRY_DOCUMENT__"
 private let tachyonRouteDocuments: [String: String] = __ROUTE_DOCUMENTS__
@@ -680,7 +696,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         didReceive message: WKScriptMessage,
         replyHandler: @escaping (Any?, String?) -> Void
     ) {
-        guard message.frameInfo.isMainFrame,
+        guard message.webView === webView, message.frameInfo.isMainFrame,
               message.frameInfo.request.url?.scheme == "tachyon-app",
               message.frameInfo.request.url?.host == "bundle",
               message.frameInfo.request.url?.port == nil, message.frameInfo.request.url?.user == nil,
@@ -768,16 +784,23 @@ private func tachyonRelayPublish(_ payload: String) {
 }
 
 @MainActor
-private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
     private var window: NSWindow?
     private var webView: WKWebView?
     private var menus: MacOsMenus?
+    private var terminated = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MacOsFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
         __NATIVE_CAPABILITY_REGISTER__
         __NATIVE_APPLICATION_START__
         Telemetry.shared.record("controller.created")
+        openWindow()
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        Telemetry.shared.record("bridge.ready")
+    }
+
+    private func openWindow() {
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: "tachyon-app")
         configuration.websiteDataStore = .default()
@@ -812,17 +835,49 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
         window.center()
         window.contentMinSize = NSSize(width: __WINDOW_MIN_WIDTH__, height: __WINDOW_MIN_HEIGHT__)
         window.collectionBehavior.insert(.fullScreenPrimary)
+        window.isReleasedWhenClosed = false
+        window.delegate = self
         window.makeKeyAndOrderFront(nil)
         self.window = window
         NativeBridge.shared.window = window
-        let menus = MacOsMenus()
-        let menuNavigation = MacOsMenuNavigation(view, window, tachyonRouteDocuments, __NATIVE_MENU_ROUTES__)
-        menus.install(NSApplication.shared, window, "__APP_NAME__", menuNavigation)
-        self.menus = menus
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        installMenus(view, window)
 
         view.load(URLRequest(url: URL(string: "tachyon-app://bundle/" + tachyonEntryDocument)!))
-        Telemetry.shared.record("bridge.ready")
+    }
+
+    private func installMenus(_ view: WKWebView?, _ window: NSWindow?) {
+        let menus = MacOsMenus()
+        let menuNavigation = MacOsMenuNavigation(view, window, tachyonRouteDocuments, __NATIVE_MENU_ROUTES__)
+        let menuActions = MacOsMenuActions(view, window, __NATIVE_MENU_ACTIONS__, tachyonMenuReady, tachyonMenuPerform)
+        menus.install(NSApplication.shared, window, "__APP_NAME__", menuNavigation, menuActions)
+        self.menus = menus
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let closing = notification.object as? NSWindow, closing === window else { return }
+        tachyonDisposeCompanions()
+        MacOsFilePicker.shared.disposeAll()
+        webView?.navigationDelegate = nil
+        webView?.stopLoading()
+        closing.delegate = nil
+        webView = nil
+        window = nil
+        NativeBridge.shared.webView = nil
+        NativeBridge.shared.window = nil
+        installMenus(nil, nil)
+        Telemetry.shared.record("window.closed")
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if window == nil && !terminated {
+            openWindow()
+            Telemetry.shared.record("window.reopened")
+        }
+        return true
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -849,6 +904,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDe
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        guard !terminated else { return }
+        terminated = true
         tachyonDisposeCompanions()
         MacOsFilePicker.shared.disposeAll()
         __NATIVE_APPLICATION_STOP__

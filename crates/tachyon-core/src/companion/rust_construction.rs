@@ -17,7 +17,8 @@ pub(super) struct RustConstruction {
 
 impl RustConstruction {
     const MAX_DEPTH: usize = 32;
-    const BUILTIN_PROVIDERS: [&'static str; 2] = ["FilePicker", "WindowControls"];
+    const BUILTIN_PROVIDERS: [&'static str; 3] =
+        ["FilePicker", "WindowControls", "CurrentPageEvents"];
 
     pub(super) fn instance(
         source: &str,

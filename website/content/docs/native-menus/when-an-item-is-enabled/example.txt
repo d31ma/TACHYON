@@ -1,0 +1,6 @@
+Item                         Enabled when
+action with "event"          the shown page has a live OnEvent listener for the event
+action without "event"       the app runs (also with no window)
+route                        the window is open
+Close Window, Minimize,      a window is open
+Zoom, Enter Full Screen

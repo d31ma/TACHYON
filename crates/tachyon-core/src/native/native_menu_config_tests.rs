@@ -99,11 +99,15 @@ fn native_menu_declarations_preserve_identity_and_emit_typed_local_actions() {
 fn native_menu_declarations_refuse_unknown_fields_and_unsafe_local_paths() {
     for menus in [
         json!({"service":[]}),
-        json!({"file":[{"id":"x","label":"X","route":"/","action":"terminate:"}]}),
+        json!({"file":[{"id":"x","label":"X","route":"/","selector":"terminate:"}]}),
         json!({"file":[{"id":"x","label":"X","route":"/","shortcut":{"key":"1","modifiers":["command"],"selector":"anything:"}}]}),
+        json!({"file":[{"id":"x","label":"X","action":{"service":"MenuService","method":"run","script":"x"}}]}),
     ] {
         assert!(NativeMenuTests::refusal(&menus).contains("unknown field"));
     }
+    NativeMenuTests::refusal(
+        &json!({"file":[{"id":"x","label":"X","route":"/","action":"terminate:"}]}),
+    );
     for route in [
         "https://example.com/",
         "//other/status",

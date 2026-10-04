@@ -1,0 +1,37 @@
+{
+  "name": "Monitor",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "com.example.monitor",
+      "version": "1.0.0",
+      "menus": {
+        "view": [
+          {
+            "id": "show-running",
+            "label": "What's Running",
+            "action": { "service": "SectionMenuService", "method": "show_running", "event": "SectionChosen" },
+            "shortcut": { "key": "1", "modifiers": ["command"] }
+          },
+          {
+            "id": "show-activity",
+            "label": "Activity",
+            "action": { "service": "SectionMenuService", "method": "show_activity", "event": "SectionChosen" },
+            "shortcut": { "key": "2", "modifiers": ["command"] }
+          }
+        ],
+        "file": [
+          {
+            "id": "refresh",
+            "label": "Refresh Now",
+            "action": { "service": "SectionMenuService", "method": "refresh" },
+            "shortcut": { "key": "r", "modifiers": ["command"] }
+          }
+        ],
+        "help": [
+          { "id": "help", "label": "Monitor Help", "route": "/help" }
+        ]
+      }
+    }
+  }
+}

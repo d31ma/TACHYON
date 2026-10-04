@@ -1,19 +1,35 @@
 @MainActor
 final class MacOsMenus {
     private var navigation: MacOsMenuNavigation?
+    private var actions: MacOsMenuActions?
 
-    func install(_ application: NSApplication, _ window: NSWindow, _ name: String, _ navigation: MacOsMenuNavigation? = nil) {
+    func install(_ application: NSApplication, _ window: NSWindow?, _ name: String,
+                 _ navigation: MacOsMenuNavigation? = nil, _ actions: MacOsMenuActions? = nil) {
         let root = NSMenu()
+        let file = group(NSMenu(title: "File"))
         let view = viewMenu(window)
         let help = helpMenu(application)
         root.addItem(applicationMenu(application, name))
+        root.addItem(file)
         root.addItem(editMenu())
         root.addItem(view)
         root.addItem(windowMenu(application, window))
         root.addItem(help)
         self.navigation = navigation
-        navigation?.install(root, view.submenu!, help.submenu!)
+        self.actions = actions
+        navigation?.install(file.submenu!, view.submenu!, help.submenu!)
+        actions?.install(file.submenu!, view.submenu!, help.submenu!)
+        closeMenu(file.submenu!, window)
         application.mainMenu = root
+    }
+
+    private func closeMenu(_ menu: NSMenu, _ window: NSWindow?) {
+        if menu.numberOfItems > 0 { menu.addItem(.separator()) }
+        menu.addItem(windowItem("Close Window", #selector(NSWindow.performClose(_:)), "w", window))
+    }
+
+    private func windowItem(_ title: String, _ action: Selector, _ key: String, _ window: NSWindow?) -> NSMenuItem {
+        item(title, window == nil ? nil : action, key, window)
     }
 
     private func applicationMenu(_ application: NSApplication, _ name: String) -> NSMenuItem {
@@ -44,18 +60,18 @@ final class MacOsMenus {
         return group(menu)
     }
 
-    private func viewMenu(_ window: NSWindow) -> NSMenuItem {
+    private func viewMenu(_ window: NSWindow?) -> NSMenuItem {
         let menu = NSMenu(title: "View")
-        let fullscreen = item("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", window)
+        let fullscreen = windowItem("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", window)
         fullscreen.keyEquivalentModifierMask = [.command, .control]
         menu.addItem(fullscreen)
         return group(menu)
     }
 
-    private func windowMenu(_ application: NSApplication, _ window: NSWindow) -> NSMenuItem {
+    private func windowMenu(_ application: NSApplication, _ window: NSWindow?) -> NSMenuItem {
         let menu = NSMenu(title: "Window")
-        menu.addItem(item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m", window))
-        menu.addItem(item("Zoom", #selector(NSWindow.performZoom(_:)), "", window))
+        menu.addItem(windowItem("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m", window))
+        menu.addItem(windowItem("Zoom", #selector(NSWindow.performZoom(_:)), "", window))
         menu.addItem(.separator())
         menu.addItem(item("Bring All to Front", #selector(NSApplication.arrangeInFront(_:)), "", application))
         application.windowsMenu = menu
@@ -74,7 +90,7 @@ final class MacOsMenus {
         return item
     }
 
-    private func item(_ title: String, _ action: Selector, _ key: String, _ target: AnyObject?) -> NSMenuItem {
+    private func item(_ title: String, _ action: Selector?, _ key: String, _ target: AnyObject?) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = target
         item.keyEquivalentModifierMask = .command

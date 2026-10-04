@@ -1,0 +1,11 @@
+Monitor   About Monitor, Hide Monitor (Command-H), Hide Others (Option-Command-H),
+          Show All, Quit Monitor (Command-Q)
+File      your File items, then Close Window (Command-W)
+Edit      Undo, Redo, Cut, Copy, Paste, Select All
+View      Enter Full Screen, then your View items
+Window    Minimize (Command-M), Zoom, Bring All to Front
+Help      system search, then your Help items
+
+Reserved shortcuts: Command-Q, Command-W, Command-H, Option-Command-H,
+Command-Z, Shift-Command-Z, Command-X, Command-C, Command-V, Command-A,
+Command-M and Control-Command-F.

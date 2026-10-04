@@ -38,7 +38,15 @@ impl NativeMenuConfig {
         self.items().next().is_none()
     }
 
-    fn items(&self) -> impl Iterator<Item = &NativeMenuEntry> {
+    pub(super) fn groups(&self) -> [(&'static str, &[NativeMenuEntry]); 3] {
+        [
+            ("file", &self.file),
+            ("view", &self.view),
+            ("help", &self.help),
+        ]
+    }
+
+    pub(super) fn items(&self) -> impl Iterator<Item = &NativeMenuEntry> {
         self.file.iter().chain(&self.view).chain(&self.help)
     }
 
@@ -91,13 +99,16 @@ impl NativeMenuConfig {
     }
 
     fn require_document(item: &NativeMenuEntry, index: &NativeRouteIndex) -> Result<(), Failure> {
-        let valid = index.routes.iter().any(|entry| entry.route == item.route)
-            && !item
-                .route
-                .split('/')
-                .any(|segment| segment.starts_with('_'));
+        item.route
+            .as_deref()
+            .map_or(Ok(()), |route| Self::require_page(&item.id, route, index))
+    }
+
+    fn require_page(id: &str, route: &str, index: &NativeRouteIndex) -> Result<(), Failure> {
+        let valid = index.routes.iter().any(|entry| entry.route == route)
+            && !route.split('/').any(|segment| segment.starts_with('_'));
         valid.then_some(()).ok_or_else(|| super::config::config_failure(&format!(
-            "Native menu '{}' destination '{}' must exactly identify a compiled static page route.", item.id, item.route,
+            "Native menu '{id}' destination '{route}' must exactly identify a compiled static page route.",
         )))
     }
 }
