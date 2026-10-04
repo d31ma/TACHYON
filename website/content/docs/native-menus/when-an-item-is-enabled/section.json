@@ -1,6 +1,6 @@
 {
   "heading": "When an item is enabled",
-  "body": "One rule decides when a menu action item is enabled. An action with an `event` is enabled only while the window shows a page that has a live Rust page service with an `OnEvent` listener for that event. When there is no such listener, the item is disabled. This happens when no window is open, when another page is shown (such as the Help page), and while a page loads. If a shortcut arrives while the item is disabled, the host refuses it with the system beep and does not call the service.\n\nAn action without an `event` belongs to the app, not to a page. It is enabled while the app runs, also when no window is open. A route item is enabled while its window is open.",
+  "body": "One rule decides when a menu action item is enabled. An action with an `event` is enabled only while the window shows a page that has a live Rust page service with an `OnEvent` listener for that event. When there is no such listener, the item is disabled. This happens when no window is open, when another page is shown (such as the Help page), and while a page loads. If a shortcut arrives while the item is disabled, the host refuses it with the system beep and does not call the service.\n\nAn action without an `event` belongs to the app, not to a page. It is enabled while the app runs, also when no window is open. A route item is enabled while its window is open.\n\nLinux and Windows follow the same rule. A refused item or shortcut beeps and does not call the service.",
   "code": {
     "file": "example.txt"
   }
