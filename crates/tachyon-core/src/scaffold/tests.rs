@@ -220,13 +220,8 @@ fn unknown_and_conflicting_answers_are_refused_with_ty1408() {
         "{unknown}"
     );
     assert!(
-        unknown.contains("js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java"),
+        unknown.contains("js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java, py"),
         "{unknown}"
-    );
-    let python_page = error_text(&answers(None, Some("py"), None));
-    assert!(
-        python_page.contains("'py' is not a Tac language"),
-        "{python_page}"
     );
     let no_server = error_text(&answers(Some("client"), None, Some("py")));
     assert!(no_server.contains("no server"), "{no_server}");
@@ -482,6 +477,53 @@ fn kotlin_scaffold_keeps_foundation_and_component_styles_separate() {
 #[test]
 fn java_scaffold_keeps_foundation_and_component_styles_separate() {
     ClientStyleFixture::language(TacLanguage::Java);
+}
+
+#[test]
+fn python_scaffold_keeps_foundation_and_component_styles_separate() {
+    ClientStyleFixture::language(TacLanguage::Python);
+}
+
+#[test]
+fn a_python_scaffold_selects_the_pinned_runtime_and_its_test_passes() {
+    let choices = ProjectChoices {
+        tac: vec![TacLanguage::JavaScript, TacLanguage::Python],
+        ..ProjectChoices::defaults()
+    };
+    let (_root, app) = generated(&choices);
+    let manifest = fs::read_to_string(app.join("client/manifest.json")).expect("manifest");
+    let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("JSON manifest");
+    assert_eq!(
+        manifest["tac"]["python"],
+        serde_json::json!({"runtime": "pyodide-314.0.7", "profile": "offline"})
+    );
+    let report =
+        crate::client_tests::run(&app, Path::new("client/tests/PythonGreetingServiceTest.py"))
+            .expect("generated Python test runs");
+    assert!(report.failure.is_none(), "{:?}", report.failure);
+    assert!(
+        report.cases.iter().all(|case| case.passed),
+        "{:?}",
+        report.cases
+    );
+}
+
+#[test]
+fn adding_python_to_a_project_selects_the_pinned_runtime() {
+    let (_root, app) = generated(&ProjectChoices::defaults());
+    let added = ProjectAddition::language(&app, RealmChoice::Client, "py").expect("Python");
+    assert!(
+        added
+            .written
+            .contains(&String::from("client/services/PythonGreetingService.py"))
+    );
+    let manifest = fs::read_to_string(app.join("client/manifest.json")).expect("manifest");
+    let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("JSON manifest");
+    assert_eq!(manifest["tac"]["python"]["runtime"], "pyodide-314.0.7");
+    assert_eq!(
+        manifest["tac"]["styles"],
+        serde_json::json!(["/shared/styles/app.css"])
+    );
 }
 
 #[test]

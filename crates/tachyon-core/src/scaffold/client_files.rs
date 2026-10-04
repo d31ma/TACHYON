@@ -1,4 +1,5 @@
 use super::{AppFeature, AppName, BaseFiles, Choice, PageFile, ProjectChoices, TacLanguage};
+use crate::tac_python::RuntimeAssets;
 
 pub(crate) struct ClientFiles;
 
@@ -107,7 +108,10 @@ impl ClientFiles {
 
     fn fixed_files(javascript_name: &str, choices: &ProjectChoices) -> Vec<(String, String)> {
         let files = [
-            ("client/manifest.json", Self::manifest(javascript_name)),
+            (
+                "client/manifest.json",
+                Self::manifest(javascript_name, &choices.tac),
+            ),
             (
                 "client/jsconfig.json",
                 BaseFiles::jsconfig("client", choices.client_uses_typescript()),
@@ -145,10 +149,22 @@ impl ClientFiles {
             .collect()
     }
 
-    fn manifest(javascript_name: &str) -> String {
+    fn manifest(javascript_name: &str, languages: &[TacLanguage]) -> String {
+        let python = if languages.contains(&TacLanguage::Python) {
+            format!(",\n    \"python\": {}", Self::python_runtime())
+        } else {
+            String::new()
+        };
         format!(
-            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}\n  }}\n}}\n"
+            "{{\n  \"name\": {javascript_name},\n  \"short_name\": {javascript_name},\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"tac\": {{\n    \"styles\": [\"/shared/styles/app.css\"],\n    \"styleSources\": {{\n      \"/shared/styles/app.css\": {{\"kind\": \"foundation\"}}\n    }}{python}\n  }}\n}}\n"
         )
+    }
+
+    pub(crate) fn python_runtime() -> serde_json::Value {
+        serde_json::json!({
+            "runtime": RuntimeAssets::RUNTIME,
+            "profile": RuntimeAssets::PROFILE,
+        })
     }
 
     fn shell_service_files(javascript_name: &str) -> Vec<(String, String)> {

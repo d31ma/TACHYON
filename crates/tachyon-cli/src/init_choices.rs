@@ -8,12 +8,12 @@ pub struct InitChoices {
     realm: Option<String>,
     #[arg(
         long,
-        help = "Tac (client) languages, separated by commas: js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java (default js)"
+        help = "Tac (client) languages, separated by commas: js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java, py (default js)"
     )]
     tac: Option<String>,
     #[arg(
         long,
-        help = "Yon (server) languages, separated by commas: js, ts, py, go, java, kt, cs, fs, php, rb, lua, rs, dart (default js)"
+        help = "Yon (server) languages, separated by commas: js, ts, py, go, java, groovy, kt, cs, fs, php, rb, lua, rs, dart (default js)"
     )]
     yon: Option<String>,
     #[arg(

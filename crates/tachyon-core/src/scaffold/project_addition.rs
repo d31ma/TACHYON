@@ -30,7 +30,11 @@ impl ProjectAddition {
         let javascript_name = AppName::javascript_literal(&app_name);
         let owned = ClientFiles::language_files(language, &javascript_name);
         let tags: Vec<String> = ClientFiles::greeting_tag(language).into_iter().collect();
-        Self::add(root, choices, &owned, &tags)
+        let mut result = Self::add(root, choices, &owned, &tags)?;
+        if language == TacLanguage::Python {
+            result.notes.extend(Self::write_python_runtime(root)?);
+        }
+        Ok(result)
     }
 
     pub fn yon_language(root: &Path, language: YonLanguage) -> Result<AdditionResult, Failure> {
@@ -159,6 +163,25 @@ impl ProjectAddition {
         ScaffoldFailure::checked(std::fs::write(&path, format!("{pretty}\n")), &path)?;
         Ok(added.then(|| {
             String::from("server/application.json now names the in-memory SQLite datasource.")
+        }))
+    }
+
+    fn write_python_runtime(root: &Path) -> Result<Option<String>, Failure> {
+        let path = root.join(Self::MANIFEST);
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or_else(|_| serde_json::json!({}));
+        let Some(object) = manifest.as_object_mut() else {
+            return Ok(None);
+        };
+        let tac = object.entry("tac").or_insert_with(|| serde_json::json!({}));
+        let added = Self::insert_missing(tac, "python", ClientFiles::python_runtime());
+        let pretty = serde_json::to_string_pretty(&manifest).unwrap_or_default();
+        ScaffoldFailure::checked(std::fs::write(&path, format!("{pretty}\n")), &path)?;
+        Ok(added.then(|| {
+            String::from(
+                "client/manifest.json now selects the pinned Pyodide runtime for Python services.",
+            )
         }))
     }
 

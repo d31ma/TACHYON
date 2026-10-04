@@ -11,6 +11,7 @@ impl RuntimeAssets {
     pub(crate) const VERSION: &'static str = "314.0.7";
     pub(crate) const ABI: &'static str = "2026_0";
     pub(crate) const RUNTIME: &'static str = "pyodide-314.0.7";
+    pub(crate) const PROFILE: &'static str = "offline";
     pub(crate) const OUTPUT: &'static str = ".tachyon/services/python/314.0.7";
     pub(crate) const WASM: &'static str = "pyodide.asm.wasm";
     pub(crate) const ARCHIVE: &'static str = "pyodide-core-314.0.7.tar.bz2";

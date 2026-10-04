@@ -342,3 +342,23 @@ fn a_java_page_service_passes_its_tests_with_coverage_and_builds_with_teavm() {
             .is_file()
     );
 }
+
+#[test]
+fn help_lists_every_language_that_init_and_add_accept() {
+    use tachyon_core::{Choice as _, TacLanguage, YonLanguage};
+    let help = |arguments: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_ty"))
+            .args(arguments)
+            .output()
+            .expect("the ty process should start");
+        String::from_utf8_lossy(&output.stdout).replace(['\n', ' '], "")
+    };
+    let init = help(&["init", "--help"]);
+    let add = help(&["add", "language", "--help"]);
+    let tac = TacLanguage::flag_names().replace(' ', "");
+    let yon = YonLanguage::flag_names().replace(' ', "");
+    assert!(init.contains(&tac), "{tac}: {init}");
+    assert!(init.contains(&yon), "{yon}: {init}");
+    assert!(add.contains(&format!("{tac}forclient")), "{tac}: {add}");
+    assert!(add.contains(&format!("{yon}forserver")), "{yon}: {add}");
+}

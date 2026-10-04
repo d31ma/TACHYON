@@ -120,7 +120,7 @@ impl RuntimeProfile {
         let settings = super::runtime_settings::RuntimeSettings::read(python)?;
         let fields = [
             settings.runtime == RuntimeAssets::RUNTIME,
-            settings.profile == "offline",
+            settings.profile == RuntimeAssets::PROFILE,
         ];
         if fields.contains(&false) {
             return Err(RuntimeAssets::failure(

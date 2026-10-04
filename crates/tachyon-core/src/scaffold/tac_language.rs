@@ -17,6 +17,7 @@ pub enum TacLanguage {
     Swift,
     Kotlin,
     Java,
+    Python,
 }
 
 impl TacLanguage {
@@ -24,7 +25,7 @@ impl TacLanguage {
     const CLANGD_PATH: &'static str = "client/.clangd";
     const CLANGD: &'static str =
         "CompileFlags:\n  Add: [-xc++, -std=c++20, -Wno-unknown-attributes]\n";
-    const ROWS: [LanguageRow; 13] = [
+    const ROWS: [LanguageRow; 14] = [
         ("js,javascript", "JavaScript", "shell", ""),
         ("ts,typescript", "TypeScript", "typeScriptGreeting", ""),
         ("dart", "Dart", "dartGreeting", ""),
@@ -57,6 +58,12 @@ impl TacLanguage {
             "Java",
             "javaGreeting",
             "Java services reach every target as WebAssembly through TeaVM 0.15.0. Tachyon can install TeaVM into its cache, or you point TAC_TEAVM_HOME at the TeaVM jars.",
+        ),
+        (
+            "py,python",
+            "Python",
+            "pythonGreeting",
+            "Python services run on the web in the pinned Pyodide runtime. Copy its five core files into the folder that ty doctor names; ty does not download them.",
         ),
     ];
 
@@ -108,6 +115,7 @@ impl Choice for TacLanguage {
         Self::Swift,
         Self::Kotlin,
         Self::Java,
+        Self::Python,
     ];
     const QUESTION: &'static str =
         "Which languages do you want for the pages (Tac)? You can choose more than one.";
