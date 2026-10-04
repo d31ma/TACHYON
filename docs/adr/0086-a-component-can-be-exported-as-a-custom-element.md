@@ -91,7 +91,7 @@ service belongs to an exported element, the element also dispatches a DOM
 
 Tac listeners still receive the event as before. Each element owns its own
 events when its service is created for each element (`@NeedsAll` or
-`@Lifetime('prototype')`). A singleton service is shared by every element on
+`@Lifetime({"value":"prototype"})`). A singleton service is shared by every element on
 the page, so its events come from the element that started it last.
 
 ### Slots and styles: shadow DOM

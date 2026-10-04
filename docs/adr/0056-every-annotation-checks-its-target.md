@@ -102,3 +102,21 @@ accepted, and `@Order` without `@OnEvent` was accepted in some languages.
   and shows the new one; `ty migrate fix --write` converts it and adds
   `from typing import Annotated`. The website checks every published Python
   file with `python3 -m py_compile`.
+
+## Amendment 2026-10-04: Python Tac reach, F# streams and Java
+
+- Python Tac services have no behavior, storage or listener adapter (ADR
+  0093). The table's Tac lists for those annotations (`TAC_BEHAVIOR_ADAPTER`
+  and `TAC_LISTENER`) leave Python out, so the table refuses them once with
+  its usual message, and tools that read the table see the refusal.
+- `StreamRoute` lists F# in Yon. F# stream members return `seq<'T>` or
+  `IAsyncEnumerable<'T>`, and the parser message already named F#.
+- Java Tac services stay outside the table's Tac language list for now.
+  TeaVM services are read by their own declaration reader, which accepts
+  only the annotations that the TeaVM path lowers and refuses the rest with
+  `TY1405`. Adding Java to the Tac list would make the table refuse Java a
+  second time, with a different code, wherever its lists and the reader's
+  list differ. The table lists Java only where a shared path reads it
+  (`Service`, `NeedsAll`). Java joins the Tac list when the TeaVM reader
+  reads the table instead of its own list; until then, tools take Java's
+  refusals from `TY1405`.

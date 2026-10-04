@@ -40,6 +40,19 @@ machine contracts have their own, independent major versions.
   `client/remotes` get their methods written, C++ test units run with
   clang++, `ty doctor` lists em++ and clang++, and `ty init --tac cpp` writes
   a C++ greeting service, its test and `client/.clangd`.
+- `ty init --tac py` and `ty add language client py` scaffold a Python Tac
+  greeting service with its test, and write the pinned `tac.python` runtime
+  setting into `client/manifest.json` (ADR 0093). `ty doctor` still names the
+  folder for the Pyodide files.
+- Yon JavaScript and TypeScript handlers run with Bun when `node` is not on
+  `PATH` and `bun` is, so a machine where `ty` installed Bun runs them
+  without `YON_JAVASCRIPT_RUNTIME`. Node.js stays the first choice.
+- `ty cache status` lists the per-language build caches (`dotnet-web`,
+  `go-wasm`, `swift-wasm`, `kotlin-wasm`, `java-wasm`, `rust-wasm`,
+  `dart-wasm`, `ruby-web`, `lua-web`, `typescript`), and `ty cache clean`
+  removes them with the runtime cache. Installed tools in the cache (the
+  Pyodide files and TeaVM) stay.
+
 - `server.environment` in `server/application.json` passes chosen variables
   of `ty`'s environment to handler processes in every Yon language, such as
   `["HOME", "AWS_*", "HD_*"]`: exact names and prefix patterns ending in `*`.
@@ -138,6 +151,12 @@ machine contracts have their own, independent major versions.
 - Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
 
 ### Security
+
+- Build settings in the `tac` member of `client/manifest.json` (`outgoing`,
+  `budgets`, `visibility`, `types`, `tests`, `accessibility`, `simplify`,
+  `go` and `dotnet`) no longer reach the public settings that services bind,
+  like the other Tachyon members before them. A Tac service cannot read the
+  outgoing host list or the build switches with `Settings` or `Setting`.
 
 - `ty` no longer passes `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host`,
   `X-Forwarded-Proto`, `X-Forwarded-Port`, `X-Forwarded-Prefix` or
@@ -306,6 +325,29 @@ machine contracts have their own, independent major versions.
   any default, including nested brackets, strings with brackets or `#`, and
   defaults that span several lines. A field that shares its line with another
   statement after `;` now stops the build with an error that names the field.
+- `ty test` loads `server/application.json`, so Yon test units get the
+  variables that `server.environment` passes, as handlers do under
+  `ty serve`.
+- Yon dependency inference skips constants: a PHP `private const LIMIT = 10;`,
+  a Dart `static const limit = 10;` or a Java
+  `private static final Map<String, Object> DEFAULTS = ...` next to a `Needs`
+  field no longer stops the service with "Cannot infer dependencies from this
+  member".
+- The annotation rule table lists F# for `StreamRoute` in Yon, as the parser
+  message and the guides already did.
+- A Python Tac service that uses a browser API, such as `Clock()`, fails at
+  build time with `TY1605` instead of at run time.
+- Python Tac services refuse `LocalState`, `SessionState`, the caching
+  annotations, `PageDefaults`, `Retry`, `MaxAtOnce` and `AllOrNothing`
+  once, with `TY1308` "... is not available in Python Tac code". Before, a
+  saved field built but was never saved, and the behavior annotations failed
+  with two different messages. `OnEvent`, `Order`, `InBackground`, the
+  `ApplicationEventPublisher` and topics keep working in Python Tac.
+- `ty add language` and `ty init` help list every language they accept:
+  client `py`, and server `fs` and `groovy`.
+- The English word list of the design checks is stored compressed with
+  Brotli in `ty`: 1,100,634 bytes become 259,421.
+
 - Method coverage records a JavaScript or TypeScript utility in
   `client/shared/utils` that a file imports by its path (`/shared/utils/...`
   or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript

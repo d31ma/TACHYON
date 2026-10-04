@@ -101,7 +101,7 @@ otherwise the request goes to the same browser host as Dart and C#, with the
 same limits, omitted credentials and cache rules. A `Cached` miss sends a
 public read; the first miss after a successful `ClearCache` or `UpdateCache`
 revalidates. An answer of the wrong shape fails with `HTTP_RESPONSE`.
-`Retry`, `ConcurrencyLimit` and `AllOrNothing` are refused on async client
+`Retry`, `MaxAtOnce` and `AllOrNothing` are refused on async client
 methods for now.
 
 A service gets the client with `#[Needs] name: std::sync::Arc<Client>`; its

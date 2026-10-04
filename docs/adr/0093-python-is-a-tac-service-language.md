@@ -77,6 +77,21 @@ These fail at build time with `TY1605`, which names the file:
 - Constructor arguments that are not typed `Needs` or `NeedsAll` fields, and
   `Needs` fields that name no Python provider.
 - A missing, changed or incomplete runtime.
+- (Amended 2026-10-04) A browser API in the service's code, such as
+  `Clock()`, `SecureRandom` or `Geolocation`. The runtime has no browser API
+  adapter, so the use failed only at run time before. Use the API in a
+  JavaScript, TypeScript or compiled service and pass the value to the Python
+  service as an argument.
+
+(Amended 2026-10-04) The Python runtime has no behavior, storage or listener
+adapter. The annotation rule table (ADR 0056) therefore leaves Python out of
+`LocalState`, `SessionState`, `CacheSettings`, `Cached`, `CacheKey`,
+`ClearCache`, `UpdateCache`, `PageDefaults`, `Retry`, `MaxAtOnce`,
+`AllOrNothing`, `OnEvent`, `Order` and `InBackground` in Tac. A Python Tac
+service with one of them fails once, with `TY1308` "... is not available in
+Python Tac code; it works in ...". Before, a saved field built and was never
+saved, and a synchronous `@retry` method failed with "must use async def"
+while an `async def` failed with `TY1605`.
 
 At run time a request or answer over 1 MiB, a member request over 64 KiB,
 more than 256 live owners, or a call on a busy owner is refused. Python runs
@@ -90,6 +105,11 @@ of it.
 
 Python Tac test units run with `ty test`, under the same supervisor as the
 other languages.
+
+(Amended 2026-10-04) `ty init --tac py` and `ty add language client py`
+scaffold a Python greeting service with its test, and write the pinned
+`tac.python` setting into `client/manifest.json`. The developer still copies
+the runtime files; `ty doctor` names the folder.
 
 ## Consequences
 

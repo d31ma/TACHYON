@@ -135,6 +135,15 @@ Never put a secret in it, including in `tac.application`.
 | `tac.nativeCapabilities` | The operating system features that native services may use, such as `["filePicker"]`. Each name may appear once; `filePicker` is the only name today. Without the grant, the file picker answers `denied` before any dialog opens. The grant does not replace the user's consent or the platform's signing entitlements (ADR 0089). | build, native |
 | `tac.origin` | The site's public address, such as `https://example.com`, without a path. It turns on the built-in `sitemap.xml` and `robots.txt`, and a `canonical` or `image` that starts with `/` is joined to it. | build |
 | `tac.scripts`, `tac.styles` | Up to 8 local paths each, such as `/shared/app.js`, linked into every page. | build |
+| `tac.scriptSources` | For each third-party script in `tac.scripts`, its `package`, `version`, `license` and pinned `sha256`. The file stays in `client/shared/` and is listed in both settings (`TY1365`); bytes that do not match the pinned SHA-256 fail with `TY1403`. | build |
+| `tac.styleSources` | The kind of each style in `tac.styles`: `{"kind": "foundation"}` for the project's own foundation styles, or `{"kind": "vendor", ...}` with the same `package`, `version`, `license` and `sha256` as a script source. | build |
+| `tac.browserApis` | The browser APIs that need the user's consent and that services may use: any of `clipboard`, `share`, `notifications` and `geolocation`, each once. Any other name stops the build (`TY1601`); the page refuses an API that is not listed (ADR 0065). | build, browser |
+| `tac.elements` | The components that the build also exports as custom elements, such as `["shop-counter"]`. A name without a hyphen, or a name that is not a component, stops the build (`TY1358`, ADR 0086). | build |
+| `tac.application.menus` | The native File, View and Help menu items. An item's action names a client Rust application service, its method and an optional event model (`TY1370`, ADR 0097). | native |
+| `tac.python` | `{"runtime": "pyodide-314.0.7", "profile": "offline"}` turns on Python services on the web. Any other value stops the build. `ty init` and `ty add language client py` write it (ADR 0093). | build |
+| `tac.go.compiler` | `"tinygo"` or `"go"`: the compiler for Go web services. Without it, a release build tries TinyGo first and falls back to Go. | build |
+| `tac.dotnet.aot` | `true` compiles C# and F# web services ahead of time in a release build: faster for heavy computing, but a larger download. | build |
+| `tac.budgets.script`, `tac.budgets.webassembly`, `tac.budgets.check` | The size budget of every route in kilobytes: 200 for scripts and 3584 for WebAssembly unless set. `check: false` turns the budget check (`TY1337`) off. | build |
 | `tac.cache` | Up to 64 `{ "path", "policy" }` rules for the service worker; `policy` is `cache-first`, `network-first` or `no-store`, and `*` in `path` matches the rest of a path. | build |
 | `tac.metadata` | `defaults` and `routes`: page head values (`title`, `description`, `canonical`, `image`, `siteName`, `lang`, `noindex`). `routes` is keyed by route, such as `/docs/_topic`; each page gets its route entry over the defaults. | build |
 | `tac.sitemap` | For a page route with one path variable, the values to list: `{ "data": "/shared/data/items.json", "values": "/items", "field": "id" }`. `values` is a JSON pointer to a list; `field` picks a member of each listed object. | build |
@@ -143,14 +152,20 @@ Never put a secret in it, including in `tac.application`.
 | `tac.duplication.check` | `false` turns off the duplication check (`TY1315`, ADR 0064) for Tac code. Use it only while you migrate. | build |
 | `tac.implicitmembers.suggest` | `true` turns on suggestions (`TY1362`) to drop a receiver such as `this.` that the language does not need before a class member. Off by default. Keep a receiver when a local name hides the member, inside a closure, and in a Dart constructor parameter such as `this.name`. This is a build setting, not service configuration. | build, migrate |
 | `tac.dependencies.check`, `tac.names.check`, `tac.signatures.check`, `tac.constants.check`, `tac.visibility.check`, `tac.types.check` | `false` turns off one design rule (`TY1327` to `TY1330`, ADR 0069; `TY1333`, ADR 0071; `TY1356`, ADR 0079, off until set to `true`) for Tac code: dependencies point down, plain-English names, small signatures, named values. Use them only while you migrate. | build |
+| `tac.tests.check` | `false` turns off the test-case rule (`TY1339`) for Tac code. Use it only while you migrate. | build |
+| `tac.accessibility.check` | `false` turns off the accessible-view check (`TY1336`, ADR 0074). Use it only while you migrate. | build |
+| `tac.simplify.suggest` | `false` hides the simpler-form suggestions for Tac code. | build |
 | `tac.names.words` | Words of your domain, such as a brand or a product name, that Tac names may use (`TY1328`, ADR 0069), for example `["fylo"]`. Lowercase. | build |
 
 ### `server/application.json`
 
 This file is Yon's configuration. The file itself is the `yon` namespace: its
 members are `yon.*` paths, with no root key. Tachyon reads `server`,
-`datasource`, `redis`, `topics`, `outgoing`, `cohesion`, `duplication`, `dependencies`, `names`, `signatures` and `constants`. Every other member belongs to the application. A
-profile file has the same shape.
+`datasource`, `redis`, `topics`, `outgoing`, `cohesion`, `duplication`, `dependencies`, `names`, `signatures`, `constants`, `visibility`, `types`, `tests`, `simplify` and `implicitmembers`. Every other member belongs to the application. A
+profile file has the same shape. `server` is a closed set: it holds only
+`host`, `port`, `hosts`, `proxies` and `environment`, and any other member
+stops the server with "yon.server supports only host, port, hosts, proxies and
+environment."
 
 | Path | Meaning |
 | --- | --- |
@@ -171,6 +186,8 @@ profile file has the same shape.
 | `duplication.check` | `false` turns off the duplication check (`TY1315`, ADR 0064) for Yon code. Use it only while you migrate. |
 | `implicitmembers.suggest` | `true` turns on suggestions (`TY1362`) to drop a receiver such as `this.` that the language does not need before a class member in Yon code. Off by default. Keep a receiver when a local name hides the member or the code is in a nested scope. |
 | `dependencies.check`, `names.check`, `signatures.check`, `constants.check`, `visibility.check`, `types.check` | `false` turns off one design rule (`TY1327` to `TY1330`, ADR 0069; `TY1333`, ADR 0071; `TY1356`, ADR 0079, off until set to `true`) for Yon code. Use them only while you migrate. |
+| `tests.check` | `false` turns off the test-case rule (`TY1339`) for Yon code. Use it only while you migrate. |
+| `simplify.suggest` | `false` hides the simpler-form suggestions for Yon code. |
 | `names.words` | Words of your domain that Yon names may use (`TY1328`, ADR 0069), for example `["fylo"]`. Lowercase. |
 | anything else | The application's own settings. For example, `catalog.page.size` is `yon.catalog.page.size` and `YON_CATALOG_PAGE_SIZE`. |
 
@@ -289,6 +306,11 @@ Tac's configuration is the `tac` member of `client/manifest.json`.
 - Web bundles and staged native bundles carry the same file.
 - The manifest's own members (`name`, `icons`, `start_url`) belong to the
   browser. They are not configuration. Only `tac` binds.
+- The Tachyon members of `tac` in the field reference above (`origin`,
+  `application`, `scripts`, `styles`, `outgoing`, `budgets`, the `check` and
+  `suggest` switches, `python`, `go`, `dotnet` and the others) are build
+  settings. Tachyon removes them before services bind, so `Settings` and
+  `Setting` never see them.
 - No profile overlays it.
 - Compilation never opens `.env` or a Yon profile. It never publishes the `yon`
   namespace.

@@ -33,9 +33,12 @@ unit), and a native target has no browser at all.
    only what a test checks:
    - Fields and methods, `publishEvent` and `@OnEvent`, `@Store` and caches,
      `@LocalState` and `@SessionState`: all five languages.
-   - `@HTTPClient`, `@StreamRequest` and `@SocketRequest`: JavaScript and
-     TypeScript only. Answers and messages reach the other languages as typed
-     events.
+   - `@StreamRequest` and `@SocketRequest`: JavaScript and TypeScript only.
+     Their messages reach the other languages as typed events.
+   - `@HTTPClient` (amended 2026-10-04): JavaScript, TypeScript, Dart, Rust,
+     Go, C# and F# reach the browser HTTP host directly (ADR 0090). Swift,
+     Kotlin, Java and Ruby send requests through a Setup's synchronous HTTP
+     adapter (ADR 0087). Python and Lua are refused (TY1308).
    - The standard library in the page (`tac_web::reach_tests`, run in node
      with the real toolchains): Go, C#, Dart and Ruby have the current time,
      random numbers and console output. Go `time.Sleep` and C#
