@@ -468,3 +468,5 @@ async fn fylo_repository_round_trip() {
     assert!(is_rejected(&store, &ghost).await);
     store.close().await;
 }
+
+mod fylo_documents;

@@ -37,6 +37,7 @@ impl ManagedStorage {
     const MAX_BYTES: usize = 1024 * 1024;
     const MAX_ROWS: usize = 100;
     const OPERATION_TIMEOUT: Duration = Duration::from_secs(5);
+    const SCROLL_TIMEOUT: Duration = Duration::from_secs(30);
     const MAX_TRANSACTIONS: usize = 4;
     const TRANSACTION_TIMEOUT: Duration = Duration::from_secs(10);
     const REPOSITORY_COMMAND_KEYS: [&str; 8] = [
@@ -81,11 +82,19 @@ impl ManagedStorage {
             .admission
             .try_acquire()
             .map_err(|_| failure("Managed storage admission is closed or full."))?;
-        tokio::time::timeout(Self::OPERATION_TIMEOUT, self.dispatch(command))
+        tokio::time::timeout(Self::deadline(command), self.dispatch(command))
             .await
             .map_err(|_| {
                 failure("Managed storage operation deadline exceeded; writes may have committed.")
             })?
+    }
+
+    fn deadline(command: &Value) -> Duration {
+        let is_scroll = command["operation"] == "document" && command["command"] == "scroll";
+        if is_scroll {
+            return Self::SCROLL_TIMEOUT;
+        }
+        Self::OPERATION_TIMEOUT
     }
 
     async fn dispatch(&self, command: &Value) -> Result<Value, Failure> {
@@ -94,6 +103,12 @@ impl ManagedStorage {
         }
         if let Some(transaction) = command.get("transaction") {
             return self.execute_in_transaction(command, transaction).await;
+        }
+        let needs_fylo = matches!(command["operation"].as_str(), Some("document" | "queue"));
+        if needs_fylo && self.fylo.is_none() {
+            return Err(failure(
+                "Document and queue commands need the FYLO datasource (driver fylo).",
+            ));
         }
         let result = if command["operation"] == "redis" {
             self.redis_store()?.execute(command).await?

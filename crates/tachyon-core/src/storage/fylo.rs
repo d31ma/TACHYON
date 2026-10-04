@@ -1,5 +1,15 @@
+mod collection_name;
+mod document_commands;
+mod queue_commands;
+mod queue_name;
+mod scroll_page;
+mod scroll_request;
+mod scroll_snapshot;
+mod scroll_snapshots;
+
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde_json::{Map, Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -12,10 +22,16 @@ use super::dialect::{
 };
 use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
+pub(super) use collection_name::CollectionName;
+use document_commands::DocumentCommands;
+use queue_commands::QueueCommands;
+use scroll_snapshots::ScrollSnapshots;
 
 pub(super) struct FyloStore {
     root: PathBuf,
     process: Mutex<Option<FyloProcess>>,
+    closed: AtomicBool,
+    scrolls: Mutex<ScrollSnapshots>,
 }
 
 struct FyloProcess {
@@ -55,16 +71,21 @@ impl FyloStore {
         Ok(Self {
             root,
             process: Mutex::new(Some(process)),
+            closed: AtomicBool::new(false),
+            scrolls: Mutex::new(ScrollSnapshots::new()),
         })
     }
 
     pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
         let operation = text(command, "operation")?;
-        if operation == "sql" {
-            return self.sql(command).await;
+        match operation {
+            "sql" => return self.sql(command).await,
+            "document" => return DocumentCommands::new(self).execute(command).await,
+            "queue" => return QueueCommands::new(self).execute(command).await,
+            _ => {}
         }
         object_keys(command, &ManagedStorage::REPOSITORY_COMMAND_KEYS)?;
-        let collection = identifier(text(command, "table")?)?;
+        let collection = CollectionName::checked(text(command, "table")?)?;
         let id_field = identifier(text(command, "idField")?)?;
         match operation {
             "save" => self.save(command, collection, id_field).await,
@@ -79,6 +100,7 @@ impl FyloStore {
     }
 
     pub(super) async fn close(&self) {
+        self.closed.store(true, Ordering::Release);
         if let Some(mut process) = self.process.lock().await.take() {
             let _ = process.stdin.shutdown().await;
             let _ = process.child.kill().await;
@@ -323,20 +345,34 @@ impl FyloStore {
         }
     }
 
-    async fn call(&self, operation: &str, mut fields: Value) -> Result<Value, FyloError> {
-        fields["op"] = json!(operation);
+    async fn call(&self, operation: &str, fields: Value) -> Result<Value, FyloError> {
+        let mut answers = self.call_together(vec![(operation, fields)]).await?;
+        Ok(answers.pop().unwrap_or(Value::Null))
+    }
+
+    async fn call_together(&self, requests: Vec<(&str, Value)>) -> Result<Vec<Value>, FyloError> {
         let mut guard = self.process.lock().await;
-        let process = guard
-            .as_mut()
-            .ok_or_else(|| FyloError::protocol("FYLO datasource is closed."))?;
-        let answer = process.request(fields).await;
-        let is_protocol_error = answer
-            .as_ref()
-            .is_err_and(|error| error.code == "EPROTOCOL");
-        if is_protocol_error && let Ok(fresh) = FyloProcess::spawn(&self.root) {
-            *process = fresh;
+        if self.closed.load(Ordering::Acquire) {
+            return Err(FyloError::protocol("FYLO datasource is closed."));
         }
-        answer
+        let mut process = match guard.take() {
+            Some(process) => process,
+            None => FyloProcess::spawn(&self.root)?,
+        };
+        let mut answers = Vec::with_capacity(requests.len());
+        for (operation, mut fields) in requests {
+            fields["op"] = json!(operation);
+            match process.request(fields).await {
+                Ok(answer) => answers.push(answer),
+                Err(error) if error.code == "EPROTOCOL" => return Err(error),
+                Err(error) => {
+                    *guard = Some(process);
+                    return Err(error);
+                }
+            }
+        }
+        *guard = Some(process);
+        Ok(answers)
     }
 }
 
@@ -607,6 +643,13 @@ impl FyloError {
 
     fn missing(&self) -> bool {
         matches!(self.code.as_str(), "EINVALIDDOCID" | "ENATIVE_NOT_FOUND")
+    }
+
+    fn collection_missing(&self) -> bool {
+        matches!(
+            self.code.as_str(),
+            "ENOTFOUND" | "ECOLLECTION_NOT_FOUND" | "ENATIVE_UNSAFE_PATH" | "ENATIVE_NOT_FOUND"
+        )
     }
 
     fn into_failure(self) -> Failure {
