@@ -5,6 +5,6 @@ class ReportController
   # @return [Hash]
   #[GetRoute]
   def get_report(request)
-    relay(["ruby", "server/helpers/ReportDelegate.rb"], request)
+    relay(["perl", "server/relays/report.pl"], request)
   end
 end

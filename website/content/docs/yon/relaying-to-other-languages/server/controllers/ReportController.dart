@@ -5,5 +5,5 @@ import 'package:shelf/shelf.dart';
 class ReportController {
   @GetRoute
   Future<Response> getReport(Request request) =>
-      relay(['ruby', 'server/helpers/ReportDelegate.rb'], request);
+      relay(['perl', 'server/relays/report.pl'], request);
 }

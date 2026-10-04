@@ -5,4 +5,4 @@ open System.Net.Http
 type ReportController() =
     [<GetRoute>]
     member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =
-        Yon.Relay([| "ruby"; "server/helpers/ReportDelegate.rb" |], request)
+        Yon.Relay([| "perl"; "server/relays/report.pl" |], request)

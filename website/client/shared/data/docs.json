@@ -763,7 +763,7 @@
             },
             {
               "name": "client/services/GuideService.rs",
-              "code": "use crate::models::Guide;\n\nstruct GuideService {\n    title: String,\n    pages: i64,\n}\n\nimpl GuideService {\n    fn new() -> Self {\n        let guide = Guide { title: String::from(\"Models hold types\"), pages: 3 };\n        Self { title: guide.title, pages: guide.pages }\n    }\n}\n"
+              "code": "use crate::models::Guide;\n\n#[Service]\nstruct GuideService {\n    title: String,\n    pages: i64,\n}\n\nimpl GuideService {\n    fn new() -> Self {\n        let guide = Guide { title: String::from(\"Models hold types\"), pages: 3 };\n        Self { title: guide.title, pages: guide.pages }\n    }\n}\n"
             },
             {
               "name": "client/models/Guide.rs",
@@ -771,7 +771,7 @@
             },
             {
               "name": "client/services/GuideService.go",
-              "code": "type GuideService struct {\n\tTitle string\n\tPages int64\n}\n\n// @OnStart\nfunc (service *GuideService) Start() {\n\tguide := Guide{Title: \"Models hold types\", Pages: 3}\n\tservice.Title = guide.Title\n\tservice.Pages = guide.Pages\n}\n"
+              "code": "// @Service\ntype GuideService struct {\n\tTitle string\n\tPages int64\n}\n\n// @OnStart\nfunc (service *GuideService) Start() {\n\tguide := Guide{Title: \"Models hold types\", Pages: 3}\n\tservice.Title = guide.Title\n\tservice.Pages = guide.Pages\n}\n"
             },
             {
               "name": "client/models/Guide.go",
@@ -779,11 +779,11 @@
             },
             {
               "name": "client/services/GuideService.cs",
-              "code": "using Models;\n\npublic class GuideService {\n    public string title;\n    public int pages;\n\n    public GuideService() {\n        var guide = new Guide(\"Models hold types\", 3);\n        title = guide.Title;\n        pages = guide.Pages;\n    }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class GuideService {\n    public string title;\n    public int pages;\n\n    public GuideService() {\n        var guide = new Guide(\"Models hold types\", 3);\n        title = guide.Title;\n        pages = guide.Pages;\n    }\n}\n"
             },
             {
               "name": "client/services/GuideService.fs",
-              "code": "open Models\n\ntype GuideService() =\n    let guide = { Title = \"Models hold types\"; Pages = 3 }\n\n    member this.Title : string = guide.Title\n\n    member this.Pages : int = guide.Pages\n"
+              "code": "open Models\n\n[<Service>]\ntype GuideService() =\n    let guide = { Title = \"Models hold types\"; Pages = 3 }\n\n    member this.Title : string = guide.Title\n\n    member this.Pages : int = guide.Pages\n"
             },
             {
               "name": "client/models/Guide.cs",
@@ -803,7 +803,7 @@
             },
             {
               "name": "client/services/GuideService.kt",
-              "code": "import models.Guide\n\nclass GuideService {\n    var title: String = \"\"\n    var pages: Int = 0\n\n    init {\n        val guide = Guide(\"Models hold types\", 3)\n        title = guide.title\n        pages = guide.pages\n    }\n}\n"
+              "code": "import models.Guide\n\n@Service\nclass GuideService {\n    var title: String = \"\"\n    var pages: Int = 0\n\n    init {\n        val guide = Guide(\"Models hold types\", 3)\n        title = guide.title\n        pages = guide.pages\n    }\n}\n"
             },
             {
               "name": "client/models/Guide.kt",
@@ -811,7 +811,7 @@
             },
             {
               "name": "client/services/GuideService.swift",
-              "code": "final class GuideService {\n    var title: String\n    var pages: Int\n\n    init() {\n        let guide = Guide(title: \"Models hold types\", pages: 3)\n        title = guide.title\n        pages = guide.pages\n    }\n}\n"
+              "code": "@Service\nfinal class GuideService {\n    var title: String\n    var pages: Int\n\n    init() {\n        let guide = Guide(title: \"Models hold types\", pages: 3)\n        title = guide.title\n        pages = guide.pages\n    }\n}\n"
             },
             {
               "name": "client/models/Guide.swift",
@@ -851,7 +851,7 @@
             },
             {
               "name": "client/services/GuideService.rb",
-              "code": "class GuideService\n  # @return [String]\n  attr_reader :title\n  # @return [Integer]\n  attr_reader :pages\n\n  # @return [void]\n  #[OnStart]\n  def start\n    guide = Guide.new(title: \"Models hold types\", pages: 3)\n    @title = guide.title\n    @pages = guide.pages\n  end\nend\n"
+              "code": "#[Service]\nclass GuideService\n  # @return [String]\n  attr_reader :title\n  # @return [Integer]\n  attr_reader :pages\n\n  # @return [void]\n  #[OnStart]\n  def start\n    guide = Guide.new(title: \"Models hold types\", pages: 3)\n    @title = guide.title\n    @pages = guide.pages\n  end\nend\n"
             },
             {
               "name": "client/models/Guide.rb",
@@ -955,7 +955,7 @@
             },
             {
               "name": "client/services/GuideService.lua",
-              "code": "---@class GuideService\nGuideService = {\n  ---@type string\n  title = \"\",\n  ---@type integer\n  pages = 0,\n}\n\n---@return nil\n-- @OnStart\nfunction GuideService:start()\n  local guide = setmetatable({ title = \"Models hold types\", pages = 3 }, Guide)\n  self.title = guide.title\n  self.pages = guide.pages\nend\n"
+              "code": "-- @Service\n---@class GuideService\nGuideService = {\n  ---@type string\n  title = \"\",\n  ---@type integer\n  pages = 0,\n}\n\n---@return nil\n-- @OnStart\nfunction GuideService:start()\n  local guide = setmetatable({ title = \"Models hold types\", pages = 3 }, Guide)\n  self.title = guide.title\n  self.pages = guide.pages\nend\n"
             },
             {
               "name": "client/models/Guide.lua",
@@ -1952,27 +1952,27 @@
             },
             {
               "name": "client/services/CatalogService.swift",
-              "code": "class CatalogService {\n    var count: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func initialize() { announce() }\n\n    private func announce() { applicationEventPublisher.publishEvent(CatalogCount(count: 5)) }\n\n    @OnEvent\n    func changed(_ value: CatalogCount) { count = value.count }\n\n    @OnStop\n    func cleanup() { count = 0 }\n}\n"
+              "code": "@Service\nclass CatalogService {\n    var count: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func initialize() { announce() }\n\n    private func announce() { applicationEventPublisher.publishEvent(CatalogCount(count: 5)) }\n\n    @OnEvent\n    func changed(_ value: CatalogCount) { count = value.count }\n\n    @OnStop\n    func cleanup() { count = 0 }\n}\n"
             },
             {
               "name": "client/services/CatalogService.kt",
-              "code": "import models.CatalogCount\n\nclass CatalogService {\n    var count: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun initialize() { announce() }\n\n    private fun announce() { applicationEventPublisher.publishEvent(CatalogCount(5)) }\n\n    @OnEvent\n    fun changed(value: CatalogCount) { count = value.count }\n\n    @OnStop\n    fun cleanup() { count = 0 }\n}\n"
+              "code": "import models.CatalogCount\n\n@Service\nclass CatalogService {\n    var count: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun initialize() { announce() }\n\n    private fun announce() { applicationEventPublisher.publishEvent(CatalogCount(5)) }\n\n    @OnEvent\n    fun changed(value: CatalogCount) { count = value.count }\n\n    @OnStop\n    fun cleanup() { count = 0 }\n}\n"
             },
             {
               "name": "client/services/CatalogService.java",
-              "code": "import models.CatalogCount;\n\nclass CatalogService {\n    int count = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @OnStart\n    void initialize() { announce(); }\n\n    private void announce() { applicationEventPublisher.publishEvent(new CatalogCount(5)); }\n\n    @OnEvent\n    void changed(CatalogCount value) { count = value.count(); }\n\n    @OnStop\n    void cleanup() { count = 0; }\n}\n"
+              "code": "import models.CatalogCount;\n\n@Service\nclass CatalogService {\n    int count = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @OnStart\n    void initialize() { announce(); }\n\n    private void announce() { applicationEventPublisher.publishEvent(new CatalogCount(5)); }\n\n    @OnEvent\n    void changed(CatalogCount value) { count = value.count(); }\n\n    @OnStop\n    void cleanup() { count = 0; }\n}\n"
             },
             {
               "name": "client/services/CatalogService.cs",
-              "code": "using Models;\n\npublic class CatalogService {\n    public int Count = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Initialize() { Announce(); }\n\n    private void Announce() { applicationEventPublisher.PublishEvent(new CatalogCount(5)); }\n\n    [OnEvent]\n    public void Changed(CatalogCount value) { Count = value.Count; }\n\n    [OnStop]\n    public void Cleanup() { Count = 0; }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class CatalogService {\n    public int Count = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Initialize() { Announce(); }\n\n    private void Announce() { applicationEventPublisher.PublishEvent(new CatalogCount(5)); }\n\n    [OnEvent]\n    public void Changed(CatalogCount value) { Count = value.Count; }\n\n    [OnStop]\n    public void Cleanup() { Count = 0; }\n}\n"
             },
             {
               "name": "client/services/CatalogService.rs",
-              "code": "use crate::models::CatalogCount;\n\n#[derive(Default)]\nstruct CatalogService {\n    count: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CatalogService {\n    #[OnStart]\n    fn initialize(&mut self) { self.announce(); }\n\n    fn announce(&self) {\n        self.application_event_publisher.publish_event(CatalogCount { count: 5 }, false);\n    }\n\n    #[OnEvent]\n    fn changed(&mut self, value: CatalogCount) { self.count = value.count; }\n\n    #[OnStop]\n    fn cleanup(&mut self) { self.count = 0; }\n}\n"
+              "code": "use crate::models::CatalogCount;\n\n#[derive(Default)]\n#[Service]\nstruct CatalogService {\n    count: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CatalogService {\n    #[OnStart]\n    fn initialize(&mut self) { self.announce(); }\n\n    fn announce(&self) {\n        self.application_event_publisher.publish_event(CatalogCount { count: 5 }, false);\n    }\n\n    #[OnEvent]\n    fn changed(&mut self, value: CatalogCount) { self.count = value.count; }\n\n    #[OnStop]\n    fn cleanup(&mut self) { self.count = 0; }\n}\n"
             },
             {
               "name": "client/services/CatalogService.go",
-              "code": "type CatalogService struct {\n\tCount                     int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() {\n\tcatalog.announce()\n}\n\nfunc (catalog *CatalogService) announce() {\n\tcatalog.applicationEventPublisher.PublishEvent(CatalogCount{Count: 5}, false)\n}\n\n// @OnEvent\nfunc (catalog *CatalogService) Changed(value CatalogCount) {\n\tcatalog.Count = value.Count\n}\n\n// @OnStop\nfunc (catalog *CatalogService) Cleanup() {\n\tcatalog.Count = 0\n}\n"
+              "code": "// @Service\ntype CatalogService struct {\n\tCount                     int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() {\n\tcatalog.announce()\n}\n\nfunc (catalog *CatalogService) announce() {\n\tcatalog.applicationEventPublisher.PublishEvent(CatalogCount{Count: 5}, false)\n}\n\n// @OnEvent\nfunc (catalog *CatalogService) Changed(value CatalogCount) {\n\tcatalog.Count = value.Count\n}\n\n// @OnStop\nfunc (catalog *CatalogService) Cleanup() {\n\tcatalog.Count = 0\n}\n"
             },
             {
               "name": "client/services/CatalogService.dart",
@@ -5499,19 +5499,19 @@
             },
             {
               "name": "client/services/CatalogService.swift",
-              "code": "class CatalogService {\n    var count: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func initialize() { announce() }\n\n    private func announce() { applicationEventPublisher.publishEvent(CatalogCount(count: 5)) }\n\n    @OnEvent\n    func changed(_ value: CatalogCount) { count = value.count }\n\n    @OnStop\n    func cleanup() { count = 0 }\n}\n"
+              "code": "@Service\nclass CatalogService {\n    var count: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func initialize() { announce() }\n\n    private func announce() { applicationEventPublisher.publishEvent(CatalogCount(count: 5)) }\n\n    @OnEvent\n    func changed(_ value: CatalogCount) { count = value.count }\n\n    @OnStop\n    func cleanup() { count = 0 }\n}\n"
             },
             {
               "name": "client/services/CatalogService.kt",
-              "code": "import models.CatalogCount\n\nclass CatalogService {\n    var count: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun initialize() { announce() }\n\n    private fun announce() { applicationEventPublisher.publishEvent(CatalogCount(5)) }\n\n    @OnEvent\n    fun changed(value: CatalogCount) { count = value.count }\n\n    @OnStop\n    fun cleanup() { count = 0 }\n}\n"
+              "code": "import models.CatalogCount\n\n@Service\nclass CatalogService {\n    var count: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun initialize() { announce() }\n\n    private fun announce() { applicationEventPublisher.publishEvent(CatalogCount(5)) }\n\n    @OnEvent\n    fun changed(value: CatalogCount) { count = value.count }\n\n    @OnStop\n    fun cleanup() { count = 0 }\n}\n"
             },
             {
               "name": "client/services/CatalogService.cs",
-              "code": "using Models;\n\npublic class CatalogService {\n    public int Count = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Initialize() { Announce(); }\n\n    private void Announce() { applicationEventPublisher.PublishEvent(new CatalogCount(5)); }\n\n    [OnEvent]\n    public void Changed(CatalogCount value) { Count = value.Count; }\n\n    [OnStop]\n    public void Cleanup() { Count = 0; }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class CatalogService {\n    public int Count = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Initialize() { Announce(); }\n\n    private void Announce() { applicationEventPublisher.PublishEvent(new CatalogCount(5)); }\n\n    [OnEvent]\n    public void Changed(CatalogCount value) { Count = value.Count; }\n\n    [OnStop]\n    public void Cleanup() { Count = 0; }\n}\n"
             },
             {
               "name": "client/services/CatalogService.rs",
-              "code": "use crate::models::CatalogCount;\n\n#[derive(Default)]\nstruct CatalogService {\n    count: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CatalogService {\n    #[OnStart]\n    fn initialize(&mut self) { self.announce(); }\n\n    fn announce(&self) {\n        self.application_event_publisher.publish_event(CatalogCount { count: 5 }, false);\n    }\n\n    #[OnEvent]\n    fn changed(&mut self, value: CatalogCount) { self.count = value.count; }\n\n    #[OnStop]\n    fn cleanup(&mut self) { self.count = 0; }\n}\n"
+              "code": "use crate::models::CatalogCount;\n\n#[derive(Default)]\n#[Service]\nstruct CatalogService {\n    count: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CatalogService {\n    #[OnStart]\n    fn initialize(&mut self) { self.announce(); }\n\n    fn announce(&self) {\n        self.application_event_publisher.publish_event(CatalogCount { count: 5 }, false);\n    }\n\n    #[OnEvent]\n    fn changed(&mut self, value: CatalogCount) { self.count = value.count; }\n\n    #[OnStop]\n    fn cleanup(&mut self) { self.count = 0; }\n}\n"
             },
             {
               "name": "client/models/CatalogCount.swift",
@@ -6657,60 +6657,60 @@
           "body": "A program that Yon does not run directly can still use Handler Protocol v1. Call `relay(command, request)` yourself from a controller method that takes the request argument. `request` is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request and writes the answer with `http_response_code()`, `header()` and `echo`. The program reads the request as JSON on its standard input: `route` (the path and query), `method`, `headers` and `body`. Yon starts the program without a shell and limits its output. The deadline of the program is the time left in the request. Tachyon counts it after the wait for a process slot and the start of the route. Every relay in the request shares that deadline. The program gets the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows). The allowlist is the list of allowed names. It also gets the names you add to the allowlist (`server.environment`, see Environment variables for handlers), `YON_HANDLER_PROTOCOL` and the `NO_PROXY` values of the route process. Yon removes the other values, so the program does not inherit them by accident. This is not a sandbox (a closed space that blocks access). A program that runs as the same user can still read the environment of its parent. It can also read the files of the project. Every relay failure reaches the controller as HTTP 502. The message is always the same: `Component invocation failed.` Yon removes sensitive details from failures. At the end, it cleans up (reaps) the whole process group.\n\nBreaking change: a relay program no longer receives `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values, even when they are on the allowlist. If a relay program read its configuration from `YON_APPLICATION_JSON`, that must change. The program must now read it from its own files or from a variable on the allowlist.\n\nTo call one method in another language and get a value back, use `@Gateway` instead of forwarding the request. Lua has no tab here, because the build refuses relay in Lua Yon code with TY2015.",
           "files": [
             {
-              "name": "server/helpers/ReportDelegate.rb",
-              "code": "require 'json'\n\nrequest = JSON.parse($stdin.read) rescue {}\nbody = JSON.generate({ 'language' => 'Ruby', 'route' => request['route'] })\nputs JSON.generate({\n  'status' => 200,\n  'headers' => { 'content-type' => ['application/json'] },\n  'body' => body\n})\n"
+              "name": "server/relays/report.pl",
+              "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $input = do { local $/; <STDIN> };\nmy $request = decode_json($input || '{}');\nmy $body = encode_json({ language => 'Perl', route => $request->{route} });\nprint encode_json({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
             },
             {
               "name": "server/controllers/ReportController.js",
-              "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /**\n   * @param {Request} request\n   * @returns {Promise<Response>}\n   */\n  @GetRoute\n  getReport(request) {\n    return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  }\n}\n"
+              "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /**\n   * @param {Request} request\n   * @returns {Promise<Response>}\n   */\n  @GetRoute\n  getReport(request) {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n"
             },
             {
               "name": "server/controllers/ReportController.ts",
-              "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  getReport(request: Request): Promise<Response> {\n    return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  }\n}\n"
+              "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  getReport(request: Request): Promise<Response> {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n"
             },
             {
               "name": "server/controllers/ReportController.py",
-              "code": "@request_route(\"/report\")\n@public\nclass ReportController:\n    @get_route\n    def get_report(self, request: object) -> object:\n        return relay((\"ruby\", \"server/helpers/ReportDelegate.rb\"), request)\n"
+              "code": "@request_route(\"/report\")\n@public\nclass ReportController:\n    @get_route\n    def get_report(self, request: object) -> object:\n        return relay((\"perl\", \"server/relays/report.pl\"), request)\n"
             },
             {
               "name": "server/controllers/ReportController.php",
-              "code": "<?php\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[GetRoute]\n    public function getReport(): void {\n        Yon::relay(['ruby', 'server/helpers/ReportDelegate.rb']);\n    }\n}\n"
+              "code": "<?php\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[GetRoute]\n    public function getReport(): void {\n        Yon::relay(['perl', 'server/relays/report.pl']);\n    }\n}\n"
             },
             {
               "name": "server/controllers/ReportController.java",
-              "code": "import com.sun.net.httpserver.HttpExchange;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange);\n    }\n}\n"
+              "code": "import com.sun.net.httpserver.HttpExchange;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange);\n    }\n}\n"
             },
             {
               "name": "server/controllers/ReportController.groovy",
-              "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange)\n    }\n}\n"
+              "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange)\n    }\n}\n"
             },
             {
               "name": "server/controllers/ReportController.kt",
-              "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    fun getReport(exchange: HttpExchange) =\n        Yon.relay(listOf(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange)\n}\n"
+              "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    fun getReport(exchange: HttpExchange) =\n        Yon.relay(listOf(\"perl\", \"server/relays/report.pl\"), exchange)\n}\n"
             },
             {
               "name": "server/controllers/ReportController.cs",
-              "code": "[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [GetRoute]\n    public HttpResponseMessage GetReport(HttpRequestMessage request) {\n        return Yon.Relay(new[] { \"ruby\", \"server/helpers/ReportDelegate.rb\" }, request);\n    }\n}\n"
+              "code": "[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [GetRoute]\n    public HttpResponseMessage GetReport(HttpRequestMessage request) {\n        return Yon.Relay(new[] { \"perl\", \"server/relays/report.pl\" }, request);\n    }\n}\n"
             },
             {
               "name": "server/controllers/ReportController.fs",
-              "code": "open System.Net.Http\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController() =\n    [<GetRoute>]\n    member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"ruby\"; \"server/helpers/ReportDelegate.rb\" |], request)\n"
+              "code": "open System.Net.Http\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController() =\n    [<GetRoute>]\n    member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"perl\"; \"server/relays/report.pl\" |], request)\n"
             },
             {
               "name": "server/controllers/ReportController.rs",
-              "code": "#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {}\nimpl ReportController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_report(&self, request: &http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {\n        relay(&[\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n    }\n}\n"
+              "code": "#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {}\nimpl ReportController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_report(&self, request: &http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {\n        relay(&[\"perl\", \"server/relays/report.pl\"], request)\n    }\n}\n"
             },
             {
               "name": "server/controllers/ReportController.go",
-              "code": "import \"net/http\"\n\n// @RequestRoute(\"/report\")\n// @Public\ntype ReportController struct {\n}\n\n// @GetRoute\nfunc (controller *ReportController) GetReport(request *http.Request) *http.Response {\n\treturn Relay([]string{\"ruby\", \"server/helpers/ReportDelegate.rb\"}, request)\n}\n"
+              "code": "import \"net/http\"\n\n// @RequestRoute(\"/report\")\n// @Public\ntype ReportController struct {\n}\n\n// @GetRoute\nfunc (controller *ReportController) GetReport(request *http.Request) *http.Response {\n\treturn Relay([]string{\"perl\", \"server/relays/report.pl\"}, request)\n}\n"
             },
             {
               "name": "server/controllers/ReportController.dart",
-              "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  Future<Response> getReport(Request request) =>\n      relay(['ruby', 'server/helpers/ReportDelegate.rb'], request);\n}\n"
+              "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  Future<Response> getReport(Request request) =>\n      relay(['perl', 'server/relays/report.pl'], request);\n}\n"
             },
             {
               "name": "server/controllers/ReportController.rb",
-              "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  # @param request [Hash]\n  # @return [Hash]\n  #[GetRoute]\n  def get_report(request)\n    relay([\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n  end\nend\n"
+              "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  # @param request [Hash]\n  # @return [Hash]\n  #[GetRoute]\n  def get_report(request)\n    relay([\"perl\", \"server/relays/report.pl\"], request)\n  end\nend\n"
             }
           ],
           "axis": "language"
@@ -11917,59 +11917,59 @@
             },
             {
               "name": "client/services/CheckoutService.swift",
-              "code": "final class CheckoutService {\n    var placed: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func start() { place() }\n\n    func place() {\n        placed += 1\n        applicationEventPublisher.publishEvent(PlacedOrder(status: \"paid\", total: 25), true)\n    }\n\n    @OnStop\n    func stop() { placed = 0 }\n}\n"
+              "code": "@Service\nfinal class CheckoutService {\n    var placed: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func start() { place() }\n\n    func place() {\n        placed += 1\n        applicationEventPublisher.publishEvent(PlacedOrder(status: \"paid\", total: 25), true)\n    }\n\n    @OnStop\n    func stop() { placed = 0 }\n}\n"
             },
             {
               "name": "client/services/AuditService.swift",
-              "code": "final class AuditService {\n    private var records: Int = 0\n    var settled: Int = 0\n    private var audited: Int = 0\n\n    @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n    @Order(-10)\n    func record(_ order: PlacedOrder) { records += 1 }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @Order(10)\n    func settle(_ order: PlacedOrder) -> SettledOrder { SettledOrder(total: order.total) }\n\n    @OnEvent\n    func saveSettled(_ order: SettledOrder) { settled = order.total }\n\n    @OnEvent\n    @InBackground\n    func audit(_ order: SettledOrder) { audited = order.total }\n}\n"
+              "code": "@Service\nfinal class AuditService {\n    private var records: Int = 0\n    var settled: Int = 0\n    private var audited: Int = 0\n\n    @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n    @Order(-10)\n    func record(_ order: PlacedOrder) { records += 1 }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @Order(10)\n    func settle(_ order: PlacedOrder) -> SettledOrder { SettledOrder(total: order.total) }\n\n    @OnEvent\n    func saveSettled(_ order: SettledOrder) { settled = order.total }\n\n    @OnEvent\n    @InBackground\n    func audit(_ order: SettledOrder) { audited = order.total }\n}\n"
             },
             {
               "name": "client/services/CheckoutService.kt",
-              "code": "import models.PlacedOrder\n\nclass CheckoutService {\n    var placed: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun start() { place() }\n\n    fun place() {\n        placed += 1\n        applicationEventPublisher.publishEvent(PlacedOrder(\"paid\", 25), true)\n    }\n\n    @OnStop\n    fun stop() { placed = 0 }\n}\n"
+              "code": "import models.PlacedOrder\n\n@Service\nclass CheckoutService {\n    var placed: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun start() { place() }\n\n    fun place() {\n        placed += 1\n        applicationEventPublisher.publishEvent(PlacedOrder(\"paid\", 25), true)\n    }\n\n    @OnStop\n    fun stop() { placed = 0 }\n}\n"
             },
             {
               "name": "client/services/CheckoutService.java",
-              "code": "import models.PlacedOrder;\n\nclass CheckoutService {\n    int placed = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @OnStart\n    void start() { place(); }\n\n    void place() {\n        placed += 1;\n        applicationEventPublisher.publishEvent(new PlacedOrder(\"paid\", 25), true);\n    }\n\n    @OnStop\n    void stop() { placed = 0; }\n}\n"
+              "code": "import models.PlacedOrder;\n\n@Service\nclass CheckoutService {\n    int placed = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @OnStart\n    void start() { place(); }\n\n    void place() {\n        placed += 1;\n        applicationEventPublisher.publishEvent(new PlacedOrder(\"paid\", 25), true);\n    }\n\n    @OnStop\n    void stop() { placed = 0; }\n}\n"
             },
             {
               "name": "client/services/AuditService.kt",
-              "code": "import models.PlacedOrder\nimport models.SettledOrder\n\nclass AuditService {\n    private var records: Int = 0\n    var settled: Long = 0\n    private var audited: Long = 0\n\n    @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n    @Order(-10)\n    fun record(order: PlacedOrder) { records += 1 }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @Order(10)\n    fun settle(order: PlacedOrder): SettledOrder {\n        return SettledOrder(order.total)\n    }\n\n    @OnEvent\n    fun saveSettled(order: SettledOrder) { settled = order.total }\n\n    @OnEvent\n    @InBackground\n    fun audit(order: SettledOrder) { audited = order.total }\n}\n"
+              "code": "import models.PlacedOrder\nimport models.SettledOrder\n\n@Service\nclass AuditService {\n    private var records: Int = 0\n    var settled: Long = 0\n    private var audited: Long = 0\n\n    @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n    @Order(-10)\n    fun record(order: PlacedOrder) { records += 1 }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @Order(10)\n    fun settle(order: PlacedOrder): SettledOrder {\n        return SettledOrder(order.total)\n    }\n\n    @OnEvent\n    fun saveSettled(order: SettledOrder) { settled = order.total }\n\n    @OnEvent\n    @InBackground\n    fun audit(order: SettledOrder) { audited = order.total }\n}\n"
             },
             {
               "name": "client/services/AuditService.java",
-              "code": "import models.PlacedOrder;\nimport models.SettledOrder;\n\nclass AuditService {\n    private int records = 0;\n    long settled = 0;\n    private long audited = 0;\n\n    @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n    @Order(-10)\n    void record(PlacedOrder order) { records += 1; }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @Order(10)\n    SettledOrder settle(PlacedOrder order) {\n        return new SettledOrder(order.total());\n    }\n\n    @OnEvent\n    void saveSettled(SettledOrder order) { settled = order.total(); }\n\n    @OnEvent\n    @InBackground\n    void audit(SettledOrder order) { audited = order.total(); }\n}\n"
+              "code": "import models.PlacedOrder;\nimport models.SettledOrder;\n\n@Service\nclass AuditService {\n    private int records = 0;\n    long settled = 0;\n    private long audited = 0;\n\n    @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n    @Order(-10)\n    void record(PlacedOrder order) { records += 1; }\n\n    @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @Order(10)\n    SettledOrder settle(PlacedOrder order) {\n        return new SettledOrder(order.total());\n    }\n\n    @OnEvent\n    void saveSettled(SettledOrder order) { settled = order.total(); }\n\n    @OnEvent\n    @InBackground\n    void audit(SettledOrder order) { audited = order.total(); }\n}\n"
             },
             {
               "name": "client/services/CheckoutService.cs",
-              "code": "using Models;\n\npublic class CheckoutService {\n    public int Placed = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Start() { Place(); }\n\n    public void Place() {\n        Placed += 1;\n        applicationEventPublisher.PublishEvent(new PlacedOrder(\"paid\", 25), true);\n    }\n\n    [OnStop]\n    public void Stop() { Placed = 0; }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class CheckoutService {\n    public int Placed = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Start() { Place(); }\n\n    public void Place() {\n        Placed += 1;\n        applicationEventPublisher.PublishEvent(new PlacedOrder(\"paid\", 25), true);\n    }\n\n    [OnStop]\n    public void Stop() { Placed = 0; }\n}\n"
             },
             {
               "name": "client/services/CheckoutService.fs",
-              "code": "open Models\n\ntype CheckoutService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Placed = 0 with get, set\n\n    [<OnStart>]\n    member this.Start() : unit =\n        this.Place()\n\n    member this.Place() : unit =\n        this.Placed <- this.Placed + 1\n        applicationEventPublisher.PublishEvent({ Status = \"paid\"; Total = 25L }, true)\n\n    [<OnStop>]\n    member this.Stop() : unit =\n        this.Placed <- 0\n"
+              "code": "open Models\n\n[<Service>]\ntype CheckoutService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Placed = 0 with get, set\n\n    [<OnStart>]\n    member this.Start() : unit =\n        this.Place()\n\n    member this.Place() : unit =\n        this.Placed <- this.Placed + 1\n        applicationEventPublisher.PublishEvent({ Status = \"paid\"; Total = 25L }, true)\n\n    [<OnStop>]\n    member this.Stop() : unit =\n        this.Placed <- 0\n"
             },
             {
               "name": "client/services/AuditService.cs",
-              "code": "using Models;\n\npublic class AuditService {\n    private int Records = 0;\n    public long Settled = 0;\n    private long Audited = 0;\n\n    [OnEvent({\"id\":\"audit-log\",\"replay\":true})]\n    [Order(-10)]\n    public void Record(PlacedOrder order) { Records += 1; }\n\n    [OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n    [Order(10)]\n    public SettledOrder Settle(PlacedOrder order) { return new SettledOrder(order.Total); }\n\n    [OnEvent]\n    public void SaveSettled(SettledOrder order) { Settled = order.Total; }\n\n    [OnEvent]\n    [InBackground]\n    public void Audit(SettledOrder order) { Audited = order.Total; }\n}\n"
+              "code": "using Models;\n\n[Service]\npublic class AuditService {\n    private int Records = 0;\n    public long Settled = 0;\n    private long Audited = 0;\n\n    [OnEvent({\"id\":\"audit-log\",\"replay\":true})]\n    [Order(-10)]\n    public void Record(PlacedOrder order) { Records += 1; }\n\n    [OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n    [Order(10)]\n    public SettledOrder Settle(PlacedOrder order) { return new SettledOrder(order.Total); }\n\n    [OnEvent]\n    public void SaveSettled(SettledOrder order) { Settled = order.Total; }\n\n    [OnEvent]\n    [InBackground]\n    public void Audit(SettledOrder order) { Audited = order.Total; }\n}\n"
             },
             {
               "name": "client/services/AuditService.fs",
-              "code": "open Models\n\ntype AuditService() =\n    let mutable records = 0\n    let mutable audited = 0L\n    member val Settled = 0L with get, set\n\n    [<OnEvent({\"id\":\"audit-log\",\"replay\":true})>]\n    [<Order(-10)>]\n    member this.Record(order: PlacedOrder) : unit =\n        records <- records + 1\n\n    [<OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})>]\n    [<Order(10)>]\n    member this.Settle(order: PlacedOrder) : SettledOrder =\n        { SettledOrder.Total = order.Total }\n\n    [<OnEvent>]\n    member this.SaveSettled(order: SettledOrder) : unit =\n        this.Settled <- order.Total\n\n    [<OnEvent>]\n    [<InBackground>]\n    member this.Audit(order: SettledOrder) : unit =\n        audited <- order.Total\n"
+              "code": "open Models\n\n[<Service>]\ntype AuditService() =\n    let mutable records = 0\n    let mutable audited = 0L\n    member val Settled = 0L with get, set\n\n    [<OnEvent({\"id\":\"audit-log\",\"replay\":true})>]\n    [<Order(-10)>]\n    member this.Record(order: PlacedOrder) : unit =\n        records <- records + 1\n\n    [<OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})>]\n    [<Order(10)>]\n    member this.Settle(order: PlacedOrder) : SettledOrder =\n        { SettledOrder.Total = order.Total }\n\n    [<OnEvent>]\n    member this.SaveSettled(order: SettledOrder) : unit =\n        this.Settled <- order.Total\n\n    [<OnEvent>]\n    [<InBackground>]\n    member this.Audit(order: SettledOrder) : unit =\n        audited <- order.Total\n"
             },
             {
               "name": "client/services/CheckoutService.rs",
-              "code": "use crate::models::PlacedOrder;\n\n#[derive(Default)]\nstruct CheckoutService {\n    placed: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CheckoutService {\n    #[OnStart]\n    fn start(&mut self) { self.place(); }\n\n    fn place(&mut self) {\n        self.placed += 1;\n        let order = PlacedOrder { status: String::from(\"paid\"), total: 25 };\n        self.application_event_publisher.publish_event(order, true);\n    }\n\n    #[OnStop]\n    fn stop(&mut self) { self.placed = 0; }\n}\n"
+              "code": "use crate::models::PlacedOrder;\n\n#[derive(Default)]\n#[Service]\nstruct CheckoutService {\n    placed: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CheckoutService {\n    #[OnStart]\n    fn start(&mut self) { self.place(); }\n\n    fn place(&mut self) {\n        self.placed += 1;\n        let order = PlacedOrder { status: String::from(\"paid\"), total: 25 };\n        self.application_event_publisher.publish_event(order, true);\n    }\n\n    #[OnStop]\n    fn stop(&mut self) { self.placed = 0; }\n}\n"
             },
             {
               "name": "client/services/AuditService.rs",
-              "code": "use crate::models::{PlacedOrder, SettledOrder};\n\n#[derive(Default)]\nstruct AuditService {\n    records: i64,\n    settled: i64,\n    audited: i64,\n}\nimpl AuditService {\n    #[OnEvent({\"id\":\"audit-log\",\"replay\":true})]\n    #[Order(-10)]\n    fn record(&mut self, _order: PlacedOrder) { self.records += 1; }\n\n    #[OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n    #[Order(10)]\n    fn settle(&mut self, order: PlacedOrder) -> SettledOrder {\n        SettledOrder { total: order.total }\n    }\n\n    #[OnEvent]\n    fn save_settled(&mut self, order: SettledOrder) { self.settled = order.total; }\n\n    #[OnEvent]\n    #[InBackground]\n    fn audit(&mut self, order: SettledOrder) { self.audited = order.total; }\n}\n"
+              "code": "use crate::models::{PlacedOrder, SettledOrder};\n\n#[derive(Default)]\n#[Service]\nstruct AuditService {\n    records: i64,\n    settled: i64,\n    audited: i64,\n}\nimpl AuditService {\n    #[OnEvent({\"id\":\"audit-log\",\"replay\":true})]\n    #[Order(-10)]\n    fn record(&mut self, _order: PlacedOrder) { self.records += 1; }\n\n    #[OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n    #[Order(10)]\n    fn settle(&mut self, order: PlacedOrder) -> SettledOrder {\n        SettledOrder { total: order.total }\n    }\n\n    #[OnEvent]\n    fn save_settled(&mut self, order: SettledOrder) { self.settled = order.total; }\n\n    #[OnEvent]\n    #[InBackground]\n    fn audit(&mut self, order: SettledOrder) { self.audited = order.total; }\n}\n"
             },
             {
               "name": "client/services/CheckoutService.go",
-              "code": "type CheckoutService struct {\n\tPlaced                    int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\n// @OnStart\nfunc (checkout *CheckoutService) Start() {\n\tcheckout.Place()\n}\n\nfunc (checkout *CheckoutService) Place() {\n\tcheckout.Placed++\n\torder := PlacedOrder{Status: \"paid\", Total: 25}\n\tcheckout.applicationEventPublisher.PublishEvent(order, true)\n}\n\n// @OnStop\nfunc (checkout *CheckoutService) Stop() {\n\tcheckout.Placed = 0\n}\n"
+              "code": "// @Service\ntype CheckoutService struct {\n\tPlaced                    int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\n// @OnStart\nfunc (checkout *CheckoutService) Start() {\n\tcheckout.Place()\n}\n\nfunc (checkout *CheckoutService) Place() {\n\tcheckout.Placed++\n\torder := PlacedOrder{Status: \"paid\", Total: 25}\n\tcheckout.applicationEventPublisher.PublishEvent(order, true)\n}\n\n// @OnStop\nfunc (checkout *CheckoutService) Stop() {\n\tcheckout.Placed = 0\n}\n"
             },
             {
               "name": "client/services/AuditService.go",
-              "code": "type AuditService struct {\n\tRecords int64\n\tSettled int64\n\tAudited int64\n}\n\n// @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n// @Order(-10)\nfunc (audit *AuditService) Record(order PlacedOrder) {\n\taudit.Records++\n}\n\n// @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n// @Order(10)\nfunc (audit *AuditService) Settle(order PlacedOrder) SettledOrder {\n\treturn SettledOrder{Total: order.Total}\n}\n\n// @OnEvent\nfunc (audit *AuditService) SaveSettled(order SettledOrder) {\n\taudit.Settled = order.Total\n}\n\n// @OnEvent\n// @InBackground\nfunc (audit *AuditService) Audit(order SettledOrder) {\n\taudit.Audited = order.Total\n}\n"
+              "code": "// @Service\ntype AuditService struct {\n\tRecords int64\n\tSettled int64\n\tAudited int64\n}\n\n// @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n// @Order(-10)\nfunc (audit *AuditService) Record(order PlacedOrder) {\n\taudit.Records++\n}\n\n// @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n// @Order(10)\nfunc (audit *AuditService) Settle(order PlacedOrder) SettledOrder {\n\treturn SettledOrder{Total: order.Total}\n}\n\n// @OnEvent\nfunc (audit *AuditService) SaveSettled(order SettledOrder) {\n\taudit.Settled = order.Total\n}\n\n// @OnEvent\n// @InBackground\nfunc (audit *AuditService) Audit(order SettledOrder) {\n\taudit.Audited = order.Total\n}\n"
             },
             {
               "name": "client/services/CheckoutService.dart",
@@ -11985,19 +11985,19 @@
             },
             {
               "name": "client/services/CheckoutService.rb",
-              "code": "class CheckoutService\n  # @return [Integer]\n  attr_reader :placed\n\n  def initialize\n    @placed = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    place\n  end\n\n  # @return [void]\n  def place\n    @placed += 1\n    @events.publish_event(PlacedOrder.new(status: \"paid\", total: 25), true)\n  end\n\n  # @return [void]\n  #[OnStop]\n  def stop\n    @placed = 0\n  end\nend\n"
+              "code": "#[Service]\nclass CheckoutService\n  # @return [Integer]\n  attr_reader :placed\n\n  def initialize\n    @placed = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  #[OnStart]\n  def start\n    place\n  end\n\n  # @return [void]\n  def place\n    @placed += 1\n    @events.publish_event(PlacedOrder.new(status: \"paid\", total: 25), true)\n  end\n\n  # @return [void]\n  #[OnStop]\n  def stop\n    @placed = 0\n  end\nend\n"
             },
             {
               "name": "client/services/AuditService.rb",
-              "code": "class AuditService\n  # @return [Integer]\n  attr_reader :settled\n\n  def initialize\n    @records = 0\n    @settled = 0\n    @audited = 0\n  end\n\n  # @param order [PlacedOrder]\n  # @return [void]\n  #[OnEvent({\"id\":\"audit-log\",\"replay\":true})]\n  #[Order(-10)]\n  def record(order)\n    @records += 1\n  end\n\n  # @param order [PlacedOrder]\n  # @return [SettledOrder]\n  #[OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n  #[Order(10)]\n  def settle(order)\n    SettledOrder.new(total: order.total)\n  end\n\n  # @param order [SettledOrder]\n  # @return [void]\n  #[OnEvent]\n  def save_settled(order)\n    @settled = order.total\n  end\n\n  # @param order [SettledOrder]\n  # @return [void]\n  #[OnEvent]\n  #[InBackground]\n  def audit(order)\n    @audited = order.total\n  end\nend\n"
+              "code": "#[Service]\nclass AuditService\n  # @return [Integer]\n  attr_reader :settled\n\n  def initialize\n    @records = 0\n    @settled = 0\n    @audited = 0\n  end\n\n  # @param order [PlacedOrder]\n  # @return [void]\n  #[OnEvent({\"id\":\"audit-log\",\"replay\":true})]\n  #[Order(-10)]\n  def record(order)\n    @records += 1\n  end\n\n  # @param order [PlacedOrder]\n  # @return [SettledOrder]\n  #[OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})]\n  #[Order(10)]\n  def settle(order)\n    SettledOrder.new(total: order.total)\n  end\n\n  # @param order [SettledOrder]\n  # @return [void]\n  #[OnEvent]\n  def save_settled(order)\n    @settled = order.total\n  end\n\n  # @param order [SettledOrder]\n  # @return [void]\n  #[OnEvent]\n  #[InBackground]\n  def audit(order)\n    @audited = order.total\n  end\nend\n"
             },
             {
               "name": "client/services/CheckoutService.lua",
-              "code": "---@class CheckoutService\nCheckoutService = {\n  ---@type integer\n  placed = 0,\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction CheckoutService:start()\n  self:place()\nend\n\n---@return nil\nfunction CheckoutService:place()\n  self.placed = self.placed + 1\n  local order = setmetatable({ status = \"paid\", total = 25 }, PlacedOrder)\n  self.application_event_publisher:publish_event(order, true)\nend\n\n---@return nil\n-- @OnStop\nfunction CheckoutService:stop()\n  self.placed = 0\nend\n"
+              "code": "-- @Service\n---@class CheckoutService\nCheckoutService = {\n  ---@type integer\n  placed = 0,\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction CheckoutService:start()\n  self:place()\nend\n\n---@return nil\nfunction CheckoutService:place()\n  self.placed = self.placed + 1\n  local order = setmetatable({ status = \"paid\", total = 25 }, PlacedOrder)\n  self.application_event_publisher:publish_event(order, true)\nend\n\n---@return nil\n-- @OnStop\nfunction CheckoutService:stop()\n  self.placed = 0\nend\n"
             },
             {
               "name": "client/services/AuditService.lua",
-              "code": "---@class AuditService\nAuditService = {\n  ---@type integer\n  settled = 0,\n  ---@type integer\n  _records = 0,\n  ---@type integer\n  _audited = 0,\n}\n\n---@param order PlacedOrder\n---@return nil\n-- @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n-- @Order(-10)\nfunction AuditService:record(order)\n  self._records = self._records + 1\nend\n\n---@param order PlacedOrder\n---@return SettledOrder\n-- @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n-- @Order(10)\nfunction AuditService:settle(order)\n  return setmetatable({ total = order.total }, SettledOrder)\nend\n\n---@param order SettledOrder\n---@return nil\n-- @OnEvent\nfunction AuditService:save_settled(order)\n  self.settled = order.total\nend\n\n---@param order SettledOrder\n---@return nil\n-- @OnEvent\n-- @InBackground\nfunction AuditService:audit(order)\n  self._audited = order.total\nend\n"
+              "code": "-- @Service\n---@class AuditService\nAuditService = {\n  ---@type integer\n  settled = 0,\n  ---@type integer\n  _records = 0,\n  ---@type integer\n  _audited = 0,\n}\n\n---@param order PlacedOrder\n---@return nil\n-- @OnEvent({\"id\":\"audit-log\",\"replay\":true})\n-- @Order(-10)\nfunction AuditService:record(order)\n  self._records = self._records + 1\nend\n\n---@param order PlacedOrder\n---@return SettledOrder\n-- @OnEvent({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n-- @Order(10)\nfunction AuditService:settle(order)\n  return setmetatable({ total = order.total }, SettledOrder)\nend\n\n---@param order SettledOrder\n---@return nil\n-- @OnEvent\nfunction AuditService:save_settled(order)\n  self.settled = order.total\nend\n\n---@param order SettledOrder\n---@return nil\n-- @OnEvent\n-- @InBackground\nfunction AuditService:audit(order)\n  self._audited = order.total\nend\n"
             },
             {
               "name": "client/models/SettledOrder.ts",
@@ -12117,7 +12117,7 @@
             },
             {
               "name": "server/converters/ProductConverter.py",
-              "code": "@converter\nclass ProductConverter(Protocol):\n    @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n    async def to_summary(self, product: dict[str, object]) -> None: ...\n"
+              "code": "@converter\nclass ProductConverter(Protocol):\n    @Convert({\"fields\":[{\"source\":\"detail.id\",\"target\":\"productId\"},{\"source\":\"name\",\"target\":\"title\"},{\"source\":\"missing.deep\",\"target\":\"absent\"},{\"target\":\"kind\",\"constant\":\"product\"}]})\n    async def to_summary(self, product: dict[str, object]) -> dict[str, object]: ...\n"
             },
             {
               "name": "server/controllers/CatalogController.py",
@@ -12269,11 +12269,11 @@
             },
             {
               "name": "server/converters/ProductConverter.ts",
-              "code": "import type { Product } from '/models/Product.ts'\nimport type { Summary } from '/models/Summary.ts'\n@Converter\nclass ProductConverter {\n  @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async map(product: Product): Promise<Summary> {}\n}\n"
+              "code": "import type { Product } from '/models/Product.ts'\nimport type { Summary } from '/models/Summary.ts'\n\n@Converter\nexport default class ProductConverter {\n  @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async map(product: Product): Promise<Summary | void> {}\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.ts",
-              "code": "import type { Summary } from '/models/Summary.ts'\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  @Needs\n  converter!: ProductConverter;\n  @GetRoute\n  async getCatalog(): Promise<Summary> {\n    const detail = {name: 'detail', secret: 'detail-private'};\n    return this.converter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n  }\n}\n"
+              "code": "import type { Summary } from '/models/Summary.ts'\n\n@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  @Needs\n  converter!: ProductConverter;\n\n  @GetRoute\n  async getCatalog(): Promise<Summary | void> {\n    const detail = {name: 'detail', secret: 'detail-private'};\n    return this.converter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n  }\n}\n"
             },
             {
               "name": "server/models/Product.js",
@@ -12293,11 +12293,11 @@
             },
             {
               "name": "server/converters/ProductConverter.js",
-              "code": "@Converter\nclass ProductConverter {\n/** @param {Product} product\n * @returns {Summary} */\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nasync map(product) {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  /**\n   * @param {Product} product\n   * @returns {Promise<Summary | void>}\n   */\n  @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async map(product) {}\n}\n"
             },
             {
               "name": "server/controllers/CatalogController.js",
-              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n  /** @returns {Promise<Summary>} */\n  @GetRoute\n  async getCatalog() {\n    const detail = {name: 'detail', secret: 'detail-private'};\n    return this.productConverter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n  }\n}\n"
+              "code": "@RequestRoute(\"/catalog\")\n@Public\nclass CatalogController {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n\n  /** @returns {Promise<Summary | void>} */\n  @GetRoute\n  async getCatalog() {\n    const detail = {name: 'detail', secret: 'detail-private'};\n    return this.productConverter.map({id: 7, name: 'Anvil', detail, items: [detail], secret: 'product-private'});\n  }\n}\n"
             },
             {
               "name": "server/models/Product.py",
@@ -12593,7 +12593,7 @@
           "heading": "Mapping: Tac",
           "axis": "language",
           "summary": "Converter signatures generate mappings from a literal JSON field plan or from declared source and target model types. Explicit fields override inferred same-named model fields.",
-          "body": "Select a language tab and copy the page, the component view and the two role files. JavaScript, TypeScript and Dart bundle for the web. Go, F#, Java and Ruby bundle for the web as WebAssembly. Swift, Kotlin, C# and Rust stage their native hosts. The view reads {catalog.title} from the service. A view can read only from a service (ADR 0030). The browser services ask for the converter with Needs: a Needs field, a `#[Needs]` `attr_reader` in Ruby, or a constructor parameter in F#. A converter needs no behavior context and no Setup, so Tachyon builds it and the service only maps. The native services stay plain types, as they do elsewhere in Tac. The compiler finds the annotated converter file and adds it to the same compile unit.\n\nThe annotation and its options are the same as in Yon. The converter is the same contract too, with a protocol in Swift, and a method body fails the build with TY1308. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.\n\nTyped model signatures may omit Convert: Tachyon infers exact same-named target fields from models in the realm models folder and projects nested models and lists. Explicit Convert fields override their named targets; missing or incompatible target fields fail the build. JavaScript uses JSDoc parameter, return and typedef model types. JSON-value signatures keep the complete literal field plan shown here. In the page, a converter runs in JavaScript, in TypeScript and in the WebAssembly of each compiled service language. The next sections show converters with typed models, Lua included.",
+          "body": "Select a language tab and copy the page, the component view and the two role files. JavaScript, TypeScript and Dart bundle for the web. Go, F#, Java and Ruby bundle for the web as WebAssembly. Swift, Kotlin, C# and Rust stage their native hosts. The view reads {catalog.title} from the service. A view can read only from a service (ADR 0030). The browser services ask for the converter with Needs: a Needs field, a `#[Needs]` `attr_reader` in Ruby, or a constructor parameter in F#. A converter needs no behavior context and no Setup, so Tachyon builds it and the service only maps. The Swift, Kotlin, C# and Rust services carry the Service marker, like every class in client/services (TY1363), and only show the title. The compiler finds the annotated converter file and adds it to the same compile unit.\n\nThe annotation and its options are the same as in Yon. The converter is the same contract too, with a protocol in Swift, and a method body fails the build with TY1308. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.\n\nTyped model signatures may omit Convert: Tachyon infers exact same-named target fields from models in the realm models folder and projects nested models and lists. Explicit Convert fields override their named targets; missing or incompatible target fields fail the build. JavaScript uses JSDoc parameter, return and typedef model types. JSON-value signatures keep the complete literal field plan shown here. In the page, a converter runs in JavaScript, in TypeScript and in the WebAssembly of each compiled service language. The next sections show converters with typed models, Lua included.",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -12625,7 +12625,7 @@
             },
             {
               "name": "client/services/CatalogService.swift",
-              "code": "final class CatalogService {\n    var title: String = \"Not mapped.\"\n}\n"
+              "code": "@Service\nfinal class CatalogService {\n    var title: String = \"Not mapped.\"\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.kt",
@@ -12633,7 +12633,7 @@
             },
             {
               "name": "client/services/CatalogService.kt",
-              "code": "class CatalogService {\n    var title: String = \"Not mapped.\"\n}\n"
+              "code": "@Service\nclass CatalogService {\n    var title: String = \"Not mapped.\"\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.cs",
@@ -12645,7 +12645,7 @@
             },
             {
               "name": "client/services/CatalogService.cs",
-              "code": "public sealed class CatalogService {\n    public string title = \"Not mapped.\";\n}\n"
+              "code": "[Service]\npublic sealed class CatalogService {\n    public string title = \"Not mapped.\";\n}\n"
             },
             {
               "name": "client/services/CatalogService.fs",
@@ -12657,7 +12657,7 @@
             },
             {
               "name": "client/services/CatalogService.rs",
-              "code": "struct CatalogService { title: String }\nimpl CatalogService {\n    fn new() -> Self { Self { title: String::from(\"Not mapped.\") } }\n}\n"
+              "code": "#[Service]\nstruct CatalogService { title: String }\nimpl CatalogService {\n    fn new() -> Self { Self { title: String::from(\"Not mapped.\") } }\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.go",
@@ -12665,7 +12665,7 @@
             },
             {
               "name": "client/services/CatalogService.go",
-              "code": "import \"fmt\"\n\ntype CatalogService struct {\n\tTitle string\n\t// @Needs\n\tconverter *ProductConverter\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Start() {\n\tcatalog.Title = \"Not mapped.\"\n}\n\nfunc (catalog *CatalogService) Load() error {\n\tproduct := map[string]any{\"detail\": map[string]any{\"id\": 7}, \"name\": \"Anvil\", \"extra\": \"dropped\"}\n\treturn catalog.showSummary(catalog.converter.ToSummary(product))\n}\n\nfunc (catalog *CatalogService) showSummary(summary BehaviorValue, failure error) error {\n\tif failure != nil {\n\t\treturn failure\n\t}\n\tfields := summary.(map[string]any)\n\tcatalog.Title = fmt.Sprintf(\"%v %v: %v\", fields[\"kind\"], fields[\"productId\"], fields[\"title\"])\n\treturn nil\n}\n"
+              "code": "import \"fmt\"\n\n// @Service\ntype CatalogService struct {\n\tTitle string\n\t// @Needs\n\tconverter *ProductConverter\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Start() {\n\tcatalog.Title = \"Not mapped.\"\n}\n\nfunc (catalog *CatalogService) Load() error {\n\tproduct := map[string]any{\"detail\": map[string]any{\"id\": 7}, \"name\": \"Anvil\", \"extra\": \"dropped\"}\n\treturn catalog.showSummary(catalog.converter.ToSummary(product))\n}\n\nfunc (catalog *CatalogService) showSummary(summary BehaviorValue, failure error) error {\n\tif failure != nil {\n\t\treturn failure\n\t}\n\tfields := summary.(map[string]any)\n\tcatalog.Title = fmt.Sprintf(\"%v %v: %v\", fields[\"kind\"], fields[\"productId\"], fields[\"title\"])\n\treturn nil\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.dart",
@@ -12706,7 +12706,7 @@
             },
             {
               "name": "client/converters/ProductConverter.js",
-              "code": "@Converter\nexport default class ProductConverter {\n/** @param {Product} product\n * @returns {Summary} */\n@Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\nasync map(product) {}\n/** @param {Product} product\n * @returns {Product} */\nasync copy(product) {}\n}\n"
+              "code": "@Converter\nexport default class ProductConverter {\n  /**\n   * @param {Product} product\n   * @returns {Promise<Summary | void>}\n   */\n  @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async map(product) {}\n\n  /**\n   * @param {Product} product\n   * @returns {Promise<Product | void>}\n   */\n  async copy(product) {}\n}\n"
             },
             {
               "name": "client/manifest.json",
@@ -12734,11 +12734,11 @@
             },
             {
               "name": "client/services/CatalogService.js",
-              "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n  /** @type {string} */\n  result = '';\n  /** @returns {Promise<void>} */\n  async load() {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
+              "code": "@Service\nexport default class CatalogService {\n  /** @type {ProductConverter} */\n  @Needs\n  productConverter;\n  /** @type {string} */\n  result = '';\n\n  /** @returns {Promise<void>} */\n  async load() {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = await this._summaryText(product);\n  }\n\n  /**\n   * @param {Product | void} product\n   * @returns {Promise<string>}\n   */\n  async _summaryText(product) {\n    return product ? JSON.stringify(await this.productConverter.map(product)) : '';\n  }\n}\n"
             },
             {
               "name": "client/converters/ProductConverter.ts",
-              "code": "import type { Product } from '/models/Product.ts'\nimport type { Summary } from '/models/Summary.ts'\n@Converter\nexport default class ProductConverter {\n  @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async map(product: Product): Promise<Summary> {}\n  async copy(product: Product): Promise<Product> {}\n}\n"
+              "code": "import type { Product } from '/models/Product.ts'\nimport type { Summary } from '/models/Summary.ts'\n\n@Converter\nexport default class ProductConverter {\n  @Convert({\"fields\":[{\"target\":\"kind\",\"constant\":\"product\"}]})\n  async map(product: Product): Promise<Summary | void> {}\n\n  async copy(product: Product): Promise<Product | void> {}\n}\n"
             },
             {
               "name": "client/models/Detail.ts",
@@ -12758,7 +12758,7 @@
             },
             {
               "name": "client/services/CatalogService.ts",
-              "code": "@Service\nexport default class CatalogService {\n  @Needs\n  productConverter!: ProductConverter;\n  result: string = '';\n  async load(): Promise<void> {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = JSON.stringify(await this.productConverter.map(product));\n  }\n}\n"
+              "code": "import type { Product } from '/models/Product.ts'\n\n@Service\nexport default class CatalogService {\n  @Needs\n  productConverter!: ProductConverter;\n  result: string = '';\n\n  async load(): Promise<void> {\n    const detail = {name: 'detail', secret: 'hidden'};\n    const product = await this.productConverter.copy({id: 7, name: 'Anvil', detail, items: [detail], secret: 'hidden'});\n    this.result = await this.summaryText(product);\n  }\n\n  private async summaryText(product: Product | void): Promise<string> {\n    return product ? JSON.stringify(await this.productConverter.map(product)) : '';\n  }\n}\n"
             },
             {
               "name": "client/models/Product.lua",

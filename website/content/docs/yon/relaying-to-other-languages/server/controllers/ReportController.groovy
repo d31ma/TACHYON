@@ -5,6 +5,6 @@ import com.sun.net.httpserver.HttpExchange
 class ReportController {
     @GetRoute
     void getReport(HttpExchange exchange) throws java.io.IOException {
-        Yon.relay(java.util.List.of("ruby", "server/helpers/ReportDelegate.rb"), exchange)
+        Yon.relay(java.util.List.of("perl", "server/relays/report.pl"), exchange)
     }
 }

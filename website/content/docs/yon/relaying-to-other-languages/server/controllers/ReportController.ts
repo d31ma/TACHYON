@@ -3,6 +3,6 @@
 class ReportController {
   @GetRoute
   getReport(request: Request): Promise<Response> {
-    return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)
+    return relay(['perl', 'server/relays/report.pl'], request)
   }
 }

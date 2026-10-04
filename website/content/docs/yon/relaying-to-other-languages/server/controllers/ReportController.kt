@@ -5,5 +5,5 @@ import com.sun.net.httpserver.HttpExchange
 class ReportController {
     @GetRoute
     fun getReport(exchange: HttpExchange) =
-        Yon.relay(listOf("ruby", "server/helpers/ReportDelegate.rb"), exchange)
+        Yon.relay(listOf("perl", "server/relays/report.pl"), exchange)
 }
