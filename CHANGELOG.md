@@ -136,6 +136,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The design checks for plain-English names (`TY1328`), named values
+  (`TY1330`) and unused public members (`TY1333`) now read Tac utilities in
+  `client/shared/utils/` and its nested folders. Before, they skipped that
+  folder, so a utility that breaks these rules can now stop the build.
+
 - Go route types no longer stop with `TY2015` for types from other Go
   packages: `json.RawMessage`, `http.Header`, `time.Time` and types from the
   native packages in `server/packages/` (such as `spec.Document`) are open

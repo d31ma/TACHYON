@@ -338,6 +338,27 @@ fn plain_names_compound_words_and_project_words_pass() {
 }
 
 #[test]
+fn tac_utilities_in_shared_utils_and_nested_folders_are_checked() {
+    let source =
+        "export default class PriceUtils {\n  static calcTotal(items) { return items; }\n}\n";
+    for path in [
+        "client/shared/utils/PriceUtils.js",
+        "client/shared/utils/money/PriceUtils.js",
+    ] {
+        let problems = found(1328, &[(path, source)]);
+        assert_eq!(
+            messages(&problems),
+            [
+                "The method name `calcTotal` in PriceUtils is not plain English: `calc` is short for `calculate`."
+            ],
+            "{path}"
+        );
+    }
+    let outside = found(1328, &[("client/shared/data/PriceUtils.js", source)]);
+    assert!(outside.is_empty(), "{outside:?}");
+}
+
+#[test]
 fn stock_keeping_units_have_a_supported_plural_parameter_name() {
     let source = "[RequestRoute(\"/ticks\")]\n[Public]\nclass TicksController {\n  [GetRoute]\n  public string[] GetTicks(string[] skus) { return skus; }\n}\n";
     let problems = found(1328, &[("server/controllers/TicksController.cs", source)]);

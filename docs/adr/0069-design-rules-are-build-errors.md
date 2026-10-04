@@ -35,7 +35,9 @@ The build checks the classes in the role folders of `client/` and `server/`
 `converters`, `mappers`, `configurations`, `setups`, `workers`, `features`,
 `entities`, `models`, `errors`, `utils`, `roles`), and the `@Helper`
 classes in `helpers` (the role was `@Component` in `delegates`, ADR 0047). Test
-files, views, `shared/` and the other files in `helpers/` are not checked. `ty build`, `ty preview`, `ty
+files, views, `shared/` and the other files in `helpers/` are not checked,
+except `client/shared/utils/` and its nested folders, which are the Tac
+`utils` folder (ADR 0064). `ty build`, `ty preview`, `ty
 serve`, `ty bundle` and `ty test` refuse a break; `ty migrate check` lists
 every break with its line.
 
