@@ -1,7 +1,7 @@
 {
   "id": "hot-update",
   "title": "Hot updates while you edit",
-  "summary": "A hot update changes the open page while you edit. A stylesheet update keeps the page state. A supported service update stops the service and starts it again. The service gets back the state that it chooses to keep. Only JavaScript and TypeScript services get hot updates. A change to a service in another language reloads the page, and the service starts again with its first values. Other changes can need a full page reload. A failed build keeps the last good page and shows a diagnostic overlay (error messages on top of the page) with the file, the line and help. The preview never stops because of a problem in your files: a project that is broken at start gets an error page until a save fixes it.",
+  "summary": "A hot update changes the open page while you edit. A stylesheet update keeps the page state. A supported service update stops the service and starts it again. The service gets back the state that it chooses to keep. Only JavaScript and TypeScript services get hot updates. A change to a service in another language reloads the page, and the service starts again with its first values. Python and Lua services reload the same way; a Python service also needs the `tac.python` runtime in the manifest, as the `client/manifest.json` tab shows (ADR 0093). Other changes can need a full page reload. A failed build keeps the last good page and shows a diagnostic overlay (error messages on top of the page) with the file, the line and help. The preview never stops because of a problem in your files: a project that is broken at start gets an error page until a save fixes it.",
   "group": "Tooling",
   "files": [
     {
@@ -74,6 +74,24 @@
       "name": "client/services/CounterService.fs",
       "code": {
         "file": "client/services/CounterService.fs"
+      }
+    },
+    {
+      "name": "client/services/CounterService.py",
+      "code": {
+        "file": "client/services/CounterService.py"
+      }
+    },
+    {
+      "name": "client/services/CounterService.lua",
+      "code": {
+        "file": "client/services/CounterService.lua"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
       }
     }
   ]

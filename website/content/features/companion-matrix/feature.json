@@ -2,7 +2,7 @@
   "id": "companion-matrix",
   "title": "Which service language answers a target",
   "group": "Polyglot",
-  "summary": "Each service language compiles for the targets its toolchain and SDK support. Rust, C#, Swift and Kotlin run as WebAssembly on the web and on every target that does not link them, and Go and Java run as WebAssembly on every target. So every service reaches every target, and Tachyon never silently removes a service.",
+  "summary": "Each service language compiles for the targets its toolchain and SDK support. Rust, C#, Swift and Kotlin run as WebAssembly on the web and on every target that does not link them. Go, F#, Java, Ruby and Lua run as WebAssembly on every target, and Dart runs as WebAssembly in the page on every target. Python runs in web builds only (ADR 0093). So every service except a Python one reaches every target, and Tachyon never silently removes a service.",
   "files": [
     {
       "name": "matrix",

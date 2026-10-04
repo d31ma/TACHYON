@@ -6,3 +6,11 @@ ty bundle --target ios       ->  dist/ios/       UIKit host + WKWebView
 
 The WebView renders the application's HTML, CSS and JavaScript.
 Tac elements are not translated into platform-native widgets.
+
+A native host serves each bundle file of at most 16 MiB. A bigger
+file stops the build with TY1605; make it smaller or split it.
+
+The Windows host needs the WebView2 SDK: restore the
+Microsoft.Web.WebView2 package and set TAC_WEBVIEW2_SDK to the
+extracted folder (it holds build/native/include/WebView2.h).
+Without it the Windows build stops with TY1605.

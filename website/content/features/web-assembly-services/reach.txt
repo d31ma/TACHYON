@@ -8,10 +8,15 @@ TallyService.java  one WasmGC module from TeaVM
 TallyService.dart  one WasmGC module from dart compile wasm
 TallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc
 TallyService.lua  the Lua runtime, about 170 KB, built once with emcc
+TallyService.py   Pyodide (CPython 3.14), about 11 MB (3 MB with Brotli), copied from the Tachyon cache
 
-A service with several is Rust on the web, then Go, then C#, then F#: Rust's
-module is a small file, Go's carries the Go runtime, and C#'s is a
-runtime. On the web a service has no DOM and no platform;
+When a service has files in several languages, a JavaScript,
+TypeScript or Dart file wins, then a native companion that the host
+links. Otherwise the web uses the first of these: Rust, Go, C#, F#,
+Swift, Kotlin, Java, Ruby, Lua, Python. Rust's module is a small
+file, Go's carries the Go runtime, and C#'s is a runtime.
+
+On the web a service has no DOM and no platform;
 it is state and logic over the properties its tag passes, which may
 carry a data file of up to 1 MiB. A method call carries up to 64 KiB.
 A bigger request fails with an error that names the size and the limit:
