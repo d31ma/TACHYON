@@ -680,6 +680,11 @@ fn deeper_paths_share_the_table_messages() {
         "{refusal}"
     );
     assert_eq!(AnnotationRules::unavailable("Helper", "dart", "tac"), None);
+    assert_eq!(
+        AnnotationRules::unavailable("StreamRoute", "fs", "yon"),
+        None
+    );
+    assert!(AnnotationRules::unavailable("StreamRoute", "groovy", "yon").is_some());
     assert_eq!(Messages::snake_case("HTTPClient"), "http_client");
     assert_eq!(Messages::snake_case("OnEvent"), "on_event");
 }
