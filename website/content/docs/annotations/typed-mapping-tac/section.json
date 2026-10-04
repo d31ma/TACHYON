@@ -3,18 +3,18 @@
   "axis": "language",
   "target": "web",
   "summary": "A service injects the converter and uses typed models for both implicit copying and public projection.",
-  "body": "Click Map to see the same Summary as in the Yon example. The injected ProductConverter first copies Product without a Convert marker, then projects Summary using its signatures and the explicit kind override. The target models omit secret fields in nested objects and lists.\n\nModels belong to client/models and the converter to client/converters. A mapping needs no Setup or external adapter: it reads only its argument. The JavaScript signatures use JSDoc types and the TypeScript signatures use model interfaces. Lua uses LuaCATS signatures, a -- @Converter table with empty methods and a -- @Needs field. The compiler supplies its provider and restores typed nested models after projection.",
+  "body": "Click Map to see the same Summary in every language: `product 7: Anvil, detail, 1`. The injected ProductConverter first copies Product without a Convert marker, then projects Summary using its signatures and the explicit kind override. The target models omit the secret fields in nested objects and lists, so no secret reaches the Summary.\n\nModels belong to client/models and the converter to client/converters. A mapping needs no Setup or external adapter: it reads only its argument. Every tab runs in the page, as JavaScript or as WebAssembly. The JavaScript signatures use JSDoc types and the TypeScript signatures use model interfaces. Swift, Kotlin, Java, C#, F#, Rust, Go and Dart write the converter in their bodiless form: a protocol, an interface, an F# type with only abstract members, a trait, a Go interface or an abstract interface class. Ruby writes a class with empty methods. Lua uses LuaCATS signatures, a -- @Converter table with empty methods and a -- @Needs field. The compiler supplies the converter and restores typed nested models after projection. Each service asks for the converter with Needs. F# takes it as a primary constructor parameter, and the Rust service derives Default, so Tachyon can create it and fill the Needs field.\n\nPython has no tab here, because a Python service cannot ask for a converter yet: a Python Needs field must name a Python service or Helper, and the build stops with TY1605.",
   "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
     {
       "name": "client/components/catalog/panel/tac.html",
       "code": {
         "file": "client/components/catalog/panel/tac.html"
-      }
-    },
-    {
-      "name": "client/converters/ProductConverter.js",
-      "code": {
-        "file": "client/converters/ProductConverter.js"
       }
     },
     {
@@ -48,21 +48,15 @@
       }
     },
     {
-      "name": "client/pages/tac.html",
+      "name": "client/converters/ProductConverter.js",
       "code": {
-        "file": "client/pages/tac.html"
+        "file": "client/converters/ProductConverter.js"
       }
     },
     {
       "name": "client/services/CatalogService.js",
       "code": {
         "file": "client/services/CatalogService.js"
-      }
-    },
-    {
-      "name": "client/converters/ProductConverter.ts",
-      "code": {
-        "file": "client/converters/ProductConverter.ts"
       }
     },
     {
@@ -90,15 +84,339 @@
       }
     },
     {
+      "name": "client/converters/ProductConverter.ts",
+      "code": {
+        "file": "client/converters/ProductConverter.ts"
+      }
+    },
+    {
       "name": "client/services/CatalogService.ts",
       "code": {
         "file": "client/services/CatalogService.ts"
       }
     },
     {
-      "name": "client/models/Product.lua",
+      "name": "client/models/Detail.dart",
       "code": {
-        "file": "client/models/Product.lua"
+        "file": "client/models/Detail.dart"
+      }
+    },
+    {
+      "name": "client/models/Product.dart",
+      "code": {
+        "file": "client/models/Product.dart"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.dart",
+      "code": {
+        "file": "client/models/ShortDetail.dart"
+      }
+    },
+    {
+      "name": "client/models/Summary.dart",
+      "code": {
+        "file": "client/models/Summary.dart"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.dart",
+      "code": {
+        "file": "client/converters/ProductConverter.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/models/Detail.rs",
+      "code": {
+        "file": "client/models/Detail.rs"
+      }
+    },
+    {
+      "name": "client/models/Product.rs",
+      "code": {
+        "file": "client/models/Product.rs"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.rs",
+      "code": {
+        "file": "client/models/ShortDetail.rs"
+      }
+    },
+    {
+      "name": "client/models/Summary.rs",
+      "code": {
+        "file": "client/models/Summary.rs"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.rs",
+      "code": {
+        "file": "client/converters/ProductConverter.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/models/Detail.go",
+      "code": {
+        "file": "client/models/Detail.go"
+      }
+    },
+    {
+      "name": "client/models/Product.go",
+      "code": {
+        "file": "client/models/Product.go"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.go",
+      "code": {
+        "file": "client/models/ShortDetail.go"
+      }
+    },
+    {
+      "name": "client/models/Summary.go",
+      "code": {
+        "file": "client/models/Summary.go"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.go",
+      "code": {
+        "file": "client/converters/ProductConverter.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/models/Detail.rb",
+      "code": {
+        "file": "client/models/Detail.rb"
+      }
+    },
+    {
+      "name": "client/models/Product.rb",
+      "code": {
+        "file": "client/models/Product.rb"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.rb",
+      "code": {
+        "file": "client/models/ShortDetail.rb"
+      }
+    },
+    {
+      "name": "client/models/Summary.rb",
+      "code": {
+        "file": "client/models/Summary.rb"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.rb",
+      "code": {
+        "file": "client/converters/ProductConverter.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/models/Detail.swift",
+      "code": {
+        "file": "client/models/Detail.swift"
+      }
+    },
+    {
+      "name": "client/models/Product.swift",
+      "code": {
+        "file": "client/models/Product.swift"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.swift",
+      "code": {
+        "file": "client/models/ShortDetail.swift"
+      }
+    },
+    {
+      "name": "client/models/Summary.swift",
+      "code": {
+        "file": "client/models/Summary.swift"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.swift",
+      "code": {
+        "file": "client/converters/ProductConverter.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/models/Detail.kt",
+      "code": {
+        "file": "client/models/Detail.kt"
+      }
+    },
+    {
+      "name": "client/models/Product.kt",
+      "code": {
+        "file": "client/models/Product.kt"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.kt",
+      "code": {
+        "file": "client/models/ShortDetail.kt"
+      }
+    },
+    {
+      "name": "client/models/Summary.kt",
+      "code": {
+        "file": "client/models/Summary.kt"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.kt",
+      "code": {
+        "file": "client/converters/ProductConverter.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/models/Detail.java",
+      "code": {
+        "file": "client/models/Detail.java"
+      }
+    },
+    {
+      "name": "client/models/Product.java",
+      "code": {
+        "file": "client/models/Product.java"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.java",
+      "code": {
+        "file": "client/models/ShortDetail.java"
+      }
+    },
+    {
+      "name": "client/models/Summary.java",
+      "code": {
+        "file": "client/models/Summary.java"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.java",
+      "code": {
+        "file": "client/converters/ProductConverter.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/models/Detail.cs",
+      "code": {
+        "file": "client/models/Detail.cs"
+      }
+    },
+    {
+      "name": "client/models/Product.cs",
+      "code": {
+        "file": "client/models/Product.cs"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.cs",
+      "code": {
+        "file": "client/models/ShortDetail.cs"
+      }
+    },
+    {
+      "name": "client/models/Summary.cs",
+      "code": {
+        "file": "client/models/Summary.cs"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.cs",
+      "code": {
+        "file": "client/converters/ProductConverter.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/models/Detail.fs",
+      "code": {
+        "file": "client/models/Detail.fs"
+      }
+    },
+    {
+      "name": "client/models/Product.fs",
+      "code": {
+        "file": "client/models/Product.fs"
+      }
+    },
+    {
+      "name": "client/models/ShortDetail.fs",
+      "code": {
+        "file": "client/models/ShortDetail.fs"
+      }
+    },
+    {
+      "name": "client/models/Summary.fs",
+      "code": {
+        "file": "client/models/Summary.fs"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.fs",
+      "code": {
+        "file": "client/converters/ProductConverter.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
       }
     },
     {
@@ -108,15 +426,21 @@
       }
     },
     {
-      "name": "client/models/Summary.lua",
+      "name": "client/models/Product.lua",
       "code": {
-        "file": "client/models/Summary.lua"
+        "file": "client/models/Product.lua"
       }
     },
     {
       "name": "client/models/ShortDetail.lua",
       "code": {
         "file": "client/models/ShortDetail.lua"
+      }
+    },
+    {
+      "name": "client/models/Summary.lua",
+      "code": {
+        "file": "client/models/Summary.lua"
       }
     },
     {
@@ -131,5 +455,8 @@
         "file": "client/services/CatalogService.lua"
       }
     }
+  ],
+  "notApplicable": [
+    "py"
   ]
 }
