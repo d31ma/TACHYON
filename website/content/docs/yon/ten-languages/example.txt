@@ -1,9 +1,12 @@
-ItemsController.js, .ts    built-in adapter
-ItemsController.py         built-in adapter
+ItemsController.js, .ts    node (YON_JAVASCRIPT_RUNTIME), built-in adapter
+ItemsController.py         python3 (YON_PYTHON_RUNTIME), built-in adapter
+ItemsController.rb         ruby 3.3+ (YON_RUBY_RUNTIME), built-in adapter
 ItemsController.php        php-cgi plus protocol prelude
-ItemsController.java       JEP 330 source launch
-ItemsController.rs         rustc plus protocol prelude
+ItemsController.java       java source launch (JEP 330) plus protocol prelude
+ItemsController.groovy     groovyc 4+ with the Java runtime, then java -jar
 ItemsController.kt         kotlinc, then java -jar
-ItemsController.cs         generated dotnet project
-ItemsController.dart       dart compile aot-snapshot plus protocol prelude
-ItemsController.go         go build plus protocol prelude
+ItemsController.cs, .fs    dotnet build of a generated project, cached
+ItemsController.rs         cargo build --release with the http crate
+ItemsController.dart       dart pub get (shelf), then dart compile aot-snapshot
+ItemsController.go         go build 1.27+ plus protocol prelude
+ItemsController.lua        lua 5.4+ plus protocol prelude

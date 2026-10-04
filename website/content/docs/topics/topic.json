@@ -1,6 +1,6 @@
 {
   "title": "Topics",
-  "summary": "A topic is a model marked `Topic`. When one part of the app publishes a value of that model, Tachyon sends it to the listeners in every Yon language and in open pages.",
+  "summary": "A topic is a model marked `Topic`. When one part of the app publishes a value of that model, Tachyon sends it to the listeners in the Yon languages that have topics and in open pages.",
   "before": [
     "application-events"
   ],

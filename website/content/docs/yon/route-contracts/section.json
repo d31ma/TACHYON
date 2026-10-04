@@ -1,5 +1,7 @@
 {
   "heading": "Route contracts",
-  "body": "Tachyon makes the API schema of each route from the controller method: its argument types, its return type, its `ResponseStatus` and the models they name. You write no schema file. `OPTIONS` on a route answers with the schema of that path. `/api.json` lists every controller route and every model. The server checks requests and answers against the same types, so the schema and the checks always agree.",
-  "code": { "file": "example.json" }
+  "body": "Tachyon makes the API schema of each route from the controller method: its argument types, its return type, its `ResponseStatus` and the models they name. You write no schema file. `OPTIONS` on a route answers with the schema of that path. `/api.json` lists every controller route and every model. The server checks requests and answers against the same types, so the schema and the checks always agree. The example is a shortened `/api.json`.\n\nA model record accepts only its declared fields, also in nested records and in lists, so its schema says `\"additionalProperties\": false`. A request body with a field that the model does not declare gets 400. Required fields must be present, and optional fields may be missing. Fields of a parent model join the record: Java and Groovy `extends`, a Python base class, a Dart `super` field, a Go embedded struct and a TypeScript `&`. A record stays open, without `\"additionalProperties\": false`, when Tachyon cannot see all of its fields: its parent is not in `server/models/`, it uses a PHP trait or a TypeScript index signature, or a field has a type that Tachyon cannot read. A field typed as any JSON value stays open too. A stream route says `\"stream\": true` and `\"produces\": \"text/event-stream\"`. A socket path says `\"socket\": true`, and its `request.body` names the message model.",
+  "code": {
+    "file": "example.json"
+  }
 }
