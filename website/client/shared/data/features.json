@@ -1674,7 +1674,7 @@
         },
         {
           "name": "client/services/CatalogService.kt",
-          "code": "@Service\nclass CatalogService {\n    private val products: ProductsClient = ProductsClient()\n    var count: Int = 0\n\n    fun load() {\n        count = ((products.list() as Map<*, *>)[\"items\"] as List<*>).size\n    }\n\n    fun add() {\n        products.save(mapOf(\"name\" to \"anvil\"))\n    }\n}\n"
+          "code": "@Service\nclass CatalogService {\n    @Needs\n    private val products: ProductsClient\n    var count: Int = 0\n\n    fun load() {\n        count = ((products.list() as Map<*, *>)[\"items\"] as List<*>).size\n    }\n\n    fun add() {\n        products.save(mapOf(\"name\" to \"anvil\"))\n    }\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.java",

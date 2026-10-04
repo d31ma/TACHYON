@@ -82,7 +82,8 @@ fn lower_type(
         members.push_str(&helper);
     }
     if let Some(unit) = super::super::testing::polyglot_unit(type_declaration) {
-        members.push_str(&test_members(type_declaration, &unit, &module.environment));
+        let body = &module.source[type_declaration.body.clone()];
+        members.push_str(&test_members(body, &unit, &module.environment));
         members.push_str(
             &super::kotlin_test_construction::KotlinTestConstruction::members(
                 module,
@@ -1058,13 +1059,13 @@ fn quote(value: &str) -> String {
         .replace('$', "\\$")
 }
 
-fn test_members(type_declaration: &Type, unit: &Unit, environment: &str) -> String {
+fn test_members(body: &str, unit: &Unit, environment: &str) -> String {
     let report = report_type(environment);
     let answer = report_value(unit, environment);
     let calls = super::super::ValueSource::jvm_calls(&unit.cases, &unit.inputs)
         .into_iter()
         .map(|(name, call)| {
-            let call = finished_case(type_declaration, &name, call);
+            let call = finished_case(body, &name, call);
             (name, call)
         })
         .collect::<Vec<_>>();
@@ -1096,13 +1097,9 @@ fn test_members(type_declaration: &Type, unit: &Unit, environment: &str) -> Stri
     )
 }
 
-fn finished_case(type_declaration: &Type, name: &str, call: String) -> String {
+fn finished_case(body: &str, name: &str, call: String) -> String {
     let method_name = name.split('[').next().unwrap_or(name);
-    let waits = type_declaration
-        .methods
-        .iter()
-        .any(|method| [method.name == method_name, method.asynchronous] == [true; 2]);
-    if waits {
+    if body.contains(&format!("suspend fun {method_name}(")) {
         return format!("BehaviorTasks.finish {{ {call} }}");
     }
     call
