@@ -406,7 +406,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
 
     fn rust_use_start(&self) -> Option<usize> {
-        let mut at = self.at;
+        let mut at = self.after_rust_import_conditions(self.at)?;
         if self.word(at) == "pub" {
             at += 1;
             if self.word(at) == "(" {
@@ -417,6 +417,17 @@ impl<'a, 'b> Parser<'a, 'b> {
             return Some(at);
         }
         None
+    }
+
+    fn after_rust_import_conditions(&self, start: usize) -> Option<usize> {
+        let mut at = start;
+        while self.word(at) == "#"
+            && self.word(at + 1) == "["
+            && matches!(self.word(at + 2), "cfg" | "cfg_attr")
+        {
+            at = self.tokens.after_group(at + 1)?;
+        }
+        Some(at)
     }
 
     fn read_import(&mut self) -> Result<(), Failure> {

@@ -175,6 +175,28 @@ fn multiline_markers_and_same_line_declarations_are_not_hidden() {
 }
 
 #[test]
+fn rust_imports_may_carry_platform_conditions() {
+    for imports in [
+        "#[cfg(unix)]\nuse std::os::unix::net::UnixStream;",
+        "#[cfg(windows)]\npub use std::os::windows::io::AsRawHandle;",
+        "#[cfg(target_os = \"linux\")]\n#[cfg_attr(test, allow(unused_imports))]\nuse std::os::linux::fs::MetadataExt;",
+        "use std::sync::Arc;\n#[cfg(all(unix, not(target_os = \"macos\")))]\nuse std::os::unix::fs::PermissionsExt;",
+    ] {
+        let source =
+            format!("{imports}\n#[Service]\nstruct ProcessService;\nimpl ProcessService {{}}");
+        validate(Path::new("client/services/ProcessService.rs"), &source).expect(imports);
+    }
+    for source in [
+        "#[cfg(unix)]\nconst LIMIT: usize = 1;\n#[Service]\nstruct ProcessService;",
+        "#[cfg(unix)]\nfn helper() {}\n#[Service]\nstruct ProcessService;",
+        "#[cfg(unix)]\n#[cfg(test)]\nstatic LIMIT: usize = 1;\n#[Service]\nstruct ProcessService;",
+        "#[Service]\nstruct ProcessService;\n#[cfg(unix)]\nstruct Extra;",
+    ] {
+        validate(Path::new("client/services/ProcessService.rs"), source).expect_err(source);
+    }
+}
+
+#[test]
 fn rust_requires_a_declared_type_and_only_its_implementations() {
     for source in [
         "#[Service]\nimpl OrdersService {}",
