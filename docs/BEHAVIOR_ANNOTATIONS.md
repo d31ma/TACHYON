@@ -437,8 +437,10 @@ must have a test, and the development server enforces this:
 
 "Covered" means that a test case really called the method while `ty test` ran
 (ADR 0070). A test build records each call; a production build does not. A
-call on a Fake does not count, because a Fake is not the real class. `ty test`
-writes the calls to `.tachyon/coverage/calls.json`, and `ty preview` reads them
+call on a Fake does not count, because a Fake is not the real class. A
+JavaScript or TypeScript utility in `client/shared/utils` that a file imports
+by its path runs as a recorded copy in each unit, so its calls count too.
+`ty test` writes the calls to `.tachyon/coverage/calls.json`, and `ty preview` reads them
 or runs the tests again when a source is newer. Only when the units of a
 language cannot run on the machine does `ty` fall back to checking names, and
 the report labels those classes `[name check]`.

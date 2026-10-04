@@ -736,3 +736,56 @@ fn a_call_on_a_fake_does_not_cover_the_real_service() {
         );
     }
 }
+
+struct ImportedUtility;
+
+impl ImportedUtility {
+    const EXTENSIONS: [&'static str; 2] = ["js", "ts"];
+    const UTILITY: &'static str = "export class PriceUtils {\n  static label(cents) {\n    return `${cents}`\n  }\n\n  static unused() {\n    return 0\n  }\n}\n";
+    const SETUP: &'static str =
+        "@TestSetup\nclass BasketTestSetup {\n  static configure() { return {}; }\n}\n";
+    const SERVICE: &'static str = "import { PriceUtils } from '/shared/utils/PriceUtils.EXT';\n\n@Service\nexport default class BasketService {\n  total() {\n    return PriceUtils.label(2)\n  }\n}\n";
+    const UNIT: &'static str = "@Test(BasketTestSetup, {\"partition\":\"tests\"})\nexport default class BasketServiceTest {\n  async testTotal() {\n    Assert.equals('2', this.construct(BasketService).total(), 'priced')\n  }\n}\n";
+
+    fn project(root: &Path, extension: &str) {
+        let files = [
+            ("client/shared/utils/PriceUtils", Self::UTILITY),
+            ("client/tests/BasketTestSetup", Self::SETUP),
+            ("client/services/BasketService", Self::SERVICE),
+            ("client/tests/BasketServiceTest", Self::UNIT),
+        ];
+        for (relative, source) in files {
+            CoverageProject::write(
+                root,
+                &format!("{relative}.{extension}"),
+                &source.replace("EXT", extension),
+            );
+        }
+    }
+}
+
+#[test]
+fn coverage_records_a_shared_utility_that_a_service_imports() {
+    if !CoverageProject::available("node") {
+        eprintln!("skipping the imported utility check: node is unavailable");
+        return;
+    }
+    for extension in ImportedUtility::EXTENSIONS {
+        let root = tempfile::tempdir().expect("project");
+        ImportedUtility::project(root.path(), extension);
+        let tested = CoverageProject::test(root.path());
+        let expected = [
+            format!("PriceUtils (client/shared/utils/PriceUtils.{extension})"),
+            String::from("called   label (first by BasketServiceTest.testTotal)"),
+            String::from("missing  unused"),
+        ];
+        assert!(!tested.passed, "{extension}: {}", tested.report);
+        for line in expected {
+            assert!(
+                tested.report.contains(&line),
+                "{extension}: {}",
+                tested.report
+            );
+        }
+    }
+}

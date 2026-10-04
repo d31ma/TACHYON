@@ -29,6 +29,7 @@ mod csharp_task_model_tests;
 mod csharp_test_models;
 mod dart_test_models;
 mod fsharp_unit;
+mod hooked_utilities;
 mod python_unit;
 mod test_unit_error;
 
@@ -40,6 +41,8 @@ mod dart_construct_tests;
 mod dart_http_context_tests;
 #[cfg(test)]
 mod go_construct_tests;
+#[cfg(test)]
+mod hooked_utilities_tests;
 #[cfg(test)]
 mod java_construct_tests;
 #[cfg(test)]
@@ -484,7 +487,9 @@ fn script(
     lowered: &str,
     name: &str,
 ) -> Result<String, Failure> {
-    let (unit, preload) = write_script_files(directory, portable, extension, lowered, name)?;
+    hooked_utilities::HookedUtilities::write(project, directory)?;
+    let unit_directory = directory.join(Path::new(portable).parent().unwrap_or(Path::new("")));
+    let (unit, preload) = write_script_files(&unit_directory, portable, extension, lowered, name)?;
     let mut last_missing = None;
     for program in javascript_runtimes(javascript) {
         let command = runtime_command(&program, directory, project, &unit, &preload)
@@ -495,6 +500,7 @@ fn script(
         command
             .current_dir(project)
             .env("TAC_TEST_UNIT", "1")
+            .env("TAC_UNIT_HOOKED_ROOT", directory.join("client"))
             .env("TAC_UNIT_CLIENT_ROOT", project.join("client"))
             .env("TAC_UNIT_PROJECT_ROOT", project);
         match command.output() {
@@ -520,14 +526,16 @@ fn write_script_files(
     lowered: &str,
     name: &str,
 ) -> Result<(PathBuf, PathBuf), Failure> {
+    std::fs::create_dir_all(directory).map_err(|error| stage_failure(portable, &error))?;
     let file_extension = if extension == "ts" { "ts" } else { "mjs" };
     let unit = directory.join(format!("unit.{file_extension}"));
     let entry = format!(
-        "\nconst __tachyon_unit = new {name}();\n\
+        "\n{}const __tachyon_unit = new {name}();\n\
          __tachyon_unit.POST()\n\
          .then((report) => console.log(JSON.stringify(report)))\n\
          .catch((error) => {{ console.log(JSON.stringify({{ unit: {}, cases: [], \
          failure: String(error && error.message || error) }})); }});\n",
+        hooked_utilities::HookedUtilities::RECORDER_PUBLISH,
         serde_json::Value::String(name.to_owned())
     );
     let runtime = crate::behavior::runtime_source();
@@ -663,6 +671,9 @@ fn write_deno_import_map(directory: &Path, project: &Path) -> std::io::Result<Pa
         let name = entry.file_name().to_string_lossy().into_owned();
         let target = format!("file://{}/", entry.path().display());
         imports.insert(format!("/{name}/"), serde_json::Value::String(target));
+    }
+    if let Some((prefix, target)) = hooked_utilities::HookedUtilities::import_mapping(directory) {
+        imports.insert(prefix, serde_json::Value::String(target));
     }
     let map = directory.join("imports.json");
     std::fs::write(&map, serde_json::json!({ "imports": imports }).to_string())?;

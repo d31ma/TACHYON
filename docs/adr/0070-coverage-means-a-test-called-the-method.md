@@ -90,3 +90,20 @@ The coverage report leaves these utilities out (`ImportedUtilities` in
 `method_coverage`) instead of reporting them as untested. Utilities that are
 composed into the program are still recorded and required. Recording calls of
 imported utilities is a separate follow-up.
+
+## Amendment: Recorded imported Tac script utilities (2026-10-04)
+
+This amendment replaces the exclusion of the 2026-10-03 amendment. A
+JavaScript or TypeScript test unit now runs with recorded copies of every
+script in `client/shared/utils`. Before the unit starts, `ty test` writes each
+utility to the unit's staging folder with the recording line in each public
+static method, and with a first line that sends the calls to the unit's
+`Behaviors` through one global recorder. The unit's preload resolves an
+absolute path such as `/shared/utils/PriceUtils.js` to that copy first; the
+unit file sits at the same relative place as its source, so a relative import
+such as `../shared/utils/PriceUtils.js` reaches the copy too. Node, Bun and
+Deno (through its import map) use the same copies. So the coverage report
+lists every client utility again, and a method of an imported utility that no
+case called is missing like any other. Utilities in the other Tac languages
+were never affected: their units compose `client/shared/utils` into one
+program, where the test build already adds the recording line.

@@ -4,14 +4,14 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 class TestRoots {
+  static hooked = process.env.TAC_UNIT_HOOKED_ROOT
   static client = process.env.TAC_UNIT_CLIENT_ROOT
   static project = process.env.TAC_UNIT_PROJECT_ROOT
-}
 
-const redirected = (specifier) => {
-  if (!/^\/(?!\/)/.test(specifier) || existsSync(specifier)) return undefined
-  const clientPath = TestRoots.client + specifier
-  return existsSync(clientPath) ? clientPath : undefined
+  static redirected(specifier) {
+    if (!/^\/(?!\/)/.test(specifier) || existsSync(specifier)) return undefined
+    return [TestRoots.hooked, TestRoots.client].map((root) => root + specifier).find((path) => existsSync(path))
+  }
 }
 
 if (typeof Deno !== 'undefined') {
@@ -20,7 +20,7 @@ if (typeof Deno !== 'undefined') {
     name: 'tachyon-client-paths',
     setup(build) {
       build.onResolve({ filter: /^\/(?!\/)/ }, (args) => {
-        const path = redirected(args.path)
+        const path = TestRoots.redirected(args.path)
         return path ? { path } : undefined
       })
     },
@@ -31,13 +31,13 @@ if (typeof Deno !== 'undefined') {
     import { existsSync } from 'node:fs'
     import { pathToFileURL } from 'node:url'
     class TestRoots {
-      static client = ${JSON.stringify(TestRoots.client)}
+      static all = ${JSON.stringify([TestRoots.hooked, TestRoots.client])}
     }
     export async function resolve(specifier, context, next) {
-      if (/^\\/(?!\\/)/.test(specifier) && !existsSync(specifier) && existsSync(TestRoots.client + specifier)) {
-        return next(pathToFileURL(TestRoots.client + specifier).href, context)
-      }
-      return next(specifier, context)
+      const path = /^\\/(?!\\/)/.test(specifier) && !existsSync(specifier)
+        ? TestRoots.all.map((root) => root + specifier).find((candidate) => existsSync(candidate))
+        : undefined
+      return next(path ? pathToFileURL(path).href : specifier, context)
     }`
   register(`data:text/javascript,${encodeURIComponent(hooks)}`, pathToFileURL(join(TestRoots.project, 'noop.js')))
 }

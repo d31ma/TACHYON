@@ -143,6 +143,15 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Method coverage records a JavaScript or TypeScript utility in
+  `client/shared/utils` that a file imports by its path (`/shared/utils/...`
+  or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript
+  test unit now runs with recorded copies of these utilities under Node, Bun
+  and Deno, so the coverage report lists them again and fails on a method that
+  no case called (ADR 0070). A service that imports a utility by a relative
+  path also runs as a unit now; before, its unit stopped with
+  `ERR_MODULE_NOT_FOUND`.
+
 - The design checks for plain-English names (`TY1328`), named values
   (`TY1330`) and unused public members (`TY1333`) now read Tac utilities in
   `client/shared/utils/` and its nested folders. Before, they skipped that
@@ -306,9 +315,8 @@ machine contracts have their own, independent major versions.
   `server/utils/`. The website, its examples and the duplicate-code help use
   the new folder. Like `client/utils/` before, a utility in
   `client/shared/utils/` is published only when a script imports it (no raw
-  copy of its source) and counts for `ty test --coverage`; a JavaScript or TypeScript utility that is imported by
-  its path or uses `import.meta` is left out of the coverage report, because
-  its calls cannot be recorded yet (ADR 0070).
+  copy of its source) and counts for `ty test --coverage`, also when a
+  JavaScript or TypeScript file imports it by its path (see Fixed).
 
 - Every concrete class in a role folder needs its role marker (ADR 0091).
   A class in `services/`, `stores/`, `remotes/` (or `clients/`), `setups/`,

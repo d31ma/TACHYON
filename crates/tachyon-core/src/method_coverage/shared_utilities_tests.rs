@@ -1,9 +1,9 @@
-use super::{CoverageReport, ImportedUtilities, RecordedCalls};
-use std::path::{Path, PathBuf};
+use super::{CoverageReport, RecordedCalls};
+use std::path::Path;
 
-struct ImportedUtilityProject;
+struct SharedUtilityProject;
 
-impl ImportedUtilityProject {
+impl SharedUtilityProject {
     const UTILITY: &'static str =
         "export class NAMEUtils {\n  static label(cents) {\n    return cents\n  }\n}\n";
 
@@ -15,7 +15,7 @@ impl ImportedUtilityProject {
 
     fn project() -> tempfile::TempDir {
         let root = tempfile::tempdir().expect("project");
-        for name in ["Price", "Title", "Count", "Meta"] {
+        for name in ["Price", "Title", "Count"] {
             Self::write(
                 root.path(),
                 &format!("client/shared/utils/nested/{name}Utils.js"),
@@ -37,25 +37,15 @@ impl ImportedUtilityProject {
 }
 
 #[test]
-fn explicitly_imported_and_module_client_utilities_are_not_recorded() {
-    let root = ImportedUtilityProject::project();
-    let unrecorded = ImportedUtilities::unrecorded(root.path());
-    for name in ["Price", "Count", "Meta"] {
-        let path = PathBuf::from(format!("client/shared/utils/nested/{name}Utils.js"));
-        assert!(unrecorded.contains(&path), "{name}: {unrecorded:?}");
-    }
-    let title = PathBuf::from("client/shared/utils/nested/TitleUtils.js");
-    assert!(!unrecorded.contains(&title), "{unrecorded:?}");
-}
-
-#[test]
-fn coverage_lists_only_the_utilities_whose_calls_it_can_record() {
-    let root = ImportedUtilityProject::project();
+fn coverage_lists_imported_module_and_inline_client_utilities() {
+    let root = SharedUtilityProject::project();
     let report = CoverageReport::build(root.path(), RecordedCalls::default()).expect("coverage");
-    let types: Vec<String> = report
+    let mut types: Vec<String> = report
         .uncovered()
         .into_iter()
         .map(|found| found.type_name)
         .collect();
-    assert_eq!(types, vec![String::from("TitleUtils")], "{report:?}");
+    types.sort();
+    let expected = ["CountUtils", "MetaUtils", "PriceUtils", "TitleUtils"].map(String::from);
+    assert_eq!(types, expected, "{report:?}");
 }
