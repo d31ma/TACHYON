@@ -569,21 +569,11 @@ fn c_source(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
 ) -> String {
-    WindowsHostGenerator::C_HOST
-        .replace(
-            "__LOCAL_BUNDLE_HELPERS__",
-            &super::routes::c_local_bundle(index, companions, "https://tachyon.local"),
-        )
+    let framed = WindowsHostGenerator::C_HOST
         .replace(
             "__WINDOW_CONTROLS__",
             &super::native_window_controls::NativeWindowControls::windows(&application.window),
         )
-        .replace("__APP_NAME__", &c_string_escape(&application.name))
-        .replace(
-            "__BUNDLE_ID__",
-            &c_string_escape(&application.application_id),
-        )
-        .replace("__ENTRY_ROUTE__", &c_string_escape(&index.entry_route))
         .replace(
             "__NATIVE_SHIM__",
             &c_string_escape(&super::host::native_shim(&application.window)),
@@ -591,7 +581,20 @@ fn c_source(
         .replace(
             "__CONTENT_SECURITY_POLICY__",
             &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
-        )
+        );
+    let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
+    let app_name = c_string_escape(&application.name);
+    let bundle_id = c_string_escape(&application.application_id);
+    let entry_route = c_string_escape(&index.entry_route);
+    super::placeholder_fill::PlaceholderFill::once(
+        &framed,
+        &[
+            ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
+            ("__APP_NAME__", &app_name),
+            ("__BUNDLE_ID__", &bundle_id),
+            ("__ENTRY_ROUTE__", &entry_route),
+        ],
+    )
 }
 
 #[cfg(test)]
@@ -1385,6 +1388,14 @@ mod tests {
             entry_document: String::from("index.html"),
             routes: Vec::new(),
         }
+    }
+
+    #[test]
+    fn an_application_name_that_looks_like_a_placeholder_stays_text() {
+        let mut named = application();
+        named.name = String::from("__BUNDLE_ID__ __NATIVE_SHIM__");
+        let source = c_source(&named, &index(), &[]);
+        assert!(source.contains(r#"#define TACHYON_APP_NAME "__BUNDLE_ID__ __NATIVE_SHIM__""#));
     }
 
     fn catalog_host_source() -> String {

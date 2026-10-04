@@ -225,6 +225,12 @@ machine contracts have their own, independent major versions.
 - A macOS app name that looks like a host template placeholder, such as
   `__ROUTE_DOCUMENTS__`, stays plain text in the generated Swift host.
 
+- The iOS, Android, Linux and Windows hosts keep authored values that look
+  like host template placeholders as plain text too. An app name, bundle ID,
+  entry route or route document such as `__NATIVE_SHIM__` was replaced by the
+  framework text with that name. Each host now fills the authored values last,
+  in one pass that never rescans inserted text, like the macOS host.
+
 - A C# companion field of type `decimal` compiles: its setter converts the
   value with `Convert.ToDecimal`.
 

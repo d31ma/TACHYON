@@ -203,17 +203,11 @@ fn swift_source(
     } else {
         ""
     };
-    IosHostGenerator::SWIFT_HOST
+    let framed = IosHostGenerator::SWIFT_HOST
         .replace(
             "__TACHYON_JSON_REQUEST__",
             MacOsHostGenerator::APPLE_JSON_REQUEST,
         )
-        .replace(
-            "__ENTRY_DOCUMENT__",
-            &quoted_string_escape(&index.entry_document),
-        )
-        .replace("__ENTRY_ROUTE__", &quoted_string_escape(&index.entry_route))
-        .replace("__ROUTE_DOCUMENTS__", &super::routes::swift_routes(index))
         .replace(
             "__NATIVE_SHIM__",
             &super::host::native_shim(&application.window),
@@ -223,16 +217,8 @@ fn swift_source(
             "__TACHYON_COMPANION_EMIT__",
             super::macos::companion_emit(companion_call),
         )
-        .replace("__TACHYON_RUST_SHIM__", rust_shim)
-        .replace(
-            "__APP_TYPE__",
-            &format!("{}App", application.executable_name),
-        )
-        .replace("__APP_NAME__", &quoted_string_escape(&application.name))
-        .replace(
-            "__BUNDLE_ID__",
-            &quoted_string_escape(&application.application_id),
-        )
+        .replace("__TACHYON_RUST_SHIM__", rust_shim);
+    IosHostGenerator::authored_values(&framed, application, index)
 }
 
 #[cfg(test)]
@@ -241,6 +227,28 @@ pub(super) const fn host_source() -> &'static str {
 }
 
 impl IosHostGenerator {
+    fn authored_values(
+        host: &str,
+        application: &NativeApplication,
+        index: &NativeRouteIndex,
+    ) -> String {
+        let entry_document = quoted_string_escape(&index.entry_document);
+        let entry_route = quoted_string_escape(&index.entry_route);
+        let route_documents = super::routes::swift_routes(index);
+        let app_type = format!("{}App", application.executable_name);
+        let bundle_id = quoted_string_escape(&application.application_id);
+        super::placeholder_fill::PlaceholderFill::once(
+            host,
+            &[
+                ("__ENTRY_DOCUMENT__", &entry_document),
+                ("__ENTRY_ROUTE__", &entry_route),
+                ("__ROUTE_DOCUMENTS__", &route_documents),
+                ("__APP_TYPE__", &app_type),
+                ("__BUNDLE_ID__", &bundle_id),
+            ],
+        )
+    }
+
     const SWIFT_HOST: &str = r##"import Foundation
 import UIKit
 import WebKit
@@ -567,6 +575,14 @@ mod tests {
             entry_document: String::from("index.html"),
             routes: Vec::new(),
         }
+    }
+
+    #[test]
+    fn an_entry_route_that_looks_like_a_placeholder_stays_text() {
+        let mut routed = index();
+        routed.entry_route = String::from("/__BUNDLE_ID__/__TACHYON_COMPANION_CALL__");
+        let source = swift_source(&application(), "tacNativeInvoke(payload)", &routed);
+        assert!(source.contains(r#"var route = "/__BUNDLE_ID__/__TACHYON_COMPANION_CALL__""#));
     }
 
     #[test]

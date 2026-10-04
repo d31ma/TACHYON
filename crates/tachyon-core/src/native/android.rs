@@ -362,32 +362,30 @@ fn java_source(
     } else {
         "// No companion, so nothing publishes."
     };
-    AndroidHostGenerator::JAVA_HOST
-        .replace(
-            "__ENTRY_DOCUMENT__",
-            &quoted_string_escape(&index.entry_document),
-        )
+    let framed = AndroidHostGenerator::JAVA_HOST
         .replace("__NATIVE_SHIM__", &quoted_string_escape(&native_shim))
         .replace(
             "__ANDROID_BRIDGE_SHIM__",
             &quoted_string_escape(AndroidHostGenerator::ANDROID_BRIDGE_SHIM),
-        )
-        .replace("__PACKAGE__", package)
-        .replace(
-            "__BUNDLE_ID__",
-            &quoted_string_escape(&application.application_id),
-        )
-        .replace("__APP_NAME__", &quoted_string_escape(&application.name))
-        .replace(
-            "__ROUTE_DOCUMENTS__",
-            &quoted_string_escape(&route_documents),
         )
         .replace(
             "__NATIVE_WINDOW_CONTROLS__",
             &super::native_window_controls::NativeWindowControls::android(&application.window),
         )
         .replace("__TACHYON_COMPANION_CALL__", companion_call)
-        .replace("__TACHYON_COMPANION_EMIT__", companion_emit)
+        .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
+    let entry_document = quoted_string_escape(&index.entry_document);
+    let bundle_id = quoted_string_escape(&application.application_id);
+    let route_documents = quoted_string_escape(&route_documents);
+    super::placeholder_fill::PlaceholderFill::once(
+        &framed,
+        &[
+            ("__ENTRY_DOCUMENT__", &entry_document),
+            ("__PACKAGE__", package),
+            ("__BUNDLE_ID__", &bundle_id),
+            ("__ROUTE_DOCUMENTS__", &route_documents),
+        ],
+    )
 }
 
 #[cfg(test)]
@@ -986,6 +984,14 @@ mod tests {
             has_companion,
             &index(),
         )
+    }
+
+    #[test]
+    fn an_entry_document_that_looks_like_a_placeholder_stays_text() {
+        let mut routed = index();
+        routed.entry_document = String::from("__NATIVE_SHIM__.html");
+        let source = java_source(&application(), "dev.tachyon.native_catalog", true, &routed);
+        assert!(source.contains(r#"ENTRY_DOCUMENT = "__NATIVE_SHIM__.html";"#));
     }
 
     #[test]

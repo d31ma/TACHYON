@@ -150,16 +150,11 @@ fn stage_icon(
 }
 
 fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String {
-    LinuxHostGenerator::C_HOST
+    let framed = LinuxHostGenerator::C_HOST
         .replace(
             "__NATIVE_WINDOW_CONTROLS__",
             &super::linux_window_controls::LinuxWindowControls::source(&application.window),
         )
-        .replace(
-            "__LOCAL_BUNDLE_HELPERS__",
-            &super::routes::c_local_bundle(index, &[], "tachyon://app"),
-        )
-        .replace("__ENTRY_ROUTE__", &c_string_escape(&index.entry_route))
         .replace(
             "__NATIVE_SHIM__",
             &c_string_escape(&super::host::native_shim(&application.window)),
@@ -167,16 +162,22 @@ fn c_source(application: &NativeApplication, index: &NativeRouteIndex) -> String
         .replace(
             "__CONTENT_SECURITY_POLICY__",
             &c_string_escape(&crate::compiler::ContentSecurityPolicy::native_host()),
-        )
-        .replace("__APP_NAME__", &c_string_escape(&application.name))
-        .replace(
-            "__BUNDLE_ID__",
-            &c_string_escape(&application.application_id),
-        )
-        .replace(
-            "__GTK_APP_ID__",
-            &c_string_escape(&gtk_application_id(&application.application_id)),
-        )
+        );
+    let local_bundle = super::routes::c_local_bundle(index, &[], "tachyon://app");
+    let entry_route = c_string_escape(&index.entry_route);
+    let app_name = c_string_escape(&application.name);
+    let bundle_id = c_string_escape(&application.application_id);
+    let gtk_app_id = c_string_escape(&gtk_application_id(&application.application_id));
+    super::placeholder_fill::PlaceholderFill::once(
+        &framed,
+        &[
+            ("__LOCAL_BUNDLE_HELPERS__", &local_bundle),
+            ("__ENTRY_ROUTE__", &entry_route),
+            ("__APP_NAME__", &app_name),
+            ("__BUNDLE_ID__", &bundle_id),
+            ("__GTK_APP_ID__", &gtk_app_id),
+        ],
+    )
 }
 
 #[cfg(test)]
@@ -597,6 +598,17 @@ mod tests {
             entry_document: String::from("index.html"),
             routes: Vec::new(),
         }
+    }
+
+    #[test]
+    fn authored_values_that_look_like_placeholders_stay_text() {
+        let mut named = application();
+        named.name = String::from("__GTK_APP_ID__ __BUNDLE_ID__");
+        let mut routed = index();
+        routed.entry_route = String::from("/__NATIVE_SHIM__");
+        let source = c_source(&named, &routed);
+        assert!(source.contains(r#"#define TACHYON_APP_NAME "__GTK_APP_ID__ __BUNDLE_ID__""#));
+        assert!(source.contains(r#"#define TACHYON_ENTRY_ROUTE "/__NATIVE_SHIM__""#));
     }
 
     #[test]
