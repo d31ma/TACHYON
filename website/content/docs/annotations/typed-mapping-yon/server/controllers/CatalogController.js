@@ -4,7 +4,8 @@ class CatalogController {
   /** @type {ProductConverter} */
   @Needs
   productConverter;
-  /** @returns {Promise<Summary>} */
+
+  /** @returns {Promise<Summary | void>} */
   @GetRoute
   async getCatalog() {
     const detail = {name: 'detail', secret: 'detail-private'};
