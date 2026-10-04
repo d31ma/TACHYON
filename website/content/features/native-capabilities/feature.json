@@ -1,14 +1,75 @@
 {
   "id": "native-capabilities",
   "title": "Inject an OS file picker into a service",
-  "summary": "A service asks for `filePicker` with `Needs`; platform calls stay in the adapter. `tac.nativeCapabilities` grants the capability separately from browser APIs. The macOS host uses NSOpenPanel and returns the chosen file as a handle. The handle belongs to the service that asked for it. It ends after 300 seconds, or sooner when that service goes away. `readText(handle)` reads at most 65,536 UTF-8 bytes and `release(handle)` ends access. Cancel, denied, unsupported, invalid and unavailable are typed results. A browser tab returns unsupported and opens no picker. Compiled native services request a typed FilePicker field through Needs or NeedsAll; Tachyon gives each service its own picker (ADR 0089). On other operating systems, the picker answers unsupported.",
+  "summary": "A service asks for the operating system's file picker by injection. `tac.nativeCapabilities: [\"filePicker\"]` in `client/manifest.json` grants it, separately from `tac.browserApis`. Without the grant, every call answers `denied` before a panel opens. The grant does not replace the user's choice or the signing entitlements: a sandboxed macOS app also needs the user-selected read-only file entitlement, and Tachyon does not add it for you. `open` lets the user choose one file; the only type filters are `text/plain` and `application/json`, and an empty list allows any file. The answer holds the file name and an opaque handle, never a path. `readText(handle)` reads at most 65,536 bytes of UTF-8 text, and `release(handle)` ends access. A handle belongs to the service that asked for it. It ends after 300 seconds, or sooner when that service goes away. Every answer is a typed status (`selected`, `cancelled`, `read`, `released`, `denied`, `unsupported`, `unavailable`, `invalid`, `disposed` or `tooLarge`); nothing throws. The picker opens a panel (NSOpenPanel) only on macOS, for JavaScript, TypeScript, Rust and Swift services (ADR 0089). A browser tab and the iOS, Android, Linux and Windows apps open no panel and answer `unsupported`. JavaScript and TypeScript inject `filePicker` with `@Needs` and get Promises. Rust declares a `FilePicker` field in a `Default` service, so the same file builds for every target. Swift and C# ask for an uninitialized `FilePicker` field with `NeedsAll`, but only in an app that links the service: Swift on macOS and iOS, and C# on Windows, where it answers `unsupported` because Windows has no picker yet. A Swift or C# service that runs as WebAssembly cannot ask for a FilePicker yet, and the build stops with `TY1407`. So their files are under native/ here; put the one for your target in client/services. A Kotlin service cannot ask for a FilePicker yet on any target: the build stops with `TY1405`. Dart, Go, Ruby, Java, F#, Lua and Python services always run in the page and have no FilePicker type, so this feature has no tab for them. Let a JavaScript, TypeScript or Rust service use the picker and send the text to them with an event.",
   "group": "Native",
+  "notApplicable": [
+    "dart",
+    "go",
+    "rb",
+    "java",
+    "fs",
+    "lua",
+    "py",
+    "swift",
+    "kt",
+    "cs"
+  ],
   "files": [
-    { "name": "client/manifest.json", "code": { "file": "client/manifest.json" } },
-    { "name": "client/services/PickerService.js", "code": { "file": "client/services/PickerService.js" } },
-    { "name": "client/services/PickerService.ts", "code": { "file": "client/services/PickerService.ts" } },
-    { "name": "client/pages/tac.html", "code": { "file": "client/pages/tac.html" } },
-    { "name": "client/components/picker/panel/tac.html", "code": { "file": "client/components/picker/panel/tac.html" } }
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/services/PickerService.js",
+      "code": {
+        "file": "client/services/PickerService.js"
+      }
+    },
+    {
+      "name": "client/services/PickerService.ts",
+      "code": {
+        "file": "client/services/PickerService.ts"
+      }
+    },
+    {
+      "name": "client/services/PickerService.rs",
+      "code": {
+        "file": "client/services/PickerService.rs"
+      }
+    },
+    {
+      "name": "native/services/PickerService.swift",
+      "code": {
+        "file": "native/services/PickerService.swift"
+      }
+    },
+    {
+      "name": "native/services/PickerService.cs",
+      "code": {
+        "file": "native/services/PickerService.cs"
+      }
+    },
+    {
+      "name": "where the panel opens",
+      "code": {
+        "file": "native/targets.txt"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/picker/panel/tac.html",
+      "code": {
+        "file": "client/components/picker/panel/tac.html"
+      }
+    }
   ],
   "verify": "tac"
 }

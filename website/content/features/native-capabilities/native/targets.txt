@@ -1,0 +1,23 @@
+Where the file picker opens a panel
+
+  Service language       macOS app        Other apps and browser tabs
+  JavaScript, TypeScript panel opens      answers unsupported
+  Rust                   panel opens      answers unsupported
+  Swift                  panel opens      iOS: answers unsupported
+  C#                     -                Windows: answers unsupported
+
+JavaScript, TypeScript and Rust use the same file on every target.
+Swift and C# ask for the picker with NeedsAll only in an app that
+links them: Swift on macOS and iOS, C# on Windows. A Kotlin service
+cannot ask for a FilePicker yet (TY1405). Put the native file for
+your target in your application's client/services/PickerService.<ext>;
+native/ here only separates the examples.
+
+Limits on every host that opens a panel
+
+  type filters     text/plain, application/json (empty: any file)
+  read size        65,536 bytes of UTF-8 text
+  handle lifetime  300 seconds, or until the service goes away
+  handles          8 per service, 128 per app
+  panels           one at a time; a second request is unavailable
+  panel timeout    30 seconds, then cancelled
