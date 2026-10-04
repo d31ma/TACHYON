@@ -79,3 +79,39 @@ and Helper lifecycle or event hooks are refused before the authored metadata
 is removed. Field `Needs` constructor lowering works only for typed
 constructors that are called explicitly. C# has no managed Helper injection
 and no automatic Helper cleanup.
+
+## Amendment (2026-10-03): one structure check before the build
+
+The rules of this ADR, ADR 0067 (file names) and ADR 0064 (utilities) run as
+one structure check. Project discovery reads every file of both realms at any
+depth and checks each file before the compiler writes output or starts a
+toolchain (`dart`, `cargo`, `go`, `dotnet` and the others). It collects the
+problems of every file into one report, so one run lists all of them. Each
+diagnostic names the file, points at the declaration or import, and gives the
+fix in the language's own spelling. Within one file the checks stop at the
+first problem, because the later checks read the class that the earlier ones
+accept.
+
+The check covers, per role folder and language:
+
+1. the role marker of the folder (`TY1363`);
+2. the role suffix of a marked class and its role folder (`TY1310`);
+3. the file name, which is the class name in the language's file name style
+   (`TY1318`, `TY1310`);
+4. one primary class per role file, or the language's form of it: a Go struct
+   with its methods, a Lua class table, an F# type, a Rust type with its
+   `impl` blocks (`TY1310`);
+5. dependencies that point down and never reach a controller (`TY1327`). A
+   utility class in `client/shared/utils` or `server/utils` names no role class:
+   every class of its realm may call it, so it cannot depend on one. Of the
+   other design rules, `client/shared/utils` is not yet in scope;
+6. realm boundaries: a JavaScript, TypeScript or Dart file never imports a file
+   of the other realm with a relative path (`TY1369`). Client code reaches the
+   server through an HTTPClient; server code never imports client code.
+
+Models, utilities, tests, generated files, the native Go module in
+`server/packages` (ADR 0095) and the support files in `client/shared` keep
+their own rules. A folder that is not a role folder never needs a marker.
+`ty migrate check` lists missing markers (`role.marker`), imports of the other
+realm (`role.realm_import`) and the dependency findings; `ty migrate fix
+--write` renames a file whose class has another name.

@@ -31,6 +31,9 @@
     },
     {
       "include": "../strict-annotation-layout/moving-role-types-and-compiler-checks/section.json"
+    },
+    {
+      "include": "../strict-annotation-layout/one-structure-check-before-the-build/section.json"
     }
   ]
 }

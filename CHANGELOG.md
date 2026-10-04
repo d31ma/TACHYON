@@ -191,6 +191,12 @@ machine contracts have their own, independent major versions.
 - A FYLO call that a deadline cancels now restarts the `fylo` subprocess, so
   its late answer can no longer be read as the answer to the next call.
 
+- One structure check runs before the build writes output or starts a
+  toolchain, and it reports every file's problem in one run (ADR 0091).
+  `TY1363` now points at the class declaration instead of the start of the
+  file and spells the Lua marker `-- @Service`; the role layout help of
+  `TY1310` names the authored `.lua` or `.fs` file instead of the internal
+  Ruby or C# view.
 - Go route types no longer stop with `TY2015` for types from other Go
   packages: `json.RawMessage`, `http.Header`, `time.Time` and types from the
   native packages in `server/packages/` (such as `spec.Document`) are open
@@ -349,6 +355,20 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- A JavaScript, TypeScript or Dart file that imports a file of the other realm
+  with a relative path, such as a client service that imports
+  `../../server/controllers/HomeController.js`, stops the build with
+  `TY1369` at the import path. Before, `ty bundle` built it into a client
+  module that pointed at server code, and for Dart it started `dart compile
+  wasm` before failing. Reach the server through an HTTPClient in
+  `client/remotes`; `ty migrate check` lists each such import as
+  `role.realm_import` (ADR 0091).
+- A utility class in `client/shared/utils` or `server/utils` that names a role
+  class (a service, store, client, helper, converter, setup or controller)
+  stops the build with `TY1327` under the dependency rule: every class of the
+  realm may call a utility, so a utility depends on no role class (ADR 0064,
+  ADR 0091). `tac.dependencies.check` and `dependencies.check` turn it off
+  while you move code.
 - Tac utility classes live only in `client/shared/utils/` (ADR 0064).
   Nested topic folders such as `client/shared/utils/text/` are allowed. A file
   in `client/utils/` stops the build with `TY1310`, which names its new path
