@@ -161,7 +161,8 @@ application services once. There is no reopen step as on macOS.
 
 - Linux: `linux_host_tests::linux_generated_host_runs_menu_actions_and_one_application_lifetime`
   builds the generated host with GTK 4 and WebKitGTK 6.0 and a real Rust
-  library, then runs it: the service starts once at launch, a menu action reaches
+  library, then runs it (under Xvfb on WSL Ubuntu 24.04 for this amendment):
+  the service starts once at launch, a menu action reaches
   the page service without a reload, the item is disabled with no recipient,
   Help and Home keep the service, and Close Window stops it once.
 - Windows: generated-source tests, and the Win32 menu code compiled and linked

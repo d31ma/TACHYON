@@ -202,6 +202,11 @@ machine contracts have their own, independent major versions.
   check, not a sandbox: computed names such as `element[name]`,
   `Reflect.set` and `Object.assign` are not followed.
 
+- A Rust file may put `#[cfg(...)]` and `#[cfg_attr(...)]` lines above its
+  `use` items, such as `#[cfg(unix)] use std::os::unix::net::UnixStream;`, so a
+  native service can gate platform imports. Before, the one-class check read the
+  attribute as a top-level item and refused the file with `TY1310`. A `cfg`
+  line above any other top-level item still fails.
 - Method coverage records a JavaScript or TypeScript utility in
   `client/shared/utils` that a file imports by its path (`/shared/utils/...`
   or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript
