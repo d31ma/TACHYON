@@ -256,6 +256,12 @@ machine contracts have their own, independent major versions.
 - An unresolved `@Needs` dependency (`TY2015`) points at the field that needs
   it instead of the class. In Lua the span covers the field's line instead of
   an empty span at the class table.
+- A Python service field whose default value contains a call, such as
+  `label: str = str(5)` or `product: Product = Product(name="A")`, is no
+  longer dropped from the page bridge. The field keeps its declared type with
+  any default, including nested brackets, strings with brackets or `#`, and
+  defaults that span several lines. A field that shares its line with another
+  statement after `;` now stops the build with an error that names the field.
 - Method coverage records a JavaScript or TypeScript utility in
   `client/shared/utils` that a file imports by its path (`/shared/utils/...`
   or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript

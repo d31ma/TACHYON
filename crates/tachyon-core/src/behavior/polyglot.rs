@@ -59,10 +59,12 @@ pub(crate) use native_storage::NativeStorage;
 mod parser_tests;
 mod php;
 mod python;
+mod python_fields;
+use python_fields::PythonFields;
 mod python_members;
+pub(crate) use python_members::PythonMembers;
 #[cfg(test)]
 mod python_members_tests;
-pub(crate) use python_members::PythonMembers;
 mod query_frontend;
 mod ruby;
 mod ruby_syntax;
@@ -1853,6 +1855,8 @@ fn parse_type(
         || (language == "py" && is_python_protocol(input, declaration, body.start));
     let fields = if declared {
         Vec::new()
+    } else if language == "py" {
+        PythonFields::read(input, body.clone())?
     } else {
         fields(input, language, body.clone())
     };
@@ -2099,7 +2103,6 @@ fn field_delimiter(language: &str) -> char {
 
 fn fields(input: &Input<'_>, language: &str, body: Range<usize>) -> Vec<Field> {
     let mut result = Vec::new();
-    let direct_indent = minimum_indentation(&input.code[body.clone()]);
     let delimiter = if crate::groovy_source::GroovySource::is_groovy(input.path) {
         '\n'
     } else {
@@ -2112,11 +2115,7 @@ fn fields(input: &Input<'_>, language: &str, body: Range<usize>) -> Vec<Field> {
         let source_end =
             code_end + trailing_text_length(&input.source[code_end..offset + segment.len()]);
         let source = &input.source[source_start..source_end];
-        let direct = if language == "py" {
-            is_direct_python_line(segment, direct_indent)
-        } else {
-            brace_depth(&input.code[body.start..offset]) == 0
-        };
+        let direct = brace_depth(&input.code[body.start..offset]) == 0;
         offset += segment.len();
         if !direct || segment.contains('(') || segment.trim_start().starts_with(['@', '#', '[']) {
             continue;
@@ -2148,13 +2147,6 @@ fn trailing_text_length(rest: &str) -> usize {
         }
     }
     0
-}
-
-fn is_direct_python_line(segment: &str, direct_indent: usize) -> bool {
-    let text = segment.trim();
-    !text.is_empty()
-        && !text.starts_with(['@', '#'])
-        && segment.len() - segment.trim_start().len() == direct_indent
 }
 
 fn parse_field(language: &str, source: &str) -> Option<Field> {
