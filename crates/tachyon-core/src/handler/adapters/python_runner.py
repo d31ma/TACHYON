@@ -34,6 +34,7 @@ class ProtocolLimits:
 
 class RunnerSettings:
     RESOURCE_TIMEOUT_SECONDS = 5
+    SCROLL_TIMEOUT_SECONDS = 30
     GATEWAY_ANSWER_MARGIN_SECONDS = 1
     RELAY_READ_BYTES = 8192
     DEFAULT_RELAY_DEADLINE_MS = 30_000
@@ -93,10 +94,10 @@ def post_resource(body, timeout_seconds):
             connection.close()
 
 
-def managed_resource(command):
+def managed_resource(command, timeout_seconds=RunnerSettings.RESOURCE_TIMEOUT_SECONDS):
     try:
         body = encode_resource_command(command)
-        return post_resource(body, RunnerSettings.RESOURCE_TIMEOUT_SECONDS)
+        return post_resource(body, timeout_seconds)
     except Exception:
         raise RuntimeError("Yon managed resource operation failed.") from None
 
@@ -146,6 +147,52 @@ class DataSource:
         if not isinstance(sql, str):
             return managed_resource(sql)
         return managed_resource({"operation": "sql", "sql": sql, "parameters": list(parameters), "mode": "execute"})
+
+    def find_by_id(self, collection, id):
+        return document_command("findById", {"collection": collection, "id": id})
+
+    def insert(self, collection, document):
+        return document_command("insert", {"collection": collection, "value": document})
+
+    def patch(self, collection, id, fields):
+        return document_command("patch", {"collection": collection, "id": id, "value": fields})
+
+    def delete_by_id(self, collection, id):
+        return document_command("deleteById", {"collection": collection, "id": id})
+
+    def scroll(self, collection, where=None, cursor=None, size=20):
+        fields = {"collection": collection, "where": where, "cursor": cursor, "size": size}
+        return document_command("scroll", fields, RunnerSettings.SCROLL_TIMEOUT_SECONDS)
+
+    def create_collection(self, name):
+        return document_command("createCollection", {"collection": name})
+
+    def drop_collection(self, name):
+        return document_command("dropCollection", {"collection": name})
+
+    def collection_exists(self, name):
+        return document_command("collectionExists", {"collection": name})
+
+    def publish(self, topic, payload, key=None):
+        return queue_command("publish", {"topic": topic, "payload": payload, "key": key})
+
+    def claim(self, topic, group, max_messages=1, lease_ms=30000):
+        return queue_command("claim", {"topic": topic, "group": group, "maxMessages": max_messages, "leaseMs": lease_ms})
+
+    def ack(self, topic, group, delivery):
+        return queue_command("ack", {"topic": topic, "group": group, "id": delivery["id"], "receipt": delivery["receipt"]})
+
+    def nack(self, topic, group, delivery, delay_ms=0):
+        fields = {"topic": topic, "group": group, "id": delivery["id"], "receipt": delivery["receipt"], "delayMs": delay_ms}
+        return queue_command("nack", fields)
+
+
+def document_command(command, fields, timeout_seconds=RunnerSettings.RESOURCE_TIMEOUT_SECONDS):
+    return managed_resource({"operation": "document", "command": command, **fields}, timeout_seconds)
+
+
+def queue_command(command, fields):
+    return managed_resource({"operation": "queue", "command": command, **fields})
 
 
 class RedisTemplate:

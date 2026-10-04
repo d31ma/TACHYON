@@ -265,6 +265,153 @@ func (DataSource) Command(command map[string]any) (any, error) {
 	return yonResourceCall(command)
 }
 
+func (DataSource) FindById(collection string, id string, target any) (bool, error) {
+	return yonDocumentInto(map[string]any{"command": "findById", "collection": collection, "id": id}, target)
+}
+
+func (DataSource) Insert(collection string, document any) (string, error) {
+	fields, err := yonDocumentFields(document)
+	if err != nil {
+		return "", err
+	}
+	var saved struct {
+		ID string `json:"id"`
+	}
+	_, err = yonDocumentInto(map[string]any{"command": "insert", "collection": collection, "value": fields}, &saved)
+	return saved.ID, err
+}
+
+func (DataSource) Patch(collection string, id string, fields any, target any) (bool, error) {
+	changes, err := yonDocumentFields(fields)
+	if err != nil {
+		return false, err
+	}
+	return yonDocumentInto(map[string]any{"command": "patch", "collection": collection, "id": id, "value": changes}, target)
+}
+
+func (DataSource) DeleteById(collection string, id string) (bool, error) {
+	return yonDocumentFlag(map[string]any{"command": "deleteById", "collection": collection, "id": id})
+}
+
+func (DataSource) Scroll(collection string, where map[string]any, cursor string, size int) (DocumentWindow, error) {
+	command := map[string]any{"command": "scroll", "collection": collection, "where": where, "size": size}
+	if cursor != "" {
+		command["cursor"] = cursor
+	}
+	var window DocumentWindow
+	_, err := yonDocumentInto(command, &window)
+	return window, err
+}
+
+func (DataSource) CreateCollection(name string) error {
+	_, err := yonDocumentFlag(map[string]any{"command": "createCollection", "collection": name})
+	return err
+}
+
+func (DataSource) DropCollection(name string) (bool, error) {
+	return yonDocumentFlag(map[string]any{"command": "dropCollection", "collection": name})
+}
+
+func (DataSource) CollectionExists(name string) (bool, error) {
+	return yonDocumentFlag(map[string]any{"command": "collectionExists", "collection": name})
+}
+
+func (DataSource) Publish(topic string, payload any, key string) (string, error) {
+	command := map[string]any{"operation": "queue", "command": "publish", "topic": topic, "payload": payload}
+	if key != "" {
+		command["key"] = key
+	}
+	var id string
+	_, err := yonResourceInto(command, &id, yonResourceTimeout)
+	return id, err
+}
+
+func (DataSource) Claim(topic string, group string, maxMessages int, leaseMs int) ([]QueueDelivery, error) {
+	command := map[string]any{"operation": "queue", "command": "claim", "topic": topic, "group": group, "maxMessages": maxMessages, "leaseMs": leaseMs}
+	deliveries := []QueueDelivery{}
+	_, err := yonResourceInto(command, &deliveries, yonResourceTimeout)
+	return deliveries, err
+}
+
+func (DataSource) Ack(topic string, group string, delivery QueueDelivery) error {
+	command := map[string]any{"operation": "queue", "command": "ack", "topic": topic, "group": group, "id": delivery.ID, "receipt": delivery.Receipt}
+	_, err := yonResourceInto(command, nil, yonResourceTimeout)
+	return err
+}
+
+func (DataSource) Nack(topic string, group string, delivery QueueDelivery, delayMs int) error {
+	command := map[string]any{"operation": "queue", "command": "nack", "topic": topic, "group": group, "id": delivery.ID, "receipt": delivery.Receipt, "delayMs": delayMs}
+	_, err := yonResourceInto(command, nil, yonResourceTimeout)
+	return err
+}
+
+type DocumentWindow struct {
+	Content    json.RawMessage `json:"content"`
+	NextCursor string          `json:"nextCursor"`
+}
+
+func (window DocumentWindow) Decode(target any) error {
+	return json.Unmarshal(window.Content, target)
+}
+
+type QueueDelivery struct {
+	ID      string          `json:"id"`
+	Receipt string          `json:"receipt"`
+	Attempt int             `json:"attempt"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+func (delivery QueueDelivery) Decode(target any) error {
+	return json.Unmarshal(delivery.Payload, target)
+}
+
+func yonDocumentFields(value any) (map[string]any, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, YonResourceError{}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.UseNumber()
+	var fields map[string]any
+	if decoder.Decode(&fields) != nil || fields == nil {
+		return nil, YonResourceError{}
+	}
+	return fields, nil
+}
+
+func yonDocumentFlag(command map[string]any) (bool, error) {
+	var flag bool
+	_, err := yonDocumentInto(command, &flag)
+	return flag, err
+}
+
+func yonDocumentInto(command map[string]any, target any) (bool, error) {
+	command["operation"] = "document"
+	timeout := yonResourceTimeout
+	if command["command"] == "scroll" {
+		timeout = yonScrollTimeout
+	}
+	return yonResourceInto(command, target, timeout)
+}
+
+func yonResourceInto(command map[string]any, target any, timeout time.Duration) (bool, error) {
+	body, err := json.Marshal(command)
+	if err != nil {
+		return false, YonResourceError{}
+	}
+	answer, err := yonResourceExchange(body, timeout)
+	if err != nil || !json.Valid(answer) {
+		return false, YonResourceError{}
+	}
+	if string(bytes.TrimSpace(answer)) == "null" {
+		return false, nil
+	}
+	if target != nil && json.Unmarshal(answer, target) != nil {
+		return false, YonResourceError{}
+	}
+	return true, nil
+}
+
 func yonSQL(sql string, parameters []any, mode string) (any, error) {
 	if parameters == nil {
 		parameters = []any{}
@@ -297,6 +444,7 @@ func yonRedis(command string, key string, fields map[string]any) (any, error) {
 const yonResourceBodyLimit = 1024 * 1024
 const yonResourceHeadLimit = 8192
 const yonResourceTimeout = 5 * time.Second
+const yonScrollTimeout = 30 * time.Second
 
 func yonResourceCall(command map[string]any) (any, error) {
 	body, err := json.Marshal(command)

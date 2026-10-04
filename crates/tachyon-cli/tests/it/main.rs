@@ -1,6 +1,7 @@
 mod application_config;
 mod composed_types_cli;
 mod executed_coverage;
+mod fylo_datasource;
 mod handler_environment;
 mod init_features;
 mod init_wizard;
