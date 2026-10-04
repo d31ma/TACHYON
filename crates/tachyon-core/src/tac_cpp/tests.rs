@@ -391,3 +391,24 @@ fn a_cpp_model_lives_in_client_models() {
         .expect_err("server model");
     assert!(refused.to_string().contains("TY1372"), "{refused}");
 }
+
+#[test]
+fn doctor_lists_emscripten_and_the_test_compiler_for_cpp_services() {
+    let rows = super::CppTools::toolchains();
+    let commands: Vec<&str> = rows.iter().map(|row| row.command.as_str()).collect();
+    assert_eq!(
+        commands,
+        [
+            crate::web_runtime::EmscriptenTool::EMCC,
+            super::CppTools::test_compiler().as_str()
+        ]
+    );
+    assert!(rows[0].required && !rows[1].required);
+    assert!(
+        rows[0]
+            .install
+            .contains(super::CppTools::EMSCRIPTEN_VERSION),
+        "{}",
+        rows[0].install
+    );
+}
