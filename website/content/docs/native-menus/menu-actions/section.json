@@ -43,6 +43,12 @@
       "code": {
         "file": "client/pages/help/tac.html"
       }
+    },
+    {
+      "name": "client/components/monitor/help/tac.html",
+      "code": {
+        "file": "client/components/monitor/help/tac.html"
+      }
     }
   ],
   "target": "macos"

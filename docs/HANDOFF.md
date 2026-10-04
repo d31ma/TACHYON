@@ -20,7 +20,10 @@ Delivered, in the code and with tests:
   for Tac services, and pure model converters.
 - Native services can use a file picker, granted with `tac.nativeCapabilities`
   (ADR 0089). It runs on macOS. Windows and Android only type-check.
-- Native macOS apps have standard menus and menu items that open local routes.
+- Native macOS apps have standard menus, menu items that open local routes, and
+  menu actions that call a Rust application service, which forwards to the page
+  with `CurrentPageEvents`. File > Close Window keeps the app running; the Dock
+  reopens a fresh window (ADR 0097, TY1370).
 - Compiled Dart HTTP clients in Tac call the server from the browser
   (ADR 0090). C# does the same for simple values.
 - Client code may not write markup or styles directly, and a vendor script must

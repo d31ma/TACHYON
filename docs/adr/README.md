@@ -103,3 +103,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [94. Local Host Names and Host Validation](0094-local-host-names-and-host-validation.md)
 - [95. Native Go Packages Live in server/packages](0095-native-go-packages-live-in-server-packages.md)
 - [96. Forwarding Headers Are Untrusted at the Edge](0096-forwarding-headers-are-untrusted-at-the-edge.md)
+- [97. Native Menu Actions Call Application Services](0097-native-menu-actions-call-application-services.md)

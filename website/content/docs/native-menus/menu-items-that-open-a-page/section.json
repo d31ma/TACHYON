@@ -19,6 +19,18 @@
       "code": {
         "file": "client/pages/help/tac.html"
       }
+    },
+    {
+      "name": "client/components/catalog/home/tac.html",
+      "code": {
+        "file": "client/components/catalog/home/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/help/tac.html",
+      "code": {
+        "file": "client/components/catalog/help/tac.html"
+      }
     }
   ],
   "target": "macos"

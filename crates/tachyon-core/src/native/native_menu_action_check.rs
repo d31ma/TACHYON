@@ -46,15 +46,19 @@ impl NativeMenuActionCheck {
     ) -> Result<&'a NativeCompanionInput, Failure> {
         companions
             .iter()
-            .find(|input| {
-                input.application_provider
-                    && input.language == NativeCompanion::Rust
-                    && input.class == action.service
-            })
+            .find(|input| Self::provides(input, &action.service))
             .ok_or_else(|| Self::failure(&format!(
                 "Native menu '{id}' action service '{}' is not a client Rust Service with an application lifetime.",
                 action.service
             )))
+    }
+
+    fn provides(input: &NativeCompanionInput, service: &str) -> bool {
+        [
+            input.application_provider,
+            input.language == NativeCompanion::Rust,
+            input.class == service,
+        ] == [true; 3]
     }
 
     fn require_method(id: &str, action: &NativeMenuAction, source: &str) -> Result<(), Failure> {
@@ -91,14 +95,15 @@ impl NativeMenuActionCheck {
             .map(|entry| entry.path());
         entries
             .filter(|_| depth < Self::MAX_DEPTH)
-            .flat_map(|path| {
-                if path.is_dir() {
-                    Self::rust_sources(&path, depth + 1)
-                } else {
-                    Self::rust_source(&path).into_iter().collect()
-                }
-            })
+            .flat_map(|path| Self::sources_at(&path, depth))
             .collect()
+    }
+
+    fn sources_at(path: &Path, depth: usize) -> Vec<String> {
+        if path.is_dir() {
+            return Self::rust_sources(path, depth + 1);
+        }
+        Self::rust_source(path).into_iter().collect()
     }
 
     fn rust_source(path: &Path) -> Option<String> {
@@ -108,12 +113,13 @@ impl NativeMenuActionCheck {
     }
 
     fn declares(source: &str, declaration: &str) -> bool {
-        source.match_indices(declaration).any(|(start, _)| {
-            source[start + declaration.len()..]
-                .chars()
-                .next()
-                .is_none_or(|next| !next.is_ascii_alphanumeric() && next != '_')
-        })
+        source
+            .match_indices(declaration)
+            .any(|(start, _)| Self::boundary(source[start + declaration.len()..].chars().next()))
+    }
+
+    fn boundary(next: Option<char>) -> bool {
+        next.is_none_or(|next| [next.is_ascii_alphanumeric(), next == '_'] == [false; 2])
     }
 
     fn failure(message: &str) -> Failure {

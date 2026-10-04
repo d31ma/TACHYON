@@ -267,6 +267,9 @@
     "window-controls": {
       "include": "window-controls/topic.json"
     },
+    "native-menus": {
+      "include": "native-menus/topic.json"
+    },
     "dependency-injection": {
       "include": "dependency-injection/topic.json"
     },

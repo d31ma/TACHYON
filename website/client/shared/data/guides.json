@@ -383,6 +383,13 @@
         "native-hosts"
       ]
     },
+    "native-menus": {
+      "title": "Native menus",
+      "summary": "A macOS app that Tachyon builds has the standard menu bar. `tac.application.menus` in `client/manifest.json` adds your own items to the File, View and Help menus. An item opens a page of the app, or it runs a menu action: a method of a service that lives as long as the app.",
+      "before": [
+        "window-controls"
+      ]
+    },
     "dependency-injection": {
       "title": "Dependency injection",
       "summary": "Dependency injection means that Tachyon creates the objects that a class needs and puts them into its fields. Mark a field with `Needs`, or mark the class with `NeedsAll`. `Lifetime` says how long one object lives.",

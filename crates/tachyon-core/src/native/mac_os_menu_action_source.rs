@@ -35,28 +35,43 @@ private func tachyonMenuPerform(_ id: String) -> Bool { false }";
     }
 
     pub(super) fn swift_calls(config: &NativeMenuConfig, rust: bool) -> &'static str {
-        if rust && Self::has_actions(config) {
+        Self::chosen_calls(Self::calls_rust(config, rust))
+    }
+
+    pub(super) fn stage(rust: Option<&Path>, config: &NativeMenuConfig) -> Result<(), Failure> {
+        rust.filter(|_| Self::has_actions(config))
+            .map_or(Ok(()), |path| Self::insert(path, config))
+    }
+
+    fn chosen_calls(calls_rust: bool) -> &'static str {
+        if calls_rust {
             Self::SWIFT_CALLS
         } else {
             Self::SWIFT_REFUSALS
         }
     }
 
-    pub(super) fn stage(rust: Option<&Path>, config: &NativeMenuConfig) -> Result<(), Failure> {
-        let Some(path) = rust.filter(|_| Self::has_actions(config)) else {
-            return Ok(());
-        };
+    fn calls_rust(config: &NativeMenuConfig, rust: bool) -> bool {
+        [rust, Self::has_actions(config)] == [true; 2]
+    }
+
+    fn insert(path: &Path, config: &NativeMenuConfig) -> Result<(), Failure> {
         let staged = super::host::native_io(std::fs::read_to_string(path), path)?;
-        let start = RustPageGraph::MODULE_START;
-        if staged.matches(start).count() != 1 {
-            return Err(super::host::native_tool_failure(
-                1605,
-                "Native menu actions need the generated Rust service module.",
-            ));
-        }
-        let services = format!("{start}{}", Self::rust_dispatch(config));
-        let source = staged.replacen(start, &services, 1) + Self::RUST_EXPORTS;
+        let source = Self::with_dispatch(&staged, config)?;
         super::host::write(path, source.as_bytes())
+    }
+
+    fn with_dispatch(staged: &str, config: &NativeMenuConfig) -> Result<String, Failure> {
+        let start = RustPageGraph::MODULE_START;
+        let services = format!("{start}{}", Self::rust_dispatch(config));
+        (staged.matches(start).count() == 1)
+            .then(|| staged.replacen(start, &services, 1) + Self::RUST_EXPORTS)
+            .ok_or_else(|| {
+                super::host::native_tool_failure(
+                    1605,
+                    "Native menu actions need the generated Rust service module.",
+                )
+            })
     }
 
     pub(super) fn rust_dispatch(config: &NativeMenuConfig) -> String {

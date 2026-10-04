@@ -25,16 +25,31 @@ impl NativeMenuAction {
     }
 
     fn type_name(name: &str) -> bool {
-        name.len() <= Self::MAX_NAME
-            && name.starts_with(|first: char| first.is_ascii_uppercase())
-            && name.bytes().all(|byte| byte.is_ascii_alphanumeric())
+        [
+            name.len() <= Self::MAX_NAME,
+            name.starts_with(|first: char| first.is_ascii_uppercase()),
+            name.bytes().all(|byte| byte.is_ascii_alphanumeric()),
+        ] == [true; 3]
     }
 
     fn method_name(name: &str) -> bool {
-        name.len() <= Self::MAX_NAME
-            && name.starts_with(|first: char| first.is_ascii_lowercase() || first == '_')
-            && name
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        [
+            name.len() <= Self::MAX_NAME,
+            name.starts_with(Self::method_start),
+            name.bytes().all(Self::method_byte),
+        ] == [true; 3]
+    }
+
+    fn method_start(first: char) -> bool {
+        [first.is_ascii_lowercase(), first == '_'].contains(&true)
+    }
+
+    fn method_byte(byte: u8) -> bool {
+        [
+            byte.is_ascii_lowercase(),
+            byte.is_ascii_digit(),
+            byte == b'_',
+        ]
+        .contains(&true)
     }
 }

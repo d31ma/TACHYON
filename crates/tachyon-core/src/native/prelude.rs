@@ -277,20 +277,20 @@ impl ApplicationEventPublisher {
     }
 
     pub fn publish_event<T: TacModel>(&self, value: T, retain: bool) {
-        let Some(name) = tac_event_name::<T>() else {
-            tac_event_failure();
-            return;
-        };
-        tac_event_publish(name, value.write(), retain);
+        tac_event_name::<T>().map_or_else(tac_event_failure, |name| {
+            tac_event_publish(name, value.write(), retain);
+        });
     }
 }
 
 fn tac_event_name<T>() -> Option<&'static str> {
     let full_name = core::any::type_name::<T>();
     let name = full_name.rsplit("::").next().unwrap_or(full_name);
-    let starts_upper = name.starts_with(|first: char| first.is_ascii_uppercase());
-    let is_model =
-        starts_upper && !full_name.contains('<') && !matches!(name, "String" | "TacValue");
+    let is_model = [
+        name.starts_with(|first: char| first.is_ascii_uppercase()),
+        !full_name.contains('<'),
+        !["String", "TacValue"].contains(&name),
+    ] == [true; 3];
     is_model.then_some(name)
 }
 

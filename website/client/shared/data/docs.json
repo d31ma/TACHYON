@@ -5657,6 +5657,96 @@
         }
       ]
     },
+    "native-menus": {
+      "title": "Native menus",
+      "summary": "A macOS app that Tachyon builds has the standard menu bar. `tac.application.menus` in `client/manifest.json` adds your own items to the File, View and Help menus. An item opens a page of the app, or it runs a menu action: a method of a service that lives as long as the app.",
+      "before": [
+        "window-controls"
+      ],
+      "sections": [
+        {
+          "heading": "The standard menus",
+          "body": "The macOS host builds the menu bar itself, so every app has the menus that a Mac user expects. The app menu has About, Hide (Command-H), Hide Others (Option-Command-H), Show All and Quit (Command-Q). Quit is the normal macOS quit, so the app cleans up once. The File menu has Close Window (Command-W). The Edit menu has Undo, Redo, Cut, Copy, Paste and Select All; they act on the field that has the focus. The View menu has Enter Full Screen, the Window menu has Minimize (Command-M), Zoom and Bring All to Front, and the Help menu has the system search.\n\nThe host adds no New, Open, Save or Print item, because a Tachyon app has no document type. Your own items cannot take a shortcut of these standard commands. Other native targets (Windows, Linux, iOS and Android) refuse declared menu items at build time.",
+          "code": "Monitor   About Monitor, Hide Monitor (Command-H), Hide Others (Option-Command-H),\n          Show All, Quit Monitor (Command-Q)\nFile      your File items, then Close Window (Command-W)\nEdit      Undo, Redo, Cut, Copy, Paste, Select All\nView      Enter Full Screen, then your View items\nWindow    Minimize (Command-M), Zoom, Bring All to Front\nHelp      system search, then your Help items\n\nReserved shortcuts: Command-Q, Command-W, Command-H, Option-Command-H,\nCommand-Z, Shift-Command-Z, Command-X, Command-C, Command-V, Command-A,\nCommand-M and Control-Command-F.\n"
+        },
+        {
+          "heading": "Menu items that open a page",
+          "body": "An item with a `route` opens a page of the app in the same window. Each item has an `id`, a `label`, the `route` and an optional `shortcut`. The `route` must be a static page of the app, without a query or a fragment, such as `/help`. A shortcut has one lowercase letter or digit and always includes `command`; it may add `control`, `option` and `shift`. There are at most 64 items in all menus, and ids and shortcuts must be unique.\n\nOpening a page loads a new document. The services of the old page stop, and the new page starts with fresh services. Use a menu action when the item must keep the state of the page.",
+          "files": [
+            {
+              "name": "client/manifest.json",
+              "code": "{\n  \"name\": \"Catalog\",\n  \"start_url\": \"/\",\n  \"tac\": {\n    \"application\": {\n      \"id\": \"com.example.catalog\",\n      \"version\": \"1.0.0\",\n      \"menus\": {\n        \"file\": [\n          {\n            \"id\": \"home\",\n            \"label\": \"Open Catalog\",\n            \"route\": \"/\",\n            \"shortcut\": { \"key\": \"0\", \"modifiers\": [\"command\"] }\n          }\n        ],\n        \"help\": [\n          { \"id\": \"help\", \"label\": \"Catalog Help\", \"route\": \"/help\" }\n        ]\n      }\n    }\n  }\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<catalog-home />\n"
+            },
+            {
+              "name": "client/pages/help/tac.html",
+              "code": "<catalog-help />\n"
+            },
+            {
+              "name": "client/components/catalog/home/tac.html",
+              "code": "<main>\n  <h1>Catalog</h1>\n</main>\n"
+            },
+            {
+              "name": "client/components/catalog/help/tac.html",
+              "code": "<main>\n  <h1>Catalog Help</h1>\n</main>\n"
+            }
+          ],
+          "target": "macos"
+        },
+        {
+          "heading": "Menu actions",
+          "body": "An item with an `action` calls a method of an application service. Such a service is a Rust service in `client/services/` with `#[Lifetime({\"value\":\"application\"})]`. It starts with the app and stops when the app quits, so the method also works when no page is open. The `action` names the `service` (its type name) and the `method` (a method that takes only `&self`). Selecting the item never loads a page, so the page keeps its state: its fields, the text in its inputs and its scroll position.\n\nTo change the page, the application service forwards an event. It gets `CurrentPageEvents` by injection and calls `publish_event` with a model from `client/models`. Every live Rust page service with an `OnEvent` listener for that model receives it, as with any other event. A page service that two components share receives it once, and each prototype instance receives it once. `publish_event` answers `false` when the page has no listener. A listener cannot publish to the page again while it receives the event.\n\nThe optional `event` names the model that the method forwards. Tachyon uses it to decide when the item is enabled (see the next section). The build checks each action: the service must be a client Rust service with an application lifetime, the method must exist and take only `&self`, and the event must be a Rust model in `client/models`. Otherwise the build stops with `TY1370`.",
+          "files": [
+            {
+              "name": "client/manifest.json",
+              "code": "{\n  \"name\": \"Monitor\",\n  \"start_url\": \"/\",\n  \"tac\": {\n    \"application\": {\n      \"id\": \"com.example.monitor\",\n      \"version\": \"1.0.0\",\n      \"menus\": {\n        \"view\": [\n          {\n            \"id\": \"show-running\",\n            \"label\": \"What's Running\",\n            \"action\": { \"service\": \"SectionMenuService\", \"method\": \"show_running\", \"event\": \"SectionChosen\" },\n            \"shortcut\": { \"key\": \"1\", \"modifiers\": [\"command\"] }\n          },\n          {\n            \"id\": \"show-activity\",\n            \"label\": \"Activity\",\n            \"action\": { \"service\": \"SectionMenuService\", \"method\": \"show_activity\", \"event\": \"SectionChosen\" },\n            \"shortcut\": { \"key\": \"2\", \"modifiers\": [\"command\"] }\n          }\n        ],\n        \"file\": [\n          {\n            \"id\": \"refresh\",\n            \"label\": \"Refresh Now\",\n            \"action\": { \"service\": \"SectionMenuService\", \"method\": \"refresh\" },\n            \"shortcut\": { \"key\": \"r\", \"modifiers\": [\"command\"] }\n          }\n        ],\n        \"help\": [\n          { \"id\": \"help\", \"label\": \"Monitor Help\", \"route\": \"/help\" }\n        ]\n      }\n    }\n  }\n}\n"
+            },
+            {
+              "name": "client/models/SectionChosen.rs",
+              "code": "pub struct SectionChosen {\n    pub section: String,\n}\n"
+            },
+            {
+              "name": "client/services/menus/SectionMenuService.rs",
+              "code": "use crate::models::SectionChosen;\n\n#[Service]\n#[Lifetime({\"value\":\"application\"})]\nstruct SectionMenuService {\n    page_events: CurrentPageEvents,\n    refreshes: std::sync::atomic::AtomicI64,\n}\n\nimpl SectionMenuService {\n    fn new(page_events: CurrentPageEvents) -> Self {\n        Self { page_events, refreshes: std::sync::atomic::AtomicI64::new(0) }\n    }\n\n    fn show_running(&self) {\n        self.page_events.publish_event(SectionChosen { section: String::from(\"running\") });\n    }\n\n    fn show_activity(&self) {\n        self.page_events.publish_event(SectionChosen { section: String::from(\"activity\") });\n    }\n\n    fn refresh(&self) {\n        self.refreshes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);\n    }\n}\n"
+            },
+            {
+              "name": "client/services/SectionService.rs",
+              "code": "use crate::models::SectionChosen;\n\n#[Service]\n#[derive(Default)]\nstruct SectionService {\n    section: String,\n    query: String,\n}\n\nimpl SectionService {\n    fn search(&mut self, query: String) {\n        self.query = query;\n    }\n\n    #[OnEvent]\n    fn chosen(&mut self, chosen: SectionChosen) {\n        self.section = chosen.section;\n    }\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<monitor-sections hydrate=\"load\" />\n"
+            },
+            {
+              "name": "client/components/monitor/sections/tac.html",
+              "code": "<main>\n  <h1>Monitor</h1>\n  <input aria-label=\"Search\" :value=\"section.query\" on:input=\"section.search($event.target.value)\" />\n  <p>Section: {section.section}</p>\n</main>\n"
+            },
+            {
+              "name": "client/pages/help/tac.html",
+              "code": "<monitor-help />\n"
+            },
+            {
+              "name": "client/components/monitor/help/tac.html",
+              "code": "<main>\n  <h1>Monitor Help</h1>\n  <p>Command-1 shows what is running. Command-2 shows the activity.</p>\n</main>\n"
+            }
+          ],
+          "target": "macos"
+        },
+        {
+          "heading": "When an item is enabled",
+          "body": "One rule decides when a menu action item is enabled. An action with an `event` is enabled only while the window shows a page that has a live Rust page service with an `OnEvent` listener for that event. When there is no such listener, the item is disabled. This happens when no window is open, when another page is shown (such as the Help page), and while a page loads. If a shortcut arrives while the item is disabled, the host refuses it with the system beep and does not call the service.\n\nAn action without an `event` belongs to the app, not to a page. It is enabled while the app runs, also when no window is open. A route item is enabled while its window is open.",
+          "code": "Item                         Enabled when\naction with \"event\"          the shown page has a live OnEvent listener for the event\naction without \"event\"       the app runs (also with no window)\nroute                        the window is open\nClose Window, Minimize,      a window is open\nZoom, Enter Full Screen\n"
+        },
+        {
+          "heading": "Close Window and reopening",
+          "body": "File > Close Window (Command-W) closes the app's own window, like the red close button. The services of that page stop, as when the page changes. The app keeps running, as Mail and Notes do on a Mac: application services keep their state and their work, such as a collector that reads data in the background. With no window open, the window commands and the page actions are disabled, and the actions that belong to the app still work.\n\nClick the app in the Dock to open the window again. The new window shows the start page with fresh page services and new menu items, so nothing from the closed window can receive an action. Quit stops the application services once, whether a window is open or not.",
+          "code": "Close Window (Command-W)   page services stop; application services keep running\nClick the Dock icon         new window at the start page, fresh page services and menu items\nQuit (Command-Q)            application services stop once\n"
+        }
+      ]
+    },
     "dependency-injection": {
       "title": "Dependency injection",
       "summary": "Dependency injection means that Tachyon creates the objects that a class needs and puts them into its fields. Mark a field with `Needs`, or mark the class with `NeedsAll`. `Lifetime` says how long one object lives.",

@@ -25,6 +25,21 @@ machine contracts have their own, independent major versions.
   blocks `yield`. A Go `*http.Request` context now ends at the request
   deadline, so a log follow can finish cleanly. Go no longer refuses
   `@StreamRoute` with TY2015 (ADR 0058 amendment).
+- macOS menu items can run an action instead of opening a page. In
+  `tac.application.menus`, an item with `"action": {"service", "method",
+  "event"}` calls a method that takes only `&self` on a client Rust service with
+  `#[Lifetime({"value":"application"})]`, so it works with no page open and the
+  page keeps its state. The service forwards to the page with the injected
+  `CurrentPageEvents` (`publish_event(model)`); live Rust page listeners receive
+  the model once (a shared singleton once, each prototype once). An item with
+  an `event` is enabled only while the shown page has a live listener for it;
+  otherwise it is disabled and a shortcut is refused. A wrong service, method
+  or event model stops the build with `TY1370` (ADR 0097).
+- The macOS File menu has Close Window (Command-W, now reserved). Closing the
+  last window disposes the page services but keeps the app and its application
+  services running; clicking the Dock icon opens a fresh window with new page
+  services and menu items, and Quit cleans up once (ADR 0097).
+
 - Rust Tac services call the server from the browser: an `async fn` in an
   `HTTPClient` trait returns `BehaviorResult<Model>`, a service gets the client
   with `#[Needs] name: std::sync::Arc<Client>` and awaits it in an `async fn`

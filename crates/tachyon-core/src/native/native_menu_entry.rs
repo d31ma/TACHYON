@@ -62,9 +62,11 @@ impl NativeMenuEntry {
     }
 
     fn require_route(route: &str) -> Result<(), Failure> {
-        let valid = super::config::valid_route(route)
-            && !route.contains(['%', '?', '#', ':'])
-            && !route.chars().any(char::is_control);
+        let valid = [
+            super::config::valid_route(route),
+            !route.contains(['%', '?', '#', ':']),
+            !route.chars().any(char::is_control),
+        ] == [true; 3];
         valid.then_some(()).ok_or_else(|| super::config::config_failure(
             "Native menu route must be a canonical local path of at most 2048 bytes without query, fragment or encoded characters.",
         ))
