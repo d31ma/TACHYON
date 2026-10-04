@@ -380,6 +380,10 @@ const openStaticCache = async () => {
   } catch { return null }
 }
 
+const storableResponse = (response) => response.ok && response.type === 'basic'
+  && !/(?:no-store|private)/i.test(response.headers.get('cache-control') || '')
+  && !response.headers.get('vary')
+
 const precacheAssets = async (urls) => {
   const cache = await openStaticCache()
   if (!cache) return
@@ -393,15 +397,11 @@ const precacheAssets = async (urls) => {
       if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) continue
       if (await cache.match(url)) continue
       const response = await fetch(url, { credentials: 'omit', signal: AbortSignal.timeout(5000) })
-      if (response.ok && response.type === 'basic'
-        && !/(?:no-store|private)/i.test(response.headers.get('cache-control') || '')
-        && !response.headers.get('vary')) {
-        const body = await responseBody(response, 4194304)
-        if (body === null) continue
-        if (warmedBytes + body.byteLength > 33554432) break
-        warmedBytes += body.byteLength
-        await cache.put(url, new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers }))
-      }
+      const body = await responseBody(response, 4194304)
+      if (body === null || !storableResponse(response)) continue
+      if (warmedBytes + body.byteLength > 33554432) break
+      warmedBytes += body.byteLength
+      await cache.put(url, new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers }))
     } catch {}
   }
 }
