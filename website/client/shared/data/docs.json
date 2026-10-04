@@ -12868,7 +12868,7 @@
             },
             {
               "name": "client/services/AuditService.py",
-              "code": "from models import PlacedOrder, SettledOrder\n\n\n@service\nclass AuditService:\n    settled: int = 0\n    _records: int = 0\n    _audited: int = 0\n\n    @on_event({\"id\":\"audit-log\",\"replay\":True})\n    @order(-10)\n    def record(self, order: PlacedOrder) -> None:\n        self._records += 1\n\n    @on_event({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @order(10)\n    def settle(self, order: PlacedOrder) -> SettledOrder:\n        return SettledOrder(order.total)\n\n    @on_event\n    def save_settled(self, order: SettledOrder) -> None:\n        self.settled = order.total\n\n    @on_event\n    @InBackground\n    def audit(self, order: SettledOrder) -> None:\n        self._audited = order.total\n"
+              "code": "from models import PlacedOrder, SettledOrder\n\n\n@service\nclass AuditService:\n    settled: int = 0\n    _records: int = 0\n    _audited: int = 0\n\n    @on_event({\"id\":\"audit-log\",\"replay\":true})\n    @order(-10)\n    def record(self, order: PlacedOrder) -> None:\n        self._records += 1\n\n    @on_event({\"condition\":\"value.status == 'paid' && value.total >= 10\"})\n    @order(10)\n    def settle(self, order: PlacedOrder) -> SettledOrder:\n        return SettledOrder(order.total)\n\n    @on_event\n    def save_settled(self, order: SettledOrder) -> None:\n        self.settled = order.total\n\n    @on_event\n    @InBackground\n    def audit(self, order: SettledOrder) -> None:\n        self._audited = order.total\n"
             },
             {
               "name": "client/models/SettledOrder.ts",
