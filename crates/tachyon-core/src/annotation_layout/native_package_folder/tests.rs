@@ -39,10 +39,46 @@ fn a_module_file_without_a_module_line_is_refused() {
 }
 
 #[test]
-fn a_module_file_that_requires_other_modules_is_refused() {
-    let module = "module example.com/app\n\ngo 1.27\n\nrequire github.com/acme/kit v1.0.0\n";
+fn a_module_file_may_require_vendored_modules() {
+    let module = "module example.com/app\n\ngo 1.27\n\nrequire github.com/acme/kit v1.0.0\n\nrequire (\n\tgopkg.in/yaml.v3 v3.0.1\n\tgithub.com/acme/base v1.2.0 // indirect\n)\n";
 
-    assert!(refused("server/packages/go.mod", module).contains("`require`"));
+    let checked =
+        NativePackageFolder::check_file(Path::new("server/packages/go.mod"), module.as_bytes());
+
+    assert!(checked.is_ok(), "{checked:?}");
+}
+
+#[test]
+fn a_module_file_with_a_replace_line_is_refused() {
+    let module =
+        "module example.com/app\n\ngo 1.27\n\nreplace(\n\tgithub.com/acme/kit => ../kit\n)\n";
+
+    assert!(refused("server/packages/go.mod", module).contains("found `replace`"));
+}
+
+#[test]
+fn vendored_code_is_not_checked_as_native_code() {
+    let source = "package kit\n\n// @yon::Service\ntype KitService struct{}\n";
+
+    let checked = NativePackageFolder::check_file(
+        Path::new("server/packages/vendor/github.com/acme/kit/go.mod"),
+        source.as_bytes(),
+    )
+    .and_then(|()| {
+        NativePackageFolder::check_file(
+            Path::new("server/packages/vendor/github.com/acme/kit/service.go"),
+            source.as_bytes(),
+        )
+    });
+
+    assert!(checked.is_ok(), "{checked:?}");
+}
+
+#[test]
+fn the_handler_program_folder_is_reserved() {
+    let source = "package yonhandler\n";
+
+    assert!(refused("server/packages/yonhandler/main.go", source).contains("reserved"));
 }
 
 #[test]

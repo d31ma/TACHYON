@@ -356,3 +356,84 @@ fn go_native_packages_without_a_module_file_are_refused() {
         "{failure:?}"
     );
 }
+
+struct GoVendorFiles;
+
+impl GoVendorFiles {
+    const FILES: [(&str, &str); 5] = [
+        (
+            "server/packages/go.mod",
+            "module example.com/heimdall/packages\n\ngo 1.27\n\nrequire (\n\tgopkg.in/yaml.v3 v3.0.1\n)\n",
+        ),
+        (
+            "server/packages/go.sum",
+            "gopkg.in/yaml.v3 v3.0.1 h1:abc=\n",
+        ),
+        (
+            "server/packages/vendor/modules.txt",
+            "# gopkg.in/yaml.v3 v3.0.1\n## explicit\ngopkg.in/yaml.v3\n",
+        ),
+        (
+            "server/packages/vendor/gopkg.in/yaml.v3/yaml.go",
+            "package yaml\n\n// tachyon would refuse this annotation in authored code: @yon::Service\nconst token = \"sk_live_51HxAbCdEfGhIjKlMnOpQrStUv\"\n\nfunc Marshal(value any) ([]byte, error) { return nil, nil }\n",
+        ),
+        (
+            "server/packages/vendor/gopkg.in/yaml.v3/LICENSE",
+            "Licensed under the Apache License.\n",
+        ),
+    ];
+
+    fn write(project: &tempfile::TempDir, skipped: Option<&str>) {
+        for (relative, source) in Self::FILES {
+            if Some(relative) == skipped {
+                continue;
+            }
+            let path = project.path().join(relative);
+            fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+            fs::write(path, source).expect("vendored file");
+        }
+    }
+}
+
+#[test]
+fn go_native_packages_may_require_vendored_modules() {
+    let project = GoProject::create(GoProject::CONTROLLER);
+    GoNativeFiles::write(&project, Some("server/packages/go.mod"));
+    GoVendorFiles::write(&project, None);
+
+    let discovered = ProjectDiscovery::discover(project.path());
+
+    assert!(discovered.is_ok(), "{:?}", discovered.err());
+}
+
+#[test]
+fn go_native_packages_that_require_modules_without_vendor_fail_with_ty1368() {
+    let project = GoProject::create(GoProject::CONTROLLER);
+    GoNativeFiles::write(&project, Some("server/packages/go.mod"));
+    GoVendorFiles::write(&project, Some("server/packages/vendor/modules.txt"));
+
+    let failure = ProjectDiscovery::discover(project.path()).expect_err("no vendor list");
+
+    let rendered = failure.to_string();
+    assert!(rendered.contains("TY1368"), "{rendered}");
+    assert!(rendered.contains("go mod vendor"), "{rendered}");
+}
+
+#[test]
+fn go_native_packages_outside_vendor_keep_the_secret_check() {
+    let project = GoProject::create(GoProject::CONTROLLER);
+    GoNativeFiles::write(&project, None);
+    let path = project.path().join("server/packages/helpers/token.go");
+    fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+    fs::write(
+        &path,
+        GoVendorFiles::FILES[3]
+            .1
+            .replace("package yaml", "package helpers"),
+    )
+    .expect("authored file");
+
+    let failure = ProjectDiscovery::discover(project.path()).expect_err("authored secret");
+
+    assert!(failure.to_string().contains("TY1324"), "{failure}");
+}

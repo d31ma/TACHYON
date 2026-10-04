@@ -1,3 +1,4 @@
+use super::NativeModuleVendor;
 use crate::Failure;
 use crate::annotation_rules::AnnotationRules;
 use crate::failure::{diagnostic, source_span};
@@ -13,10 +14,14 @@ pub(crate) struct NativePackageFolder;
 impl NativePackageFolder {
     pub(crate) const ROOT: &'static str = "server/packages";
     pub(crate) const MODULE_FILE: &'static str = "go.mod";
+    pub(crate) const PROGRAM_FOLDER: &'static str = "yonhandler";
     const CODE: u16 = 1310;
     const GO: &'static str = "go";
     const MODULE: &'static str = "module";
-    const ALLOWED_DIRECTIVES: [&'static str; 3] = ["module", "go", "toolchain"];
+    const ALLOWED_DIRECTIVES: [&'static str; 4] = ["module", "go", "toolchain", "require"];
+    const BLOCK_START: &'static str = "(";
+    const BLOCK_END: &'static str = ")";
+    const WORD_ENDS: [char; 3] = [' ', '\t', '('];
     const HELP: &'static str = "server/packages/ holds one native Go module: server/packages/go.mod names the module, and its plain Go packages are imported by controllers and services with that module path (ADR 0095). Tachyon roles stay in their role folders.";
 
     pub(crate) fn contains(path: &Path) -> bool {
@@ -36,6 +41,17 @@ impl NativePackageFolder {
         Self::check_by_kind(path, bytes)
     }
 
+    pub(crate) fn directives(module_file: &str) -> Vec<&str> {
+        module_file
+            .lines()
+            .map(Self::without_comment)
+            .scan(false, |in_block, line| {
+                Some(Self::directive_of_line(in_block, line))
+            })
+            .flatten()
+            .collect()
+    }
+
     pub(crate) fn check_module<'a>(paths: impl Iterator<Item = &'a Path>) -> Result<(), Failure> {
         let module_file = Path::new(Self::ROOT).join(Self::MODULE_FILE);
         let native = paths
@@ -51,15 +67,40 @@ impl NativePackageFolder {
     }
 
     fn check_by_kind(path: &Path, bytes: &[u8]) -> Result<(), Failure> {
+        let vendored = NativeModuleVendor::contains(path);
+        let reserved = path.starts_with(Path::new(Self::ROOT).join(Self::PROGRAM_FOLDER));
         let root_module = path == Path::new(Self::ROOT).join(Self::MODULE_FILE);
         let module = path.file_name().and_then(OsStr::to_str) == Some(Self::MODULE_FILE);
         let go = Self::extension(path) == Self::GO;
-        match (root_module, module, go) {
-            (true, _, _) => Self::check_module_file(path, bytes),
-            (false, true, _) => Self::refuse_nested_module(path),
-            (false, false, true) => Self::check_go_file(path, bytes),
-            (false, false, false) => Self::check_other_file(path),
+        match (vendored, reserved, root_module, module, go) {
+            (true, _, _, _, _) => Ok(()),
+            (false, true, _, _, _) => Self::refuse_reserved_folder(path),
+            (false, false, true, _, _) => Self::check_module_file(path, bytes),
+            (false, false, false, true, _) => Self::refuse_nested_module(path),
+            (false, false, false, false, true) => Self::check_go_file(path, bytes),
+            (false, false, false, false, false) => Self::check_other_file(path),
         }
+    }
+
+    fn directive_of_line<'a>(in_block: &mut bool, line: &'a str) -> Option<&'a str> {
+        let (still_in_block, directive) = if *in_block {
+            (line != Self::BLOCK_END, None)
+        } else {
+            let word = line
+                .split(Self::WORD_ENDS)
+                .next()
+                .filter(|word| !word.is_empty());
+            (line.ends_with(Self::BLOCK_START), word)
+        };
+        *in_block = still_in_block;
+        directive
+    }
+
+    fn refuse_reserved_folder(path: &Path) -> Result<(), Failure> {
+        Err(Self::failure(
+            path,
+            "server/packages/yonhandler/ is reserved: Tachyon builds each Go handler program in that folder of the module; give the package another name",
+        ))
     }
 
     fn extension(path: &Path) -> &str {
@@ -83,13 +124,11 @@ impl NativePackageFolder {
         let text = Self::text(path, bytes)?;
         Self::module_path(&text)
             .ok_or_else(|| Self::failure(path, "server/packages/go.mod has no module line"))?;
-        let unsupported = text
-            .lines()
-            .map(Self::without_comment)
-            .filter_map(|line| line.split_whitespace().next())
+        let unsupported = Self::directives(&text)
+            .into_iter()
             .find(|directive| !Self::ALLOWED_DIRECTIVES.contains(directive));
         unsupported.map_or(Ok(()), |directive| {
-            Err(Self::failure(path, &format!("server/packages/go.mod may hold only module, go and toolchain lines; found `{directive}`. Yon builds Go offline, so a native module cannot require other modules")))
+            Err(Self::failure(path, &format!("server/packages/go.mod may hold only module, go, toolchain and require lines; found `{directive}`. Required third-party modules come from the vendor/ folder that `go mod vendor` writes")))
         })
     }
 

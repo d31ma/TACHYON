@@ -19,7 +19,7 @@ pub(super) struct GoHandler;
 pub(super) struct GoSharedCode;
 
 struct GoFiles<'a> {
-    module: &'a str,
+    native: &'a GoNativeModule,
     handler: &'a str,
     runtime: &'a str,
     models: &'a [(PathBuf, String)],
@@ -30,7 +30,7 @@ impl GoHandler {
     const INVOCATION_PACKAGE: &str = include_str!("../preludes/yon_invocation.go");
     const ENVIRONMENT: [(&str, &str); 6] = [
         ("GO111MODULE", "on"),
-        ("GOFLAGS", ""),
+        ("GOFLAGS", "-mod=vendor"),
         ("GOPROXY", "off"),
         ("GOTOOLCHAIN", "local"),
         ("GOWORK", "off"),
@@ -69,11 +69,17 @@ impl GoHandler {
         let handler_file = Self::with_package_clause(&entry.text, portable)?;
         let mut staged_files = model_files.to_vec();
         staged_files.extend(Self::program_files(parts, portable)?);
-        staged_files.extend_from_slice(native.files());
         let model_files = staged_files.as_slice();
-        let module_file = native.module_file();
-        let runtime_file = Self::runtime_file(&authored, EntryClass::of(portable), portable)?;
-        let runtime_digest = format!("{module_file}{runtime_file}{}", Self::INVOCATION_PACKAGE);
+        let runtime_file = native.runtime(&Self::runtime_file(
+            &authored,
+            EntryClass::of(portable),
+            portable,
+        )?);
+        let runtime_digest = format!(
+            "{}{runtime_file}{}",
+            native.fingerprint(),
+            Self::INVOCATION_PACKAGE
+        );
         let digest = compiled_digest(
             digest_source(&handler_file, model_files).as_bytes(),
             runtime_digest.as_bytes(),
@@ -85,7 +91,7 @@ impl GoHandler {
         if !cache.is_valid_file(&artefact) {
             build_once_under_lock(cache, &artefact, &digest, portable, || {
                 let files = GoFiles {
-                    module: &module_file,
+                    native,
                     handler: &handler_file,
                     runtime: &runtime_file,
                     models: model_files,
@@ -325,19 +331,23 @@ impl GoHandler {
             portable,
         )?;
         let directory = workspace.path();
-        write_compiler_file(&directory.join("go.mod"), files.module.as_bytes(), portable)?;
+        files.native.write(directory, portable)?;
+        let program_folder = files.native.program_folder();
+        let program = directory.join(program_folder);
+        std::fs::create_dir_all(&program).map_err(|error| {
+            invalid_source(
+                portable,
+                &format!("Cannot create the Go program folder: {error}"),
+            )
+        })?;
         write_compiler_file(
-            &directory.join("handler.go"),
+            &program.join("handler.go"),
             files.handler.as_bytes(),
             portable,
         )?;
-        write_compiler_file(
-            &directory.join("yon.go"),
-            files.runtime.as_bytes(),
-            portable,
-        )?;
-        write_model_files(directory, files.models, portable)?;
-        Self::write_invocation_package(directory, portable)?;
+        write_compiler_file(&program.join("yon.go"), files.runtime.as_bytes(), portable)?;
+        write_model_files(&program, files.models, portable)?;
+        Self::write_invocation_package(&program, portable)?;
         let output = directory.join(format!("output{}", Self::COMPILER.suffix));
         let arguments = [
             String::from("build"),
@@ -345,11 +355,14 @@ impl GoHandler {
             String::from("-buildvcs=false"),
             String::from("-o"),
             output.to_string_lossy().into_owned(),
-            String::from("."),
+            format!("./{program_folder}"),
         ];
         let command = Self::command(&arguments, Some(directory));
         let result =
             bounded_command_output(command, CompilerOutput::DEADLINE, CompilerOutput::MAX_BYTES);
+        result.as_ref().map_or(Ok(()), |finished| {
+            GoNativeModule::check_build(finished, directory, portable)
+        })?;
         check_compiler_output("go", result, portable)?;
         if !valid_owned_artifact(&output) {
             return Err(invalid_source(

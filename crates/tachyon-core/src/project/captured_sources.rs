@@ -1,7 +1,8 @@
 use super::{CaptureProblem, CaptureVendor, CapturedFile, ProjectDiscovery, SourceWalk};
 use crate::Failure;
 use crate::annotation_layout::{
-    DesignCheck, DesignSwitches, DuplicationCheck, NativePackageFolder, RuleSwitch,
+    DesignCheck, DesignSwitches, DuplicationCheck, NativeModuleVendor, NativePackageFolder,
+    RuleSwitch,
 };
 use crate::handler::OwnedSourceRoot;
 use cap_std::fs::{Dir, DirEntry};
@@ -111,10 +112,23 @@ impl CapturedSources {
 
     fn native_module_problems(server: &[CapturedFile]) -> Vec<Diagnostic> {
         let paths = server.iter().map(|file| file.relative.as_path());
-        NativePackageFolder::check_module(paths)
-            .err()
-            .map(|failure| failure.diagnostics().to_vec())
-            .unwrap_or_default()
+        let files = server
+            .iter()
+            .map(|file| (file.relative.as_path(), file.bytes.as_slice()));
+        [
+            NativePackageFolder::check_module(paths),
+            NativeModuleVendor::check(files),
+        ]
+        .into_iter()
+        .filter_map(Result::err)
+        .flat_map(|failure| failure.diagnostics().to_vec())
+        .collect()
+    }
+
+    fn authored_server_files(&self) -> impl Iterator<Item = &CapturedFile> + Clone {
+        self.server
+            .iter()
+            .filter(|file| !NativeModuleVendor::contains(&file.relative))
     }
 
     fn convention_files(&self) -> impl Iterator<Item = &CapturedFile> + Clone {
@@ -164,7 +178,7 @@ impl CapturedSources {
             .chain(&self.client_roles)
             .chain(&self.configs)
             .chain(&self.middleware)
-            .chain(&self.server)
+            .chain(self.authored_server_files())
             .map(|file| (file.relative.as_path(), file.bytes.as_slice()));
         diagnostics.extend(crate::safety::SecretCheck::diagnostics(files));
     }
@@ -188,7 +202,7 @@ impl CapturedSources {
                 .chain(&self.components)
                 .chain(&self.shared)
                 .chain(&self.middleware)
-                .chain(&self.server)
+                .chain(self.authored_server_files())
                 .map(|file| (file.relative.as_path(), file.bytes.as_slice()))
         };
         diagnostics.extend(crate::safety::EvalCheck::diagnostics(code()));

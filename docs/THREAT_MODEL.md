@@ -135,6 +135,7 @@ operator-owned Firecracker driver qualify as production isolation.
 | Cache poisoning or path replacement | versioned cache keys include compiler, contract, target, config, and source digests; directory capabilities that do not follow links; cleanup that checks identity; verified atomic writes; private runtime copies |
 | Malicious archive | bounded extraction, path and symlink validation, explicit manifest, digest verification |
 | Supply-chain compromise | locked dependencies, advisory/license/source policy, pinned actions, minimal release permissions, SBOM, provenance, signatures |
+| Application Go module download or substitution | Go handlers build offline with `GOPROXY=off` and `GOFLAGS=-mod=vendor`, so modules come only from the committed `server/packages/vendor/`; a missing or inconsistent vendor folder fails with `TY1368`; every vendored file is in the handler digest. Vendored code is not scanned and not verified against `go.sum` (ADR 0095 amendment) |
 | Compromised release job | protected environments, tag/version verification, native builders, attestations, post-upload verification |
 | Diagnostic data leakage | allowlisted structured fields, bounded snippets, no secrets or full environment dumps |
 | Development hot-update injection or stale execution | versioned typed messages, JSON serialization, text-only diagnostic rendering, same-origin generated modules, compiler-owned island boundaries, last-good output, and reload on ambiguity |
@@ -449,6 +450,19 @@ the ambient filesystem and network access of the developer account that runs
 them. The operating system does not enforce CPU or memory quotas in this mode.
 Application dependency imports and process pooling are still out of scope. No
 documentation may suggest that those controls exist.
+
+Go handlers may import third-party modules that the app vendors in
+`server/packages/vendor/` (ADR 0095 amendment, 2026-10-03). `ty` never
+downloads them: builds set `GOPROXY=off` and `GOFLAGS=-mod=vendor`, Go checks
+`vendor/modules.txt` against `go.mod`, and a missing or stale vendor folder
+fails with `TY1368`. Vendored code runs with the handler's full privileges.
+Tachyon skips it in the secret and code safety checks, because the author
+cannot edit it and SDKs carry example keys and their own service addresses.
+Tachyon also cannot prove that `vendor/` matches upstream: `go.sum` hashes
+cover whole module archives and Go does not compare vendored files with them.
+The app's dependency review is the control: read every `vendor/` diff, and
+run `go mod vendor` with `git diff --exit-code`, `go mod verify` and
+`govulncheck` in CI where a module cache exists.
 
 ## Environment-Selected Isolation Evidence
 

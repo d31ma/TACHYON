@@ -13,6 +13,9 @@
       "include": "../yon/native-go-packages/section.json"
     },
     {
+      "include": "../yon/vendored-go-modules/section.json"
+    },
+    {
       "include": "../yon/process-lifecycle/section.json"
     }
   ]

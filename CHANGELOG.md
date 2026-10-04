@@ -932,6 +932,18 @@ machine contracts have their own, independent major versions.
   `TY1363` help for Go and the Go model package help point to the folder
   (ADR 0095).
 
+- The native Go module in `server/packages/` may require third-party modules,
+  vendored only: commit `go.sum` and the `vendor/` folder that `go mod vendor`
+  writes. Tachyon builds the handler program inside that module (in the
+  reserved `yonhandler/` folder) with `GOFLAGS=-mod=vendor` and
+  `GOPROXY=off`, so it never downloads a module. A missing `go.sum` or
+  `vendor/modules.txt`, a stale vendor folder or an import that `vendor/`
+  does not hold fails with the new `TY1368`, which tells the author to run
+  `go mod vendor`. The project rules and the secret and code safety checks
+  skip `vendor/`; every vendored file, `go.sum` and `vendor/modules.txt` is
+  part of the handler build key. Native files are staged as bytes, so they no
+  longer need to be UTF-8 (ADR 0095 amendment).
+
 - `--host`, `--hostname` and `server.host` accept `localhost` names such as
   `shop.localhost`. Tachyon binds `127.0.0.1` without asking the resolver and
   prints `http://shop.localhost:PORT/`. The outgoing guard connects a listed

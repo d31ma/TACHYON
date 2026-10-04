@@ -747,6 +747,115 @@ async fn a_go_worker_imports_a_native_package_from_server_packages() {
     assert_eq!(body_json(&answered)["price"], 120);
 }
 
+struct GoVendoredModule;
+
+impl GoVendoredModule {
+    const MODULE: &str =
+        "module example.com/shop/packages\n\ngo 1.27\n\nrequire example.com/greet v1.0.0\n";
+    const SUMS: &str = "example.com/greet v1.0.0 h1:Zm9yLXRlc3RzLW9ubHk=\nexample.com/greet v1.0.0/go.mod h1:Zm9yLXRlc3RzLW9ubHk=\n";
+    const LIST: &str = "# example.com/greet v1.0.0\n## explicit; go 1.22\nexample.com/greet\n";
+    const GREET: &str =
+        "package greet\n\nfunc Hello(name string) string {\n\treturn \"hello \" + name\n}\n";
+    const LABELS: &str = "package labels\n\nimport \"example.com/greet\"\n\nfunc Shelf(name string) string {\n\treturn greet.Hello(name) + \" shelf\"\n}\n";
+    const ROUTE: &str = "import (\n\t\"example.com/greet\"\n\t\"example.com/shop/packages/labels\"\n)\n\ntype Handler struct{}\n\nfunc (Handler) GET() any {\n\treturn map[string]any{\"greeting\": greet.Hello(\"anvil\"), \"label\": labels.Shelf(\"anvil\")}\n}\n";
+
+    fn write(root: &tempfile::TempDir) {
+        for (relative, contents) in [
+            ("server/packages/go.mod", Self::MODULE),
+            ("server/packages/go.sum", Self::SUMS),
+            ("server/packages/vendor/modules.txt", Self::LIST),
+            (
+                "server/packages/vendor/example.com/greet/greet.go",
+                Self::GREET,
+            ),
+            ("server/packages/labels/labels.go", Self::LABELS),
+        ] {
+            write_project_file(root, relative, contents);
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_go_worker_imports_a_vendored_third_party_module_offline() {
+    if !go_usable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    GoVendoredModule::write(&root);
+    let handler = source(&root, "go", GoVendoredModule::ROUTE);
+    let supervisor = supervisor(HandlerSupervisorOptions {
+        default_timeout: Duration::from_secs(10),
+        ..HandlerSupervisorOptions::default()
+    });
+    let cancellation = HandlerCancellation::default();
+    let get = request("go_vendored", HttpMethod::Get, None);
+    let answered = supervisor
+        .invoke(&handler, &get, &cancellation)
+        .await
+        .expect("GET");
+    assert_eq!(body_json(&answered)["greeting"], "hello anvil");
+    assert_eq!(body_json(&answered)["label"], "hello anvil shelf");
+
+    write_project_file(
+        &root,
+        "server/packages/vendor/example.com/greet/greet.go",
+        "package greet\n\nfunc Hello(name string) string {\n\treturn \"hi \" + name\n}\n",
+    );
+    let rebuilt =
+        HandlerSource::discover(root.path(), "server/workers/contract.go").expect("rebuilt source");
+    let answered = supervisor
+        .invoke(&rebuilt, &get, &cancellation)
+        .await
+        .expect("GET after the vendored module changed");
+    assert_eq!(body_json(&answered)["greeting"], "hi anvil");
+}
+
+#[test]
+fn a_go_worker_with_a_stale_vendor_folder_fails_with_ty1368() {
+    if !go_usable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    GoVendoredModule::write(&root);
+    write_project_file(
+        &root,
+        "server/packages/go.mod",
+        "module example.com/shop/packages\n\ngo 1.27\n\nrequire example.com/greet v1.1.0\n",
+    );
+    let relative = "server/workers/contract.go";
+    write_project_file(&root, relative, GoVendoredModule::ROUTE);
+
+    let failure = HandlerSource::discover(root.path(), relative).expect_err("stale vendor");
+
+    let rendered = failure.to_string();
+    assert!(rendered.contains("TY1368"), "{rendered}");
+    assert!(
+        rendered.contains("inconsistent vendoring in server/packages"),
+        "{rendered}"
+    );
+    assert!(rendered.contains("go mod vendor"), "{rendered}");
+}
+
+#[test]
+fn a_go_worker_that_imports_an_unvendored_module_fails_with_ty1368() {
+    if !go_usable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let relative = "server/workers/contract.go";
+    write_project_file(
+        &root,
+        relative,
+        "import \"gopkg.in/yaml.v3\"\n\ntype Handler struct{}\n\nfunc (Handler) GET() any {\n\treturn yaml.Marshal\n}\n",
+    );
+
+    let failure = HandlerSource::discover(root.path(), relative).expect_err("not vendored");
+
+    let rendered = failure.to_string();
+    assert!(rendered.contains("TY1368"), "{rendered}");
+    assert!(rendered.contains("gopkg.in/yaml.v3"), "{rendered}");
+}
+
 struct NativePeer;
 
 impl NativePeer {
