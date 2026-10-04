@@ -155,10 +155,6 @@ async fn macos_integrated_title_bar_keeps_buttons_insets_drag_regions_and_full_s
         let screenshots = std::env::var("TAC_TITLE_BAR_SCREENSHOTS")
             .unwrap_or_else(|_| root.path().display().to_string());
         let executable = TitleBarHostTests::compile(root.path(), &variant).await;
-        let _ = std::fs::copy(
-            root.path().join("TitleBarCheck.swift"),
-            format!("{screenshots}/TitleBarCheck-{}.swift", variant.name),
-        );
         let output = super::host::run_tool_with(
             executable.to_str().expect("binary"),
             &["-AppleActionOnDoubleClick", "Maximize"],

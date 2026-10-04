@@ -178,7 +178,8 @@ is built only for macOS. The equivalents, for a later decision:
   window drag while a button inside it and the content below receive their
   clicks, that a double-click follows the zoom setting, and that the page
   follows a resize.
-- Synthetic events cannot drive a window server drag, so the test checks that
-  the host starts `performDrag` for the right clicks; a real pointer drag was
-  checked by hand.
+- Synthetic events cannot drive a window server drag (and posting real
+  pointer events needs an Accessibility grant), so the test checks that the
+  host starts `performDrag` exactly for clicks in a drag region. The window
+  movement itself is AppKit's documented `performDrag(with:)` behavior.
 - Windows and Linux still show the standard title bar.

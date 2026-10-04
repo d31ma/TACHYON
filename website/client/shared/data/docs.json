@@ -6128,6 +6128,29 @@
           "heading": "Window controls need permission",
           "body": "client/manifest.json declares the window that a native target opens and the controls that a service may use, under `tac.application.window.controls`. By default, the manifest grants nothing. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in every language that runs in the page. Lua and Python services do not get `WindowControls`. A service that the native app links in has no page, but it can still get the controls: a Swift or Rust service in a macOS app, a C# service on Windows and a Kotlin service on Android declare an uninitialized `WindowControls` field with `Needs` or `NeedsAll`, and Tachyon calls the host directly, with the same grants (ADR 0089). A service never reads `globalThis` (`TY1360`). `granted(control)` answers whether a control is granted; ask it before you offer a control. A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab nothing is granted, because the page has no native window. The host checks the manifest grants again before it runs a request. A test unit fakes the controls like any browser API: a `@Fake windowControls` field in JavaScript and TypeScript, and `BrowserFakes` in Go, Ruby, Swift, C# and F#. These controls do not sandbox (restrict) the native service code that the application owns. That code runs with the operating system permissions of the host process. See the feature \"What a page may do to its window\" for the service in every language.",
           "code": "{\n  \"tachyon\": {\n    \"window\": {\n      \"width\": 1024,\n      \"height\": 768,\n      \"controls\": [\"minimize\", \"maximize\", \"close\"]\n    }\n  }\n}"
+        },
+        {
+          "heading": "Integrated title bar",
+          "body": "With `\"titleBar\": \"integrated\"` in `tac.application.window`, a macOS app shows one continuous surface: the page reaches the top edge of the window, and the real close, minimize and full screen buttons sit on the page. The window keeps its title for VoiceOver, Mission Control and the Window menu; only the text is hidden. The optional `titleBarButtonInset` moves the buttons, in points from the leading and top edges (0 to 200 each). The default is `\"standard\"`.\n\nThe host tells the page how much room the buttons need with three CSS custom properties: `--tac-titlebar-height`, `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset`. It updates them when the window is resized, enters or leaves full screen, or changes appearance. In full screen they are `0px`, because macOS shows the title bar over the page only when the pointer reaches the top of the screen. A browser sets none of them, so always write a fallback, such as `max(16px, var(--tac-titlebar-leading-inset, 0px))`. Draw the page in both light and dark colors (for example with `light-dark()`); the title bar area shows the page background, so there is no strip of another color.\n\nThe page now covers the area that moves the window, so mark that area with `data-tac-drag-region`. Dragging it moves the window, and a double-click does what System Settings says for a title bar double-click (fill, zoom, minimize or nothing). Links, buttons, form fields, focusable elements and anything marked `data-tac-no-drag` inside the region keep their clicks. The rest of the page is never a drag area. Windows, Linux, iOS and Android keep the standard title bar; the build prints a note. See ADR 0099.",
+          "files": [
+            {
+              "name": "client/manifest.json",
+              "code": "{\n  \"name\": \"Observatory\",\n  \"start_url\": \"/\",\n  \"tac\": {\n    \"application\": {\n      \"id\": \"com.example.observatory\",\n      \"version\": \"1.0.0\",\n      \"window\": {\n        \"width\": 1240,\n        \"height\": 850,\n        \"titleBar\": \"integrated\",\n        \"titleBarButtonInset\": { \"leading\": 20, \"top\": 35 }\n      }\n    }\n  }\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<observatory-top-bar />\n<main>\n  <h1>What is running</h1>\n  <button>Refresh</button>\n</main>\n"
+            },
+            {
+              "name": "client/components/observatory/top-bar/tac.html",
+              "code": "<header class=\"top-bar\" data-tac-drag-region>\n  <strong>Agent Observatory</strong>\n  <span class=\"status\">Live</span>\n</header>\n"
+            },
+            {
+              "name": "client/components/observatory/top-bar/tac.css",
+              "code": ".top-bar {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  min-height: max(84px, var(--tac-titlebar-height, 0px));\n  padding-inline-start: max(16px, var(--tac-titlebar-leading-inset, 0px));\n  padding-inline-end: max(16px, var(--tac-titlebar-trailing-inset, 0px));\n  background: light-dark(#f4f6f8, #1f2226);\n}\n"
+            }
+          ],
+          "target": "macos"
         }
       ]
     },
