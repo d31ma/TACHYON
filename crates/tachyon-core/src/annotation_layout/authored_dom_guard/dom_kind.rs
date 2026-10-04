@@ -128,10 +128,9 @@ impl DomKind {
             | (Self::MarkupCall | Self::StyleCall | Self::NodeInsertion, "call" | "apply") => {
                 receiver
             }
-            (Self::NodeFactory, "call" | "apply") => Self::CreatedNode,
-            (Self::Document, "createElement" | "createElementNS" | "createDocumentFragment") => {
-                Self::CreatedNode
-            }
+            (Self::NodeFactory, "call" | "apply")
+            | (Self::Document, "createElement" | "createElementNS" | "createDocumentFragment")
+            | (Self::CreatedNode, "cloneNode") => Self::CreatedNode,
             (
                 Self::Document | Self::Node | Self::CreatedNode,
                 "querySelector"
@@ -140,7 +139,6 @@ impl DomKind {
                 | "getElementsByTagName"
                 | "getElementsByClassName",
             ) => Self::Node,
-            (Self::CreatedNode, "cloneNode") => Self::CreatedNode,
             _ => Self::Unknown,
         }
     }

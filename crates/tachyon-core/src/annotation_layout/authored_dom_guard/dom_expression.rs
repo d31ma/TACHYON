@@ -121,7 +121,7 @@ impl<'a, 's> DomExpression<'a, 's> {
 
     fn expression(&self, start: usize, end: usize) -> DomKind {
         let start = self.without_prefix(start, end);
-        let mut at = start + 1;
+        let mut at = self.first_step(start);
         let mut kind = self.initial(start);
         let mut name = self.text(start).to_owned();
         while at < end.min(start.saturating_add(Self::MAX_CHAIN)) {
@@ -141,6 +141,13 @@ impl<'a, 's> DomExpression<'a, 's> {
         .contains(&false)
         {
             return start;
+        }
+        start + 1
+    }
+
+    fn first_step(&self, start: usize) -> usize {
+        if self.text(start) == "{" {
+            return self.group_end(start);
         }
         start + 1
     }
