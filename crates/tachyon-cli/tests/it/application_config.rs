@@ -186,6 +186,9 @@ fn a_name_under_localhost_binds_loopback_and_prints_the_name() {
         assert!(!output.status.success(), "{host}");
         let diagnostic = String::from_utf8_lossy(&output.stderr);
         assert!(diagnostic.contains("TY1302"), "{host}: {diagnostic}");
-        assert!(diagnostic.contains("a name under .localhost"), "{diagnostic}");
+        assert!(
+            diagnostic.contains("a name under .localhost"),
+            "{diagnostic}"
+        );
     }
 }
