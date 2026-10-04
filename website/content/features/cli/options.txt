@@ -55,6 +55,8 @@ ty cache status | clean             where the runtime cache is, or remove it
 
 ty handler invoke <yon.js|yon.py>
   --route / --method / --body / --header name=value
+  --target </path?query>           concrete request target; binds @From... arguments
+                                   like the server, without route access rules
   --timeout-ms <ms>                complete invocation deadline (30000)
   --allow-env <NAME>               one inherited environment variable
   --javascript-runtime, --python-runtime

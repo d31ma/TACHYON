@@ -1,6 +1,7 @@
 mod application_config;
 mod composed_types_cli;
 mod executed_coverage;
+mod handler_invoke_arguments;
 mod init_features;
 mod init_wizard;
 mod phase1_cli;

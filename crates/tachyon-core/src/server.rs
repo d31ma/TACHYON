@@ -28,6 +28,7 @@ mod preview_server;
 mod preview_server_options;
 mod protocol_request;
 mod route_guard;
+mod route_invocation;
 mod server_listener;
 mod server_response;
 mod server_runtime;
@@ -54,6 +55,7 @@ pub use error_page_server::ErrorPageServer;
 pub use error_page_wait::ErrorPageWait;
 pub use preview_server::PreviewServer;
 pub use preview_server_options::PreviewServerOptions;
+pub use route_invocation::RouteInvocation;
 
 use crate::failure::diagnostic;
 use crate::handler::{HandlerSupervisor, RuntimeRequirements};
