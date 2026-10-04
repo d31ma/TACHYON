@@ -145,15 +145,15 @@ impl TypedTestConstruction {
                     TestClients::is_client(module, kind),
                 ] == [true; 2]
             })?;
-        Some(Self::client_source(name, kind, language))
+        let message = Self::quoted(Self::NO_SETUP, language);
+        Some(Self::client_source(name, kind, &message, language))
     }
 
-    fn client_source(name: &str, kind: &str, language: &str) -> String {
-        if language == "swift" {
-            return format!("self.{name} ?? {kind}(behaviors!)");
+    fn client_source(name: &str, kind: &str, message: &str, language: &str) -> String {
+        match language {
+            "swift" => format!("self.{name} ?? {kind}(behaviors!)"),
+            _ => format!("(this.{name} ?: {kind}(checkNotNull(this.behaviors) {{ {message} }}))"),
         }
-        let message = Self::quoted(Self::NO_SETUP, language);
-        format!("(this.{name} ?: {kind}(checkNotNull(this.behaviors) {{ {message} }}))")
     }
 
     fn assigned(name: &str, language: &str) -> String {

@@ -1248,11 +1248,11 @@ async function checkKotlinStorage(page, evaluate) {
 }
 
 async function checkSwiftStorage(page, evaluate) {
-  expect(JSON.stringify(await evaluate(() => [__root('swiftCounter').find('a'), __root('swiftCounter').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Swift WebAssembly service reads its Cached value synchronously from memory');
+  expect(JSON.stringify(await evaluate(async () => [await __root('swiftCounter').find('a'), await __root('swiftCounter').find('a')])), JSON.stringify([{ key: 'a', reads: 1 }, { key: 'a', reads: 1 }]), 'a Swift WebAssembly service reads its Cached value from memory');
   await evaluate(() => __root('swiftCounter').forget('a'));
   expect(JSON.stringify(await evaluate(() => __root('swiftCounter').find('a'))), JSON.stringify({ key: 'a', reads: 2 }), 'ClearCache makes the Swift service read again');
   await evaluate(() => __root('swiftCounter').save('s1', 'kept'));
-  const refused = await evaluate(() => { try { __root('swiftCounter').saveThenRefuse('s2'); return ''; } catch (error) { return error.message; } });
+  const refused = await evaluate(async () => { try { await __root('swiftCounter').saveThenRefuse('s2'); return ''; } catch (error) { return error.message; } });
   expect(refused.includes('the note was refused'), true, 'a refused Swift AllOrNothing call reports its error');
   await evaluate(StorageGate.settleCaches);
   await page.reload({ waitUntil: 'networkidle' });

@@ -5,7 +5,8 @@ pub(super) struct SwiftClientAnswer<'a> {
 
 impl<'a> SwiftClientAnswer<'a> {
     const BEHAVIOR_JSON: &'static str = "BehaviorJSON";
-    const NO_ANSWER: [&'static str; 3] = ["", "Void", "()"];
+    const VOID: &'static str = "Void";
+    const UNIT: &'static str = "()";
 
     pub(super) fn of(returned: &'a str, declared_exchange: bool) -> Self {
         Self {
@@ -19,12 +20,18 @@ impl<'a> SwiftClientAnswer<'a> {
     }
 
     pub(super) fn written(&self, call: &str) -> String {
-        if self.returned == Self::BEHAVIOR_JSON {
-            return format!("return {call}");
+        self.untyped(call).unwrap_or_else(|| self.typed(call))
+    }
+
+    fn untyped(&self, call: &str) -> Option<String> {
+        match self.returned {
+            Self::BEHAVIOR_JSON => Some(format!("return {call}")),
+            "" | Self::VOID | Self::UNIT => Some(format!("_ = {call}")),
+            _ => None,
         }
-        if Self::NO_ANSWER.contains(&self.returned) {
-            return format!("_ = {call}");
-        }
+    }
+
+    fn typed(&self, call: &str) -> String {
         format!(
             "let answer = {call}\nreturn try Behaviors.answer({}.self, answer)",
             self.returned

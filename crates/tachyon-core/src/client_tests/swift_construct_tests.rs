@@ -55,8 +55,11 @@ fn swift_tests_construct_services_with_injected_fake_clients_and_typed_answers()
     }
     let root = tempfile::tempdir().expect("test project");
     SwiftConstructProject::write(root.path());
-    let report = super::run(root.path(), Path::new("client/tests/CounterServiceTest.swift"))
-        .expect("native Swift test unit");
+    let report = super::run(
+        root.path(),
+        Path::new("client/tests/CounterServiceTest.swift"),
+    )
+    .expect("native Swift test unit");
     assert_eq!(report.cases.len(), 4, "{report:?}");
     assert!(report.cases.iter().all(|case| case.passed), "{report:?}");
 }

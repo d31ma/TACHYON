@@ -128,14 +128,14 @@ impl SwiftFixtures {
          const { default: NotesService } = await import('./NotesService.js')\n\
          const notes = new NotesService({})\n\
          notes.__tachyonStarted()\n\
-         const first = notes.find('a')\n\
-         const second = notes.find('a')\n\
-         notes.forget('a')\n\
-         const third = notes.find('a')\n\
-         notes.save('n1', 'hello')\n\
+         const first = await notes.find('a')\n\
+         const second = await notes.find('a')\n\
+         await notes.forget('a')\n\
+         const third = await notes.find('a')\n\
+         await notes.save('n1', 'hello')\n\
          let refused = ''\n\
-         try { notes.saveThenRefuse('n2') } catch (error) { refused = error.message }\n\
-         console.log(JSON.stringify({ first, second, third, refused, listed: notes.list() }))\n\
+         try { await notes.saveThenRefuse('n2') } catch (error) { refused = error.message }\n\
+         console.log(JSON.stringify({ first, second, third, refused, listed: await notes.list() }))\n\
          process.exit(0)\n";
 }
 
@@ -273,9 +273,9 @@ final class SettingsService {
          const orders = new OrdersService({})\n\
          orders.__tachyonStarted()\n\
          const started = performance.now()\n\
-         const submitted = orders.submit('a')\n\
+         const submitted = await orders.submit('a')\n\
          const waited = performance.now() - started\n\
-         const reported = orders.report('b')\n\
+         const reported = await orders.report('b')\n\
          const settings = new SettingsService({})\n\
          console.log(JSON.stringify({ submitted, waited, polls, reported, title: settings.title, pageSize: settings.pageSize }))\n\
          process.exit(0)\n";
@@ -456,7 +456,7 @@ async fn a_swift_service_exchanges_models_and_events_with_the_page() {
 }
 
 #[tokio::test]
-async fn a_swift_service_reads_the_builtin_cache_and_store_synchronously() {
+async fn a_swift_service_awaits_the_builtin_cache_and_store() {
     if !swift_web_ready() {
         eprintln!("skipping: the Swift SDK for WebAssembly, swiftc or node is unavailable");
         return;

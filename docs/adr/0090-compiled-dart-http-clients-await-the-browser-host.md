@@ -232,7 +232,8 @@ Tachyon fills the field with `Client()`. An `async` service method becomes a
 task member. The Swift WebAssembly module starts it in a `Task` that carries
 the running task in a task-local value and drives the cooperative executor
 (`MainActor.executor.runUntil`) until the task ends or has nothing left to
-run. When it ends without waiting, the page gets the answer at once. When it
+run. The page always gets a promise for an `async` method; when the method
+ends without waiting, the promise settles at once. When it
 waits for the browser transport, a checked continuation is parked on a
 ticket, the fetch starts through the `tac_host_http_start` import, and the
 page gets `{"task": id}` and a promise. The page settles the fetch through
