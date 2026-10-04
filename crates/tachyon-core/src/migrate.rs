@@ -66,6 +66,24 @@ impl MigrationFinding {
         )
     }
 
+    fn realm_imports(relative: &str, source: &str) -> Vec<Self> {
+        let checked = crate::annotation_layout::ImportBoundary::check(Path::new(relative), source);
+        let problems = checked.err().map(|failure| failure.diagnostics().to_vec());
+        problems
+            .unwrap_or_default()
+            .iter()
+            .map(|item| {
+                Self::new(
+                    relative,
+                    "role.realm_import",
+                    MigrationStatus::Changed,
+                    &item.message,
+                    item.help.as_deref(),
+                )
+            })
+            .collect()
+    }
+
     fn new(
         source: &str,
         feature: &str,
@@ -562,20 +580,6 @@ fn read_json(root: &Path, relative: &str) -> Option<Value> {
     serde_json::from_str::<Value>(&source).ok()
 }
 
-fn realm_import_findings(relative: &str, source: &str, findings: &mut Vec<MigrationFinding>) {
-    let checked = crate::annotation_layout::ImportBoundary::check(Path::new(relative), source);
-    let problems = checked.err().map(|failure| failure.diagnostics().to_vec());
-    findings.extend(problems.unwrap_or_default().iter().map(|item| {
-        MigrationFinding::new(
-            relative,
-            "role.realm_import",
-            MigrationStatus::Changed,
-            &item.message,
-            item.help.as_deref(),
-        )
-    }));
-}
-
 fn read_source(root: &Path, relative: &str, what: &str) -> Result<String, Failure> {
     fs::read_to_string(root.join(relative))
         .map_err(|error| migration_failure(&format!("Cannot read {what} '{relative}': {error}")))
@@ -618,7 +622,7 @@ fn classify_file(
                 ));
             }
         }
-        realm_import_findings(relative, &source, findings);
+        findings.extend(MigrationFinding::realm_imports(relative, &source));
     }
 
     if relative.starts_with("client/clients/") || relative.starts_with("server/clients/") {
