@@ -79,18 +79,22 @@ struct ManagedType {
 impl ManagedType {
     fn injected_field_at(&self, input: &Input<'_>, field: &str) -> usize {
         let body = &input.code[self.body.clone()];
-        let is_name = |byte: Option<&u8>| {
-            byte.is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-        };
         body.match_indices(field)
-            .find(|(at, _)| {
-                let before = at
-                    .checked_sub(1)
-                    .and_then(|before| body.as_bytes().get(before));
-                let after = body.as_bytes().get(at + field.len());
-                !is_name(before) && !is_name(after)
-            })
-            .map_or(self.declaration, |(at, _)| self.body.start + at)
+            .map(|(at, _)| at)
+            .find(|at| Self::stands_alone(body, *at, field.len()))
+            .map_or(self.declaration, |at| self.body.start + at)
+    }
+
+    fn stands_alone(body: &str, at: usize, length: usize) -> bool {
+        let before = body[..at].chars().next_back();
+        let after = body[at + length..].chars().next();
+        [Self::is_name(before), Self::is_name(after)] == [false, false]
+    }
+
+    fn is_name(character: Option<char>) -> bool {
+        character.is_some_and(|character| {
+            [character.is_alphanumeric(), character == '_'].contains(&true)
+        })
     }
 }
 

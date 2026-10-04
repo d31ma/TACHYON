@@ -14,16 +14,19 @@ impl Schedule {
     const KEYS: [&str; 2] = ["fixedDelaySeconds", "initialDelaySeconds"];
 
     pub(crate) fn declared(relative: &str, source: &str) -> Result<Option<Self>, Failure> {
-        let Some(view) = crate::lua_source::LuaView::of(std::path::Path::new(relative), source)
-        else {
-            return declared(relative, source);
-        };
+        crate::lua_source::LuaView::of(std::path::Path::new(relative), source).map_or_else(
+            || declared(relative, source),
+            |view| Self::declared_in_lua(&view),
+        )
+    }
+
+    fn declared_in_lua(view: &crate::lua_source::LuaView) -> Result<Option<Self>, Failure> {
         let shadow = view.path().to_string_lossy().replace('\\', "/");
         declared(&shadow, view.text()).map_err(|failure| view.failure(&failure))
     }
 }
 
-fn declared(relative: &str, source: &str) -> Result<Option<Schedule>, Failure> {
+pub(crate) fn declared(relative: &str, source: &str) -> Result<Option<Schedule>, Failure> {
     let language = relative.rsplit_once('.').map_or("", |(_, value)| value);
     let mask = crate::lexical::code_mask(language, source);
     if let Some(error) = mask.error {
