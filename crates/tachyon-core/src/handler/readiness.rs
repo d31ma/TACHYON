@@ -176,10 +176,10 @@ impl RuntimeRequirements {
             RuntimeRequirement::configured(
                 RuntimeRequirementKey::JavaScript,
                 &runtimes.javascript,
-                HandlerRuntimePrograms::DEFAULT_JAVASCRIPT,
+                HandlerRuntimePrograms::default_javascript_for(&runtimes.javascript),
                 "Yon JavaScript runtime",
                 "YON_JAVASCRIPT_RUNTIME",
-                "Install Node.js or correct YON_JAVASCRIPT_RUNTIME.",
+                "Install Node.js or Bun, or correct YON_JAVASCRIPT_RUNTIME.",
                 ProbeKind::JavaScript {
                     typescript: self.uses(YonLanguage::TypeScript),
                 },

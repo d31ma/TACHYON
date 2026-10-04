@@ -375,9 +375,11 @@ impl RuntimeProbe {
 
     fn probe_on_path(program: &Path) -> RuntimeProbeState {
         let paths = std::env::var_os("PATH").unwrap_or_default();
-        let found =
-            std::env::split_paths(&paths).any(|directory| Self::runnable_in(&directory, program));
-        Self::found_state(found)
+        Self::found_state(Self::on_path(&paths, program))
+    }
+
+    pub(crate) fn on_path(paths: &std::ffi::OsStr, program: &Path) -> bool {
+        std::env::split_paths(paths).any(|directory| Self::runnable_in(&directory, program))
     }
 
     fn found_state(found: bool) -> RuntimeProbeState {

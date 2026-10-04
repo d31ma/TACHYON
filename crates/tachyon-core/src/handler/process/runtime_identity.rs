@@ -44,8 +44,7 @@ impl RuntimeIdentity {
     fn for_language(language: Option<YonLanguage>, runtimes: &HandlerRuntimePrograms) -> Self {
         match language {
             Some(YonLanguage::JavaScript | YonLanguage::TypeScript) => Self::JavaScript {
-                configured: runtimes.javascript
-                    != Path::new(HandlerRuntimePrograms::DEFAULT_JAVASCRIPT),
+                configured: !HandlerRuntimePrograms::is_default_javascript(&runtimes.javascript),
             },
             Some(YonLanguage::Python) => Self::Python {
                 configured: runtimes.python != Path::new(HandlerRuntimePrograms::DEFAULT_PYTHON),
@@ -91,7 +90,7 @@ impl RuntimeIdentity {
         match self {
             Self::JavaScript { configured: false } => (
                 "Yon JavaScript runtime 'node'",
-                "Install Node.js or configure YON_JAVASCRIPT_RUNTIME.",
+                "Install Node.js or Bun, or configure YON_JAVASCRIPT_RUNTIME.",
             ),
             Self::JavaScript { configured: true } => (
                 "configured Yon JavaScript runtime",

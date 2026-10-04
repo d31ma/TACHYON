@@ -8,6 +8,8 @@ mod handler_cancellation;
 mod handler_environment_tests;
 mod handler_event;
 mod handler_runtime_programs;
+#[cfg(test)]
+mod handler_runtime_programs_tests;
 mod handler_supervisor_options;
 mod planned_command;
 mod process_failure;
