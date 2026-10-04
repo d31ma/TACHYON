@@ -201,7 +201,7 @@ describe('language coverage', () => {
     const sections = docs.topics['project-folders'].sections
     for (const [framework, extensions, entryPattern, modulePattern] of [
       ['yon', ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'], /^server\/controllers\/MoneyController\.[a-z]+$/, /^server\/services\/MoneyService\./],
-      ['tac', ['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'rb', 'rs', 'swift', 'ts'], /^client\/services\/MoneyService\.[a-z]+$/, /^client\/entities\/MoneyEntity\./],
+      ['tac', ['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'py', 'rb', 'rs', 'swift', 'ts'], /^client\/services\/MoneyService\.[a-z]+$/, /^client\/entities\/MoneyEntity\./],
     ]) {
       const section = sections.find(entry => entry.files?.some(file => entryPattern.test(file.name)))
       expect(section.axis).toBe('language')
