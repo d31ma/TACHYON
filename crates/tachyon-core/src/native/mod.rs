@@ -59,12 +59,12 @@ mod native_menu_action;
 mod native_menu_action_check;
 #[cfg(test)]
 mod native_menu_action_tests;
-#[cfg(test)]
-mod native_menu_host_tests;
 mod native_menu_config;
 #[cfg(test)]
 mod native_menu_config_tests;
 mod native_menu_entry;
+#[cfg(test)]
+mod native_menu_host_tests;
 mod native_menu_shortcut;
 #[cfg(test)]
 mod native_packaged_utility_tests;

@@ -1,13 +1,16 @@
 #![allow(clippy::expect_used)]
 
 use super::native_menu_action_tests::MenuActionFixture;
+#[cfg(target_os = "macos")]
 use std::path::{Path, PathBuf};
 
 struct MenuHostTests;
 
 impl MenuHostTests {
+    #[cfg(target_os = "macos")]
     const BUNDLE: &str = "MenuActionCheck.app/Contents";
 
+    #[cfg(target_os = "macos")]
     fn write(root: &Path, path: &str, source: &str) -> PathBuf {
         let path = root.join(path);
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
@@ -47,6 +50,7 @@ impl MenuHostTests {
         )
     }
 
+    #[cfg(target_os = "macos")]
     fn pages(root: &Path) {
         let resources = format!("{}/Resources/WebBundle", Self::BUNDLE);
         for (document, title) in [("index.html", "Home"), ("help/index.html", "Help")] {
@@ -65,6 +69,7 @@ impl MenuHostTests {
         );
     }
 
+    #[cfg(target_os = "macos")]
     async fn compile(root: &Path) -> PathBuf {
         let source = MenuActionFixture::stage(root);
         let library = root.join("libmenuactioncheck.a");
