@@ -7,7 +7,7 @@ class AuditService:
     _records: int = 0
     _audited: int = 0
 
-    @on_event({"id":"audit-log","replay":True})
+    @on_event({"id":"audit-log","replay":true})
     @order(-10)
     def record(self, order: PlacedOrder) -> None:
         self._records += 1
