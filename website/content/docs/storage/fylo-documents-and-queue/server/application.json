@@ -1,0 +1,6 @@
+{
+  "datasource": {
+    "driver": "fylo",
+    "url": "fylo:///srv/heimdall"
+  }
+}

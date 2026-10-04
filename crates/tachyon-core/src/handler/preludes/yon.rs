@@ -746,6 +746,60 @@ impl DataSource {
             ("parameters", Json::from(parameters)), ("mode", Json::from(mode)),
         ]))
     }
+    pub fn find_by_id(&self, collection: &str, id: &str) -> Result<Json, YonResourceError> {
+        self.document("findById", vec![("collection", collection.into()), ("id", id.into())])
+    }
+    pub fn insert(&self, collection: &str, document: Json) -> Result<Json, YonResourceError> {
+        self.document("insert", vec![("collection", collection.into()), ("value", document)])
+    }
+    pub fn patch(&self, collection: &str, id: &str, fields: Json) -> Result<Json, YonResourceError> {
+        self.document("patch", vec![("collection", collection.into()), ("id", id.into()), ("value", fields)])
+    }
+    pub fn delete_by_id(&self, collection: &str, id: &str) -> Result<Json, YonResourceError> {
+        self.document("deleteById", vec![("collection", collection.into()), ("id", id.into())])
+    }
+    pub fn scroll(&self, collection: &str, filter: Json, cursor: &str, size: u32) -> Result<Json, YonResourceError> {
+        let cursor = if cursor.is_empty() { Json::Null } else { Json::from(cursor) };
+        let command = Json::map([
+            ("operation", Json::from("document")), ("command", Json::from("scroll")),
+            ("collection", Json::from(collection)), ("where", filter),
+            ("cursor", cursor), ("size", Json::from(size)),
+        ]);
+        let body = command.stringify().map_err(|_| YonResourceError)?;
+        yon_resource_exchange(&body, std::time::Duration::from_secs(30))
+    }
+    pub fn create_collection(&self, name: &str) -> Result<Json, YonResourceError> {
+        self.document("createCollection", vec![("collection", name.into())])
+    }
+    pub fn drop_collection(&self, name: &str) -> Result<Json, YonResourceError> {
+        self.document("dropCollection", vec![("collection", name.into())])
+    }
+    pub fn collection_exists(&self, name: &str) -> Result<Json, YonResourceError> {
+        self.document("collectionExists", vec![("collection", name.into())])
+    }
+    pub fn publish(&self, topic: &str, payload: Json, key: &str) -> Result<Json, YonResourceError> {
+        self.queue("publish", vec![("topic", topic.into()), ("payload", payload), ("key", key.into())])
+    }
+    pub fn claim(&self, topic: &str, group: &str, max_messages: u32, lease_ms: u32) -> Result<Json, YonResourceError> {
+        let fields = vec![("topic", topic.into()), ("group", group.into()), ("maxMessages", max_messages.into()), ("leaseMs", lease_ms.into())];
+        self.queue("claim", fields)
+    }
+    pub fn ack(&self, topic: &str, group: &str, delivery: &Json) -> Result<Json, YonResourceError> {
+        let fields = vec![("topic", topic.into()), ("group", group.into()), ("id", delivery.get("id").clone()), ("receipt", delivery.get("receipt").clone())];
+        self.queue("ack", fields)
+    }
+    pub fn nack(&self, topic: &str, group: &str, delivery: &Json, delay_ms: u32) -> Result<Json, YonResourceError> {
+        let fields = vec![("topic", topic.into()), ("group", group.into()), ("id", delivery.get("id").clone()), ("receipt", delivery.get("receipt").clone()), ("delayMs", delay_ms.into())];
+        self.queue("nack", fields)
+    }
+    fn document(&self, command: &str, mut fields: Vec<(&str, Json)>) -> Result<Json, YonResourceError> {
+        fields.extend([("operation", "document".into()), ("command", command.into())]);
+        yon_resource(Json::map(fields))
+    }
+    fn queue(&self, command: &str, mut fields: Vec<(&str, Json)>) -> Result<Json, YonResourceError> {
+        fields.extend([("operation", "queue".into()), ("command", command.into())]);
+        yon_resource(Json::map(fields))
+    }
 }
 
 pub struct RedisTemplate;

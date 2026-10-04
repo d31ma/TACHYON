@@ -10,6 +10,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { withServer } from '../../scripts/release/server-probe.mjs'
 import { checkConfigurationBrowser, configurationTestFiles } from './verify-configuration-binding.mjs'
+import { FyloStaging } from './fylo-staging.mjs'
 import { SiteContent } from './site-content.mjs'
 import { SharedModuleProbe } from './shared-module-probe.mjs'
 import { SnippetCache } from './snippet-cache.mjs'
@@ -1011,12 +1012,13 @@ async function executeHandler(label, files, handler, checkValue, expectedError) 
   const handlerExtension = path.extname(handler.name)
   const sameLanguageFiles = files.filter(file => path.extname(file.name) === handlerExtension)
   const source = sameLanguageFiles.map(file => file.code).join('\n')
-  const extraTools = [...(usesRelay(source) ? ['ruby'] : []), ...gatewayTools(sameLanguageFiles)]
+  const extraTools = [...(usesRelay(source) ? ['ruby'] : []), ...gatewayTools(sameLanguageFiles), ...FyloStaging.tools(files)]
   if (!await canRun(label, handler.name, extraTools)) return
   const streaming = isStreamingHandler(handler.code)
   const socket = handler.code.match(Patterns.socketRoute)
   await inStagingDirectory(label, async root => {
     for (const file of files) writeSnippetFile(root, file.name, file.code)
+    FyloStaging.prepare(root)
     await withServer(Settings.binary, ['serve', root, '--no-watch', '--port', '0'], async request => {
       if (socket) {
         await checkSocket(label, request, socket[1] || '/')
@@ -1286,6 +1288,11 @@ function expectedGuideValue(slug, section) {
   }
   if (slug === 'application-events' && section.heading.startsWith('Yon')) {
     return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, { value: 7 }, 'The listener must keep the published ProbeReady')
+  }
+  if (slug === 'server-data' && section.heading.startsWith('FYLO documents and queue')) {
+    return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, {
+      found: 'deploy', patched: 7, pages: 2, seen: 3, job: { app: 'web' }, gone: true, dropped: true,
+    }, 'Every language must reach the FYLO documents, scroll and queue through DataSource')
   }
   if (slug === 'project-folders' && section.heading.startsWith('Models')) {
     return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, { title: 'Models hold types', pages: 3 })

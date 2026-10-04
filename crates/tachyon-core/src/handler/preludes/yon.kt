@@ -3,6 +3,24 @@ class DataSource {
     fun execute(sql: String, parameters: List<Any?>): Any? = YonManagedResources.call(mapOf("operation" to "sql", "sql" to sql, "parameters" to parameters, "mode" to "execute"))
     fun execute(command: Map<String, Any?>): Any? = this.command(command)
     fun command(command: Map<String, Any?>): Any? = YonManagedResources.call(command)
+    fun findById(collection: String, id: String): Any? = document("findById", mapOf("collection" to collection, "id" to id))
+    fun insert(collection: String, document: Map<String, Any?>): Any? = document("insert", mapOf("collection" to collection, "value" to document))
+    fun patch(collection: String, id: String, fields: Map<String, Any?>): Any? = document("patch", mapOf("collection" to collection, "id" to id, "value" to fields))
+    fun deleteById(collection: String, id: String): Any? = document("deleteById", mapOf("collection" to collection, "id" to id))
+    fun scroll(collection: String, where: Map<String, Any?>? = null, cursor: String? = null, size: Int = 20): Any? =
+        YonManagedResources.call(mapOf("operation" to "document", "command" to "scroll", "collection" to collection, "where" to where, "cursor" to cursor, "size" to size), YonManagedResources.SCROLL_TIMEOUT_NANOSECONDS)
+    fun createCollection(name: String): Any? = document("createCollection", mapOf("collection" to name))
+    fun dropCollection(name: String): Any? = document("dropCollection", mapOf("collection" to name))
+    fun collectionExists(name: String): Any? = document("collectionExists", mapOf("collection" to name))
+    fun publish(topic: String, payload: Any?, key: String? = null): Any? = queue("publish", mapOf("topic" to topic, "payload" to payload, "key" to key))
+    fun claim(topic: String, group: String, maxMessages: Int = 1, leaseMs: Int = 30_000): Any? =
+        queue("claim", mapOf("topic" to topic, "group" to group, "maxMessages" to maxMessages, "leaseMs" to leaseMs))
+    fun ack(topic: String, group: String, delivery: Map<*, *>): Any? =
+        queue("ack", mapOf("topic" to topic, "group" to group, "id" to delivery["id"], "receipt" to delivery["receipt"]))
+    fun nack(topic: String, group: String, delivery: Map<*, *>, delayMs: Int = 0): Any? =
+        queue("nack", mapOf("topic" to topic, "group" to group, "id" to delivery["id"], "receipt" to delivery["receipt"], "delayMs" to delayMs))
+    private fun document(command: String, fields: Map<String, Any?>): Any? = YonManagedResources.call(mapOf("operation" to "document", "command" to command) + fields)
+    private fun queue(command: String, fields: Map<String, Any?>): Any? = YonManagedResources.call(mapOf("operation" to "queue", "command" to command) + fields)
 }
 
 class RedisTemplate {
@@ -14,11 +32,12 @@ class RedisTemplate {
 private object YonManagedResources {
     const val LIMIT = 1024 * 1024
     private const val RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L
+    const val SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000L
     private const val CONNECT_TIMEOUT_MILLISECONDS = 5000L
     private fun failed(): Nothing = throw IllegalStateException("Yon managed resource operation failed.")
-    fun call(command: Any?): Any? {
+    fun call(command: Any?, timeoutNanoseconds: Long = RESOURCE_TIMEOUT_NANOSECONDS): Any? {
         val text = try { Json.stringify(command) } catch (_: Exception) { failed() }
-        return exchange(text, RESOURCE_TIMEOUT_NANOSECONDS)
+        return exchange(text, timeoutNanoseconds)
     }
     fun exchange(text: String, timeoutNanoseconds: Long): Any? {
         try {

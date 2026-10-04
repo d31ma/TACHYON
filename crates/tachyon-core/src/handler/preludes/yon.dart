@@ -10,6 +10,34 @@ final class DataSource {
   yon_async.Future<Object?> execute(String sql, List<Object?> parameters) =>
       YonManagedResources.call({'operation': 'sql', 'sql': sql, 'parameters': parameters, 'mode': 'execute'});
   yon_async.Future<Object?> command(Map<String, Object?> command) => YonManagedResources.call(command);
+  yon_async.Future<Object?> findById(String collection, String id) =>
+      _document('findById', {'collection': collection, 'id': id});
+  yon_async.Future<Object?> insert(String collection, Map<String, Object?> document) =>
+      _document('insert', {'collection': collection, 'value': document});
+  yon_async.Future<Object?> patch(String collection, String id, Map<String, Object?> fields) =>
+      _document('patch', {'collection': collection, 'id': id, 'value': fields});
+  yon_async.Future<Object?> deleteById(String collection, String id) =>
+      _document('deleteById', {'collection': collection, 'id': id});
+  yon_async.Future<Object?> scroll(String collection,
+          [Map<String, Object?>? where, String? cursor, int size = 20]) =>
+      YonManagedResources.call(
+          {'operation': 'document', 'command': 'scroll', 'collection': collection, 'where': where, 'cursor': cursor, 'size': size},
+          YonManagedResources.scrollTimeout);
+  yon_async.Future<Object?> createCollection(String name) => _document('createCollection', {'collection': name});
+  yon_async.Future<Object?> dropCollection(String name) => _document('dropCollection', {'collection': name});
+  yon_async.Future<Object?> collectionExists(String name) => _document('collectionExists', {'collection': name});
+  yon_async.Future<Object?> publish(String topic, Object? payload, [String? key]) =>
+      _queue('publish', {'topic': topic, 'payload': payload, 'key': key});
+  yon_async.Future<Object?> claim(String topic, String group, [int maxMessages = 1, int leaseMs = 30000]) =>
+      _queue('claim', {'topic': topic, 'group': group, 'maxMessages': maxMessages, 'leaseMs': leaseMs});
+  yon_async.Future<Object?> ack(String topic, String group, Map<String, Object?> delivery) =>
+      _queue('ack', {'topic': topic, 'group': group, 'id': delivery['id'], 'receipt': delivery['receipt']});
+  yon_async.Future<Object?> nack(String topic, String group, Map<String, Object?> delivery, [int delayMs = 0]) =>
+      _queue('nack', {'topic': topic, 'group': group, 'id': delivery['id'], 'receipt': delivery['receipt'], 'delayMs': delayMs});
+  yon_async.Future<Object?> _document(String command, Map<String, Object?> fields) =>
+      YonManagedResources.call({'operation': 'document', 'command': command, ...fields});
+  yon_async.Future<Object?> _queue(String command, Map<String, Object?> fields) =>
+      YonManagedResources.call({'operation': 'queue', 'command': command, ...fields});
 }
 
 final class RedisTemplate {
@@ -23,11 +51,13 @@ final class RedisTemplate {
 
 final class YonManagedResources {
   static const int _limit = 1024 * 1024;
+  static const Duration scrollTimeout = Duration(seconds: 30);
   static StateError _failed() => StateError('Yon managed resource operation failed.');
   static String _directConnection(Uri endpoint) => 'DIRECT';
 
-  static yon_async.Future<Object?> call(Map<String, Object?> command) async {
-    final answer = await exchange(yon_convert.jsonEncode(command), const Duration(seconds: 5));
+  static yon_async.Future<Object?> call(Map<String, Object?> command,
+      [Duration timeout = const Duration(seconds: 5)]) async {
+    final answer = await exchange(yon_convert.jsonEncode(command), timeout);
     try {
       return yon_convert.jsonDecode(answer);
     } catch (_) {

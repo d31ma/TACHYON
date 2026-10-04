@@ -10,6 +10,7 @@ class YonServiceLimits
   MAX_RESOURCE_BYTES = 1024 * 1024
   MAX_RESOURCE_HEAD_BYTES = 8192
   RESOURCE_TIMEOUT_SECONDS = 5
+  SCROLL_TIMEOUT_SECONDS = 30
   GATEWAY_ANSWER_MARGIN_SECONDS = 1
   CHUNK_BYTES = 65_536
   RELAY_POLL_SECONDS = 0.002
@@ -193,9 +194,9 @@ class YonResourceExchange
 end
 
 class YonResources
-  def self.call(command)
+  def self.call(command, timeout_seconds = YonServiceLimits::RESOURCE_TIMEOUT_SECONDS)
     body = YonResourceExchange.encode(command)
-    YonResourceExchange.post(body, YonServiceLimits::RESOURCE_TIMEOUT_SECONDS)
+    YonResourceExchange.post(body, timeout_seconds)
   rescue StandardError
     raise YonResourceError, cause: nil
   end
@@ -216,6 +217,66 @@ class DataSource
     return YonResources.call(sql) unless sql.is_a?(String)
 
     YonResources.call({ "operation" => "sql", "sql" => sql, "parameters" => Array(parameters), "mode" => "execute" })
+  end
+
+  def find_by_id(collection, id)
+    document_command("findById", { "collection" => collection, "id" => id })
+  end
+
+  def insert(collection, document)
+    document_command("insert", { "collection" => collection, "value" => document })
+  end
+
+  def patch(collection, id, fields)
+    document_command("patch", { "collection" => collection, "id" => id, "value" => fields })
+  end
+
+  def delete_by_id(collection, id)
+    document_command("deleteById", { "collection" => collection, "id" => id })
+  end
+
+  def scroll(collection, where = nil, cursor = nil, size = 20)
+    fields = { "collection" => collection, "where" => where, "cursor" => cursor, "size" => size }
+    document_command("scroll", fields, YonServiceLimits::SCROLL_TIMEOUT_SECONDS)
+  end
+
+  def create_collection(name)
+    document_command("createCollection", { "collection" => name })
+  end
+
+  def drop_collection(name)
+    document_command("dropCollection", { "collection" => name })
+  end
+
+  def collection_exists(name)
+    document_command("collectionExists", { "collection" => name })
+  end
+
+  def publish(topic, payload, key = nil)
+    queue_command("publish", { "topic" => topic, "payload" => payload, "key" => key })
+  end
+
+  def claim(topic, group, max_messages = 1, lease_ms = 30_000)
+    queue_command("claim", { "topic" => topic, "group" => group, "maxMessages" => max_messages, "leaseMs" => lease_ms })
+  end
+
+  def ack(topic, group, delivery)
+    queue_command("ack", { "topic" => topic, "group" => group, "id" => delivery["id"], "receipt" => delivery["receipt"] })
+  end
+
+  def nack(topic, group, delivery, delay_ms = 0)
+    fields = { "topic" => topic, "group" => group, "id" => delivery["id"], "receipt" => delivery["receipt"], "delayMs" => delay_ms }
+    queue_command("nack", fields)
+  end
+
+  private
+
+  def document_command(command, fields, timeout_seconds = YonServiceLimits::RESOURCE_TIMEOUT_SECONDS)
+    YonResources.call({ "operation" => "document", "command" => command }.merge(fields), timeout_seconds)
+  end
+
+  def queue_command(command, fields)
+    YonResources.call({ "operation" => "queue", "command" => command }.merge(fields))
   end
 end
 

@@ -13,6 +13,25 @@ final class DataSource {
     }
     Object execute(java.util.Map<String, ?> command) { return command(command); }
     Object command(java.util.Map<String, ?> command) { return YonManagedResources.call(command); }
+    Object findById(String collection, String id) { return document("findById", "collection", collection, "id", id); }
+    Object insert(String collection, java.util.Map<String, ?> document) { return document("insert", "collection", collection, "value", document); }
+    Object patch(String collection, String id, java.util.Map<String, ?> fields) { return document("patch", "collection", collection, "id", id, "value", fields); }
+    Object deleteById(String collection, String id) { return document("deleteById", "collection", collection, "id", id); }
+    Object scroll(String collection, java.util.Map<String, ?> where, String cursor, int size) {
+        var command = YonManagedResources.command("operation", "document", "command", "scroll", "collection", collection, "where", where, "cursor", cursor, "size", size);
+        return YonManagedResources.call(command, YonManagedResources.SCROLL_TIMEOUT_NANOSECONDS);
+    }
+    Object createCollection(String name) { return document("createCollection", "collection", name); }
+    Object dropCollection(String name) { return document("dropCollection", "collection", name); }
+    Object collectionExists(String name) { return document("collectionExists", "collection", name); }
+    Object publish(String topic, Object payload, String key) { return queue("publish", "topic", topic, "payload", payload, "key", key); }
+    Object claim(String topic, String group, int maxMessages, int leaseMs) { return queue("claim", "topic", topic, "group", group, "maxMessages", maxMessages, "leaseMs", leaseMs); }
+    Object ack(String topic, String group, java.util.Map<?, ?> delivery) { return queue("ack", "topic", topic, "group", group, "id", delivery.get("id"), "receipt", delivery.get("receipt")); }
+    Object nack(String topic, String group, java.util.Map<?, ?> delivery, int delayMs) {
+        return queue("nack", "topic", topic, "group", group, "id", delivery.get("id"), "receipt", delivery.get("receipt"), "delayMs", delayMs);
+    }
+    private static Object document(String command, Object... fields) { return YonManagedResources.call(YonManagedResources.tagged("document", command, fields)); }
+    private static Object queue(String command, Object... fields) { return YonManagedResources.call(YonManagedResources.tagged("queue", command, fields)); }
 }
 
 final class RedisTemplate {
@@ -29,6 +48,7 @@ final class RedisTemplate {
 final class YonManagedResources {
     static final int LIMIT = 1024 * 1024;
     private static final long RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L;
+    static final long SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000L;
     private static final long CONNECT_TIMEOUT_MILLISECONDS = 5000L;
     private static IllegalStateException failed() { return new IllegalStateException("Yon managed resource operation failed."); }
     static java.util.Map<String, Object> command(Object... fields) {
@@ -36,14 +56,23 @@ final class YonManagedResources {
         for (int index = 0; index < fields.length; index += 2) command.put((String) fields[index], fields[index + 1]);
         return command;
     }
+    static java.util.Map<String, Object> tagged(String operation, String command, Object... fields) {
+        var tagged = command(fields);
+        tagged.put("operation", operation);
+        tagged.put("command", command);
+        return tagged;
+    }
     static Object call(Object command) {
+        return call(command, RESOURCE_TIMEOUT_NANOSECONDS);
+    }
+    static Object call(Object command, long timeoutNanoseconds) {
         String text;
         try {
             text = Json.stringify(command);
         } catch (RuntimeException invalid) {
             throw failed();
         }
-        return exchange(text, RESOURCE_TIMEOUT_NANOSECONDS);
+        return exchange(text, timeoutNanoseconds);
     }
     static Object exchange(String text, long timeoutNanoseconds) {
         try {

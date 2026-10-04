@@ -20,6 +20,33 @@ sealed class DataSource
     public JsonElement execute(string sql, object[] parameters) => Execute(sql, parameters);
     public JsonElement execute(object command) => Command(command);
     public JsonElement command(object command) => Command(command);
+    public JsonElement FindById(string collection, string id) => YonManagedResources.Call(new { operation = "document", command = "findById", collection, id });
+    public JsonElement Insert(string collection, object document) => YonManagedResources.Call(new { operation = "document", command = "insert", collection, value = document });
+    public JsonElement Patch(string collection, string id, object fields) => YonManagedResources.Call(new { operation = "document", command = "patch", collection, id, value = fields });
+    public JsonElement DeleteById(string collection, string id) => YonManagedResources.Call(new { operation = "document", command = "deleteById", collection, id });
+    public JsonElement Scroll(string collection, object? filter, string? cursor, int size) =>
+        YonManagedResources.Call(new { operation = "document", command = "scroll", collection, @where = filter, cursor, size }, YonManagedResources.ScrollTimeoutMilliseconds);
+    public JsonElement CreateCollection(string name) => YonManagedResources.Call(new { operation = "document", command = "createCollection", collection = name });
+    public JsonElement DropCollection(string name) => YonManagedResources.Call(new { operation = "document", command = "dropCollection", collection = name });
+    public JsonElement CollectionExists(string name) => YonManagedResources.Call(new { operation = "document", command = "collectionExists", collection = name });
+    public JsonElement Publish(string topic, object payload, string? key) => YonManagedResources.Call(new { operation = "queue", command = "publish", topic, payload, key });
+    public JsonElement Claim(string topic, string group, int maxMessages, int leaseMs) => YonManagedResources.Call(new { operation = "queue", command = "claim", topic, group, maxMessages, leaseMs });
+    public JsonElement Ack(string topic, string group, JsonElement delivery) =>
+        YonManagedResources.Call(new { operation = "queue", command = "ack", topic, group, id = delivery.GetProperty("id").GetString(), receipt = delivery.GetProperty("receipt").GetString() });
+    public JsonElement Nack(string topic, string group, JsonElement delivery, int delayMs) =>
+        YonManagedResources.Call(new { operation = "queue", command = "nack", topic, group, id = delivery.GetProperty("id").GetString(), receipt = delivery.GetProperty("receipt").GetString(), delayMs });
+    public JsonElement findById(string collection, string id) => FindById(collection, id);
+    public JsonElement insert(string collection, object document) => Insert(collection, document);
+    public JsonElement patch(string collection, string id, object fields) => Patch(collection, id, fields);
+    public JsonElement deleteById(string collection, string id) => DeleteById(collection, id);
+    public JsonElement scroll(string collection, object? filter, string? cursor, int size) => Scroll(collection, filter, cursor, size);
+    public JsonElement createCollection(string name) => CreateCollection(name);
+    public JsonElement dropCollection(string name) => DropCollection(name);
+    public JsonElement collectionExists(string name) => CollectionExists(name);
+    public JsonElement publish(string topic, object payload, string? key) => Publish(topic, payload, key);
+    public JsonElement claim(string topic, string group, int maxMessages, int leaseMs) => Claim(topic, group, maxMessages, leaseMs);
+    public JsonElement ack(string topic, string group, JsonElement delivery) => Ack(topic, group, delivery);
+    public JsonElement nack(string topic, string group, JsonElement delivery, int delayMs) => Nack(topic, group, delivery, delayMs);
 }
 
 sealed class RedisTemplate
@@ -36,12 +63,14 @@ static class YonManagedResources
 {
     internal const int Limit = 1024 * 1024;
     private const long ResourceTimeoutMilliseconds = 5000;
+    internal const long ScrollTimeoutMilliseconds = 30000;
     private static InvalidOperationException Failed() => new("Yon managed resource operation failed.");
-    internal static JsonElement Call(object command)
+    internal static JsonElement Call(object command) => Call(command, ResourceTimeoutMilliseconds);
+    internal static JsonElement Call(object command, long timeoutMilliseconds)
     {
         try
         {
-            byte[] response = Exchange(JsonSerializer.SerializeToUtf8Bytes(command), ResourceTimeoutMilliseconds);
+            byte[] response = Exchange(JsonSerializer.SerializeToUtf8Bytes(command), timeoutMilliseconds);
             using var document = JsonDocument.Parse(response);
             return document.RootElement.Clone();
         }

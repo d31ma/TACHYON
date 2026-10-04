@@ -305,7 +305,7 @@
     },
     "server-data": {
       "title": "Server data",
-      "summary": "Yon can connect to a SQL database and to Redis for you. You name them in `server/application.json`, and a Store class gets them with `Needs`. Values always go in as parameters: Tachyon refuses query text built from pieces.",
+      "summary": "Yon can connect to a SQL database, to the FYLO document store and to Redis for you. You name them in `server/application.json`, and a Store class gets them with `Needs`. Values always go in as parameters: Tachyon refuses query text built from pieces. With FYLO, DataSource also reads and changes documents by id, scrolls through any number of them with a cursor, manages collections and runs a durable queue.",
       "before": [
         "controllers",
         "application-configuration"

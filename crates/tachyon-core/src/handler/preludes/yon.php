@@ -11,6 +11,45 @@ final class DataSource
         return is_array($sql) ? $this->command($sql) : YonManagedResources::call(['operation' => 'sql', 'sql' => $sql, 'parameters' => $parameters, 'mode' => 'execute']);
     }
     public function command(array $command): mixed { return YonManagedResources::call($command); }
+    public function findById(string $collection, string $id): mixed { return self::document('findById', ['collection' => $collection, 'id' => $id]); }
+    public function insert(string $collection, array $document): mixed { return self::document('insert', ['collection' => $collection, 'value' => $document]); }
+    public function patch(string $collection, string $id, array $fields): mixed
+    {
+        return self::document('patch', ['collection' => $collection, 'id' => $id, 'value' => $fields]);
+    }
+    public function deleteById(string $collection, string $id): mixed { return self::document('deleteById', ['collection' => $collection, 'id' => $id]); }
+    public function scroll(string $collection, ?array $where = null, ?string $cursor = null, int $size = 20): mixed
+    {
+        $command = ['operation' => 'document', 'command' => 'scroll', 'collection' => $collection, 'where' => $where, 'cursor' => $cursor, 'size' => $size];
+        return YonManagedResources::call($command, YonManagedResources::SCROLL_TIMEOUT_NANOSECONDS);
+    }
+    public function createCollection(string $name): mixed { return self::document('createCollection', ['collection' => $name]); }
+    public function dropCollection(string $name): mixed { return self::document('dropCollection', ['collection' => $name]); }
+    public function collectionExists(string $name): mixed { return self::document('collectionExists', ['collection' => $name]); }
+    public function publish(string $topic, mixed $payload, ?string $key = null): mixed
+    {
+        return self::queue('publish', ['topic' => $topic, 'payload' => $payload, 'key' => $key]);
+    }
+    public function claim(string $topic, string $group, int $maxMessages = 1, int $leaseMs = 30000): mixed
+    {
+        return self::queue('claim', ['topic' => $topic, 'group' => $group, 'maxMessages' => $maxMessages, 'leaseMs' => $leaseMs]);
+    }
+    public function ack(string $topic, string $group, array $delivery): mixed
+    {
+        return self::queue('ack', ['topic' => $topic, 'group' => $group, 'id' => $delivery['id'], 'receipt' => $delivery['receipt']]);
+    }
+    public function nack(string $topic, string $group, array $delivery, int $delayMs = 0): mixed
+    {
+        return self::queue('nack', ['topic' => $topic, 'group' => $group, 'id' => $delivery['id'], 'receipt' => $delivery['receipt'], 'delayMs' => $delayMs]);
+    }
+    private static function document(string $command, array $fields): mixed
+    {
+        return YonManagedResources::call(['operation' => 'document', 'command' => $command] + $fields);
+    }
+    private static function queue(string $command, array $fields): mixed
+    {
+        return YonManagedResources::call(['operation' => 'queue', 'command' => $command] + $fields);
+    }
 }
 
 final class RedisTemplate
@@ -26,15 +65,16 @@ final class RedisTemplate
 final class YonManagedResources
 {
     private const LIMIT = 1024 * 1024;
+    public const SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000;
     private static function failed(): never { throw new RuntimeException('Yon managed resource operation failed.'); }
-    public static function call(mixed $command): mixed
+    public static function call(mixed $command, int $timeoutNanoseconds = 5_000_000_000): mixed
     {
         try {
             $body = json_encode($command, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         } catch (Throwable $ignored) {
             self::failed();
         }
-        return self::exchange($body, 5_000_000_000);
+        return self::exchange($body, $timeoutNanoseconds);
     }
     public static function exchange(string $body, int $timeoutNanoseconds): mixed
     {

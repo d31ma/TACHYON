@@ -9,6 +9,7 @@ class ProtocolLimits {
   static maxResourceBytes = 1024 * 1024
   static maxResourceHeadBytes = 16 * 1024
   static resourceTimeoutMs = 5000
+  static scrollTimeoutMs = 30_000
   static gatewayAnswerMarginMs = 1000
 }
 
@@ -115,9 +116,9 @@ async function postResource(body, timeoutMs) {
   return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(answer))
 }
 
-async function managedResource(command) {
+async function managedResource(command, timeoutMs = ProtocolLimits.resourceTimeoutMs) {
   try {
-    return await postResource(JSON.stringify(command), ProtocolLimits.resourceTimeoutMs)
+    return await postResource(JSON.stringify(command), timeoutMs)
   } catch {
     throw new Error('Yon managed resource operation failed.')
   }
@@ -155,7 +156,25 @@ globalThis.DataSource = class DataSource {
   execute(sql, parameters = []) {
     return managedResource(typeof sql === 'string' ? { operation: 'sql', sql, parameters, mode: 'execute' } : sql)
   }
+  findById(collection, id) { return documentCommand('findById', { collection, id }) }
+  insert(collection, document) { return documentCommand('insert', { collection, value: document }) }
+  patch(collection, id, fields) { return documentCommand('patch', { collection, id, value: fields }) }
+  deleteById(collection, id) { return documentCommand('deleteById', { collection, id }) }
+  scroll(collection, where = null, cursor = null, size = 20) {
+    return managedResource({ operation: 'document', command: 'scroll', collection, where, cursor, size }, ProtocolLimits.scrollTimeoutMs)
+  }
+  createCollection(name) { return documentCommand('createCollection', { collection: name }) }
+  dropCollection(name) { return documentCommand('dropCollection', { collection: name }) }
+  collectionExists(name) { return documentCommand('collectionExists', { collection: name }) }
+  publish(topic, payload, key = null) { return queueCommand('publish', { topic, payload, key }) }
+  claim(topic, group, maxMessages = 1, leaseMs = 30_000) { return queueCommand('claim', { topic, group, maxMessages, leaseMs }) }
+  ack(topic, group, delivery) { return queueCommand('ack', { topic, group, id: delivery.id, receipt: delivery.receipt }) }
+  nack(topic, group, delivery, delayMs = 0) {
+    return queueCommand('nack', { topic, group, id: delivery.id, receipt: delivery.receipt, delayMs })
+  }
 }
+function documentCommand(command, fields) { return managedResource({ operation: 'document', command, ...fields }) }
+function queueCommand(command, fields) { return managedResource({ operation: 'queue', command, ...fields }) }
 globalThis.RedisTemplate = class RedisTemplate {
   get(key) { return managedResource({ operation: 'redis', command: 'get', key }) }
   set(key, value, ttlSeconds) { return managedResource({ operation: 'redis', command: 'set', key, value, ttlSeconds }) }
