@@ -1,6 +1,8 @@
 use super::{CaptureProblem, CaptureVendor, CapturedFile, ProjectDiscovery, SourceWalk};
 use crate::Failure;
-use crate::annotation_layout::{DesignCheck, DesignSwitches, DuplicationCheck, RuleSwitch};
+use crate::annotation_layout::{
+    DesignCheck, DesignSwitches, DuplicationCheck, NativePackageFolder, RuleSwitch,
+};
 use crate::handler::OwnedSourceRoot;
 use cap_std::fs::{Dir, DirEntry};
 use std::path::Path;
@@ -90,9 +92,35 @@ impl CapturedSources {
             .chain(&self.middleware)
             .chain(&self.server)
             .for_each(|file| {
-                let checked = vendor.check_file(file, cohesion);
+                let checked = Self::checked_file(&vendor, file, cohesion);
                 Self::stage_file(file, source_root, checked, diagnostics);
             });
+        diagnostics.extend(Self::native_module_problems(&self.server));
+    }
+
+    fn checked_file(
+        vendor: &CaptureVendor,
+        file: &CapturedFile,
+        cohesion: RuleSwitch,
+    ) -> Result<(), Failure> {
+        if NativePackageFolder::contains(&file.relative) {
+            return NativePackageFolder::check_file(&file.relative, &file.bytes);
+        }
+        vendor.check_file(file, cohesion)
+    }
+
+    fn native_module_problems(server: &[CapturedFile]) -> Vec<Diagnostic> {
+        let paths = server.iter().map(|file| file.relative.as_path());
+        NativePackageFolder::check_module(paths)
+            .err()
+            .map(|failure| failure.diagnostics().to_vec())
+            .unwrap_or_default()
+    }
+
+    fn convention_files(&self) -> impl Iterator<Item = &CapturedFile> + Clone {
+        self.server
+            .iter()
+            .filter(|file| !NativePackageFolder::contains(&file.relative))
     }
 
     pub(super) fn check_duplication(&self, switch: RuleSwitch, diagnostics: &mut Vec<Diagnostic>) {
@@ -103,7 +131,7 @@ impl CapturedSources {
             .chain(&self.shared)
             .chain(&self.client_roles)
             .chain(&self.middleware)
-            .chain(&self.server)
+            .chain(self.convention_files())
             .map(|file| (file.relative.as_path(), file.bytes.as_slice()));
         let found = DuplicationCheck::diagnostics(files.clone(), switch);
         diagnostics.extend(crate::fsharp_source::FsharpSpans::restored(&found, files));
@@ -117,7 +145,7 @@ impl CapturedSources {
         let files = self
             .client_roles
             .iter()
-            .chain(&self.server)
+            .chain(self.convention_files())
             .chain(&self.pages)
             .chain(&self.components)
             .chain(&self.shared)

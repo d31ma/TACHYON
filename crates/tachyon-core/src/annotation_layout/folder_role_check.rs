@@ -10,6 +10,8 @@ pub(crate) struct FolderRoleCheck;
 
 impl FolderRoleCheck {
     pub(crate) const CODE: u16 = 1363;
+    const NATIVE_PACKAGE_HELP: &'static str =
+        ", or a native Go package to server/packages/ (ADR 0095)";
     const FOLDERS: [(&'static str, &'static str); 9] = [
         ("services", "Service"),
         ("stores", "Store"),
@@ -127,16 +129,24 @@ impl FolderRoleCheck {
         let expected = Self::expected_spelling(folder, &spelling);
         let unsupported = AnnotationRules::unavailable(marker, input.extension, Self::environment(realm)).map(|message| format!(" {message} This concrete role needs a supported implementation; it cannot be silently treated as plain helper code.")).unwrap_or_default();
         let portable = input.path.to_string_lossy().replace('\\', "/");
+        let native = Self::native_package_help(input.extension);
         Failure::one(diagnostic(
             Self::CODE,
             format!(
                 "'{portable}' declares concrete code in {realm}/{folder} without its required {expected} marker.{unsupported}"
             ),
             Some(format!(
-                "Mark the intended role explicitly with `{expected}` (ADR0091). Folder names do not register code. Move plain collaborators to a supported models, shared or utils folder; do not add a fake role annotation."
+                "Mark the intended role explicitly with `{expected}` (ADR0091). Folder names do not register code. Move plain collaborators to a supported models, shared or utils folder{native}; do not add a fake role annotation."
             )),
             source_span(&portable, 0, 0),
         ))
+    }
+
+    fn native_package_help(extension: &str) -> &'static str {
+        [("go", Self::NATIVE_PACKAGE_HELP)]
+            .iter()
+            .find(|(language, _)| *language == extension)
+            .map_or("", |(_, help)| help)
     }
 
     fn expected_spelling(folder: &str, spelling: &str) -> String {

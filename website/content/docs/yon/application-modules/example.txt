@@ -3,4 +3,4 @@ server/services/MoneyService.ts             managed service
 server/shared/MoneyFormat.ts                ordinary imported helper class
 server/models/Money.ts                      data type
 
-JavaScript and TypeScript import helpers normally, including from a service. Go shared files join package main. All other Yon languages compose server/shared/ classes before the managed roles and controller; F# helpers are declared before code that calls them. Shared files hold one class and its imports, no annotations or file-level variables.
+JavaScript and TypeScript import helpers normally, including from a service. Go shared files join package main; native Go packages with their own package names live in the server/packages/ module and are imported by module path. All other Yon languages compose server/shared/ classes before the managed roles and controller; F# helpers are declared before code that calls them. Shared files hold one class and its imports, no annotations or file-level variables.

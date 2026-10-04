@@ -1,0 +1,24 @@
+{
+  "heading": "Native Go packages",
+  "body": "A Go app often has its own packages: a git client, a JSON schema checker, a repository layer. These are plain Go packages, not Tachyon roles. Put them in `server/packages/`. This folder holds one Go module. `server/packages/go.mod` names the module, and each folder under it is a normal Go package with its own package name. Controllers, services and other role files import a package with the module path, for example `import \"example.com/shop/packages/pricing\"`. The packages can import each other the same way.\n\nTachyon does not treat code in `server/packages/` as roles. It is like a library on the Spring classpath: it is not a bean, because nothing registers it. So these files need no role marker, and the role folder, file name, one-class, cohesion, duplicate and visibility rules do not apply to them. The secret and code safety checks still run. Tachyon copies the folder next to every Go handler build and tells Go where the module is, so the import works with no download.\n\nThe folder has a few limits. `server/packages/go.mod` may hold only `module`, `go` and `toolchain` lines. Yon builds Go offline, so the module cannot `require` other modules yet. A second `go.mod` inside the folder is refused. Go code there cannot carry a Tachyon annotation, because an annotated type belongs in its role folder. Other Yon languages' source files are refused there. Other files, such as JSON schemas for `go:embed`, are allowed when they are UTF-8 text. Each of these mistakes fails with `TY1310`. A Go file in `server/packages/` without `server/packages/go.mod` also fails with `TY1310`.\n\nUse the folder for code that is not a role. A type with a role marker stays in its role folder, such as `server/services/`. A plain helper of package main can stay in `server/shared/`. When `TY1363` reports a Go file in a role folder without its marker, decide what it is: mark a real role, or move a native package to `server/packages/` (ADR 0095).",
+  "files": [
+    {
+      "name": "server/packages/go.mod",
+      "code": {
+        "file": "server/packages/go.mod"
+      }
+    },
+    {
+      "name": "server/packages/pricing/tax.go",
+      "code": {
+        "file": "server/packages/pricing/tax.go"
+      }
+    },
+    {
+      "name": "server/controllers/PriceController.go",
+      "code": {
+        "file": "server/controllers/PriceController.go"
+      }
+    }
+  ]
+}

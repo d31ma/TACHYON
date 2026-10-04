@@ -10,6 +10,9 @@
       "include": "../yon/application-modules/section.json"
     },
     {
+      "include": "../yon/native-go-packages/section.json"
+    },
+    {
       "include": "../yon/process-lifecycle/section.json"
     }
   ]

@@ -21,15 +21,18 @@ use std::time::{Duration, Instant};
 mod fsharp_handler;
 mod fsharp_program;
 mod go;
+mod go_native_module;
 mod groovy_build;
 mod groovy_handler;
 mod compiler_identities;
 mod rust_error_place;
 mod shared_handler_artifacts;
+mod staged_files;
 mod test_unit_asserts;
 use compiler_identities::CompilerIdentities;
 use fsharp_handler::FsharpHandler;
 use go::{GoHandler, GoSharedCode};
+use go_native_module::GoNativeModule;
 use groovy_handler::GroovyHandler;
 use rust_error_place::RustErrorPlace;
 use shared_handler_artifacts::SharedHandlerArtifacts;
@@ -2723,7 +2726,8 @@ fn language(
         let cache = handler_cache(project, portable)?;
         let mut program_files = models.separate_files();
         program_files.extend(GoSharedCode::read(source_root.path())?);
-        return GoHandler::compile(bytes, portable, &cache, &program_files)
+        let native = GoNativeModule::read(source_root.path())?;
+        return GoHandler::compile(bytes, portable, &cache, &program_files, &native)
             .map(prepared_resolution);
     }
     if let Some(compiler) = built_in_compiler(extension) {

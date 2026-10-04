@@ -166,6 +166,7 @@ struct ModelFile<'a> {
 
 impl<'a> ModelFile<'a> {
     const DECLARATION_STARTS: [&'static str; 3] = ["interface ", "type ", "import type "];
+    const NATIVE_PACKAGE_HELP: &'static str = " A native Go package with its own package name, such as a spec package, belongs in server/packages/ (ADR 0095).";
 
     fn find(path: &'a Path, source: &'a str) -> Option<Self> {
         let mut components = path.components();
@@ -298,8 +299,15 @@ impl<'a> ModelFile<'a> {
         Err(self.failure(
             at,
             String::from("A Go models file belongs to package main; found another package clause"),
-            String::from("Write `package main` as the first line, or leave the package clause out. Go code uses a model by its type name alone, without an import."),
+            format!("Write `package main` as the first line, or leave the package clause out. Go code uses a model by its type name alone, without an import.{}", self.native_package_help()),
         ))
+    }
+
+    fn native_package_help(&self) -> &'static str {
+        [("server", Self::NATIVE_PACKAGE_HELP)]
+            .iter()
+            .find(|(realm, _)| *realm == self.realm)
+            .map_or("", |(_, help)| help)
     }
 
     fn check_statements(&self) -> Result<(), Failure> {

@@ -334,6 +334,22 @@ fn go_models_belong_to_package_main() {
 }
 
 #[test]
+fn a_server_go_model_package_points_to_the_native_package_folder() {
+    let diagnostic = refusal(
+        "server/models/spec/Document.go",
+        "package spec\n\ntype Document struct{}\n",
+    );
+
+    assert!(
+        diagnostic
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("server/packages/")),
+        "{diagnostic:?}"
+    );
+}
+
+#[test]
 fn csharp_models_hold_data_types() {
     let source = r#"using System;
 using System.Collections.Generic;

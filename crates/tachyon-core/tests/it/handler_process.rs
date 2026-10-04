@@ -692,6 +692,59 @@ fn a_go_shared_file_error_names_the_shared_file() {
     );
 }
 
+struct GoNativePackages;
+
+impl GoNativePackages {
+    const MODULE: &str = "module example.com/shop/packages\n\ngo 1.27\n";
+    const PRICING: &str = "package pricing\n\nimport \"example.com/shop/packages/rates\"\n\nfunc WithTax(price int) int {\n\treturn price + price*rates.Percent/100\n}\n";
+    const RATES: &str = "package rates\n\ntype Table struct{ Region string }\n\nconst Percent = 10\n";
+    const ROUTE: &str = "import \"example.com/shop/packages/pricing\"\n\ntype Handler struct{}\n\nfunc (Handler) GET() any {\n\treturn map[string]any{\"price\": pricing.WithTax(100)}\n}\n";
+}
+
+#[tokio::test]
+async fn a_go_worker_imports_a_native_package_from_server_packages() {
+    if !go_usable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    write_project_file(&root, "server/packages/go.mod", GoNativePackages::MODULE);
+    write_project_file(
+        &root,
+        "server/packages/pricing/tax.go",
+        GoNativePackages::PRICING,
+    );
+    write_project_file(
+        &root,
+        "server/packages/rates/rates.go",
+        GoNativePackages::RATES,
+    );
+    let handler = source(&root, "go", GoNativePackages::ROUTE);
+    let supervisor = supervisor(HandlerSupervisorOptions {
+        default_timeout: Duration::from_secs(10),
+        ..HandlerSupervisorOptions::default()
+    });
+    let cancellation = HandlerCancellation::default();
+    let get = request("go_native", HttpMethod::Get, None);
+    let answered = supervisor
+        .invoke(&handler, &get, &cancellation)
+        .await
+        .expect("GET");
+    assert_eq!(body_json(&answered)["price"], 110);
+
+    write_project_file(
+        &root,
+        "server/packages/rates/rates.go",
+        "package rates\n\ntype Table struct{ Region string }\n\nconst Percent = 20\n",
+    );
+    let rebuilt =
+        HandlerSource::discover(root.path(), "server/workers/contract.go").expect("rebuilt source");
+    let answered = supervisor
+        .invoke(&rebuilt, &get, &cancellation)
+        .await
+        .expect("GET after the native package changed");
+    assert_eq!(body_json(&answered)["price"], 120);
+}
+
 #[tokio::test]
 async fn environment_is_denied_by_default_and_explicitly_allowlisted() {
     let candidates = ["HOME", "USERPROFILE", "CARGO_HOME", "CI"];

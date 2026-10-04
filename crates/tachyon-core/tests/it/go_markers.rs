@@ -299,3 +299,60 @@ fn go_multi_line_old_marker_arguments_join_one_comment_line() {
         "{plan:?}"
     );
 }
+
+struct GoNativeFiles;
+
+impl GoNativeFiles {
+    const FILES: [(&str, &str); 4] = [
+        (
+            "server/packages/go.mod",
+            "module example.com/heimdall/packages\n\ngo 1.27\n",
+        ),
+        (
+            "server/packages/helpers/git/repository.go",
+            "package git\n\ntype Repository struct{ Path string }\n\nfunc (repository *Repository) Head() string {\n\treturn repository.Path\n}\n",
+        ),
+        (
+            "server/packages/services/inventory/service.go",
+            "package inventory\n\ntype Service struct{}\n\nfunc (Service) Count() int {\n\treturn 2\n}\n",
+        ),
+        (
+            "server/packages/models/spec/document.go",
+            "package spec\n\nimport \"encoding/json\"\n\ntype Document struct {\n\tBody json.RawMessage `json:\"body\"`\n}\n",
+        ),
+    ];
+
+    fn write(project: &tempfile::TempDir, skipped: Option<&str>) {
+        for (relative, source) in Self::FILES {
+            if Some(relative) == skipped {
+                continue;
+            }
+            let path = project.path().join(relative);
+            fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+            fs::write(path, source).expect("native file");
+        }
+    }
+}
+
+#[test]
+fn go_native_packages_in_server_packages_are_not_treated_as_roles() {
+    let project = GoProject::create(GoProject::CONTROLLER);
+    GoNativeFiles::write(&project, None);
+
+    let discovered = ProjectDiscovery::discover(project.path());
+
+    assert!(discovered.is_ok(), "{:?}", discovered.err());
+}
+
+#[test]
+fn go_native_packages_without_a_module_file_are_refused() {
+    let project = GoProject::create(GoProject::CONTROLLER);
+    GoNativeFiles::write(&project, Some("server/packages/go.mod"));
+
+    let failure = ProjectDiscovery::discover(project.path()).expect_err("no module file");
+
+    assert!(
+        format!("{failure:?}").contains("has no go.mod"),
+        "{failure:?}"
+    );
+}

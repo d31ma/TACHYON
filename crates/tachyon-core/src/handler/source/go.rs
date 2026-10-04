@@ -1,3 +1,5 @@
+use super::GoNativeModule;
+use super::staged_files::StagedFiles;
 use super::{
     CacheDirectory, Compiler, CompilerOutput, EntryClass, Failure, PreparedCommand,
     bounded_command_output, build_once_under_lock, check_compiler_output, compiled_digest,
@@ -17,13 +19,13 @@ pub(super) struct GoHandler;
 pub(super) struct GoSharedCode;
 
 struct GoFiles<'a> {
+    module: &'a str,
     handler: &'a str,
     runtime: &'a str,
     models: &'a [(PathBuf, String)],
 }
 
 impl GoHandler {
-    const MODULE_FILE: &str = "module yonhandler\n\ngo 1.27\n";
     const PRELUDE: &str = include_str!("../preludes/yon.go");
     const INVOCATION_PACKAGE: &str = include_str!("../preludes/yon_invocation.go");
     const ENVIRONMENT: [(&str, &str); 6] = [
@@ -59,6 +61,7 @@ impl GoHandler {
         portable: &str,
         cache: &CacheDirectory,
         model_files: &[(PathBuf, String)],
+        native: &GoNativeModule,
     ) -> Result<PreparedCommand, Failure> {
         let authored = String::from_utf8_lossy(bytes).into_owned();
         let mut parts = GoFile::split(&authored);
@@ -66,9 +69,11 @@ impl GoHandler {
         let handler_file = Self::with_package_clause(&entry.text, portable)?;
         let mut staged_files = model_files.to_vec();
         staged_files.extend(Self::program_files(parts, portable)?);
+        staged_files.extend_from_slice(native.files());
         let model_files = staged_files.as_slice();
+        let module_file = native.module_file();
         let runtime_file = Self::runtime_file(&authored, EntryClass::of(portable), portable)?;
-        let runtime_digest = format!("{runtime_file}{}", Self::INVOCATION_PACKAGE);
+        let runtime_digest = format!("{module_file}{runtime_file}{}", Self::INVOCATION_PACKAGE);
         let digest = compiled_digest(
             digest_source(&handler_file, model_files).as_bytes(),
             runtime_digest.as_bytes(),
@@ -80,6 +85,7 @@ impl GoHandler {
         if !cache.is_valid_file(&artefact) {
             build_once_under_lock(cache, &artefact, &digest, portable, || {
                 let files = GoFiles {
+                    module: &module_file,
                     handler: &handler_file,
                     runtime: &runtime_file,
                     models: model_files,
@@ -319,11 +325,7 @@ impl GoHandler {
             portable,
         )?;
         let directory = workspace.path();
-        write_compiler_file(
-            &directory.join("go.mod"),
-            Self::MODULE_FILE.as_bytes(),
-            portable,
-        )?;
+        write_compiler_file(&directory.join("go.mod"), files.module.as_bytes(), portable)?;
         write_compiler_file(
             &directory.join("handler.go"),
             files.handler.as_bytes(),
@@ -366,32 +368,14 @@ impl GoSharedCode {
     const HELP: &str = "server/shared/ holds plain Go code of package main. Put an annotated type in its role folder, for example server/services/.";
 
     pub(super) fn read(source_root: &Path) -> Result<Vec<(PathBuf, String)>, Failure> {
-        let mut paths = Vec::new();
-        Self::find_go_files(source_root, Path::new(Self::FOLDER), &mut paths);
-        paths.sort();
+        let mut paths = StagedFiles::beneath(source_root, Path::new(Self::FOLDER));
+        paths.retain(|path| GoHandler::is_go(path));
         let mut files = Vec::new();
         for (index, relative) in paths.iter().enumerate() {
             let text = Self::staged_text(source_root, relative)?;
             files.push((PathBuf::from(format!("shared_{index}.go")), text));
         }
         Ok(files)
-    }
-
-    fn find_go_files(source_root: &Path, relative: &Path, found: &mut Vec<PathBuf>) {
-        let Ok(entries) = std::fs::read_dir(source_root.join(relative)) else {
-            return;
-        };
-        for entry in entries.flatten() {
-            let child = relative.join(entry.file_name());
-            let Ok(kind) = entry.file_type() else {
-                continue;
-            };
-            if kind.is_dir() {
-                Self::find_go_files(source_root, &child, found);
-            } else if kind.is_file() && GoHandler::is_go(&child) {
-                found.push(child);
-            }
-        }
     }
 
     fn staged_text(source_root: &Path, relative: &Path) -> Result<String, Failure> {

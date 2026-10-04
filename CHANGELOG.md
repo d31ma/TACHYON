@@ -835,6 +835,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- Go Yon apps keep their own native Go packages in `server/packages/`, one Go
+  module named by `server/packages/go.mod`. Controllers and services import
+  those packages by module path; Tachyon stages the module next to every Go
+  handler build (offline, with a `replace`) and does not treat its code as
+  roles, so no role marker, class-file, cohesion, duplicate or design rule
+  applies there. A missing or wrong `go.mod`, a `require`, a second `go.mod`,
+  an annotation or another language's source file fails with `TY1310`. The
+  `TY1363` help for Go and the Go model package help point to the folder
+  (ADR 0095).
+
 - `--host`, `--hostname` and `server.host` accept `localhost` names such as
   `shop.localhost`. Tachyon binds `127.0.0.1` without asking the resolver and
   prints `http://shop.localhost:PORT/`. The outgoing guard connects a listed
