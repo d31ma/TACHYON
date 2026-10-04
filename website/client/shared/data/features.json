@@ -1199,7 +1199,7 @@
         },
         {
           "name": "client/services/CatalogService.kt",
-          "code": "@Service\nclass CatalogService {\n    lateinit var behaviors: Behaviors.Context\n    var offset: Long = 0\n\n    fun page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: Map<String, Any?>): Any? {\n        return input[\"offset\"]\n    }\n\n    @OnStart\n    fun initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", Behaviors.Options(\"public-catalog\", Behaviors.Signal()))\n        offset = (page(mapOf(\"page\" to 1)) as Number).toLong()\n    }\n}\n"
+          "code": "@Service\nclass CatalogService {\n    private lateinit var behaviors: Behaviors.Context\n    var offset: Long = 0\n\n    fun page(@PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]}) input: Any?): Any? {\n        return (input as Map<*, *>)[\"offset\"]\n    }\n\n    @OnStart\n    fun initialize() {\n        behaviors = Behaviors.create(\"ApplicationSetup\", Behaviors.Options(\"public-catalog\", Behaviors.Signal()))\n        offset = (page(mapOf(\"page\" to 1)) as Number).toLong()\n    }\n}\n"
         },
         {
           "name": "client/services/CatalogService.java",
@@ -1578,23 +1578,23 @@
         },
         {
           "name": "client/services/BasketService.rs",
-          "code": "pub struct BasketService {\n    count: i32,\n    label: String,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self { count: 6, label: String::from(\"Rust\") }\n    }\n\n    fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}"
+          "code": "#[Service]\npub struct BasketService {\n    count: i32,\n    label: String,\n}\n\nimpl BasketService {\n    pub fn new() -> Self {\n        Self { count: 6, label: String::from(\"Rust\") }\n    }\n\n    fn doubled(&self) -> i32 {\n        self.count * 2\n    }\n}"
         },
         {
           "name": "client/services/BasketService.swift",
-          "code": "final class BasketService {\n    var count: Int = 6\n    let label: String = \"Swift\"\n\n    func doubled() -> Int { count * 2 }\n}"
+          "code": "@Service\nfinal class BasketService {\n    var count: Int = 6\n    let label: String = \"Swift\"\n\n    func doubled() -> Int { count * 2 }\n}"
         },
         {
           "name": "client/services/BasketService.kt",
-          "code": "class BasketService {\n    var count: Int = 6\n    val label: String = \"Kotlin\"\n\n    fun doubled(): Int = count * 2\n}"
+          "code": "@Service\nclass BasketService {\n    var count: Int = 6\n    val label: String = \"Kotlin\"\n\n    fun doubled(): Int = count * 2\n}"
         },
         {
           "name": "client/services/BasketService.cs",
-          "code": "public class BasketService\n{\n    public int Count = 6;\n    public string Label = \"C#\";\n\n    public int Doubled() => Count * 2;\n}"
+          "code": "[Service]\npublic class BasketService\n{\n    public int Count = 6;\n    public string Label = \"C#\";\n\n    public int Doubled() => Count * 2;\n}"
         },
         {
           "name": "client/services/BasketService.go",
-          "code": "type BasketService struct {\n\tCount int\n\tLabel string\n}\n\n// @OnStart\nfunc (basket *BasketService) Start() {\n\tbasket.Count = 6\n\tbasket.Label = \"Go\"\n}\n\nfunc (basket *BasketService) Doubled() int {\n\treturn basket.Count * 2\n}\n"
+          "code": "// @Service\ntype BasketService struct {\n\tCount int\n\tLabel string\n}\n\n// @OnStart\nfunc (basket *BasketService) Start() {\n\tbasket.Count = 6\n\tbasket.Label = \"Go\"\n}\n\nfunc (basket *BasketService) Doubled() int {\n\treturn basket.Count * 2\n}\n"
         },
         {
           "name": "generated",
@@ -1602,7 +1602,7 @@
         },
         {
           "name": "client/services/BasketService.rb",
-          "code": "class BasketService\n  # @return [Integer]\n  attr_reader :count\n  # @return [String]\n  attr_reader :label\n\n  # @return [void]\n  #[OnStart]\n  def start\n    @count = 6\n    @label = \"Ruby\"\n  end\n\n  # @return [Integer]\n  def doubled\n    @count * 2\n  end\nend\n"
+          "code": "#[Service]\nclass BasketService\n  # @return [Integer]\n  attr_reader :count\n  # @return [String]\n  attr_reader :label\n\n  # @return [void]\n  #[OnStart]\n  def start\n    @count = 6\n    @label = \"Ruby\"\n  end\n\n  # @return [Integer]\n  def doubled\n    @count * 2\n  end\nend\n"
         },
         {
           "name": "client/services/BasketService.java",
@@ -1614,7 +1614,7 @@
         },
         {
           "name": "client/services/BasketService.lua",
-          "code": "---@class BasketService\nBasketService = {\n  ---@type integer\n  count = 0,\n  ---@type string\n  label = \"\",\n}\n\n---@return nil\n-- @OnStart\nfunction BasketService:start()\n  self.count = 6\n  self.label = \"Lua\"\nend\n\n---@return integer\nfunction BasketService:doubled()\n  return self.count * 2\nend\n"
+          "code": "-- @Service\n---@class BasketService\nBasketService = {\n  ---@type integer\n  count = 0,\n  ---@type string\n  label = \"\",\n}\n\n---@return nil\n-- @OnStart\nfunction BasketService:start()\n  self.count = 6\n  self.label = \"Lua\"\nend\n\n---@return integer\nfunction BasketService:doubled()\n  return self.count * 2\nend\n"
         }
       ]
     },
@@ -1919,69 +1919,69 @@
     },
     {
       "id": "relays",
-      "title": "Relaying to Ruby and other programs",
+      "title": "Relaying to Perl and other programs",
       "summary": "Yon supports controllers in many languages. A route method can return `relay(command, request)` to call another program that implements Handler Protocol v1. `request` is the method parameter without a marker. It is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request. The application gives the command at the call site. Tachyon supervises the program. It limits the program to the time left in the request and to the process limits. It gives the program only the baseline environment and the names on the allowlist (a list of allowed names). No shell execution is needed. To call one method and get a value back, use `@Gateway`.",
       "group": "Polyglot",
       "files": [
         {
-          "name": "server/helpers/ReportDelegate.rb",
-          "code": "require 'json'\n\nclass ReportDelegate\n  def self.run\n    request = JSON.parse($stdin.read) rescue {}\n    body = JSON.generate({ 'language' => 'Ruby', 'route' => request['route'] })\n    puts JSON.generate({\n      'status' => 200,\n      'headers' => { 'content-type' => ['application/json'] },\n      'body' => body\n    })\n  end\nend\n\nReportDelegate.run\n"
+          "name": "server/relays/report.pl",
+          "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $input = do { local $/; <STDIN> };\nmy $request = decode_json($input || '{}');\nmy $body = encode_json({ language => 'Perl', route => $request->{route} });\nprint encode_json({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
         },
         {
           "name": "relaying",
-          "code": "Relaying to a language Yon does not run\n\nYon owns its controller languages. Everything else remains callable\nas a program through the explicit relay(command, request) helper.\nThe helper is supplied by Yon and needs no package or import.\nrequest is the route method parameter without a marker. It is the\nrequest in the language's own type, and relay answers with the\nlanguage's own response. PHP has no request object, so\nYon::relay(command) forwards the current request.\n\n  JavaScript  return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  Python      return relay(('ruby', 'server/helpers/ReportDelegate.rb'), request)\n  PHP         Yon::relay(['ruby', 'server/helpers/ReportDelegate.rb']);\n  Java        Yon.relay(List.of(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange);\n  Kotlin      Yon.relay(listOf(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange)\n  C#          return Yon.Relay(new[] { \"ruby\", \"server/helpers/ReportDelegate.rb\" }, request)\n  Rust        relay(&[\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n  Dart        return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  Go          return Relay([]string{\"ruby\", \"server/helpers/ReportDelegate.rb\"}, request)\n  Ruby        relay([\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n\nThe program reads the request as JSON on its standard input: route\n(the path and query), method, headers and body. It answers with JSON\non its standard output: status, headers and body.\n\nThe command bypasses a shell. Yon drains bounded stdout and stderr,\ninherits the request deadline, validates protocol frames, and reaps\nthe process group. A start or protocol failure becomes a sanitized 502.\n"
+          "code": "Relaying to a language Yon does not run\n\nYon owns its controller languages. Everything else remains callable\nas a program through the explicit relay(command, request) helper.\nThe helper is supplied by Yon and needs no package or import.\nrequest is the route method parameter without a marker. It is the\nrequest in the language's own type, and relay answers with the\nlanguage's own response. PHP has no request object, so\nYon::relay(command) forwards the current request.\n\n  JavaScript  return relay(['perl', 'server/relays/report.pl'], request)\n  Python      return relay(('perl', 'server/relays/report.pl'), request)\n  PHP         Yon::relay(['perl', 'server/relays/report.pl']);\n  Java        Yon.relay(List.of(\"perl\", \"server/relays/report.pl\"), exchange);\n  Kotlin      Yon.relay(listOf(\"perl\", \"server/relays/report.pl\"), exchange)\n  C#          return Yon.Relay(new[] { \"perl\", \"server/relays/report.pl\" }, request)\n  Rust        relay(&[\"perl\", \"server/relays/report.pl\"], request)\n  Dart        return relay(['perl', 'server/relays/report.pl'], request)\n  Go          return Relay([]string{\"perl\", \"server/relays/report.pl\"}, request)\n  Ruby        relay([\"perl\", \"server/relays/report.pl\"], request)\n\nThe program reads the request as JSON on its standard input: route\n(the path and query), method, headers and body. It answers with JSON\non its standard output: status, headers and body.\n\nThe command bypasses a shell. Yon drains bounded stdout and stderr,\ninherits the request deadline, validates protocol frames, and reaps\nthe process group. A start or protocol failure becomes a sanitized 502.\n"
         },
         {
           "name": "server/controllers/ReportController.js",
-          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /**\n   * @param {Request} request\n   * @returns {Promise<Response>}\n   */\n  @GetRoute\n  getReport(request) {\n    return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  }\n}\n"
+          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /**\n   * @param {Request} request\n   * @returns {Promise<Response>}\n   */\n  @GetRoute\n  getReport(request) {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n"
         },
         {
           "name": "server/controllers/ReportController.ts",
-          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  getReport(request: Request): Promise<Response> {\n    return relay(['ruby', 'server/helpers/ReportDelegate.rb'], request)\n  }\n}\n"
+          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  getReport(request: Request): Promise<Response> {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n"
         },
         {
           "name": "server/controllers/ReportController.py",
-          "code": "@request_route(\"/report\")\n@public\nclass ReportController:\n    @get_route\n    def get_report(self, request: object) -> object:\n        return relay((\"ruby\", \"server/helpers/ReportDelegate.rb\"), request)\n"
+          "code": "@request_route(\"/report\")\n@public\nclass ReportController:\n    @get_route\n    def get_report(self, request: object) -> object:\n        return relay((\"perl\", \"server/relays/report.pl\"), request)\n"
         },
         {
           "name": "server/controllers/ReportController.php",
-          "code": "<?php\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[GetRoute]\n    public function getReport(): void {\n        Yon::relay(['ruby', 'server/helpers/ReportDelegate.rb']);\n    }\n}\n"
+          "code": "<?php\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[GetRoute]\n    public function getReport(): void {\n        Yon::relay(['perl', 'server/relays/report.pl']);\n    }\n}\n"
         },
         {
           "name": "server/controllers/ReportController.java",
-          "code": "import com.sun.net.httpserver.HttpExchange;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange);\n    }\n}\n"
+          "code": "import com.sun.net.httpserver.HttpExchange;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange);\n    }\n}\n"
         },
         {
           "name": "server/controllers/ReportController.groovy",
-          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange)\n    }\n}\n"
+          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange)\n    }\n}\n"
         },
         {
           "name": "server/controllers/ReportController.kt",
-          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    fun getReport(exchange: HttpExchange) =\n        Yon.relay(listOf(\"ruby\", \"server/helpers/ReportDelegate.rb\"), exchange)\n}\n"
+          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    fun getReport(exchange: HttpExchange) =\n        Yon.relay(listOf(\"perl\", \"server/relays/report.pl\"), exchange)\n}\n"
         },
         {
           "name": "server/controllers/ReportController.cs",
-          "code": "[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [GetRoute]\n    public HttpResponseMessage GetReport(HttpRequestMessage request) {\n        return Yon.Relay(new[] { \"ruby\", \"server/helpers/ReportDelegate.rb\" }, request);\n    }\n}\n"
+          "code": "[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [GetRoute]\n    public HttpResponseMessage GetReport(HttpRequestMessage request) {\n        return Yon.Relay(new[] { \"perl\", \"server/relays/report.pl\" }, request);\n    }\n}\n"
         },
         {
           "name": "server/controllers/ReportController.fs",
-          "code": "open System.Net.Http\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController() =\n    [<GetRoute>]\n    member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"ruby\"; \"server/helpers/ReportDelegate.rb\" |], request)\n"
+          "code": "open System.Net.Http\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController() =\n    [<GetRoute>]\n    member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"perl\"; \"server/relays/report.pl\" |], request)\n"
         },
         {
           "name": "server/controllers/ReportController.rs",
-          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {}\nimpl ReportController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_report(&self, request: &http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {\n        relay(&[\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n    }\n}\n"
+          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {}\nimpl ReportController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_report(&self, request: &http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {\n        relay(&[\"perl\", \"server/relays/report.pl\"], request)\n    }\n}\n"
         },
         {
           "name": "server/controllers/ReportController.go",
-          "code": "import \"net/http\"\n\n// @RequestRoute(\"/report\")\n// @Public\ntype ReportController struct {\n}\n\n// @GetRoute\nfunc (controller *ReportController) GetReport(request *http.Request) *http.Response {\n\treturn Relay([]string{\"ruby\", \"server/helpers/ReportDelegate.rb\"}, request)\n}\n"
+          "code": "import \"net/http\"\n\n// @RequestRoute(\"/report\")\n// @Public\ntype ReportController struct {\n}\n\n// @GetRoute\nfunc (controller *ReportController) GetReport(request *http.Request) *http.Response {\n\treturn Relay([]string{\"perl\", \"server/relays/report.pl\"}, request)\n}\n"
         },
         {
           "name": "server/controllers/ReportController.dart",
-          "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  Future<Response> getReport(Request request) =>\n      relay(['ruby', 'server/helpers/ReportDelegate.rb'], request);\n}\n"
+          "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  Future<Response> getReport(Request request) =>\n      relay(['perl', 'server/relays/report.pl'], request);\n}\n"
         },
         {
           "name": "server/controllers/ReportController.rb",
-          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  # @param request [Hash]\n  # @return [Hash]\n  #[GetRoute]\n  def get_report(request)\n    relay([\"ruby\", \"server/helpers/ReportDelegate.rb\"], request)\n  end\nend\n"
+          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  # @param request [Hash]\n  # @return [Hash]\n  #[GetRoute]\n  def get_report(request)\n    relay([\"perl\", \"server/relays/report.pl\"], request)\n  end\nend\n"
         }
       ],
       "verify": "yon-relay"
@@ -2727,7 +2727,7 @@
         },
         {
           "name": "client/services/PickerService.ts",
-          "code": "@Service\nexport default class PickerService {\n  @Needs\n  filePicker: TacFilePicker;\n\n  status: string = 'Ready';\n\n  async choose(): Promise<void> {\n    const result = await this.filePicker.open({ multiple: false, types: ['text/plain'] });\n    this.status = result.status;\n    await this.readSelected(result);\n  }\n\n  private async readSelected(result: TacFilePickerResult): Promise<void> {\n    if (result.status !== 'selected') return;\n    const handle: string = String(result.handle);\n    const content: TacFilePickerResult = await this.filePicker.readText(handle);\n    this.status = content.status;\n    await this.filePicker.release(handle);\n  }\n}\n"
+          "code": "@Service\nexport default class PickerService {\n  @Needs\n  filePicker!: TacFilePicker;\n\n  status: string = 'Ready';\n\n  async choose(): Promise<void> {\n    const result = await this.filePicker.open({ multiple: false, types: ['text/plain'] });\n    this.status = result.status;\n    await this.readSelected(result);\n  }\n\n  private async readSelected(result: TacFilePickerResult): Promise<void> {\n    if (result.status !== 'selected') return;\n    const handle: string = String(result.handle);\n    const content: TacFilePickerResult = await this.filePicker.readText(handle);\n    this.status = content.status;\n    await this.filePicker.release(handle);\n  }\n}\n"
         },
         {
           "name": "client/pages/tac.html",
@@ -2785,23 +2785,23 @@
         },
         {
           "name": "client/services/CatalogService.swift",
-          "code": "class CatalogService {\n    var count: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func initialize() { announce() }\n\n    private func announce() { applicationEventPublisher.publishEvent(CatalogCount(count: 5)) }\n\n    @OnEvent\n    func changed(_ value: CatalogCount) { count = value.count }\n\n    @OnStop\n    func cleanup() { count = 0 }\n}\n"
+          "code": "@Service\nclass CatalogService {\n    var count: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    func initialize() { announce() }\n\n    private func announce() { applicationEventPublisher.publishEvent(CatalogCount(count: 5)) }\n\n    @OnEvent\n    func changed(_ value: CatalogCount) { count = value.count }\n\n    @OnStop\n    func cleanup() { count = 0 }\n}\n"
         },
         {
           "name": "client/services/CatalogService.kt",
-          "code": "import models.CatalogCount\n\nclass CatalogService {\n    var count: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun initialize() { announce() }\n\n    private fun announce() { applicationEventPublisher.publishEvent(CatalogCount(5)) }\n\n    @OnEvent\n    fun changed(value: CatalogCount) { count = value.count }\n\n    @OnStop\n    fun cleanup() { count = 0 }\n}\n"
+          "code": "import models.CatalogCount\n\n@Service\nclass CatalogService {\n    var count: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    @OnStart\n    fun initialize() { announce() }\n\n    private fun announce() { applicationEventPublisher.publishEvent(CatalogCount(5)) }\n\n    @OnEvent\n    fun changed(value: CatalogCount) { count = value.count }\n\n    @OnStop\n    fun cleanup() { count = 0 }\n}\n"
         },
         {
           "name": "client/services/CatalogService.cs",
-          "code": "using Models;\n\npublic class CatalogService {\n    public int Count = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Initialize() { Announce(); }\n\n    private void Announce() { applicationEventPublisher.PublishEvent(new CatalogCount(5)); }\n\n    [OnEvent]\n    public void Changed(CatalogCount value) { Count = value.Count; }\n\n    [OnStop]\n    public void Cleanup() { Count = 0; }\n}\n"
+          "code": "using Models;\n\n[Service]\npublic class CatalogService {\n    public int Count = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    [OnStart]\n    public void Initialize() { Announce(); }\n\n    private void Announce() { applicationEventPublisher.PublishEvent(new CatalogCount(5)); }\n\n    [OnEvent]\n    public void Changed(CatalogCount value) { Count = value.Count; }\n\n    [OnStop]\n    public void Cleanup() { Count = 0; }\n}\n"
         },
         {
           "name": "client/services/CatalogService.rs",
-          "code": "use crate::models::CatalogCount;\n\n#[derive(Default)]\nstruct CatalogService {\n    count: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CatalogService {\n    #[OnStart]\n    fn initialize(&mut self) { self.announce(); }\n\n    fn announce(&self) {\n        self.application_event_publisher.publish_event(CatalogCount { count: 5 }, false);\n    }\n\n    #[OnEvent]\n    fn changed(&mut self, value: CatalogCount) { self.count = value.count; }\n\n    #[OnStop]\n    fn cleanup(&mut self) { self.count = 0; }\n}\n"
+          "code": "use crate::models::CatalogCount;\n\n#[derive(Default)]\n#[Service]\nstruct CatalogService {\n    count: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\nimpl CatalogService {\n    #[OnStart]\n    fn initialize(&mut self) { self.announce(); }\n\n    fn announce(&self) {\n        self.application_event_publisher.publish_event(CatalogCount { count: 5 }, false);\n    }\n\n    #[OnEvent]\n    fn changed(&mut self, value: CatalogCount) { self.count = value.count; }\n\n    #[OnStop]\n    fn cleanup(&mut self) { self.count = 0; }\n}\n"
         },
         {
           "name": "client/services/CatalogService.go",
-          "code": "type CatalogService struct {\n\tCount                     int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() {\n\tcatalog.announce()\n}\n\nfunc (catalog *CatalogService) announce() {\n\tcatalog.applicationEventPublisher.PublishEvent(CatalogCount{Count: 5}, false)\n}\n\n// @OnEvent\nfunc (catalog *CatalogService) Changed(value CatalogCount) {\n\tcatalog.Count = value.Count\n}\n\n// @OnStop\nfunc (catalog *CatalogService) Cleanup() {\n\tcatalog.Count = 0\n}\n"
+          "code": "// @Service\ntype CatalogService struct {\n\tCount                     int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Initialize() {\n\tcatalog.announce()\n}\n\nfunc (catalog *CatalogService) announce() {\n\tcatalog.applicationEventPublisher.PublishEvent(CatalogCount{Count: 5}, false)\n}\n\n// @OnEvent\nfunc (catalog *CatalogService) Changed(value CatalogCount) {\n\tcatalog.Count = value.Count\n}\n\n// @OnStop\nfunc (catalog *CatalogService) Cleanup() {\n\tcatalog.Count = 0\n}\n"
         },
         {
           "name": "client/services/CatalogService.ts",
@@ -2813,7 +2813,7 @@
         },
         {
           "name": "client/services/CatalogService.rb",
-          "code": "class CatalogService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  #[OnStart]\n  def initialize_count\n    announce\n  end\n\n  # @param value [CatalogCount]\n  # @return [void]\n  #[OnEvent]\n  def changed(value)\n    @count = value.count\n  end\n\n  # @return [void]\n  #[OnStop]\n  def cleanup\n    @count = 0\n  end\n\n  private\n\n  # @return [void]\n  def announce\n    @events.publish_event(CatalogCount.new(count: 5))\n  end\nend\n"
+          "code": "#[Service]\nclass CatalogService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  #[OnStart]\n  def initialize_count\n    announce\n  end\n\n  # @param value [CatalogCount]\n  # @return [void]\n  #[OnEvent]\n  def changed(value)\n    @count = value.count\n  end\n\n  # @return [void]\n  #[OnStop]\n  def cleanup\n    @count = 0\n  end\n\n  private\n\n  # @return [void]\n  def announce\n    @events.publish_event(CatalogCount.new(count: 5))\n  end\nend\n"
         },
         {
           "name": "client/models/CatalogCount.swift",
@@ -2849,7 +2849,7 @@
         },
         {
           "name": "client/services/CatalogService.java",
-          "code": "import models.CatalogCount;\n\nclass CatalogService {\n    int count = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @OnStart\n    void initialize() { announce(); }\n\n    private void announce() { applicationEventPublisher.publishEvent(new CatalogCount(5)); }\n\n    @OnEvent\n    void changed(CatalogCount value) { count = value.count(); }\n\n    @OnStop\n    void cleanup() { count = 0; }\n}\n"
+          "code": "import models.CatalogCount;\n\n@Service\nclass CatalogService {\n    int count = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @OnStart\n    void initialize() { announce(); }\n\n    private void announce() { applicationEventPublisher.publishEvent(new CatalogCount(5)); }\n\n    @OnEvent\n    void changed(CatalogCount value) { count = value.count(); }\n\n    @OnStop\n    void cleanup() { count = 0; }\n}\n"
         },
         {
           "name": "client/services/CatalogService.fs",
@@ -2865,7 +2865,7 @@
         },
         {
           "name": "client/services/CatalogService.lua",
-          "code": "---@class CatalogService\nCatalogService = {\n  ---@type integer\n  count = 0,\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction CatalogService:initialize_count()\n  self:_announce()\nend\n\n---@param value CatalogCount\n---@return nil\n-- @OnEvent\nfunction CatalogService:changed(value)\n  self.count = value.count\nend\n\n---@return nil\n-- @OnStop\nfunction CatalogService:cleanup()\n  self.count = 0\nend\n\n---@return nil\nfunction CatalogService:_announce()\n  self.application_event_publisher:publish_event(setmetatable({ count = 5 }, CatalogCount))\nend\n"
+          "code": "-- @Service\n---@class CatalogService\nCatalogService = {\n  ---@type integer\n  count = 0,\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction CatalogService:initialize_count()\n  self:_announce()\nend\n\n---@param value CatalogCount\n---@return nil\n-- @OnEvent\nfunction CatalogService:changed(value)\n  self.count = value.count\nend\n\n---@return nil\n-- @OnStop\nfunction CatalogService:cleanup()\n  self.count = 0\nend\n\n---@return nil\nfunction CatalogService:_announce()\n  self.application_event_publisher:publish_event(setmetatable({ count = 5 }, CatalogCount))\nend\n"
         },
         {
           "name": "client/models/CatalogCount.lua",
