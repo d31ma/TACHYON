@@ -81,7 +81,7 @@ fn utilities_may_use_other_utilities_and_every_role_may_use_a_utility() {
 }
 
 #[test]
-fn client_shared_utilities_keep_only_the_dependency_rule_of_the_design_rules() {
+fn client_shared_utilities_get_the_same_design_rules_as_server_utilities() {
     let utility = "export default class TxtUtils {\n  static trim(value) {\n    return String(value).trim()\n  }\n}\n";
     let server = messages(1328, &[("server/utils/TxtUtils.js", utility)]);
     assert!(
@@ -91,5 +91,10 @@ fn client_shared_utilities_keep_only_the_dependency_rule_of_the_design_rules() {
         "{server:?}"
     );
     let client = messages(1328, &[("client/shared/utils/TxtUtils.js", utility)]);
-    assert!(client.is_empty(), "{client:?}");
+    assert!(
+        client
+            .iter()
+            .any(|message| message.contains("`txt` is not an English word")),
+        "{client:?}"
+    );
 }
