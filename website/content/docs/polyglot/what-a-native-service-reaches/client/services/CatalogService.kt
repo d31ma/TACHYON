@@ -1,5 +1,6 @@
 import models.CatalogCount
 
+@Service
 class CatalogService {
     var count: Int = 0
     val applicationEventPublisher: ApplicationEventPublisher

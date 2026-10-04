@@ -1,6 +1,7 @@
 use crate::models::CatalogCount;
 
 #[derive(Default)]
+#[Service]
 struct CatalogService {
     count: i64,
     application_event_publisher: ApplicationEventPublisher,
