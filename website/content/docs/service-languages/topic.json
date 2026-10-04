@@ -1,6 +1,6 @@
 {
   "title": "Choosing a service language",
-  "summary": "You can write a Tac service in JavaScript, TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby. Lua and Python work with limits. \"Which languages can I use?\" lists every language, what it can do, and the languages that Tachyon does not support. A service runs in the page on every target, also inside a native app. Some native hosts link Rust, Swift, Kotlin or C# services instead.",
+  "summary": "You can write a Tac service in JavaScript, TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby. Lua, Python and C++ work with limits. \"Which languages can I use?\" lists every language, what it can do, and the languages that Tachyon does not support. A service runs in the page on every target, also inside a native app. Some native hosts link Rust, Swift, Kotlin or C# services instead.",
   "before": [
     "services"
   ],

@@ -1,6 +1,7 @@
 @Service
 final class SettingsService {
-    private let applicationClient: ApplicationClient = ApplicationClient()
+    @Needs
+    private let applicationClient: ApplicationClient
     var api: String = ""
 
     func load() async throws {
