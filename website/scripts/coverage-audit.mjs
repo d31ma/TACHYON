@@ -73,7 +73,7 @@ export class CoverageAudit {
    * @returns {string}
    */
   static languageName(language) {
-    return PlatformUtils.languageOf(`file.${language}`) ?? language
+    return PlatformUtils.languageLabel(`file.${language}`) || language
   }
 
   /**

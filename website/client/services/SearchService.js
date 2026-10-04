@@ -137,7 +137,7 @@ export default class SearchService {
   /** @param {string} query */
   async #showResults(query) {
     if (this.lifecycle.aborted) return
-    this.results = DocumentationUtils.searchDocs(query)
+    this.results = DocumentationUtils.search(query)
     this._searching = false
     await this.taskScheduler.render()
   }

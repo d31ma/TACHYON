@@ -820,10 +820,10 @@ describe('documentation structure', () => {
     const search = await read('client/services/SearchService.js')
     const searchTemplate = await read('client/components/site/search/tac.html')
     expect(navigation).toContain('/docs/features/')
-    expect(navigation).toContain('static searchDocs')
+    expect(navigation).toContain('static search(')
     expect(navigation).toContain("kind: 'section'")
     expect(navigation).toContain("kind: 'feature'")
-    expect(search).toContain('this.results = DocumentationUtils.searchDocs(query)')
+    expect(search).toContain('this.results = DocumentationUtils.search(query)')
     expect(searchTemplate).toContain('on:input="search.find($event.target.value)"')
     expect(search).toContain('keydown')
     expect(search).toContain('this.taskScheduler.render()')
@@ -898,15 +898,12 @@ describe('documentation structure', () => {
   })
 
   test('an example reads behaviour, then structure, then presentation', async () => {
-    const { PlatformUtils: { inReadingOrder, rank } } = await import('../client/shared/utils/PlatformUtils.js')
+    const { PlatformUtils: { inReadingOrder } } = await import('../client/shared/utils/PlatformUtils.js')
 
-    expect(rank('client/services/TallyService.js')).toBeLessThan(rank('tac.html'))
-    expect(rank('tac.html')).toBeLessThan(rank('tac.css'))
-    expect(rank('client/services/TallyService.js')).toBeLessThan(rank('client/services/TallyService.ts'))
-    expect(rank('client/services/TallyService.ts')).toBeLessThan(rank('client/services/TallyService.swift'))
-    expect(rank('client/services/TallyService.rs')).toBeLessThan(rank('client/services/TallyService.go'))
-    expect(rank('client/services/TallyService.go')).toBeLessThan(rank('tac.html'))
-    expect(rank('emitted')).toBeGreaterThan(rank('tac.css'))
+    const service = (extension) => `client/services/TallyService.${extension}`
+    const ordered = (names) => inReadingOrder(names.map((name) => ({ name }))).map((file) => file.name)
+    expect(ordered(['emitted', 'tac.css', 'tac.html', service('go'), service('rs'), service('swift'), service('ts'), service('js')]))
+      .toEqual([service('js'), service('ts'), service('swift'), service('rs'), service('go'), 'tac.html', 'tac.css', 'emitted'])
 
     const shuffled = [{ name: 'emitted' }, { name: 'tac.css' }, { name: 'tac.html' }, { name: 'client/services/TallyService.swift' }]
     expect(inReadingOrder(shuffled).map((file) => file.name))
@@ -942,7 +939,7 @@ describe('documentation structure', () => {
   })
 
   test('a platform strip only appears where the example actually differs', async () => {
-    const { PlatformUtils: { spansPlatforms, filesFor, reachOf } } =
+    const { PlatformUtils: { spansPlatforms, filesFor } } =
       await import('../client/shared/utils/PlatformUtils.js')
 
     const service = (extension) => `client/services/TallyService.${extension}`
@@ -953,6 +950,7 @@ describe('documentation structure', () => {
     expect(spansPlatforms([{ name: service('js') }, { name: service('py') }])).toBe(true)
 
     const everyPlatform = ['web', 'macos', 'ios', 'android', 'windows', 'linux']
+    const reachOf = (name) => everyPlatform.filter((platform) => filesFor([{ name }], platform).length > 0)
     expect(reachOf(service('dart'))).toEqual(everyPlatform)
     expect(reachOf(service('py'))).toEqual(['web'])
     expect(reachOf(service('go'))).toEqual(everyPlatform)
@@ -979,12 +977,12 @@ describe('documentation structure', () => {
   })
 
   test('each home page platform tab shows every service language that can run there', async () => {
-    const { PlatformUtils: { filesFor, inReadingOrder, isCompanion, languageOf } } =
+    const { PlatformUtils: { filesFor, inReadingOrder, isCompanion, languageLabel } } =
       await import('../client/shared/utils/PlatformUtils.js')
     const languages = JSON.parse(await read('client/shared/data/languages.json'))
     const shownOn = (platform) => inReadingOrder(filesFor(languages.tac.files, platform))
       .filter((file) => isCompanion(file.name))
-      .map((file) => languageOf(file.name))
+      .map((file) => languageLabel(file.name))
 
     const browser = ['JavaScript', 'TypeScript', 'Dart', 'Java']
     const everywhere = ['Swift', 'Kotlin', 'C#', 'F#', 'Rust', 'Go', 'Ruby', 'Lua']

@@ -17,17 +17,17 @@ export default class PlatformUtilsTest {
   }
 
   async testFilesReadInLanguageOrder() {
-    Assert.equals(0, PlatformUtils.rank('client/services/BasketService.js'), 'JavaScript reads first')
     Assert.equals('client/services/BasketService.js', PlatformUtils.inReadingOrder(this.files())[0].name)
     Assert.isTrue(PlatformUtils.isCompanion('client/services/BasketService.kt'), 'Kotlin is a companion')
-    Assert.isTrue(PlatformUtils.languageOf('notes.txt') === null, 'a text file has no language')
-    Assert.equals('', PlatformUtils.languageLabel('notes.txt'), 'and no label')
+    Assert.equals('', PlatformUtils.languageLabel('notes.txt'), 'a text file has no language')
   }
 
   async testReachDecidesTheFilesOfAPlatform() {
-    Assert.isTrue(PlatformUtils.reachOf('server/services/OrderService.js') === null, 'server code has no reach')
-    Assert.isTrue(PlatformUtils.reachOf('client/services/BasketService.js').includes('web'), 'JavaScript reaches the web')
-    Assert.isTrue(PlatformUtils.spansPlatforms(this.files()), 'Swift and JavaScript reach different platforms')
+    const server = [{ name: 'server/services/OrderService.js', code: '' }]
+    Assert.equals(1, PlatformUtils.filesFor(server, 'ios').length, 'server code is shown on every platform')
+    Assert.isTrue(!PlatformUtils.spansPlatforms(this.files()), 'Swift and JavaScript reach the same platforms')
+    const python = [...this.files(), { name: 'client/services/BasketService.py', code: '' }]
+    Assert.isTrue(PlatformUtils.spansPlatforms(python), 'Python reaches only the web')
     const names = PlatformUtils.filesFor(this.files(), 'web').map((file) => file.name)
     Assert.isTrue(names.includes('client/services/BasketService.js'), names.join())
   }

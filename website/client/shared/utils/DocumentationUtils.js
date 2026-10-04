@@ -13,8 +13,8 @@ import features from '/shared/data/features.json' with { type: 'json' }
 /** @import { FeatureEntry } from '/models/FeatureEntry.ts' */
 export class DocumentationUtils {
   /** @param {string} value @returns {string} */
-  static slugify(value) {
-    return DocumentationUtils.#slug(value)
+  static slugOf(value) {
+    return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   }
 
   /** @param {string} slug @returns {Guide | undefined} */
@@ -31,26 +31,11 @@ export class DocumentationUtils {
   }
 
   /** @param {string} query @param {number} maximum @returns {SearchResult[]} */
-  static searchDocs(query, maximum = 12) {
+  static search(query, maximum = 12) {
     const term = DocumentationUtils.#searchTerm(query)
     const rows = DocumentationUtils.#searchRows()
     const hits = DocumentationUtils.#hits(rows, term)
     return DocumentationUtils.#bestHits(hits, maximum)
-  }
-
-  /** @returns {GuideLink[]} */
-  static guides() {
-    return DocumentationUtils.#guideLinks()
-  }
-
-  /** @returns {(FeatureEntry & { path: string })[]} */
-  static features() {
-    return DocumentationUtils.#featureLinks()
-  }
-
-  /** @param {string} value @returns {string} */
-  static #slug(value) {
-    return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   }
 
   /** @returns {GuideLink[]} */
@@ -76,7 +61,7 @@ export class DocumentationUtils {
 
   /** @param {string} slug @param {string} anchor @returns {boolean} */
   static #hasAnchor(slug, anchor) {
-    return DocumentationUtils.#documents().topics[slug].sections.some((section) => DocumentationUtils.slugify(section.heading) === anchor)
+    return DocumentationUtils.#documents().topics[slug].sections.some((section) => DocumentationUtils.slugOf(section.heading) === anchor)
   }
 
   /** @param {string[]} matching @param {string} anchor @returns {string | undefined} */
@@ -122,7 +107,7 @@ export class DocumentationUtils {
 
   /** @returns {SearchRow[]} */
   static #topicRows() {
-    return DocumentationUtils.guides().flatMap(DocumentationUtils.#rowsForGuide)
+    return DocumentationUtils.#guideLinks().flatMap(DocumentationUtils.#rowsForGuide)
   }
 
   /** @param {GuideLink} entry @returns {SearchRow[]} */
@@ -144,7 +129,7 @@ export class DocumentationUtils {
 
   /** @param {GuideLink} entry @param {Section & { files?: SnippetFile[] }} section @returns {SearchRow} */
   static #sectionRow(entry, section) {
-    const anchor = DocumentationUtils.slugify(section.heading)
+    const anchor = DocumentationUtils.slugOf(section.heading)
     const code = DocumentationUtils.#codeOf(section.files)
     return {
       title: `${entry.title} · ${section.heading}`,
@@ -176,7 +161,7 @@ export class DocumentationUtils {
 
   /** @returns {SearchRow[]} */
   static #featureRows() {
-    return DocumentationUtils.features().map(DocumentationUtils.#featureRow)
+    return DocumentationUtils.#featureLinks().map(DocumentationUtils.#featureRow)
   }
 
   /** @param {FeatureEntry & { path: string }} entry @returns {SearchRow} */
@@ -223,7 +208,7 @@ export class DocumentationUtils {
 
   /** @param {number} length @param {SearchHit[]} hits @returns {SearchHit[]} */
   static #searchable(length, hits) {
-    return length < 2 ? [] : hits
+    return length < DocumentationUtils.#shortestTerm() ? [] : hits
   }
 
   /** @param {SearchHit[]} hits @param {number} maximum @returns {SearchResult[]} */
@@ -239,6 +224,11 @@ export class DocumentationUtils {
   /** @param {SearchHit} hit @returns {SearchResult} */
   static #resultOf(hit) {
     return { title: hit.row.title, path: hit.row.path, kind: hit.row.kind }
+  }
+
+  /** @returns {number} */
+  static #shortestTerm() {
+    return 2
   }
 
   /** @returns {DocumentationCatalogue} */

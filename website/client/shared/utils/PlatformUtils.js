@@ -2,11 +2,11 @@
 export class PlatformUtils {
   /** @returns {{ id: string, label: string }[]} */
   static list() {
-    return PlatformUtils.#choices()
+    return PlatformUtils.#choices().map(PlatformUtils.#choiceOf)
   }
 
   /** @param {string} name @returns {string[] | null} */
-  static reachOf(name) {
+  static #reachOf(name) {
     const reach = PlatformUtils.#knownReach(PlatformUtils.#extension(name))
     return PlatformUtils.#forRealm(PlatformUtils.#isServer(name), reach)
   }
@@ -17,7 +17,7 @@ export class PlatformUtils {
   }
 
   /** @param {string} name @returns {number} */
-  static rank(name) {
+  static #rank(name) {
     const order = PlatformUtils.#readingOrder()
     return PlatformUtils.#knownPosition(order.indexOf(PlatformUtils.#extension(name)), order.length)
   }
@@ -28,13 +28,13 @@ export class PlatformUtils {
   }
 
   /** @param {string} name @returns {string | null} */
-  static languageOf(name) {
+  static #languageOf(name) {
     return PlatformUtils.#knownLanguage(PlatformUtils.#extension(name))
   }
 
   /** @param {string} name @returns {string} */
   static languageLabel(name) {
-    return PlatformUtils.#label(PlatformUtils.languageOf(name))
+    return PlatformUtils.#label(PlatformUtils.#languageOf(name))
   }
 
   /** @param {SnippetFile[]} files @returns {boolean} */
@@ -57,21 +57,31 @@ export class PlatformUtils {
     return PlatformUtils.#choiceOrDefault(PlatformUtils.#isKnown(chosen), chosen, fallback)
   }
 
-  /** @returns {{ id: string, label: string }[]} */
+  /** @returns {string} */
+  static #web() {
+    return 'web'
+  }
+
+  /** @returns {{ id: string, label: string, agent: RegExp | null }[]} */
   static #choices() {
     return [
-      { id: 'web', label: 'Web' },
-      { id: 'macos', label: 'macOS' },
-      { id: 'ios', label: 'iOS' },
-      { id: 'android', label: 'Android' },
-      { id: 'windows', label: 'Windows' },
-      { id: 'linux', label: 'Linux' },
+      { id: PlatformUtils.#web(), label: 'Web', agent: null },
+      { id: 'macos', label: 'macOS', agent: /Macintosh/ },
+      { id: 'ios', label: 'iOS', agent: /iPhone|iPad|iPod/ },
+      { id: 'android', label: 'Android', agent: /Android/ },
+      { id: 'windows', label: 'Windows', agent: /Windows/ },
+      { id: 'linux', label: 'Linux', agent: /Linux/ },
     ]
+  }
+
+  /** @param {{ id: string, label: string }} choice @returns {{ id: string, label: string }} */
+  static #choiceOf(choice) {
+    return { id: choice.id, label: choice.label }
   }
 
   /** @returns {string[]} */
   static #allPlatforms() {
-    return ['web', 'macos', 'ios', 'android', 'windows', 'linux']
+    return PlatformUtils.#choices().map((choice) => choice.id)
   }
 
   /** @returns {Record<string, string[]>} */
@@ -80,7 +90,7 @@ export class PlatformUtils {
     js: PlatformUtils.#allPlatforms(),
     ts: PlatformUtils.#allPlatforms(),
     dart: PlatformUtils.#allPlatforms(),
-    py: ['web'],
+    py: [PlatformUtils.#web()],
     rs: PlatformUtils.#allPlatforms(),
     cs: PlatformUtils.#allPlatforms(),
     fs: PlatformUtils.#allPlatforms(),
@@ -122,12 +132,12 @@ export class PlatformUtils {
 
   /** @returns {string[]} */
   static #companionExtensions() {
-    return ['js', 'ts', 'dart', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua', 'py', 'java', 'groovy', 'php']
+    return ['js', 'ts', 'dart', 'py', 'java', 'groovy', 'php', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua']
   }
 
   /** @returns {string[]} */
   static #readingOrder() {
-    return ['js', 'ts', 'dart', 'py', 'java', 'groovy', 'php', 'swift', 'kt', 'cs', 'fs', 'rs', 'go', 'rb', 'lua', 'html', 'css']
+    return [...PlatformUtils.#companionExtensions(), 'html', 'css']
   }
 
   /** @param {string} name @returns {string} */
@@ -162,7 +172,7 @@ export class PlatformUtils {
 
   /** @param {SnippetFile} left @param {SnippetFile} right @returns {number} */
   static #compareFiles(left, right) {
-    return PlatformUtils.rank(left.name) - PlatformUtils.rank(right.name)
+    return PlatformUtils.#rank(left.name) - PlatformUtils.#rank(right.name)
   }
 
   /** @param {string} extension @returns {string | null} */
@@ -182,12 +192,12 @@ export class PlatformUtils {
 
   /** @param {SnippetFile} file @returns {string} */
   static #reachKey(file) {
-    return PlatformUtils.reachOf(file.name)?.join(',') ?? ''
+    return PlatformUtils.#reachOf(file.name)?.join(',') ?? ''
   }
 
   /** @param {SnippetFile[]} files @param {string} platform @returns {SnippetFile[]} */
   static #availableFiles(files, platform) {
-    return files.filter((file) => PlatformUtils.#reachesPlatform(PlatformUtils.reachOf(file.name), platform))
+    return files.filter((file) => PlatformUtils.#reachesPlatform(PlatformUtils.#reachOf(file.name), platform))
   }
 
   /** @param {string[] | null} reach @param {string} platform @returns {boolean} */
@@ -197,12 +207,7 @@ export class PlatformUtils {
 
   /** @param {string} agent @returns {string} */
   static #matchedPlatform(agent) {
-    return PlatformUtils.#platformPatterns().find(([pattern]) => pattern.test(agent))?.[1] ?? 'web'
-  }
-
-  /** @returns {[RegExp, string][]} */
-  static #platformPatterns() {
-    return [[/iPhone|iPad|iPod/, 'ios'], [/Android/, 'android'], [/Macintosh/, 'macos'], [/Windows/, 'windows'], [/Linux/, 'linux']]
+    return PlatformUtils.#choices().find((choice) => choice.agent?.test(agent))?.id ?? PlatformUtils.#web()
   }
 
   /** @param {string | null} chosen @returns {boolean} */

@@ -18,7 +18,7 @@ export default class TopicService {
   private static SEPARATOR: Record<string, string> = { true: '.', false: ', ' }
 
   private static anchorFor(heading: string): string {
-    return `#${DocumentationUtils.slugify(heading)}`
+    return `#${DocumentationUtils.slugOf(heading)}`
   }
 
   private static blocks(body: string = ''): SectionBlock[] {
@@ -97,7 +97,7 @@ export default class TopicService {
     return {
       ...section,
       axis: TopicService.axisOf(section),
-      anchor: DocumentationUtils.slugify(section.heading),
+      anchor: DocumentationUtils.slugOf(section.heading),
       blocks: TopicService.blocks(section.body),
       single: TopicService.singleOf(section.code, TopicService.languageOf(section)),
     }
