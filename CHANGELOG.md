@@ -180,10 +180,11 @@ machine contracts have their own, independent major versions.
 - A Rust struct field whose type has a generic list, such as
   `Mutex<BTreeMap<String, Entry>>`, is one field again; the commas no longer
   fail the build with `TY2015`.
-- A C# or F# Tac service method whose parameter has an attribute with a JSON
-  argument, such as `PageDefaults({...})`, keeps one parameter; the generated
-  C# bridge compiles again.
-- `TY1363` names the Lua marker as `-- @Service` instead of the Ruby spelling.
+- A C#, F# or Kotlin Tac service method whose parameter has an attribute or
+  annotation with a JSON argument, such as `PageDefaults({...})`, keeps one
+  parameter with its real type; the generated bridge compiles again.
+- `TY1363` names the Lua marker as `-- @Service` instead of the Ruby spelling,
+  and no longer tells Java and F# Tac authors that `Service` is unavailable.
 - A Lua model marked Topic, in either realm, and a Python model marked Topic
   in a Tac service now stop the build with `TY1308`. Before, the build passed:
   a Yon Lua route that published the event failed on every request with
