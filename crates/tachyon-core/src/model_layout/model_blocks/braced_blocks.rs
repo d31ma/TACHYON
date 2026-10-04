@@ -5,7 +5,7 @@ use super::type_name::TypeName;
 pub(super) struct BracedBlocks;
 
 impl BracedBlocks {
-    const LINE_LANGUAGES: [&'static str; 4] = ["ts", "kt", "swift", "go"];
+    const LINE_LANGUAGES: [&'static str; 5] = ["ts", "kt", "swift", "go", "groovy"];
     const PHP_START: &'static str = "<?php";
 
     pub(super) fn read(extension: &str, code: &str) -> Vec<ModelBlock> {

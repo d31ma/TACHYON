@@ -117,6 +117,24 @@ fn java_yon_checked_models_preserve_metadata_before_sdk_projection() {
 }
 
 #[test]
+fn groovy_metadata_removes_schema_declarations_after_an_import() {
+    let path = Path::new("server/controllers/ConfigurationController.groovy");
+    let schema = "@Settings({\"prefix\":\"YON_CATALOG_\"})\nclass CatalogSettings {\n    int pageSize = 20\n}\n";
+    let controller = "@RequestRoute(\"/configuration\")\nclass ConfigurationController {\n}\n";
+    let metadata = super::ModelMetadata::new(vec![(
+        PathBuf::from("server/models/CatalogSettings.groovy"),
+        schema.to_owned(),
+    )]);
+    let composed = format!("import models.Configuration\n{schema}\n{controller}");
+    let retained = metadata
+        .without_declarations(path, &composed)
+        .expect("schema separated");
+    assert!(!retained.contains("class CatalogSettings"));
+    assert!(retained.contains("import models.Configuration"));
+    assert!(retained.contains(controller));
+}
+
+#[test]
 fn javascript_metadata_removes_only_injected_schema_declarations() {
     let path = Path::new("client/services/InputService.js");
     let schema = "@Checked\nclass ProductInput {\n  @Required\n  name = '';\n}\n";
