@@ -1627,8 +1627,8 @@ fn execute_cache(command: Option<&CacheCommand>) -> Result<(), Failure> {
     if matches!(command, Some(CacheCommand::Clean)) {
         let removed = tachyon_core::cache::clean()?;
         println!(
-            "Cleared Tachyon runtime cache: {}",
-            removed.root.join("runtime").display()
+            "Cleared Tachyon runtime and build caches under {}",
+            removed.root.display()
         );
         return Ok(());
     }
@@ -1639,6 +1639,9 @@ fn execute_cache(command: Option<&CacheCommand>) -> Result<(), Failure> {
         status.root.display(),
         status.runtime_entries
     );
+    for (folder, entries) in &status.build_entries {
+        println!("  Build cache {folder}: {entries} entries");
+    }
     Ok(())
 }
 
