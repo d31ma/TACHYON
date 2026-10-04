@@ -17,7 +17,14 @@ impl<'a, 's> DomObject<'a, 's> {
 
     pub(super) fn kind(&self, start: usize, end: usize) -> DomKind {
         let data = (start..end).all(|at| self.holds_data(at));
-        data.then_some(DomKind::Data).unwrap_or_default()
+        Self::kind_of(data)
+    }
+
+    fn kind_of(data: bool) -> DomKind {
+        if data {
+            return DomKind::Data;
+        }
+        DomKind::Unknown
     }
 
     fn holds_data(&self, at: usize) -> bool {
