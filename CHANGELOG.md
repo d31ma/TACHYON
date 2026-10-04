@@ -40,6 +40,18 @@ machine contracts have their own, independent major versions.
   services running; clicking the Dock icon opens a fresh window with new page
   services and menu items, and Quit cleans up once (ADR 0097).
 
+- The FYLO datasource is complete enough for a real document application: every
+  Yon language with a DataSource gets `findById`, `insert`, an atomic `patch`
+  (Spring Data `Update.set`: named top-level fields only, concurrent patches
+  never lose fields), `deleteById`, `scroll` (a cursor over any number of
+  documents in id order, with a snapshot at the first page and no 10,000
+  limit), `createCollection`, `dropCollection`, `collectionExists`, and FYLO's
+  durable queue through `publish`, `claim`, `ack` and `nack`. Collection names
+  follow FYLO's grammar, so `hd-events` works; `..`, `_`, upper case and
+  reserved words are refused with `TY2160`, also for Store tables. Go decodes
+  documents and deliveries into typed models. The SQL drivers refuse these
+  methods (ADR 0032 amendment).
+
 - Rust Tac services call the server from the browser: an `async fn` in an
   `HTTPClient` trait returns `BehaviorResult<Model>`, a service gets the client
   with `#[Needs] name: std::sync::Arc<Client>` and awaits it in an `async fn`
@@ -175,6 +187,9 @@ machine contracts have their own, independent major versions.
   (`TY1330`) and unused public members (`TY1333`) now read Tac utilities in
   `client/shared/utils/` and its nested folders. Before, they skipped that
   folder, so a utility that breaks these rules can now stop the build.
+
+- A FYLO call that a deadline cancels now restarts the `fylo` subprocess, so
+  its late answer can no longer be read as the answer to the next call.
 
 - Go route types no longer stop with `TY2015` for types from other Go
   packages: `json.RawMessage`, `http.Header`, `time.Time` and types from the

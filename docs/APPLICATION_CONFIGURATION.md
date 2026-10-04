@@ -36,6 +36,10 @@ The `fylo` driver ([ADR 0032](adr/0032-fylo-datasource.md)) has special rules:
   canonical form.
 - It runs a local `fylo` subprocess. It does not connect to a database server.
 - So `YON_DATASOURCE_USERNAME` and `YON_DATASOURCE_PASSWORD` do not apply to it.
+- Its collections are created by the application with
+  `dataSource.createCollection(name)`, not by this file. See
+  [MANAGED_STORAGE](MANAGED_STORAGE.md#fylo) for names, documents, scroll and
+  the queue.
 
 ## Files and paths
 
