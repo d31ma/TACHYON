@@ -7,8 +7,10 @@ mod field_declaration;
 mod field_name;
 mod injected_field;
 mod nullable_field;
+mod placed_marker;
 mod scan;
 
+pub(crate) use placed_marker::PlacedMarker;
 pub(crate) use scan::Messages;
 
 #[cfg(test)]
@@ -254,9 +256,9 @@ impl Rule {
 pub(crate) struct AnnotationRules;
 
 impl AnnotationRules {
-    pub(crate) const LANGUAGES: [&'static str; 15] = [
+    pub(crate) const LANGUAGES: [&'static str; 16] = [
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "swift", "rb",
-        "lua", "fs",
+        "lua", "fs", "hpp",
     ];
     pub(crate) const YON: &'static [&'static str] = &[
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb", "lua",
@@ -268,6 +270,9 @@ impl AnnotationRules {
         "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
     ];
     const TAC: &'static [&'static str] = &[
+        "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py", "hpp",
+    ];
+    const TAC_EXCEPT_CPP: &'static [&'static str] = &[
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "lua", "py",
     ];
     const TAC_ROLE: &'static [&'static str] = &[
@@ -387,7 +392,7 @@ impl AnnotationRules {
             "turns on the named profiles while this test runs",
         )
         .needs_arguments()
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON)
         .class_needs(Self::TEST_CLASSES),
         Rule::new(
             "TestSettings",
@@ -428,7 +433,7 @@ impl AnnotationRules {
             "says how long one object of this class lives",
         )
         .needs_arguments()
-        .reach(Self::TAC, Self::YON),
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON),
         Rule::new(
             "Helper",
             Self::TYPE,
@@ -443,13 +448,13 @@ impl AnnotationRules {
             "marks a class whose methods copy one model into another",
         )
         .bare()
-        .reach(Self::TAC, Self::YON_BEHAVIOR),
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON_BEHAVIOR),
         Rule::new(
             "Convert",
             Self::METHOD,
             "copies the fields of one model into a new model",
         )
-        .reach(Self::TAC, Self::YON_BEHAVIOR),
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON_BEHAVIOR),
         Rule::new(
             "Needs",
             Self::FIELD_OR_TYPE,
@@ -463,7 +468,7 @@ impl AnnotationRules {
             "chooses which object fills a Needs field when there are several",
         )
         .needs_arguments()
-        .reach(Self::TAC, Self::YON)
+        .reach(Self::TAC_EXCEPT_CPP, Self::YON)
         .with(&["Needs"]),
         Rule::new(
             "Setup",
@@ -990,6 +995,9 @@ impl AnnotationRules {
     }
 
     fn check_direct(path: &Path, source: &str) -> Result<(), Failure> {
+        if crate::tac_cpp::CppSource::is_cpp(path) {
+            return crate::tac_cpp::CppMarkerCheck::check_source(path, source);
+        }
         let extension = path
             .extension()
             .and_then(|value| value.to_str())

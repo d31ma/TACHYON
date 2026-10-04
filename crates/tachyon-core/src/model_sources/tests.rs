@@ -224,6 +224,8 @@ impl Sources {
     const PYTHON_MODEL: &str = "from dataclasses import dataclass\n\n@dataclass\nclass Guide:\n    title: str\n    pages: int\n";
     const PYTHON_SERVICE: &str = "from models import Guide\n\n@service\nclass GuideService:\n    pages: int = 0\n\n    def read(self) -> str:\n        guide = Guide(title='Guide', pages=3)\n        self.pages = guide.pages\n        return guide.title + ' ' + str(guide.pages)\n";
     const LUA_SERVICE: &str = "-- @Service\n---@class GuideService\nGuideService = {\n  ---@type integer\n  pages = 0,\n}\n\n---@return string\nfunction GuideService:read()\n  local guide = setmetatable({ title = \"Guide\", pages = 3 }, Guide)\n  self.pages = guide.pages\n  return guide.title .. \" \" .. guide.pages\nend\n";
+    const CPP_MODEL: &str = "struct Guide {\n    std::string title;\n    int pages = 0;\n};\n";
+    const CPP_SERVICE: &str = "class [[Service]] GuideService {\npublic:\n    int pages = 0;\n\n    std::string read() {\n        Guide guide{\"Guide\", 3};\n        pages = guide.pages;\n        return guide.title + \" \" + std::to_string(guide.pages);\n    }\n};\n";
     const KOTLIN_MODEL: &str = "data class Guide(val title: String, val pages: Int)\n";
     const KOTLIN_SERVICE: &str = "import models.Guide\n\n@Service\nclass GuideService {\n    var pages: Int = 0\n\n    fun read(): String {\n        val guide = Guide(\"Guide\", 3)\n        pages = guide.pages\n        return guide.title + \" \" + guide.pages\n    }\n}\n";
     const SWIFT_MODEL: &str = "struct Guide {\n    let title: String\n    let pages: Int\n}\n";
@@ -320,6 +322,7 @@ async fn build_web_service(root: &Path, language: WebLanguage, extension: &str) 
         WebLanguage::Java => (Sources::JAVA_MODEL, Sources::JAVA_SERVICE),
         WebLanguage::Lua => (Sources::LUA_MODEL, Sources::LUA_SERVICE),
         WebLanguage::Python => (Sources::PYTHON_MODEL, Sources::PYTHON_SERVICE),
+        WebLanguage::Cpp => (Sources::CPP_MODEL, Sources::CPP_SERVICE),
     };
     write(root, &format!("client/models/Guide.{extension}"), model);
     if matches!(language, WebLanguage::CSharp) {
@@ -413,6 +416,18 @@ async fn a_lua_web_service_uses_a_model() {
     }
     let root = tempfile::tempdir().expect("project");
     build_web_service(root.path(), WebLanguage::Lua, "lua").await;
+    let report = run_driver(root.path(), &fetching_driver());
+    assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
+}
+
+#[tokio::test]
+async fn a_cpp_web_assembly_service_uses_a_model() {
+    if !available("em++", "--version") || !available("node", "--version") {
+        eprintln!("skipping: em++ (Emscripten) or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    build_web_service(root.path(), WebLanguage::Cpp, "hpp").await;
     let report = run_driver(root.path(), &fetching_driver());
     assert_eq!(report, serde_json::json!({"read": "Guide 3", "pages": 3}));
 }

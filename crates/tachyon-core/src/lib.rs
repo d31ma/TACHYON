@@ -40,6 +40,7 @@ mod scaffold;
 mod schedule;
 mod server;
 mod storage;
+mod tac_cpp;
 mod tac_dart;
 mod tac_lua;
 mod tac_python;

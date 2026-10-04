@@ -69,6 +69,11 @@ impl ServiceToolchains {
                 .unwrap_or_default(),
         );
         toolchains.extend(
+            Self::uses_web_service(services, WebLanguage::Cpp)
+                .then(crate::tac_cpp::CppTools::toolchains)
+                .unwrap_or_default(),
+        );
+        toolchains.extend(
             Self::uses_web_service(services, WebLanguage::Lua)
                 .then(crate::tac_lua::LuaRuntimeBuild::toolchains)
                 .unwrap_or_default(),

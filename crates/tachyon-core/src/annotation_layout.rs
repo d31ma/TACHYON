@@ -362,6 +362,9 @@ fn behaviour_types_source(path: &Path, source: &str) -> Result<Vec<String>, Fail
 }
 
 fn primary_role(path: &Path, source: &str) -> Result<bool, Failure> {
+    if crate::tac_cpp::CppSource::is_cpp(path) {
+        return crate::tac_cpp::CppRoles::has_role(path, source);
+    }
     single_class::validate(path, source)
 }
 

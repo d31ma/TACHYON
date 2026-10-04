@@ -27,6 +27,7 @@ pub(crate) struct ServiceDefinition {
     ruby: Option<PathBuf>,
     python: Option<PathBuf>,
     lua: Option<PathBuf>,
+    cpp: Option<PathBuf>,
     java: Option<PathBuf>,
     fsharp: Option<PathBuf>,
     prototype: bool,
@@ -48,6 +49,7 @@ impl ServiceDefinition {
             ruby: None,
             python: None,
             lua: None,
+            cpp: None,
             java: None,
             fsharp: None,
             prototype: false,
@@ -190,6 +192,7 @@ impl ServiceDefinition {
             WebLanguage::Ruby => return self.ruby.as_deref(),
             WebLanguage::Python => return self.python.as_deref(),
             WebLanguage::Lua => return self.lua.as_deref(),
+            WebLanguage::Cpp => return self.cpp.as_deref(),
             WebLanguage::Java => return self.java.as_deref(),
             WebLanguage::Rust => NativeCompanion::Rust,
             WebLanguage::CSharp => NativeCompanion::CSharp,
@@ -406,7 +409,7 @@ fn add_service_file(
     }
     let extension = path.extension().and_then(OsStr::to_str).unwrap_or("");
     if ![
-        "js", "ts", "dart", "swift", "kt", "java", "cs", "fs", "rs", "go", "rb", "py", "lua",
+        "js", "ts", "dart", "swift", "kt", "java", "cs", "fs", "rs", "go", "rb", "py", "lua", "hpp",
     ]
     .contains(&extension)
     {
@@ -445,7 +448,7 @@ fn add_service_file(
     let Some((class, extension)) = service_file_name(Path::new(relative), Some(&source)) else {
         diagnostics.push(service_diagnostic(
             relative,
-            "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go, rb, py or lua extension.",
+            "A service file is named <Name>Service with a js, ts, dart, swift, kt, java, cs, fs, rs, go, rb, py, lua or hpp extension.",
             "Rename it, for example client/services/BasketService.js declaring class BasketService.",
         ));
         return false;
@@ -467,6 +470,7 @@ fn add_service_file(
         "rb" => Some(&mut definition.ruby),
         "java" => Some(&mut definition.java),
         crate::lua_source::LuaSource::EXTENSION => Some(&mut definition.lua),
+        crate::tac_cpp::CppSource::EXTENSION => Some(&mut definition.cpp),
         crate::fsharp_source::FsharpSource::EXTENSION => Some(&mut definition.fsharp),
         _ => None,
     };
@@ -612,6 +616,9 @@ fn marked_source(definition: &ServiceDefinition) -> Option<&Path> {
     if let Some(lua) = &definition.lua {
         return Some(lua);
     }
+    if let Some(cpp) = &definition.cpp {
+        return Some(cpp);
+    }
     let (_, path) = definition.native.first()?;
     Some(path)
 }
@@ -644,6 +651,7 @@ fn service_file_name(path: &Path, source: Option<&str>) -> Option<(String, &'sta
         "rb" => "rb",
         "py" => "py",
         "lua" => "lua",
+        "hpp" => "hpp",
         _ => return None,
     };
     let name = stem.strip_suffix("Service")?;

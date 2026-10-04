@@ -123,6 +123,10 @@ pub fn run_with(
         let program = crate::tac_lua::LuaClientUnit::program(project, relative, &source)?;
         return run_lua(&program, &portable);
     }
+    if extension == crate::tac_cpp::CppSource::EXTENSION {
+        let printed = crate::tac_cpp::CppClientUnit::run(project, relative, &source)?;
+        return checked(&printed, &portable);
+    }
     let lowered = lower_unit(project, relative, &source, extension, &portable)?;
     if extension == "rb" {
         let name = unit_name(&source, &portable)?;

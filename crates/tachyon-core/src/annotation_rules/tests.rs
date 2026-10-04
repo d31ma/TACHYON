@@ -27,6 +27,7 @@ impl Sample {
         }
         match language {
             "rs" | "php" | "rb" | "cs" => format!("{}(\"x\")]", spelled.trim_end_matches(']')),
+            "hpp" => format!("{}(\"x\")]]", spelled.trim_end_matches(']')),
             _ => format!("{spelled}(\"x\")"),
         }
     }
@@ -271,6 +272,24 @@ impl Sample {
             ("rb", Target::Parameter) => format!(
                 "{class}\nclass SampleService\n  def load(\n{}    value\n  )\n    value\n  end\nend\n",
                 lines("    ")
+            ),
+            ("hpp", Target::Type) => format!(
+                "class {} {inline}SampleService {{\npublic:\n    int value = 0;\n}};\n",
+                class.replace('\n', " ")
+            ),
+            ("hpp", Target::Field) => format!(
+                "class {} SampleService {{\npublic:\n{}    int value = 0;\n}};\n",
+                class.replace('\n', " "),
+                lines("    ")
+            ),
+            ("hpp", Target::Method) => format!(
+                "class {} SampleService {{\npublic:\n{}    int load(int value) {{ return value; }}\n}};\n",
+                class.replace('\n', " "),
+                lines("    ")
+            ),
+            ("hpp", Target::Parameter) => format!(
+                "class {} SampleService {{\npublic:\n    int load({inline}int value) {{ return value; }}\n}};\n",
+                class.replace('\n', " ")
             ),
             ("lua", Target::Type) => format!("{all}\nSampleService = {{}}\n"),
             ("lua", Target::Field) => format!(

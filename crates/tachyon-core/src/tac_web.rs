@@ -12,6 +12,7 @@ pub(crate) enum WebLanguage {
     Go,
     Kotlin,
     Swift,
+    Cpp,
     Java,
     Ruby,
     Lua,
@@ -19,11 +20,12 @@ pub(crate) enum WebLanguage {
 }
 
 impl WebLanguage {
-    pub(crate) const PREFERENCE: [Self; 9] = [
+    pub(crate) const PREFERENCE: [Self; 10] = [
         Self::Rust,
         Self::Go,
         Self::CSharp,
         Self::Swift,
+        Self::Cpp,
         Self::Kotlin,
         Self::Java,
         Self::Ruby,
@@ -38,6 +40,7 @@ impl WebLanguage {
             Self::Go => "tachyon-go.js",
             Self::Kotlin => "tachyon-kotlin.js",
             Self::Swift => "tachyon-swift.js",
+            Self::Cpp => "tachyon-cpp.js",
             Self::Java => "tachyon-java.js",
             Self::Ruby => "tachyon-ruby-services.js",
             Self::Lua => "tachyon-lua-services.js",
@@ -52,6 +55,7 @@ impl WebLanguage {
             Self::Go => "go",
             Self::Kotlin => "kt",
             Self::Swift => "swift",
+            Self::Cpp => crate::tac_cpp::CppSource::EXTENSION,
             Self::Java => "java",
             Self::Ruby => "rb",
             Self::Lua => "lua",
@@ -174,6 +178,13 @@ async fn build_language(
             published.extend(program);
             note = reason;
             WebEngine::linear_memory(WebEngine::SWIFT_INSTANCE)
+        }
+        WebLanguage::Cpp => {
+            let (program, reason) =
+                crate::native::CppWebServices::build(snapshot_root, &chosen, profile).await?;
+            published.extend(program);
+            note = reason;
+            WebEngine::linear_memory(crate::native::CppWebServices::INSTANCE)
         }
         WebLanguage::Java => {
             let (program, reason) =

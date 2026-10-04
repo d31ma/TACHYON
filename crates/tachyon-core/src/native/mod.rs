@@ -4,6 +4,7 @@ mod browser_api_grants;
 mod browser_task_tests;
 mod compiler;
 mod config;
+mod cpp_web_services;
 mod csharp_web_apis;
 mod desktop_host_source;
 mod desktop_menu_items;
@@ -147,6 +148,7 @@ pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,
 };
 pub(crate) use config::{TacMember, WebAppManifest};
+pub(crate) use cpp_web_services::CppWebServices;
 pub(crate) use csharp_web_apis::CsharpWebApis;
 pub(crate) use go::{
     in_package as go_in_package, module_file as go_module_file,

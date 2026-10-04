@@ -980,6 +980,7 @@ pub(crate) struct Messages;
 
 impl Messages {
     const LUA_LATER: &'static str = " Lua gets it in a later step (ADR 0085).";
+    const CPP_LATER: &'static str = " C++ gets it in a later step (ADR 0098).";
     const NOTHING_LATER: &'static str = "";
     pub(crate) fn spelled(language: &str, name: &str) -> String {
         match language {
@@ -989,6 +990,7 @@ impl Messages {
             "fs" => format!("[<{name}>]"),
             "go" => format!("// @{name}"),
             "lua" => format!("-- @{name}"),
+            "hpp" => format!("[[{name}]]"),
             _ => format!("@{name}"),
         }
     }
@@ -1030,6 +1032,7 @@ impl Messages {
             "swift" => "Swift",
             "rb" => "Ruby",
             "lua" => "Lua",
+            "hpp" => "C++",
             _ => "this language",
         }
     }
@@ -1076,10 +1079,14 @@ impl Messages {
     }
 
     fn later(language: &str) -> &'static str {
-        [Self::NOTHING_LATER, Self::LUA_LATER][usize::from(language == "lua")]
+        match language {
+            "lua" => Self::LUA_LATER,
+            "hpp" => Self::CPP_LATER,
+            _ => Self::NOTHING_LATER,
+        }
     }
 
-    fn retired(rule: &Rule, language: &str) -> String {
+    pub(super) fn retired(rule: &Rule, language: &str) -> String {
         let spelled = Self::spelled(language, rule.name);
         if rule.replaced_by.is_empty() {
             return format!("{spelled} is not an annotation: {}", rule.advice);
@@ -1091,7 +1098,7 @@ impl Messages {
         )
     }
 
-    fn wrong_target(rule: &Rule, language: &str, target: Target) -> String {
+    pub(super) fn wrong_target(rule: &Rule, language: &str, target: Target) -> String {
         format!(
             "{} is on a {}, but it belongs on {}. {}",
             Self::spelled(language, rule.name),
@@ -1126,7 +1133,7 @@ impl Messages {
         )
     }
 
-    fn no_arguments(rule: &Rule, language: &str) -> String {
+    pub(super) fn no_arguments(rule: &Rule, language: &str) -> String {
         if !rule.argument_advice.is_empty() {
             return format!(
                 "{}: {}. Write {} alone. {}",
@@ -1144,7 +1151,7 @@ impl Messages {
         )
     }
 
-    fn needs_arguments(rule: &Rule, language: &str) -> String {
+    pub(super) fn needs_arguments(rule: &Rule, language: &str) -> String {
         format!(
             "{} needs its arguments in parentheses. {}",
             Self::spelled(language, rule.name),
@@ -1162,7 +1169,7 @@ impl Messages {
         )
     }
 
-    fn twice(rule: &Rule, language: &str, target: Target) -> String {
+    pub(super) fn twice(rule: &Rule, language: &str, target: Target) -> String {
         format!(
             "{} is written twice on one {}. Write it once. {}",
             Self::spelled(language, rule.name),
@@ -1171,7 +1178,7 @@ impl Messages {
         )
     }
 
-    fn clash(rule: &Rule, other: &Rule, language: &str, target: Target) -> String {
+    pub(super) fn clash(rule: &Rule, other: &Rule, language: &str, target: Target) -> String {
         format!(
             "{} and {} cannot be on the same {}. {} {}",
             Self::spelled(language, rule.name),
@@ -1182,7 +1189,7 @@ impl Messages {
         )
     }
 
-    fn without_partner(rule: &Rule, language: &str, target: Target) -> String {
+    pub(super) fn without_partner(rule: &Rule, language: &str, target: Target) -> String {
         format!(
             "{} needs {} on the same {}. {}",
             Self::spelled(language, rule.name),
@@ -1200,7 +1207,7 @@ impl Messages {
         )
     }
 
-    fn outside_class(rule: &Rule, language: &str) -> String {
+    pub(super) fn outside_class(rule: &Rule, language: &str) -> String {
         format!(
             "{} belongs in a class marked {}. {}",
             Self::spelled(language, rule.name),
