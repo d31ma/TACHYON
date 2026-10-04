@@ -1,4 +1,4 @@
 {
   "heading": "Words for platform, target and environment",
-  "body": "platform is the kind of device. The macos, windows and linux targets are the desktop platform. ios and android are the mobile platform. web is the web platform. environment and os mean the same thing: the host that the app really runs on. For native bundles, that is the operating system. For browser bundles, it is web. target names the bundle output. Service language is the language of a Tac service: JavaScript, TypeScript, Dart, Rust, Kotlin, Swift, C#, Go or Ruby."
+  "body": "platform is the kind of device. The macos, windows and linux targets are the desktop platform. ios and android are the mobile platform. web is the web platform. environment and os mean the same thing: the host that the app really runs on. For native bundles, that is the operating system. For browser bundles, it is web. target names the bundle output. Service language is the language of a Tac service: JavaScript, TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby, and Lua and Python with limits (see Choosing a service language)."
 }

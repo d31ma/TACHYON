@@ -1,5 +1,7 @@
 {
   "heading": "Targets",
-  "body": "The bundle targets are web, macos, windows, linux, ios and android. The web target writes browser assets. Every other target prepares a host that contains the platform WebView. Native packaging needs the SDKs (software development kits) and host tools for that platform. The all target builds every target. It writes one folder for each target under dist/. You must still test on each platform.",
-  "code": { "file": "example.sh" }
+  "body": "The bundle targets are web, macos, windows, linux, ios and android. The web target writes browser assets. Every other target prepares a host that contains the platform WebView. Native packaging needs the SDKs (software development kits) and host tools for that platform. The windows target also needs the WebView2 SDK: restore the `Microsoft.Web.WebView2` package and set `TAC_WEBVIEW2_SDK` to the folder where you extracted it, or the build stops with `TY1605`. The all target builds every target. It writes one folder for each target under dist/. You must still test on each platform.",
+  "code": {
+    "file": "example.sh"
+  }
 }
