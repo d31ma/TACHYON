@@ -32,14 +32,10 @@ impl LinuxHostGenerator {
         let resources = bundle.join("resources");
         stage_application(index, web_bundle, stage, &resources)?;
 
-        let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
-        super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
-            rust_companion.as_deref(),
-            &application.menus,
-        )?;
-        super::rust::stage_crate(
+        let rust_companion = super::rust::RustCompanion::stage_for_host(
+            companions,
+            stage,
             application,
-            rust_companion.as_deref(),
             super::rust::Linkage::Shared,
         )?;
         let source_path = stage.join("project").join("tachyon_host.c");
@@ -75,7 +71,7 @@ async fn compile_rust_companion(
         return Ok(());
     };
     let bin = bundle.join("bin");
-    super::rust::compile_companion(
+    super::rust::RustCompanion::compile_companion(
         application,
         source,
         super::rust::Linkage::Shared,

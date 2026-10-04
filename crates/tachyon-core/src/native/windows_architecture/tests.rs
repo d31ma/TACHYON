@@ -1,5 +1,5 @@
 use super::WindowsArchitecture;
-use crate::native::windows::{WindowsHostGenerator, companion_project, published_companion};
+use crate::native::windows::WindowsHostGenerator;
 use crate::native::windows_compiler_plan::WindowsCompilerPlan;
 use std::path::Path;
 
@@ -43,11 +43,11 @@ fn the_x64_build_plan_links_the_x64_webview2_loader_for_an_x64_machine() {
         "x86_64-pc-windows-msvc"
     );
     assert!(
-        companion_project(WindowsArchitecture::X64)
+        WindowsHostGenerator::companion_project(WindowsArchitecture::X64)
             .contains("<RuntimeIdentifier>win-x64</RuntimeIdentifier>")
     );
     assert!(
-        published_companion(Path::new("companion"), WindowsArchitecture::X64)
+        WindowsHostGenerator::published_companion(Path::new("companion"), WindowsArchitecture::X64)
             .ends_with("bin/Release/net9.0/win-x64/publish/TachyonCompanion.dll")
     );
     assert_eq!(WindowsArchitecture::X64.artifact_architecture(), "x86_64");
@@ -55,29 +55,32 @@ fn the_x64_build_plan_links_the_x64_webview2_loader_for_an_x64_machine() {
 
 #[test]
 fn the_arm64_build_plan_uses_arm64_for_every_architecture_specific_value() {
-    let arguments = WindowsArchitectureTests::arguments(WindowsArchitecture::Arm64);
+    let arguments = WindowsArchitectureTests::arguments(WindowsArchitecture::ARM64);
     assert!(arguments.contains(&String::from("/MACHINE:ARM64")));
     assert!(!arguments.iter().any(|argument| argument.contains("x64")));
     assert!(
-        WindowsArchitectureTests::library_path(WindowsArchitecture::Arm64)
+        WindowsArchitectureTests::library_path(WindowsArchitecture::ARM64)
             .ends_with("/build/native/arm64")
     );
     assert_eq!(
-        WindowsArchitecture::Arm64.rust_target(),
+        WindowsArchitecture::ARM64.rust_target(),
         "aarch64-pc-windows-msvc"
     );
-    let project = companion_project(WindowsArchitecture::Arm64);
+    let project = WindowsHostGenerator::companion_project(WindowsArchitecture::ARM64);
     assert!(project.contains("<RuntimeIdentifier>win-arm64</RuntimeIdentifier>"));
     assert!(!project.contains("x64"));
     assert!(
-        published_companion(Path::new("companion"), WindowsArchitecture::Arm64)
-            .ends_with("bin/Release/net9.0/win-arm64/publish/TachyonCompanion.dll")
+        WindowsHostGenerator::published_companion(
+            Path::new("companion"),
+            WindowsArchitecture::ARM64
+        )
+        .ends_with("bin/Release/net9.0/win-arm64/publish/TachyonCompanion.dll")
     );
 }
 
 #[test]
 fn the_build_plan_keeps_the_compiler_options_and_the_application_entry() {
-    let arguments = WindowsArchitectureTests::arguments(WindowsArchitecture::Arm64);
+    let arguments = WindowsArchitectureTests::arguments(WindowsArchitecture::ARM64);
     for expected in [
         "/W4",
         "/WX",
@@ -103,14 +106,14 @@ fn the_build_plan_keeps_the_compiler_options_and_the_application_entry() {
 #[test]
 fn the_default_architecture_is_the_build_machine_and_the_artifact_names_it() {
     let expected = if cfg!(target_arch = "aarch64") {
-        WindowsArchitecture::Arm64
+        WindowsArchitecture::ARM64
     } else {
         WindowsArchitecture::X64
     };
     assert_eq!(WindowsArchitecture::default(), expected);
     let target = crate::native::compiler::artifact_target(
         tachyon_contracts::NativeTarget::Windows,
-        WindowsArchitecture::Arm64,
+        WindowsArchitecture::ARM64,
     );
     assert_eq!(target.architecture, "aarch64");
     assert_eq!(target.abi, "webview2");

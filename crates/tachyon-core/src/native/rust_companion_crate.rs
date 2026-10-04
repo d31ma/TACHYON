@@ -1,8 +1,7 @@
 use super::rust_dependency::RustDependency;
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests;
@@ -26,86 +25,77 @@ impl RustCompanionCrate {
         ("macos", "cfg(target_os = \"macos\")"),
         ("windows", "cfg(windows)"),
     ];
+    const DEPENDENCIES: &'static str = "dependencies";
     const MAX_EXECUTABLES: usize = 8;
     const MAX_EXECUTABLE_NAME: usize = 64;
     const MAX_DEPENDENCIES: usize = 64;
     const SOURCE_EXTENSION: &'static str = ".rs";
+    const PATH_SEPARATOR: char = '/';
+    const NAME_MARK: char = '-';
+    const CURRENT_FOLDER: &'static str = ".";
+    const PARENT_FOLDER: &'static str = "..";
 
     pub(super) fn uses_cargo(&self) -> bool {
-        self.has_dependencies() || !self.executables.is_empty()
+        self.has_dependencies() | !self.executables.is_empty()
     }
 
     pub(super) fn has_dependencies(&self) -> bool {
-        !self.dependencies.is_empty()
-            || self
-                .platform_dependencies
-                .values()
-                .any(|dependencies| !dependencies.is_empty())
+        let platform = self
+            .platform_dependencies
+            .values()
+            .any(|dependencies| !dependencies.is_empty());
+        !self.dependencies.is_empty() | platform
     }
 
     pub(super) fn problem(&self) -> Option<String> {
-        Self::dependency_problem("dependencies", &self.dependencies)
+        Self::dependency_problem(Self::DEPENDENCIES, &self.dependencies)
             .or_else(|| self.platform_problem())
             .or_else(|| self.executable_problem())
     }
 
     pub(super) fn entry_class(entry: &str) -> Option<&str> {
-        let file = entry.rsplit('/').next()?;
+        let file = entry.rsplit(Self::PATH_SEPARATOR).next()?;
         let class = file.strip_suffix(Self::SOURCE_EXTENSION)?;
-        let mut characters = class.chars();
-        let starts_upper = characters
-            .next()
-            .is_some_and(|first| first.is_ascii_uppercase());
-        (starts_upper && characters.all(|character| character.is_ascii_alphanumeric()))
-            .then_some(class)
+        let starts_upper = class.starts_with(|first: char| first.is_ascii_uppercase());
+        let plain = class
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric());
+        (starts_upper & plain).then_some(class)
     }
 
     pub(super) fn manifest(
         &self,
         library: &Path,
         crate_types: &[&str],
-        binaries: &[(String, std::path::PathBuf)],
+        binaries: &[(String, PathBuf)],
     ) -> String {
         let types = crate_types
             .iter()
             .map(|kind| format!("\"{kind}\""))
             .collect::<Vec<_>>()
             .join(", ");
-        let mut manifest = format!(
+        let package = format!(
             "[package]\nname = \"{}\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
              [workspace]\n\n[lib]\nname = \"{}\"\npath = {}\ncrate-type = [{types}]\n",
             Self::PACKAGE,
             Self::LIBRARY,
             Self::toml_path(library)
         );
-        for (name, path) in binaries {
-            let _ = write!(
-                manifest,
-                "\n[[bin]]\nname = \"{name}\"\npath = {}\n",
-                Self::toml_path(path)
-            );
-        }
-        manifest.push_str(&Self::dependency_table("dependencies", &self.dependencies));
-        for (platform, condition) in Self::PLATFORMS {
-            if let Some(dependencies) = self.platform_dependencies.get(platform) {
-                manifest.push_str(&Self::dependency_table(
-                    &format!("target.'{condition}'.dependencies"),
-                    dependencies,
-                ));
-            }
-        }
-        manifest
-    }
-
-    fn dependency_table(header: &str, dependencies: &BTreeMap<String, RustDependency>) -> String {
-        if dependencies.is_empty() {
-            return String::new();
-        }
-        let mut table = format!("\n[{header}]\n");
-        for (name, dependency) in dependencies {
-            let _ = writeln!(table, "{name} = {}", dependency.toml());
-        }
-        table
+        let binaries = binaries
+            .iter()
+            .map(|(name, path)| {
+                format!(
+                    "\n[[bin]]\nname = \"{name}\"\npath = {}\n",
+                    Self::toml_path(path)
+                )
+            })
+            .collect::<String>();
+        let platforms = Self::PLATFORMS
+            .iter()
+            .filter_map(|(platform, condition)| self.platform_table(platform, condition))
+            .collect::<String>();
+        let common = Self::dependency_table(Self::DEPENDENCIES, &self.dependencies);
+        format!("{package}{binaries}{common}{platforms}")
     }
 
     pub(super) fn toml_path(path: &Path) -> String {
@@ -113,78 +103,137 @@ impl RustCompanionCrate {
         format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
     }
 
+    fn platform_table(&self, platform: &str, condition: &str) -> Option<String> {
+        self.platform_dependencies
+            .get(platform)
+            .map(|dependencies| {
+                Self::dependency_table(&format!("target.'{condition}'.dependencies"), dependencies)
+            })
+    }
+
+    fn dependency_table(header: &str, dependencies: &BTreeMap<String, RustDependency>) -> String {
+        let lines = dependencies
+            .iter()
+            .map(|(name, dependency)| format!("{name} = {}\n", dependency.toml()))
+            .collect::<String>();
+        (!lines.is_empty())
+            .then(|| format!("\n[{header}]\n{lines}"))
+            .unwrap_or_default()
+    }
+
     fn dependency_problem(
         place: &str,
         dependencies: &BTreeMap<String, RustDependency>,
     ) -> Option<String> {
-        if dependencies.len() > Self::MAX_DEPENDENCIES {
-            return Some(format!(
+        Self::dependency_count_problem(place, dependencies.len()).or_else(|| {
+            dependencies
+                .iter()
+                .find_map(|(name, dependency)| Self::named_problem(place, name, dependency))
+        })
+    }
+
+    fn dependency_count_problem(place: &str, count: usize) -> Option<String> {
+        (count > Self::MAX_DEPENDENCIES).then(|| {
+            format!(
                 "tac.application.rust.{place} lists more than {} crates.",
                 Self::MAX_DEPENDENCIES
-            ));
-        }
-        dependencies.iter().find_map(|(name, dependency)| {
-            if !RustDependency::valid_name(name) || name == Self::PACKAGE {
-                return Some(format!(
-                    "tac.application.rust.{place} names \"{name}\", which is not a crate name."
-                ));
-            }
+            )
+        })
+    }
+
+    fn named_problem(place: &str, name: &str, dependency: &RustDependency) -> Option<String> {
+        Self::crate_name_problem(place, name).or_else(|| {
             dependency
                 .problem()
                 .map(|problem| format!("tac.application.rust.{place}.{name}: the {problem}."))
         })
     }
 
+    fn crate_name_problem(place: &str, name: &str) -> Option<String> {
+        let refused = !RustDependency::valid_name(name) | (name == Self::PACKAGE);
+        refused.then(|| {
+            format!("tac.application.rust.{place} names \"{name}\", which is not a crate name.")
+        })
+    }
+
     fn platform_problem(&self) -> Option<String> {
         self.platform_dependencies
             .iter()
-            .find_map(|(platform, dependencies)| {
-                if !Self::PLATFORMS.iter().any(|(known, _)| known == platform) {
-                    return Some(format!(
-                        "tac.application.rust.platformDependencies names \"{platform}\"; use linux, macos or windows."
-                    ));
-                }
+            .find_map(|(platform, dependencies)| Self::one_platform_problem(platform, dependencies))
+    }
+
+    fn one_platform_problem(
+        platform: &str,
+        dependencies: &BTreeMap<String, RustDependency>,
+    ) -> Option<String> {
+        let known = Self::PLATFORMS.iter().any(|(known, _)| *known == platform);
+        (!known)
+            .then(|| {
+                format!(
+                    "tac.application.rust.platformDependencies names \"{platform}\"; use linux, macos or windows."
+                )
+            })
+            .or_else(|| {
                 Self::dependency_problem(&format!("platformDependencies.{platform}"), dependencies)
             })
     }
 
     fn executable_problem(&self) -> Option<String> {
-        if self.executables.len() > Self::MAX_EXECUTABLES {
-            return Some(format!(
+        self.executable_count_problem().or_else(|| {
+            self.executables
+                .iter()
+                .find_map(|(name, entry)| Self::one_executable_problem(name, entry))
+        })
+    }
+
+    fn executable_count_problem(&self) -> Option<String> {
+        (self.executables.len() > Self::MAX_EXECUTABLES).then(|| {
+            format!(
                 "tac.application.rust.executables lists more than {} executables.",
                 Self::MAX_EXECUTABLES
-            ));
-        }
-        self.executables.iter().find_map(|(name, entry)| {
-            if !Self::valid_executable_name(name) {
-                return Some(format!(
-                    "tac.application.rust.executables names \"{name}\"; an executable name uses lowercase letters, digits and '-' and starts with a letter."
-                ));
-            }
-            (!Self::valid_entry(entry)).then(|| {
+            )
+        })
+    }
+
+    fn one_executable_problem(name: &str, entry: &str) -> Option<String> {
+        (!Self::valid_executable_name(name))
+            .then(|| {
                 format!(
-                    "tac.application.rust.executables.{name} is \"{entry}\"; point it at a client Rust file such as /shared/native/EventEmitterMain.rs, whose class has `pub fn run() -> i32`."
+                    "tac.application.rust.executables names \"{name}\"; an executable name uses lowercase letters, digits and '-' and starts with a letter."
                 )
             })
+            .or_else(|| Self::entry_problem(name, entry))
+    }
+
+    fn entry_problem(name: &str, entry: &str) -> Option<String> {
+        (!Self::valid_entry(entry)).then(|| {
+            format!(
+                "tac.application.rust.executables.{name} is \"{entry}\"; point it at a client Rust file such as /shared/native/EventEmitterMain.rs, whose class has `pub fn run() -> i32`."
+            )
         })
     }
 
     fn valid_executable_name(name: &str) -> bool {
-        name.len() <= Self::MAX_EXECUTABLE_NAME
-            && name != Self::PACKAGE
-            && name.starts_with(|first: char| first.is_ascii_lowercase())
-            && name.chars().all(|character| {
-                character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
-            })
+        let bounded = name.len() <= Self::MAX_EXECUTABLE_NAME;
+        let starts_with_letter = name.starts_with(|first: char| first.is_ascii_lowercase());
+        let plain = name.chars().all(Self::executable_character);
+        bounded & starts_with_letter & plain & (name != Self::PACKAGE)
+    }
+
+    fn executable_character(character: char) -> bool {
+        character.is_ascii_lowercase() | character.is_ascii_digit() | (character == Self::NAME_MARK)
     }
 
     fn valid_entry(entry: &str) -> bool {
-        entry.starts_with('/')
-            && !entry.contains('\\')
-            && entry
-                .split('/')
-                .skip(1)
-                .all(|part| !part.is_empty() && part != "." && part != "..")
-            && Self::entry_class(entry).is_some()
+        let rooted = entry.starts_with(Self::PATH_SEPARATOR) & !entry.contains('\\');
+        let parts = entry
+            .split(Self::PATH_SEPARATOR)
+            .skip(1)
+            .all(Self::plain_part);
+        rooted & parts & Self::entry_class(entry).is_some()
+    }
+
+    fn plain_part(part: &str) -> bool {
+        !part.is_empty() & (part != Self::CURRENT_FOLDER) & (part != Self::PARENT_FOLDER)
     }
 }

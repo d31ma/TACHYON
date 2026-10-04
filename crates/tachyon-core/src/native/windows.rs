@@ -31,14 +31,10 @@ impl WindowsHostGenerator {
 
         let companion =
             stage_companion(companions, stage, &application.application_id, architecture)?;
-        let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
-        super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
-            rust_companion.as_deref(),
-            &application.menus,
-        )?;
-        super::rust::stage_crate(
+        let rust_companion = super::rust::RustCompanion::stage_for_host(
+            companions,
+            stage,
             application,
-            rust_companion.as_deref(),
             super::rust::Linkage::Shared,
         )?;
         let source_path = stage.join("project").join("tachyon_host.c");
@@ -173,6 +169,42 @@ impl WindowsHostGenerator {
     public static void Main() { }\n}\n";
 }
 
+impl WindowsHostGenerator {
+    pub(super) fn companion_project(architecture: WindowsArchitecture) -> String {
+        Self::CSHARP_COMPANION_PROJECT
+            .replace("__RUNTIME_IDENTIFIER__", architecture.dotnet_runtime())
+    }
+
+    pub(super) fn published_companion(
+        project: &Path,
+        architecture: WindowsArchitecture,
+    ) -> PathBuf {
+        project
+            .join("bin/Release/net9.0")
+            .join(architecture.dotnet_runtime())
+            .join("publish/TachyonCompanion.dll")
+    }
+
+    fn require_compiler_for(architecture: WindowsArchitecture) -> Result<(), Failure> {
+        let variable = Self::DEVELOPER_TARGET;
+        let chosen = std::env::var(variable).unwrap_or_else(|_| String::from(architecture.name()));
+        chosen
+            .eq_ignore_ascii_case(architecture.name())
+            .then_some(())
+            .ok_or_else(|| {
+                native_tool_failure(
+                    1605,
+                    &format!(
+                        "This developer prompt builds for {chosen} ({variable}), but the Windows host is \
+                         being built for {}. Open a developer prompt with {}, or pass --arch {chosen}.",
+                        architecture.name(),
+                        architecture.developer_prompt()
+                    ),
+                )
+            })
+    }
+}
+
 #[cfg(test)]
 pub(super) const fn companion_prelude() -> &'static str {
     WindowsHostGenerator::CSHARP_COMPANION_PRELUDE
@@ -199,7 +231,7 @@ async fn compile_rust_companion(
         return Ok(());
     };
     let bin = bundle.join("bin");
-    super::rust::compile_companion(
+    super::rust::RustCompanion::compile_companion(
         application,
         source,
         super::rust::Linkage::Shared,
@@ -238,7 +270,7 @@ fn stage_companion(
     )?;
     write(
         &project.join("TachyonCompanion.csproj"),
-        companion_project(architecture).as_bytes(),
+        WindowsHostGenerator::companion_project(architecture).as_bytes(),
     )?;
     Ok(Some(project))
 }
@@ -410,18 +442,6 @@ fn read_web_framework(cached: &Path) -> Result<Vec<(String, Vec<u8>)>, Failure> 
     Ok(files)
 }
 
-pub(super) fn companion_project(architecture: WindowsArchitecture) -> String {
-    WindowsHostGenerator::CSHARP_COMPANION_PROJECT
-        .replace("__RUNTIME_IDENTIFIER__", architecture.dotnet_runtime())
-}
-
-pub(super) fn published_companion(project: &Path, architecture: WindowsArchitecture) -> PathBuf {
-    project
-        .join("bin/Release/net9.0")
-        .join(architecture.dotnet_runtime())
-        .join("publish/TachyonCompanion.dll")
-}
-
 async fn publish_companion(
     project: &Path,
     bin: &Path,
@@ -443,7 +463,7 @@ async fn publish_companion(
         Some(Path::new(directory)),
     )
     .await?;
-    let built = published_companion(project, architecture);
+    let built = WindowsHostGenerator::published_companion(project, architecture);
     let published = bin.join("TachyonCompanion.dll");
     super::host::native_io(std::fs::copy(&built, &published), &published)?;
     Ok(())
@@ -522,7 +542,7 @@ async fn compile_c(
     let sdk = webview2_sdk()?;
     let compiler = windows_compiler();
     let version = first_line(&run_tool(compiler, &["/?"]).await?, "MSVC unknown");
-    require_compiler_for(architecture)?;
+    WindowsHostGenerator::require_compiler_for(architecture)?;
     let plan = WindowsCompilerPlan {
         sdk: &sdk,
         source: &compiler_path(source, "Host source")?,
@@ -534,25 +554,6 @@ async fn compile_c(
     let borrowed = arguments.iter().map(String::as_str).collect::<Vec<_>>();
     run_tool(compiler, &borrowed).await?;
     Ok(version)
-}
-
-fn require_compiler_for(architecture: WindowsArchitecture) -> Result<(), Failure> {
-    let variable = WindowsHostGenerator::DEVELOPER_TARGET;
-    let Ok(chosen) = std::env::var(variable) else {
-        return Ok(());
-    };
-    if chosen.eq_ignore_ascii_case(architecture.name()) {
-        return Ok(());
-    }
-    Err(native_tool_failure(
-        1605,
-        &format!(
-            "This developer prompt builds for {chosen} ({variable}), but the Windows host is \
-             being built for {}. Open a developer prompt with {}, or pass --arch {chosen}.",
-            architecture.name(),
-            architecture.developer_prompt()
-        ),
-    ))
 }
 
 pub(super) fn object_directory(executable: &str) -> String {

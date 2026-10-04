@@ -34,6 +34,45 @@ addEventListener('DOMContentLoaded', () => {
 ";
 }
 
+impl NativeHost {
+    pub(super) async fn run_long_tool(
+        program: &str,
+        arguments: &[&str],
+    ) -> Result<String, Failure> {
+        let mut command = Command::new(program);
+        command
+            .args(arguments)
+            .stdin(Stdio::null())
+            .kill_on_drop(true);
+        Self::supervised_output(program, &mut command, Self::LONG_TOOL_TIME_LIMIT).await
+    }
+
+    async fn supervised_output(
+        program: &str,
+        command: &mut Command,
+        time_limit: Duration,
+    ) -> Result<String, Failure> {
+        let output = supervise_tool(command, time_limit, Self::MAX_TOOL_OUTPUT_BYTES)
+            .await
+            .map_err(|error| {
+                native_tool_failure(
+                    1605,
+                    &format!("Cannot run native tool '{program}': {error}"),
+                )
+            })?;
+        let stdout = bounded_text(&output.stdout);
+        output.status.success().then_some(()).ok_or_else(|| {
+            failed_tool(
+                program,
+                output.status,
+                &stdout,
+                &bounded_text(&output.stderr),
+            )
+        })?;
+        Ok(stdout)
+    }
+}
+
 pub(super) fn native_shim(window: &super::config::WindowConfiguration) -> String {
     let mut quoted = Vec::new();
     for control in &window.controls {
@@ -110,15 +149,6 @@ pub(super) async fn run_tool_in(
     run_tool_with(program, arguments, working_directory, &[]).await
 }
 
-pub(super) async fn run_long_tool(program: &str, arguments: &[&str]) -> Result<String, Failure> {
-    let mut command = Command::new(program);
-    command
-        .args(arguments)
-        .stdin(Stdio::null())
-        .kill_on_drop(true);
-    supervised_output(program, &mut command, NativeHost::LONG_TOOL_TIME_LIMIT).await
-}
-
 pub(super) async fn run_tool_with(
     program: &str,
     arguments: &[&str],
@@ -134,28 +164,7 @@ pub(super) async fn run_tool_with(
     if let Some(working_directory) = working_directory {
         command.current_dir(working_directory);
     }
-    supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await
-}
-
-async fn supervised_output(
-    program: &str,
-    command: &mut Command,
-    time_limit: Duration,
-) -> Result<String, Failure> {
-    let output = supervise_tool(command, time_limit, NativeHost::MAX_TOOL_OUTPUT_BYTES)
-        .await
-        .map_err(|error| {
-            native_tool_failure(
-                1605,
-                &format!("Cannot run native tool '{program}': {error}"),
-            )
-        })?;
-    let stdout = bounded_text(&output.stdout);
-    if !output.status.success() {
-        let stderr = bounded_text(&output.stderr);
-        return Err(failed_tool(program, output.status, &stdout, &stderr));
-    }
-    Ok(stdout)
+    NativeHost::supervised_output(program, &mut command, NativeHost::TOOL_TIME_LIMIT).await
 }
 
 fn failed_tool(

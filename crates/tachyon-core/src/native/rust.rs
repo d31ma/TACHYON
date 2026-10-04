@@ -89,13 +89,6 @@ impl Linkage {
         }
     }
 
-    pub(super) const fn cargo_crate_types(self) -> &'static [&'static str] {
-        match self {
-            Self::Static => &["staticlib", "rlib"],
-            Self::Shared | Self::Web(_) => &["cdylib", "rlib"],
-        }
-    }
-
     const fn profile_arguments(self) -> &'static [&'static str] {
         match self {
             Self::Static | Self::Shared => &[],
@@ -128,45 +121,95 @@ pub(super) fn stage(
     Ok(Some(staged))
 }
 
-pub(super) fn stage_crate(
-    application: &super::config::NativeApplication,
-    source: Option<&Path>,
-    linkage: Linkage,
-) -> Result<(), Failure> {
-    if !application.rust.declaration.uses_cargo() {
-        return Ok(());
+impl RustCompanion {
+    pub(super) fn stage_for_host(
+        companions: &[super::registry::NativeCompanionInput],
+        stage_folder: &Path,
+        application: &super::config::NativeApplication,
+        linkage: Linkage,
+    ) -> Result<Option<PathBuf>, Failure> {
+        let source = stage(companions, stage_folder, &application.application_id)?;
+        super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
+            source.as_deref(),
+            &application.menus,
+        )?;
+        application
+            .rust
+            .declaration
+            .uses_cargo()
+            .then(|| Self::stage_crate(application, source.as_deref(), linkage))
+            .unwrap_or(Ok(()))?;
+        Ok(source)
     }
-    let Some(source) = source else {
-        return Err(native_tool_failure(
-            RustCompanion::FAILURE_CODE,
-            "tac.application.rust declares crates or executables, but the application has no \
-             Rust service to build them with. Add a Rust service in client/services.",
-        ));
-    };
-    application
-        .rust
-        .crate_build(source, &application.application_id)
-        .stage(linkage)
-        .map(|_| ())
-}
 
-pub(super) async fn compile_companion(
-    application: &super::config::NativeApplication,
-    source: &Path,
-    linkage: Linkage,
-    target_triple: Option<&str>,
-    library: &Path,
-    helpers: &Path,
-) -> Result<Vec<PathBuf>, Failure> {
-    if !application.rust.declaration.uses_cargo() {
-        compile(source, linkage, target_triple, library).await?;
-        return Ok(Vec::new());
+    pub(super) async fn compile_companion(
+        application: &super::config::NativeApplication,
+        source: &Path,
+        linkage: Linkage,
+        target_triple: Option<&str>,
+        library: &Path,
+        helpers: &Path,
+    ) -> Result<Vec<PathBuf>, Failure> {
+        let build = application
+            .rust
+            .crate_build(source, &application.application_id);
+        Self::compile_chosen(&build, linkage, target_triple, library, helpers).await
     }
-    application
-        .rust
-        .crate_build(source, &application.application_id)
-        .build(linkage, target_triple, library, helpers)
-        .await
+
+    async fn compile_chosen(
+        build: &super::rust_crate_build::RustCrateBuild<'_>,
+        linkage: Linkage,
+        target_triple: Option<&str>,
+        library: &Path,
+        helpers: &Path,
+    ) -> Result<Vec<PathBuf>, Failure> {
+        if build.declaration.uses_cargo() {
+            return build.build(linkage, target_triple, library, helpers).await;
+        }
+        compile(build.source, linkage, target_triple, library).await?;
+        Ok(Vec::new())
+    }
+
+    fn stage_crate(
+        application: &super::config::NativeApplication,
+        source: Option<&Path>,
+        linkage: Linkage,
+    ) -> Result<(), Failure> {
+        let source = source.ok_or_else(|| {
+            native_tool_failure(
+                Self::FAILURE_CODE,
+                "tac.application.rust declares crates or executables, but the application has no \
+                 Rust service to build them with. Add a Rust service in client/services.",
+            )
+        })?;
+        Self::require_distinct_executables(application)?;
+        application
+            .rust
+            .crate_build(source, &application.application_id)
+            .stage(linkage)
+            .map(|_| ())
+    }
+
+    fn require_distinct_executables(
+        application: &super::config::NativeApplication,
+    ) -> Result<(), Failure> {
+        let main = &application.executable_name;
+        application
+            .rust
+            .declaration
+            .executables
+            .keys()
+            .find(|name| name.eq_ignore_ascii_case(main))
+            .map_or(Ok(()), |name| {
+                Err(native_tool_failure(
+                    Self::FAILURE_CODE,
+                    &format!(
+                        "The executable {name} has the name of the app's own executable ({main}). \
+                         Choose another name in tac.application.rust.executables."
+                    ),
+                ))
+            })
+    }
 }
 
 fn unicode_path<'path>(path: &'path Path, message: &str) -> Result<&'path str, Failure> {

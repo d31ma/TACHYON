@@ -51,14 +51,10 @@ impl MacOsHostGenerator {
         stage_application(index, web_bundle, stage, &resources)?;
 
         let companion = stage_swift_companion(companions, stage)?;
-        let rust_companion = super::rust::stage(companions, stage, &application.application_id)?;
-        super::mac_os_menu_action_source::MacOsMenuActionSource::stage(
-            rust_companion.as_deref(),
-            &application.menus,
-        )?;
-        super::rust::stage_crate(
+        let rust_companion = super::rust::RustCompanion::stage_for_host(
+            companions,
+            stage,
             application,
-            rust_companion.as_deref(),
             super::rust::Linkage::Static,
         )?;
         let swift_path = stage.join("project").join("TachyonHost.swift");
@@ -93,6 +89,15 @@ impl MacOsHostGenerator {
     }
 }
 
+impl MacOsHostGenerator {
+    async fn sign_helpers(helpers: &[PathBuf]) -> Result<(), Failure> {
+        for helper in helpers {
+            sign_bundle(helper).await?;
+        }
+        Ok(())
+    }
+}
+
 fn executable_path(application: &NativeApplication, contents: &Path) -> Result<PathBuf, Failure> {
     let executable_directory = contents.join("MacOS");
     native_io(
@@ -114,7 +119,7 @@ async fn compile_rust_library(
     let helpers = stage
         .join(format!("{}.app", application.executable_name))
         .join("Contents/MacOS");
-    let placed = super::rust::compile_companion(
+    let placed = super::rust::RustCompanion::compile_companion(
         application,
         source,
         super::rust::Linkage::Static,
@@ -123,9 +128,7 @@ async fn compile_rust_library(
         &helpers,
     )
     .await?;
-    for helper in placed {
-        sign_bundle(&helper).await?;
-    }
+    MacOsHostGenerator::sign_helpers(&placed).await?;
     Ok(Some(path))
 }
 

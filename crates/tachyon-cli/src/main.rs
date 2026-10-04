@@ -672,7 +672,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
     if *native {
         require_one_native_target(&targets, "bundle --native")?;
     }
-    let windows_architecture = windows_architecture(*arch, &targets)?;
+    let windows_architecture = ArchitectureChoice::for_targets(*arch, &targets)?;
     let output = bundle_output(out_dir.as_deref(), &targets);
     let options = BundleExecution {
         no_incremental: *no_incremental,
@@ -703,7 +703,7 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
     reject_render_mode(render_mode.as_deref())?;
     let targets = resolve_targets(target, &["TAC_BUNDLE_TARGET", "TAC_TARGET"], None)?;
     let target = require_one_native_target(&targets, "native-bundle")?;
-    let windows_architecture = windows_architecture(*arch, &targets)?;
+    let windows_architecture = ArchitectureChoice::for_targets(*arch, &targets)?;
     let output = out_dir
         .clone()
         .or_else(|| environment_path("TAC_DIST_PATH"))
@@ -713,25 +713,6 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
         windows_architecture,
     };
     execute_build_with_package(project, &output, *no_incremental, target, plan).await
-}
-
-fn windows_architecture(
-    choice: Option<ArchitectureChoice>,
-    targets: &[BuildTarget],
-) -> Result<WindowsArchitecture, Failure> {
-    let builds_windows = targets
-        .iter()
-        .any(|target| matches!(target, BuildTarget::Windows | BuildTarget::All));
-    if choice.is_some() && !builds_windows {
-        return Err(cli_failure(
-            1001,
-            String::from(
-                "--arch chooses the Windows host architecture, but no Windows target is being built.",
-            ),
-            "Add --target windows, or remove --arch.",
-        ));
-    }
-    Ok(ArchitectureChoice::windows(choice))
 }
 
 async fn execute_dev_command(command: &Command) -> Result<(), Failure> {

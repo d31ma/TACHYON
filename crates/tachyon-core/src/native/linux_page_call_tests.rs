@@ -45,10 +45,11 @@ impl TransferService {
         "x".repeat(70_000)
     }
 
-    fn on_main_thread(&self) -> bool {
-        std::fs::read_link("/proc/thread-self")
-            .map(|link| link.ends_with(format!("task/{}", std::process::id())))
-            .unwrap_or(false)
+    fn thread_place(&self) -> String {
+        let link = std::fs::read_link("/proc/thread-self")
+            .map(|link| link.display().to_string())
+            .unwrap_or_else(|error| error.to_string());
+        format!("{} {link}", std::process::id())
     }
 }
 "#;
@@ -80,7 +81,9 @@ results.push(String(huge.error || '').includes('pages of at most 24 KiB') ? 'lar
 let oversized = 'accepted';
 try { await post('x'.repeat(70000)); } catch (error) { oversized = String(error.message || error).includes('exceeds its bounds') ? 'request-refused' : 'other:' + error; }
 results.push(oversized);
-results.push((await call('call', 'on_main_thread', [])).value === true ? 'main-thread' : 'other-thread');
+const place = (await call('call', 'thread_place', [])).value;
+const [pid, link] = String(place).split(' ');
+results.push(link === pid + '/task/' + pid ? 'main-thread' : 'thread:' + place);
 return results.join(',');"#;
     const EXPECTED: &'static str = "ok,ok,ok,large-refused,request-refused,main-thread";
 

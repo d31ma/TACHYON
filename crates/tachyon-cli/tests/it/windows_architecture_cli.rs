@@ -8,12 +8,17 @@ struct WindowsArchitectureCli;
 
 impl WindowsArchitectureCli {
     const MANIFEST: &'static str = r#"{"name":"ArchCheck","start_url":"/","tac":{"application":{"id":"dev.tachyon.arch-check","version":"0.0.1"},"visibility":{"check":false}}}"#;
-    const PAGE: &'static str = "<main aria-label=\"Home\"><h1>Home</h1></main>\n";
+    const PAGE: &'static str = "<arch-panel />\n";
+    const COMPONENT: &'static str = "<main aria-label=\"Home\"><h1>Home</h1></main>\n";
 
     fn project() -> tempfile::TempDir {
         let project = tempfile::tempdir().expect("project");
         Self::write(&project.path().join("client/manifest.json"), Self::MANIFEST);
         Self::write(&project.path().join("client/pages/tac.html"), Self::PAGE);
+        Self::write(
+            &project.path().join("client/components/arch/panel/tac.html"),
+            Self::COMPONENT,
+        );
         project
     }
 

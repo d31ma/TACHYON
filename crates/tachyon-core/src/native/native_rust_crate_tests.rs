@@ -151,6 +151,10 @@ async fn a_rust_declaration_without_a_rust_service_is_refused() {
         &root.path().join("client/components/greeter/panel/tac.html"),
         "<main><h1>Greeter</h1></main>\n",
     );
+    NativeRustCrateTests::write(
+        &root.path().join("client/pages/tac.html"),
+        "<greeter-panel />\n",
+    );
     let options = super::compiler::NativeBuildOptions {
         output_directory: root.path().join("dist"),
         target: NativeTarget::Linux,
@@ -162,6 +166,28 @@ async fn a_rust_declaration_without_a_rust_service_is_refused() {
         .expect_err("no Rust service")
         .to_string();
     assert!(error.contains("no Rust service"), "{error}");
+}
+
+#[tokio::test]
+async fn a_helper_named_like_the_app_executable_is_refused() {
+    let root = NativeRustCrateTests::project(NativeTarget::Windows);
+    let manifest = root.path().join("client/manifest.json");
+    let text = std::fs::read_to_string(&manifest).expect("manifest");
+    std::fs::write(&manifest, text.replace("probe-helper", "greeter")).expect("rename");
+    let options = super::compiler::NativeBuildOptions {
+        output_directory: root.path().join("dist"),
+        target: NativeTarget::Windows,
+        package: false,
+        ..Default::default()
+    };
+    let error = super::compiler::NativeCompiler::build_async(root.path(), &options)
+        .await
+        .expect_err("name clash")
+        .to_string();
+    assert!(
+        error.contains("the name of the app's own executable"),
+        "{error}"
+    );
 }
 
 #[cfg(target_os = "linux")]
