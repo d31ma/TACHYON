@@ -105,3 +105,16 @@ baseline file is not checked.
 - A project that is not ready turns a rule off with its switch; `ty migrate
   check` still lists the accessibility findings.
 - The API check starts with the first `ty api freeze`.
+
+## Amendment (2026-10-04): Tachyon's own scripts ship compact
+
+- The build writes `tac-client.js` and `behavior-runtime.js` without
+  comments, indentation or blank lines. Names, strings, template text,
+  regular expressions and line breaks stay as written, so a browser error
+  still points at readable code. The Tac client runtime is about 1.2 KB
+  smaller with Brotli on every Tac route.
+- With this and the hexadecimal Rust module (ADR 0035), the event-mesh
+  browser fixture fits the default script budget again, and its check is on.
+  Fixtures that load the web runtimes of many languages on one route, such as
+  window-controls and cached-client, keep `tac.budgets.check: false`; the
+  budget is not raised.
