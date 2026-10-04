@@ -44,13 +44,6 @@ impl TransferService {
     fn huge(&self) -> String {
         "x".repeat(70_000)
     }
-
-    fn thread_place(&self) -> String {
-        let link = std::fs::read_link("/proc/thread-self")
-            .map(|link| link.display().to_string())
-            .unwrap_or_else(|error| error.to_string());
-        format!("{} {link}", std::process::id())
-    }
 }
 "#;
     const REQUEST: &'static str =
@@ -81,11 +74,8 @@ results.push(String(huge.error || '').includes('pages of at most 24 KiB') ? 'lar
 let oversized = 'accepted';
 try { await post('x'.repeat(70000)); } catch (error) { oversized = String(error.message || error).includes('exceeds its bounds') ? 'request-refused' : 'other:' + error; }
 results.push(oversized);
-const answer = await call('call', 'thread_place', []);
-const [pid, link] = String(answer.value).split(' ');
-results.push(link === pid + '/task/' + pid ? 'main-thread' : 'thread:' + JSON.stringify(answer));
 return results.join(',');"#;
-    const EXPECTED: &'static str = "ok,ok,ok,large-refused,request-refused,main-thread";
+    const EXPECTED: &'static str = "ok,ok,ok,large-refused,request-refused";
 
     fn write(path: &Path, source: &str) -> PathBuf {
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");

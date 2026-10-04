@@ -3,6 +3,16 @@
 static gboolean g_page_waiting = FALSE;
 static gboolean g_page_started = FALSE;
 static gchar *g_page_reply = NULL;
+static TachyonCompanionInvoke g_page_original_invoke = NULL;
+static GThread *g_page_main_thread = NULL;
+static int g_page_calls = 0;
+static int g_page_calls_off_main = 0;
+
+static const gchar *tachyon_page_invoke_probe(const gchar *request) {
+  g_page_calls += 1;
+  if (g_thread_self() != g_page_main_thread) g_page_calls_off_main += 1;
+  return g_page_original_invoke(request);
+}
 
 static void tachyon_page_fail(const char *message) {
   fprintf(stderr, "linux page call fixture failed: %s (reply %s)\n", message, g_page_reply != NULL ? g_page_reply : "none");
@@ -27,11 +37,15 @@ static gboolean tachyon_page_tick(gpointer data) {
     if (g_strcmp0(uri, "tachyon://app/") != 0 || webkit_web_view_is_loading(g_view)) return G_SOURCE_CONTINUE;
     g_page_started = TRUE;
     g_page_waiting = TRUE;
+    g_page_original_invoke = g_companion_invoke;
+    if (g_page_original_invoke == NULL) tachyon_page_fail("the companion did not load");
+    g_companion_invoke = tachyon_page_invoke_probe;
     webkit_web_view_call_async_javascript_function(g_view, "__PAGE_SCRIPT__", -1, NULL, NULL, NULL, NULL, tachyon_page_replied, NULL);
     return G_SOURCE_CONTINUE;
   }
-  printf("linux page calls: %s\n", g_page_reply);
+  printf("linux page calls: %s; %d companion calls, %d off the GTK main thread\n", g_page_reply, g_page_calls, g_page_calls_off_main);
   if (g_strcmp0(g_page_reply, "__PAGE_EXPECTED__") != 0) tachyon_page_fail("unexpected page call summary");
+  if (g_page_calls == 0 || g_page_calls_off_main != 0) tachyon_page_fail("a page call ran off the GTK main thread");
   g_application_quit(g_application_get_default());
   return G_SOURCE_REMOVE;
 }
@@ -43,6 +57,7 @@ static gboolean tachyon_page_deadline(gpointer data) {
 }
 
 int main(int argc, char **argv) {
+  g_page_main_thread = g_thread_self();
   g_timeout_add(20, tachyon_page_tick, NULL);
   g_timeout_add_seconds(110, tachyon_page_deadline, NULL);
   int status = tachyon_host_main(argc, argv);

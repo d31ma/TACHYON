@@ -133,12 +133,12 @@ impl RustCompanion {
             source.as_deref(),
             &application.menus,
         )?;
-        application
+        let staged: Option<Result<(), Failure>> = application
             .rust
             .declaration
             .uses_cargo()
-            .then(|| Self::stage_crate(application, source.as_deref(), linkage))
-            .unwrap_or(Ok(()))?;
+            .then(|| Self::stage_crate(application, source.as_deref(), linkage));
+        staged.unwrap_or(Ok(()))?;
         Ok(source)
     }
 

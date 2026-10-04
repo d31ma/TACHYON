@@ -1,6 +1,7 @@
 use super::rust_dependency::RustDependency;
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
@@ -83,13 +84,14 @@ impl RustCompanionCrate {
         );
         let binaries = binaries
             .iter()
-            .map(|(name, path)| {
-                format!(
+            .fold(String::new(), |mut text, (name, path)| {
+                let _ = write!(
+                    text,
                     "\n[[bin]]\nname = \"{name}\"\npath = {}\n",
                     Self::toml_path(path)
-                )
-            })
-            .collect::<String>();
+                );
+                text
+            });
         let platforms = Self::PLATFORMS
             .iter()
             .filter_map(|(platform, condition)| self.platform_table(platform, condition))
@@ -114,8 +116,10 @@ impl RustCompanionCrate {
     fn dependency_table(header: &str, dependencies: &BTreeMap<String, RustDependency>) -> String {
         let lines = dependencies
             .iter()
-            .map(|(name, dependency)| format!("{name} = {}\n", dependency.toml()))
-            .collect::<String>();
+            .fold(String::new(), |mut text, (name, dependency)| {
+                let _ = writeln!(text, "{name} = {}", dependency.toml());
+                text
+            });
         let table: Option<String> = (!lines.is_empty()).then(|| format!("\n[{header}]\n{lines}"));
         table.unwrap_or_default()
     }
