@@ -471,11 +471,10 @@ enum HandlerCommand {
         )]
         allow_environment: Vec<String>,
         #[arg(
-            help = "Decorator-capable JavaScript executable name or path",
-            long,
-            default_value = "node"
+            help = "Decorator-capable JavaScript executable name or path (node, or bun when only Bun is installed)",
+            long
         )]
-        javascript_runtime: PathBuf,
+        javascript_runtime: Option<PathBuf>,
         #[arg(help = "`CPython` executable name or path", long)]
         python_runtime: Option<PathBuf>,
         #[arg(help = "Ruby executable name or path", long)]
@@ -1947,10 +1946,10 @@ impl HandlerCommand {
             ..
         } = self;
         let environment = EnvironmentPolicy::from_names(allow_environment.clone())?;
-        let mut runtimes = HandlerRuntimePrograms {
-            javascript: javascript_runtime.clone(),
-            ..HandlerRuntimePrograms::default()
-        };
+        let mut runtimes = HandlerRuntimePrograms::default();
+        if let Some(javascript_runtime) = javascript_runtime {
+            runtimes.javascript.clone_from(javascript_runtime);
+        }
         if let Some(python_runtime) = python_runtime {
             runtimes.python.clone_from(python_runtime);
         }

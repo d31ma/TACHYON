@@ -193,3 +193,47 @@ fn compiled_handlers_without_their_compiler_fail_with_the_missing_toolchain_erro
         assert!(printed.contains(help), "{route}: {printed}");
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn javascript_handlers_run_with_bun_when_only_bun_is_on_the_path() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let paths = std::env::var_os("PATH").unwrap_or_default();
+    let Some(node) = std::env::split_paths(&paths)
+        .map(|folder| folder.join("node"))
+        .find(|candidate| candidate.is_file())
+    else {
+        return;
+    };
+    let only_bun = tempfile::tempdir().expect("PATH with only bun");
+    let bun = only_bun.path().join("bun");
+    std::fs::write(
+        &bun,
+        format!("#!/bin/sh\nexec '{}' \"$@\"\n", node.display()),
+    )
+    .expect("bun");
+    std::fs::set_permissions(&bun, std::fs::Permissions::from_mode(0o755)).expect("mode");
+    let project = tempfile::tempdir().expect("project");
+    let worker = project.path().join("server/workers/probe.js");
+    std::fs::create_dir_all(worker.parent().expect("parent")).expect("directory");
+    std::fs::write(
+        &worker,
+        "export class Handler {\n  static GET() {\n    return { ran: true }\n  }\n}\n",
+    )
+    .expect("worker");
+    let output = Command::new(env!("CARGO_BIN_EXE_ty"))
+        .args(["handler", "invoke", "server/workers/probe.js", "--project"])
+        .arg(project.path())
+        .args(["--route", "/probe", "--method", "GET"])
+        .env("PATH", only_bun.path())
+        .env_remove("YON_JAVASCRIPT_RUNTIME")
+        .output()
+        .expect("ty");
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.status.success(), "{printed}");
+    assert!(printed.contains("ran"), "{printed}");
+}
