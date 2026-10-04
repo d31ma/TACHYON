@@ -4150,7 +4150,7 @@
     },
     "calling-the-server": {
       "title": "Calling the server from a page",
-      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. A request to another host needs that host in `tac.outgoing.hosts`.",
+      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust and Go, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies; in the other languages the Setup gives the client an adapter. A request to another host needs that host in `tac.outgoing.hosts`.",
       "before": [
         "services",
         "controllers"
@@ -4454,6 +4454,76 @@
             {
               "name": "server/models/Greeting.ts",
               "code": "export interface Greeting {\n  message: string;\n}\n"
+            }
+          ]
+        },
+        {
+          "heading": "C# awaits a typed answer",
+          "target": "web",
+          "summary": "In C#, the client is an interface marked with `HTTPClient`. Its method `read` returns `Task<Models.Greeting>`, and Tachyon writes it. The service gets the client through a private readonly `Needs` field. `GreetingSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; a Setup that gives the client an adapter of the same name answers instead. `ask` passes the pending task to the private method `_accept`, which awaits it and saves the message. `Greeting` is a record with one text field. Today the answer can be a record of text, number and true or false fields; a list or a nested record is not read yet. Removing the component cancels a pending request.",
+          "files": [
+            {
+              "name": "client/manifest.json",
+              "code": "{\"tac\":{}}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.js",
+              "code": "@RequestRoute(\"/api/greeting\")\n@Public\nexport default class GreetingController {\n  static _message = 'Hello from Yon'\n\n  /** @returns {{message: string}} */\n  @GetRoute\n  getGreeting() {\n    return { message: GreetingController._message }\n  }\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<greeting />\n"
+            },
+            {
+              "name": "client/components/greeting/tac.html",
+              "code": "<main>\n  <button id=\"greeting-ask\" on:click=\"greeting.ask()\">Ask Yon</button>\n  <p id=\"greeting-answer\">{greeting.message}</p>\n</main>\n"
+            },
+            {
+              "name": "client/remotes/GreetingClient.cs",
+              "code": "[HTTPClient({\"path\":\"/api/greeting\",\"adapter\":\"greeting\",\"setup\":\"GreetingSetup\"})]\npublic interface GreetingClient\n{\n    [GetRequest]\n    System.Threading.Tasks.Task<Models.Greeting> read();\n}\n"
+            },
+            {
+              "name": "client/models/Greeting.cs",
+              "code": "public record Greeting(string Message);\n"
+            },
+            {
+              "name": "client/setups/GreetingSetup.cs",
+              "code": "[Setup]\npublic sealed class GreetingSetup\n{\n    public static BehaviorAdapters configure(BehaviorExecution execution)\n    {\n        execution.Check();\n        return new BehaviorAdapters();\n    }\n}\n"
+            },
+            {
+              "name": "client/services/GreetingService.cs",
+              "code": "[Service]\npublic sealed class GreetingService\n{\n    [Needs]\n    private readonly GreetingClient _greetingClient;\n\n    public string Message = \"\";\n\n    public System.Threading.Tasks.Task<Models.Greeting> ask()\n    {\n        return _accept(_greetingClient.read());\n    }\n\n    private async System.Threading.Tasks.Task<Models.Greeting> _accept(System.Threading.Tasks.Task<Models.Greeting> pending)\n    {\n        var greeting = await pending;\n        Message = greeting.Message;\n        return greeting;\n    }\n}\n"
+            }
+          ]
+        },
+        {
+          "heading": "F# awaits JSON with its own context",
+          "target": "web",
+          "summary": "F# does not inject an HTTPClient yet. The service makes its own BehaviorContext from `BrowserHttpSetup` and asks the REST client of that context for `/api/greeting`. `BrowserHttpSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; an adapter of the same name in the Setup answers instead. `Read` is a `task { }` that waits for the answer, a `BehaviorJSON` value, and then saves its message in `Last`. The service owns its context and its signal, so `Close`, marked `OnStop`, disposes both; this also cancels a request that is still waiting.",
+          "files": [
+            {
+              "name": "client/manifest.json",
+              "code": "{\"tac\":{}}\n"
+            },
+            {
+              "name": "server/controllers/GreetingController.js",
+              "code": "@RequestRoute(\"/api/greeting\")\n@Public\nexport default class GreetingController {\n  static _message = 'Hello from Yon'\n\n  /** @returns {{message: string}} */\n  @GetRoute\n  getGreeting() {\n    return { message: GreetingController._message }\n  }\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<http-probe />\n"
+            },
+            {
+              "name": "client/components/http/probe/tac.html",
+              "code": "<main>\n  <button id=\"http-read\" on:click=\"httpProbe.read()\">Ask Yon</button>\n  <p id=\"http-answer\">{httpProbe.last}</p>\n</main>\n"
+            },
+            {
+              "name": "client/setups/BrowserHttpSetup.fs",
+              "code": "[<Setup>]\ntype BrowserHttpSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/services/HttpProbeService.fs",
+              "code": "open System.Threading.Tasks\n\n[<Service>]\n[<Lifetime({\"value\":\"prototype\"})>]\ntype HttpProbeService() =\n    static let clientName: string = \"greeting\"\n    static let requestPath: string = \"/api/greeting\"\n    static let messageField: string = \"message\"\n\n    let signal: BehaviorSignal = new BehaviorSignal()\n    let context: BehaviorContext = Behaviors.create(typeof<BrowserHttpSetup>, \"fsharp-greeting\", signal)\n\n    member val Last: string = \"\" with get, set\n\n    member this.Read() : Task<BehaviorJSON> =\n        task {\n            let! answer = context.restClient(clientName).get(requestPath).retrieve()\n            this.Last <- answer.Get(messageField).Text\n            return answer\n        }\n\n    [<OnStop>]\n    member this.Close() : unit =\n        context.Dispose()\n        signal.Dispose()\n"
             }
           ]
         }

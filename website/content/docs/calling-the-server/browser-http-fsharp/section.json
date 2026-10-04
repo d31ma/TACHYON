@@ -1,0 +1,43 @@
+{
+  "heading": "F# awaits JSON with its own context",
+  "target": "web",
+  "summary": "F# does not inject an HTTPClient yet. The service makes its own BehaviorContext from `BrowserHttpSetup` and asks the REST client of that context for `/api/greeting`. `BrowserHttpSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; an adapter of the same name in the Setup answers instead. `Read` is a `task { }` that waits for the answer, a `BehaviorJSON` value, and then saves its message in `Last`. The service owns its context and its signal, so `Close`, marked `OnStop`, disposes both; this also cancels a request that is still waiting.",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/http/probe/tac.html",
+      "code": {
+        "file": "client/components/http/probe/tac.html"
+      }
+    },
+    {
+      "name": "client/setups/BrowserHttpSetup.fs",
+      "code": {
+        "file": "client/setups/BrowserHttpSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/HttpProbeService.fs",
+      "code": {
+        "file": "client/services/HttpProbeService.fs"
+      }
+    }
+  ]
+}
