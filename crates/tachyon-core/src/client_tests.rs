@@ -30,6 +30,7 @@ mod csharp_test_models;
 mod dart_test_models;
 mod fsharp_unit;
 mod hooked_utilities;
+mod kotlin_unit_files;
 mod python_unit;
 mod test_unit_error;
 
@@ -53,6 +54,8 @@ mod rust_construct_tests;
 #[cfg(test)]
 mod java_publisher_tests;
 
+#[cfg(test)]
+mod kotlin_construct_tests;
 #[cfg(test)]
 mod kotlin_document_title_tests;
 
@@ -773,10 +776,13 @@ fn kotlin(
     )
     .map_err(|error| stage_failure(portable, &error))?;
     let model_files = write_model_files(directory, portable, models)?;
+    let support_files = kotlin_unit_files::KotlinUnitFiles::write(directory)
+        .map_err(|error| stage_failure(portable, &error))?;
     execute(
         Command::new("kotlinc")
             .arg(&path)
             .args(&model_files)
+            .args(&support_files)
             .arg("-include-runtime")
             .arg("-d")
             .arg(&jar),

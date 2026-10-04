@@ -1,10 +1,13 @@
 use super::super::testing::Unit;
+use super::test_clients::TestClients;
 use super::typed_test_fakes::TypedTestFakes;
 use super::{Module, Type};
 
 pub(super) struct TypedTestConstruction;
 
 impl TypedTestConstruction {
+    const NO_SETUP: &'static str = "Test.construct needs an active test setup.";
+
     pub(super) fn members(module: &Module, owner: &Type, unit: &Unit, language: &str) -> String {
         Self::compose(module, owner, unit, language)
     }
@@ -42,15 +45,20 @@ impl TypedTestConstruction {
         module
             .types
             .iter()
-            .filter_map(|target| Self::construction(target, fakes, language))
+            .filter_map(|target| Self::construction(module, target, fakes, language))
             .collect()
     }
 
-    fn construction(target: &Type, fakes: &TypedTestFakes<'_>, language: &str) -> Option<String> {
+    fn construction(
+        module: &Module,
+        target: &Type,
+        fakes: &TypedTestFakes<'_>,
+        language: &str,
+    ) -> Option<String> {
         let fields = target.constructor.as_ref()?;
         let arguments = fakes
             .names(target, fields)
-            .map(|names| Self::arguments(names, language));
+            .map(|names| Self::arguments(module, target, names, language));
         Some(Self::factory(&target.name, arguments, language))
     }
 
@@ -90,12 +98,28 @@ impl TypedTestConstruction {
         }
     }
 
-    fn arguments(names: Vec<&str>, language: &str) -> String {
+    fn arguments(module: &Module, target: &Type, names: Vec<&str>, language: &str) -> String {
         names
             .into_iter()
-            .map(|name| Self::assigned(name, language))
+            .map(|name| {
+                Self::kotlin_client(module, target, name, language)
+                    .unwrap_or_else(|| Self::assigned(name, language))
+            })
             .collect::<Vec<_>>()
             .join(", ")
+    }
+
+    fn kotlin_client(module: &Module, target: &Type, name: &str, language: &str) -> Option<String> {
+        let kind = target
+            .fields
+            .iter()
+            .find(|field| field.name == name)
+            .map(|field| Self::kind(&field.type_source))
+            .filter(|kind| [language == "kt", TestClients::is_client(module, kind)] == [true; 2])?;
+        let message = Self::quoted(Self::NO_SETUP, language);
+        Some(format!(
+            "(this.{name} ?: {kind}(checkNotNull(this.behaviors) {{ {message} }}))"
+        ))
     }
 
     fn assigned(name: &str, language: &str) -> String {

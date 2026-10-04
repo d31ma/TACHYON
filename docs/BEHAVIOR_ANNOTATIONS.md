@@ -603,9 +603,10 @@ Tachyon builds the client and its behavior context. The context comes from a
 Setup: `{"setup":"CatalogSetup"}` on `@HTTPClient` names it, and the default is
 the client name with `Setup` instead of `Client`. The partition is the adapter
 name. A client whose methods are all `@Gateway` methods needs no context. In
-Yon, `@Needs` injects the client. A Tac service in Rust, Go, C#, F#, Kotlin,
-Swift or Dart builds it: `CatalogClient::new()`, `NewCatalogClient()`,
-`new CatalogClient()` or `CatalogClient()`. Tac JavaScript and TypeScript
+Yon, `@Needs` injects the client. A Tac service in Rust, Go, Kotlin, C# or
+Dart gets it with `@Needs` too (in Kotlin `@Needs private val catalog:
+CatalogClient`, which Tachyon fills with `CatalogClient()`). A Tac service in
+F# or Swift builds it: `CatalogClient()`. Tac JavaScript and TypeScript
 clients stay managed by the page.
 
 In the example below, `findByStatus` and `countByStatus` are derived from their
@@ -864,8 +865,9 @@ return behavior. Caching and HTTP exchange use async methods in
 JS/TS/Python/C#/Swift and synchronous methods in Java/Kotlin/PHP/Rust. A Tac
 Rust HTTPClient method may also be an `async fn`; it awaits the browser
 transport through Tachyon's small executor in the WebAssembly module (ADR
-0090). The synchronous integrations do not quietly adapt futures or Kotlin
-`suspend` functions.
+0090). A Tac Kotlin HTTPClient method may be a `suspend fun`; the Kotlin/Wasm
+module keeps its continuation while the browser transport works (ADR 0090).
+The synchronous integrations do not quietly adapt futures.
 
 **Repositories.** `context.repository(ProductEntity)` provides `find(page)`,
 `save(value)` and `delete(id)`. The adapter's `execute(command, execution)`

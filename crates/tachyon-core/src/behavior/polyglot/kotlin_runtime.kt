@@ -1,6 +1,7 @@
 object Behaviors {
     private const val MODULE = "__MODULE__"
     private const val ENVIRONMENT = "__ENVIRONMENT__"
+    private const val WRONG_SHAPE = "The server answer does not have the shape of the model."
     class Failure(val code: String, val path: String? = null, message: String = code) : RuntimeException(message)
     private fun fail(code: String): Nothing = throw Failure(code)
     class Signal internal constructor(private val parent: Signal? = null, private val owner: Context? = null) {
@@ -270,6 +271,7 @@ object Behaviors {
     class Context internal constructor(private val options: Options, internal val configuration: Configuration, private val setupKey: String? = null) : AutoCloseable {
         @Volatile internal var closed = false
         private var active = 0
+        private val revalidations = mutableSetOf<String>()
         private val slots = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.Semaphore>()
         private fun transacted(policy: Transaction?, execution: Execution, call: () -> Any?): Any? {
             if (policy == null || OpenTransactions.of(policy.adapter) != null) return call()
@@ -300,11 +302,15 @@ object Behaviors {
             setupKey?.let { releaseSetup(it) }
         }
         internal fun operation(call: (Execution) -> Any?): Any? {
-            synchronized(this) { if (closed || active >= 64) fail("admission"); active++ }
-            val execution = Execution(options, this)
+            val execution = admit()
             try { execution.check(); val value = call(execution); execution.check(); return value }
-            finally { synchronized(this) { active-- } }
+            finally { release() }
         }
+        private fun admit(): Execution {
+            synchronized(this) { if (closed || active >= 64) fail("admission"); active++ }
+            return Execution(options, this)
+        }
+        private fun release() { synchronized(this) { active-- } }
         internal fun resilient(type: String, method: String, retry: Retry?, limit: Limit?, transactional: Transaction?, execution: Execution, call: () -> Any?): Any? {
             val body = { transacted(transactional, execution, call) }
             if (limit == null) return attempt(retry, execution, body)
@@ -338,21 +344,15 @@ object Behaviors {
             val key = if (policy != null) cacheKey(type, method, arguments, indices, policy, execution, "cache:read") else null
             val cache = if (policy != null) cacheAdapter(policy.name) else null
             if (cache != null && key != null && policy != null) {
-                val entry = try { cache.get(key, execution) } catch (_: RuntimeException) { fail("cache-adapter") }
-                execution.check()
-                val now = System.currentTimeMillis()
-                if (entry.hit && entry.expiresAt > now + policy.ttlMs) fail("cache-entry")
-                if (entry.hit && entry.expiresAt > now) return@operation copy(entry.value, policy.maxBytes)
+                val entry = fresh(cache, key, policy, execution)
+                if (entry.hit) return@operation entry.value
             }
             var value = if (exchange != null && exchange.declared()) exchangeRequest(exchange, arguments)
                 else resilient(type, method, retry, limit, transactional, execution, call)
             execution.check()
             if (exchange != null) value = exchange(value, exchange, execution)
             value = copy(value, policy?.maxBytes ?: 1048576)
-            if (cache != null && key != null && policy != null) {
-                try { cache.set(key, copy(value, policy.maxBytes), Write(execution, policy, System.currentTimeMillis() + policy.ttlMs)) }
-                catch (_: RuntimeException) { fail("cache-adapter") }
-            }
+            if (cache != null && key != null && policy != null) store(cache, key, value, policy, execution)
             execution.check()
             value
         }
@@ -365,12 +365,59 @@ object Behaviors {
             if (exchange != null) value = exchange(value, exchange, execution)
             value = copy(value, if (put) policy.maxBytes else 1048576)
             execution.check()
+            change(cache, key, value, policy, put, execution)
+            execution.check()
+            value
+        }
+        suspend fun invokeAwait(type: String, method: String, arguments: Array<Any?>, indices: IntArray, policy: Policy?, declaredExchange: Exchange): Any? {
+            val execution = admit()
+            try {
+                execution.check()
+                val exchange = declaredExchange.filled(arguments)
+                val key = if (policy != null) cacheKey(type, method, arguments, indices, policy, execution, "cache:read") else null
+                val cache = if (policy != null) cacheAdapter(policy.name) else null
+                if (cache != null && key != null && policy != null) {
+                    val entry = fresh(cache, key, policy, execution)
+                    if (entry.hit) return entry.value
+                }
+                val revalidate = key != null && synchronized(this) { revalidations.remove(key) }
+                val value = copy(await(exchangeDescriptor(exchange, arguments), exchange, execution, key != null && exchange.method == "GET", revalidate), policy?.maxBytes ?: 1048576)
+                if (cache != null && key != null && policy != null) store(cache, key, value, policy, execution)
+                execution.check()
+                return value
+            } finally { release() }
+        }
+        suspend fun mutateAwait(type: String, target: String, targetArguments: Array<Any?>, indices: IntArray, policy: Policy, put: Boolean, declaredExchange: Exchange, arguments: Array<Any?>): Any? {
+            val execution = admit()
+            try {
+                execution.check()
+                val exchange = declaredExchange.filled(arguments)
+                val key = cacheKey(type, target, targetArguments, indices, policy, execution, if (put) "cache:put" else "cache:evict")
+                val cache = cacheAdapter(policy.name)
+                val value = copy(await(exchangeDescriptor(exchange, arguments), exchange, execution, false, false), if (put) policy.maxBytes else 1048576)
+                execution.check()
+                change(cache, key, value, policy, put, execution)
+                synchronized(this) { revalidations.add(key) }
+                execution.check()
+                return value
+            } finally { release() }
+        }
+        private fun fresh(cache: CacheAdapter, key: String, policy: Policy, execution: Execution): Entry {
+            val entry = try { cache.get(key, execution) } catch (_: RuntimeException) { fail("cache-adapter") }
+            execution.check()
+            val now = System.currentTimeMillis()
+            if (entry.hit && entry.expiresAt > now + policy.ttlMs) fail("cache-entry")
+            return if (entry.hit && entry.expiresAt > now) Entry(true, copy(entry.value, policy.maxBytes)) else Entry()
+        }
+        private fun store(cache: CacheAdapter, key: String, value: Any?, policy: Policy, execution: Execution) {
+            try { cache.set(key, copy(value, policy.maxBytes), Write(execution, policy, System.currentTimeMillis() + policy.ttlMs)) }
+            catch (_: RuntimeException) { fail("cache-adapter") }
+        }
+        private fun change(cache: CacheAdapter, key: String, value: Any?, policy: Policy, put: Boolean, execution: Execution) {
             try {
                 if (put) cache.set(key, value, Write(execution, policy, System.currentTimeMillis() + policy.ttlMs))
                 else cache.delete(key, execution)
             } catch (_: RuntimeException) { fail("cache-adapter") }
-            execution.check()
-            value
         }
         private fun cacheKey(type: String, method: String, arguments: Array<Any?>, indices: IntArray, policy: Policy, execution: Execution, operation: String): String {
             val selected = indices.map { if (it !in arguments.indices) fail("cache-key"); copy(arguments[it], 4096) }
@@ -429,16 +476,31 @@ object Behaviors {
         }
         internal fun restExchange(name: String, method: String, path: String, descriptor: Map<String, Any?>): Any? =
             operation { execution -> exchange(descriptor, Exchange(name, method, path), execution) }
-        private fun exchange(descriptor: Any?, metadata: Exchange, execution: Execution): Any? {
+        private fun exchange(descriptor: Any?, metadata: Exchange, execution: Execution): Any? =
+            adapted(configuration.http[metadata.client] ?: fail("http-adapter"), httpRequest(descriptor, metadata), execution)
+        private fun httpRequest(descriptor: Any?, metadata: Exchange): Map<String, Any?> {
             val request = map(copy(descriptor, 1048576)).toMutableMap()
             if (request.keys.any { it !in setOf("query", "headers", "body") }) fail("http-request")
             validateRequest(request)
             if (metadata.method in setOf("GET", "HEAD") && request.containsKey("body")) fail("http-request")
             request["method"] = metadata.method; request["path"] = metadata.path
             request["redirect"] = "error"; request["credentials"] = "omit"; request["maxResponseBytes"] = 1048576
-            val adapter = configuration.http[metadata.client] ?: fail("http-adapter")
-            return try { val value = adapter.exchange(java.util.Collections.unmodifiableMap(request), execution); execution.check(); copy(value, 1048576) }
+            return java.util.Collections.unmodifiableMap(request)
+        }
+        private fun adapted(adapter: HttpAdapter, request: Map<String, Any?>, execution: Execution): Any? =
+            try { val value = adapter.exchange(request, execution); execution.check(); copy(value, 1048576) }
             catch (error: Failure) { throw error } catch (_: RuntimeException) { fail("http-adapter") }
+        private fun exchangeDescriptor(exchange: Exchange, arguments: Array<Any?>): Any? =
+            if (exchange.declared()) exchangeRequest(exchange, arguments) else emptyMap<String, Any?>()
+        private suspend fun await(descriptor: Any?, metadata: Exchange, execution: Execution, publicRead: Boolean, revalidate: Boolean): Any? {
+            val request = httpRequest(descriptor, metadata)
+            val adapter = configuration.http[metadata.client]
+            if (adapter != null) return adapted(adapter, request, execution)
+            val browser = request + mapOf("deadline" to execution.deadline, "publicRead" to publicRead, "revalidate" to revalidate)
+            execution.check()
+            val value = behaviorDefaultExchange(browser)
+            execution.check()
+            return copy(value, 1048576)
         }
         internal fun persist(entity: Entity, operation: String, key: String, value: Any?): Any? = operation { execution ->
             val adapter = entityAdapter(entity.adapter)
@@ -571,6 +633,16 @@ object Behaviors {
         val result = linkedMapOf<String, Any?>()
         for ((key, item) in value) { if (key !is String) fail("json-value"); result[key] = item }
         return java.util.Collections.unmodifiableMap(result)
+    }
+    fun <T> answer(value: Any?, shape: String, optional: Boolean, read: (Any?) -> T): T {
+        if (value == null && optional) return read(null)
+        val fits = when (shape) {
+            "object" -> value is Map<*, *>
+            "list" -> value is List<*>
+            else -> value != null && value !is Map<*, *> && value !is List<*>
+        }
+        if (!fits) throw Failure("HTTP_RESPONSE", null, WRONG_SHAPE)
+        return try { read(value) } catch (_: RuntimeException) { throw Failure("HTTP_RESPONSE", null, WRONG_SHAPE) }
     }
     private val gatewayFailures = setOf("invalid", "timeout", "capacity", "adapter")
     fun gatewayResult(answer: Map<*, *>): Any? {

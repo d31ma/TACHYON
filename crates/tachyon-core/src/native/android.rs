@@ -23,7 +23,10 @@ impl AndroidHostGenerator {
     ];
     const KOTLIN_COMPANION_PRELUDE: &str = concat!(
         include_str!("prelude.kt"),
+        include_str!("prelude_reads.kt"),
         include_str!("prelude_android.kt"),
+        include_str!("prelude_jvm_models.kt"),
+        include_str!("prelude_native_tasks.kt"),
         include_str!("capabilities/FilePickerStatus.kt"),
         include_str!("capabilities/FilePickerResult.kt"),
         include_str!("capabilities/FilePickerOptions.kt"),

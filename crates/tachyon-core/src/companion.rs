@@ -980,7 +980,12 @@ fn declaration(
         }
         CompanionLanguage::Kotlin => KotlinMembers::public_declaration(strip_attribute(line))
             .map_or(Ok(None), |line| {
-                name_first(line, source_path, "var", "val", "fun", "tac.kt")
+                let (asynchronous, line) = KotlinMembers::suspended(line);
+                let found = name_first(line, source_path, "var", "val", "fun", "tac.kt")?;
+                Ok(found.map(|member| Member {
+                    asynchronous,
+                    ..member
+                }))
             }),
         CompanionLanguage::CSharp | CompanionLanguage::CSharpBrowser => Ok(type_first(line)),
         CompanionLanguage::Rust => Ok(None),
@@ -1310,6 +1315,11 @@ fn kotlin_entry(member: &Member) -> String {
             })
             .collect::<Vec<_>>()
             .join(", ");
+        if member.asynchronous {
+            return format!(
+                "    \"{name}\" to TacTask({{ tacThrownCode(it) }}) {{ tacInstance.{name}({arguments}) }},\n"
+            );
+        }
         return format!("    \"{name}\" to TacMethod {{ tacInstance.{name}({arguments}) }},\n");
     }
     match (&member.declared_type, member.mutable) {

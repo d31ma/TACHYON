@@ -1,6 +1,7 @@
 @Service
 class CatalogService {
-    private val catalog: CatalogClient = CatalogClient()
+    @Needs
+    private val catalog: CatalogClient
     var products: List<String> = listOf()
     var error: String = ""
 

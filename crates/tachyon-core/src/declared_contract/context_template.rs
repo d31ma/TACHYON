@@ -29,11 +29,17 @@ impl ContextTemplate {
         "",
         "func New{owner}() (*{owner}, error) {\n\tcontext, err := BehaviorsCreate[{setup}](NewBehaviorOptions(\"{partition}\", NewBehaviorSignal()))\n\treturn &{owner}{behaviors: context}, err\n}\n\nfunc New{owner}With(context *BehaviorContext) *{owner} {\n\treturn &{owner}{behaviors: context}\n}",
     );
-    const HTTP_TEMPLATES: [Self; 4] = [
+    const KOTLIN_TAC_HTTP: Self = Self::new(
+        "kt-tac",
+        "val behaviors: Behaviors.Context",
+        "constructor() {\n    behaviors = Behaviors.create(\"{setup}\", Behaviors.Options(\"{partition}\", Behaviors.Signal()))\n}\nconstructor(context: Behaviors.Context) {\n    behaviors = context\n}",
+    );
+    const HTTP_TEMPLATES: [Self; 5] = [
         Self::DART_TAC_HTTP,
         Self::CSHARP_TAC_HTTP,
         Self::RUST_TAC_HTTP,
         Self::GO_TAC_HTTP,
+        Self::KOTLIN_TAC_HTTP,
     ];
     const HTTP_CLIENT: &'static str = "HTTPClient";
     const TEMPLATES: [Self; 22] = [

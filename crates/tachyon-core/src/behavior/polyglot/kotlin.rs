@@ -1,8 +1,11 @@
 use super::super::mapper::Plan;
 use super::super::testing::Unit;
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
+use kotlin_async_client::KotlinAsyncClient;
 use serde_json::Value;
 use std::fmt::Write as _;
+
+mod kotlin_async_client;
 
 pub(super) fn lower(module: &Module) -> Result<String, String> {
     reject_reserved_names(module)?;
@@ -79,7 +82,7 @@ fn lower_type(
         members.push_str(&helper);
     }
     if let Some(unit) = super::super::testing::polyglot_unit(type_declaration) {
-        members.push_str(&test_members(&unit, &module.environment));
+        members.push_str(&test_members(type_declaration, &unit, &module.environment));
         members.push_str(
             &super::kotlin_test_construction::KotlinTestConstruction::members(
                 module,
@@ -428,6 +431,12 @@ fn wrap(
     type_declaration: &Type,
     method: &Method,
 ) -> Result<(String, String), String> {
+    if KotlinAsyncClient::applies(method, &module.environment) {
+        return Ok((
+            KotlinAsyncClient::body(type_declaration, method)?,
+            String::new(),
+        ));
+    }
     validate_signature(module, method)?;
     if let Some(policy) = method.metadata.get("gateway") {
         return Ok((gateway_body(method, policy), String::new()));
@@ -1049,10 +1058,16 @@ fn quote(value: &str) -> String {
         .replace('$', "\\$")
 }
 
-fn test_members(unit: &Unit, environment: &str) -> String {
+fn test_members(type_declaration: &Type, unit: &Unit, environment: &str) -> String {
     let report = report_type(environment);
     let answer = report_value(unit, environment);
-    let calls = super::super::ValueSource::jvm_calls(&unit.cases, &unit.inputs);
+    let calls = super::super::ValueSource::jvm_calls(&unit.cases, &unit.inputs)
+        .into_iter()
+        .map(|(name, call)| {
+            let call = finished_case(type_declaration, &name, call);
+            (name, call)
+        })
+        .collect::<Vec<_>>();
     let case_names: Vec<String> = calls.iter().map(|(name, _)| name.clone()).collect();
     let names = quoted_list(&case_names);
     let dispatch = super::super::testing::joined(&calls, |(name, call)| {
@@ -1079,6 +1094,18 @@ fn test_members(unit: &Unit, environment: &str) -> String {
         quote(&unit.configuration),
         quote(&unit.partition),
     )
+}
+
+fn finished_case(type_declaration: &Type, name: &str, call: String) -> String {
+    let method_name = name.split('[').next().unwrap_or(name);
+    let waits = type_declaration
+        .methods
+        .iter()
+        .any(|method| [method.name == method_name, method.asynchronous] == [true; 2]);
+    if waits {
+        return format!("BehaviorTasks.finish {{ {call} }}");
+    }
+    call
 }
 
 fn report_type(environment: &str) -> &'static str {

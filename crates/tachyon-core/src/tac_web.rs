@@ -502,18 +502,29 @@ const transport = (text) => invokeGo(text)
 "
     );
 
-    const KOTLIN_ENGINE: &str = r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
+    const KOTLIN_ENGINE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
+        include_str!("native/browser/tac-kotlin-http.js"),
+        r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
   throw new Error('Kotlin services need a browser with WebAssembly garbage collection: Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer.')
 }
+const taskAnswers = new TacTaskAnswers()
+const kotlinHttp = new TacKotlinHttp()
 globalThis[Symbol.for('tachyon.kotlin.host')] = {
   emit: (payload) => { published.push(payload) },
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
   web: (text) => webHost(text),
+  httpStart: (ticket, text) => { kotlinHttp.start(ticket, text, (answer) => kotlin.tacHttpSettle(ticket, answer)) },
+  httpCancel: (ticket) => { kotlinHttp.cancel(ticket) },
+  taskDone: (task, text) => { taskAnswers.done(task, text) },
 }
 const kotlin = await import('./kotlin/services.js')
 const transport = (text) => kotlin.tacInvoke(text)
-";
+/** @param {string} text @returns {Promise<string>} */
+const transportAsync = (text) => taskAnswers.answer(transport(text))
+"
+    );
 
     const JAVA_ENGINE: &str = r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {

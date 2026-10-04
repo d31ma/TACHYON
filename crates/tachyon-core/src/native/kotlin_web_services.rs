@@ -6,6 +6,8 @@ use kotlin_model_readers::KotlinModelReaders;
 use kotlin_wasm_program::KotlinWasmProgram;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+mod kotlin_browser_http_tests;
 mod kotlin_composed_types;
 mod kotlin_model_readers;
 mod kotlin_type_members;
@@ -18,7 +20,9 @@ pub(crate) struct KotlinWebServices;
 impl KotlinWebServices {
     const PRELUDE: &'static str = concat!(
         include_str!("prelude.kt"),
+        include_str!("prelude_reads.kt"),
         include_str!("prelude_web.kt"),
+        include_str!("prelude_web_tasks.kt"),
         include_str!("web_apis/Clock.kt"),
         include_str!("web_apis/SecureRandom.kt"),
         include_str!("web_apis/Connectivity.kt"),
@@ -45,8 +49,12 @@ impl KotlinWebServices {
             include_str!("kotlin_web_services/jvm_shims/jvm_names.kt"),
         ),
     ];
-    const STORAGE: &'static str = include_str!("kotlin_web_services/kotlin_storage.kt");
+    const BROWSER_BUILTINS: &'static str = concat!(
+        include_str!("kotlin_web_services/kotlin_storage.kt"),
+        include_str!("kotlin_web_services/kotlin_browser_http.kt")
+    );
     const PROGRAM_SOURCE: &'static str = "services.kt";
+    const TASK_IMPORT: &'static str = "import kotlin.coroutines.startCoroutine\n";
     const MODEL_REALM: &'static str = "client";
     const MODEL_EXTENSION: &'static str = "kt";
 
@@ -111,9 +119,11 @@ impl KotlinWebServices {
             .filter(|(_, schema)| !schema)
             .map(|((path, text), _)| (path.to_string_lossy().into_owned(), text.clone()))
             .collect();
-        let authored = crate::behavior::KotlinBuiltins::in_browser(authored, Self::STORAGE);
+        let authored =
+            crate::behavior::KotlinBuiltins::in_browser(authored, Self::BROWSER_BUILTINS);
         let program = format!(
-            "{authored}\n{}{}{}{}",
+            "{}{authored}\n{}{}{}{}",
+            Self::TASK_IMPORT,
             crate::route_types::WebEventSources::kotlin(),
             KotlinModelReaders::text(&texts),
             Self::PRELUDE,

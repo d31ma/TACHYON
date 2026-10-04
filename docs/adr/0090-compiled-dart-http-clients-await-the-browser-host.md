@@ -163,3 +163,49 @@ Evidence: `scripts/browser-http-browser-test.mjs --language=go` builds
 `website/content/docs/calling-the-server/browser-http-go/` and checks it in
 Chromium, Firefox and WebKit; `client_tests::go_construct_tests` runs the Fake
 and typed-answer cases.
+
+## Kotlin browser extension — 2026-10-04
+
+A Kotlin HTTPClient is an interface whose methods are `suspend fun` without a
+body. Tachyon writes each method: it goes through the behavior context's
+suspend path (`invokeAwait` for reads, `mutateAwait` for `ClearCache` and
+`UpdateCache`) and reads the answer with `Behaviors.answer` into the declared
+type: a data class from `client/models`, a list, a plain value, `Any?` or
+`Unit`. A model answer that is not an object, or a list answer that is not a
+list, fails with `HTTP_RESPONSE`. Errors are `Behaviors.Failure` values whose
+`code` names the problem. Retry, concurrency limits, transactions, `Check`
+and `Pageable` are refused on suspend client methods. The Setup's adapter
+answers first; without one, the request goes to the same browser host as the
+other languages (same origin, omitted credentials, `Cached` public reads,
+revalidation after a successful `ClearCache` or `UpdateCache`). The generated
+client has two constructors: `Client()` builds its context from its Setup, and
+`Client(context)` uses a given BehaviorContext.
+
+A service gets the client with `@Needs private val name: Client`; on the page
+Tachyon fills the field with `Client()`. A service method may be a
+`suspend fun`. The Kotlin/Wasm module starts it with the standard library's
+`startCoroutine`; when it finishes without waiting, the page gets the answer
+at once. When it waits for the browser transport, the module keeps the
+continuation, starts the fetch through `httpStart` on the Kotlin host, and the
+page gets `{"task": id}` and a promise. The page settles the fetch through the
+`tacHttpSettle` export, the module resumes the continuation with the service
+as the executing owner, delivers its events and reports the end through
+`taskDone`. A waiting method does not hold its service: other calls, field
+reads and writes run while it waits, as in JavaScript and Go. Disposing the
+owner drops its waiting continuations first, which aborts their fetches and
+rejects their promises with `CANCELLED`, and then runs the PreDestroy hooks.
+An Android companion has no browser transport: a suspend method answers
+`HTTP_MISSING`.
+
+In a Kotlin Tac test unit, `construct(Service::class)` calls the constructor
+that `Needs` produces. A Fake field `var name: Client? = null` supplies the
+client; while it is `null`, the service gets `Client(behaviors)`, bound to the
+test's BehaviorContext, so the TestSetup adapter answers. Test cases may be
+`suspend fun`; Tachyon runs them to the end and refuses a case that still
+waits. Test units run on the JVM, so a request without an adapter fails with
+`HTTP_MISSING`.
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=kotlin` builds
+`website/content/docs/calling-the-server/browser-http-kotlin/` and checks it in
+Chromium, Firefox and WebKit; `client_tests::kotlin_construct_tests` runs the
+Fake and typed-answer cases.

@@ -2,6 +2,10 @@ class TacField(val read: () -> Any?, val write: ((Any?) -> Unit)? = null)
 
 class TacMethod(val invoke: (List<Any?>) -> Any?)
 
+class TacTask(val code: (Throwable) -> String?, val invoke: suspend (List<Any?>) -> Any?)
+
+private fun tacThrownCode(error: Throwable): String? = null
+
 class TacListener(
     val events: List<String>,
     val replay: Boolean,
@@ -258,65 +262,16 @@ private fun tacDisposeActivation(owner: TacActivation) {
     owner.sorted.forEach { if (it is TacHook && it.destroy) try { it.invoke() } catch (_: Exception) { tacEventFailure() } }
 }
 private fun tacDisposeOwner(id: String) {
+    tacCancelTasks(id)
     val owner = TacNativeState.activations.remove(id) ?: return
     if (TacNativeState.executing === owner) TacNativeState.executing = null
     tacDisposeActivation(owner)
 }
 private fun tacDisposeAll() {
+    tacCancelTasks(null)
     val owners = TacNativeState.activations.values.toList()
     TacNativeState.activations.clear(); TacNativeState.executing = null
     owners.forEach { tacDisposeActivation(it) }
-}
-
-fun tacInt(value: Any?): Int =
-    when (value) {
-        is Number -> value.toInt()
-        is Boolean -> if (value) 1 else 0
-        else -> value?.toString()?.toDoubleOrNull()?.toInt() ?: 0
-    }
-
-fun tacLong(value: Any?): Long =
-    when (value) {
-        is Number -> value.toLong()
-        is Boolean -> if (value) 1L else 0L
-        else -> value?.toString()?.toDoubleOrNull()?.toLong() ?: 0L
-    }
-
-fun tacDouble(value: Any?): Double =
-    when (value) {
-        is Number -> value.toDouble()
-        is Boolean -> if (value) 1.0 else 0.0
-        else -> value?.toString()?.toDoubleOrNull() ?: 0.0
-    }
-
-fun tacBoolean(value: Any?): Boolean =
-    when (value) {
-        is Boolean -> value
-        is Number -> value.toDouble() != 0.0
-        is String -> value.isNotEmpty()
-        else -> false
-    }
-
-fun tacString(value: Any?): String = value?.toString() ?: ""
-
-inline fun <reified T> tacRead(value: Any?): T = tacReadType(kotlin.reflect.typeOf<T>(), value) as T
-
-fun tacReadType(type: kotlin.reflect.KType, value: Any?): Any? {
-    if (value == null && type.isMarkedNullable) return null
-    val item = type.arguments.firstOrNull()?.type
-    return when (val kind = type.classifier) {
-        Int::class -> tacInt(value)
-        Long::class -> tacLong(value)
-        Double::class -> tacDouble(value)
-        Float::class -> tacDouble(value).toFloat()
-        Boolean::class -> tacBoolean(value)
-        String::class -> tacString(value)
-        List::class, MutableList::class, Collection::class, Iterable::class ->
-            (value as? List<*> ?: emptyList<Any?>()).map { if (item == null) it else tacReadType(item, it) }
-        Any::class, Map::class, MutableMap::class -> value
-        is kotlin.reflect.KClass<*> -> tacModel(kind, value)
-        else -> value
-    }
 }
 
 private fun tacText(value: Any?): String = if (value == null) "" else value.toString()
@@ -386,10 +341,11 @@ private fun tacDescribeListener(key: String, listener: TacListener): Map<String,
 
 private fun tacDescribe(members: Map<String, Any>): String {
     val fields = members.entries.filter { it.value is TacField }.map { it.key }
-    val methods = members.entries.filter { it.value is TacMethod }.map { it.key }
+    val methods = members.entries.filter { it.value is TacMethod || it.value is TacTask }.map { it.key }
+    val tasks = members.entries.filter { it.value is TacTask && tacTaskHost() }.map { it.key }
     if (!tacPageListeners) return "{\"value\":{\"fields\":${tacEncode(fields)},\"methods\":${tacEncode(methods)}}}"
     val listeners = members.entries.mapNotNull { (key, member) -> (member as? TacListener)?.let { tacDescribeListener(key, it) } }
-    return "{\"value\":{\"fields\":${tacEncode(fields)},\"methods\":${tacEncode(methods)},\"listeners\":${tacEncode(listeners)}}}"
+    return "{\"value\":{\"fields\":${tacEncode(fields)},\"methods\":${tacEncode(methods)},\"asyncMethods\":${tacEncode(tasks)},\"listeners\":${tacEncode(listeners)}}}"
 }
 
 private fun tacReceive(activation: TacActivation, key: String, value: Any?): String {
@@ -463,6 +419,9 @@ private fun tacHandle(request: String): String {
                 is TacMethod -> if (operation == "call") {
                     val arguments = parsed["args"] as? List<*> ?: emptyList<Any?>()
                     "{\"value\":${tacEncode(tacPlain(member.invoke(arguments)))}}"
+                } else "{\"error\":${tacQuote("Companion member does not support $operation: $name")}}"
+                is TacTask -> if (operation == "call") {
+                    tacBeginTask(activation, member, parsed["args"] as? List<*> ?: emptyList<Any?>())
                 } else "{\"error\":${tacQuote("Companion member does not support $operation: $name")}}"
                 else -> "{\"error\":\"Unknown companion member kind.\"}"
             }

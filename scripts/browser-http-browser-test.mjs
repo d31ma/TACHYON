@@ -17,6 +17,7 @@ class BrowserHttpGate {
     dart: { folder: 'browser-http-dart', factory: true, label: 'compiled Dart' },
     rust: { folder: 'browser-http-rust', factory: false, label: 'compiled Rust' },
     go: { folder: 'browser-http-go', factory: false, label: 'compiled Go' },
+    kotlin: { folder: 'browser-http-kotlin', factory: false, label: 'compiled Kotlin' },
   }
 
   static chosen() {

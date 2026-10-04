@@ -91,6 +91,16 @@ machine contracts have their own, independent major versions.
   that waits for the network returns a promise to the page, and removing the
   component cancels it (`CANCELLED`). Go test units get `test.construct(service)`
   with `// @Fake` clients (ADR 0090).
+- Kotlin Tac services call the server from the browser too: an `HTTPClient`
+  interface method is a `suspend fun` that returns a model from `client/models`,
+  a service gets the client with `@Needs private val name: Client` and calls it
+  from a `suspend fun`. Without a Setup adapter the request goes to the same
+  origin through the browser host (omitted credentials, `Cached` public reads,
+  revalidation after `ClearCache`); a waiting method returns a promise to the
+  page, a wrong answer shape fails with `HTTP_RESPONSE`, errors are
+  `Behaviors.Failure` with their code, and removing the component cancels the
+  request (`CANCELLED`). Kotlin test units get `construct(Service::class)` with
+  a `Fake` client and `suspend fun` cases (ADR 0090).
 - Method coverage no longer asks a test case to call a Setup's methods or the
   methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
   the client's methods.

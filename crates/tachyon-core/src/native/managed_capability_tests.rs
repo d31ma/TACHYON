@@ -189,16 +189,21 @@ impl ManagedCapabilityCheck {
             "private fun tacHostEmit(payload: String) {{}}\nprivate fun tacHostWeb(text: String): String = \"{{}}\"\nprivate const val tacPageListeners{platform}"
         );
         let models = include_str!("prelude_android.kt")
-            .split("private fun tacModelFields")
+            .split("private fun tacPlainModel")
             .nth(1)
             .expect("native model functions")
             .split("@Synchronized")
             .next()
             .expect("model helpers");
-        let models = format!("private fun tacModelFields{models}");
+        let models = format!(
+            "{}{}private fun tacPlainModel{models}",
+            include_str!("prelude_jvm_models.kt"),
+            include_str!("prelude_native_tasks.kt")
+        );
         let program = format!(
-            "{registry}\n{}\n{platform}\n{models}\n{}\n{}\n{}\n{}\n{}",
+            "{registry}\n{}{}\n{platform}\n{models}\n{}\n{}\n{}\n{}\n{}",
             include_str!("prelude.kt"),
+            include_str!("prelude_reads.kt"),
             ManagedNativeCapabilities::KOTLIN,
             ManagedNativeCapabilities::KOTLIN_WINDOWS,
             include_str!("capabilities/TacNativeCapabilityCall.kt"),

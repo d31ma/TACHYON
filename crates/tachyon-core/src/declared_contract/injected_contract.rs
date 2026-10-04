@@ -53,8 +53,9 @@ impl<'a> InjectedContract<'a> {
     pub(super) const KEYWORDS: [&'static str; 3] = ["val", "var", "let"];
     const EMPTY_ARGUMENTS: &'static str = "()";
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
+    const REMOTES: &'static str = "client/remotes";
     const GO: &'static str = "go";
-    const GO_REMOTES: &'static str = "client/remotes";
+    const REMOTE_LANGUAGES: [&'static str; 2] = [Self::GO, "kt"];
     const RUBY: &'static str = "rb";
     const RUBY_COMMENT: &'static str = "# ";
     const GO_METHOD: &'static str =
@@ -85,14 +86,15 @@ impl<'a> InjectedContract<'a> {
         let in_folder = Self::INJECTED_FOLDERS
             .iter()
             .any(|folder| path.parent() == Some(Path::new(folder)));
-        [in_folder, Self::go_remote(path)].contains(&true)
+        [in_folder, Self::injected_remote(path)].contains(&true)
     }
 
-    fn go_remote(path: &Path) -> bool {
+    fn injected_remote(path: &Path) -> bool {
         [
-            path.parent() == Some(Path::new(Self::GO_REMOTES)),
+            path.parent() == Some(Path::new(Self::REMOTES)),
             path.extension()
-                .is_some_and(|extension| extension == Self::GO),
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| Self::REMOTE_LANGUAGES.contains(&extension)),
         ] == [true, true]
     }
 

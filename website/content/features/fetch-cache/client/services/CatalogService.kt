@@ -1,6 +1,7 @@
 @Service
 class CatalogService {
-    private val products: ProductsClient = ProductsClient()
+    @Needs
+    private val products: ProductsClient
     var count: Int = 0
 
     fun load() {
