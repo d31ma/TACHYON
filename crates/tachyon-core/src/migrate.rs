@@ -14,9 +14,9 @@ mod built_client;
 #[cfg(test)]
 mod built_client_tests;
 mod built_converter;
-mod built_role;
 #[cfg(test)]
 mod built_converter_tests;
+mod built_role;
 mod fix;
 pub use fix::{MigrationFix, MigrationFixPlan};
 
