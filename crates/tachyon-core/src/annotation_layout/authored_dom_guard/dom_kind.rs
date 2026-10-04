@@ -32,6 +32,39 @@ impl DomKind {
         Self::invocation(self)
     }
 
+    pub(super) fn after_operator(self, operator: &str) -> Self {
+        Self::operand(self, operator)
+    }
+
+    pub(super) fn assigned(self, value: Self, compound: bool) -> Self {
+        Self::assignment(self, value, compound)
+    }
+
+    pub(super) fn stored_at_member(self) -> Self {
+        Self::member_value(self)
+    }
+
+    fn operand(kind: Self, operator: &str) -> Self {
+        match (kind, operator) {
+            (Self::Data, "|" | "&" | "?" | ":") => Self::Unknown,
+            _ => kind,
+        }
+    }
+
+    fn assignment(kind: Self, value: Self, compound: bool) -> Self {
+        match (value, compound) {
+            (Self::Data, true) => kind,
+            _ => value,
+        }
+    }
+
+    fn member_value(kind: Self) -> Self {
+        match kind {
+            Self::Data => Self::Unknown,
+            _ => kind,
+        }
+    }
+
     fn invocation(kind: Self) -> Self {
         match kind {
             Self::NodeFactory => Self::CreatedNode,
@@ -51,9 +84,10 @@ impl DomKind {
     fn named_member(receiver: Self, name: &str) -> Self {
         match (receiver, name) {
             (Self::Document, "write" | "writeln")
-            | (Self::Unknown | Self::Node | Self::CreatedNode, "insertAdjacentHTML") => {
-                Self::MarkupCall
-            }
+            | (
+                Self::Unknown | Self::Node | Self::CreatedNode,
+                "insertAdjacentHTML" | "setHTMLUnsafe" | "setHTML",
+            ) => Self::MarkupCall,
             (Self::Document, "createElement" | "createElementNS" | "createDocumentFragment") => {
                 Self::NodeFactory
             }
@@ -90,7 +124,11 @@ impl DomKind {
             (
                 Self::MarkupCall | Self::StyleCall | Self::NodeFactory | Self::NodeInsertion,
                 "bind",
-            ) => receiver,
+            )
+            | (Self::MarkupCall | Self::StyleCall | Self::NodeInsertion, "call" | "apply") => {
+                receiver
+            }
+            (Self::NodeFactory, "call" | "apply") => Self::CreatedNode,
             (Self::Document, "createElement" | "createElementNS" | "createDocumentFragment") => {
                 Self::CreatedNode
             }

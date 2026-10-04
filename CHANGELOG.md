@@ -177,6 +177,20 @@ machine contracts have their own, independent major versions.
 - The JavaScript `NoteServiceTest` that `ty init --features storage` writes
   type-checks again: its fake `DataSource` is cast through `unknown`, as the
   TypeScript one already was, now that `DataSource` declares the FYLO methods.
+- The authored DOM guard (`TY1364`) no longer misses easy cases. It now
+  refuses `innerHTML`, `outerHTML` and `cssText` writes with `||=`, `??=`,
+  `&&=` and `**=`; a write to `element.style` itself; `setHTML` and
+  `setHTMLUnsafe`; and sink methods called through `call` or `apply`, such as
+  `document.write.call(document, html)`. It follows a node kept in an object,
+  such as `const refs = { list: document.querySelector('#l') }` or
+  `refs['list'] = node`, also when another function writes or reads the field,
+  and a node behind `'' || document.body`. A member write such as
+  `config.view.el = 'x'` no longer marks a later parameter `el` as data.
+  An object that holds only literal values is still data, so
+  `theme.style = 'light'` passes. The guard stays a build-time convention
+  check, not a sandbox: computed names such as `element[name]`,
+  `Reflect.set` and `Object.assign` are not followed.
+
 - Method coverage records a JavaScript or TypeScript utility in
   `client/shared/utils` that a file imports by its path (`/shared/utils/...`
   or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript

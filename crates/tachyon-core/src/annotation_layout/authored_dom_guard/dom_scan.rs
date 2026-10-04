@@ -2,6 +2,7 @@ use super::dom_bindings::DomBindings;
 use super::dom_expression::DomExpression;
 use super::dom_kind::DomKind;
 use super::dom_statement::DomStatement;
+use super::dom_target::DomTarget;
 use crate::Failure;
 use crate::annotation_layout::single_class::Tokens;
 use std::ops::Range;
@@ -14,7 +15,8 @@ pub(super) struct DomScan<'s> {
 
 impl<'s> DomScan<'s> {
     const HTML_WRITES: [&'static str; 2] = ["innerHTML", "outerHTML"];
-    const STYLE_WRITES: [&'static str; 2] = ["cssText", "adoptedStyleSheets"];
+    const HTML_CALLS: [&'static str; 3] = ["insertAdjacentHTML", "setHTMLUnsafe", "setHTML"];
+    const STYLE_WRITES: [&'static str; 3] = ["cssText", "adoptedStyleSheets", "style"];
     const INSERTIONS: [&'static str; 9] = [
         "append",
         "appendChild",
@@ -57,12 +59,21 @@ impl<'s> DomScan<'s> {
         Self::update_scope(&mut self.bindings, &text);
         self.assignment(at)
             .into_iter()
-            .for_each(|(name, start, declaration)| {
+            .for_each(|(name, start, declaration, compound)| {
                 let reader = DomExpression::new(&self.tokens.items, &self.bindings);
                 let end = DomStatement::value_end(&self.tokens, start);
-                let kind = reader.kind(start, end);
-                self.bindings.assign(name, kind, declaration);
+                let value = reader.kind(start, end);
+                let kind = self.bindings.kind(&name).assigned(value, compound);
+                self.bind(name, kind, declaration);
             });
+    }
+
+    fn bind(&mut self, name: String, kind: DomKind, declaration: bool) {
+        if name.contains('.') {
+            self.bindings.assign_member(name, kind);
+            return;
+        }
+        self.bindings.assign(name, kind, declaration);
     }
 
     fn text_owned(&self, at: usize) -> String {
@@ -77,46 +88,33 @@ impl<'s> DomScan<'s> {
         }
     }
 
-    fn assignment(&self, at: usize) -> Option<(String, usize, bool)> {
+    fn assignment(&self, at: usize) -> Option<(String, usize, bool, bool)> {
         Self::plain_assignment(&self.tokens, at).then_some(())?;
-        let name_at = self.assignment_name_at(at)?;
+        let operator = self.operator_start(at);
+        let name_at = self.assignment_name_at(operator)?;
         let token = self.tokens.items.get(name_at)?;
         (!token.literal).then_some(())?;
-        let name = Self::binding_name(&self.tokens, name_at)?;
+        let name = DomTarget::new(&self.tokens.items).path(name_at)?;
         let declaration = name_at
             .checked_sub(1)
             .is_some_and(|before| Self::DECLARATIONS.contains(&self.text(before)));
-        Some((name, at + 1, declaration))
+        Some((name, at + 1, declaration, operator < at))
     }
 
-    fn assignment_name_at(&self, at: usize) -> Option<usize> {
-        let previous = at.checked_sub(1)?;
-        let start = DomStatement::assignment_start(&self.tokens, at);
-        let typed = (start..at)
+    fn operator_start(&self, at: usize) -> usize {
+        (0..at)
+            .rev()
+            .find(|before| !Self::ASSIGNMENT_PREFIX.contains(&self.text(*before)))
+            .map_or(0, |before| before + 1)
+    }
+
+    fn assignment_name_at(&self, operator: usize) -> Option<usize> {
+        let previous = operator.checked_sub(1)?;
+        let start = DomStatement::assignment_start(&self.tokens, operator);
+        let typed = (start..operator)
             .find(|before| self.text(*before) == ":")
             .and_then(|colon| colon.checked_sub(1));
         Some(typed.unwrap_or(previous))
-    }
-
-    fn binding_name(tokens: &Tokens<'_>, at: usize) -> Option<String> {
-        let name = tokens.items.get(at)?.text;
-        Self::identifier(name).then_some(())?;
-        let this = at
-            .checked_sub(2)
-            .is_some_and(|before| tokens.items[before].text == "this");
-        let dot = at
-            .checked_sub(1)
-            .is_some_and(|before| tokens.items[before].text == ".");
-        [this, dot]
-            .contains(&false)
-            .then_some(name.to_owned())
-            .or_else(|| Some(format!("this.{name}")))
-    }
-
-    fn identifier(name: &str) -> bool {
-        name.as_bytes().first().is_some_and(|byte| {
-            [byte.is_ascii_alphabetic(), *byte == b'_', *byte == b'$'].contains(&true)
-        })
     }
 
     fn plain_assignment(tokens: &Tokens<'_>, at: usize) -> bool {
@@ -216,14 +214,9 @@ impl<'s> DomScan<'s> {
     }
 
     fn assignment_at(tokens: &Tokens<'_>, after: usize) -> usize {
-        if tokens
-            .items
-            .get(after)
-            .is_some_and(|token| Self::ASSIGNMENT_PREFIX.contains(&token.text))
-        {
-            return after + 1;
-        }
-        after
+        (after..tokens.items.len())
+            .find(|at| !Self::ASSIGNMENT_PREFIX.contains(&tokens.items[*at].text))
+            .unwrap_or(after)
     }
 
     fn markup_write(receiver: DomKind, property: &str, write: bool) -> bool {
@@ -254,9 +247,12 @@ impl<'s> DomScan<'s> {
         ]
         .into_iter()
         .all(|holds| holds);
-        let html = [receiver != DomKind::Data, property == "insertAdjacentHTML"]
-            .into_iter()
-            .all(|holds| holds);
+        let html = [
+            receiver != DomKind::Data,
+            Self::HTML_CALLS.contains(&property),
+        ]
+        .into_iter()
+        .all(|holds| holds);
         [call, [document_write, html].contains(&true)]
             .into_iter()
             .all(|holds| holds)

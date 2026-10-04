@@ -6,8 +6,10 @@ use std::path::Path;
 mod dom_bindings;
 mod dom_expression;
 mod dom_kind;
+mod dom_object;
 mod dom_scan;
 mod dom_statement;
+mod dom_target;
 
 #[cfg(test)]
 mod tests;

@@ -272,3 +272,115 @@ fn authored_dom_guard_lexical_refusals_retain_actual_typescript_and_module_paths
         "client/shared/ordinary.mjs"
     );
 }
+
+#[test]
+fn authored_dom_guard_follows_nodes_kept_in_object_literals_and_member_paths() {
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "const refs = { list: document.querySelector('#l') }; refs.list.innerHTML = html;",
+        "innerHTML",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "const refs = {}; refs['list'] = document.querySelector('#l'); refs.list.innerHTML = html;",
+        "innerHTML",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "const refs = {}; function start() { refs.list = document.querySelector('#l'); } function show(html) { refs.list.innerHTML = html; }",
+        "innerHTML",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "config.view.el = 'x'; function show(el) { el.innerHTML = html; }",
+        "innerHTML",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "const target = '' || document.body; target.innerHTML = html;",
+        "innerHTML",
+    );
+}
+
+#[test]
+fn authored_dom_guard_refuses_compound_assignments_and_logical_aliases() {
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "element.innerHTML ||= html;",
+        "innerHTML",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.ts",
+        "element.innerHTML ??= html;",
+        "innerHTML",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "element.style.cssText &&= css;",
+        "cssText",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "let node = ''; node ||= document.createElement('p'); document.body.append(node);",
+        "append",
+    );
+}
+
+#[test]
+fn authored_dom_guard_refuses_style_property_unsafe_html_and_indirect_calls() {
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "element.style = css;",
+        "style",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "element['style'] = css;",
+        "style",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "element.setHTMLUnsafe(html);",
+        "setHTMLUnsafe",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "host.shadowRoot.setHTML(html);",
+        "setHTML",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "document.write.call(document, html);",
+        "call",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "element.insertAdjacentHTML.apply(element, ['beforeend', html]);",
+        "apply",
+    );
+    DomGuardFixture::refused(
+        "client/services/ViewService.js",
+        "document.body.append.call(document.body, document.createElement('p'));",
+        "call",
+    );
+}
+
+#[test]
+fn authored_dom_guard_keeps_accepting_data_objects_operators_and_plain_calls() {
+    DomGuardFixture::accepted(
+        "client/services/ThemeService.js",
+        "const theme = { style: 'dark', sizes: [1, -2.5], open: true, nested: { label: null } }; theme.style = 'light'; theme.nested.label = 'x';",
+    );
+    DomGuardFixture::accepted(
+        "client/services/CountService.ts",
+        "state.count ||= 0; state.label ??= 'none'; total += 1; let ready = a <= b; ready = c >= d; ready = e !== f;",
+    );
+    DomGuardFixture::accepted(
+        "client/services/EventService.js",
+        "handler.call(this, event); format.apply(null, values); const text = 'a' || fallback; text.replace('a', 'b');",
+    );
+    DomGuardFixture::accepted(
+        "client/services/ViewService.js",
+        "config.view.el = 'x'; function show(el) { el.textContent = 'y'; el.classList.add('ready'); }",
+    );
+}

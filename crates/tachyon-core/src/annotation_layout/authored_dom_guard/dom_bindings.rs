@@ -36,6 +36,16 @@ impl DomBindings {
         self.scopes[scope].insert(name, kind);
     }
 
+    pub(super) fn assign_member(&mut self, path: String, kind: DomKind) {
+        let root = path.split('.').next().unwrap_or_default();
+        let scope = self
+            .scopes
+            .iter()
+            .rposition(|scope| scope.contains_key(root))
+            .unwrap_or(0);
+        self.scopes[scope].insert(path, kind.stored_at_member());
+    }
+
     fn scope(scopes: &[BTreeMap<String, DomKind>], name: &str, declaration: bool) -> Option<usize> {
         (!declaration)
             .then(|| scopes.iter().rposition(|scope| scope.contains_key(name)))

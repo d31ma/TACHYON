@@ -1,5 +1,6 @@
 use super::dom_bindings::DomBindings;
 use super::dom_kind::DomKind;
+use super::dom_object::DomObject;
 use crate::annotation_layout::single_class::Token;
 
 pub(super) struct DomExpression<'a, 's> {
@@ -47,6 +48,12 @@ impl<'a, 's> DomExpression<'a, 's> {
             .and_then(|token| Self::literal(token.text))
     }
 
+    pub(super) fn identifier(name: &str) -> bool {
+        name.as_bytes().first().is_some_and(|byte| {
+            [byte.is_ascii_alphabetic(), *byte == b'_', *byte == b'$'].contains(&true)
+        })
+    }
+
     fn text(&self, at: usize) -> &str {
         self.tokens.get(at).map_or("", |token| token.text)
     }
@@ -75,7 +82,7 @@ impl<'a, 's> DomExpression<'a, 's> {
             )
     }
 
-    fn literal(text: &str) -> Option<&str> {
+    pub(super) fn literal(text: &str) -> Option<&str> {
         let quote = text.chars().next()?;
         Self::QUOTES.contains(&quote).then_some(())?;
         let value = text.strip_prefix(quote)?.strip_suffix(quote)?;
@@ -139,9 +146,12 @@ impl<'a, 's> DomExpression<'a, 's> {
     }
 
     fn initial(&self, start: usize) -> DomKind {
+        if self.text(start) == "{" {
+            return DomObject::new(self.tokens, self.bindings).kind(start, self.group_end(start));
+        }
         self.tokens
             .get(start)
-            .filter(|token| [token.literal, token.text == "{"].contains(&true))
+            .filter(|token| token.literal)
             .map_or_else(|| self.bindings.kind(self.text(start)), |_| DomKind::Data)
     }
 
@@ -189,7 +199,7 @@ impl<'a, 's> DomExpression<'a, 's> {
     }
 
     fn nonmember(&self, kind: DomKind, at: usize, name: &str) -> (DomKind, usize, String) {
-        let kind = self.group_kind(kind, at);
+        let kind = self.group_kind(kind, at).after_operator(self.text(at));
         let end = self.nonmember_end(at);
         (kind, end, name.to_owned())
     }
