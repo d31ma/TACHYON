@@ -6,10 +6,6 @@ struct ReportService {
 }
 
 impl ReportService {
-    fn new(window_controls: WindowControls) -> Self {
-        Self { window_controls, problem: String::new() }
-    }
-
     fn minimize(&mut self) {
         self.problem = self.window_controls.minimize().err().unwrap_or_default();
     }

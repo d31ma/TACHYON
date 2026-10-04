@@ -1,8 +1,12 @@
 {
   "id": "window-controls",
   "title": "What a page may do to its window",
-  "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service may use, under `tac.application.window.controls`. By default, no control is granted. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in every language that runs in the page. The calls are `granted(control)`, `minimize()`, `maximize()`, `fullscreen()`, `close()`, `resize(width, height)` and `setTitle(text)`, written in each language's case (`set_title` in Ruby, `SetTitle` in Go). A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab, `granted` answers `false` and every call fails, because the page has no native window. The host (the native app that shows the page) checks each grant again before it acts. The page has no `globalThis.tachyonWindow` global any more, and a service that reads `globalThis` fails to build with `TY1360`. Compiled Swift services in a macOS app can also request an uninitialized `WindowControls` field through `Needs` or `NeedsAll`; Tachyon then calls the host directly, with the same grants (ADR 0089). Rust native services on macOS get the controls the same way, and they act on the app\u2019s own window. The native Rust/C#/Swift/Kotlin alternatives below use Service and NeedsAll with an uninitialized typed WindowControls field. Rust targets desktop hosts, C# targets Windows, Swift targets Apple platforms and Kotlin targets Android. Browser and native sources are shown as separate target alternatives; native/ is a documentation folder, and the selected native file belongs in the application\u2019s client/services/. Native service code belongs to the application. It runs as normal operating-system code, and this window-control policy does not sandbox (limit) it.",
+  "summary": "`client/manifest.json` declares the native window. It also grants (allows) the window controls that a service may use, under `tac.application.window.controls`. By default, no control is granted. A service gets the controls by injection, like the other browser APIs: `@Needs windowControls` in JavaScript and TypeScript, and a `WindowControls` field in Rust, Go, C#, F#, Kotlin, Java, Dart, Ruby and Swift. The calls are `granted(control)`, `minimize()`, `maximize()`, `fullscreen()`, `close()`, `resize(width, height)` and `setTitle(text)`, written in each language's case (`set_title` in Rust and Ruby, `SetTitle` in Go, C# and F#). A call to a control that is not granted fails at once, and the message names the grant to add. In a browser tab, `granted` answers `false` and every call fails, because the page has no native window. The host (the native app that shows the page) checks each grant again before it acts. The macOS and Linux (GTK) hosts run the controls on the app's own window. The Windows and Android hosts register their window adapters too, but they have not been run on a Windows desktop or an Android device. The page has no `globalThis.tachyonWindow` global any more, and a service that reads `globalThis` fails to build with `TY1360`. A service that the native app links in has no page, but it gets the controls from the host with the same grants (ADR 0089). The Rust file shown here works in the page and when a macOS, Linux or Windows app links it, because Rust fills the field with `Default`. Swift on Apple platforms, C# on Windows and Kotlin on Android instead declare an uninitialized `WindowControls` field with `NeedsAll`. Their native files are under native/, a documentation folder; the file you choose goes in the application's client/services/. Native service code belongs to the application. It runs as normal operating-system code, and this window-control policy does not sandbox (limit) it. Lua and Python services have no `WindowControls` yet, so this feature has no tab for them: Python stops the build with `TY1605` (`WindowControls` is not a model), and a Lua field of this type stays empty. Let a service in another language handle the window.",
   "group": "Native",
+  "notApplicable": [
+    "lua",
+    "py"
+  ],
   "files": [
     {
       "name": "client/manifest.json",
@@ -65,15 +69,21 @@
       }
     },
     {
-      "name": "native/services/ReportService.swift",
+      "name": "client/services/ReportService.rs",
       "code": {
-        "file": "native/services/ReportService.swift"
+        "file": "client/services/ReportService.rs"
       }
     },
     {
-      "name": "native/services/ReportService.rs",
+      "name": "client/services/ReportService.cs",
       "code": {
-        "file": "native/services/ReportService.rs"
+        "file": "client/services/ReportService.cs"
+      }
+    },
+    {
+      "name": "native/services/ReportService.swift",
+      "code": {
+        "file": "native/services/ReportService.swift"
       }
     },
     {

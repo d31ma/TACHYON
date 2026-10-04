@@ -1,9 +1,12 @@
 Choose one native ReportService alternative for the target.
 
-  Rust      macOS, Linux, Windows
   Swift     macOS, iOS
   C#        Windows
   Kotlin    Android
+
+Rust needs no alternative: client/services/ReportService.rs works in the
+page and when a macOS, Linux or Windows app links it, because Rust fills
+the WindowControls field with Default.
 
 The native/ folder here separates documentation alternatives. It is not
 an additional application discovery root. Put the chosen file in your
@@ -17,5 +20,6 @@ registers its window adapter and checks the manifest grants again.
 
 The manifest grants minimize, resize and title. It does not grant close,
 maximize or fullscreen. Browser tabs have no native window and refuse
-these calls. Windows/Android source or SDK checks on macOS do not prove
-those operating systems' window interactions.
+these calls. The macOS and Linux (GTK) hosts run the controls on the
+app's own window. Windows and Android source or SDK checks on macOS do
+not prove those operating systems' window interactions.
