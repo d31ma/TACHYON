@@ -365,6 +365,63 @@ class PhpAuditController {
 "#,
     };
 
+    const LUA: Self = Self {
+        extension: "lua",
+        program: "lua",
+        tag: "lua",
+        models: [
+            (
+                "server/models/OrderPlaced.lua",
+                "-- @Topic\n---@class OrderPlaced\n---@field id string\nOrderPlaced = {}\n",
+            ),
+            (
+                "server/models/OrderSeen.lua",
+                "-- @Topic\n---@class OrderSeen\n---@field by string\nOrderSeen = {}\n",
+            ),
+        ],
+        publisher: r#"-- @RequestRoute("/orders")
+-- @Public
+---@class OrdersController
+OrdersController = {
+  ---@type ApplicationEventPublisher
+  application_event_publisher = nil,
+}
+
+---@return table
+-- @GetRoute
+function OrdersController:get_order()
+  self.application_event_publisher:publish_event(setmetatable({ id = "A-1" }, OrderPlaced))
+  return { placed = true }
+end
+
+---@param order OrderPlaced
+---@return OrderSeen
+-- @OnEvent
+function OrdersController:seen(order)
+  return setmetatable({ by = "local" }, OrderSeen)
+end
+"#,
+        listener_path: "server/controllers/LuaAuditController.lua",
+        listener: r#"-- @RequestRoute("/lua-audit")
+-- @Public
+---@class LuaAuditController
+LuaAuditController = {}
+
+---@param order OrderPlaced
+---@return OrderSeen
+-- @OnEvent
+function LuaAuditController:seen(order)
+  return setmetatable({ by = "lua:" .. order.id }, OrderSeen)
+end
+
+---@return string
+-- @GetRoute
+function LuaAuditController:get_audit()
+  return "ok"
+end
+"#,
+    };
+
     async fn crosses_both_ways(&self) {
         if !TopicFixture::available(self.program) {
             eprintln!(
@@ -610,7 +667,15 @@ end
     }
 
     fn write(root: &Path, relative: &str, source: &str) -> HandlerSource {
-        let entry = yon_layout::write_fixture(root, relative, source);
+        let is_lua = Path::new(relative)
+            .extension()
+            .is_some_and(|extension| extension == "lua");
+        let entry = if is_lua {
+            Self::write_models(root, &[(relative, source)]);
+            relative.to_owned()
+        } else {
+            yon_layout::write_fixture(root, relative, source)
+        };
         HandlerSource::discover(root, &entry).expect("topic handler discovery")
     }
 
@@ -789,95 +854,7 @@ async fn php_topic_events_cross_to_python_and_back() {
     TypedTopic::PHP.crosses_both_ways().await;
 }
 
-struct RefusedTopic {
-    files: [(&'static str, &'static str); 2],
-    language: &'static str,
-}
-
-impl RefusedTopic {
-    const VIEW: [(&'static str, &'static str); 2] = [
-        ("client/pages/tac.html", "<stock-view />\n"),
-        ("client/components/stock/view/tac.html", "<p>Stock</p>\n"),
-    ];
-    const YON_LUA: Self = Self {
-        files: [
-            (
-                "server/models/InventoryRecord.lua",
-                "-- @Topic\n---@class InventoryRecord\n---@field sku string\nInventoryRecord = {}\n",
-            ),
-            (
-                "server/controllers/InventoryController.lua",
-                "-- @RequestRoute(\"/inventory\")\n-- @Public\n---@class InventoryController\nInventoryController = {\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@param record InventoryRecord\n---@return InventoryRecord\n-- @PostRoute\nfunction InventoryController:post_record(\n  -- @FromBody\n  record\n)\n  self.application_event_publisher:publish_event(record)\n  return record\nend\n",
-            ),
-        ],
-        language: "Lua Yon",
-    };
-    const TAC_LUA: Self = Self {
-        files: [
-            (
-                "client/models/InventoryRecord.lua",
-                "-- @Topic\n---@class InventoryRecord\n---@field sku string\nInventoryRecord = {}\n",
-            ),
-            (
-                "client/services/InventoryService.lua",
-                "-- @Service\n---@class InventoryService\nInventoryService = {\n  ---@type InventoryRecord[]\n  _records = {},\n}\n\n---@param record InventoryRecord\n---@return nil\n-- @OnEvent\nfunction InventoryService:add_record(record)\n  self._records[#self._records + 1] = record\nend\n",
-            ),
-        ],
-        language: "Lua Tac",
-    };
-    const TAC_PYTHON: Self = Self {
-        files: [
-            (
-                "client/models/InventoryRecord.py",
-                "from dataclasses import dataclass\n\n\n@topic\n@dataclass\nclass InventoryRecord:\n    sku: str\n",
-            ),
-            (
-                "client/services/InventoryService.py",
-                "@service\nclass InventoryService:\n    _count: int = 0\n",
-            ),
-        ],
-        language: "Python Tac",
-    };
-
-    fn is_refused_at_build(&self) {
-        let root = tempfile::tempdir().expect("project");
-        for (name, text) in self.files.iter().chain(&Self::VIEW) {
-            let path = root.path().join(name);
-            std::fs::create_dir_all(path.parent().expect("parent")).expect("folders");
-            std::fs::write(path, text).expect("source");
-        }
-        let failure =
-            tachyon_core::WebCompiler::build(root.path(), &tachyon_core::BuildOptions::default())
-                .expect_err("a Topic in this language must stop the build");
-        let refusal = failure
-            .diagnostics()
-            .iter()
-            .find(|diagnostic| diagnostic.code.to_string() == "TY1308")
-            .unwrap_or_else(|| panic!("{}: {failure}", self.language));
-        assert!(
-            refusal.message.contains(self.language),
-            "{}",
-            refusal.message
-        );
-        assert!(
-            refusal.message.contains("later step"),
-            "{}",
-            refusal.message
-        );
-    }
-}
-
-#[test]
-fn a_lua_yon_topic_model_stops_the_build() {
-    RefusedTopic::YON_LUA.is_refused_at_build();
-}
-
-#[test]
-fn a_lua_tac_topic_model_stops_the_build() {
-    RefusedTopic::TAC_LUA.is_refused_at_build();
-}
-
-#[test]
-fn a_python_tac_topic_model_stops_the_build() {
-    RefusedTopic::TAC_PYTHON.is_refused_at_build();
+#[tokio::test]
+async fn lua_topic_events_cross_to_python_and_back() {
+    TypedTopic::LUA.crosses_both_ways().await;
 }

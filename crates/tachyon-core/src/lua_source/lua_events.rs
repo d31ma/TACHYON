@@ -13,30 +13,40 @@ pub(super) struct LuaEvents<'p> {
 impl<'p> LuaEvents<'p> {
     pub(super) const RUNTIME: &'static str = include_str!("lua_events.lua");
     const TYPE_SYNTAX: &'static str = "rb";
-    const TOPICS: &'static str = "Lua classes do not publish or listen to topics yet (ADR 0085); topics use the resource channel, which Lua does not have. Write the topic listener in another Yon language";
+    const SCOPE: &'static str = "function YonGenerated.within(only, work, ...)\n  local bus = YonEvents.new(only)\n  local cache = {}\n  bus.cache = cache\n  local ok, result = pcall(work, bus, cache, ...)\n  bus:close()\n  if not ok then\n    error(result, 0)\n  end\n  return result\nend\n\n";
+    const DELIVERY: &'static str = "function YonGenerated.deliver(bus, cache, delivery)\n  YonGenerated.listen(bus, cache)\n  bus:receive(delivery.topic, YonJson.encode(delivery.payload))\n  bus:drain()\nend\n\nfunction Handler.yon_deliver(delivery)\n  YonGenerated.within(delivery.listeners, YonGenerated.deliver, delivery)\nend\n\n";
 
     pub(super) fn new(plan: &'p Plan, events: &'p EventModule) -> Self {
         Self { plan, events }
     }
 
     pub(super) fn functions(&self, owners: &str, controller: usize) -> Result<String, String> {
-        self.refuse_topics()?;
         crate::events::yon::EventLowering::check(self.plan, self.events, false)?;
         Ok(format!(
-            "{}{}",
+            "{}{}{}{}{}",
+            self.topics_line(),
             self.listen_function()?,
-            self.handler_functions(owners, controller)
+            Self::SCOPE,
+            self.handler_functions(owners, controller),
+            self.delivery_function()
         ))
     }
 
-    fn refuse_topics(&self) -> Result<(), String> {
-        let uses_topics = [
-            !self.events.topics.is_empty(),
-            !self.events.topic_listeners().is_empty(),
-        ];
-        (!uses_topics.contains(&true))
-            .then_some(())
-            .ok_or_else(|| String::from(Self::TOPICS))
+    fn topics_line(&self) -> String {
+        let names: Vec<String> = self
+            .events
+            .topics
+            .iter()
+            .map(|name| format!("[{name:?}] = true"))
+            .collect();
+        format!("YonEvents.topics = {{ {} }}\n\n", names.join(", "))
+    }
+
+    fn delivery_function(&self) -> &'static str {
+        if self.events.topic_listeners().is_empty() {
+            return "";
+        }
+        Self::DELIVERY
     }
 
     fn listen_function(&self) -> Result<String, String> {
@@ -119,13 +129,14 @@ impl<'p> LuaEvents<'p> {
         listener: &EventListener,
     ) -> String {
         format!(
-            "  bus:listen({}, function(value) return cache[{owner}]:{}({}) end, {})\n",
+            "  bus:listen({}, function(value) return cache[{owner}]:{}({}) end, {}, {})\n",
             LuaSource::long_string(&crate::events::yon::EventLowering::listener_options(
                 listener
             )),
             listener.method,
             self.payload(event_type, listener),
-            listener.replay
+            listener.replay,
+            LuaSource::long_string(&format!("{}.{}", event_type.name, listener.method))
         )
     }
 
@@ -163,7 +174,7 @@ impl<'p> LuaEvents<'p> {
             .fold(String::new(), |mut functions, verb| {
                 let _ = write!(
                     functions,
-                    "function YonGenerated.handle_{verb}(bus, cache, request)\n  YonGenerated.listen(bus, cache)\n  bus:drain()\n  local result = YonGenerated.route_{verb}(YonGenerated.resolve_{controller}(cache), request{owners})\n  bus:drain()\n  return result\nend\n\nfunction Handler.{verb}(request)\n  local bus = YonEvents.new()\n  local cache = {{}}\n  bus.cache = cache\n  local ok, result = pcall(YonGenerated.handle_{verb}, bus, cache, request)\n  bus:close()\n  if not ok then\n    error(result, 0)\n  end\n  return result\nend\n\n"
+                    "function YonGenerated.handle_{verb}(bus, cache, request)\n  YonGenerated.listen(bus, cache)\n  bus:drain()\n  local result = YonGenerated.route_{verb}(YonGenerated.resolve_{controller}(cache), request{owners})\n  bus:drain()\n  return result\nend\n\nfunction Handler.{verb}(request)\n  return YonGenerated.within(nil, YonGenerated.handle_{verb}, request)\nend\n\n"
                 );
                 functions
             })

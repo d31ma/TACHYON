@@ -19,6 +19,7 @@ use tokio::time::Instant;
 pub(super) struct ResourceAccess {
     endpoint: String,
     token: String,
+    topics: Option<Arc<TopicOutbox>>,
     stop: HandlerCancellation,
     task: JoinHandle<()>,
 }
@@ -48,10 +49,11 @@ impl ResourceAccess {
             .map_err(|_| Self::unavailable())?;
         let address = listener.local_addr().map_err(|_| Self::unavailable())?;
         let token = Self::random_token()?;
+        let topics = topics.map(Arc::new);
         let access = Access {
             storage,
             gateways: gateways.map(Arc::new),
-            topics: topics.map(Arc::new),
+            topics: topics.clone(),
             token: token.clone(),
             host: address.to_string(),
             deadline,
@@ -61,9 +63,14 @@ impl ResourceAccess {
         Ok(Self {
             endpoint: format!("http://{address}/"),
             token,
+            topics,
             stop,
             task,
         })
+    }
+
+    pub(super) fn topics(&self) -> Option<Arc<TopicOutbox>> {
+        self.topics.clone()
     }
 
     pub(super) async fn close(mut self) {

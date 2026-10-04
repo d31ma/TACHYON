@@ -3,8 +3,10 @@ use super::{Drained, HandlerCancellation, ProcessFailure, ProcessOutcome, Proces
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::handler::frame::HandlerFrame;
+use crate::handler::topic_bus::TopicOutbox;
 use command_group::AsyncGroupChild;
 use std::process::ExitStatus;
+use std::sync::Arc;
 use std::time::Duration;
 use tachyon_contracts::HandlerResponse;
 use tokio::process::ChildStdin;
@@ -18,6 +20,7 @@ pub(super) struct RunningProcess {
     pub(super) stderr_task: JoinHandle<Drained>,
     pub(super) deadline: Instant,
     pub(super) direct_protocol: bool,
+    pub(super) topics: Option<Arc<TopicOutbox>>,
 }
 
 impl RunningProcess {
@@ -70,6 +73,7 @@ impl RunningProcess {
             stderr_task,
             deadline,
             direct_protocol,
+            topics,
         } = self;
         drop(stdin);
         ProcessReaper::terminate(&mut child, request_id).await;
@@ -77,7 +81,10 @@ impl RunningProcess {
         let (status, stdout, stderr) = Self::exit_output(status, settled)?;
         Drained::validate_output(status, &stdout, &stderr)?;
         stderr.surface_relay_events(request_id);
-        Self::response(&stdout.bytes, request_id, direct_protocol)
+        if direct_protocol {
+            return DirectResponse::parse(&stdout.bytes, request_id, topics).await;
+        }
+        HandlerFrame::response(&stdout.bytes, request_id)
     }
 
     async fn stop(
@@ -93,6 +100,7 @@ impl RunningProcess {
             stderr_task,
             deadline,
             direct_protocol: _,
+            topics: _,
         } = self;
         ProcessReaper::cancel_and_reap(&mut child, stdin.as_mut(), request_id, grace, deadline)
             .await;
@@ -114,16 +122,5 @@ impl RunningProcess {
             (Ok(_), Err(failure)) => Err(failure),
             (Ok(status), Ok((stdout, stderr))) => Ok((status, stdout, stderr)),
         }
-    }
-
-    fn response(
-        bytes: &[u8],
-        request_id: &str,
-        direct_protocol: bool,
-    ) -> Result<HandlerResponse, Failure> {
-        if direct_protocol {
-            return DirectResponse::parse(bytes, request_id);
-        }
-        HandlerFrame::response(bytes, request_id)
     }
 }

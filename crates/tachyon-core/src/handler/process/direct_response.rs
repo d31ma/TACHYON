@@ -1,5 +1,8 @@
 use crate::Failure;
 use crate::handler::frame::{FrameLimits, HandlerFrame};
+use crate::handler::topic_bus::TopicOutbox;
+use serde_json::Value;
+use std::sync::Arc;
 use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerHeaders, HandlerResponse, HandlerResponseKind,
 };
@@ -12,10 +15,25 @@ pub(super) struct DirectResponse {
     headers: HandlerHeaders,
     #[serde(default)]
     body: Option<String>,
+    #[serde(default)]
+    topics: Vec<Value>,
 }
 
 impl DirectResponse {
-    pub(super) fn parse(bytes: &[u8], request_id: &str) -> Result<HandlerResponse, Failure> {
+    const PUBLICATION_STOPPED: &'static str = "Topic publication stopped before it finished.";
+
+    pub(super) async fn parse(
+        bytes: &[u8],
+        request_id: &str,
+        outbox: Option<Arc<TopicOutbox>>,
+    ) -> Result<HandlerResponse, Failure> {
+        let mut parsed = Self::read(bytes)?;
+        let topics = std::mem::take(&mut parsed.topics);
+        Self::publish(topics, outbox, request_id).await;
+        Ok(parsed.into_response(request_id))
+    }
+
+    fn read(bytes: &[u8]) -> Result<Self, Failure> {
         Self::check_size(bytes)?;
         let text = std::str::from_utf8(bytes).map_err(|_| {
             HandlerFrame::protocol_failure(2004, "Direct handler output is not valid UTF-8.")
@@ -32,7 +50,41 @@ impl DirectResponse {
             )
         })?;
         parsed.check_status()?;
-        Ok(parsed.into_response(request_id))
+        Ok(parsed)
+    }
+
+    async fn publish(topics: Vec<Value>, outbox: Option<Arc<TopicOutbox>>, request_id: &str) {
+        if topics.is_empty() {
+            return;
+        }
+        let published = tokio::task::spawn_blocking(move || Self::publish_all(&topics, outbox));
+        let failure = published
+            .await
+            .unwrap_or(Err(Self::PUBLICATION_STOPPED))
+            .err();
+        if let Some(message) = failure {
+            Self::print_topic_failure(request_id, message);
+        }
+    }
+
+    fn publish_all(topics: &[Value], outbox: Option<Arc<TopicOutbox>>) -> Result<(), &'static str> {
+        let outbox = outbox.ok_or("This handler has no topic models.")?;
+        let failures: Vec<&'static str> = topics
+            .iter()
+            .filter_map(|command| outbox.publish(command).err())
+            .collect();
+        failures.first().map_or(Ok(()), |failure| Err(*failure))
+    }
+
+    fn print_topic_failure(request_id: &str, message: &str) {
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "event": "handler.topic_failed",
+                "request_id": request_id,
+                "message": message,
+            })
+        );
     }
 
     fn check_size(bytes: &[u8]) -> Result<(), Failure> {

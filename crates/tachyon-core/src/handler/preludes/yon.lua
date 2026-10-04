@@ -5,6 +5,8 @@ YonLimits = {
   JSON_CONTENT_TYPE = "application/json; charset=utf-8",
   MISSING_METHOD = 405,
   MIDDLEWARE_PHASES = { ["middleware.before"] = "before", ["middleware.after"] = "after" },
+  DELIVERY = "event.deliver",
+  MISSING_LISTENERS = 404,
   PASSED = { 204, {}, {} },
   UNREADABLE_MESSAGE = "The socket message is not valid JSON, or it is nested more than %d levels deep: %s",
 }
@@ -356,12 +358,28 @@ function YonSocket.report(endpoint, session, failure)
   pcall(endpoint.error, endpoint, session, failure)
 end
 
+YonTopics = { sent = {} }
+
+function YonTopics.send(topic, payload_json)
+  YonTopics.sent[#YonTopics.sent + 1] = { topic = topic, payload_json = payload_json }
+end
+
+function YonTopics.add_to(answer)
+  if #YonTopics.sent > 0 and getmetatable(answer) ~= YonStream then
+    answer.topics = YonTopics.sent
+  end
+  return answer
+end
+
 YonInvocation = {}
 
 function YonInvocation.answer(handler, request)
   local phase = YonLimits.MIDDLEWARE_PHASES[request.operation]
   if phase ~= nil then
     return YonInvocation.middleware(handler, request, phase)
+  end
+  if request.operation == YonLimits.DELIVERY then
+    return YonInvocation.deliver(handler, request)
   end
   local method = rawget(handler, tostring(request.method))
   if type(method) ~= "function" then
@@ -376,6 +394,15 @@ function YonInvocation.answer(handler, request)
     return result
   end
   return YonAnswers.for_result(result)
+end
+
+function YonInvocation.deliver(handler, request)
+  local method = rawget(handler, "yon_deliver")
+  if type(method) ~= "function" then
+    return YonAnswers.empty(YonLimits.MISSING_LISTENERS)
+  end
+  method(YonJson.decode(YonRequest.body(request.body)))
+  return YonAnswers.for_result(nil)
 end
 
 function YonInvocation.middleware(handler, request, phase)
@@ -463,7 +490,7 @@ function YonRunner.main(program)
   io.output(io.stderr)
   print = YonRunner.print
   local request = YonInput.read()
-  local answer = YonRunner.run(program, request)
+  local answer = YonTopics.add_to(YonRunner.run(program, request))
   if getmetatable(answer) == YonStream then
     answer:send(standard_output, request.request_id)
   end

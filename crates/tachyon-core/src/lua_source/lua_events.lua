@@ -18,6 +18,7 @@ YonEvents = {
   MAX_DELIVERIES = 4096,
   MAX_REPUBLISHED_EVENTS = 32,
   active = nil,
+  topics = {},
 }
 YonEvents.__index = YonEvents
 
@@ -35,11 +36,13 @@ function YonEvents.members(class)
   }
 end
 
-function YonEvents.new()
+function YonEvents.new(only)
   if YonEvents.active ~= nil then
     error("Nested local event invocation", 0)
   end
   local bus = setmetatable({
+    only = YonEvents.keys(only),
+    outbound = {},
     queue = {},
     retained = {},
     listeners = {},
@@ -50,6 +53,17 @@ function YonEvents.new()
   }, YonEvents)
   YonEvents.active = bus
   return bus
+end
+
+function YonEvents.keys(only)
+  if only == nil then
+    return nil
+  end
+  local keys = {}
+  for _, key in ipairs(only) do
+    keys[key] = true
+  end
+  return keys
 end
 
 function YonEvents.publish(name, value, retain)
@@ -80,9 +94,19 @@ function YonEvents:enqueue(name, encoded, retain)
     self.retained[name] = encoded
   end
   self.queue[#self.queue + 1] = { name, encoded }
+  if YonEvents.topics[name] then
+    self.outbound[#self.outbound + 1] = { name, encoded }
+  end
 end
 
-function YonEvents:listen(options, callback, replay)
+function YonEvents:receive(name, encoded)
+  self.queue[#self.queue + 1] = { name, encoded }
+end
+
+function YonEvents:listen(options, callback, replay, key)
+  if self.only ~= nil and not self.only[key] then
+    return
+  end
   options = YonJson.decode(options)
   for _, name in ipairs(options.events) do
     if #self.listeners >= YonEvents.MAX_LISTENERS then
@@ -146,6 +170,14 @@ function YonEvents:drain()
       end
     end
   end
+  self:send_topics()
+end
+
+function YonEvents:send_topics()
+  for _, event in ipairs(self.outbound) do
+    YonTopics.send(event[1], event[2])
+  end
+  self.outbound = {}
 end
 
 function YonEvents:close()

@@ -17,7 +17,7 @@ impl Topics {
         "[<Topic>]",
         "[<Topic()>]",
     ];
-    const COMMENT_LEADERS: [&'static str; 5] = ["/**", "///", "//", "# ", "*"];
+    const COMMENT_LEADERS: [&'static str; 6] = ["/**", "///", "//", "--", "# ", "*"];
     const MAX_SLUG_BYTES: usize = 64;
     const CODE: u16 = 1308;
     const ANNOTATION: &'static str = "Topic";
@@ -214,6 +214,7 @@ mod tests {
             "/**\n * @Topic\n * @typedef {Object} OrderPlaced\n * @property {Customer} customer\n */\n",
             "#[Topic]\nOrderPlaced = Data.define(:customer)\n",
             "[<Topic>]\ntype OrderPlaced = { Customer: Customer }\n",
+            "-- @Topic\n---@class OrderPlaced\n---@field customer Customer\nOrderPlaced = {}\n",
         ];
         for source in cases {
             assert_eq!(
@@ -308,6 +309,18 @@ mod tests {
             (
                 "client/models/OrderPlaced.fs",
                 "[<Topic>]\ntype OrderPlaced = { Id: string }\n",
+            ),
+            (
+                "server/models/OrderPlaced.lua",
+                "-- @Topic\n---@class OrderPlaced\n---@field id string\nOrderPlaced = {}\n",
+            ),
+            (
+                "client/models/OrderPlaced.lua",
+                "-- @Topic\n---@class OrderPlaced\n---@field id string\nOrderPlaced = {}\n",
+            ),
+            (
+                "client/models/OrderPlaced.py",
+                "from dataclasses import dataclass\n\n@topic\n@dataclass\nclass OrderPlaced:\n    id: str\n",
             ),
         ];
         for (path, source) in cases {

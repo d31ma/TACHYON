@@ -142,7 +142,7 @@ impl LuaYon {
         Ok(Lowered {
             source: program,
             routes: Self::patterned(&parsed.plan),
-            topics: crate::events::TopicUse::default(),
+            topics: events.map(EventModule::topic_use).unwrap_or_default(),
         })
     }
 

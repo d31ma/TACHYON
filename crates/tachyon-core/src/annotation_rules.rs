@@ -283,11 +283,6 @@ impl AnnotationRules {
         "js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb", "java", "lua", "py",
     ];
     const YON_BACKGROUND: &'static [&'static str] = &["js", "ts", "py"];
-    const YON_TOPIC: &'static [&'static str] = &[
-        "js", "ts", "py", "php", "java", "groovy", "kt", "cs", "rs", "dart", "go", "rb",
-    ];
-    const TAC_TOPIC: &'static [&'static str] =
-        &["js", "ts", "rs", "cs", "dart", "go", "swift", "kt", "rb"];
     const YON_STREAM: &'static [&'static str] = &[
         "js", "ts", "py", "php", "kt", "cs", "dart", "rb", "lua", "go",
     ];
@@ -583,8 +578,7 @@ impl AnnotationRules {
             "sends each published event of this model to the listeners in every Yon language and in open pages",
         )
         .bare()
-        .reach(Self::TAC_TOPIC, Self::YON_TOPIC)
-        .advice("Lua, and Python in Tac, get topics in a later step. Until then, publish and listen to the topic in another language of the same realm."),
+        .reach(Self::TAC, Self::YON),
         Rule::new(
             "Table",
             Self::TYPE,

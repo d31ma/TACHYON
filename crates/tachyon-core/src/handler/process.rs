@@ -607,8 +607,16 @@ impl HandlerSupervisor {
             stdout,
             stderr,
         };
+        let topics = resource_access.as_ref().and_then(ResourceAccess::topics);
         let result = self
-            .drive_process(pipes, request, direct_protocol, deadline, cancellation)
+            .drive_process(
+                pipes,
+                request,
+                direct_protocol,
+                topics,
+                deadline,
+                cancellation,
+            )
             .await;
         Self::close_resource_access(resource_access).await;
         result
@@ -619,6 +627,7 @@ impl HandlerSupervisor {
         pipes: ProcessPipes,
         request: &HandlerRequest,
         direct_protocol: bool,
+        topics: Option<Arc<TopicOutbox>>,
         deadline: Instant,
         cancellation: &HandlerCancellation,
     ) -> Result<HandlerResponse, Failure> {
@@ -652,6 +661,7 @@ impl HandlerSupervisor {
             stderr_task,
             deadline,
             direct_protocol,
+            topics,
         };
         running
             .run(cancellation, request_id, self.options.cancellation_grace)

@@ -45,7 +45,21 @@ impl Page {
 
     const SIGNAL: &str = "-- @Service\n---@class SignalService\nSignalService = {\n  ---@type integer[]\n  large = {},\n  ---@type integer\n  echoed = 0,\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@param size integer\n---@return nil\nfunction SignalService:notify(size)\n  self.application_event_publisher:publish_event(setmetatable({ size = size }, SignalSent))\nend\n\n---@param sent SignalSent\n---@return SignalEcho\n-- @OnEvent({\"condition\":\"value.size > 5\"})\nfunction SignalService:record(sent)\n  self.large[#self.large + 1] = sent.size\n  return setmetatable({ value = sent.size * 10 }, SignalEcho)\nend\n\n---@param reply SignalEcho\n---@return nil\n-- @OnEvent\n-- @Order(1)\nfunction SignalService:echo(reply)\n  self.echoed = reply.value\nend\n";
 
-    const MODELS: [(&str, &str); 4] = [
+    const SHELF: &str = "-- @Service\n---@class ShelfService\nShelfService = {\n  ---@type integer[]\n  heard = {},\n}\n\n---@param changed ShelfChanged\n---@return nil\n-- @OnEvent\nfunction ShelfService:changed(changed)\n  self.heard[#self.heard + 1] = changed.count\nend\n";
+
+    const SHELF_DRIVER: &str = "const sources = []\n\
+         globalThis.EventSource = class { constructor(url) { this.url = url; sources.push(this) } addEventListener() {} close() {} }\n\
+         const { default: ShelfService, __tachyon_event_plan__: plan } = await import('./ShelfService.js')\n\
+         const { default: ApplicationEvents } = await import('./application-events.mjs')\n\
+         const bus = new ApplicationEvents({ changed: () => {}, failed: () => { throw new Error('Event delivery failed') } })\n\
+         const shelf = new ShelfService({})\n\
+         bus.attach(shelf, plan.types[0], { applicationEventPublisher: null })\n\
+         await bus.initialize(shelf)\n\
+         for (const source of sources) source.onmessage({ data: JSON.stringify({ count: 3 }), lastEventId: '1' })\n\
+         console.log(JSON.stringify({ heard: shelf.heard, topics: sources.map((source) => source.url) }))\n\
+         process.exit(0)\n";
+
+    const MODELS: [(&str, &str); 5] = [
         (
             "client/models/CounterStarted.lua",
             "---@class CounterStarted\n---@field label string\nCounterStarted = {}\n",
@@ -62,7 +76,22 @@ impl Page {
             "client/models/SignalEcho.lua",
             "---@class SignalEcho\n---@field value integer\nSignalEcho = {}\n",
         ),
+        (
+            "client/models/ShelfChanged.lua",
+            "-- @Topic\n---@class ShelfChanged\n---@field count integer\nShelfChanged = {}\n",
+        ),
     ];
+
+    fn event_runtime(root: &Path) {
+        std::fs::write(
+            root.join("application-events.mjs"),
+            concat!(
+                include_str!("../template/application-events.js"),
+                "\nexport default TacApplicationEvents\n"
+            ),
+        )
+        .expect("event runtime");
+    }
 
     const SIGNAL_DRIVER: &str = "const { default: SignalService, __tachyon_event_plan__: plan } = await import('./SignalService.js')\n\
          const { default: ApplicationEvents } = await import('./application-events.mjs')\n\
@@ -302,14 +331,7 @@ async fn lua_listeners_follow_their_conditions_and_order() {
     }
     let root = tempfile::tempdir().expect("project");
     Page::publish(root.path(), &[("signal", "SignalService", Page::SIGNAL)]).await;
-    std::fs::write(
-        root.path().join("application-events.mjs"),
-        concat!(
-            include_str!("../template/application-events.js"),
-            "\nexport default TacApplicationEvents\n"
-        ),
-    )
-    .expect("event runtime");
+    Page::event_runtime(root.path());
     let report = Page::run(root.path(), Page::SIGNAL_DRIVER);
     assert_eq!(report["large"], serde_json::json!([8]), "{report}");
     assert_eq!(report["echoed"], 80, "{report}");
@@ -320,6 +342,23 @@ async fn lua_listeners_follow_their_conditions_and_order() {
             ["SignalSent", {"size": 8}],
             ["SignalEcho", {"value": 80}],
         ])
+    );
+}
+
+#[tokio::test]
+async fn a_lua_listener_hears_its_topic_stream() {
+    if let Some(reason) = Page::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    Page::publish(root.path(), &[("shelf", "ShelfService", Page::SHELF)]).await;
+    Page::event_runtime(root.path());
+    let report = Page::run(root.path(), Page::SHELF_DRIVER);
+    assert_eq!(report["heard"], serde_json::json!([3]), "{report}");
+    assert_eq!(
+        report["topics"],
+        serde_json::json!(["/.tachyon/topics/shelf-changed"])
     );
 }
 
