@@ -297,7 +297,7 @@
     },
     "calling-the-server": {
       "title": "Calling the server from a page",
-      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust and Go, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies; in the other languages the Setup gives the client an adapter. A request to another host needs that host in `tac.outgoing.hosts`.",
+      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust and Go, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies. This browser transport refuses every other origin. In Swift, Kotlin, Java and Ruby the client needs a Setup that gives it an HTTP adapter. Python and Lua cannot use `HTTPClient` (`TY1308`). A request to another host goes through a Setup adapter, and that host must be listed in `tac.outgoing.hosts`.",
       "before": [
         "services",
         "controllers"

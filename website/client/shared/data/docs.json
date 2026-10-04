@@ -1310,8 +1310,8 @@
         },
         {
           "heading": "Control flow",
-          "body": "Loops, conditionals and switches are elements. So you can see the structure in the markup. A conditional is always `<logic>`: `<logic :if>`, then `<logic :else-if>`, then `<logic else>`. A loop is always `<loop :for>`. There is no `<if>`, `<else>` or `<for>` element: the build stops with `TY1367`, and `ty migrate fix --write` rewrites them. A loop's binding (the name of the current item) exists only inside the loop. In <loop :for=\"topic of documentation.topics()\">, the binding topic has the name of a service. Inside the loop, topic reads the item. It does not load TopicService.",
-          "code": "<loop :for=\"post of blog.posts\">\n  <article>{post.title}</article>\n</loop>\n<logic :if=\"blog.ready\"><p>Ready.</p></logic>\n<switch :value=\"blog.status\">\n  <case :when=\"'loading'\"><p>Working\u2026</p></case>\n  <case default><p>Done.</p></case>\n</switch>"
+          "body": "Loops, conditionals and switches are elements, so you can see the structure in the markup. A conditional is always `<logic>`: `<logic :if>`, then `<logic :else-if>`, then `<logic else>`. A loop is always `<loop :for=\"item of items\">`. `<switch>` and `<case>` choose one part by a value. There is no `<if>`, `<else>` or `<for>` element: the build stops with `TY1367` and names the form to use. `ty migrate check` lists these old elements, and `ty migrate fix --write` rewrites them, so `<for :each=\"item in items\">` becomes `<loop :for=\"item of items\">`.\n\nA loop binding (the name of the current item) exists only inside the loop. In `<loop :for=\"topic of documentation.topics()\">`, the binding `topic` has the name of a service. Inside the loop, `topic` reads the item. It does not load `TopicService`.",
+          "code": "<loop :for=\"post of blog.posts\">\n  <article>{post.title}</article>\n</loop>\n<logic :if=\"blog.failed\"><p>The posts did not load.</p></logic>\n<logic :else-if=\"blog.ready\"><p>Ready.</p></logic>\n<logic else><p>Loading\u2026</p></logic>\n<switch :value=\"blog.status\">\n  <case :when=\"'loading'\"><p>Working\u2026</p></case>\n  <case default><p>Done.</p></case>\n</switch>\n"
         },
         {
           "heading": "Components",
@@ -1334,6 +1334,11 @@
               "code": "<article aria-label=\"Anvil\">\n  <h2>Anvil</h2>\n</article>\n"
             }
           ]
+        },
+        {
+          "heading": "Markup and styles stay in the view",
+          "body": "Write the markup of a view in its `tac.html` and its styles in its `tac.css`. A script changes text, classes and service state. It does not build markup or write styles. The build stops with `TY1364` when a JavaScript or TypeScript file under `client/` writes `innerHTML` or `outerHTML`, calls `document.write`, `insertAdjacentHTML` or `document.createElement`, inserts nodes with `append`, `appendChild`, `insertBefore` or a similar method, writes `element.style` or changes a style sheet. This covers services, component scripts and every script in `client/shared/`. The check also follows a document or a node that a variable holds. It reads the source text, so it is a guard for mistakes, not a sandbox.\n\nA third-party script that must build markup is a vendor file. List it in `tac.scripts` and in `tac.scriptSources` in `client/manifest.json`, with its package, exact version, license and SHA-256, and keep it in `client/shared/`, outside the utility folders. A wrong entry stops the build with `TY1365`. A file whose bytes do not match the SHA-256 stops it with `TY1403`. Tachyon publishes a vendor file unchanged.\n\nInline SVG works in a view. The renderer creates `<svg>` and its children in the SVG namespace, so `viewBox`, `xlink:` attributes and HTML inside `<foreignObject>` work. The example draws a cart icon inside a button.",
+          "code": "<button type=\"button\" on:click=\"cart.open()\" aria-label=\"Open the cart\">\n  <svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" aria-hidden=\"true\">\n    <path d=\"M3 4h2l2 12h11l2-8H7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" />\n    <circle cx=\"9\" cy=\"20\" r=\"1.5\" />\n    <circle cx=\"17\" cy=\"20\" r=\"1.5\" />\n  </svg>\n  <span>{cart.count}</span>\n</button>\n"
         },
         {
           "heading": "Shared data and the page",
@@ -2259,7 +2264,10 @@
         {
           "heading": "Export a component",
           "axis": "language",
-          "body": "List the component in `tac.elements` in `client/manifest.json`. Write its tag, as a page writes it: the folder `client/components/shop/counter` is `shop-counter`. `ty build` and `ty preview` then write `.tachyon/elements/shop-counter.js`, beside the runtime and the services that a Tac page already loads. A custom element is a tag that JavaScript defines, and the HTML standard says that its name must contain a hyphen. So a component in a folder with one part, such as `client/components/counter`, cannot be exported: the build stops with `TY1358`. `TY1358` also stops a name that is not a component (ADR 0086).\n\nThe element accepts a prop (a value that it receives) for each name that the template reads, except service names, loop names, `data` and `page`. It also accepts each field that a service needs with `@NeedsAll`. Here those props are `label` and `start`. When a service publishes an event, the element also sends it to the page as a DOM event. The event name is the model name in kebab case (words in small letters, joined by hyphens): `CountChanged` becomes `count-changed`. The component still works on your own Tac pages, such as `/shop` here.\n\nA project does not need a page to export elements. When `tac.elements` lists a component, `ty build` and `ty preview` work without `client/pages` and without a controller, so a project can hold only the components that it gives to other apps. The build stops with `TY1002` only when it finds no page, no controller and no exported element. Choose JavaScript or TypeScript above the code.",
+          "notApplicable": [
+            "py"
+          ],
+          "body": "List the component in `tac.elements` in `client/manifest.json`. Write its tag, as a page writes it: the folder `client/components/shop/counter` is `shop-counter`. `ty bundle` and `ty preview` then write `.tachyon/elements/shop-counter.js`, beside the runtime and the services that a Tac page already loads. `ty bundle` puts it in `dist/web/.tachyon/elements/`. A custom element is a tag that JavaScript defines, and the HTML standard says that its name must contain a hyphen. So a component in a folder with one part, such as `client/components/counter`, cannot be exported: the build stops with `TY1358`. `TY1358` also stops a name that is not a component (ADR 0086).\n\nThe element accepts a prop (a value that it receives) for each name that the template reads, except service names, loop names, `data` and `page`. Here the prop is `label`. It also accepts each field that a service fills with `NeedsAll` (see One per page, or one per component). When a service publishes an event, the element also sends it to the page as a DOM event. The event name is the model name in kebab case (words in small letters, joined by hyphens): `CountChanged` becomes `count-changed`. The component still works on your own Tac pages, such as `/shop` here.\n\nThe service can be written in any Tac service language. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby or Lua runs as WebAssembly inside the element, in the same way as on a Tac page. Python has no tab here: Python services cannot use events yet, and the build stops with `TY1605` (ADR 0093). Choose a language above the code.\n\nA project does not need a page to export elements. When `tac.elements` lists a component, `ty bundle` and `ty preview` work without `client/pages` and without a controller, so a project can hold only the components that it gives to other apps. The build stops with `TY1002` only when it finds no page, no controller and no exported element.",
           "files": [
             {
               "name": "client/manifest.json",
@@ -2267,7 +2275,7 @@
             },
             {
               "name": "client/pages/shop/tac.html",
-              "code": "<shop-counter label=\"Apples\" start=\"5\" hydrate=\"load\" />\n"
+              "code": "<shop-counter label=\"Apples\" hydrate=\"load\" />\n"
             },
             {
               "name": "client/components/shop/counter/tac.html",
@@ -2279,26 +2287,106 @@
             },
             {
               "name": "client/services/CounterService.js",
-              "code": "/** @import { CountChanged } from '/models/CountChanged.ts' */\n@Service\n@NeedsAll\nexport default class CounterService {\n  /** @type {string} */\n  start;\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  count = 0;\n\n  @OnStart\n  initialize() {\n    this.count = Number(this.start);\n  }\n\n  add() {\n    this.count += 1;\n    /** @type {CountChanged} */\n    const changed = { count: this.count };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}\n"
+              "code": "/** @import { CountChanged } from '/models/CountChanged.ts' */\n@Service\nexport default class CounterService {\n  /** @type {ApplicationEventPublisher} */\n  applicationEventPublisher;\n  count = 0;\n\n  add() {\n    this.count += 1;\n    /** @type {CountChanged} */\n    const changed = { count: this.count };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}\n"
             },
             {
               "name": "client/services/CounterService.ts",
-              "code": "import type { CountChanged } from '/models/CountChanged.ts';\n\n@Service\n@NeedsAll\nexport default class CounterService {\n  start!: string;\n  applicationEventPublisher!: ApplicationEventPublisher;\n  count = 0;\n\n  @OnStart\n  initialize(): void {\n    this.count = Number(this.start);\n  }\n\n  add(): void {\n    this.count += 1;\n    const changed: CountChanged = { count: this.count };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}\n"
+              "code": "import type { CountChanged } from '/models/CountChanged.ts';\n\n@Service\nexport default class CounterService {\n  applicationEventPublisher!: ApplicationEventPublisher;\n  count = 0;\n\n  add(): void {\n    this.count += 1;\n    const changed: CountChanged = { count: this.count };\n    this.applicationEventPublisher.publishEvent(changed);\n  }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.rs",
+              "code": "use crate::models::CountChanged;\n\n#[Service]\n#[derive(Default)]\nstruct CounterService {\n    count: i64,\n    application_event_publisher: ApplicationEventPublisher,\n}\n\nimpl CounterService {\n    fn add(&mut self) {\n        self.count += 1;\n        self.application_event_publisher.publish_event(CountChanged { count: self.count }, false);\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.go",
+              "code": "// @Service\ntype CounterService struct {\n\tCount                     int64\n\tapplicationEventPublisher ApplicationEventPublisher\n}\n\nfunc (counter *CounterService) Add() {\n\tcounter.Count += 1\n\tcounter.applicationEventPublisher.PublishEvent(CountChanged{Count: counter.Count}, false)\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.cs",
+              "code": "using Models;\n\n[Service]\npublic class CounterService {\n    public int Count = 0;\n    private readonly ApplicationEventPublisher applicationEventPublisher;\n\n    public void Add() {\n        Count += 1;\n        applicationEventPublisher.PublishEvent(new CountChanged(Count));\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.fs",
+              "code": "open Models\n\n[<Service>]\ntype CounterService(applicationEventPublisher: ApplicationEventPublisher) =\n    member val Count = 0 with get, set\n\n    member this.Add() : unit =\n        this.Count <- this.Count + 1\n        applicationEventPublisher.PublishEvent({ Count = this.Count })\n"
+            },
+            {
+              "name": "client/services/CounterService.swift",
+              "code": "@Service\nclass CounterService {\n    var count: Int = 0\n    let applicationEventPublisher: ApplicationEventPublisher\n\n    func add() {\n        count += 1\n        applicationEventPublisher.publishEvent(CountChanged(count: count))\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.kt",
+              "code": "import models.CountChanged\n\n@Service\nclass CounterService {\n    var count: Int = 0\n    val applicationEventPublisher: ApplicationEventPublisher\n\n    fun add() {\n        count += 1\n        applicationEventPublisher.publishEvent(CountChanged(count))\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.java",
+              "code": "import models.CountChanged;\n\n@Service\nclass CounterService {\n    int count = 0;\n    ApplicationEventPublisher applicationEventPublisher;\n\n    void add() {\n        count += 1;\n        applicationEventPublisher.publishEvent(new CountChanged(count));\n    }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.dart",
+              "code": "import 'models/CountChanged.dart';\n\n@Service\nclass CounterService {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n  int count = 0;\n\n  void add() {\n    count += 1;\n    applicationEventPublisher.publishEvent(CountChanged(count));\n  }\n}\n"
+            },
+            {
+              "name": "client/services/CounterService.rb",
+              "code": "#[Service]\nclass CounterService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  # @return [void]\n  def add\n    @count += 1\n    @events.publish_event(CountChanged.new(count: @count))\n  end\nend\n"
+            },
+            {
+              "name": "client/services/CounterService.lua",
+              "code": "-- @Service\n---@class CounterService\nCounterService = {\n  ---@type integer\n  count = 0,\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return nil\nfunction CounterService:add()\n  self.count = self.count + 1\n  self.application_event_publisher:publish_event(setmetatable({ count = self.count }, CountChanged))\nend\n"
             },
             {
               "name": "client/models/CountChanged.ts",
               "code": "export interface CountChanged {\n  count: integer\n}\n"
+            },
+            {
+              "name": "client/models/CountChanged.rs",
+              "code": "pub struct CountChanged {\n    pub count: i64,\n}\n"
+            },
+            {
+              "name": "client/models/CountChanged.go",
+              "code": "type CountChanged struct {\n\tCount int64 `json:\"count\"`\n}\n"
+            },
+            {
+              "name": "client/models/CountChanged.cs",
+              "code": "public record CountChanged(int Count);\n"
+            },
+            {
+              "name": "client/models/CountChanged.fs",
+              "code": "type CountChanged = { Count: int }\n"
+            },
+            {
+              "name": "client/models/CountChanged.swift",
+              "code": "struct CountChanged {\n    let count: Int\n}\n"
+            },
+            {
+              "name": "client/models/CountChanged.kt",
+              "code": "data class CountChanged(val count: Int)\n"
+            },
+            {
+              "name": "client/models/CountChanged.java",
+              "code": "record CountChanged(int count) {}\n"
+            },
+            {
+              "name": "client/models/CountChanged.dart",
+              "code": "class CountChanged {\n  final int count;\n\n  const CountChanged(this.count);\n}\n"
+            },
+            {
+              "name": "client/models/CountChanged.rb",
+              "code": "# @!attribute [r] count\n#   @return [Integer]\nCountChanged = Data.define(:count)\n"
+            },
+            {
+              "name": "client/models/CountChanged.lua",
+              "code": "---@class CountChanged\n---@field count integer\nCountChanged = {}\n"
             }
           ]
         },
         {
           "heading": "Use it in another page",
-          "body": "A page that is not a Tac page loads the element with one `<script type=\"module\">` tag and then uses the tag. Serve the page from the same origin as the build output. The element starts its services as soon as it joins the page, like `hydrate=\"load\"`. Several elements on one page share one Tac runtime.\n\n- Props in: an attribute gives a string. Its name is the prop name in kebab case, so `persistId` is the attribute `persist-id`. A JavaScript property with the prop name takes any value: a number, an object or an array. React, Angular and Vue set properties on custom elements, so they pass rich values. The last write wins. When a prop changes, the view shows the new value. A field that a service needs is read once, when the service starts.\n- Events out: listen with `addEventListener('count-changed', ...)`. `event.detail` is a copy of the model value. The event bubbles and leaves the element, so a listener on `document` hears it too. When each element has its own service (`@NeedsAll` or `@Lifetime('prototype')`), each element sends its own events.\n- Slot content: the children of the tag stay in your page, and the browser shows them where the template has `<slot>`. A child with a `slot` attribute, such as `<p slot=\"note\">`, shows in the named slot `<slot name=\"note\">` instead. Your framework keeps control of them.\n- Styles: the element draws its view in a shadow root (a separate DOM tree inside the element), with the component styles. The styles of your page do not reach inside, except inherited values such as `color` and `font`, and CSS custom properties such as `--shop-accent`. Use custom properties to theme an element.\n- Services in compiled languages (WebAssembly): a service in Rust, Go or Ruby works inside the element as it does on a Tac page. Its runtime loads once for the whole page, even when several elements use that language. A page with a Content Security Policy (a header that lists what the page may run) must allow `'wasm-unsafe-eval'` in `script-src`. The policy that the Tachyon server sends already allows it.\n\nServing the element from another origin and a `hydrate` attribute are planned.",
-          "code": "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Fruit stand</title>\n  <script type=\"module\" src=\"/.tachyon/elements/shop-counter.js\"></script>\n  <style>\n    shop-counter { --shop-accent: crimson; }\n  </style>\n</head>\n<body>\n  <shop-counter id=\"apples\" label=\"Apples\" start=\"5\">\n    <p>Picked this morning.</p>\n    <p slot=\"note\">One euro each.</p>\n  </shop-counter>\n  <p id=\"total\">No clicks yet.</p>\n  <script type=\"module\">\n    const apples = document.getElementById('apples');\n    apples.addEventListener('count-changed', (event) => {\n      document.getElementById('total').textContent = `Apples: ${event.detail.count}`;\n    });\n    apples.label = 'Green apples';\n  </script>\n</body>\n</html>\n"
+          "body": "A page that is not a Tac page loads the element with one `<script type=\"module\">` tag and then uses the tag. Serve the page from the same origin as the build output. The element starts its services as soon as it joins the page, like `hydrate=\"load\"`. Several elements on one page share one Tac runtime.\n\n- Props in: an attribute gives a string. Its name is the prop name in kebab case, so `persistId` is the attribute `persist-id`. A JavaScript property with the prop name takes any value: a number, an object or an array. React, Angular and Vue set properties on custom elements, so they pass rich values. The last write wins. When a prop changes, the view shows the new value. A field that a service needs is read once, when the service starts.\n- Events out: listen with `addEventListener('count-changed', ...)`. `event.detail` is a copy of the model value. The event bubbles and leaves the element, so a listener on `document` hears it too. When each element has its own service (`NeedsAll` or `Lifetime({\"value\":\"prototype\"})`), each element sends its own events. A singleton service is shared by every element on the page, so its events come from the element that started it last (ADR 0086).\n- Slot content: the children of the tag stay in your page, and the browser shows them where the template has `<slot>`. A child with a `slot` attribute, such as `<p slot=\"note\">`, shows in the named slot `<slot name=\"note\">` instead. Your framework keeps control of them.\n- Styles: the element draws its view in a shadow root (a separate DOM tree inside the element), with the component styles. The styles of your page do not reach inside, except inherited values such as `color` and `font`, and CSS custom properties such as `--shop-accent`. Use custom properties to theme an element.\n- Services in compiled languages (WebAssembly): a service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby or Lua works inside the element as it does on a Tac page. Its runtime loads once for the whole page, even when several elements use that language. A page with a Content Security Policy (a header that lists what the page may run) must allow `'wasm-unsafe-eval'` in `script-src`. The policy that the Tachyon server sends already allows it.\n\nServing the element from another origin and a `hydrate` attribute are planned.",
+          "code": "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Fruit stand</title>\n  <script type=\"module\" src=\"/.tachyon/elements/shop-counter.js\"></script>\n  <style>\n    shop-counter { --shop-accent: crimson; }\n  </style>\n</head>\n<body>\n  <shop-counter id=\"apples\" label=\"Apples\">\n    <p>Picked this morning.</p>\n    <p slot=\"note\">One euro each.</p>\n  </shop-counter>\n  <p id=\"total\">No clicks yet.</p>\n  <script type=\"module\">\n    const apples = document.getElementById('apples');\n    apples.addEventListener('count-changed', (event) => {\n      document.getElementById('total').textContent = `Apples: ${event.detail.count}`;\n    });\n    apples.label = 'Green apples';\n  </script>\n</body>\n</html>\n"
         },
         {
           "heading": "TypeScript declarations",
-          "body": "Beside each element module, the build writes a TypeScript declaration file (a `.d.ts` file, which describes types and holds no code): `.tachyon/elements/shop-counter.d.ts`. A TypeScript page that imports the element gets these types:\n\n- `document.querySelector('shop-counter')` and `document.createElement('shop-counter')` return a `ShopCounterElement`, because the file adds the tag to `HTMLElementTagNameMap`.\n- `ShopCounterElement` has a property for each prop, such as `label` and `start`. A prop has the type `unknown`, because a template does not declare types, so it takes any value.\n- `addEventListener('count-changed', ...)` gives a `CustomEvent<CountChanged>`, so `event.detail.count` is a `number`. The file copies each event model as an interface. The events are the models that the component's JavaScript or TypeScript services pass to `publishEvent`.\n\nThe second listener below does not compile: `event.detail.count` is a number, not a string. Helpers for React and Vue types are planned.",
+          "body": "Beside each element module, the build writes a TypeScript declaration file (a `.d.ts` file, which describes types and holds no code): `.tachyon/elements/shop-counter.d.ts`. A TypeScript page that imports the element gets these types:\n\n- `document.querySelector('shop-counter')` and `document.createElement('shop-counter')` return a `ShopCounterElement`, because the file adds the tag to `HTMLElementTagNameMap`.\n- `ShopCounterElement` has a property for each prop, such as `label`. A prop has the type `unknown`, because a template does not declare types, so it takes any value.\n- `addEventListener('count-changed', ...)` gives a `CustomEvent<CountChanged>`, so `event.detail.count` is a `number`. The file copies each event model as an interface. The events are the models that the component's JavaScript or TypeScript services pass to `publishEvent`. A service in another language also sends its events to the page, but the file does not list them, so the listener gets a plain `Event` type.\n\nThe second listener below does not compile: `event.detail.count` is a number, not a string. Helpers for React and Vue types are planned.",
           "code": "import type { ShopCounterElement } from '/.tachyon/elements/shop-counter.js';\n\nconst apples: ShopCounterElement | null = document.querySelector('shop-counter');\n\napples?.addEventListener('count-changed', (event) => {\n  const count: number = event.detail.count;\n  console.log(`Apples: ${count}`);\n});\n\napples?.addEventListener('count-changed', (event) => {\n  const count: string = event.detail.count;\n  console.log(count);\n});\n"
         }
       ]
@@ -4156,7 +4244,7 @@
     },
     "calling-the-server": {
       "title": "Calling the server from a page",
-      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust and Go, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies; in the other languages the Setup gives the client an adapter. A request to another host needs that host in `tac.outgoing.hosts`.",
+      "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust and Go, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies. This browser transport refuses every other origin. In Swift, Kotlin, Java and Ruby the client needs a Setup that gives it an HTTP adapter. Python and Lua cannot use `HTTPClient` (`TY1308`). A request to another host goes through a Setup adapter, and that host must be listed in `tac.outgoing.hosts`.",
       "before": [
         "services",
         "controllers"
@@ -4303,7 +4391,22 @@
         },
         {
           "heading": "Dart awaits a real Yon endpoint",
-          "summary": "A Dart service receives an HTTPClient with Needs. The empty GreetingSetup uses Tachyon\u2019s default same-origin asynchronous browser transport; the typed Greeting answer is rendered after Yon replies. Credentials are omitted. Cached GETs may use the browser cache, and a successful ClearCache forces revalidation. OverrideSetup shows that a matching custom adapter still wins. This compiled Dart example is qualified in Chromium, Firefox and WebKit; the other compiled language transports and Fake replacement remain pending (ADR 0090).",
+          "notApplicable": [
+            "ts",
+            "py",
+            "php",
+            "java",
+            "groovy",
+            "cs",
+            "fs",
+            "kt",
+            "rs",
+            "go",
+            "dart",
+            "rb",
+            "lua"
+          ],
+          "summary": "A Dart service receives an HTTPClient with Needs. The empty GreetingSetup uses Tachyon\u2019s default same-origin asynchronous browser transport; the typed Greeting answer is rendered after Yon replies. Credentials are omitted. Cached GETs may use the browser cache, and a successful ClearCache forces revalidation. OverrideSetup shows that a matching custom adapter still wins. This compiled Dart example is checked in Chromium, Firefox and WebKit (ADR 0090). Rust, Go, C# and F# use the same browser transport; their sections follow. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/components/greeting/panel/tac.html",
@@ -4357,7 +4460,22 @@
         },
         {
           "heading": "Rust awaits a real Yon endpoint",
-          "summary": "A Rust service gets its HTTPClient with `Needs` and awaits it with `.await`. The client trait declares `async fn read(&self) -> BehaviorResult<Greeting>`, and Tachyon writes the method. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer becomes the typed `Greeting` model from `client/models`; an answer of another shape fails with the error code `HTTP_RESPONSE`. A failed request gives the error code of the browser transport, such as `HTTP_STATUS`, and the `?` operator passes it on. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. While an `async` method waits, the page reads the fields as they were when the method started, and other calls to the same service wait for it. Removing the component cancels the request. In a native app there is no browser transport: the request fails with `HTTP_MISSING` unless the Setup gives the client an adapter.",
+          "notApplicable": [
+            "ts",
+            "py",
+            "php",
+            "java",
+            "groovy",
+            "cs",
+            "fs",
+            "kt",
+            "rs",
+            "go",
+            "dart",
+            "rb",
+            "lua"
+          ],
+          "summary": "A Rust service gets its HTTPClient with `Needs` and awaits it with `.await`. The client trait declares `async fn read(&self) -> BehaviorResult<Greeting>`, and Tachyon writes the method. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer becomes the typed `Greeting` model from `client/models`; an answer of another shape fails with the error code `HTTP_RESPONSE`. A failed request gives the error code of the browser transport, such as `HTTP_STATUS`, and the `?` operator passes it on. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. While an `async` method waits, the page reads the fields as they were when the method started, and other calls to the same service wait for it. Removing the component cancels the request. `Retry`, `MaxAtOnce` and `AllOrNothing` belong on a service method; the build refuses them on a client request method. In a native app and in a test unit there is no browser transport: the request fails with `HTTP_MISSING` unless the Setup gives the client an adapter. In a test, a Fake field `std::cell::RefCell<Option<std::sync::Arc<GreetingClient>>>` can supply the client; while it is empty, the service gets a client whose requests the TestSetup adapter answers. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/components/greeting/panel/tac.html",
@@ -4411,7 +4529,22 @@
         },
         {
           "heading": "Go waits for a real Yon endpoint",
-          "summary": "A Go service gets its HTTPClient with `// @Needs` above a field such as `greetingClient *GreetingClient`, and calls it like any Go function: `greeting, err := service.greetingClient.Read()`. Tachyon runs each call of a service method in its own goroutine, so the call waits for the server while the page keeps working; a method that waits returns a promise to the page. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer is read into the `Greeting` model from `client/models` with its `json` tags; an answer of another shape gives an error whose code is `HTTP_RESPONSE`, and a failed request gives the code of the browser transport, such as `HTTP_STATUS`. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component cancels the request, and the method gets the error code `CANCELLED`.",
+          "notApplicable": [
+            "ts",
+            "py",
+            "php",
+            "java",
+            "groovy",
+            "cs",
+            "fs",
+            "kt",
+            "rs",
+            "go",
+            "dart",
+            "rb",
+            "lua"
+          ],
+          "summary": "A Go service gets its HTTPClient with `// @Needs` above a field such as `greetingClient *GreetingClient`, and calls it like any Go function: `greeting, err := service.greetingClient.Read()`. Tachyon runs each call of a service method in its own goroutine, so the call waits for the server while the page keeps working; a method that waits returns a promise to the page. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer is read into the `Greeting` model from `client/models` with its `json` tags; an answer of another shape gives an error whose code is `HTTP_RESPONSE`, and a failed request gives the code of the browser transport, such as `HTTP_STATUS`. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component cancels the request, and the method gets the error code `CANCELLED`. A getter, a setter or an `OnStart` method cannot wait for the server: the call fails with `HTTP_REQUEST`. A test unit has no browser transport (`HTTP_MISSING`). In a test, `test.construct(service)` fills the `Needs` fields from the `// @Fake` fields of the test; an empty Fake client field gets a client made with `NewGreetingClientWith`, so the TestSetup adapter answers. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/components/greeting/panel/tac.html",
@@ -4466,7 +4599,22 @@
         {
           "heading": "C# awaits a typed answer",
           "target": "web",
-          "summary": "In C#, the client is an interface marked with `HTTPClient`. Its method `read` returns `Task<Models.Greeting>`, and Tachyon writes it. The service gets the client through a private readonly `Needs` field. `GreetingSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; a Setup that gives the client an adapter of the same name answers instead. `ask` passes the pending task to the private method `_accept`, which awaits it and saves the message. `Greeting` is a record with one text field. Today the answer can be a record of text, number and true or false fields; a list or a nested record is not read yet. Removing the component cancels a pending request.",
+          "notApplicable": [
+            "ts",
+            "py",
+            "php",
+            "java",
+            "groovy",
+            "cs",
+            "fs",
+            "kt",
+            "rs",
+            "go",
+            "dart",
+            "rb",
+            "lua"
+          ],
+          "summary": "In C#, the client is an interface marked with `HTTPClient`. Its method `read` returns `Task<Models.Greeting>`, and Tachyon writes it. The service gets the client through a private readonly `Needs` field. `GreetingSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; a Setup that gives the client an adapter of the same name answers instead. `ask` passes the pending task to the private method `_accept`, which awaits it and saves the message. `Greeting` is a record with one text field. Today the answer can be a record of text, number and true or false fields; a list or a nested record is not read yet. Removing the component cancels a pending request. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/manifest.json",
@@ -4505,7 +4653,22 @@
         {
           "heading": "F# awaits JSON with its own context",
           "target": "web",
-          "summary": "F# does not inject an HTTPClient yet. The service makes its own BehaviorContext from `BrowserHttpSetup` and asks the REST client of that context for `/api/greeting`. `BrowserHttpSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; an adapter of the same name in the Setup answers instead. `Read` is a `task { }` that waits for the answer, a `BehaviorJSON` value, and then saves its message in `Last`. The service owns its context and its signal, so `Close`, marked `OnStop`, disposes both; this also cancels a request that is still waiting.",
+          "notApplicable": [
+            "ts",
+            "py",
+            "php",
+            "java",
+            "groovy",
+            "cs",
+            "fs",
+            "kt",
+            "rs",
+            "go",
+            "dart",
+            "rb",
+            "lua"
+          ],
+          "summary": "F# does not inject an HTTPClient yet. The service makes its own BehaviorContext from `BrowserHttpSetup` and asks the REST client of that context for `/api/greeting`. `BrowserHttpSetup` returns empty `BehaviorAdapters`, so the request goes through the browser to the server of the page, without cookies; an adapter of the same name in the Setup answers instead. `Read` is a `task { }` that waits for the answer, a `BehaviorJSON` value, and then saves its message in `Last`. The service owns its context and its signal, so `Close`, marked `OnStop`, disposes both; this also cancels a request that is still waiting. Today an F# service can wait for `Task` and `Task<BehaviorJSON>` only: an F# model, a list or `ValueTask` as the answer is not supported yet. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby or Lua answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/manifest.json",
@@ -4532,6 +4695,10 @@
               "code": "open System.Threading.Tasks\n\n[<Service>]\n[<Lifetime({\"value\":\"prototype\"})>]\ntype HttpProbeService() =\n    static let clientName: string = \"greeting\"\n    static let requestPath: string = \"/api/greeting\"\n    static let messageField: string = \"message\"\n\n    let signal: BehaviorSignal = new BehaviorSignal()\n    let context: BehaviorContext = Behaviors.create(typeof<BrowserHttpSetup>, \"fsharp-greeting\", signal)\n\n    member val Last: string = \"\" with get, set\n\n    member this.Read() : Task<BehaviorJSON> =\n        task {\n            let! answer = context.restClient(clientName).get(requestPath).retrieve()\n            this.Last <- answer.Get(messageField).Text\n            return answer\n        }\n\n    [<OnStop>]\n    member this.Close() : unit =\n        context.Dispose()\n        signal.Dispose()\n"
             }
           ]
+        },
+        {
+          "heading": "What the browser transport allows",
+          "body": "The browser transport of Dart, Rust, Go, C# and F# clients has fixed limits, so one page cannot flood the server or read too much:\n\n- A request, with its path, query, headers and body, may hold at most 64 KiB (65,536 bytes); a larger one fails with `HTTP_REQUEST`. An answer may hold at most 1 MiB. A larger answer fails with `HTTP_LIMIT`.\n- A page may have at most 64 requests waiting at the same time; one more fails with `HTTP_CAPACITY`. A request waits at most 60 seconds.\n- The request must go to the origin of the page. Another origin fails with `HTTP_ORIGIN`. A redirect fails too.\n- The browser sends no cookies and no other credentials. The transport refuses the headers `Cookie`, `Host`, `Origin`, `Referer`, `Connection`, `Content-Length` and `Transfer-Encoding`, and every header that starts with `Sec-` or `Proxy-`, with `HTTP_HEADER`.\n- A request is not kept in the browser cache, except a public read marked `Cached`. A request with an `Authorization` header is never kept.\n\nAn answer that does not have the shape of the model fails with `HTTP_RESPONSE`, and an answer with an error status fails with `HTTP_STATUS`. Removing the component that started a request cancels it (ADR 0090)."
         }
       ]
     },
@@ -5680,7 +5847,7 @@
       "sections": [
         {
           "heading": "Targets",
-          "body": "The bundle targets are web, macos, windows, linux, ios and android. The web target writes browser assets. Every other target prepares a host that contains the platform WebView. Native packaging needs the SDKs (software development kits) and host tools for that platform. The all target builds every target. It writes one folder for each target under dist/. You must still test on each platform.",
+          "body": "The bundle targets are web, macos, windows, linux, ios and android. The web target writes browser assets. Every other target prepares a host that contains the platform WebView. Native packaging needs the SDKs (software development kits) and host tools for that platform. The windows target also needs the WebView2 SDK: restore the `Microsoft.Web.WebView2` package and set `TAC_WEBVIEW2_SDK` to the folder where you extracted it, or the build stops with `TY1605`. The all target builds every target. It writes one folder for each target under dist/. You must still test on each platform.",
           "code": "ty bundle --target web\nty bundle --target macos\nty bundle --target windows\nty bundle --target linux\nty bundle --target ios\nty bundle --target android\nty bundle --target all"
         },
         {
@@ -5690,8 +5857,21 @@
         },
         {
           "heading": "What the page knows about its host",
-          "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a JavaScript or TypeScript service injects view. This works only in the browser. A service in another language has no DOM (the tree of page elements), so it cannot read this mark. The application itself is responsible for native capabilities.",
           "axis": "language",
+          "notApplicable": [
+            "rs",
+            "go",
+            "cs",
+            "fs",
+            "swift",
+            "kt",
+            "java",
+            "dart",
+            "rb",
+            "py",
+            "lua"
+          ],
+          "body": "Native hosts mark the body with data-platform=\"native\". The capability manifest (client/manifest.json) still limits the window controls and the browser APIs that need a grant (`tac.browserApis`). Tachyon does not inject (add) a platform, environment, os or target variable for you. To reach its own element, a JavaScript or TypeScript service injects view. This works only in the browser. A service in Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Python or Lua has no DOM (the tree of page elements), so it cannot read this mark, and this section has no tab for those languages. The application itself is responsible for native capabilities.",
           "files": [
             {
               "name": "client/pages/tac.html",
@@ -13528,7 +13708,7 @@
         },
         {
           "heading": "Words for platform, target and environment",
-          "body": "platform is the kind of device. The macos, windows and linux targets are the desktop platform. ios and android are the mobile platform. web is the web platform. environment and os mean the same thing: the host that the app really runs on. For native bundles, that is the operating system. For browser bundles, it is web. target names the bundle output. Service language is the language of a Tac service: JavaScript, TypeScript, Dart, Rust, Kotlin, Swift, C#, Go or Ruby."
+          "body": "platform is the kind of device. The macos, windows and linux targets are the desktop platform. ios and android are the mobile platform. web is the web platform. environment and os mean the same thing: the host that the app really runs on. For native bundles, that is the operating system. For browser bundles, it is web. target names the bundle output. Service language is the language of a Tac service: JavaScript, TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart or Ruby, and Lua and Python with limits (see Choosing a service language)."
         }
       ]
     }
