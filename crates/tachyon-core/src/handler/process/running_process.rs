@@ -81,10 +81,19 @@ impl RunningProcess {
         let (status, stdout, stderr) = Self::exit_output(status, settled)?;
         Drained::validate_output(status, &stdout, &stderr)?;
         stderr.surface_relay_events(request_id);
+        Self::response(&stdout.bytes, request_id, direct_protocol, topics).await
+    }
+
+    async fn response(
+        bytes: &[u8],
+        request_id: &str,
+        direct_protocol: bool,
+        topics: Option<Arc<TopicOutbox>>,
+    ) -> Result<HandlerResponse, Failure> {
         if direct_protocol {
-            return DirectResponse::parse(&stdout.bytes, request_id, topics).await;
+            return DirectResponse::parse(bytes, request_id, topics).await;
         }
-        HandlerFrame::response(&stdout.bytes, request_id)
+        HandlerFrame::response(bytes, request_id)
     }
 
     async fn stop(

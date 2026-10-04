@@ -18,17 +18,20 @@ impl PythonEvents {
         module: Option<EventModule>,
         class: &str,
     ) -> Result<Self, Failure> {
-        if module.as_ref().is_some_and(Self::pending_module) {
-            return Err(
-                super::python_provider_source::PythonProviderSource::failure(path, Self::PENDING),
-            );
-        }
+        Self::check_supported(path, module.as_ref())?;
         let owner = module
             .iter()
             .flat_map(|module| &module.types)
             .find(|owner| owner.name == class)
             .cloned();
         Ok(Self { owner, module })
+    }
+
+    fn check_supported(path: &Path, module: Option<&EventModule>) -> Result<(), Failure> {
+        let pending = module.is_some_and(Self::pending_module);
+        (!pending).then_some(()).ok_or_else(|| {
+            super::python_provider_source::PythonProviderSource::failure(path, Self::PENDING)
+        })
     }
 
     pub(super) fn source(&self) -> Option<&str> {
@@ -69,9 +72,17 @@ impl PythonEvents {
         methods: &[Value],
         models: &ModelTable,
     ) -> Result<Map<String, Value>, String> {
-        let Some(mut owner) = self.owner.clone() else {
-            return Ok(Map::new());
-        };
+        self.owner.clone().map_or_else(
+            || Ok(Map::new()),
+            |owner| Self::described(owner, methods, models),
+        )
+    }
+
+    fn described(
+        mut owner: EventType,
+        methods: &[Value],
+        models: &ModelTable,
+    ) -> Result<Map<String, Value>, String> {
         let mut module = EventModule {
             source: String::new(),
             types: Vec::new(),
