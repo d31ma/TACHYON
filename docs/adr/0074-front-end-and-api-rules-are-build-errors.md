@@ -109,9 +109,11 @@ baseline file is not checked.
 ## Amendment (2026-10-04): Tachyon's own scripts ship compact
 
 - The build writes `tac-client.js` and `behavior-runtime.js` without
-  comments, indentation or blank lines. Names, strings, template text,
-  regular expressions and line breaks stay as written, so a browser error
-  still points at readable code. The Tac client runtime is about 1.2 KB
+  comment lines, indentation or blank lines. The code in each line stays as
+  written, so a browser error still points at readable code. The runtime
+  sources have no text that spans lines, such as a template literal over
+  several lines; a test checks that the shipped runtimes parse to the same
+  program as the authored ones. The Tac client runtime is about 1.2 KB
   smaller with Brotli on every Tac route.
 - With this and the hexadecimal Rust module (ADR 0035), the event-mesh
   browser fixture fits the default script budget again, and its check is on.
