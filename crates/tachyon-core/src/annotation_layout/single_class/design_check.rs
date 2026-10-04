@@ -33,6 +33,8 @@ mod design_problem;
 mod design_rule;
 mod design_switches;
 mod english_words;
+#[cfg(test)]
+mod english_words_tests;
 mod field_privacy;
 mod layer_report;
 mod line_fields;
