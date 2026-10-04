@@ -75,6 +75,10 @@
     {
       "name": "emitted",
       "code": { "file": "emitted.txt" }
+    },
+    {
+      "name": "client/services/CardService.hpp",
+      "code": { "file": "client/services/CardService.hpp" }
     }
   ]
 }

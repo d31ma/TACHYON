@@ -61,6 +61,10 @@
       "code": { "file": "client/services/ItemService.lua" }
     },
     {
+      "name": "client/services/ItemService.hpp",
+      "code": { "file": "client/services/ItemService.hpp" }
+    },
+    {
       "name": "client/services/ItemService.py",
       "code": { "file": "client/services/ItemService.py" }
     },

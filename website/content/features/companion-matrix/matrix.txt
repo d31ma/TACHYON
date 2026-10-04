@@ -10,6 +10,7 @@ BasketService.fs               WebAssembly on every target
 BasketService.java             WebAssembly on every target
 BasketService.rb               WebAssembly on every target
 BasketService.lua              WebAssembly on every target
+BasketService.hpp              WebAssembly on every target
 BasketService.py               WebAssembly in web builds only
 
 A service may declare several. A browser script answers the web; when
@@ -17,6 +18,6 @@ more than one native language reaches the target being built, the
 platform's own language wins over Rust, and only the winner is
 compiled. When no language of the service links on the target, the
 build uses its browser script, or failing that the first of its Rust,
-Go, C#, F#, Swift, Kotlin, Java, Ruby, Lua and Python files, as
+Go, C#, F#, Swift, C++, Kotlin, Java, Ruby, Lua and Python files, as
 WebAssembly. So every service reaches every target, except that a
 Python service builds only for the web.

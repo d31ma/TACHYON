@@ -1,7 +1,7 @@
 {
   "id": "companion-publish",
   "title": "Compiled services publish to the page",
-  "summary": "Native services, WebAssembly services and TypeScript or Dart browser services inject an `ApplicationEventPublisher` for local events. `OnEvent` receives the events, and `OnStart`/`OnStop` run when the service starts and stops. Call the publisher to publish an event. A listener that is not `InBackground` can also return a model value. The runtime then publishes it as the model named by the return type of the listener. Each activation gets a new ID. The runtime rejects callbacks from an old activation. Each example publishes a `CatalogCount` model when it starts and updates its count in a listener for that model. Ruby names the model of a listener in a YARD tag, # @param value [CatalogCount]. Lua names it in a LuaCATS tag, ---@param value CatalogCount, and publishes a model table, setmetatable({ count = 5 }, CatalogCount), through its application_event_publisher field. F# takes the publisher as a constructor parameter, `type CatalogService(applicationEventPublisher: ApplicationEventPublisher)`. Python declares an `application_event_publisher: ApplicationEventPublisher` field, names the model of a listener in its type hint, `value: CatalogCount`, and publishes a dataclass, `CatalogCount(5)`. The JavaScript `CatalogService` only listens, to events published by its native or WebAssembly counterpart.",
+  "summary": "Native services, WebAssembly services and TypeScript or Dart browser services inject an `ApplicationEventPublisher` for local events. `OnEvent` receives the events, and `OnStart`/`OnStop` run when the service starts and stops. Call the publisher to publish an event. A listener that is not `InBackground` can also return a model value. The runtime then publishes it as the model named by the return type of the listener. Each activation gets a new ID. The runtime rejects callbacks from an old activation. Each example publishes a `CatalogCount` model when it starts and updates its count in a listener for that model. Ruby names the model of a listener in a YARD tag, # @param value [CatalogCount]. Lua names it in a LuaCATS tag, ---@param value CatalogCount, and publishes a model table, setmetatable({ count = 5 }, CatalogCount), through its application_event_publisher field. F# takes the publisher as a constructor parameter, `type CatalogService(applicationEventPublisher: ApplicationEventPublisher)`. Python declares an `application_event_publisher: ApplicationEventPublisher` field, names the model of a listener in its type hint, `value: CatalogCount`, and publishes a dataclass, `CatalogCount(5)`. C++ declares an `ApplicationEventPublisher applicationEventPublisher;` field, takes the model as `const CatalogCount& value` in its `[[OnEvent]]` method, and publishes `CatalogCount{5}`. The JavaScript `CatalogService` only listens, to events published by its native or WebAssembly counterpart.",
   "group": "Native",
   "files": [
     {
@@ -164,6 +164,18 @@
       "name": "client/models/CatalogCount.py",
       "code": {
         "file": "client/models/CatalogCount.py"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": {
+        "file": "client/services/CatalogService.hpp"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.hpp",
+      "code": {
+        "file": "client/models/CatalogCount.hpp"
       }
     }
   ],

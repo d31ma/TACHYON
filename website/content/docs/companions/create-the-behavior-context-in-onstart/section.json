@@ -1,9 +1,7 @@
 {
   "heading": "Create the behavior context in OnStart",
-  "notApplicable": [
-    "py"
-  ],
-  "body": "Create the context in OnStart. In JavaScript and TypeScript, inject lifecycle and pass this.lifecycle as the context's signal (the object that tells work to stop). The other languages pass a BehaviorSignal that they create. Then give the context to behaviors yourself. When the user leaves the page or a hot replacement happens, Tachyon aborts the operations that are still waiting. For lifetimes that you manage separately, use context.dispose(). The complete service below needs no storage or network adapter. PageDefaults only puts limited input into a standard form. It does not fetch a collection or cut it into parts. The application is responsible for more advanced adapters. The Yon guide describes their shared contracts. docs/BEHAVIOR_ANNOTATIONS.md is the full reference. Python has no tab here: Behaviors.create is asynchronous in Python, and the build refuses asynchronous methods in Python Tac code with TY1605. Lua has no tab here, because the build refuses Setup in Lua Tac code with TY1308.",
+  "notApplicable": ["py"],
+  "body": "Create the context in OnStart. In JavaScript and TypeScript, inject lifecycle and pass this.lifecycle as the context's signal (the object that tells work to stop). The other languages pass a BehaviorSignal that they create. Then give the context to behaviors yourself. When the user leaves the page or a hot replacement happens, Tachyon aborts the operations that are still waiting. For lifetimes that you manage separately, use context.dispose(). The complete service below needs no storage or network adapter. PageDefaults only puts limited input into a standard form. It does not fetch a collection or cut it into parts. The application is responsible for more advanced adapters. The Yon guide describes their shared contracts. docs/BEHAVIOR_ANNOTATIONS.md is the full reference. Python has no tab here: Behaviors.create is asynchronous in Python, and the build refuses asynchronous methods in Python Tac code with TY1605. Lua has no tab here, because the build refuses Setup in Lua Tac code with TY1308. C++ has no tab here, because the build refuses Setup in C++ Tac code with TY1308 (ADR 0099).",
   "files": [
     {
       "name": "client/pages/catalog/tac.html",

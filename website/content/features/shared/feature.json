@@ -75,6 +75,10 @@
     {
       "name": "client/services/BrandService.fs",
       "code": { "file": "client/services/BrandService.fs" }
+    },
+    {
+      "name": "client/services/BrandService.hpp",
+      "code": { "file": "client/services/BrandService.hpp" }
     }
   ]
 }

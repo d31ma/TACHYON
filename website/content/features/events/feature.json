@@ -115,6 +115,14 @@
     {
       "name": "client/models/Tab.fs",
       "code": { "file": "client/models/Tab.fs" }
+    },
+    {
+      "name": "client/models/Tab.hpp",
+      "code": { "file": "client/models/Tab.hpp" }
+    },
+    {
+      "name": "client/services/BasketService.hpp",
+      "code": { "file": "client/services/BasketService.hpp" }
     }
   ],
   "verify": "tac"

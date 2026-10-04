@@ -67,6 +67,10 @@
     {
       "name": "client/services/CardService.fs",
       "code": { "file": "client/services/CardService.fs" }
+    },
+    {
+      "name": "client/services/CardService.hpp",
+      "code": { "file": "client/services/CardService.hpp" }
     }
   ],
   "verify": "tac-component"

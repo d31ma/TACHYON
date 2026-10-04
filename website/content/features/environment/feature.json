@@ -67,6 +67,10 @@
     {
       "name": "client/components/site/runtime-note/tac.html",
       "code": { "file": "client/components/site/runtime-note/tac.html" }
+    },
+    {
+      "name": "client/services/RuntimeNoteService.hpp",
+      "code": { "file": "client/services/RuntimeNoteService.hpp" }
     }
   ],
   "verify": "tac"

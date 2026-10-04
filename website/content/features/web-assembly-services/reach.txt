@@ -8,12 +8,13 @@ TallyService.java  one WasmGC module from TeaVM
 TallyService.dart  one WasmGC module from dart compile wasm
 TallyService.rb  the mruby runtime, about 1.1 MB (350 KiB with Brotli), built once with emcc
 TallyService.lua  the Lua runtime, about 170 KB, built once with emcc
+TallyService.hpp  one module from em++, about 75 KB (29 KB with Brotli) for a small service
 TallyService.py   Pyodide (CPython 3.14), about 11 MB (3 MB with Brotli), copied from the Tachyon cache
 
 When a service has files in several languages, a JavaScript,
 TypeScript or Dart file wins, then a native companion that the host
 links. Otherwise the web uses the first of these: Rust, Go, C#, F#,
-Swift, Kotlin, Java, Ruby, Lua, Python. Rust's module is a small
+Swift, C++, Kotlin, Java, Ruby, Lua, Python. Rust's module is a small
 file, Go's carries the Go runtime, and C#'s is a runtime.
 
 On the web a service has no DOM and no platform;
@@ -25,6 +26,7 @@ A bigger request fails with an error that names the size and the limit:
 ty doctor checks for the
 wasm32-unknown-unknown target, Go 1.27, the wasm-tools workload,
 and, for Ruby, Emscripten 6.0.10 or newer and a C compiler; for Lua,
-Emscripten 6.0.10 or newer and the lua program for test units.
+Emscripten 6.0.10 or newer and the lua program for test units; for
+C++, em++ and the C++ test compiler.
 A release build also writes Brotli copies, so a browser downloads about
 a quarter to a third of these sizes (ty start sends them).

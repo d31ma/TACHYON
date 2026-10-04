@@ -1,7 +1,7 @@
 {
   "heading": "Signals between components",
   "target": "web",
-  "body": "An injected applicationEventPublisher and OnEvent connect services that have no shared parent. To publish, call publishEvent(model) or publishEvent(model, retain) with a value of a model type. The name of the model type is the event name. Retain and replay are false by default. Payloads (the data an event carries) are finite JSON of up to 64 KiB. Each listener receives its own copy. A listener whose return type is a model publishes the value it returns as that model. Disposal (cleanup of a service) unregisters its listeners. In Lua, the publisher is the field `application_event_publisher = nil`, the call is `publish_event`, and `-- @OnEvent` above a function makes it a listener. A page's events stay in the page: Tachyon does not send them to the server. A listener for a Topic model also receives the server's events of that model (see Topics).",
+  "body": "An injected applicationEventPublisher and OnEvent connect services that have no shared parent. To publish, call publishEvent(model) or publishEvent(model, retain) with a value of a model type. The name of the model type is the event name. Retain and replay are false by default. Payloads (the data an event carries) are finite JSON of up to 64 KiB. Each listener receives its own copy. A listener whose return type is a model publishes the value it returns as that model. Disposal (cleanup of a service) unregisters its listeners. In Lua, the publisher is the field `application_event_publisher = nil`, the call is `publish_event`, and `-- @OnEvent` above a function makes it a listener. In Python, the field is `application_event_publisher: ApplicationEventPublisher`, the call is `publish_event`, and `@on_event` marks a synchronous listener. In C++, the field is `ApplicationEventPublisher applicationEventPublisher;` and `[[OnEvent]]` marks the listener. A page's events stay in the page: Tachyon does not send them to the server. A listener for a Topic model also receives the server's events of that model (see Topics).",
   "files": [
     {
       "name": "client/services/ReleaseService.js",
@@ -157,6 +157,30 @@
       "name": "client/models/ReleaseChanged.lua",
       "code": {
         "file": "client/models/ReleaseChanged.lua"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.py",
+      "code": {
+        "file": "client/services/ReleaseService.py"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.py",
+      "code": {
+        "file": "client/models/ReleaseChanged.py"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.hpp",
+      "code": {
+        "file": "client/services/ReleaseService.hpp"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.hpp",
+      "code": {
+        "file": "client/models/ReleaseChanged.hpp"
       }
     }
   ]

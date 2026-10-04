@@ -67,6 +67,10 @@
     {
       "name": "client/services/BadgeService.fs",
       "code": { "file": "client/services/BadgeService.fs" }
+    },
+    {
+      "name": "client/services/BadgeService.hpp",
+      "code": { "file": "client/services/BadgeService.hpp" }
     }
   ],
   "verify": "tac"

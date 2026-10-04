@@ -71,6 +71,10 @@
     {
       "name": "emitted",
       "code": { "file": "emitted.html" }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": { "file": "client/services/CatalogService.hpp" }
     }
   ],
   "verify": "tac"

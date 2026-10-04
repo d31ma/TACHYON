@@ -115,6 +115,14 @@
     {
       "name": "client/models/Topic.fs",
       "code": { "file": "client/models/Topic.fs" }
+    },
+    {
+      "name": "client/models/Topic.hpp",
+      "code": { "file": "client/models/Topic.hpp" }
+    },
+    {
+      "name": "client/services/LinkService.hpp",
+      "code": { "file": "client/services/LinkService.hpp" }
     }
   ],
   "verify": "tac"

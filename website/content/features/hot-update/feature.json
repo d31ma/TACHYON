@@ -99,6 +99,12 @@
       "code": {
         "file": "client/manifest.json"
       }
+    },
+    {
+      "name": "client/services/CounterService.hpp",
+      "code": {
+        "file": "client/services/CounterService.hpp"
+      }
     }
   ]
 }

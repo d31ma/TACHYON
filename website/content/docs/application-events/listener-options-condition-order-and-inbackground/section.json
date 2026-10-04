@@ -200,6 +200,60 @@
       "code": {
         "file": "client/models/SettledOrder.fs"
       }
+    },
+    {
+      "name": "client/services/OrdersService.lua",
+      "code": {
+        "file": "client/services/OrdersService.lua"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.lua",
+      "code": {
+        "file": "client/models/PlacedOrder.lua"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.lua",
+      "code": {
+        "file": "client/models/SettledOrder.lua"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.py",
+      "code": {
+        "file": "client/services/OrdersService.py"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.py",
+      "code": {
+        "file": "client/models/PlacedOrder.py"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.py",
+      "code": {
+        "file": "client/models/SettledOrder.py"
+      }
+    },
+    {
+      "name": "client/services/OrdersService.hpp",
+      "code": {
+        "file": "client/services/OrdersService.hpp"
+      }
+    },
+    {
+      "name": "client/models/PlacedOrder.hpp",
+      "code": {
+        "file": "client/models/PlacedOrder.hpp"
+      }
+    },
+    {
+      "name": "client/models/SettledOrder.hpp",
+      "code": {
+        "file": "client/models/SettledOrder.hpp"
+      }
     }
   ]
 }

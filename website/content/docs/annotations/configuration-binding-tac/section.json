@@ -2,159 +2,235 @@
   "heading": "Configuration binding: Tac",
   "axis": "language",
   "summary": "Tac binds only values that are explicitly public. Its source is the tac member of client/manifest.json. This is the web app manifest that the build publishes at /manifest.webmanifest. server/application.json and .env belong to Yon and never reach Tac. So Settings uses a TAC_ prefix, Setting uses tac. paths and WhenSetting names a TAC_ property. A private Yon secret cannot be bound here at all. Browser services load the published manifest through an injected HTTPClient. Native services bind a public snapshot that is supplied explicitly. A native service file keeps its service type first. The class that Setting reads is a model in `client/models/` (ADR 0092), so a service reaches it like any model: C# and F# open `Models`, Rust uses `crate::models::PublicValues` and Dart imports `models/PublicValues.dart`. Every key under TAC_CATALOG_ must be a field of the Settings class, including title. Setting demonstrates binding that same title individually; it does not exempt the key from prefix validation. Every language passes the full public snapshot to both binders.",
-  "body": "Python and Lua have no tab here, because a browser service loads the manifest through an HTTPClient, and the build refuses HTTPClient in Python and Lua Tac code with TY1308. Lua also refuses Setup and Settings with TY1308. Python has no behavior runtime yet: it cannot await Behaviors.create, because Python Tac refuses async methods with TY1605.",
+  "body": "Python and Lua have no tab here, because a browser service loads the manifest through an HTTPClient, and the build refuses HTTPClient in Python and Lua Tac code with TY1308. Lua also refuses Setup and Settings with TY1308. Python has no behavior runtime yet: it cannot await Behaviors.create, because Python Tac refuses async methods with TY1605. C++ has no tab here, because the build refuses Setup and Setting in C++ Tac code with TY1308 (ADR 0099).",
   "files": [
     {
       "name": "client/pages/tac.html",
-      "code": { "file": "client/pages/tac.html" }
+      "code": {
+        "file": "client/pages/tac.html"
+      }
     },
     {
       "name": "client/components/catalog/settings/tac.html",
-      "code": { "file": "client/components/catalog/settings/tac.html" }
+      "code": {
+        "file": "client/components/catalog/settings/tac.html"
+      }
     },
     {
       "name": "client/manifest.json",
-      "code": { "file": "client/manifest.json" }
+      "code": {
+        "file": "client/manifest.json"
+      }
     },
     {
       "name": "client/remotes/ApplicationClient.js",
-      "code": { "file": "client/remotes/ApplicationClient.js" }
+      "code": {
+        "file": "client/remotes/ApplicationClient.js"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.js",
-      "code": { "file": "client/setups/CatalogSetup.js" }
+      "code": {
+        "file": "client/setups/CatalogSetup.js"
+      }
     },
     {
       "name": "client/services/SettingsService.js",
-      "code": { "file": "client/services/SettingsService.js" }
+      "code": {
+        "file": "client/services/SettingsService.js"
+      }
     },
     {
       "name": "client/remotes/ApplicationClient.ts",
-      "code": { "file": "client/remotes/ApplicationClient.ts" }
+      "code": {
+        "file": "client/remotes/ApplicationClient.ts"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.ts",
-      "code": { "file": "client/setups/CatalogSetup.ts" }
+      "code": {
+        "file": "client/setups/CatalogSetup.ts"
+      }
     },
     {
       "name": "client/services/SettingsService.ts",
-      "code": { "file": "client/services/SettingsService.ts" }
+      "code": {
+        "file": "client/services/SettingsService.ts"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.swift",
-      "code": { "file": "client/setups/CatalogSetup.swift" }
+      "code": {
+        "file": "client/setups/CatalogSetup.swift"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.java",
-      "code": { "file": "client/setups/CatalogSetup.java" }
+      "code": {
+        "file": "client/setups/CatalogSetup.java"
+      }
     },
     {
       "name": "client/services/SettingsService.swift",
-      "code": { "file": "client/services/SettingsService.swift" }
+      "code": {
+        "file": "client/services/SettingsService.swift"
+      }
     },
     {
       "name": "client/services/SettingsService.java",
-      "code": { "file": "client/services/SettingsService.java" }
+      "code": {
+        "file": "client/services/SettingsService.java"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.kt",
-      "code": { "file": "client/setups/CatalogSetup.kt" }
+      "code": {
+        "file": "client/setups/CatalogSetup.kt"
+      }
     },
     {
       "name": "client/services/SettingsService.kt",
-      "code": { "file": "client/services/SettingsService.kt" }
+      "code": {
+        "file": "client/services/SettingsService.kt"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.cs",
-      "code": { "file": "client/setups/CatalogSetup.cs" }
+      "code": {
+        "file": "client/setups/CatalogSetup.cs"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.fs",
-      "code": { "file": "client/setups/CatalogSetup.fs" }
+      "code": {
+        "file": "client/setups/CatalogSetup.fs"
+      }
     },
     {
       "name": "client/services/SettingsService.cs",
-      "code": { "file": "client/services/SettingsService.cs" }
+      "code": {
+        "file": "client/services/SettingsService.cs"
+      }
     },
     {
       "name": "client/services/SettingsService.fs",
-      "code": { "file": "client/services/SettingsService.fs" }
+      "code": {
+        "file": "client/services/SettingsService.fs"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.rs",
-      "code": { "file": "client/setups/CatalogSetup.rs" }
+      "code": {
+        "file": "client/setups/CatalogSetup.rs"
+      }
     },
     {
       "name": "client/services/SettingsService.rs",
-      "code": { "file": "client/services/SettingsService.rs" }
+      "code": {
+        "file": "client/services/SettingsService.rs"
+      }
     },
     {
       "name": "client/models/PublicValues.js",
-      "code": { "file": "client/models/PublicValues.js" }
+      "code": {
+        "file": "client/models/PublicValues.js"
+      }
     },
     {
       "name": "client/models/PublicValues.ts",
-      "code": { "file": "client/models/PublicValues.ts" }
+      "code": {
+        "file": "client/models/PublicValues.ts"
+      }
     },
     {
       "name": "client/models/PublicValues.swift",
-      "code": { "file": "client/models/PublicValues.swift" }
+      "code": {
+        "file": "client/models/PublicValues.swift"
+      }
     },
     {
       "name": "client/models/PublicValues.java",
-      "code": { "file": "client/models/PublicValues.java" }
+      "code": {
+        "file": "client/models/PublicValues.java"
+      }
     },
     {
       "name": "client/models/PublicValues.kt",
-      "code": { "file": "client/models/PublicValues.kt" }
+      "code": {
+        "file": "client/models/PublicValues.kt"
+      }
     },
     {
       "name": "client/models/PublicValues.cs",
-      "code": { "file": "client/models/PublicValues.cs" }
+      "code": {
+        "file": "client/models/PublicValues.cs"
+      }
     },
     {
       "name": "client/models/PublicValues.fs",
-      "code": { "file": "client/models/PublicValues.fs" }
+      "code": {
+        "file": "client/models/PublicValues.fs"
+      }
     },
     {
       "name": "client/models/PublicValues.rs",
-      "code": { "file": "client/models/PublicValues.rs" }
+      "code": {
+        "file": "client/models/PublicValues.rs"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.go",
-      "code": { "file": "client/setups/CatalogSetup.go" }
+      "code": {
+        "file": "client/setups/CatalogSetup.go"
+      }
     },
     {
       "name": "client/services/SettingsService.go",
-      "code": { "file": "client/services/SettingsService.go" }
+      "code": {
+        "file": "client/services/SettingsService.go"
+      }
     },
     {
       "name": "client/models/PublicValues.go",
-      "code": { "file": "client/models/PublicValues.go" }
+      "code": {
+        "file": "client/models/PublicValues.go"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.dart",
-      "code": { "file": "client/setups/CatalogSetup.dart" }
+      "code": {
+        "file": "client/setups/CatalogSetup.dart"
+      }
     },
     {
       "name": "client/services/SettingsService.dart",
-      "code": { "file": "client/services/SettingsService.dart" }
+      "code": {
+        "file": "client/services/SettingsService.dart"
+      }
     },
     {
       "name": "client/models/PublicValues.dart",
-      "code": { "file": "client/models/PublicValues.dart" }
+      "code": {
+        "file": "client/models/PublicValues.dart"
+      }
     },
     {
       "name": "client/setups/CatalogSetup.rb",
-      "code": { "file": "client/setups/CatalogSetup.rb" }
+      "code": {
+        "file": "client/setups/CatalogSetup.rb"
+      }
     },
     {
       "name": "client/services/SettingsService.rb",
-      "code": { "file": "client/services/SettingsService.rb" }
+      "code": {
+        "file": "client/services/SettingsService.rb"
+      }
     },
     {
       "name": "client/models/PublicValues.rb",
-      "code": { "file": "client/models/PublicValues.rb" }
+      "code": {
+        "file": "client/models/PublicValues.rb"
+      }
     }
   ]
 }

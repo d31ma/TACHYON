@@ -1,7 +1,7 @@
 {
   "heading": "Start, stop and events",
   "target": "web",
-  "body": "OnStart marks a method with no arguments that initializes the service. It runs after Tachyon injects resources and attaches the DOM. OnStop stops and cleans up the work that the service owns. To publish, a class declares an applicationEventPublisher field with no value. Then it calls publishEvent(model[, retain]) with a value of a model type. OnEvent registers a local listener that belongs to its owner, and the model type of its one parameter is the event it hears. Order sets the order of listeners. InBackground detaches a listener (it runs in the background). Retention and replay are off unless you turn them on. When a service is removed or hot-replaced (replaced with new code while the page runs), Tachyon unregisters its listeners automatically. A Lua service writes each marker as a comment above its function, such as `-- @OnEvent({\"replay\":true})`. Its field `application_event_publisher = nil` is the publisher, and an event is a model table, such as `setmetatable({ release = \"TACHYON\" }, ReleaseChanged)` (ADR 0085).",
+  "body": "OnStart marks a method with no arguments that initializes the service. It runs after Tachyon injects resources and attaches the DOM. OnStop stops and cleans up the work that the service owns. To publish, a class declares an applicationEventPublisher field with no value. Then it calls publishEvent(model[, retain]) with a value of a model type. OnEvent registers a local listener that belongs to its owner, and the model type of its one parameter is the event it hears. Order sets the order of listeners. InBackground detaches a listener (it runs in the background). Retention and replay are off unless you turn them on. When a service is removed or hot-replaced (replaced with new code while the page runs), Tachyon unregisters its listeners automatically. A Lua service writes each marker as a comment above its function, such as `-- @OnEvent({\"replay\":true})`. Its field `application_event_publisher = nil` is the publisher, and an event is a model table, such as `setmetatable({ release = \"TACHYON\" }, ReleaseChanged)` (ADR 0085). A Python service writes `@on_event` above a synchronous method, and its field `application_event_publisher: ApplicationEventPublisher` is the publisher (ADR 0093).",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -169,6 +169,18 @@
       "name": "client/models/ReleaseChanged.hpp",
       "code": {
         "file": "client/models/ReleaseChanged.hpp"
+      }
+    },
+    {
+      "name": "client/services/ReleaseService.py",
+      "code": {
+        "file": "client/services/ReleaseService.py"
+      }
+    },
+    {
+      "name": "client/models/ReleaseChanged.py",
+      "code": {
+        "file": "client/models/ReleaseChanged.py"
       }
     }
   ],

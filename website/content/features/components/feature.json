@@ -119,6 +119,14 @@
     {
       "name": "client/models/Product.fs",
       "code": { "file": "client/models/Product.fs" }
+    },
+    {
+      "name": "client/models/Product.hpp",
+      "code": { "file": "client/models/Product.hpp" }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": { "file": "client/services/CatalogService.hpp" }
     }
   ],
   "verify": "tac-component"
