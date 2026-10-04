@@ -105,5 +105,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [96. Forwarding Headers Are Untrusted at the Edge](0096-forwarding-headers-are-untrusted-at-the-edge.md)
 - [97. Native Menu Actions Call Application Services](0097-native-menu-actions-call-application-services.md)
 - [98. An Integrated Title Bar Is an Opt-In Window Setting](0098-an-integrated-title-bar-is-an-opt-in-window-setting.md)
-- [98. C++ Is a Tac WebAssembly Service Language](0098-cpp-is-a-tac-webassembly-service-language.md)
 - [99. C++ Is a Tac WebAssembly Service Language](0099-cpp-is-a-tac-webassembly-service-language.md)
