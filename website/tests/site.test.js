@@ -446,7 +446,7 @@ describe('language coverage', () => {
 
   test('published test units select separate test-only configuration files in every language', async () => {
     const docs = await readJson('client/shared/data/docs.json')
-    for (const [realm, count] of [['Yon', 14], ['Tac', 12]]) {
+    for (const [realm, count] of [['Yon', 14], ['Tac', 13]]) {
       const section = docs.topics.annotations.sections.find((entry) => entry.heading === `Test units: ${realm}`)
       const configurations = section.files.filter((file) => /\/tests\/CatalogTestSetup\./.test(file.name))
       expect(configurations).toHaveLength(count)
