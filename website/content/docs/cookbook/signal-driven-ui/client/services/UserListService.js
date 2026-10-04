@@ -1,17 +1,9 @@
-/** @import { UsersChanged } from '/models/UsersChanged.ts' */
+/** @import { UserSaved } from '/models/UserSaved.ts' */
 @Service
 export default class UserListService {
-  /** @type {UsersClient} */
-  @Needs
-  usersClient;
-  /** @type {{ name: string }[]} */
-  users = [];
-  @OnStart
-  async initialize() { await this._refresh(); }
-  /** @param {UsersChanged} changed */
+  /** @type {string[]} */
+  names = [];
+  /** @param {UserSaved} saved */
   @OnEvent
-  async usersChanged(changed) { await this._refreshWhenSaved(changed); }
-  async _refresh() { this.users = /** @type {{ name: string }[]} */ (await this.usersClient.list()); }
-  /** @param {UsersChanged} changed */
-  async _refreshWhenSaved(changed) { if (changed.saved) await this._refresh(); }
+  userSaved(saved) { this.names = [...this.names, saved.name]; }
 }

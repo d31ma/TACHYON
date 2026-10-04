@@ -1,15 +1,13 @@
-import type { UsersChanged } from '/models/UsersChanged.ts';
+import type { UserSaved } from '/models/UserSaved.ts';
 
 @Service
 export default class UserFormService {
   @Needs
   readonly usersClient!: UsersClient;
   applicationEventPublisher!: ApplicationEventPublisher;
-  form = { name: '' };
-  typed(_event: Event, name: string) { this.form = { ...this.form, name }; }
+  name = '';
   async save() {
-    await this.usersClient.save(this.form);
-    const changed: UsersChanged = { saved: true };
-    this.applicationEventPublisher.publishEvent(changed);
+    const saved: UserSaved = await this.usersClient.save(this.name) as UserSaved;
+    this.applicationEventPublisher.publishEvent(saved);
   }
 }

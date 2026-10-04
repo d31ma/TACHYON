@@ -1,4 +1,4 @@
 <form>
-  <input aria-label="Name" :value="userForm.form.name" on:input="userForm.typed($event.target.value)" />
+  <input aria-label="Name" :value="userForm.name" on:input="userForm.name = $event.target.value" />
   <button type="button" on:click="userForm.save()">Save</button>
 </form>

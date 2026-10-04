@@ -1,0 +1,1 @@
+record UserSaved(String name) {}

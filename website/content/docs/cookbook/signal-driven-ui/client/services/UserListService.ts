@@ -1,14 +1,8 @@
-import type { UsersChanged } from '/models/UsersChanged.ts';
+import type { UserSaved } from '/models/UserSaved.ts';
 
 @Service
 export default class UserListService {
-  @Needs
-  readonly usersClient!: UsersClient;
-  users: BehaviorJsonValue = [];
-  @OnStart
-  async initialize() { await this.refresh(); }
+  names: string[] = [];
   @OnEvent
-  async usersChanged(changed: UsersChanged) { await this.refreshWhenSaved(changed); }
-  private async refresh() { this.users = await this.usersClient.list() as BehaviorJsonValue; }
-  private async refreshWhenSaved(changed: UsersChanged) { if (changed.saved) await this.refresh(); }
+  userSaved(saved: UserSaved) { this.names = [...this.names, saved.name]; }
 }

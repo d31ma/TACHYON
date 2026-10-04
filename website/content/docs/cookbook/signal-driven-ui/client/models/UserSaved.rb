@@ -1,3 +1,3 @@
 # @!attribute [r] name
 #   @return [String]
-User = Data.define(:name)
+UserSaved = Data.define(:name)

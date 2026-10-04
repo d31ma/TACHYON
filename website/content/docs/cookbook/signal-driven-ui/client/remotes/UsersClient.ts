@@ -1,7 +1,7 @@
-@HTTPClient({"adapter":"users"})
+import type { UserSaved } from '/models/UserSaved.ts';
+
+@HTTPClient
 export default class UsersClient {
-  @GetRequest("/users")
-  async list(): Promise<BehaviorJsonValue | void> {}
   @PostRequest("/users")
-  async save(@RequestBody form: BehaviorJsonValue): Promise<BehaviorJsonValue | void> {}
+  async save(@RequestBody name: string): Promise<UserSaved | void> {}
 }

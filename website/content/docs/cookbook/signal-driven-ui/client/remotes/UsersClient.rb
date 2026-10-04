@@ -1,16 +1,11 @@
 #[HTTPClient]
 class UsersClient
-  # @return [Array<Hash>]
-  #[GetRequest("/users")]
-  def list()
-  end
-
-  # @param form [Hash]
+  # @param name [String]
   # @return [Hash]
   #[PostRequest("/users")]
   def save(
     #[RequestBody]
-    form
+    name
   )
   end
 end

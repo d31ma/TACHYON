@@ -1,9 +1,10 @@
-@HTTPClient({"adapter":"users"})
+/** @import { UserSaved } from '/models/UserSaved.ts' */
+@HTTPClient
 export default class UsersClient {
-  /** @returns {Promise<{ name: string }[] | void>} */
-  @GetRequest("/users")
-  async list() {}
-  /** @param {{ name: string }} form */
+  /**
+   * @param {string} name
+   * @returns {Promise<UserSaved | void>}
+   */
   @PostRequest("/users")
-  async save(@RequestBody form) {}
+  async save(@RequestBody name) {}
 }
