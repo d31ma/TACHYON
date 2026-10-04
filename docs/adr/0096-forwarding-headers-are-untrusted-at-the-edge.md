@@ -65,5 +65,7 @@ field.
 - The port of the client is not passed on; native peer fields report port
   `0`.
 - `ty` does not terminate TLS, so it reports `proto=http` for its own hop. A
-  trusted proxy that terminates TLS keeps its own `X-Forwarded-Proto`.
+  trusted proxy that terminates TLS keeps its own `X-Forwarded-Proto`. For the
+  same reason Go's `Request.TLS` stays `nil` and there are no verified client
+  certificate chains: mutual TLS ends at the proxy.
 - Tests that build a handler request directly set these headers themselves.
