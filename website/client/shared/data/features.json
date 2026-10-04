@@ -1453,7 +1453,7 @@
         },
         {
           "name": "client/services/CatalogService.go",
-          "code": "// @Service\ntype CatalogService struct {\n\tproducts *ProductsClient\n\tCount    int\n}\n\n// @OnStart\nfunc (catalog *CatalogService) Start() error {\n\tclient, err := NewProductsClient()\n\tcatalog.products = client\n\treturn err\n}\n\nfunc (catalog *CatalogService) Load() error {\n\tanswer, err := catalog.products.List()\n\tcatalog.Count = catalog.countItems(answer)\n\treturn err\n}\n\nfunc (catalog *CatalogService) Add() error {\n\t_, err := catalog.products.Save(map[string]any{\"name\": \"anvil\"})\n\treturn err\n}\n\nfunc (catalog *CatalogService) countItems(answer BehaviorValue) int {\n\tobject, _ := answer.(map[string]any)\n\titems, _ := object[\"items\"].([]any)\n\treturn len(items)\n}\n"
+          "code": "// @Service\ntype CatalogService struct {\n\t// @Needs\n\tproductsClient *ProductsClient\n\tCount          int\n}\n\nfunc (catalog *CatalogService) Load() error {\n\tanswer, err := catalog.productsClient.List()\n\tcatalog.Count = catalog.countItems(answer)\n\treturn err\n}\n\nfunc (catalog *CatalogService) Add() error {\n\t_, err := catalog.productsClient.Save(map[string]any{\"name\": \"anvil\"})\n\treturn err\n}\n\nfunc (catalog *CatalogService) countItems(answer BehaviorValue) int {\n\tobject, _ := answer.(map[string]any)\n\titems, _ := object[\"items\"].([]any)\n\treturn len(items)\n}\n"
         },
         {
           "name": "client/remotes/ProductsClient.cs",

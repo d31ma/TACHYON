@@ -32,6 +32,10 @@ func (failure *BehaviorError) Error() string {
 	return text
 }
 
+func (failure *BehaviorError) BehaviorCode() string {
+	return failure.Code
+}
+
 func BehaviorErrorCode(err error) string {
 	var failure *BehaviorError
 	if errors.As(err, &failure) {
@@ -943,6 +947,7 @@ func BehaviorsCreate[C behaviorConfigurationSource](options *BehaviorOptions) (*
 		disposed:      disposed,
 		setupKey:      setupKey,
 		slots:         map[string]int{},
+		revalidate:    map[string]bool{},
 	}, nil
 }
 
@@ -1754,11 +1759,13 @@ type BehaviorContext struct {
 	active        atomic.Int64
 	lock          sync.Mutex
 	slots         map[string]int
+	revalidate    map[string]bool
 }
 
 type behaviorOperation struct {
-	context   *BehaviorContext
-	execution *BehaviorExecution
+	context    *BehaviorContext
+	execution  *BehaviorExecution
+	revalidate bool
 }
 
 func behaviorAdapterCall[T any](execution *BehaviorExecution, call func() (T, error)) (T, error) {
@@ -1908,6 +1915,7 @@ func (context *BehaviorContext) cached(operation *behaviorOperation, policy Beha
 		}
 		return fresh, nil
 	}
+	operation.revalidate = context.takeRevalidation(key)
 	value, err := context.result(operation, policy, args, original)
 	if err != nil {
 		return nil, err
@@ -1991,7 +1999,22 @@ func (context *BehaviorContext) mutate(operation *behaviorOperation, policy Beha
 	if err != nil {
 		return nil, err
 	}
+	context.markRevalidation(key)
 	return value, nil
+}
+
+func (context *BehaviorContext) takeRevalidation(key string) bool {
+	context.lock.Lock()
+	defer context.lock.Unlock()
+	marked := context.revalidate[key]
+	delete(context.revalidate, key)
+	return marked
+}
+
+func (context *BehaviorContext) markRevalidation(key string) {
+	context.lock.Lock()
+	defer context.lock.Unlock()
+	context.revalidate[key] = true
 }
 
 func (context *BehaviorContext) result(operation *behaviorOperation, policy BehaviorMethodPolicy, args []BehaviorValue, original func([]BehaviorValue) (BehaviorValue, error)) (BehaviorValue, error) {
@@ -2184,7 +2207,7 @@ func (context *BehaviorContext) execute(operation *behaviorOperation, policy Beh
 	}
 	adapter, present := context.configuration.Http[http.Client]
 	if !present {
-		return nil, behaviorInvalid()
+		return behaviorDefaultExchange(request, operation, policy.KeyArgs != nil && http.Method == "GET")
 	}
 	answer, err := behaviorAdapterCall(operation.execution, func() (BehaviorValue, error) {
 		return adapter.Exchange(request, operation.execution)

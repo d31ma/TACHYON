@@ -325,6 +325,7 @@ const tachyonImports = {
 ";
 
     const RUST_INSTANCE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
         include_str!("native/browser/tac-rust-tasks.js"),
         r"const rustTasks = new TacRustTasks()
 const rustRead = (pointer, length) => decoder.decode(new Uint8Array(exports.memory.buffer, pointer, length))
@@ -333,7 +334,7 @@ const { instance } = await WebAssembly.instantiate(binary, { tachyon: { ...tachy
 const exports = instance.exports
 rustTasks.attach(exports)
 /** @param {string} text @returns {Promise<string>} */
-const transportAsync = (text) => rustTasks.answer(transport(text))
+const transportAsync = (text) => rustTasks.answers.answer(transport(text))
 "
     );
 
@@ -451,7 +452,9 @@ const transportAsync = (text) => companion.InvokeAsync(text)
     const GO_MODULE: &str = "go/services.wasm";
     const GO_GLUE: &str = "go/wasm_exec.js";
 
-    const GO_ENGINE: &str = r"const goFileSystem = () => {
+    const GO_ENGINE: &str = concat!(
+        include_str!("native/browser/tac-task-answers.js"),
+        r"const goFileSystem = () => {
   const notImplemented = () => Object.assign(new Error('not implemented'), { code: 'ENOSYS' })
   const decoder = new TextDecoder()
   const output = { pending: '' }
@@ -492,10 +495,12 @@ try {
 } finally {
   if (pageOwnsFileSystem) globalThis.fs = pageFileSystem
 }
-const invokeGo = globalThis.__tachyonGo((payload) => { published.push(payload) }, storageHost, webHost)
+const taskAnswers = new TacTaskAnswers()
+const invokeGo = globalThis.__tachyonGo((payload) => { published.push(payload) }, storageHost, webHost, (task, text) => { taskAnswers.done(task, text) })
 delete globalThis.__tachyonGo
 const transport = (text) => invokeGo(text)
-";
+"
+    );
 
     const KOTLIN_ENGINE: &str = r"const garbageCollected = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 120, 0])
 if (typeof WebAssembly !== 'object' || !WebAssembly.validate(garbageCollected)) {
@@ -559,8 +564,26 @@ const invoke = (request) => {
   } finally {
     deliver()
   }
+  if (Number.isSafeInteger(answer?.task) && typeof taskAnswers === 'object') return laterAnswer(answer.task, request)
   if (!answer || answer.error) throw new Error(`Web service ${request.service}: ${answer?.error ?? 'no answer'}`)
   return answer.value
+}
+
+/** @param {{value?: unknown, error?: string, code?: string} | undefined} answer @param {Record<string, unknown>} request @returns {unknown} */
+const settledAnswer = (answer, request) => {
+  if (!answer || answer.error) throw Object.assign(new Error(`Web service ${request.service}: ${answer?.error ?? 'no answer'}`), { code: answer?.code })
+  return answer.value
+}
+
+/** @param {number} task @param {Record<string, unknown>} request @returns {Promise<unknown>} */
+const laterAnswer = async (task, request) => {
+  let answer
+  try {
+    answer = JSON.parse(await taskAnswers.wait(task))
+  } finally {
+    deliver()
+  }
+  return settledAnswer(answer, request)
 }
 
 /** @param {Record<string, unknown>} request @returns {Promise<unknown>} */
@@ -573,8 +596,7 @@ const invokeAsync = async (request) => {
   } finally {
     deliver()
   }
-  if (!answer || answer.error) throw Object.assign(new Error(`Web service ${request.service}: ${answer?.error ?? 'no answer'}`), { code: answer?.code })
-  return answer.value
+  return settledAnswer(answer, request)
 }
 
 /** @param {() => boolean} current @returns {void} */
@@ -654,7 +676,14 @@ export const activate = (target, service, properties, plan) => {
   /** @param {Record<string, unknown>} request @returns {Promise<unknown>} */
   const changeAsync = (request) => taskChange({ ...request, route: 'web', service, owner }, current, changed)
   const change = (request) => {
-    try { return call(request) } finally { self.deref()?.__tachyonStoredChanged?.() }
+    let result
+    try {
+      result = call(request)
+      return result
+    } finally {
+      if (typeof result?.then === 'function') result.then(changed, changed)
+      else self.deref()?.__tachyonStoredChanged?.()
+    }
   }
   publishers.set(owner, (name, value, retain) => {
     const publisher = self.deref()?.__tachyonPublisher

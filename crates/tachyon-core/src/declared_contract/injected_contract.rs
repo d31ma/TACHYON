@@ -54,6 +54,7 @@ impl<'a> InjectedContract<'a> {
     const EMPTY_ARGUMENTS: &'static str = "()";
     const INJECTED_FOLDERS: [&'static str; 2] = ["client/stores", "client/converters"];
     const GO: &'static str = "go";
+    const GO_REMOTES: &'static str = "client/remotes";
     const RUBY: &'static str = "rb";
     const RUBY_COMMENT: &'static str = "# ";
     const GO_METHOD: &'static str =
@@ -62,11 +63,7 @@ impl<'a> InjectedContract<'a> {
 
     pub(crate) fn injected_names<'p>(paths: impl Iterator<Item = &'p Path>) -> Vec<String> {
         paths
-            .filter(|path| {
-                Self::INJECTED_FOLDERS
-                    .iter()
-                    .any(|folder| path.parent() == Some(Path::new(folder)))
-            })
+            .filter(|path| Self::injected(path))
             .filter_map(|path| path.file_stem()?.to_str().map(str::to_owned))
             .collect()
     }
@@ -82,6 +79,21 @@ impl<'a> InjectedContract<'a> {
             contracts,
         };
         injected.rewritten(source, owner)
+    }
+
+    fn injected(path: &Path) -> bool {
+        let in_folder = Self::INJECTED_FOLDERS
+            .iter()
+            .any(|folder| path.parent() == Some(Path::new(folder)));
+        [in_folder, Self::go_remote(path)].contains(&true)
+    }
+
+    fn go_remote(path: &Path) -> bool {
+        [
+            path.parent() == Some(Path::new(Self::GO_REMOTES)),
+            path.extension()
+                .is_some_and(|extension| extension == Self::GO),
+        ] == [true, true]
     }
 
     fn rewritten(&self, source: &str, owner: &str) -> Option<String> {

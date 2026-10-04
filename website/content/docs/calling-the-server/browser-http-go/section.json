@@ -1,0 +1,78 @@
+{
+  "heading": "Go waits for a real Yon endpoint",
+  "summary": "A Go service gets its HTTPClient with `// @Needs` above a field such as `greetingClient *GreetingClient`, and calls it like any Go function: `greeting, err := service.greetingClient.Read()`. Tachyon runs each call of a service method in its own goroutine, so the call waits for the server while the page keeps working; a method that waits returns a promise to the page. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer is read into the `Greeting` model from `client/models` with its `json` tags; an answer of another shape gives an error whose code is `HTTP_RESPONSE`, and a failed request gives the code of the browser transport, such as `HTTP_STATUS`. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component cancels the request, and the method gets the error code `CANCELLED`.",
+  "files": [
+    {
+      "name": "client/components/greeting/panel/tac.html",
+      "code": {
+        "file": "client/components/greeting/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/models/Greeting.go",
+      "code": {
+        "file": "client/models/Greeting.go"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/remotes/GreetingClient.go",
+      "code": {
+        "file": "client/remotes/GreetingClient.go"
+      }
+    },
+    {
+      "name": "client/remotes/OverrideClient.go",
+      "code": {
+        "file": "client/remotes/OverrideClient.go"
+      }
+    },
+    {
+      "name": "client/services/GreetingService.go",
+      "code": {
+        "file": "client/services/GreetingService.go"
+      }
+    },
+    {
+      "name": "client/setups/GreetingSetup.go",
+      "code": {
+        "file": "client/setups/GreetingSetup.go"
+      }
+    },
+    {
+      "name": "client/setups/OverrideSetup.go",
+      "code": {
+        "file": "client/setups/OverrideSetup.go"
+      }
+    },
+    {
+      "name": "server/controllers/ClearController.js",
+      "code": {
+        "file": "server/controllers/ClearController.js"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "server/models/Greeting.ts",
+      "code": {
+        "file": "server/models/Greeting.ts"
+      }
+    }
+  ]
+}

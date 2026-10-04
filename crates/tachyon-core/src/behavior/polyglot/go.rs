@@ -1,4 +1,6 @@
 use super::super::call_style::CallStyle;
+use super::go_test_construction::GoTestConstruction;
+use super::go_typed_exchange::GoTypedExchange;
 use super::{Edit, Method, Module, Type, render};
 use crate::go_source::GoFile;
 use serde_json::Value;
@@ -12,7 +14,7 @@ impl GoNames {
     const RESULTS: &str = "(BehaviorValue,error)";
     const TEST_RESULTS: [&str; 2] = ["", "error"];
     const ASSERT_FILE: &str = "assert";
-    const NO_BUILTINS: &str = "\nfunc behaviorBuiltinCache(name string) (BehaviorCacheAdapter, bool) {\n\treturn nil, false\n}\n\nfunc behaviorBuiltinEntities(name string) (BehaviorEntityAdapter, bool) {\n\treturn nil, false\n}\n";
+    const NO_BUILTINS: &str = "\nfunc behaviorBuiltinCache(name string) (BehaviorCacheAdapter, bool) {\n\treturn nil, false\n}\n\nfunc behaviorBuiltinEntities(name string) (BehaviorEntityAdapter, bool) {\n\treturn nil, false\n}\n\nfunc behaviorDefaultExchange(request *BehaviorHttpRequest, operation *behaviorOperation, publicRead bool) (BehaviorValue, error) {\n\treturn nil, behaviorInvalid()\n}\n";
 }
 
 pub(super) fn lower(module: &Module) -> Result<String, String> {
@@ -41,6 +43,11 @@ pub(super) fn runtime(module_id: &str, environment: &str) -> String {
                 .strip_prefix("package main\n")
                 .unwrap_or_default(),
         );
+        text.push_str(
+            include_str!("go_browser_http.go")
+                .strip_prefix("package main\n")
+                .unwrap_or_default(),
+        );
     } else {
         text.push_str(GoNames::NO_BUILTINS);
     }
@@ -61,6 +68,9 @@ fn lower_type(
     if let Some(unit) = super::super::testing::polyglot_unit(declaration) {
         let silent = silent_test_cases(module, declaration, &unit)?;
         generated.push_str(&test_members(&unit, &silent));
+        if [module.environment == "tac", !unit.mocks.is_empty()] == [true, true] {
+            generated.push_str(&GoTestConstruction::members(module, declaration, &unit));
+        }
     }
     configuration(declaration, generated)?;
     properties(declaration, generated)?;
@@ -321,7 +331,11 @@ fn service(
     }
     let mut cases = String::new();
     for method in methods {
-        validate_method(method)?;
+        if GoTypedExchange::applies(method, &module.environment) {
+            GoTypedExchange::validate(method)?;
+        } else {
+            validate_method(method)?;
+        }
         let receiver = receiver_name(module, method);
         let body = if let Some(policy) = method.metadata.get("gateway") {
             gateway_body(method, policy)
@@ -468,6 +482,12 @@ fn wrapper(
         return Ok(format!(
             " return {receiver}.behaviors.Query({}, {arguments}) ",
             query_policy(query)?
+        ));
+    }
+    if GoTypedExchange::applies(method, &module.environment) {
+        return Ok(format!(
+            "{valid}{}",
+            GoTypedExchange::body(method, policy, receiver)
         ));
     }
     if is_generated_exchange(method) {

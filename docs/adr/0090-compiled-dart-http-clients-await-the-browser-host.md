@@ -131,3 +131,35 @@ Evidence: `scripts/browser-http-browser-test.mjs --language=rust` builds
 `website/content/docs/calling-the-server/browser-http-rust/` and checks it in
 Chromium, Firefox and WebKit; `client_tests::rust_construct_tests` runs the
 Fake and typed-answer cases natively.
+
+## Go browser extension — 2026-10-03
+
+Go keeps its own pattern: a call that waits blocks its goroutine. An
+HTTPClient interface method returns `(Model, error)` or
+`(BehaviorValue, error)`; the answer is read with `encoding/json` into the
+model from `client/models`, and a model answer that is not an object fails
+with `HTTP_RESPONSE`. A service gets the client with `// @Needs` above a field
+such as `greetingClient *GreetingClient`.
+
+The page calls every Go service member through a new goroutine. When the call
+finishes without waiting, the answer is returned at once, as before. When the
+call reaches the browser transport, the goroutine releases the service lock,
+starts the fetch through the same host as the other languages and waits on a
+channel; the page gets `{"task": id}` and a promise that settles when the
+goroutine ends. While a Go call waits, other calls to the service run normally,
+as in JavaScript. Disposing the owner aborts its pending fetches, and the
+waiting call gets `CANCELLED`. A call that waits from a getter, a setter or
+`OnStart` is refused with `HTTP_REQUEST`. The same browser host rules apply
+(same origin, omitted credentials, `Cached` public reads, revalidation after
+`ClearCache` or `UpdateCache`).
+
+In a Go test unit, `test.construct(service)` fills the `Needs` fields from the
+`// @Fake` fields of the test; an empty Fake client field gets a client bound
+to the test's BehaviorContext (`NewGreetingClientWith`), so the TestSetup's
+`Exchange` answers. Tests have no browser transport (`HTTP_MISSING`).
+Coverage records no calls inside generated clients.
+
+Evidence: `scripts/browser-http-browser-test.mjs --language=go` builds
+`website/content/docs/calling-the-server/browser-http-go/` and checks it in
+Chromium, Firefox and WebKit; `client_tests::go_construct_tests` runs the Fake
+and typed-answer cases.

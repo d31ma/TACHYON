@@ -6,6 +6,7 @@ pub(crate) struct CallHooks;
 
 impl CallHooks {
     const TEST_FOLDER: &'static str = "tests";
+    const GENERATED_FOLDERS: [&'static str; 2] = ["remotes", "clients"];
     const RECORDED: [(&'static str, &'static str); 26] = [
         ("client", "js"),
         ("client", "ts"),
@@ -45,10 +46,20 @@ impl CallHooks {
     }
 
     pub(crate) fn insert(relative: &Path, source: &str) -> Result<String, Failure> {
-        let role = RoleClass::read(relative, source)?;
+        let role = (!Self::generated(relative))
+            .then(|| RoleClass::read(relative, source))
+            .transpose()?
+            .flatten();
         Ok(role
             .filter(|role| Self::records(&role.realm, &role.language))
             .map_or_else(|| source.to_owned(), |role| Self::hooked(&role, source)))
+    }
+
+    fn generated(relative: &Path) -> bool {
+        relative
+            .iter()
+            .nth(1)
+            .is_some_and(|folder| Self::GENERATED_FOLDERS.iter().any(|name| folder == *name))
     }
 
     fn is_test_entry(entry: &Path) -> bool {

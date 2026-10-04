@@ -361,6 +361,6 @@ impl<'a> ConcreteContract<'a> {
             partition: &declaration.adapter(),
             indent: "",
         };
-        context.parts().1
+        context.parts_for(declaration.role.marker).1
     }
 }

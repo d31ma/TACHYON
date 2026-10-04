@@ -7,6 +7,7 @@ impl RoleFiles {
     const REALMS: [&'static str; 2] = ["client", "server"];
     const SERVER_UTILITY_FOLDER: &'static str = "server/utils";
     const TEST_FOLDER: &'static str = "tests";
+    const SETUP_FOLDER: &'static str = "setups";
     const SOURCE_EXTENSIONS: [&'static str; 15] = [
         "js", "ts", "py", "php", "java", "kt", "cs", "fs", "rs", "swift", "dart", "go", "rb",
         "lua", "groovy",
@@ -73,6 +74,7 @@ impl RoleFiles {
         let mut folders: Vec<PathBuf> = Self::REALMS
             .iter()
             .flat_map(|realm| names.iter().map(move |name| Path::new(realm).join(name)))
+            .filter(|folder| !folder.ends_with(Self::SETUP_FOLDER))
             .collect();
         folders.push(PathBuf::from(Self::SERVER_UTILITY_FOLDER));
         folders.push(PathBuf::from(

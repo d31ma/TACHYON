@@ -12,27 +12,20 @@ class TacRustTasks {
   #exports = undefined
   /** @type {Map<number, RustHttpTicket>} */
   #tickets = new Map()
-  /** @type {Map<number, (text: string) => void>} */
-  #waiting = new Map()
+  /** @type {TacTaskAnswers} */
+  answers = new TacTaskAnswers()
 
   /** @param {(pointer: number, length: number) => string} read @returns {Record<string, Function>} */
   imports(read) {
     return {
       tac_host_http_start: (ticket, pointer, length) => { this.#start(ticket, read(pointer, length)) },
       tac_host_http_cancel: (ticket) => { this.#cancel(ticket) },
-      tac_host_task_done: (task, pointer, length) => { this.#done(task, read(pointer, length)) },
+      tac_host_task_done: (task, pointer, length) => { this.answers.done(task, read(pointer, length)) },
     }
   }
 
   /** @param {RustTaskExports} exports @returns {void} */
   attach(exports) { this.#exports = exports }
-
-  /** @param {string} text @returns {Promise<string>} */
-  answer(text) {
-    const task = JSON.parse(text)?.task
-    if (!Number.isSafeInteger(task)) return Promise.resolve(text)
-    return new Promise((resolve) => { this.#waiting.set(task, resolve) })
-  }
 
   /** @param {number} ticket @param {string} text @returns {void} */
   #start(ticket, text) {
@@ -61,12 +54,5 @@ class TacRustTasks {
     } finally {
       this.#exports.tac_wasm_dealloc(pointer, bytes.length)
     }
-  }
-
-  /** @param {number} task @param {string} text @returns {void} */
-  #done(task, text) {
-    const resolve = this.#waiting.get(task)
-    this.#waiting.delete(task)
-    resolve?.(text)
   }
 }

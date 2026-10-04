@@ -1,24 +1,18 @@
 // @Service
 type CatalogService struct {
-	products *ProductsClient
-	Count    int
-}
-
-// @OnStart
-func (catalog *CatalogService) Start() error {
-	client, err := NewProductsClient()
-	catalog.products = client
-	return err
+	// @Needs
+	productsClient *ProductsClient
+	Count          int
 }
 
 func (catalog *CatalogService) Load() error {
-	answer, err := catalog.products.List()
+	answer, err := catalog.productsClient.List()
 	catalog.Count = catalog.countItems(answer)
 	return err
 }
 
 func (catalog *CatalogService) Add() error {
-	_, err := catalog.products.Save(map[string]any{"name": "anvil"})
+	_, err := catalog.productsClient.Save(map[string]any{"name": "anvil"})
 	return err
 }
 

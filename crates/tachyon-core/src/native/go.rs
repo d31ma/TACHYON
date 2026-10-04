@@ -18,9 +18,10 @@ struct StagedService {
 
 impl GoServices {
     const MODULE: &str = "tachyonservices";
-    const RUNTIME_FILES: [(&str, &str); 16] = [
+    const RUNTIME_FILES: [(&str, &str); 17] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
+        ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
         (
             "tac/prelude_condition.go",
             include_str!("prelude_condition.go"),
@@ -135,7 +136,7 @@ pub(crate) fn module_file() -> String {
 
 pub(crate) fn publisher_alias(package: &str) -> String {
     format!(
-        "package {package}\n\nimport \"{}/tac\"\n\n{}func behaviorStorageHost() func(string) string {{\n\treturn tac.Storage\n}}\n",
+        "package {package}\n\nimport \"{}/tac\"\n\n{}func behaviorStorageHost() func(string) string {{\n\treturn tac.Storage\n}}\n\nfunc behaviorBrowserHost() func(string) string {{\n\treturn tac.Exchange\n}}\n",
         GoServices::MODULE,
         GoServices::type_aliases()
     )

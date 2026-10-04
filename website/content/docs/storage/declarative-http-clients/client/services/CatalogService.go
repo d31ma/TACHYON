@@ -1,15 +1,9 @@
 // @Service
 type CatalogService struct {
-	catalog  *CatalogClient
-	Products []string
-	Error    string
-}
-
-// @OnStart
-func (service *CatalogService) Start() error {
-	client, err := NewCatalogClient()
-	service.catalog = client
-	return err
+	// @Needs
+	catalogClient *CatalogClient
+	Products      []string
+	Error         string
 }
 
 func (service *CatalogService) Load() {
@@ -17,7 +11,7 @@ func (service *CatalogService) Load() {
 }
 
 func (service *CatalogService) fetch() []any {
-	answer, _ := service.catalog.All()
+	answer, _ := service.catalogClient.All()
 	items, _ := answer.([]any)
 	return items
 }

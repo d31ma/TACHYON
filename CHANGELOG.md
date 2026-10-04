@@ -19,6 +19,15 @@ machine contracts have their own, independent major versions.
   their code (`HTTP_STATUS`, `HTTP_RESPONSE`, `CANCELLED`). Rust test units get
   `self.construct()` with a `Fake` client and `async fn` cases; `ty migrate
   check` reports a service that builds its client itself (ADR 0090).
+- Go Tac services call the server from the browser too: an HTTPClient method
+  returns `(Model, error)`, a service gets the client with `// @Needs` and calls
+  it like any Go function. Each service call runs in its own goroutine; a call
+  that waits for the network returns a promise to the page, and removing the
+  component cancels it (`CANCELLED`). Go test units get `test.construct(service)`
+  with `// @Fake` clients (ADR 0090).
+- Method coverage no longer asks a test case to call a Setup's methods or the
+  methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
+  the client's methods.
 
 - Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
 

@@ -340,7 +340,7 @@ func useMember(request *companionRequest, member *Member) string {
 	if operation == "call" && member.Call != nil {
 		value, err := member.Call(request.arguments)
 		if err != nil {
-			return errorAnswer(err.Error())
+			return codedErrorAnswer(err)
 		}
 		return valueAnswer(value)
 	}
@@ -376,6 +376,14 @@ func valueAnswer(value any) string {
 func tooLarge(subject string, size int, limit int) string {
 	return errorAnswer("The " + subject + " is " + strconv.Itoa(size) + " bytes. The limit is " +
 		strconv.Itoa(limit) + " bytes. Pass less data to the service.")
+}
+
+func codedErrorAnswer(err error) string {
+	coded, hasCode := err.(interface{ BehaviorCode() string })
+	if !hasCode {
+		return errorAnswer(err.Error())
+	}
+	return `{"error":` + quote(err.Error()) + `,"code":` + quote(coded.BehaviorCode()) + `}`
 }
 
 func errorAnswer(message string) string {
@@ -627,6 +635,7 @@ func disposeActivation(owner *ownerActivation) {
 }
 
 func disposeOwner(id string) {
+	cancelHTTP(id)
 	owner := owners[id]
 	delete(owners, id)
 	if executing != nil && executing.owner == id {

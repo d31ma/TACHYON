@@ -35,6 +35,8 @@ mod prepared;
 use prepared::Prepared;
 mod go;
 mod go_syntax;
+mod go_test_construction;
+mod go_typed_exchange;
 mod java;
 mod java_builtins;
 mod java_test_construction;
@@ -68,6 +70,7 @@ mod rust_test_construction;
 mod string_literal;
 mod swift;
 mod swift_platform;
+mod test_clients;
 pub(crate) use swift_platform::SwiftPlatform;
 
 #[derive(Clone, Debug)]
@@ -2773,16 +2776,16 @@ mod gateway_runtime_tests {
             "48a7f67b77b8f5781ad3a44a83774d8c44dc59661a53d7f4b44a7af42d45cddc"
         );
         let rust = super::gateway_unit_runtime("rs", "").expect("Rust runtime");
-        assert_eq!(rust.len(), 87_198);
+        assert_eq!(rust.len(), 87_350);
         assert_eq!(
             digest(&rust),
-            "0fdaf095e218b86cc2295913c0730965603fe1f1348f1cdf3d8664bccc4e042d"
+            "d5de9a9952d5c8ba6538c8cec57b8eb658b712113c6ae931b15653a04832be47"
         );
         let go = super::gateway_unit_runtime("go", "").expect("Go runtime");
-        assert_eq!(go.len(), 85_900);
+        assert_eq!(go.len(), 86_734);
         assert_eq!(
             digest(&go),
-            "7e3237a1a813e1d2a2984a8fce7d05fd335fbc327115b2456099bb156a51df7d"
+            "f8cfe815b5de152f912e01222bd042b7924116fe0d2368f2f99e6da9c6256dcd"
         );
     }
 

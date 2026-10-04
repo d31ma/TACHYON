@@ -1,4 +1,5 @@
 use super::super::testing::Unit;
+use super::test_clients::TestClients;
 use super::{Module, Type};
 
 pub(super) struct RustTestConstruction<'a> {
@@ -13,7 +14,6 @@ impl<'a> RustTestConstruction<'a> {
     const SHARED_START: &'static str = "std::sync::Arc<";
     const SHARED_END: &'static str = ">";
     const CASE_INPUT: char = '[';
-    const EXCHANGE: &'static str = "httpExchange";
     const NO_SETUP: &'static str = "Test.construct needs an active test setup.";
     const CONSTRUCT_TRAIT: &'static str =
         "pub trait BehaviorConstruct<T> { fn construct(&self) -> T; }\n";
@@ -49,7 +49,7 @@ impl<'a> RustTestConstruction<'a> {
         [
             !target.declared,
             target.name != self.owner.name,
-            !Self::sends_requests(target),
+            !TestClients::sends_requests(target),
         ] == [true; 3]
     }
 
@@ -99,7 +99,7 @@ impl<'a> RustTestConstruction<'a> {
                     .strip_suffix(Self::SHARED_END)
                     .map(str::to_owned)
             })
-            .filter(|client| self.is_client(client))
+            .filter(|client| TestClients::is_client(self.module, client))
     }
 
     fn required(assigned: &str, name: &str) -> String {
@@ -112,24 +112,6 @@ impl<'a> RustTestConstruction<'a> {
             "{assigned}.unwrap_or_else(|| std::sync::Arc::new({client}::with_context(self.behaviors.borrow().clone().expect({:?}))))",
             Self::NO_SETUP
         )
-    }
-
-    fn is_client(&self, name: &str) -> bool {
-        self.module
-            .types
-            .iter()
-            .any(|declared| Self::declares_client(declared, name))
-    }
-
-    fn declares_client(declared: &Type, name: &str) -> bool {
-        [declared.name == name, Self::sends_requests(declared)] == [true; 2]
-    }
-
-    fn sends_requests(declared: &Type) -> bool {
-        declared
-            .methods
-            .iter()
-            .any(|method| method.metadata.contains_key(Self::EXCHANGE))
     }
 
     fn faked(kind: &str) -> &str {

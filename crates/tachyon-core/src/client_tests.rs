@@ -39,6 +39,8 @@ mod dart_construct_tests;
 #[cfg(test)]
 mod dart_http_context_tests;
 #[cfg(test)]
+mod go_construct_tests;
+#[cfg(test)]
 mod java_construct_tests;
 #[cfg(test)]
 mod java_preference_tests;

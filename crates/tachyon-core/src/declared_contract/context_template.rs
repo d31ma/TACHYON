@@ -24,10 +24,16 @@ impl ContextTemplate {
         "",
         "fn new() -> Self {\n    let options = BehaviorOptions::new(\"{partition}\", BehaviorSignal::new());\n    Self { behaviors: Behaviors::create::<{setup}>(options).expect(\"{setup} creates the {partition} context\") }\n}\npub fn with_context(behaviors: BehaviorContext) -> Self {\n    Self { behaviors }\n}",
     );
-    const HTTP_TEMPLATES: [Self; 3] = [
+    const GO_TAC_HTTP: Self = Self::new(
+        "go-tac",
+        "",
+        "func New{owner}() (*{owner}, error) {\n\tcontext, err := BehaviorsCreate[{setup}](NewBehaviorOptions(\"{partition}\", NewBehaviorSignal()))\n\treturn &{owner}{behaviors: context}, err\n}\n\nfunc New{owner}With(context *BehaviorContext) *{owner} {\n\treturn &{owner}{behaviors: context}\n}",
+    );
+    const HTTP_TEMPLATES: [Self; 4] = [
         Self::DART_TAC_HTTP,
         Self::CSHARP_TAC_HTTP,
         Self::RUST_TAC_HTTP,
+        Self::GO_TAC_HTTP,
     ];
     const HTTP_CLIENT: &'static str = "HTTPClient";
     const TEMPLATES: [Self; 22] = [
