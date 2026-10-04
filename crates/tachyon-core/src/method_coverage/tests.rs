@@ -203,6 +203,15 @@ fn a_kotlin_http_client_declares_its_requests_so_nobody_tests_them() {
 }
 
 #[test]
+fn a_swift_http_client_declares_its_requests_so_nobody_tests_them() {
+    let report = report_for(&[(
+        "client/remotes/GreetingClient.swift",
+        "@HTTPClient(\"/api\")\nprotocol GreetingClient {\n    @GetRequest(\"/greeting\")\n    func getGreeting() async throws -> Greeting\n    func read(\n        id: Int\n    ) async throws -> Greeting {\n        try await getGreeting()\n    }\n}\n",
+    )]);
+    assert_eq!(uncovered_methods(&report), vec!["read"], "{report:?}");
+}
+
+#[test]
 fn recorded_calls_survive_a_write_and_a_read() {
     let root = tempfile::tempdir().expect("project");
     assert_eq!(RecordedCalls::read(root.path()), None);

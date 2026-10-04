@@ -63,6 +63,7 @@ pub(crate) struct PublicMethods;
 
 impl PublicMethods {
     const ARROW_LANGUAGES: [&'static str; 2] = ["dart", "cs"];
+    const SIGNATURE_LANGUAGES: [&'static str; 2] = ["kt", "swift"];
     const RESERVED: &[&str] = &[
         "if",
         "for",
@@ -108,7 +109,7 @@ impl PublicMethods {
         found
     }
 
-    fn kotlin_declared(line: &str) -> bool {
+    fn bodyless_signature(line: &str) -> bool {
         let balanced = line.matches('(').count() == line.matches(')').count();
         let after_parameters = line.rsplit_once(')').map_or("{", |(_, rest)| rest);
         let has_no_body = [balanced, !after_parameters.contains(['{', '='])] == [true; 2];
@@ -152,8 +153,8 @@ fn declared(language: &str, line: &str) -> bool {
     if language == "py" {
         return line.ends_with(": ...");
     }
-    if language == "kt" {
-        return PublicMethods::kotlin_declared(line);
+    if PublicMethods::SIGNATURE_LANGUAGES.contains(&language) {
+        return PublicMethods::bodyless_signature(line);
     }
     let is_bodyless_statement = line.ends_with(';') && !line.contains('{') && !line.contains("=>");
     let has_empty_body = line.trim_end().ends_with("{}");
