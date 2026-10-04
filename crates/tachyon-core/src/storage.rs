@@ -90,7 +90,8 @@ impl ManagedStorage {
     }
 
     fn deadline(command: &Value) -> Duration {
-        let is_scroll = command["operation"] == "document" && command["command"] == "scroll";
+        let names = (command["operation"].as_str(), command["command"].as_str());
+        let is_scroll = names == (Some("document"), Some("scroll"));
         if is_scroll {
             return Self::SCROLL_TIMEOUT;
         }

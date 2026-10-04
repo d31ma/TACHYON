@@ -25,16 +25,12 @@ impl ScrollSnapshots {
     }
 
     pub(super) fn open(&mut self, scope: String, documents: Vec<Value>) -> Result<String, Failure> {
-        let now = Instant::now();
-        self.entries.retain(|_, snapshot| snapshot.expires_at > now);
-        if self.entries.len() >= Self::MAX_OPEN {
-            self.remove_oldest();
-        }
+        self.make_room();
         let token = Self::random_token()?;
         let snapshot = ScrollSnapshot {
             scope,
             documents,
-            expires_at: now + Self::LIFETIME,
+            expires_at: Instant::now() + Self::LIFETIME,
         };
         self.entries.insert(token.clone(), snapshot);
         Ok(format!("{token}.0"))
@@ -46,40 +42,49 @@ impl ScrollSnapshots {
         scope: &str,
         size: usize,
     ) -> Result<ScrollPage, Failure> {
-        let (token, position) = Self::parse_cursor(cursor)?;
-        let snapshot = self
-            .entries
-            .get(token)
-            .filter(|snapshot| snapshot.expires_at > Instant::now() && snapshot.scope == scope)
-            .ok_or_else(Self::expired)?;
-        let start = position.min(snapshot.documents.len());
-        let end = start.saturating_add(size).min(snapshot.documents.len());
-        let next_cursor = if end < snapshot.documents.len() {
-            Some(format!("{token}.{end}"))
-        } else {
-            None
-        };
+        let (token, position) = cursor.split_once('.').ok_or_else(Self::expired)?;
+        let position = position.parse::<usize>().map_err(|_| Self::expired())?;
+        let snapshot = self.live_snapshot(token, scope)?;
+        let count = snapshot.documents.len();
+        let start = position.min(count);
+        let end = start.saturating_add(size).min(count);
+        let next_cursor = (end < count).then(|| format!("{token}.{end}"));
         Ok(ScrollPage {
             documents: snapshot.documents[start..end].to_vec(),
             next_cursor,
         })
     }
 
-    fn parse_cursor(cursor: &str) -> Result<(&str, usize), Failure> {
-        let (token, position) = cursor.split_once('.').ok_or_else(Self::expired)?;
-        let position = position.parse::<usize>().map_err(|_| Self::expired())?;
-        Ok((token, position))
+    fn live_snapshot(&self, token: &str, scope: &str) -> Result<&ScrollSnapshot, Failure> {
+        let snapshot = self.entries.get(token).ok_or_else(Self::expired)?;
+        let checks = [
+            snapshot.expires_at > Instant::now(),
+            snapshot.scope == scope,
+        ];
+        let usable = checks == [true, true];
+        usable.then_some(snapshot).ok_or_else(Self::expired)
     }
 
-    fn remove_oldest(&mut self) {
-        let oldest = self
-            .entries
-            .iter()
-            .min_by_key(|(_, snapshot)| snapshot.expires_at)
-            .map(|(token, _)| token.clone());
-        if let Some(token) = oldest {
+    fn make_room(&mut self) {
+        let now = Instant::now();
+        self.entries.retain(|_, snapshot| snapshot.expires_at > now);
+        let excess = (self.entries.len() + 1).saturating_sub(Self::MAX_OPEN);
+        for token in self.oldest_tokens(excess) {
             self.entries.remove(&token);
         }
+    }
+
+    fn oldest_tokens(&self, count: usize) -> Vec<String> {
+        let mut ages: Vec<(Instant, String)> = self
+            .entries
+            .iter()
+            .map(|(token, snapshot)| (snapshot.expires_at, token.clone()))
+            .collect();
+        ages.sort();
+        ages.into_iter()
+            .take(count)
+            .map(|(_, token)| token)
+            .collect()
     }
 
     fn random_token() -> Result<String, Failure> {
