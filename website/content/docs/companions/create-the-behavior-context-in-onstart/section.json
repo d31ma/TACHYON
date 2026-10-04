@@ -1,22 +1,155 @@
 {
   "heading": "Create the behavior context in OnStart",
-  "body": "Create the context in OnStart. Inject lifecycle and pass this.lifecycle as the context's signal (the object that tells work to stop). Then give the context to behaviors yourself. When the user leaves the page or a hot replacement happens, Tachyon aborts the operations that are still waiting. For lifetimes that you manage separately, use context.dispose(). The complete service below needs no storage or network adapter. PageDefaults only puts limited input into a standard form. It does not fetch a collection or cut it into parts. The application is responsible for more advanced adapters. The Yon guide describes their shared contracts. docs/BEHAVIOR_ANNOTATIONS.md is the full reference.",
+  "notApplicable": [
+    "py"
+  ],
+  "body": "Create the context in OnStart. In JavaScript and TypeScript, inject lifecycle and pass this.lifecycle as the context's signal (the object that tells work to stop). The other languages pass a BehaviorSignal that they create. Then give the context to behaviors yourself. When the user leaves the page or a hot replacement happens, Tachyon aborts the operations that are still waiting. For lifetimes that you manage separately, use context.dispose(). The complete service below needs no storage or network adapter. PageDefaults only puts limited input into a standard form. It does not fetch a collection or cut it into parts. The application is responsible for more advanced adapters. The Yon guide describes their shared contracts. docs/BEHAVIOR_ANNOTATIONS.md is the full reference. Python has no tab here: Behaviors.create is asynchronous in Python, and the build refuses asynchronous methods in Python Tac code with TY1605. Lua has no tab here, because the build refuses Setup in Lua Tac code with TY1308.",
   "files": [
     {
       "name": "client/pages/catalog/tac.html",
-      "code": { "file": "client/pages/catalog/tac.html" }
+      "code": {
+        "file": "client/pages/catalog/tac.html"
+      }
     },
     {
       "name": "client/components/catalog/page/tac.html",
-      "code": { "file": "client/components/catalog/page/tac.html" }
+      "code": {
+        "file": "client/components/catalog/page/tac.html"
+      }
     },
     {
       "name": "client/setups/ApplicationSetup.js",
-      "code": { "file": "client/setups/ApplicationSetup.js" }
+      "code": {
+        "file": "client/setups/ApplicationSetup.js"
+      }
     },
     {
       "name": "client/services/CatalogService.js",
-      "code": { "file": "client/services/CatalogService.js" }
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.ts",
+      "code": {
+        "file": "client/setups/ApplicationSetup.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.java",
+      "code": {
+        "file": "client/setups/ApplicationSetup.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.kt",
+      "code": {
+        "file": "client/setups/ApplicationSetup.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.cs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.fs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.rs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.go",
+      "code": {
+        "file": "client/setups/ApplicationSetup.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.dart",
+      "code": {
+        "file": "client/setups/ApplicationSetup.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.rb",
+      "code": {
+        "file": "client/setups/ApplicationSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.swift",
+      "code": {
+        "file": "client/setups/ApplicationSetup.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
     }
-  ]
+  ],
+  "axis": "language",
+  "target": "web"
 }

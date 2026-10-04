@@ -1,7 +1,7 @@
 import json
 import os
 
-from models import Configuration
+from models import CatalogSettings, Configuration, Endpoint
 
 
 @request_route("/configuration")

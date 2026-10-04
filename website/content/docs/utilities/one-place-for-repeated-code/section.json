@@ -1,6 +1,6 @@
 {
   "heading": "One place for repeated code",
-  "body": "When two places hold the same block of code, a fix in one place misses the other. So Tachyon refuses duplicated code, with the same rules as SonarQube's copy-paste detection. Tachyon checks your code itself and sends nothing to another service.\n\nA duplicate is a block of at least 100 tokens (words, names, values and signs) that spans at least 10 lines and appears twice or more. The two copies are in the same language and the same realm, in one file or in two files. Names and values may differ: `total(order)` and `total(invoice)` are the same code. Whitespace and comments do not count, and neither do imports, annotation lines, test units, models, entities, generated files and lists of values.\n\nThe build refuses a duplicate with `TY1315`. The message names both places, for example `client/services/OrderService.js:12-40`, and tells you where to move the code. `ty migrate check` lists every duplicate.\n\nMove the repeated code into a utility class. A Tac utility class lives in `client/shared/utils/`, and you may group utilities in nested folders, such as `client/shared/utils/text/TitleUtils.js`. A Yon utility class lives in `server/utils/`. The name of a utility class ends with `Utils`. The build refuses a file in `client/utils/` with `TY1310`, and `ty migrate fix --write` moves it to `client/shared/utils/` and changes the paths that import it. It holds only static methods and no state: no field, no stored value, no constructor and no instance method (`TY1316`). It has no annotation. Every class of the same realm and language can call it with no import, and a test unit can test it. Its methods follow the cohesion rule: a public static method only coordinates, and private static methods hold the decisions.\n\n| Language | Utility class | Static method |\n| --- | --- | --- |\n| JavaScript, TypeScript | `export default class PriceUtils` | `static label(cents)`; private: `static #dollars(cents)` or TypeScript `private static` |\n| Python | `class PriceUtils:` | `@staticmethod` above `def label(cents)`; private: `_dollars` |\n| Ruby | `class PriceUtils` | `def self.label(cents)`; private: `def self._dollars(cents)` |\n| PHP, Java, C#, Dart | `class PriceUtils` (C#: `static class`) | a `static` method; private: `private static` (Dart: a name that starts with `_`) |\n| Kotlin | `object PriceUtils` | `fun label(cents: Int)` |\n| Swift | `struct PriceUtils` | `static func label(_ cents: Int)` |\n| Go | `type PriceUtils struct{}` | `func (PriceUtils) Label(cents int) string` |\n| Rust | `pub struct PriceUtils;` | `pub fn label(cents: u32) -> String`, with no `self` |\n\nThis check is new, so you can turn it off for one side of the app while you move code. For Tac code, set `tac.duplication.check` to `false` in `client/manifest.json`. For Yon code, set `duplication.check` to `false` in `server/application.json`. Use these settings only for migration.",
+  "body": "When two places hold the same block of code, a fix in one place misses the other. So Tachyon refuses duplicated code, with the same rules as SonarQube's copy-paste detection. Tachyon checks your code itself and sends nothing to another service.\n\nA duplicate is a block of at least 100 tokens (words, names, values and signs) that spans at least 10 lines and appears twice or more. The two copies are in the same language and the same realm, in one file or in two files. Names and values may differ: `total(order)` and `total(invoice)` are the same code. Whitespace and comments do not count, and neither do imports, annotation lines, test units, models, entities, generated files and lists of values.\n\nThe build refuses a duplicate with `TY1315`. The message names both places, for example `client/services/OrderService.js:12-40`, and tells you where to move the code. `ty migrate check` lists every duplicate.\n\nMove the repeated code into a utility class. A Tac utility class lives in `client/shared/utils/`, and you may group utilities in nested folders, such as `client/shared/utils/text/TitleUtils.js`. A Yon utility class lives in `server/utils/`. The name of a utility class ends with `Utils`. The build refuses a file in `client/utils/` with `TY1310`, and `ty migrate fix --write` moves it to `client/shared/utils/` and changes the paths that import it. It holds only static methods and no state: no field, no stored value, no constructor and no instance method (`TY1316`). It has no annotation. Every class of the same realm and language can call it with no import, and a test unit can test it. Its methods follow the cohesion rule: a public static method only coordinates, and private static methods hold the decisions.\n\n| Language | Utility class | Static method |\n| --- | --- | --- |\n| JavaScript, TypeScript | `export default class PriceUtils` | `static label(cents)`; private: `static _dollars(cents)` or TypeScript `private static` |\n| Python | `class PriceUtils:` | `@staticmethod` above `def label(cents)`; private: `_dollars` |\n| Ruby | `class PriceUtils` | `def self.label(cents)`; private: `def self._dollars(cents)` |\n| Lua | `PriceUtils = {}` | `function PriceUtils.label(cents)`; private: `PriceUtils._dollars` |\n| PHP, Java, C#, Dart | `class PriceUtils` (C#: `static class`) | a `static` method; private: `private static` (Dart: a name that starts with `_`) |\n| F# | `type PriceUtils =` | `static member Label(cents: int)`; private: `static member private` |\n| Kotlin | `object PriceUtils` | `fun label(cents: Int)`; private: `private fun` |\n| Swift | `struct PriceUtils` | `static func label(_ cents: Int)`; private: `private static func` |\n| Go | `type PriceUtils struct{}` | `func (PriceUtils) Label(cents int) string`; private: a name that starts with a lower-case letter |\n| Rust | `pub struct PriceUtils;` | `pub fn label(cents: u32) -> String`, with no `self`; private: no `pub` |\n\nThis check is new, so you can turn it off for one side of the app while you move code. For Tac code, set `tac.duplication.check` to `false` in `client/manifest.json`. For Yon code, set `duplication.check` to `false` in `server/application.json`. Use these settings only for migration.",
   "files": [
     {
       "name": "client/pages/tac.html",
@@ -39,6 +39,90 @@
       }
     },
     {
+      "name": "server/utils/PriceUtils.js",
+      "code": {
+        "file": "server/utils/PriceUtils.js"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.js",
+      "code": {
+        "file": "server/tests/PriceTestSetup.js"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.js",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.js"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.ts",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.ts"
+      }
+    },
+    {
+      "name": "client/services/BasketService.ts",
+      "code": {
+        "file": "client/services/BasketService.ts"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.ts",
+      "code": {
+        "file": "client/tests/PriceTestSetup.ts"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.ts",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.ts"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.ts",
+      "code": {
+        "file": "server/utils/PriceUtils.ts"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.ts",
+      "code": {
+        "file": "server/tests/PriceTestSetup.ts"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.ts",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.ts"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.py",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.py"
+      }
+    },
+    {
+      "name": "client/services/BasketService.py",
+      "code": {
+        "file": "client/services/BasketService.py"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.py",
+      "code": {
+        "file": "client/tests/PriceTestSetup.py"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.py",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.py"
+      }
+    },
+    {
       "name": "server/utils/PriceUtils.py",
       "code": {
         "file": "server/utils/PriceUtils.py"
@@ -55,6 +139,445 @@
       "code": {
         "file": "server/tests/PriceUtilsTest.py"
       }
+    },
+    {
+      "name": "server/utils/PriceUtils.php",
+      "code": {
+        "file": "server/utils/PriceUtils.php"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.php",
+      "code": {
+        "file": "server/tests/PriceTestSetup.php"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.php",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.php"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.java",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.java"
+      }
+    },
+    {
+      "name": "client/services/BasketService.java",
+      "code": {
+        "file": "client/services/BasketService.java"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.java",
+      "code": {
+        "file": "client/tests/PriceTestSetup.java"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.java",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.java"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.java",
+      "code": {
+        "file": "server/utils/PriceUtils.java"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.java",
+      "code": {
+        "file": "server/tests/PriceTestSetup.java"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.java",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.java"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.groovy",
+      "code": {
+        "file": "server/utils/PriceUtils.groovy"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.groovy",
+      "code": {
+        "file": "server/tests/PriceTestSetup.groovy"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.groovy",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.groovy"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.kt",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.kt"
+      }
+    },
+    {
+      "name": "client/services/BasketService.kt",
+      "code": {
+        "file": "client/services/BasketService.kt"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.kt",
+      "code": {
+        "file": "client/tests/PriceTestSetup.kt"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.kt",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.kt"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.kt",
+      "code": {
+        "file": "server/utils/PriceUtils.kt"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.kt",
+      "code": {
+        "file": "server/tests/PriceTestSetup.kt"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.kt",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.kt"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.cs",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.cs"
+      }
+    },
+    {
+      "name": "client/services/BasketService.cs",
+      "code": {
+        "file": "client/services/BasketService.cs"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.cs",
+      "code": {
+        "file": "client/tests/PriceTestSetup.cs"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.cs",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.cs"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.cs",
+      "code": {
+        "file": "server/utils/PriceUtils.cs"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.cs",
+      "code": {
+        "file": "server/tests/PriceTestSetup.cs"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.cs",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.cs"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.fs",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.fs"
+      }
+    },
+    {
+      "name": "client/services/BasketService.fs",
+      "code": {
+        "file": "client/services/BasketService.fs"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.fs",
+      "code": {
+        "file": "client/tests/PriceTestSetup.fs"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.fs",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.fs"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.fs",
+      "code": {
+        "file": "server/utils/PriceUtils.fs"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.fs",
+      "code": {
+        "file": "server/tests/PriceTestSetup.fs"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.fs",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.fs"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.rs",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.rs"
+      }
+    },
+    {
+      "name": "client/services/BasketService.rs",
+      "code": {
+        "file": "client/services/BasketService.rs"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.rs",
+      "code": {
+        "file": "client/tests/PriceTestSetup.rs"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.rs",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.rs"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.rs",
+      "code": {
+        "file": "server/utils/PriceUtils.rs"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.rs",
+      "code": {
+        "file": "server/tests/PriceTestSetup.rs"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.rs",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.rs"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.go",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.go"
+      }
+    },
+    {
+      "name": "client/services/BasketService.go",
+      "code": {
+        "file": "client/services/BasketService.go"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.go",
+      "code": {
+        "file": "client/tests/PriceTestSetup.go"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.go",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.go"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.go",
+      "code": {
+        "file": "server/utils/PriceUtils.go"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.go",
+      "code": {
+        "file": "server/tests/PriceTestSetup.go"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.go",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.go"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.dart",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.dart"
+      }
+    },
+    {
+      "name": "client/services/BasketService.dart",
+      "code": {
+        "file": "client/services/BasketService.dart"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.dart",
+      "code": {
+        "file": "client/tests/PriceTestSetup.dart"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.dart",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.dart"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.dart",
+      "code": {
+        "file": "server/utils/PriceUtils.dart"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.dart",
+      "code": {
+        "file": "server/tests/PriceTestSetup.dart"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.dart",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.dart"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.rb",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.rb"
+      }
+    },
+    {
+      "name": "client/services/BasketService.rb",
+      "code": {
+        "file": "client/services/BasketService.rb"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.rb",
+      "code": {
+        "file": "client/tests/PriceTestSetup.rb"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.rb",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.rb"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.rb",
+      "code": {
+        "file": "server/utils/PriceUtils.rb"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.rb",
+      "code": {
+        "file": "server/tests/PriceTestSetup.rb"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.rb",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.rb"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.lua",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.lua"
+      }
+    },
+    {
+      "name": "client/services/BasketService.lua",
+      "code": {
+        "file": "client/services/BasketService.lua"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.lua",
+      "code": {
+        "file": "client/tests/PriceTestSetup.lua"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.lua",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.lua"
+      }
+    },
+    {
+      "name": "server/utils/PriceUtils.lua",
+      "code": {
+        "file": "server/utils/PriceUtils.lua"
+      }
+    },
+    {
+      "name": "server/tests/PriceTestSetup.lua",
+      "code": {
+        "file": "server/tests/PriceTestSetup.lua"
+      }
+    },
+    {
+      "name": "server/tests/PriceUtilsTest.lua",
+      "code": {
+        "file": "server/tests/PriceUtilsTest.lua"
+      }
+    },
+    {
+      "name": "client/shared/utils/PriceUtils.swift",
+      "code": {
+        "file": "client/shared/utils/PriceUtils.swift"
+      }
+    },
+    {
+      "name": "client/services/BasketService.swift",
+      "code": {
+        "file": "client/services/BasketService.swift"
+      }
+    },
+    {
+      "name": "client/tests/PriceTestSetup.swift",
+      "code": {
+        "file": "client/tests/PriceTestSetup.swift"
+      }
+    },
+    {
+      "name": "client/tests/PriceUtilsTest.swift",
+      "code": {
+        "file": "client/tests/PriceUtilsTest.swift"
+      }
     }
-  ]
+  ],
+  "axis": "language"
 }

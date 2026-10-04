@@ -1,5 +1,94 @@
 {
   "heading": "Relaying to other languages",
-  "body": "A program that Yon does not run directly can still use Handler Protocol v1. Call `relay(command, request)` yourself from a controller method that takes the request argument. `request` is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request and writes the answer with `http_response_code()`, `header()` and `echo`. The program reads the request as JSON on its standard input: `route` (the path and query), `method`, `headers` and `body`. Yon starts the program without a shell and limits its output. The deadline of the program is the time left in the request. Tachyon counts it after the wait for a process slot and the start of the route. Every relay in the request shares that deadline. The program gets the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows). The allowlist is the list of allowed names. It also gets the names you add to the allowlist, `YON_HANDLER_PROTOCOL` and the `NO_PROXY` values of the route process. Yon removes the other values, so the program does not inherit them by accident. This is not a sandbox (a closed space that blocks access). A program that runs as the same user can still read the environment of its parent. It can also read the files of the project. Every relay failure reaches the controller as HTTP 502. The message is always the same: `Component invocation failed.` Yon removes sensitive details from failures. At the end, it cleans up (reaps) the whole process group.\n\nBreaking change: a relay program no longer receives `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values, even when they are on the allowlist. If a relay program read its configuration from `YON_APPLICATION_JSON`, that must change. The program must now read it from its own files or from a variable on the allowlist.\n\nTo call one method in another language and get a value back, use `@Gateway` instead of forwarding the request.",
-  "code": { "file": "example.py" }
+  "notApplicable": [
+    "lua"
+  ],
+  "body": "A program that Yon does not run directly can still use Handler Protocol v1. Call `relay(command, request)` yourself from a controller method that takes the request argument. `request` is the request in the language's own type, and `relay` answers with the language's own response. In PHP, `Yon::relay(command)` forwards the current request and writes the answer with `http_response_code()`, `header()` and `echo`. The program reads the request as JSON on its standard input: `route` (the path and query), `method`, `headers` and `body`. Yon starts the program without a shell and limits its output. The deadline of the program is the time left in the request. Tachyon counts it after the wait for a process slot and the start of the route. Every relay in the request shares that deadline. The program gets the baseline environment (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix; `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows). The allowlist is the list of allowed names. It also gets the names you add to the allowlist, `YON_HANDLER_PROTOCOL` and the `NO_PROXY` values of the route process. Yon removes the other values, so the program does not inherit them by accident. This is not a sandbox (a closed space that blocks access). A program that runs as the same user can still read the environment of its parent. It can also read the files of the project. Every relay failure reaches the controller as HTTP 502. The message is always the same: `Component invocation failed.` Yon removes sensitive details from failures. At the end, it cleans up (reaps) the whole process group.\n\nBreaking change: a relay program no longer receives `YON_APPLICATION_JSON` or the `YON_RESOURCE_*` values, even when they are on the allowlist. If a relay program read its configuration from `YON_APPLICATION_JSON`, that must change. The program must now read it from its own files or from a variable on the allowlist.\n\nTo call one method in another language and get a value back, use `@Gateway` instead of forwarding the request. Lua has no tab here, because the build refuses relay in Lua Yon code with TY2015.",
+  "files": [
+    {
+      "name": "server/helpers/ReportDelegate.rb",
+      "code": {
+        "file": "server/helpers/ReportDelegate.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.js",
+      "code": {
+        "file": "server/controllers/ReportController.js"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.ts",
+      "code": {
+        "file": "server/controllers/ReportController.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.py",
+      "code": {
+        "file": "server/controllers/ReportController.py"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.php",
+      "code": {
+        "file": "server/controllers/ReportController.php"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.java",
+      "code": {
+        "file": "server/controllers/ReportController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.groovy",
+      "code": {
+        "file": "server/controllers/ReportController.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.kt",
+      "code": {
+        "file": "server/controllers/ReportController.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.cs",
+      "code": {
+        "file": "server/controllers/ReportController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.fs",
+      "code": {
+        "file": "server/controllers/ReportController.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.rs",
+      "code": {
+        "file": "server/controllers/ReportController.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.go",
+      "code": {
+        "file": "server/controllers/ReportController.go"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.dart",
+      "code": {
+        "file": "server/controllers/ReportController.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ReportController.rb",
+      "code": {
+        "file": "server/controllers/ReportController.rb"
+      }
+    }
+  ],
+  "axis": "language"
 }

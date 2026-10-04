@@ -4,14 +4,14 @@ export default class PriceUtils {
    * @returns {string}
    */
   static label(cents) {
-    return `$${PriceUtils.#dollars(cents)}`
+    return `$${PriceUtils._dollars(cents)}`
   }
 
   /**
    * @param {number} cents
    * @returns {string}
    */
-  static #dollars(cents) {
+  static _dollars(cents) {
     return (cents / 100).toFixed(2)
   }
 }

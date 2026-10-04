@@ -1,242 +1,429 @@
 {
   "heading": "Limited Store and Query",
-  "body": "Store names an Entity class from the same source, like Store(ProductEntity, {...}), and at most 64 allowed fields. A Store is a contract with no implementation, like a Spring Data repository interface: Tachyon builds its behavior context from its Setup (ProductSetup for ProductStore, or the setup option), and a controller or service injects it with Needs. A Store with no Entity is refused with TY1308. Each method is a query without a body, and it compiles to a find, findOne, count, exists or delete operation. In JavaScript and TypeScript they declare their answer with | void, such as Promise<ProductEntity[] | void>, because an empty body returns nothing to the type checker. They use either a structured Query or derived names: findByStatus, countByStatus, existsByStatus, deleteByStatus and the same names in snake_case. A Store that extends Repository<Entity, Id>, like Spring Data's CrudRepository, also gets findById (a findOne on the Id field), findAll (a find with no predicate), save and deleteById without declaring them. Derived predicates (conditions) support Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull, joined by And. The structured operators are eq/ne/lt/lte/gt/gte/in/isNull/isNotNull. Tachyon does not accept SQL text, expressions, OR, joins, nested paths or bulk updates; a delete removes exactly the records that its predicates match. The entity adapter receives a query command with bound values (values sent apart from the query text). The adapter must have authorizeEntity(command, execution). That method must return true before execute runs. The limits are eight predicates, 100 In values, 64 KiB of bindings and 1 MiB of results. Find returns at most the requested page size, and the maximum is 100. The annotation sets the order. When two results have the same order, the ID decides. The caller's page.sort must be empty. FindOne returns the first matching record or null. Count and delete return a nonnegative safe integer. Exists returns a boolean. Query cannot combine with other method policies. The examples run queries through an explicit, authorized in-memory adapter. Every language declares the same store and controller route.",
+  "notApplicable": [
+    "lua"
+  ],
+  "body": "Store names an Entity class from the same source, like Store(ProductEntity, {...}), and at most 64 allowed fields. A Store is a contract with no implementation, like a Spring Data repository interface: Tachyon builds its behavior context from its Setup (ProductSetup for ProductStore, or the setup option), and a controller or service injects it with Needs. A Store with no Entity is refused with TY1308. Each method is a query without a body, and it compiles to a find, findOne, count, exists or delete operation. In JavaScript and TypeScript they declare their answer with | void, such as Promise<ProductEntity[] | void>, because an empty body returns nothing to the type checker. They use either a structured Query or derived names: findByStatus, countByStatus, existsByStatus, deleteByStatus and the same names in snake_case. A Store that extends Repository<Entity, Id>, like Spring Data's CrudRepository, also gets findById (a findOne on the Id field), findAll (a find with no predicate), save and deleteById without declaring them. Derived predicates (conditions) support Equals, NotEquals, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, In, IsNull and IsNotNull, joined by And. The structured operators are eq/ne/lt/lte/gt/gte/in/isNull/isNotNull. Tachyon does not accept SQL text, expressions, OR, joins, nested paths or bulk updates; a delete removes exactly the records that its predicates match. The entity adapter receives a query command with bound values (values sent apart from the query text). The adapter must have authorizeEntity(command, execution). That method must return true before execute runs. The limits are eight predicates, 100 In values, 64 KiB of bindings and 1 MiB of results. Find returns at most the requested page size, and the maximum is 100. The annotation sets the order. When two results have the same order, the ID decides. The caller's page.sort must be empty. FindOne returns the first matching record or null. Count and delete return a nonnegative safe integer. Exists returns a boolean. Query cannot combine with other method policies. The examples run queries through an explicit, authorized in-memory adapter. Every language declares the same store and controller route. Lua has no tab here: a Lua Store is not yet a provider, so the build stops a class that needs it with TY2015.",
   "files": [
     {
       "name": "server/entities/ProductEntity.js",
-      "code": { "file": "server/entities/ProductEntity.js" }
+      "code": {
+        "file": "server/entities/ProductEntity.js"
+      }
     },
     {
       "name": "server/stores/ProductStore.js",
-      "code": { "file": "server/stores/ProductStore.js" }
+      "code": {
+        "file": "server/stores/ProductStore.js"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.js",
-      "code": { "file": "server/setups/CatalogSetup.js" }
+      "code": {
+        "file": "server/setups/CatalogSetup.js"
+      }
     },
     {
       "name": "server/controllers/ProductController.js",
-      "code": { "file": "server/controllers/ProductController.js" }
-    },
-    {
-      "name": "server/models/ProductReport.ts",
-      "code": { "file": "server/models/ProductReport.ts" }
+      "code": {
+        "file": "server/controllers/ProductController.js"
+      }
     },
     {
       "name": "server/entities/ProductEntity.ts",
-      "code": { "file": "server/entities/ProductEntity.ts" }
+      "code": {
+        "file": "server/entities/ProductEntity.ts"
+      }
     },
     {
       "name": "server/stores/ProductStore.ts",
-      "code": { "file": "server/stores/ProductStore.ts" }
+      "code": {
+        "file": "server/stores/ProductStore.ts"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.ts",
-      "code": { "file": "server/setups/CatalogSetup.ts" }
+      "code": {
+        "file": "server/setups/CatalogSetup.ts"
+      }
     },
     {
       "name": "server/controllers/ProductController.ts",
-      "code": { "file": "server/controllers/ProductController.ts" }
+      "code": {
+        "file": "server/controllers/ProductController.ts"
+      }
     },
     {
-      "name": "server/models/ProductReport.py",
-      "code": { "file": "server/models/ProductReport.py" }
+      "name": "server/models/ProductReport.ts",
+      "code": {
+        "file": "server/models/ProductReport.ts"
+      }
     },
     {
       "name": "server/entities/ProductEntity.py",
-      "code": { "file": "server/entities/ProductEntity.py" }
+      "code": {
+        "file": "server/entities/ProductEntity.py"
+      }
     },
     {
       "name": "server/stores/ProductStore.py",
-      "code": { "file": "server/stores/ProductStore.py" }
+      "code": {
+        "file": "server/stores/ProductStore.py"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.py",
-      "code": { "file": "server/setups/CatalogSetup.py" }
+      "code": {
+        "file": "server/setups/CatalogSetup.py"
+      }
     },
     {
       "name": "server/controllers/ProductController.py",
-      "code": { "file": "server/controllers/ProductController.py" }
+      "code": {
+        "file": "server/controllers/ProductController.py"
+      }
     },
     {
-      "name": "server/models/ProductReport.php",
-      "code": { "file": "server/models/ProductReport.php" }
-    },
-    {
-      "name": "server/entities/ProductEntity.php",
-      "code": { "file": "server/entities/ProductEntity.php" }
-    },
-    {
-      "name": "server/stores/ProductStore.php",
-      "code": { "file": "server/stores/ProductStore.php" }
-    },
-    {
-      "name": "server/setups/CatalogSetup.php",
-      "code": { "file": "server/setups/CatalogSetup.php" }
-    },
-    {
-      "name": "server/controllers/ProductController.php",
-      "code": { "file": "server/controllers/ProductController.php" }
-    },
-    {
-      "name": "server/models/ProductReport.java",
-      "code": { "file": "server/models/ProductReport.java" }
-    },
-    {
-      "name": "server/models/ProductReport.groovy",
-      "code": { "file": "server/models/ProductReport.groovy" }
-    },
-    {
-      "name": "server/entities/ProductEntity.java",
-      "code": { "file": "server/entities/ProductEntity.java" }
-    },
-    {
-      "name": "server/entities/ProductEntity.groovy",
-      "code": { "file": "server/entities/ProductEntity.groovy" }
-    },
-    {
-      "name": "server/stores/ProductStore.java",
-      "code": { "file": "server/stores/ProductStore.java" }
-    },
-    {
-      "name": "server/stores/ProductStore.groovy",
-      "code": { "file": "server/stores/ProductStore.groovy" }
-    },
-    {
-      "name": "server/setups/CatalogSetup.java",
-      "code": { "file": "server/setups/CatalogSetup.java" }
-    },
-    {
-      "name": "server/setups/CatalogSetup.groovy",
-      "code": { "file": "server/setups/CatalogSetup.groovy" }
-    },
-    {
-      "name": "server/controllers/ProductController.java",
-      "code": { "file": "server/controllers/ProductController.java" }
-    },
-    {
-      "name": "server/controllers/ProductController.groovy",
-      "code": { "file": "server/controllers/ProductController.groovy" }
-    },
-    {
-      "name": "server/models/ProductReport.kt",
-      "code": { "file": "server/models/ProductReport.kt" }
-    },
-    {
-      "name": "server/entities/ProductEntity.kt",
-      "code": { "file": "server/entities/ProductEntity.kt" }
-    },
-    {
-      "name": "server/stores/ProductStore.kt",
-      "code": { "file": "server/stores/ProductStore.kt" }
-    },
-    {
-      "name": "server/setups/CatalogSetup.kt",
-      "code": { "file": "server/setups/CatalogSetup.kt" }
-    },
-    {
-      "name": "server/controllers/ProductController.kt",
-      "code": { "file": "server/controllers/ProductController.kt" }
-    },
-    {
-      "name": "server/models/ProductReport.cs",
-      "code": { "file": "server/models/ProductReport.cs" }
-    },
-    {
-      "name": "server/entities/ProductEntity.cs",
-      "code": { "file": "server/entities/ProductEntity.cs" }
-    },
-    {
-      "name": "server/stores/ProductStore.cs",
-      "code": { "file": "server/stores/ProductStore.cs" }
-    },
-    {
-      "name": "server/setups/CatalogSetup.cs",
-      "code": { "file": "server/setups/CatalogSetup.cs" }
-    },
-    {
-      "name": "server/controllers/ProductController.cs",
-      "code": { "file": "server/controllers/ProductController.cs" }
-    },
-    {
-      "name": "server/models/ProductReport.rs",
-      "code": { "file": "server/models/ProductReport.rs" }
-    },
-    {
-      "name": "server/entities/ProductEntity.rs",
-      "code": { "file": "server/entities/ProductEntity.rs" }
-    },
-    {
-      "name": "server/stores/ProductStore.rs",
-      "code": { "file": "server/stores/ProductStore.rs" }
-    },
-    {
-      "name": "server/setups/CatalogSetup.rs",
-      "code": { "file": "server/setups/CatalogSetup.rs" }
-    },
-    {
-      "name": "server/controllers/ProductController.rs",
-      "code": { "file": "server/controllers/ProductController.rs" }
-    },
-    {
-      "name": "server/models/ProductReport.dart",
-      "code": { "file": "server/models/ProductReport.dart" }
-    },
-    {
-      "name": "server/entities/ProductEntity.dart",
-      "code": { "file": "server/entities/ProductEntity.dart" }
-    },
-    {
-      "name": "server/stores/ProductStore.dart",
-      "code": { "file": "server/stores/ProductStore.dart" }
-    },
-    {
-      "name": "server/setups/CatalogSetup.dart",
-      "code": { "file": "server/setups/CatalogSetup.dart" }
-    },
-    {
-      "name": "server/controllers/ProductController.dart",
-      "code": { "file": "server/controllers/ProductController.dart" }
+      "name": "server/models/ProductReport.py",
+      "code": {
+        "file": "server/models/ProductReport.py"
+      }
     },
     {
       "name": "server/helpers/CatalogAdapterHelper.py",
-      "code": { "file": "server/helpers/CatalogAdapterHelper.py" }
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.py"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.php",
+      "code": {
+        "file": "server/entities/ProductEntity.php"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.php",
+      "code": {
+        "file": "server/stores/ProductStore.php"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.php",
+      "code": {
+        "file": "server/setups/CatalogSetup.php"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.php",
+      "code": {
+        "file": "server/controllers/ProductController.php"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.php",
+      "code": {
+        "file": "server/models/ProductReport.php"
+      }
     },
     {
       "name": "server/helpers/CatalogAdapterHelper.php",
-      "code": { "file": "server/helpers/CatalogAdapterHelper.php" }
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.php"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.java",
+      "code": {
+        "file": "server/entities/ProductEntity.java"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.java",
+      "code": {
+        "file": "server/stores/ProductStore.java"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.java",
+      "code": {
+        "file": "server/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.java",
+      "code": {
+        "file": "server/controllers/ProductController.java"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.java",
+      "code": {
+        "file": "server/models/ProductReport.java"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.groovy",
+      "code": {
+        "file": "server/entities/ProductEntity.groovy"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.groovy",
+      "code": {
+        "file": "server/stores/ProductStore.groovy"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.groovy",
+      "code": {
+        "file": "server/setups/CatalogSetup.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.groovy",
+      "code": {
+        "file": "server/controllers/ProductController.groovy"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.groovy",
+      "code": {
+        "file": "server/models/ProductReport.groovy"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.kt",
+      "code": {
+        "file": "server/entities/ProductEntity.kt"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.kt",
+      "code": {
+        "file": "server/stores/ProductStore.kt"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.kt",
+      "code": {
+        "file": "server/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.kt",
+      "code": {
+        "file": "server/controllers/ProductController.kt"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.kt",
+      "code": {
+        "file": "server/models/ProductReport.kt"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.cs",
+      "code": {
+        "file": "server/entities/ProductEntity.cs"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.cs",
+      "code": {
+        "file": "server/stores/ProductStore.cs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.cs",
+      "code": {
+        "file": "server/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.cs",
+      "code": {
+        "file": "server/controllers/ProductController.cs"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.cs",
+      "code": {
+        "file": "server/models/ProductReport.cs"
+      }
     },
     {
       "name": "server/helpers/CatalogAdapterHelper.cs",
-      "code": { "file": "server/helpers/CatalogAdapterHelper.cs" }
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.cs"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.fs",
+      "code": {
+        "file": "server/entities/ProductEntity.fs"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.fs",
+      "code": {
+        "file": "server/stores/ProductStore.fs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.fs",
+      "code": {
+        "file": "server/setups/CatalogSetup.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.fs",
+      "code": {
+        "file": "server/controllers/ProductController.fs"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.fs",
+      "code": {
+        "file": "server/models/ProductReport.fs"
+      }
+    },
+    {
+      "name": "server/helpers/CatalogAdapterHelper.fs",
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.fs"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.rs",
+      "code": {
+        "file": "server/entities/ProductEntity.rs"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.rs",
+      "code": {
+        "file": "server/stores/ProductStore.rs"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rs",
+      "code": {
+        "file": "server/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.rs",
+      "code": {
+        "file": "server/controllers/ProductController.rs"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.rs",
+      "code": {
+        "file": "server/models/ProductReport.rs"
+      }
     },
     {
       "name": "server/helpers/CatalogAdapterHelper.rs",
-      "code": { "file": "server/helpers/CatalogAdapterHelper.rs" }
-    },
-    {
-      "name": "server/models/ProductReport.go",
-      "code": { "file": "server/models/ProductReport.go" }
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.rs"
+      }
     },
     {
       "name": "server/entities/ProductEntity.go",
-      "code": { "file": "server/entities/ProductEntity.go" }
+      "code": {
+        "file": "server/entities/ProductEntity.go"
+      }
     },
     {
       "name": "server/stores/ProductStore.go",
-      "code": { "file": "server/stores/ProductStore.go" }
+      "code": {
+        "file": "server/stores/ProductStore.go"
+      }
     },
     {
       "name": "server/setups/CatalogSetup.go",
-      "code": { "file": "server/setups/CatalogSetup.go" }
+      "code": {
+        "file": "server/setups/CatalogSetup.go"
+      }
     },
     {
       "name": "server/controllers/ProductController.go",
-      "code": { "file": "server/controllers/ProductController.go" }
+      "code": {
+        "file": "server/controllers/ProductController.go"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.go",
+      "code": {
+        "file": "server/models/ProductReport.go"
+      }
     },
     {
       "name": "server/helpers/CatalogAdapterHelper.go",
-      "code": { "file": "server/helpers/CatalogAdapterHelper.go" }
+      "code": {
+        "file": "server/helpers/CatalogAdapterHelper.go"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.dart",
+      "code": {
+        "file": "server/entities/ProductEntity.dart"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.dart",
+      "code": {
+        "file": "server/stores/ProductStore.dart"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.dart",
+      "code": {
+        "file": "server/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.dart",
+      "code": {
+        "file": "server/controllers/ProductController.dart"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.dart",
+      "code": {
+        "file": "server/models/ProductReport.dart"
+      }
+    },
+    {
+      "name": "server/entities/ProductEntity.rb",
+      "code": {
+        "file": "server/entities/ProductEntity.rb"
+      }
+    },
+    {
+      "name": "server/stores/ProductStore.rb",
+      "code": {
+        "file": "server/stores/ProductStore.rb"
+      }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rb",
+      "code": {
+        "file": "server/setups/CatalogSetup.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ProductController.rb",
+      "code": {
+        "file": "server/controllers/ProductController.rb"
+      }
+    },
+    {
+      "name": "server/models/ProductReport.rb",
+      "code": {
+        "file": "server/models/ProductReport.rb"
+      }
     }
   ],
   "axis": "language"

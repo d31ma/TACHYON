@@ -1,4 +1,4 @@
-use crate::models::Configuration;
+use crate::models::{CatalogSettings, Configuration, Endpoint};
 
 #[RequestRoute("/configuration")]
 #[Public]
