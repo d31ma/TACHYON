@@ -5,9 +5,15 @@
   "group": "Tooling",
   "files": [
     {
-      "name": "client/components/counter/tac.html",
+      "name": "client/pages/tac.html",
       "code": {
-        "file": "client/components/counter/tac.html"
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/counter/button/tac.html",
+      "code": {
+        "file": "client/components/counter/button/tac.html"
       }
     },
     {
