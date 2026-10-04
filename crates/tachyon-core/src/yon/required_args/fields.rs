@@ -221,7 +221,10 @@ fn parse_field(input: &Input<'_>, offset: usize, code: &str) -> Result<Option<Fi
         .any(|word| matches!(word, "static" | "const" | "class"));
     let type_only =
         input.extension == "ts" && declaration.split_whitespace().any(|word| word == "declare");
-    let Some((written_name, ty)) = declaration_parts(input.extension, declaration) else {
+    let constant = is_static && initialized;
+    let Some((written_name, ty)) = declaration_parts(input.extension, declaration)
+        .or_else(|| constant.then(|| constant_name(declaration)).flatten())
+    else {
         return Err(input.fail(offset, "Cannot infer dependencies from this member; use simple direct instance field declarations"));
     };
     let optional = input.extension == "ts" && written_name.ends_with('?');
@@ -348,6 +351,11 @@ fn type_first_field(declaration: &str) -> Option<(String, String)> {
         words[1].trim_start_matches('$').to_owned(),
         words[0].to_owned(),
     ))
+}
+
+fn constant_name(declaration: &str) -> Option<(String, String)> {
+    let name = declaration.split_whitespace().last()?;
+    Some((name.trim_start_matches('$').to_owned(), String::new()))
 }
 
 fn type_first_modifier(word: &str) -> bool {

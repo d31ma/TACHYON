@@ -1084,6 +1084,34 @@ mod tests {
     }
 
     #[test]
+    fn constants_are_never_dependencies() {
+        for (extension, constant) in [
+            ("php", "private const LIMIT = 10;"),
+            ("dart", "static const limit = 10;"),
+            (
+                "java",
+                "private static final Map<String, Object> DEFAULTS = Map.of(\"limit\", 10);",
+            ),
+        ] {
+            let source = format!(
+                "{}\nclass MoneyService {{}}\n{}\nclass MoneyController {{\n{constant}\n{}\n{}\n}}",
+                annotation(extension, "Service", ""),
+                annotation(extension, "RequestRoute", "\"/money\""),
+                annotation(extension, "Needs", ""),
+                match extension {
+                    "php" => "private MoneyService $money;",
+                    _ => "final MoneyService money;",
+                }
+            );
+            let output = prepared(extension, &source);
+            assert!(
+                output.contains("NeedsAll(\"money\")"),
+                "{extension}: {output}"
+            );
+        }
+    }
+
+    #[test]
     fn a_missing_provider_names_the_class_the_field_and_the_type() {
         for (extension, field, ty) in [
             ("js", "missingService;", "MissingService"),
