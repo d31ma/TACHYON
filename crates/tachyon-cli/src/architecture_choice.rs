@@ -21,7 +21,7 @@ impl ArchitectureChoice {
         let builds_windows = targets
             .iter()
             .any(|target| Self::WINDOWS_TARGETS.contains(target));
-        let refused = choice.is_some() & !builds_windows;
+        let refused = [choice.is_some(), !builds_windows] == [true, true];
         (!refused).then(|| Self::windows(choice)).ok_or_else(|| {
             crate::cli_failure(
                 1001,
