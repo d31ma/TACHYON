@@ -1,7 +1,9 @@
 <loop :for="post of blog.posts">
   <article>{post.title}</article>
 </loop>
-<logic :if="blog.ready"><p>Ready.</p></logic>
+<logic :if="blog.failed"><p>The posts did not load.</p></logic>
+<logic :else-if="blog.ready"><p>Ready.</p></logic>
+<logic else><p>Loading…</p></logic>
 <switch :value="blog.status">
   <case :when="'loading'"><p>Working…</p></case>
   <case default><p>Done.</p></case>

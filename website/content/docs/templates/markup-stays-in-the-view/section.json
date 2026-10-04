@@ -1,0 +1,7 @@
+{
+  "heading": "Markup and styles stay in the view",
+  "body": "Write the markup of a view in its `tac.html` and its styles in its `tac.css`. A script changes text, classes and service state. It does not build markup or write styles. The build stops with `TY1364` when a JavaScript or TypeScript file under `client/` writes `innerHTML` or `outerHTML`, calls `document.write`, `insertAdjacentHTML` or `document.createElement`, inserts nodes with `append`, `appendChild`, `insertBefore` or a similar method, writes `element.style` or changes a style sheet. This covers services, component scripts and every script in `client/shared/`. The check also follows a document or a node that a variable holds. It reads the source text, so it is a guard for mistakes, not a sandbox.\n\nA third-party script that must build markup is a vendor file. List it in `tac.scripts` and in `tac.scriptSources` in `client/manifest.json`, with its package, exact version, license and SHA-256, and keep it in `client/shared/`, outside the utility folders. A wrong entry stops the build with `TY1365`. A file whose bytes do not match the SHA-256 stops it with `TY1403`. Tachyon publishes a vendor file unchanged.\n\nInline SVG works in a view. The renderer creates `<svg>` and its children in the SVG namespace, so `viewBox`, `xlink:` attributes and HTML inside `<foreignObject>` work. The example draws a cart icon inside a button.",
+  "code": {
+    "file": "example.html"
+  }
+}

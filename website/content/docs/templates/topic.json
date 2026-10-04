@@ -18,6 +18,9 @@
       "include": "components/section.json"
     },
     {
+      "include": "markup-stays-in-the-view/section.json"
+    },
+    {
       "include": "shared-data-and-the-page/section.json"
     },
     {
